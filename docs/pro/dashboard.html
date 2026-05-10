@@ -7117,12 +7117,21 @@ body {
   body.crm-scrolling .crm-hdr-stat,
   body.crm-scrolling .crm-hdr-btn-label{ display:none!important; }
 
-  /* Mobile — let the header rows wrap to two lines and tighten everything */
+  /* Mobile — let the header rows wrap to two lines and tighten everything.
+     The unconditional .crm-header rule above pins flex-wrap:nowrap to keep
+     the desktop one-row layout. Without an explicit override here, that
+     rule wins by source order on phones too — so the .crm-hdr-label /
+     .crm-hdr-search / .crm-hdr-actions cluster all three on a single row,
+     squeezed against each other. The right-hand action group renders as
+     a dense panel beside the title that LOOKS like a stuck-open dropdown
+     on portrait phones (it isn't — it's just the inline header packed
+     into ~40% width). flex-wrap:wrap !important here lets each section
+     reflow onto its own row, matching the width:100% rules below. */
   @media (max-width:768px){
-    .crm-header{ padding:6px 10px; gap:5px; }
+    .crm-header{ padding:6px 10px; gap:5px; flex-wrap:wrap!important; }
     .crm-hdr-label{ width:100%; justify-content:space-between; }
     .crm-hdr-search{ width:100%; min-width:0; }
-    .crm-hdr-actions{ width:100%; justify-content:flex-start; }
+    .crm-hdr-actions{ width:100%; justify-content:flex-start; flex-wrap:wrap; }
     .crm-hdr-views .kview-btn{ padding:5px 8px; font-size:10px; }
   }
 
@@ -15785,6 +15794,19 @@ function toggleKanbanFullscreen() {
   // Sync the icon button's active state when present
   const btn = document.getElementById('kanbanFullscreenBtn');
   if (btn) btn.classList.toggle('active', fullscreen);
+  // On entering fullscreen, snap the board to scrollLeft:0 so the user
+  // sees column 1 (NEW). Without this the previous horizontal scroll
+  // position is retained, which on a 844px landscape iPhone leaves the
+  // leftmost column half-clipped and three later columns dominating the
+  // screen — the "half the screen is cut out" complaint. Done in the
+  // next frame so the layout has already reflowed under the new
+  // body.kanban-fullscreen rules before the scroll lands.
+  if (fullscreen) {
+    requestAnimationFrame(() => {
+      const board = document.getElementById('kanbanBoard');
+      if (board) board.scrollLeft = 0;
+    });
+  }
 }
 window.toggleKanbanFullscreen = toggleKanbanFullscreen;
 
