@@ -344,13 +344,15 @@
         updatedAt: new Date()
       });
 
-      // If fully paid, advance lead stage. Use 'Approved' — a real stage from the
-      // pipeline (New/Inspected/Estimate Sent/Approved/In Progress/Complete/Lost).
-      // The previous 'Job Scheduled' value was a phantom stage and silently
-      // orphaned the lead from the Kanban board.
+      // If fully paid, advance lead stage. Post-crm-stages migration the
+      // canonical key for this transition is 'contract_signed' (the legacy
+      // display name 'Approved' maps to S.CONTRACT_SIGNED via LEGACY_MAP in
+      // crm-stages.js). v159.4 swept most legacy writes; this one was
+      // missed. Writing the canonical key keeps the Firestore doc in sync
+      // with the schema instead of relying on normalizeStage() at read time.
       if (newBalanceDue === 0 && invoice.leadId) {
         await window.updateDoc(window.doc(db, 'leads', invoice.leadId), {
-          stage: 'Approved',
+          stage: 'contract_signed',
           updatedAt: new Date()
         });
       }
