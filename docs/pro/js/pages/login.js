@@ -79,6 +79,11 @@ loginBtn.addEventListener('touchend', e => {
   e.preventDefault();
   doLogin();
 });
+// HTML ships the button disabled so Playwright's
+// `#loginBtn:not([disabled])` wait — and any human who taps before the
+// dynamic Firebase imports above resolve — both wait until handlers
+// are actually wired. Remove the gate now that listeners are bound.
+loginBtn.removeAttribute('disabled');
 
 async function doLogin() {
   const email = emailInput.value.trim();
@@ -154,6 +159,7 @@ codeInput.addEventListener('input', () => {
 });
 codeInput.addEventListener('keydown', e => { if (e.key === 'Enter') doCodeLogin(); });
 codeBtn.addEventListener('click', doCodeLogin);
+codeBtn.removeAttribute('disabled');
 
 async function doCodeLogin() {
   const raw = codeInput.value.trim().toUpperCase();
@@ -212,6 +218,7 @@ const demoError = document.getElementById('demoError');
 const demoErrorMsg = document.getElementById('demoErrorMsg');
 
 demoBtn.addEventListener('click', doDemoLogin);
+demoBtn.removeAttribute('disabled');
 
 async function doDemoLogin() {
   demoError.classList.remove('show');

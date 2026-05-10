@@ -48,7 +48,12 @@ function requireTestUser() {
 async function loginAs(page, creds) {
   await page.goto('/pro/login.html');
   // Login.js wires the form once the Firebase SDK has loaded; wait
-  // for the button to be enabled rather than time-boxing.
+  // for the button to be enabled rather than time-boxing. The page
+  // ships #loginBtn with the `disabled` attribute set; login.js
+  // calls removeAttribute('disabled') only after the dynamic Firebase
+  // imports + addEventListener('click', doLogin) lines complete, so
+  // this wait now genuinely synchronises the click with handler
+  // attachment instead of completing on the first paint.
   await page.waitForSelector('#loginBtn:not([disabled])', { timeout: 15_000 });
   await page.fill('#emailInput', creds.email);
   await page.fill('#passwordInput', creds.password);
