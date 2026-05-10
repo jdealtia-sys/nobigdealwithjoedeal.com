@@ -7470,6 +7470,41 @@ body {
 .cmd-badge.new{background:rgba(74,158,255,.12);color:var(--blue);}
 .cmd-badge.action{background:rgba(155,109,255,.12);color:var(--purple);}
 
+/* ─── MOBILE KANBAN OVERRIDE — keep this LAST in #kanban-force-css ───
+   The unconditional .kanban-col / #view-crm rules above ship at the
+   tail of this stylesheet with !important, which means they override
+   the carefully-tuned @media(max-width:768px) kanban CSS earlier in
+   the document (CSS source-order tiebreak when both rules carry
+   !important and the same specificity). That regression turned the
+   mobile pipeline into a mess: 240px columns instead of 195px (only
+   ~1.5 cols visible), kanban height extending behind the 62px
+   mobile-nav, and the v159 "rebuild on empty" rules eating into the
+   bottom-nav strip. Re-apply the phone-sized constraints inside a
+   media query that lives AFTER everything else so it actually wins. */
+@media (max-width:768px){
+  .kanban-col{min-width:195px!important;max-width:195px!important;}
+  /* Account for 62px bottom mobile-nav so kanban doesn't extend
+     behind it. Header is ~48px on mobile (line 5638). */
+  #view-crm{height:calc(100dvh - 48px - 62px)!important;}
+  /* Column body needs room for the kanban header strip (~120px of
+     filter chips + revenue strip + secondary header) AND the bottom
+     mobile-nav. Without this clamp the last cards in tall columns
+     scroll under the bottom-nav. */
+  .kcol-body{
+    max-height:calc(100dvh - 220px - env(safe-area-inset-bottom,0px))!important;
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  /* The kanban board itself has overflow-x:auto + touch-action:pan-x
+     above. Reaffirm here so a later rule can't disable horizontal
+     panning on the device that needs it most. */
+  #kanbanBoard{
+    padding:0 12px 16px!important;
+    touch-action:pan-x!important;
+    overflow-y:hidden!important;
+  }
+}
+
 </style>
 <style id="nbd-theme-bridge">
 
