@@ -263,7 +263,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
         <label class="remember"><input type="checkbox" id="rememberMe"> Remember me</label>
         <button class="forgot" id="showResetBtn" type="button">Forgot password?</button>
       </div>
-      <button class="btn-main" id="loginBtn" type="button">
+      <button class="btn-main" id="loginBtn" type="button" disabled>
         <span class="btn-text">Enter Dashboard</span>
         <div class="spinner"></div>
       </button>
@@ -299,7 +299,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
       <input type="text" id="codeInput" class="code-input" placeholder="NBD-————" maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false">
       <div class="code-hint">Codes are case-insensitive</div>
     </div>
-    <button class="btn-main" id="codeBtn" type="button">
+    <button class="btn-main" id="codeBtn" type="button" disabled>
       <span class="btn-text">Unlock Access →</span>
       <div class="spinner"></div>
     </button>
@@ -324,7 +324,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
       </ul>
     </div>
     <div class="alert alert-error" id="demoError"><span class="alert-icon">⚠</span><span id="demoErrorMsg">Demo unavailable. Try again shortly.</span></div>
-    <button class="btn-demo" id="demoBtn" type="button">
+    <button class="btn-demo" id="demoBtn" type="button" disabled>
       <div class="demo-dot"></div>
       <span class="btn-text">Launch Demo Dashboard</span>
       <div class="spinner" style="border-top-color:#3fb950;border-color:rgba(63,185,80,0.3)"></div>
