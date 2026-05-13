@@ -223,15 +223,23 @@ exports.stripeWebhook = onRequest(
         throw e;
       }
 
+      // ═══════════════════════════════════════════════════
+      // PLAN TIER EXTRACTION HELPER
+      // Maps Stripe Price IDs to NBD plan tiers. The IDs
+      // are set as Firebase secrets. Unknown prices fall
+      // back to 'starter'. Enterprise is handled via
+      // Stripe metadata since it's custom-priced.
+      // Hoisted out of the switch (was previously inline in
+      // customer.subscription.updated only — see F-08) so
+      // checkout.session.completed can apply the same
+      // price-ID-trusted derivation (Audit G).
+      // ═══════════════════════════════════════════════════
+      const PRICE_TO_PLAN = {
+        [STRIPE_PRICE_FOUNDATION.value()]:   'starter',
+        [STRIPE_PRICE_PROFESSIONAL.value()]: 'growth'
+      };
+
       switch (event.type) {
-        // ═══════════════════════════════════════════════════
-        // PLAN TIER EXTRACTION HELPER
-        // Maps Stripe Price IDs to NBD plan tiers. The IDs
-        // are set as Firebase secrets. Unknown prices fall
-        // back to 'starter'. Enterprise is handled via
-        // Stripe metadata since it's custom-priced.
-        // ═══════════════════════════════════════════════════
-        // (defined inline in the switch to have access to secrets)
 
         case 'checkout.session.completed': {
           const session = event.data.object;
@@ -243,8 +251,43 @@ exports.stripeWebhook = onRequest(
             break;
           }
 
-          // Extract plan tier from metadata or price
-          const plan = session.metadata?.plan || 'starter';
+          // Audit G: derive plan from the Stripe Price ID, not from
+          // session.metadata. F-08 already flagged this trust pattern
+          // for customer.subscription.updated; it applied just as much
+          // to checkout.session.completed but the fix wasn't carried
+          // forward. Stripe Dashboard metadata is editable by anyone
+          // with Stripe write access, so trusting metadata.plan for
+          // tier grants made a free "enterprise" promotion one click
+          // away. Price IDs are immutable secrets known only to deploy.
+          //
+          // Fall back to metadata.plan only if the subscription lookup
+          // fails AND the value is one we'd accept (defensive — should
+          // never happen for a real checkout session, but better than
+          // silently downgrading a paying customer to 'starter').
+          let plan = 'starter';
+          try {
+            if (session.subscription) {
+              const sub = await stripe.subscriptions.retrieve(session.subscription, {
+                expand: ['items.data.price']
+              });
+              const priceId = sub.items?.data?.[0]?.price?.id || '';
+              if (PRICE_TO_PLAN[priceId]) {
+                plan = PRICE_TO_PLAN[priceId];
+              } else {
+                logger.warn('stripeWebhook.checkout_session_completed unknown_price', {
+                  uid, priceId, sessionId: session.id
+                });
+              }
+            }
+          } catch (e) {
+            logger.warn('stripeWebhook.checkout_session_completed sub_lookup_failed', {
+              uid, sessionId: session.id, err: e.message
+            });
+            // Fall back to metadata ONLY for the small allowlist we mint.
+            const ALLOWED_FROM_METADATA = new Set(['starter', 'growth']);
+            const meta = session.metadata?.plan;
+            if (ALLOWED_FROM_METADATA.has(meta)) plan = meta;
+          }
 
           const subData = {
             plan,
@@ -298,16 +341,13 @@ exports.stripeWebhook = onRequest(
           const subDoc = snapshot.docs[0];
           const uid = subDoc.id;
 
-          // F-08: derive plan from Stripe Price ID via an in-code
-          // map, not from price.metadata.plan. Stripe metadata is
-          // editable in the dashboard — trusting it for authorization
-          // puts tier grants one click from anyone with Stripe write
-          // access. Price IDs are immutable secrets known only to
-          // deploy.
-          const PRICE_TO_PLAN = {
-            [STRIPE_PRICE_FOUNDATION.value()]:   'starter',
-            [STRIPE_PRICE_PROFESSIONAL.value()]: 'growth'
-          };
+          // F-08: derive plan from Stripe Price ID via the hoisted
+          // PRICE_TO_PLAN map at the top of the switch (Audit G
+          // promoted it so checkout.session.completed can apply the
+          // same defense). Stripe metadata is editable in the
+          // dashboard — trusting it for authorization puts tier grants
+          // one click from anyone with Stripe write access. Price IDs
+          // are immutable secrets known only to deploy.
           const priceId = subscription.items?.data?.[0]?.price?.id || '';
           let plan = PRICE_TO_PLAN[priceId] || subDoc.data().plan || 'starter';
 
