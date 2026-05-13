@@ -3314,11 +3314,13 @@ section('Firestore repository layer — write convention');
   // stampUpdate forces updatedAt — call sites must not override.
   assert('stampUpdate forces server updatedAt (caller cannot bump)',
     /function stampUpdate[\s\S]{0,300}Object\.assign\(\{\},\s*data,\s*\{\s*updatedAt:\s*st\s*\}\)/.test(repos));
-  // context() throws fast when uid or companyId is missing — better
-  // than letting firestore.rules reject the write later.
-  assert('context() throws specific errors when uid/companyId missing',
-    /code\s*=\s*['"]unauthenticated['"]/.test(repos)
-    && /code\s*=\s*['"]no-company['"]/.test(repos));
+  // context() throws fast on missing uid (better than letting
+  // firestore.rules reject later). companyId falls back to uid for
+  // solo operators per audit batch 6 — the original strict throw
+  // blocked adoption since solo accounts don't carry a separate
+  // companyId on their claims.
+  assert('context() throws unauthenticated when uid missing',
+    /code\s*=\s*['"]unauthenticated['"]/.test(repos));
   // Bulk write helpers use writeBatch — atomic round-trip.
   assert('photos.bulkUpdate uses writeBatch',
     /bulkUpdate:\s*async function[\s\S]{0,300}window\.writeBatch\(window\.db\)/.test(repos));
@@ -3493,6 +3495,30 @@ section('Customer photo grid — surgical render path');
   // change — the whole point of this PR.
   assert('quickSaveMeta calls updatePhotoTile for same-phase edits',
     /updates\.phase === prevPhase[\s\S]{0,80}updatePhotoTile\(photo\.id\)/.test(customer));
+}
+
+section('Audit batch 6 — repos.js wired into dashboard write path');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const repos = read(path.join(ROOT, 'docs/pro/js/repos.js'));
+
+  assert('dashboard.html loads repos.js in defer chain',
+    /<script defer src="js\/repos\.js/.test(dash),
+    'expected <script defer src="js/repos.js" ...> in dashboard.html');
+
+  assert('repos.js exposes window.NBDRepos.leads / photos / estimates',
+    /window\.NBDRepos\s*=/.test(repos)
+      && /leads:\s*leads/.test(repos)
+      && /photos:\s*photos/.test(repos),
+    'NBDRepos must export the lead + photo repositories');
+
+  assert('repos.js falls back to uid when no companyId on claims (solo-operator support)',
+    /\|\|\s*uid;/.test(repos) || /||\s*uid;/.test(repos),
+    'companyId resolution must fall through to uid for solo operators');
+
+  assert('dashboard.html lead-create migrated to NBDRepos.leads.create',
+    /window\.NBDRepos\.leads\.create/.test(dash),
+    'expected the lead-create write path to prefer NBDRepos.leads.create');
 }
 
 section('Audit batch 4 — admin function role-check drift guard');
