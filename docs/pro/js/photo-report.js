@@ -23,18 +23,27 @@
   };
 
   /**
-   * Generate a before/after photo report for a lead
-   * Opens in a new window for print-to-PDF
+   * Generate a before/after photo report for a lead.
+   *
+   * Phase 5 Output Engine: same dataset → two PDF styles.
+   *   mode='homeowner' (default) — visual story, friendly captions,
+   *     before/after pairs prominent. The one you email a homeowner.
+   *   mode='adjuster'  — dense, label-forward, technical captions
+   *     showing location + damageType + severity per photo. The one
+   *     you drop into an insurance supplement.
+   *
    * @param {string} leadId
+   * @param {('homeowner'|'adjuster')} [mode='homeowner']
    */
-  async function generatePhotoReport(leadId) {
+  async function generatePhotoReport(leadId, mode) {
     leadId = leadId || window._customerId || window._cardDetailLeadId;
     if (!leadId || !window._user) {
       if (typeof showToast === 'function') showToast(!window._user ? 'Must be logged in' : 'No customer selected', 'error');
       return;
     }
+    const reportMode = (mode === 'adjuster') ? 'adjuster' : 'homeowner';
 
-    if (typeof showToast === 'function') showToast('Building photo report...', 'ok');
+    if (typeof showToast === 'function') showToast('Building ' + reportMode + ' photo report...', 'ok');
 
     try {
       // Get lead data
@@ -86,17 +95,18 @@
       const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Homeowner';
       const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-      const html = buildReportHTML(lead, name, before, during, after, now, hasPhases);
+      const html = buildReportHTML(lead, name, before, during, after, now, hasPhases, reportMode);
 
       // Route through the Universal Document Viewer so the user
       // can Print or Download PDF via the action bar instead of
       // being dumped into a blank popup.
       if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
         const slug = (name || 'photos').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+        const modeTag = reportMode === 'adjuster' ? 'Adjuster' : 'Homeowner';
         window.NBDDocViewer.open({
           html: html,
-          title: 'Photo Report — ' + name,
-          filename: 'NBD-PhotoReport-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf',
+          title: modeTag + ' Photo Report — ' + name,
+          filename: 'NBD-' + modeTag + 'Report-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf',
           onSave: async () => {
             if (typeof showToast === 'function') {
               showToast('\u2713 Photo report ready \u2014 Print or Download PDF from the action bar', 'ok');
@@ -116,13 +126,108 @@
     }
   }
 
-  function buildReportHTML(lead, name, before, during, after, dateStr, hasPhases) {
-    const photoGrid = (photos) => photos.map(p => `
-      <div class="photo-tile">
-        <img src="${p.url}" alt="${p.name || 'Photo'}">
-        ${p.name ? `<div class="photo-tile-cap">${p.name}</div>` : ''}
-      </div>
-    `).join('');
+  // Tiny inline HTML escaper for interpolation safety. Captions and
+  // location strings can legitimately carry quotes / ampersands.
+  function _esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  // Pick the right caption per photo + mode. Homeowner mode prefers the
+  // rep's caption → AI caption → location label, all friendly. Adjuster
+  // mode keeps it terse and label-driven (damage/severity surface on the
+  // metadata row separately).
+  function _captionFor(p, mode) {
+    if (mode === 'adjuster') {
+      return p.caption || (p.aiSuggestion && p.aiSuggestion.caption) || '';
+    }
+    return p.caption
+      || (p.aiSuggestion && p.aiSuggestion.caption)
+      || p.location
+      || (p.inferredLocation && p.inferredLocation.label)
+      || '';
+  }
+  // Damage label — humanize the snake_case enum the AI returns.
+  function _damageLabel(p) {
+    const v = p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType) || '';
+    if (!v) return '';
+    return ({
+      hail: 'Hail', wind: 'Wind', wear: 'Wear',
+      granular_loss: 'Granular loss', leak: 'Leak',
+      none: 'No damage', other: 'Other'
+    })[v] || v;
+  }
+  function _severityLabel(p) {
+    const v = p.severity || (p.aiSuggestion && p.aiSuggestion.severity) || '';
+    if (!v) return '';
+    return v[0].toUpperCase() + v.slice(1);
+  }
+  function _locationLabel(p) {
+    return p.location || (p.inferredLocation && p.inferredLocation.label) || '';
+  }
+
+  function buildReportHTML(lead, name, before, during, after, dateStr, hasPhases, mode) {
+    const isAdjuster = mode === 'adjuster';
+
+    // ── Adjuster tile: dense metadata grid under each thumbnail ──
+    // Homeowner tile: just a clean caption (or nothing).
+    const photoGrid = (photos) => photos.map((p, i) => {
+      const cap = _captionFor(p, mode);
+      const loc = _locationLabel(p);
+      const dmg = _damageLabel(p);
+      const sev = _severityLabel(p);
+
+      if (isAdjuster) {
+        const num = (i + 1).toString().padStart(2, '0');
+        return (
+          '<div class="photo-tile photo-tile-adj">' +
+            '<img src="' + _esc(p.url) + '" alt="Photo ' + num + '">' +
+            '<div class="adj-meta">' +
+              '<div class="adj-meta-num">#' + num + '</div>' +
+              (loc ? '<div class="adj-meta-row"><span class="adj-meta-k">Location</span><span class="adj-meta-v">' + _esc(loc) + '</span></div>' : '') +
+              (dmg ? '<div class="adj-meta-row"><span class="adj-meta-k">Damage</span><span class="adj-meta-v">' + _esc(dmg) + (sev ? ' · ' + _esc(sev) : '') + '</span></div>' : '') +
+              (cap ? '<div class="adj-meta-cap">' + _esc(cap) + '</div>' : '') +
+            '</div>' +
+          '</div>'
+        );
+      }
+      // Homeowner: just thumbnail + optional caption
+      return (
+        '<div class="photo-tile">' +
+          '<img src="' + _esc(p.url) + '">' +
+          (cap ? '<div class="photo-tile-cap">' + _esc(cap) + '</div>' : '') +
+        '</div>'
+      );
+    }).join('');
+
+    // Adjuster-only summary block: counts + damage breakdown.
+    const adjusterSummary = isAdjuster ? (() => {
+      const all = before.concat(during).concat(after);
+      const dmgCounts = {};
+      const sevCounts = {};
+      const locCounts = {};
+      for (const p of all) {
+        const d = _damageLabel(p); if (d) dmgCounts[d] = (dmgCounts[d] || 0) + 1;
+        const s = _severityLabel(p); if (s) sevCounts[s] = (sevCounts[s] || 0) + 1;
+        const l = _locationLabel(p); if (l) locCounts[l] = (locCounts[l] || 0) + 1;
+      }
+      const sortPairs = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
+      const renderPair = ([k, v]) => '<span class="adj-tag"><strong>' + v + '</strong> ' + _esc(k) + '</span>';
+      const dmgRow = sortPairs(dmgCounts).map(renderPair).join(' ');
+      const sevRow = sortPairs(sevCounts).map(renderPair).join(' ');
+      const locRow = sortPairs(locCounts).slice(0, 8).map(renderPair).join(' ');
+      return (
+        '<div class="adj-summary">' +
+          '<div class="adj-summary-title">DAMAGE SUMMARY</div>' +
+          '<div class="adj-summary-grid">' +
+            '<div><div class="adj-summary-label">Total photos</div><div class="adj-summary-num">' + all.length + '</div></div>' +
+            '<div><div class="adj-summary-label">Damage types</div><div class="adj-summary-tags">' + (dmgRow || '<span class="adj-tag-empty">—</span>') + '</div></div>' +
+            '<div><div class="adj-summary-label">Severity mix</div><div class="adj-summary-tags">' + (sevRow || '<span class="adj-tag-empty">—</span>') + '</div></div>' +
+            '<div><div class="adj-summary-label">Locations covered</div><div class="adj-summary-tags">' + (locRow || '<span class="adj-tag-empty">—</span>') + '</div></div>' +
+          '</div>' +
+        '</div>'
+      );
+    })() : '';
 
     return `<!DOCTYPE html>
 <html data-nbd-brand="true">
@@ -226,6 +331,112 @@
     line-height: var(--nbd-leading-snug);
     text-align: center;
   }
+  /* Adjuster-mode tile: same image area + a dense metadata strip
+     below. Numbered for cross-reference in supplements. */
+  .photo-tile-adj img{ height: 180px; }
+  .adj-meta{
+    padding: var(--nbd-space-2) var(--nbd-space-3);
+    border-top: 1px solid var(--nbd-line-rule);
+    background: var(--nbd-bg-sunken);
+  }
+  .adj-meta-num{
+    font-family: var(--nbd-font-display); font-weight: 800;
+    font-size: var(--nbd-text-xs); color: var(--nbd-orange);
+    letter-spacing: var(--nbd-tracking-wider);
+    margin-bottom: 4px;
+  }
+  .adj-meta-row{
+    display: grid;
+    grid-template-columns: 64px 1fr;
+    gap: 6px;
+    font-size: 11px;
+    line-height: 1.35;
+    margin-bottom: 2px;
+  }
+  .adj-meta-k{
+    color: var(--nbd-ink-subtle);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: var(--nbd-tracking-wide);
+    font-size: 9.5px;
+    align-self: center;
+  }
+  .adj-meta-v{ color: var(--nbd-ink); font-weight: 500; }
+  .adj-meta-cap{
+    font-size: 11px;
+    color: var(--nbd-ink-muted);
+    line-height: var(--nbd-leading-snug);
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px dashed var(--nbd-line-rule);
+  }
+
+  /* Adjuster summary block (top of report) */
+  .adj-summary{
+    background: var(--nbd-bg-elevated);
+    border: 1px solid var(--nbd-line);
+    border-radius: var(--nbd-radius-md);
+    padding: var(--nbd-space-4) var(--nbd-space-5);
+    margin-bottom: var(--nbd-space-6);
+  }
+  .adj-summary-title{
+    font-family: var(--nbd-font-body);
+    font-size: var(--nbd-text-xs);
+    font-weight: 700;
+    letter-spacing: var(--nbd-tracking-widest);
+    text-transform: uppercase;
+    color: var(--nbd-orange);
+    margin-bottom: var(--nbd-space-3);
+  }
+  .adj-summary-grid{
+    display: grid;
+    grid-template-columns: auto 1fr 1fr 1fr;
+    gap: var(--nbd-space-4);
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .adj-summary-grid{ grid-template-columns: 1fr; gap: var(--nbd-space-3); }
+  }
+  .adj-summary-label{
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: var(--nbd-tracking-wider);
+    text-transform: uppercase;
+    color: var(--nbd-ink-subtle);
+    margin-bottom: 4px;
+  }
+  .adj-summary-num{
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-2xl);
+    font-weight: 800;
+    color: var(--nbd-orange);
+    line-height: 1;
+  }
+  .adj-summary-tags{ display: flex; flex-wrap: wrap; gap: 6px; }
+  .adj-tag{
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 8px;
+    border-radius: var(--nbd-radius-pill);
+    background: var(--nbd-orange-soft);
+    color: var(--nbd-orange-ink);
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+  .adj-tag strong{ font-weight: 800; }
+  .adj-tag-empty{ font-size: 11px; color: var(--nbd-ink-subtle); }
+
+  /* Tighter grid for adjuster mode (3-up instead of fluid 220px+) */
+  body[data-report-mode="adjuster"] .photo-grid{
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--nbd-space-3);
+  }
+  body[data-report-mode="adjuster"] .header h1::after{
+    content: ' — ADJUSTER COPY';
+    font-size: 0.6em;
+    color: var(--nbd-orange);
+    letter-spacing: var(--nbd-tracking-wider);
+    font-weight: 700;
+  }
   .info-row{
     display:grid;
     grid-template-columns: 1fr 1fr;
@@ -272,19 +483,19 @@
   .top-bar-btn-primary:hover{ background: var(--nbd-orange-deep); }
 </style>
 </head>
-<body class="nbd-brand">
+<body class="nbd-brand" data-report-mode="${isAdjuster ? 'adjuster' : 'homeowner'}">
 <div class="no-print top-bar">
   <div style="display:flex;align-items:center;gap: 12px;">
     <button onclick="window.close()" class="top-bar-btn">&#8592; Close</button>
-    <span style="color: var(--nbd-ink-muted); font-size: var(--nbd-text-sm);">Photo Report</span>
+    <span style="color: var(--nbd-ink-muted); font-size: var(--nbd-text-sm);">${isAdjuster ? 'Adjuster Report' : 'Homeowner Report'}</span>
   </div>
   <button onclick="window.print()" class="top-bar-btn top-bar-btn-primary">Print / Save PDF</button>
 </div>
 <div style="height:52px;"></div>
 
 <div class="header">
-  <h1>PROJECT DOCUMENTATION</h1>
-  <div class="sub">Before &amp; After Photo Report</div>
+  <h1>${isAdjuster ? 'CLAIM PHOTO DOCUMENTATION' : 'PROJECT DOCUMENTATION'}</h1>
+  <div class="sub">${isAdjuster ? 'Loss Documentation Package' : 'Before &amp; After Photo Report'}</div>
 </div>
 <div class="brand-bar">
   <div class="brand-bar-left">
@@ -296,11 +507,15 @@
 
 <div class="content">
   <div class="info-row">
-    <div><strong>Property Owner:</strong> ${name}</div>
-    <div><strong>Project:</strong> ${lead.jobType || lead.damageType || 'Exterior'}</div>
-    <div><strong>Address:</strong> ${lead.address || ''}</div>
-    <div><strong>Date:</strong> ${dateStr}</div>
+    <div><strong>${isAdjuster ? 'Insured' : 'Property Owner'}:</strong> ${_esc(name)}</div>
+    <div><strong>${isAdjuster ? 'Loss Type' : 'Project'}:</strong> ${_esc(lead.jobType || lead.damageType || 'Exterior')}</div>
+    <div><strong>Address:</strong> ${_esc(lead.address || '')}</div>
+    <div><strong>Date:</strong> ${_esc(dateStr)}</div>
+    ${isAdjuster && lead.claimNumber ? '<div><strong>Claim #:</strong> ' + _esc(lead.claimNumber) + '</div>' : ''}
+    ${isAdjuster && (lead.insCarrier || lead.insuranceCarrier) ? '<div><strong>Carrier:</strong> ' + _esc(lead.insCarrier || lead.insuranceCarrier) + '</div>' : ''}
   </div>
+
+  ${adjusterSummary}
 
   ${before.length > 0 ? `<div class="section">
     <div class="section-label before-label">${hasPhases ? 'BEFORE' : 'PROJECT PHOTOS'}</div>

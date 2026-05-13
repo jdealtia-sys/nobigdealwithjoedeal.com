@@ -192,6 +192,76 @@
   }
   .ph-tile:hover { transform: translateY(-1px); box-shadow: var(--nbd-shadow-md); }
   .ph-tile img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+
+  /* Phase 5: Phase tabs + location filter chips above the gallery */
+  .ph-tabs {
+    display: flex; gap: var(--nbd-space-2);
+    margin: var(--nbd-space-3) 0 var(--nbd-space-2);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .ph-tab {
+    border: 1px solid var(--nbd-line);
+    background: var(--nbd-bg-elevated);
+    color: var(--nbd-ink-muted);
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-sm);
+    font-weight: 700;
+    letter-spacing: var(--nbd-tracking-wide);
+    padding: 7px 14px;
+    border-radius: var(--nbd-radius-pill);
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .ph-tab:hover { border-color: var(--nbd-orange); color: var(--nbd-ink); }
+  .ph-tab[aria-pressed="true"] {
+    background: var(--nbd-orange); color: var(--nbd-ink-on-orange);
+    border-color: var(--nbd-orange);
+  }
+  .ph-tab-count {
+    font-family: var(--nbd-font-body); font-weight: 600;
+    background: rgba(0,0,0,.10); padding: 1px 7px; border-radius: 10px;
+    font-size: 11px;
+  }
+  .ph-tab[aria-pressed="true"] .ph-tab-count {
+    background: rgba(255,255,255,.22);
+  }
+  .ph-chips {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    margin: 0 0 var(--nbd-space-3);
+  }
+  .ph-chip {
+    border: 1px solid var(--nbd-line);
+    background: var(--nbd-bg-elevated);
+    color: var(--nbd-ink-muted);
+    font-family: var(--nbd-font-body);
+    font-size: 11.5px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: var(--nbd-radius-pill);
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .ph-chip:hover { border-color: var(--nbd-orange); color: var(--nbd-ink); }
+  .ph-chip-active {
+    background: var(--nbd-orange-soft); border-color: var(--nbd-orange);
+    color: var(--nbd-orange-ink);
+  }
+  .ph-chip-count {
+    font-weight: 500; color: var(--nbd-ink-subtle); font-size: 10.5px;
+  }
+  .ph-empty {
+    padding: var(--nbd-space-6) var(--nbd-space-4);
+    text-align: center; color: var(--nbd-ink-subtle);
+    font-size: var(--nbd-text-sm);
+    border: 1px dashed var(--nbd-line);
+    border-radius: var(--nbd-radius-md);
+    margin-top: var(--nbd-space-3);
+  }
   .error-state, .loading-state {
     text-align: center;
     padding: 56px 20px;
@@ -512,12 +582,11 @@
     }
 
     // ── Project photos gallery ──
-    // Only the photos the rep explicitly flipped to
-    // sharedWithHomeowner come through. Renders responsive
-    // variants from PR #75 (image-pipeline) when present —
-    // phone-friendly thumb at grid size, full-res only when the
-    // homeowner taps to enlarge. Pre-pipeline photos (no `urls`)
-    // fall back to the original url.
+    // Phase 5 (Output Engine): Phase tabs + Location filter chips on
+    // the portal so a homeowner with 100 shared photos can scan by
+    // "what's done" (After) or "where you worked" (Roof slope). Only
+    // photos the rep flipped to sharedWithHomeowner reach this view
+    // already (server-side filter in getHomeownerPortalView).
     const photos = Array.isArray(view.photos) ? view.photos : [];
     if (photos.length) {
       const phaseOrder = { 'Before': 0, 'During': 1, 'After': 2 };
@@ -526,23 +595,44 @@
         const pb = phaseOrder[b.phase] != null ? phaseOrder[b.phase] : 1;
         return pa - pb;
       });
-      const tiles = sorted.map(function (p) {
-        const u = (p.urls && p.urls.med)
-          ? esc(p.urls.med)
-          : esc(p.url || '');
-        const srcset = (p.urls && p.urls.thumb && p.urls.med && p.urls.full)
-          ? ' srcset="' + esc(p.urls.thumb) + ' 200w, ' + esc(p.urls.med) + ' 600w, ' + esc(p.urls.full) + ' 1600w" sizes="(max-width:520px) 30vw, 160px"'
-          : '';
-        const fullHref = (p.urls && p.urls.full) ? esc(p.urls.full) : u;
-        return '<a class="ph-tile" href="' + fullHref + '" target="_blank" rel="noopener" aria-label="' + esc(p.caption || p.phase || 'Project photo') + '">' +
-                 '<img loading="lazy" decoding="async" src="' + u + '"' + srcset + ' alt="' + esc(p.caption || p.phase || '') + '">' +
-               '</a>';
-      }).join('');
+
+      // Stash globally so the tab/chip filter handlers can re-render.
+      window._portalPhotos = sorted;
+      window._portalPhotoFilter = { phase: 'all', location: 'all' };
+
+      // Phase + location counts for tab labels and chip set.
+      const phaseCount = { all: sorted.length, Before: 0, During: 0, After: 0 };
+      const locCount = {};
+      sorted.forEach(function (p) {
+        if (p.phase === 'Before' || p.phase === 'During' || p.phase === 'After') {
+          phaseCount[p.phase]++;
+        }
+        const loc = (p.location || (p.inferredLocation && p.inferredLocation.label) || '').trim();
+        if (loc) locCount[loc] = (locCount[loc] || 0) + 1;
+      });
+      const phaseTabs = ['all', 'Before', 'During', 'After']
+        .filter(function (k) { return phaseCount[k] > 0; })
+        .map(function (k) {
+          const label = k === 'all' ? 'All' : k;
+          return '<button class="ph-tab" data-phase="' + esc(k) + '"' + (k === 'all' ? ' aria-pressed="true"' : '') + '>' +
+                   esc(label) + ' <span class="ph-tab-count">' + phaseCount[k] + '</span>' +
+                 '</button>';
+        }).join('');
+      const locChips = Object.keys(locCount)
+        .sort(function (a, b) { return locCount[b] - locCount[a]; })
+        .slice(0, 12)
+        .map(function (loc) {
+          return '<button class="ph-chip" data-loc="' + esc(loc) + '">' + esc(loc) + ' <span class="ph-chip-count">' + locCount[loc] + '</span></button>';
+        }).join('');
+
       parts.push(
-        '<div class="card">' +
+        '<div class="card" id="portalPhotoCard">' +
           '<div class="card-label">Project Photos</div>' +
           '<div class="card-title">' + photos.length + ' photo' + (photos.length === 1 ? '' : 's') + ' from your project</div>' +
-          '<div class="ph-grid">' + tiles + '</div>' +
+          (phaseTabs ? '<div class="ph-tabs" role="tablist" id="portalPhaseTabs">' + phaseTabs + '</div>' : '') +
+          (locChips ? '<div class="ph-chips" id="portalLocChips"><button class="ph-chip ph-chip-active" data-loc="all">All locations</button>' + locChips + '</div>' : '') +
+          '<div class="ph-grid" id="portalPhotoGrid"></div>' +
+          '<div class="ph-empty" id="portalPhotoEmpty" style="display:none;">No photos match these filters.</div>' +
         '</div>'
       );
     }
@@ -673,6 +763,77 @@
     wireRatingCard(view);
     // Wave 123: wire up the messaging thread + compose.
     wireMessagingCard();
+    // Phase 5 (Output Engine): wire phase tabs + location chips that
+    // filter the photo gallery client-side.
+    wirePhotoFilters();
+  }
+
+  // ─── Phase 5: portal photo gallery filtering ──────────────────
+  // Filters the already-rendered photo grid in place. No round-trip;
+  // the homeowner sees the new selection within a frame.
+  function wirePhotoFilters() {
+    const grid = document.getElementById('portalPhotoGrid');
+    if (!grid || !Array.isArray(window._portalPhotos)) return;
+
+    // Tile factory mirrors the original sorted-photo render so the
+    // grid looks identical after a filter as it did at first paint.
+    function tileHtml(p) {
+      const u = (p.urls && p.urls.med) ? esc(p.urls.med) : esc(p.url || '');
+      const srcset = (p.urls && p.urls.thumb && p.urls.med && p.urls.full)
+        ? ' srcset="' + esc(p.urls.thumb) + ' 200w, ' + esc(p.urls.med) + ' 600w, ' + esc(p.urls.full) + ' 1600w" sizes="(max-width:520px) 30vw, 160px"'
+        : '';
+      const fullHref = (p.urls && p.urls.full) ? esc(p.urls.full) : u;
+      return '<a class="ph-tile" href="' + fullHref + '" target="_blank" rel="noopener" aria-label="' + esc(p.caption || p.phase || 'Project photo') + '">' +
+               '<img loading="lazy" decoding="async" src="' + u + '"' + srcset + ' alt="' + esc(p.caption || p.phase || '') + '">' +
+             '</a>';
+    }
+
+    function renderFiltered() {
+      const f = window._portalPhotoFilter || { phase: 'all', location: 'all' };
+      const filtered = window._portalPhotos.filter(function (p) {
+        if (f.phase !== 'all' && p.phase !== f.phase) return false;
+        if (f.location !== 'all') {
+          const loc = (p.location || (p.inferredLocation && p.inferredLocation.label) || '').trim();
+          if (loc !== f.location) return false;
+        }
+        return true;
+      });
+      const empty = document.getElementById('portalPhotoEmpty');
+      if (filtered.length === 0) {
+        grid.innerHTML = '';
+        if (empty) empty.style.display = 'block';
+      } else {
+        grid.innerHTML = filtered.map(tileHtml).join('');
+        if (empty) empty.style.display = 'none';
+      }
+    }
+    // Initial render — show all photos before any filter is tapped.
+    renderFiltered();
+
+    const tabs = document.getElementById('portalPhaseTabs');
+    if (tabs) {
+      tabs.addEventListener('click', function (e) {
+        const btn = e.target.closest('.ph-tab');
+        if (!btn) return;
+        Array.from(tabs.querySelectorAll('.ph-tab')).forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        window._portalPhotoFilter.phase = btn.dataset.phase || 'all';
+        renderFiltered();
+      });
+    }
+    const chips = document.getElementById('portalLocChips');
+    if (chips) {
+      chips.addEventListener('click', function (e) {
+        const btn = e.target.closest('.ph-chip');
+        if (!btn) return;
+        Array.from(chips.querySelectorAll('.ph-chip')).forEach(function (b) {
+          b.classList.toggle('ph-chip-active', b === btn);
+        });
+        window._portalPhotoFilter.location = btn.dataset.loc || 'all';
+        renderFiltered();
+      });
+    }
   }
 
   // ─── Wave 123: Async messaging ────────────────────────────────

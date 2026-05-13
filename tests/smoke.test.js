@@ -2747,9 +2747,11 @@ section('Customer-facing portal gallery — share photos with homeowner');
 
   // Frontend gallery render — uses the responsive variants from
   // PR #75 when present, falls back to the original url for
-  // legacy / pre-pipeline photos.
+  // legacy / pre-pipeline photos. Window widened in photo-system
+  // Phase 5 to account for phase tabs + location chips that now sit
+  // between the card header and the photo grid.
   assert('portal.html renders Project Photos card when view.photos non-empty',
-    /Project Photos[\s\S]{0,400}ph-grid/.test(portalUI));
+    /Project Photos[\s\S]{0,2000}ph-grid/.test(portalUI));
   assert('portal.html emits srcset 200w/600w/1600w for variants',
     /srcset="[^"]*200w[^"]*600w[^"]*1600w/.test(portalUI));
   assert('portal.html falls back to p.url when urls missing',

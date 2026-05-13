@@ -366,6 +366,7 @@
   .pr-bulk-btn:active { transform: scale(.96); }
   .pr-bulk-btn-danger { color: #f87171; border-color: rgba(248,113,113,.4); }
   .pr-bulk-btn-clear { color: var(--m); }
+  .pr-bulk-btn-share { color: #4ade80; border-color: rgba(74,222,128,.4); }
 
   /* ── Lasso (desktop selection rectangle) ──────────────────────── */
   .pr-lasso {
@@ -471,6 +472,11 @@
   <button class="pr-bulk-btn" data-bulk-field="phase">Phase</button>
   <button class="pr-bulk-btn" data-bulk-field="damageType">Damage</button>
   <button class="pr-bulk-btn" data-bulk-field="severity">Severity</button>
+  <!-- Phase 5: mark selected photos visible on the homeowner portal.
+       The existing getHomeownerPortalView filters by sharedWithHomeowner,
+       so flipping this flag makes the photos appear immediately in the
+       homeowner's portal view. -->
+  <button class="pr-bulk-btn pr-bulk-btn-share" id="prBulkShare">📤 Share</button>
   <button class="pr-bulk-btn pr-bulk-btn-danger" id="prBulkDelete">Delete</button>
   <div class="pr-bulk-spacer"></div>
   <button class="pr-bulk-btn pr-bulk-btn-clear" id="prBulkClear">Done</button>
@@ -484,6 +490,11 @@
 
 <div class="pr-lasso" id="prLasso"></div>
 <div class="pr-toast" id="prToast"></div>
+
+<!-- Phase 5: portal-link helpers power the "Share" bulk action so a
+     rep can mark selected photos shared + open the SMS/copy/email
+     share flow with one click. -->
+<script src="js/portal-link-helpers.js?v=1"></script>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -673,6 +684,8 @@ function render() {
   const generateBtn = document.getElementById('prGenerateBtn');
   generateBtn.disabled = state.photos.length === 0;
   generateBtn.onclick = () => {
+    // Phase 5: hand off to customer.html with a #photo-report hash so
+    // it opens the Homeowner-vs-Adjuster picker automatically.
     location.href = '/pro/customer.html?id=' + encodeURIComponent(state.leadId) + '#photo-report';
   };
 
@@ -895,6 +908,34 @@ document.getElementById('prBulkDelete').addEventListener('click', async () => {
     showToast('Deleted ' + ids.length + ' photos');
   } catch (e) {
     showToast('Delete failed: ' + e.message);
+  }
+});
+// Phase 5: flip sharedWithHomeowner=true on selected photos so they
+// appear in the homeowner's portal view (getHomeownerPortalView already
+// filters by this flag). Then offer to copy/SMS the portal link via the
+// existing PortalLinkHelpers — one button = share-these-photos.
+document.getElementById('prBulkShare').addEventListener('click', async () => {
+  if (state.selected.size === 0) return;
+  const ids = Array.from(state.selected);
+  try {
+    const batch = writeBatch(db);
+    for (const id of ids) batch.update(doc(db, 'photos', id), {
+      sharedWithHomeowner: true,
+      updatedAt: serverTimestamp()
+    });
+    await batch.commit();
+    showToast('Shared ' + ids.length + ' photo' + (ids.length === 1 ? '' : 's') + ' with the homeowner');
+    clearSelection();
+    // Open the portal-link share flow if the helper module is loaded.
+    if (window.PortalLinkHelpers
+        && typeof window.PortalLinkHelpers.copyForLead === 'function'
+        && state.lead) {
+      // Best-effort copy. The rep can also tap SMS/email from the
+      // customer page if they want different channels.
+      window.PortalLinkHelpers.copyForLead(state.lead);
+    }
+  } catch (e) {
+    showToast('Share failed: ' + e.message);
   }
 });
 
