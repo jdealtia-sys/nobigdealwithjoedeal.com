@@ -2747,6 +2747,14 @@ function hideSlowLoadHint() {
 // getDoc entirely and render the page from already-loaded data —
 // eliminating the iOS Safari cold-start hang. The handoff is age-
 // limited (5 minutes) so a stale tab doesn't render ancient data.
+//
+// Audit CA defense-in-depth: also verify the handoff's userId matches
+// the signed-in user. sessionStorage is shared across signin/signout
+// in the same tab, so Rep A could stash a lead, fail to navigate, sign
+// out; Rep B signs in same tab and visits the same lead URL — without
+// this check Rep B would see Rep A's stashed lead. Firestore rules
+// would deny the background revalidate, but the cached data already
+// rendered. Fall back to Firestore (which fails closed) on mismatch.
 function _readLeadHandoff(id) {
   try {
     const raw = sessionStorage.getItem('nbd_lead_handoff_' + id);
@@ -2756,6 +2764,14 @@ function _readLeadHandoff(id) {
     if (!parsed || !parsed.lead) return null;
     if (typeof parsed.stashedAt === 'number' && Date.now() - parsed.stashedAt > 5 * 60 * 1000) {
       return null; // too old; fall back to Firestore
+    }
+    // Audit CA: reject handoff if the cached userId doesn't match the
+    // currently signed-in user. Defense-in-depth — Firestore rules
+    // still fail closed for non-owners on the cold path.
+    const currentUid = window._user && window._user.uid;
+    if (currentUid && parsed.lead.userId && parsed.lead.userId !== currentUid) {
+      console.warn('[customer] handoff userId mismatch — ignoring stash');
+      return null;
     }
     // Rehydrate Timestamp markers we serialized as { __ts: ms }.
     const out = { id };
@@ -3820,9 +3836,24 @@ window.shareEstimateViewLink = async function(estId) {
   // Check localStorage for a recently-minted token for this lead.
   // Tokens last 30 days by default; we also stash the expiry so we
   // skip stale ones without a round-trip to Firestore.
-  const cacheKey = 'nbd_view_token_' + leadId;
+  //
+  // Audit CA: partition the cache by uid. localStorage persists across
+  // signin/signout (Firebase doesn't clear app-owned keys), so without
+  // uid partitioning a token Rep A minted for Lead L would survive
+  // sign-out and be readable by Rep B signing in to the same device.
+  // Token grants homeowner-level access to the portal view — Rep B
+  // shouldn't get any data for a lead they don't own. Falling back to
+  // mint-fresh on cache miss is cheap (single callable round-trip).
+  const _uid = (window._user && window._user.uid) || 'anon';
+  const cacheKey = 'nbd_view_token_' + _uid + '_' + leadId;
   let token = null;
   try {
+    // Also drop the legacy unpartitioned key if present, so the cache
+    // doesn't keep a stale entry tied to a previous device user.
+    const legacyKey = 'nbd_view_token_' + leadId;
+    if (localStorage.getItem(legacyKey)) {
+      try { localStorage.removeItem(legacyKey); } catch (_) {}
+    }
     const raw = localStorage.getItem(cacheKey);
     if (raw) {
       const cached = JSON.parse(raw);
