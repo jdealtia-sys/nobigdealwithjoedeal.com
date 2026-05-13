@@ -3232,3 +3232,10 @@ exports.trackUsage = billing.trackUsage;
 // homeowner opened and when — useful at adjuster-dispute time.
 const customerAudit = require('./customer-audit');
 exports.recordCustomerEvent = customerAudit.recordCustomerEvent;
+
+// Daily health digest email (audit batch 12). Aggregates Vision spend,
+// Stripe webhook activity, Anthropic token usage, and homeowner-portal
+// engagement; drops into email_queue → emailQueueWorker delivers.
+// Gated on HEALTH_DIGEST_ENABLED env var ('true' to enable).
+const healthDigest = require('./health-digest');
+exports.healthDigestCron = healthDigest.healthDigestCron;
