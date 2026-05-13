@@ -4051,6 +4051,43 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft') prevPhoto();
 });
 
+// Audit CG: unified Escape-key dismissal for every modal on the page.
+// The lightbox handler above returns early when no lightbox is open, so
+// this listener picks up the Escape in that case and routes it to the
+// topmost visible modal. Each modal has its own named close function;
+// we look it up by id-derived convention (close<Id>). gallerySharePanel
+// closes inline (no named close fn).
+//
+// Order matters: first match wins. If two modals are ever stacked, the
+// later-opened one wins because it sits later in DOM order — close it
+// first, leaving the underlying one for the next Escape.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  // Lightbox already handled above and returned early on no-lightbox.
+  if (document.getElementById('lightbox')?.classList.contains('active')) return;
+  const MODAL_IDS = [
+    'editCustomerModal', 'taskModal', 'estimateViewerModal', 'estimateModal',
+    'notesModal', 'docUploadModal', 'uploadModal'
+  ];
+  for (const id of MODAL_IDS) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    const d = el.style.display;
+    if (d !== 'flex' && d !== 'block') continue;
+    const closer = window['close' + id.charAt(0).toUpperCase() + id.slice(1)];
+    if (typeof closer === 'function') {
+      closer();
+      return;
+    }
+  }
+  // Gallery share panel: opens inline (display:block via flex container),
+  // no named close fn. Close it directly.
+  const share = document.getElementById('gallerySharePanel');
+  if (share && share.style.display && share.style.display !== 'none') {
+    share.style.display = 'none';
+  }
+});
+
 // Stage progression — picks the right pipeline based on lead jobType
 window.progressStage = async function() {
   // Per-track pipelines — mirror VIEW_INSURANCE / VIEW_CASH / VIEW_FINANCE /
