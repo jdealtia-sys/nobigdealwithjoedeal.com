@@ -1048,6 +1048,14 @@
       }, 2000);
     }
     window._user = user;
+    // Pre-warm the notification-settings cache from Firestore so a rep
+    // signing in on a new device gets their saved preferences before
+    // they ever open Settings → Notifications. Fire-and-forget — the
+    // tab-open path falls back to localStorage if this is still pending.
+    if (typeof _syncNotifSettingsFromFirestore === 'function') {
+      _notifFirestoreSynced = true;
+      _syncNotifSettingsFromFirestore();
+    }
     // Load custom claims for role-based access (Enterprise)
     // Claims include: companyId, role, plan, subscriptionStatus
     try {
@@ -3266,26 +3274,66 @@
     if (typeof showToast === 'function') showToast('✓ Notification preferences saved', 'success');
   };
 
-  window._loadNotifSettings = function() {
+  // Apply a settings object to the Notifications-tab form controls.
+  // Tolerates partial objects (missing triggers / channels / mode are
+  // skipped, not zeroed).
+  function _applyNotifSettingsToUI(s) {
+    if (!s) return;
     try {
-      const raw = localStorage.getItem('nbd_notif_settings');
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      const modeEl = document.getElementById('notif' + (data.mode || 'critical').charAt(0).toUpperCase() + (data.mode || 'critical').slice(1));
+      const mode = s.mode || 'critical';
+      const modeId = 'notif' + mode.charAt(0).toUpperCase() + mode.slice(1);
+      const modeEl = document.getElementById(modeId);
       if (modeEl) modeEl.checked = true;
-      if (data.triggers) {
+      if (s.triggers) {
         NOTIF_TRIGGERS.forEach(id => {
           const el = document.getElementById(id);
-          if (el && data.triggers[id] != null) el.checked = data.triggers[id];
+          if (el && s.triggers[id] != null) el.checked = !!s.triggers[id];
         });
       }
-      if (data.channels) {
+      if (s.channels) {
         NOTIF_CHANNELS.forEach(id => {
           const el = document.getElementById(id);
-          if (el && data.channels[id] != null) el.checked = data.channels[id];
+          if (el && s.channels[id] != null) el.checked = !!s.channels[id];
         });
       }
-    } catch (e) {}
+    } catch (_) {}
+  }
+
+  // Cross-device sync flag — keeps the Firestore fetch single-flight
+  // per page load. If the user switches to the Notifications tab a
+  // second time we just re-read the (now-populated) localStorage cache.
+  let _notifFirestoreSynced = false;
+
+  // Pull saved settings from Firestore userSettings/{uid}, cache to
+  // localStorage, and refresh the UI if the panel is open. Tolerates
+  // missing doc / missing notifications subfield (returns silently).
+  async function _syncNotifSettingsFromFirestore() {
+    const _db = window._db || window.db;
+    const uid = window._user && window._user.uid;
+    if (!_db || !uid) return;
+    try {
+      const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const snap = await getDoc(doc(_db, 'userSettings', uid));
+      if (!snap.exists()) return;
+      const data = snap.data();
+      if (!data || !data.notifications) return;
+      try { localStorage.setItem('nbd_notif_settings', JSON.stringify(data.notifications)); } catch (_) {}
+      _applyNotifSettingsToUI(_readNotifSettings());
+    } catch (e) {
+      console.warn('Notif settings server sync failed:', e && e.message);
+    }
+  }
+
+  window._loadNotifSettings = function() {
+    // Fast path — always paint from the localStorage cache (instant, sync).
+    _applyNotifSettingsToUI(_readNotifSettings());
+    // Slow path — once per page load, pull the source of truth from
+    // Firestore so a rep signing in on a new device gets their saved
+    // preferences instead of seeing the on-disk defaults.
+    if (!_notifFirestoreSynced && window._user && window._user.uid) {
+      _notifFirestoreSynced = true;
+      _syncNotifSettingsFromFirestore();
+    }
   };
 
   window._testNotif = function() {
