@@ -41,6 +41,19 @@ function section(name) { console.log('\n' + name); }
 
 function read(file) { return fs.readFileSync(file, 'utf8'); }
 
+// Audit batch 10: dashboard.html's 3986-line inline <script> got
+// extracted to docs/pro/js/dashboard-main.js. Existing smoke tests
+// that read dashboard.html and grep for code patterns now need to
+// see BOTH files. readDashboard() returns the concatenation so the
+// assertions don't care where a given handler lives.
+function readDashboard() {
+  const html  = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = fs.existsSync(path.join(ROOT, 'docs/pro/js/dashboard-main.js'))
+    ? read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'))
+    : '';
+  return html + '\n' + mainJs;
+}
+
 function syntaxCheck(file) {
   try {
     execSync(`node --check "${file}"`, { stdio: 'pipe' });
@@ -444,7 +457,9 @@ section('UI-B: BoldSign send-for-signature + badges');
   assert('sendForSignature() wired', /async function sendForSignature\(/.test(src));
   assert('stores saved estimate id on window for signature flow',
     /window\._v2SavedEstimateId\s*=\s*savedId/.test(src));
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // Audit batch 10: search across dashboard.html + dashboard-main.js
+  // since the inline handlers moved into the extracted file.
+  const dash = readDashboard();
   assert('signature badge rendered on estimate cards',
     /signatureStatus === 'signed'/.test(dash) && /SIGNED/.test(dash));
   assert('sigTag injected into est-card-chips',
@@ -570,7 +585,10 @@ section('Push-4: homeowner portal page + token callables');
     /_sharePortalLink\s*=\s*async function/.test(dash()));
 }
 
-function dash() { return read(path.join(ROOT, 'docs/pro/dashboard.html')); }
+// Audit batch 10: dash() searches across dashboard.html AND the
+// extracted dashboard-main.js so tests that grep for inline handlers
+// find them after the extraction.
+function dash() { return readDashboard(); }
 
 section('Push-5: measurement webhook auto-attaches to lead');
 {
@@ -696,7 +714,9 @@ section('Wave B4+B5: revoke / regenerate portal link');
     /exports\.revokePortalToken\s*=/.test(psrc));
   assert('revoke flips expiresAt to past',
     /expiresAt: admin\.firestore\.Timestamp\.fromMillis\(Date\.now\(\) - 1\)/.test(psrc));
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // Audit batch 10: also search dashboard-main.js for the extracted
+  // helper definition (the inline button still lives in dashboard.html).
+  const dash = readDashboard();
   assert('lead detail has Revoke & Regenerate button',
     /Revoke &amp; Regenerate/.test(dash));
   assert('_revokePortalLink helper defined',
