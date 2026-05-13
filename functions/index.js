@@ -3219,3 +3219,10 @@ exports.getGoogleReviews = googleReviews.getGoogleReviews;
 // for the Review UI (Phase 4) to render as 1-tap-accept chips.
 const photoVision = require('./photo-vision');
 exports.analyzePhotoVision = photoVision.analyzePhotoVision;
+
+// Server-side plan-usage tracking (Audit A follow-up, Batch 3 of the
+// audit-driven rollups). Closes the KNOWN GAP where client-side
+// trackUsage in billing-gate.js silently 403'd because rules block
+// client writes to subscriptions/{uid}. Now atomic + cross-device.
+const billing = require('./billing');
+exports.trackUsage = billing.trackUsage;
