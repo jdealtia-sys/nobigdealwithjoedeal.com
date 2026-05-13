@@ -502,7 +502,7 @@ function renderLeads(leads, filtered){
         <div class="follow-up-alert">
           <span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></span>
           <span class="fa-name">${escHtml(l.firstName||'')} ${escHtml(l.lastName||'')}</span>
-          <span style="color:var(--m);font-size:11px;">${escHtml((l.address||'').split(',')[0])}</span>
+          <span style="color:var(--m);font-size:11px;">${escHtml(String(l.address||'').split(',')[0])}</span>
           <span class="fa-date">Due: ${escHtml(l.followUp)}</span>
           <button class="fa-btn nbd-fa-edit" data-lead-id="${escHtml(l.id)}">View →</button>
         </div>`).join('')
@@ -762,7 +762,12 @@ function buildCard(l){
   // formatters insert between house number and street ("3424, Moria Drive").
   // Display as plain "3424 Moria Drive, Cincinnati" by collapsing
   // "<digits>,<space>" → "<digits> ".
-  const _addrRaw = (l.address||'').replace(/^(\d+),\s+/, '$1 ');
+  // Audit C — wrap in String() so a malformed lead with `address` stored
+  // as an object/array/number (possible via Firestore-console hand edits or
+  // bad imports) doesn't blow up the entire kanban column when buildCard
+  // throws TypeError on `.replace`. Same defense applied to `phone`/`email`
+  // below.
+  const _addrRaw = String(l.address||'').replace(/^(\d+),\s+/, '$1 ');
   const addr  = escHtml(_addrRaw.split(',').slice(0,2).join(','));
   const val   = l.jobValue ? '$'+parseFloat(l.jobValue).toLocaleString() : '';
   const today = new Date(); today.setHours(0,0,0,0);
@@ -1129,7 +1134,7 @@ function buildCard(l){
   // '(513) 555-0192'. Normalize to one consistent display format —
   // '(xxx) xxx-xxxx' — at render time so the kanban scans cleanly.
   // The href:tel: link still strips to digits independently.
-  const _phoneRaw = (l.phone || '').trim();
+  const _phoneRaw = String(l.phone || '').trim();
   let _phoneFmt = _phoneRaw;
   const _phoneDigits = _phoneRaw.replace(/\D/g, '');
   if (_phoneDigits.length === 10) {
@@ -1142,7 +1147,7 @@ function buildCard(l){
   // ('Heatherclymer918@yahoo.com') reads as awkward on the kanban scan.
   // Normalize display to lowercase. mailto: and downstream consumers
   // see the original l.email value via the lead record.
-  const email = escHtml((l.email||'').toLowerCase());
+  const email = escHtml(String(l.email||'').toLowerCase());
   // T1.c: normalize carrier. The codebase historically stored under
   // both `insCarrier` and `insuranceCarrier`; some imports wrote
   // "State Farm", others "StateFarm". Collapse whitespace + trim so
