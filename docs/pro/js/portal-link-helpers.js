@@ -364,12 +364,59 @@ Bookmark it; the link stays live as we work through the project.
                 -webkit-tap-highlight-color:transparent;">×</button>
           </div>
         </div>
-        <iframe src="${escapeAttr(url)}"
-          style="flex:1; width:100%; border:none; background:#fff;"
-          referrerpolicy="no-referrer"
-          loading="lazy"
-          sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-        ></iframe>
+        <div style="position:relative; flex:1; min-height:0; background:#fff;">
+          <!-- Fallback panel sits behind the iframe. When a browser
+               (Brave shields, Firefox ETP strict, etc.) blocks the
+               cross-origin embed, the iframe overlay shows the
+               browser's block notice instead of the portal — the
+               fallback below it is invisible. Visible only when the
+               iframe explicitly fails to load (onerror). The footer
+               CTA below ALWAYS works and is the universal escape
+               hatch regardless of iframe status. -->
+          <div id="nbd-portal-preview-fallback"
+            style="
+              position:absolute; inset:0;
+              display:none;
+              flex-direction:column; align-items:center; justify-content:center;
+              gap:14px; padding:24px;
+              background:#f7f8fb; color:#1a1f2a; text-align:center;
+              font-family:'Barlow',-apple-system,system-ui,sans-serif;">
+            <div style="font-size:32px; line-height:1;">🛡️</div>
+            <div style="font-size:14px; font-weight:700; max-width:340px;">
+              Your browser blocked the embedded preview
+            </div>
+            <div style="font-size:12px; color:#5a6478; max-width:340px; line-height:1.45;">
+              Privacy shields (Brave, Firefox strict mode) often block
+              cross-origin embeds. Use <strong>Open in new tab</strong>
+              below to see exactly what the homeowner will see.
+            </div>
+          </div>
+          <iframe id="nbd-portal-preview-iframe"
+            src="${escapeAttr(url)}"
+            style="position:absolute; inset:0; width:100%; height:100%; border:none; background:#fff;"
+            loading="lazy"
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            onerror="var f=document.getElementById('nbd-portal-preview-fallback'); if(f){f.style.display='flex';} this.style.display='none';"
+          ></iframe>
+        </div>
+        <div style="
+          display:flex; align-items:center; justify-content:space-between;
+          gap:12px; padding:12px 18px;
+          border-top:1px solid var(--br,#2a3344);
+          background:var(--s2,#0f1419); flex-shrink:0;">
+          <div style="font-size:11px; color:var(--m,#9aa3b2); line-height:1.4; min-width:0;">
+            Preview blank? Privacy shields may block the embed. Open in a new tab to see the live portal.
+          </div>
+          <a href="${escapeAttr(url)}" target="_blank" rel="noopener"
+            style="
+              flex-shrink:0;
+              display:inline-flex; align-items:center; gap:6px;
+              padding:8px 14px; border-radius:7px;
+              background:var(--orange,#e8720c); color:#fff;
+              text-decoration:none; font-size:12px; font-weight:700;
+              letter-spacing:.04em; text-transform:uppercase;
+              -webkit-tap-highlight-color:transparent;">Open ↗</a>
+        </div>
       </div>`;
     document.body.appendChild(overlay);
 
