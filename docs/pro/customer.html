@@ -1795,6 +1795,30 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   </div>
 </div>
 
+<!-- ESTIMATE VIEWER MODAL — rendered into by viewEstimate(estimateId). The
+     original code targeted #estimateModalContent / #editEstimateBtn /
+     #deleteEstimateBtn (which were never defined anywhere), so clicking
+     an estimate row to view details silently threw a TypeError. This
+     modal supplies the missing DOM so the viewer flow actually works. -->
+<div id="estimateViewerModal" class="modal" style="display:none;">
+  <div class="modal-content" style="max-width:760px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+      <h3 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:20px;letter-spacing:.04em;text-transform:uppercase;">
+        📋 Estimate
+      </h3>
+      <button onclick="closeEstimateViewerModal()" aria-label="Close" style="background:none;border:1px solid var(--br);color:var(--m);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:16px;line-height:1;">✕</button>
+    </div>
+
+    <div id="estimateModalContent"></div>
+
+    <div style="display:flex;gap:8px;margin-top:18px;">
+      <button class="btn btn-orange" id="editEstimateBtn" style="flex:1;">✏️ Edit in Builder</button>
+      <button class="btn" id="deleteEstimateBtn" style="flex:1;">🗄️ Archive</button>
+      <button class="btn" onclick="closeEstimateViewerModal()" style="flex:0 0 auto;">Close</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="js/icons.js"></script>
 <script>
@@ -3078,9 +3102,11 @@ async function loadCustomerData(id) {
     document.getElementById('infoClaimStatus').textContent = lead.claimStatus || '—';
     document.getElementById('infoFollowUp').textContent = lead.followUp || '—';
 
-    // Job type
+    // Job type — must stay in sync with JOB_TYPES in js/crm-stages.js.
+    // Adding warranty + service here so the detail page displays them
+    // correctly (previously they fell to '—').
     const jobType = lead.jobType || '';
-    const jobTypeLabels = { 'insurance': 'Insurance', 'cash': 'Cash', 'finance': 'Finance' };
+    const jobTypeLabels = { 'insurance': 'Insurance', 'cash': 'Cash', 'finance': 'Finance', 'warranty': 'Warranty', 'service': 'Service' };
     document.getElementById('infoJobType').textContent = jobTypeLabels[jobType] || jobType || '—';
 
     // Insurance panel
@@ -3135,6 +3161,10 @@ async function loadCustomerData(id) {
       'estimate_sent_cash': 'Negotiating', 'negotiating': 'Contract Signed',
       // Finance track
       'prequal_sent': 'Loan Approved', 'loan_approved': 'Contract Signed',
+      // Warranty track
+      'warranty_scheduled': 'Repair Done', 'warranty_repaired': 'Closed',
+      // Service track
+      'service_quoted': 'Service Approved', 'service_approved': 'Installing',
       // Job stages (shared)
       'contract_signed': 'Job Created',
       'job_created': 'Permit', 'permit_pulled': 'Materials Ordered',
@@ -3149,13 +3179,15 @@ async function loadCustomerData(id) {
 
     window._currentStage = lead.stage || 'new';
 
-    // Pick the right next label based on the lead's jobType
-    // Cash track diverges at 'inspected' → 'estimate_sent_cash' instead of 'claim_filed'
-    // Finance track diverges at 'inspected' → 'prequal_sent'
+    // Pick the right next label based on the lead's jobType. The default
+    // (insurance) tracks 'inspected' → 'claim_filed'. Each other track
+    // diverges at 'inspected' into its own next-step.
     let nextLabel = NEXT_LABELS[lead.stage];
     if (lead.stage === 'inspected') {
-      if (lead.jobType === 'cash') nextLabel = 'Est. Sent (Cash)';
-      else if (lead.jobType === 'finance') nextLabel = 'Pre-Qual Sent';
+      if (lead.jobType === 'cash')          nextLabel = 'Est. Sent (Cash)';
+      else if (lead.jobType === 'finance')  nextLabel = 'Pre-Qual Sent';
+      else if (lead.jobType === 'warranty') nextLabel = 'Warranty Visit';
+      else if (lead.jobType === 'service')  nextLabel = 'Service Quoted';
       // insurance default stays 'Claim Filed'
     }
     if (nextLabel) {
@@ -3179,11 +3211,15 @@ async function loadCustomerData(id) {
       if (pl) pl.innerHTML = '<div class="empty"><div class="empty-icon">No photos yet</div></div>';
     }
     
-    try { 
-      await window.loadDocuments(id); 
-    } catch (e) { 
-      console.error('Documents load failed:', e); 
-      document.getElementById('documentList').innerHTML = `
+    try {
+      await window.loadDocuments(id);
+    } catch (e) {
+      console.error('Documents load failed:', e);
+      // Real ID is docList (the loadDocuments fn writes into #docList).
+      // The catch fallback used to target #documentList which doesn't
+      // exist, throwing a TypeError on top of the documents-load failure.
+      const dl = document.getElementById('docList');
+      if (dl) dl.innerHTML = `
         <div class="upload-zone" onclick="openDocUploadModal()">
           <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
           <div class="upload-text">Click to upload documents</div>
@@ -3962,7 +3998,10 @@ document.addEventListener('keydown', (e) => {
 
 // Stage progression — picks the right pipeline based on lead jobType
 window.progressStage = async function() {
-  // Per-track pipelines — matches crm-stages.js definitions
+  // Per-track pipelines — mirror VIEW_INSURANCE / VIEW_CASH / VIEW_FINANCE /
+  // VIEW_WARRANTY / VIEW_SERVICE in js/crm-stages.js. If those change,
+  // update here too. Warranty + service don't converge through
+  // contract_signed — they skip into their own short close-out paths.
   const PIPELINES = {
     insurance: [
       'new', 'contacted', 'inspected', 'claim_filed',
@@ -3987,6 +4026,15 @@ window.progressStage = async function() {
       'job_created', 'permit_pulled', 'materials_ordered', 'materials_delivered',
       'crew_scheduled', 'install_in_progress', 'install_complete',
       'final_photos', 'final_payment', 'closed'
+    ],
+    warranty: [
+      'new', 'contacted', 'inspected',
+      'warranty_scheduled', 'warranty_repaired', 'closed'
+    ],
+    service: [
+      'new', 'contacted', 'inspected',
+      'service_quoted', 'service_approved',
+      'install_in_progress', 'install_complete', 'closed'
     ]
   };
 
@@ -4650,7 +4698,10 @@ window.viewEstimate = function(estimateId) {
         deleted: true,
         deletedAt: serverTimestamp()
       });
-      closeEstimateModal();
+      // Close the viewer (not the create modal). Pre-fix this called
+      // closeEstimateModal() which would have hidden the wrong modal
+      // even if the viewer had been working.
+      closeEstimateViewerModal();
       await loadEstimates(window._customerId);
       
       // Reload timeline
@@ -4664,12 +4715,30 @@ window.viewEstimate = function(estimateId) {
     }
   };
   
-  // Show modal
-  document.getElementById('estimateModal').classList.add('active');
+  // Show viewer modal (NOT the same as #estimateModal, which is the
+  // create-estimate form). Pre-fix this targeted #estimateModal and
+  // tried to render into a non-existent #estimateModalContent inside it.
+  const viewer = document.getElementById('estimateViewerModal');
+  if (viewer) {
+    viewer.style.display = 'flex';
+    viewer.classList.add('active');
+  }
 };
 
 window.closeEstimateModal = function() {
+  // Backwards-compat: keep the old name so any external callers still
+  // dismiss the create modal as before.
   document.getElementById('estimateModal').classList.remove('active');
+  document.getElementById('estimateModal').style.display = 'none';
+  window._currentEstimateId = null;
+};
+
+window.closeEstimateViewerModal = function() {
+  const viewer = document.getElementById('estimateViewerModal');
+  if (viewer) {
+    viewer.classList.remove('active');
+    viewer.style.display = 'none';
+  }
   window._currentEstimateId = null;
 };
 
@@ -6480,10 +6549,17 @@ function getCustomerDocData() {
     phone: lead.phone || '', customerPhone: lead.phone || '',
     email: lead.email || '', customerEmail: lead.email || '',
 
-    // Job info
+    // Job info — subType + trades added so docs that vary by sub-type
+    // (e.g. fire AOB vs storm AOB) and by trade scope (roof+gutters
+    // combo line items) can reach those fields.
     damageType: lead.damageType || '', stage: lead.stage || '',
     source: lead.source || '', notes: lead.notes || '',
     jobType: lead.jobType || '', jobValue: jobVal,
+    subType: lead.subType || '',
+    trades:  Array.isArray(lead.trades) ? lead.trades : [],
+    tradesLabel: Array.isArray(lead.trades) && lead.trades.length
+                   ? (typeof window.tradesLabel === 'function' ? window.tradesLabel(lead.trades) : lead.trades.join(', '))
+                   : '',
     scopeOfWork: lead.scopeOfWork || '',
     projectDescription: lead.scopeOfWork || est?.description || '',
 

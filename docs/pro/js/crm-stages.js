@@ -53,6 +53,14 @@ export const S = {
   FINAL_PAYMENT:      'final_payment',
   CLOSED:             'closed',
 
+  // ── Warranty track ──
+  WARRANTY_SCHEDULED: 'warranty_scheduled',
+  WARRANTY_REPAIRED:  'warranty_repaired',
+
+  // ── Service track ──
+  SERVICE_QUOTED:     'service_quoted',
+  SERVICE_APPROVED:   'service_approved',
+
   // ── Exit ──
   LOST:               'lost',
 };
@@ -96,6 +104,14 @@ export const STAGE_META = {
   [S.DEDUCTIBLE_COLLECTED]:{ label: 'Deductible',        color: '#14b8a6', headerClass: 'kh-deduct',    track: 'shared',    type: 'job',  icon: '💵' },
   [S.FINAL_PAYMENT]:      { label: 'Final Payment',      color: '#0d9488', headerClass: 'kh-finpay',    track: 'shared',    type: 'job',  icon: '🏦' },
   [S.CLOSED]:             { label: 'Closed',             color: '#22C55E', headerClass: 'kh-closed',    track: 'shared',    type: 'job',  icon: '🏆' },
+
+  // ── Warranty stages ────────────────────────
+  [S.WARRANTY_SCHEDULED]: { label: 'Warranty Visit',     color: '#0891b2', headerClass: 'kh-warrsch',   track: 'warranty',  type: 'lead', icon: '🛠️' },
+  [S.WARRANTY_REPAIRED]:  { label: 'Repair Done',        color: '#16a34a', headerClass: 'kh-warrdone',  track: 'warranty',  type: 'lead', icon: '✅' },
+
+  // ── Service stages ─────────────────────────
+  [S.SERVICE_QUOTED]:     { label: 'Service Quoted',     color: '#D4A017', headerClass: 'kh-svqt',      track: 'service',   type: 'lead', icon: '💰' },
+  [S.SERVICE_APPROVED]:   { label: 'Service Approved',   color: '#16a34a', headerClass: 'kh-svok',      track: 'service',   type: 'lead', icon: '✅' },
 
   // ── Exit ──
   [S.LOST]:               { label: 'Lost',               color: '#6b7280', headerClass: 'kh-lost',      track: 'shared',    type: 'lead', icon: '❌' },
@@ -230,6 +246,36 @@ export const VIEW_FINANCE = [
 ];
 
 /**
+ * WARRANTY PIPELINE — callbacks and post-install repairs
+ * Skips claim/estimate/contract; goes straight from inspect → repair → closed.
+ */
+export const VIEW_WARRANTY = [
+  S.NEW,
+  S.CONTACTED,
+  S.INSPECTED,
+  S.WARRANTY_SCHEDULED,
+  S.WARRANTY_REPAIRED,
+  S.CLOSED,
+  S.LOST,
+];
+
+/**
+ * SERVICE PIPELINE — small one-off repair/maintenance jobs
+ * Lightweight path: quote → approve → install → done (no claim, no supplements).
+ */
+export const VIEW_SERVICE = [
+  S.NEW,
+  S.CONTACTED,
+  S.INSPECTED,
+  S.SERVICE_QUOTED,
+  S.SERVICE_APPROVED,
+  S.INSTALL_IN_PROGRESS,
+  S.INSTALL_COMPLETE,
+  S.CLOSED,
+  S.LOST,
+];
+
+/**
  * JOB BOARD — post-contract stages only
  */
 export const VIEW_JOBS = [
@@ -254,6 +300,8 @@ export const KANBAN_VIEWS = {
   insurance: { label: 'Insurance Pipeline',  stages: VIEW_INSURANCE },
   cash:      { label: 'Cash Pipeline',       stages: VIEW_CASH },
   finance:   { label: 'Finance Pipeline',    stages: VIEW_FINANCE },
+  warranty:  { label: 'Warranty Pipeline',   stages: VIEW_WARRANTY },
+  service:   { label: 'Service Pipeline',    stages: VIEW_SERVICE },
   jobs:      { label: 'Job Board',           stages: VIEW_JOBS },
 };
 
@@ -306,16 +354,21 @@ export function resolveColumn(stageKey, viewStages) {
  */
 export function stageOptionsForType(jobType) {
   let stages;
+  let appendJobs = true;
   switch (jobType) {
     case 'insurance': stages = [...VIEW_INSURANCE]; break;
     case 'cash':      stages = [...VIEW_CASH]; break;
     case 'finance':   stages = [...VIEW_FINANCE]; break;
+    case 'warranty':  stages = [...VIEW_WARRANTY]; appendJobs = false; break;
+    case 'service':   stages = [...VIEW_SERVICE];  appendJobs = false; break;
     default:          stages = [...VIEW_INSURANCE]; break; // default to insurance
   }
-  // Add job stages after contract_signed
-  const jobIdx = stages.indexOf(S.CONTRACT_SIGNED);
-  if (jobIdx !== -1) {
-    stages.splice(jobIdx + 1, 0, ...VIEW_JOBS);
+  // Add job stages after contract_signed for tracks that converge there
+  if (appendJobs) {
+    const jobIdx = stages.indexOf(S.CONTRACT_SIGNED);
+    if (jobIdx !== -1) {
+      stages.splice(jobIdx + 1, 0, ...VIEW_JOBS);
+    }
   }
   return stages.map(key => ({
     value: key,
@@ -331,7 +384,24 @@ export const JOB_TYPES = {
   INSURANCE: 'insurance',
   CASH: 'cash',
   FINANCE: 'finance',
+  WARRANTY: 'warranty',
+  SERVICE: 'service',
 };
+
+/**
+ * Metadata for each job type — drives labels, icons, default behaviors.
+ */
+export const JOB_TYPE_META = {
+  insurance: { label: 'Insurance',  icon: '📋', color: '#7c3aed', description: 'Claim-based restoration paid by the carrier' },
+  cash:      { label: 'Cash',       icon: '💵', color: '#16a34a', description: 'Homeowner pays out of pocket' },
+  finance:   { label: 'Finance',    icon: '🏦', color: '#0891b2', description: 'Job funded through a lender' },
+  warranty:  { label: 'Warranty',   icon: '🛠️', color: '#0369a1', description: 'Callback or service under existing warranty' },
+  service:   { label: 'Service',    icon: '🔧', color: '#ea580c', description: 'Small repair or maintenance, not a full replacement' },
+};
+
+export function jobTypeLabel(jobType) {
+  return JOB_TYPE_META[jobType]?.label || jobType || 'Unset';
+}
 
 /**
  * Infer job type from a lead's data
@@ -368,4 +438,264 @@ export function tagClass(stageKey) {
   const meta = STAGE_META[normalized];
   if (!meta) return 'tag-new';
   return `tag-${normalized.replace(/_/g, '-')}`;
+}
+
+// ─────────────────────────────────────────────
+// SUB-TYPES
+// Optional second-level classification per job type.
+// Drives template variant selection (e.g., storm AOB vs fire AOB,
+// GreenSky terms vs in-house terms) and reporting cuts.
+// ─────────────────────────────────────────────
+
+export const SUB_TYPES = {
+  insurance: [
+    { value: 'storm_hail',  label: 'Storm — Hail' },
+    { value: 'storm_wind',  label: 'Storm — Wind' },
+    { value: 'storm_combo', label: 'Storm — Hail & Wind' },
+    { value: 'fire',        label: 'Fire' },
+    { value: 'water',       label: 'Water / Leak' },
+    { value: 'other',       label: 'Other' },
+  ],
+  cash: [
+    { value: 'full_replace', label: 'Full Replacement' },
+    { value: 'partial',      label: 'Partial Replacement' },
+    { value: 'repair',       label: 'Repair' },
+  ],
+  finance: [
+    { value: 'third_party',  label: 'Third-Party Lender' },
+    { value: 'in_house',     label: 'In-House Financing' },
+  ],
+  warranty: [
+    { value: 'workmanship',  label: 'Workmanship' },
+    { value: 'material',     label: 'Material Defect' },
+    { value: 'manufacturer', label: 'Manufacturer Claim' },
+    { value: 'goodwill',     label: 'Goodwill / Out of Warranty' },
+  ],
+  service: [
+    { value: 'repair',       label: 'Repair' },
+    { value: 'maintenance',  label: 'Maintenance' },
+    { value: 'inspection',   label: 'Inspection Only' },
+  ],
+};
+
+export function subTypeOptionsFor(jobType) {
+  return SUB_TYPES[jobType] || [];
+}
+
+export function subTypeLabel(jobType, value) {
+  return SUB_TYPES[jobType]?.find(s => s.value === value)?.label || value || '';
+}
+
+// ─────────────────────────────────────────────
+// TRADES — multi-select, orthogonal to job type
+// Drives estimate template, crew assignment, material list.
+// Stored on a lead as `lead.trades` (array of values).
+// ─────────────────────────────────────────────
+
+export const TRADES = [
+  { value: 'roof',      label: 'Roof',            icon: '🏠' },
+  { value: 'gutters',   label: 'Gutters',         icon: '🌧️' },
+  { value: 'siding',    label: 'Siding',          icon: '🧱' },
+  { value: 'windows',   label: 'Windows',         icon: '🪟' },
+  { value: 'fascia',    label: 'Fascia / Soffit', icon: '🔲' },
+  { value: 'paint',     label: 'Paint',           icon: '🎨' },
+  { value: 'skylights', label: 'Skylights',       icon: '☀️' },
+  { value: 'other',     label: 'Other',           icon: '🔧' },
+];
+
+export function tradeLabel(value) {
+  return TRADES.find(t => t.value === value)?.label || value || '';
+}
+
+export function tradesLabel(values) {
+  if (!Array.isArray(values) || values.length === 0) return '';
+  return values.map(tradeLabel).join(', ');
+}
+
+// ─────────────────────────────────────────────
+// STAGE ACTIONS — context-aware "what to do next"
+// For each stage, list the actions/docs that make sense right now.
+// `kind` = 'doc' (generates a document), 'stage' (advances pipeline),
+// 'action' (other workflow step).
+// `jobTypes` is an optional whitelist; omitted means all types.
+// Consumed by the Next Actions panel in Phase 2.
+// ─────────────────────────────────────────────
+
+export const STAGE_ACTIONS = {
+  [S.NEW]: [
+    { id: 'log_contact',     label: 'Log Contact',             icon: '📞',  kind: 'action' },
+    { id: 'sched_inspect',   label: 'Schedule Inspection',     icon: '📅',  kind: 'action' },
+  ],
+  [S.CONTACTED]: [
+    { id: 'sched_inspect',   label: 'Schedule Inspection',     icon: '📅',  kind: 'action' },
+    { id: 'photo_intake',    label: 'Capture Photos',          icon: '📸',  kind: 'action' },
+  ],
+  [S.INSPECTED]: [
+    { id: 'photo_report',    label: 'Photo Report',            icon: '📸',  kind: 'doc' },
+    { id: 'inspect_report',  label: 'Inspection Report',       icon: '📄',  kind: 'doc' },
+    { id: 'file_claim',      label: 'File Claim',              icon: '📋',  kind: 'action', jobTypes: ['insurance'] },
+    { id: 'send_aob',        label: 'Send AOB',                icon: '✍️', kind: 'doc',    jobTypes: ['insurance'] },
+    { id: 'send_estimate',   label: 'Send Estimate',           icon: '💰',  kind: 'doc',    jobTypes: ['cash'] },
+    { id: 'send_prequal',    label: 'Send Pre-Qual Link',      icon: '🏦',  kind: 'doc',    jobTypes: ['finance'] },
+    { id: 'send_quote',      label: 'Send Service Quote',      icon: '💰',  kind: 'doc',    jobTypes: ['service'] },
+    { id: 'sched_warranty',  label: 'Schedule Warranty Visit', icon: '🛠️', kind: 'action', jobTypes: ['warranty'] },
+  ],
+  [S.CLAIM_FILED]: [
+    { id: 'log_adjuster',    label: 'Log Adjuster Meeting',    icon: '📅',  kind: 'action', jobTypes: ['insurance'] },
+  ],
+  [S.ADJUSTER_SCHEDULED]: [
+    { id: 'mark_adj_done',   label: 'Mark Adjuster Met',       icon: '✅',  kind: 'stage',  jobTypes: ['insurance'] },
+  ],
+  [S.ADJUSTER_DONE]: [
+    { id: 'upload_scope',    label: 'Upload Scope',            icon: '📄',  kind: 'action', jobTypes: ['insurance'] },
+  ],
+  [S.SCOPE_RECEIVED]: [
+    { id: 'send_estimate',   label: 'Send Estimate',           icon: '💰',  kind: 'doc',    jobTypes: ['insurance'] },
+  ],
+  [S.ESTIMATE_SUBMITTED]: [
+    { id: 'request_supp',    label: 'Request Supplement',      icon: '📝',  kind: 'action', jobTypes: ['insurance'] },
+    { id: 'send_contract',   label: 'Send Contract',           icon: '✍️', kind: 'doc' },
+  ],
+  [S.SUPPLEMENT_REQ]: [
+    { id: 'follow_supp',     label: 'Follow Up Supplement',    icon: '📞',  kind: 'action', jobTypes: ['insurance'] },
+  ],
+  [S.SUPPLEMENT_APPROVED]: [
+    { id: 'send_contract',   label: 'Send Contract',           icon: '✍️', kind: 'doc' },
+  ],
+  [S.ESTIMATE_SENT_CASH]: [
+    { id: 'follow_up',       label: 'Follow Up',               icon: '📞',  kind: 'action', jobTypes: ['cash'] },
+    { id: 'send_contract',   label: 'Send Contract',           icon: '✍️', kind: 'doc',    jobTypes: ['cash'] },
+  ],
+  [S.NEGOTIATING]: [
+    { id: 'revise_estimate', label: 'Revise Estimate',         icon: '💰',  kind: 'doc',    jobTypes: ['cash'] },
+    { id: 'send_contract',   label: 'Send Contract',           icon: '✍️', kind: 'doc',    jobTypes: ['cash'] },
+  ],
+  [S.PREQUAL_SENT]: [
+    { id: 'follow_lender',   label: 'Follow Up with Lender',   icon: '🏦',  kind: 'action', jobTypes: ['finance'] },
+  ],
+  [S.LOAN_APPROVED]: [
+    { id: 'send_contract',   label: 'Send Contract',           icon: '✍️', kind: 'doc',    jobTypes: ['finance'] },
+  ],
+  [S.CONTRACT_SIGNED]: [
+    { id: 'create_job',      label: 'Create Job',              icon: '🏗️', kind: 'stage' },
+    { id: 'collect_deposit', label: 'Collect Deposit',         icon: '💵',  kind: 'action' },
+  ],
+  [S.JOB_CREATED]: [
+    { id: 'pull_permit',     label: 'Pull Permit',             icon: '📜',  kind: 'action' },
+    { id: 'order_materials', label: 'Order Materials',         icon: '📦',  kind: 'action' },
+  ],
+  [S.PERMIT_PULLED]: [
+    { id: 'order_materials', label: 'Order Materials',         icon: '📦',  kind: 'action' },
+  ],
+  [S.MATERIALS_ORDERED]: [
+    { id: 'confirm_delivery', label: 'Confirm Delivery',       icon: '🚚',  kind: 'action' },
+  ],
+  [S.MATERIALS_DELIVERED]: [
+    { id: 'sched_crew',      label: 'Schedule Crew',           icon: '👷',  kind: 'action' },
+  ],
+  [S.CREW_SCHEDULED]: [
+    { id: 'start_install',   label: 'Start Install',           icon: '🔨',  kind: 'stage' },
+    { id: 'work_order',      label: 'Work Order',              icon: '📋',  kind: 'doc' },
+  ],
+  [S.INSTALL_IN_PROGRESS]: [
+    { id: 'progress_photos', label: 'Progress Photos',         icon: '📸',  kind: 'action' },
+    { id: 'change_order',    label: 'Change Order',            icon: '📝',  kind: 'doc' },
+  ],
+  [S.INSTALL_COMPLETE]: [
+    { id: 'final_photos',    label: 'Final Photos',            icon: '📸',  kind: 'action' },
+    { id: 'closeout',        label: 'Close-Out Checklist',     icon: '✅',  kind: 'doc' },
+  ],
+  [S.FINAL_PHOTOS]: [
+    { id: 'collect_deduct',  label: 'Collect Deductible',      icon: '💵',  kind: 'action', jobTypes: ['insurance'] },
+    { id: 'final_invoice',   label: 'Final Invoice',           icon: '🧾',  kind: 'doc' },
+  ],
+  [S.DEDUCTIBLE_COLLECTED]: [
+    { id: 'request_payment', label: 'Request Final Payment',   icon: '🏦',  kind: 'action' },
+  ],
+  [S.FINAL_PAYMENT]: [
+    { id: 'warranty_cert',   label: 'Warranty Certificate',    icon: '🏆',  kind: 'doc' },
+    { id: 'close_job',       label: 'Close Job',               icon: '🎉',  kind: 'stage' },
+  ],
+  [S.CLOSED]: [
+    { id: 'request_review',  label: 'Request Review',          icon: '⭐',  kind: 'action' },
+  ],
+  [S.WARRANTY_SCHEDULED]: [
+    { id: 'log_diagnosis',   label: 'Log Diagnosis',           icon: '🔍',  kind: 'action', jobTypes: ['warranty'] },
+  ],
+  [S.WARRANTY_REPAIRED]: [
+    { id: 'final_photos',    label: 'Final Photos',            icon: '📸',  kind: 'action', jobTypes: ['warranty'] },
+    { id: 'warranty_report', label: 'Warranty Service Report', icon: '📄',  kind: 'doc',    jobTypes: ['warranty'] },
+  ],
+  [S.SERVICE_QUOTED]: [
+    { id: 'follow_up',       label: 'Follow Up',               icon: '📞',  kind: 'action', jobTypes: ['service'] },
+  ],
+  [S.SERVICE_APPROVED]: [
+    { id: 'sched_crew',      label: 'Schedule Crew',           icon: '👷',  kind: 'action', jobTypes: ['service'] },
+  ],
+};
+
+/**
+ * Return the actions relevant for a given stage + job type.
+ * If jobType is null/empty, returns only universal actions.
+ */
+export function actionsForStage(stage, jobType) {
+  const normalized = normalizeStage(stage);
+  const list = STAGE_ACTIONS[normalized] || [];
+  if (!jobType) return list.filter(a => !a.jobTypes);
+  return list.filter(a => !a.jobTypes || a.jobTypes.includes(jobType));
+}
+
+// ─────────────────────────────────────────────
+// REQUIRED FIELDS — stage transition gates
+// Map: jobType → stageKey → required lead-field names.
+// Used by validation to block stage advancement when data is missing.
+// Phase 2 will wire this into the form; for now it's data only.
+// ─────────────────────────────────────────────
+
+export const REQUIRED_FIELDS_BY_TYPE = {
+  insurance: {
+    [S.CLAIM_FILED]:        ['insCarrier', 'claimNumber'],
+    [S.ADJUSTER_SCHEDULED]: ['insCarrier'],
+    [S.ESTIMATE_SUBMITTED]: ['estimateAmount', 'deductibleOrOwedByHO'],
+    [S.CONTRACT_SIGNED]:    ['estimateAmount'],
+  },
+  cash: {
+    [S.ESTIMATE_SENT_CASH]: ['jobValue'],
+    [S.CONTRACT_SIGNED]:    ['jobValue'],
+  },
+  finance: {
+    [S.PREQUAL_SENT]:       ['financeCompany'],
+    [S.LOAN_APPROVED]:      ['loanAmount', 'financeCompany'],
+    [S.CONTRACT_SIGNED]:    ['loanAmount', 'financeCompany'],
+  },
+  warranty: {
+    [S.WARRANTY_SCHEDULED]: ['scheduledDate'],
+  },
+  service: {
+    [S.SERVICE_QUOTED]:     ['jobValue'],
+    [S.SERVICE_APPROVED]:   ['jobValue'],
+  },
+};
+
+/**
+ * Required field names for a given job type + stage. Empty array if none.
+ */
+export function requiredFieldsFor(jobType, stage) {
+  const normalized = normalizeStage(stage);
+  return REQUIRED_FIELDS_BY_TYPE[jobType]?.[normalized] || [];
+}
+
+/**
+ * Returns the list of required fields a lead is missing for its current stage.
+ * Treats numeric 0 as a valid value (not missing).
+ */
+export function missingRequiredFields(lead) {
+  if (!lead) return [];
+  const jobType = lead.jobType || inferJobType(lead);
+  if (!jobType) return [];
+  const required = requiredFieldsFor(jobType, lead.stage);
+  return required.filter(f => {
+    const v = lead[f];
+    return v === undefined || v === null || v === '';
+  });
 }

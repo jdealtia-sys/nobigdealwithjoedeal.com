@@ -160,10 +160,27 @@
   // NOTE: Module scope is isolated - must expose to window for global access
   import {
     S, STAGE_META, LEGACY_MAP, KANBAN_VIEWS,
-    VIEW_SIMPLE, VIEW_INSURANCE, VIEW_CASH, VIEW_FINANCE, VIEW_JOBS,
+    VIEW_SIMPLE, VIEW_INSURANCE, VIEW_CASH, VIEW_FINANCE, VIEW_WARRANTY, VIEW_SERVICE, VIEW_JOBS,
     normalizeStage, stageLabel, stageColor, resolveColumn,
-    stageOptionsForType, inferJobType, JOB_TYPES, tagClass as _tagClass
+    stageOptionsForType, inferJobType, JOB_TYPES, JOB_TYPE_META, jobTypeLabel,
+    SUB_TYPES, subTypeOptionsFor, subTypeLabel,
+    TRADES, tradeLabel, tradesLabel,
+    STAGE_ACTIONS, actionsForStage,
+    REQUIRED_FIELDS_BY_TYPE, requiredFieldsFor, missingRequiredFields,
+    tagClass as _tagClass
   } from './js/crm-stages.js';
+  // Expose the new helpers to non-module scripts (crm.js)
+  window.actionsForStage = actionsForStage;
+  window.requiredFieldsFor = requiredFieldsFor;
+  window.missingRequiredFields = missingRequiredFields;
+  window.subTypeOptionsFor = subTypeOptionsFor;
+  window.subTypeLabel = subTypeLabel;
+  window.tradeLabel = tradeLabel;
+  window.tradesLabel = tradesLabel;
+  window.jobTypeLabel = jobTypeLabel;
+  window.TRADES = TRADES;
+  window.SUB_TYPES = SUB_TYPES;
+  window.JOB_TYPE_META = JOB_TYPE_META;
 
   // Legacy compat — default to insurance pipeline view
   const _currentViewKey = localStorage.getItem('nbd_kanban_view') || 'insurance';
@@ -237,6 +254,490 @@
     if (job) job.style.display = jobStages.includes(stageVal) ? 'block' : 'none';
     // Smart stage dropdown — hide irrelevant track optgroups based on jobType
     window.filterStageDropdownByJobType && window.filterStageDropdownByJobType(jt);
+    // Sub-type + trades row: visible only when a job type is set
+    window.refreshSubTypeAndTrades && window.refreshSubTypeAndTrades(jt);
+    // Next Actions panel: refreshes whenever job type or stage changes
+    window.renderNextActionsPanel && window.renderNextActionsPanel();
+  };
+
+  // ── Sub-type + trades row population ──
+  // Sub-type options come from SUB_TYPES[jobType]. Trades is a fixed list
+  // of multi-select chips; the selection lives on the chip's data-selected
+  // attribute and is read on save. Both hide together until job type is set.
+  window.refreshSubTypeAndTrades = function(jobType) {
+    const row = document.getElementById('lSubTypeRow');
+    if (!row) return;
+    if (!jobType) { row.style.display = 'none'; return; }
+    row.style.display = '';
+
+    // Sub-type select — preserve current value if still valid for the new type
+    const subSel = document.getElementById('lSubType');
+    if (subSel) {
+      const prev = subSel.value;
+      const options = (window.subTypeOptionsFor ? window.subTypeOptionsFor(jobType) : []);
+      subSel.innerHTML = '<option value="">— optional —</option>' +
+        options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+      const stillValid = options.some(o => o.value === prev);
+      if (stillValid) subSel.value = prev;
+    }
+
+    // Trades chips — render once, preserve selection across job type changes
+    const tradeGroup = document.getElementById('lTradesGroup');
+    if (tradeGroup && tradeGroup.children.length === 0 && Array.isArray(window.TRADES)) {
+      tradeGroup.innerHTML = window.TRADES.map(t => `
+        <button type="button" class="trade-chip" data-value="${t.value}" data-selected="0"
+          style="font-size:11px;padding:4px 10px;border-radius:14px;border:1px solid var(--br);background:var(--s2);color:var(--m);cursor:pointer;font-family:inherit;letter-spacing:.02em;"
+          onclick="window.toggleTradeChip(this)">${t.icon || ''} ${t.label}</button>
+      `).join('');
+    }
+  };
+
+  // Toggle a trade chip selection on/off (visual + data-selected flag)
+  window.toggleTradeChip = function(btn) {
+    const on = btn.dataset.selected === '1';
+    btn.dataset.selected = on ? '0' : '1';
+    if (on) {
+      btn.style.background = 'var(--s2)';
+      btn.style.color = 'var(--m)';
+      btn.style.borderColor = 'var(--br)';
+    } else {
+      btn.style.background = 'var(--orange)';
+      btn.style.color = '#fff';
+      btn.style.borderColor = 'var(--orange)';
+    }
+  };
+
+  // Read currently-selected trades as an array of values
+  window.getSelectedTrades = function() {
+    const group = document.getElementById('lTradesGroup');
+    if (!group) return [];
+    return Array.from(group.querySelectorAll('.trade-chip[data-selected="1"]'))
+      .map(b => b.dataset.value);
+  };
+
+  // Reflect a saved trades array onto the chip UI
+  window.setSelectedTrades = function(trades) {
+    const group = document.getElementById('lTradesGroup');
+    if (!group) return;
+    const set = new Set(Array.isArray(trades) ? trades : []);
+    group.querySelectorAll('.trade-chip').forEach(b => {
+      const on = set.has(b.dataset.value);
+      b.dataset.selected = on ? '1' : '0';
+      b.style.background = on ? 'var(--orange)' : 'var(--s2)';
+      b.style.color = on ? '#fff' : 'var(--m)';
+      b.style.borderColor = on ? 'var(--orange)' : 'var(--br)';
+    });
+  };
+
+  // ── Next Actions panel ──
+  // Driven by STAGE_ACTIONS in crm-stages.js. Renders the context-aware
+  // list of actions for the current stage + job type. Buttons emit a
+  // CustomEvent('nbd:lead-action', {detail:{actionId, ...}}) — wire-up
+  // happens incrementally as each action lands.
+  window.renderNextActionsPanel = function() {
+    const panel = document.getElementById('nextActionsPanel');
+    if (!panel) return;
+    const stage = document.getElementById('lStage')?.value || '';
+    const jt    = document.getElementById('lJobType')?.value || '';
+    const editId = document.getElementById('lEditId')?.value || '';
+    if (!editId) { panel.style.display = 'none'; return; } // hide on new lead
+    const actions = (window.actionsForStage ? window.actionsForStage(stage, jt) : []);
+    if (!actions.length) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    const stageName = (window.STAGE_META && window.STAGE_META[stage])?.label || stage || 'this stage';
+    panel.querySelector('.nap-title').textContent = `Next actions — ${stageName}`;
+    const body = panel.querySelector('.nap-body');
+    body.innerHTML = actions.map(a => `
+      <button type="button" class="nap-btn" data-action="${a.id}" data-kind="${a.kind}"
+        onclick="window.runLeadAction('${a.id}', '${a.kind}')"
+        title="${a.kind === 'doc' ? 'Generate document' : a.kind === 'stage' ? 'Advance stage' : 'Action'}">
+        <span class="nap-ico">${a.icon || ''}</span>
+        <span class="nap-lbl">${a.label}</span>
+        <span class="nap-kind nap-kind-${a.kind}">${a.kind}</span>
+      </button>
+    `).join('');
+  };
+
+  // ── Next Actions dispatch ──
+  // Routes a chip click to the right handler. Three families:
+  //   - kind: 'stage'  → advance the lead to a target stage via moveCard
+  //   - kind: 'doc'    → route to the doc generator (estimate, photo report,
+  //                      etc.) when we have an implementation; otherwise
+  //                      log a timeline note + honest toast.
+  //   - kind: 'action' → log a timeline note + honest toast (most are
+  //                      "log that you did this" workflow markers).
+  // Every action also emits the nbd:lead-action CustomEvent so callers
+  // (Ask Joe proactive, telemetry) can observe.
+  //
+  // ACTION_MAP keys are action IDs from STAGE_ACTIONS (crm-stages.js).
+  // The default branch is reached for anything not yet enumerated;
+  // those still get the timeline-log fallback so the chip is useful
+  // even without a custom handler.
+  const STAGE_TARGETS = {
+    mark_adj_done:  'adjuster_inspection_done',
+    create_job:     'job_created',
+    start_install:  'install_in_progress',
+    close_job:      'closed'
+  };
+
+  // Map our Next-Action chip IDs → NBDDocGen document types. The doc
+  // templates already exist in document-generator.js + -templates.js;
+  // we're just wiring the chips to them. inspect_report is special-cased
+  // below to pick the homeowner vs insurance variant by job type.
+  const ACTION_DOC_MAP = {
+    send_aob:        'assignment_of_benefits',
+    send_contract:   'contract',
+    work_order:      'work_authorization',
+    change_order:    'change_order',
+    closeout:        'certificate_of_completion',
+    final_invoice:   'invoice',
+    warranty_cert:   'warranty_certificate',
+    warranty_report: 'before_after_report'
+  };
+
+  // Convert a lead record to the merge-data shape the NBDDocGen templates
+  // expect. Different templates pull different fields out of the bag —
+  // this helper populates the superset so any template gets what it needs.
+  // Missing values become empty strings; the templates already substitute
+  // their own placeholders ("[Homeowner Name]") for falsy values.
+  function _leadToDocData(lead) {
+    if (!lead) return {};
+    const fname = (lead.firstName || lead.fname || '').trim();
+    const lname = (lead.lastName  || lead.lname || '').trim();
+    const homeownerName = (fname + ' ' + lname).trim() || lead.address || '';
+    const job = Number(lead.jobValue) || Number(lead.estimateAmount) || 0;
+    const ded = Number(lead.deductibleOrOwedByHO) || 0;
+    return {
+      // Universal fields used by most templates + the simple {{token}} renderer
+      homeownerName,
+      address:           lead.address || '',
+      homeownerPhone:    lead.phone || '',
+      homeownerEmail:    lead.email || '',
+      phone:             lead.phone || '',
+      email:             lead.email || '',
+      // Insurance fields (renderAssignmentOfBenefits, renderSupplementRequest, renderClaimGuide, etc.)
+      insuranceCompany:  lead.insCarrier || lead.insuranceCarrier || '',
+      claimNumber:       lead.claimNumber || '',
+      policyNumber:      lead.policyNumber || '',
+      dateOfLoss:        lead.dateOfLoss || '',
+      scopeSummary:      lead.scopeOfWork || (lead.damageType ? lead.damageType + ' repair' : ''),
+      // Financial fields (invoice, change order, contract)
+      originalTotal:     job || undefined,
+      totalPrice:        job ? '$' + job.toLocaleString() : '$0.00',
+      deductible:        ded || undefined,
+      // Project description for {{token}} templates
+      projectDescription: lead.scopeOfWork || lead.damageType || '',
+      // Identifiers
+      leadId:            lead.id,
+      customer:          { id: lead.id, name: homeownerName, address: lead.address, phone: lead.phone, email: lead.email },
+      // Pass through the whole lead so any template can dig in if needed
+      lead:              lead
+    };
+  }
+
+  function _findLead(id) {
+    if (!id || !Array.isArray(window._leads)) return null;
+    return window._leads.find(l => l && l.id === id) || null;
+  }
+
+  function _logLeadActivity(leadId, actionId, label) {
+    // Append a lightweight activity entry. We use updateDoc with
+    // arrayUnion so concurrent activity entries from other tabs don't
+    // clobber each other. If Firestore isn't loaded yet this no-ops
+    // gracefully — the toast still fires.
+    if (!leadId || !window.db || !window.doc || !window.updateDoc || !window.arrayUnion) return Promise.resolve(false);
+    const entry = {
+      type: 'next_action',
+      actionId: actionId,
+      label: label || actionId,
+      ts: new Date().toISOString(),
+      user: (window._user && window._user.email) || 'unknown'
+    };
+    return window.updateDoc(window.doc(window.db, 'leads', leadId), {
+      activityLog: window.arrayUnion(entry),
+      updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date()
+    }).then(() => true).catch(err => {
+      console.warn('logLeadActivity failed:', err && err.message);
+      return false;
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────
+  // Doc-data bridge — lets DocPreflight (js/doc-preflight.js) run from
+  // the dashboard the same way it runs on customer.html. The customer
+  // page defines its own getCustomerDocData / checkPrerequisites /
+  // DOC_PREREQUISITES; we mirror the shape here for the dashboard
+  // context, sourcing from window._leads / _estimates / _photoCache.
+  //
+  // We don't clobber the customer-page versions — these only assign
+  // to window.* when the customer-page copies haven't been set yet.
+  // ─────────────────────────────────────────────────────────────────
+  const _DASH_DOC_PREREQUISITES = {
+    proposal:                   { needs: ['estimate'],                  label: 'Proposal / Estimate', msg: 'Build an estimate first.' },
+    contract:                   { needs: ['estimate', 'contact'],       label: 'Roofing Contract',    msg: 'Build an estimate and add customer contact info.' },
+    work_authorization:         { needs: ['address', 'scope'],          label: 'Work Authorization',  msg: 'Add property address and scope of work.' },
+    scope_of_work:              { needs: ['estimate'],                  label: 'Scope of Work',       msg: 'Build an estimate to generate scope details.' },
+    inspectionHomeowner:        { needs: ['photos'],                    label: 'Inspection Report',   msg: 'Upload inspection photos first.' },
+    inspectionInsurance:        { needs: ['photos', 'claim'],           label: 'Insurance Report',    msg: 'Upload photos and add insurance carrier + claim #.' },
+    supplement_request:         { needs: ['estimate', 'claim'],         label: 'Supplement Request',  msg: 'Requires an estimate and filed insurance claim.' },
+    warranty_certificate:       { needs: ['jobComplete'],               label: 'Warranty Certificate',msg: 'Job must be marked Complete to generate warranty.' },
+    certificate_of_completion:  { needs: ['jobComplete', 'beforeAfterPhotos'], label: 'Certificate of Completion', msg: 'Job must be complete with before & after photos.' },
+    invoice:                    { needs: ['jobValue'],                  label: 'Invoice',             msg: 'Add a job value or build an estimate first.' },
+    change_order:               { needs: ['estimate'],                  label: 'Change Order',        msg: 'Requires an existing estimate to modify.' },
+    before_after_report:        { needs: ['beforeAfterPhotos'],         label: 'Before & After Report', msg: 'Need BOTH before and after photos uploaded.' },
+    financing_options:          { needs: ['jobValue'],                  label: 'Financing Options',   msg: 'Add a job value or build an estimate.' },
+    assignment_of_benefits:     { needs: ['claim'],                     label: 'Assignment of Benefits', msg: 'Requires an insurance claim (carrier + claim #).' },
+    payment_agreement:          { needs: ['jobValue', 'contact'],       label: 'Payment Agreement',   msg: 'Add job value and customer contact info.' }
+  };
+
+  function _dashGetCustomerDocData(leadId) {
+    const lead = (window._leads || []).find(l => l && l.id === leadId) || {};
+    const id = leadId;
+    const estimates = (window._estimates || []).filter(e => e && (e.leadId === leadId || e.customerId === leadId));
+    const photoBag = (window._photoCache && window._photoCache[leadId]) || [];
+    const est = estimates.length > 0 ? estimates[0] : null;
+    const before = photoBag.filter(p => (p.phase || '').toLowerCase() === 'before');
+    const after  = photoBag.filter(p => (p.phase || '').toLowerCase() === 'after');
+    const during = photoBag.filter(p => (p.phase || '').toLowerCase() === 'during');
+    const fname = (lead.firstName || lead.fname || '').trim();
+    const lname = (lead.lastName  || lead.lname || '').trim();
+    const name  = (fname + ' ' + lname).trim();
+    const jobVal = lead.jobValue || (est ? est.grandTotal : 0);
+    const isComplete = (lead.stage || '').toLowerCase().includes('complete') ||
+                       (lead.stage || '').toLowerCase().includes('closed');
+    return {
+      // Customer
+      homeownerName: name, customerName: name,
+      firstName: fname, lastName: lname,
+      address: lead.address || '', homeownerAddress: lead.address || '',
+      phone:   lead.phone   || '', customerPhone:   lead.phone   || '',
+      email:   lead.email   || '', customerEmail:   lead.email   || '',
+      // Job
+      damageType: lead.damageType || '', stage: lead.stage || '',
+      source: lead.source || '', notes: lead.notes || '',
+      jobType: lead.jobType || '', jobValue: jobVal,
+      scopeOfWork: lead.scopeOfWork || '',
+      projectDescription: lead.scopeOfWork || (est && est.description) || '',
+      // Insurance
+      insCarrier: lead.insCarrier || '', insuranceCompany: lead.insCarrier || '',
+      claimNumber: lead.claimNumber || '', claimStatus: lead.claimStatus || '',
+      policyNumber: lead.policyNumber || '',
+      dateOfLoss: lead.dateOfLoss || '',
+      deductible: lead.deductibleOrOwedByHO || '',
+      supplementStatus: lead.supplementStatus || '',
+      // Estimate
+      totalPrice:     jobVal ? '$' + Number(jobVal).toLocaleString() : '',
+      estimateAmount: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
+      contractPrice:  jobVal ? '$' + Number(jobVal).toLocaleString() : '',
+      warrantyTier:   (est && (est.tier || est.tierName)) || lead.warrantyTier || '',
+      estimateLineItems: (est && est.lineItems) || [],
+      // Photos
+      beforePhotoUrl: (before[0] && before[0].url) || '',
+      afterPhotoUrl:  (after[0]  && after[0].url)  || '',
+      beforePhotos: before, afterPhotos: after, duringPhotos: during,
+      photoCount: photoBag.length, allPhotos: photoBag,
+      // Meta
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      leadId: id,
+      // Prerequisite flags
+      _hasEstimate: estimates.length > 0,
+      _hasPhotos:   photoBag.length > 0,
+      _hasBeforeAfterPhotos: before.length > 0 && after.length > 0,
+      _hasClaim:    !!(lead.claimNumber && lead.insCarrier),
+      _hasContact:  !!(lead.phone || lead.email),
+      _hasAddress:  !!lead.address,
+      _hasScope:    !!(lead.scopeOfWork || (est && est.description)),
+      _hasJobValue: !!jobVal,
+      _isJobComplete: isComplete
+    };
+  }
+
+  function _dashCheckPrerequisites(type, data) {
+    const prereq = _DASH_DOC_PREREQUISITES[type];
+    if (!prereq) return { ok: true };
+    const missing = [];
+    for (const need of prereq.needs) {
+      switch (need) {
+        case 'estimate':  if (!data._hasEstimate)  missing.push('Build an estimate'); break;
+        case 'contact':   if (!data._hasContact)   missing.push('Add phone or email'); break;
+        case 'address':   if (!data._hasAddress)   missing.push('Add property address'); break;
+        case 'scope':     if (!data._hasScope)     missing.push('Add scope of work'); break;
+        case 'photos':    if (!data._hasPhotos)    missing.push('Upload inspection photos'); break;
+        case 'claim':     if (!data._hasClaim)     missing.push('Add insurance carrier & claim number'); break;
+        case 'jobValue':  if (!data._hasJobValue)  missing.push('Add job value or build estimate'); break;
+        case 'jobComplete': if (!data._isJobComplete) missing.push('Mark job as Complete / Closed'); break;
+        case 'beforeAfterPhotos': if (!data._hasBeforeAfterPhotos) missing.push('Upload both Before AND After photos'); break;
+      }
+    }
+    return missing.length ? { ok: false, missing, label: prereq.label, msg: prereq.msg } : { ok: true };
+  }
+
+  // Expose only if the customer-page versions aren't there. Customer
+  // page wins because it has fresh-loaded estimates/photos for the
+  // open lead; the dashboard variant pulls from cached _leads /
+  // _estimates / _photoCache.
+  if (typeof window.getCustomerDocData !== 'function') {
+    window.getCustomerDocData = function(maybeLeadId) {
+      const id = maybeLeadId || window._customerId || document.getElementById('lEditId')?.value;
+      return _dashGetCustomerDocData(id);
+    };
+  }
+  if (typeof window.checkPrerequisites !== 'function') {
+    window.checkPrerequisites = _dashCheckPrerequisites;
+  }
+
+  // Stage the window globals doc-preflight.js reads from. The preflight
+  // module uses window._leadDoc / _customerId / _customerEstimates /
+  // _allPhotos as its source of truth; on the dashboard these aren't
+  // set, so we mirror them just-in-time before opening the modal.
+  function _stageWindowStateForLead(leadId) {
+    const lead = (window._leads || []).find(l => l && l.id === leadId);
+    if (!lead) return false;
+    window._leadDoc = lead;
+    window._customerId = leadId;
+    window._customerEstimates = (window._estimates || []).filter(e => e && (e.leadId === leadId || e.customerId === leadId));
+    window._allPhotos = (window._photoCache && window._photoCache[leadId]) || [];
+    return true;
+  }
+
+  // Render the "Can't generate — missing X" modal. Copy of the same UX
+  // pattern used on customer.html, so the rep sees the same message
+  // regardless of where they triggered generation from.
+  function _showPrereqModal(check) {
+    const escFn = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+      <div style="background:var(--s,#111);border:1px solid var(--br,#333);border-radius:14px;padding:32px;max-width:440px;width:90%;text-align:center;">
+        <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--t,#fff);margin-bottom:8px;">Can't generate ${escFn(check.label || 'document')}</div>
+        <div style="font-size:13px;color:var(--m,#888);margin-bottom:16px;">${escFn(check.msg || 'This document needs data that hasn’t been added yet:')}</div>
+        <div style="text-align:left;background:var(--s2,#1a1a2e);border-radius:8px;padding:14px;margin-bottom:20px;">
+          ${check.missing.map(m => '<div style="font-size:13px;color:var(--orange,#e8720c);padding:4px 0;">• ' + escFn(m) + '</div>').join('')}
+        </div>
+        <button class="nbd-preq-close" style="padding:12px 28px;background:var(--orange,#e8720c);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got it</button>
+      </div>`;
+    modal.querySelector('.nbd-preq-close').addEventListener('click', () => modal.remove());
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+  }
+
+  // Helper used by the doc branch — runs prerequisites + opens the
+  // preflight modal (which calls NBDDocGen.generate on submit). Falls
+  // through to direct generate if DocPreflight isn't loaded yet.
+  function _generateDocWithPreflight(docType, leadId) {
+    if (!leadId) {
+      if (typeof showToast === 'function') showToast('Open a lead first', 'warning');
+      return;
+    }
+    if (!_stageWindowStateForLead(leadId)) {
+      if (typeof showToast === 'function') showToast('Lead not found — refresh the page and try again', 'error');
+      return;
+    }
+    const data = _dashGetCustomerDocData(leadId);
+    const check = _dashCheckPrerequisites(docType, data);
+    if (!check.ok) {
+      _showPrereqModal(check);
+      return;
+    }
+    if (window.DocPreflight && typeof window.DocPreflight.open === 'function') {
+      window.DocPreflight.open(docType, leadId);
+      return;
+    }
+    // DocPreflight not loaded yet — fall back to direct generate with
+    // the bridge data so the rep isn't blocked.
+    if (window.NBDDocGen && typeof window.NBDDocGen.generate === 'function') {
+      window.NBDDocGen.generate(docType, data);
+    } else if (typeof showToast === 'function') {
+      showToast('Document generator is still loading — try again in a moment', 'warning');
+    }
+  }
+
+  window.runLeadAction = function(actionId, kind) {
+    const leadId = document.getElementById('lEditId')?.value || null;
+    const lead = _findLead(leadId);
+    // Emit for observers regardless of how the action is handled.
+    document.dispatchEvent(new CustomEvent('nbd:lead-action', {
+      detail: { actionId, kind, leadId }
+    }));
+
+    // ── Stage advances ──
+    if (kind === 'stage') {
+      const target = STAGE_TARGETS[actionId];
+      if (target && leadId && typeof window.moveCard === 'function') {
+        // Close the lead modal first so the kanban renders the new stage
+        if (typeof window.closeLeadModal === 'function') window.closeLeadModal();
+        window.moveCard(leadId, target);
+        return;
+      }
+      // Fall through — stage actions without a target shouldn't happen,
+      // but if they do we toast honestly rather than silently doing nothing.
+      if (typeof showToast === 'function') showToast('Stage target not configured for this action', 'warning');
+      return;
+    }
+
+    // ── Document generators ──
+    if (kind === 'doc') {
+      // 1. Native (lead-aware) handlers first — these have their own
+      //    UI flows and don't route through the generic NBDDocGen viewer.
+      if (actionId === 'photo_report') {
+        if (typeof window.generatePhotoReport === 'function' && leadId) {
+          try { window.generatePhotoReport(leadId); return; } catch (e) { console.warn('generatePhotoReport threw:', e.message); }
+        }
+      } else if (actionId === 'send_estimate' || actionId === 'send_quote' || actionId === 'revise_estimate') {
+        if (typeof window.startNewEstimate === 'function' && leadId) {
+          try { window.startNewEstimate(leadId); return; } catch (e) { console.warn('startNewEstimate threw:', e.message); }
+        }
+      } else if (actionId === 'inspect_report') {
+        // Pick the right inspection variant — insurance leads get the
+        // technical (code citations) report, others get the homeowner
+        // (cleaner, readable) variant.
+        const docType = (lead && lead.jobType === 'insurance') ? 'inspectionInsurance' : 'inspectionHomeowner';
+        _generateDocWithPreflight(docType, leadId);
+        return;
+      } else if (actionId === 'request_supp') {
+        // request_supp is wired as kind:'action' in STAGE_ACTIONS (it
+        // changes supplementStatus), but if it ever arrives as a doc
+        // generation request, route to the supplement_request letter.
+        _generateDocWithPreflight('supplement_request', leadId);
+        return;
+      } else if (ACTION_DOC_MAP[actionId]) {
+        // 2. Mapped doc types — every other chip with a doc kind whose
+        //    action ID is in ACTION_DOC_MAP (AOB, contract, change order,
+        //    invoice, warranty cert, etc.) goes through DocPreflight,
+        //    which gathers any missing merge fields and persists the
+        //    rep's edits (LEAD / DOCUMENT / EPHEMERAL) before calling
+        //    NBDDocGen.generate. Prereq check happens inside the
+        //    helper — if the lead is missing required data (claim #,
+        //    estimate, before/after photos, etc.) we show a clear
+        //    modal listing what's needed instead of generating a doc
+        //    full of placeholder strings.
+        _generateDocWithPreflight(ACTION_DOC_MAP[actionId], leadId);
+        return;
+      }
+      // 3. Generic fallback for any doc-kind chip we haven't mapped yet.
+      //    Logs to the lead activity so the rep at least has a marker.
+      const docLabel = (actionId || 'document').replace(/_/g, ' ');
+      if (typeof showToast === 'function') {
+        showToast(`"${docLabel}" — logged on the lead (generator wiring pending)`, 'info');
+      }
+      if (leadId) _logLeadActivity(leadId, actionId, docLabel);
+      return;
+    }
+
+    // ── Plain workflow actions ──
+    // No doc, no stage change — just record that the rep did the thing.
+    // Useful for "Log Contact", "Follow Up", "Order Materials", etc.
+    const label = (actionId || 'action').replace(/_/g, ' ');
+    if (leadId) {
+      _logLeadActivity(leadId, actionId, label).then(ok => {
+        if (typeof showToast === 'function') {
+          showToast(ok ? `✓ Logged: ${label}` : `Couldn't log ${label} — try again`, ok ? 'success' : 'warning');
+        }
+      });
+    } else {
+      if (typeof showToast === 'function') showToast('Open a lead first to log this action', 'warning');
+    }
   };
 
   // ── Smart stage dropdown filter ──
@@ -252,14 +753,18 @@
     groups.forEach(g => {
       const label = (g.label || '').toLowerCase();
       let show = true;
+      // Hide optgroups labeled for other tracks. Empty jobType shows everything.
       if (jobType === 'insurance') {
-        if (label.includes('cash') || label.includes('finance')) show = false;
+        if (label.includes('cash') || label.includes('finance') || label.includes('warranty') || label.includes('service')) show = false;
       } else if (jobType === 'cash') {
-        if (label.includes('insurance') || label.includes('finance')) show = false;
+        if (label.includes('insurance') || label.includes('finance') || label.includes('warranty') || label.includes('service')) show = false;
       } else if (jobType === 'finance') {
-        if (label.includes('insurance') || label.includes('cash')) show = false;
+        if (label.includes('insurance') || label.includes('cash') || label.includes('warranty') || label.includes('service')) show = false;
+      } else if (jobType === 'warranty') {
+        if (label.includes('insurance') || label.includes('cash') || label.includes('finance') || label.includes('service')) show = false;
+      } else if (jobType === 'service') {
+        if (label.includes('insurance') || label.includes('cash') || label.includes('finance') || label.includes('warranty')) show = false;
       }
-      // jobType === '' → show everything
       g.style.display = show ? '' : 'none';
       // Check if the currently selected option lives in a hidden group
       g.querySelectorAll('option').forEach(o => {
@@ -288,6 +793,29 @@
     if (jtSel) jtSel.addEventListener('change', window.toggleInsuranceFields);
     const stSel = document.getElementById('lStage');
     if (stSel) stSel.addEventListener('change', window.toggleInsuranceFields);
+
+    // Drop "?" help icons next to high-impact labels. The helper is
+    // defer-loaded so we retry a couple times until it's available.
+    function _attachHelpIcons() {
+      if (!window.HelpIcon) return false;
+      const findLabel = (id) => {
+        const el = document.getElementById(id);
+        return el?.closest('.mfield')?.querySelector('label') || null;
+      };
+      // Job Type — links to the new job-types section since we just shipped it
+      const jtLbl = findLabel('lJobType');
+      if (jtLbl) window.HelpIcon.attach(jtLbl, 'job-types', { position: 'inside' });
+      // Stage — links to the kanban section
+      const stLbl = findLabel('lStage');
+      if (stLbl) window.HelpIcon.attach(stLbl, 'kanban', { position: 'inside' });
+      return true;
+    }
+    if (!_attachHelpIcons()) {
+      let n = 0;
+      const t = setInterval(() => {
+        if (_attachHelpIcons() || ++n > 20) clearInterval(t);
+      }, 250);
+    }
   });
 
   // ── Global drop handler for kanban columns ──
@@ -324,6 +852,18 @@
   };
 
   document.documentElement.style.visibility="hidden";
+  // Safety net: force the page visible after 5s no matter what.
+  // Without this, an auth or subscription getDoc that hangs (iOS bfcache,
+  // slow network) leaves the page invisible indefinitely — looks like
+  // a blank/transparent app and is the root of "I have to refresh several
+  // times". The flip is idempotent; the auth handler's own =visible call
+  // still runs when ready.
+  setTimeout(() => {
+    if (document.documentElement.style.visibility === 'hidden') {
+      console.warn('[boot] visibility safety net fired — auth/subscription took >5s');
+      document.documentElement.style.visibility = 'visible';
+    }
+  }, 5000);
   const app     = initializeApp(firebaseConfig);
 
   // ─── App Check (C-4) ──────────────────────────────────────
@@ -446,7 +986,14 @@
       // Access code users, free tier, and trial users all have no
       // subscription doc — that's normal, not an error.
       try {
-        const subSnap = await getDoc(doc(db, 'subscriptions', user.uid));
+        // 4s timeout — on iOS bfcache restore this getDoc can hang
+        // forever instead of rejecting, blocking the visibility=visible
+        // flip below and leaving the dashboard invisible. Soft failure
+        // here drops to free tier (billing-gate enforces real limits).
+        const subSnap = await Promise.race([
+          getDoc(doc(db, 'subscriptions', user.uid)),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Subscription check timed out')), 4000))
+        ]);
         if (subSnap.exists()) {
           const subscription = subSnap.data();
           window._subscription = subscription;
@@ -548,10 +1095,9 @@
     if (window._subscription?._failOpen) {
       setTimeout(() => showToast('Subscription check had a hiccup - you are in. Refreshing will resolve it.', 'warning'), 2000);
     }
-    // Show onboarding for new users — delay enough for all data to settle
-    setTimeout(() => {
-      if (typeof checkAndShowOnboarding === 'function') checkAndShowOnboarding();
-    }, 1500);
+    // New-user onboarding is handled by OnboardingTour (js/onboarding-tour.js).
+    // The legacy modal-based flow that lived here referenced DOM that was
+    // never built (#onboardingModal, #onbStep1, etc.); call removed.
     const name = user.displayName || user.email.split('@')[0];
     document.getElementById('userName').textContent   = name;
     document.getElementById('userAvatar').textContent = name[0].toUpperCase();
@@ -1297,8 +1843,40 @@
             if (window._leadsLoaded) return;
             try { loadLeads(); } catch (_) {}
           }, delay);
+        } else {
+          // ── Slow-loop fallback ──
+          // The 3 fast retries already failed. Instead of giving up
+          // entirely, keep trying at a 15s cadence for another 5 attempts
+          // (~75s recovery window). This catches the iOS Safari case
+          // where the network handshake takes longer than the fast-retry
+          // budget allows. The diag banner shows the live state.
+          const slowAttempt = (window._loadLeadsSlowAttempt = (window._loadLeadsSlowAttempt || 0) + 1);
+          if (slowAttempt <= 5) {
+            const slowDelay = 15000;
+            window._loadLeadsNextRetryAt = Date.now() + slowDelay;
+            console.warn(`loadLeads slow retry ${slowAttempt}/5 in ${slowDelay}ms`);
+            window._loadLeadsRetryTimer = setTimeout(() => {
+              window._loadLeadsRetryTimer = null;
+              window._loadLeadsNextRetryAt = null;
+              if (window._leadsLoaded) return;
+              try { loadLeads(); } catch (_) {}
+            }, slowDelay);
+          } else {
+            console.error('loadLeads exhausted slow-loop retries — user can tap the diag banner to retry');
+            window._loadLeadsExhausted = true;
+            window._loadLeadsNextRetryAt = null;
+          }
         }
       }
+    }
+    // Reset retry counters on success so the next transient failure gets
+    // the full retry budget again. Without this, a single recovered load
+    // followed by a later failure would skip straight to slow-loop / give-up.
+    if (window._leadsLoaded) {
+      window._loadLeadsRetryAttempt = 0;
+      window._loadLeadsSlowAttempt = 0;
+      window._loadLeadsExhausted = false;
+      window._loadLeadsNextRetryAt = null;
     }
     // Load photo cache for thumbnails
     try {
@@ -1349,6 +1927,16 @@
     }
     // Fire follow-up notifications after leads are fresh
     setTimeout(() => checkAndCreateFollowUpNotifications(window._leads), 1200);
+    // Needs-field auto-notifier — flags leads stuck without a required
+    // field for their current stage so the rep doesn't discover it
+    // mid-drag. Delayed slightly past the follow-up check so the
+    // existing-keys dedupe (which reads window._notifications) sees
+    // any fresh follow-ups before deciding what to add on top.
+    setTimeout(() => {
+      if (typeof window.checkAndCreateNeedsFieldNotifications === 'function') {
+        window.checkAndCreateNeedsFieldNotifications(window._leads);
+      }
+    }, 2400);
     // Render KPI analytics row on home dashboard (with margin card)
     if (typeof renderKPIRow === 'function') setTimeout(() => {
       renderKPIRow();
@@ -2530,8 +3118,105 @@
   // ═════════════════════════════════════════════════════════
   // NOTIFICATION SETTINGS
   // ═════════════════════════════════════════════════════════
-  const NOTIF_TRIGGERS = ['notifOverdue','notifHot','notifStorm','notifApproval','notifInbound','notifD2d'];
+  // Trigger IDs match the checkbox element IDs in the Notifications
+  // settings tab. notifNeedsField is new (added with the auto-needs-
+  // field notifier) so the user can opt out of the "this lead is
+  // missing required data" pings.
+  const NOTIF_TRIGGERS = ['notifOverdue','notifHot','notifStorm','notifApproval','notifInbound','notifD2d','notifNeedsField'];
   const NOTIF_CHANNELS = ['chInApp','chPush','chEmail','chSms'];
+
+  // Default state — used when no localStorage settings exist yet.
+  // Matches the defaults baked into the settings UI HTML (notifOverdue
+  // through notifApproval default on; notifD2d off; needs-field on).
+  const _NOTIF_DEFAULTS = {
+    mode: 'critical',
+    triggers: {
+      notifOverdue: true,  notifHot: true,    notifStorm: true,
+      notifApproval: true, notifInbound: true, notifD2d: false,
+      notifNeedsField: true
+    },
+    channels: { chInApp: true, chPush: false, chEmail: true, chSms: false }
+  };
+
+  // Map a notification's `type` field to the settings trigger that
+  // gates it. Anything not in the map is treated as "no specific
+  // trigger" and falls through to the mode check only.
+  const _NOTIF_TYPE_TO_TRIGGER = {
+    follow_up:    'notifOverdue',
+    task_overdue: 'notifOverdue',
+    needs_field:  'notifNeedsField',
+    lead_review:  'notifApproval',
+    estimate_approved: 'notifApproval',
+    inbound_msg:  'notifInbound',
+    storm_alert:  'notifStorm',
+    hot_lead:     'notifHot',
+    d2d_update:   'notifD2d'
+  };
+
+  function _readNotifSettings() {
+    try {
+      const raw = localStorage.getItem('nbd_notif_settings');
+      if (!raw) return _NOTIF_DEFAULTS;
+      const data = JSON.parse(raw) || {};
+      // Merge against defaults so missing keys (e.g. brand-new
+      // notifNeedsField on accounts that saved settings before it
+      // existed) still get a sane value.
+      return {
+        mode: data.mode || _NOTIF_DEFAULTS.mode,
+        triggers: Object.assign({}, _NOTIF_DEFAULTS.triggers, data.triggers || {}),
+        channels: Object.assign({}, _NOTIF_DEFAULTS.channels, data.channels || {})
+      };
+    } catch (_) { return _NOTIF_DEFAULTS; }
+  }
+
+  // Public predicate: "should this notification fire?"
+  //   notifType  — string from the canonical list (or any string;
+  //                unknown types skip the trigger check).
+  //   channel    — 'inApp' | 'push' | 'email' | 'sms' | 'firestore'
+  //                ('firestore' = persisting into the notifications
+  //                collection, the in-app bell dropdown source).
+  //   priority   — 'high' | 'normal' | 'low'. Critical mode only
+  //                fires 'high'. Digest mode suppresses 'normal'/'low'
+  //                in real time (they accumulate for the digest).
+  // Returns true if the firing code should proceed.
+  window.shouldFireNotif = function (notifType, channel, priority) {
+    const s = _readNotifSettings();
+
+    // Mode check
+    const pr = priority || 'normal';
+    if (s.mode === 'critical' && pr !== 'high') return false;
+    if (s.mode === 'digest' && pr !== 'high') {
+      // Digest mode: only the digest scheduler should fire normal/low
+      // priority items at 7am / 3pm. The digest scheduler passes a
+      // 'digest' channel marker; everything else is suppressed.
+      if (channel !== 'digest') return false;
+    }
+    // Firehose mode: every priority passes the mode check.
+
+    // Trigger check — if the type maps to a known trigger and the user
+    // turned that trigger off, suppress.
+    const triggerId = _NOTIF_TYPE_TO_TRIGGER[notifType];
+    if (triggerId && s.triggers[triggerId] === false) return false;
+
+    // Channel check — translate channel name to its setting ID.
+    if (channel) {
+      const channelMap = {
+        inApp:     'chInApp',
+        push:      'chPush',
+        email:     'chEmail',
+        sms:       'chSms',
+        // 'firestore' / 'digest' aren't user-gated channels (they're
+        // internal persistence / scheduling, not delivery surfaces).
+      };
+      const channelId = channelMap[channel];
+      if (channelId && s.channels[channelId] === false) return false;
+    }
+
+    return true;
+  };
+
+  // Convenience peek (mostly for tests/devtools).
+  window._getNotifSettings = _readNotifSettings;
 
   window._saveNotifSettings = async function() {
     const modeEl = document.querySelector('input[name="notifMode"]:checked');
@@ -4192,6 +4877,25 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .msave{width:100%;background:var(--orange);color:var(--t);border:none;border-radius:8px;padding:11px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:6px;}
 .msave:hover{background:var(--ob);}
+/* Next Actions panel — context-aware action chips inside the lead modal */
+.nap-btn{display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--br);border-radius:18px;padding:6px 11px;font-family:'Barlow',sans-serif;font-size:12px;color:var(--t);cursor:pointer;transition:all .15s;}
+.nap-btn:hover{border-color:var(--orange);background:rgba(212,160,23,.08);}
+.nap-btn .nap-ico{font-size:14px;line-height:1;}
+.nap-btn .nap-lbl{font-weight:600;letter-spacing:.01em;}
+.nap-btn .nap-kind{font-size:8px;letter-spacing:.1em;text-transform:uppercase;color:var(--m);background:var(--s);border:1px solid var(--br);border-radius:8px;padding:1px 6px;font-weight:700;}
+.nap-btn .nap-kind-doc{color:#0891b2;border-color:rgba(8,145,178,.4);}
+.nap-btn .nap-kind-stage{color:#16a34a;border-color:rgba(22,163,74,.4);}
+/* Trade chip — selected state controlled inline by toggleTradeChip */
+.trade-chip:hover{border-color:var(--orange);}
+/* Touch-device polish — chips inside modals are the easiest tap target to
+   miss on a phone, so we bump them to a 40px floor and kill hover sticking. */
+@media (pointer: coarse) {
+  .nap-btn { min-height: 40px; padding: 8px 13px; font-size: 13px; }
+  .nap-btn .nap-ico { font-size: 15px; }
+  .nap-btn:hover { background: var(--s2); border-color: var(--br); }
+  .trade-chip { min-height: 36px; padding: 8px 13px !important; font-size: 12px !important; }
+  .trade-chip:hover { border-color: var(--br); }
+}
 .merr{background:rgba(220,50,50,.1);border:1px solid rgba(220,50,50,.3);border-radius:6px;padding:7px 11px;font-size:11px;color:#ff7070;margin-bottom:10px;display:none;}
 .mok{background:rgba(46,204,138,.1);border:1px solid rgba(46,204,138,.3);border-radius:6px;padding:7px 11px;font-size:11px;color:var(--green);margin-bottom:10px;display:none;}
 
@@ -6440,6 +7144,13 @@ body {
   .kct-claim{background:color-mix(in srgb, var(--green) 18%, transparent);color:var(--green);}
   .kct-val{background:color-mix(in srgb, var(--orange) 18%, transparent);color:var(--orange);font-weight:800;}
   .kct-due{background:color-mix(in srgb, var(--red) 18%, transparent);color:var(--red);}
+  /* Needs-X badge — surfaces required fields blocking stage advancement. */
+  .kct-needs{
+    background:color-mix(in srgb, var(--gold, #F59E0B) 18%, transparent);
+    color:var(--gold, #F59E0B);
+    border:1px solid color-mix(in srgb, var(--gold, #F59E0B) 40%, transparent);
+    cursor:help;
+  }
   .kc-footer{display:flex!important;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid color-mix(in srgb, var(--ink) 12%, transparent);margin-top:2px;}
   .kc-phone{font-size:var(--kcard-meta-fz);color:var(--ink-soft);}
   .kc-actions{display:flex!important;gap:4px;}
@@ -8999,6 +9710,7 @@ function switchScTab(tab, btn) {
     </div>
   </div>
 
+  <div class="ni" onclick="window.open('how-to.html','_blank','noopener')" id="nav-howto" title="Step-by-step instructions"><span class="ni-icon">📖</span>How To</div>
   <div class="ni" onclick="goTo('settings')" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
   <div class="ni" onclick="goTo('admin')" id="nav-admin" style="display:none;"><span class="ni-icon">🛡️</span>Team Manager</div>
 
@@ -10011,6 +10723,8 @@ function switchScTab(tab, btn) {
           <button class="kview-btn active" data-view="insurance" onclick="switchKanbanView('insurance')">Ins</button>
           <button class="kview-btn" data-view="cash" onclick="switchKanbanView('cash')">Cash</button>
           <button class="kview-btn" data-view="finance" onclick="switchKanbanView('finance')">Fin</button>
+          <button class="kview-btn" data-view="warranty" onclick="switchKanbanView('warranty')" title="Warranty / callback pipeline">War</button>
+          <button class="kview-btn" data-view="service" onclick="switchKanbanView('service')" title="Service / small repair pipeline">Svc</button>
           <button class="kview-btn" data-view="jobs" onclick="switchKanbanView('jobs')">Jobs</button>
           <button class="kview-btn" data-view="simple" onclick="switchKanbanView('simple')">All</button>
         </div>
@@ -10719,8 +11433,12 @@ function switchScTab(tab, btn) {
           <div class="empty">
             <div class="empty-icon">📁</div>
             <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:6px;">No uploaded documents yet</div>
-            <div style="font-size:12px;color:var(--m);margin-bottom:14px;max-width:380px;">Upload contracts, scopes, photos of damage, or signed paperwork. Documents attached to a lead also surface in the homeowner's portal.</div>
-            <button class="btn btn-orange" onclick="if(typeof openUploadDocModal==='function')openUploadDocModal();else showToast('Click ＋ Upload above','info')" style="font-size:12px;padding:8px 14px;">＋ Upload a document</button>
+            <div style="font-size:12px;color:var(--m);margin-bottom:14px;max-width:380px;">Documents are uploaded per lead — open a customer's detail page to attach contracts, scopes, damage photos, or signed paperwork. They'll show up here once attached.</div>
+            <!-- Pre-fix: this had a "＋ Upload a document" button calling
+                 openUploadDocModal() which doesn't exist. The real upload
+                 flow lives on customer.html (per-lead). Routing to the CRM
+                 so the user can pick a lead to upload to. -->
+            <button class="btn btn-orange" onclick="goTo('crm')" style="font-size:12px;padding:8px 14px;">Open Pipeline →</button>
           </div>
         </div>
       </div>
@@ -12036,7 +12754,12 @@ function switchScTab(tab, btn) {
             </div>
             <div style="display:flex;gap:8px;">
               <a href="/pro/pricing.html" class="btn btn-orange" style="font-size:11px;padding:8px 14px;text-decoration:none;">View All Plans</a>
-              <button class="btn btn-ghost" style="font-size:11px;padding:8px 14px;" onclick="if(typeof openCustomerPortalSession==='function')openCustomerPortalSession();else showToast('Manage subscription from the pricing page','info')">Manage Subscription</button>
+              <!-- Stripe customer-portal session opener (openCustomerPortalSession)
+                   isn't wired yet, so this used to call an undefined function and
+                   fall back to a toast that just told you to go to the pricing
+                   page. Now we link directly there. When the Stripe Cloud
+                   Function ships, swap this <a> for the proper opener. -->
+              <a href="/pro/pricing.html" class="btn btn-ghost" style="font-size:11px;padding:8px 14px;text-decoration:none;">Manage Subscription</a>
             </div>
           </div>
         </div>
@@ -12234,6 +12957,13 @@ function switchScTab(tab, btn) {
                 </div>
                 <input type="checkbox" id="notifD2d">
               </label>
+              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+                <div>
+                  <div style="font-size:13px;color:var(--t);">Missing-Field Reminders</div>
+                  <div style="font-size:10px;color:var(--m);">Lead stuck without a required field (carrier, claim #, job value, etc.)</div>
+                </div>
+                <input type="checkbox" id="notifNeedsField" checked>
+              </label>
             </div>
           </div>
         </div>
@@ -12281,7 +13011,10 @@ function switchScTab(tab, btn) {
               <div style="font-size:13px;color:var(--t);margin-bottom:4px;font-weight:600;">5-step product tour</div>
               <div style="font-size:11px;color:var(--m);">Quick walkthrough of the kanban, prospects, D2D tracker, and settings. Useful for new reps or as a refresher.</div>
             </div>
-            <button class="btn btn-orange" onclick="if(window.OnboardingTour)window.OnboardingTour.forceRestart();else showToast('Tour module not loaded','error')" style="font-size:12px;padding:8px 14px;">▶ Start Tour</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button class="btn btn-orange" onclick="if(window.OnboardingTour)window.OnboardingTour.forceRestart();else showToast('Tour module not loaded','error')" style="font-size:12px;padding:8px 14px;">▶ Start Tour</button>
+              <button class="btn btn-ghost" onclick="window.open('how-to.html','_blank','noopener')" style="font-size:12px;padding:8px 14px;">📖 Full How-To</button>
+            </div>
           </div>
         </div>
 
@@ -12334,9 +13067,12 @@ function switchScTab(tab, btn) {
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">Quick Reference</div><div class="panel-title">Shortcuts & How-To Guide</div></div></div>
           <div class="panel-body">
-            <p style="color:var(--m);font-size:13px;margin-bottom:16px;">Access the full keyboard shortcuts matrix and how-to guide anytime.</p>
-            <button onclick="openShortcutsPanel()" style="padding:10px 20px;background:var(--orange);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;margin-bottom:16px;">Open Shortcuts & Guide Panel</button>
-            <div style="color:var(--m);font-size:12px;">Tip: Press <kbd style="font-family:'Barlow Condensed';font-size:11px;font-weight:600;color:var(--t);background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;">?</kbd> from anywhere in the app to open this instantly.</div>
+            <p style="color:var(--m);font-size:13px;margin-bottom:16px;">Access the full keyboard shortcuts matrix and the step-by-step how-to guide anytime.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
+              <button onclick="openShortcutsPanel()" style="padding:10px 20px;background:var(--orange);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">⌨️ Shortcuts Overlay</button>
+              <button onclick="window.open('how-to.html','_blank','noopener')" style="padding:10px 20px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">📖 Open Full How-To</button>
+            </div>
+            <div style="color:var(--m);font-size:12px;">Tip: Press <kbd style="font-family:'Barlow Condensed';font-size:11px;font-weight:600;color:var(--t);background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;">?</kbd> from anywhere in the app to open the shortcuts overlay instantly.</div>
           </div>
         </div>
 
@@ -12787,6 +13523,16 @@ function switchScTab(tab, btn) {
             <option value="prequal_sent">Pre-Qual Sent</option>
             <option value="loan_approved">Loan Approved</option>
           </optgroup>
+          <!-- Warranty track -->
+          <optgroup label="Warranty Track">
+            <option value="warranty_scheduled">Warranty Visit</option>
+            <option value="warranty_repaired">Repair Done</option>
+          </optgroup>
+          <!-- Service track -->
+          <optgroup label="Service Track">
+            <option value="service_quoted">Service Quoted</option>
+            <option value="service_approved">Service Approved</option>
+          </optgroup>
           <!-- Convergence -->
           <optgroup label="Contract">
             <option value="contract_signed">Contract Signed</option>
@@ -12816,7 +13562,21 @@ function switchScTab(tab, btn) {
           <option value="insurance">Insurance</option>
           <option value="cash">Cash</option>
           <option value="finance">Finance</option>
+          <option value="warranty">Warranty</option>
+          <option value="service">Service</option>
         </select>
+      </div>
+    </div>
+    <!-- SUB-TYPE + TRADES — populated dynamically, hidden until job type is set -->
+    <div class="mrow" id="lSubTypeRow" style="display:none;">
+      <div class="mfield"><label>Sub-Type</label>
+        <select id="lSubType">
+          <option value="">— optional —</option>
+        </select>
+      </div>
+      <div class="mfield">
+        <label>Trades <span style="font-size:9px;color:var(--m);font-weight:400;letter-spacing:0;text-transform:none;">(multi-select)</span></label>
+        <div id="lTradesGroup" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px;border:1px solid var(--br);border-radius:6px;background:var(--s2);min-height:34px;"></div>
       </div>
     </div>
     <div class="mrow">
@@ -12871,6 +13631,13 @@ function switchScTab(tab, btn) {
             <option value="agent">Insurance Agent</option>
           </select>
         </div>
+      </div>
+      <!-- Policy # + Date of Loss — needed by AOB, Insurance Inspection Report,
+           Supplement Request, Claim Guide. Optional today, but filling these
+           upfront means the doc preflight modal won't stop the rep to ask. -->
+      <div class="mrow">
+        <div class="mfield"><label>Policy Number</label><input type="text" id="lPolicyNumber" placeholder="POL-9988776"></div>
+        <div class="mfield"><label>Date of Loss</label><input type="date" id="lDateOfLoss"></div>
       </div>
       <div class="mrow">
         <div class="mfield"><label>Estimate Amount ($)</label><input type="number" id="lEstimateAmount" placeholder="18500" min="0"></div>
@@ -12927,6 +13694,15 @@ function switchScTab(tab, btn) {
     <div class="modal-intel-result" id="modalIntelResult"></div>
     <div class="mfield"><label>Notes</label><textarea id="lNotes" placeholder="Roof age, damage details, adjuster notes, supplements..." style="min-height:80px;"></textarea></div>
     <input type="hidden" id="lEditId">
+
+    <!-- NEXT ACTIONS PANEL — context-aware buttons driven by STAGE_ACTIONS.
+         Shown only when editing an existing lead (not on Add). Populated by
+         window.renderNextActionsPanel() inside toggleInsuranceFields(). -->
+    <div id="nextActionsPanel" style="display:none;border:1px solid var(--br);border-radius:10px;padding:10px 12px;margin:12px 0;background:linear-gradient(180deg,rgba(212,160,23,.06),rgba(212,160,23,.02));">
+      <div class="nap-title" style="font-size:10px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);font-weight:700;margin-bottom:8px;">Next actions</div>
+      <div class="nap-body" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+    </div>
+
     <button class="msave" onclick="saveLead()" id="leadSaveBtn">Save Lead</button>
   </div>
 </div>
@@ -16333,128 +17109,17 @@ if (typeof removeTask === 'function') window.removeTask = removeTask;
 // ══ See audit H2 ═══════════════════════════════════════════════════════════════
 
 
-// ══ ONBOARDING FLOW ════════════════════════════════════════════════════
-// _onbStep may also be declared in tools.js — use var to avoid duplicate let
-var _onbStep = 1;
-
-async function checkAndShowOnboarding() {
-  if (!window._user) return;
-  try {
-    const { getDoc, doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-    const userSnap = await getDoc(doc(window._db, 'users', window._user.uid));
-    const userData = userSnap.exists() ? userSnap.data() : {};
-
-    // Show onboarding if user has never completed it
-    if (!userData.onboarded) {
-      // Pre-fill name from auth
-      const name = window._user.displayName || '';
-      if (name) document.getElementById('onbName').value = name;
-      if (userData.company) document.getElementById('onbCompany').value = userData.company;
-      if (userData.phone) document.getElementById('onbPhone').value = userData.phone;
-      if (userData.phone) { const ph = document.getElementById('onbPhone'); if(ph) ph.value = userData.phone; }
-      if (userData.role) { const rl = document.getElementById('onbRole'); if(rl) rl.value = userData.role; }
-
-      // Personalize greeting
-      const firstName = (name || '').split(' ')[0] || 'there';
-      const greetEl = document.getElementById('onbGreeting');
-      if (greetEl) greetEl.textContent = `Hey ${firstName}, let's get you set up.`;
-
-      const modal = document.getElementById('onboardingModal');
-      modal.style.display = 'flex';
-      setTimeout(() => document.getElementById('onbCompany').focus(), 200);
-
-      // Wire autocomplete for Step 2 address
-      setTimeout(() => initAddressAutocomplete('onbAddr'), 300);
-    }
-  } catch(e) {
-    console.error('Onboarding check error:', e);
-  }
-}
-
-async function onbNext(step) {
-  if (step === 1) {
-    const company = document.getElementById('onbCompany').value.trim();
-    const name = document.getElementById('onbName').value.trim();
-
-    // Save company + display name
-    if (company || name) {
-      try {
-        const { setDoc, doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-        const phone = document.getElementById('onbPhone')?.value?.trim() || '';
-        const role  = document.getElementById('onbRole')?.value || 'owner';
-        const updates = {};
-        if (company) updates.company = company;
-        if (phone) updates.phone = phone;
-        if (role) updates.role = role;
-        if (name) {
-          const parts = name.split(' ');
-          updates.firstName = parts[0] || '';
-          updates.lastName = parts.slice(1).join(' ') || '';
-        }
-        await setDoc(doc(window._db, 'users', window._user.uid), updates, { merge: true });
-
-        // Also update settings UI
-        if (phone) { const sp = document.getElementById('settingsPhone'); if(sp) sp.value = phone; }
-        if (company) { const sc = document.getElementById('settingsCompany'); if(sc) sc.value = company; }
-
-        // Update header display name
-        if (name) {
-          document.getElementById('userName').textContent = name;
-          if (document.getElementById('userAvatar')) document.getElementById('userAvatar').textContent = name[0].toUpperCase();
-          if (window._userSettings) window._userSettings.displayName = name;
-        }
-      } catch(e) { console.error('Onboarding step 1 save error:', e); }
-    }
-
-    // Advance to step 2
-    document.getElementById('onbStep1').style.display = 'none';
-    document.getElementById('onbStep2').style.display = 'block';
-    document.getElementById('onbDot2').style.background = 'var(--orange)';
-    document.getElementById('onbAddr').focus();
-  }
-}
-
-async function onbSaveLead() {
-  const addr = document.getElementById('onbAddr').value.trim();
-  const damage = document.getElementById('onbDamage').value;
-  if (addr) {
-    try {
-      await window._saveLead({
-        address: addr, damageType: damage, source: 'Direct',
-        stage: 'New', firstName: '', lastName: '', phone: '',
-        email: '', notes: '', followUp: '', insCarrier: '',
-        jobValue: '', claimStatus: 'No Claim'
-      });
-      showToast('✓ Lead added to your pipeline', 'success');
-      loadLeads();
-    } catch(e) { console.error('Onboarding lead save error:', e); }
-  }
-  onbShowFinal();
-}
-
-function onbSkipLead() { onbShowFinal(); }
-
-function onbShowFinal() {
-  document.getElementById('onbStep2').style.display = 'none';
-  document.getElementById('onbStep3').style.display = 'block';
-  document.getElementById('onbDot3').style.background = 'var(--orange)';
-}
-
-async function onbFinish() {
-  // Mark onboarded in Firestore
-  try {
-    const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-    await setDoc(doc(window._db, 'users', window._user.uid), { onboarded: true }, { merge: true });
-  } catch(e) { console.error('Onboarding finish error:', e); }
-  document.getElementById('onboardingModal').style.display = 'none';
-}
-
-window.onbNext = onbNext;
-window.onbSaveLead = onbSaveLead;
-window.onbSkipLead = onbSkipLead;
-window.onbFinish = onbFinish;
-window.checkAndShowOnboarding = checkAndShowOnboarding;
-// ══ END ONBOARDING ═════════════════════════════════════════════════════
+// ══ ONBOARDING FLOW ═════════════════════════════════════════════════════
+// Legacy modal-based onboarding (checkAndShowOnboarding + onbNext + onbSaveLead
+// + onbSkipLead + onbShowFinal + onbFinish) was removed 2026-05-12. Every
+// function in the original block referenced DOM (#onboardingModal, #onbStep1,
+// #onbCompany, #onbAddr, etc.) that was never built — calling them threw on
+// the first getElementById, so a previously-injected stub had to silently
+// no-op the whole flow.
+//
+// Replaced by OnboardingTour (js/onboarding-tour.js) — a self-contained
+// spotlight tour that auto-fires for users with zero leads.
+// ════════════════════════════════════════════════════════════════════════
 
 if(typeof startNewEstimate==='function'){window.startNewEstimate=startNewEstimate;}else{window.startNewEstimate=function(){console.warn('Estimate module loading...');}}
 if(typeof saveEstimate==='function'){window.saveEstimate=saveEstimate;}
@@ -17722,6 +18387,11 @@ const DEMO_EMAIL = 'demo@nobigdeal.pro';
 <script defer src="js/review-engine.js?v=2"></script>
 <script defer src="js/document-generator.js?v=1"></script>
 <script defer src="js/document-generator-templates.js?v=1"></script>
+<!-- Doc pre-flight: schema-driven modal that prompts for any missing
+     merge fields before generating a doc. Reads window._leadDoc /
+     _customerId / _customerEstimates / _allPhotos — the dashboard
+     stages those just-in-time in _stageWindowStateForLead. -->
+<script defer src="js/doc-preflight.js?v=1"></script>
 <script defer src="js/share-gallery.js?v=2"></script>
 <script defer src="js/analytics-kpi.js?v=2"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
@@ -17869,6 +18539,28 @@ document.addEventListener('visibilitychange', async () => {
   }
 });
 
+// ── Online-event auto-retry ──
+// When the device transitions offline → online and leads still haven't
+// loaded, fire loadLeads immediately. Pairs with the slow-loop retry
+// above so a flaky connection doesn't require the rep to refresh.
+// Throttled to once every 5s to avoid retry storms when the OS spams
+// online events during connection setup.
+let _lastOnlineRetry = 0;
+window.addEventListener('online', () => {
+  const now = Date.now();
+  if (now - _lastOnlineRetry < 5000) return;
+  _lastOnlineRetry = now;
+  // Skip if already loaded and we have leads — visibilitychange handler covers reconnect refreshes
+  if (window._leadsLoaded && (window._leads?.length || 0) > 0) return;
+  console.log('[online] connection restored — auto-retrying loadLeads');
+  // Reset the slow-loop counter so the full retry budget gets used on the new connection
+  window._loadLeadsSlowAttempt = 0;
+  window._loadLeadsExhausted = false;
+  if (typeof window.loadLeads === 'function') {
+    window.loadLeads().catch(e => console.warn('online-retry loadLeads failed:', e.message));
+  }
+});
+
 // ── Runtime Diagnostic — call window.nbdDiag() from console ──
 window.nbdDiag = function() {
   const r = {};
@@ -17918,11 +18610,6 @@ window.nbdDiag = function() {
   return r;
 };
 
-// ── Onboarding flow: dead (DOM does not exist). See audit C2. ──
-// checkAndShowOnboarding() references #onboardingModal and ~10 other IDs
-// that are not defined in dashboard.html. The function is stubbed to
-// no-op until the onboarding modal is built.
-window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
 </script>
 <script defer src="js/mobile-nav-customizer.js?v=1"></script>
 <script defer src="js/connection-status-btn.js?v=2"></script>
@@ -17962,6 +18649,14 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
 <script defer src="js/whats-new.js?v=1"></script>
 <!-- Feature flags (F9) — window.NBDFlags for kill switches + gradual rollout -->
 <script defer src="js/feature-flags.js?v=1"></script>
+<!-- Help-icon helper: window.HelpIcon.attach(el, anchor) drops a "?"
+     next to any element that opens how-to.html at the right section. -->
+<script defer src="js/help-icon.js?v=1"></script>
+<!-- Photo report generator — exposes window.generatePhotoReport(leadId).
+     Previously only loaded on customer.html, which made the dashboard's
+     Next Actions "📸 Photo Report" chip fall through to the generic
+     activity-log fallback. Loading here so the chip actually generates. -->
+<script defer src="js/photo-report.js?v=3"></script>
 
 <!-- W159 P1: on-page mobile diagnostic banner.
      User reports yellow health badge + 0 leads on every mobile device,
@@ -17976,62 +18671,185 @@ window.checkAndShowOnboarding = function() { /* stub — see audit C2 */ };
      count, online state. Trivial to dismiss; auto-fades to ~30%
      opacity when leads finally load. -->
 <script>
-(function _mobileDiagnostic() {
-  const VERSION = 'v159.4';
+/*
+ * Load-status banner (formerly W159 P1 diag banner).
+ *
+ * Three behaviors:
+ *   1. Hidden by default while the page is loading normally.
+ *   2. Appears as an actionable failure banner after ~6s if leads haven't
+ *      loaded — big "Retry now" button, tap-anywhere-to-retry, and a
+ *      live countdown for the next auto-retry. Replaces the previous
+ *      passive info banner that had no retry action.
+ *   3. On success: flashes a brief green "Loaded N leads" then fully
+ *      removes itself after 2.5s (the previous 25%-opacity stuck state
+ *      was the "transparent overlay" the user complained about).
+ *
+ * The "Details" toggle reveals the old diagnostic fields (UA, retry
+ * count, error code) so we don't lose debug visibility on mobile.
+ */
+(function _loadStatusBanner() {
+  const VERSION = 'v159.7';
+  const FAIL_GRACE_MS = 6000;        // wait this long before assuming "stuck"
+  const SUCCESS_HIDE_MS = 2500;      // remove banner this long after success
   let banner;
-  function _statusLine() {
+  let _detailsOpen = false;
+  let _dismissedByUser = false;
+  let _successHideTimer = null;
+  function _state() {
     const loaded = !!window._leadsLoaded;
     const count = (window._leads && window._leads.length) || 0;
-    const ua = navigator.userAgent || 'unknown';
-    const online = navigator.onLine ? 'online' : 'OFFLINE';
-    const uid = (window._user && window._user.uid) ? window._user.uid.slice(0, 8) + '…' : 'no-uid';
     const err = window._loadLeadsLastError || null;
-    const errText = err
-      ? `${err.code || err.name || 'error'}: ${err.message}`
-      : (loaded ? 'loaded' : 'still pending');
-    const retry = window._loadLeadsRetryAttempt || 0;
-    const pwa = window.matchMedia('(display-mode: standalone)').matches ? 'pwa' : 'browser';
-    const sw = ('serviceWorker' in navigator) ? 'sw-supported' : 'no-sw';
-    const auth = window._user ? 'authed' : 'no-auth';
-    const dbReady = window.db ? 'db-ready' : 'no-db';
-    return { loaded, count, ua, online, uid, errText, retry, pwa, sw, auth, dbReady };
+    const retry = (window._loadLeadsRetryAttempt || 0) + (window._loadLeadsSlowAttempt || 0);
+    const nextRetryAt = window._loadLeadsNextRetryAt || null;
+    const exhausted = !!window._loadLeadsExhausted;
+    const hasData = loaded && count > 0;
+    const stuck = !loaded || (loaded && count === 0 && !!err);
+    const online = navigator.onLine;
+    return { loaded, count, err, retry, nextRetryAt, exhausted, hasData, stuck, online };
   }
   function _ensureBanner() {
     if (banner) return banner;
     banner = document.createElement('div');
-    banner.id = 'nbd-load-diag';
-    banner.style.cssText = 'position:fixed;bottom:env(safe-area-inset-bottom,0);left:0;right:0;z-index:2147483647;background:#1a1a1a;color:#fff;padding:8px 10px;font:11px/1.35 -apple-system,system-ui,sans-serif;box-shadow:0 -2px 12px rgba(0,0,0,.6);border-top:2px solid #f80;max-height:40vh;overflow-y:auto;';
+    banner.id = 'nbd-load-status';
+    // Clear the 62px mobile-nav on phones; on desktop just the safe-area inset.
+    // mobile-nav is display:flex on viewports <= 768px (see #mobile-nav styles
+    // around dashboard.html:5904), so the calc gives us breathing room either
+    // way without needing JS to measure.
+    banner.style.cssText = 'position:fixed;left:0;right:0;z-index:2147483647;background:#1a1a1a;color:#fff;padding:12px 14px;font:13px/1.35 -apple-system,system-ui,sans-serif;box-shadow:0 -4px 18px rgba(0,0,0,.55);border-top:3px solid #f80;display:none;cursor:pointer;transition:opacity .25s,transform .25s;';
+    // Add the bottom offset via a sub-style so a media query can override on mobile
+    banner.style.bottom = 'env(safe-area-inset-bottom, 0px)';
+    // On viewports <= 768px we have a 62px-tall fixed mobile nav at the
+    // bottom — push the banner above it so both stay visible.
+    if (window.matchMedia && window.matchMedia('(max-width: 768px)').matches) {
+      banner.style.bottom = 'calc(62px + env(safe-area-inset-bottom, 0px))';
+    }
+    banner.setAttribute('role', 'alert');
+    banner.addEventListener('click', (e) => {
+      // Don't retry when user clicks the close × or the Details toggle
+      if (e.target.closest('.nbd-ls-close') || e.target.closest('.nbd-ls-details-toggle')) return;
+      _retry();
+    });
     document.body.appendChild(banner);
     return banner;
   }
-  function _render() {
-    const s = _statusLine();
-    const b = _ensureBanner();
-    if (s.loaded && s.count > 0) {
-      // Success state — fade. Don't auto-remove (user might want to share).
-      b.style.opacity = '0.25';
-      b.style.borderTopColor = '#3a3';
-    } else {
-      b.style.opacity = '1';
-      b.style.borderTopColor = s.loaded ? '#fb0' : '#f80';
+  function _retry() {
+    if (typeof window.loadLeads !== 'function') return;
+    // Reset slow-loop counter so the user-initiated retry gets the full retry budget
+    window._loadLeadsSlowAttempt = 0;
+    window._loadLeadsExhausted = false;
+    window._loadLeadsNextRetryAt = null;
+    if (banner) {
+      banner.style.borderTopColor = '#fb0';
+      const btn = banner.querySelector('.nbd-ls-retry');
+      if (btn) { btn.textContent = 'Retrying…'; btn.disabled = true; }
     }
-    b.innerHTML =
-      '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:6px;">' +
-        '<div style="flex:1;min-width:0;">' +
-          '<div style="font-weight:700;font-size:12px;margin-bottom:2px;">NBD diag ' + VERSION +
-            ' · ' + (s.loaded ? '✅ leadsLoaded=' + s.count : '⏳ NOT loaded') + '</div>' +
-          '<div>err: ' + s.errText + '</div>' +
-          '<div style="opacity:.85;">retry: ' + s.retry + ' · ' + s.online + ' · ' + s.pwa +
-            ' · ' + s.auth + ' · ' + s.dbReady + ' · uid: ' + s.uid + '</div>' +
-          '<div style="opacity:.65;font-size:10px;word-break:break-all;margin-top:2px;">' + s.ua + '</div>' +
-        '</div>' +
-        '<button id="nbd-load-diag-close" aria-label="Dismiss" style="background:none;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:4px;padding:1px 7px;font-size:14px;line-height:1;cursor:pointer;flex-shrink:0;">×</button>' +
-      '</div>';
-    document.getElementById('nbd-load-diag-close').addEventListener('click', () => b.remove());
+    window.loadLeads().catch(e => console.warn('user retry failed:', e.message));
   }
+  function _dismiss() {
+    _dismissedByUser = true;
+    if (banner) banner.style.display = 'none';
+  }
+  function _render() {
+    if (_dismissedByUser) return;
+    const s = _state();
+    const ageMs = Date.now() - (window._bootStartedAt || performance.now() + 0);
+    // Don't show the banner during the normal grace period — only when
+    // stuck for too long OR when we have a definite error.
+    if (s.hasData) {
+      // Success path
+      if (!banner) return;
+      banner.style.display = 'block';
+      banner.style.borderTopColor = '#22c55e';
+      banner.style.background = 'linear-gradient(180deg,#0f3a1a,#1a1a1a)';
+      banner.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
+          '<div style="font-weight:700;font-size:14px;">✓ Loaded ' + s.count + ' lead' + (s.count === 1 ? '' : 's') + '</div>' +
+          '<button class="nbd-ls-close" aria-label="Dismiss" style="background:none;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:4px;padding:2px 9px;font-size:14px;line-height:1;cursor:pointer;">×</button>' +
+        '</div>';
+      const closeBtn = banner.querySelector('.nbd-ls-close');
+      if (closeBtn) closeBtn.addEventListener('click', _dismiss);
+      // Schedule full removal so we don't leave a translucent overlay
+      if (!_successHideTimer) {
+        _successHideTimer = setTimeout(() => {
+          if (banner) { banner.style.opacity = '0'; banner.style.transform = 'translateY(110%)'; }
+          setTimeout(() => { if (banner) banner.remove(); banner = null; }, 300);
+        }, SUCCESS_HIDE_MS);
+      }
+      return;
+    }
+    // Not loaded yet — show only after grace period unless there's an error already
+    if (!s.err && ageMs < FAIL_GRACE_MS) {
+      if (banner) banner.style.display = 'none';
+      return;
+    }
+    const b = _ensureBanner();
+    b.style.display = 'block';
+    b.style.opacity = '1';
+    b.style.transform = 'none';
+    b.style.borderTopColor = s.exhausted ? '#dc2626' : '#f80';
+    b.style.background = s.exhausted ? 'linear-gradient(180deg,#3a0f0f,#1a1a1a)' : '#1a1a1a';
+
+    const offlineNote = !s.online ? ' · <span style="color:#fbbf24;">offline</span>' : '';
+    const errLine = s.err
+      ? '<div style="font-size:12px;opacity:.85;margin-top:2px;">' + (s.err.code || s.err.name || 'error') + ': ' + _esc(s.err.message) + '</div>'
+      : '';
+    let nextRetryLine = '';
+    if (s.nextRetryAt) {
+      const secs = Math.max(0, Math.ceil((s.nextRetryAt - Date.now()) / 1000));
+      nextRetryLine = '<div style="font-size:11px;opacity:.75;margin-top:3px;">Auto-retrying in ' + secs + 's…</div>';
+    } else if (s.exhausted) {
+      nextRetryLine = '<div style="font-size:11px;opacity:.85;color:#fca5a5;margin-top:3px;">Auto-retries exhausted — tap Retry to try again.</div>';
+    }
+    const detailsHtml = _detailsOpen
+      ? '<div style="font-size:10px;line-height:1.4;opacity:.7;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.15);word-break:break-all;">' +
+          'NBD ' + VERSION + ' · retry: ' + s.retry + offlineNote +
+          ' · auth: ' + (window._user ? 'yes' : 'no') +
+          ' · db: ' + (window.db ? 'yes' : 'no') +
+          ' · uid: ' + (window._user?.uid ? window._user.uid.slice(0,8) + '…' : 'none') +
+          '<br>' + _esc(navigator.userAgent || '') +
+        '</div>'
+      : '';
+
+    b.innerHTML =
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">' +
+        '<div style="flex:1;min-width:0;">' +
+          '<div style="font-weight:700;font-size:14px;display:flex;align-items:center;gap:6px;">' +
+            '<span class="nbd-ls-spin" style="display:inline-block;width:12px;height:12px;border:2px solid rgba(255,255,255,.25);border-top-color:#fff;border-radius:50%;animation:nbd-ls-spin 0.8s linear infinite;"></span>' +
+            'Couldn’t load your CRM data' +
+          '</div>' +
+          errLine +
+          nextRetryLine +
+          detailsHtml +
+        '</div>' +
+        '<div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0;">' +
+          '<button class="nbd-ls-retry" type="button" style="background:#f80;color:#fff;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;min-height:36px;">Retry now</button>' +
+          '<div style="display:flex;gap:4px;">' +
+            '<button class="nbd-ls-details-toggle" type="button" style="background:none;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:4px;padding:3px 8px;font-size:10px;cursor:pointer;flex:1;">' + (_detailsOpen ? 'Hide' : 'Details') + '</button>' +
+            '<button class="nbd-ls-close" aria-label="Dismiss" style="background:none;border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:4px;padding:3px 9px;font-size:13px;line-height:1;cursor:pointer;">×</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+
+    const retryBtn = b.querySelector('.nbd-ls-retry');
+    if (retryBtn) retryBtn.addEventListener('click', (e) => { e.stopPropagation(); _retry(); });
+    const detailsBtn = b.querySelector('.nbd-ls-details-toggle');
+    if (detailsBtn) detailsBtn.addEventListener('click', (e) => { e.stopPropagation(); _detailsOpen = !_detailsOpen; _render(); });
+    const closeBtn = b.querySelector('.nbd-ls-close');
+    if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); _dismiss(); });
+  }
+  function _esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+  // Inject spinner keyframes once
+  const _styleEl = document.createElement('style');
+  _styleEl.textContent = '@keyframes nbd-ls-spin{to{transform:rotate(360deg);}}';
+  document.head.appendChild(_styleEl);
   function _start() {
-    setTimeout(_render, 3000);
-    setInterval(() => { if (document.getElementById('nbd-load-diag')) _render(); }, 2500);
+    if (!window._bootStartedAt) window._bootStartedAt = Date.now();
+    setTimeout(_render, FAIL_GRACE_MS);
+    setInterval(_render, 1000); // 1s tick so the countdown updates smoothly
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', _start, { once: true });

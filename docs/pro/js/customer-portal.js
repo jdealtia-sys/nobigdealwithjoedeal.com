@@ -171,8 +171,22 @@
       lead.portalUrl = shareUrl;
       lead.portalPath = _versionPath;
 
-      if (typeof showToast === 'function') showToast('Portal ready! Link copied to clipboard', 'ok');
-      try { await navigator.clipboard.writeText(shareUrl); } catch(e) {}
+      // Clipboard write before the toast — Safari, focus-loss, and
+      // insecure-context all silently fail. Tell the user whether the
+      // copy actually happened so they don't paste an empty string into
+      // a text to the homeowner.
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        copied = true;
+      } catch (clipErr) {
+        console.warn('Portal share clipboard write failed:', clipErr && clipErr.message);
+      }
+      if (typeof showToast === 'function') {
+        showToast(copied
+          ? 'Portal ready! Link copied to clipboard'
+          : 'Portal ready — long-press the URL below to copy', copied ? 'ok' : 'warning');
+      }
 
       return shareUrl;
     } catch(e) {

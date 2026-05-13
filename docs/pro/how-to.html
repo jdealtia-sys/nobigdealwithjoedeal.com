@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nbd-original" style="visibility:hidden">
+<head>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
+<link rel="stylesheet" href="css/theme-system.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>How To · NBD Pro</title>
+<meta name="description" content="Step-by-step instructions for everything in NBD Pro — adding leads, running the pipeline, sending estimates, the D2D tracker, customer portals, and more.">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:64px}
+:root{
+  --bg:#0A0C0F;--s1:#111318;--s2:#181C23;--s3:#1E2430;
+  --or:#e8720c;--or-dim:rgba(232,114,12,0.08);--or-glow:rgba(232,114,12,0.18);
+  --grn:#22C55E;--grn-dim:rgba(34,197,94,0.1);
+  --red:#EF4444;--red-dim:rgba(239,68,68,0.1);
+  --blue:#3B82F6;--blue-dim:rgba(59,130,246,0.1);
+  --purp:#A855F7;--purp-dim:rgba(168,85,247,0.1);
+  --gold:#F59E0B;--gold-dim:rgba(245,158,11,0.1);
+  --tx:#F0F2F8;--tx2:#8892A4;--tx3:#4A5568;
+  --bdr:rgba(255,255,255,0.07);--bdr2:rgba(255,255,255,0.12);
+  --ease:cubic-bezier(0.22,1,0.36,1);--r:8px;--rl:12px;
+}
+body{background:var(--bg);color:var(--tx);font-family:'Barlow',sans-serif;min-height:100vh;min-height:100dvh}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 80% 15%,rgba(232,114,12,0.03),transparent 55%),radial-gradient(ellipse at 15% 85%,rgba(59,130,246,0.02),transparent 50%);pointer-events:none;z-index:0}
+
+/* ── TOPBAR ── */
+.topbar{height:54px;background:rgba(10,12,15,0.97);border-bottom:1px solid var(--bdr);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);position:sticky;top:0;z-index:200;display:flex;align-items:center;padding:0 20px;gap:14px}
+.tb-back{color:var(--tx3);text-decoration:none;font-size:13px;font-weight:500;transition:color .15s;display:flex;align-items:center;gap:4px}
+.tb-back:hover{color:var(--or)}
+.tb-brand{display:flex;align-items:center;gap:9px}
+.tb-mark{width:30px;height:30px;background:var(--or);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;color:#fff}
+.tb-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;letter-spacing:1.5px;text-transform:uppercase;color:var(--tx)}
+.tb-title span{color:var(--or)}
+.tb-spacer{flex:1}
+.tb-action{background:var(--or);color:#fff;border:none;padding:7px 14px;border-radius:var(--r);font-family:'Barlow',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;text-decoration:none;white-space:nowrap}
+.tb-action:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.tb-ghost{background:none;border:1px solid var(--bdr2);color:var(--tx3)}
+.tb-ghost:hover{color:var(--or);border-color:var(--or);background:none;transform:none}
+.tb-action-short{display:none}
+@media (max-width:480px){
+  .tb-action-full{display:none}
+  .tb-action-short{display:inline}
+  .tb-action{padding:7px 11px;font-size:11px}
+}
+
+/* ── HERO ── */
+.hero{padding:48px 20px 28px;text-align:center;position:relative;z-index:1;max-width:840px;margin:0 auto}
+.hero-ey{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--or);margin-bottom:10px}
+.hero-h{font-family:'Barlow Condensed',sans-serif;font-size:clamp(36px,6vw,62px);font-weight:800;letter-spacing:2px;text-transform:uppercase;line-height:.95;color:var(--tx);margin-bottom:14px}
+.hero-h .hl{color:var(--or)}
+.hero-sub{font-size:15px;color:var(--tx2);line-height:1.65;max-width:560px;margin:0 auto 28px}
+
+/* ── SEARCH ── */
+.search-wrap{max-width:560px;margin:0 auto 24px;position:relative}
+.search-box{width:100%;background:var(--s1);border:1px solid var(--bdr2);border-radius:10px;padding:14px 18px 14px 44px;color:var(--tx);font-family:'Barlow',sans-serif;font-size:14px;outline:none;transition:all .15s}
+.search-box:focus{border-color:var(--or);box-shadow:0 0 0 3px var(--or-glow)}
+.search-icon{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--tx3);pointer-events:none}
+.search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:var(--s2);border:none;color:var(--tx2);width:24px;height:24px;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;font-size:14px}
+.search-clear.show{display:flex}
+
+/* ── LAYOUT ── */
+.layout{max-width:1180px;margin:0 auto;padding:0 20px 80px;display:grid;grid-template-columns:240px 1fr;gap:40px;position:relative;z-index:1}
+.toc{position:sticky;top:74px;align-self:start;max-height:calc(100vh - 90px);overflow-y:auto;padding-right:8px;scrollbar-width:thin}
+.toc h3{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--tx3);margin-bottom:10px;padding-left:8px}
+.toc a{display:block;padding:7px 10px;border-radius:6px;font-size:13px;color:var(--tx2);text-decoration:none;transition:all .15s;border-left:2px solid transparent;margin-bottom:1px}
+.toc a:hover{color:var(--tx);background:var(--s1)}
+.toc a.active{color:var(--or);background:var(--or-dim);border-left-color:var(--or)}
+.toc-group{margin-bottom:14px}
+.toc-count{display:inline-block;margin-left:6px;color:var(--tx3);font-size:11px}
+
+/* ── CONTENT ── */
+.content{min-width:0}
+.section{padding:36px 0;border-top:1px solid var(--bdr);scroll-margin-top:74px}
+.section:first-child{border-top:none;padding-top:8px}
+.section-ey{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--or);margin-bottom:8px}
+.section-h{font-family:'Barlow Condensed',sans-serif;font-size:clamp(28px,4vw,40px);font-weight:800;letter-spacing:1px;text-transform:uppercase;line-height:1.05;color:var(--tx);margin-bottom:12px}
+.section-lede{font-size:15px;color:var(--tx2);line-height:1.7;margin-bottom:24px;max-width:680px}
+
+/* Quick Start */
+.qs{background:var(--s1);border:1px solid var(--bdr2);border-radius:var(--rl);padding:22px 24px;margin-bottom:22px}
+.qs-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--or);margin-bottom:14px;display:flex;align-items:center;gap:6px}
+.qs-title::before{content:'⚡';font-size:14px}
+.qs ol{list-style:none;counter-reset:qsnum;display:flex;flex-direction:column;gap:10px}
+.qs li{counter-increment:qsnum;padding-left:38px;position:relative;font-size:14px;line-height:1.6;color:var(--tx)}
+.qs li::before{content:counter(qsnum);position:absolute;left:0;top:-1px;width:26px;height:26px;background:var(--or);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+.qs li strong{color:var(--tx);font-weight:700}
+.qs li code{background:var(--s2);color:var(--or);padding:1px 6px;border-radius:4px;font-size:12px;font-family:ui-monospace,'SF Mono',Menlo,Monaco,monospace}
+
+/* Collapsible Deep Dive / Tasks */
+details{background:var(--s1);border:1px solid var(--bdr2);border-radius:var(--rl);margin-bottom:10px;overflow:hidden;transition:border-color .15s}
+details[open]{border-color:var(--or-glow)}
+summary{padding:14px 18px;cursor:pointer;font-weight:600;font-size:14px;color:var(--tx);list-style:none;display:flex;align-items:center;gap:10px;user-select:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:'▸';color:var(--or);font-size:11px;transition:transform .2s}
+details[open] summary::before{transform:rotate(90deg)}
+summary:hover{background:var(--s2)}
+.detail-body{padding:6px 22px 22px 38px;color:var(--tx2);line-height:1.7;font-size:14px}
+.detail-body h4{color:var(--tx);font-size:14px;font-weight:700;margin:18px 0 8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.5px;text-transform:uppercase}
+.detail-body h4:first-child{margin-top:0}
+.detail-body p{margin-bottom:10px}
+.detail-body ol,.detail-body ul{margin:8px 0 12px 22px}
+.detail-body li{margin-bottom:6px}
+.detail-body strong{color:var(--tx)}
+.detail-body code{background:var(--s2);color:var(--or);padding:1px 6px;border-radius:4px;font-size:12px;font-family:ui-monospace,'SF Mono',Menlo,Monaco,monospace}
+.detail-body a{color:var(--or);text-decoration:none;border-bottom:1px dashed currentColor}
+.detail-body a:hover{filter:brightness(1.15)}
+
+/* Tip / Note callouts */
+.tip,.note,.warn{padding:12px 16px;border-radius:8px;font-size:13px;line-height:1.6;margin:14px 0;border-left:3px solid;display:flex;gap:10px;align-items:flex-start}
+.tip{background:var(--or-dim);border-left-color:var(--or);color:var(--tx)}
+.tip::before{content:'💡';flex-shrink:0}
+.note{background:var(--blue-dim);border-left-color:var(--blue);color:var(--tx)}
+.note::before{content:'ℹ️';flex-shrink:0}
+.warn{background:var(--red-dim);border-left-color:var(--red);color:var(--tx)}
+.warn::before{content:'⚠️';flex-shrink:0}
+
+/* Inline mini-UI mockups */
+.mock-bar{display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--bdr);border-radius:6px;padding:6px 10px;font-size:12px;margin:2px;font-family:'Barlow',sans-serif}
+.mock-btn{display:inline-flex;align-items:center;gap:5px;background:var(--or);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:700;margin:2px;font-family:'Barlow',sans-serif;cursor:default}
+.mock-btn.ghost{background:none;border:1px solid var(--bdr2);color:var(--tx2)}
+.mock-chip{display:inline-flex;align-items:center;gap:4px;background:var(--s2);border:1px solid var(--bdr);border-radius:14px;padding:3px 11px;font-size:11px;margin:2px;color:var(--tx2)}
+.mock-chip.on{background:var(--or);color:#fff;border-color:var(--or)}
+.mock-kbd{display:inline-block;background:var(--s2);border:1px solid var(--bdr2);border-bottom-width:2px;border-radius:4px;padding:1px 7px;font-size:11px;font-family:ui-monospace,'SF Mono',Menlo,Monaco,monospace;color:var(--tx);margin:0 2px}
+
+/* Job-type pill row */
+.jt-row{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.jt-pill{display:flex;flex-direction:column;gap:2px;background:var(--s1);border:1px solid var(--bdr2);border-radius:10px;padding:10px 14px;min-width:140px;flex:1}
+.jt-pill .jt-h{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.jt-pill .jt-b{font-size:12px;color:var(--tx3);line-height:1.5}
+.jt-pill.ins .jt-h{color:var(--purp)}
+.jt-pill.cash .jt-h{color:var(--grn)}
+.jt-pill.fin .jt-h{color:var(--blue)}
+.jt-pill.war .jt-h{color:#0ea5e9}
+.jt-pill.svc .jt-h{color:var(--gold)}
+
+/* Stage flow diagram (SVG-ish via CSS) */
+.flow{display:flex;align-items:center;gap:0;margin:18px 0;flex-wrap:wrap;padding:10px 0}
+.flow-step{background:var(--s1);border:1px solid var(--bdr2);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--tx);font-weight:600;white-space:nowrap}
+.flow-arrow{color:var(--tx3);padding:0 8px;font-size:14px}
+.flow-step.ins{border-color:rgba(168,85,247,.4);background:var(--purp-dim);color:var(--purp)}
+.flow-step.cash{border-color:rgba(34,197,94,.4);background:var(--grn-dim);color:var(--grn)}
+.flow-step.fin{border-color:rgba(59,130,246,.4);background:var(--blue-dim);color:var(--blue)}
+.flow-step.win{border-color:rgba(34,197,94,.4);background:var(--grn-dim);color:var(--grn)}
+
+/* Search match highlighting */
+.section.dim{opacity:.18;transition:opacity .2s}
+mark.hl{background:var(--gold);color:#000;border-radius:3px;padding:0 2px}
+
+/* Footer */
+.footer{text-align:center;padding:40px 20px 20px;color:var(--tx3);font-size:12px;border-top:1px solid var(--bdr);margin-top:60px}
+.footer a{color:var(--or);text-decoration:none}
+
+/* Empty state when search has zero results */
+.no-results{padding:60px 20px;text-align:center;color:var(--tx2);display:none}
+.no-results.show{display:block}
+.no-results-icon{font-size:48px;margin-bottom:14px;opacity:.4}
+
+/* ── MOBILE ── */
+@media (max-width:880px){
+  .layout{grid-template-columns:1fr;gap:0;padding:0 16px 60px}
+  .toc{position:relative;top:0;max-height:none;padding:0;margin-bottom:18px;background:var(--s1);border:1px solid var(--bdr2);border-radius:var(--rl);padding:14px}
+  .toc-toggle{display:flex;align-items:center;justify-content:space-between;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--or);cursor:pointer;list-style:none;width:100%;background:none;border:none;font-family:inherit;padding:0}
+  .toc-toggle::after{content:'▾';color:var(--or);transition:transform .2s}
+  .toc.collapsed .toc-toggle::after{transform:rotate(-90deg)}
+  .toc.collapsed .toc-list{display:none}
+  .toc-list{margin-top:10px}
+  .section{padding:30px 0}
+  .qs{padding:18px}
+  details summary{padding:13px 14px;font-size:13px}
+  .detail-body{padding:6px 16px 18px 16px}
+}
+@media (min-width:881px){
+  .toc-toggle{display:none}
+  .toc-list{display:block !important}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <a class="tb-back" href="dashboard.html">←&nbsp;Dashboard</a>
+  <div class="tb-brand">
+    <div class="tb-mark">NB</div>
+    <div class="tb-title">How <span>To</span></div>
+  </div>
+  <div class="tb-spacer"></div>
+  <button class="tb-action tb-ghost" id="restartTourBtn" type="button"><span class="tb-action-full">▶ Restart Tour</span><span class="tb-action-short">▶ Tour</span></button>
+  <a class="tb-action" href="dashboard.html"><span class="tb-action-full">Open CRM</span><span class="tb-action-short">CRM</span></a>
+</header>
+
+<section class="hero">
+  <div class="hero-ey">Step-by-step · Every feature · Built for the field</div>
+  <h1 class="hero-h">Everything you can do in <span class="hl">NBD Pro</span></h1>
+  <p class="hero-sub">Quick-start steps for the busy day. Tap any "Deep dive" to see every option, edge case, and trick. New here? Take the 30-second tour above first.</p>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-box" id="searchInput" type="search" placeholder="Search how-tos — try 'estimate', 'claim', 'photo', 'D2D'…" autocomplete="off" />
+    <button class="search-clear" id="searchClear" type="button" aria-label="Clear search">×</button>
+  </div>
+</section>
+
+<div class="layout">
+  <!-- ─── Table of Contents ─── -->
+  <aside class="toc" id="toc">
+    <button class="toc-toggle" type="button" onclick="document.getElementById('toc').classList.toggle('collapsed')">Contents</button>
+    <div class="toc-list">
+      <div class="toc-group">
+        <h3>Get going</h3>
+        <a href="#getting-started">Getting started</a>
+        <a href="#install-pwa">Install on your phone</a>
+      </div>
+      <div class="toc-group">
+        <h3>Core workflow</h3>
+        <a href="#kanban">The pipeline (kanban)</a>
+        <a href="#leads">Adding & editing leads</a>
+        <a href="#job-types">Job types & stages</a>
+        <a href="#d2d">D2D tracker</a>
+      </div>
+      <div class="toc-group">
+        <h3>Selling & doc gen</h3>
+        <a href="#estimates">Estimates</a>
+        <a href="#photo-reports">Photo reports</a>
+        <a href="#documents">Other documents</a>
+        <a href="#customer-portal">Customer portal</a>
+      </div>
+      <div class="toc-group">
+        <h3>Map & reporting</h3>
+        <a href="#map-pins">Map & pins</a>
+        <a href="#reports">Reports & analytics</a>
+        <a href="#calendar">Calendar & follow-ups</a>
+      </div>
+      <div class="toc-group">
+        <h3>Account</h3>
+        <a href="#settings">Settings & themes</a>
+        <a href="#ai-tools">AI tools</a>
+        <a href="#billing">Billing & plans</a>
+        <a href="#troubleshooting">Troubleshooting</a>
+      </div>
+    </div>
+  </aside>
+
+  <main class="content" id="content">
+    <div class="no-results" id="noResults">
+      <div class="no-results-icon">🔎</div>
+      <div style="font-size:16px;color:var(--tx);font-weight:600;margin-bottom:6px;">Nothing matches that search</div>
+      <div>Try a shorter word, or clear the search to browse everything.</div>
+    </div>
+
+    <!-- ══════════════════ GETTING STARTED ══════════════════ -->
+    <section class="section" id="getting-started" data-keywords="signup signin login welcome first lead onboarding tour">
+      <div class="section-ey">01 · Get Going</div>
+      <h2 class="section-h">Getting Started</h2>
+      <p class="section-lede">Three steps and you're running. Sign in, add a lead, open it. Everything else builds from there.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li><strong>Sign in</strong> at <code>nobigdealwithjoedeal.com/pro/login.html</code> with your email + password (or use the link from your invitation).</li>
+          <li><strong>Add your first lead</strong> — tap the orange <span class="mock-btn">＋ Add</span> in the top right (or the floating <span class="mock-btn">＋</span> bottom-right on mobile). Name + address is enough.</li>
+          <li><strong>Drag the card</strong> across kanban columns as the deal moves. That's the whole game.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — accounts, roles, and first-run tour</summary>
+        <div class="detail-body">
+          <h4>Account types</h4>
+          <p>NBD Pro has three account models:</p>
+          <ul>
+            <li><strong>Owner</strong> — the contractor account. Full access to every feature, every lead, every report. Created on signup or via invitation.</li>
+            <li><strong>Sales rep</strong> — limited to their own leads (set via custom claims by the owner). Can run D2D, add leads, send estimates. Can't see teammates' pipelines.</li>
+            <li><strong>Admin / manager</strong> — sees everything reps see, plus team reports. No billing access.</li>
+            <li><strong>Viewer</strong> — read-only for office staff who answer phones but shouldn't edit data.</li>
+          </ul>
+          <h4>Plans</h4>
+          <p>You'll land on a plan based on how you signed up:</p>
+          <ul>
+            <li><strong>Pro Lite</strong> — 25 leads max. Good for testing. You'll see a banner at the bottom prompting upgrade once you hit the cap.</li>
+            <li><strong>Pro</strong> — unlimited leads, all features.</li>
+            <li><strong>Pro + Team</strong> — multi-rep, role-based access, team reports.</li>
+          </ul>
+          <p>If you're using an access code, you're treated as Pro for the duration of the code. No subscription doc, no billing flow.</p>
+
+          <h4>The first-run tour</h4>
+          <p>If you have zero leads, the 30-second tour auto-fires 1.5 seconds after the dashboard mounts. It walks you through five stops: pipeline, add lead, D2D, settings, and a "you're ready" closer. Each stop has a <span class="mock-bar">Learn more →</span> link back to the relevant section of this how-to.</p>
+          <p>To re-run it later: tap the <strong>▶ Restart Tour</strong> button at the top of this page. That clears the "tour seen" flag and replays from step 1.</p>
+
+          <div class="tip">If the tour gets stuck on a step (anchor not on screen), just hit <span class="mock-kbd">Esc</span> or click outside the spotlight. It'll close cleanly.</div>
+
+          <h4>What syncs offline</h4>
+          <p>Your last-known leads, photos, and D2D knocks are cached locally so the app keeps working when you lose signal. Writes (new leads, stage moves, knocks) queue up and flush automatically when you're back online — you'll see a small toast confirm each one.</p>
+          <p>Photos taken offline are stored as blobs in IndexedDB and uploaded when you reconnect; you'll see them in the gallery immediately but with a small "uploading" indicator until sync completes.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Reset your password</summary>
+        <div class="detail-body">
+          <ol>
+            <li>From the login screen, tap <strong>Forgot password?</strong> below the password field.</li>
+            <li>Enter your account email. You'll get an email within 60 seconds with a one-time reset link (check spam if you don't).</li>
+            <li>Click the link, set a new password (8+ characters), and sign in.</li>
+          </ol>
+          <div class="note">Passwords are reset via Firebase Auth's standard flow. Old sessions stay valid on other devices until you sign out — sign out of every device from Settings → Security if you're rotating after a compromise.</div>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Invite a rep to your team</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Open <strong>Settings → Team</strong> (owner accounts only).</li>
+            <li>Tap <strong>Invite rep</strong>, enter their email and pick a role (<strong>sales_rep</strong>, <strong>admin</strong>, or <strong>viewer</strong>).</li>
+            <li>They get an invitation email with a one-time link. They set a password on first sign-in and land on their own pipeline.</li>
+          </ol>
+          <div class="tip">Sales reps only see leads where <code>userId === their UID</code>. The filter is applied at hydration so even DevTools can't read teammates' leads.</div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ INSTALL PWA ══════════════════ -->
+    <section class="section" id="install-pwa" data-keywords="install pwa iphone android home screen app icon">
+      <div class="section-ey">02 · Get Going</div>
+      <h2 class="section-h">Install on your phone</h2>
+      <p class="section-lede">NBD Pro is a Progressive Web App. Install it to your home screen and it runs full-screen like a native app — faster, no browser chrome, works offline.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li><strong>iPhone</strong>: Open Safari → tap <span class="mock-bar">▴ Share</span> → scroll → <strong>Add to Home Screen</strong>.</li>
+          <li><strong>Android (Chrome)</strong>: Tap the <span class="mock-bar">⋮</span> menu → <strong>Install app</strong> or <strong>Add to Home screen</strong>.</li>
+          <li>Tap the new icon. The app launches full-screen — no address bar.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — why install, and what changes</summary>
+        <div class="detail-body">
+          <h4>What you gain</h4>
+          <ul>
+            <li><strong>Real estate</strong> — no browser address bar means an extra ~60px of vertical space, which on a kanban with skinny columns is a lot.</li>
+            <li><strong>Push-to-talk speed</strong> — installed apps wake faster from cold start because the OS keeps the shell warm.</li>
+            <li><strong>Offline mode</strong> — service worker pre-caches the app shell. You can open the app with no signal and still see your last-known data.</li>
+            <li><strong>One-tap from anywhere</strong> — appears in your app drawer / home screen like Mail or Maps.</li>
+          </ul>
+          <h4>iPhone — exact steps</h4>
+          <ol>
+            <li>Open the app in <strong>Safari</strong> (not Chrome on iOS — Apple restricts PWA install to Safari).</li>
+            <li>Tap the Share button (square with up-arrow) in the bottom toolbar.</li>
+            <li>Scroll down the share sheet and tap <strong>Add to Home Screen</strong>.</li>
+            <li>You'll see a preview with the NBD Pro icon. Tap <strong>Add</strong>.</li>
+            <li>Find the icon on your home screen and tap it.</li>
+          </ol>
+          <h4>Android — exact steps</h4>
+          <ol>
+            <li>Open the app in <strong>Chrome</strong> (other browsers may work but Chrome is fully supported).</li>
+            <li>Tap the three-dot menu in the top right.</li>
+            <li>Pick <strong>Install app</strong> if you see it, otherwise <strong>Add to Home screen</strong>.</li>
+            <li>Confirm. The icon lands on your home screen and in your app drawer.</li>
+          </ol>
+          <h4>Auto-prompt</h4>
+          <p>On Android Chrome, the app will prompt you to install on first visit (via <code>beforeinstallprompt</code>). On iOS Safari, you see a one-time card explaining the manual steps, since iOS doesn't fire that event.</p>
+          <div class="warn">Reinstalling after deleting <strong>does not</strong> wipe your data — your account, leads, and photos are all server-side. Sign in and they're right back.</div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ KANBAN ══════════════════ -->
+    <section class="section" id="kanban" data-keywords="kanban pipeline stages drag drop columns view switcher insurance cash finance warranty service jobs">
+      <div class="section-ey">03 · Core Workflow</div>
+      <h2 class="section-h">The Pipeline (Kanban)</h2>
+      <p class="section-lede">The kanban is home base. Every lead is a card, every column is a stage, and the pipeline value updates the moment you drag a card.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li><strong>Drag a card</strong> across columns to move stages. The pipeline total at the top updates instantly.</li>
+          <li><strong>Tap a card</strong> to open the lead detail modal. Edit anything, save, done.</li>
+          <li><strong>Switch views</strong> using the pill row up top: <span class="mock-chip on">Ins</span> <span class="mock-chip">Cash</span> <span class="mock-chip">Fin</span> <span class="mock-chip">War</span> <span class="mock-chip">Svc</span> <span class="mock-chip">Jobs</span> <span class="mock-chip">All</span>.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — views, columns, and what each move does</summary>
+        <div class="detail-body">
+          <h4>The seven views</h4>
+          <p>The view switcher in the kanban header changes which columns are shown <em>and</em> which leads filter in:</p>
+          <ul>
+            <li><strong>Ins</strong> (default) — Insurance pipeline. Shows leads marked <code>jobType: insurance</code> plus any unset (leads imported before job-type existed default here). Columns: New → Contacted → Inspected → Claim Filed → Adjuster Mtg → Adjuster Done → Scope Received → Estimate Sent → Supplement → Supp. Approved → Contract Signed → Lost.</li>
+            <li><strong>Cash</strong> — only cash leads. Columns: New → Contacted → Inspected → Est. Sent → Negotiating → Contract Signed → Lost.</li>
+            <li><strong>Fin</strong> — only finance leads. Columns: New → Contacted → Inspected → Pre-Qual Sent → Loan Approved → Contract Signed → Lost.</li>
+            <li><strong>War</strong> — warranty / callback work. Columns: New → Contacted → Inspected → Warranty Visit → Repair Done → Closed → Lost.</li>
+            <li><strong>Svc</strong> — small one-off service / repair. Columns: New → Contacted → Inspected → Service Quoted → Service Approved → Installing → Install Done → Closed → Lost.</li>
+            <li><strong>Jobs</strong> — leads in post-contract job stages (any job type). Columns: Job Created → Permit → Materials Ordered → Materials Here → Crew Scheduled → Installing → Install Done → Final Photos → Deductible → Final Payment → Closed.</li>
+            <li><strong>All</strong> — the legacy 7-column simple view: New → Inspected → Estimate Sent → Contract Signed → In Progress → Closed → Lost. Good for an at-a-glance count, but hides track-specific stages.</li>
+          </ul>
+          <p>Your selected view is remembered in <code>localStorage</code> across page loads.</p>
+
+          <h4>What happens when you drag a card</h4>
+          <p>Every stage move is recorded:</p>
+          <ol>
+            <li><strong>Optimistic update</strong> — the card jumps to the new column instantly. Pipeline value recalculates.</li>
+            <li><strong>Stage history</strong> — a timestamped entry is appended to the lead's <code>stageHistory</code>: from, to, who, when.</li>
+            <li><strong>Lost reason prompt</strong> — moving to "Lost" pops a quick reason picker (preset chips or free text). Cancel cancels the move; pick or skip continues.</li>
+            <li><strong>Required field check</strong> — some stages require fields (e.g., <code>claim_filed</code> needs a claim number). If anything's missing, the move is blocked and the lead modal opens so you can fill it in.</li>
+            <li><strong>Stage-started timestamp</strong> — resets so the days-in-stage badge restarts counting.</li>
+            <li><strong>Cross-tab guard</strong> — if another open tab moved this card a second ago, the move aborts cleanly so you don't get duplicate history entries.</li>
+          </ol>
+
+          <h4>Card density</h4>
+          <p>Settings → Display → Card density: <strong>Tight</strong>, <strong>Comfortable</strong>, or <strong>Roomy</strong>. Tight fits ~3× more cards on screen; roomy adds property intel and damage type to each card face.</p>
+
+          <h4>Hot keys</h4>
+          <ul>
+            <li><span class="mock-kbd">C</span> — Add new lead.</li>
+            <li><span class="mock-kbd">/</span> — Focus the search box.</li>
+            <li><span class="mock-kbd">Cmd</span>+<span class="mock-kbd">K</span> (Mac) / <span class="mock-kbd">Ctrl</span>+<span class="mock-kbd">K</span> (Win) — Command palette (fuzzy search every lead + every action).</li>
+            <li><span class="mock-kbd">Esc</span> — Close the open modal.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Move a lead through the insurance flow</summary>
+        <div class="detail-body">
+          <p>The typical insurance lead path looks like this:</p>
+          <div class="flow">
+            <span class="flow-step">New</span><span class="flow-arrow">→</span>
+            <span class="flow-step">Inspected</span><span class="flow-arrow">→</span>
+            <span class="flow-step ins">Claim Filed</span><span class="flow-arrow">→</span>
+            <span class="flow-step ins">Adjuster Mtg</span><span class="flow-arrow">→</span>
+            <span class="flow-step ins">Scope Received</span><span class="flow-arrow">→</span>
+            <span class="flow-step ins">Estimate Sent</span><span class="flow-arrow">→</span>
+            <span class="flow-step win">Contract Signed</span>
+          </div>
+          <ol>
+            <li><strong>New → Inspected</strong> — after the inspection visit, drag the card. Add inspection photos and notes if you haven't already.</li>
+            <li><strong>Inspected → Claim Filed</strong> — once the homeowner files (or you file on their behalf with AOB). You'll be prompted for the carrier and claim number — required.</li>
+            <li><strong>Claim Filed → Adjuster Mtg</strong> — log the date and time of the adjuster appointment.</li>
+            <li><strong>Adjuster Mtg → Adjuster Done</strong> — drag after the meeting. Note what they paid for and what they pushed back on.</li>
+            <li><strong>Adjuster Done → Scope Received</strong> — when the carrier sends the scope of loss document. Upload the PDF to the lead notes.</li>
+            <li><strong>Scope Received → Estimate Sent</strong> — you've built your estimate and sent it. Estimate amount and deductible required at this stage.</li>
+            <li><strong>Estimate Sent → Contract Signed</strong> — homeowner signs. Stage moves into the Jobs view automatically.</li>
+          </ol>
+          <div class="tip">If the carrier underpays, drag back to <strong>Supplement</strong> instead of forward. Filing the supplement is its own action button on the lead — see <a href="#documents">Other documents</a>.</div>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Find a specific lead fast</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Hit <span class="mock-kbd">/</span> or tap the search box in the kanban header.</li>
+            <li>Type any part of the name, address, phone, or claim number. The kanban filters live as you type.</li>
+            <li>To see only one stage, tap a column header — it pins that column wide and shrinks the rest.</li>
+          </ol>
+          <p>For lookups across all leads regardless of view, hit <span class="mock-kbd">Cmd</span>+<span class="mock-kbd">K</span> for the command palette — it fuzzy-searches every lead by name, address, and phone.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Tips & shortcuts</summary>
+        <div class="detail-body">
+          <ul>
+            <li><strong>Bulk select</strong> — tap the <span class="mock-bar">☑ Bulk</span> button in the kanban header to enter multi-select mode. Tap cards to add them, then bulk-set job type, tags, source, or follow-up date.</li>
+            <li><strong>Right-click / long-press a card</strong> — opens a quick context menu: View details · Edit · Add task · Call · Copy phone/address · Open in Maps · Delete. Same vocabulary on desktop and mobile.</li>
+            <li><strong>Days in stage</strong> — every card shows a small badge with how many days it's been in its current column. Tap to see the full stage history timeline.</li>
+            <li><strong>Property intel</strong> — when you add a lead by address, NBD pulls year built, market value, last sale date, and whether the owner is an LLC. Pulls happen on save; manual re-pull is on the edit modal.</li>
+            <li><strong>Lost cards aren't deleted</strong> — they live in the Lost column with the reason recorded. To permanently archive a lead, use Delete (it's a soft delete; bin lives in Settings).</li>
+          </ul>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ LEADS ══════════════════ -->
+    <section class="section" id="leads" data-keywords="lead add edit delete restore property intel claim damage carrier">
+      <div class="section-ey">04 · Core Workflow</div>
+      <h2 class="section-h">Adding & Editing Leads</h2>
+      <p class="section-lede">Adding a lead is a 5-second job: name + address. Everything else (claim info, finance details, trade scope) can be filled in as the deal progresses.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Tap <span class="mock-btn">＋ Add</span> in the top right or the floating <span class="mock-btn">＋</span> bottom-right.</li>
+          <li>Enter <strong>first name</strong>, <strong>last name</strong>, and <strong>address</strong>. Everything else is optional.</li>
+          <li>Hit <span class="mock-btn">Save Lead</span>. The card appears in the New column.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — every field, what it drives</summary>
+        <div class="detail-body">
+          <h4>The mandatory fields</h4>
+          <ul>
+            <li><strong>First name + Last name + Address</strong> — required. Without them, save fails with an inline error.</li>
+            <li><strong>Phone / Email</strong> — optional, but validated when you do fill them in. Phone needs 10+ digits; email needs an <code>@</code> + a domain. Bad data here breaks SMS/email prefill downstream, so we catch typos at save time.</li>
+          </ul>
+
+          <h4>Job classification</h4>
+          <ul>
+            <li><strong>Stage</strong> — defaults to New. Pick from the dropdown to drop straight into a later column. Use the optgroups: Shared, Insurance Track, Cash Track, Finance Track, Warranty, Service, Contract, Job Pipeline, Exit.</li>
+            <li><strong>Job Type</strong> — Insurance, Cash, Finance, Warranty, or Service. Sets the pipeline behavior. Sub-type and trades fields appear once you pick one. See <a href="#job-types">Job Types & Stages</a> for the full breakdown.</li>
+            <li><strong>Sub-Type</strong> — optional second-level classifier (storm/hail, full replace, third-party lender, workmanship, etc.). Drives template variant selection.</li>
+            <li><strong>Trades</strong> — multi-select chips for what's actually being worked on: roof, gutters, siding, windows, fascia, paint, skylights, other. A storm job is commonly roof + gutters.</li>
+            <li><strong>Source</strong> — Door Knock, Storm Canvass, Referral, Online, Other. Drives the source attribution in reports.</li>
+            <li><strong>Damage Type</strong> — Roof Hail, Roof Wind, Roof H&W, Siding Hail, Siding Wind, Gutters, Full Exterior, Fire, Water, Other.</li>
+            <li><strong>Claim Status</strong> — No Claim, Claim Filed, Adjuster Scheduled, Approved, Supplementing, Paid Out, Denied. Separate from stage; you can be in Stage "Adjuster Done" with Claim Status "Approved".</li>
+            <li><strong>Job Value ($)</strong> — your best estimate of total job revenue. Powers the pipeline-value rollup.</li>
+            <li><strong>Follow-Up Date</strong> — when you next need to touch this lead. Overdue follow-ups show a red badge on the card.</li>
+          </ul>
+
+          <h4>Insurance detail block (auto-shows for insurance)</h4>
+          <ul>
+            <li><strong>Insurance Carrier</strong> — State Farm, Nationwide, Allstate, Liberty Mutual, etc.</li>
+            <li><strong>Claim Number</strong> — required to advance past <code>claim_filed</code>.</li>
+            <li><strong>Claim Filed By</strong> — Homeowner, Contractor (NBD), Insurance Agent.</li>
+            <li><strong>Estimate Amount ($)</strong> — what the carrier is paying total.</li>
+            <li><strong>Deductible ($)</strong> — what the homeowner owes you out of pocket at contract signing.</li>
+            <li><strong>Supplement Status</strong> — Needed, Requested, Under Review, Re-Inspection, Approved, Denied.</li>
+            <li><strong>Scope of Work</strong> — free text. Lives in the contract template merge.</li>
+          </ul>
+
+          <h4>Finance detail block (auto-shows for finance)</h4>
+          <ul>
+            <li><strong>Finance Company</strong> — Improvifi, Hearth, GreenSky, etc.</li>
+            <li><strong>Loan Amount ($)</strong> — required at <code>loan_approved</code>.</li>
+            <li><strong>Loan Status</strong> — Pre-Qual Sent, Approved, Denied, Funded.</li>
+            <li><strong>Pre-Qual Link</strong> — URL you sent the homeowner. Click to open.</li>
+          </ul>
+
+          <h4>Job detail block (auto-shows once stage is post-contract)</h4>
+          <ul>
+            <li><strong>Scheduled Date</strong> — install date. Powers the calendar view.</li>
+            <li><strong>Crew</strong> — crew name or lead installer.</li>
+          </ul>
+
+          <h4>Property intel pull</h4>
+          <p>The <span class="mock-btn">🏠 Pull Property Intel</span> button hits Regrid + county records and fills in year built, market value, last sale date, parcel ID, LLC ownership status, and homestead exemption. Saves with the lead. If the pull fails (rural property, out-of-coverage county), the rest of the save proceeds normally.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Edit a lead</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Tap the card on the kanban (or find the lead from search / command palette).</li>
+            <li>The edit modal opens with every field pre-filled.</li>
+            <li>Change what you need. Insurance/finance/job blocks toggle visibility based on Job Type — set the type first.</li>
+            <li>Tap <span class="mock-btn">Save Lead</span>.</li>
+          </ol>
+          <p>You can also edit specific fields without opening the full modal:</p>
+          <ul>
+            <li><strong>Stage</strong> — drag the card.</li>
+            <li><strong>Follow-Up</strong> — tap the date chip on the card.</li>
+            <li><strong>Tags</strong> — tap the tag pill area on the card face (if visible at your card density).</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Delete and restore a lead</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Open the lead edit modal and tap the trash icon (top-right of modal).</li>
+            <li>Confirm. The lead moves to the Deleted bin (soft delete — nothing is destroyed).</li>
+            <li>Open <strong>Settings → Deleted bin</strong> to view, restore, or permanently purge.</li>
+          </ol>
+          <div class="warn">Permanent purge is irreversible. Stage history and uploaded photos are also deleted from storage. The bin is per-account — owners see only their leads' bin; admins see all team bins.</div>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Bulk-assign job type after importing</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Switch to the <strong>All</strong> view.</li>
+            <li>Tap the <span class="mock-bar">☑ Bulk</span> button in the kanban header to enter multi-select mode.</li>
+            <li>Pick all the leads you want to flag (e.g., all from a recent CSV import).</li>
+            <li>The action bar at the bottom shows <span class="mock-btn ghost">Set Job Type</span> — tap, pick the type, confirm.</li>
+            <li>Every selected lead updates in one batch. The kanban re-filters.</li>
+          </ol>
+          <p>Same flow works for <strong>tags</strong>, <strong>source</strong>, <strong>damage type</strong>, and <strong>follow-up date</strong>.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ JOB TYPES & STAGES ══════════════════ -->
+    <section class="section" id="job-types" data-keywords="job type subtype trades stages insurance cash finance warranty service workflow next actions required fields">
+      <div class="section-ey">05 · Core Workflow</div>
+      <h2 class="section-h">Job Types & Stages</h2>
+      <p class="section-lede">A lead's <strong>job type</strong> drives its workflow, its stages, its required fields, and which documents you'll generate. Five types cover every job a roofing/restoration shop runs.</p>
+
+      <div class="jt-row">
+        <div class="jt-pill ins"><div class="jt-h">📋 Insurance</div><div class="jt-b">Claim-based restoration paid by the carrier</div></div>
+        <div class="jt-pill cash"><div class="jt-h">💵 Cash</div><div class="jt-b">Homeowner pays out of pocket</div></div>
+        <div class="jt-pill fin"><div class="jt-h">🏦 Finance</div><div class="jt-b">Job funded through a lender</div></div>
+        <div class="jt-pill war"><div class="jt-h">🛠️ Warranty</div><div class="jt-b">Callback under existing workmanship/material warranty</div></div>
+        <div class="jt-pill svc"><div class="jt-h">🔧 Service</div><div class="jt-b">Small repair or maintenance, not a full replacement</div></div>
+      </div>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>In the lead modal, set <strong>Job Type</strong>. The Sub-Type select and Trades chip group appear right below.</li>
+          <li>Pick a <strong>sub-type</strong> (optional but recommended — drives doc templates).</li>
+          <li>Tap any <strong>trade chips</strong> that apply (roof, gutters, etc. — multi-select).</li>
+          <li>Set the <strong>stage</strong>. The dropdown only shows stages relevant to this job type, hiding the rest.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — what each job type unlocks</summary>
+        <div class="detail-body">
+          <h4>Insurance</h4>
+          <p>The full claim-driven workflow. Stages: <strong>New → Contacted → Inspected → Claim Filed → Adjuster Mtg → Adjuster Done → Scope Received → Estimate Sent → (Supplement → Supp. Approved) → Contract Signed</strong>. Documents available: AOB (Assignment of Benefits), Inspection Report (Insurance variant), Supplement Request Letter, Estimate (Insurance format), Contract, Certificate of Completion.</p>
+
+          <h4>Cash</h4>
+          <p>Direct-pay homeowner. Stages: <strong>New → Contacted → Inspected → Est. Sent → Negotiating → Contract Signed</strong>. Documents: Inspection Report (Homeowner variant), Cash Estimate, Contract.</p>
+
+          <h4>Finance</h4>
+          <p>Third-party-funded job. Stages: <strong>New → Contacted → Inspected → Pre-Qual Sent → Loan Approved → Contract Signed</strong>. Documents: Pre-qual link, Loan Approval letter, Contract with financing addendum.</p>
+
+          <h4>Warranty</h4>
+          <p>A callback or post-install repair. Stages: <strong>New → Contacted → Inspected → Warranty Visit → Repair Done → Closed</strong>. No claim, no contract, often no payment. Document: Warranty Service Report.</p>
+
+          <h4>Service</h4>
+          <p>Small one-off repair or maintenance. Stages: <strong>New → Contacted → Inspected → Service Quoted → Service Approved → Installing → Install Done → Closed</strong>. Documents: Service Quote, Service Invoice.</p>
+
+          <h4>Sub-types</h4>
+          <p>Optional second-level classifier. Available sub-types per job type:</p>
+          <ul>
+            <li><strong>Insurance</strong>: Storm — Hail, Storm — Wind, Storm — Hail & Wind, Fire, Water/Leak, Other</li>
+            <li><strong>Cash</strong>: Full Replacement, Partial Replacement, Repair</li>
+            <li><strong>Finance</strong>: Third-Party Lender, In-House Financing</li>
+            <li><strong>Warranty</strong>: Workmanship, Material Defect, Manufacturer Claim, Goodwill / Out of Warranty</li>
+            <li><strong>Service</strong>: Repair, Maintenance, Inspection Only</li>
+          </ul>
+
+          <h4>Trades (multi-select)</h4>
+          <p>Orthogonal to job type. A storm-hail insurance job is commonly roof + gutters. A warranty callback might be just skylights. Trades drive estimate template and crew assignment.</p>
+          <p>Available trades: Roof, Gutters, Siding, Windows, Fascia/Soffit, Paint, Skylights, Other.</p>
+
+          <h4>Required fields per stage</h4>
+          <p>You can't advance a lead past certain stages without filling required fields. The kanban drag will be blocked, a toast tells you what's missing, and the lead modal opens automatically:</p>
+          <ul>
+            <li><strong>Insurance: Claim Filed</strong> — requires Carrier + Claim Number</li>
+            <li><strong>Insurance: Estimate Sent</strong> — requires Estimate Amount + Deductible</li>
+            <li><strong>Cash: Est. Sent / Contract Signed</strong> — requires Job Value</li>
+            <li><strong>Finance: Pre-Qual Sent</strong> — requires Finance Company</li>
+            <li><strong>Finance: Loan Approved / Contract Signed</strong> — requires Loan Amount + Finance Company</li>
+            <li><strong>Warranty: Warranty Visit</strong> — requires Scheduled Date</li>
+            <li><strong>Service: Service Quoted / Approved</strong> — requires Job Value</li>
+          </ul>
+          <p>Moves to <strong>Lost</strong> are always allowed regardless of missing fields — you need to be able to dispose of dead leads fast.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Convert a cash lead to insurance mid-flight</summary>
+        <div class="detail-body">
+          <p>Happens often: you started a cash bid, the homeowner went and filed a claim. To re-route:</p>
+          <ol>
+            <li>Open the lead modal.</li>
+            <li>Change <strong>Job Type</strong> from Cash to Insurance.</li>
+            <li>The insurance detail block appears; the stage dropdown now shows the insurance track instead of the cash track.</li>
+            <li>If your current stage isn't valid in the insurance pipeline (e.g., you were in "Negotiating"), you'll see a small warning under the stage select. Pick the closest insurance stage (probably "Inspected" or "Claim Filed").</li>
+            <li>Fill in the new required fields (Carrier, Claim Number, etc.) and save.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Read the Next Actions panel</summary>
+        <div class="detail-body">
+          <p>Open any existing lead. Scroll to the bottom of the modal, just above Save Lead. You'll see the <strong>Next Actions</strong> panel with context-aware chips like:</p>
+          <p><span class="mock-bar">📸 Photo Report</span> <span class="mock-bar">📋 File Claim</span> <span class="mock-bar">✍️ Send AOB</span></p>
+          <p>The chips change based on the lead's current stage <em>and</em> job type. At <code>inspected</code> with <code>jobType: insurance</code>, you'll see File Claim + Send AOB. At <code>inspected</code> with <code>jobType: cash</code>, you'll see Send Estimate instead.</p>
+          <p>Each chip has a small label showing its kind: <span style="color:#0891b2">doc</span> (generates a document), <span style="color:#16a34a">stage</span> (advances the pipeline), or <span style="color:var(--tx2)">action</span> (logs something or opens a tool).</p>
+          <div class="note">Some chip handlers are still being wired up — tapping a chip currently emits a custom event and shows a "queued" toast. Real handlers land as each doc/action backend catches up.</div>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ D2D ══════════════════ -->
+    <section class="section" id="d2d" data-keywords="d2d door to door knock disposition prospect canvass storm map gps">
+      <div class="section-ey">06 · Core Workflow</div>
+      <h2 class="section-h">D2D Tracker</h2>
+      <p class="section-lede">Tap a door, log the disposition, and the knock saves with GPS. Storm-damage and insurance dispositions auto-create CRM leads as Prospects so a knock never falls through the cracks.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Open the D2D Tracker from the sidebar (or <code>#nav-d2d</code>).</li>
+          <li>Tap the address on the map (or hit <span class="mock-btn">＋ Quick Knock</span>).</li>
+          <li>Pick a <strong>disposition</strong> chip — Storm Damage, Insurance Interested, Not Home, Not Interested, etc.</li>
+          <li>Done. The knock saves with GPS, timestamp, and your rep ID.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — dispositions, prospects, and re-knocking</summary>
+        <div class="detail-body">
+          <h4>Disposition types</h4>
+          <ul>
+            <li><strong>Storm Damage</strong> — visible storm/hail damage. Auto-creates a Prospect lead with job type pre-set to <code>insurance</code>.</li>
+            <li><strong>Insurance Interested</strong> — owner is open to filing. Same auto-promote behavior.</li>
+            <li><strong>Cash Interested</strong> — wants a cash quote. Auto-creates a Prospect with job type <code>cash</code>.</li>
+            <li><strong>Not Home</strong> — no answer. Logs the knock for territory analysis; no lead created.</li>
+            <li><strong>Not Interested</strong> — owner declined. Logs the knock with a polite-but-stop signal so you don't re-knock soon.</li>
+            <li><strong>Wrong House</strong> — bad address. Doesn't create a lead.</li>
+            <li><strong>Follow-up Later</strong> — owner wants you to come back. Logs a follow-up date.</li>
+            <li><strong>Already Working With Someone</strong> — competitive. Logs the competitor name if you can get it.</li>
+            <li><strong>Sold</strong> — closed on the doorstep. Creates a customer-tier lead immediately.</li>
+          </ul>
+
+          <h4>Prospects vs Customers</h4>
+          <p>An auto-promoted knock creates a <strong>Prospect</strong>, not a regular Lead. Prospects:</p>
+          <ul>
+            <li>Live on the Prospects page, not the main kanban (so your kanban doesn't fill with cold knocks).</li>
+            <li>Have <code>isProspect: true</code> on their record.</li>
+            <li>When you try to drag a prospect on the kanban (rare — usually they're filtered out), you get a "Promote to customer?" confirm dialog.</li>
+            <li>Promoting flips the flag and the lead lands in the main pipeline at its current stage.</li>
+          </ul>
+
+          <h4>Re-knocking</h4>
+          <p>Knock the same address twice and the second knock attaches to the same prospect record. Photos accumulate, the disposition history grows, and the rep can see "knocked 3 times since the storm" at a glance.</p>
+
+          <h4>GPS accuracy</h4>
+          <p>NBD uses high-accuracy geolocation (~5m typical, ~20m worst case on iPhone). Knocks log the device's reported coordinates and accuracy radius. If the rep is inside a building or under heavy cover, accuracy degrades — the address-pin lookup (Nominatim) is used as a fallback to snap to the nearest known parcel.</p>
+
+          <h4>Photos at the knock</h4>
+          <p>Tap <span class="mock-btn">📸</span> on the knock card to grab photos right there. They attach to the prospect record and appear on the lead detail page later. Common pattern: damage shot + roof line shot + close-up of granule loss.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Run a storm canvass</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Open D2D Tracker. The map centers on your location.</li>
+            <li>Tap <span class="mock-btn ghost">🎯 Set Territory</span> to draw a polygon around the affected neighborhood (or pick from saved territories).</li>
+            <li>Walk the street. Tap each house as you knock.</li>
+            <li>Pick disposition. Add a photo if you see damage. Move on.</li>
+            <li>At the end of the canvass, open the Prospects page. Every storm-damage knock is queued there with property intel pulled.</li>
+            <li>Call back the ones that picked up, file claims with the ones who didn't dispute.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>Tips</summary>
+        <div class="detail-body">
+          <ul>
+            <li><strong>Heatmap view</strong> — toggle to see knock density across your territory. Tells you where you've covered well vs where you've ghosted.</li>
+            <li><strong>Speed knocks</strong> — chord the disposition chip with the photo button. Two taps total for a logged + photographed knock.</li>
+            <li><strong>Offline knocks</strong> — knocks save locally when you're out of signal. You'll see them sync in a green toast when you reconnect.</li>
+          </ul>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ ESTIMATES ══════════════════ -->
+    <section class="section" id="estimates" data-keywords="estimate squared feet linear feet tier good better best supplement send sign signature">
+      <div class="section-ey">07 · Selling & Doc Gen</div>
+      <h2 class="section-h">Estimates</h2>
+      <p class="section-lede">Three tiers, SF + LF pricing, supplements for insurance, and a one-tap send-to-homeowner. The estimate is wired into the contract template so signatures flow without rekeying.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Open a lead → tap <span class="mock-btn">＋ New Estimate</span>.</li>
+          <li>Enter <strong>SF</strong> (squares) and <strong>LF</strong> (linear feet) for the roof.</li>
+          <li>Pick a tier — <strong>Good</strong>, <strong>Better</strong>, or <strong>Best</strong> — pricing auto-fills.</li>
+          <li>Tap <span class="mock-btn">Send Estimate</span> to email the homeowner a signing link.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — pricing, tiers, supplements</summary>
+        <div class="detail-body">
+          <h4>The tier system</h4>
+          <p>NBD ships with three default tiers ($/sq):</p>
+          <ul>
+            <li><strong>Good</strong> — $545/sq · 25-year workmanship warranty</li>
+            <li><strong>Better</strong> — $595/sq · 40-year workmanship warranty</li>
+            <li><strong>Best</strong> — $660/sq · 50-year + impact-resistant shingles</li>
+          </ul>
+          <p>You can customize these in <strong>Settings → Estimate Defaults</strong>. The tiers are stored per-account so the whole team estimates consistently.</p>
+
+          <h4>Insurance supplements</h4>
+          <p>For insurance jobs, the estimate UI gets two extra rows:</p>
+          <ul>
+            <li><strong>Initial scope</strong> — what the carrier originally paid</li>
+            <li><strong>Supplement amount</strong> — what you're requesting on top</li>
+          </ul>
+          <p>The supplement letter is auto-generated with line items and code citations. Send to the carrier via the supplement workflow (see <a href="#documents">Documents</a>).</p>
+
+          <h4>Line items</h4>
+          <p>The estimate auto-calculates roofing line items from SF + LF (shingles, underlayment, ice & water, drip edge, flashing, ridge cap, etc.) but you can add custom line items for things like solar panel detach/reset, satellite dish reinstall, or HVAC unit work.</p>
+
+          <h4>Sending</h4>
+          <p><span class="mock-btn">Send Estimate</span> emails a signing link to the homeowner. The estimate renders as a clean HTML page with your branding, the line items, the total, and a signature pad. When they sign:</p>
+          <ol>
+            <li>Webhook fires back to the lead.</li>
+            <li>The lead's stage auto-advances to <strong>Contract Signed</strong>.</li>
+            <li>The estimate document is archived on the lead.</li>
+            <li>You get a push notification and a toast.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Revise an estimate after pushback</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Open the lead, scroll to <strong>Estimates</strong>, tap the existing estimate to open it.</li>
+            <li>Tap <span class="mock-btn">📝 Revise</span>. Make changes.</li>
+            <li>Tap <span class="mock-btn">Send Revision</span>. The homeowner gets a fresh link.</li>
+            <li>The original estimate is kept as a versioned record (timeline shows v1 / v2 / etc.).</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Build a Change Order during the install</summary>
+        <div class="detail-body">
+          <ol>
+            <li>While the job is in progress, open the lead.</li>
+            <li>Tap <span class="mock-btn">📝 Change Order</span> in the Next Actions panel.</li>
+            <li>Add the new line items (e.g., rotted decking replacement, hidden damage discovered).</li>
+            <li>Send to the homeowner for signature.</li>
+            <li>On sign, the change order amount adds to the job's total and shows on the final invoice.</li>
+          </ol>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ PHOTO REPORTS ══════════════════ -->
+    <section class="section" id="photo-reports" data-keywords="photo report before during after image gallery share heic phase">
+      <div class="section-ey">08 · Selling & Doc Gen</div>
+      <h2 class="section-h">Photo Reports</h2>
+      <p class="section-lede">Snap photos during the inspection, tag the phase, and tap one button to generate a clean before/during/after gallery you can text the homeowner or send to the adjuster.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Open a lead → tap the camera FAB or the <strong>Photos</strong> tab.</li>
+          <li>Take photos. Each photo prompts for a <strong>phase</strong> tag: Before, During, After, Damage Close-up, Wide Shot, Other.</li>
+          <li>Tap <span class="mock-btn">Generate Photo Report</span>. A shareable HTML page renders with thumbnails grouped by phase.</li>
+          <li>Tap <span class="mock-btn">📤 Share</span> to text or email the link.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — phases, HEIC, EXIF, sharing</summary>
+        <div class="detail-body">
+          <h4>Phase categorization</h4>
+          <p>Every photo gets a phase tag. The report groups by phase in this order: Before → Damage Close-up → Wide Shot → During → After → Other. You can drag-reorder within a phase but not across phases.</p>
+
+          <h4>HEIC handling</h4>
+          <p>iPhone shoots HEIC by default, which most browsers don't render. NBD converts HEIC → JPEG on upload (server-side) and stores both. The browser sees JPEG; the original HEIC is kept for archival.</p>
+
+          <h4>EXIF data</h4>
+          <p>NBD reads EXIF on upload and records the original capture timestamp + GPS coordinates (when granted). This is important for insurance disputes — adjusters sometimes ask "when was this taken?" and the camera roll modification date isn't always trustworthy.</p>
+
+          <h4>Photo report storage</h4>
+          <p>Reports are generated client-side from Firestore photo data, not pre-rendered. That means every share link always reflects the latest set of photos on the lead. Add a new photo? Refresh the report URL and it's there.</p>
+
+          <h4>Sharing options</h4>
+          <ul>
+            <li><strong>Copy link</strong> — copies to clipboard. Use when you're typing your own message.</li>
+            <li><strong>Text via SMS</strong> — opens the system SMS composer with a pre-filled message + link.</li>
+            <li><strong>Email</strong> — opens mail client with a pre-filled subject and body.</li>
+            <li><strong>QR code</strong> — generates a QR for in-person handoff (e.g., showing the report on your phone to the adjuster on site).</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Build a damage-only report for the adjuster</summary>
+        <div class="detail-body">
+          <ol>
+            <li>On the Photos tab, filter to <strong>Damage Close-up</strong> + <strong>Wide Shot</strong> only.</li>
+            <li>Tap <span class="mock-btn">Generate Photo Report</span>. The generated page only includes those phases.</li>
+            <li>Title it "Damage Documentation — [property address]" in the report settings.</li>
+            <li>Share with the carrier via email — the link works without login.</li>
+          </ol>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ CUSTOMER PORTAL ══════════════════ -->
+    <section class="section" id="customer-portal" data-keywords="customer portal homeowner share link timeline photo gallery branding">
+      <div class="section-ey">09 · Selling & Doc Gen</div>
+      <h2 class="section-h">Customer Portal</h2>
+      <p class="section-lede">A branded page the homeowner can pull up anytime — sees the timeline, the photos, the next milestone, and your contact info. Drastically cuts down on "what's the status?" calls.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Open a lead → tap <span class="mock-btn">🏠 Portal</span>.</li>
+          <li>The portal generates from the lead data + photos.</li>
+          <li>Tap <span class="mock-btn">📤 Share</span> to text the homeowner the link.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — what the homeowner sees</summary>
+        <div class="detail-body">
+          <h4>The portal layout</h4>
+          <ul>
+            <li><strong>Header</strong> — your company name + logo + contact phone/email (pulled from <strong>Settings → Brand</strong>).</li>
+            <li><strong>Status banner</strong> — friendly version of the current stage. "Your claim has been filed" instead of "stage: claim_filed". Updates as you move the card on the kanban.</li>
+            <li><strong>Timeline</strong> — major milestones with timestamps. Skips the noise (every drag), shows the moments that matter: claim filed, adjuster met, contract signed, install scheduled, install complete.</li>
+            <li><strong>Photo gallery</strong> — Before / During / After tabs. Mobile-friendly lightbox.</li>
+            <li><strong>Documents</strong> — links to estimate, contract, warranty cert, final invoice as they're generated.</li>
+            <li><strong>Contact card</strong> — your rep's photo, phone, email, and a quick "Reply with a question" link.</li>
+          </ul>
+          <p>The portal updates live as you change the lead. Homeowner refreshes their tab and sees the new state.</p>
+
+          <h4>Versioning</h4>
+          <p>Portal HTML is uploaded to Firebase Storage at <code>portals/{uid}/{leadId}/v-{timestamp}.html</code>. Every regeneration creates a new version; the latest URL is what's shared. Previous versions stay in storage for audit — useful if a homeowner says "but the portal said it'd be done by Friday" and you need to prove what was shown when.</p>
+
+          <h4>Photo-only portal</h4>
+          <p>If you just want to share photos (no timeline, no contact), tap <span class="mock-btn ghost">Photo-Only Portal</span>. Lighter page, faster to load, useful for storm canvass follow-ups where you don't have a contract yet.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Common task — Brand the portal</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Open <strong>Settings → Brand</strong>.</li>
+            <li>Upload your logo (PNG or SVG, square-ish ideal, &lt;500 KB).</li>
+            <li>Pick a primary color — used for headers, buttons, and the timeline accent.</li>
+            <li>Add your phone, email, and physical address. These appear on every portal.</li>
+            <li>Save. Future portal generations use the new brand. Old portals stay branded as they were when generated.</li>
+          </ol>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ DOCUMENTS ══════════════════ -->
+    <section class="section" id="documents" data-keywords="document contract aob estimate supplement warranty change order invoice template">
+      <div class="section-ey">10 · Selling & Doc Gen</div>
+      <h2 class="section-h">Other Documents</h2>
+      <p class="section-lede">Estimates and photo reports get their own sections — this is everything else. AOB, contracts, supplement letters, warranties, invoices, change orders.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Open a lead → scroll to the <strong>Next Actions</strong> panel at the bottom of the modal.</li>
+          <li>Tap the document chip you need (<span class="mock-bar">✍️ Send AOB</span>, <span class="mock-bar">📝 Change Order</span>, etc.).</li>
+          <li>Review the auto-generated content, edit if needed, send.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — what each document is for</summary>
+        <div class="detail-body">
+          <ul>
+            <li><strong>AOB (Assignment of Benefits)</strong> — Insurance only. Lets the homeowner assign their claim benefits to you so you can talk to the carrier directly. Auto-fills with carrier, claim #, property address.</li>
+            <li><strong>Contract</strong> — Once the estimate is accepted. Merges in scope of work, total amount, deductible (insurance), warranty terms, payment schedule.</li>
+            <li><strong>Supplement Request Letter</strong> — Insurance only. Generated when the carrier's initial scope misses items. Includes line items, code references, and photo evidence.</li>
+            <li><strong>Warranty Certificate</strong> — Generated at close-out. Tier-specific (Good = 25yr, Better = 40yr, Best = 50yr workmanship). PDF-export ready.</li>
+            <li><strong>Change Order</strong> — During install. Captures additional work + homeowner sign-off so you can bill for it.</li>
+            <li><strong>Final Invoice</strong> — At close-out. Aggregates contract + change orders + deductible. Marks paid when funds land.</li>
+            <li><strong>Inspection Report</strong> — Two variants: Homeowner (cleaner, more readable) and Insurance (technical, code citations).</li>
+            <li><strong>Lien Release / Waiver</strong> — Coming soon. Final-payment-conditional waiver to satisfy mortgage holders.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Deep dive — coming next (Phase 3)</summary>
+        <div class="detail-body">
+          <p>The following docs are planned but not yet shipped:</p>
+          <ul>
+            <li>Structured Invoice (line-item, tax-aware) — in design</li>
+            <li>Scope of Work (SOW) document — separate from contract</li>
+            <li>Material Order — what to buy from the supplier</li>
+            <li>Project Close-Out Checklist — final inspection sign-off</li>
+            <li>Editable template engine — move templates out of code into editable data so you can customize wording without a dev</li>
+          </ul>
+          <p>If one of these is blocking you, tap <span class="mock-bar">Ask Joe</span> and tell him — priorities get re-ordered based on what reps actually need.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ MAP & PINS ══════════════════ -->
+    <section class="section" id="map-pins" data-keywords="map pins drawing territory polygon leaflet draw">
+      <div class="section-ey">11 · Map & Reporting</div>
+      <h2 class="section-h">Map & Pins</h2>
+      <p class="section-lede">A satellite map of every lead, knock, and customer. Draw territories, plan routes, and visually spot clusters.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Open the Map view from the sidebar.</li>
+          <li>Pinned addresses load automatically — color-coded by stage.</li>
+          <li>Tap a pin to see the lead's quick card with stage, value, and last touch.</li>
+          <li>Use the <span class="mock-btn ghost">✏️ Draw</span> tool to outline a territory.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — coming soon</summary>
+        <div class="detail-body">
+          <p>Detailed coverage of the map view, draw tool, route planner, and territory analytics will be added here in the next how-to update. In the meantime, hover any pin to see its tooltip, and tap-and-hold to enter route-planning mode.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ REPORTS ══════════════════ -->
+    <section class="section" id="reports" data-keywords="reports analytics dashboard pipeline value win rate funnel weekly stats">
+      <div class="section-ey">12 · Map & Reporting</div>
+      <h2 class="section-h">Reports & Analytics</h2>
+      <p class="section-lede">Pipeline value, weekly stats, win/loss analysis, source attribution, rep leaderboards. Everything you'd want to know about how you're closing.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Open the Reports view from the sidebar.</li>
+          <li>Pick a date range (default: last 30 days).</li>
+          <li>Browse the KPI row up top (pipeline $, closed $, win rate, avg cycle).</li>
+          <li>Drill into Win/Loss Analysis to see why deals are dying.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — what each report shows</summary>
+        <div class="detail-body">
+          <p>Detailed report breakdowns are coming in the next how-to update. Highlights:</p>
+          <ul>
+            <li><strong>Pipeline funnel</strong> — count + dollar value at every stage. Click any stage to drill into the leads in it.</li>
+            <li><strong>Weekly stats</strong> — week-over-week deltas on knocks, leads, contracts signed, revenue.</li>
+            <li><strong>Win/Loss Analysis</strong> — lost-reason aggregation (price, competitor, no claim, etc.) with trend lines.</li>
+            <li><strong>Source attribution</strong> — which sources produce the most revenue, the highest close rate, the fastest cycle.</li>
+            <li><strong>Rep leaderboard</strong> (team accounts) — knocks, leads, contracts, revenue per rep with sortable columns.</li>
+            <li><strong>Days-in-stage</strong> — flags leads that have been stuck too long. Tap to see them and call them.</li>
+          </ul>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ CALENDAR ══════════════════ -->
+    <section class="section" id="calendar" data-keywords="calendar follow up schedule install date crew">
+      <div class="section-ey">13 · Map & Reporting</div>
+      <h2 class="section-h">Calendar & Follow-ups</h2>
+      <p class="section-lede">Every follow-up date, install date, and adjuster meeting rolls up into a single calendar view.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Open Calendar from the sidebar.</li>
+          <li>The current week shows by default. Toggle to Month or Day.</li>
+          <li>Tap any event to open the related lead.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — coming soon</summary>
+        <div class="detail-body">
+          <p>Calendar conflict detection, drag-to-reschedule, and Cal.com integration are documented here in the next update. For now, follow-up dates are set on the lead's edit modal and surface automatically.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ SETTINGS ══════════════════ -->
+    <section class="section" id="settings" data-keywords="settings themes density brand team password security display">
+      <div class="section-ey">14 · Account</div>
+      <h2 class="section-h">Settings & Themes</h2>
+      <p class="section-lede">148 themes, three UI sizes, three card densities, brand controls, team management, security.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Tap the gear icon in the sidebar (or your avatar → Settings).</li>
+          <li>Pick a section from the left: Display, Brand, Team, Security, Plan, Help.</li>
+          <li>Change what you need. Most settings save instantly; some prompt for confirmation.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — every section</summary>
+        <div class="detail-body">
+          <h4>Display</h4>
+          <ul>
+            <li><strong>Theme</strong> — 148 themes total, grouped by mood (Pro, Dusk, Forest, Citrus, Mono, etc.). Theme applies instantly, no reload.</li>
+            <li><strong>UI size</strong> — Compact / Default / Comfortable. Affects font sizes and padding globally.</li>
+            <li><strong>Card density</strong> — Tight / Comfortable / Roomy. Affects only kanban cards.</li>
+            <li><strong>Hierarchy toggle</strong> — turn on to show stage badges with louder visual weight.</li>
+          </ul>
+
+          <h4>Brand</h4>
+          <ul>
+            <li>Logo, primary color, business name, phone, email, address.</li>
+            <li>Used by: customer portal, generated documents (estimates, contracts, photo reports, warranty certs).</li>
+          </ul>
+
+          <h4>Team (owner-only)</h4>
+          <ul>
+            <li>Invite reps by email.</li>
+            <li>Assign roles: sales_rep / admin / viewer.</li>
+            <li>Disable / remove members. Their leads stay; access flips off.</li>
+          </ul>
+
+          <h4>Security</h4>
+          <ul>
+            <li>Change password.</li>
+            <li>Sign out of all devices.</li>
+            <li>Enable two-factor (coming soon — currently the underlying provider supports it via account recovery).</li>
+          </ul>
+
+          <h4>Plan & Billing</h4>
+          <ul>
+            <li>See current plan, billing cycle, next charge.</li>
+            <li>Upgrade / downgrade. Manage payment method.</li>
+            <li>See seat usage (team plans).</li>
+          </ul>
+
+          <h4>Help</h4>
+          <ul>
+            <li><strong>Replay tour</strong> — re-fire the first-run walkthrough.</li>
+            <li><strong>How To</strong> — opens this page.</li>
+            <li><strong>Contact support</strong> — opens email composer pre-addressed to support.</li>
+          </ul>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ AI TOOLS ══════════════════ -->
+    <section class="section" id="ai-tools" data-keywords="ai joe understand whisper voice memo quick capture ask">
+      <div class="section-ey">15 · Account</div>
+      <h2 class="section-h">AI Tools</h2>
+      <p class="section-lede">Ask Joe (in-app assistant), Understand (AI tutoring for insurance/technical/business), Whisper dictation, Quick Capture voice scratchpad.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li><strong>Ask Joe</strong> — tap the floating chat bubble. Ask anything about the app or your pipeline.</li>
+          <li><strong>Understand</strong> — open from the sidebar. Pick a domain (Insurance / Technical / Business) and ask away.</li>
+          <li><strong>Whisper</strong> — hold the mic icon, talk, release. Transcribes with AI cleanup.</li>
+          <li><strong>Quick Capture</strong> — record a 30s voice memo. Auto-summarizes and offers to save to a lead.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — coming soon</summary>
+        <div class="detail-body">
+          <p>Each AI tool gets its own deep-dive in the next how-to update — prompt patterns, when to use which one, how the proactive Ask Joe nudges work.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ BILLING ══════════════════ -->
+    <section class="section" id="billing" data-keywords="billing plan upgrade downgrade subscription stripe">
+      <div class="section-ey">16 · Account</div>
+      <h2 class="section-h">Billing & Plans</h2>
+      <p class="section-lede">Pro Lite (25 leads), Pro (unlimited), Pro + Team (multi-rep). Self-serve upgrade/downgrade via Stripe.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li>Open <strong>Settings → Plan</strong>.</li>
+          <li>Pick a plan, confirm. You're redirected to Stripe Checkout.</li>
+          <li>Enter card details. On success, you land back in the app with the new plan active.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>Deep dive — coming soon</summary>
+        <div class="detail-body">
+          <p>Plan comparison, proration on mid-cycle upgrades, downgrade behavior, cancellation, and team seat management land here in the next update.</p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ══════════════════ TROUBLESHOOTING ══════════════════ -->
+    <section class="section" id="troubleshooting" data-keywords="troubleshooting load issue refresh reload connection offline error help">
+      <div class="section-ey">17 · Account</div>
+      <h2 class="section-h">Troubleshooting</h2>
+      <p class="section-lede">When something's off, here's what to try — in order — before opening a support ticket.</p>
+
+      <div class="qs">
+        <div class="qs-title">Quick Start</div>
+        <ol>
+          <li><strong>Check the connection dot</strong> top-right of the dashboard. Green = good. Yellow = loading. Red = trouble.</li>
+          <li><strong>Tap the connection dot</strong> — it's also a refresh button. Pulls fresh data.</li>
+          <li><strong>Wait for auto-retry</strong> — if loading fails, the app retries for ~75 seconds before showing a banner.</li>
+          <li><strong>Tap "Retry now"</strong> on the banner if you don't want to wait.</li>
+        </ol>
+      </div>
+
+      <details>
+        <summary>"My leads aren't loading"</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Wait 5-10 seconds. Cold starts on slow connections take a moment.</li>
+            <li>Tap the connection dot to force a fresh pull.</li>
+            <li>Check the status banner at the bottom — it shows live retry state and any error code.</li>
+            <li>If you're offline (banner says <strong>offline</strong>), reconnect to wifi/cellular. Reads will auto-retry when you're back online.</li>
+            <li>Still stuck? Tap the <strong>Details</strong> toggle on the banner — copy the error code, then email support.</li>
+          </ol>
+          <div class="tip">The most common cause on iPhone is the browser killing the Firestore WebSocket when the tab goes to background for a while. Tapping the connection dot cycles the connection and fixes it ~80% of the time.</div>
+        </div>
+      </details>
+
+      <details>
+        <summary>"The page looks transparent / I can see through it"</summary>
+        <div class="detail-body">
+          <p>Fixed in v159.7. If you're still seeing this:</p>
+          <ol>
+            <li>Force-quit the app (swipe up) and reopen.</li>
+            <li>If that doesn't work, sign out and sign back in.</li>
+            <li>If still stuck, clear site data: iOS Settings → Safari → Advanced → Website Data → Edit → swipe to delete <em>nobigdealwithjoedeal.com</em>.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>"Saved a lead but it's not showing"</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Pull-to-refresh on the kanban, or tap the connection dot.</li>
+            <li>Check the current view filter — if you saved a Cash lead but you're on the Insurance view, it won't show. Switch views or All.</li>
+            <li>Check the column filter — if you're filtered to "Lost only", a new lead in "New" won't show.</li>
+            <li>If still missing, check the Deleted bin — accidental delete is rare but possible.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>"My estimate didn't send"</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Check the homeowner's email and phone are filled in correctly on the lead.</li>
+            <li>Look in the lead's activity timeline — sent estimates log a "Sent estimate to {email}" event.</li>
+            <li>If the event isn't there, the send failed silently. Tap Send again — the system will surface the error this time.</li>
+            <li>Ask the homeowner to check spam.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details>
+        <summary>"I need to talk to a human"</summary>
+        <div class="detail-body">
+          <ol>
+            <li>Tap the floating <strong>Ask Joe</strong> chat for AI help (faster than email).</li>
+            <li>Email <a href="mailto:support@nobigdealwithjoedeal.com">support@nobigdealwithjoedeal.com</a> for human help.</li>
+            <li>Include: your account email, what you were trying to do, what happened, screenshot if possible.</li>
+          </ol>
+        </div>
+      </details>
+    </section>
+
+    <div class="footer">
+      Built for roofers. <a href="dashboard.html">Back to the CRM →</a>
+    </div>
+  </main>
+</div>
+
+<script>
+  // ── Reveal page once styles paint ──
+  document.documentElement.style.visibility = 'visible';
+
+  // ── Restart-tour button ──
+  document.getElementById('restartTourBtn').addEventListener('click', () => {
+    try { localStorage.removeItem('nbd-onboarding-complete'); } catch (e) {}
+    // Tour lives on the dashboard. Send the user there and let it auto-fire.
+    window.location.href = 'dashboard.html';
+  });
+
+  // ── Sticky TOC active-section tracking ──
+  const tocLinks = document.querySelectorAll('.toc a[href^="#"]');
+  const sections = Array.from(document.querySelectorAll('.section[id]'));
+  function updateActiveSection() {
+    const scrollPos = window.scrollY + 100;
+    let active = sections[0];
+    for (const s of sections) {
+      if (s.offsetTop <= scrollPos) active = s;
+    }
+    tocLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + active.id));
+  }
+  window.addEventListener('scroll', updateActiveSection, { passive: true });
+  updateActiveSection();
+
+  // ── Client-side search ──
+  const searchInput = document.getElementById('searchInput');
+  const searchClear = document.getElementById('searchClear');
+  const noResults = document.getElementById('noResults');
+
+  function clearHighlights() {
+    document.querySelectorAll('mark.hl').forEach(m => {
+      const parent = m.parentNode;
+      parent.replaceChild(document.createTextNode(m.textContent), m);
+      parent.normalize();
+    });
+  }
+
+  function highlightInNode(node, query) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = node.nodeValue;
+      const lower = text.toLowerCase();
+      const idx = lower.indexOf(query);
+      if (idx === -1) return;
+      const before = text.slice(0, idx);
+      const match = text.slice(idx, idx + query.length);
+      const after = text.slice(idx + query.length);
+      const frag = document.createDocumentFragment();
+      if (before) frag.appendChild(document.createTextNode(before));
+      const mark = document.createElement('mark');
+      mark.className = 'hl';
+      mark.textContent = match;
+      frag.appendChild(mark);
+      if (after) frag.appendChild(document.createTextNode(after));
+      node.parentNode.replaceChild(frag, node);
+    } else if (node.nodeType === Node.ELEMENT_NODE && !['SCRIPT','STYLE','MARK'].includes(node.tagName)) {
+      Array.from(node.childNodes).forEach(child => highlightInNode(child, query));
+    }
+  }
+
+  function runSearch(rawQuery) {
+    const query = rawQuery.trim().toLowerCase();
+    clearHighlights();
+
+    if (!query) {
+      sections.forEach(s => s.classList.remove('dim'));
+      noResults.classList.remove('show');
+      searchClear.classList.remove('show');
+      return;
+    }
+    searchClear.classList.add('show');
+
+    let matchCount = 0;
+    sections.forEach(s => {
+      const haystack = (s.textContent + ' ' + (s.dataset.keywords || '')).toLowerCase();
+      const matches = haystack.includes(query);
+      s.classList.toggle('dim', !matches);
+      if (matches) {
+        matchCount++;
+        highlightInNode(s, query);
+        // Auto-open details that contain matches so the user sees them
+        s.querySelectorAll('details').forEach(d => {
+          if (d.textContent.toLowerCase().includes(query)) d.open = true;
+        });
+      }
+    });
+    noResults.classList.toggle('show', matchCount === 0);
+  }
+
+  let _searchDebounce;
+  searchInput.addEventListener('input', e => {
+    clearTimeout(_searchDebounce);
+    _searchDebounce = setTimeout(() => runSearch(e.target.value), 120);
+  });
+  searchClear.addEventListener('click', () => {
+    searchInput.value = '';
+    searchInput.focus();
+    runSearch('');
+  });
+
+  // Keyboard: '/' focuses search, Esc clears
+  document.addEventListener('keydown', e => {
+    if (e.key === '/' && document.activeElement !== searchInput) {
+      e.preventDefault();
+      searchInput.focus();
+    } else if (e.key === 'Escape' && document.activeElement === searchInput) {
+      searchInput.value = '';
+      runSearch('');
+      searchInput.blur();
+    }
+  });
+
+  // Honor ?q=foo in URL on load
+  const params = new URLSearchParams(window.location.search);
+  const qParam = params.get('q');
+  if (qParam) { searchInput.value = qParam; runSearch(qParam); }
+</script>
+</body>
+</html>

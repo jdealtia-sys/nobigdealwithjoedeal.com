@@ -174,6 +174,8 @@ async function saveLead(){
       email: document.getElementById('lEmail').value.trim(),
       stage: document.getElementById('lStage').value,
       jobType: document.getElementById('lJobType')?.value || '',
+      subType: document.getElementById('lSubType')?.value || '',
+      trades: (typeof window.getSelectedTrades === 'function') ? window.getSelectedTrades() : [],
       source: document.getElementById('lSource').value,
       damageType: document.getElementById('lDamageType')?.value||'',
       claimStatus: document.getElementById('lClaimStatus')?.value||'No Claim',
@@ -183,6 +185,8 @@ async function saveLead(){
       // Insurance fields
       claimNumber: document.getElementById('lClaimNumber')?.value?.trim()||'',
       claimFiledBy: document.getElementById('lClaimFiledBy')?.value||'',
+      policyNumber: document.getElementById('lPolicyNumber')?.value?.trim()||'',
+      dateOfLoss: document.getElementById('lDateOfLoss')?.value||'',
       estimateAmount: parseFloat(document.getElementById('lEstimateAmount')?.value)||0,
       deductibleOrOwedByHO: parseFloat(document.getElementById('lDeductible')?.value)||0,
       supplementStatus: document.getElementById('lSupplementStatus')?.value||'',
@@ -208,7 +212,10 @@ async function saveLead(){
       d2dKnockId:    window._pendingD2DConvertId || null
     });
     window._modalIntel = null;
-    // If this save came from a D2D conversion (Edit First flow), mark the knock as converted
+    // If this save came from a D2D conversion (Edit First flow), mark the knock as converted.
+    // The lead was already saved successfully above — only the knock-side
+    // bookkeeping is at risk here. We toast the rep so they know to remove
+    // the duplicate knock manually if the conversion mark didn't land.
     if (window._pendingD2DConvertId) {
       try {
         if (window.updateDoc && window.doc && window._db) {
@@ -218,7 +225,12 @@ async function saveLead(){
           });
         }
         if (window.D2D?.renderD2D) window.D2D.renderD2D();
-      } catch (d2dErr) { console.warn('Could not mark D2D knock as converted:', d2dErr); }
+      } catch (d2dErr) {
+        console.warn('Could not mark D2D knock as converted:', d2dErr);
+        if (typeof showToast === 'function') {
+          showToast('Lead saved, but the D2D knock didn’t flip to "converted". Remove the duplicate knock manually.', 'warning');
+        }
+      }
       window._pendingD2DConvertId = null;
     }
     mOk.textContent='Lead saved!';mOk.style.display='block';
@@ -296,11 +308,16 @@ function renderLeads(leads, filtered){
     'deductible_collected','final_payment','closed'
   ]);
   if (_view === 'insurance') {
+    // Insurance view still catches unset jobType (NBD's historical default)
     list = list.filter(l => !l.jobType || l.jobType === 'insurance');
   } else if (_view === 'cash') {
     list = list.filter(l => l.jobType === 'cash');
   } else if (_view === 'finance') {
     list = list.filter(l => l.jobType === 'finance');
+  } else if (_view === 'warranty') {
+    list = list.filter(l => l.jobType === 'warranty');
+  } else if (_view === 'service') {
+    list = list.filter(l => l.jobType === 'service');
   } else if (_view === 'jobs') {
     list = list.filter(l => {
       const sk = l._stageKey || (_norm ? _norm(l.stage) : l.stage || 'new');
@@ -998,6 +1015,40 @@ function buildCard(l){
   const safeId = escHtml(l.id);
   const firstName = escHtml(nameRaw.split(' ')[0] || '');
   const showSmsBtn = ['new','contacted','inspected'].includes(_sk) && phone;
+
+  // ── Missing-required-field badge ──
+  // Phase 4 polish — surface what's blocking this lead from advancing
+  // to its next stage so the rep can fix it without dragging the card
+  // and getting bounced by the required-field gate in moveCard. Only
+  // shown for non-terminal stages where requiredFieldsFor() actually
+  // declares something. Click target is the card itself (opens edit
+  // modal), so we don't add another button — just a clear visual.
+  let needsBadge = '';
+  if (!isTerminal && typeof window.missingRequiredFields === 'function') {
+    try {
+      const missing = window.missingRequiredFields(l) || [];
+      if (missing.length > 0) {
+        const FIELD_LABELS = {
+          insCarrier:           'Carrier',
+          claimNumber:          'Claim #',
+          policyNumber:         'Policy #',
+          dateOfLoss:           'Date of Loss',
+          estimateAmount:       'Estimate $',
+          deductibleOrOwedByHO: 'Deductible',
+          jobValue:             'Job Value',
+          financeCompany:       'Lender',
+          loanAmount:           'Loan $',
+          scheduledDate:        'Schedule Date'
+        };
+        const niceList = missing.map(f => FIELD_LABELS[f] || f);
+        const head = niceList[0];
+        const moreCount = niceList.length - 1;
+        const text = moreCount > 0 ? `Needs ${head} +${moreCount}` : `Needs ${head}`;
+        const tip = niceList.join(', ');
+        needsBadge = `<span class="kc-tag kct-needs" title="To advance this stage, fill: ${escHtml(tip)}">⚠ ${escHtml(text)}</span>`;
+      }
+    } catch (e) { /* missingRequiredFields can throw on malformed lead — degrade silently */ }
+  }
   let html = `<div class="k-card nbd-kc-main ${stageAgingClass}" draggable="true" data-id="${safeId}" data-action="card-click">
     <div class="k-card-checkbox nbd-kc-stop" data-action="toggle-select" data-id="${safeId}">
       <span class="k-card-checkbox-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></span>
@@ -1025,6 +1076,7 @@ function buildCard(l){
     <div class="kc-tags">
       ${l.damageType ? `<span class="kc-tag kct-dmg">${escHtml(l.damageType)}</span>` : ''}
       ${overdue      ? `<span class="kc-tag kct-due"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> Due</span>` : ''}
+      ${needsBadge}
       ${roofBadge}
       ${l.hailHit && l.hailHit.sizeInches ? `<span class="kc-tag kct-dmg" style="background:rgba(255,59,59,.18);color:#ff6b6b;border-color:#ff6b6b;" title="Recent hail near this property">⛈ ${Number(l.hailHit.sizeInches).toFixed(1)}&quot; hail</span>` : ''}
       ${l.measurementReady ? `<span class="kc-tag" style="background:rgba(46,204,138,.14);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);" title="Aerial measurement report is ready">📐 Measurement</span>` : ''}
@@ -1281,6 +1333,37 @@ async function moveCard(id, newStage){
       return;
     }
     // lostReason is either a string or null (skip)
+  }
+
+  // ─── Required-field gate ───
+  // Block stage advancement when the destination stage has required fields
+  // missing on the lead (e.g., can't move to claim_filed without claimNumber).
+  // Skip for moves to 'lost' — reps need to dispose of dead leads regardless.
+  // The check uses missingRequiredFields against a hypothetical lead at the
+  // new stage so we evaluate the destination's requirements, not the current.
+  if (!isLostMove && typeof window.missingRequiredFields === 'function') {
+    const missing = window.missingRequiredFields({ ...lead, stage: newStage });
+    if (missing.length > 0) {
+      const fieldLabels = {
+        insCarrier: 'Insurance Carrier',
+        claimNumber: 'Claim Number',
+        estimateAmount: 'Estimate Amount',
+        deductibleOrOwedByHO: 'Deductible',
+        jobValue: 'Job Value',
+        financeCompany: 'Finance Company',
+        loanAmount: 'Loan Amount',
+        scheduledDate: 'Scheduled Date',
+      };
+      const pretty = missing.map(f => fieldLabels[f] || f).join(', ');
+      if (typeof showToast === 'function') {
+        showToast(`Can't move to that stage yet — fill in: ${pretty}`, 'error');
+      }
+      // Open the lead modal so the user can fix the missing fields
+      if (typeof window.editLead === 'function') {
+        try { window.editLead(lead.id); } catch (_) {}
+      }
+      return;
+    }
   }
 
   lead._pending = true;
@@ -2005,6 +2088,16 @@ async function createNotification(userId, type, title, message, leadId = null) {
 // ══════════════════════════════════════════════════════════════════════
 async function checkAndCreateFollowUpNotifications(leads) {
   if (!window._user || !leads || !leads.length) return;
+  // Respect the user's notif settings — if they turned the
+  // "Overdue Follow-Ups" trigger off (or set mode=digest in
+  // critical-only state), skip both the Firestore write AND
+  // the browser Notification ping.
+  // 'firestore' isn't a user-facing channel, so we just check
+  // the trigger gate via 'follow_up' type with high priority.
+  if (typeof window.shouldFireNotif === 'function' &&
+      !window.shouldFireNotif('follow_up', null, 'high')) {
+    return;
+  }
   const userId = window._user.uid;
 
   const today = new Date(); today.setHours(0,0,0,0);
@@ -2114,8 +2207,11 @@ async function checkAndCreateFollowUpNotifications(leads) {
     // Reload notifications so badge updates immediately
     await loadNotifications();
 
-    // Browser notification if permitted
-    if ('Notification' in window && Notification.permission === 'granted') {
+    // Browser notification if permitted AND push channel enabled in settings
+    const pushAllowed = typeof window.shouldFireNotif === 'function'
+      ? window.shouldFireNotif('follow_up', 'push', 'high')
+      : true;
+    if (pushAllowed && 'Notification' in window && Notification.permission === 'granted') {
       const overdueCount = overdue.filter(l => !existingKeys.has(l.id)).length;
       const todayCount = dueToday.filter(l => !existingKeys.has(l.id)).length;
       let body = '';
@@ -2128,6 +2224,113 @@ async function checkAndCreateFollowUpNotifications(leads) {
   }
 }
 window.checkAndCreateFollowUpNotifications = checkAndCreateFollowUpNotifications;
+
+// ─────────────────────────────────────────────────────────
+// Needs-field auto-notifier
+// ─────────────────────────────────────────────────────────
+// Walks the current lead cache and creates ONE notification per
+// lead per day for any lead that:
+//   - is non-terminal (not closed/lost)
+//   - has been in its current stage > 1 day
+//   - is missing one or more required fields for its current stage
+//     (per missingRequiredFields() from crm-stages.js)
+//
+// Gated by the 'notifNeedsField' trigger in user settings. Dedupes
+// against existing same-day notifications using the same dateKey
+// pattern as checkAndCreateFollowUpNotifications.
+//
+// Fired alongside the follow-up check from the dashboard loadLeads
+// success path (and the legacy bundle).
+async function checkAndCreateNeedsFieldNotifications(leads) {
+  if (!window._user || !leads || !leads.length) return;
+  if (typeof window.missingRequiredFields !== 'function') return;
+  // Trigger gate
+  if (typeof window.shouldFireNotif === 'function' &&
+      !window.shouldFireNotif('needs_field', null, 'normal')) {
+    return;
+  }
+  const userId = window._user.uid;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const todayKey = today.toISOString().split('T')[0];
+
+  // Existing keys: don't notify twice for the same lead today.
+  // Match across both follow_up and needs_field types since the rep
+  // sees the same physical card — a needs-field nudge on top of a
+  // follow-up nudge for the same lead is noise.
+  const existingKeys = new Set(
+    (window._notifications || [])
+      .filter(n => (n.type === 'needs_field' || n.type === 'follow_up') && n.dateKey === todayKey)
+      .map(n => n.leadId)
+  );
+
+  const FIELD_LABELS = {
+    insCarrier: 'carrier', claimNumber: 'claim #', policyNumber: 'policy #',
+    dateOfLoss: 'date of loss', estimateAmount: 'estimate amount',
+    deductibleOrOwedByHO: 'deductible', jobValue: 'job value',
+    financeCompany: 'lender', loanAmount: 'loan amount',
+    scheduledDate: 'install date'
+  };
+
+  const toCreate = [];
+  for (const l of leads) {
+    if (!l || !l.id) continue;
+    if (existingKeys.has(l.id)) continue;
+    const stage = (l._stageKey || l.stage || '').toString().toLowerCase();
+    if (stage === 'closed' || stage === 'lost' || stage === 'complete') continue;
+
+    // Only nudge after a lead has been in its current stage for 1+ day.
+    // Fresh moves are noisy and the rep is actively working the lead.
+    if (l.stageStartedAt) {
+      let stageMs = 0;
+      const s = l.stageStartedAt;
+      if (s && typeof s.toMillis === 'function')      stageMs = s.toMillis();
+      else if (s && typeof s.toDate === 'function')   stageMs = s.toDate().getTime();
+      else if (s instanceof Date)                     stageMs = s.getTime();
+      else if (typeof s === 'number')                 stageMs = s;
+      if (stageMs && (Date.now() - stageMs) < 24 * 60 * 60 * 1000) continue;
+    }
+
+    let missing = [];
+    try { missing = window.missingRequiredFields(l) || []; } catch (_) { continue; }
+    if (missing.length === 0) continue;
+
+    const niceList = missing.map(f => FIELD_LABELS[f] || f);
+    const first = niceList[0];
+    const more = niceList.length - 1;
+    const name = ((l.firstName || '') + ' ' + (l.lastName || '')).trim() || (l.address || '').split(',')[0] || 'Lead';
+    const stageLabel = (window.STAGE_META && window.STAGE_META[stage] && window.STAGE_META[stage].label) || stage || 'current stage';
+
+    toCreate.push({
+      userId,
+      type: 'needs_field',
+      leadId: l.id,
+      dateKey: todayKey,
+      title: `Needs ${first}${more > 0 ? ` +${more}` : ''} — ${name}`,
+      message: `Stuck in ${stageLabel}. Add ${niceList.join(', ')} to advance.`,
+      priority: 'normal',
+      read: false
+    });
+  }
+
+  if (!toCreate.length) return;
+
+  try {
+    const _db = window._db || window.db;
+    if (!_db) return;
+    const { addDoc, collection: firestoreCol, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+    await Promise.all(toCreate.map(n =>
+      addDoc(firestoreCol(_db, 'notifications'), Object.assign({}, n, {
+        createdAt: serverTimestamp()
+      }))
+    ));
+    if (typeof loadNotifications === 'function') await loadNotifications();
+  } catch (e) {
+    console.warn('Needs-field notification error:', e && e.message);
+  }
+}
+window.checkAndCreateNeedsFieldNotifications = checkAndCreateNeedsFieldNotifications;
 window.markNotificationRead = markNotificationRead;
 window.markAllNotificationsRead = markAllNotificationsRead;
 window.loadNotifications = loadNotifications;
@@ -2673,6 +2876,15 @@ function editLead(id){
   setV('lEmail',l.email||'');
   setV('lStage', l._stageKey || l.stage || 'new');
   setV('lJobType', l.jobType || '');
+  // Repopulate sub-type options for this job type BEFORE setting the value
+  if (typeof window.refreshSubTypeAndTrades === 'function') {
+    window.refreshSubTypeAndTrades(l.jobType || '');
+  }
+  setV('lSubType', l.subType || '');
+  // Restore selected trades on the chip UI
+  if (typeof window.setSelectedTrades === 'function') {
+    window.setSelectedTrades(Array.isArray(l.trades) ? l.trades : []);
+  }
   setV('lSource',l.source||'Door Knock');
   setV('lDamageType',l.damageType||'');
   setV('lClaimStatus',l.claimStatus||'No Claim');
@@ -2682,6 +2894,8 @@ function editLead(id){
   // Insurance fields
   setV('lClaimNumber', l.claimNumber||'');
   setV('lClaimFiledBy', l.claimFiledBy||'');
+  setV('lPolicyNumber', l.policyNumber||'');
+  setV('lDateOfLoss', l.dateOfLoss||'');
   setV('lEstimateAmount', l.estimateAmount||'');
   setV('lDeductible', l.deductibleOrOwedByHO||'');
   setV('lSupplementStatus', l.supplementStatus||'');
@@ -2882,6 +3096,40 @@ window.saveLead = saveLead;
 window.deleteLead = deleteLead;
 window.editLead = editLead;
 window.moveCard = moveCard;
+
+// W93 — engagement-sort toggle. The sort logic was already wired into
+// renderLeads (gated by localStorage 'nbd_crm_sort_engagement'). The
+// kanban header button (#engagementSortBtn) was calling
+// window.toggleEngagementSort which was never defined, so the button
+// silently did nothing. This wires it.
+window.toggleEngagementSort = function () {
+  const flagKey = 'nbd_crm_sort_engagement';
+  const wasOn = (() => { try { return localStorage.getItem(flagKey) === '1'; } catch (_) { return false; } })();
+  const nextOn = !wasOn;
+  try { localStorage.setItem(flagKey, nextOn ? '1' : '0'); } catch (_) {}
+  // Reflect state on the button (visual "active" toggle uses the same
+  // class the rest of the crm-hdr buttons use).
+  const btn = document.getElementById('engagementSortBtn');
+  if (btn) btn.classList.toggle('active', nextOn);
+  // Re-render the kanban so the new sort order takes effect.
+  if (Array.isArray(window._leads)) {
+    try { renderLeads(window._leads, window._filteredLeads); } catch (e) { console.warn('engagement-sort re-render failed:', e.message); }
+  }
+  if (typeof showToast === 'function') {
+    showToast(nextOn ? '🔥 Hot leads sorted first' : 'Default order restored', 'info');
+  }
+};
+
+// Restore the visual active state on page load if the flag was set
+// in a previous session, so the button reflects current behavior.
+try {
+  if (localStorage.getItem('nbd_crm_sort_engagement') === '1') {
+    document.addEventListener('DOMContentLoaded', () => {
+      const btn = document.getElementById('engagementSortBtn');
+      if (btn) btn.classList.add('active');
+    });
+  }
+} catch (_) {}
 // exportLeadsCSV is defined in tools.js
 window.scrollToFollowUps = scrollToFollowUps;
 window.kanbanFilter = kanbanFilter;
