@@ -3270,12 +3270,25 @@ async function loadCustomerData(id) {
 
 // Recently viewed tracking
 function trackRecentlyViewed(leadId) {
+  // Sweep Pass 4: this function was writing to localStorage key
+  // 'nbd_recent_views' as an array of IDs, but dashboard.html's
+  // renderRecentCustomers() reads from 'nbd_recent_customers' and
+  // expects an array of {id, ts} objects. Two mismatches (key name +
+  // shape) meant the Recent Customers dropdown in the dashboard topbar
+  // was permanently empty even though this writer fired on every
+  // customer-page visit. Now writes to the dashboard's expected key
+  // and shape, so the dropdown finally populates.
   try {
-    let recent = JSON.parse(localStorage.getItem('nbd_recent_views') || '[]');
-    recent = recent.filter(id => id !== leadId);
-    recent.unshift(leadId);
+    const KEY = 'nbd_recent_customers';
+    let recent = JSON.parse(localStorage.getItem(KEY) || '[]');
+    // Normalize: tolerate the legacy array-of-strings shape in case any
+    // old browser has the prior format cached.
+    recent = recent
+      .map(r => (typeof r === 'string' ? { id: r } : r))
+      .filter(r => r && r.id && r.id !== leadId);
+    recent.unshift({ id: leadId, ts: Date.now() });
     recent = recent.slice(0, 10);
-    localStorage.setItem('nbd_recent_views', JSON.stringify(recent));
+    localStorage.setItem(KEY, JSON.stringify(recent));
   } catch (e) {
     console.log('Could not track recent view');
   }
