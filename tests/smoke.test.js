@@ -3495,6 +3495,79 @@ section('Customer photo grid — surgical render path');
     /updates\.phase === prevPhase[\s\S]{0,80}updatePhotoTile\(photo\.id\)/.test(customer));
 }
 
+section('Audit batch 4 — admin function role-check drift guard');
+{
+  // Every Cloud Function the FUNCTIONS_INDEX.md classifies as ADMIN
+  // must keep its role check. If someone refactors and drops the check
+  // (no client caller would notice because admin functions have no
+  // public client wrapper), the function silently becomes callable by
+  // any authenticated user. CI catches that here.
+  const indexPath = path.join(ROOT, 'functions/FUNCTIONS_INDEX.md');
+  assert('functions/FUNCTIONS_INDEX.md exists',
+    fs.existsSync(indexPath),
+    'canonical functions taxonomy must exist');
+
+  // Parse the ADMIN table out of the doc. Each row starts with
+  // | `functionName` | ...
+  const md = fs.existsSync(indexPath) ? read(indexPath) : '';
+  const adminSection = md.match(/## ADMIN[\s\S]*?(?=\n## |$)/);
+  const adminNames = adminSection
+    ? Array.from(adminSection[0].matchAll(/\|\s*`(\w+)`\s*\|/g)).map(m => m[1])
+    : [];
+  assert('FUNCTIONS_INDEX lists at least 10 admin functions',
+    adminNames.length >= 10,
+    'expected the admin section to enumerate all admin exports');
+
+  // The 4 known admin-gating patterns we accept anywhere in the file
+  // that defines the function. Mostly we look at functions/index.js
+  // because that's where the inline definitions live; for the few
+  // admin functions exported from sub-modules we look at the source.
+  const PATTERNS = [
+    /role\s*===\s*['"]admin['"]/,
+    /adminOnly:\s*true/,
+    /requireTeamAdmin\s*\(/,
+    /isAdmin\s*\(\)/,
+  ];
+
+  // Scan every .js in functions/ (skip node_modules) for definitions
+  // of each admin function. If we find one, assert at least one of the
+  // patterns appears within 200 lines of the export.
+  function adminGateOk(name) {
+    const candidates = ['functions/index.js'];
+    // Cheap: assume any sub-module that re-exports is the definition site
+    const subFiles = fs.readdirSync(path.join(ROOT, 'functions'))
+      .filter(f => f.endsWith('.js') && f !== 'index.js')
+      .map(f => 'functions/' + f);
+    candidates.push(...subFiles);
+    for (const c of candidates) {
+      const full = path.join(ROOT, c);
+      if (!fs.existsSync(full)) continue;
+      const src = read(full);
+      const declRe = new RegExp('(?:exports\\.' + name + '\\s*=|function\\s+' + name + '\\s*\\()', '');
+      const m = src.match(declRe);
+      if (!m) continue;
+      // Look at the 200 lines after the declaration for an admin pattern.
+      const idx = m.index;
+      const window = src.slice(idx, idx + 8000);
+      if (PATTERNS.some(p => p.test(window))) return true;
+    }
+    return false;
+  }
+
+  const skipped = new Set([
+    // E2E test helpers — admin-gated but the pattern shows up in helper code
+    // they're allowed.
+  ]);
+  const missing = [];
+  for (const name of adminNames) {
+    if (skipped.has(name)) continue;
+    if (!adminGateOk(name)) missing.push(name);
+  }
+  assert('every admin function in FUNCTIONS_INDEX has a role/admin gate',
+    missing.length === 0,
+    missing.length ? 'admin gate missing from: ' + missing.join(', ') : '');
+}
+
 section('Rock 4 rollback fallback (Phase 3 prep)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
