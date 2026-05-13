@@ -16415,15 +16415,23 @@ function nbdAutoThemeStop() {
 // Listen for manual theme changes — when rep picks a theme by
 // hand, remember it for the current side of the day so future
 // auto-switches honor their dark / light preference.
-window.addEventListener('nbd:theme-change', (ev) => {
+// Bug fix: event name was 'nbd:theme-change' but theme-engine.js
+// dispatches 'themechange' (no namespace prefix) at line 4541. The
+// listener was silently dead — manual theme picks never got
+// remembered for the auto-theme day/night system. Listening for
+// both names so we work with any future dispatcher rename too.
+function _nbdRememberManualTheme(ev) {
   try {
-    const themeKey = ev.detail || (window.ThemeEngine && window.ThemeEngine.getCurrent());
-    if (!themeKey) return;
+    const themeKey = (ev && ev.detail && (ev.detail.themeKey || ev.detail)) ||
+                     (window.ThemeEngine && window.ThemeEngine.getCurrent && window.ThemeEngine.getCurrent());
+    if (!themeKey || typeof themeKey !== 'string') return;
     if (localStorage.getItem('nbd_auto_theme') !== '1') return;
     const side = nbdAutoThemeIsDay() ? 'day' : 'night';
     localStorage.setItem('nbd_auto_theme_' + side, themeKey);
   } catch (_) {}
-});
+}
+document.addEventListener('themechange', _nbdRememberManualTheme);
+window.addEventListener('nbd:theme-change', _nbdRememberManualTheme);
 
 window.nbdAutoThemeStart = nbdAutoThemeStart;
 window.nbdAutoThemeStop = nbdAutoThemeStop;
