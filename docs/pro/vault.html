@@ -1200,8 +1200,18 @@ function startNextSession() {
 }
 
 function viewSession(num) {
+  // Sweep Pass 1: was a TODO that just navigated to the sessions list
+  // and stopped. viewSessionDetail (defined further down) does the
+  // actual detail render — populates #sessionDetail with title + content
+  // and scrolls it into view. Wire viewSession to navigate first, then
+  // delegate to viewSessionDetail so the row-click on the table at
+  // line 1167 ends up showing detail instead of just bouncing to the
+  // sessions page. The setTimeout gives navTo() one tick to settle so
+  // the target element is visible before scrollIntoView fires.
   navTo('sessions');
-  // TODO: Implement session detail view
+  setTimeout(() => {
+    if (typeof viewSessionDetail === 'function') viewSessionDetail(num);
+  }, 50);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
