@@ -488,14 +488,18 @@
   }
 
   // ─── Public open() ───────────────────────────────────────
+  // Accepts either:
+  //   { html: '...' }  — legacy html2canvas/jsPDF generators (rendered in-iframe)
+  //   { url: '...' }   — D-1+ server-side Puppeteer renders (signed PDF URL,
+  //                      browser's native PDF viewer takes over inside the iframe)
   function open(opts) {
     opts = opts || {};
-    if (!opts.html || typeof opts.html !== 'string') {
-      // Surface the failure to the user — previously we only logged,
-      // which produced the "preview button does nothing" symptom.
-      console.error('[NBDDocViewer] open() requires an html string', opts);
+    const hasHtml = typeof opts.html === 'string' && opts.html.length > 0;
+    const hasUrl  = typeof opts.url  === 'string' && opts.url.length > 0;
+    if (!hasHtml && !hasUrl) {
+      console.error('[NBDDocViewer] open() requires either html or url', opts);
       if (typeof window.showToast === 'function') {
-        window.showToast('Could not open preview — document body was empty.', 'error');
+        window.showToast('Could not open preview — document was empty.', 'error');
       }
       return;
     }
@@ -503,7 +507,8 @@
     if (!currentOverlay) currentOverlay = buildOverlay();
 
     currentContext = {
-      html: opts.html,
+      html: opts.html || null,
+      url:  opts.url  || null,
       title: opts.title || 'Document',
       filename: opts.filename || 'NBD-Document.pdf',
       leadId: opts.leadId || null,
@@ -518,9 +523,19 @@
     if (titleEl) titleEl.textContent = currentContext.title;
     if (filenameEl) filenameEl.textContent = currentContext.filename;
 
-    // Load HTML into iframe via srcdoc
     const iframe = document.getElementById('nbdv-iframe');
-    if (iframe) iframe.srcdoc = wrapWithPrintListener(opts.html);
+    if (iframe) {
+      if (hasUrl) {
+        // Server-rendered PDF — browser's native viewer renders it.
+        // Clear any prior srcdoc so the URL takes effect.
+        iframe.removeAttribute('srcdoc');
+        iframe.src = opts.url;
+      } else {
+        // Legacy HTML path — wrap with the print listener and inject.
+        iframe.removeAttribute('src');
+        iframe.srcdoc = wrapWithPrintListener(opts.html);
+      }
+    }
 
     currentOverlay.classList.add('open');
 

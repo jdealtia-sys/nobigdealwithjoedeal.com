@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{title}}</title>
+{{!-- Real Google Fonts for vector PDF text. Puppeteer waits for
+     networkidle0 in the renderer, so these always finish loading
+     before the page is captured. --}}
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700;800;900&display=swap" rel="stylesheet">
+<style>
+{{{designSystemCss}}}
+{{{templateCss}}}
+</style>
+</head>
+<body>
+
+{{> brandBandTop docNumber=docNumber docType=docType}}
+
+{{!-- Footer is the @bottom-center running element so it repeats on
+     every page. The @page rule lives in design-system.css. --}}
+<div class="doc-band-bottom">
+  <div class="seal">NBD<br>{{seal}}</div>
+  <div class="footer-body">
+    <div class="footer-name">No Big Deal Home Solutions</div>
+    <div>(859) 420-7382 · jd@nobigdealwithjoedeal.com · Greater Cincinnati, OH</div>
+    {{#if docNumber}}<div>{{docType}} · {{docNumber}}</div>{{/if}}
+  </div>
+</div>
+
+<main>
+{{{body}}}
+</main>
+
+</body>
+</html>

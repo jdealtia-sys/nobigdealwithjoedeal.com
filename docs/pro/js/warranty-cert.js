@@ -32,7 +32,7 @@ function updateCertPreview() {
   if (desc) desc.textContent = WC_TIER_DESCS[tier] || '';
 }
 
-function generateWarrantyCertPDF() {
+async function generateWarrantyCertPDF() {
   const owner = document.getElementById('wcOwner').value.trim() || '___________________';
   const addr  = document.getElementById('wcAddr').value.trim()  || '___________________';
   const date  = document.getElementById('wcDate').value         || '';
@@ -52,6 +52,21 @@ function generateWarrantyCertPDF() {
 
   const isElite = tier === 'elite';
   const isPreferred = tier === 'preferred';
+
+  // D-1: try the new server-side Puppeteer renderer first. It returns
+  // a real vector PDF (not a html2canvas screenshot) using the shared
+  // print design system. The old html2canvas path below stays as a
+  // fallback so reps are never blocked if the callable errors.
+  try {
+    const ok = await _tryServerRender({
+      owner, addr, date, tier, work, dateFormatted, certNum,
+      tierLabel, tierLabelLong: tierLabel, tierTerms: tierDesc,
+      isElite, isPreferred
+    });
+    if (ok) return; // server render succeeded — bail before the legacy path runs
+  } catch (e) {
+    console.warn('[warranty-cert] server render failed, falling back to html2canvas:', e && e.message || e);
+  }
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <title>NBD Warranty Certificate — ${addr}</title>
@@ -181,6 +196,71 @@ function generateWarrantyCertPDF() {
     }
   }
   showToast('✓ Warranty certificate generated', 'success');
+}
+
+// ─── D-1: server-side render helper ───────────────────────────
+// Calls the renderPdf callable, then routes the returned PDF URL
+// through the existing NBDDocViewer so reps interact with the
+// new doc the same way they always have (Print / Download / Share).
+// Returns true on success so the caller can short-circuit the legacy
+// html2canvas fallback.
+async function _tryServerRender(payload) {
+  if (!window._functions || !window._httpsCallable) {
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    window._functions = mod.getFunctions();
+    window._httpsCallable = mod.httpsCallable;
+  }
+  // Close the wizard modal first so the doc viewer can take focus.
+  const modal = document.getElementById('warrantyCertModal');
+  if (modal) modal.classList.remove('open');
+
+  if (typeof showToast === 'function') showToast('Rendering cert…', 'info');
+
+  const fn = window._httpsCallable(window._functions, 'renderPdf');
+  const slug = (payload.owner || 'warranty').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+  const filename = 'NBD-Warranty-' + slug + '-' + payload.certNum + '.pdf';
+
+  const r = await fn({
+    template: 'warranty',
+    payload: {
+      owner:          payload.owner,
+      address:        payload.addr,
+      dateFormatted:  payload.dateFormatted,
+      work:           payload.work,
+      tier:           payload.tier,
+      tierLabel:      payload.tierLabel,
+      tierLabelLong:  payload.tierLabelLong,
+      tierTerms:      payload.tierTerms,
+      certNumber:     payload.certNum,
+      isElite:        payload.isElite,
+      isPreferred:    payload.isPreferred,
+    },
+    filename,
+  });
+
+  const data = r && r.data;
+  if (!data || !data.ok || !data.url) {
+    throw new Error('Render returned no URL');
+  }
+
+  // Hand the PDF URL to the doc viewer so the rep sees the standard
+  // Print / Download / Share toolbar. iframe-embed the signed URL.
+  if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+    window.NBDDocViewer.open({
+      url:      data.url,
+      title:    'Lifetime Warranty Certificate' + (payload.owner ? ' — ' + payload.owner : ''),
+      filename: data.filename || filename,
+    });
+  } else {
+    // Last-ditch: open the signed URL directly so the rep can save it.
+    window.open(data.url, '_blank', 'noopener');
+  }
+
+  if (typeof showToast === 'function') {
+    const ms = data.timing && data.timing.totalMs;
+    showToast(ms ? `✓ Cert rendered in ${ms}ms` : '✓ Cert rendered', 'success');
+  }
+  return true;
 }
 
 window.openWarrantyCertWizard = openWarrantyCertWizard;

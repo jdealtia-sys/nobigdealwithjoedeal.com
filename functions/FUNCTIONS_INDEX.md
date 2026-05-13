@@ -37,6 +37,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `getGoogleReviews` | onRequest | Cached Google reviews proxy |
 | `saveFunnelProgress` | onCall | Anonymous funnel-step persistence |
 | `getEstimateForView` | onRequest | Homeowner estimate-view payload (token-authed) |
+| `renderPdf` | onCall | Server-side Puppeteer PDF render (warranty/inspection/estimate/etc.) |
 
 ## PUBLIC (no auth, compensating controls)
 | Export | Type | Compensating control |

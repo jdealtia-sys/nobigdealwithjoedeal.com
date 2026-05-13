@@ -1,0 +1,84 @@
+{{!--
+  WARRANTY CERTIFICATE — new design (D-1 pilot)
+  ──────────────────────────────────────────────────────────────────
+  Replaces the old html2canvas + inline-styled cert. Reads from the
+  shared design system; the brand-band top + seal-footer are
+  inherited from _layout.hbs so EVERY doc shares the same chrome.
+
+  Layout philosophy:
+    - One commanding hero on page 1: "Lifetime Warranty"
+    - Tier badge as a small, calm typographic moment (not screaming)
+    - Property block as a 2-col key/value grid with hairline rules
+    - Guarantee terms in a pull-block with orange accent rail
+    - Feature list as a 2-col grid with dot bullets
+    - Signature block at the foot of the doc with two lines
+
+  Required template variables:
+    owner, address, dateFormatted, work, tier (standard|preferred|elite),
+    tierLabel, tierLabelLong, tierTerms, certNumber, isElite, isPreferred
+--}}
+
+<div class="hero">
+  <div class="hero-eyebrow eyebrow">Lifetime warranty · Certificate</div>
+  <div class="hero-title">Backed by our<br>name on the line.</div>
+  <p class="hero-sub">This certificate is the homeowner's permanent record that the installation on the property below is covered by the NBD Lifetime Pledge. Keep it with your important home documents — and if you ever sell, transfer it per the terms below.</p>
+</div>
+
+<div style="display:flex; align-items:center; gap:12pt; margin-bottom:32pt;">
+  <span class="badge tier-{{tier}}">{{tier}} · NBD Lifetime Pledge</span>
+  <span class="eyebrow muted">Certificate {{certNumber}}</span>
+</div>
+
+<h2>Property &amp; Installation</h2>
+<div class="kv-grid">
+  <div class="kv span-2">
+    <div class="kv-label">Property Address</div>
+    <div class="kv-value">{{address}}</div>
+  </div>
+  <div class="kv">
+    <div class="kv-label">Homeowner of Record</div>
+    <div class="kv-value">{{owner}}</div>
+  </div>
+  <div class="kv">
+    <div class="kv-label">Installation Date</div>
+    <div class="kv-value">{{dateFormatted}}</div>
+  </div>
+  <div class="kv span-2">
+    <div class="kv-label">Work Performed</div>
+    <div class="kv-value">{{work}}</div>
+  </div>
+</div>
+
+<h2>What's Guaranteed</h2>
+<div class="pull">
+  <div>
+    <div class="pull-title">{{tierLabelLong}}</div>
+    <div class="pull-body">{{tierTerms}}</div>
+  </div>
+</div>
+
+<div class="feature-grid">
+  <div class="feature">NBD Lifetime Pledge — no expiration on labor warranty</div>
+  <div class="feature">GAF Timberline lifetime manufacturer shingle warranty</div>
+  {{#if isPreferred}}<div class="feature">Transferable to new owner on sale of property</div>{{/if}}
+  {{#if isElite}}<div class="feature">Annual courtesy inspection included</div>{{/if}}
+  {{#if isElite}}<div class="feature">Fully transferable — follows the property through all subsequent owners</div>{{/if}}
+  <div class="feature">Backed personally by Joe Deal</div>
+  <div class="feature">Recorded on file at NBD Home Solutions</div>
+</div>
+
+<p class="meta" style="margin-top:18pt; line-height:1.6;">This guarantee covers defects in labor and workmanship only. It does not cover damage caused by acts of nature, severe weather events, improper maintenance, or modifications made by parties other than No Big Deal Home Solutions. The GAF manufacturer shingle warranty is a separate warranty provided directly by GAF and is not administered by No Big Deal Home Solutions.</p>
+
+<div class="sig-block">
+  <h2 style="margin-top:0;">Signatures</h2>
+  <div class="sig-grid">
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">Homeowner Signature &amp; Date</div>
+    </div>
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">Joe Deal · No Big Deal Home Solutions</div>
+    </div>
+  </div>
+</div>

@@ -3191,6 +3191,29 @@ const dormantLeads = require('./dormant-leads');
 exports.dormantLeadNudge = dormantLeads.dormantLeadNudge;
 
 // ═══════════════════════════════════════════════════════════════
+// PRINT RENDER ENGINE — server-side Puppeteer PDF generation
+// ═══════════════════════════════════════════════════════════════
+//
+// D-1: Replaces every html2canvas+jsPDF "screenshot" PDF in the
+// platform with real Chromium-rendered vector PDFs. One template
+// registry, one shared design system, real PDF fonts, native page
+// breaks, multi-page running headers/footers.
+//
+// Client calls `renderPdf({ template, payload, filename })` →
+// returns `{ url, path, filename, bytes, timing }`. The URL is a
+// signed Storage read URL good for 7 days.
+//
+// Templates whitelisted in functions/render-pdf.js TEMPLATES map.
+// Pilot ships warranty; D-2..D-5 add inspection, estimate, photo
+// report, invoice, contract, change order, receipt.
+//
+// Memory: 2GiB (Chromium needs real headroom for multi-page docs
+// with photo galleries). minInstances:1 keeps one warm so reps
+// don't see cold-start latency end-of-job.
+const renderPdfMod = require('./render-pdf');
+exports.renderPdf = renderPdfMod.renderPdf;
+
+// ═══════════════════════════════════════════════════════════════
 // VISUALIZER IMAGE GENERATION — Gemini 2.5 Flash Image
 // ═══════════════════════════════════════════════════════════════
 //
