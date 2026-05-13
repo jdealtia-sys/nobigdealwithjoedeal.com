@@ -208,6 +208,17 @@ async function saveLead(){
       parcelId:      intelData.parcelId || null,
       isLLC:         intelData.isLLC || false,
       homestead:     intelData.homestead || false,
+      // Audit batch 11: stamp the parcel polygon when the Regrid lookup
+      // returned one. photo-smart-ingest.js:getPropertyPolygon reads
+      // `lead.parcel.geometry.coordinates` to power the photo-system
+      // Phase 2 slope inference; without this the slope suggestion
+      // falls back to heading-only mode.
+      parcel:        intelData.parcelGeometry ? {
+        geometry: intelData.parcelGeometry,
+        center:   intelData.parcelCenter || null,
+        source:   'regrid',
+        fetchedAt: new Date().toISOString()
+      } : null,
       // D2D knock linkage (set by convertToLeadWithEdit flow)
       d2dKnockId:    window._pendingD2DConvertId || null
     });

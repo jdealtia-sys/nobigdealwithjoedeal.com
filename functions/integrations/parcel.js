@@ -48,6 +48,21 @@ async function queryRegrid(address) {
   if (!feat) return null;
   const p = feat.properties || {};
   const fields = p.fields || {};
+  // Audit batch 11 (2026-05-13): preserve the GeoJSON geometry. This is
+  // the parcel polygon — load-bearing for the photo system Phase 2 slope
+  // inference (photo-smart-ingest.js:getPropertyPolygon reads
+  // `lead.parcel.geometry.coordinates`). Strip non-MultiPolygon /
+  // Polygon shapes defensively. Polygon outer ring is what the heading-
+  // to-slope math needs; we don't care about holes or alt geometry.
+  let geometry = null;
+  if (feat.geometry
+      && (feat.geometry.type === 'Polygon' || feat.geometry.type === 'MultiPolygon')
+      && Array.isArray(feat.geometry.coordinates)) {
+    geometry = {
+      type:        feat.geometry.type,
+      coordinates: feat.geometry.coordinates
+    };
+  }
   return {
     owner:        fields.owner || null,
     parcelNumber: fields.parcelnumb || null,
@@ -65,6 +80,7 @@ async function queryRegrid(address) {
     zip:          fields.szip || null,
     zoning:       fields.zoning || null,
     schoolDist:   fields.sdname || null,
+    geometry:     geometry,
     source: 'regrid'
   };
 }
