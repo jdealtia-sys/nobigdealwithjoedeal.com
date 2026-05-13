@@ -407,6 +407,28 @@
     } catch (e) { return ''; }
   }
 
+  // ─── Live-poll state ────────────────────────────────────────────
+  // Step 13: portal becomes "push-feeling" via 30s visibility-aware
+  // polling against the same getHomeownerPortalView callable. Diffs the
+  // new view against _lastView; on real changes (stage / photos /
+  // messages / estimate) surfaces an inline banner before re-rendering.
+  // Server changes: none. Cost: 1 callable invocation / tab / 30s while
+  // the page is visible. Pauses entirely when document.hidden.
+  const POLL_INTERVAL_MS = 30_000;
+  let _lastView = null;
+  let _pollTimer = null;
+  let _pollInflight = false;
+
+  async function _fetchView(token) {
+    const res = await fetch(FUNCTIONS_BASE + '/getHomeownerPortalView', {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    return res;
+  }
+
   async function loadView() {
     const token = getToken().trim();
     const main = document.getElementById('mainWrap');
@@ -420,12 +442,7 @@
       // page URL still carries ?token= in the browser history (from
       // the emailed link) but the *server-side* log chain no longer
       // receives it.
-      const res = await fetch(FUNCTIONS_BASE + '/getHomeownerPortalView', {
-        method: 'POST',
-        credentials: 'omit',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
-      });
+      const res = await _fetchView(token);
       if (res.status === 410) {
         main.innerHTML = '<div class="error-state"><h2>This link has expired</h2><div>Contact your rep for a new one.</div></div>';
         return;
@@ -436,13 +453,152 @@
       }
       if (!res.ok) throw new Error('Status ' + res.status);
       const view = await res.json();
+      _lastView = view;
       renderView(view);
+      _showLivePill();
+      _startLivePolling();
       // Audit batch 7: emit a portal_open event so the rep's
       // customer-side activity log captures the visit. Fire-and-forget;
       // never block the page on telemetry.
       _emitAuditEvent('portal_open');
     } catch (e) {
       main.innerHTML = '<div class="error-state"><h2>Couldn\'t load your project</h2><div>Please try again in a moment.</div></div>';
+    }
+  }
+
+  // ─── Diff helpers ───────────────────────────────────────────────
+  // Stage / progress label changes are the most important signal —
+  // the rep marking "Inspection Done" → "Estimate Ready" is what the
+  // homeowner is waiting on. Photos / messages are next-tier.
+  function _diffView(prev, next) {
+    if (!prev) return null; // first paint — nothing to announce
+    const events = [];
+    const pStage = (prev.progress && prev.progress.currentLabel) || '';
+    const nStage = (next.progress && next.progress.currentLabel) || '';
+    if (pStage && nStage && pStage !== nStage) {
+      events.push({ kind: 'stage', from: pStage, to: nStage, msg: `🎉 Status update: now ${nStage}` });
+    }
+    const pPhotos = (prev.photos && prev.photos.length) || 0;
+    const nPhotos = (next.photos && next.photos.length) || 0;
+    if (nPhotos > pPhotos) {
+      const added = nPhotos - pPhotos;
+      events.push({ kind: 'photos', delta: added, msg: `📸 ${added} new photo${added === 1 ? '' : 's'} from your rep` });
+    }
+    const pMsgs = (prev.messages && prev.messages.length) || 0;
+    const nMsgs = (next.messages && next.messages.length) || 0;
+    if (nMsgs > pMsgs) {
+      events.push({ kind: 'message', msg: `💬 New message from your rep` });
+    }
+    const pEstId = (prev.estimate && prev.estimate.id) || null;
+    const nEstId = (next.estimate && next.estimate.id) || null;
+    if (nEstId && pEstId !== nEstId) {
+      events.push({ kind: 'estimate', msg: `📋 New estimate ready to review` });
+    }
+    return events.length ? events : null;
+  }
+
+  // ─── Banner UI ──────────────────────────────────────────────────
+  // One banner at a time, slides in from the top of the page. Auto-
+  // dismisses after 8s; clicking it dismisses immediately.
+  function _showUpdateBanner(events) {
+    if (!Array.isArray(events) || !events.length) return;
+    const existing = document.getElementById('liveBanner');
+    if (existing) existing.remove();
+    const banner = document.createElement('div');
+    banner.id = 'liveBanner';
+    banner.setAttribute('role', 'status');
+    banner.setAttribute('aria-live', 'polite');
+    banner.style.cssText = 'position:fixed;top:14px;left:50%;transform:translate(-50%, -120%);background:var(--green, #2ecc8a);color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:9999;cursor:pointer;max-width:90vw;transition:transform .35s cubic-bezier(.22,.61,.36,1);';
+    // Stack the messages — typically 1-2; cap at 3 lines so it can't
+    // grow off-screen if a slow homeowner returns to a much-updated page.
+    banner.innerHTML = events.slice(0, 3).map(e => `<div>${e.msg}</div>`).join('');
+    banner.addEventListener('click', () => banner.remove());
+    document.body.appendChild(banner);
+    // Trigger the slide-in via rAF so the initial off-screen style applies first.
+    requestAnimationFrame(() => { banner.style.transform = 'translate(-50%, 0)'; });
+    setTimeout(() => {
+      if (banner.parentNode) {
+        banner.style.transform = 'translate(-50%, -120%)';
+        setTimeout(() => banner.remove(), 400);
+      }
+    }, 8000);
+  }
+
+  // Tiny "🟢 Live" indicator pinned to the page corner so the homeowner
+  // sees this is current data, not a snapshot. Gently pulses when a
+  // poll fires so they get visual confirmation the page is alive.
+  function _showLivePill() {
+    if (document.getElementById('livePill')) return;
+    const pill = document.createElement('div');
+    pill.id = 'livePill';
+    pill.style.cssText = 'position:fixed;bottom:14px;right:14px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:6px 10px;border-radius:999px;font-weight:500;letter-spacing:.04em;backdrop-filter:blur(6px);z-index:9998;display:flex;align-items:center;gap:6px;';
+    pill.innerHTML = '<span id="livePillDot" style="width:6px;height:6px;border-radius:50%;background:#2ecc8a;display:inline-block;transition:transform .2s;"></span><span>Live</span>';
+    document.body.appendChild(pill);
+  }
+  function _pulseLivePill() {
+    const dot = document.getElementById('livePillDot');
+    if (!dot) return;
+    dot.style.transform = 'scale(1.8)';
+    setTimeout(() => { dot.style.transform = 'scale(1)'; }, 220);
+  }
+
+  // ─── Poll loop ──────────────────────────────────────────────────
+  function _startLivePolling() {
+    if (_pollTimer) return; // already running
+    _scheduleNextPoll();
+    document.addEventListener('visibilitychange', _onVisibility);
+  }
+
+  function _scheduleNextPoll() {
+    clearTimeout(_pollTimer);
+    if (document.hidden) { _pollTimer = null; return; }
+    _pollTimer = setTimeout(_pollOnce, POLL_INTERVAL_MS);
+  }
+
+  function _onVisibility() {
+    // Tab hidden → halt timer to save battery + Cloud Function cost.
+    // Tab returning → fire one immediate poll so the homeowner doesn't
+    // wait 30s for the catch-up after coming back to the page.
+    if (document.hidden) {
+      clearTimeout(_pollTimer);
+      _pollTimer = null;
+    } else {
+      _pollOnce();
+    }
+  }
+
+  async function _pollOnce() {
+    if (_pollInflight) { _scheduleNextPoll(); return; }
+    _pollInflight = true;
+    _pulseLivePill();
+    try {
+      const token = getToken().trim();
+      if (!token) return;
+      const res = await _fetchView(token);
+      if (res.status === 410 || res.status === 404) {
+        // Link revoked/expired mid-session — stop polling and surface
+        // a non-destructive notice. Don't wipe the rendered view; the
+        // homeowner can still see what they had.
+        clearTimeout(_pollTimer);
+        _pollTimer = null;
+        _showUpdateBanner([{ msg: 'This link is no longer valid. Contact your rep for a fresh link.' }]);
+        return;
+      }
+      if (!res.ok) return; // transient failure — try again on next tick
+      const view = await res.json();
+      const events = _diffView(_lastView, view);
+      _lastView = view;
+      if (events) {
+        // Re-render first so the banner refers to data the user can see,
+        // then show the banner. Avoids the "🎉 Status: Approved" toast
+        // landing before the UI has caught up.
+        renderView(view);
+        _showUpdateBanner(events);
+      }
+    } catch (e) { /* swallow — transient network errors during polling shouldn't disrupt the page */ }
+    finally {
+      _pollInflight = false;
+      _scheduleNextPoll();
     }
   }
 
