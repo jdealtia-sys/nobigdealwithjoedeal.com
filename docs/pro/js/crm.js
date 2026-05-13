@@ -254,6 +254,38 @@ function renderLeads(leads, filtered){
   let list    = (filtered !== undefined && filtered !== null) ? filtered : all;
   window._filteredLeads = (filtered !== undefined && filtered !== null) ? filtered : null;
 
+  // R5.4: per-track counts on the view switcher (Ins/Cash/Fin/War/Svc/Jobs/All).
+  // Computed from `all` (pre-filter) so the counts reflect the rep's
+  // real workload, not what's currently filtered in. Skipped if the
+  // switcher isn't rendered yet (initial boot before kanban mounts).
+  (() => {
+    const swEl = document.getElementById('kview-count-insurance');
+    if (!swEl) return;
+    const _jobStageSet = new Set([
+      'job_created','permit_pulled','materials_ordered','materials_delivered',
+      'crew_scheduled','install_in_progress','install_complete','final_photos',
+      'deductible_collected','final_payment','closed'
+    ]);
+    const _norm = window.normalizeStage;
+    const counts = { insurance: 0, cash: 0, finance: 0, warranty: 0, service: 0, jobs: 0, simple: all.length };
+    for (const l of all) {
+      if (!l) continue;
+      const jt = l.jobType || '';
+      // Same logic as the view-filter in renderLeads below
+      if (!jt || jt === 'insurance') counts.insurance++;
+      if (jt === 'cash')             counts.cash++;
+      if (jt === 'finance')          counts.finance++;
+      if (jt === 'warranty')         counts.warranty++;
+      if (jt === 'service')          counts.service++;
+      const sk = l._stageKey || (_norm ? _norm(l.stage) : l.stage || 'new');
+      if (_jobStageSet.has(sk))      counts.jobs++;
+    }
+    ['insurance','cash','finance','warranty','service','jobs','simple'].forEach(k => {
+      const el = document.getElementById('kview-count-' + k);
+      if (el) el.textContent = counts[k] > 0 ? String(counts[k]) : '';
+    });
+  })();
+
   // ─── Prospect segregation (April 2026) ─────────────────
   // Leads marked { isProspect: true } represent knocks that
   // auto-created a lead record but haven't been qualified yet
@@ -524,9 +556,29 @@ function renderLeads(leads, filtered){
     stageKeys.forEach(stageKey => {
       const body  = document.getElementById('kbody-'+stageKey);
       const count = document.getElementById('kcount-'+stageKey);
+      const total = document.getElementById('ktotal-'+stageKey);
       if(!body) return;
       const cards = byStage[stageKey]||[];
       if(count) count.textContent = cards.length;
+      // R5.5: per-column $ total. Sums jobValue across cards in this
+      // stage so the rep sees both "how many" and "how much" without
+      // counting in their head. Hidden when 0 cards or 0 total value
+      // (e.g. all leads at this stage are pre-estimate).
+      if (total) {
+        const sumVal = cards.reduce((s, l) => s + (Number(l && l.jobValue) || 0), 0);
+        if (cards.length && sumVal > 0) {
+          const fmt = sumVal >= 1000
+            ? (sumVal >= 1000000
+                ? '$' + (sumVal / 1000000).toFixed(sumVal >= 10000000 ? 0 : 1) + 'M'
+                : '$' + Math.round(sumVal / 1000) + 'K')
+            : '$' + sumVal.toLocaleString();
+          total.textContent = fmt;
+          total.style.display = '';
+          total.title = '$' + sumVal.toLocaleString() + ' total in this stage';
+        } else {
+          total.style.display = 'none';
+        }
+      }
       if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="k-empty-line">Drop leads here</div></div>'; return; }
       body.innerHTML = cards.map(l=>buildCard(l)).join('');
       wireKanbanCardListeners(body);
@@ -736,13 +788,12 @@ function buildCard(l){
     completionRate = Math.round((doneT / totalT) * 100);
   }
   const overdueT = tasks.filter(t=>!t.done && t.dueDate && new Date(t.dueDate+'T23:59:59') < new Date()).length;
-  // R4.4: when the lead has 0 tasks the button reads '+ Tasks' as a
-  // CTA. That CTA used to compete visually with real action signals
-  // (Due / Needs X / next-best-action) on every card. The .empty
-  // variant lets the CSS dim it so it stays available but doesn't
-  // shout for attention.
+  // R4.4 + R5.11: when the lead has 0 tasks, render an icon-only ghost
+  // pill so the CTA stops competing with real action signals (Due /
+  // Needs X / next-best-action). Tooltip carries the "+ Tasks" intent
+  // for discoverability.
   let taskBadgeClass = totalT ? 'kc-task-badge' : 'kc-task-badge empty';
-  let taskBadgeLabel = totalT ? `☑ ${doneT}/${totalT}` : '+ Tasks';
+  let taskBadgeLabel = totalT ? `☑ ${doneT}/${totalT}` : '+';
   if(totalT && overdueT){ taskBadgeClass += ' has-overdue'; taskBadgeLabel = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> ${overdueT} overdue`; }
   else if(totalT && doneT===totalT) { 
     taskBadgeClass += ' all-done'; 
@@ -1087,7 +1138,11 @@ function buildCard(l){
     _phoneFmt = `(${_phoneDigits.slice(1,4)}) ${_phoneDigits.slice(4,7)}-${_phoneDigits.slice(7)}`;
   }
   const phone = escHtml(_phoneFmt);
-  const email = escHtml(l.email||'');
+  // R5.10: emails are case-insensitive per RFC; user-entered casing
+  // ('Heatherclymer918@yahoo.com') reads as awkward on the kanban scan.
+  // Normalize display to lowercase. mailto: and downstream consumers
+  // see the original l.email value via the lead record.
+  const email = escHtml((l.email||'').toLowerCase());
   // T1.c: normalize carrier. The codebase historically stored under
   // both `insCarrier` and `insuranceCarrier`; some imports wrote
   // "State Farm", others "StateFarm". Collapse whitespace + trim so
@@ -1095,7 +1150,12 @@ function buildCard(l){
   // because that would mangle acronyms (USAA → Usaa).
   const carrier = escHtml(((l.insCarrier||l.insuranceCarrier||'')+'').replace(/\s+/g,' ').trim());
   const claimNum = escHtml(l.claimNumber||l.claimNum||'');
-  const claimStatus = escHtml(l.claimStatus||'');
+  // R5.2: humanize raw enum values like 'in_progress' / 'under_review' that
+  // some pages (insurance-claim.js, doc-preflight) write to claimStatus.
+  // Strip underscores, then title-case each word. CSS still uppercases via
+  // text-transform so the chip reads as 'IN PROGRESS' instead of 'IN_PROGRESS'.
+  const _humanizeStatus = s => String(s||'').replace(/[_-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+  const claimStatus = escHtml(_humanizeStatus(l.claimStatus||''));
   
   // Count badges for estimates and photos
   const estimates = (window._estimates || []).filter(e => e.leadId === l.id);
@@ -1238,7 +1298,7 @@ function buildCard(l){
       ${staleSnoozeBadge}
     </div>
     <div class="kc-footer">
-      <button type="button" class="${taskBadgeClass}" data-action="open-tasks" data-id="${safeId}">${taskBadgeLabel}</button>
+      <button type="button" class="${taskBadgeClass}" data-action="open-tasks" data-id="${safeId}" title="${totalT ? 'View ' + totalT + ' task' + (totalT===1?'':'s') : 'Add a task'}" aria-label="${totalT ? 'View tasks' : 'Add a task'}">${taskBadgeLabel}</button>
       <div class="kc-actions">
         <div class="kc-move">
           ${prevS ? `<button type="button" class="kc-arrow nbd-kc-stop" title="← ${escHtml(prevLabel)}" data-action="move-card" data-id="${safeId}" data-target-stage="${escHtml(prevS)}">◀</button>` : '<span style="width:18px;"></span>'}
