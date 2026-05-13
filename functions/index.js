@@ -3191,6 +3191,30 @@ const dormantLeads = require('./dormant-leads');
 exports.dormantLeadNudge = dormantLeads.dormantLeadNudge;
 
 // ═══════════════════════════════════════════════════════════════
+// ANNIVERSARY AUTO-TOUCH — daily 1-year customer touch nudge
+// ═══════════════════════════════════════════════════════════════
+//
+// Daily 8am Eastern scan for customers whose install anniversary
+// falls in the 360-380 day window. Writes an `anniversary_due`
+// activity row on each match (the CRM bell catches it regardless
+// of email mode) and emails the owning rep a morning digest with
+// a drop-in SMS script + deep links to each customer record.
+//
+// We don't auto-send to the homeowner — TCPA / CAN-SPAM compliance
+// on a 1-year-later message is outside the original transaction's
+// consent. Rep stays in the loop and taps one button in the CRM
+// to send the touch.
+//
+// Idempotent: writes lead.anniversaryTouchedAt after each successful
+// email send so manual re-runs don't double-touch.
+//
+// Per-user opt-out: users/{uid}.anniversaryTouchEnabled === false.
+// Ships DRY-RUN by default. Set ANNIVERSARY_TOUCH_ENABLED=true
+// on the anniversaryAutoTouch Cloud Run revision to go live.
+const anniversaryTouch = require('./anniversary-touch');
+exports.anniversaryAutoTouch = anniversaryTouch.anniversaryAutoTouch;
+
+// ═══════════════════════════════════════════════════════════════
 // VISUALIZER IMAGE GENERATION — Gemini 2.5 Flash Image
 // ═══════════════════════════════════════════════════════════════
 //
