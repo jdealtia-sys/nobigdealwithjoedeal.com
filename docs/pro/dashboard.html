@@ -9593,7 +9593,7 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="cmd-modal">
     <div class="cmd-search-box">
       <span class="cmd-icon">🔍</span>
-      <input type="text" id="cmdInput" placeholder="Search or jump to..." autocomplete="off" />
+      <input type="text" id="cmdInput" placeholder="Search or jump to..." autocomplete="off" aria-label="Search the command palette — search leads, jump to a view, or run a quick action" role="combobox" aria-autocomplete="list" aria-controls="cmdResults" aria-expanded="true" />
       <div class="cmd-kbd">Esc</div>
     </div>
     <div class="cmd-results" id="cmdResults"></div>
@@ -10963,7 +10963,8 @@ function switchScTab(tab, btn) {
         <div style="position:relative;flex:1;min-width:160px;max-width:280px;">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--m);z-index:1;pointer-events:none;"><circle cx="9" cy="9" r="5"/><path d="M13 13l4 4"/></svg>
           <input type="text" id="crmSearch" placeholder="Search leads…"
-            class="crm-hdr-input" oninput="kanbanFilterDebounced()">
+            class="crm-hdr-input" oninput="kanbanFilterDebounced()"
+            aria-label="Search leads in the pipeline by name, address, phone, or claim number">
           <button id="crmSearchClear" class="crm-hdr-search-clear" onclick="clearCrmSearch()" title="Clear search">✕</button>
         </div>
         <span id="crmSearchCount" style="font-size:11px;color:var(--m);white-space:nowrap;"></span>
