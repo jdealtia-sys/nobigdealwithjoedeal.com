@@ -1314,11 +1314,33 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
           <div class="panel-title" style="margin:0;">Project Photos</div>
-          <div style="display:flex;gap:8px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:13px;padding:6px 16px;">Upload Photos</button>
+            <!-- Photo system Phase 4: link to the dedicated Review Sprint
+                 UI. The 5-minute review screen lives on /pro/photo-review.html
+                 so it can be optimized for the sort-100-photos sprint
+                 without competing with customer.html's other panels. -->
+            <a class="btn" href="photo-review.html?lead=" id="prReviewBtn" style="font-size:13px;padding:6px 16px;background:#7c3aed;border-color:#7c3aed;color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">✦ Review &amp; Sort</a>
             <button class="btn" onclick="if(window.ShareGallery)window.ShareGallery.generate(window._customerId)" style="font-size:13px;padding:6px 16px;background:#0088ff;border-color:#0088ff;color:#fff;">Share Gallery</button>
           </div>
         </div>
+        <script>
+          // Photo system Phase 4: wire the Review link to the current lead.
+          (function () {
+            function wire() {
+              var btn = document.getElementById('prReviewBtn');
+              var id = window._customerId;
+              if (btn && id) btn.href = 'photo-review.html?lead=' + encodeURIComponent(id);
+            }
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', wire);
+            }
+            // Also rewire after customer hydrates (background revalidate
+            // may change _customerId? unlikely, but cheap).
+            setTimeout(wire, 0);
+            setTimeout(wire, 600);
+          })();
+        </script>
 
         <!-- Stats Bar -->
         <div id="photoStatsBar" style="display:none;margin-bottom:14px;padding:10px 14px;background:var(--s2);border-radius:8px;flex-wrap:wrap;gap:12px;align-items:center;font-size:12px;"></div>
