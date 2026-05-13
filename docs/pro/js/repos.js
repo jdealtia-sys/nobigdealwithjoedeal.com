@@ -53,14 +53,15 @@
       err.code = 'unauthenticated';
       throw err;
     }
+    // Audit batch 6 (2026-05-13): solo operators don't carry a separate
+    // companyId on their custom claims — the convention across the codebase
+    // (dashboard.html lead-create at line 2472, functions/index.js line 283)
+    // is `companyId || uid`. Repos.js was originally stricter but never
+    // adopted because of that. Aligned now: solo operator gets their own
+    // uid as the companyId. Multi-rep companies still get the real claim.
     var companyId = (window._userClaims && window._userClaims.companyId)
                  || (window._user && window._user.companyId)
-                 || '';
-    if (!companyId) {
-      var err2 = new Error('NBDRepos: no companyId on user — token has no claim and /users doc has none');
-      err2.code = 'no-company';
-      throw err2;
-    }
+                 || uid;
     return { uid: uid, companyId: companyId };
   }
 
