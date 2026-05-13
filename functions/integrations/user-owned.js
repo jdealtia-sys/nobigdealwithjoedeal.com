@@ -85,6 +85,9 @@ const FLAT_USER_COLLECTIONS = [
   // Per-user monthly Vision spend (doc id = `{uid}__{YYYY-MM}`, body
   // has `uid` field). Same cascade reasoning as leadCostMeter.
   { name: 'userCostMeter', ownerField: 'uid' },
+  // Customer-side audit events (audit batch 7) — homeowner activity log.
+  // Carries ownerUid so erasure reaches it; rep-readable via that field.
+  { name: 'customerAuditEvents', ownerField: 'ownerUid' },
 ];
 
 // ─── COLLECTION-GROUPS WITH userId STAMPS ───────────────────

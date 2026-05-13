@@ -437,9 +437,31 @@
       if (!res.ok) throw new Error('Status ' + res.status);
       const view = await res.json();
       renderView(view);
+      // Audit batch 7: emit a portal_open event so the rep's
+      // customer-side activity log captures the visit. Fire-and-forget;
+      // never block the page on telemetry.
+      _emitAuditEvent('portal_open');
     } catch (e) {
       main.innerHTML = '<div class="error-state"><h2>Couldn\'t load your project</h2><div>Please try again in a moment.</div></div>';
     }
+  }
+
+  // ─── Customer-side audit logger (batch 7) ───────────────────────
+  // Posts a minimal { token, type, resourceId? } payload to the
+  // recordCustomerEvent Cloud Function. Token-validated server-side.
+  // Fire-and-forget — telemetry should never break the page.
+  function _emitAuditEvent(type, resourceId) {
+    try {
+      const token = getToken().trim();
+      if (!token) return;
+      fetch(FUNCTIONS_BASE + '/recordCustomerEvent', {
+        method: 'POST',
+        credentials: 'omit',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, type, resourceId: resourceId || null }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch (_) { /* never fail the page */ }
   }
 
   function renderView(view) {
@@ -511,6 +533,9 @@
     // ── Estimate summary ──
     if (view.estimate) {
       const e = view.estimate;
+      // Audit batch 7: the homeowner is looking at the estimate.
+      // Capture as estimate_view; resourceId = estimate doc id.
+      if (e.id) _emitAuditEvent('estimate_view', e.id);
       const sig = signaturePill(e.signatureStatus || 'none');
       const signedPdf = e.signedDocumentUrl
         ? '<a class="btn btn-ghost" style="margin-top:12px;" href="' + esc(e.signedDocumentUrl) + '" target="_blank" rel="noopener">📄 Download Signed Contract</a>'
@@ -783,10 +808,23 @@
         ? ' srcset="' + esc(p.urls.thumb) + ' 200w, ' + esc(p.urls.med) + ' 600w, ' + esc(p.urls.full) + ' 1600w" sizes="(max-width:520px) 30vw, 160px"'
         : '';
       const fullHref = (p.urls && p.urls.full) ? esc(p.urls.full) : u;
-      return '<a class="ph-tile" href="' + fullHref + '" target="_blank" rel="noopener" aria-label="' + esc(p.caption || p.phase || 'Project photo') + '">' +
+      // Audit batch 7: data-photo-id powers the photo_view event emission
+      // via the delegated grid click handler below. Server validates token
+      // → leadId binding, so a tampered photoId can't leak across leads.
+      return '<a class="ph-tile" href="' + fullHref + '" target="_blank" rel="noopener" data-photo-id="' + esc(p.id || '') + '" aria-label="' + esc(p.caption || p.phase || 'Project photo') + '">' +
                '<img loading="lazy" decoding="async" src="' + u + '"' + srcset + ' alt="' + esc(p.caption || p.phase || '') + '">' +
              '</a>';
     }
+
+    // Audit batch 7: delegated click handler emits photo_view events.
+    // Single listener vs one per tile = cheaper + survives re-renders
+    // from phase/location filter changes without re-binding.
+    grid.addEventListener('click', function (e) {
+      const tile = e.target.closest('.ph-tile');
+      if (!tile) return;
+      const photoId = tile.dataset.photoId;
+      if (photoId) _emitAuditEvent('photo_view', photoId);
+    });
 
     function renderFiltered() {
       const f = window._portalPhotoFilter || { phase: 'all', location: 'all' };
