@@ -220,6 +220,34 @@ async function _tryServerRender(payload) {
   const slug = (payload.owner || 'warranty').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
   const filename = 'NBD-Warranty-' + slug + '-' + payload.certNum + '.pdf';
 
+  // D-2.5: shape the customer-specific + brand-consistent cover-page
+  // payload. The cover is rendered by a SHARED partial across every
+  // doc, so we always send the same {preparedFor, preparedBy,
+  // projectMeta} structure — only the eyebrow/tagline change per doc.
+  const repName = (window._user && (window._user.displayName || window._user.email)) || 'NBD Installer';
+  const lead    = (window._leads || []).find(l =>
+    (l.address && l.address.trim() === payload.addr.trim()) ||
+    (l.firstName && payload.owner && payload.owner.startsWith((l.firstName + ' ' + (l.lastName||'')).trim()))
+  );
+  const customerId   = lead && lead.customerId;
+  const projectMeta  = [
+    { label: 'Installation Date', value: payload.dateFormatted },
+    { label: 'Coverage Tier',     value: (payload.tier || '').toUpperCase() },
+    { label: 'Certificate No.',   value: payload.certNum },
+  ];
+  const preparedFor  = {
+    name:        payload.owner,
+    address:     payload.addr,
+    customerId:  customerId || null,
+    projectLine: payload.work || null,
+  };
+  const preparedBy   = {
+    name:  repName,
+    role:  'Project Owner · No Big Deal Home Solutions',
+    phone: '(859) 420-7382',
+    email: 'jd@nobigdealwithjoedeal.com',
+  };
+
   const r = await fn({
     template: 'warranty',
     payload: {
@@ -234,6 +262,10 @@ async function _tryServerRender(payload) {
       certNumber:     payload.certNum,
       isElite:        payload.isElite,
       isPreferred:    payload.isPreferred,
+      // D-2.5 cover fields
+      preparedFor,
+      preparedBy,
+      projectMeta,
     },
     filename,
   });

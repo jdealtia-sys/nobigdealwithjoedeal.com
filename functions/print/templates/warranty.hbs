@@ -18,13 +18,19 @@
     tierLabel, tierLabelLong, tierTerms, certNumber, isElite, isPreferred
 --}}
 
-<div class="hero">
-  <div class="hero-eyebrow eyebrow">Lifetime warranty · Certificate</div>
-  <div class="hero-title">Backed by our<br>name on the line.</div>
-  <p class="hero-sub">This certificate is the homeowner's permanent record that the installation on the property below is covered by the NBD Lifetime Pledge. Keep it with your important home documents — and if you ever sell, transfer it per the terms below.</p>
-</div>
+{{!-- D-2.5: shared cover-page partial. Brand-consistent across every
+     doc the platform produces; the variables here personalize the
+     SAME structure to THIS customer + THIS project. --}}
+{{> coverPage
+  eyebrow="Warranty Certificate · Lifetime Pledge"
+  tagline="Backed by our<br>name on the line."
+  sub="This certificate is the homeowner's permanent record that the installation on the property below is covered by the NBD Lifetime Pledge. Keep it with your important home documents — and if you ever sell, transfer it per the terms below."
+  preparedFor=preparedFor
+  preparedBy=preparedBy
+  projectMeta=projectMeta
+}}
 
-<div style="display:flex; align-items:center; gap:12pt; margin-bottom:32pt;">
+<div style="display:flex; align-items:center; gap:12pt; margin: var(--s-6) 0 var(--s-5); page-break-before: always; break-before: page;">
   <span class="badge tier-{{tier}}">{{tier}} · NBD Lifetime Pledge</span>
   <span class="eyebrow muted">Certificate {{certNumber}}</span>
 </div>
