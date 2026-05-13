@@ -146,33 +146,56 @@
   }
 
   // ── Increment usage counter ──
-  // Called by the app when a gated action happens (lead created,
-  // report generated, AI call made). Writes to Firestore immediately.
+  // Called by the app when a gated action happens (lead created, report
+  // generated, AI call made).
   //
-  // KNOWN GAP (Audit A — Firestore security): firestore.rules locks
-  // subscriptions writes with `allow write: if false` so every call
-  // here permanently 403s. The catch logs a warning and the local
-  // `_usage` counter still increments — so within a single session
-  // the gate detects overages correctly, BUT across-session /
-  // across-device usage is NOT persisted. The 'right' fix is to
-  // route trackUsage through a Cloud Function (admin SDK) that
-  // updates subscriptions/{uid} on the server. Until that ships,
-  // the local counter is the source of truth.
-  // TODO(billing): replace updateDoc with httpsCallable('trackUsage').
+  // Audit batch 3 (2026-05-13): closes the Audit A KNOWN GAP. Routes
+  // through the trackUsage Cloud Function (admin SDK) which atomically
+  // increments subscriptions/{uid}.usage[feature] in a transaction.
+  // Firestore rules still block direct client writes — only the callable
+  // touches the doc. The server returns the post-increment usage + plan
+  // limit + overage flag so we can sync local state to the server truth.
+  //
+  // Local counter is patched optimistically so the gate-check renders
+  // instantly; the server call is fire-and-forget for the increment but
+  // we reconcile if the server reports a different number (e.g. counter
+  // drift from another device).
+  let _httpsCallableTrackUsage = null;
+  async function _getCallable() {
+    if (_httpsCallableTrackUsage) return _httpsCallableTrackUsage;
+    if (window._functions && window._httpsCallable) {
+      _httpsCallableTrackUsage = window._httpsCallable(window._functions, 'trackUsage');
+      return _httpsCallableTrackUsage;
+    }
+    try {
+      const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+      window._functions    = window._functions    || mod.getFunctions();
+      window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      _httpsCallableTrackUsage = window._httpsCallable(window._functions, 'trackUsage');
+      return _httpsCallableTrackUsage;
+    } catch (e) {
+      console.warn('[Billing] couldn\'t load functions SDK:', e.message);
+      return null;
+    }
+  }
   async function trackUsage(feature) {
     if (!window._user?.uid) return;
+    // Optimistic local bump — UI updates immediately.
     _usage[feature] = (_usage[feature] || 0) + 1;
+    const call = await _getCallable();
+    if (!call) return; // SDK didn't load (offline / blocked); local counter is best-effort
     try {
-      await window.updateDoc(window.doc(window.db, 'subscriptions', window._user.uid), {
-        [`usage.${feature}`]: _usage[feature],
-        updatedAt: window.serverTimestamp()
-      });
+      const res = await call({ feature });
+      const data = res && res.data;
+      if (data && typeof data.usage === 'number') {
+        // Server authoritative — keep local in sync. If the server
+        // reports higher (another device incremented too) we accept it.
+        _usage[feature] = data.usage;
+      }
     } catch (e) {
-      // EXPECTED — see KNOWN GAP comment above. Local counter still
-      // tracks usage within this session; gate-checks read from the
-      // local counter so functional behavior is correct, but persistent
-      // cross-session tracking won't work until the callable lands.
-      console.warn('[Billing] trackUsage write failed (expected — see KNOWN GAP):', e.message);
+      // Soft fail — local counter still tracks within the session, just
+      // doesn't survive to other devices on this iteration.
+      console.warn('[Billing] trackUsage callable failed:', e.message);
     }
   }
 
