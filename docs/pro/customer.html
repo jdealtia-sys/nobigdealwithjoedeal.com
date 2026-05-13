@@ -4609,9 +4609,20 @@ async function uploadSinglePhoto(item, index) {
   const safeName = (file.name || 'upload').replace(/[^A-Za-z0-9._-]+/g, '_').substring(0, 120);
   const filename = `${window._customerId}_${timestamp}_${safeName}`;
   const storageRef = window.ref(window.storage, `photos/${uid}/${filename}`);
-  
+
+  // Photo system Phase 2: kick off EXIF + slope inference IN PARALLEL
+  // with the upload. The result lands while bytes are still flying;
+  // we merge it into the photo doc when the upload completes. Failing
+  // to parse EXIF (drone DNG, screenshot, stripped-metadata file) is
+  // not fatal — the photo doc just lacks `exif` + `inferredLocation`.
+  const ingestPromise = (window.PhotoSmartIngest
+    && typeof window.PhotoSmartIngest.analyze === 'function')
+    ? window.PhotoSmartIngest.analyze(file, window._currentLead || null)
+        .catch(e => { console.warn('[smart-ingest] analyze failed:', e.message); return null; })
+    : Promise.resolve(null);
+
   const uploadTask = window.uploadBytesResumable(storageRef, file);
-  
+
   return new Promise((resolve, reject) => {
     uploadTask.on('state_changed',
       (snapshot) => {
@@ -4638,7 +4649,13 @@ async function uploadSinglePhoto(item, index) {
           // tokenized download URL.
           const storagePath = `photos/${uid}/${filename}`;
 
-          await window.addDoc(window.collection(window.db, 'photos'), {
+          // Wait for the parallel smart-ingest analysis. At this point
+          // bytes have finished uploading; EXIF parsing on the head
+          // 256KB of file usually finishes long before, so this is a
+          // no-op await in the common case.
+          const ingest = await ingestPromise;
+
+          const photoDoc = {
             leadId: window._customerId,
             userId: window.auth.currentUser.uid,
             url: downloadURL,
@@ -4653,8 +4670,30 @@ async function uploadSinglePhoto(item, index) {
             damageType: document.getElementById('uploadDamageType')?.value || '',
             severity: window._uploadSeverity || '',
             location: document.getElementById('uploadLocation')?.value || ''
-          });
-          
+          };
+
+          if (ingest && ingest.exif) {
+            // Strip undefined-valued fields so Firestore doesn't choke.
+            const e = {};
+            for (const k of Object.keys(ingest.exif)) {
+              if (ingest.exif[k] !== undefined && ingest.exif[k] !== null) e[k] = ingest.exif[k];
+            }
+            if (Object.keys(e).length) photoDoc.exif = e;
+          }
+          if (ingest && ingest.inferredLocation) {
+            photoDoc.inferredLocation = ingest.inferredLocation;
+            // If the rep hasn't manually typed a location, prefill the
+            // location field with the inferred one. They can override
+            // in the Review UI (Phase 4) — this just gives the field
+            // a sensible default at upload time so the photo isn't
+            // un-located if the rep never opens Review.
+            if (!photoDoc.location) {
+              photoDoc.location = ingest.inferredLocation.label;
+            }
+          }
+
+          await window.addDoc(window.collection(window.db, 'photos'), photoDoc);
+
           resolve();
         } catch (error) {
           reject(error);
@@ -7229,6 +7268,9 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Universal in-app document viewer — routes photo reports, docs,
      etc. through one in-app modal instead of blank popups. -->
 <script defer src="js/nbd-doc-viewer.js?v=2"></script>
+<!-- Photo system Phase 2: client-side EXIF + heading-to-slope inference.
+     Loaded BEFORE upload code so analyze() is available at upload time. -->
+<script src="js/photo-smart-ingest.js?v=1"></script>
 <script src="js/photo-report.js?v=3"></script>
 <script src="js/review-engine.js?v=2"></script>
 <script src="js/profit-tracker.js?v=2"></script>
