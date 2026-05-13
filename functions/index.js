@@ -3226,3 +3226,9 @@ exports.analyzePhotoVision = photoVision.analyzePhotoVision;
 // client writes to subscriptions/{uid}. Now atomic + cross-device.
 const billing = require('./billing');
 exports.trackUsage = billing.trackUsage;
+
+// Customer-side audit log (audit batch 7). Token-validated event
+// capture so the rep can see exactly which photos / estimates the
+// homeowner opened and when — useful at adjuster-dispute time.
+const customerAudit = require('./customer-audit');
+exports.recordCustomerEvent = customerAudit.recordCustomerEvent;

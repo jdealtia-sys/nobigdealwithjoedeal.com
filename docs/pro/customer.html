@@ -1305,6 +1305,20 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
           </div>
         </div>
       </div>
+
+      <!-- Audit batch 7: Customer-side activity log. Reads
+           customerAuditEvents owner-scoped via firestore.rules. Useful
+           at adjuster-dispute time ('homeowner saw these 12 photos
+           before signing the supplement'). -->
+      <div class="panel" style="margin-top:18px;">
+        <div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <span>Customer Activity</span>
+          <span style="font-size:11px;color:var(--m);font-weight:500;letter-spacing:.04em;">What the homeowner did on their portal</span>
+        </div>
+        <div id="customerActivityList" style="margin-top:14px;">
+          <div class="empty" style="padding:18px;font-size:13px;color:var(--m);">No activity yet.</div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -3376,8 +3390,63 @@ async function logCommunication(leadId, type, content, extra = {}) {
 // Expose globally so inline handlers can use it
 window.logCommunication = logCommunication;
 
+// Audit batch 7: load customer-side audit events for this lead and
+// render them into #customerActivityList. Fire-and-forget alongside
+// loadTimeline — telemetry, not load-bearing for the rest of the page.
+async function loadCustomerActivity(leadId) {
+  const listEl = document.getElementById('customerActivityList');
+  if (!listEl) return;
+  try {
+    const snap = await getDocs(query(
+      collection(db, 'customerAuditEvents'),
+      where('leadId', '==', leadId),
+      where('ownerUid', '==', auth.currentUser?.uid),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    ));
+    const events = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (events.length === 0) {
+      listEl.innerHTML = '<div class="empty" style="padding:18px;font-size:13px;color:var(--m);">No activity yet. Activity appears here when the homeowner opens their portal link.</div>';
+      return;
+    }
+    const ICON = {
+      portal_open:    '🔓',
+      photo_view:     '📷',
+      estimate_view:  '📋',
+      document_view:  '📄',
+      photo_upload:   '⬆️',
+    };
+    const LABEL = {
+      portal_open:    'Opened portal',
+      photo_view:     'Viewed photo',
+      estimate_view:  'Viewed estimate',
+      document_view:  'Viewed document',
+      photo_upload:   'Uploaded photo',
+    };
+    listEl.innerHTML = events.map(e => {
+      const t = e.createdAt && e.createdAt.toDate ? e.createdAt.toDate() : null;
+      const when = t ? t.toLocaleString() : '';
+      const icon = ICON[e.type] || '•';
+      const label = LABEL[e.type] || e.type;
+      const detail = e.resourceId ? ' · <span style="color:var(--m);font-size:11px;">' + (window.nbdEsc || (s => String(s)))(e.resourceId.slice(0, 32)) + '</span>' : '';
+      return '<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid var(--br);font-size:13px;">' +
+        '<span style="font-size:18px;line-height:1;">' + icon + '</span>' +
+        '<span style="flex:1;color:var(--t);">' + label + detail + '</span>' +
+        '<span style="color:var(--m);font-size:11px;white-space:nowrap;">' + (window.nbdEsc || (s => String(s)))(when) + '</span>' +
+        '</div>';
+    }).join('');
+  } catch (e) {
+    console.warn('[customer-activity] load failed:', e.message);
+    listEl.innerHTML = '<div class="empty" style="padding:18px;font-size:13px;color:var(--m);">Activity unavailable.</div>';
+  }
+}
+window.loadCustomerActivity = loadCustomerActivity;
+
 async function loadTimeline(leadId, lead) {
   const timeline = [];
+  // Audit batch 7: kick off the customer-activity load in parallel
+  // (fire-and-forget — never blocks the timeline render).
+  loadCustomerActivity(leadId).catch(() => {});
 
   // Load stage history
   if(lead.stageHistory && Array.isArray(lead.stageHistory)){
