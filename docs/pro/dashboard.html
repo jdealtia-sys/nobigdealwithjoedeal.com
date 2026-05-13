@@ -12446,15 +12446,21 @@ function switchScTab(tab, btn) {
         document.addEventListener('DOMContentLoaded', function() {
           applySidebarCustomizer();
         });
-        // Hook into settings tab switch
-        var _prevSwitch3 = window.switchSettingsTab;
-        if (typeof _prevSwitch3 === 'function') {
+        // Hook into settings tab switch. The base switchSettingsTab is
+        // defined in deferred js/ui.js, which loads AFTER this inline
+        // script. Wait for DOMContentLoaded (fires after all defer
+        // scripts execute per HTML spec) so the wrapper installs over
+        // a real base, not undefined. Without this, the guard below
+        // silently skipped the wrapper and the sidebar-customizer grid
+        // never re-rendered when reopening Appearance.
+        document.addEventListener('DOMContentLoaded', function() {
           var _prev3 = window.switchSettingsTab;
+          if (typeof _prev3 !== 'function') return;
           window.switchSettingsTab = function(tab) {
             _prev3(tab);
             if (tab === 'appearance') renderSidebarCustomizerGrid();
           };
-        }
+        });
         </script>
 
       </div><!-- /stab-panel-appearance -->
@@ -12893,15 +12899,18 @@ function switchScTab(tab, btn) {
           }).join('');
         } catch(e) { console.warn('loadTeamMembers:', e.message); }
       }
-      // Load team when tab opens
-      var _origSwitch2 = window.switchSettingsTab;
-      if (typeof _origSwitch2 === 'function') {
+      // Load team when tab opens. Wait for DOMContentLoaded so the
+      // base switchSettingsTab (deferred js/ui.js) is defined — without
+      // this guard the wrapper silently skipped install and the Team
+      // tab opened with whatever rows the previous render left behind.
+      document.addEventListener('DOMContentLoaded', function() {
         var _prev = window.switchSettingsTab;
+        if (typeof _prev !== 'function') return;
         window.switchSettingsTab = function(tab) {
           _prev(tab);
           if (tab === 'team') loadTeamMembers();
         };
-      }
+      });
       </script>
 
       <!-- ══ TAB: ACCESS ══ -->
@@ -13116,9 +13125,15 @@ function switchScTab(tab, btn) {
           }).join('');
         }
       }
-      // Auto-render when billing tab is shown
-      var _origSwitchSettings = window.switchSettingsTab;
-      if (typeof _origSwitchSettings === 'function') {
+      // Auto-render when billing tab is shown. DOMContentLoaded guard
+      // for the same reason as the Appearance/Team blocks above — the
+      // base switchSettingsTab lives in deferred js/ui.js and isn't
+      // available at parse time. Without the wait, billing-tab opens
+      // would render whatever was cached last instead of loading the
+      // current subscription.
+      document.addEventListener('DOMContentLoaded', function() {
+        var _origSwitchSettings = window.switchSettingsTab;
+        if (typeof _origSwitchSettings !== 'function') return;
         window.switchSettingsTab = function(tab) {
           _origSwitchSettings(tab);
           if (tab === 'billing') {
@@ -13142,7 +13157,7 @@ function switchScTab(tab, btn) {
             if (typeof nbdRenderFontGrid === 'function') nbdRenderFontGrid();
           }
         };
-      }
+      });
       </script>
 
       <!-- ══ TAB: NOTIFICATIONS ══ -->
