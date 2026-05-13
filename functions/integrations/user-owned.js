@@ -78,6 +78,13 @@ const FLAT_USER_COLLECTIONS = [
   // plus address/coords — clearly the rep's data, so it rides the
   // GDPR cascade with everything else.
   { name: 'ml_training_data' },
+  // Photo-vision cost meters — per-lead AI spend tally. Keyed by
+  // leadId but carries ownerUid so the GDPR cascade reaches it via
+  // ownerField lookup. Erasing a user erases their AI spend history.
+  { name: 'leadCostMeter', ownerField: 'ownerUid' },
+  // Per-user monthly Vision spend (doc id = `{uid}__{YYYY-MM}`, body
+  // has `uid` field). Same cascade reasoning as leadCostMeter.
+  { name: 'userCostMeter', ownerField: 'uid' },
 ];
 
 // ─── COLLECTION-GROUPS WITH userId STAMPS ───────────────────

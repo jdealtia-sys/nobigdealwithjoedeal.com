@@ -354,6 +354,27 @@ service cloud.firestore {
     match /rate_limits/{uid}        { allow read, write: if false; }
     match /_rate_limits_ip/{docId}  { allow read, write: if false; }
 
+    // ── PHOTO VISION COST METERS (admin-SDK writes) ──
+    // Owner can read their own meters so the client knows when caps
+    // are approaching ("$8.40 of $10 used on this lead"). Writes are
+    // funnel-locked: only analyzePhotoVision (admin SDK) increments.
+    match /leadCostMeter/{leadId} {
+      allow read: if isAuth() && resource.data.ownerUid == request.auth.uid;
+      allow write: if false;
+    }
+    match /userCostMeter/{docId} {
+      // Doc id is "{uid}__{YYYY-MM}". Owner can read any of their
+      // months. Useful for "you've used $32/$50 this month" UI.
+      allow read: if isAuth() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Vision response cache (admin-SDK only — sha256(imageUrl) → suggestion).
+    // Clients never touch this directly; the function reads/writes.
+    match /visionCache/{cacheKey} {
+      allow read, write: if false;
+    }
+
     // ── DAILY SUCCESS ─────────────────────────────────
     match /daily_entries/{uid}/entries/{entryId} {
       allow read, write: if isOwner(uid) || isAdmin();
