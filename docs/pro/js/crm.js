@@ -527,7 +527,7 @@ function renderLeads(leads, filtered){
       if(!body) return;
       const cards = byStage[stageKey]||[];
       if(count) count.textContent = cards.length;
-      if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div><div style="font-size:11px;opacity:.7;">Drop leads here</div></div>'; return; }
+      if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="k-empty-line">Drop leads here</div></div>'; return; }
       body.innerHTML = cards.map(l=>buildCard(l)).join('');
       wireKanbanCardListeners(body);
       // attach drag events to cards
@@ -595,7 +595,7 @@ function renderLeads(leads, filtered){
       if(!body) return;
       const cards = byStage[stage]||[];
       if(count) count.textContent = cards.length;
-      if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg></div><div style="font-size:11px;opacity:.7;">Drop leads here</div></div>'; return; }
+      if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="k-empty-line">Drop leads here</div></div>'; return; }
       body.innerHTML = cards.map(l=>buildCard(l)).join('');
       body.querySelectorAll('.k-card').forEach(card=>{
         card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
@@ -651,7 +651,12 @@ function _scheduleLeadScorePersist() {
 function buildCard(l){
   const nameRaw = ((l.firstName||l.fname||'')+'  '+(l.lastName||l.lname||'')).trim() || l.name||'Unknown';
   const name  = escHtml(nameRaw);
-  const addr  = escHtml((l.address||'').split(',').slice(0,2).join(','));
+  // T1.e: strip the leading-comma artifact some upstream USPS-style
+  // formatters insert between house number and street ("3424, Moria Drive").
+  // Display as plain "3424 Moria Drive, Cincinnati" by collapsing
+  // "<digits>,<space>" → "<digits> ".
+  const _addrRaw = (l.address||'').replace(/^(\d+),\s+/, '$1 ');
+  const addr  = escHtml(_addrRaw.split(',').slice(0,2).join(','));
   const val   = l.jobValue ? '$'+parseFloat(l.jobValue).toLocaleString() : '';
   const today = new Date(); today.setHours(0,0,0,0);
   const _sk = l._stageKey || (window.normalizeStage ? window.normalizeStage(l.stage) : l.stage || 'new');
@@ -752,6 +757,14 @@ function buildCard(l){
     }
   }
 
+  // T1.a: dedupe days. Two waves added overlapping signals to the card —
+  // W17 "Nd in stage" (action signal: "this lead is stuck") and the older
+  // "Nd ago" last-touch (freshness signal). They were both rendered on
+  // every card, often showing the SAME number. Pick one:
+  //   - stage stuck for 3+ days → show ONLY the stage-age badge
+  //   - otherwise → show ONLY the last-touch label on the phone row
+  if (stageAgeBadge) daysLabel = '';
+
   // ── Wave 44: last-shared badge ──
   // Surfaces a small "📤 shared 3d via SMS" pill when the rep has
   // shared the portal link with this customer. Helps reps remember
@@ -847,6 +860,11 @@ function buildCard(l){
     const sug = window.SmartFollowup.computeSuggestion(l);
     if (!sug) return;
     if (sug.priority === 'wait' || sug.priority === 'monitor') return;
+    // T1.b: dedupe with the explicit overdue ⚠ Due chip. If the rep has
+    // an overdue follow-up date AND the smart-followup engine also says
+    // "Today", they're the same signal — skip this badge so we don't
+    // render two-chips-for-one-meaning.
+    if (overdue && sug.priority === 'today') return;
     // Color register matches the priority severity:
     //   urgent    → red    (act now)
     //   today     → orange (do today)
@@ -992,7 +1010,12 @@ function buildCard(l){
 
   const phone = escHtml(l.phone||'');
   const email = escHtml(l.email||'');
-  const carrier = escHtml(l.insCarrier||l.insuranceCarrier||'');
+  // T1.c: normalize carrier. The codebase historically stored under
+  // both `insCarrier` and `insuranceCarrier`; some imports wrote
+  // "State Farm", others "StateFarm". Collapse whitespace + trim so
+  // the kc-carrier pill renders consistently. We do NOT case-normalize
+  // because that would mangle acronyms (USAA → Usaa).
+  const carrier = escHtml(((l.insCarrier||l.insuranceCarrier||'')+'').replace(/\s+/g,' ').trim());
   const claimNum = escHtml(l.claimNumber||l.claimNum||'');
   const claimStatus = escHtml(l.claimStatus||'');
   
@@ -1054,13 +1077,13 @@ function buildCard(l){
       <span class="k-card-checkbox-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></span>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <div style="display:flex;align-items:center;gap:4px;">${val ? `<div class="kc-val-badge">${val}</div>` : ''}${leadScoreBadge}${window.LeadScoring?.badge ? window.LeadScoring.badge(l) : ''}${stageAgeBadge}</div>
+      <div style="display:flex;align-items:center;gap:4px;">${val ? `<div class="kc-val-badge">${val}</div>` : ''}${leadScoreBadge}${stageAgeBadge}</div>
       <div style="display:flex;gap:4px;">
         ${estCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--gold);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg> ${estCount}</span>` : ''}
         ${photoCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--blue);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg> ${photoCount}</span>` : ''}
       </div>
     </div>
-    <div class="kc-name">${name}${l.customerId ? ` <span style="font-family:monospace;font-size:10px;font-weight:600;color:var(--orange,var(--orange));opacity:.8;margin-left:4px;">${escHtml(l.customerId)}</span>` : ''}</div>
+    <div class="kc-name"${l.customerId ? ` data-customer-id="${escHtml(l.customerId)}" title="${escHtml(l.customerId)}"` : ''}>${name}</div>
     ${addr ? `<div class="kc-addr" title="${escHtml(l.address||'')}">${addr}</div>` : ''}
     ${phone ? `<div class="kc-phone-row">
       <a class="kc-phone-link nbd-kc-stop" href="tel:${phone.replace(/\D/g,'')}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> ${phone}</a>
@@ -1072,7 +1095,9 @@ function buildCard(l){
       ${claimStatus && claimStatus!=='No Claim' ? `<span class="kc-tag kct-claim">${claimStatus}</span>` : ''}
       ${claimNum ? `<span class="kc-claim-num">#${claimNum}</span>` : ''}
     </div>` : ''}
-    ${photoHTML}
+    <!-- T3.c: inline photo thumbnails removed from card face — the
+         📷 count chip in the top-right corner is enough at-a-glance.
+         Full gallery still accessible via the lead modal + photo tab. -->
     <div class="kc-tags">
       ${l.damageType ? `<span class="kc-tag kct-dmg">${escHtml(l.damageType)}</span>` : ''}
       ${overdue      ? `<span class="kc-tag kct-due"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> Due</span>` : ''}
@@ -1094,10 +1119,14 @@ function buildCard(l){
           ${prevS ? `<button type="button" class="kc-arrow nbd-kc-stop" title="← ${escHtml(prevLabel)}" data-action="move-card" data-id="${safeId}" data-target-stage="${escHtml(prevS)}">◀</button>` : '<span style="width:18px;"></span>'}
           ${nextS ? `<button type="button" class="kc-arrow nbd-kc-stop" title="→ ${escHtml(nextLabel)}" data-action="move-card" data-id="${safeId}" data-target-stage="${escHtml(nextS)}">▶</button>` : '<span style="width:18px;"></span>'}
         </div>
-        ${showSmsBtn ? `<button type="button" class="kc-btn nbd-kc-stop" title="Send booking link via SMS" data-action="booking-sms" data-id="${safeId}" data-phone="${phone}" data-first-name="${firstName}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></button>` : ''}
-        ${email ? `<button type="button" class="kc-btn nbd-kc-stop" title="Email" data-action="email-lead" data-id="${safeId}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg></button>` : ''}
-        <button type="button" class="kc-btn edit nbd-kc-stop" data-action="edit-lead" data-id="${safeId}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M12.5 3.5l4 4L7 17H3v-4l9.5-9.5z"/></svg></button>
-        <button type="button" class="kc-btn del nbd-kc-stop" data-action="delete-lead" data-id="${safeId}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;"><path d="M5 5h10l-1 12H6L5 5z"/><path d="M3 5h14"/><path d="M8 5V3h4v2"/></svg></button>
+        <!-- T2: action-bar consolidation. The four icon buttons (SMS,
+             email, edit, delete) all duplicated functionality already
+             reachable via right-click / long-press → kanban context
+             menu (View / Edit / Add Task / Call / Copy phone-address /
+             Open in Maps / Delete). Replaced with a single ⋮ overflow
+             that opens that menu next to the button. Prev/next stage
+             arrows kept since drag-substitute is core kanban grammar. -->
+        <button type="button" class="kc-btn kc-overflow nbd-kc-stop" title="More actions" aria-label="More actions" data-action="card-overflow" data-id="${safeId}">⋮</button>
       </div>
     </div>
   </div>`;
@@ -1765,6 +1794,16 @@ function wireKanbanCardListeners(container) {
       if (typeof window.emailByStage === 'function') return window.emailByStage(el.dataset.id);
     },
     'open-photo':   (el)     => typeof openPhotoFor === 'function' && openPhotoFor(el.dataset.leadId, ''),
+    // T2: ⋮ overflow opens the existing kanban context menu next to the
+    // button. Same set of actions (View / Edit / Add Task / Call / Copy /
+    // Maps / Delete) the user gets from right-click and long-press, just
+    // accessible via a visible tap target. We pass the button's bounding
+    // rect so the menu anchors next to it instead of at (100, 100).
+    'card-overflow':(el, ev)  => {
+      if (!window.KanbanContextMenu || typeof window.KanbanContextMenu.open !== 'function') return;
+      const r = el.getBoundingClientRect();
+      window.KanbanContextMenu.open(el.dataset.id, r.right, r.bottom);
+    },
   };
 
   container.addEventListener('click', (ev) => {
