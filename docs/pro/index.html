@@ -1063,12 +1063,17 @@
         <button class="btn btn-primary" onclick="window.location.href='/pro/register.html'; return false;">
           Start Free Trial
         </button>
-        <button class="btn btn-ghost" onclick="alert('Demo video coming soon!'); return false;">
-          Watch Demo
-        </button>
+        <!-- Sweep Pass 1: was a blocking alert() ("Demo video coming soon!") —
+             a hard bounce on the primary hero button of a public marketing
+             page. Same fix landing.html already shipped via Audit #26:
+             scroll-to-mockup anchor so the button does something useful
+             right now and clearly labels the destination. -->
+        <a class="btn btn-ghost" href="#see-it-live">
+          See It Live
+        </a>
       </div>
 
-      <div class="hero-mockup">
+      <div class="hero-mockup" id="see-it-live">
         <div class="mockup-header">
           <h3>Your Pipeline at a Glance</h3>
           <div class="mockup-dots">
