@@ -402,6 +402,20 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 
+    // ── ML TRAINING DATA (roof edge detection) ────────
+    // Audit A: maps.js draw flow writes labeled training pairs (auto-
+    // detected polygon + user-corrected polygon) here. Previously had
+    // NO rule so default-deny silently 403'd every save — every
+    // training pair was lost. Same owner-scope pattern as photos /
+    // pins: userId on the doc, create requires self-stamp, read locked
+    // to owner + platform admin (training-data is sensitive aerial
+    // imagery metadata; should never leak cross-tenant).
+    match /ml_training_data/{docId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();  // training data is append-only from the rep's perspective
+    }
+
     // ── TEMPLATES ─────────────────────────────────────
     match /templates/{templateId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();

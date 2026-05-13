@@ -73,6 +73,11 @@ const FLAT_USER_COLLECTIONS = [
   // cascade, leaving homeowner appointment metadata behind on
   // right-to-be-forgotten.
   { name: 'appointments' },
+  // ML roof-edge training pairs written by maps.js when the user
+  // corrects the auto-detected outline. Each row carries `userId`
+  // plus address/coords — clearly the rep's data, so it rides the
+  // GDPR cascade with everything else.
+  { name: 'ml_training_data' },
 ];
 
 // ─── COLLECTION-GROUPS WITH userId STAMPS ───────────────────
