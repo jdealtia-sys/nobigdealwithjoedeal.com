@@ -1,251 +1,235 @@
 <!doctype html>
-<html lang="en" data-theme="nbd-original">
+<html lang="en" data-nbd-brand="true">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>Your Project · No Big Deal Home Solutions</title>
 <link rel="icon" href="/pro/favicon.svg">
-<!-- Audit #30: ship shared theme-system so the portal isn't stuck in the
-     hardcoded dark palette and respects the tenant's theme choice. -->
-<link rel="stylesheet" href="css/theme-system.css">
+<!-- Photo system Phase 1 (2026-05-13): customer-facing surfaces use the
+     locked nbd-brand.css token system, not the rep-side theme system.
+     The portal always renders in official NBD brand (light base, orange
+     accent) regardless of what theme the rep picked for their dashboard
+     — that's how every shared link/PDF/portal looks like the same
+     company. See docs/pro/css/nbd-brand.css. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="css/nbd-brand.css">
 <style>
-  :root {
-    /* Page-specific tokens alias shared theme-system.css vars so the portal
-       repaints whenever the tenant changes theme. --bg itself is already
-       defined by theme-system.css — don't re-declare it here (a self-reference
-       would make --bg resolve to the CSS initial value). */
-    --surface: var(--s, #161b22);
-    --surface-2: var(--s2, #1c222b);
-    --border: var(--br, #2a2f35);
-    --text: var(--t, #e8eaf0);
-    --muted: #8b8e96;
-    --orange: #e8720c;
-    --green: #2ecc8a;
-    --red: #ff6b6b;
-  }
+  /* Page-local styling — only structural rules. Every color/font/space
+     reads from the brand token set. Adding a token would mean editing
+     nbd-brand.css; the page itself stays palette-free. */
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Barlow', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-    font-size: 15px; line-height: 1.6;
+    background: var(--nbd-bg);
+    color: var(--nbd-ink);
+    font-family: var(--nbd-font-body);
+    font-size: var(--nbd-text-md);
+    line-height: var(--nbd-leading-body);
     -webkit-font-smoothing: antialiased;
   }
   .hero {
-    background: linear-gradient(135deg, rgba(232,114,12,.18), rgba(232,114,12,.02));
-    border-bottom: 1px solid var(--border);
-    padding: 32px 20px 28px;
+    background: linear-gradient(135deg, var(--nbd-orange-soft), rgba(232,114,12,0));
+    border-bottom: 1px solid var(--nbd-line);
+    padding: var(--nbd-space-8) var(--nbd-space-5) var(--nbd-space-6);
   }
   .hero-inner {
     max-width: 820px;
     margin: 0 auto;
   }
-  /* Branding sweep: portal.html previously had only a text 'hero-brand'
-     line. Homeowner first-impression matters, so the company logo now
-     leads the hero. Falls back to alt text if the image fails to load. */
   .hero-mark {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 14px;
+    gap: var(--nbd-space-3);
+    margin-bottom: var(--nbd-space-4);
   }
   .hero-logo {
-    height: 40px;
+    height: 44px;
     width: auto;
     display: block;
     flex-shrink: 0;
   }
   .hero-brand {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 12px;
-    letter-spacing: .18em;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-xs);
+    letter-spacing: var(--nbd-tracking-widest);
     text-transform: uppercase;
-    color: var(--orange);
+    color: var(--nbd-orange);
     font-weight: 700;
     margin: 0;
   }
   .hero-title {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 34px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-3xl);
     font-weight: 800;
-    line-height: 1.12;
-    color: var(--text);
-    margin-bottom: 4px;
+    line-height: var(--nbd-leading-tight);
+    color: var(--nbd-ink);
+    margin-bottom: var(--nbd-space-1);
   }
   .hero-sub {
-    color: var(--muted);
-    font-size: 14px;
+    color: var(--nbd-ink-muted);
+    font-size: var(--nbd-text-sm);
   }
   main {
     max-width: 820px;
     margin: 0 auto;
-    padding: 20px;
+    padding: var(--nbd-space-5);
   }
   .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 14px;
+    background: var(--nbd-bg-elevated);
+    border: 1px solid var(--nbd-line);
+    border-radius: var(--nbd-radius-lg);
+    padding: var(--nbd-space-5);
+    margin-bottom: var(--nbd-space-4);
+    box-shadow: var(--nbd-shadow-sm);
   }
   .card-label {
-    font-family: 'Barlow Condensed', sans-serif;
+    font-family: var(--nbd-font-display);
     font-size: 10px;
-    letter-spacing: .16em;
+    letter-spacing: var(--nbd-tracking-widest);
     text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 6px;
+    color: var(--nbd-ink-muted);
+    margin-bottom: var(--nbd-space-2);
     font-weight: 700;
   }
   .card-title {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 22px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-xl);
     font-weight: 800;
-    color: var(--text);
-    margin-bottom: 10px;
+    color: var(--nbd-ink);
+    margin-bottom: var(--nbd-space-3);
   }
   .row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    gap: var(--nbd-space-4);
   }
   @media (max-width: 600px) { .row { grid-template-columns: 1fr; } }
   .kv-key {
     font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: .12em;
-    color: var(--muted);
-    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: var(--nbd-tracking-widest);
+    color: var(--nbd-ink-subtle);
+    font-family: var(--nbd-font-display);
     font-weight: 700;
   }
   .kv-val {
-    font-size: 15px;
-    color: var(--text);
+    font-size: var(--nbd-text-md);
+    color: var(--nbd-ink);
     margin-top: 2px;
   }
   .big-num {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 36px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-3xl);
     font-weight: 800;
-    color: var(--orange);
+    color: var(--nbd-orange);
     line-height: 1;
   }
   .pill {
     display: inline-block;
-    font-size: 10px;
+    font-size: var(--nbd-text-xs);
     font-weight: 700;
-    letter-spacing: .08em;
+    letter-spacing: var(--nbd-tracking-wider);
     text-transform: uppercase;
     padding: 4px 10px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
+    border-radius: var(--nbd-radius-pill);
+    border: 1px solid var(--nbd-line);
   }
-  .pill-green { color: var(--green); border-color: var(--green); background: rgba(46,204,138,.08); }
-  .pill-orange { color: var(--orange); border-color: var(--orange); background: rgba(232,114,12,.08); }
-  .pill-red { color: var(--red); border-color: var(--red); background: rgba(255,107,107,.08); }
+  .pill-green  { color: var(--nbd-success); border-color: rgba(22,163,74,.35); background: var(--nbd-success-soft); }
+  .pill-orange { color: var(--nbd-orange-ink); border-color: var(--nbd-orange-medium); background: var(--nbd-orange-soft); }
+  .pill-red    { color: var(--nbd-danger); border-color: rgba(220,38,38,.35); background: var(--nbd-danger-soft); }
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 13px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-sm);
     font-weight: 700;
-    letter-spacing: .1em;
+    letter-spacing: var(--nbd-tracking-wider);
     text-transform: uppercase;
-    background: var(--orange);
-    color: #fff;
+    background: var(--nbd-orange);
+    color: var(--nbd-ink-on-orange);
     border: none;
     padding: 13px 22px;
-    border-radius: 7px;
+    border-radius: var(--nbd-radius-md);
     cursor: pointer;
     text-decoration: none;
     min-height: 46px;
-    transition: background .15s, transform .1s;
+    transition: background .15s, transform .1s, box-shadow .15s;
   }
-  .btn:hover { background: #ff8420; }
+  .btn:hover  { background: var(--nbd-orange-deep); box-shadow: var(--nbd-shadow-md); }
   .btn:active { transform: scale(.98); }
   .btn-ghost {
     background: transparent;
-    color: var(--orange);
-    border: 1px solid var(--orange);
+    color: var(--nbd-orange);
+    border: 1px solid var(--nbd-orange);
   }
-  .btn-ghost:hover { background: rgba(232,114,12,.08); }
+  .btn-ghost:hover { background: var(--nbd-orange-soft); }
   .cal-embed {
     width: 100%;
     height: 680px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
+    border: 1px solid var(--nbd-line);
+    border-radius: var(--nbd-radius-lg);
     background: #fff;
   }
   @media (max-width: 600px) { .cal-embed { height: 820px; } }
-  /* Project photo gallery — matches the mid-density tiles on the
-     dashboard but slightly larger to feel intentional on the
-     homeowner-facing surface. Tap a tile to open the full
-     1600px variant in a new tab (no lightbox; keep portal small). */
+  /* Project photo gallery — square tiles, generous spacing.
+     Tap a tile to open the full 1600px variant in a new tab. */
   .ph-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 8px;
-    margin-top: 12px;
+    gap: var(--nbd-space-2);
+    margin-top: var(--nbd-space-3);
   }
   .ph-tile {
     display: block;
     aspect-ratio: 1;
-    border-radius: 8px;
+    border-radius: var(--nbd-radius-md);
     overflow: hidden;
-    background: rgba(0,0,0,.04);
-    border: 1px solid var(--border);
+    background: var(--nbd-bg-sunken);
+    border: 1px solid var(--nbd-line);
     transition: transform .12s ease, box-shadow .12s ease;
   }
-  .ph-tile:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,.08); }
-  /* W109: ensure the <a> wrapping the <img> gets the tap on
-     Safari. The combination of overflow:hidden + border-radius on
-     the anchor causes WebKit to register the tap on the inner
-     <img> in some versions. pointer-events:none on the img makes
-     the anchor the sole tap target. display:block on the anchor
-     reinforces the full-area hit zone. */
-  .ph-tile { display: block; }
+  .ph-tile:hover { transform: translateY(-1px); box-shadow: var(--nbd-shadow-md); }
   .ph-tile img { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
   .error-state, .loading-state {
     text-align: center;
     padding: 56px 20px;
-    color: var(--muted);
+    color: var(--nbd-ink-muted);
   }
   .error-state h2 {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 24px;
-    color: var(--red);
-    margin: 8px 0 12px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-2xl);
+    color: var(--nbd-danger);
+    margin: var(--nbd-space-2) 0 var(--nbd-space-3);
   }
   footer {
     max-width: 820px;
-    margin: 24px auto 40px;
-    padding: 0 20px;
-    color: var(--muted);
-    font-size: 12px;
+    margin: var(--nbd-space-6) auto var(--nbd-space-10);
+    padding: 0 var(--nbd-space-5);
+    color: var(--nbd-ink-muted);
+    font-size: var(--nbd-text-xs);
     text-align: center;
   }
-  footer a { color: var(--orange); text-decoration: none; }
+  footer a { color: var(--nbd-orange); text-decoration: none; }
 
   /* ── Project progress timeline ─────────────────────────────────── */
   .progress-card{ overflow:hidden; }
   .progress-track{
     display:flex; align-items:flex-start; justify-content:space-between;
-    margin-top:14px; gap:6px;
+    margin-top: var(--nbd-space-4); gap: var(--nbd-space-2);
     position:relative;
   }
   .progress-track::before{
     content:''; position:absolute; top:13px; left:14px; right:14px;
-    height:3px; background:rgba(255,255,255,.08); border-radius:2px;
+    height:3px; background: var(--nbd-line); border-radius:2px;
     z-index:0;
   }
   .progress-track-fill{
     position:absolute; top:13px; left:14px; height:3px;
-    background:linear-gradient(90deg, var(--orange), var(--green));
+    background: linear-gradient(90deg, var(--nbd-orange), var(--nbd-success));
     border-radius:2px; z-index:1;
-    transition:width .4s cubic-bezier(.16,1,.3,1);
+    transition: width .4s cubic-bezier(.16,1,.3,1);
   }
   .progress-step{
     flex:1; text-align:center; position:relative; z-index:2;
@@ -253,39 +237,39 @@
   }
   .progress-dot{
     width:28px; height:28px; border-radius:50%;
-    margin:0 auto 8px; display:flex; align-items:center; justify-content:center;
-    background:#1a1d23; border:2px solid rgba(255,255,255,.15);
-    font-size:13px; font-weight:800; color:rgba(255,255,255,.4);
+    margin:0 auto var(--nbd-space-2); display:flex; align-items:center; justify-content:center;
+    background: var(--nbd-bg-elevated); border: 2px solid var(--nbd-line);
+    font-size: var(--nbd-text-sm); font-weight:800; color: var(--nbd-ink-subtle);
     transition:all .2s;
   }
   .progress-step.done .progress-dot{
-    background:var(--green); border-color:var(--green); color:#fff;
+    background: var(--nbd-success); border-color: var(--nbd-success); color:#fff;
   }
   .progress-step.current .progress-dot{
-    background:var(--orange); border-color:var(--orange); color:#fff;
-    box-shadow:0 0 0 6px rgba(232,114,12,.25);
+    background: var(--nbd-orange); border-color: var(--nbd-orange); color:#fff;
+    box-shadow:0 0 0 6px var(--nbd-orange-glow);
     animation:progress-pulse 2s ease-in-out infinite;
   }
   @keyframes progress-pulse {
-    0%,100% { box-shadow:0 0 0 6px rgba(232,114,12,.25); }
-    50%     { box-shadow:0 0 0 9px rgba(232,114,12,.12); }
+    0%,100% { box-shadow: 0 0 0 6px var(--nbd-orange-glow); }
+    50%     { box-shadow: 0 0 0 9px rgba(232,114,12,.12); }
   }
   .progress-step-label{
-    font-size:11px; font-weight:700; color:rgba(255,255,255,.5);
-    letter-spacing:.04em; line-height:1.2;
+    font-size: var(--nbd-text-xs); font-weight:700; color: var(--nbd-ink-subtle);
+    letter-spacing: var(--nbd-tracking-wide); line-height:1.2;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .progress-step.done .progress-step-label,
-  .progress-step.current .progress-step-label{ color:var(--text); }
+  .progress-step.current .progress-step-label{ color: var(--nbd-ink); }
   .progress-next{
-    margin-top:18px; padding:12px 14px;
-    background:rgba(232,114,12,.08); border:1px solid rgba(232,114,12,.25);
-    border-radius:10px;
-    font-size:13px; color:var(--text); line-height:1.5;
+    margin-top: var(--nbd-space-4); padding: var(--nbd-space-3) var(--nbd-space-4);
+    background: var(--nbd-orange-soft); border: 1px solid var(--nbd-orange-medium);
+    border-radius: var(--nbd-radius-md);
+    font-size: var(--nbd-text-sm); color: var(--nbd-ink); line-height:1.5;
   }
   .progress-next-label{
-    font-size:10px; font-weight:700; letter-spacing:.12em;
-    text-transform:uppercase; color:var(--orange); margin-bottom:4px;
+    font-size:10px; font-weight:700; letter-spacing: var(--nbd-tracking-widest);
+    text-transform: uppercase; color: var(--nbd-orange); margin-bottom: var(--nbd-space-1);
   }
   @media (max-width:520px){
     .progress-step-label{ font-size:9px; }
@@ -295,7 +279,7 @@
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head>
-<body>
+<body class="nbd-brand">
 
 <div id="heroWrap" class="hero" style="display:none;">
   <div class="hero-inner">
