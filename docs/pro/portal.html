@@ -42,14 +42,29 @@
     max-width: 820px;
     margin: 0 auto;
   }
+  /* Branding sweep: portal.html previously had only a text 'hero-brand'
+     line. Homeowner first-impression matters, so the company logo now
+     leads the hero. Falls back to alt text if the image fails to load. */
+  .hero-mark {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .hero-logo {
+    height: 40px;
+    width: auto;
+    display: block;
+    flex-shrink: 0;
+  }
   .hero-brand {
     font-family: 'Barlow Condensed', sans-serif;
     font-size: 12px;
     letter-spacing: .18em;
     text-transform: uppercase;
     color: var(--orange);
-    margin-bottom: 6px;
     font-weight: 700;
+    margin: 0;
   }
   .hero-title {
     font-family: 'Barlow Condensed', sans-serif;
@@ -284,7 +299,10 @@
 
 <div id="heroWrap" class="hero" style="display:none;">
   <div class="hero-inner">
-    <div class="hero-brand" id="heroCompany">No Big Deal Home Solutions</div>
+    <div class="hero-mark">
+      <img class="hero-logo" src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" />
+      <div class="hero-brand" id="heroCompany">No Big Deal Home Solutions</div>
+    </div>
     <div class="hero-title" id="heroTitle">—</div>
     <div class="hero-sub" id="heroSub">—</div>
   </div>
