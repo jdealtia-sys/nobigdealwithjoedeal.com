@@ -180,7 +180,15 @@ function _regridToIntel(p, auditorUrl, countyClean) {
     city:           p.city || null,
     zip:            p.zip || null,
     stateAbbr:      p.stateAbbr || null,
-    zoning:         p.zoning || null
+    zoning:         p.zoning || null,
+    // Audit batch 11 (2026-05-13): pass the parcel polygon through so
+    // the lead save (crm.js:saveLead) can stamp it on the lead doc as
+    // `parcel.geometry`. photo-smart-ingest.js:getPropertyPolygon reads
+    // exactly that shape to power the photo-system Phase 2 slope
+    // inference. Without this, every roof drawing + photo slope
+    // suggestion silently falls back to heading-only mode.
+    parcelGeometry: p.geometry || null,
+    parcelCenter:   (p.lat != null && p.lng != null) ? { lat: Number(p.lat), lng: Number(p.lng) } : null
   };
 }
 
