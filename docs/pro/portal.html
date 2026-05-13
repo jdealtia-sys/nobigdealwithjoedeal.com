@@ -931,6 +931,44 @@
       '</div>'
     );
 
+    // ── Step 16: Refer a friend ──
+    // Only render the card when we have a stable referral code
+    // (customerId — NBD-0001 format). Leads without one are usually
+    // unstamped or pre-Wave 0 stragglers; rather than build a
+    // half-working link we hide the card entirely.
+    const customerId = view.homeowner && view.homeowner.customerId;
+    if (customerId) {
+      const referLink = 'https://nobigdeal-pro.web.app/pro/refer.html?ref=' + encodeURIComponent(customerId);
+      const sent = (view.referralStats && view.referralStats.sent) || 0;
+      const statPill = sent > 0
+        ? '<span style="background:rgba(46,204,138,.16);color:#a7f3d0;border:1px solid rgba(46,204,138,.4);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.04em;">✓ ' + sent + ' sent your way</span>'
+        : '';
+      const smsBody = encodeURIComponent(
+        "Hey — wanted to share my roofing guys (No Big Deal Home Solutions). They did a great job for me. " + referLink
+      );
+      const emailSubject = encodeURIComponent('My roofing recommendation');
+      const emailBody = encodeURIComponent(
+        "Hey,\n\nIf you ever need roof work, the guys who did mine were great — No Big Deal Home Solutions. Sharing my referral link below:\n\n" + referLink + "\n\nNo pressure, just thought I'd pass it along."
+      );
+      parts.push(
+        '<div class="card" id="rf-card">' +
+          '<div class="card-label">📨 Refer a friend</div>' +
+          '<div class="card-title">Know someone with a beat-up roof?</div>' +
+          '<p style="color:var(--muted);margin:0 0 14px;font-size:13px;line-height:1.5;">Send your neighbor our way — they get a no-pressure roof check, you get our thanks.</p>' +
+          (statPill ? '<div style="margin-bottom:14px;">' + statPill + '</div>' : '') +
+          '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
+            '<input id="rf-link" type="text" readonly value="' + esc(referLink) + '" style="flex:1;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:12px;">' +
+            '<button id="rf-copy" type="button" style="padding:0 14px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--surface-2,#13243d);color:var(--text);border:1px solid var(--br, #2a3344);border-radius:6px;cursor:pointer;white-space:nowrap;">Copy</button>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            '<a href="sms:?&body=' + smsBody + '" style="flex:1;min-width:120px;text-align:center;padding:10px;background:var(--accent, #c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;">💬 Text it</a>' +
+            '<a href="mailto:?subject=' + emailSubject + '&body=' + emailBody + '" style="flex:1;min-width:120px;text-align:center;padding:10px;background:var(--surface-2,#13243d);color:var(--text);border:1px solid var(--br, #2a3344);border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;">✉️ Email it</a>' +
+          '</div>' +
+          '<div id="rf-status" style="display:none;margin-top:10px;padding:8px 10px;border-radius:6px;font-size:12px;background:rgba(46,204,138,.12);color:#a7f3d0;border:1px solid rgba(46,204,138,.4);text-align:center;"></div>' +
+        '</div>'
+      );
+    }
+
     // ── Expiry note ──
     if (view.tokenInfo && view.tokenInfo.daysRemaining != null) {
       const d = view.tokenInfo.daysRemaining;
@@ -951,9 +989,45 @@
     wireRatingCard(view);
     // Wave 123: wire up the messaging thread + compose.
     wireMessagingCard();
+    // Step 16: wire the Refer-a-friend Copy button (no-op when card
+    // wasn't rendered, e.g. lead missing customerId).
+    wireReferralCard();
     // Phase 5 (Output Engine): wire phase tabs + location chips that
     // filter the photo gallery client-side.
     wirePhotoFilters();
+  }
+
+  // ─── Step 16: Refer a friend ─────────────────────────────────
+  function wireReferralCard() {
+    const linkEl = document.getElementById('rf-link');
+    const copyBtn = document.getElementById('rf-copy');
+    const statusEl = document.getElementById('rf-status');
+    if (!linkEl || !copyBtn) return;
+    copyBtn.addEventListener('click', async () => {
+      const val = linkEl.value;
+      let ok = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(val);
+          ok = true;
+        } else {
+          // Fallback for iOS standalone PWAs / older Safari that don't
+          // expose navigator.clipboard outside HTTPS contexts.
+          linkEl.select();
+          document.execCommand('copy');
+          ok = true;
+        }
+      } catch (_) { /* swallow — status path handles failure */ }
+      if (statusEl) {
+        statusEl.textContent = ok ? '✓ Link copied — paste it anywhere' : 'Copy failed — long-press the link to copy manually.';
+        statusEl.style.display = 'block';
+        statusEl.style.background = ok ? 'rgba(46,204,138,.12)' : 'rgba(220,38,38,.12)';
+        statusEl.style.color = ok ? '#a7f3d0' : '#fca5a5';
+        statusEl.style.borderColor = ok ? 'rgba(46,204,138,.4)' : 'rgba(220,38,38,.4)';
+        clearTimeout(wireReferralCard._t);
+        wireReferralCard._t = setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+      }
+    });
   }
 
   // ─── Phase 5: portal photo gallery filtering ──────────────────
