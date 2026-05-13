@@ -2,6 +2,10 @@
 functions/node_modules/
 docs/pro/js/node_modules/
 tests/node_modules/
+tests/visual/node_modules/
+tests/visual/test-results/
+tests/visual/playwright-report/
+
 
 # Emulator runtime artifacts
 tests/firestore-debug.log
