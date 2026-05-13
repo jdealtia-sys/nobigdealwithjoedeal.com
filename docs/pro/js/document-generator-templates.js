@@ -56,10 +56,12 @@
     .badge { display:inline-block; padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700;
       font-family:'Helvetica Neue',Arial,sans-serif; letter-spacing:0.04em; }
     .letterhead { border-top:6px solid ${P}; padding:24px 0 16px; margin-bottom:24px;
-      display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #ddd; }
+      display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; gap:18px; }
+    .letterhead-brand { display:flex; align-items:center; gap:14px; min-width:0; }
+    .letterhead-logo { height:56px; width:auto; flex-shrink:0; display:block; }
     .letterhead-name { font-family:'Helvetica Neue',Arial,sans-serif; font-size:22px; font-weight:700; color:${S}; }
     .letterhead-tagline { font-size:12px; color:${A}; font-style:italic; margin-top:2px; }
-    .letterhead-contact { text-align:right; font-size:12px; color:#555; line-height:1.8; }
+    .letterhead-contact { text-align:right; font-size:12px; color:#555; line-height:1.8; flex-shrink:0; }
     .footer { border-top:2px solid ${P}; margin-top:40px; padding-top:12px; display:flex;
       justify-content:space-between; font-size:10px; color:#999; }
     .print-btn { text-align:center; padding:24px; }
@@ -76,9 +78,19 @@
   }
 
   function letterhead() {
+    // Branding sweep: every generated document now includes the actual
+    // NBD logo image (not just the text name) so homeowners receive a
+    // visually branded document. Logo is absolute-path so it resolves
+    // both in the universal doc viewer (popup window) and on print/PDF
+    // export. alt= text falls back to plain text if image fails to load
+    // (offline rendering, blocked CDN, etc.) so the letterhead never
+    // looks empty.
     return `<div class="letterhead">
-      <div><div class="letterhead-name">${C.name}</div>
-      <div class="letterhead-tagline">${C.tagline || 'No Big Deal — We\'ve Got You Covered'}</div></div>
+      <div class="letterhead-brand">
+        <img class="letterhead-logo" src="/assets/images/nbd-logo.png" alt="${C.name}" />
+        <div><div class="letterhead-name">${C.name}</div>
+        <div class="letterhead-tagline">${C.tagline || 'No Big Deal — We\'ve Got You Covered'}</div></div>
+      </div>
       <div class="letterhead-contact">${C.phone}<br>${C.email}<br>${C.website}</div></div>`;
   }
 

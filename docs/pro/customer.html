@@ -66,8 +66,9 @@ header {
   border-bottom:1px solid var(--br); display:flex; align-items:center;
   justify-content:space-between; padding:0 18px; height:52px;
 }
-.logo { font-family:'Barlow Condensed',sans-serif; font-size:17px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.logo { font-family:'Barlow Condensed',sans-serif; font-size:17px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; display:flex; align-items:center; gap:10px; }
 .logo span { color:var(--orange); }
+.logo-img { height:28px; width:auto; display:block; flex-shrink:0; }
 .back-btn {
   display:flex; align-items:center; gap:8px; padding:6px 12px;
   background:var(--s2); border:1px solid var(--br); border-radius:6px;
@@ -901,7 +902,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <body>
 
 <header>
-  <div class="logo">NBD <span>PRO</span></div>
+  <div class="logo"><img class="logo-img" src="/assets/images/nbd-logo.png" alt="NBD Pro" />NBD <span>PRO</span></div>
   <a href="dashboard.html" class="back-btn">
     ← Back to Dashboard
   </a>
@@ -3928,7 +3929,10 @@ window.exportCustomerEstimate = function(estId) {
   </style><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head><body>
   <div class="hdr">
-    <div><div class="brand">No Big <span>Deal</span> Home Solutions</div><div style="font-size:13px;color:#666;margin-top:2px;">nobigdealwithjoedeal.com</div><div class="badge">Insurance Restoration Specialists</div></div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:54px;width:auto;display:block;flex-shrink:0;" />
+      <div><div class="brand">No Big <span>Deal</span> Home Solutions</div><div style="font-size:13px;color:#666;margin-top:2px;">nobigdealwithjoedeal.com</div><div class="badge">Insurance Restoration Specialists</div></div>
+    </div>
     <div class="est-hdr">
       <div class="est-type">Roofing Estimate</div>
       <div class="est-date">${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</div>
@@ -4883,6 +4887,7 @@ window.generateCertFromEstimate = async function(estimateId) {
 </style><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head><body>
 <div class="cert">
+  <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:64px;width:auto;display:block;margin:0 auto 10px;" />
   <div class="logo">NBD</div>
   <div class="logo-sub">No Big Deal Home Solutions</div>
   <h1>WARRANTY CERTIFICATE</h1>

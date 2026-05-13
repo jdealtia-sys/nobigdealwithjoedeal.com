@@ -135,7 +135,9 @@ body{font-family:'Inter',sans-serif;color:#1a1a2e;line-height:1.6;background:#ff
 .header{background:linear-gradient(135deg,${BRAND.navy},${BRAND.dark});color:#fff;padding:40px 32px;text-align:center;}
 .header h1{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;margin-bottom:6px;}
 .header .sub{color:${BRAND.orange};font-size:14px;}
-.brand-bar{display:flex;justify-content:space-between;padding:12px 32px;background:#f8f9fa;border-bottom:2px solid ${BRAND.navy};font-size:12px;color:#666;}
+.brand-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 32px;background:#f8f9fa;border-bottom:2px solid ${BRAND.navy};font-size:12px;color:#666;gap:14px;}
+.brand-bar-left{display:flex;align-items:center;gap:12px;min-width:0;}
+.brand-logo{height:32px;width:auto;display:block;flex-shrink:0;}
 .content{max-width:800px;margin:0 auto;padding:32px;}
 .section{margin-bottom:32px;}
 .section-label{display:inline-block;padding:6px 20px;border-radius:20px;font-size:13px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;margin-bottom:16px;}
@@ -167,7 +169,10 @@ body{font-family:'Inter',sans-serif;color:#1a1a2e;line-height:1.6;background:#ff
   <div class="sub">Before & After Photo Report</div>
 </div>
 <div class="brand-bar">
-  <span>${BRAND.name}</span>
+  <div class="brand-bar-left">
+    <img class="brand-logo" src="/assets/images/nbd-logo.png" alt="${BRAND.name}" />
+    <span>${BRAND.name}</span>
+  </div>
   <span>${BRAND.phone} | ${BRAND.email}</span>
 </div>
 
