@@ -50,9 +50,83 @@
   const TYPE_SIZE = { 1:1, 2:1, 3:2, 4:4, 5:8, 7:1, 9:4, 10:8 };
 
   // ──────────────────────────────────────────────────────────────────
+  // ──────────────────────────────────────────────────────────────────
+  // HEIC / HEIF / TIFF fallback (audit batch 9). iPhone defaults to
+  // HEIC capture and USUALLY converts to JPEG on <input type=file>,
+  // but native HEIC sneaks in via:
+  //   - AirDrop from another iPhone
+  //   - Direct drag-drop from the Files app
+  //   - Drone output that saves HEIC
+  //   - iOS Safari versions that don't auto-convert
+  //
+  // Hand-rolling a HEIC EXIF parser is ~400 LOC of HEIF box parsing.
+  // Instead we lazy-load the well-maintained `exifr` library from CDN
+  // ONLY when the JPEG path returns null AND the file looks like HEIC.
+  // Cost: zero on the 99% case (JPEG), ~30KB one-time on HEIC.
+  let _exifrLib = null;
+  async function _loadExifr() {
+    if (_exifrLib) return _exifrLib;
+    try {
+      // Skypack ESM build of exifr@7 — minimal footprint, supports
+      // HEIC / HEIF / TIFF / AVIF. CDN fail → return null silently;
+      // photo upload proceeds without EXIF in that case.
+      _exifrLib = await import('https://cdn.skypack.dev/exifr@7');
+      return _exifrLib;
+    } catch (e) {
+      console.warn('[smart-ingest] exifr lazy-load failed:', e.message);
+      return null;
+    }
+  }
+  function _looksHeicByName(name) {
+    return /\.(heic|heif|tif|tiff|avif)$/i.test(String(name || ''));
+  }
+  function _looksHeicByType(type) {
+    return /^image\/(heic|heif|tiff|avif)/i.test(String(type || ''));
+  }
+  async function _extractExifViaExifr(file) {
+    const lib = await _loadExifr();
+    if (!lib) return null;
+    // Default `parse` covers EXIF + GPS + IFD0 in one pass; faster
+    // than calling `gps()` + `parse()` separately for our shape.
+    try {
+      const all = await (lib.parse || lib.default && lib.default.parse).call(null, file, {
+        gps: true,
+        exif: true,
+        tiff: true,
+        pick: ['DateTimeOriginal', 'Model', 'PixelXDimension', 'PixelYDimension',
+               'GPSLatitude', 'GPSLatitudeRef', 'GPSLongitude', 'GPSLongitudeRef',
+               'GPSImgDirection', 'GPSImgDirectionRef', 'ImageWidth', 'ImageLength',
+               'latitude', 'longitude'],
+      });
+      if (!all) return null;
+      const out = {};
+      if (all.Model) out.cameraModel = String(all.Model);
+      if (all.DateTimeOriginal instanceof Date) out.takenAt = all.DateTimeOriginal.toISOString();
+      const w = all.PixelXDimension || all.ImageWidth;
+      const h = all.PixelYDimension || all.ImageLength;
+      if (typeof w === 'number') out.width = w;
+      if (typeof h === 'number') out.height = h;
+      // exifr's `gps: true` flattens to all.latitude / all.longitude
+      // when the file has the standard GPS sub-IFD.
+      if (typeof all.latitude === 'number' && typeof all.longitude === 'number') {
+        out.lat = all.latitude;
+        out.lng = all.longitude;
+      }
+      if (typeof all.GPSImgDirection === 'number') {
+        out.heading = all.GPSImgDirection;
+        out.headingRef = all.GPSImgDirectionRef || 'T';
+      }
+      return Object.keys(out).length ? out : null;
+    } catch (e) {
+      console.warn('[smart-ingest] exifr parse failed:', e.message);
+      return null;
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────
   // JPEG EXIF parser. Reads only the markers we need; bails fast on
-  // malformed input. Returns null for non-JPEG files (drone DNG, etc.)
-  // — Phase 3 AI classifier still works on those, just without EXIF.
+  // malformed input. Returns null for non-JPEG files (HEIC, drone DNG,
+  // etc.) — the exifr fallback below picks those up.
   // ──────────────────────────────────────────────────────────────────
   async function extractExif(file) {
     if (!file || typeof file.arrayBuffer !== 'function') return null;
@@ -69,8 +143,15 @@
     }
     const view = new DataView(buf);
 
-    // JPEG SOI marker
-    if (view.byteLength < 4 || view.getUint16(0) !== 0xFFD8) return null;
+    // JPEG SOI marker — anything else routes to the exifr fallback
+    // (HEIC, HEIF, TIFF, AVIF, etc.) if the file extension/MIME hints
+    // at a format exifr can handle.
+    if (view.byteLength < 4 || view.getUint16(0) !== 0xFFD8) {
+      if (_looksHeicByName(file.name) || _looksHeicByType(file.type)) {
+        return _extractExifViaExifr(file);
+      }
+      return null;
+    }
 
     // Walk segments to find APP1 with "Exif\0\0"
     let pos = 2;
