@@ -2133,25 +2133,178 @@
     },
 
     /**
-     * Generate and open the report
+     * Generate and open the report.
+     *
+     * D-2: tries the new server-side Puppeteer renderer first. The
+     * legacy blob-popup path stays as a fallback so reps are never
+     * blocked if the callable errors out. Only the full-inspection
+     * template currently has a server template; storm-damage,
+     * supplement, and completion still go through the legacy path
+     * until D-2 follow-ups port them.
      */
     async _generateAndOpen(state) {
+      this._saveDraft(state.leadId, state.data);
+
+      // ── D-2 server path ──
+      if (state.templateId === 'full-inspection') {
+        try {
+          const ok = await this._tryServerRender(state);
+          if (ok) return;
+        } catch (e) {
+          console.warn('[inspection] server render failed, falling back:', e && e.message || e);
+        }
+      }
+
+      // ── Legacy blob-popup path (always runs for non-full-inspection
+      //    templates, or as fallback after a server-render error) ──
       const html = this.generateReport(state.leadId, state.templateId, state.data);
       if (!html) {
         showToast('Failed to generate report', 'error');
         return;
       }
-
-      // Save draft
-      this._saveDraft(state.leadId, state.data);
-
-      // Open in new window for printing (uses blob URL for Safari standalone compatibility)
       const blob = new Blob([html], { type: 'text/html' });
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, '_blank');
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
       showToast('Report generated! Use Print or Save as PDF from the browser.', 'success');
+    },
+
+    /**
+     * D-2: Try the server-side renderer. Builds the inspection payload
+     * from the wizard state, calls renderPdf, opens NBDDocViewer with
+     * the returned signed URL. Returns true on success so the caller
+     * can short-circuit the legacy path.
+     */
+    async _tryServerRender(state) {
+      if (!window._functions || !window._httpsCallable) {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = mod.getFunctions();
+        window._httpsCallable = mod.httpsCallable;
+      }
+      const payload = this._buildInspectionPayload(state);
+      if (!payload) return false;
+
+      showToast('Rendering report…', 'info');
+
+      const fn = window._httpsCallable(window._functions, 'renderPdf');
+      const slug = (payload.leadName || 'inspection').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+      const filename = 'NBD-Inspection-' + slug + '-' + payload.reportNumber + '.pdf';
+
+      const r = await fn({
+        template: 'inspection',
+        payload,
+        filename,
+      });
+      const data = r && r.data;
+      if (!data || !data.ok || !data.url) throw new Error('Render returned no URL');
+
+      if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+        window.NBDDocViewer.open({
+          url:      data.url,
+          title:    'Inspection Report' + (payload.leadName ? ' — ' + payload.leadName : ''),
+          filename: data.filename || filename,
+          leadId:   state.leadId,
+        });
+      } else {
+        window.open(data.url, '_blank', 'noopener');
+      }
+      const ms = data.timing && data.timing.totalMs;
+      showToast(ms ? `✓ Report rendered in ${ms}ms` : '✓ Report rendered', 'success');
+      return true;
+    },
+
+    /**
+     * Map the wizard's internal state to the new inspection.hbs
+     * payload shape. Centralized here so the template stays the only
+     * place that knows the doc structure.
+     */
+    _buildInspectionPayload(state) {
+      const lead = this._getLead(state.leadId);
+      if (!lead) return null;
+      const d = state.data || {};
+
+      const leadName = (lead.name && String(lead.name).trim())
+        || ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim()
+        || 'Customer';
+      const reportNumber = 'INS-' + Date.now().toString().slice(-6);
+
+      // Components → findings rows (only those with a recorded condition).
+      const findings = [];
+      const components = d.components || {};
+      Object.keys(components).forEach((compName) => {
+        const c = components[compName] || {};
+        if (!c.condition) return; // skip un-rated components
+        findings.push({
+          component: compName,
+          condition: c.condition,
+          notes: c.notes || '',
+        });
+      });
+
+      // Stat cards — pulled from inspection meta + content counts.
+      const stats = [
+        { label: 'Total Squares', value: d.totalSquares || '—', sub: d.roofType || '' },
+        { label: 'Components Inspected', value: String(findings.length), sub: 'rated Good → Critical' },
+        { label: 'Scope Items', value: String((d.estimatedWork || []).length), sub: 'recommended for follow-up' },
+      ];
+
+      // Property overview KV pairs.
+      const property = [];
+      if (d.roofType)      property.push({ label: 'Roof Type',     value: d.roofType });
+      if (d.roofAge)       property.push({ label: 'Approx. Age',    value: d.roofAge });
+      if (d.totalSquares)  property.push({ label: 'Total Squares',  value: d.totalSquares });
+      if (d.slopes)        property.push({ label: 'Slopes',         value: String(d.slopes) });
+
+      // Photo evidence — pulled from PhotoEngine if available. We map
+      // to the inspection.hbs photo shape: { url, caption, area, severity }.
+      const photos = [];
+      const photoPool = (window.PhotoEngine && window.PhotoEngine.getPhotosForLead && state.leadId)
+        ? (window.PhotoEngine.getPhotosForLead(state.leadId) || [])
+        : [];
+      photoPool.slice(0, 24).forEach((p) => {
+        const url = (p && p.urls && (p.urls.lg || p.urls.md)) || (p && p.url) || '';
+        if (!url) return;
+        photos.push({
+          url,
+          caption:  p.caption || p.aiCaption || '',
+          area:     p.location || p.area || p.phase || '',
+          severity: p.severity || '',
+        });
+      });
+
+      // Scope rows from estimatedWork.
+      const scope = (Array.isArray(d.estimatedWork) ? d.estimatedWork : []).map((w) => ({
+        area:     w.area || w.location || '',
+        item:     w.item || w.description || '',
+        severity: w.severity || 'Fair',
+        quantity: w.quantity || w.qty || '',
+        notes:    w.notes || '',
+      }));
+
+      const summary = {
+        headline: 'Inspection findings & recommended scope',
+        body: d.damageAssessment && d.damageAssessment.summary
+          ? d.damageAssessment.summary
+          : '',
+      };
+
+      return {
+        leadName,
+        address: lead.address || '',
+        inspectionDate: d.inspectionDate || new Date(),
+        inspectorName:  d.inspectorName || (window._user && window._user.displayName) || 'NBD Inspector',
+        reportNumber,
+        summary,
+        stats,
+        property,
+        findings,
+        photos,
+        scope,
+        totalScope: d.totalScope || null,
+        recommendations: d.recommendations || '',
+        coverPhoto: (photos[0] && photos[0].url) || null,
+      };
     },
 
     /**

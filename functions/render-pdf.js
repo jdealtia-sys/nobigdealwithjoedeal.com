@@ -52,8 +52,8 @@ const CORS_ORIGINS = [
 // key to a Handlebars file in print/templates/. As D-2..D-5 land,
 // they add lines here — that's the only API surface change.
 const TEMPLATES = {
-  warranty: { file: 'warranty.hbs', docType: 'Warranty Certificate', seal: 'Lifetime Pledge' },
-  // inspection: { file: 'inspection.hbs', docType: 'Inspection Report', seal: 'Inspection' },
+  warranty:   { file: 'warranty.hbs',   docType: 'Warranty Certificate', seal: 'Lifetime Pledge' },
+  inspection: { file: 'inspection.hbs', docType: 'Inspection Report',    seal: 'Inspection' },
   // estimate:   { file: 'estimate.hbs',   docType: 'Estimate',         seal: 'Estimate' },
   // invoice:    { file: 'invoice.hbs',    docType: 'Invoice',          seal: 'Invoice' },
   // contract:   { file: 'contract.hbs',   docType: 'Project Contract', seal: 'Contract' },
@@ -83,6 +83,56 @@ function registerPartialsOnce() {
     const name = f.replace(/\.hbs$/, '');
     Handlebars.registerPartial(name, fs.readFileSync(path.join(partialsDir, f), 'utf8'));
   }
+}
+
+// ─── Handlebars helpers ───────────────────────────────────────
+// Registered once per cold-start. Templates that need additional
+// helpers add them here so the renderer stays the one place that
+// knows about template internals.
+function registerHelpersOnce() {
+  if (Handlebars.helpers.severityClass) return;
+
+  // Map a condition string to the badge CSS class — used by
+  // the inspection template's component findings table.
+  Handlebars.registerHelper('severityClass', (cond) => {
+    const c = String(cond || '').toLowerCase();
+    if (c === 'critical')        return 'sev-critical';
+    if (c === 'poor')            return 'sev-poor';
+    if (c === 'fair')            return 'sev-fair';
+    if (c === 'good')            return 'sev-good';
+    return 'sev-neutral';
+  });
+
+  // Inline math for column counts, photo grids, etc.
+  Handlebars.registerHelper('inc', (n) => Number(n) + 1);
+  Handlebars.registerHelper('gt',  (a, b) => Number(a) > Number(b));
+  Handlebars.registerHelper('eq',  (a, b) => a === b);
+
+  // Format a Date | ISO | timestamp into "Month D, YYYY" in en-US.
+  // Templates pass raw values from the lead; we don't trust them
+  // to pre-format.
+  Handlebars.registerHelper('fmtDate', (v) => {
+    if (!v) return '';
+    let d;
+    if (v instanceof Date) d = v;
+    else if (typeof v === 'number') d = new Date(v);
+    else if (typeof v === 'string') d = new Date(v);
+    else if (v && typeof v.toMillis === 'function') d = new Date(v.toMillis());
+    else return String(v);
+    if (isNaN(d.getTime())) return String(v);
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  });
+
+  // Tabular-num money formatter. We do the formatting in the
+  // template (not CSS) so cells line up regardless of font fallback.
+  Handlebars.registerHelper('money', (v) => {
+    const n = Number(v);
+    if (!isFinite(n)) return '—';
+    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  });
+
+  // Counter for {{photoCount}} and similar.
+  Handlebars.registerHelper('len', (v) => Array.isArray(v) ? v.length : 0);
 }
 
 function loadTemplate(file) {
@@ -157,6 +207,7 @@ exports.renderPdf = onCall(
 
     // ── render the HTML body via Handlebars ──
     registerPartialsOnce();
+    registerHelpersOnce();
     const bodyCompiled = loadTemplate(tmplCfg.file);
     const layoutCompiled = loadLayout();
 

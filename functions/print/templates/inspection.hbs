@@ -1,0 +1,201 @@
+{{!--
+  INSPECTION REPORT — D-2
+  ──────────────────────────────────────────────────────────────────
+  Insurance-grade first, photo walkthrough second. Damage narrative
+  optional. Variable length: adapts to how much evidence the rep
+  collected. Same shared chrome (brand band top, running footer with
+  seal) from _layout.hbs.
+
+  Page flow:
+    1. Cover (full page)
+    2. Executive summary + key stats
+    3. Property overview
+    4. Component findings (insurance-grade evidence table)
+    5. Photo evidence (one or more pages, adaptive)
+    6. Scope of work (if estimatedWork was provided)
+    7. Recommendations + signature
+
+  Required payload (data passed via renderPdf):
+    leadName, address, inspectionDate, inspectorName, reportNumber,
+    summary { headline, body },
+    stats  [{ label, value, sub }],   // 3 cards
+    property [{ label, value }],
+    findings [{ component, condition, notes }],
+    photos   [{ url, caption, area, severity? }],
+    scope    [{ area, item, severity, quantity?, notes? }],
+    totalScope (currency, optional),
+    recommendations (string)
+--}}
+
+{{!-- ─────────── 1. COVER ─────────── --}}
+<section class="cover avoid-break">
+  <div>
+    <div class="cover-eyebrow">Roof Inspection Report</div>
+    <div class="cover-title">{{leadName}}</div>
+    <div class="cover-subject">{{address}}</div>
+  </div>
+  {{#if coverPhoto}}
+    <div class="photo-hero">
+      <img src="{{coverPhoto}}" alt="">
+    </div>
+  {{/if}}
+  <div class="cover-meta">
+    <div class="kv">
+      <div class="kv-label">Inspection Date</div>
+      <div class="kv-value">{{fmtDate inspectionDate}}</div>
+    </div>
+    <div class="kv">
+      <div class="kv-label">Inspected By</div>
+      <div class="kv-value">{{inspectorName}}</div>
+    </div>
+    <div class="kv">
+      <div class="kv-label">Report No.</div>
+      <div class="kv-value" style="font-variant-numeric:tabular-nums;">{{reportNumber}}</div>
+    </div>
+  </div>
+</section>
+
+{{!-- ─────────── 2. EXECUTIVE SUMMARY ─────────── --}}
+<section class="page-break">
+  <div class="hero" style="margin-bottom: var(--s-5);">
+    <div class="hero-eyebrow eyebrow">At a Glance</div>
+    <div class="hero-title" style="font-size:32pt;">{{summary.headline}}</div>
+    {{#if summary.body}}<p class="hero-sub">{{summary.body}}</p>{{/if}}
+  </div>
+
+  {{#if stats}}
+  <div class="stat-grid">
+    {{#each stats}}
+    <div class="stat">
+      <div class="stat-label">{{this.label}}</div>
+      <div class="stat-value">{{this.value}}</div>
+      {{#if this.sub}}<div class="stat-sub">{{this.sub}}</div>{{/if}}
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+  {{#if property}}
+  <h2>Property Overview</h2>
+  <div class="kv-grid">
+    {{#each property}}
+    <div class="kv">
+      <div class="kv-label">{{this.label}}</div>
+      <div class="kv-value">{{this.value}}</div>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+</section>
+
+{{!-- ─────────── 3. COMPONENT FINDINGS ─────────── --}}
+{{#if findings.length}}
+<section class="page-break">
+  <h2 class="keep-with-next">Component Findings</h2>
+  <p class="meta" style="margin-bottom: var(--s-3);">Condition is rated Good / Fair / Poor / Critical based on visual inspection. Notes flag items requiring follow-up or scope work.</p>
+  <table class="findings">
+    <thead>
+      <tr>
+        <th style="width:38%;">Component</th>
+        <th style="width:18%;">Condition</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each findings}}
+      <tr class="avoid-break">
+        <td><strong>{{this.component}}</strong></td>
+        <td><span class="sev {{severityClass this.condition}}">{{this.condition}}</span></td>
+        <td>
+          {{#if this.notes}}{{this.notes}}{{else}}<span style="color: var(--nbd-ink-muted);">—</span>{{/if}}
+        </td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+</section>
+{{/if}}
+
+{{!-- ─────────── 4. PHOTO EVIDENCE ─────────── --}}
+{{#if photos.length}}
+<section class="page-break">
+  <h2 class="keep-with-next">Photo Evidence</h2>
+  <p class="meta" style="margin-bottom: var(--s-4);">
+    {{len photos}} photograph{{#unless (eq (len photos) 1)}}s{{/unless}} of the property at the time of inspection. Each tagged with location and the relevant area of finding.
+  </p>
+  <div class="photo-grid{{#if (gt (len photos) 8)}} three{{/if}}">
+    {{#each photos}}
+    <div class="photo-cell">
+      <div class="photo-frame">
+        <img src="{{this.url}}" alt="">
+        {{#if this.area}}<div class="photo-tag">{{this.area}}</div>{{/if}}
+      </div>
+      <div class="photo-meta">
+        <div class="photo-caption">{{this.caption}}</div>
+        {{#if this.severity}}<div class="photo-loc"><span class="sev {{severityClass this.severity}}" style="font-size:7pt;padding:1pt 5pt;">{{this.severity}}</span></div>{{/if}}
+      </div>
+    </div>
+    {{/each}}
+  </div>
+</section>
+{{/if}}
+
+{{!-- ─────────── 5. SCOPE OF WORK ─────────── --}}
+{{#if scope.length}}
+<section class="page-break">
+  <h2 class="keep-with-next">Scope of Work</h2>
+  <p class="meta" style="margin-bottom: var(--s-3);">Items recommended for repair or replacement based on the findings above.</p>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:22%;">Area</th>
+        <th>Item</th>
+        <th style="width:14%;">Severity</th>
+        <th style="width:14%;" class="num">Quantity</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each scope}}
+      <tr class="avoid-break">
+        <td>{{this.area}}</td>
+        <td>
+          <strong>{{this.item}}</strong>
+          {{#if this.notes}}<div style="font-size:9.5pt;color:var(--nbd-ink-soft);margin-top:3pt;line-height:1.4;">{{this.notes}}</div>{{/if}}
+        </td>
+        <td><span class="sev {{severityClass this.severity}}">{{this.severity}}</span></td>
+        <td class="num">{{this.quantity}}</td>
+      </tr>
+      {{/each}}
+    </tbody>
+    {{#if totalScope}}
+    <tfoot>
+      <tr>
+        <td colspan="3" style="text-align:right;">Estimated total scope value</td>
+        <td class="num money">{{money totalScope}}</td>
+      </tr>
+    </tfoot>
+    {{/if}}
+  </table>
+</section>
+{{/if}}
+
+{{!-- ─────────── 6. RECOMMENDATIONS + SIGNATURES ─────────── --}}
+{{#if recommendations}}
+<section class="avoid-break" style="margin-top: var(--s-6);">
+  <h2>Inspector's Recommendations</h2>
+  <p style="line-height:1.65;">{{recommendations}}</p>
+</section>
+{{/if}}
+
+<div class="sig-block">
+  <div class="sig-grid">
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">Homeowner Signature &amp; Date</div>
+    </div>
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">{{inspectorName}} · No Big Deal Home Solutions</div>
+    </div>
+  </div>
+</div>
