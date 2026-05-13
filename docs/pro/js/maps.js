@@ -360,7 +360,7 @@ function openPinLeadPopup(p, marker) {
     if (p.notes) {
       const notesLower = p.notes.toLowerCase();
       matched = leads.find(l => {
-        const addr = (l.address || '').toLowerCase();
+        const addr = String(l.address || '').toLowerCase();
         if (!addr) return false;
         const firstSeg = addr.split(',')[0].trim();
         const numMatch = firstSeg.match(/^(\d+)\s+(.+)$/);
@@ -1790,7 +1790,7 @@ async function saveDrawingToCustomer() {
   const leads = window._leads || [];
   const addrNorm = addr.toLowerCase().replace(/[^a-z0-9]/g, '');
   const matched = leads.find(l => {
-    const lNorm = (l.address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const lNorm = String(l.address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     return lNorm && addrNorm && (lNorm.includes(addrNorm.substring(0, 12)) || addrNorm.includes(lNorm.substring(0, 12)));
   });
 
@@ -1875,7 +1875,7 @@ async function loadDrawingFromCustomer() {
   const leads = window._leads || [];
   const addrNorm = addr.toLowerCase().replace(/[^a-z0-9]/g, '');
   const matched = leads.find(l => {
-    const lNorm = (l.address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const lNorm = String(l.address || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     return lNorm && addrNorm && (lNorm.includes(addrNorm.substring(0, 12)) || addrNorm.includes(lNorm.substring(0, 12)));
   });
 
