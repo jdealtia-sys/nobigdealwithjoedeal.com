@@ -7247,6 +7247,73 @@ body {
     border:1px solid color-mix(in srgb, var(--gold, #F59E0B) 40%, transparent);
     cursor:help;
   }
+  /* Sweep R3: next-best-action hint chips. Three flavors mirror the
+     STAGE_ACTIONS kinds: 'doc' (generates a document, warm orange),
+     'stage' (advances pipeline, blue/green), 'action' (everything
+     else, neutral). Tinted just enough to read as "do this next"
+     without competing visually with the louder Due / Needs chips. */
+  .kct-action,
+  .kct-action-doc,
+  .kct-action-stage{
+    font-weight: 700;
+    letter-spacing: .02em;
+    border-style: solid;
+    border-width: 1px;
+    cursor: default;
+  }
+  .kct-action{
+    background: color-mix(in srgb, var(--ink-soft, #888) 16%, transparent);
+    color: var(--ink, #d4d4d4);
+    border-color: color-mix(in srgb, var(--ink-soft, #888) 38%, transparent);
+  }
+  .kct-action-doc{
+    background: color-mix(in srgb, var(--orange, #e8720c) 14%, transparent);
+    color: var(--orange, #e8720c);
+    border-color: color-mix(in srgb, var(--orange, #e8720c) 40%, transparent);
+  }
+  .kct-action-stage{
+    background: color-mix(in srgb, var(--blue, #2563eb) 14%, transparent);
+    color: var(--blue, #93c5fd);
+    border-color: color-mix(in srgb, var(--blue, #2563eb) 40%, transparent);
+  }
+  /* Sweep R3: strengthen carrier pill visibility. Before this round
+     'USAA' rendered as a quiet dark pill that visually lost against
+     the loud green 'CLAIM FILED' chip next to it. Now it picks up
+     a faint orange tint + the left-tick from #306 so the carrier
+     reads with comparable weight to the claim status. */
+  .kc-carrier{
+    background: color-mix(in srgb, var(--orange, #e8720c) 14%, var(--s3, #1a1a2e)) !important;
+    color: color-mix(in srgb, var(--orange, #e8720c) 60%, #fff) !important;
+    border: 1px solid color-mix(in srgb, var(--orange, #e8720c) 30%, transparent) !important;
+  }
+  /* Sweep R3: .kc-name 2-line clamp. 'Morgan-McCane' and other long
+     surnames were wrapping unbounded and pushing the rest of the
+     card down. Cap at 2 lines with ellipsis so card heights stay
+     more uniform across the column. */
+  .kc-name{
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Sweep R3: header pill row 'HOT F...' truncation fix. The
+     existing rule (:root[data-density="compact"] .crm-hdr-btn-label
+     { display:none; }) only kicks in on compact density. Reps on
+     standard 1366/1440px laptops at default density were seeing
+     'HOT F...' clipped. Two responsive breakpoints: tighten the
+     labels under 1400px, hide them entirely under 1200px. */
+  @media (max-width: 1400px) {
+    .crm-hdr-actions .crm-hdr-btn-label{
+      font-size: 10px;
+      letter-spacing: 0;
+    }
+  }
+  @media (max-width: 1200px) {
+    .crm-hdr-actions .crm-hdr-btn-label{
+      display: none;
+    }
+  }
   .kc-footer{display:flex!important;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid color-mix(in srgb, var(--ink) 12%, transparent);margin-top:2px;}
   .kc-phone{font-size:var(--kcard-meta-fz);color:var(--ink-soft);}
   .kc-actions{display:flex!important;gap:4px;}
@@ -10835,6 +10902,15 @@ function switchScTab(tab, btn) {
         <!-- Fullscreen kanban — hides chrome -->
         <button class="crm-icon-btn" id="kanbanFullscreenBtn" onclick="toggleKanbanFullscreen()" title="Fullscreen kanban (Esc to exit)">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg>
+        </button>
+
+        <!-- Sweep R3 (C): card-density quick toggle. The density picker
+             still lives in Settings → Display, but reps don't want to
+             open Settings just to flip from Comfy to Compact when
+             they're scanning a busy column. This button cycles
+             Compact → Comfortable → Spacious in place. -->
+        <button class="crm-icon-btn" id="kanbanDensityToggleBtn" onclick="cycleKanbanDensity()" title="Card density (cycles Compact → Comfortable → Spacious)">
+          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
         </button>
 
         <!-- Tools dropdown (was the entire secondary toolbar) -->
@@ -16224,6 +16300,36 @@ function setKanbanDensity(d) {
     b.style.borderColor = active ? 'var(--orange)' : 'var(--br)';
   });
 }
+
+// Sweep R3 (C): one-tap cycle invoked by the kanban-header
+// density toggle. Reads the current value from localStorage so the
+// cycle starts from wherever the user left off, even if the
+// data-density attribute got cleared (Comfortable = no attribute).
+// Updates the button tooltip + label so the rep sees current state.
+function cycleKanbanDensity() {
+  const order = ['compact', 'comfortable', 'spacious'];
+  let cur = 'comfortable';
+  try { cur = localStorage.getItem(KANBAN_DENSITY_KEY) || 'comfortable'; } catch (_) {}
+  if (!order.includes(cur)) cur = 'comfortable';
+  const next = order[(order.indexOf(cur) + 1) % order.length];
+  setKanbanDensity(next);
+  // Toast so the rep gets feedback without staring at the button.
+  if (typeof showToast === 'function') {
+    const labelMap = { compact: '📏 Compact', comfortable: '📐 Comfortable', spacious: '📊 Spacious' };
+    showToast(labelMap[next] + ' card density', 'info');
+  }
+  // Update the toolbar button's title attr so hover hint stays current.
+  const btn = document.getElementById('kanbanDensityToggleBtn');
+  if (btn) {
+    const titleMap = {
+      compact: 'Card density: Compact — click for Comfortable',
+      comfortable: 'Card density: Comfortable — click for Spacious',
+      spacious: 'Card density: Spacious — click for Compact'
+    };
+    btn.title = titleMap[next];
+  }
+}
+window.cycleKanbanDensity = cycleKanbanDensity;
 
 function setKanbanBoldHierarchy(on) {
   if (on) document.documentElement.setAttribute('data-bold', 'true');

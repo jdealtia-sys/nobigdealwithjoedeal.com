@@ -648,6 +648,61 @@ function _scheduleLeadScorePersist() {
   }, 1500);
 }
 
+// ── Damage-type → trade-iconed chip ──
+// Sweep R3: was rendering raw "ROOF - WIND" with the dated
+// space-hyphen-space format and no visual cue to the trade. Now
+// produces { icon, label } from the canonical TRADES icon set
+// (defined in crm-stages.js) so cards read like "🏠 Wind" or
+// "🧱 Hail" at a glance. Falls back to the raw label for any
+// unrecognized damage strings so we never blank-render bad data.
+function _damageToChip(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  // Map the lowercase trade prefix to an icon. The trade icons mirror
+  // window.TRADES from crm-stages.js — duplicated here as a small
+  // lookup so the card render doesn't have to wait for the ES module
+  // to expose TRADES on window (which only happens after the
+  // dashboard.html module script runs).
+  const TRADE_ICON = {
+    roof:      '🏠',
+    gutters:   '🌧️',
+    siding:    '🧱',
+    windows:   '🪟',
+    fascia:    '🔲',
+    paint:     '🎨',
+    skylights: '☀️',
+    other:     '🔧'
+  };
+  // Common damage strings split on " - " (hyphen with spaces) into
+  // <trade> - <cause>. Anything that doesn't match the pattern gets
+  // a heuristic icon based on keyword sniff.
+  let icon = '';
+  let label = s;
+  const m = /^([A-Za-z][A-Za-z\/ ]+?)\s*-\s*(.+)$/.exec(s);
+  if (m) {
+    const tradeWord = m[1].trim().toLowerCase().split(/\s|\//)[0];
+    icon = TRADE_ICON[tradeWord] || '';
+    label = m[2].trim();
+  } else {
+    // Single-word damage types from the existing form options.
+    const lower = s.toLowerCase();
+    if (/^gutters?$/.test(lower))           icon = TRADE_ICON.gutters;
+    else if (/^siding/.test(lower))          icon = TRADE_ICON.siding;
+    else if (/^windows?$/.test(lower))       icon = TRADE_ICON.windows;
+    else if (/^skylights?$/.test(lower))     icon = TRADE_ICON.skylights;
+    else if (/^paint/.test(lower))           icon = TRADE_ICON.paint;
+    else if (/^fascia|soffit/.test(lower))   icon = TRADE_ICON.fascia;
+    else if (/^full\s*exterior$/.test(lower)) icon = '🏘️';
+    else if (/^fire$/.test(lower))           icon = '🔥';
+    else if (/^water$/.test(lower))          icon = '💧';
+    else if (/^storm\s*damage$/.test(lower)) icon = '⛈';
+    else if (/^other$/.test(lower))          icon = TRADE_ICON.other;
+    else if (/^roof/.test(lower))            icon = TRADE_ICON.roof;
+  }
+  return { icon, label };
+}
+
 function buildCard(l){
   const nameRaw = ((l.firstName||l.fname||'')+'  '+(l.lastName||l.lname||'')).trim() || l.name||'Unknown';
   const name  = escHtml(nameRaw);
@@ -1046,6 +1101,39 @@ function buildCard(l){
   // shown for non-terminal stages where requiredFieldsFor() actually
   // declares something. Click target is the card itself (opens edit
   // modal), so we don't add another button — just a clear visual.
+  // ── Next-best-action hint chip ──
+  // Sweep R3 (B): closes the loop on Phase 1's STAGE_ACTIONS map by
+  // surfacing the #1 action for this stage + job type on the card face
+  // itself, not just inside the Next Actions panel in the lead modal.
+  // Reps see "→ File Claim" / "→ Send AOB" / "→ Pull Permit" on every
+  // card so they can scan the column for what to do, not just where
+  // each lead sits.
+  //
+  // Skipped on terminal stages (closed / lost) and skipped if there's
+  // already a 'needs X' warning chip — the rep should fix the missing
+  // field before doing the next action.
+  let nextActionChip = '';
+  if (!isTerminal && typeof window.actionsForStage === 'function') {
+    try {
+      const jt = l.jobType || (typeof window.inferJobType === 'function' ? window.inferJobType(l) : null);
+      const actions = window.actionsForStage(l._stageKey || l.stage, jt) || [];
+      // Skip purely-cosmetic actions like "Log Contact" / "Follow Up"
+      // when the stage has a real document or stage-advance action
+      // available; reps want to know the *progression* step, not the
+      // catch-all log. Heuristic: prefer kind:'doc' or kind:'stage'
+      // first, fall back to the first action otherwise.
+      const preferred = actions.find(a => a.kind === 'doc' || a.kind === 'stage') || actions[0];
+      if (preferred) {
+        const icon = preferred.icon || '→';
+        const label = preferred.label || preferred.id || '';
+        const kindTag = preferred.kind === 'doc' ? 'kct-action-doc'
+                      : preferred.kind === 'stage' ? 'kct-action-stage'
+                      : 'kct-action';
+        nextActionChip = `<span class="kc-tag ${kindTag}" title="Next: ${escHtml(label)}">${icon} ${escHtml(label)}</span>`;
+      }
+    } catch (_) { /* degrade silently */ }
+  }
+
   let needsBadge = '';
   if (!isTerminal && typeof window.missingRequiredFields === 'function') {
     try {
@@ -1099,7 +1187,12 @@ function buildCard(l){
          📷 count chip in the top-right corner is enough at-a-glance.
          Full gallery still accessible via the lead modal + photo tab. -->
     <div class="kc-tags">
-      ${l.damageType ? `<span class="kc-tag kct-dmg">${escHtml(l.damageType)}</span>` : ''}
+      ${(() => {
+        const dc = _damageToChip(l.damageType);
+        if (!dc) return '';
+        return `<span class="kc-tag kct-dmg" title="${escHtml(l.damageType)}">${dc.icon ? dc.icon + ' ' : ''}${escHtml(dc.label)}</span>`;
+      })()}
+      ${needsBadge ? '' : nextActionChip}
       ${overdue      ? `<span class="kc-tag kct-due"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> Due</span>` : ''}
       ${needsBadge}
       ${roofBadge}
