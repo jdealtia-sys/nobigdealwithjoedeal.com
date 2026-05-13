@@ -1039,7 +1039,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
           </div>
         </div>
       </div>
-      <button class="btn" onclick="if(typeof generatePhotoReport==='function')generatePhotoReport(window._customerId)" title="Generate before/after photo report">
+      <button class="btn" onclick="openPhotoReportPicker()" title="Choose Homeowner or Adjuster report style">
         📸 Photo Report
       </button>
       <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.sendReviewSMS(window._customerId)" title="Send Google review request via SMS">
@@ -7347,6 +7347,84 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src="js/document-generator.js?v=4"></script>
 <script src="js/document-generator-templates.js?v=2"></script>
 <script defer src="js/doc-preflight.js?v=1"></script>
+
+<!-- ──────────────────────────────────────────────────────────────
+     Photo system Phase 5: Photo Report mode picker.
+     Same dataset, two PDF styles — Adjuster (dense, label-forward
+     for insurance supplements) vs Homeowner (visual story, friendly
+     captions). The rep picks at export time.
+     ────────────────────────────────────────────────────────────── -->
+<div id="photoReportPicker" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);z-index:3000;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--s,#1a1d23);border:1px solid var(--br);border-radius:14px;max-width:600px;width:100%;padding:24px;box-shadow:0 24px 60px rgba(0,0,0,.55);">
+    <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:18px;">
+      <div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);">Photo Report</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--t);margin-top:2px;">Pick a style</div>
+      </div>
+      <button onclick="closePhotoReportPicker()" style="background:none;border:none;color:var(--m);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">×</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <button onclick="pickPhotoReport('homeowner')" class="prp-card" style="text-align:left;background:var(--s2);border:1px solid var(--br);border-radius:12px;padding:18px;cursor:pointer;color:var(--t);font-family:inherit;transition:border-color .15s,transform .08s;">
+        <div style="font-size:28px;margin-bottom:10px;">👋</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);margin-bottom:6px;">Homeowner</div>
+        <div style="font-size:12px;color:var(--m);line-height:1.45;">Visual story · friendly captions · before/after focus. The PDF you email the homeowner.</div>
+      </button>
+      <button onclick="pickPhotoReport('adjuster')" class="prp-card" style="text-align:left;background:var(--s2);border:1px solid var(--br);border-radius:12px;padding:18px;cursor:pointer;color:var(--t);font-family:inherit;transition:border-color .15s,transform .08s;">
+        <div style="font-size:28px;margin-bottom:10px;">📋</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);margin-bottom:6px;">Adjuster</div>
+        <div style="font-size:12px;color:var(--m);line-height:1.45;">Dense metadata · damage summary · numbered photos for supplements. The PDF you attach to a claim.</div>
+      </button>
+    </div>
+  </div>
+</div>
+<style>
+  #photoReportPicker .prp-card:hover { border-color: var(--orange) !important; transform: translateY(-1px); }
+  #photoReportPicker .prp-card:active { transform: scale(.98); }
+</style>
+<script>
+  window.openPhotoReportPicker = function() {
+    if (!window._customerId) {
+      if (typeof showToast === 'function') showToast('No customer loaded yet', 'error');
+      return;
+    }
+    var pk = document.getElementById('photoReportPicker');
+    if (pk) pk.style.display = 'flex';
+  };
+  window.closePhotoReportPicker = function() {
+    var pk = document.getElementById('photoReportPicker');
+    if (pk) pk.style.display = 'none';
+  };
+  window.pickPhotoReport = function(mode) {
+    closePhotoReportPicker();
+    if (typeof generatePhotoReport === 'function') {
+      generatePhotoReport(window._customerId, mode);
+    } else if (typeof showToast === 'function') {
+      showToast('Report module not loaded yet — try again in a moment', 'error');
+    }
+  };
+  // Backdrop click + Esc dismiss
+  document.addEventListener('click', function(e) {
+    if (e.target && e.target.id === 'photoReportPicker') closePhotoReportPicker();
+  });
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    var pk = document.getElementById('photoReportPicker');
+    if (pk && pk.style.display !== 'none') closePhotoReportPicker();
+  });
+  // Phase 5: auto-open the picker when arriving from photo-review.html
+  // with a #photo-report hash. Defer until _customerId is populated.
+  function maybeAutoOpenFromHash() {
+    if (window.location.hash !== '#photo-report') return;
+    if (!window._customerId) { setTimeout(maybeAutoOpenFromHash, 250); return; }
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    openPhotoReportPicker();
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(maybeAutoOpenFromHash, 600); });
+  } else {
+    setTimeout(maybeAutoOpenFromHash, 600);
+  }
+</script>
 
 <!-- Edit Customer Modal -->
 <div id="editCustomerModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);z-index:3000;align-items:center;justify-content:center;">
