@@ -6793,6 +6793,17 @@ body {
 .kc-task-badge.has-tasks{color:var(--ink);border-color:color-mix(in srgb, var(--ink) 22%, transparent);}
 .kc-task-badge.has-overdue{border-color:var(--red);color:var(--red);background:color-mix(in srgb, var(--red) 12%, transparent);}
 .kc-task-badge.all-done{border-color:var(--green);color:var(--green);background:color-mix(in srgb, var(--green) 12%, transparent);}
+/* R4.4: empty-state task badge — quiet pill instead of bright '+ Tasks'
+   CTA so the real action signals (Due / Needs X / next-action) win
+   the visual hierarchy. Still discoverable on hover via the existing
+   :hover rule above which restores the orange treatment. */
+.kc-task-badge.empty{
+  background: transparent;
+  border-color: color-mix(in srgb, var(--ink) 10%, transparent);
+  color: color-mix(in srgb, var(--ink) 38%, var(--paper));
+  font-weight: 500;
+  opacity: 0.72;
+}
 #taskModal{z-index:2500!important;}
 #taskModal .modal{max-width:480px;}
 .task-modal-header{margin-bottom:16px;}

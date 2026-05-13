@@ -736,7 +736,12 @@ function buildCard(l){
     completionRate = Math.round((doneT / totalT) * 100);
   }
   const overdueT = tasks.filter(t=>!t.done && t.dueDate && new Date(t.dueDate+'T23:59:59') < new Date()).length;
-  let taskBadgeClass = 'kc-task-badge';
+  // R4.4: when the lead has 0 tasks the button reads '+ Tasks' as a
+  // CTA. That CTA used to compete visually with real action signals
+  // (Due / Needs X / next-best-action) on every card. The .empty
+  // variant lets the CSS dim it so it stays available but doesn't
+  // shout for attention.
+  let taskBadgeClass = totalT ? 'kc-task-badge' : 'kc-task-badge empty';
   let taskBadgeLabel = totalT ? `☑ ${doneT}/${totalT}` : '+ Tasks';
   if(totalT && overdueT){ taskBadgeClass += ' has-overdue'; taskBadgeLabel = `<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg> ${overdueT} overdue`; }
   else if(totalT && doneT===totalT) { 
@@ -799,15 +804,20 @@ function buildCard(l){
       const stageNorm = new Date(stageRef);
       stageNorm.setHours(0,0,0,0);
       const stageDays = Math.floor((today - stageNorm) / 86400000);
+      // R4.2: shortened stage-age label. Was '33d in stage' (~13 chars)
+      // which forced the top row to compete for space with the value
+      // badge + count chips. Now just '33d' — the tooltip carries the
+      // full context, and the semantic color already communicates
+      // 'this is a stage-age signal, not a generic last-touch one.'
       if(stageDays >= 14) {
         stageAgingClass = 'k-card-aging-critical';
-        stageAgeBadge = `<span class="kc-stage-age kc-stage-age-critical" title="In current stage for ${stageDays} days">${stageDays}d in stage</span>`;
+        stageAgeBadge = `<span class="kc-stage-age kc-stage-age-critical" title="In current stage for ${stageDays} days">${stageDays}d</span>`;
       } else if(stageDays >= 7) {
         stageAgingClass = 'k-card-aging-stale';
-        stageAgeBadge = `<span class="kc-stage-age kc-stage-age-stale" title="In current stage for ${stageDays} days">${stageDays}d in stage</span>`;
+        stageAgeBadge = `<span class="kc-stage-age kc-stage-age-stale" title="In current stage for ${stageDays} days">${stageDays}d</span>`;
       } else if(stageDays >= 3) {
         stageAgingClass = 'k-card-aging-warming';
-        stageAgeBadge = `<span class="kc-stage-age kc-stage-age-warming" title="In current stage for ${stageDays} days">${stageDays}d in stage</span>`;
+        stageAgeBadge = `<span class="kc-stage-age kc-stage-age-warming" title="In current stage for ${stageDays} days">${stageDays}d</span>`;
       }
     }
   }
@@ -1063,7 +1073,20 @@ function buildCard(l){
     return `<span class="kc-tag kct-roof ${cls}"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M2 10l8-7 8 7"/><path d="M4 9v7a1 1 0 001 1h10a1 1 0 001-1V9"/></svg> ${age}yr</span>`;
   })();
 
-  const phone = escHtml(l.phone||'');
+  // R4.3: Phone display normalization. Some leads were imported with
+  // raw '3046871719', some hand-typed '304-687-1719', some pasted
+  // '(513) 555-0192'. Normalize to one consistent display format —
+  // '(xxx) xxx-xxxx' — at render time so the kanban scans cleanly.
+  // The href:tel: link still strips to digits independently.
+  const _phoneRaw = (l.phone || '').trim();
+  let _phoneFmt = _phoneRaw;
+  const _phoneDigits = _phoneRaw.replace(/\D/g, '');
+  if (_phoneDigits.length === 10) {
+    _phoneFmt = `(${_phoneDigits.slice(0,3)}) ${_phoneDigits.slice(3,6)}-${_phoneDigits.slice(6)}`;
+  } else if (_phoneDigits.length === 11 && _phoneDigits.startsWith('1')) {
+    _phoneFmt = `(${_phoneDigits.slice(1,4)}) ${_phoneDigits.slice(4,7)}-${_phoneDigits.slice(7)}`;
+  }
+  const phone = escHtml(_phoneFmt);
   const email = escHtml(l.email||'');
   // T1.c: normalize carrier. The codebase historically stored under
   // both `insCarrier` and `insuranceCarrier`; some imports wrote
@@ -1164,11 +1187,20 @@ function buildCard(l){
     <div class="k-card-checkbox nbd-kc-stop" data-action="toggle-select" data-id="${safeId}">
       <span class="k-card-checkbox-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></span>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-      <div style="display:flex;align-items:center;gap:4px;">${val ? `<div class="kc-val-badge">${val}</div>` : ''}${leadScoreBadge}${stageAgeBadge}</div>
-      <div style="display:flex;gap:4px;">
+    <!-- R4.1: top row reorganized. Was [val + score + stageAge | counts]
+         which made the value + counts fight for the right side of
+         narrow cards (the user flagged $18,500 colliding with the
+         📋 + 📷 chips on Marcus). New layout puts SIGNALS on the
+         left (score, stage-age — small dim chips) and MONEY on the
+         right next to the count chips (where financial info belongs).
+         flex-wrap on the row so we never overlap; the right cluster
+         drops to a new line on extra-narrow viewports instead. -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${leadScoreBadge}${stageAgeBadge}</div>
+      <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
         ${estCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--gold);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg> ${estCount}</span>` : ''}
         ${photoCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--blue);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg> ${photoCount}</span>` : ''}
+        ${val ? `<div class="kc-val-badge">${val}</div>` : ''}
       </div>
     </div>
     <div class="kc-name"${l.customerId ? ` data-customer-id="${escHtml(l.customerId)}" title="${escHtml(l.customerId)}"` : ''}>${name}</div>
