@@ -3212,3 +3212,10 @@ exports.visualizerImageGen = visualizerImageGen.visualizerImageGen;
 // See functions/google-reviews.README.md for setup.
 const googleReviews = require('./google-reviews');
 exports.getGoogleReviews = googleReviews.getGoogleReviews;
+
+// Photo-vision classifier (Phase 3 of the photo system rebuild).
+// Single-photo Claude Vision call with $10/lead + $50/uid-month caps
+// and sha256(url) cache. Surfaces suggestions in photo.aiSuggestion
+// for the Review UI (Phase 4) to render as 1-tap-accept chips.
+const photoVision = require('./photo-vision');
+exports.analyzePhotoVision = photoVision.analyzePhotoVision;

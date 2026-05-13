@@ -4692,7 +4692,18 @@ async function uploadSinglePhoto(item, index) {
             }
           }
 
-          await window.addDoc(window.collection(window.db, 'photos'), photoDoc);
+          const newPhotoRef = await window.addDoc(window.collection(window.db, 'photos'), photoDoc);
+
+          // Photo system Phase 3: fire-and-forget AI classification.
+          // analyzePhotoVision writes the suggestion back to the photo
+          // doc as `aiSuggestion`, so the Review UI (Phase 4) just
+          // reads it from Firestore. Capped at $10/lead + $50/user/mo
+          // server-side; UI listens for nbd:ai-classify-skipped to
+          // surface cap-reached toasts. We don't await — keeps the
+          // upload progress UI snappy.
+          if (window.PhotoAIClassifier && newPhotoRef && newPhotoRef.id) {
+            window.PhotoAIClassifier.classify(newPhotoRef.id).catch(() => {});
+          }
 
           resolve();
         } catch (error) {
@@ -7271,6 +7282,10 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- Photo system Phase 2: client-side EXIF + heading-to-slope inference.
      Loaded BEFORE upload code so analyze() is available at upload time. -->
 <script src="js/photo-smart-ingest.js?v=1"></script>
+<!-- Photo system Phase 3: Claude Vision classifier client wrapper.
+     Throttled batch + fire-and-forget API; reads aiSuggestion off photo
+     docs once the function writes back. -->
+<script src="js/photo-ai-classifier.js?v=1"></script>
 <script src="js/photo-report.js?v=3"></script>
 <script src="js/review-engine.js?v=2"></script>
 <script src="js/profit-tracker.js?v=2"></script>
