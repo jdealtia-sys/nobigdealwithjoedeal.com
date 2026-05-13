@@ -4558,6 +4558,38 @@
       this.hydrateUnlocks();
       const saved = localStorage.getItem(STORAGE_KEY) || DEFAULT_THEME;
       this.apply(saved, false);
+
+      // Audit batch 1 (2026-05-13): once Firebase auth + Firestore are
+      // ready, pull the rep's saved theme from userSettings/{uid} and
+      // apply it if it differs from what localStorage had. This is what
+      // makes the theme follow the rep across devices — first paint
+      // uses localStorage (instant), then we self-heal to the server
+      // copy if the rep changed it elsewhere. Polls briefly because the
+      // page may boot before window._user / window.db are populated.
+      const tryHydrateFromFirestore = () => {
+        try {
+          const uid = (window._user && window._user.uid) || null;
+          if (!uid || !window.db || !window.getDoc || !window.doc) return false;
+          window.getDoc(window.doc(window.db, 'userSettings', uid))
+            .then(snap => {
+              if (!snap.exists()) return;
+              const remoteTheme = snap.data() && snap.data().theme;
+              if (remoteTheme && remoteTheme !== currentTheme && THEMES[remoteTheme]) {
+                this.apply(remoteTheme, false); // don't re-save; came from server
+              }
+            })
+            .catch(err => console.warn('[theme-engine] Firestore hydrate failed:', err.message));
+          return true;
+        } catch (_) { return false; }
+      };
+      // Try a few times — auth typically resolves within 1-2s of page load.
+      let tries = 0;
+      const poll = () => {
+        if (tryHydrateFromFirestore()) return;
+        if (++tries > 10) return; // give up after ~5s
+        setTimeout(poll, 500);
+      };
+      setTimeout(poll, 250);
     },
 
     apply(themeKey, save = true) {
@@ -4621,6 +4653,22 @@
       // Save to localStorage
       if (save) {
         localStorage.setItem(STORAGE_KEY, themeKey);
+        // Audit batch 1 (2026-05-13): also sync the chosen theme to
+        // Firestore so reps see the same theme across devices instead
+        // of getting reset to default every time they open NBD on a
+        // different browser/phone. Fire-and-forget — local theme is
+        // already applied; Firestore sync is a nice-to-have, never
+        // block on it.
+        try {
+          const uid = (window._user && window._user.uid) || null;
+          if (uid && window.db && window.doc && window.setDoc) {
+            window.setDoc(
+              window.doc(window.db, 'userSettings', uid),
+              { theme: themeKey, themeUpdatedAt: window.serverTimestamp ? window.serverTimestamp() : Date.now() },
+              { merge: true }
+            ).catch(err => console.warn('[theme-engine] Firestore sync failed:', err.message));
+          }
+        } catch (_) { /* non-fatal — page already painted the new theme */ }
       }
 
       currentTheme = themeKey;
