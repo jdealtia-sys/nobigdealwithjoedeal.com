@@ -9,14 +9,17 @@
 (function() {
   'use strict';
 
+  // Brand strings only. All visual styling (color/type/space) comes
+  // from nbd-brand.css — the same locked token set that drives the
+  // homeowner portal, share-link pages, and any other customer-facing
+  // surface. Photo system Phase 1 (2026-05-13): every customer artifact
+  // must come out of one brand source so the PDF a homeowner gets emailed
+  // looks like the portal they were already shown.
   const BRAND = {
     name: 'No Big Deal Home Solutions',
     phone: '(859) 420-7382',
     email: 'info@nobigdeal.pro',
-    website: 'nobigdealwithjoedeal.com',
-    navy: '#1e3a6e',
-    orange: '#e8720c',
-    dark: '#1a1a2e'
+    website: 'nobigdealwithjoedeal.com'
   };
 
   /**
@@ -115,65 +118,180 @@
 
   function buildReportHTML(lead, name, before, during, after, dateStr, hasPhases) {
     const photoGrid = (photos) => photos.map(p => `
-      <div style="break-inside:avoid;">
-        <img src="${p.url}" alt="${p.name || 'Photo'}"
-             style="width:100%;height:200px;object-fit:cover;border-radius:8px;display:block;">
-        ${p.name ? `<div style="font-size:11px;color:#666;margin-top:4px;text-align:center;">${p.name}</div>` : ''}
+      <div class="photo-tile">
+        <img src="${p.url}" alt="${p.name || 'Photo'}">
+        ${p.name ? `<div class="photo-tile-cap">${p.name}</div>` : ''}
       </div>
     `).join('');
 
     return `<!DOCTYPE html>
-<html>
+<html data-nbd-brand="true">
 <head>
 <meta charset="UTF-8">
-<title>Before & After Report — ${name}</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<title>Photo Report — ${name}</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap">
+<link rel="stylesheet" href="/pro/css/nbd-brand.css">
 <style>
-@media print { body{margin:0;} .no-print{display:none!important;} @page{margin:0.5in;} }
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'Inter',sans-serif;color:#1a1a2e;line-height:1.6;background:#fff;}
-.header{background:linear-gradient(135deg,${BRAND.navy},${BRAND.dark});color:#fff;padding:40px 32px;text-align:center;}
-.header h1{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;margin-bottom:6px;}
-.header .sub{color:${BRAND.orange};font-size:14px;}
-.brand-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 32px;background:#f8f9fa;border-bottom:2px solid ${BRAND.navy};font-size:12px;color:#666;gap:14px;}
-.brand-bar-left{display:flex;align-items:center;gap:12px;min-width:0;}
-.brand-logo{height:32px;width:auto;display:block;flex-shrink:0;}
-.content{max-width:800px;margin:0 auto;padding:32px;}
-.section{margin-bottom:32px;}
-.section-label{display:inline-block;padding:6px 20px;border-radius:20px;font-size:13px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;margin-bottom:16px;}
-.before-label{background:#fee2e2;color:#dc2626;}
-.after-label{background:#dcfce7;color:#16a34a;}
-.section-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:${BRAND.navy};margin-bottom:16px;}
-.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;}
-.info-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;font-size:14px;}
-.info-row strong{color:${BRAND.navy};}
-.highlights{list-style:none;padding:0;}
-.highlights li{padding:8px 0;border-bottom:1px solid #eee;font-size:14px;display:flex;align-items:center;gap:8px;}
-.highlights li::before{content:'✓';color:${BRAND.orange};font-weight:700;}
-.footer{text-align:center;padding:24px;border-top:2px solid ${BRAND.navy};margin-top:40px;font-size:12px;color:#888;}
-.print-btn{position:fixed;bottom:20px;right:20px;padding:12px 24px;background:${BRAND.orange};color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.2);z-index:100;}
+  /* Photo report layout — every color/type/space pulls from
+     nbd-brand.css so the PDF a homeowner receives looks identical to
+     the portal they were already shown. NO local color or font values. */
+  @media print { body{margin:0;} .no-print{display:none!important;} @page{margin:0.5in;} }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    font-family: var(--nbd-font-body);
+    color: var(--nbd-ink);
+    line-height: var(--nbd-leading-body);
+    background: var(--nbd-bg);
+  }
+  .header{
+    background: linear-gradient(135deg, var(--nbd-bg-tint), var(--nbd-bg));
+    border-bottom: 1px solid var(--nbd-line);
+    padding: var(--nbd-space-8) var(--nbd-space-8);
+    text-align: center;
+  }
+  .header h1{
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-2xl);
+    font-weight: 800;
+    color: var(--nbd-ink);
+    letter-spacing: var(--nbd-tracking-wide);
+    margin-bottom: var(--nbd-space-2);
+  }
+  .header .sub{
+    color: var(--nbd-orange);
+    font-size: var(--nbd-text-sm);
+    letter-spacing: var(--nbd-tracking-wider);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .brand-bar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding: var(--nbd-space-3) var(--nbd-space-8);
+    background: var(--nbd-bg-elevated);
+    border-bottom: 1px solid var(--nbd-line);
+    font-size: var(--nbd-text-xs);
+    color: var(--nbd-ink-muted);
+    gap: var(--nbd-space-4);
+  }
+  .brand-bar-left{ display:flex; align-items:center; gap: var(--nbd-space-3); min-width:0; }
+  .brand-bar-name{
+    font-family: var(--nbd-font-display);
+    font-weight: 800;
+    color: var(--nbd-ink);
+    text-transform: uppercase;
+    letter-spacing: var(--nbd-tracking-wide);
+  }
+  .brand-logo{ height:36px; width:auto; display:block; flex-shrink:0; }
+  .content{ max-width: 800px; margin: 0 auto; padding: var(--nbd-space-8); }
+  .section{ margin-bottom: var(--nbd-space-8); }
+  .section-label{
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: var(--nbd-radius-pill);
+    font-size: var(--nbd-text-xs);
+    font-weight: 700;
+    font-family: var(--nbd-font-body);
+    letter-spacing: var(--nbd-tracking-wider);
+    text-transform: uppercase;
+    margin-bottom: var(--nbd-space-3);
+    border: 1px solid transparent;
+  }
+  .before-label{ background: var(--nbd-danger-soft);  color: var(--nbd-danger);     border-color: rgba(220,38,38,.25); }
+  .during-label{ background: var(--nbd-orange-soft);  color: var(--nbd-orange-ink); border-color: var(--nbd-orange-medium); }
+  .after-label { background: var(--nbd-success-soft); color: var(--nbd-success);    border-color: rgba(22,163,74,.25); }
+  .section-title{
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-lg);
+    font-weight: 700;
+    color: var(--nbd-ink);
+    margin-bottom: var(--nbd-space-4);
+  }
+  .photo-grid{
+    display:grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: var(--nbd-space-3);
+  }
+  .photo-tile{
+    background: var(--nbd-bg-elevated);
+    border: 1px solid var(--nbd-line);
+    border-radius: var(--nbd-radius-md);
+    overflow: hidden;
+    break-inside: avoid;
+  }
+  .photo-tile img{ width:100%; height:200px; object-fit:cover; display:block; background: var(--nbd-bg-sunken); }
+  .photo-tile-cap{
+    padding: var(--nbd-space-2) var(--nbd-space-3);
+    font-size: var(--nbd-text-xs);
+    color: var(--nbd-ink-muted);
+    line-height: var(--nbd-leading-snug);
+    text-align: center;
+  }
+  .info-row{
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--nbd-space-3);
+    margin-bottom: var(--nbd-space-6);
+    font-size: var(--nbd-text-sm);
+    color: var(--nbd-ink);
+  }
+  .info-row strong{ color: var(--nbd-ink); font-weight: 700; }
+  .footer{
+    text-align:center;
+    padding: var(--nbd-space-6);
+    border-top: 1px solid var(--nbd-line);
+    margin-top: var(--nbd-space-10);
+    font-size: var(--nbd-text-xs);
+    color: var(--nbd-ink-muted);
+  }
+  .footer strong{ color: var(--nbd-ink); font-family: var(--nbd-font-display); letter-spacing: var(--nbd-tracking-wide); text-transform: uppercase; }
+  .top-bar{
+    position:fixed; top:0; left:0; right:0; height:52px;
+    background: var(--nbd-bg-elevated);
+    border-bottom: 1px solid var(--nbd-line);
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 0 var(--nbd-space-5);
+    z-index:1000;
+    box-shadow: var(--nbd-shadow-sm);
+    font-family: var(--nbd-font-body);
+  }
+  .top-bar-btn{
+    padding: 8px 16px;
+    background: var(--nbd-bg-sunken);
+    border: 1px solid var(--nbd-line);
+    border-radius: var(--nbd-radius-md);
+    color: var(--nbd-ink);
+    font-weight: 700;
+    font-size: var(--nbd-text-sm);
+    cursor: pointer;
+  }
+  .top-bar-btn-primary{
+    background: var(--nbd-orange);
+    border-color: var(--nbd-orange);
+    color: var(--nbd-ink-on-orange);
+  }
+  .top-bar-btn-primary:hover{ background: var(--nbd-orange-deep); }
 </style>
 </head>
-<body>
-<div class="no-print" style="position:fixed;top:0;left:0;right:0;height:52px;background:${BRAND.navy};display:flex;align-items:center;justify-content:space-between;padding:0 20px;z-index:1000;box-shadow:0 2px 12px rgba(0,0,0,.3);font-family:-apple-system,sans-serif;">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <button onclick="window.close()" style="padding:8px 16px;background:rgba(255,255,255,.15);border:none;border-radius:6px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">&#8592; Close</button>
-    <span style="color:rgba(255,255,255,.7);font-size:13px;">Photo Report</span>
+<body class="nbd-brand">
+<div class="no-print top-bar">
+  <div style="display:flex;align-items:center;gap: 12px;">
+    <button onclick="window.close()" class="top-bar-btn">&#8592; Close</button>
+    <span style="color: var(--nbd-ink-muted); font-size: var(--nbd-text-sm);">Photo Report</span>
   </div>
-  <button onclick="window.print()" style="padding:8px 20px;background:${BRAND.orange};border:none;border-radius:6px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;">Print / Save PDF</button>
+  <button onclick="window.print()" class="top-bar-btn top-bar-btn-primary">Print / Save PDF</button>
 </div>
 <div style="height:52px;"></div>
 
 <div class="header">
   <h1>PROJECT DOCUMENTATION</h1>
-  <div class="sub">Before & After Photo Report</div>
+  <div class="sub">Before &amp; After Photo Report</div>
 </div>
 <div class="brand-bar">
   <div class="brand-bar-left">
     <img class="brand-logo" src="/assets/images/nbd-logo.png" alt="${BRAND.name}" />
-    <span>${BRAND.name}</span>
+    <span class="brand-bar-name">${BRAND.name}</span>
   </div>
-  <span>${BRAND.phone} | ${BRAND.email}</span>
+  <span>${BRAND.phone} &nbsp;·&nbsp; ${BRAND.email}</span>
 </div>
 
 <div class="content">
@@ -193,11 +311,11 @@ body{font-family:'Inter',sans-serif;color:#1a1a2e;line-height:1.6;background:#ff
   ${lead.scopeOfWork ? `
   <div class="section">
     <div class="section-title">Work Performed</div>
-    <p style="font-size:14px;color:#333;">${lead.scopeOfWork}</p>
+    <p style="font-size: var(--nbd-text-sm); color: var(--nbd-ink);">${lead.scopeOfWork}</p>
   </div>` : ''}
 
   ${during.length > 0 ? `<div class="section">
-    <div class="section-label" style="background:#fff3e0;color:#e8720c;">DURING</div>
+    <div class="section-label during-label">DURING</div>
     <div class="section-title">Work In Progress (${during.length} photos)</div>
     <div class="photo-grid">${photoGrid(during)}</div>
   </div>` : ''}
@@ -210,8 +328,8 @@ body{font-family:'Inter',sans-serif;color:#1a1a2e;line-height:1.6;background:#ff
 
   <div class="footer">
     <strong>${BRAND.name}</strong><br>
-    ${BRAND.phone} | ${BRAND.email} | ${BRAND.website}<br>
-    <em>${BRAND.name} — No Big Deal, We've Got You Covered</em>
+    ${BRAND.phone} &nbsp;·&nbsp; ${BRAND.email} &nbsp;·&nbsp; ${BRAND.website}<br>
+    <em>We Put Our Name On It</em>
   </div>
 </div>
 </body>

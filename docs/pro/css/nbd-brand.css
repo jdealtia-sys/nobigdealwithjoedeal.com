@@ -1,0 +1,374 @@
+/**
+ * nbd-brand.css — locked brand identity for customer-facing surfaces.
+ *
+ * Used by every surface a homeowner / adjuster / referral source ever
+ * sees from NBD Pro: the project portal, photo-report PDFs, share-link
+ * landing pages, signed-contract previews, gallery views. One file, one
+ * source of truth for color, type, spacing, radii, shadows, and brand
+ * components.
+ *
+ * Explicitly NOT theme-aware. The rep-side dashboard (theme-system.css)
+ * lets Joe pick wild themes (synthwave, vaporwave, etc.) — those are for
+ * Joe's workspace only. Customer-facing surfaces always render in the
+ * official NBD brand, never inherit the rep's chosen theme. The boundary
+ * matters: it's how every PDF or portal we ever send always looks like
+ * the same company, regardless of what the rep had on their screen.
+ *
+ * Direction (locked 2026-05-13): light base, dark text, orange accent.
+ * Premium contractor / brochure feel, printer-friendly.
+ */
+
+/* ── Customer-facing root ──────────────────────────────────────────────
+   Scoped to elements that opt in via `.nbd-brand` (preferred) or to the
+   :root level on pages that are ENTIRELY customer-facing (portal.html,
+   share-link.html, the PDF popup, etc). The double-target lets us drop
+   the class on a section and have it brand-locked even inside a rep-
+   themed page (e.g. a preview panel in the rep dashboard). */
+.nbd-brand,
+:root.nbd-brand,
+:root[data-nbd-brand="true"] {
+
+  /* ── Surface colors (light) ── */
+  --nbd-bg:           #faf8f5;  /* warm cream — premium contractor feel, not stark white */
+  --nbd-bg-elevated:  #ffffff;  /* cards, dialogs, panels sit on this */
+  --nbd-bg-sunken:    #f0ede7;  /* subtle inset — input fields, photo-grid backdrop */
+  --nbd-bg-tint:      #fdf6ed;  /* warm orange-tinted highlight (subtle) */
+
+  /* ── Ink (text) colors ── */
+  --nbd-ink:          #1a1612;  /* primary — near-black with a hint of warmth */
+  --nbd-ink-muted:    #6b6357;  /* secondary text, captions */
+  --nbd-ink-subtle:   #9a9388;  /* tertiary, helper text */
+  --nbd-ink-on-orange:#ffffff;  /* text rendered on a saturated orange surface */
+
+  /* ── Lines ── */
+  --nbd-line:         rgba(26, 22, 18, 0.10);  /* borders, dividers, table rules */
+  --nbd-line-strong:  rgba(26, 22, 18, 0.18);  /* hover/focus borders */
+  --nbd-line-rule:    rgba(26, 22, 18, 0.06);  /* hairline rules between sections */
+
+  /* ── Brand accents ── */
+  --nbd-orange:       #e8720c;  /* primary brand orange — never change */
+  --nbd-orange-soft:  rgba(232, 114, 12, 0.10);
+  --nbd-orange-medium:rgba(232, 114, 12, 0.18);
+  --nbd-orange-glow:  rgba(232, 114, 12, 0.25);
+  --nbd-orange-deep:  #c8541a;  /* hover / pressed state */
+  --nbd-orange-ink:   #8a4a10;  /* orange-flavored dark text (badge text on orange-soft) */
+
+  /* ── Status colors (light-mode tuned) ── */
+  --nbd-success:      #16a34a;
+  --nbd-success-soft: rgba(22, 163, 74, 0.10);
+  --nbd-warn:         #d97706;
+  --nbd-warn-soft:    rgba(217, 119, 6, 0.10);
+  --nbd-danger:       #dc2626;
+  --nbd-danger-soft:  rgba(220, 38, 38, 0.10);
+  --nbd-info:         #2563eb;
+  --nbd-info-soft:    rgba(37, 99, 235, 0.10);
+
+  /* ── Type ── */
+  --nbd-font-display: 'Barlow Condensed', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --nbd-font-body:    'Barlow', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --nbd-font-mono:    ui-monospace, 'JetBrains Mono', 'Courier New', monospace;
+
+  --nbd-text-xs:  11px;
+  --nbd-text-sm:  13px;
+  --nbd-text-md:  15px;
+  --nbd-text-lg:  18px;
+  --nbd-text-xl:  22px;
+  --nbd-text-2xl: 28px;
+  --nbd-text-3xl: 36px;
+  --nbd-text-4xl: 48px;
+
+  --nbd-leading-tight: 1.15;
+  --nbd-leading-snug:  1.35;
+  --nbd-leading-body:  1.55;
+
+  --nbd-tracking-tight:  -0.01em;
+  --nbd-tracking-normal:  0em;
+  --nbd-tracking-wide:    0.04em;
+  --nbd-tracking-wider:   0.08em;
+  --nbd-tracking-widest:  0.16em;  /* small caps labels */
+
+  /* ── Spacing (4px grid) ── */
+  --nbd-space-1:  4px;
+  --nbd-space-2:  8px;
+  --nbd-space-3:  12px;
+  --nbd-space-4:  16px;
+  --nbd-space-5:  20px;
+  --nbd-space-6:  24px;
+  --nbd-space-8:  32px;
+  --nbd-space-10: 40px;
+  --nbd-space-12: 48px;
+  --nbd-space-16: 64px;
+
+  /* ── Radii ── */
+  --nbd-radius-sm:    4px;
+  --nbd-radius-md:    8px;
+  --nbd-radius-lg:    12px;
+  --nbd-radius-xl:    18px;
+  --nbd-radius-pill:  999px;
+
+  /* ── Shadows (warm, low — picks up the cream background) ── */
+  --nbd-shadow-sm:  0 1px 2px rgba(26, 22, 18, 0.06), 0 1px 1px rgba(26, 22, 18, 0.04);
+  --nbd-shadow-md:  0 4px 12px rgba(26, 22, 18, 0.08), 0 2px 4px rgba(26, 22, 18, 0.04);
+  --nbd-shadow-lg:  0 12px 32px rgba(26, 22, 18, 0.12), 0 4px 8px rgba(26, 22, 18, 0.06);
+  --nbd-shadow-orange-glow: 0 0 0 4px var(--nbd-orange-glow);
+
+  /* ── Brand identity strings (used by components) ── */
+  --nbd-brand-name:  "No Big Deal Home Solutions";
+  --nbd-brand-short: "NBD";
+  --nbd-brand-tag:   "We Put Our Name On It";
+  --nbd-brand-phone: "(859) 420-7382";
+}
+
+/* ── Print overrides ─────────────────────────────────────────────────────
+   PDF / print output should always be on a true-white background so the
+   warm cream doesn't waste toner. Hairline rules darken slightly so they
+   survive low-quality printer output. */
+@media print {
+  .nbd-brand,
+  :root.nbd-brand,
+  :root[data-nbd-brand="true"] {
+    --nbd-bg:           #ffffff;
+    --nbd-bg-elevated:  #ffffff;
+    --nbd-bg-sunken:    #f5f3ee;
+    --nbd-bg-tint:      #fcf6ea;
+    --nbd-line:         rgba(0, 0, 0, 0.15);
+    --nbd-line-strong:  rgba(0, 0, 0, 0.25);
+    --nbd-line-rule:    rgba(0, 0, 0, 0.08);
+  }
+
+  body.nbd-brand,
+  :root.nbd-brand body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    color-adjust: exact;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   COMPONENTS — shared building blocks for portal, PDF, share-link.
+   Names are deliberately `.nbd-*` to make them easy to grep + safe to
+   coexist with rep-side classes that the same DOM might inherit. */
+
+/* ── Base resets when the document opts in fully ── */
+.nbd-brand,
+body.nbd-brand {
+  font-family: var(--nbd-font-body);
+  color: var(--nbd-ink);
+  background: var(--nbd-bg);
+  font-size: var(--nbd-text-md);
+  line-height: var(--nbd-leading-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Brand header (logo + name + tag) — used at top of portal & PDF ── */
+.nbd-brand-header {
+  display: flex;
+  align-items: center;
+  gap: var(--nbd-space-3);
+}
+.nbd-brand-logo {
+  height: 48px;
+  width: auto;
+  display: block;
+  flex-shrink: 0;
+}
+.nbd-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: var(--nbd-leading-tight);
+  min-width: 0;
+}
+.nbd-brand-name {
+  font-family: var(--nbd-font-display);
+  font-size: var(--nbd-text-lg);
+  font-weight: 800;
+  letter-spacing: var(--nbd-tracking-wide);
+  text-transform: uppercase;
+  color: var(--nbd-ink);
+}
+.nbd-brand-tag {
+  font-family: var(--nbd-font-body);
+  font-size: var(--nbd-text-xs);
+  letter-spacing: var(--nbd-tracking-widest);
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+/* ── Typographic helpers (use in PDF / portal alike) ── */
+.nbd-eyebrow {
+  font-family: var(--nbd-font-body);
+  font-size: var(--nbd-text-xs);
+  letter-spacing: var(--nbd-tracking-widest);
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--nbd-orange);
+}
+.nbd-h1 {
+  font-family: var(--nbd-font-display);
+  font-size: var(--nbd-text-3xl);
+  font-weight: 800;
+  letter-spacing: var(--nbd-tracking-tight);
+  line-height: var(--nbd-leading-tight);
+  color: var(--nbd-ink);
+}
+.nbd-h2 {
+  font-family: var(--nbd-font-display);
+  font-size: var(--nbd-text-2xl);
+  font-weight: 800;
+  line-height: var(--nbd-leading-tight);
+  color: var(--nbd-ink);
+}
+.nbd-h3 {
+  font-family: var(--nbd-font-display);
+  font-size: var(--nbd-text-xl);
+  font-weight: 700;
+  line-height: var(--nbd-leading-snug);
+  color: var(--nbd-ink);
+}
+.nbd-muted { color: var(--nbd-ink-muted); }
+.nbd-subtle { color: var(--nbd-ink-subtle); }
+
+/* ── Card — universal container ── */
+.nbd-card {
+  background: var(--nbd-bg-elevated);
+  border: 1px solid var(--nbd-line);
+  border-radius: var(--nbd-radius-lg);
+  padding: var(--nbd-space-5);
+  box-shadow: var(--nbd-shadow-sm);
+}
+.nbd-card-flat {
+  background: var(--nbd-bg-elevated);
+  border: 1px solid var(--nbd-line);
+  border-radius: var(--nbd-radius-lg);
+  padding: var(--nbd-space-5);
+  /* no shadow — for PDF / dense layouts */
+}
+
+/* ── Buttons ── */
+.nbd-btn {
+  font-family: var(--nbd-font-body);
+  font-weight: 700;
+  font-size: var(--nbd-text-sm);
+  padding: 10px 18px;
+  border-radius: var(--nbd-radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--nbd-space-2);
+  line-height: 1;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.nbd-btn-primary {
+  background: var(--nbd-orange);
+  color: var(--nbd-ink-on-orange);
+}
+.nbd-btn-primary:hover {
+  background: var(--nbd-orange-deep);
+  box-shadow: var(--nbd-shadow-md);
+}
+.nbd-btn-ghost {
+  background: transparent;
+  color: var(--nbd-ink);
+  border-color: var(--nbd-line);
+}
+.nbd-btn-ghost:hover {
+  border-color: var(--nbd-line-strong);
+  background: var(--nbd-bg-elevated);
+}
+.nbd-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--nbd-shadow-orange-glow);
+}
+
+/* ── Pills / status chips ── */
+.nbd-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--nbd-radius-pill);
+  font-family: var(--nbd-font-body);
+  font-size: var(--nbd-text-xs);
+  font-weight: 700;
+  letter-spacing: var(--nbd-tracking-wide);
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.nbd-pill-orange  { background: var(--nbd-orange-soft);  color: var(--nbd-orange-ink); border-color: var(--nbd-orange-medium); }
+.nbd-pill-success { background: var(--nbd-success-soft); color: var(--nbd-success); }
+.nbd-pill-warn    { background: var(--nbd-warn-soft);    color: var(--nbd-warn); }
+.nbd-pill-danger  { background: var(--nbd-danger-soft);  color: var(--nbd-danger); }
+.nbd-pill-info    { background: var(--nbd-info-soft);    color: var(--nbd-info); }
+.nbd-pill-neutral { background: rgba(26, 22, 18, 0.06);  color: var(--nbd-ink-muted); }
+
+/* ── Phase pills — used by photo system across portal + PDF ── */
+.nbd-phase-before { background: rgba(220, 38, 38, 0.10); color: var(--nbd-danger); }
+.nbd-phase-during { background: var(--nbd-orange-soft);  color: var(--nbd-orange-ink); }
+.nbd-phase-after  { background: var(--nbd-success-soft); color: var(--nbd-success); }
+
+/* ── Photo grid — shared between portal and PDF ── */
+.nbd-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--nbd-space-3);
+}
+.nbd-photo-tile {
+  background: var(--nbd-bg-elevated);
+  border: 1px solid var(--nbd-line);
+  border-radius: var(--nbd-radius-md);
+  overflow: hidden;
+  break-inside: avoid;
+}
+.nbd-photo-tile img {
+  display: block;
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  background: var(--nbd-bg-sunken);
+}
+.nbd-photo-tile-caption {
+  padding: var(--nbd-space-2) var(--nbd-space-3);
+  font-size: var(--nbd-text-xs);
+  color: var(--nbd-ink-muted);
+  line-height: var(--nbd-leading-snug);
+}
+
+/* ── Section heading (eyebrow + h2 + rule) ── */
+.nbd-section {
+  margin-bottom: var(--nbd-space-10);
+}
+.nbd-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--nbd-space-3);
+  padding-bottom: var(--nbd-space-2);
+  border-bottom: 1px solid var(--nbd-line);
+  margin-bottom: var(--nbd-space-5);
+}
+
+/* ── Key/value rows ── */
+.nbd-kv {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) 2fr;
+  gap: var(--nbd-space-2) var(--nbd-space-4);
+  font-size: var(--nbd-text-sm);
+}
+.nbd-kv-key {
+  color: var(--nbd-ink-subtle);
+  font-family: var(--nbd-font-body);
+  font-size: var(--nbd-text-xs);
+  letter-spacing: var(--nbd-tracking-wide);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.nbd-kv-val {
+  color: var(--nbd-ink);
+  font-weight: 500;
+}
