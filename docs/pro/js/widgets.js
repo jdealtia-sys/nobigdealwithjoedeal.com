@@ -139,11 +139,39 @@ const WIDGETS = [
       const rev = thisMonth.reduce((s,l) => s + parseFloat(l.jobValue || l.estValue || l.value || 0), 0);
       const goal = parseFloat(localStorage.getItem('nbd_monthly_goal') || '50000');
       const pct = goal > 0 ? Math.min(100, rev / goal * 100) : 0;
+      // Sweep Pass 4: 'nbd_monthly_goal' was read but never written —
+      // no settings UI existed to set it, so the goal was permanently
+      // stuck at the hardcoded $50K default. Click-to-edit on the goal
+      // text gives the user a way to customize without us having to
+      // build a whole settings panel.
       el.innerHTML = `
         <div class="w-big-num" style="color:var(--green);">$${rev >= 1000 ? (rev/1000).toFixed(1)+'k' : rev.toFixed(0)}</div>
         <div class="w-sub">Revenue This Month</div>
         <div class="w-bar-track"><div class="w-bar-fill" style="width:${pct}%"></div></div>
-        <div style="font-size:9px;color:var(--m);text-align:right;margin-top:3px;">${pct.toFixed(0)}% of $${(goal/1000).toFixed(0)}k goal</div>`;
+        <div class="w-goal-edit" title="Click to change your monthly goal" style="font-size:9px;color:var(--m);text-align:right;margin-top:3px;cursor:pointer;user-select:none;">${pct.toFixed(0)}% of $${(goal/1000).toFixed(0)}k goal ✎</div>`;
+      const goalEl = el.querySelector('.w-goal-edit');
+      if (goalEl) {
+        goalEl.addEventListener('click', () => {
+          const raw = prompt(
+            'Set your monthly revenue goal (USD)',
+            String(goal)
+          );
+          if (raw == null) return;
+          const next = parseFloat(String(raw).replace(/[^0-9.]/g, ''));
+          if (!isFinite(next) || next <= 0) {
+            if (typeof window.showToast === 'function') window.showToast('Enter a positive number', 'warning');
+            return;
+          }
+          try { localStorage.setItem('nbd_monthly_goal', String(next)); } catch (_) {}
+          if (typeof window.showToast === 'function') {
+            window.showToast('Monthly goal set to $' + (next/1000).toFixed(0) + 'k', 'success');
+          }
+          // Re-render this widget in place so the user sees the new
+          // goal + percentage immediately without a page reload.
+          const widget = window._widgets && window._widgets.find(w => w.id === 'revenue-month');
+          if (widget && typeof widget.render === 'function') widget.render(el);
+        });
+      }
     }},
 
   {id:'stage-funnel', name:'Stage Funnel', icon:'🔻', cat:'Pipeline & Sales', size:'lg',
