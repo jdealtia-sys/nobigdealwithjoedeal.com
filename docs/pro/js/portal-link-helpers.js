@@ -411,5 +411,12 @@ Bookmark it; the link stays live as we work through the project.
     smsForLead,
     emailForLead,
     previewForLead,
+    // Audit E: exposed so dashboard.html's _sharePortalLink (which uses
+    // a different URL scheme via the createPortalToken callable) can
+    // still participate in W44 share tracking. Every share entry point
+    // must reach this function or downstream features (W57 fresh
+    // pulse, W58 viewed badge, W92 engagement tier, W112 smart
+    // followup, stale-shares filter) silently see zero signal.
+    recordShare: _recordShare,
   };
 })();

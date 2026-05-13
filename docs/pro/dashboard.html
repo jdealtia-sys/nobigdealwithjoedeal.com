@@ -18063,6 +18063,7 @@ window._sharePortalLink = async function (leadId) {
     try { await navigator.clipboard.writeText(url); } catch(e) {}
     if (typeof showToast==='function') showToast('Portal link copied to clipboard', 'success');
     // Offer SMS shortcut if phone on file.
+    let usedChannel = 'copy';
     if (lead.phone) {
       const cleanPhone = String(lead.phone).replace(/\D/g, '');
       const first = lead.firstName || lead.fname || '';
@@ -18071,9 +18072,17 @@ window._sharePortalLink = async function (leadId) {
         ` — you can see your estimate, sign the contract, or book an inspection time.`
       );
       window.open('sms:' + cleanPhone + '?body=' + body, '_self');
+      usedChannel = 'sms';
     } else {
       // No phone — surface the URL so the rep can paste manually.
       window.prompt('Share this link with the homeowner:', url);
+    }
+    // Audit E: every share entry point must record so W44+ tracking
+    // (badges, smart-followup, stale-shares filter, engagement score)
+    // actually fires. PortalLinkHelpers patches in-memory cache for
+    // instant kanban feedback AND queues the Firestore write.
+    if (window.PortalLinkHelpers && typeof window.PortalLinkHelpers.recordShare === 'function') {
+      window.PortalLinkHelpers.recordShare(leadId, usedChannel);
     }
   } catch (e) {
     console.error('share portal failed', e);
