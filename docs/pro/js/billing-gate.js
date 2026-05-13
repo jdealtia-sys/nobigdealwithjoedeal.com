@@ -148,6 +148,17 @@
   // ── Increment usage counter ──
   // Called by the app when a gated action happens (lead created,
   // report generated, AI call made). Writes to Firestore immediately.
+  //
+  // KNOWN GAP (Audit A — Firestore security): firestore.rules locks
+  // subscriptions writes with `allow write: if false` so every call
+  // here permanently 403s. The catch logs a warning and the local
+  // `_usage` counter still increments — so within a single session
+  // the gate detects overages correctly, BUT across-session /
+  // across-device usage is NOT persisted. The 'right' fix is to
+  // route trackUsage through a Cloud Function (admin SDK) that
+  // updates subscriptions/{uid} on the server. Until that ships,
+  // the local counter is the source of truth.
+  // TODO(billing): replace updateDoc with httpsCallable('trackUsage').
   async function trackUsage(feature) {
     if (!window._user?.uid) return;
     _usage[feature] = (_usage[feature] || 0) + 1;
@@ -157,9 +168,11 @@
         updatedAt: window.serverTimestamp()
       });
     } catch (e) {
-      // Firestore write failed — local count is still incremented
-      // so the gate catches it even if the write is delayed.
-      console.warn('[Billing] trackUsage write failed:', e.message);
+      // EXPECTED — see KNOWN GAP comment above. Local counter still
+      // tracks usage within this session; gate-checks read from the
+      // local counter so functional behavior is correct, but persistent
+      // cross-session tracking won't work until the callable lands.
+      console.warn('[Billing] trackUsage write failed (expected — see KNOWN GAP):', e.message);
     }
   }
 
