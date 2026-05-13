@@ -235,7 +235,9 @@
           
           if(memberSelect && content) {
             this.assignContent(memberSelect, content, contentType, {dueDate, note});
-            alert('Content assigned successfully');
+            // Batch 2 (iOS PWA): toast instead of alert (alert is non-blocking
+            // toast in PWA standalone anyway; this just uses the styled path everywhere).
+            (typeof showToast === 'function' ? showToast : window.alert)('Content assigned successfully', 'success');
           }
         });
       }

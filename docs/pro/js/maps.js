@@ -1489,8 +1489,13 @@ function undoLine() {
   }
 }
 
-function clearDraw() {
-  if(!confirm('Clear all lines and facets?')) return;
+async function clearDraw() {
+  // Batch 2 (iOS PWA): native confirm() always returns true in PWA
+  // standalone mode (see standalone-compat.js) — destructive guards
+  // get bypassed. nbdConfirm returns a real Promise<boolean> via a
+  // modal in PWA mode, falls back to native confirm on desktop.
+  const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await _ask('Clear all lines and facets?'))) return;
   drawnLines.forEach(l => {
     drawMap.removeLayer(l.line);
     drawMap.removeLayer(l.lbl);
@@ -1797,7 +1802,9 @@ async function saveDrawingToCustomer() {
   let leadId = matched?.id;
   if (!leadId) {
     // No match — ask if they want to create a new lead
-    if (!confirm('No customer found for "' + addr + '". Save as an unlinked drawing?\n\n(You can link it to a customer later.)')) return;
+    // Batch 2 (iOS PWA): nbdConfirm gates the unlinked-save fallback.
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (!(await _ask('No customer found for "' + addr + '". Save as an unlinked drawing?\n\n(You can link it to a customer later.)'))) return;
     leadId = '_unlinked_' + window._user.uid;
   }
 
@@ -1902,8 +1909,10 @@ async function loadDrawingFromCustomer() {
     const data = snap.docs[0].data() || {};
 
     // Confirm replacement if canvas has work
+    // Batch 2 (iOS PWA): nbdConfirm gates the destructive overwrite.
     if ((drawnLines && drawnLines.length) || (facets && facets.length)) {
-      if (!confirm('Replace the current drawing with v' + (data.version || '?') + ' from ' + (matched?.firstName || matched?.address || 'customer') + '?')) return;
+      const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+      if (!(await _ask('Replace the current drawing with v' + (data.version || '?') + ' from ' + (matched?.firstName || matched?.address || 'customer') + '?'))) return;
     }
 
     // Clear current state
@@ -2016,8 +2025,11 @@ function placeAccessory(latlng) {
   placedAccessories.push({ id, type: accessoryMode, latlng, marker });
 
   // Click to remove
-  marker.on('click', function() {
-    if (confirm('Remove this ' + acc.label + '?')) {
+  // Batch 2 (iOS PWA): nbdConfirm gates the destructive remove via a
+  // real modal in standalone mode. Native confirm falls through on desktop.
+  marker.on('click', async function() {
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (await _ask('Remove this ' + acc.label + '?')) {
       drawMap.removeLayer(marker);
       placedAccessories = placedAccessories.filter(a => a.id !== id);
       renderAccessoryPanel();
@@ -3397,8 +3409,10 @@ function renameStructure(idx) {
   }
 }
 
-function removeStructure(idx) {
-  if(!confirm(`Remove "${structures[idx]?.name}"?`)) return;
+async function removeStructure(idx) {
+  // Batch 2 (iOS PWA): see clearDraw above — real async modal in PWA.
+  const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await _ask(`Remove "${structures[idx]?.name}"?`))) return;
   structures.splice(idx, 1);
   if(activeStructureIdx >= structures.length) activeStructureIdx = Math.max(0, structures.length-1);
   renderStructureList();

@@ -916,8 +916,9 @@
     } else {
       const n = Number(trimmed);
       if (!Number.isFinite(n) || n < 0) {
-        // eslint-disable-next-line no-alert
-        window.alert('Please enter a non-negative number (or blank to revert).');
+        // Batch 2 (iOS PWA): toast surface so the validation message is actually
+        // visible in standalone mode (native alert is non-blocking there).
+        (typeof showToast === 'function' ? showToast : window.alert)('Please enter a non-negative number (or blank to revert).', 'error');
         return;
       }
       scopeEntry.overrides.qty = n;

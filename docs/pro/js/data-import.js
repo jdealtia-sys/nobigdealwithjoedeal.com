@@ -235,22 +235,28 @@
     });
   }
 
+  // Batch 2 (iOS PWA): toast helper so error surfaces work in standalone
+  // where native alert() is non-blocking and reps miss the message.
+  function _err(msg) {
+    if (typeof showToast === 'function') showToast(msg, 'error');
+    else window.alert(msg);
+  }
   async function handleFile(file) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
-      alert('File too large (max 10 MB)');
+      _err('File too large (max 10 MB)');
       return;
     }
     let text;
     try {
       text = await file.text();
     } catch (e) {
-      alert('Could not read file: ' + e.message);
+      _err('Could not read file: ' + e.message);
       return;
     }
     const rows = parseCsv(text);
     if (rows.length < 2) {
-      alert('CSV needs at least a header row + 1 data row.');
+      _err('CSV needs at least a header row + 1 data row.');
       return;
     }
     const headers = rows[0];
