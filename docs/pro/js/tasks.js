@@ -11,25 +11,51 @@ var _taskModalLeadId = _taskModalLeadId || null;
 const _overdueNotifiedLocal = new Set(); // local dedup guard for overdue notifications
 
 // ══ Notification Helper ══════════════════════════════════
-async function createNotification(userId, type, title, message, leadId) {
+// Routes through window.shouldFireNotif() so the user's settings
+// (Critical/Digest/Firehose mode + per-trigger toggles + per-channel
+// toggles) gate every fire. If shouldFireNotif isn't loaded yet (rare
+// boot race) we fire-open so the user doesn't miss a task overdue.
+async function createNotification(userId, type, title, message, leadId, priority) {
+  const pr = priority || 'high'; // task overdue / follow-ups default to high
+  const shouldFire = typeof window.shouldFireNotif === 'function'
+    ? window.shouldFireNotif
+    : function () { return true; };
+
+  // Browser-push channel (the OS-level Notification API). If the user
+  // disabled the push channel — or the type's trigger — skip silently.
+  const pushAllowed = shouldFire(type, 'push', pr);
+  const inAppAllowed = shouldFire(type, 'inApp', pr);
+
   // Fallback to toast if browser Notification API not available
   if (!('Notification' in window)) {
-    return showToast(message, 'info');
+    if (inAppAllowed) showToast(message, 'info');
+    return;
+  }
+
+  // If push is disabled but in-app is allowed, just toast.
+  if (!pushAllowed) {
+    if (inAppAllowed) showToast(message, 'info');
+    return;
   }
 
   // Request permission on first use if not already granted
   if (Notification.permission === 'default') {
     try {
       const permission = await Notification.requestPermission();
-      if (permission !== 'granted') return;
+      if (permission !== 'granted') {
+        if (inAppAllowed) showToast(message, 'info');
+        return;
+      }
     } catch (e) {
-      return showToast(message, 'info');
+      if (inAppAllowed) showToast(message, 'info');
+      return;
     }
   }
 
   // Only show notification if permission was granted
   if (Notification.permission !== 'granted') {
-    return showToast(message, 'info');
+    if (inAppAllowed) showToast(message, 'info');
+    return;
   }
 
   // Show browser notification
@@ -50,8 +76,8 @@ async function createNotification(userId, type, title, message, leadId) {
       });
     }
   } catch (e) {
-    // Fallback to toast
-    showToast(message, 'info');
+    // Fallback to toast (still gated by inApp channel)
+    if (inAppAllowed) showToast(message, 'info');
   }
 }
 

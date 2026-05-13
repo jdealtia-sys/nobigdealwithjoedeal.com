@@ -119,6 +119,14 @@
 
   async function createReviewNotification(leadId, customerName) {
     if (!window.db || !window._user) return;
+    // Review requests fall under the "Estimate Approvals" trigger
+    // semantically (post-close customer outreach). Suppress if the
+    // user disabled that trigger or set mode=critical (these are
+    // normal-priority — useful but not urgent).
+    if (typeof window.shouldFireNotif === 'function' &&
+        !window.shouldFireNotif('estimate_approved', null, 'normal')) {
+      return;
+    }
     try {
       // Check if we already created one
       const existing = (window._notifications || []).find(n =>

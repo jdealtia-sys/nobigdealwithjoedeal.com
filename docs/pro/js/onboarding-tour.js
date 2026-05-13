@@ -32,38 +32,54 @@
   //   ctaLabel:     Optional CTA button label (e.g. "Add a lead")
   //   ctaAction:    Function called when CTA clicked (closes tour first)
   //   placement:    'top' | 'bottom' | 'left' | 'right' | 'center'
+  // Steps trimmed to <30 words each. Each step has a `learnMore` anchor
+  // pointing into how-to.html — the tour gives the 30-second version, the
+  // how-to handles the deep dive. New users get oriented without reading
+  // a wall of text per spotlight.
   const STEPS = [
     {
       anchor:    null,
       title:     'Welcome to NBD Pro 👋',
-      body:      "You're set up. NBD Pro is built around the idea that a roofing rep should spend 95% of their time talking to homeowners and 5% on a CRM — not the other way around. Quick 30-second tour so you know where everything lives.",
+      body:      "Quick 30-second tour so you know where everything lives. You can re-run this anytime, and there's a full how-to one click away if you want the deep version.",
       placement: 'center'
     },
     {
       anchor:    '#nav-crm',
-      title:     '1 / 4 — Pipeline is home base',
-      body:      "Every lead lives on the kanban here. Drag cards across columns as deals progress — Inspected → Claim Filed → Estimate Sent → Contract Signed → Closed. The pipeline value updates live.",
+      title:     'Pipeline is home base',
+      body:      "Every lead lives on the kanban. Drag cards across columns as deals move — Inspected → Estimate Sent → Contract Signed → Closed.",
+      learnMore: 'how-to.html#kanban',
       placement: 'right'
     },
     {
       anchor:    '#prospectsToggleBtn, #addLeadFab, .crm-hdr-actions .btn-orange',
-      title:     '2 / 4 — Add your first lead',
-      body:      "Click the orange + button (top right or floating bottom right) to add a lead manually. Name + address is enough to start. You can fill in claim info, damage type, and job value later.",
+      title:     'Add your first lead',
+      body:      "Tap the orange + button. Name + address is enough — you can fill in damage, claim, or job value later.",
       ctaLabel:  '＋ Add a lead now',
       ctaAction: () => { if (typeof window.openLeadModal === 'function') window.openLeadModal(); },
+      learnMore: 'how-to.html#leads',
       placement: 'left'
     },
     {
       anchor:    '#nav-d2d',
-      title:     '3 / 4 — Door-to-Door is built in',
-      body:      "Tap a door, log the disposition, and the knock saves with GPS. Storm damage and insurance disposition knocks auto-create CRM leads as Prospects so you don't lose them. Re-knock the same address and photos accumulate.",
+      title:     'Door-to-Door built in',
+      body:      "Tap a door, log the disposition, and it saves with GPS. Storm and insurance knocks auto-create leads as Prospects.",
+      learnMore: 'how-to.html#d2d',
       placement: 'right'
     },
     {
       anchor:    '.gear, [onclick*="settings"]',
-      title:     '4 / 4 — Make it yours',
-      body:      "Settings has 148 themes, three UI sizes, three card densities, and a hierarchy toggle. The connection dot in the top right is also a refresh button — tap it any time to pull fresh data. You can re-run this tour anytime from Settings → Help.",
+      title:     'Make it yours',
+      body:      "Settings has themes, UI sizes, and card density. The connection dot in the top right is also a refresh button.",
+      learnMore: 'how-to.html#settings',
       placement: 'left'
+    },
+    {
+      anchor:    null,
+      title:     "You're set 🚀",
+      body:      "Go build pipeline. Want the deep version? The how-to walks every feature step by step — open it anytime from the menu or the connection dot.",
+      ctaLabel:  '📖 Open the full How-To',
+      ctaAction: () => { window.location.href = 'how-to.html'; },
+      placement: 'center'
     }
   ];
 
@@ -86,51 +102,60 @@
         position:fixed; pointer-events:none;
         border-radius:10px;
         box-shadow:0 0 0 9999px rgba(0,0,0,.65), 0 0 0 3px var(--orange,#e8720c);
-        transition:all .25s cubic-bezier(.4, 0, .2, 1);
+        transition:all .4s cubic-bezier(.4, 0, .2, 1);
         z-index:99991;
       }
 
       .nbd-onb-tooltip{
         position:fixed;
-        max-width:380px; width:calc(100vw - 32px);
+        max-width:440px; width:calc(100vw - 32px);
         background:var(--s,#16213e); border:1px solid var(--br,#2a2d35);
-        border-radius:12px; padding:18px 20px;
-        box-shadow:0 14px 44px rgba(0,0,0,.5);
+        border-radius:14px; padding:26px 28px 22px;
+        box-shadow:0 18px 52px rgba(0,0,0,.55);
         color:var(--t,#e8eaf0);
         font-family:'Barlow',sans-serif;
         z-index:99992;
-        animation:nbd-onb-pop .25s cubic-bezier(.16, 1, .3, 1);
+        animation:nbd-onb-pop .32s cubic-bezier(.16, 1, .3, 1);
       }
       @keyframes nbd-onb-pop {
-        from { opacity:0; transform:translateY(-6px) scale(.98); }
+        from { opacity:0; transform:translateY(-8px) scale(.97); }
         to   { opacity:1; transform:translateY(0)    scale(1);   }
       }
-      .nbd-onb-tooltip-center{ position:relative; max-width:440px; }
+      .nbd-onb-tooltip-center{ position:relative; max-width:500px; padding:32px 32px 26px; }
 
       .nbd-onb-step{
-        font-size:9px; font-weight:700; letter-spacing:.12em;
+        font-size:10px; font-weight:700; letter-spacing:.14em;
         text-transform:uppercase; color:var(--orange,#e8720c);
-        margin-bottom:6px;
+        margin-bottom:10px;
       }
       .nbd-onb-title{
         font-family:'Barlow Condensed',sans-serif;
-        font-size:22px; font-weight:800; letter-spacing:.02em;
-        line-height:1.15; margin-bottom:8px;
+        font-size:26px; font-weight:800; letter-spacing:.02em;
+        line-height:1.15; margin-bottom:12px;
         color:var(--t,#e8eaf0);
       }
       .nbd-onb-body{
-        font-size:13px; line-height:1.55; color:var(--m,#9ca3af);
-        margin-bottom:14px;
+        font-size:14px; line-height:1.65; color:var(--m,#9ca3af);
+        margin-bottom:20px;
       }
+      .nbd-onb-learn{
+        display:inline-block; margin-bottom:18px;
+        color:var(--orange,#e8720c); text-decoration:none;
+        font-size:12px; font-weight:600;
+        border-bottom:1px dashed currentColor; padding-bottom:1px;
+      }
+      .nbd-onb-learn:hover{ filter:brightness(1.15); }
       .nbd-onb-actions{
-        display:flex; align-items:center; gap:10px;
-        flex-wrap:wrap;
+        display:flex; align-items:center; gap:12px;
+        flex-wrap:wrap; margin-top:4px;
       }
       .nbd-onb-btn{
         background:var(--orange,#e8720c); color:#fff; border:none;
-        padding:9px 16px; border-radius:7px;
+        padding:11px 20px; border-radius:8px;
         font-family:inherit; font-size:13px; font-weight:700;
+        letter-spacing:.02em;
         cursor:pointer; transition:all .15s;
+        min-height:40px;
       }
       .nbd-onb-btn:hover{ filter:brightness(1.08); transform:translateY(-1px); }
       .nbd-onb-btn-ghost{
@@ -143,20 +168,27 @@
         background:transparent; border:none;
         color:var(--m,#9ca3af); cursor:pointer;
         font-size:11px; font-weight:600;
-        padding:6px 8px; border-radius:4px;
+        padding:8px 10px; border-radius:4px;
       }
       .nbd-onb-skip:hover{ color:var(--t,#e8eaf0); text-decoration:underline; }
 
       .nbd-onb-progress{
-        display:flex; gap:5px; margin-top:14px;
+        display:flex; gap:6px; margin-top:20px;
       }
       .nbd-onb-dot{
         flex:1; height:3px; border-radius:2px;
         background:color-mix(in srgb, var(--m,#9ca3af) 30%, transparent);
-        transition:background .2s;
+        transition:background .25s;
       }
       .nbd-onb-dot.active{ background:var(--orange,#e8720c); }
       .nbd-onb-dot.done{ background:color-mix(in srgb, var(--orange,#e8720c) 50%, transparent); }
+
+      /* Mobile: a little more padding, but still cap the title size */
+      @media (max-width:480px){
+        .nbd-onb-tooltip{ padding:22px 22px 18px; border-radius:12px; }
+        .nbd-onb-title{ font-size:22px; }
+        .nbd-onb-body{ font-size:14px; }
+      }
     `;
     const style = document.createElement('style');
     style.id = 'nbd-onb-css';
@@ -283,10 +315,24 @@
       return `<div class="nbd-onb-dot ${cls}"></div>`;
     }).join('');
 
+    // Step label: hide step counter on the first AND last centered steps
+    // so welcome and the closer don't say "STEP 0 OF 5" awkwardly. The
+    // anchored steps in between get a clean 'STEP N OF M'.
+    const stepLabel = isFirst
+      ? 'GET STARTED'
+      : isLast
+      ? "YOU'RE READY"
+      : `STEP ${_stepIdx} OF ${STEPS.length - 2}`;
+
+    const learnLink = step.learnMore
+      ? `<a class="nbd-onb-learn" href="${escHtml(step.learnMore)}" target="_blank" rel="noopener">Learn more →</a>`
+      : '';
+
     tip.innerHTML = `
-      <div class="nbd-onb-step">${isFirst ? 'GET STARTED' : 'STEP ' + _stepIdx + ' OF ' + (STEPS.length - 1)}</div>
+      <div class="nbd-onb-step">${stepLabel}</div>
       <div class="nbd-onb-title">${escHtml(step.title)}</div>
       <div class="nbd-onb-body">${escHtml(step.body)}</div>
+      ${learnLink}
       <div class="nbd-onb-actions">
         ${!isFirst ? '<button class="nbd-onb-btn nbd-onb-btn-ghost" data-act="back">← Back</button>' : ''}
         ${step.ctaLabel ? `<button class="nbd-onb-btn" data-act="cta">${escHtml(step.ctaLabel)}</button>` : ''}
@@ -369,9 +415,10 @@
         clearInterval(t);
         const leads = window._leads || [];
         if (leads.length === 0) {
-          // small delay so the user sees the empty dashboard for a moment
-          // before the tour kicks in
-          setTimeout(() => start(false), 800);
+          // Give the user a breath to take in the empty dashboard before
+          // the tour overlay drops in. 1.5s feels deliberate, not
+          // hijacked — 800ms felt rushed in usability testing.
+          setTimeout(() => start(false), 1500);
         } else {
           // Has leads — tour shouldn't fire, but mark it complete so we
           // don't keep polling on every page load
