@@ -2205,7 +2205,11 @@
 
       container.querySelectorAll('.btn-delete-report').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-          if (confirm('Delete this report?')) {
+          // Batch 2 (iOS PWA): use nbdConfirm so the destructive delete
+          // gate works in standalone mode (native confirm always returns
+          // true there).
+          const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+          if (await _ask('Delete this report?')) {
             await this.deleteReport(e.currentTarget.dataset.reportId);
             this.renderReportList(containerId, leadId);
           }

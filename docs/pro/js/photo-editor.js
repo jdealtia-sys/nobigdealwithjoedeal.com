@@ -1635,7 +1635,11 @@
     // a different photo without saving. If anything's been drawn /
     // marked / typed, confirm before discarding.
     if (annotations.length > 0) {
-      const proceed = confirm(
+      // Batch 2 (iOS PWA): nbdConfirm so the unsaved-annotation gate
+      // actually blocks the switch in standalone (native confirm
+      // returns true unconditionally there).
+      const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+      const proceed = await _ask(
         `You have ${annotations.length} unsaved annotation${annotations.length === 1 ? '' : 's'} on this photo.\n\nSwitching photos will discard them. Continue?`
       );
       if (!proceed) return;
@@ -1707,9 +1711,11 @@
   /* ==========================================
      CLOSE
      ========================================== */
-  function closeWithPrompt() {
+  async function closeWithPrompt() {
     if (S.hasUnsaved) {
-      if (!confirm('You have unsaved changes. Close anyway?')) return;
+      // Batch 2 (iOS PWA): real async gate.
+      const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+      if (!(await _ask('You have unsaved changes. Close anyway?'))) return;
     }
     closeEditor();
   }

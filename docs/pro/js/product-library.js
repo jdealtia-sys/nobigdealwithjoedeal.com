@@ -538,7 +538,7 @@
     }
   }
 
-  function saveFromModal() {
+  async function saveFromModal() {
     const name = document.getElementById('pm-name').value.trim();
     if (!name) { showToast('Product name is required', 'error'); return; }
 
@@ -550,7 +550,11 @@
       const mat = parseFloat(document.getElementById('pm-cost-' + t)?.value) || 0;
       if (sell > 0 && sell <= mat + laborVal) belowCost.push(TIER_LABELS[t]);
     });
-    if (belowCost.length && !confirm('Warning: ' + belowCost.join(', ') + ' tier(s) have sell price at or below cost. Save anyway?')) return;
+    // Batch 2 (iOS PWA): nbdConfirm so this guard isn't bypassed in standalone.
+    if (belowCost.length) {
+      const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+      if (!(await _ask('Warning: ' + belowCost.join(', ') + ' tier(s) have sell price at or below cost. Save anyway?'))) return;
+    }
 
     const product = editingProduct ? { ...editingProduct } : {};
     product.name = name;
@@ -596,8 +600,11 @@
     reRender();
   }
 
-  function deleteFromModal() {
-    if (editingProduct && confirm('Delete this product?')) {
+  async function deleteFromModal() {
+    if (!editingProduct) return;
+    // Batch 2 (iOS PWA): real async gate via nbdConfirm.
+    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (await _ask('Delete this product?')) {
       hardDeleteProduct(editingProduct.id);
       closeModal();
       showToast('Product deleted', 'success');
