@@ -226,7 +226,10 @@
       <div class="kanban-col" id="kcol-${stageKey}">
         <div class="kcol-header ${hdrClass}">
           <div class="kcol-label">${label}</div>
-          <div class="kcol-count" id="kcount-${stageKey}">0</div>
+          <div class="kcol-meta">
+            <div class="kcol-count" id="kcount-${stageKey}">0</div>
+            <div class="kcol-total" id="ktotal-${stageKey}" style="display:none;"></div>
+          </div>
         </div>
         <div class="kcol-body" id="kbody-${stageKey}"
           ondragover="event.preventDefault()" ondrop="drop(event,'${stageKey}')">
@@ -4140,7 +4143,7 @@ body:has(#view-prospects.active) .breadcrumb-container{
 .sidebar{width:200px;flex-shrink:0;background:var(--s);border-right:1px solid var(--br);display:flex;flex-direction:column;overflow-y:auto;}
 .sidebar::-webkit-scrollbar{width:3px;}.sidebar::-webkit-scrollbar-thumb{background:var(--br);}
 .nlabel{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--m);padding:14px 16px 5px;margin-top:4px;}
-.ni{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:var(--m);cursor:pointer;border-left:3px solid transparent;transition:all .18s cubic-bezier(0.4, 0, 0.2, 1);user-select:none;position:relative;min-height:40px;}
+.ni{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:var(--m);cursor:pointer;border-left:3px solid transparent;transition:all .18s cubic-bezier(0.4, 0, 0.2, 1);user-select:none;position:relative;min-height:40px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ni:hover{color:var(--t);background:var(--s2);transform:translateX(2px);}
 .ni.active{color:var(--orange);background:rgba(232,114,12,.1);border-left-color:var(--orange);font-weight:600;}
 .ni.active .ni-icon{transform:scale(1.1);}
@@ -6958,6 +6961,16 @@ body {
   .kanban-col{display:flex!important;flex-direction:column!important;min-width:240px!important;max-width:240px!important;flex-shrink:0!important;background:var(--s2);border:1px solid var(--br);border-radius:10px;overflow:hidden;}
   .kcol-header{display:flex!important;justify-content:space-between;align-items:center;padding:10px 12px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;flex-shrink:0;border-bottom:2px solid currentColor;}
   .kcol-count{background:color-mix(in srgb, currentColor 18%, transparent);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--t);}
+  /* R5.5: per-column $ total alongside the count badge. Tabular nums
+     so '$18K' and '$120K' line up across columns when scanning. */
+  .kcol-meta{display:flex;align-items:center;gap:6px;}
+  .kcol-total{
+    font-size:10px; font-weight:800; color:var(--orange);
+    font-family:'Barlow Condensed', ui-monospace, sans-serif;
+    letter-spacing:.02em;
+    font-variant-numeric:tabular-nums;
+    cursor:help;
+  }
   /* Stage header: semantic identity color + tinted bg derived from that color.
      Works against any themed surface — light or dark — because we mix
      against the theme's own surface variable.                              */
@@ -7027,6 +7040,16 @@ body {
   :root[data-mode="light"] .kh-closed   { color:#15803d; }
   /* View switcher buttons */
   .kview-btn{font-size:10px;padding:3px 10px;border-radius:12px;border:1px solid var(--br);background:var(--s2);color:var(--m);cursor:pointer;transition:all .15s;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
+  /* R5.4: per-track count badge inline on each view-switcher button.
+     Empty string when 0 leads → no badge rendered. Same-color as the
+     button so it doesn't fight for attention; orange when active. */
+  .kview-count{
+    margin-left:5px; font-size:9px; font-weight:800;
+    padding:1px 5px; border-radius:8px;
+    background:color-mix(in srgb, currentColor 18%, transparent);
+    font-variant-numeric:tabular-nums; letter-spacing:0;
+  }
+  .kview-count:empty{ display:none; }
   .kview-btn:hover{border-color:var(--orange);color:var(--t);}
   .kview-btn.active{background:var(--orange);color:var(--t);border-color:var(--orange);}
   .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 170px);max-height:calc(100dvh - 170px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
@@ -7740,11 +7763,27 @@ body {
   }
   .crm-hdr-views .kview-btn + .kview-btn{ border-left:1px solid var(--br)!important; }
 
-  /* RIGHT: action icon row */
+  /* RIGHT: action icon row.
+     R5.1: previous attempts to hide labels at narrow breakpoints
+     didn't catch every viewport. Real fix: when the row genuinely
+     can't fit on one line, allow horizontal scrolling so no button
+     ever clips. Combined with the existing wrap behavior we get a
+     two-tier graceful degradation: wrap → scroll → never truncate. */
   .crm-hdr-actions{
     display:flex; align-items:center; gap:4px;
     margin-left:auto; flex-wrap:wrap;
+    max-width:100%;
+    overflow-x:auto;
+    scrollbar-width:thin;
+    scrollbar-color:var(--br) transparent;
   }
+  .crm-hdr-actions::-webkit-scrollbar{ height:3px; }
+  .crm-hdr-actions::-webkit-scrollbar-thumb{ background:var(--br); border-radius:2px; }
+  /* Prevent label truncation inside individual buttons — long
+     labels like 'Stale Shares' / 'Hot first' wrap-as-no-wrap so the
+     button grows or scrolls instead of '...' on the label text. */
+  .crm-hdr-actions .crm-hdr-btn{ flex-shrink:0; white-space:nowrap; }
+  .crm-hdr-actions .crm-hdr-btn-label{ white-space:nowrap; }
   .crm-icon-btn{
     background:transparent; border:1px solid var(--br); border-radius:5px;
     width:30px; height:30px;
@@ -7879,18 +7918,24 @@ body {
   }
   #kanbanFullscreenExit:hover{ border-color:var(--orange); color:var(--orange); }
 
-  /* Floating ADD LEAD FAB */
+  /* Floating ADD LEAD FAB
+     R5.12: softened. Was 56×56 bright orange with a 20px shadow blur
+     at 45% opacity — a constant attention-grabber on a populated
+     dashboard. Now 48×48, lighter shadow (12px, 30% opacity), and a
+     thin outline so it reads as 'available action' rather than
+     'PRIMARY CTA'. Hover restores the prominent treatment. */
   #addLeadFab{
     position:fixed; bottom:24px; right:24px; z-index:900;
-    width:56px; height:56px; border-radius:50%;
+    width:48px; height:48px; border-radius:50%;
     background:var(--orange); color:#fff;
-    border:none; cursor:pointer;
-    font-size:26px; font-weight:300; line-height:1;
-    box-shadow:0 6px 20px rgba(232,114,12,.45);
+    border:1px solid rgba(255,255,255,0.12); cursor:pointer;
+    font-size:24px; font-weight:300; line-height:1;
+    box-shadow:0 3px 12px rgba(232,114,12,.30);
+    opacity:0.88;
     display:none; align-items:center; justify-content:center;
-    transition:transform .15s, box-shadow .15s;
+    transition:transform .15s, box-shadow .15s, opacity .15s;
   }
-  #addLeadFab:hover{ transform:scale(1.06); box-shadow:0 8px 28px rgba(232,114,12,.6); }
+  #addLeadFab:hover{ opacity:1; transform:scale(1.06); box-shadow:0 6px 20px rgba(232,114,12,.55); }
   #addLeadFab:active{ transform:scale(.96); }
   /* FAB is shown only on the CRM page (Prospects has its own + button) */
   body.show-add-lead-fab #addLeadFab{ display:flex; }
@@ -9492,6 +9537,11 @@ window.nbdNavToggle = nbdNavToggle;
         <div id="notifDismissedList" style="display:none;overflow-y:auto;max-height:200px;border-top:1px solid var(--br);background:var(--s2);"></div>
       </div>
     </div>
+    <!-- R5.7: visual divider separating activity icons (Recent / Notifications)
+         from preferences (Theme / Settings / Guide). The four-pixel gap +
+         hairline border helps the eye chunk the row into two functional
+         groups instead of reading it as one wall of glyphs. -->
+    <span aria-hidden="true" style="display:inline-block;width:1px;height:18px;background:var(--br);margin:0 6px;opacity:.6;"></span>
     <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="if(typeof nbdPickerOpen==='function')nbdPickerOpen();else{goTo('settings');setTimeout(function(){if(typeof switchSettingsTab==='function')switchSettingsTab('appearance')},200)}" title="Change Theme &amp; Font">🎨</button>
     <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="goTo('settings')" title="Settings">⚙️</button>
     <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdHowtoOpen()" title="Theme Guide">📖</button>
@@ -10894,13 +10944,13 @@ function switchScTab(tab, btn) {
 
         <!-- VIEW switcher inline (replaces the old VIEW: row) -->
         <div class="crm-hdr-views" id="kanbanViewSwitcher" role="tablist" aria-label="Pipeline view">
-          <button class="kview-btn active" data-view="insurance" onclick="switchKanbanView('insurance')">Ins</button>
-          <button class="kview-btn" data-view="cash" onclick="switchKanbanView('cash')">Cash</button>
-          <button class="kview-btn" data-view="finance" onclick="switchKanbanView('finance')">Fin</button>
-          <button class="kview-btn" data-view="warranty" onclick="switchKanbanView('warranty')" title="Warranty / callback pipeline">War</button>
-          <button class="kview-btn" data-view="service" onclick="switchKanbanView('service')" title="Service / small repair pipeline">Svc</button>
-          <button class="kview-btn" data-view="jobs" onclick="switchKanbanView('jobs')">Jobs</button>
-          <button class="kview-btn" data-view="simple" onclick="switchKanbanView('simple')">All</button>
+          <button class="kview-btn active" data-view="insurance" onclick="switchKanbanView('insurance')">Ins<span class="kview-count" id="kview-count-insurance"></span></button>
+          <button class="kview-btn" data-view="cash" onclick="switchKanbanView('cash')">Cash<span class="kview-count" id="kview-count-cash"></span></button>
+          <button class="kview-btn" data-view="finance" onclick="switchKanbanView('finance')">Fin<span class="kview-count" id="kview-count-finance"></span></button>
+          <button class="kview-btn" data-view="warranty" onclick="switchKanbanView('warranty')" title="Warranty / callback pipeline">War<span class="kview-count" id="kview-count-warranty"></span></button>
+          <button class="kview-btn" data-view="service" onclick="switchKanbanView('service')" title="Service / small repair pipeline">Svc<span class="kview-count" id="kview-count-service"></span></button>
+          <button class="kview-btn" data-view="jobs" onclick="switchKanbanView('jobs')">Jobs<span class="kview-count" id="kview-count-jobs"></span></button>
+          <button class="kview-btn" data-view="simple" onclick="switchKanbanView('simple')">All<span class="kview-count" id="kview-count-simple"></span></button>
         </div>
       </div>
 
