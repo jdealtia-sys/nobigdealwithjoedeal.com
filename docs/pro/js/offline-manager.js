@@ -232,17 +232,33 @@
   // ─────────────────────────────────────────────────────────
   // Flush the offline queue
   // ─────────────────────────────────────────────────────────
+  // Audit F: re-entry guard. flushQueue() is invoked from three places —
+  // init() on boot, handleOnline() on every 'online' event, and the
+  // public window.OfflineManager.flushQueue export. A user toggling
+  // airplane mode rapidly (or a flaky cellular handoff) fires multiple
+  // 'online' events in quick succession; without a guard each call
+  // reads the same getAll() snapshot and sends every queued PATCH to
+  // Firestore twice, doubling bandwidth and re-triggering any non-
+  // idempotent server-side side effects (audit log entries, drip-queue
+  // re-enqueues, webhook fan-out). _flushing is plain in-memory state,
+  // so a page reload always re-arms it.
+  let _flushing = false;
+
   function flushQueue() {
     if (!db) return Promise.resolve();
+    if (_flushing) return Promise.resolve();
+    _flushing = true;
 
     return new Promise((resolve) => {
+      // Wrap so every termination path releases the re-entry guard.
+      const done = () => { _flushing = false; resolve(); };
       const tx = db.transaction(DB_STORE, 'readonly');
       const store = tx.objectStore(DB_STORE);
       const req = store.getAll();
 
       req.onerror = () => {
         console.warn('Failed to read queue:', req.error);
-        resolve();
+        done();
       };
 
       req.onsuccess = async () => {
@@ -251,7 +267,7 @@
         if (items.length === 0) {
           // Sync the localStorage counter to reality (audit #5).
           try { localStorage.setItem(QUEUE_LAST_KNOWN_KEY, '0'); } catch (_) {}
-          resolve();
+          done();
           return;
         }
 
@@ -272,7 +288,7 @@
             + ' waiting to sync — please sign in again',
             'warning'
           );
-          resolve();
+          done();
           return;
         }
 
@@ -328,12 +344,12 @@
           localStorage.setItem(QUEUE_LAST_KNOWN_KEY, String(remaining));
         } catch (_) {}
 
-        resolve();
+        done();
       };
 
       tx.onerror = () => {
         console.warn('Transaction error:', tx.error);
-        resolve();
+        done();
       };
     });
   }
