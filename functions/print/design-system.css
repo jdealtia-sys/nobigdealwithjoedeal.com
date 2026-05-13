@@ -509,6 +509,63 @@ p:last-child { margin-bottom: 0; }
   color: var(--nbd-orange);
   border-color: var(--nbd-orange-line);
 }
+
+/* ── D-2.7: Before / After side-by-side comparison ─────────────
+   Print-side counterpart to the portal's draggable slider. PDF
+   can't do interactive drag, so we render the two photos side-by-
+   side with bold BEFORE / AFTER labels. `break-inside: avoid` keeps
+   the pair together if a page break would otherwise split them. */
+.ba-pair-section { margin-top: var(--s-5); }
+.ba-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.ba-pair .ba-cell {
+  display: flex;
+  flex-direction: column;
+}
+.ba-pair .ba-frame {
+  aspect-ratio: 4 / 3;
+  background: var(--nbd-cream);
+  border: 0.5pt solid var(--nbd-rule);
+  overflow: hidden;
+  position: relative;
+}
+.ba-pair .ba-frame img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ba-pair .ba-frame .ba-stamp {
+  position: absolute;
+  top: 8pt;
+  left: 8pt;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 800;
+  font-size: 9pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(20, 24, 31, 0.78);
+  padding: 3pt 8pt;
+  border-radius: 2pt;
+}
+.ba-pair .ba-frame .ba-stamp.after { background: var(--nbd-orange); }
+.ba-pair .ba-loc {
+  padding-top: 6pt;
+  font-size: 9.5pt;
+  color: var(--nbd-ink-soft);
+  display: flex;
+  justify-content: space-between;
+}
+.ba-pair .ba-loc strong {
+  color: var(--nbd-ink);
+  font-weight: 700;
+}
 @page {
   @bottom-center {
     content: element(footer);

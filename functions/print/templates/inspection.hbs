@@ -124,6 +124,37 @@
 </section>
 {{/if}}
 
+{{!-- ─────────── 4b. BEFORE & AFTER (D-2.7) ─────────── --}}
+{{!-- Rendered only when paired photos exist (auto-matched by
+     location + phase tag). PDF can't do an interactive drag slider,
+     so we render side-by-side; the portal HTML version is interactive. --}}
+{{#if photoPairs.length}}
+<section class="page-break ba-pair-section">
+  <h2 class="keep-with-next">Before &amp; After</h2>
+  <p class="meta" style="margin-bottom: var(--s-4);">Paired photos of the same location, taken at the start and end of the work. Drag the orange handle in your online project portal to see the transition; the print version shows them side-by-side.</p>
+  {{#each photoPairs}}
+  <div class="ba-pair">
+    <div class="ba-cell">
+      <div class="ba-frame">
+        <img src="{{this.before.url}}" alt="Before">
+        <div class="ba-stamp">Before</div>
+      </div>
+    </div>
+    <div class="ba-cell">
+      <div class="ba-frame">
+        <img src="{{this.after.url}}" alt="After">
+        <div class="ba-stamp after">After</div>
+      </div>
+    </div>
+    <div class="ba-loc" style="grid-column: 1 / -1;">
+      <strong>{{this.location}}</strong>
+      <span>Pair {{inc @index}} of {{len ../photoPairs}}</span>
+    </div>
+  </div>
+  {{/each}}
+</section>
+{{/if}}
+
 {{!-- ─────────── 5. SCOPE OF WORK ─────────── --}}
 {{#if scope.length}}
 <section class="page-break">
