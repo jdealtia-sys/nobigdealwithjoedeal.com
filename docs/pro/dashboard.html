@@ -5437,15 +5437,21 @@ input:focus, select:focus, textarea:focus {
   position: relative;
 }
 
-/* Card value badge glow */
+/* Card value badge glow.
+   R6: glow blur radius dropped 20px → 8px. The original 20px halo
+   was visually bleeding into adjacent elements (the count badges
+   4px away in the R4 layout), creating an overlap-appearance that
+   wasn't a real DOM overlap. With the value on its own row now,
+   the tighter 8px glow gives the orange treatment without crowding. */
 .kc-val-badge {
   font-family: 'Barlow Condensed', sans-serif;
   font-size: 15px;
   font-weight: 800;
   color: var(--orange);
   letter-spacing: .02em;
-  text-shadow: 0 0 20px var(--og);
+  text-shadow: 0 0 8px var(--og);
   white-space: nowrap;
+  display: inline-block;
 }
 
 /* Card tags upgrade */

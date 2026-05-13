@@ -1247,22 +1247,25 @@ function buildCard(l){
     <div class="k-card-checkbox nbd-kc-stop" data-action="toggle-select" data-id="${safeId}">
       <span class="k-card-checkbox-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M4 10.5l4 4 8-9"/></svg></span>
     </div>
-    <!-- R4.1: top row reorganized. Was [val + score + stageAge | counts]
-         which made the value + counts fight for the right side of
-         narrow cards (the user flagged $18,500 colliding with the
-         📋 + 📷 chips on Marcus). New layout puts SIGNALS on the
-         left (score, stage-age — small dim chips) and MONEY on the
-         right next to the count chips (where financial info belongs).
-         flex-wrap on the row so we never overlap; the right cluster
-         drops to a new line on extra-narrow viewports instead. -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:6px;flex-wrap:wrap;">
+    <!-- R6: value gets its own row.
+         History: R4 moved value out of the left cluster and into the
+         right cluster alongside the est/photo count chips, on the
+         theory that money belongs on the right. That looked clean in
+         the abstract — but in production the .kc-val-badge has a
+         20px-blur orange text-shadow glow that visually bleeds into
+         the count badges 4px away, creating the overlap the user
+         keeps flagging. Real fix: give the value its own row right-
+         aligned, with no horizontal neighbor to collide with. The
+         glow now has 12px of empty space to fade into. Plus we
+         tightened the glow itself in the CSS rule (8px not 20px). -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px;flex-wrap:wrap;">
       <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${leadScoreBadge}${stageAgeBadge}</div>
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
         ${estCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--gold);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg> ${estCount}</span>` : ''}
         ${photoCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--blue);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg> ${photoCount}</span>` : ''}
-        ${val ? `<div class="kc-val-badge">${val}</div>` : ''}
       </div>
     </div>
+    ${val ? `<div class="kc-val-row" style="text-align:right;margin-bottom:6px;line-height:1;"><span class="kc-val-badge">${val}</span></div>` : ''}
     <div class="kc-name"${l.customerId ? ` data-customer-id="${escHtml(l.customerId)}" title="${escHtml(l.customerId)}"` : ''}>${name}</div>
     ${addr ? `<div class="kc-addr" title="${escHtml(l.address||'')}">${addr}</div>` : ''}
     ${phone ? `<div class="kc-phone-row">
