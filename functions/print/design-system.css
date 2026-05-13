@@ -198,6 +198,21 @@ p:last-child { margin-bottom: 0; }
   border-bottom: 2.5pt solid var(--nbd-orange);
   margin-bottom: var(--s-5);
 }
+/* D-2.6: logo + wordmark row. Logo image lives in /assets/images on
+   the public marketing site so it's always the canonical brand mark.
+   42pt is roughly 0.58" tall — substantial but not domineering. */
+.doc-band-top .brand-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.doc-band-top .brand-mark {
+  width: 42pt;
+  height: 42pt;
+  border-radius: 4pt;
+  object-fit: cover;
+  flex-shrink: 0;
+}
 .doc-band-top .brand-lockup {
   display: flex;
   flex-direction: column;
@@ -460,6 +475,39 @@ p:last-child { margin-bottom: 0; }
   font-variant-numeric: tabular-nums;
   font-size: 8pt;
   color: var(--nbd-ink-muted);
+}
+
+/* ── D-2.6: social rail in the running footer ──────────────────── */
+.doc-band-bottom .social-rail {
+  display: flex;
+  align-items: center;
+  gap: 6pt;
+  margin-left: var(--s-3);
+}
+.doc-band-bottom .social-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18pt;
+  height: 18pt;
+  border-radius: 50%;
+  background: var(--nbd-cream);
+  border: 0.5pt solid var(--nbd-rule);
+  color: var(--nbd-ink-soft);
+  text-decoration: none;
+  transition: none; /* PDFs don't animate */
+}
+.doc-band-bottom .social-icon svg {
+  width: 10pt;
+  height: 10pt;
+  display: block;
+}
+.doc-band-bottom .social-icon:hover {
+  /* Hover state only affects the HTML preview path in NBDDocViewer
+     iframe-html mode; PDFs render the static color. */
+  background: var(--nbd-orange-soft);
+  color: var(--nbd-orange);
+  border-color: var(--nbd-orange-line);
 }
 @page {
   @bottom-center {
