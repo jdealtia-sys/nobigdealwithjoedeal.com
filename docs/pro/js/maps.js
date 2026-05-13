@@ -137,7 +137,15 @@ async function buildJobsLayer() {
       if(!geo) continue;
       const val = parseFloat(lead.value||lead.jobValue||lead.contractValue||0);
       const label = val > 0 ? '$'+val.toLocaleString() : lead.stage;
-      const color = lead.stage==='Complete' ? '#34D399' : lead.stage==='In Progress' ? '#4A9EFF' : '#EAB308';
+      // Compare against BOTH canonical (post-crm-stages migration) and
+      // legacy display names so old leads in Firestore still colour
+      // correctly. v159.4 swept most callers; this map-marker colorizer
+      // was missed because legacy stage names were also used as the
+      // popup label, hiding the comparison drift.
+      const _stg = lead.stage || '';
+      const color = (_stg === 'closed' || _stg === 'Complete') ? '#34D399'
+                  : (_stg === 'install_in_progress' || _stg === 'In Progress') ? '#4A9EFF'
+                  : '#EAB308';
       const icon = L.divIcon({
         html:`<div style="background:${esc(color)};color:#0A0C0F;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:800;padding:3px 7px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.2);">💰 ${esc(label)}</div>`,
         iconAnchor:[0,0], className:''

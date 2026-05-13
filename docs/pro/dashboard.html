@@ -181,6 +181,9 @@
   window.TRADES = TRADES;
   window.SUB_TYPES = SUB_TYPES;
   window.JOB_TYPE_META = JOB_TYPE_META;
+  // Phase marker for the pre-module error trap (v159.5+) so the diag
+  // banner can pinpoint where init died if a downstream import throws.
+  window.__nbdMark && window.__nbdMark('m2:stagesImport');
 
   // Legacy compat — default to insurance pipeline view
   const _currentViewKey = localStorage.getItem('nbd_kanban_view') || 'insurance';
@@ -851,20 +854,29 @@
     appId: "1:717435841570:web:c2338e11052c96fde02e7b"
   };
 
-  document.documentElement.style.visibility="hidden";
-  // Safety net: force the page visible after 5s no matter what.
-  // Without this, an auth or subscription getDoc that hangs (iOS bfcache,
-  // slow network) leaves the page invisible indefinitely — looks like
-  // a blank/transparent app and is the root of "I have to refresh several
-  // times". The flip is idempotent; the auth handler's own =visible call
-  // still runs when ready.
-  setTimeout(() => {
-    if (document.documentElement.style.visibility === 'hidden') {
-      console.warn('[boot] visibility safety net fired — auth/subscription took >5s');
-      document.documentElement.style.visibility = 'visible';
-    }
-  }, 5000);
-  const app     = initializeApp(firebaseConfig);
+  // v159.7: stop hiding the page during init.
+  // Up through v159.6 we set visibility:hidden here, relying on either
+  // _showPage() in nbd-auth.js or the catch handler to restore it. On
+  // mobile this has been failing — the hide DOES land but the show
+  // never fires because module 1's promise hangs. Removing the hide is
+  // a deliberate trade-off: the page may flash unauth content for a
+  // few hundred ms, but at least it never gets stuck on a permanently
+  // invisible page if module init dies. The diagnostic banner is the
+  // only ground-truth we have right now and it must be visible.
+  // (Original line: document.documentElement.style.visibility="hidden";)
+  window.__nbdMark && window.__nbdMark('m2:beforeApp');
+  // v159.6: Singleton-aware app init.
+  // nbd-auth.js (the FIRST module on this page) already calls
+  // initializeApp(FIREBASE_CONFIG) and exposes the result on
+  // window._firebaseApp. Reusing the already-initialized instance
+  // removes any duplicate-app risk and — equally important —
+  // guarantees we share the SAME long-polling-enabled Firestore
+  // instance that nbd-auth.js created via initializeFirestore(_app, {
+  // experimentalForceLongPolling: true }). Without this share, our
+  // getFirestore(app) below would silently get the default WebChannel
+  // transport, which is the very thing PR #289 was trying to avoid.
+  const app     = window._firebaseApp || initializeApp(firebaseConfig);
+  window.__nbdMark && window.__nbdMark(window._firebaseApp ? 'm2:app:reused' : 'm2:app:fresh');
 
   // ─── App Check (C-4) ──────────────────────────────────────
   // Functions declare `enforceAppCheck: true` but previously nothing
@@ -18695,6 +18707,48 @@ window.nbdDiag = function() {
   let _detailsOpen = false;
   let _dismissedByUser = false;
   let _successHideTimer = null;
+
+  // v159.7 self-recovery globals. Exposed on window so the user can also
+  // invoke them from devtools if the banner isn't visible (e.g. iOS Safari
+  // with overflow:hidden on an ancestor). Both are silent unless tapped.
+  window.__nbdHardReset = async function _nbdHardReset() {
+    try {
+      // Unregister every service worker scoped to this origin.
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister().catch(() => {})));
+      }
+      // Wipe every cache (SW caches, image caches, etc.).
+      if (window.caches) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k).catch(() => {})));
+      }
+    } catch (e) { /* non-fatal */ }
+    // Append ?nosw=1 so the next load also bypasses the SW kill switch
+    // (the page-bottom swBootstrap honours this by refusing to register).
+    const u = new URL(location.href);
+    u.searchParams.set('nosw', '1');
+    location.replace(u.toString());
+  };
+  window.__nbdGstaticTest = async function _nbdGstaticTest() {
+    const btn = document.getElementById('nbd-ls-gstatic-btn');
+    if (btn) btn.textContent = 'testing…';
+    const url = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+    const t0 = Date.now();
+    try {
+      const res = await fetch(url, { cache: 'no-store', mode: 'cors' });
+      const ms = Date.now() - t0;
+      if (window.__nbdLoadErrors && window.__nbdLoadErrors.length < 8) {
+        window.__nbdLoadErrors.push('gstatic ' + res.status + ' in ' + ms + 'ms');
+      }
+      if (btn) btn.textContent = 'gstatic: ' + res.status + ' (' + ms + 'ms)';
+    } catch (e) {
+      if (window.__nbdLoadErrors && window.__nbdLoadErrors.length < 8) {
+        window.__nbdLoadErrors.push('gstatic FAIL: ' + (e && e.message || e));
+      }
+      if (btn) btn.textContent = 'gstatic BLOCKED';
+    }
+  };
   function _state() {
     const loaded = !!window._leadsLoaded;
     const count = (window._leads && window._leads.length) || 0;
@@ -18800,12 +18854,33 @@ window.nbdDiag = function() {
     } else if (s.exhausted) {
       nextRetryLine = '<div style="font-size:11px;opacity:.85;color:#fca5a5;margin-top:3px;">Auto-retries exhausted — tap Retry to try again.</div>';
     }
+    // v159.5+ phase trail + first captured load error. The trail tells
+    // us how far the module pipeline got before stalling; the error
+    // tells us why. Both come from the pre-module error trap.
+    const phases = (window.__nbdPhases || []).slice(-8).join(' › ');
+    const firstErr = (window.__nbdLoadErrors && window.__nbdLoadErrors[0]) || null;
+    const errCount = (window.__nbdLoadErrors && window.__nbdLoadErrors.length) || 0;
     const detailsHtml = _detailsOpen
       ? '<div style="font-size:10px;line-height:1.4;opacity:.7;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.15);word-break:break-all;">' +
           'NBD ' + VERSION + ' · retry: ' + s.retry + offlineNote +
           ' · auth: ' + (window._user ? 'yes' : 'no') +
           ' · db: ' + (window.db ? 'yes' : 'no') +
           ' · uid: ' + (window._user?.uid ? window._user.uid.slice(0,8) + '…' : 'none') +
+          (phases ? '<br><span style="color:#9cf;">phase:</span> ' + _esc(phases) : '') +
+          (firstErr ? '<br><span style="color:#fb6;">⚠ ' + _esc(firstErr) +
+            (errCount > 1 ? ' <span style="opacity:.6;">(+' + (errCount - 1) + ' more)</span>' : '') + '</span>' : '') +
+          // v159.7 self-recovery actions — only surfaced inside Details so
+          // the rep can't fat-finger a hard reset, but devtools-savvy
+          // testers and Joe can drive them from the on-page banner instead
+          // of pasting JS into the console.
+          '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">' +
+            '<button onclick="event.stopPropagation();window.__nbdHardReset&&window.__nbdHardReset()" ' +
+              'style="background:#c33;border:none;color:#fff;border-radius:4px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;flex:1;min-height:32px;">' +
+              '↻ Hard Reset (SW + caches)</button>' +
+            '<button id="nbd-ls-gstatic-btn" onclick="event.stopPropagation();window.__nbdGstaticTest&&window.__nbdGstaticTest()" ' +
+              'style="background:#246;border:none;color:#fff;border-radius:4px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;flex:1;min-height:32px;">' +
+              'Test gstatic fetch</button>' +
+          '</div>' +
           '<br>' + _esc(navigator.userAgent || '') +
         '</div>'
       : '';

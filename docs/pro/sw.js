@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v18', // v18 — W127 — paired with firebase.json must-revalidate cache headers
-  cdn: 'nbd-cdn-v18',     // v18 — paired bump
+  shell: 'nbd-shell-v20', // v20 — landscape fullscreen fix: lock body/view overflow + scroll-snap on kanban + extended scrollLeft=0 fire window (rAF/50/200/500/1000ms). Forces installed PWAs to pick up the fix without a manual reinstall.
+  cdn: 'nbd-cdn-v20',     // v20 — paired bump
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'

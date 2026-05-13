@@ -6,8 +6,24 @@
 // permit 'unsafe-inline' for script-src; same-origin scripts are allowed
 // via 'self', so this file works.
 //
-// No-op for normal users — only does anything when ?reset=1 is in the URL.
+// Also acts as a hard safety net for the login buttons: login.html ships
+// #loginBtn / #codeBtn / #demoBtn with `disabled` so the e2e wait
+// `:not([disabled])` and any human tap both wait for login.js to finish
+// its dynamic Firebase imports before firing. If those imports fail
+// (network blip, CSP regression, gstatic outage), login.js never reaches
+// its `removeAttribute('disabled')` lines and the page is unrecoverable.
+// This timer flips the gate after 8s no matter what, so the user can at
+// least retry and see a real error message instead of a frozen UI.
 (function () {
+  try {
+    setTimeout(function () {
+      ['loginBtn', 'codeBtn', 'demoBtn'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && el.disabled) el.removeAttribute('disabled');
+      });
+    }, 8000);
+  } catch (_) { /* never let the safety net itself break the page */ }
+
   try {
     var p = new URLSearchParams(location.search);
     if (!p.has('reset')) return;

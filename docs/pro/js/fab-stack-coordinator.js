@@ -37,6 +37,15 @@
     'nbd-lead-alert-stack',     // W139 hot-lead toast stack — DOESN'T block, see below
     'estV2Modal',               // V2 estimate builder
     'nbd-picker-modal',         // appearance picker
+    // W150 PWA install banner sits at z-index:99990 with bottom:14px,
+    // covering the FAB stack region on phones. Without coordinating
+    // the FABs would still be visible BEHIND the banner but tap-blocked
+    // by it — the rep sees mic / inbox icons they can't reach. Treat
+    // the banner like any other blocking overlay and hide the FABs
+    // while it's mounted.
+    'nbd-pwa-install-banner',
+    'nbd-pwa-ios-modal',        // W150 iOS Add-to-Home-Screen walkthrough
+    'nbd-pwa-and-modal',        // W150 Android install fallback walkthrough
   ];
 
   // The lead-alert stack lists itself but should NOT trigger hide

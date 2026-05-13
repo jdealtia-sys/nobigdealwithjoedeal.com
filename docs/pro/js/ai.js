@@ -57,10 +57,14 @@ function buildJoeContext() {
   const settings = window._userSettings || {};
 
   const today = new Date(); today.setHours(0,0,0,0);
-  const active = leads.filter(l=>!['Lost','Complete'].includes(l.stage||''));
-  const closed = leads.filter(l=>l.stage==='Complete');
-  const overdue = leads.filter(l=>{
-    if(!l.followUp||['Complete','Lost'].includes(l.stage||'')) return false;
+  // Post-crm-stages migration the canonical exit keys are 'closed' / 'lost'.
+  // Match BOTH canonical and legacy ('Complete' / 'Lost') so old Firestore
+  // docs aren't double-counted as active. v159.4 missed this filter.
+  const _terminal = new Set(['closed', 'lost', 'Complete', 'Lost']);
+  const active = leads.filter(l => !_terminal.has(l.stage || ''));
+  const closed = leads.filter(l => l.stage === 'closed' || l.stage === 'Complete');
+  const overdue = leads.filter(l => {
+    if (!l.followUp || _terminal.has(l.stage || '')) return false;
     return new Date(l.followUp) <= today;
   });
   const pipeVal = active.reduce((s,l)=>s+parseFloat(l.jobValue||0),0);
