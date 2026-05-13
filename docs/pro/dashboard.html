@@ -7022,7 +7022,43 @@ body {
   .kcol-body::-webkit-scrollbar{width:4px;}
   .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
   .kcol-body.drag-over{background:rgba(232,114,12,.06);outline:2px dashed var(--orange);}
-  .k-empty{text-align:center;padding:20px 8px;font-size:11px;color:var(--m);border:1px dashed var(--br);border-radius:6px;}
+  /* T3.d: slim empty-column state. The old version had a centered SVG
+     tombstone + 'Drop leads here' that ate ~80px of vertical real
+     estate. New version is a single thin dashed line of muted text. */
+  .k-empty{text-align:center;padding:10px 8px;border:1px dashed color-mix(in srgb, var(--br) 65%, transparent);border-radius:6px;}
+  .k-empty-line{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--m);opacity:.6;}
+  /* T3.b: NBD-ID hover-reveal. Moved off the name face to keep the
+     name from wrapping on long surnames; the customer ID surfaces as
+     a small monospace badge above the card on hover, plus the
+     browser-native title tooltip on every device. */
+  .kc-name[data-customer-id]{position:relative;}
+  .kc-name[data-customer-id]:hover::after{
+    content: attr(data-customer-id);
+    position: absolute; top: -16px; right: 0;
+    font-family: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+    font-size: 9px; font-weight: 700; letter-spacing: .04em;
+    color: var(--orange, #e8720c);
+    background: var(--s2, rgba(0,0,0,.6));
+    padding: 1px 5px; border-radius: 3px;
+    pointer-events: none; opacity: 0.9;
+  }
+  /* T2: ⋮ overflow button — slightly larger tap target than the .kc-btn
+     it replaces (44pt+ on touch via padding) and louder visual weight
+     so reps notice it. */
+  .kc-overflow{
+    font-size: 16px; font-weight: 800; line-height: 1;
+    padding: 4px 8px; min-width: 26px; min-height: 26px;
+    color: var(--m); cursor: pointer;
+    background: transparent; border: 1px solid var(--br);
+    border-radius: 4px; transition: all .15s;
+  }
+  .kc-overflow:hover{color: var(--orange); border-color: var(--orange); background: rgba(232,114,12,.08);}
+  @media (pointer: coarse) { .kc-overflow{ min-width: 32px; min-height: 32px; padding: 6px 10px; } }
+  /* T1.c support: kc-carrier visual weight. The previous treatment was
+     subtle (var(--s3) background) which lost visually next to the loud
+     green .kct-claim pill. Adding a left tick of orange so the carrier
+     reads as 'who's paying' at a glance. */
+  .kc-carrier{ border-left: 3px solid color-mix(in srgb, var(--orange) 70%, transparent); }
   /* Kanban card density tokens — set per data-density on <html>. */
   :root{
     --kcard-pad:    var(--kcard-pad-comfy);
