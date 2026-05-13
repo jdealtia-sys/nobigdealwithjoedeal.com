@@ -433,6 +433,17 @@
       deductible:        ded || undefined,
       // Project description for {{token}} templates
       projectDescription: lead.scopeOfWork || lead.damageType || '',
+      // Job-type / sub-type / trades (Pre-W159 data compat sweep) —
+      // Future doc variants will switch on sub-type (storm AOB vs
+      // fire AOB) and trades (roof+gutters combo line items). Surface
+      // them defensively here so templates can read data.subType
+      // and data.trades without guards.
+      jobType:           lead.jobType || '',
+      subType:           lead.subType || '',
+      trades:            Array.isArray(lead.trades) ? lead.trades : [],
+      tradesLabel:       Array.isArray(lead.trades) && lead.trades.length
+                           ? (typeof window.tradesLabel === 'function' ? window.tradesLabel(lead.trades) : lead.trades.join(', '))
+                           : '',
       // Identifiers
       leadId:            lead.id,
       customer:          { id: lead.id, name: homeownerName, address: lead.address, phone: lead.phone, email: lead.email },
@@ -518,10 +529,19 @@
       address: lead.address || '', homeownerAddress: lead.address || '',
       phone:   lead.phone   || '', customerPhone:   lead.phone   || '',
       email:   lead.email   || '', customerEmail:   lead.email   || '',
-      // Job
+      // Job — subType + trades added for parity with customer.html's
+      // getCustomerDocData (Pre-W159 data compat sweep). Without these,
+      // doc templates that switch on sub-type (e.g. storm AOB vs fire
+      // AOB) or list trades (e.g. roof+gutters line items) would see
+      // undefined and either crash on .join() or render blank.
       damageType: lead.damageType || '', stage: lead.stage || '',
       source: lead.source || '', notes: lead.notes || '',
       jobType: lead.jobType || '', jobValue: jobVal,
+      subType: lead.subType || '',
+      trades:  Array.isArray(lead.trades) ? lead.trades : [],
+      tradesLabel: Array.isArray(lead.trades) && lead.trades.length
+                     ? (typeof window.tradesLabel === 'function' ? window.tradesLabel(lead.trades) : lead.trades.join(', '))
+                     : '',
       scopeOfWork: lead.scopeOfWork || '',
       projectDescription: lead.scopeOfWork || (est && est.description) || '',
       // Insurance
