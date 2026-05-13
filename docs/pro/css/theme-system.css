@@ -70,6 +70,24 @@
 :root[data-theme="sakura"] { --orange:#e8346c;--ob:#ff5080;--og:rgba(232,52,108,.2);--bg:#fff0f4;--s:#ffe8f0;--s2:#ffd8e8;--s3:#ffc8e0;--br:rgba(232,52,108,.08);--t:#2a0818;--m:#a04868;--blue:#e91e63;--green:#4caf50;--purple:#9c27b0;--red:#e8346c;--gold:#ffd600;--paper:#ffd8e8;--ink:#2a0818;--rule:rgba(232,52,108,.1); }
 /* ════ END v5 THEMES ════ */
 
+/* ── Presentation mode (audit batch 8) ──
+   When the rep flips Presentation Mode in customer.html, the
+   data-theme attribute switches to "presentation" — a light NBD-brand
+   palette that mirrors the customer-facing portal. The rep's chosen
+   dashboard theme stays in sessionStorage and restores when toggled
+   off. Token values match nbd-brand.css so the customer page (when
+   in Presentation Mode), portal.html, and the photo report PDFs all
+   render with the same warm cream + orange brand. */
+:root[data-theme="presentation"] {
+  --orange:#e8720c; --ob:#ff8420; --og:rgba(232,114,12,.10);
+  --bg:#faf8f5;     --s:#ffffff;   --s2:#f0ede7; --s3:#fdf6ed;
+  --br:rgba(26,22,18,.10);
+  --t:#1a1612;      --m:#6b6357;
+  --blue:#2563eb;   --green:#16a34a; --purple:#7c3aed;
+  --red:#dc2626;    --gold:#d97706;
+  --paper:#ffffff;  --ink:#1a1612; --rule:rgba(26,22,18,.10);
+}
+
 /* ── Trial Banners ── */
 #trial-banner{display:flex;align-items:center;gap:12px;padding:8px 16px;font-size:12px;font-weight:500;z-index:99998;justify-content:center;flex-wrap:wrap;}
 #trial-banner span{flex:1;min-width:200px;text-align:center;}

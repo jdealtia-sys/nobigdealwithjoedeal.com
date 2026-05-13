@@ -903,10 +903,62 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 
 <header>
   <div class="logo"><img class="logo-img" src="/assets/images/nbd-logo.png" alt="NBD Pro" />NBD <span>PRO</span></div>
+  <!-- Audit batch 8: Presentation Mode toggle. When ON, the customer
+       page renders in light NBD brand instead of the rep's chosen
+       dashboard theme. Useful when the rep is showing the homeowner
+       the customer page in person (tablet, in-person inspection) and
+       doesn't want their personal theme (synthwave / vaporwave / etc.)
+       leaking through. Toggle persists per-session so a rep who flips
+       it on for a walkthrough stays in light mode through tab switches. -->
+  <button id="presentationModeBtn" class="back-btn" onclick="window.togglePresentationMode && window.togglePresentationMode()" title="Switch to light brand view for in-person walkthroughs" aria-pressed="false" style="margin-right:8px;">
+    🎤 Presentation
+  </button>
   <a href="dashboard.html" class="back-btn">
     ← Back to Dashboard
   </a>
 </header>
+<script>
+  // Audit batch 8: Presentation Mode logic. Switches data-theme to
+  // 'presentation' (defined in theme-system.css) on toggle, saves the
+  // prior theme to sessionStorage, restores on toggle off. Pure DOM
+  // attribute change — re-renders via existing CSS cascade.
+  (function () {
+    var PREV_KEY = 'nbd_pre_presentation_theme';
+    function isOn() {
+      return document.documentElement.getAttribute('data-theme') === 'presentation';
+    }
+    function syncBtn() {
+      var btn = document.getElementById('presentationModeBtn');
+      if (!btn) return;
+      btn.setAttribute('aria-pressed', isOn() ? 'true' : 'false');
+      btn.style.background = isOn() ? 'var(--orange)' : '';
+      btn.style.color = isOn() ? '#fff' : '';
+      btn.textContent = isOn() ? '✓ Presentation On' : '🎤 Presentation';
+    }
+    window.togglePresentationMode = function () {
+      var html = document.documentElement;
+      if (isOn()) {
+        var prev = sessionStorage.getItem(PREV_KEY) || 'nbd-original';
+        html.setAttribute('data-theme', prev);
+        sessionStorage.removeItem(PREV_KEY);
+      } else {
+        var current = html.getAttribute('data-theme') || 'nbd-original';
+        sessionStorage.setItem(PREV_KEY, current);
+        html.setAttribute('data-theme', 'presentation');
+      }
+      syncBtn();
+      // Notify ThemeEngine + anyone listening for theme changes.
+      try { document.dispatchEvent(new CustomEvent('nbd:theme-change', { detail: { theme: html.getAttribute('data-theme') } })); } catch (_) {}
+    };
+    // Initial sync (handles back/forward navigation that restores
+    // a previously-toggled state).
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', syncBtn);
+    } else {
+      syncBtn();
+    }
+  })();
+</script>
 
 <div class="container">
   <div class="customer-header">
