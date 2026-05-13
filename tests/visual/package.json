@@ -1,0 +1,15 @@
+{
+  "name": "nbd-visual-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Visual + brand-token regression tests for NBD Pro customer-facing surfaces. Isolated workspace so it doesn't entangle the main repo's deploy tooling.",
+  "scripts": {
+    "test": "playwright test",
+    "test:update": "playwright test --update-snapshots",
+    "install:browsers": "playwright install chromium --with-deps"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.0",
+    "http-server": "^14.1.1"
+  }
+}
