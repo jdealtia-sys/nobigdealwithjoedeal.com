@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-nbd-brand="true">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#0a0c0f">
+<meta name="theme-color" content="#faf8f5">
 <meta name="robots" content="noindex, nofollow">
 <title>Your Estimate — No Big Deal</title>
 <!--
@@ -18,217 +18,241 @@
     deliberately don't load the full estimate-finalization.js
     bundle here to keep the customer payload small + fast on
     cellular.
+
+  Brand: photo system Phase 1 + audit batch 1 (2026-05-13). Every
+  customer-facing surface reads color/type/space from nbd-brand.css
+  so the estimate this homeowner sees matches the portal they were
+  shown and the PDF they'll receive. Was hardcoded; was the only
+  customer-facing page missing brand alignment after Phase 1.
 -->
 <link rel="preconnect" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/nbd-brand.css">
 <style>
+  /* Estimate document layout — palette-free; every color/type/space
+     value reads from nbd-brand.css. */
   *, *::before, *::after { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
   body {
-    font-family: 'Barlow', 'Helvetica Neue', system-ui, sans-serif;
-    background: #f5f5f0;
-    color: #1a1a1a;
-    line-height: 1.5;
+    font-family: var(--nbd-font-body);
+    background: var(--nbd-bg);
+    color: var(--nbd-ink);
+    line-height: var(--nbd-leading-body);
     min-height: 100vh;
     padding-bottom: env(safe-area-inset-bottom, 0);
   }
   .ev-shell {
     max-width: 760px;
     margin: 0 auto;
-    padding: 24px 18px 64px;
+    padding: var(--nbd-space-6) var(--nbd-space-4) var(--nbd-space-16);
   }
   .ev-header {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 14px;
-    padding-bottom: 18px;
-    border-bottom: 3px solid #c8541a;
-    margin-bottom: 26px;
+    gap: var(--nbd-space-4);
+    padding-bottom: var(--nbd-space-5);
+    border-bottom: 3px solid var(--nbd-orange);
+    margin-bottom: var(--nbd-space-6);
   }
   .ev-brand {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 22px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-xl);
     font-weight: 800;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--nbd-tracking-wide);
     text-transform: uppercase;
+    color: var(--nbd-ink);
   }
-  .ev-brand span { color: #c8541a; }
+  .ev-brand span { color: var(--nbd-orange); }
   .ev-badge {
     display: inline-block;
-    margin-top: 6px;
+    margin-top: var(--nbd-space-2);
     font-size: 10px;
     font-weight: 700;
-    letter-spacing: 0.18em;
+    letter-spacing: var(--nbd-tracking-widest);
     text-transform: uppercase;
-    color: #c8541a;
-    border: 1px solid #c8541a;
+    color: var(--nbd-orange);
+    border: 1px solid var(--nbd-orange);
     padding: 2px 9px;
-    border-radius: 2px;
+    border-radius: var(--nbd-radius-sm);
   }
   .ev-doc-title {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 30px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-3xl);
     font-weight: 800;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--nbd-tracking-wider);
     text-transform: uppercase;
-    color: #111;
+    color: var(--nbd-ink);
     text-align: right;
   }
-  .ev-doc-meta { font-size: 12px; color: #666; text-align: right; margin-top: 4px; }
+  .ev-doc-meta {
+    font-size: var(--nbd-text-xs);
+    color: var(--nbd-ink-muted);
+    text-align: right;
+    margin-top: var(--nbd-space-1);
+  }
   .ev-section-title {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 13px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-sm);
     font-weight: 700;
-    letter-spacing: 0.18em;
+    letter-spacing: var(--nbd-tracking-widest);
     text-transform: uppercase;
-    color: #111;
-    margin: 26px 0 12px;
-    padding-bottom: 4px;
-    border-bottom: 2px solid #c8541a;
+    color: var(--nbd-ink);
+    margin: var(--nbd-space-6) 0 var(--nbd-space-3);
+    padding-bottom: var(--nbd-space-1);
+    border-bottom: 2px solid var(--nbd-orange);
   }
   .ev-customer {
-    background: #fff;
-    border: 1px solid #d4d4cf;
-    border-radius: 6px;
-    padding: 14px 16px;
-    margin-bottom: 18px;
+    background: var(--nbd-bg-elevated);
+    border: 1px solid var(--nbd-line);
+    border-radius: var(--nbd-radius-md);
+    padding: var(--nbd-space-4);
+    margin-bottom: var(--nbd-space-4);
   }
   .ev-customer dt {
     font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.12em;
+    letter-spacing: var(--nbd-tracking-widest);
     text-transform: uppercase;
-    color: #888;
+    color: var(--nbd-ink-subtle);
     margin-bottom: 2px;
   }
-  .ev-customer dd { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+  .ev-customer dd {
+    margin: 0 0 var(--nbd-space-2);
+    font-size: var(--nbd-text-md);
+    font-weight: 600;
+    color: var(--nbd-ink);
+  }
   .ev-tier-card {
-    background: #fff;
-    border: 1px solid #d4d4cf;
-    border-radius: 6px;
-    padding: 18px 20px;
-    margin-bottom: 14px;
+    background: var(--nbd-bg-elevated);
+    border: 1px solid var(--nbd-line);
+    border-radius: var(--nbd-radius-md);
+    padding: var(--nbd-space-5);
+    margin-bottom: var(--nbd-space-3);
     text-align: center;
   }
   .ev-tier-card.featured {
-    border: 2px solid #c8541a;
-    box-shadow: 0 6px 20px rgba(200, 84, 26, 0.18);
+    border: 2px solid var(--nbd-orange);
+    box-shadow: 0 6px 20px var(--nbd-orange-glow);
   }
   .ev-tier-name {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 22px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-xl);
     font-weight: 700;
-    letter-spacing: 0.08em;
+    letter-spacing: var(--nbd-tracking-wider);
     text-transform: uppercase;
-    color: #111;
+    color: var(--nbd-ink);
   }
   .ev-tier-total {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 38px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-4xl);
     font-weight: 800;
-    color: #c8541a;
-    margin-top: 6px;
+    color: var(--nbd-orange);
+    margin-top: var(--nbd-space-2);
   }
   .ev-line-list {
     list-style: none;
     padding: 0;
-    margin: 0 0 18px;
-    background: #fff;
-    border: 1px solid #d4d4cf;
-    border-radius: 6px;
+    margin: 0 0 var(--nbd-space-4);
+    background: var(--nbd-bg-elevated);
+    border: 1px solid var(--nbd-line);
+    border-radius: var(--nbd-radius-md);
     overflow: hidden;
   }
   .ev-line {
     display: flex;
     justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px;
-    border-bottom: 1px solid #ececea;
-    font-size: 14px;
+    gap: var(--nbd-space-3);
+    padding: var(--nbd-space-3) var(--nbd-space-4);
+    border-bottom: 1px solid var(--nbd-line-rule);
+    font-size: var(--nbd-text-sm);
   }
   .ev-line:last-child { border-bottom: none; }
   .ev-line-name { flex: 1; }
-  .ev-line-qty { color: #777; font-size: 12px; min-width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
-  .ev-line-amt { font-weight: 600; min-width: 80px; text-align: right; font-variant-numeric: tabular-nums; }
+  .ev-line-qty {
+    color: var(--nbd-ink-muted);
+    font-size: var(--nbd-text-xs);
+    min-width: 80px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .ev-line-amt {
+    font-weight: 600;
+    min-width: 80px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--nbd-ink);
+  }
   .ev-grand {
-    background: #c8541a;
-    color: #fff;
-    border-radius: 6px;
-    padding: 18px 22px;
-    margin-bottom: 22px;
+    background: var(--nbd-orange);
+    color: var(--nbd-ink-on-orange);
+    border-radius: var(--nbd-radius-md);
+    padding: var(--nbd-space-5) var(--nbd-space-6);
+    margin-bottom: var(--nbd-space-6);
     display: flex;
     justify-content: space-between;
     align-items: center;
   }
   .ev-grand-lbl {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 14px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-sm);
     font-weight: 700;
-    letter-spacing: 0.16em;
+    letter-spacing: var(--nbd-tracking-widest);
     text-transform: uppercase;
   }
   .ev-grand-val {
-    font-family: 'Barlow Condensed', sans-serif;
-    font-size: 38px;
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-4xl);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
   }
   .ev-cta-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin: 22px 0;
+    gap: var(--nbd-space-3);
+    margin: var(--nbd-space-6) 0;
   }
   .ev-cta-row a {
     flex: 1;
     min-width: 140px;
     text-align: center;
-    background: #c8541a;
-    color: #fff;
+    background: var(--nbd-orange);
+    color: var(--nbd-ink-on-orange);
     text-decoration: none;
-    padding: 14px 18px;
-    border-radius: 6px;
+    padding: var(--nbd-space-4) var(--nbd-space-5);
+    border-radius: var(--nbd-radius-md);
     font-weight: 700;
-    letter-spacing: 0.04em;
-    font-size: 15px;
+    letter-spacing: var(--nbd-tracking-wide);
+    font-size: var(--nbd-text-md);
     -webkit-tap-highlight-color: transparent;
+    transition: background .15s ease, box-shadow .15s ease;
   }
+  .ev-cta-row a:hover { background: var(--nbd-orange-deep); box-shadow: var(--nbd-shadow-md); }
   .ev-cta-row a.ghost {
-    background: #fff;
-    color: #c8541a;
-    border: 1px solid #c8541a;
+    background: transparent;
+    color: var(--nbd-orange);
+    border: 1px solid var(--nbd-orange);
   }
+  .ev-cta-row a.ghost:hover { background: var(--nbd-orange-soft); }
   .ev-error, .ev-loading {
     text-align: center;
     padding: 60px 20px;
-    color: #666;
-    font-size: 14px;
+    color: var(--nbd-ink-muted);
+    font-size: var(--nbd-text-sm);
   }
-  .ev-error { color: #b91c1c; }
+  .ev-error { color: var(--nbd-danger); }
   .ev-foot {
-    margin-top: 30px;
-    padding-top: 20px;
-    border-top: 1px solid #d4d4cf;
-    font-size: 11px;
-    color: #888;
+    margin-top: var(--nbd-space-8);
+    padding-top: var(--nbd-space-5);
+    border-top: 1px solid var(--nbd-line);
+    font-size: var(--nbd-text-xs);
+    color: var(--nbd-ink-subtle);
     text-align: center;
   }
-  /* Dark theme — opt-in via prefers-color-scheme since this is a
-     customer-facing page and most homeowners view on phones in
-     bright daylight. The light theme above is the primary surface. */
-  @media (prefers-color-scheme: dark) {
-    body { background: #0a0c0f; color: #e8eaf0; }
-    .ev-customer, .ev-tier-card, .ev-line-list { background: #13171d; border-color: #2a2f35; }
-    .ev-line { border-color: #2a2f35; }
-    .ev-customer dt { color: #888; }
-    .ev-tier-name, .ev-doc-title { color: #fff; }
-    .ev-line-qty { color: #aaa; }
-    .ev-foot { color: #888; border-color: #2a2f35; }
-  }
+  @media print { body { background: #fff; } .ev-cta-row { display: none; } }
 </style>
 </head>
-<body>
+<body class="nbd-brand">
 <main class="ev-shell" id="evRoot">
   <div class="ev-loading">Loading your estimate…</div>
 </main>

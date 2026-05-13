@@ -1714,6 +1714,22 @@
     closeEditor();
   }
 
+  // Audit batch 1: native browser navigation guard. The in-app close
+  // button already prompts on unsaved (closeWithPrompt), but a rep who
+  // hits the back button / closes the tab / pulls down to refresh
+  // bypasses that. beforeunload fires the browser's "Leave site?"
+  // warning when S.hasUnsaved is true — fires on every navigation
+  // away from the page, regardless of how it's triggered. Standard
+  // unsaved-changes pattern; harmless when nothing is unsaved.
+  function _onBeforeUnload(e) {
+    if (!S.hasUnsaved) return;
+    // Chrome/Safari ignore custom messages now; presence of returnValue
+    // is what triggers the prompt. Set a string for older browsers.
+    e.preventDefault();
+    e.returnValue = 'You have unsaved photo annotations. Leave anyway?';
+    return e.returnValue;
+  }
+
   function closeEditor() {
     if (root) root.remove();
     root = null;
@@ -1731,6 +1747,7 @@
     document.removeEventListener('keydown', onKeyDown);
     document.removeEventListener('keyup', onKeyUp);
     window.removeEventListener('mousemove', onPointerMove);
+    window.removeEventListener('beforeunload', _onBeforeUnload);
     // Note: anonymous mouseup wrapper can't be removed, but it safely no-ops when root is null
   }
 
@@ -1747,6 +1764,10 @@
     S.photoData = photoData;
     S.calloutNum = 1;
     S.hasUnsaved = false;
+    // Audit batch 1: arm the beforeunload guard so the browser warns
+    // on back / tab-close / refresh while annotations are pending.
+    // closeEditor() removes it on the in-app close path.
+    window.addEventListener('beforeunload', _onBeforeUnload);
     S.zoom = 1; S.panX = 0; S.panY = 0;
     S.brightness = 0; S.contrast = 0;
     S.selectedId = null;
