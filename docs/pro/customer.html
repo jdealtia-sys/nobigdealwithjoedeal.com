@@ -3027,7 +3027,11 @@ async function loadCustomerData(id) {
     
     // Contact links
     if (lead.phone) {
-      document.getElementById('callLink').href = `tel:${lead.phone.replace(/\D/g, '')}`;
+      // Audit CC: String() coerces non-string phones (number imports
+      // are common — CSV that stored '1234567890' as numeric) so
+      // .replace doesn't throw and break the whole customer-header
+      // render for one bad data row.
+      document.getElementById('callLink').href = `tel:${String(lead.phone).replace(/\D/g, '')}`;
     }
     if (lead.email) {
       document.getElementById('emailLink').href = `mailto:${lead.email}`;
@@ -3090,12 +3094,15 @@ async function loadCustomerData(id) {
       const calUser = calSettings.username || 'nobigdeal';
       const calSlug = calSettings.eventSlug || 'roof-inspection';
       const bookingUrl = `https://cal.com/${calUser}/${calSlug}`;
-      const custName = (lead.firstName || '').trim();
+      // Audit CC: String() coerces non-string firstName before .trim().
+      const custName = String(lead.firstName || '').trim();
 
       // SMS booking link
       const smsBtn = document.getElementById('smsBookingLink');
       if (smsBtn && lead.phone) {
-        const cleanPhone = lead.phone.replace(/\D/g, '');
+        // Audit CC: same defense as the call link above — phone may
+        // arrive as a number from a CSV import.
+        const cleanPhone = String(lead.phone).replace(/\D/g, '');
         const smsBody = encodeURIComponent(`Hey${custName ? ' ' + custName : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
         smsBtn.href = `sms:${cleanPhone}?body=${smsBody}`;
         smsBtn.style.display = '';
@@ -6653,7 +6660,7 @@ function getCustomerDocData() {
     _hasAddress: !!lead.address,
     _hasScope: !!(lead.scopeOfWork || est?.description),
     _hasJobValue: !!jobVal,
-    _isJobComplete: (lead.stage||'').toLowerCase().includes('complete')
+    _isJobComplete: String(lead.stage||'').toLowerCase().includes('complete')
   };
 }
 
