@@ -5581,6 +5581,40 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
   }
 }
 /* ══ END M-MODAL-BAR ══ */
+
+/* ══ WAVE 3 — KANBAN POLISH (2026-05-14) ═════════════════════════════
+   Two small wins:
+     A. Tighter, lighter column headers — claws back vertical space
+        and stops the headers from competing with the cards visually.
+     B. Hover-reveal stage arrows on desktop — cards read cleaner at
+        rest; arrows fade in only when you mean to interact with the
+        card. Touch devices keep arrows always-on via @media (hover:none). */
+
+/* A. Column header — tighter padding, hairline border instead of 2px,
+   slightly lighter font weight. Wins ~6px of vertical per column. */
+.kcol-header{
+  padding:7px 12px !important;
+  border-bottom:1px solid currentColor !important;
+  font-weight:600 !important;
+}
+.kcol-count{ font-weight:700; }
+
+/* B. Hover-reveal arrows — desktop only.
+   On touchscreens (@media (hover:none)) the arrows stay visible since
+   there's no hover to trigger reveal. On desktop they sit at 0 opacity
+   and lift to 1 when the card is hovered, preserving the existing
+   tap-target and click handlers. */
+@media (hover: hover) and (pointer: fine){
+  .kc-arrow{
+    opacity:0;
+    transition:opacity .15s ease, color .15s, transform .15s, background .15s;
+  }
+  .k-card:hover .kc-arrow,
+  .kc-arrow:focus-visible{
+    opacity:1;
+  }
+}
+/* ══ END WAVE 3 ══ */
 .mfield{margin-bottom:12px;}
 .mfield label{display:block;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:5px;}
 .mfield input,.mfield select,.mfield textarea{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:9px 11px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;}

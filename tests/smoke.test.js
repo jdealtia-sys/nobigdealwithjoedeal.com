@@ -3635,6 +3635,25 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Column header was tightened (padding 7px 12px + 1px border).
+  assert('.kcol-header padding tightened to 7px 12px',
+    /\.kcol-header\{\s*padding:\s*7px\s+12px\s*!important/.test(dash),
+    'expected .kcol-header padding rule of 7px 12px !important');
+  assert('.kcol-header border-bottom dropped to 1px',
+    /\.kcol-header[\s\S]{0,400}border-bottom:\s*1px\s+solid\s+currentColor\s*!important/.test(dash),
+    'expected .kcol-header border-bottom: 1px solid currentColor !important');
+  // 2. Hover-reveal scoped to true-hover devices.
+  assert('hover-reveal arrows scoped via @media (hover: hover)',
+    /@media\s*\(hover:\s*hover\)\s+and\s+\(pointer:\s*fine\)[\s\S]{0,400}\.kc-arrow\{[\s\S]{0,80}opacity:\s*0/.test(dash),
+    'expected (hover:hover) AND (pointer:fine) media query that defaults .kc-arrow opacity:0');
+  assert('.k-card:hover .kc-arrow lifts to opacity:1',
+    /\.k-card:hover\s+\.kc-arrow[\s\S]{0,80}opacity:\s*1/.test(dash),
+    'expected .k-card:hover .kc-arrow rule with opacity:1');
+}
+
 section('Wave 2E — m-modal-bar standardization');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
