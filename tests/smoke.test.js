@@ -3635,6 +3635,55 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 5 — Theme-aware accent + contrast tokens');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. New theme-aware tokens at :root.
+  assert('--accent-fg defined at :root (default white)',
+    /--accent-fg\s*:\s*#fff/.test(dash),
+    'expected --accent-fg defined with default #fff at :root');
+  assert('--accent-ring defined at :root',
+    /--accent-ring\s*:\s*rgba/.test(dash),
+    'expected --accent-ring defined at :root');
+  // 2. Per-theme overrides exist for the highest-risk pairings.
+  for (const theme of ['paper','obsidian','steel','slate','neon','gold']) {
+    assert('theme "' + theme + '" overrides --accent-fg',
+      new RegExp(':root\\[data-theme="' + theme + '"\\][\\s\\S]{0,200}--accent-fg').test(dash),
+      'expected per-theme override of --accent-fg for ' + theme);
+  }
+  // 3. .btn-orange consumes the tokens.
+  assert('.btn-orange uses var(--accent-fg) for color',
+    /\.btn-orange\s*\{[\s\S]{0,400}color:\s*var\(--accent-fg\)/.test(dash),
+    'expected .btn-orange to color: var(--accent-fg)');
+  assert('.btn-orange paints an inset 1px ring via --accent-ring',
+    /\.btn-orange\s*\{[\s\S]{0,400}inset 0 0 0 1px var\(--accent-ring\)/.test(dash),
+    'expected .btn-orange inset boundary using --accent-ring');
+  // 4. Other static-accent surfaces upgraded.
+  assert('#addLeadFab uses var(--accent-fg) + var(--accent-ring)',
+    /#addLeadFab\{[\s\S]{0,400}color:\s*var\(--accent-fg\)[\s\S]{0,200}border:[^;]*var\(--accent-ring\)/.test(dash),
+    'expected #addLeadFab to consume the new tokens');
+  assert('.mn-item.mn-fab uses var(--accent-ring) border',
+    /\.mn-item\.mn-fab\s*\{[\s\S]{0,400}border:[^;]*var\(--accent-ring\)/.test(dash),
+    'expected .mn-item.mn-fab to use --accent-ring');
+  {
+    const shutter = dash.indexOf('.m-shutter-fab{');
+    const shutterBlock = dash.slice(shutter, shutter + 800);
+    assert('.m-shutter-fab uses var(--accent-fg)',
+      /color:\s*var\(--accent-fg\)/.test(shutterBlock),
+      'expected .m-shutter-fab to color: var(--accent-fg)');
+    assert('.m-shutter-fab uses var(--accent-ring) border',
+      /border:[^;]*var\(--accent-ring\)/.test(shutterBlock),
+      'expected .m-shutter-fab to border via --accent-ring');
+  }
+  // 5. Hardcoded `rgba(232,114,12,...)` glow strings retired in favor
+  //    of --og (the per-theme tinted glow). Spot-check on #addLeadFab.
+  const fab = dash.indexOf('#addLeadFab{');
+  const fabBlock = dash.slice(fab, fab + 500);
+  assert('#addLeadFab no longer uses rgba(232,114,12) glow',
+    !/rgba\(232,114,12/.test(fabBlock),
+    '#addLeadFab still has a hardcoded NBD-orange glow — should use var(--og)');
+}
+
 section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

@@ -3613,7 +3613,45 @@
   --t-mid:.18s;
   --t-slow:.32s;
   --ease-out:cubic-bezier(.18,.89,.32,1.28);
+
+  /* ── Wave 5 — theme-aware accent + contrast tokens ────────────────
+     The original theme system overrides --orange per-theme (so on the
+     forest theme --orange == #16A34A, etc.). That's great for accent
+     consistency, but the button system was painting .btn-orange with
+     a gradient from --orange → --ob — on green/blue/light themes
+     that's accent-on-accent, no visible boundary, low legibility.
+
+     New tokens:
+       --accent-fg   The text/icon color guaranteed to read on top of
+                     the accent fill. Defaults to white; light themes
+                     and pastel themes override this per-theme.
+       --accent-ring An outer ring color (semi-transparent) that paints
+                     a 1px outline around accent buttons so they read
+                     as a button on any surface — critical when the
+                     theme's accent is similar in luminance to its
+                     surface (forest, neon, gold themes).
+
+     Themes can override either token. The default values below cover
+     ~80% of the 66 themes; the remaining ones get overrides in
+     theme-system.css (separate sweep — see Wave 5b). */
+  --accent-fg:#fff;
+  --accent-ring:rgba(0,0,0,.35);
 }
+/* Light themes flip the accent-fg/ring defaults — black text on
+   pastel/white accents wouldn't contrast. */
+:root[data-mode="light"]{
+  --accent-fg:#fff;
+  --accent-ring:rgba(0,0,0,.25);
+}
+/* Per-theme overrides for the highest-risk pairings (accent ≈ surface
+   luminance). These ride here rather than in theme-system.css because
+   they're tied to the .btn-orange contract introduced in Wave 5. */
+:root[data-theme="paper"]{ --accent-fg:#fff; --accent-ring:rgba(0,0,0,.15); }
+:root[data-theme="obsidian"]{ --accent-fg:#0a0a0e; --accent-ring:rgba(255,255,255,.45); }
+:root[data-theme="steel"]{ --accent-fg:#11151c; --accent-ring:rgba(255,255,255,.35); }
+:root[data-theme="slate"]{ --accent-fg:#0f1117; --accent-ring:rgba(255,255,255,.30); }
+:root[data-theme="neon"]{ --accent-fg:#03110a; --accent-ring:rgba(0,0,0,.55); }
+:root[data-theme="gold"]{ --accent-fg:#0F0C04; --accent-ring:rgba(0,0,0,.45); }
 *{margin:0;padding:0;box-sizing:border-box;}
 /* Global iOS auto-zoom kill: any focused input under 16px triggers Mobile
    Safari to zoom the viewport in, dismiss the keyboard, then zoom back —
@@ -4024,18 +4062,21 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
   right:18px;
   z-index:1950;
   width:62px; height:62px;
-  border:none; border-radius:50%;
+  border:1px solid var(--accent-ring);   /* Wave 5: was border:none — visible boundary on light/pastel themes */
+  border-radius:50%;
   background:var(--orange);
-  color:var(--t);
+  color:var(--accent-fg);                /* Wave 5: was var(--t) — guaranteed-contrast fg */
   display:none; align-items:center; justify-content:center;
-  box-shadow:0 6px 18px rgba(232,114,12,.5), 0 0 0 4px rgba(255,255,255,.05);
+  /* Wave 5: drop hardcoded orange shadow + white-ring; use --og glow
+     (per-theme tinted) and --accent-ring for the outline. */
+  box-shadow:0 6px 18px var(--og), 0 0 0 4px color-mix(in srgb, var(--accent-fg) 8%, transparent);
   cursor:pointer;
   -webkit-tap-highlight-color:transparent;
   transition:transform .15s ease, box-shadow .15s ease;
 }
 .m-shutter-fab:active{
   transform:scale(.92);
-  box-shadow:0 3px 10px rgba(232,114,12,.5);
+  box-shadow:0 3px 10px var(--og);
 }
 .m-shutter-fab .nbd-icon{ width:26px; height:26px; }
 /* Only show on phones AND only when view-photos is active (otherwise
@@ -5966,13 +6007,31 @@ input:focus, select:focus, textarea:focus {
 /* ── ENHANCED BUTTON STATES ── */
 .btn { transition: all .2s cubic-bezier(.4,0,.2,1); }
 .btn:active { transform: scale(.97); transition-duration: .08s; }
+/* Wave 5: theme-aware primary button. The 135deg gradient stays for
+   the original NBD vibe, but text + boundary now read on every theme.
+     - color: var(--accent-fg) guarantees fg/bg contrast (light themes
+       and pastel-accent themes override --accent-fg above)
+     - box-shadow: inset 0 0 0 1px var(--accent-ring) paints a 1px
+       inner ring so the button reads as a button even when --orange
+       has the same luminance as the surrounding surface (forest,
+       neon, gold themes were unreadable without this)
+     - the soft 14px glow stays for emphasis on dark themes; light
+       themes inherit a tighter ring via --accent-ring override */
 .btn-orange {
   background: linear-gradient(135deg, var(--orange), var(--ob));
-  box-shadow: 0 4px 14px var(--og), 0 1px 3px rgba(0,0,0,.15);
+  color: var(--accent-fg);
+  box-shadow:
+    inset 0 0 0 1px var(--accent-ring),
+    0 4px 14px var(--og),
+    0 1px 3px rgba(0,0,0,.15);
 }
 .btn-orange:hover {
   background: linear-gradient(135deg, var(--ob), var(--orange));
-  box-shadow: 0 6px 22px var(--og), 0 2px 6px rgba(0,0,0,.2);
+  color: var(--accent-fg);
+  box-shadow:
+    inset 0 0 0 1px var(--accent-ring),
+    0 6px 22px var(--og),
+    0 2px 6px rgba(0,0,0,.2);
   transform: translateY(-1px);
 }
 .btn-orange:active { transform: translateY(0) scale(.98); }
@@ -7116,12 +7175,15 @@ body {
   .mn-item.active .nbd-icon{ color:var(--orange); transform:scale(1.12); filter:drop-shadow(0 0 6px rgba(232,114,12,.5)); }
   /* Center "+" gets the brand-accent FAB treatment within the nav strip —
      mirrors JobNimbus's centered "+" but stays orange-keyed. */
-  .mn-item.mn-fab .nbd-icon{ color:var(--t); }
+  /* Wave 5: --accent-fg ensures icon contrast on every theme; --og
+     glow is per-theme-tinted. */
+  .mn-item.mn-fab .nbd-icon{ color:var(--accent-fg); }
   .mn-item.mn-fab{
     background:var(--orange); border-radius:50%;
     width:48px; height:48px; flex:0 0 48px;
     padding:0; margin-top:-14px;
-    box-shadow:0 4px 12px rgba(232,114,12,.45);
+    border:1px solid var(--accent-ring);
+    box-shadow:0 4px 12px var(--og);
   }
   .mn-item.mn-fab .mn-lbl{ display:none; }
   .mn-item.mn-fab.active{ background:var(--orange); }
@@ -8711,18 +8773,22 @@ body {
      dashboard. Now 48×48, lighter shadow (12px, 30% opacity), and a
      thin outline so it reads as 'available action' rather than
      'PRIMARY CTA'. Hover restores the prominent treatment. */
+  /* Wave 5: theme-aware. --accent-fg replaces hard-coded #fff, and
+     --accent-ring replaces the white inner border that disappeared
+     on light themes. Glow uses --og (which IS per-theme tinted), so
+     the FAB reads on any theme without per-theme overrides. */
   #addLeadFab{
     position:fixed; bottom:24px; right:24px; z-index:900;
     width:48px; height:48px; border-radius:50%;
-    background:var(--orange); color:#fff;
-    border:1px solid rgba(255,255,255,0.12); cursor:pointer;
+    background:var(--orange); color:var(--accent-fg);
+    border:1px solid var(--accent-ring); cursor:pointer;
     font-size:24px; font-weight:300; line-height:1;
-    box-shadow:0 3px 12px rgba(232,114,12,.30);
+    box-shadow:0 3px 12px var(--og);
     opacity:0.88;
     display:none; align-items:center; justify-content:center;
     transition:transform .15s, box-shadow .15s, opacity .15s;
   }
-  #addLeadFab:hover{ opacity:1; transform:scale(1.06); box-shadow:0 6px 20px rgba(232,114,12,.55); }
+  #addLeadFab:hover{ opacity:1; transform:scale(1.06); box-shadow:0 6px 20px var(--og); }
   #addLeadFab:active{ transform:scale(.96); }
   /* FAB is shown only on the CRM page (Prospects has its own + button) */
   body.show-add-lead-fab #addLeadFab{ display:flex; }
