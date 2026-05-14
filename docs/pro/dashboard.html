@@ -8605,21 +8605,48 @@ body {
   .crm-hdr-actions{
     display:flex; align-items:center; gap:2px;     /* Pro Chrome: was 4px — tighter clusters */
     margin-left:auto;
-    /* Hotfix 2026-05-14: flex-wrap was fighting overflow-x:auto. With
-       the parent .crm-header set to flex-wrap:nowrap (Wave 1) the row
-       can't actually wrap, so the items would overflow and get clipped
-       at the viewport edge. Force single-row + horizontal scroll +
-       small right padding so the last button has breathing room. */
+    /* Wave 5c 2026-05-14: dedicated side-scroller treatment.
+       The action row carries 12-15 buttons by the time you count
+       Filters + Bulk + CSV — at any viewport narrower than ~1440px it
+       overflows the .crm-header right edge. Users couldn't tell the
+       row was scrollable, so we add three discoverability cues:
+         1. mask-image fade — the rightmost ~24px of the row fades to
+            transparent, communicating "more content this way →" even
+            when stationary.
+         2. Beefier scrollbar (6px high, accent-tinted thumb) so the
+            scroll affordance is visible on hover/scroll.
+         3. scroll-padding-inline-end so a momentum-scroll glides past
+            the last button into the fade-out gracefully.
+       The fade is purely visual — events still hit the underlying
+       buttons because mask-image doesn't intercept pointer-events. */
     flex-wrap:nowrap;
-    min-width:0;            /* allow shrink inside the flex parent */
+    min-width:0;
     max-width:100%;
     padding-right:8px;
     overflow-x:auto;
+    overflow-y:hidden;
     scrollbar-width:thin;
-    scrollbar-color:var(--br) transparent;
+    scrollbar-color:color-mix(in srgb, var(--orange) 60%, var(--br)) transparent;
+    -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 24px), transparent);
+            mask-image:linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    scroll-padding-inline-end:24px;
+    scroll-snap-type:x proximity;
   }
-  .crm-hdr-actions::-webkit-scrollbar{ height:3px; }
-  .crm-hdr-actions::-webkit-scrollbar-thumb{ background:var(--br); border-radius:2px; }
+  /* Buttons themselves become snap targets so momentum-scroll lands
+     mid-button instead of slicing one in half. */
+  .crm-hdr-actions > .crm-icon-btn,
+  .crm-hdr-actions > .crm-hdr-btn,
+  .crm-hdr-actions > .crm-tools-wrap{ scroll-snap-align:start; }
+  /* Beefier scrollbar on WebKit for affordance visibility. */
+  .crm-hdr-actions::-webkit-scrollbar{ height:6px; }
+  .crm-hdr-actions::-webkit-scrollbar-track{ background:transparent; }
+  .crm-hdr-actions::-webkit-scrollbar-thumb{
+    background:color-mix(in srgb, var(--orange) 55%, var(--br));
+    border-radius:3px;
+  }
+  .crm-hdr-actions::-webkit-scrollbar-thumb:hover{
+    background:var(--orange);
+  }
   /* Prevent label truncation inside individual buttons — long
      labels like 'Stale Shares' / 'Hot first' wrap-as-no-wrap so the
      button grows or scrolls instead of '...' on the label text. */

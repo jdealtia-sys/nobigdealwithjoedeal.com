@@ -3635,6 +3635,35 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 5c — .crm-hdr-actions side-scroller affordance');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Fade gradient + snap-type — search whole file since there are
+  //    multiple .crm-hdr-actions rule blocks (one outer, one inside an
+  //    @media), and the new behavior lives in the wider block.
+  assert('.crm-hdr-actions has a mask-image fade on the right edge',
+    /mask-image:\s*linear-gradient\(to right,\s*#000\s+calc\(100% - 24px\),\s*transparent\)/.test(dash),
+    'expected mask-image right-edge fade so scrollability is visually communicated');
+  assert('.crm-hdr-actions uses scroll-snap-type x proximity',
+    /scroll-snap-type:\s*x\s+proximity/.test(dash),
+    'expected scroll-snap-type:x proximity for cleaner momentum stops');
+  // 2. Children become snap targets.
+  assert('.crm-hdr-btn / .crm-icon-btn become scroll-snap targets',
+    /\.crm-hdr-actions > \.crm-icon-btn,\s*\.crm-hdr-actions > \.crm-hdr-btn[\s\S]{0,80}scroll-snap-align:\s*start/.test(dash),
+    'expected scroll-snap-align:start on the action-row children');
+  // 3. Scrollbar is visible (6px) and tinted with the accent.
+  assert('.crm-hdr-actions scrollbar is 6px tall',
+    /\.crm-hdr-actions::-webkit-scrollbar\{\s*height:\s*6px/.test(dash),
+    'expected the webkit scrollbar height of 6px for affordance visibility');
+  assert('.crm-hdr-actions scrollbar thumb uses --orange-tinted color',
+    /\.crm-hdr-actions::-webkit-scrollbar-thumb\{[\s\S]{0,200}var\(--orange\)/.test(dash),
+    'expected scrollbar thumb tinted with --orange');
+  // 4. Old 3px height rule retired.
+  assert('old 3px scrollbar override retired',
+    !/\.crm-hdr-actions::-webkit-scrollbar\{\s*height:\s*3px/.test(dash),
+    'found leftover .crm-hdr-actions::-webkit-scrollbar height:3px — should be replaced by the Wave 5c 6px treatment');
+}
+
 section('Wave 5b — Gradient flatten + bulk accent-fg migration');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
