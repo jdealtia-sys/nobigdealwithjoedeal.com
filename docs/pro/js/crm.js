@@ -1347,7 +1347,7 @@ function buildCard(l){
     if(/[<>"'&=\/]/.test(sq)) return html;
     const escaped = sq.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp('(' + escaped + ')', 'gi');
-    return html.replace(regex, '<mark style="background:var(--orange);color:#000;padding:0 2px;border-radius:2px;font-weight:600;">$1</mark>');
+    return html.replace(regex, '<mark style="background:var(--orange);color:var(--accent-fg);padding:0 2px;border-radius:2px;font-weight:600;">$1</mark>');
   }
   return html;
 }
@@ -1463,7 +1463,7 @@ function promptLostReason(lead) {
     const saveBtn = document.createElement('button');
     saveBtn.type = 'button';
     saveBtn.textContent = 'Mark Lost';
-    saveBtn.style.cssText = 'background:var(--orange);border:1px solid var(--orange);color:#fff;padding:10px 18px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;';
+    saveBtn.style.cssText = 'background:var(--orange);border:1px solid var(--orange);color:var(--accent-fg);box-shadow:inset 0 0 0 1px var(--accent-ring);padding:10px 18px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;';
     saveBtn.addEventListener('click', () => {
       const custom = customInput.value.trim();
       let reason = null;

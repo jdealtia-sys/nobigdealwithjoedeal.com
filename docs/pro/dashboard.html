@@ -8636,7 +8636,17 @@ body {
     padding:0; font-family:inherit;
   }
   .crm-icon-btn:hover{ color:var(--t); border-color:var(--t); }
-  .crm-icon-btn.active{ color:var(--orange); border-color:var(--orange); background:var(--og); }
+  /* Wave 5d (A.4): icon-toggle active state. The fill is intentionally
+     subtle (--og is a semi-transparent --orange wash) so this reads as
+     "indicator" not "primary CTA" — but on themes where --orange has
+     near-surface luminance, the bg + border alone didn't pop. The
+     inset ring borrowed from .btn-orange's contract gives a visible
+     boundary regardless of theme. */
+  .crm-icon-btn.active{
+    color:var(--orange); border-color:var(--orange);
+    background:var(--og);
+    box-shadow:inset 0 0 0 1px var(--accent-ring);
+  }
 
   /* Compact action buttons in the header — half the size of regular .btn */
   .crm-hdr-btn{
