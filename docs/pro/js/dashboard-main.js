@@ -99,6 +99,24 @@ function updateBreadcrumb(routeName, params = {}) {
 // Pro-only views — Lite users see upgrade prompt instead
 const PRO_ONLY_VIEWS = ['photos','docs','map','draw','storm','joe','schedule','board','closeboard','repos','training','academy'];
 
+// Rock 4 Phase 3 — lazy hydration for templated views.
+// A view DIV carrying data-view-template="tpl-<id>" starts empty; on first
+// goTo() we clone the matching <template> into it. Idempotent: re-hydration
+// is a no-op once the view has children. This is the foundation for the
+// stub-view batch (aitree, understand, projectcodex, aiusage, board, ...)
+// per docs/dev/dashboard-decomposition-plan.md Phase 3.
+function _hydrateViewTemplate(name) {
+  const view = document.getElementById('view-' + name);
+  if (!view) return false;
+  if (view.children.length > 0) return true; // already hydrated
+  const tplId = view.dataset.viewTemplate;
+  if (!tplId) return false;
+  const tpl = document.getElementById(tplId);
+  if (!tpl || !('content' in tpl)) return false;
+  view.appendChild(tpl.content.cloneNode(true));
+  return true;
+}
+
 function goTo(name, params = {}) {
   // ── Lite tier gate: block Pro-only views ──
   if (window._userPlan === 'lite' && PRO_ONLY_VIEWS.includes(name)) {
@@ -121,7 +139,10 @@ function goTo(name, params = {}) {
       window.location.hash = hash;
     }
   }
-  
+
+  // Hydrate templated views the first time they're shown.
+  _hydrateViewTemplate(name);
+
   // Update UI
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));

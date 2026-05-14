@@ -3635,6 +3635,28 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Rock 4 Phase 3 — view-storm lazy hydration');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  // 1. The active view DIV is now an empty mount carrying the template ref.
+  assert('view-storm is an empty mount div with data-view-template',
+    /<div class="view" id="view-storm" data-view-template="tpl-view-storm"><\/div>/.test(dash),
+    'expected: <div class="view" id="view-storm" data-view-template="tpl-view-storm"></div>');
+  // 2. The original markup lives inside a <template> sibling.
+  assert('tpl-view-storm template exists with stormCenterContainer inside',
+    /<template id="tpl-view-storm">[\s\S]*?id="stormCenterContainer"[\s\S]*?<\/template>/.test(dash),
+    'expected <template id="tpl-view-storm"> wrapping the original view markup');
+  // 3. The hydration helper is defined.
+  assert('_hydrateViewTemplate helper defined in dashboard-main.js',
+    /function _hydrateViewTemplate\(name\)/.test(mainJs),
+    'expected function _hydrateViewTemplate(name) in dashboard-main.js');
+  // 4. goTo() calls the helper before the view-active update.
+  assert('goTo() calls _hydrateViewTemplate(name) before reading view-' + 'name',
+    /_hydrateViewTemplate\(name\)[\s\S]{0,400}document\.getElementById\(['"]view-['"]\+name\)/.test(mainJs),
+    'expected _hydrateViewTemplate(name) to run before the view-active update');
+}
+
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);

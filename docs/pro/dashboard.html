@@ -11348,8 +11348,15 @@ function switchScTab(tab, btn) {
     </div>
   </div>
 
-  <!-- ══ STORM MAP ══ -->
-  <div class="view" id="view-storm">
+  <!-- ══ STORM MAP ══
+       Rock 4 Phase 3: lazy-hydration pilot. The empty <div id="view-storm">
+       below is the mount target; goTo('storm') in dashboard-main.js calls
+       _hydrateViewTemplate('storm') on first nav, which clones the markup
+       from <template id="tpl-view-storm"> into the mount. This proves the
+       pattern for the rest of the stub views (aitree, understand, etc.)
+       enumerated in docs/dev/dashboard-decomposition-plan.md. -->
+  <div class="view" id="view-storm" data-view-template="tpl-view-storm"></div>
+  <template id="tpl-view-storm">
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
@@ -11364,7 +11371,7 @@ function switchScTab(tab, btn) {
         <div class="empty"><div class="empty-icon">🌩️</div>Loading Storm Center...</div>
       </div>
     </div>
-  </div>
+  </template>
 
   <!-- ══ CLOSE BOARD ══ -->
   <div class="view" id="view-closeboard">
@@ -14224,7 +14231,7 @@ function switchScTab(tab, btn) {
      dashboard-main.js globals from inside event-listener callbacks
      and timer-scheduled work, never at parse time — so defer is safe
      and gives us the first-paint win (no parser block on a 183KB file). -->
-<script defer src="js/dashboard-main.js?v=2"></script>
+<script defer src="js/dashboard-main.js?v=3"></script>
 
 <!-- DOC VIEWER MODAL -->
 <div class="modal-bg" id="docViewerModal">
