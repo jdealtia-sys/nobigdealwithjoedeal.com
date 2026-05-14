@@ -3632,6 +3632,217 @@ function openCardDetailModal(leadId) {
 }
 window.openCardDetailModal = openCardDetailModal;
 
+// ══════════════════════════════════════════════════════════════════════
+// Wave 2B — Mobile job-detail screen
+//
+// Phones get a full-screen overlay instead of the shrunken
+// cardDetailModal. Same data flow (window._leads + window._photoCache),
+// fundamentally different layout: hero photo banner, big action ring,
+// 3 tabs (Activity / Photos / Details). Routing decision lives in
+// openLeadDetail() below — that's what card clicks now call.
+//
+// On a tablet/desktop session the .m-jobdetail selector is force-hidden
+// via the @media (min-width:769px) rule in dashboard.html, so this code
+// is mobile-only by construction even if a wrong path opens it.
+// ══════════════════════════════════════════════════════════════════════
+function openMobileJobDetail(leadId) {
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead) return;
+  window._cardDetailLeadId = leadId;
+
+  const $ = (id) => document.getElementById(id);
+
+  // ── Status pill (uses the same stageLabel/stageColor as the desktop modal) ──
+  const rawStage = lead._stageKey || lead.stage || 'new';
+  const stageEl = $('mJdStatus');
+  if (stageEl) {
+    const label = (typeof window.stageLabel === 'function')
+      ? window.stageLabel(rawStage)
+      : String(rawStage).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const color = (typeof window.stageColor === 'function')
+      ? window.stageColor(rawStage) : 'var(--orange)';
+    stageEl.textContent = label;
+    stageEl.style.color = color;
+    stageEl.style.background = 'color-mix(in srgb, ' + color + ' 14%, transparent)';
+  }
+
+  // ── Title block ──
+  const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim()
+    || lead.name || 'Lead';
+  $('mJdName').textContent = name;
+  $('mJdAddr').textContent = lead.address || '—';
+  const valEl = $('mJdValue');
+  if (lead.jobValue) {
+    valEl.textContent = '$' + parseFloat(lead.jobValue).toLocaleString();
+    valEl.hidden = false;
+  } else {
+    valEl.hidden = true;
+  }
+
+  // ── Hero photo ──
+  const photos = (window._photoCache && window._photoCache[lead.id]) || [];
+  const heroEl = $('mJdHero');
+  const firstPhotoUrl = photos[0] && (photos[0].url || photos[0].downloadUrl || photos[0].src);
+  if (firstPhotoUrl) {
+    heroEl.style.backgroundImage = 'url("' + String(firstPhotoUrl).replace(/"/g, '%22') + '")';
+    heroEl.classList.add('has-photo');
+  } else {
+    heroEl.style.backgroundImage = '';
+    heroEl.classList.remove('has-photo');
+  }
+
+  // ── Storm chip — NBD differentiator ──
+  const stormEl = $('mJdStorm');
+  if (lead.hailHit && lead.hailHit.sizeInches) {
+    const inches = Number(lead.hailHit.sizeInches).toFixed(1);
+    let when = '';
+    const hitAt = lead.hailHit.date || lead.hailHit.observedAt;
+    if (hitAt) {
+      const d = (hitAt && hitAt.toDate) ? hitAt.toDate()
+              : (hitAt instanceof Date) ? hitAt
+              : new Date(hitAt);
+      if (d && !isNaN(d)) {
+        const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+        when = days <= 0 ? ' · today'
+             : days === 1 ? ' · yesterday'
+             : days < 30 ? ' · ' + days + 'd ago'
+             : '';
+      }
+    }
+    stormEl.textContent = inches + '" hail' + when;
+    stormEl.hidden = false;
+  } else {
+    stormEl.hidden = true;
+  }
+
+  // ── Action button enablement ──
+  const setEnabled = (id, on) => {
+    const b = $(id);
+    if (b) b.disabled = !on;
+  };
+  setEnabled('mJdCall',  !!lead.phone);
+  setEnabled('mJdText',  !!lead.phone);
+  setEnabled('mJdEmail', !!lead.email);
+  setEnabled('mJdPhotos', true);
+  setEnabled('mJdEstimate', true);
+
+  // ── Details tab ──
+  $('mJdDmg').textContent     = lead.damageType || '—';
+  $('mJdPhone').textContent   = lead.phone || '—';
+  $('mJdEmailV').textContent  = lead.email || '—';
+  $('mJdSource').textContent  = lead.source || lead.leadSource || '—';
+  $('mJdCarrier').textContent = lead.carrier || lead.insuranceCarrier || '—';
+  $('mJdClaim').textContent   = lead.claimNumber || lead.claim || '—';
+
+  // ── Photos tab — CompanyCam-style date groups ──
+  const photoBody = $('mJdTabPhotos');
+  if (photoBody) {
+    if (!photos.length) {
+      photoBody.innerHTML = '<div class="m-jd-empty">No photos yet.</div>';
+    } else {
+      const groups = {};
+      photos.forEach(p => {
+        const ts = (p.takenAt && p.takenAt.toDate) ? p.takenAt.toDate()
+                 : (p.takenAt instanceof Date) ? p.takenAt
+                 : (p.takenAt) ? new Date(p.takenAt)
+                 : (p.uploadedAt && p.uploadedAt.toDate) ? p.uploadedAt.toDate()
+                 : null;
+        const key = ts && !isNaN(ts)
+          ? ts.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' })
+          : 'Older';
+        (groups[key] = groups[key] || []).push(p);
+      });
+      const escAttr = (s) => String(s).replace(/"/g, '%22');
+      photoBody.innerHTML = Object.keys(groups).map(date => {
+        const tiles = groups[date].map(p => {
+          const url = p.url || p.downloadUrl || p.src || '';
+          return url ? '<img loading="lazy" src="' + escAttr(url) + '" alt="">' : '';
+        }).join('');
+        return '<div class="m-jd-photo-group">'
+             +   '<div class="m-jd-photo-date">' + date + '</div>'
+             +   '<div class="m-jd-photo-grid">' + tiles + '</div>'
+             + '</div>';
+      }).join('');
+    }
+  }
+
+  // ── Reset to Activity tab on every open ──
+  _mJdSwitchTab('activity');
+
+  // Show
+  const root = $('mJobDetail');
+  root.hidden = false;
+  root.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+window.openMobileJobDetail = openMobileJobDetail;
+
+function closeMobileJobDetail() {
+  const root = document.getElementById('mJobDetail');
+  if (!root) return;
+  root.classList.remove('open');
+  root.hidden = true;
+  document.body.style.overflow = '';
+}
+window.closeMobileJobDetail = closeMobileJobDetail;
+
+function _mJdSwitchTab(tab) {
+  document.querySelectorAll('.m-jd-tab').forEach(t => {
+    const on = t.dataset.tab === tab;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const map = { activity:'mJdTabActivity', photos:'mJdTabPhotos', details:'mJdTabDetails' };
+  for (const [k, id] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = (k !== tab);
+  }
+}
+window._mJdSwitchTab = _mJdSwitchTab;
+
+function _mJdAct(kind) {
+  const id = window._cardDetailLeadId;
+  if (!id) return;
+  const lead = (window._leads || []).find(l => l.id === id);
+  if (!lead) return;
+  switch (kind) {
+    case 'call':
+      if (lead.phone) location.href = 'tel:' + String(lead.phone).replace(/[^0-9+]/g, '');
+      break;
+    case 'text':
+      if (lead.phone) location.href = 'sms:' + String(lead.phone).replace(/[^0-9+]/g, '');
+      break;
+    case 'email':
+      if (lead.email) location.href = 'mailto:' + lead.email;
+      break;
+    case 'photos':
+      closeMobileJobDetail();
+      window._currentPhotoLeadId = id;
+      goTo('photos');
+      break;
+    case 'estimate':
+      closeMobileJobDetail();
+      window._currentEstimateLeadId = id;
+      goTo('est');
+      break;
+  }
+}
+window._mJdAct = _mJdAct;
+
+// Mobile-aware router. Card clicks (handleCardClick / openLeadDetail
+// callers) go here; we pick mobile overlay vs desktop modal at click
+// time so changing viewport (tablet rotation) just works.
+function openLeadDetail(leadId) {
+  const mobile = (typeof matchMedia === 'function')
+    && matchMedia('(max-width: 768px)').matches;
+  if (mobile && typeof openMobileJobDetail === 'function') {
+    openMobileJobDetail(leadId);
+  } else {
+    openCardDetailModal(leadId);
+  }
+}
+window.openLeadDetail = openLeadDetail;
+
 // Populate the row of quick actions inside the prospect banner. Disabled
 // states render for actions whose underlying data isn't on the lead
 // (e.g. no phone → Call/Text disabled). Uses programmatic event listeners

@@ -3633,6 +3633,229 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
   background:var(--br); margin:0 4px;
   opacity:.5;
 }
+/* ══ MOBILE JOB-DETAIL (Wave 2B) ════════════════════════════════════
+   Full-screen on mobile (≤768px). z-index above #mobile-nav (1900)
+   but below toast (3000+). Hidden by default via [hidden]; .open
+   flips it on. NBD-orange brand kept — JobNimbus is monochrome blue,
+   we stay orange-accented so the brand identity holds. */
+.m-jobdetail{
+  position:fixed; inset:0;
+  background:var(--bg);
+  z-index:2100;
+  display:none; flex-direction:column;
+  -webkit-overflow-scrolling:touch;
+  font-family:'Barlow',sans-serif;
+}
+.m-jobdetail.open{ display:flex; }
+.m-jobdetail[hidden]{ display:none; }
+.m-jobdetail.open[hidden]{ display:none; }
+
+/* Top bar — sticky, frosted */
+.m-jd-topbar{
+  position:sticky; top:0; z-index:2;
+  display:flex; align-items:center; gap:8px;
+  padding:env(safe-area-inset-top, 8px) 12px 8px;
+  background:color-mix(in srgb, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--br);
+  min-height:calc(44px + env(safe-area-inset-top, 0px));
+}
+.m-jd-icon-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; padding:0;
+  background:transparent; border:none; border-radius:8px;
+  color:var(--t); cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.m-jd-icon-btn:active{ background:color-mix(in srgb, var(--t) 8%, transparent); }
+.m-jd-status{
+  flex:1; text-align:center;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px; font-weight:800;
+  letter-spacing:.12em; text-transform:uppercase;
+  color:var(--orange);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  padding:6px 10px; border-radius:14px;
+  background:color-mix(in srgb, var(--orange) 14%, transparent);
+}
+.m-jd-edit{
+  background:transparent; border:none;
+  color:var(--orange); font-weight:700; font-size:13px;
+  padding:8px 10px; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* Scroll body — everything below the top bar */
+.m-jd-scroll{
+  flex:1; overflow-y:auto;
+  padding-bottom:calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Hero — property photo or empty placeholder */
+.m-jd-hero{
+  position:relative;
+  height:200px;
+  background:var(--s2) center/cover no-repeat;
+  border-bottom:1px solid var(--br);
+}
+.m-jd-hero-empty{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  color:var(--m); font-size:12px; padding:0 24px; text-align:center;
+}
+.m-jd-hero.has-photo .m-jd-hero-empty{ display:none; }
+.m-jd-storm{
+  position:absolute; top:12px; left:12px;
+  display:inline-flex; align-items:center; gap:6px;
+  background:rgba(220, 38, 38, .92); color:#fff;
+  font-size:11px; font-weight:700;
+  padding:5px 10px; border-radius:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,.4);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+}
+.m-jd-storm::before{ content:'⛈'; font-size:13px; }
+
+/* Title block */
+.m-jd-title-block{
+  padding:18px 18px 12px;
+  display:flex; flex-direction:column; gap:6px;
+}
+.m-jd-name{
+  margin:0;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:24px; font-weight:800; letter-spacing:.01em;
+  color:var(--t); line-height:1.15;
+}
+.m-jd-addr{
+  display:flex; align-items:center; gap:6px;
+  font-size:13px; color:var(--m); line-height:1.3;
+}
+.m-jd-addr .nbd-icon{ flex-shrink:0; color:var(--m); }
+.m-jd-value{
+  align-self:flex-start;
+  font-family:'Barlow Condensed', ui-monospace, sans-serif;
+  font-size:14px; font-weight:800;
+  color:var(--orange);
+  padding:4px 10px;
+  background:color-mix(in srgb, var(--orange) 14%, transparent);
+  border-radius:14px;
+  margin-top:4px;
+  font-variant-numeric:tabular-nums;
+}
+
+/* Action ring — 5 circular buttons in a row */
+.m-jd-actions{
+  display:flex; justify-content:space-around; align-items:flex-start;
+  padding:8px 12px 18px;
+  border-bottom:1px solid var(--br);
+}
+.m-jd-act{
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  background:transparent; border:none;
+  padding:6px 4px; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  flex:1; min-width:0;
+}
+.m-jd-act-ring{
+  display:flex; align-items:center; justify-content:center;
+  width:50px; height:50px;
+  border-radius:50%;
+  background:color-mix(in srgb, var(--orange) 14%, transparent);
+  color:var(--orange);
+  transition:transform .15s ease, background .15s;
+}
+.m-jd-act-ring .nbd-icon{ width:22px; height:22px; }
+.m-jd-act:active .m-jd-act-ring{
+  transform:scale(.94);
+  background:color-mix(in srgb, var(--orange) 22%, transparent);
+}
+.m-jd-act:disabled{ opacity:.45; cursor:not-allowed; }
+.m-jd-act-lbl{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:10px; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--m);
+  white-space:nowrap;
+}
+
+/* Tabs — JobNimbus 3-tab pattern */
+.m-jd-tabs{
+  display:flex;
+  border-bottom:1px solid var(--br);
+  background:var(--bg);
+  position:sticky; top:calc(44px + env(safe-area-inset-top, 0px));
+  z-index:1;
+}
+.m-jd-tab{
+  flex:1; background:transparent; border:none;
+  padding:14px 8px; cursor:pointer;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:12px; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--m);
+  border-bottom:2px solid transparent;
+  -webkit-tap-highlight-color:transparent;
+  transition:color .15s, border-color .15s;
+}
+.m-jd-tab.active{ color:var(--orange); border-bottom-color:var(--orange); }
+
+/* Tab bodies */
+.m-jd-tab-body{ padding:16px 18px; }
+.m-jd-tab-body[hidden]{ display:none; }
+.m-jd-empty{
+  padding:32px 16px; text-align:center;
+  color:var(--m); font-size:13px;
+}
+.m-jd-detail-row{
+  display:flex; justify-content:space-between; align-items:flex-start;
+  gap:14px; padding:10px 0;
+  border-bottom:1px solid var(--br);
+  font-size:13px;
+}
+.m-jd-detail-row:last-child{ border-bottom:none; }
+.m-jd-detail-k{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--m);
+  flex-shrink:0;
+}
+.m-jd-detail-v{
+  color:var(--t); text-align:right; word-break:break-word;
+}
+
+/* Photos tab — date-grouped grid (CompanyCam-inspired) */
+.m-jd-photo-group{ margin-bottom:14px; }
+.m-jd-photo-date{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px; font-weight:700; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--m);
+  margin-bottom:6px;
+}
+.m-jd-photo-grid{
+  display:grid; grid-template-columns:repeat(3, 1fr); gap:4px;
+}
+.m-jd-photo-grid img{
+  width:100%; aspect-ratio:1; object-fit:cover;
+  border-radius:6px; background:var(--s2);
+}
+
+/* Activity feed */
+.m-jd-act-row{
+  display:flex; gap:10px; padding:12px 0;
+  border-bottom:1px solid var(--br);
+  font-size:13px;
+}
+.m-jd-act-row:last-child{ border-bottom:none; }
+.m-jd-act-icon{ flex-shrink:0; color:var(--m); margin-top:1px; }
+.m-jd-act-text{ flex:1; min-width:0; color:var(--t); }
+.m-jd-act-time{
+  font-size:11px; color:var(--m); margin-top:2px;
+}
+
+/* Desktop / tablet — hide entirely (≥769px uses cardDetailModal) */
+@media (min-width:769px){
+  .m-jobdetail{ display:none !important; }
+}
+/* ══ END MOBILE JOB-DETAIL ══ */
+
 /* ══ END PRO CHROME ══ */
 
 /* BREADCRUMB NAVIGATION */
@@ -14758,6 +14981,87 @@ function switchScTab(tab, btn) {
 <!-- Overlay click-to-close: clicking the dim backdrop (the .modal-bg
      element itself, NOT a child) dismisses the modal. Audit fix for
      missing close-on-backdrop behavior. -->
+<!-- ══ MOBILE JOB-DETAIL (Wave 2B 2026-05-14) ══════════════════════════
+     Full-screen mobile-only overlay for a single lead. Replaces the
+     shrunken desktop cardDetailModal experience on phones with the
+     pattern from JobNimbus + CompanyCam mobile demos:
+       - Top bar:  ← back  ·  status pill  ·  Edit (full lead modal)
+       - Hero:     property photo (first _photoCache[leadId][0]); a
+                   storm chip floats on the hero when lead.hailHit is
+                   present — NBD's differentiator vs the competitors
+                   (they show stock Zillow; we show recent hail intel).
+       - Title:    customer name (big), address with pin glyph, $value
+       - Actions:  5 circular buttons — Call / Text / Email / Photos /
+                   Estimate. Big touch targets (60×60 + ring).
+       - Tabs:     Activity / Photos / Details — 3 only, JobNimbus rule.
+     openMobileJobDetail(leadId) hydrates the overlay from window._leads
+     and window._photoCache. Card click routing decides desktop modal
+     vs mobile overlay via matchMedia(max-width:768px). -->
+<div class="m-jobdetail" id="mJobDetail" role="dialog" aria-modal="true" aria-labelledby="mJdName" hidden>
+  <div class="m-jd-topbar">
+    <button class="m-jd-icon-btn" id="mJdBack" onclick="closeMobileJobDetail()" aria-label="Back">
+      <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-arrow-left"/></svg>
+    </button>
+    <span class="m-jd-status" id="mJdStatus">—</span>
+    <button class="m-jd-edit" id="mJdEdit" onclick="window._cardDetailLeadId && window.editLead && window.editLead(window._cardDetailLeadId)" aria-label="Edit lead">Edit</button>
+  </div>
+  <div class="m-jd-scroll">
+    <div class="m-jd-hero" id="mJdHero" aria-hidden="true">
+      <span class="m-jd-hero-empty" id="mJdHeroEmpty">No photos yet — tap Photos to add one</span>
+      <span class="m-jd-storm" id="mJdStorm" hidden></span>
+    </div>
+    <div class="m-jd-title-block">
+      <h2 class="m-jd-name" id="mJdName">Lead</h2>
+      <div class="m-jd-addr">
+        <svg class="nbd-icon nbd-icon-sm" aria-hidden="true"><use href="#nbd-icon-pin"/></svg>
+        <span id="mJdAddr">—</span>
+      </div>
+      <div class="m-jd-value" id="mJdValue" hidden></div>
+    </div>
+    <div class="m-jd-actions" role="group" aria-label="Quick actions">
+      <button class="m-jd-act" id="mJdCall" onclick="window._cardDetailLeadId && _mJdAct('call')" aria-label="Call">
+        <span class="m-jd-act-ring"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-phone"/></svg></span>
+        <span class="m-jd-act-lbl">Call</span>
+      </button>
+      <button class="m-jd-act" id="mJdText" onclick="window._cardDetailLeadId && _mJdAct('text')" aria-label="Text">
+        <span class="m-jd-act-ring"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-chat"/></svg></span>
+        <span class="m-jd-act-lbl">Text</span>
+      </button>
+      <button class="m-jd-act" id="mJdEmail" onclick="window._cardDetailLeadId && _mJdAct('email')" aria-label="Email">
+        <span class="m-jd-act-ring"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-mail"/></svg></span>
+        <span class="m-jd-act-lbl">Email</span>
+      </button>
+      <button class="m-jd-act" id="mJdPhotos" onclick="window._cardDetailLeadId && _mJdAct('photos')" aria-label="Photos">
+        <span class="m-jd-act-ring"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-camera"/></svg></span>
+        <span class="m-jd-act-lbl">Photos</span>
+      </button>
+      <button class="m-jd-act" id="mJdEstimate" onclick="window._cardDetailLeadId && _mJdAct('estimate')" aria-label="Estimate">
+        <span class="m-jd-act-ring"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-doc"/></svg></span>
+        <span class="m-jd-act-lbl">Estimate</span>
+      </button>
+    </div>
+    <div class="m-jd-tabs" role="tablist" aria-label="Lead detail sections">
+      <button class="m-jd-tab active" data-tab="activity" role="tab" aria-selected="true" onclick="_mJdSwitchTab('activity')">Activity</button>
+      <button class="m-jd-tab" data-tab="photos" role="tab" aria-selected="false" onclick="_mJdSwitchTab('photos')">Photos</button>
+      <button class="m-jd-tab" data-tab="details" role="tab" aria-selected="false" onclick="_mJdSwitchTab('details')">Details</button>
+    </div>
+    <div class="m-jd-tab-body" id="mJdTabActivity" role="tabpanel" aria-labelledby="activity">
+      <div class="m-jd-empty">No activity yet for this lead.</div>
+    </div>
+    <div class="m-jd-tab-body" id="mJdTabPhotos" role="tabpanel" aria-labelledby="photos" hidden>
+      <div class="m-jd-empty">No photos yet.</div>
+    </div>
+    <div class="m-jd-tab-body" id="mJdTabDetails" role="tabpanel" aria-labelledby="details" hidden>
+      <div class="m-jd-detail-row"><span class="m-jd-detail-k">Damage</span><span class="m-jd-detail-v" id="mJdDmg">—</span></div>
+      <div class="m-jd-detail-row"><span class="m-jd-detail-k">Phone</span><span class="m-jd-detail-v" id="mJdPhone">—</span></div>
+      <div class="m-jd-detail-row"><span class="m-jd-detail-k">Email</span><span class="m-jd-detail-v" id="mJdEmailV">—</span></div>
+      <div class="m-jd-detail-row"><span class="m-jd-detail-k">Source</span><span class="m-jd-detail-v" id="mJdSource">—</span></div>
+      <div class="m-jd-detail-row"><span class="m-jd-detail-k">Carrier</span><span class="m-jd-detail-v" id="mJdCarrier">—</span></div>
+      <div class="m-jd-detail-row"><span class="m-jd-detail-k">Claim #</span><span class="m-jd-detail-v" id="mJdClaim">—</span></div>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="cardDetailModal" onclick="if(event.target===this)closeCardDetailModal()">
   <div class="modal" style="max-width:650px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" onclick="closeCardDetailModal()">✕</button>

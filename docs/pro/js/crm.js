@@ -1356,7 +1356,7 @@ function handleCardClick(id, event) {
   // If clicking a button/link inside card, don't open modal
   if(event.target.closest('button,a')) return;
   // Open card detail modal (snapshot view with quick actions)
-  openCardDetailModal(id);
+  openLeadDetail(id);
 }
 
 // Drag & drop — handlers now attached per-column in renderLeads()

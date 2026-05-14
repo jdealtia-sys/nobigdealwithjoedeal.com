@@ -3635,6 +3635,54 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 2B — Mobile job-detail screen');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const crmJs = read(path.join(ROOT, 'docs/pro/js/crm.js'));
+  // 1. Overlay DOM is present with the expected anchors.
+  assert('m-jobdetail overlay element exists with id=mJobDetail',
+    /<div class="m-jobdetail" id="mJobDetail"/.test(dash),
+    'expected <div class="m-jobdetail" id="mJobDetail"...>');
+  for (const id of ['mJdStatus','mJdName','mJdAddr','mJdHero','mJdStorm','mJdValue']) {
+    assert('mobile job-detail has #' + id,
+      new RegExp('id="' + id + '"').test(dash),
+      '#' + id + ' missing from mobile job-detail');
+  }
+  // 2. The 5 action buttons exist.
+  for (const id of ['mJdCall','mJdText','mJdEmail','mJdPhotos','mJdEstimate']) {
+    assert('mobile job-detail action button #' + id,
+      new RegExp('id="' + id + '"').test(dash),
+      '#' + id + ' action button missing');
+  }
+  // 3. The 3 tabs exist.
+  assert('mobile job-detail has 3 tabs (Activity/Photos/Details)',
+    /data-tab="activity"[\s\S]*?data-tab="photos"[\s\S]*?data-tab="details"/.test(dash),
+    'expected 3 tabs in order: activity, photos, details');
+  // 4. CSS hides .m-jobdetail on desktop (≥769px).
+  assert('@media (min-width:769px) hides .m-jobdetail',
+    /@media\s*\(min-width:\s*769px\)\s*\{[\s\S]*?\.m-jobdetail\s*\{\s*display:\s*none\s*!important/.test(dash),
+    'expected desktop media query to force-hide .m-jobdetail');
+  // 5. JS hooks exposed on window.
+  for (const fn of ['openMobileJobDetail','closeMobileJobDetail','openLeadDetail','_mJdSwitchTab','_mJdAct']) {
+    assert('window.' + fn + ' exposed in dashboard-main.js',
+      new RegExp('window\\.' + fn.replace(/_/g,'_') + '\\s*=').test(mainJs),
+      'expected window.' + fn + ' to be exported');
+  }
+  // 6. openLeadDetail picks mobile vs desktop via matchMedia.
+  assert('openLeadDetail routes via matchMedia(max-width:768px)',
+    /matchMedia\(['"]\(max-width:\s*768px\)['"]\)/.test(mainJs),
+    'expected matchMedia gate in openLeadDetail');
+  // 7. crm.js's handleCardClick was rewired to openLeadDetail.
+  assert('crm.js handleCardClick calls openLeadDetail (not openCardDetailModal directly)',
+    /openLeadDetail\(id\)/.test(crmJs) && !/openCardDetailModal\(id\)/.test(crmJs),
+    'expected handleCardClick to call openLeadDetail(id), removing the direct openCardDetailModal(id) call');
+  // 8. Storm chip ⛈ is rendered via CSS ::before content (NBD differentiator).
+  assert('mobile job-detail storm chip uses ⛈ glyph via CSS',
+    /\.m-jd-storm::before\s*\{\s*content:\s*['"]⛈['"]/.test(dash),
+    'expected .m-jd-storm::before with ⛈ content');
+}
+
 section('Wave 2A — Mobile chrome (nav SVG glyphs + centered FAB)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
