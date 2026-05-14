@@ -3857,6 +3857,54 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Wave 2E.3 (A.3) — m-modal-bar on the last 5 dashboard modals');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const cases = [
+    { id: 'quickAddModal',              eyebrow: 'Quick Add', titleId: null,                closeFn: 'closeQuickAddLead' },
+    { id: 'warrantyCertModal',          eyebrow: 'NBD Guarantee', titleId: null,            closeFn: null },
+    { id: 'docViewerModal',             eyebrow: 'Document Template', titleId: 'docViewerTitle', closeFn: 'closeDocViewer' },
+    { id: 'cardDetailModal',            eyebrow: null, titleId: 'cardDetailName',           closeFn: 'closeCardDetailModal' },
+    { id: 'propertyIntelConfirmModal',  eyebrow: 'Intel', titleId: null,                    closeFn: 'closePropertyIntelConfirmModal' },
+  ];
+  for (const c of cases) {
+    const start = dash.indexOf('id="' + c.id + '"');
+    const block = dash.slice(start, start + 3500);
+    assert(c.id + ' inner .modal carries .m-modal-has-bar',
+      /class="modal m-modal-has-bar"/.test(block),
+      'expected ' + c.id + ' .modal class to include m-modal-has-bar');
+    assert(c.id + ' renders an .m-modal-bar element',
+      /class="m-modal-bar"/.test(block),
+      'expected ' + c.id + ' to contain an .m-modal-bar element');
+    if (c.eyebrow) {
+      assert(c.id + ' eyebrow renders "' + c.eyebrow + '"',
+        new RegExp('class="m-modal-bar-eyebrow"[^>]*>' + c.eyebrow.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '<').test(block),
+        'expected eyebrow text "' + c.eyebrow + '" inside ' + c.id);
+    }
+    if (c.titleId) {
+      assert(c.id + ' preserves id="' + c.titleId + '" on the bar title span',
+        new RegExp('class="m-modal-bar-title"[^>]*id="' + c.titleId + '"').test(block),
+        c.titleId + ' should move to the m-modal-bar-title span');
+    }
+    if (c.closeFn) {
+      assert(c.id + ' bar X calls ' + c.closeFn + '()',
+        new RegExp('class="m-modal-bar-x"[^>]*onclick="' + c.closeFn + '\\(\\)"').test(block),
+        'expected the bar X to call ' + c.closeFn);
+    }
+  }
+  // cardDetailModal got special treatment — kindLabel + name + stage
+  // chip all moved into the bar, and the duplicate block below was
+  // retired.
+  const cd = dash.indexOf('id="cardDetailModal"');
+  const cdBlock = dash.slice(cd, cd + 4000);
+  assert('cardDetailModal: kindLabel migrated into m-modal-bar-eyebrow',
+    /class="m-modal-bar-eyebrow" id="cardDetailKindLabel"/.test(cdBlock),
+    'expected #cardDetailKindLabel to live on the eyebrow span');
+  assert('cardDetailModal: stage chip carried into bar with id="cardDetailStage"',
+    /class="m-modal-bar"[\s\S]{0,1200}id="cardDetailStage"/.test(cdBlock),
+    'expected #cardDetailStage to live inside the m-modal-bar');
+}
+
 section('Wave 2E.2 — m-modal-bar applied to task / photo / propertyIntel');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

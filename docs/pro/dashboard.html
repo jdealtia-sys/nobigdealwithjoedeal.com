@@ -14640,10 +14640,17 @@ function switchScTab(tab, btn) {
 <!-- LEAD MODAL -->
 <!-- ── QUICK ADD LEAD MODAL (mobile-first 3-tap flow) ── -->
 <div class="modal-bg" id="quickAddModal">
-  <div class="modal" style="max-width:420px;">
+  <div class="modal m-modal-has-bar" style="max-width:420px;">
     <button class="modal-close" onclick="closeQuickAddLead()">✕</button>
-    <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Quick Add</div>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:4px;">New Lead</div>
+    <!-- Wave 2E.3: standardized header. -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closeQuickAddLead()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Quick Add</span>
+        <span class="m-modal-bar-title">New Lead</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
     <div style="font-size:11px;color:var(--m);margin-bottom:16px;">3 fields. In the field. Done.</div>
 
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
@@ -14944,10 +14951,17 @@ function switchScTab(tab, btn) {
 
 <!-- ── WARRANTY CERTIFICATE WIZARD ── -->
 <div class="modal-bg" id="warrantyCertModal">
-  <div class="modal" style="max-width:480px;">
+  <div class="modal m-modal-has-bar" style="max-width:480px;">
     <button class="modal-close" onclick="document.getElementById('warrantyCertModal').classList.remove('open')">✕</button>
-    <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">NBD Guarantee</div>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:16px;">Generate Warranty Certificate</div>
+    <!-- Wave 2E.3: standardized header. -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="document.getElementById('warrantyCertModal').classList.remove('open')" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">NBD Guarantee</span>
+        <span class="m-modal-bar-title">Generate Warranty Certificate</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
 
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
       <div class="mfield">
@@ -15083,10 +15097,20 @@ function switchScTab(tab, btn) {
 
 <!-- PROPERTY INTEL CONFIRMATION MODAL -->
 <div class="modal-bg" id="propertyIntelConfirmModal" style="display:none;">
-  <div class="modal" style="max-width:420px;">
+  <div class="modal m-modal-has-bar" style="max-width:420px;">
     <button class="modal-close" onclick="closePropertyIntelConfirmModal()">✕</button>
-    <div style="font-size:32px;text-align:center;margin-bottom:16px;">💰</div>
-    <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px;text-align:center;">Confirm Data Pull</div>
+    <!-- Wave 2E.3: standardized header. The 💰 emoji on the original
+         header was doing icon-system work — title is now plain text,
+         brand context lives in the eyebrow; price stays prominently
+         under the bar as content. -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closePropertyIntelConfirmModal()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Intel</span>
+        <span class="m-modal-bar-title">Confirm Data Pull</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
     <div style="font-size:24px;font-weight:800;color:var(--gold);margin-bottom:24px;text-align:center;" id="piConfirmCost">$0.00</div>
     
     <div style="margin-bottom:24px;padding:16px;background:var(--lift);border-radius:var(--r);">
@@ -15196,15 +15220,19 @@ function switchScTab(tab, btn) {
 
 <!-- DOC VIEWER MODAL -->
 <div class="modal-bg" id="docViewerModal">
-  <div class="modal" style="max-width:700px;max-height:90vh;">
+  <div class="modal m-modal-has-bar" style="max-width:700px;max-height:90vh;">
     <button class="modal-close" onclick="closeDocViewer()">✕</button>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-      <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);">DOCUMENT TEMPLATE</div>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-ghost" onclick="printDoc()" style="font-size:11px;padding:5px 10px;">🖨️ Print</button>
+    <!-- Wave 2E.3: standardized header. Print button moves into the
+         bar's right slot as the action — it was previously sharing
+         the header row anyway. -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closeDocViewer()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Document Template</span>
+        <span class="m-modal-bar-title" id="docViewerTitle"></span>
       </div>
+      <button class="m-modal-bar-action" onclick="printDoc()" aria-label="Print">🖨️ Print</button>
     </div>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:16px;" id="docViewerTitle"></div>
     <div class="doc-viewer-content" id="docViewerContent"></div>
   </div>
 </div>
@@ -15713,8 +15741,23 @@ function switchScTab(tab, btn) {
 </div>
 
 <div class="modal-bg" id="cardDetailModal" onclick="if(event.target===this)closeCardDetailModal()">
-  <div class="modal" style="max-width:650px;max-height:90vh;overflow-y:auto;">
+  <div class="modal m-modal-has-bar" style="max-width:650px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" onclick="closeCardDetailModal()">✕</button>
+    <!-- Wave 2E.3: standardized header. The eyebrow carries the
+         CUSTOMER / PROSPECT context (existing id="cardDetailKindLabel"
+         migrated here so the JS that toggles its text still binds);
+         the title shows the customer name (existing id="cardDetailName"
+         migrated to the bar title span); stage chip stays as the
+         action-slot — color-coded by stageColor() to mirror its kanban
+         column. -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closeCardDetailModal()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow" id="cardDetailKindLabel">CUSTOMER</span>
+        <span class="m-modal-bar-title" id="cardDetailName"></span>
+      </div>
+      <span class="cd-stage-chip" id="cardDetailStage" style="flex-shrink:0;"></span>
+    </div>
 
     <!-- Prospect banner — only visible when lead.isProspect is true.
          Wraps the promote CTA + a row of quick actions (Call/Text/Email/
@@ -15734,16 +15777,12 @@ function switchScTab(tab, btn) {
       </div>
     </div>
 
-    <!-- Header — kind label (CUSTOMER / PROSPECT) + colored stage chip.
-         The chip's background and text color are set dynamically from
-         stageColor() so it matches the kanban column colors visually. -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <div id="cardDetailKindLabel" style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);">CUSTOMER</div>
-      <div style="flex:1;"></div>
-      <div id="cardDetailStage" class="cd-stage-chip"></div>
-    </div>
+    <!-- Wave 2E.3: kind label + name + stage chip migrated into the
+         .m-modal-bar at the top of this modal — see the bar above. The
+         IDs (cardDetailKindLabel / cardDetailName / cardDetailStage)
+         moved with their elements, so existing JS bindings still
+         resolve. This block was retired in PR #368. -->
 
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;margin-bottom:18px;line-height:1.1;" id="cardDetailName"></div>
 
     <!-- Quick Info Grid -->
     <div class="cd-info-grid">
