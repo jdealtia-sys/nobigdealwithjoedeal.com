@@ -3635,6 +3635,47 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Pro Chrome — icon system + header consolidation');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. SVG sprite ships with the 5 chrome icons we replaced emoji with.
+  for (const id of ['nbd-icon-clock','nbd-icon-bell','nbd-icon-palette','nbd-icon-gear','nbd-icon-book']) {
+    assert('sprite has <symbol id="' + id + '">',
+      new RegExp('<symbol id="' + id + '"').test(dash),
+      'expected an inline SVG sprite symbol for ' + id);
+  }
+  // 2. The five .hdr-tool buttons are present and reference the sprite.
+  assert('global header uses .hdr-tool wrappers (≥5 instances)',
+    (dash.match(/class="hdr-tool"/g) || []).length >= 5,
+    'expected at least 5 .hdr-tool buttons in the global header');
+  assert('header tools reference the sprite via <use href="#nbd-icon-*"/>',
+    /<use href="#nbd-icon-(clock|bell|palette|gear|book)"\/>/.test(dash),
+    'expected header buttons to <use> sprite symbols');
+  // 3. The five raw-emoji glyphs the old buttons rendered must no longer
+  //    appear inside the global <header>. We slice the header block and
+  //    check it. (Decorative emoji elsewhere in the file — card chips,
+  //    stage headers, settings tabs — are out of scope for this PR and
+  //    intentionally untouched.)
+  const headerOpen = dash.indexOf('<header>');
+  const headerClose = dash.indexOf('</header>', headerOpen);
+  const headerBlock = dash.slice(headerOpen, headerClose);
+  for (const glyph of ['🕒','🔔','🎨','⚙','📖']) {
+    // 🕒 = \u{1F552} clock, 🔔 = bell, 🎨 = palette,
+    // ⚙ = gear, 📖 = book
+    assert('header chrome no longer contains raw emoji ' + glyph,
+      !headerBlock.includes(glyph),
+      'global <header> still has emoji ' + glyph + ' — should be SVG sprite ref now');
+  }
+  // 4. The notif badge keeps working via the new .hdr-tool-badge class.
+  assert('notif button keeps its #notifBadge under .hdr-tool-badge',
+    /<button class="hdr-tool"[^>]*id="notifBtn"[\s\S]{0,500}id="notifBadge" class="hdr-tool-badge"/.test(dash),
+    'expected #notifBadge inside the .hdr-tool#notifBtn with .hdr-tool-badge class');
+  // 5. The CRM action row was given group dividers (3 .crm-hdr-sep spans).
+  assert('CRM action row has ≥3 .crm-hdr-sep dividers between groups',
+    (dash.match(/class="crm-hdr-sep"/g) || []).length >= 3,
+    'expected at least 3 .crm-hdr-sep elements inside .crm-hdr-actions');
+}
+
 section('Rock 4 Phase 3 — view-storm lazy hydration');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

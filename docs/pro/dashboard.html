@@ -3581,6 +3581,60 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 .so{font-size:11px;color:var(--m);background:none;border:none;cursor:pointer;transition:color .2s;}
 .so:hover{color:var(--orange);}
 
+/* ══ PRO CHROME — icon system + header tools (2026-05-14) ══════════════
+   Replaces the inline-styled emoji buttons in the global <header> with a
+   real icon system. `.nbd-icon` is the universal 16×16 inline-SVG glyph
+   (uses `currentColor` so it inherits theme/orange/muted). `.hdr-tool` is
+   the wrapper button — transparent, square hit target, hover lifts the
+   color from muted to text. Same shape as `.crm-icon-btn` so the
+   pipeline header and the global header read as one design language.
+
+   Brand stays orange-keyed: the wrapper paints `currentColor` from
+   `var(--m)` (muted) at rest and `var(--t)` (text, often orange-tinted)
+   on hover. We don't blue-ify into JobNimbus — orange is NBD's identity.
+
+   Decorative emojis on cards / chips / stage headers stay where they
+   carry MEANING (storm icon on a hail card, due-warning on a stale lead).
+   This rule only retires emoji from chrome (headers, nav buttons,
+   tab labels) where they were Unicode codepoints standing in for icons. */
+.nbd-icon{
+  display:inline-block; width:16px; height:16px;
+  fill:none; stroke:currentColor; stroke-width:1.5;
+  stroke-linecap:round; stroke-linejoin:round;
+  vertical-align:middle; flex-shrink:0;
+}
+.nbd-icon-sm{ width:14px; height:14px; }
+.nbd-icon-lg{ width:18px; height:18px; }
+
+.hdr-tool{
+  display:inline-flex; align-items:center; justify-content:center;
+  position:relative;
+  width:30px; height:30px;
+  padding:0; background:transparent;
+  border:none; border-radius:6px;
+  color:var(--m); cursor:pointer;
+  transition:color .15s, background .15s;
+  line-height:1; font-family:inherit;
+}
+.hdr-tool:hover{ color:var(--t); background:color-mix(in srgb, var(--t) 8%, transparent); }
+.hdr-tool:focus-visible{ outline:2px solid var(--orange); outline-offset:1px; }
+.hdr-tool .hdr-tool-badge{
+  position:absolute; top:2px; right:2px;
+  background:var(--red); color:var(--t);
+  font-size:9px; font-weight:700;
+  border-radius:8px; padding:1px 4px;
+  min-width:16px; text-align:center; line-height:1.2;
+  pointer-events:none;
+}
+/* Divider between activity tools (recent / notifs) and prefs tools
+   (theme / settings / guide). Lighter than R5.7 was — calmer chunking. */
+.hdr-tool-divider{
+  display:inline-block; width:1px; height:16px;
+  background:var(--br); margin:0 4px;
+  opacity:.5;
+}
+/* ══ END PRO CHROME ══ */
+
 /* BREADCRUMB NAVIGATION */
 .breadcrumb-container{
   background:var(--bg);
@@ -7748,18 +7802,18 @@ body {
     display:flex!important;
     justify-content:space-between;
     align-items:center;
-    padding:8px 14px;
+    padding:6px 14px;          /* Pro Chrome: was 8px 14px — claws back 4px of vertical */
     flex-shrink:0;
     /* On desktop force one row; mobile media query below allows wrapping. */
     flex-wrap:nowrap;
-    gap:8px;
+    gap:6px;                   /* Pro Chrome: was 8px */
     border-bottom:1px solid var(--br);
   }
   /* Allow the search/filter cluster to shrink if buttons need room */
   .crm-hdr-search{ min-width:180px; }
   .crm-hdr-actions{ flex-shrink:0; }
-  :root[data-density="compact"]   .crm-header{ padding:6px 12px; gap:6px; }
-  :root[data-density="spacious"]  .crm-header{ padding:12px 18px; gap:10px; }
+  :root[data-density="compact"]   .crm-header{ padding:4px 12px; gap:4px; }
+  :root[data-density="spacious"]  .crm-header{ padding:10px 18px; gap:8px; }
 
   /* LEFT: tiny label + inline stat */
   .crm-hdr-label{ display:flex; align-items:baseline; gap:10px; flex-shrink:0; }
@@ -7819,7 +7873,7 @@ body {
      ever clips. Combined with the existing wrap behavior we get a
      two-tier graceful degradation: wrap → scroll → never truncate. */
   .crm-hdr-actions{
-    display:flex; align-items:center; gap:4px;
+    display:flex; align-items:center; gap:2px;     /* Pro Chrome: was 4px — tighter clusters */
     margin-left:auto; flex-wrap:wrap;
     max-width:100%;
     overflow-x:auto;
@@ -7833,6 +7887,14 @@ body {
      button grows or scrolls instead of '...' on the label text. */
   .crm-hdr-actions .crm-hdr-btn{ flex-shrink:0; white-space:nowrap; }
   .crm-hdr-actions .crm-hdr-btn-label{ white-space:nowrap; }
+  /* Pro Chrome: hairline dividers between functional clusters in the
+     action row (icon-controls | filters | bulk-tools). Used by inserting
+     <span class="crm-hdr-sep"></span> between groups in the markup. */
+  .crm-hdr-sep{
+    display:inline-block; width:1px; height:18px;
+    background:var(--br); opacity:.5;
+    margin:0 4px; flex-shrink:0;
+  }
   .crm-icon-btn{
     background:transparent; border:1px solid var(--br); border-radius:5px;
     width:30px; height:30px;
@@ -7846,8 +7908,8 @@ body {
   /* Compact action buttons in the header — half the size of regular .btn */
   .crm-hdr-btn{
     font-size:11px!important;
-    padding:6px 10px!important;
-    min-height:30px!important;
+    padding:5px 9px!important;   /* Pro Chrome: was 6px 10px — claws back ~12% per button */
+    min-height:28px!important;   /* was 30px */
     line-height:1!important;
   }
   /* Compact density: hide button labels, leave just the icon emoji */
@@ -9550,24 +9612,63 @@ window.nbdNavToggle = nbdNavToggle;
 
 
 <!-- HEADER -->
+<!-- ══ NBD ICON SPRITE (Pro Chrome 2026-05-14) ════════════════════════
+     Single source of truth for chrome icons. Each <symbol> uses a
+     stroke-based 20×20 viewBox so the .nbd-icon utility class can
+     resize them uniformly via `currentColor` for theme tinting.
+     Add new symbols here; reference them as
+       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-X"/></svg>
+     Decorative emoji on cards / chips / stage headers stay where they
+     carry MEANING (storm, due, hot) — sprite is for CHROME only. -->
+<svg style="position:absolute;width:0;height:0;overflow:hidden;" aria-hidden="true">
+  <defs>
+    <symbol id="nbd-icon-clock" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="7"/>
+      <path d="M10 6v4l3 2"/>
+    </symbol>
+    <symbol id="nbd-icon-bell" viewBox="0 0 20 20">
+      <path d="M5 13.5V9a5 5 0 0 1 10 0v4.5"/>
+      <path d="M3.5 14h13"/>
+      <path d="M8.5 16.5a1.5 1.5 0 0 0 3 0"/>
+    </symbol>
+    <symbol id="nbd-icon-palette" viewBox="0 0 20 20">
+      <path d="M10 3a7 7 0 1 0 0 14c1 0 1.5-.5 1.5-1.2 0-.4-.2-.6-.4-.9-.3-.4-.4-.7-.4-1 0-.5.4-1 1-1H13a4 4 0 0 0 4-4 6 6 0 0 0-7-6z"/>
+      <circle cx="6.5" cy="9" r=".7" fill="currentColor"/>
+      <circle cx="9" cy="6" r=".7" fill="currentColor"/>
+      <circle cx="13" cy="6.5" r=".7" fill="currentColor"/>
+      <circle cx="14.5" cy="10" r=".7" fill="currentColor"/>
+    </symbol>
+    <symbol id="nbd-icon-gear" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="2.4"/>
+      <path d="M10 1.5v2.2M10 16.3v2.2M3.5 10H1.5M18.5 10h-2M4.6 4.6 6.1 6.1M13.9 13.9l1.5 1.5M4.6 15.4l1.5-1.5M13.9 6.1l1.5-1.5"/>
+    </symbol>
+    <symbol id="nbd-icon-book" viewBox="0 0 20 20">
+      <path d="M3 4h5a2 2 0 0 1 2 2v10a2 2 0 0 0-2-2H3z"/>
+      <path d="M17 4h-5a2 2 0 0 0-2 2v10a2 2 0 0 1 2-2h5z"/>
+    </symbol>
+  </defs>
+</svg>
+
 <header>
   <div style="display:flex;align-items:center;gap:10px;">
     <div class="logo-mark">NBD</div>
     <div class="logo">NBD <span>PRO</span></div>
   </div>
   <div class="hright">
-  <div style="display:flex;align-items:center;gap:4px;margin-right:8px;">
+  <div style="display:flex;align-items:center;gap:2px;margin-right:8px;">
     <div style="position:relative;">
-      <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="toggleRecentDropdown()" title="Recent Customers" id="recentBtn">🕒</button>
+      <button class="hdr-tool" onclick="toggleRecentDropdown()" title="Recent Customers" aria-label="Recent customers" id="recentBtn">
+        <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-clock"/></svg>
+      </button>
       <div id="recentDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:8px;min-width:220px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;">
         <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Recent Customers</div>
         <div id="recentList"></div>
       </div>
     </div>
     <div style="position:relative;">
-      <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;position:relative;" onclick="toggleNotificationDropdown()" title="Notifications" id="notifBtn">
-        🔔
-        <span id="notifBadge" style="display:none;position:absolute;top:2px;right:2px;background:var(--red);color:var(--t);font-size:9px;font-weight:700;border-radius:8px;padding:1px 4px;min-width:16px;text-align:center;">0</span>
+      <button class="hdr-tool" onclick="toggleNotificationDropdown()" title="Notifications" aria-label="Notifications" id="notifBtn">
+        <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-bell"/></svg>
+        <span id="notifBadge" class="hdr-tool-badge" style="display:none;">0</span>
       </button>
       <div id="notifDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:0;min-width:320px;max-width:400px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;max-height:400px;overflow:hidden;flex-direction:column;">
         <div style="font-size:11px;color:var(--t);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;">
@@ -9586,14 +9687,16 @@ window.nbdNavToggle = nbdNavToggle;
         <div id="notifDismissedList" style="display:none;overflow-y:auto;max-height:200px;border-top:1px solid var(--br);background:var(--s2);"></div>
       </div>
     </div>
-    <!-- R5.7: visual divider separating activity icons (Recent / Notifications)
-         from preferences (Theme / Settings / Guide). The four-pixel gap +
-         hairline border helps the eye chunk the row into two functional
-         groups instead of reading it as one wall of glyphs. -->
-    <span aria-hidden="true" style="display:inline-block;width:1px;height:18px;background:var(--br);margin:0 6px;opacity:.6;"></span>
-    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="if(typeof nbdPickerOpen==='function')nbdPickerOpen();else{goTo('settings');setTimeout(function(){if(typeof switchSettingsTab==='function')switchSettingsTab('appearance')},200)}" title="Change Theme &amp; Font">🎨</button>
-    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="goTo('settings')" title="Settings">⚙️</button>
-    <button style="background:transparent;border:none;cursor:pointer;color:var(--m,var(--m));font-size:15px;padding:4px 6px;transition:color .15s;line-height:1;" onclick="nbdHowtoOpen()" title="Theme Guide">📖</button>
+    <span class="hdr-tool-divider" aria-hidden="true"></span>
+    <button class="hdr-tool" onclick="if(typeof nbdPickerOpen==='function')nbdPickerOpen();else{goTo('settings');setTimeout(function(){if(typeof switchSettingsTab==='function')switchSettingsTab('appearance')},200)}" title="Change Theme &amp; Font" aria-label="Change theme and font">
+      <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-palette"/></svg>
+    </button>
+    <button class="hdr-tool" onclick="goTo('settings')" title="Settings" aria-label="Settings">
+      <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-gear"/></svg>
+    </button>
+    <button class="hdr-tool" onclick="nbdHowtoOpen()" title="Theme Guide" aria-label="Theme guide">
+      <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-book"/></svg>
+    </button>
   </div>
     <div class="upill" onclick="goTo('settings')">
       <div class="av" id="userAvatar">J</div>
@@ -11041,6 +11144,7 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
+        <span class="crm-hdr-sep" aria-hidden="true"></span>
         <button class="btn btn-ghost btn-trash-toggle crm-hdr-btn" onclick="openDeletedDrawer()" title="Deleted Leads">
           🗑
           <span class="trash-count-badge" id="trashCountBadge"></span>
@@ -11048,6 +11152,7 @@ function switchScTab(tab, btn) {
         <button class="btn btn-ghost crm-hdr-btn" id="loadSampleDataBtn" onclick="loadSampleData()" style="display:none;background:var(--purple);color:white;" title="Add 5 sample leads">
           🎲 Sample
         </button>
+        <span class="crm-hdr-sep" aria-hidden="true"></span>
         <!-- Wave 25: Needs Attention filter — composes Wave 13 + 17 +
              19 signals into a single click. Toggling it filters the
              kanban to leads with stale-stage (≥7d), overdue tasks,
@@ -11098,6 +11203,7 @@ function switchScTab(tab, btn) {
           style="position:relative;transition:background .15s,border-color .15s,color .15s;">
           🔥 <span class="crm-hdr-btn-label">Hot first</span>
         </button>
+        <span class="crm-hdr-sep" aria-hidden="true"></span>
         <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" onclick="toggleBulkMode()" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk</span></button>
         <button class="btn btn-ghost crm-hdr-btn" onclick="exportLeadsCSV()" title="Export CSV">📤 <span class="crm-hdr-btn-label">CSV</span></button>
         <!-- CRM cleanup 2026-05-14: inline ＋ Add button removed.
