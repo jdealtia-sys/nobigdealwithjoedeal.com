@@ -3829,6 +3829,101 @@ function _mJdAct(kind) {
 }
 window._mJdAct = _mJdAct;
 
+// ══════════════════════════════════════════════════════════════════════
+// Wave 2C.1 — Mobile create popover behind the bottom-nav "+" FAB
+//
+// Opens a bottom-sheet with 5 entry points (Lead / Photo / Task /
+// Knock / Note). Each row hands off to an existing flow rather than
+// duplicating modals. The popover closes itself before firing the
+// handler so the destination modal isn't competing with our backdrop.
+// ══════════════════════════════════════════════════════════════════════
+function openMobileCreatePopover() {
+  const bd = document.getElementById('mCreateBackdrop');
+  const pop = document.getElementById('mCreatePopover');
+  if (!bd || !pop) return;
+  bd.hidden = false; pop.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+function closeMobileCreatePopover() {
+  const bd = document.getElementById('mCreateBackdrop');
+  const pop = document.getElementById('mCreatePopover');
+  if (!bd || !pop) return;
+  bd.hidden = true; pop.hidden = true;
+  document.body.style.overflow = '';
+}
+function toggleMobileCreatePopover() {
+  const pop = document.getElementById('mCreatePopover');
+  if (!pop) { if (typeof openLeadModal === 'function') openLeadModal(); return; }
+  if (pop.hidden) openMobileCreatePopover();
+  else closeMobileCreatePopover();
+}
+window.openMobileCreatePopover  = openMobileCreatePopover;
+window.closeMobileCreatePopover = closeMobileCreatePopover;
+window.toggleMobileCreatePopover = toggleMobileCreatePopover;
+
+function _mCreate(kind) {
+  closeMobileCreatePopover();
+  switch (kind) {
+    case 'lead':
+      if (typeof openLeadModal === 'function') openLeadModal();
+      break;
+    case 'photo':
+      // Trigger the device camera via the hidden <input capture>.
+      // Browsers that don't honor `capture` open the photo picker — fine.
+      const input = document.getElementById('mCreatePhotoInput');
+      if (input) input.click();
+      break;
+    case 'task':
+      if (typeof openTaskModal === 'function') openTaskModal();
+      else if (typeof openLeadModal === 'function') openLeadModal();
+      break;
+    case 'knock':
+      // D2D entry. Tracker module exposes openKnock() (no args = new
+      // knock at current GPS). Falls back to navigating to view-d2d
+      // so reps without geolocation still get somewhere usable.
+      if (typeof openKnock === 'function') { openKnock(); break; }
+      if (window.D2D && typeof window.D2D.openNewKnock === 'function') {
+        window.D2D.openNewKnock(); break;
+      }
+      goTo('d2d');
+      break;
+    case 'note':
+      // No standalone note modal yet — open the lead modal which
+      // surfaces a note field on save. Replaced with a proper quick-
+      // note flow in a follow-up.
+      if (typeof openLeadModal === 'function') openLeadModal();
+      break;
+  }
+}
+window._mCreate = _mCreate;
+
+// Photo create handler — uploads the captured file via the existing
+// PhotoEngine if available, otherwise stages it for the next lead
+// modal save. Best-effort: we don't want the popover entry point to
+// fail loudly if PhotoEngine isn't loaded on this surface.
+window._mCreatePhotoPicked = function (event) {
+  try {
+    const file = event && event.target && event.target.files && event.target.files[0];
+    if (!file) return;
+    if (window.PhotoEngine && typeof window.PhotoEngine.uploadOne === 'function') {
+      window.PhotoEngine.uploadOne(file, {
+        source: 'mobile-create-popover'
+      });
+      if (typeof showToast === 'function') showToast('Photo uploaded', 'success');
+    } else {
+      // Stash on window so the next lead-modal save can attach it.
+      window._pendingPhotoUploads = window._pendingPhotoUploads || [];
+      window._pendingPhotoUploads.push(file);
+      if (typeof showToast === 'function') showToast('Photo queued — attach to a lead to save', 'info');
+    }
+  } catch (e) {
+    console.warn('mobile photo create failed:', e && e.message);
+  } finally {
+    // Reset input so the same file can be re-picked.
+    if (event && event.target) event.target.value = '';
+  }
+};
+
 // Mobile-aware router. Card clicks (handleCardClick / openLeadDetail
 // callers) go here; we pick mobile overlay vs desktop modal at click
 // time so changing viewport (tablet rotation) just works.

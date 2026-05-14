@@ -3635,6 +3635,43 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 2C.1 — Mobile create popover');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  // 1. Popover DOM + backdrop exist.
+  assert('mCreatePopover element exists',
+    /<div class="m-create-popover" id="mCreatePopover"/.test(dash),
+    'expected <div class="m-create-popover" id="mCreatePopover">');
+  assert('mCreateBackdrop element exists',
+    /<div class="m-create-backdrop" id="mCreateBackdrop"/.test(dash),
+    'expected the backdrop div');
+  // 2. Five create rows wired.
+  for (const kind of ['lead','photo','task','knock','note']) {
+    assert('create row wires onclick="_mCreate(\'' + kind + '\')"',
+      new RegExp("_mCreate\\('" + kind + "'\\)").test(dash),
+      'missing _mCreate(\'' + kind + '\') row');
+  }
+  // 3. Hidden camera-capture input present.
+  assert('hidden camera input #mCreatePhotoInput with capture=environment',
+    /<input type="file" id="mCreatePhotoInput"[^>]*capture="environment"/.test(dash),
+    'expected hidden <input type="file" capture="environment"> for the Photo row');
+  // 4. window handlers exposed in dashboard-main.js.
+  for (const fn of ['openMobileCreatePopover','closeMobileCreatePopover','toggleMobileCreatePopover','_mCreate']) {
+    assert('window.' + fn + ' exposed',
+      new RegExp('window\\.' + fn.replace(/_/g,'_') + '\\s*=').test(mainJs),
+      'expected window.' + fn);
+  }
+  // 5. Center FAB still points to toggleMobileCreatePopover with a fallback.
+  assert('mobile-nav center FAB calls toggleMobileCreatePopover (with openLeadModal fallback)',
+    /toggleMobileCreatePopover\s*\(\)\s*:\s*openLeadModal\s*\(\)/.test(dash),
+    'expected the FAB onclick to test for toggleMobileCreatePopover and fall back to openLeadModal');
+  // 6. Desktop force-hide guard.
+  assert('@media (min-width:769px) hides .m-create-popover',
+    /@media\s*\(min-width:\s*769px\)[\s\S]{0,400}\.m-create-popover[\s\S]{0,100}display:\s*none\s*!important/.test(dash),
+    'expected desktop media query to force-hide the popover');
+}
+
 section('Wave 2B — Mobile job-detail screen');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

@@ -3856,6 +3856,105 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 }
 /* ══ END MOBILE JOB-DETAIL ══ */
 
+/* ══ MOBILE CREATE POPOVER (Wave 2C.1) ═══════════════════════════════
+   Bottom-sheet from the orange "+" FAB. Above #mobile-nav (1900) but
+   the backdrop sits above the nav so taps outside the sheet close it.
+   On desktop the popover is force-hidden — desktop users have the
+   .crm-hdr-actions surface for the same affordances. */
+.m-create-backdrop{
+  position:fixed; inset:0;
+  background:rgba(0,0,0,.45);
+  z-index:2050;
+  -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+  animation:m-create-fade .18s ease-out;
+}
+.m-create-backdrop[hidden]{ display:none; }
+@keyframes m-create-fade{ from { opacity:0; } to { opacity:1; } }
+
+.m-create-popover{
+  position:fixed; left:0; right:0; bottom:0;
+  z-index:2060;
+  background:var(--s2);
+  border-top-left-radius:18px; border-top-right-radius:18px;
+  border-top:1px solid var(--br);
+  padding:10px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+  box-shadow:0 -8px 24px rgba(0,0,0,.4);
+  display:flex; flex-direction:column; gap:4px;
+  animation:m-create-slide-up .22s cubic-bezier(.18,.89,.32,1.28);
+  max-height:90vh; overflow-y:auto;
+}
+.m-create-popover[hidden]{ display:none; }
+@keyframes m-create-slide-up{
+  from { transform:translateY(100%); }
+  to   { transform:translateY(0); }
+}
+
+.m-create-handle{
+  width:42px; height:4px; border-radius:2px;
+  background:var(--br); opacity:.7;
+  align-self:center;
+  margin:4px 0 10px;
+}
+.m-create-title{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:11px; font-weight:800;
+  letter-spacing:.12em; text-transform:uppercase;
+  color:var(--m);
+  padding:0 4px 6px;
+}
+
+.m-create-row{
+  display:flex; align-items:center; gap:14px;
+  width:100%; padding:12px 8px;
+  background:transparent; border:none; border-radius:10px;
+  color:var(--t); text-align:left; cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .12s;
+}
+.m-create-row:active{ background:color-mix(in srgb, var(--t) 8%, transparent); }
+.m-create-row-ico{
+  display:flex; align-items:center; justify-content:center;
+  width:42px; height:42px;
+  border-radius:50%;
+  background:color-mix(in srgb, var(--t) 10%, transparent);
+  color:var(--t);
+  flex-shrink:0;
+}
+.m-create-row-ico--orange{
+  background:var(--orange);
+  color:var(--t);
+}
+.m-create-row-ico--knock{
+  background:color-mix(in srgb, var(--orange) 18%, transparent);
+  color:var(--orange);
+}
+.m-create-row-text{
+  display:flex; flex-direction:column; gap:1px;
+  min-width:0; flex:1;
+}
+.m-create-row-lbl{
+  font-size:15px; font-weight:600; color:var(--t);
+  line-height:1.2;
+}
+.m-create-row-hint{
+  font-size:11.5px; color:var(--m);
+  line-height:1.3;
+}
+
+.m-create-cancel{
+  margin-top:6px; padding:13px;
+  background:transparent; border:1px solid var(--br); border-radius:12px;
+  color:var(--m); cursor:pointer;
+  font-family:inherit; font-size:14px; font-weight:600;
+  -webkit-tap-highlight-color:transparent;
+}
+.m-create-cancel:active{ background:color-mix(in srgb, var(--t) 6%, transparent); }
+
+@media (min-width:769px){
+  .m-create-backdrop, .m-create-popover{ display:none !important; }
+}
+/* ══ END MOBILE CREATE POPOVER ══ */
+
 /* ══ END PRO CHROME ══ */
 
 /* BREADCRUMB NAVIGATION */
@@ -14681,6 +14780,58 @@ function switchScTab(tab, btn) {
     <span class="mn-lbl">More</span>
   </div>
 </nav>
+
+<!-- ══ MOBILE CREATE POPOVER (Wave 2C.1 2026-05-14) ════════════════════
+     Bottom-sheet that slides up when the orange "+" FAB in the bottom
+     nav is tapped. Each row opens an existing flow without leaving
+     the popover loop — Lead opens openLeadModal(), Task opens
+     openTaskModal(), Knock fires the D2D capture flow. The Knock entry
+     is NBD-only — JobNimbus / CompanyCam have nothing equivalent. -->
+<div class="m-create-backdrop" id="mCreateBackdrop" onclick="closeMobileCreatePopover()" hidden></div>
+<div class="m-create-popover" id="mCreatePopover" role="dialog" aria-modal="true" aria-label="Create new" hidden>
+  <div class="m-create-handle" aria-hidden="true"></div>
+  <div class="m-create-title">Create</div>
+  <button class="m-create-row" onclick="_mCreate('lead')">
+    <span class="m-create-row-ico m-create-row-ico--orange"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-plus"/></svg></span>
+    <span class="m-create-row-text">
+      <span class="m-create-row-lbl">New Lead</span>
+      <span class="m-create-row-hint">Add a customer to the pipeline</span>
+    </span>
+  </button>
+  <button class="m-create-row" onclick="_mCreate('photo')">
+    <span class="m-create-row-ico"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-camera"/></svg></span>
+    <span class="m-create-row-text">
+      <span class="m-create-row-lbl">Photo</span>
+      <span class="m-create-row-hint">Capture damage / measurement / progress</span>
+    </span>
+  </button>
+  <button class="m-create-row" onclick="_mCreate('task')">
+    <span class="m-create-row-ico"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-doc"/></svg></span>
+    <span class="m-create-row-text">
+      <span class="m-create-row-lbl">Task</span>
+      <span class="m-create-row-hint">Schedule a follow-up or to-do</span>
+    </span>
+  </button>
+  <button class="m-create-row" onclick="_mCreate('knock')">
+    <span class="m-create-row-ico m-create-row-ico--knock"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-pin"/></svg></span>
+    <span class="m-create-row-text">
+      <span class="m-create-row-lbl">D2D Knock</span>
+      <span class="m-create-row-hint">Log this door — NBD only</span>
+    </span>
+  </button>
+  <button class="m-create-row" onclick="_mCreate('note')">
+    <span class="m-create-row-ico"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-chat"/></svg></span>
+    <span class="m-create-row-text">
+      <span class="m-create-row-lbl">Quick Note</span>
+      <span class="m-create-row-hint">Voice or text note for the day log</span>
+    </span>
+  </button>
+  <button class="m-create-cancel" onclick="closeMobileCreatePopover()">Cancel</button>
+</div>
+<!-- Hidden file input used by the Photo create row to invoke the
+     device camera. Kept at the bottom of the DOM so the popover can
+     focus-trigger it without scroll jumps. -->
+<input type="file" id="mCreatePhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="window._mCreatePhotoPicked && window._mCreatePhotoPicked(event)">
 
 <!-- More menu overlay -->
 <div class="mm-overlay" id="mm-overlay" onclick="closeMobileMore()"></div>
