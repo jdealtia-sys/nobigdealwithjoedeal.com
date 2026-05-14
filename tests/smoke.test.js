@@ -3857,6 +3857,23 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Wave 5d (A.4) — accent contract on remaining toggle-active states');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const crmJs = read(path.join(ROOT, 'docs/pro/js/crm.js'));
+  // 1. .crm-icon-btn.active gains the inset --accent-ring boundary.
+  assert('.crm-icon-btn.active includes box-shadow inset --accent-ring',
+    /\.crm-icon-btn\.active\{[\s\S]{0,400}box-shadow:inset 0 0 0 1px var\(--accent-ring\)/.test(dash),
+    'expected .crm-icon-btn.active to carry the inset --accent-ring boundary');
+  // 2. JS-driven inline orange surfaces in crm.js use --accent-fg.
+  assert('crm.js search-highlight <mark> uses var(--accent-fg)',
+    /<mark style="background:var\(--orange\);color:var\(--accent-fg\)/.test(crmJs),
+    'expected the search-highlight <mark> to color via --accent-fg');
+  assert('crm.js saveBtn.style.cssText uses var(--accent-fg) + accent-ring',
+    /saveBtn\.style\.cssText\s*=\s*'background:var\(--orange\);border:1px solid var\(--orange\);color:var\(--accent-fg\);box-shadow:inset 0 0 0 1px var\(--accent-ring\)/.test(crmJs),
+    'expected saveBtn inline cssText to use --accent-fg + inset --accent-ring');
+}
+
 section('Wave 2E.3 (A.3) — m-modal-bar on the last 5 dashboard modals');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
