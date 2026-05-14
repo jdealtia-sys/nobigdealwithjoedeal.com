@@ -5657,20 +5657,26 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 }
 .kcol-count{ font-weight:700; }
 
-/* B. Hover-reveal arrows — desktop only.
-   On touchscreens (@media (hover:none)) the arrows stay visible since
-   there's no hover to trigger reveal. On desktop they sit at 0 opacity
-   and lift to 1 when the card is hovered, preserving the existing
-   tap-target and click handlers. */
-@media (hover: hover) and (pointer: fine){
-  .kc-arrow{
-    opacity:0;
-    transition:opacity .15s ease, color .15s, transform .15s, background .15s;
-  }
-  .k-card:hover .kc-arrow,
-  .kc-arrow:focus-visible{
-    opacity:1;
-  }
+/* B. Hover-reveal arrows.
+   Hotfix 2026-05-14: dropping (pointer:fine) — hybrid-touch desktops
+   (Windows laptops, Brave on touch monitors) register as
+   (pointer:coarse), which was breaking the desktop hide. New rule:
+   hide whenever the device CAN hover (hover:hover); show whenever it
+   can't (hover:none). Belt-and-suspenders default + always-visible on
+   :focus-within keeps keyboard a11y intact. */
+.kc-arrow{
+  opacity:.35;
+  transition:opacity .15s ease, color .15s, transform .15s, background .15s;
+}
+.k-card:hover .kc-arrow,
+.k-card:focus-within .kc-arrow,
+.kc-arrow:focus-visible{
+  opacity:1;
+}
+@media (hover: none){
+  /* Touch devices have no hover — keep arrows fully visible at rest so
+     tap targets are obvious. */
+  .kc-arrow{ opacity:1; }
 }
 /* ══ END WAVE 3 ══ */
 .mfield{margin-bottom:12px;}
@@ -8536,8 +8542,16 @@ body {
      two-tier graceful degradation: wrap → scroll → never truncate. */
   .crm-hdr-actions{
     display:flex; align-items:center; gap:2px;     /* Pro Chrome: was 4px — tighter clusters */
-    margin-left:auto; flex-wrap:wrap;
+    margin-left:auto;
+    /* Hotfix 2026-05-14: flex-wrap was fighting overflow-x:auto. With
+       the parent .crm-header set to flex-wrap:nowrap (Wave 1) the row
+       can't actually wrap, so the items would overflow and get clipped
+       at the viewport edge. Force single-row + horizontal scroll +
+       small right padding so the last button has breathing room. */
+    flex-wrap:nowrap;
+    min-width:0;            /* allow shrink inside the flex parent */
     max-width:100%;
+    padding-right:8px;
     overflow-x:auto;
     scrollbar-width:thin;
     scrollbar-color:var(--br) transparent;

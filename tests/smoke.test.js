@@ -3683,13 +3683,17 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
   assert('.kcol-header border-bottom dropped to 1px',
     /\.kcol-header[\s\S]{0,400}border-bottom:\s*1px\s+solid\s+currentColor\s*!important/.test(dash),
     'expected .kcol-header border-bottom: 1px solid currentColor !important');
-  // 2. Hover-reveal scoped to true-hover devices.
-  assert('hover-reveal arrows scoped via @media (hover: hover)',
-    /@media\s*\(hover:\s*hover\)\s+and\s+\(pointer:\s*fine\)[\s\S]{0,400}\.kc-arrow\{[\s\S]{0,80}opacity:\s*0/.test(dash),
-    'expected (hover:hover) AND (pointer:fine) media query that defaults .kc-arrow opacity:0');
+  // 2. Hover-reveal: default low-opacity (works on hybrid-touch desktops),
+  //    full opacity on hover/focus, force-on inside @media (hover:none).
+  assert('.kc-arrow default opacity is .35 (de-emphasized but visible)',
+    /\.kc-arrow\{\s*opacity:\s*\.35/.test(dash),
+    'expected .kc-arrow default opacity:.35 (Wave 3 hotfix replaced opacity:0 / pointer:fine gating)');
   assert('.k-card:hover .kc-arrow lifts to opacity:1',
-    /\.k-card:hover\s+\.kc-arrow[\s\S]{0,80}opacity:\s*1/.test(dash),
-    'expected .k-card:hover .kc-arrow rule with opacity:1');
+    /\.k-card:hover\s+\.kc-arrow[\s\S]{0,200}opacity:\s*1/.test(dash),
+    'expected .k-card:hover .kc-arrow → opacity:1');
+  assert('@media (hover: none) forces .kc-arrow opacity:1',
+    /@media\s*\(hover:\s*none\)[\s\S]{0,200}\.kc-arrow\{\s*opacity:\s*1/.test(dash),
+    'expected touch-device override to keep arrows fully visible');
 }
 
 section('Wave 2E.2 — m-modal-bar applied to task / photo / propertyIntel');
