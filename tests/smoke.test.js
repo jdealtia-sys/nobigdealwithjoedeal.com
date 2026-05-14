@@ -3635,6 +3635,36 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 2E — m-modal-bar standardization');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Pattern CSS exists.
+  for (const cls of ['m-modal-bar','m-modal-bar-x','m-modal-bar-titles','m-modal-bar-eyebrow','m-modal-bar-title','m-modal-bar-action','m-modal-has-bar']) {
+    assert('CSS class .' + cls + ' is defined',
+      new RegExp('\\.' + cls.replace(/-/g,'\\-') + '\\b').test(dash),
+      'expected .' + cls + ' rule');
+  }
+  // 2. .m-modal-has-bar hides the floating .modal-close.
+  assert('.m-modal-has-bar hides floating .modal-close',
+    /\.modal\.m-modal-has-bar\s*>\s*\.modal-close\s*\{\s*display:\s*none/.test(dash),
+    'expected .modal-close hidden when .m-modal-has-bar applied');
+  // 3. leadModal adopts the new pattern.
+  const lmStart = dash.indexOf('<div class="modal-bg" id="leadModal">');
+  const lmBlock = dash.slice(lmStart, lmStart + 1500);
+  assert('leadModal applies .m-modal-has-bar to inner .modal',
+    /class="modal m-modal-has-bar"/.test(lmBlock),
+    'leadModal inner .modal should carry .m-modal-has-bar');
+  assert('leadModal renders an .m-modal-bar header',
+    /class="m-modal-bar"/.test(lmBlock),
+    'leadModal should contain a .m-modal-bar element');
+  assert('leadModal bar carries the "CRM" eyebrow',
+    /class="m-modal-bar-eyebrow"[^>]*>CRM</.test(lmBlock),
+    'expected the CRM eyebrow inside the m-modal-bar');
+  assert('leadModal bar keeps id="leadModalTitle" on the title span',
+    /class="m-modal-bar-title"[^>]*id="leadModalTitle"/.test(lmBlock),
+    'leadModalTitle id should move to the bar title span so existing JS still finds it');
+}
+
 section('Wave 2D — Mobile inspection overlay');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

@@ -5494,6 +5494,93 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .modal::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--orange),transparent);}
 .modal-close{position:absolute;top:12px;right:14px;background:none;border:none;color:var(--m);font-size:17px;cursor:pointer;}
 .modal-close:hover{color:var(--t);}
+
+/* ══ M-MODAL-BAR (Wave 2E 2026-05-14) ══════════════════════════════════
+   Standardized header row for modals. JobNimbus / CompanyCam pattern:
+   ✕ (close) on the left, title centered, optional action button (✓ /
+   share / ⋯) on the right. Replaces the floating-X + ad-hoc-heading
+   combo every modal was reinventing.
+   Usage:
+     <div class="modal-bg" id="someModal">
+       <div class="modal m-modal-has-bar">
+         <div class="m-modal-bar">
+           <button class="m-modal-bar-x" onclick="...">✕</button>
+           <div class="m-modal-bar-titles">
+             <span class="m-modal-bar-eyebrow">CRM</span>
+             <span class="m-modal-bar-title">Add Lead</span>
+           </div>
+           <button class="m-modal-bar-action" onclick="...">Save</button>
+         </div>
+         <!-- form body -->
+       </div>
+     </div>
+   `.m-modal-has-bar` removes the default 28px top padding so the bar
+   sits flush; the floating .modal-close is auto-hidden when the bar is
+   present. Orange ::before gradient stays for NBD signature. */
+.modal.m-modal-has-bar{ padding-top:0; }
+.modal.m-modal-has-bar > .modal-close{ display:none; }
+.m-modal-bar{
+  position:sticky; top:0; z-index:2;
+  display:flex; align-items:center; gap:8px;
+  margin:0 -28px 18px;          /* extend to modal edges */
+  padding:10px 12px;
+  background:color-mix(in srgb, var(--s) 92%, transparent);
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--br);
+  border-top-left-radius:12px; border-top-right-radius:12px;
+  min-height:48px;
+}
+.m-modal-bar-x{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; padding:0;
+  background:transparent; border:none; border-radius:8px;
+  color:var(--m); cursor:pointer; flex-shrink:0;
+  font-size:18px; line-height:1;
+  -webkit-tap-highlight-color:transparent;
+  transition:color .15s, background .15s;
+}
+.m-modal-bar-x:hover{ color:var(--t); background:color-mix(in srgb, var(--t) 8%, transparent); }
+.m-modal-bar-x:active{ transform:scale(.94); }
+.m-modal-bar-titles{
+  flex:1; min-width:0;
+  display:flex; flex-direction:column; align-items:center; gap:1px;
+  text-align:center;
+}
+.m-modal-bar-eyebrow{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:9px; font-weight:800;
+  letter-spacing:.16em; text-transform:uppercase;
+  color:var(--orange);
+  line-height:1.1;
+}
+.m-modal-bar-title{
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:16px; font-weight:700;
+  letter-spacing:.04em; text-transform:uppercase;
+  color:var(--t);
+  line-height:1.15;
+  max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.m-modal-bar-action{
+  background:transparent; border:none;
+  color:var(--orange); font-weight:700; font-size:13px;
+  padding:8px 10px; border-radius:6px;
+  cursor:pointer; flex-shrink:0;
+  font-family:inherit;
+  -webkit-tap-highlight-color:transparent;
+  min-width:36px; min-height:36px;
+}
+.m-modal-bar-action:hover{ background:color-mix(in srgb, var(--orange) 12%, transparent); }
+.m-modal-bar-action:disabled{ color:var(--m); cursor:not-allowed; }
+.m-modal-bar-spacer{ width:36px; flex-shrink:0; }
+/* Mobile: pin the bar above the safe-area inset so iPhone notches
+   don't eat the close button. */
+@media (max-width:768px){
+  .m-modal-bar{
+    padding-top:calc(10px + env(safe-area-inset-top, 0px));
+  }
+}
+/* ══ END M-MODAL-BAR ══ */
 .mfield{margin-bottom:12px;}
 .mfield label{display:block;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:5px;}
 .mfield input,.mfield select,.mfield textarea{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:9px 11px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;}
@@ -14445,10 +14532,20 @@ function switchScTab(tab, btn) {
 </div>
 
 <div class="modal-bg" id="leadModal">
-  <div class="modal" style="max-width:600px;max-height:90vh;overflow-y:auto;">
+  <div class="modal m-modal-has-bar" style="max-width:600px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" onclick="closeLeadModal()">✕</button>
-    <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">CRM</div>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:16px;" id="leadModalTitle">Add Lead</div>
+    <!-- Wave 2E: standard m-modal-bar replaces the floating ✕ + ad-hoc
+         eyebrow/title pair. .m-modal-has-bar on the .modal hides the
+         floating .modal-close above (kept for keyboard handlers that
+         still reference closeLeadModal). -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closeLeadModal()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">CRM</span>
+        <span class="m-modal-bar-title" id="leadModalTitle">Add Lead</span>
+      </div>
+      <button class="m-modal-bar-action" id="leadModalSave" onclick="(typeof saveLead==='function')?saveLead():null" aria-label="Save lead">Save</button>
+    </div>
     <div class="merr" id="mErr"></div><div class="mok" id="mOk"></div>
     <div class="mrow">
       <div class="mfield"><label>First Name</label><input type="text" id="lFname" placeholder="John"></div>
