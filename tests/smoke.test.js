@@ -3635,6 +3635,340 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Type scale.
+  for (const tok of ['--fs-2xs','--fs-xs','--fs-sm','--fs-md','--fs-base','--fs-lg','--fs-xl','--fs-2xl','--fs-3xl','--fs-4xl']) {
+    assert('type token ' + tok + ' defined at :root',
+      new RegExp(tok.replace(/-/g,'\\-') + '\\s*:').test(dash),
+      'expected ' + tok + ' definition');
+  }
+  // 2. Spacing scale.
+  for (const tok of ['--sp-0','--sp-1','--sp-2','--sp-4','--sp-6','--sp-8','--sp-12','--sp-16']) {
+    assert('spacing token ' + tok + ' defined',
+      new RegExp(tok.replace(/-/g,'\\-') + '\\s*:').test(dash),
+      'expected ' + tok + ' definition');
+  }
+  // 3. Radius scale.
+  for (const tok of ['--r-xs','--r-sm','--r-md','--r-lg','--r-xl','--r-full']) {
+    assert('radius token ' + tok + ' defined',
+      new RegExp(tok.replace(/-/g,'\\-') + '\\s*:').test(dash),
+      'expected ' + tok + ' definition');
+  }
+  // 4. Tap-target + transition tokens.
+  assert('tap-target token --tap-min defined (44px Apple HIG)',
+    /--tap-min\s*:\s*44px/.test(dash),
+    'expected --tap-min:44px');
+  assert('transition tokens (--t-fast/--t-mid/--t-slow) defined',
+    /--t-fast\s*:[\s\S]{0,80}--t-mid\s*:[\s\S]{0,80}--t-slow\s*:/.test(dash),
+    'expected --t-fast/--t-mid/--t-slow definitions');
+  // 5. Sample applications: tokens are actually being used by the
+  //    new mobile components, not just defined.
+  assert('.m-jd-name uses var(--fs-4xl)',
+    /\.m-jd-name[\s\S]{0,400}font-size:\s*var\(--fs-4xl\)/.test(dash),
+    'expected .m-jd-name to consume var(--fs-4xl)');
+  assert('.m-create-row-lbl uses var(--fs-lg)',
+    /\.m-create-row-lbl[\s\S]{0,200}font-size:\s*var\(--fs-lg\)/.test(dash),
+    'expected .m-create-row-lbl to consume var(--fs-lg)');
+}
+
+section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Column header was tightened (padding 7px 12px + 1px border).
+  assert('.kcol-header padding tightened to 7px 12px',
+    /\.kcol-header\{\s*padding:\s*7px\s+12px\s*!important/.test(dash),
+    'expected .kcol-header padding rule of 7px 12px !important');
+  assert('.kcol-header border-bottom dropped to 1px',
+    /\.kcol-header[\s\S]{0,400}border-bottom:\s*1px\s+solid\s+currentColor\s*!important/.test(dash),
+    'expected .kcol-header border-bottom: 1px solid currentColor !important');
+  // 2. Hover-reveal scoped to true-hover devices.
+  assert('hover-reveal arrows scoped via @media (hover: hover)',
+    /@media\s*\(hover:\s*hover\)\s+and\s+\(pointer:\s*fine\)[\s\S]{0,400}\.kc-arrow\{[\s\S]{0,80}opacity:\s*0/.test(dash),
+    'expected (hover:hover) AND (pointer:fine) media query that defaults .kc-arrow opacity:0');
+  assert('.k-card:hover .kc-arrow lifts to opacity:1',
+    /\.k-card:hover\s+\.kc-arrow[\s\S]{0,80}opacity:\s*1/.test(dash),
+    'expected .k-card:hover .kc-arrow rule with opacity:1');
+}
+
+section('Wave 2E — m-modal-bar standardization');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Pattern CSS exists.
+  for (const cls of ['m-modal-bar','m-modal-bar-x','m-modal-bar-titles','m-modal-bar-eyebrow','m-modal-bar-title','m-modal-bar-action','m-modal-has-bar']) {
+    assert('CSS class .' + cls + ' is defined',
+      new RegExp('\\.' + cls.replace(/-/g,'\\-') + '\\b').test(dash),
+      'expected .' + cls + ' rule');
+  }
+  // 2. .m-modal-has-bar hides the floating .modal-close.
+  assert('.m-modal-has-bar hides floating .modal-close',
+    /\.modal\.m-modal-has-bar\s*>\s*\.modal-close\s*\{\s*display:\s*none/.test(dash),
+    'expected .modal-close hidden when .m-modal-has-bar applied');
+  // 3. leadModal adopts the new pattern.
+  const lmStart = dash.indexOf('<div class="modal-bg" id="leadModal">');
+  const lmBlock = dash.slice(lmStart, lmStart + 1500);
+  assert('leadModal applies .m-modal-has-bar to inner .modal',
+    /class="modal m-modal-has-bar"/.test(lmBlock),
+    'leadModal inner .modal should carry .m-modal-has-bar');
+  assert('leadModal renders an .m-modal-bar header',
+    /class="m-modal-bar"/.test(lmBlock),
+    'leadModal should contain a .m-modal-bar element');
+  assert('leadModal bar carries the "CRM" eyebrow',
+    /class="m-modal-bar-eyebrow"[^>]*>CRM</.test(lmBlock),
+    'expected the CRM eyebrow inside the m-modal-bar');
+  assert('leadModal bar keeps id="leadModalTitle" on the title span',
+    /class="m-modal-bar-title"[^>]*id="leadModalTitle"/.test(lmBlock),
+    'leadModalTitle id should move to the bar title span so existing JS still finds it');
+}
+
+section('Wave 2D — Mobile inspection overlay');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  // 1. Overlay DOM exists.
+  assert('m-inspection overlay element exists',
+    /<div class="m-inspection" id="mInspection"/.test(dash),
+    'expected <div class="m-inspection" id="mInspection">');
+  assert('inspection overlay contains #mInspectionContainer',
+    /id="mInspectionContainer"/.test(dash),
+    'expected the engine mount point #mInspectionContainer');
+  // 2. Close button wired.
+  assert('inspection overlay has close button calling closeMobileInspection()',
+    /id="mInspBack"[\s\S]*onclick="closeMobileInspection\(\)"/.test(dash),
+    'expected close button in m-inspection top bar');
+  // 3. Entry CTA in mobile job-detail Activity tab.
+  assert('mobile job-detail Activity tab has a .m-jd-cta Start Inspection button',
+    /class="m-jd-cta"[\s\S]*openMobileInspection\(window\._cardDetailLeadId\)/.test(dash),
+    'expected a .m-jd-cta wired to openMobileInspection');
+  // 4. JS hooks exposed.
+  for (const fn of ['openMobileInspection','closeMobileInspection']) {
+    assert('window.' + fn + ' exposed',
+      new RegExp('window\\.' + fn + '\\s*=').test(mainJs),
+      'expected window.' + fn);
+  }
+  // 5. openMobileInspection delegates to InspectionReportEngine.openBuilder.
+  assert('openMobileInspection mounts the existing InspectionReportEngine',
+    /InspectionReportEngine\.openBuilder\(['"]mInspectionContainer['"]/.test(mainJs),
+    'expected the mobile overlay to host InspectionReportEngine.openBuilder()');
+  // 6. Desktop force-hide guard.
+  assert('@media (min-width:769px) hides .m-inspection',
+    /@media\s*\(min-width:\s*769px\)[\s\S]{0,400}\.m-inspection\s*\{\s*display:\s*none\s*!important/.test(dash),
+    'expected desktop media query to force-hide .m-inspection');
+}
+
+section('Wave 2C.2 — Camera FAB + native share');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  // 1. Sprite has the new shutter + share glyphs.
+  assert('sprite has nbd-icon-shutter',
+    /<symbol id="nbd-icon-shutter"/.test(dash),
+    'expected sprite symbol nbd-icon-shutter');
+  assert('sprite has nbd-icon-share',
+    /<symbol id="nbd-icon-share"/.test(dash),
+    'expected sprite symbol nbd-icon-share');
+  // 2. Camera FAB exists inside view-photos.
+  const vp = dash.indexOf('id="view-photos"');
+  const vpClose = dash.indexOf('<!-- ══ INSPECTION REPORT BUILDER OVERLAY', vp);
+  const vpBlock = dash.slice(vp, vpClose === -1 ? vp + 8000 : vpClose);
+  assert('view-photos contains the m-shutter-fab',
+    /class="m-shutter-fab"[\s\S]*id="mShutterFab"/.test(vpBlock),
+    'expected #mShutterFab button inside view-photos');
+  // 3. Share button in mobile job-detail top bar.
+  assert('mobile job-detail has #mJdShare button wired to _mJdShare()',
+    /id="mJdShare"[\s\S]*onclick="_mJdShare\(\)"/.test(dash),
+    'expected the share icon button in the mobile job-detail top bar');
+  // 4. JS handler exposed.
+  assert('window._mJdShare exposed',
+    /window\._mJdShare\s*=/.test(mainJs),
+    'expected window._mJdShare to be exported');
+  // 5. _mJdShare prefers navigator.share().
+  assert('_mJdShare uses navigator.share when available',
+    /navigator\.share\(\{\s*title:[^}]*url:\s*portal/.test(mainJs),
+    'expected _mJdShare to call navigator.share() with title/text/url');
+  // 6. Desktop force-hide guard for the FAB.
+  assert('@media (min-width:769px) hides .m-shutter-fab',
+    /@media\s*\(min-width:\s*769px\)[\s\S]{0,200}\.m-shutter-fab[\s\S]{0,80}display:\s*none\s*!important/.test(dash),
+    'expected desktop media query to force-hide .m-shutter-fab');
+}
+
+section('Wave 2C.1 — Mobile create popover');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  // 1. Popover DOM + backdrop exist.
+  assert('mCreatePopover element exists',
+    /<div class="m-create-popover" id="mCreatePopover"/.test(dash),
+    'expected <div class="m-create-popover" id="mCreatePopover">');
+  assert('mCreateBackdrop element exists',
+    /<div class="m-create-backdrop" id="mCreateBackdrop"/.test(dash),
+    'expected the backdrop div');
+  // 2. Five create rows wired.
+  for (const kind of ['lead','photo','task','knock','note']) {
+    assert('create row wires onclick="_mCreate(\'' + kind + '\')"',
+      new RegExp("_mCreate\\('" + kind + "'\\)").test(dash),
+      'missing _mCreate(\'' + kind + '\') row');
+  }
+  // 3. Hidden camera-capture input present.
+  assert('hidden camera input #mCreatePhotoInput with capture=environment',
+    /<input type="file" id="mCreatePhotoInput"[^>]*capture="environment"/.test(dash),
+    'expected hidden <input type="file" capture="environment"> for the Photo row');
+  // 4. window handlers exposed in dashboard-main.js.
+  for (const fn of ['openMobileCreatePopover','closeMobileCreatePopover','toggleMobileCreatePopover','_mCreate']) {
+    assert('window.' + fn + ' exposed',
+      new RegExp('window\\.' + fn.replace(/_/g,'_') + '\\s*=').test(mainJs),
+      'expected window.' + fn);
+  }
+  // 5. Center FAB still points to toggleMobileCreatePopover with a fallback.
+  assert('mobile-nav center FAB calls toggleMobileCreatePopover (with openLeadModal fallback)',
+    /toggleMobileCreatePopover\s*\(\)\s*:\s*openLeadModal\s*\(\)/.test(dash),
+    'expected the FAB onclick to test for toggleMobileCreatePopover and fall back to openLeadModal');
+  // 6. Desktop force-hide guard.
+  assert('@media (min-width:769px) hides .m-create-popover',
+    /@media\s*\(min-width:\s*769px\)[\s\S]{0,400}\.m-create-popover[\s\S]{0,100}display:\s*none\s*!important/.test(dash),
+    'expected desktop media query to force-hide the popover');
+}
+
+section('Wave 2B — Mobile job-detail screen');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const crmJs = read(path.join(ROOT, 'docs/pro/js/crm.js'));
+  // 1. Overlay DOM is present with the expected anchors.
+  assert('m-jobdetail overlay element exists with id=mJobDetail',
+    /<div class="m-jobdetail" id="mJobDetail"/.test(dash),
+    'expected <div class="m-jobdetail" id="mJobDetail"...>');
+  for (const id of ['mJdStatus','mJdName','mJdAddr','mJdHero','mJdStorm','mJdValue']) {
+    assert('mobile job-detail has #' + id,
+      new RegExp('id="' + id + '"').test(dash),
+      '#' + id + ' missing from mobile job-detail');
+  }
+  // 2. The 5 action buttons exist.
+  for (const id of ['mJdCall','mJdText','mJdEmail','mJdPhotos','mJdEstimate']) {
+    assert('mobile job-detail action button #' + id,
+      new RegExp('id="' + id + '"').test(dash),
+      '#' + id + ' action button missing');
+  }
+  // 3. The 3 tabs exist.
+  assert('mobile job-detail has 3 tabs (Activity/Photos/Details)',
+    /data-tab="activity"[\s\S]*?data-tab="photos"[\s\S]*?data-tab="details"/.test(dash),
+    'expected 3 tabs in order: activity, photos, details');
+  // 4. CSS hides .m-jobdetail on desktop (≥769px).
+  assert('@media (min-width:769px) hides .m-jobdetail',
+    /@media\s*\(min-width:\s*769px\)\s*\{[\s\S]*?\.m-jobdetail\s*\{\s*display:\s*none\s*!important/.test(dash),
+    'expected desktop media query to force-hide .m-jobdetail');
+  // 5. JS hooks exposed on window.
+  for (const fn of ['openMobileJobDetail','closeMobileJobDetail','openLeadDetail','_mJdSwitchTab','_mJdAct']) {
+    assert('window.' + fn + ' exposed in dashboard-main.js',
+      new RegExp('window\\.' + fn.replace(/_/g,'_') + '\\s*=').test(mainJs),
+      'expected window.' + fn + ' to be exported');
+  }
+  // 6. openLeadDetail picks mobile vs desktop via matchMedia.
+  assert('openLeadDetail routes via matchMedia(max-width:768px)',
+    /matchMedia\(['"]\(max-width:\s*768px\)['"]\)/.test(mainJs),
+    'expected matchMedia gate in openLeadDetail');
+  // 7. crm.js's handleCardClick was rewired to openLeadDetail.
+  assert('crm.js handleCardClick calls openLeadDetail (not openCardDetailModal directly)',
+    /openLeadDetail\(id\)/.test(crmJs) && !/openCardDetailModal\(id\)/.test(crmJs),
+    'expected handleCardClick to call openLeadDetail(id), removing the direct openCardDetailModal(id) call');
+  // 8. Storm chip ⛈ is rendered via CSS ::before content (NBD differentiator).
+  assert('mobile job-detail storm chip uses ⛈ glyph via CSS',
+    /\.m-jd-storm::before\s*\{\s*content:\s*['"]⛈['"]/.test(dash),
+    'expected .m-jd-storm::before with ⛈ content');
+}
+
+section('Wave 2A — Mobile chrome (nav SVG glyphs + centered FAB)');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Sprite now ships the mobile-nav glyphs.
+  for (const id of ['nbd-icon-home','nbd-icon-board','nbd-icon-plus','nbd-icon-more','nbd-icon-chat']) {
+    assert('sprite has <symbol id="' + id + '">',
+      new RegExp('<symbol id="' + id + '"').test(dash),
+      'expected mobile-nav sprite symbol ' + id);
+  }
+  // 2. The bottom nav was rewritten — emoji glyphs gone.
+  const navOpen = dash.indexOf('<nav id="mobile-nav">');
+  const navClose = dash.indexOf('</nav>', navOpen);
+  const navBlock = dash.slice(navOpen, navClose);
+  for (const glyph of ['📊','🗺','👥','🤖','⋯']) {
+    assert('mobile-nav no longer contains emoji glyph ' + glyph,
+      !navBlock.includes(glyph),
+      '#mobile-nav still has emoji ' + glyph + ' — should be SVG sprite ref');
+  }
+  // 3. The center "+" FAB exists.
+  assert('mobile-nav has center FAB (.mn-fab) wired to a create handler',
+    /class="mn-item mn-fab"[\s\S]{0,200}id="mni-create"/.test(navBlock),
+    'expected an orange center "+" FAB with id="mni-create"');
+  // 4. Sprite refs are present on every primary nav item.
+  assert('mobile-nav primary items reference sprite via <use href="#nbd-icon-*"/>',
+    (navBlock.match(/<use href="#nbd-icon-(home|board|plus|chat|more)"\/>/g) || []).length >= 5,
+    'expected ≥5 sprite refs across the 5 nav items');
+}
+
+section('Pro Chrome — icon system + header consolidation');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. SVG sprite ships with the 5 chrome icons we replaced emoji with.
+  for (const id of ['nbd-icon-clock','nbd-icon-bell','nbd-icon-palette','nbd-icon-gear','nbd-icon-book']) {
+    assert('sprite has <symbol id="' + id + '">',
+      new RegExp('<symbol id="' + id + '"').test(dash),
+      'expected an inline SVG sprite symbol for ' + id);
+  }
+  // 2. The five .hdr-tool buttons are present and reference the sprite.
+  assert('global header uses .hdr-tool wrappers (≥5 instances)',
+    (dash.match(/class="hdr-tool"/g) || []).length >= 5,
+    'expected at least 5 .hdr-tool buttons in the global header');
+  assert('header tools reference the sprite via <use href="#nbd-icon-*"/>',
+    /<use href="#nbd-icon-(clock|bell|palette|gear|book)"\/>/.test(dash),
+    'expected header buttons to <use> sprite symbols');
+  // 3. The five raw-emoji glyphs the old buttons rendered must no longer
+  //    appear inside the global <header>. We slice the header block and
+  //    check it. (Decorative emoji elsewhere in the file — card chips,
+  //    stage headers, settings tabs — are out of scope for this PR and
+  //    intentionally untouched.)
+  const headerOpen = dash.indexOf('<header>');
+  const headerClose = dash.indexOf('</header>', headerOpen);
+  const headerBlock = dash.slice(headerOpen, headerClose);
+  for (const glyph of ['🕒','🔔','🎨','⚙','📖']) {
+    // 🕒 = \u{1F552} clock, 🔔 = bell, 🎨 = palette,
+    // ⚙ = gear, 📖 = book
+    assert('header chrome no longer contains raw emoji ' + glyph,
+      !headerBlock.includes(glyph),
+      'global <header> still has emoji ' + glyph + ' — should be SVG sprite ref now');
+  }
+  // 4. The notif badge keeps working via the new .hdr-tool-badge class.
+  assert('notif button keeps its #notifBadge under .hdr-tool-badge',
+    /<button class="hdr-tool"[^>]*id="notifBtn"[\s\S]{0,500}id="notifBadge" class="hdr-tool-badge"/.test(dash),
+    'expected #notifBadge inside the .hdr-tool#notifBtn with .hdr-tool-badge class');
+  // 5. The CRM action row was given group dividers (3 .crm-hdr-sep spans).
+  assert('CRM action row has ≥3 .crm-hdr-sep dividers between groups',
+    (dash.match(/class="crm-hdr-sep"/g) || []).length >= 3,
+    'expected at least 3 .crm-hdr-sep elements inside .crm-hdr-actions');
+}
+
+section('Rock 4 Phase 3 — view-storm lazy hydration');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  // 1. The active view DIV is now an empty mount carrying the template ref.
+  assert('view-storm is an empty mount div with data-view-template',
+    /<div class="view" id="view-storm" data-view-template="tpl-view-storm"><\/div>/.test(dash),
+    'expected: <div class="view" id="view-storm" data-view-template="tpl-view-storm"></div>');
+  // 2. The original markup lives inside a <template> sibling.
+  assert('tpl-view-storm template exists with stormCenterContainer inside',
+    /<template id="tpl-view-storm">[\s\S]*?id="stormCenterContainer"[\s\S]*?<\/template>/.test(dash),
+    'expected <template id="tpl-view-storm"> wrapping the original view markup');
+  // 3. The hydration helper is defined.
+  assert('_hydrateViewTemplate helper defined in dashboard-main.js',
+    /function _hydrateViewTemplate\(name\)/.test(mainJs),
+    'expected function _hydrateViewTemplate(name) in dashboard-main.js');
+  // 4. goTo() calls the helper before the view-active update.
+  assert('goTo() calls _hydrateViewTemplate(name) before reading view-' + 'name',
+    /_hydrateViewTemplate\(name\)[\s\S]{0,400}document\.getElementById\(['"]view-['"]\+name\)/.test(mainJs),
+    'expected _hydrateViewTemplate(name) to run before the view-active update');
+}
+
 // ── Summary ─────────────────────────────────────────────────
 console.log('\n' + '─'.repeat(50));
 console.log(`${passed} passed, ${failed} failed`);

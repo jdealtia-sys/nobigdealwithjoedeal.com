@@ -99,6 +99,24 @@ function updateBreadcrumb(routeName, params = {}) {
 // Pro-only views — Lite users see upgrade prompt instead
 const PRO_ONLY_VIEWS = ['photos','docs','map','draw','storm','joe','schedule','board','closeboard','repos','training','academy'];
 
+// Rock 4 Phase 3 — lazy hydration for templated views.
+// A view DIV carrying data-view-template="tpl-<id>" starts empty; on first
+// goTo() we clone the matching <template> into it. Idempotent: re-hydration
+// is a no-op once the view has children. This is the foundation for the
+// stub-view batch (aitree, understand, projectcodex, aiusage, board, ...)
+// per docs/dev/dashboard-decomposition-plan.md Phase 3.
+function _hydrateViewTemplate(name) {
+  const view = document.getElementById('view-' + name);
+  if (!view) return false;
+  if (view.children.length > 0) return true; // already hydrated
+  const tplId = view.dataset.viewTemplate;
+  if (!tplId) return false;
+  const tpl = document.getElementById(tplId);
+  if (!tpl || !('content' in tpl)) return false;
+  view.appendChild(tpl.content.cloneNode(true));
+  return true;
+}
+
 function goTo(name, params = {}) {
   // ── Lite tier gate: block Pro-only views ──
   if (window._userPlan === 'lite' && PRO_ONLY_VIEWS.includes(name)) {
@@ -121,7 +139,10 @@ function goTo(name, params = {}) {
       window.location.hash = hash;
     }
   }
-  
+
+  // Hydrate templated views the first time they're shown.
+  _hydrateViewTemplate(name);
+
   // Update UI
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.ni').forEach(n => n.classList.remove('active'));
@@ -3610,6 +3631,418 @@ function openCardDetailModal(leadId) {
   document.getElementById('cardDetailModal').classList.add('open');
 }
 window.openCardDetailModal = openCardDetailModal;
+
+// ══════════════════════════════════════════════════════════════════════
+// Wave 2B — Mobile job-detail screen
+//
+// Phones get a full-screen overlay instead of the shrunken
+// cardDetailModal. Same data flow (window._leads + window._photoCache),
+// fundamentally different layout: hero photo banner, big action ring,
+// 3 tabs (Activity / Photos / Details). Routing decision lives in
+// openLeadDetail() below — that's what card clicks now call.
+//
+// On a tablet/desktop session the .m-jobdetail selector is force-hidden
+// via the @media (min-width:769px) rule in dashboard.html, so this code
+// is mobile-only by construction even if a wrong path opens it.
+// ══════════════════════════════════════════════════════════════════════
+function openMobileJobDetail(leadId) {
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead) return;
+  window._cardDetailLeadId = leadId;
+
+  const $ = (id) => document.getElementById(id);
+
+  // ── Status pill (uses the same stageLabel/stageColor as the desktop modal) ──
+  const rawStage = lead._stageKey || lead.stage || 'new';
+  const stageEl = $('mJdStatus');
+  if (stageEl) {
+    const label = (typeof window.stageLabel === 'function')
+      ? window.stageLabel(rawStage)
+      : String(rawStage).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const color = (typeof window.stageColor === 'function')
+      ? window.stageColor(rawStage) : 'var(--orange)';
+    stageEl.textContent = label;
+    stageEl.style.color = color;
+    stageEl.style.background = 'color-mix(in srgb, ' + color + ' 14%, transparent)';
+  }
+
+  // ── Title block ──
+  const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim()
+    || lead.name || 'Lead';
+  $('mJdName').textContent = name;
+  $('mJdAddr').textContent = lead.address || '—';
+  const valEl = $('mJdValue');
+  if (lead.jobValue) {
+    valEl.textContent = '$' + parseFloat(lead.jobValue).toLocaleString();
+    valEl.hidden = false;
+  } else {
+    valEl.hidden = true;
+  }
+
+  // ── Hero photo ──
+  const photos = (window._photoCache && window._photoCache[lead.id]) || [];
+  const heroEl = $('mJdHero');
+  const firstPhotoUrl = photos[0] && (photos[0].url || photos[0].downloadUrl || photos[0].src);
+  if (firstPhotoUrl) {
+    heroEl.style.backgroundImage = 'url("' + String(firstPhotoUrl).replace(/"/g, '%22') + '")';
+    heroEl.classList.add('has-photo');
+  } else {
+    heroEl.style.backgroundImage = '';
+    heroEl.classList.remove('has-photo');
+  }
+
+  // ── Storm chip — NBD differentiator ──
+  const stormEl = $('mJdStorm');
+  if (lead.hailHit && lead.hailHit.sizeInches) {
+    const inches = Number(lead.hailHit.sizeInches).toFixed(1);
+    let when = '';
+    const hitAt = lead.hailHit.date || lead.hailHit.observedAt;
+    if (hitAt) {
+      const d = (hitAt && hitAt.toDate) ? hitAt.toDate()
+              : (hitAt instanceof Date) ? hitAt
+              : new Date(hitAt);
+      if (d && !isNaN(d)) {
+        const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+        when = days <= 0 ? ' · today'
+             : days === 1 ? ' · yesterday'
+             : days < 30 ? ' · ' + days + 'd ago'
+             : '';
+      }
+    }
+    stormEl.textContent = inches + '" hail' + when;
+    stormEl.hidden = false;
+  } else {
+    stormEl.hidden = true;
+  }
+
+  // ── Action button enablement ──
+  const setEnabled = (id, on) => {
+    const b = $(id);
+    if (b) b.disabled = !on;
+  };
+  setEnabled('mJdCall',  !!lead.phone);
+  setEnabled('mJdText',  !!lead.phone);
+  setEnabled('mJdEmail', !!lead.email);
+  setEnabled('mJdPhotos', true);
+  setEnabled('mJdEstimate', true);
+
+  // ── Details tab ──
+  $('mJdDmg').textContent     = lead.damageType || '—';
+  $('mJdPhone').textContent   = lead.phone || '—';
+  $('mJdEmailV').textContent  = lead.email || '—';
+  $('mJdSource').textContent  = lead.source || lead.leadSource || '—';
+  $('mJdCarrier').textContent = lead.carrier || lead.insuranceCarrier || '—';
+  $('mJdClaim').textContent   = lead.claimNumber || lead.claim || '—';
+
+  // ── Photos tab — CompanyCam-style date groups ──
+  const photoBody = $('mJdTabPhotos');
+  if (photoBody) {
+    if (!photos.length) {
+      photoBody.innerHTML = '<div class="m-jd-empty">No photos yet.</div>';
+    } else {
+      const groups = {};
+      photos.forEach(p => {
+        const ts = (p.takenAt && p.takenAt.toDate) ? p.takenAt.toDate()
+                 : (p.takenAt instanceof Date) ? p.takenAt
+                 : (p.takenAt) ? new Date(p.takenAt)
+                 : (p.uploadedAt && p.uploadedAt.toDate) ? p.uploadedAt.toDate()
+                 : null;
+        const key = ts && !isNaN(ts)
+          ? ts.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' })
+          : 'Older';
+        (groups[key] = groups[key] || []).push(p);
+      });
+      const escAttr = (s) => String(s).replace(/"/g, '%22');
+      photoBody.innerHTML = Object.keys(groups).map(date => {
+        const tiles = groups[date].map(p => {
+          const url = p.url || p.downloadUrl || p.src || '';
+          return url ? '<img loading="lazy" src="' + escAttr(url) + '" alt="">' : '';
+        }).join('');
+        return '<div class="m-jd-photo-group">'
+             +   '<div class="m-jd-photo-date">' + date + '</div>'
+             +   '<div class="m-jd-photo-grid">' + tiles + '</div>'
+             + '</div>';
+      }).join('');
+    }
+  }
+
+  // ── Reset to Activity tab on every open ──
+  _mJdSwitchTab('activity');
+
+  // Show
+  const root = $('mJobDetail');
+  root.hidden = false;
+  root.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+window.openMobileJobDetail = openMobileJobDetail;
+
+function closeMobileJobDetail() {
+  const root = document.getElementById('mJobDetail');
+  if (!root) return;
+  root.classList.remove('open');
+  root.hidden = true;
+  document.body.style.overflow = '';
+}
+window.closeMobileJobDetail = closeMobileJobDetail;
+
+function _mJdSwitchTab(tab) {
+  document.querySelectorAll('.m-jd-tab').forEach(t => {
+    const on = t.dataset.tab === tab;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const map = { activity:'mJdTabActivity', photos:'mJdTabPhotos', details:'mJdTabDetails' };
+  for (const [k, id] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el) el.hidden = (k !== tab);
+  }
+}
+window._mJdSwitchTab = _mJdSwitchTab;
+
+// ══════════════════════════════════════════════════════════════════════
+// Wave 2D — Mobile inspection overlay
+//
+// Reuses the existing InspectionReportEngine (docs/pro/js/
+// inspection-report-engine.js, ~2,300 lines) but hosts it in a full-
+// screen mobile shell. Same engine the desktop uses → reports
+// generated on phone are byte-identical to desktop-generated ones,
+// no fork to maintain.
+// ══════════════════════════════════════════════════════════════════════
+function openMobileInspection(leadId) {
+  if (!leadId) return;
+  const root = document.getElementById('mInspection');
+  if (!root) return;
+  window._cardDetailLeadId = leadId;
+
+  // Title — show customer name for context.
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  const name = lead
+    ? (((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || lead.name || 'Inspection')
+    : 'Inspection';
+  const titleEl = document.getElementById('mInspTitle');
+  if (titleEl) titleEl.textContent = name;
+
+  // Mount the engine into the mobile container. The engine itself
+  // handles loading state, template picker, photo capture, and PDF
+  // generation — we just hand it a container and a lead.
+  const container = document.getElementById('mInspectionContainer');
+  if (container) container.innerHTML = '<div class="m-jd-empty">Loading inspection builder…</div>';
+
+  root.hidden = false;
+  root.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
+    // The engine's openBuilder is async — fire-and-forget so we don't
+    // block the slide-up animation.
+    Promise.resolve(window.InspectionReportEngine.openBuilder('mInspectionContainer', leadId))
+      .catch(err => {
+        console.warn('inspection engine open failed:', err && err.message);
+        if (container) container.innerHTML = '<div class="m-jd-empty">Inspection builder failed to load — try again in a moment.</div>';
+      });
+  } else {
+    if (container) container.innerHTML = '<div class="m-jd-empty">Inspection engine not loaded on this page.</div>';
+  }
+}
+window.openMobileInspection = openMobileInspection;
+
+function closeMobileInspection() {
+  const root = document.getElementById('mInspection');
+  if (!root) return;
+  root.classList.remove('open');
+  root.hidden = true;
+  // Clear the engine's contents so a stale render doesn't flash on
+  // next open of a different lead.
+  const container = document.getElementById('mInspectionContainer');
+  if (container) container.innerHTML = '';
+  // If the mobile job-detail is also open underneath, body-scroll
+  // stays locked. Otherwise restore.
+  const jd = document.getElementById('mJobDetail');
+  if (!jd || jd.hidden) document.body.style.overflow = '';
+}
+window.closeMobileInspection = closeMobileInspection;
+
+// Wave 2C.2 — Mobile share, native first.
+//
+// Tapping the share icon in the mobile job-detail top bar invokes
+// navigator.share() with the lead's name + portal URL when both are
+// available. If navigator.share is missing (desktop, some older
+// Android browsers) we fall back to copying the portal link to the
+// clipboard and toasting; if there's no portal link yet we toast the
+// rep with a helpful next step. CompanyCam invokes the OS share sheet
+// for this exact pattern — we mirror it but stay branded.
+function _mJdShare() {
+  const id = window._cardDetailLeadId;
+  if (!id) return;
+  const lead = (window._leads || []).find(l => l.id === id);
+  if (!lead) return;
+  const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim()
+    || lead.name || 'Lead';
+  // Prefer the portal short link if the rep already minted one;
+  // otherwise the customer-page URL with leadId.
+  const portal = lead.portalShortUrl || lead.portalUrl
+    || (lead.portalToken
+        ? location.origin + '/pro/customer.html?lead=' + encodeURIComponent(id)
+            + '&t=' + encodeURIComponent(lead.portalToken)
+        : '');
+  const text = lead.address ? (name + ' — ' + lead.address) : name;
+
+  if (navigator && typeof navigator.share === 'function' && portal) {
+    navigator.share({ title: name, text: text, url: portal })
+      .catch(() => {/* user cancel or share denied — silent */});
+    return;
+  }
+  // Fallback: copy to clipboard.
+  if (portal && navigator && navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(portal)
+      .then(() => { if (typeof showToast === 'function') showToast('Portal link copied', 'success'); })
+      .catch(() => { if (typeof showToast === 'function') showToast('Copy failed — long-press the address to share', 'error'); });
+    return;
+  }
+  if (typeof showToast === 'function') {
+    showToast(portal ? 'Sharing not supported here' : 'No portal link yet — generate one from the lead detail', 'info');
+  }
+}
+window._mJdShare = _mJdShare;
+
+function _mJdAct(kind) {
+  const id = window._cardDetailLeadId;
+  if (!id) return;
+  const lead = (window._leads || []).find(l => l.id === id);
+  if (!lead) return;
+  switch (kind) {
+    case 'call':
+      if (lead.phone) location.href = 'tel:' + String(lead.phone).replace(/[^0-9+]/g, '');
+      break;
+    case 'text':
+      if (lead.phone) location.href = 'sms:' + String(lead.phone).replace(/[^0-9+]/g, '');
+      break;
+    case 'email':
+      if (lead.email) location.href = 'mailto:' + lead.email;
+      break;
+    case 'photos':
+      closeMobileJobDetail();
+      window._currentPhotoLeadId = id;
+      goTo('photos');
+      break;
+    case 'estimate':
+      closeMobileJobDetail();
+      window._currentEstimateLeadId = id;
+      goTo('est');
+      break;
+  }
+}
+window._mJdAct = _mJdAct;
+
+// ══════════════════════════════════════════════════════════════════════
+// Wave 2C.1 — Mobile create popover behind the bottom-nav "+" FAB
+//
+// Opens a bottom-sheet with 5 entry points (Lead / Photo / Task /
+// Knock / Note). Each row hands off to an existing flow rather than
+// duplicating modals. The popover closes itself before firing the
+// handler so the destination modal isn't competing with our backdrop.
+// ══════════════════════════════════════════════════════════════════════
+function openMobileCreatePopover() {
+  const bd = document.getElementById('mCreateBackdrop');
+  const pop = document.getElementById('mCreatePopover');
+  if (!bd || !pop) return;
+  bd.hidden = false; pop.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+function closeMobileCreatePopover() {
+  const bd = document.getElementById('mCreateBackdrop');
+  const pop = document.getElementById('mCreatePopover');
+  if (!bd || !pop) return;
+  bd.hidden = true; pop.hidden = true;
+  document.body.style.overflow = '';
+}
+function toggleMobileCreatePopover() {
+  const pop = document.getElementById('mCreatePopover');
+  if (!pop) { if (typeof openLeadModal === 'function') openLeadModal(); return; }
+  if (pop.hidden) openMobileCreatePopover();
+  else closeMobileCreatePopover();
+}
+window.openMobileCreatePopover  = openMobileCreatePopover;
+window.closeMobileCreatePopover = closeMobileCreatePopover;
+window.toggleMobileCreatePopover = toggleMobileCreatePopover;
+
+function _mCreate(kind) {
+  closeMobileCreatePopover();
+  switch (kind) {
+    case 'lead':
+      if (typeof openLeadModal === 'function') openLeadModal();
+      break;
+    case 'photo':
+      // Trigger the device camera via the hidden <input capture>.
+      // Browsers that don't honor `capture` open the photo picker — fine.
+      const input = document.getElementById('mCreatePhotoInput');
+      if (input) input.click();
+      break;
+    case 'task':
+      if (typeof openTaskModal === 'function') openTaskModal();
+      else if (typeof openLeadModal === 'function') openLeadModal();
+      break;
+    case 'knock':
+      // D2D entry. Tracker module exposes openKnock() (no args = new
+      // knock at current GPS). Falls back to navigating to view-d2d
+      // so reps without geolocation still get somewhere usable.
+      if (typeof openKnock === 'function') { openKnock(); break; }
+      if (window.D2D && typeof window.D2D.openNewKnock === 'function') {
+        window.D2D.openNewKnock(); break;
+      }
+      goTo('d2d');
+      break;
+    case 'note':
+      // No standalone note modal yet — open the lead modal which
+      // surfaces a note field on save. Replaced with a proper quick-
+      // note flow in a follow-up.
+      if (typeof openLeadModal === 'function') openLeadModal();
+      break;
+  }
+}
+window._mCreate = _mCreate;
+
+// Photo create handler — uploads the captured file via the existing
+// PhotoEngine if available, otherwise stages it for the next lead
+// modal save. Best-effort: we don't want the popover entry point to
+// fail loudly if PhotoEngine isn't loaded on this surface.
+window._mCreatePhotoPicked = function (event) {
+  try {
+    const file = event && event.target && event.target.files && event.target.files[0];
+    if (!file) return;
+    if (window.PhotoEngine && typeof window.PhotoEngine.uploadOne === 'function') {
+      window.PhotoEngine.uploadOne(file, {
+        source: 'mobile-create-popover'
+      });
+      if (typeof showToast === 'function') showToast('Photo uploaded', 'success');
+    } else {
+      // Stash on window so the next lead-modal save can attach it.
+      window._pendingPhotoUploads = window._pendingPhotoUploads || [];
+      window._pendingPhotoUploads.push(file);
+      if (typeof showToast === 'function') showToast('Photo queued — attach to a lead to save', 'info');
+    }
+  } catch (e) {
+    console.warn('mobile photo create failed:', e && e.message);
+  } finally {
+    // Reset input so the same file can be re-picked.
+    if (event && event.target) event.target.value = '';
+  }
+};
+
+// Mobile-aware router. Card clicks (handleCardClick / openLeadDetail
+// callers) go here; we pick mobile overlay vs desktop modal at click
+// time so changing viewport (tablet rotation) just works.
+function openLeadDetail(leadId) {
+  const mobile = (typeof matchMedia === 'function')
+    && matchMedia('(max-width: 768px)').matches;
+  if (mobile && typeof openMobileJobDetail === 'function') {
+    openMobileJobDetail(leadId);
+  } else {
+    openCardDetailModal(leadId);
+  }
+}
+window.openLeadDetail = openLeadDetail;
 
 // Populate the row of quick actions inside the prospect banner. Disabled
 // states render for actions whose underlying data isn't on the lead
