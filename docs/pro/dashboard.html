@@ -3997,6 +3997,108 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 }
 /* ══ END MOBILE PHOTO CAMERA FAB ══ */
 
+/* ══ MOBILE INSPECTION OVERLAY (Wave 2D) ═════════════════════════════
+   Same structural shell as .m-jobdetail (full-screen, z above
+   #mobile-nav) but stripped down to host the InspectionReportEngine
+   wizard. Engine's internal markup gets normalized via the wrapper
+   so it renders well on phones without engine rewrites. */
+.m-inspection{
+  position:fixed; inset:0;
+  background:var(--bg);
+  z-index:2110;  /* +10 over .m-jobdetail so it lifts above it */
+  display:none; flex-direction:column;
+  -webkit-overflow-scrolling:touch;
+  font-family:'Barlow',sans-serif;
+}
+.m-inspection.open{ display:flex; }
+.m-inspection[hidden]{ display:none; }
+.m-inspection.open[hidden]{ display:none; }
+
+.m-inspection-topbar{
+  position:sticky; top:0; z-index:2;
+  display:flex; align-items:center; gap:8px;
+  padding:env(safe-area-inset-top, 8px) 12px 8px;
+  background:color-mix(in srgb, var(--bg) 92%, transparent);
+  -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--br);
+  min-height:calc(44px + env(safe-area-inset-top, 0px));
+}
+.m-inspection-title{
+  flex:1; text-align:center;
+  font-family:'Barlow Condensed',sans-serif;
+  font-size:14px; font-weight:800;
+  letter-spacing:.08em; text-transform:uppercase;
+  color:var(--t);
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.m-inspection-spacer{ width:36px; flex-shrink:0; }
+
+.m-inspection-scroll{
+  flex:1; overflow-y:auto;
+  padding:14px 14px calc(80px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Normalize engine-rendered markup on mobile:
+   - max-width:none so the desktop-sized wizard scales to viewport
+   - generous tap targets for the engine's section/photo/save buttons
+   - readable line-height for the long-form question text          */
+.m-inspection-scroll #mInspectionContainer{
+  max-width:none !important;
+}
+.m-inspection-scroll #mInspectionContainer button{
+  min-height:44px;
+}
+.m-inspection-scroll #mInspectionContainer input,
+.m-inspection-scroll #mInspectionContainer textarea,
+.m-inspection-scroll #mInspectionContainer select{
+  min-height:44px;
+  font-size:16px;  /* prevent iOS zoom-on-focus */
+}
+
+@media (min-width:769px){
+  .m-inspection{ display:none !important; }
+}
+
+/* CTA inside the mobile job-detail Activity tab (Wave 2D entry point) */
+.m-jd-cta{
+  display:flex; align-items:center; gap:12px;
+  width:100%; padding:14px 12px;
+  background:color-mix(in srgb, var(--orange) 8%, transparent);
+  border:1px solid color-mix(in srgb, var(--orange) 35%, var(--br));
+  border-radius:12px;
+  color:var(--t); cursor:pointer;
+  text-align:left;
+  -webkit-tap-highlight-color:transparent;
+  transition:background .12s;
+  margin-bottom:14px;
+}
+.m-jd-cta:active{ background:color-mix(in srgb, var(--orange) 14%, transparent); }
+.m-jd-cta-ico{
+  display:flex; align-items:center; justify-content:center;
+  width:38px; height:38px;
+  border-radius:50%;
+  background:var(--orange);
+  color:var(--t);
+  flex-shrink:0;
+}
+.m-jd-cta-text{
+  display:flex; flex-direction:column; gap:2px;
+  min-width:0; flex:1;
+}
+.m-jd-cta-lbl{
+  font-size:14px; font-weight:700; color:var(--t);
+  line-height:1.2;
+}
+.m-jd-cta-hint{
+  font-size:11.5px; color:var(--m);
+  line-height:1.3;
+}
+.m-jd-cta-chev{
+  font-size:22px; color:var(--orange); font-weight:700;
+  margin-left:4px;
+}
+/* ══ END MOBILE INSPECTION OVERLAY ══ */
+
 /* ══ END PRO CHROME ══ */
 
 /* BREADCRUMB NAVIGATION */
@@ -15263,6 +15365,19 @@ function switchScTab(tab, btn) {
       <button class="m-jd-tab" data-tab="details" role="tab" aria-selected="false" onclick="_mJdSwitchTab('details')">Details</button>
     </div>
     <div class="m-jd-tab-body" id="mJdTabActivity" role="tabpanel" aria-labelledby="activity">
+      <!-- Wave 2D: contextual entry point for the InspectionReportEngine
+           wizard. Renders a thin orange-bordered CTA at the top of the
+           Activity tab. Reps in the field need one-tap access to start
+           an inspection; the action ring is full so this slot serves as
+           the inspection lane. -->
+      <button class="m-jd-cta" type="button" onclick="window._cardDetailLeadId && openMobileInspection(window._cardDetailLeadId)">
+        <span class="m-jd-cta-ico"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-doc"/></svg></span>
+        <span class="m-jd-cta-text">
+          <span class="m-jd-cta-lbl">Start Inspection</span>
+          <span class="m-jd-cta-hint">Walk the property, capture photos by section, generate the PDF</span>
+        </span>
+        <span class="m-jd-cta-chev">›</span>
+      </button>
       <div class="m-jd-empty">No activity yet for this lead.</div>
     </div>
     <div class="m-jd-tab-body" id="mJdTabPhotos" role="tabpanel" aria-labelledby="photos" hidden>
@@ -15275,6 +15390,28 @@ function switchScTab(tab, btn) {
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Source</span><span class="m-jd-detail-v" id="mJdSource">—</span></div>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Carrier</span><span class="m-jd-detail-v" id="mJdCarrier">—</span></div>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Claim #</span><span class="m-jd-detail-v" id="mJdClaim">—</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MOBILE INSPECTION OVERLAY (Wave 2D 2026-05-14) ══════════════════
+     Full-screen mobile-only shell that hosts the existing
+     InspectionReportEngine wizard. Reps in the field need the same
+     engine the desktop uses, but in a viewport that doesn't require
+     pinch-zoom. The engine renders into #mInspectionContainer. The
+     top bar uses the CompanyCam modal pattern: ✕ Close · Title · ⋯
+     actions (engine-provided save/share/PDF buttons render inline). -->
+<div class="m-inspection" id="mInspection" role="dialog" aria-modal="true" aria-labelledby="mInspTitle" hidden>
+  <div class="m-inspection-topbar">
+    <button class="m-jd-icon-btn" id="mInspBack" onclick="closeMobileInspection()" aria-label="Close inspection">
+      <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-close"/></svg>
+    </button>
+    <span class="m-inspection-title" id="mInspTitle">Inspection</span>
+    <span class="m-inspection-spacer" aria-hidden="true"></span>
+  </div>
+  <div class="m-inspection-scroll">
+    <div id="mInspectionContainer">
+      <div class="m-jd-empty">Loading inspection builder…</div>
     </div>
   </div>
 </div>

@@ -3800,6 +3800,69 @@ function _mJdSwitchTab(tab) {
 }
 window._mJdSwitchTab = _mJdSwitchTab;
 
+// ══════════════════════════════════════════════════════════════════════
+// Wave 2D — Mobile inspection overlay
+//
+// Reuses the existing InspectionReportEngine (docs/pro/js/
+// inspection-report-engine.js, ~2,300 lines) but hosts it in a full-
+// screen mobile shell. Same engine the desktop uses → reports
+// generated on phone are byte-identical to desktop-generated ones,
+// no fork to maintain.
+// ══════════════════════════════════════════════════════════════════════
+function openMobileInspection(leadId) {
+  if (!leadId) return;
+  const root = document.getElementById('mInspection');
+  if (!root) return;
+  window._cardDetailLeadId = leadId;
+
+  // Title — show customer name for context.
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  const name = lead
+    ? (((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || lead.name || 'Inspection')
+    : 'Inspection';
+  const titleEl = document.getElementById('mInspTitle');
+  if (titleEl) titleEl.textContent = name;
+
+  // Mount the engine into the mobile container. The engine itself
+  // handles loading state, template picker, photo capture, and PDF
+  // generation — we just hand it a container and a lead.
+  const container = document.getElementById('mInspectionContainer');
+  if (container) container.innerHTML = '<div class="m-jd-empty">Loading inspection builder…</div>';
+
+  root.hidden = false;
+  root.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
+    // The engine's openBuilder is async — fire-and-forget so we don't
+    // block the slide-up animation.
+    Promise.resolve(window.InspectionReportEngine.openBuilder('mInspectionContainer', leadId))
+      .catch(err => {
+        console.warn('inspection engine open failed:', err && err.message);
+        if (container) container.innerHTML = '<div class="m-jd-empty">Inspection builder failed to load — try again in a moment.</div>';
+      });
+  } else {
+    if (container) container.innerHTML = '<div class="m-jd-empty">Inspection engine not loaded on this page.</div>';
+  }
+}
+window.openMobileInspection = openMobileInspection;
+
+function closeMobileInspection() {
+  const root = document.getElementById('mInspection');
+  if (!root) return;
+  root.classList.remove('open');
+  root.hidden = true;
+  // Clear the engine's contents so a stale render doesn't flash on
+  // next open of a different lead.
+  const container = document.getElementById('mInspectionContainer');
+  if (container) container.innerHTML = '';
+  // If the mobile job-detail is also open underneath, body-scroll
+  // stays locked. Otherwise restore.
+  const jd = document.getElementById('mJobDetail');
+  if (!jd || jd.hidden) document.body.style.overflow = '';
+}
+window.closeMobileInspection = closeMobileInspection;
+
 // Wave 2C.2 — Mobile share, native first.
 //
 // Tapping the share icon in the mobile job-detail top bar invokes

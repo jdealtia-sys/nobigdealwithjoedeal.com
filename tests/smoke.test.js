@@ -3635,6 +3635,41 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 2D — Mobile inspection overlay');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  // 1. Overlay DOM exists.
+  assert('m-inspection overlay element exists',
+    /<div class="m-inspection" id="mInspection"/.test(dash),
+    'expected <div class="m-inspection" id="mInspection">');
+  assert('inspection overlay contains #mInspectionContainer',
+    /id="mInspectionContainer"/.test(dash),
+    'expected the engine mount point #mInspectionContainer');
+  // 2. Close button wired.
+  assert('inspection overlay has close button calling closeMobileInspection()',
+    /id="mInspBack"[\s\S]*onclick="closeMobileInspection\(\)"/.test(dash),
+    'expected close button in m-inspection top bar');
+  // 3. Entry CTA in mobile job-detail Activity tab.
+  assert('mobile job-detail Activity tab has a .m-jd-cta Start Inspection button',
+    /class="m-jd-cta"[\s\S]*openMobileInspection\(window\._cardDetailLeadId\)/.test(dash),
+    'expected a .m-jd-cta wired to openMobileInspection');
+  // 4. JS hooks exposed.
+  for (const fn of ['openMobileInspection','closeMobileInspection']) {
+    assert('window.' + fn + ' exposed',
+      new RegExp('window\\.' + fn + '\\s*=').test(mainJs),
+      'expected window.' + fn);
+  }
+  // 5. openMobileInspection delegates to InspectionReportEngine.openBuilder.
+  assert('openMobileInspection mounts the existing InspectionReportEngine',
+    /InspectionReportEngine\.openBuilder\(['"]mInspectionContainer['"]/.test(mainJs),
+    'expected the mobile overlay to host InspectionReportEngine.openBuilder()');
+  // 6. Desktop force-hide guard.
+  assert('@media (min-width:769px) hides .m-inspection',
+    /@media\s*\(min-width:\s*769px\)[\s\S]{0,400}\.m-inspection\s*\{\s*display:\s*none\s*!important/.test(dash),
+    'expected desktop media query to force-hide .m-inspection');
+}
+
 section('Wave 2C.2 — Camera FAB + native share');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
