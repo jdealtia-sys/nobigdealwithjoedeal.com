@@ -3635,6 +3635,42 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 2C.2 — Camera FAB + native share');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  // 1. Sprite has the new shutter + share glyphs.
+  assert('sprite has nbd-icon-shutter',
+    /<symbol id="nbd-icon-shutter"/.test(dash),
+    'expected sprite symbol nbd-icon-shutter');
+  assert('sprite has nbd-icon-share',
+    /<symbol id="nbd-icon-share"/.test(dash),
+    'expected sprite symbol nbd-icon-share');
+  // 2. Camera FAB exists inside view-photos.
+  const vp = dash.indexOf('id="view-photos"');
+  const vpClose = dash.indexOf('<!-- ══ INSPECTION REPORT BUILDER OVERLAY', vp);
+  const vpBlock = dash.slice(vp, vpClose === -1 ? vp + 8000 : vpClose);
+  assert('view-photos contains the m-shutter-fab',
+    /class="m-shutter-fab"[\s\S]*id="mShutterFab"/.test(vpBlock),
+    'expected #mShutterFab button inside view-photos');
+  // 3. Share button in mobile job-detail top bar.
+  assert('mobile job-detail has #mJdShare button wired to _mJdShare()',
+    /id="mJdShare"[\s\S]*onclick="_mJdShare\(\)"/.test(dash),
+    'expected the share icon button in the mobile job-detail top bar');
+  // 4. JS handler exposed.
+  assert('window._mJdShare exposed',
+    /window\._mJdShare\s*=/.test(mainJs),
+    'expected window._mJdShare to be exported');
+  // 5. _mJdShare prefers navigator.share().
+  assert('_mJdShare uses navigator.share when available',
+    /navigator\.share\(\{\s*title:[^}]*url:\s*portal/.test(mainJs),
+    'expected _mJdShare to call navigator.share() with title/text/url');
+  // 6. Desktop force-hide guard for the FAB.
+  assert('@media (min-width:769px) hides .m-shutter-fab',
+    /@media\s*\(min-width:\s*769px\)[\s\S]{0,200}\.m-shutter-fab[\s\S]{0,80}display:\s*none\s*!important/.test(dash),
+    'expected desktop media query to force-hide .m-shutter-fab');
+}
+
 section('Wave 2C.1 — Mobile create popover');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

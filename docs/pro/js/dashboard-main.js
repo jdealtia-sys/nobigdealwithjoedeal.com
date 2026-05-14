@@ -3800,6 +3800,49 @@ function _mJdSwitchTab(tab) {
 }
 window._mJdSwitchTab = _mJdSwitchTab;
 
+// Wave 2C.2 — Mobile share, native first.
+//
+// Tapping the share icon in the mobile job-detail top bar invokes
+// navigator.share() with the lead's name + portal URL when both are
+// available. If navigator.share is missing (desktop, some older
+// Android browsers) we fall back to copying the portal link to the
+// clipboard and toasting; if there's no portal link yet we toast the
+// rep with a helpful next step. CompanyCam invokes the OS share sheet
+// for this exact pattern — we mirror it but stay branded.
+function _mJdShare() {
+  const id = window._cardDetailLeadId;
+  if (!id) return;
+  const lead = (window._leads || []).find(l => l.id === id);
+  if (!lead) return;
+  const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim()
+    || lead.name || 'Lead';
+  // Prefer the portal short link if the rep already minted one;
+  // otherwise the customer-page URL with leadId.
+  const portal = lead.portalShortUrl || lead.portalUrl
+    || (lead.portalToken
+        ? location.origin + '/pro/customer.html?lead=' + encodeURIComponent(id)
+            + '&t=' + encodeURIComponent(lead.portalToken)
+        : '');
+  const text = lead.address ? (name + ' — ' + lead.address) : name;
+
+  if (navigator && typeof navigator.share === 'function' && portal) {
+    navigator.share({ title: name, text: text, url: portal })
+      .catch(() => {/* user cancel or share denied — silent */});
+    return;
+  }
+  // Fallback: copy to clipboard.
+  if (portal && navigator && navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(portal)
+      .then(() => { if (typeof showToast === 'function') showToast('Portal link copied', 'success'); })
+      .catch(() => { if (typeof showToast === 'function') showToast('Copy failed — long-press the address to share', 'error'); });
+    return;
+  }
+  if (typeof showToast === 'function') {
+    showToast(portal ? 'Sharing not supported here' : 'No portal link yet — generate one from the lead detail', 'info');
+  }
+}
+window._mJdShare = _mJdShare;
+
 function _mJdAct(kind) {
   const id = window._cardDetailLeadId;
   if (!id) return;

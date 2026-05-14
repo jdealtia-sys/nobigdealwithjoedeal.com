@@ -3955,6 +3955,48 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 }
 /* ══ END MOBILE CREATE POPOVER ══ */
 
+/* ══ MOBILE PHOTO CAMERA FAB (Wave 2C.2) ═════════════════════════════
+   CompanyCam-style floating shutter button on view-photos. Sits above
+   the safe-area inset and clears #mobile-nav (62px) so taps land on
+   the button, not the nav. Desktop hides it — the inline "Open
+   Camera" header button is the desktop entry point. */
+.m-shutter-fab{
+  position:fixed;
+  bottom:calc(78px + env(safe-area-inset-bottom, 0px));
+  right:18px;
+  z-index:1950;
+  width:62px; height:62px;
+  border:none; border-radius:50%;
+  background:var(--orange);
+  color:var(--t);
+  display:none; align-items:center; justify-content:center;
+  box-shadow:0 6px 18px rgba(232,114,12,.5), 0 0 0 4px rgba(255,255,255,.05);
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.m-shutter-fab:active{
+  transform:scale(.92);
+  box-shadow:0 3px 10px rgba(232,114,12,.5);
+}
+.m-shutter-fab .nbd-icon{ width:26px; height:26px; }
+/* Only show on phones AND only when view-photos is active (otherwise
+   the FAB would float across every view). */
+@media (max-width:768px){
+  #view-photos.active ~ .m-shutter-fab,
+  #view-photos.active .m-shutter-fab{ display:inline-flex; }
+}
+/* The above selector chain isn't quite right because the FAB lives
+   INSIDE view-photos. Belt-and-suspenders: show whenever view-photos
+   is active on mobile via direct child path. */
+@media (max-width:768px){
+  #view-photos.active > .m-shutter-fab{ display:inline-flex; }
+}
+@media (min-width:769px){
+  .m-shutter-fab{ display:none !important; }
+}
+/* ══ END MOBILE PHOTO CAMERA FAB ══ */
+
 /* ══ END PRO CHROME ══ */
 
 /* BREADCRUMB NAVIGATION */
@@ -10036,6 +10078,17 @@ window.nbdNavToggle = nbdNavToggle;
       <path d="M5.5 12.5a3 3 0 1 1 .8-5.9 4 4 0 0 1 7.7.6 3 3 0 0 1 .5 5.3"/>
       <path d="M9 13l-2 4h2l-1 3 3-4h-2l2-3z"/>
     </symbol>
+    <!-- Wave 2C.2 — camera shutter + share -->
+    <symbol id="nbd-icon-shutter" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="7"/>
+      <circle cx="10" cy="10" r="4"/>
+    </symbol>
+    <symbol id="nbd-icon-share" viewBox="0 0 20 20">
+      <circle cx="5" cy="10" r="2"/>
+      <circle cx="15" cy="5.5" r="2"/>
+      <circle cx="15" cy="14.5" r="2"/>
+      <path d="M7 9l6.5-2.8M7 11l6.5 2.8"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -11838,6 +11891,16 @@ function switchScTab(tab, btn) {
       <!-- Inspection report builder container (inline for photos view) -->
       <div id="inspectionBuilderContainerInline" style="padding:0 16px;"></div>
     </div>
+    <!-- Wave 2C.2 — CompanyCam-style camera shutter FAB on view-photos.
+         Visible only on mobile (≤768px); on desktop the inline "📷 Open
+         Camera" button in the page header is the entry point. Tapping
+         this fires the same hidden file-input as the create popover's
+         Photo row, so capture flow is one consistent path. -->
+    <button class="m-shutter-fab" id="mShutterFab" type="button"
+      onclick="if(window.PhotoEngine && window._currentPhotoLeadId) PhotoEngine.openCamera(window._currentPhotoLeadId); else document.getElementById('mCreatePhotoInput')?.click()"
+      aria-label="Capture photo">
+      <svg class="nbd-icon nbd-icon-lg" aria-hidden="true"><use href="#nbd-icon-shutter"/></svg>
+    </button>
   </div>
 
   <!-- ══ INSPECTION REPORT BUILDER OVERLAY (works from any view) ══ -->
@@ -15154,6 +15217,9 @@ function switchScTab(tab, btn) {
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-arrow-left"/></svg>
     </button>
     <span class="m-jd-status" id="mJdStatus">—</span>
+    <button class="m-jd-icon-btn" id="mJdShare" onclick="_mJdShare()" aria-label="Share lead">
+      <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-share"/></svg>
+    </button>
     <button class="m-jd-edit" id="mJdEdit" onclick="window._cardDetailLeadId && window.editLead && window.editLead(window._cardDetailLeadId)" aria-label="Edit lead">Edit</button>
   </div>
   <div class="m-jd-scroll">
