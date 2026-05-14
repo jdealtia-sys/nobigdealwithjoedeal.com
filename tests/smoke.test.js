@@ -3635,6 +3635,106 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 5c — .crm-hdr-actions side-scroller affordance');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Fade gradient + snap-type — search whole file since there are
+  //    multiple .crm-hdr-actions rule blocks (one outer, one inside an
+  //    @media), and the new behavior lives in the wider block.
+  assert('.crm-hdr-actions has a mask-image fade on the right edge',
+    /mask-image:\s*linear-gradient\(to right,\s*#000\s+calc\(100% - 24px\),\s*transparent\)/.test(dash),
+    'expected mask-image right-edge fade so scrollability is visually communicated');
+  assert('.crm-hdr-actions uses scroll-snap-type x proximity',
+    /scroll-snap-type:\s*x\s+proximity/.test(dash),
+    'expected scroll-snap-type:x proximity for cleaner momentum stops');
+  // 2. Children become snap targets.
+  assert('.crm-hdr-btn / .crm-icon-btn become scroll-snap targets',
+    /\.crm-hdr-actions > \.crm-icon-btn,\s*\.crm-hdr-actions > \.crm-hdr-btn[\s\S]{0,80}scroll-snap-align:\s*start/.test(dash),
+    'expected scroll-snap-align:start on the action-row children');
+  // 3. Scrollbar is visible (6px) and tinted with the accent.
+  assert('.crm-hdr-actions scrollbar is 6px tall',
+    /\.crm-hdr-actions::-webkit-scrollbar\{\s*height:\s*6px/.test(dash),
+    'expected the webkit scrollbar height of 6px for affordance visibility');
+  assert('.crm-hdr-actions scrollbar thumb uses --orange-tinted color',
+    /\.crm-hdr-actions::-webkit-scrollbar-thumb\{[\s\S]{0,200}var\(--orange\)/.test(dash),
+    'expected scrollbar thumb tinted with --orange');
+  // 4. Old 3px height rule retired.
+  assert('old 3px scrollbar override retired',
+    !/\.crm-hdr-actions::-webkit-scrollbar\{\s*height:\s*3px/.test(dash),
+    'found leftover .crm-hdr-actions::-webkit-scrollbar height:3px — should be replaced by the Wave 5c 6px treatment');
+}
+
+section('Wave 5b — Gradient flatten + bulk accent-fg migration');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. .btn-orange no longer uses a linear-gradient for its base fill.
+  const btnStart = dash.indexOf('.btn-orange {');
+  const btnBlock = dash.slice(btnStart, btnStart + 600);
+  assert('.btn-orange base background is solid (no linear-gradient)',
+    /\.btn-orange\s*\{\s*background:\s*var\(--orange\)/.test(btnBlock),
+    'expected solid background:var(--orange) on .btn-orange — gradient was muddy on forest/neon themes');
+  // 2. .kview-btn.active uses --accent-fg.
+  assert('.kview-btn.active uses var(--accent-fg)',
+    /\.kview-btn\.active\{background:var\(--orange\);color:var\(--accent-fg\)/.test(dash),
+    'expected .kview-btn.active color: var(--accent-fg)');
+  // 3. No remaining text-on-accent pairings using var(--t). Regex
+  //    bounded by `"{};` so it stays within a single CSS rule or
+  //    inline style attribute (the earlier unbounded version greedy-
+  //    matched 10K chars across unrelated elements).
+  assert('no remaining text-on-accent surfaces using var(--t)',
+    !/background:\s*var\(--orange\)[^"{};]{0,200};\s*[^"{}]{0,80}color:\s*var\(--t\)/.test(dash),
+    'found a text-on-orange surface still using var(--t) — should be var(--accent-fg) for theme contrast');
+}
+
+section('Wave 5 — Theme-aware accent + contrast tokens');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. New theme-aware tokens at :root.
+  assert('--accent-fg defined at :root (default white)',
+    /--accent-fg\s*:\s*#fff/.test(dash),
+    'expected --accent-fg defined with default #fff at :root');
+  assert('--accent-ring defined at :root',
+    /--accent-ring\s*:\s*rgba/.test(dash),
+    'expected --accent-ring defined at :root');
+  // 2. Per-theme overrides exist for the highest-risk pairings.
+  for (const theme of ['paper','obsidian','steel','slate','neon','gold']) {
+    assert('theme "' + theme + '" overrides --accent-fg',
+      new RegExp(':root\\[data-theme="' + theme + '"\\][\\s\\S]{0,200}--accent-fg').test(dash),
+      'expected per-theme override of --accent-fg for ' + theme);
+  }
+  // 3. .btn-orange consumes the tokens.
+  assert('.btn-orange uses var(--accent-fg) for color',
+    /\.btn-orange\s*\{[\s\S]{0,400}color:\s*var\(--accent-fg\)/.test(dash),
+    'expected .btn-orange to color: var(--accent-fg)');
+  assert('.btn-orange paints an inset 1px ring via --accent-ring',
+    /\.btn-orange\s*\{[\s\S]{0,400}inset 0 0 0 1px var\(--accent-ring\)/.test(dash),
+    'expected .btn-orange inset boundary using --accent-ring');
+  // 4. Other static-accent surfaces upgraded.
+  assert('#addLeadFab uses var(--accent-fg) + var(--accent-ring)',
+    /#addLeadFab\{[\s\S]{0,400}color:\s*var\(--accent-fg\)[\s\S]{0,200}border:[^;]*var\(--accent-ring\)/.test(dash),
+    'expected #addLeadFab to consume the new tokens');
+  assert('.mn-item.mn-fab uses var(--accent-ring) border',
+    /\.mn-item\.mn-fab\s*\{[\s\S]{0,400}border:[^;]*var\(--accent-ring\)/.test(dash),
+    'expected .mn-item.mn-fab to use --accent-ring');
+  {
+    const shutter = dash.indexOf('.m-shutter-fab{');
+    const shutterBlock = dash.slice(shutter, shutter + 800);
+    assert('.m-shutter-fab uses var(--accent-fg)',
+      /color:\s*var\(--accent-fg\)/.test(shutterBlock),
+      'expected .m-shutter-fab to color: var(--accent-fg)');
+    assert('.m-shutter-fab uses var(--accent-ring) border',
+      /border:[^;]*var\(--accent-ring\)/.test(shutterBlock),
+      'expected .m-shutter-fab to border via --accent-ring');
+  }
+  // 5. Hardcoded `rgba(232,114,12,...)` glow strings retired in favor
+  //    of --og (the per-theme tinted glow). Spot-check on #addLeadFab.
+  const fab = dash.indexOf('#addLeadFab{');
+  const fabBlock = dash.slice(fab, fab + 500);
+  assert('#addLeadFab no longer uses rgba(232,114,12) glow',
+    !/rgba\(232,114,12/.test(fabBlock),
+    '#addLeadFab still has a hardcoded NBD-orange glow — should use var(--og)');
+}
+
 section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
@@ -3683,13 +3783,53 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
   assert('.kcol-header border-bottom dropped to 1px',
     /\.kcol-header[\s\S]{0,400}border-bottom:\s*1px\s+solid\s+currentColor\s*!important/.test(dash),
     'expected .kcol-header border-bottom: 1px solid currentColor !important');
-  // 2. Hover-reveal scoped to true-hover devices.
-  assert('hover-reveal arrows scoped via @media (hover: hover)',
-    /@media\s*\(hover:\s*hover\)\s+and\s+\(pointer:\s*fine\)[\s\S]{0,400}\.kc-arrow\{[\s\S]{0,80}opacity:\s*0/.test(dash),
-    'expected (hover:hover) AND (pointer:fine) media query that defaults .kc-arrow opacity:0');
+  // 2. Hover-reveal: default low-opacity (works on hybrid-touch desktops),
+  //    full opacity on hover/focus, force-on inside @media (hover:none).
+  assert('.kc-arrow default opacity is .35 (de-emphasized but visible)',
+    /\.kc-arrow\{\s*opacity:\s*\.35/.test(dash),
+    'expected .kc-arrow default opacity:.35 (Wave 3 hotfix replaced opacity:0 / pointer:fine gating)');
   assert('.k-card:hover .kc-arrow lifts to opacity:1',
-    /\.k-card:hover\s+\.kc-arrow[\s\S]{0,80}opacity:\s*1/.test(dash),
-    'expected .k-card:hover .kc-arrow rule with opacity:1');
+    /\.k-card:hover\s+\.kc-arrow[\s\S]{0,200}opacity:\s*1/.test(dash),
+    'expected .k-card:hover .kc-arrow → opacity:1');
+  assert('@media (hover: none) forces .kc-arrow opacity:1',
+    /@media\s*\(hover:\s*none\)[\s\S]{0,200}\.kc-arrow\{\s*opacity:\s*1/.test(dash),
+    'expected touch-device override to keep arrows fully visible');
+}
+
+section('Wave 2E.2 — m-modal-bar applied to task / photo / propertyIntel');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // Each modal must:
+  //   1. have .m-modal-has-bar on its inner .modal
+  //   2. contain an .m-modal-bar element
+  //   3. have an eyebrow + title pair within it
+  //   4. keep its existing id="*ModalTitle" if one existed (so JS still binds)
+  const cases = [
+    { id: 'taskModal',          eyebrow: 'Tasks',  titleId: 'taskModalTitle',  closeFn: 'closeTaskModal' },
+    { id: 'photoModal',         eyebrow: 'Photos', titleId: 'photoModalTitle', closeFn: 'closePhotoModal' },
+    { id: 'propertyIntelModal', eyebrow: 'Intel',  titleId: null,              closeFn: 'closePropertyIntelModal' },
+  ];
+  for (const c of cases) {
+    const start = dash.indexOf('id="' + c.id + '"');
+    const block = dash.slice(start, start + 2200);
+    assert(c.id + ' .modal has class m-modal-has-bar',
+      /class="modal m-modal-has-bar"/.test(block),
+      'expected .modal class to carry m-modal-has-bar on ' + c.id);
+    assert(c.id + ' contains an m-modal-bar',
+      /class="m-modal-bar"/.test(block),
+      'expected .m-modal-bar inside ' + c.id);
+    assert(c.id + ' eyebrow renders "' + c.eyebrow + '"',
+      new RegExp('class="m-modal-bar-eyebrow"[^>]*>' + c.eyebrow + '<').test(block),
+      'expected eyebrow text "' + c.eyebrow + '" inside ' + c.id);
+    assert(c.id + ' bar close button calls ' + c.closeFn + '()',
+      new RegExp('class="m-modal-bar-x"\\s+onclick="' + c.closeFn + '\\(\\)"').test(block),
+      'expected the bar X to call ' + c.closeFn);
+    if (c.titleId) {
+      assert(c.id + ' preserves id="' + c.titleId + '" on the bar title span',
+        new RegExp('class="m-modal-bar-title"[^>]*id="' + c.titleId + '"').test(block),
+        c.titleId + ' should move to the m-modal-bar-title span');
+    }
+  }
 }
 
 section('Wave 2E — m-modal-bar standardization');

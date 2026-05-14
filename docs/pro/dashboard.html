@@ -1071,7 +1071,7 @@
         banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,var(--s),var(--s2));border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
         banner.innerHTML = `
           <span>🚀 You're on <strong style="color:var(--orange);">NBD Pro Lite</strong> (25 leads max)</span>
-          <a href="/pro/landing.html#pricing" style="background:var(--orange);color:white;padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
+          <a href="/pro/landing.html#pricing" style="background:var(--orange);color:var(--accent-fg);padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
           <button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
         `;
         document.body.appendChild(banner);
@@ -3613,7 +3613,45 @@
   --t-mid:.18s;
   --t-slow:.32s;
   --ease-out:cubic-bezier(.18,.89,.32,1.28);
+
+  /* ── Wave 5 — theme-aware accent + contrast tokens ────────────────
+     The original theme system overrides --orange per-theme (so on the
+     forest theme --orange == #16A34A, etc.). That's great for accent
+     consistency, but the button system was painting .btn-orange with
+     a gradient from --orange → --ob — on green/blue/light themes
+     that's accent-on-accent, no visible boundary, low legibility.
+
+     New tokens:
+       --accent-fg   The text/icon color guaranteed to read on top of
+                     the accent fill. Defaults to white; light themes
+                     and pastel themes override this per-theme.
+       --accent-ring An outer ring color (semi-transparent) that paints
+                     a 1px outline around accent buttons so they read
+                     as a button on any surface — critical when the
+                     theme's accent is similar in luminance to its
+                     surface (forest, neon, gold themes).
+
+     Themes can override either token. The default values below cover
+     ~80% of the 66 themes; the remaining ones get overrides in
+     theme-system.css (separate sweep — see Wave 5b). */
+  --accent-fg:#fff;
+  --accent-ring:rgba(0,0,0,.35);
 }
+/* Light themes flip the accent-fg/ring defaults — black text on
+   pastel/white accents wouldn't contrast. */
+:root[data-mode="light"]{
+  --accent-fg:#fff;
+  --accent-ring:rgba(0,0,0,.25);
+}
+/* Per-theme overrides for the highest-risk pairings (accent ≈ surface
+   luminance). These ride here rather than in theme-system.css because
+   they're tied to the .btn-orange contract introduced in Wave 5. */
+:root[data-theme="paper"]{ --accent-fg:#fff; --accent-ring:rgba(0,0,0,.15); }
+:root[data-theme="obsidian"]{ --accent-fg:#0a0a0e; --accent-ring:rgba(255,255,255,.45); }
+:root[data-theme="steel"]{ --accent-fg:#11151c; --accent-ring:rgba(255,255,255,.35); }
+:root[data-theme="slate"]{ --accent-fg:#0f1117; --accent-ring:rgba(255,255,255,.30); }
+:root[data-theme="neon"]{ --accent-fg:#03110a; --accent-ring:rgba(0,0,0,.55); }
+:root[data-theme="gold"]{ --accent-fg:#0F0C04; --accent-ring:rgba(0,0,0,.45); }
 *{margin:0;padding:0;box-sizing:border-box;}
 /* Global iOS auto-zoom kill: any focused input under 16px triggers Mobile
    Safari to zoom the viewport in, dismiss the keyboard, then zoom back —
@@ -3629,7 +3667,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);height:
 header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:52px;z-index:1000;}
 .logo{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;}
 .logo span{color:var(--orange);}
-.logo-mark{width:36px;height:36px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--t);letter-spacing:.5px;flex-shrink:0;}
+.logo-mark{width:36px;height:36px;background:var(--orange);border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;color:var(--accent-fg);letter-spacing:.5px;flex-shrink:0;}
 .hbadge{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);border:1px solid var(--orange);padding:2px 7px;border-radius:2px;margin-left:8px;}
 .hright{display:flex;align-items:center;gap:10px;}
 .upill{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--br);border-radius:20px;padding:4px 11px 4px 5px;cursor:pointer;}
@@ -3980,7 +4018,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 }
 .m-create-row-ico--orange{
   background:var(--orange);
-  color:var(--t);
+  color:var(--accent-fg);
 }
 .m-create-row-ico--knock{
   background:color-mix(in srgb, var(--orange) 18%, transparent);
@@ -4024,18 +4062,21 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
   right:18px;
   z-index:1950;
   width:62px; height:62px;
-  border:none; border-radius:50%;
+  border:1px solid var(--accent-ring);   /* Wave 5: was border:none — visible boundary on light/pastel themes */
+  border-radius:50%;
   background:var(--orange);
-  color:var(--t);
+  color:var(--accent-fg);                /* Wave 5: was var(--t) — guaranteed-contrast fg */
   display:none; align-items:center; justify-content:center;
-  box-shadow:0 6px 18px rgba(232,114,12,.5), 0 0 0 4px rgba(255,255,255,.05);
+  /* Wave 5: drop hardcoded orange shadow + white-ring; use --og glow
+     (per-theme tinted) and --accent-ring for the outline. */
+  box-shadow:0 6px 18px var(--og), 0 0 0 4px color-mix(in srgb, var(--accent-fg) 8%, transparent);
   cursor:pointer;
   -webkit-tap-highlight-color:transparent;
   transition:transform .15s ease, box-shadow .15s ease;
 }
 .m-shutter-fab:active{
   transform:scale(.92);
-  box-shadow:0 3px 10px rgba(232,114,12,.5);
+  box-shadow:0 3px 10px var(--og);
 }
 .m-shutter-fab .nbd-icon{ width:26px; height:26px; }
 /* Only show on phones AND only when view-photos is active (otherwise
@@ -4136,7 +4177,7 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
   width:38px; height:38px;
   border-radius:50%;
   background:var(--orange);
-  color:var(--t);
+  color:var(--accent-fg);
   flex-shrink:0;
 }
 .m-jd-cta-text{
@@ -4728,7 +4769,7 @@ body:has(#view-prospects.active) .breadcrumb-container{
 }
 .toast-btn-primary{
   background:var(--orange);
-  color:var(--t);
+  color:var(--accent-fg);
 }
 .toast-btn-primary:hover{
   background:var(--ob);
@@ -5048,7 +5089,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .page-title{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
 .page-sub{font-size:12px;color:var(--m);margin-top:2px;}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:7px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;cursor:pointer;border:1px solid transparent;transition:all .2s;}
-.btn-orange{background:var(--orange);color:var(--t);border-color:var(--orange);box-shadow:0 3px 12px var(--og);}
+.btn-orange{background:var(--orange);color:var(--accent-fg);border-color:var(--orange);box-shadow:0 3px 12px var(--og);}
 .btn-orange:hover{background:var(--ob);}
 .btn-ghost{background:var(--s2);color:var(--t);border-color:var(--br);}
 .btn-ghost:hover{border-color:var(--orange);color:var(--orange);}
@@ -5154,7 +5195,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .plp-key{color:var(--m);}
 .plp-val{color:var(--t);font-weight:600;text-align:right;max-width:130px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .plp-btns{padding:10px 12px;display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--rule);}
-.plp-btn-go{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--orange);color:var(--t);border:none;border-radius:6px;padding:8px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .15s;}
+.plp-btn-go{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--orange);color:var(--accent-fg);border:none;border-radius:6px;padding:8px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .15s;}
 .plp-btn-go:hover{background:var(--ob);}
 .plp-btn-del{display:flex;align-items:center;justify-content:center;gap:6px;background:transparent;color:var(--red);border:1px solid rgba(224,82,82,.3);border-radius:6px;padding:7px;font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;width:100%;transition:all .15s;}
 .plp-btn-del:hover{background:rgba(224,82,82,.1);}
@@ -5301,7 +5342,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .est-step:last-child::after{display:none;}
 .step-circle{width:28px;height:28px;border-radius:50%;border:2px solid var(--br);background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;margin:0 auto 5px;position:relative;z-index:1;transition:all .3s;}
 .step-label{font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--m);}
-.est-step.active .step-circle{border-color:var(--orange);background:var(--orange);color:var(--t);}
+.est-step.active .step-circle{border-color:var(--orange);background:var(--orange);color:var(--accent-fg);}
 .est-step.done .step-circle{border-color:var(--green);background:var(--green);color:var(--t);}
 .est-step.active .step-label,.est-step.done .step-label{color:var(--t);}
 .tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0;}
@@ -5462,7 +5503,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .tl-filter-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:.04em;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent;white-space:nowrap;}
 .tl-filter-btn:hover{background:var(--s2);color:var(--t);border-color:rgba(232,114,12,.3);}
 .tl-filter-btn:active{transform:scale(.96);}
-.tl-filter-active{background:var(--orange)!important;color:var(--t)!important;border-color:var(--orange)!important;}
+.tl-filter-active{background:var(--orange)!important;color:var(--accent-fg)!important;border-color:var(--orange)!important;}
 .tl-filter-count{font-size:11px;opacity:.7;font-weight:400;}
 .tl-category{margin:0 16px 16px;border:1px solid var(--br);border-radius:10px;background:var(--s);overflow:hidden;transition:box-shadow .2s;}
 .tl-category:hover{box-shadow:0 2px 12px rgba(0,0,0,.08);}
@@ -5657,20 +5698,26 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 }
 .kcol-count{ font-weight:700; }
 
-/* B. Hover-reveal arrows — desktop only.
-   On touchscreens (@media (hover:none)) the arrows stay visible since
-   there's no hover to trigger reveal. On desktop they sit at 0 opacity
-   and lift to 1 when the card is hovered, preserving the existing
-   tap-target and click handlers. */
-@media (hover: hover) and (pointer: fine){
-  .kc-arrow{
-    opacity:0;
-    transition:opacity .15s ease, color .15s, transform .15s, background .15s;
-  }
-  .k-card:hover .kc-arrow,
-  .kc-arrow:focus-visible{
-    opacity:1;
-  }
+/* B. Hover-reveal arrows.
+   Hotfix 2026-05-14: dropping (pointer:fine) — hybrid-touch desktops
+   (Windows laptops, Brave on touch monitors) register as
+   (pointer:coarse), which was breaking the desktop hide. New rule:
+   hide whenever the device CAN hover (hover:hover); show whenever it
+   can't (hover:none). Belt-and-suspenders default + always-visible on
+   :focus-within keeps keyboard a11y intact. */
+.kc-arrow{
+  opacity:.35;
+  transition:opacity .15s ease, color .15s, transform .15s, background .15s;
+}
+.k-card:hover .kc-arrow,
+.k-card:focus-within .kc-arrow,
+.kc-arrow:focus-visible{
+  opacity:1;
+}
+@media (hover: none){
+  /* Touch devices have no hover — keep arrows fully visible at rest so
+     tap targets are obvious. */
+  .kc-arrow{ opacity:1; }
 }
 /* ══ END WAVE 3 ══ */
 .mfield{margin-bottom:12px;}
@@ -5680,7 +5727,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .mfield select option{background:var(--s2);}
 .mfield textarea{resize:vertical;min-height:65px;}
 .mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.msave{width:100%;background:var(--orange);color:var(--t);border:none;border-radius:8px;padding:11px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:6px;}
+.msave{width:100%;background:var(--orange);color:var(--accent-fg);border:none;border-radius:8px;padding:11px;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;margin-top:6px;}
 .msave:hover{background:var(--ob);}
 /* Next Actions panel — context-aware action chips inside the lead modal */
 .nap-btn{display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--br);border-radius:18px;padding:6px 11px;font-family:'Barlow',sans-serif;font-size:12px;color:var(--t);cursor:pointer;transition:all .15s;}
@@ -5784,7 +5831,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .present-controls{display:flex;align-items:center;gap:8px;}
 .present-btn{background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 14px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;color:var(--t);cursor:pointer;text-transform:uppercase;letter-spacing:.06em;transition:all .15s;}
 .present-btn:hover{border-color:var(--orange);color:var(--orange);}
-.present-btn-next{background:var(--orange);border-color:var(--orange);color:var(--t);}
+.present-btn-next{background:var(--orange);border-color:var(--orange);color:var(--accent-fg);}
 .present-btn-next:hover{background:#B44A17;}
 .present-btn-close{border-color:var(--red);color:var(--red);}
 .present-step{font-size:11px;color:var(--m);font-weight:700;letter-spacing:.1em;}
@@ -5960,13 +6007,28 @@ input:focus, select:focus, textarea:focus {
 /* ── ENHANCED BUTTON STATES ── */
 .btn { transition: all .2s cubic-bezier(.4,0,.2,1); }
 .btn:active { transform: scale(.97); transition-duration: .08s; }
+/* Wave 5b: flat solid fill replaces the 135deg gradient. Live mirror
+   showed that on themes where --orange and --ob have similar
+   luminance (forest, neon, gold, paper), the gradient read as muddy
+   two-tone instead of a clean button. Solid + 1px ring + per-theme
+   glow gives a uniformly readable button on all 66 themes. Hover
+   nudges to --ob and adds depth via stronger glow — keeps the
+   "press it" affordance without re-introducing the gradient. */
 .btn-orange {
-  background: linear-gradient(135deg, var(--orange), var(--ob));
-  box-shadow: 0 4px 14px var(--og), 0 1px 3px rgba(0,0,0,.15);
+  background: var(--orange);
+  color: var(--accent-fg);
+  box-shadow:
+    inset 0 0 0 1px var(--accent-ring),
+    0 4px 14px var(--og),
+    0 1px 3px rgba(0,0,0,.15);
 }
 .btn-orange:hover {
-  background: linear-gradient(135deg, var(--ob), var(--orange));
-  box-shadow: 0 6px 22px var(--og), 0 2px 6px rgba(0,0,0,.2);
+  background: var(--ob);
+  color: var(--accent-fg);
+  box-shadow:
+    inset 0 0 0 1px var(--accent-ring),
+    0 6px 22px var(--og),
+    0 2px 6px rgba(0,0,0,.2);
   transform: translateY(-1px);
 }
 .btn-orange:active { transform: translateY(0) scale(.98); }
@@ -6420,7 +6482,7 @@ input:focus, select:focus, textarea:focus {
 }
 .empty-cta:hover {
   background: var(--orange);
-  color:var(--t);
+  color:var(--accent-fg);
   transform: translateY(-1px);
   box-shadow: 0 4px 16px var(--og);
 }
@@ -7110,12 +7172,15 @@ body {
   .mn-item.active .nbd-icon{ color:var(--orange); transform:scale(1.12); filter:drop-shadow(0 0 6px rgba(232,114,12,.5)); }
   /* Center "+" gets the brand-accent FAB treatment within the nav strip —
      mirrors JobNimbus's centered "+" but stays orange-keyed. */
-  .mn-item.mn-fab .nbd-icon{ color:var(--t); }
+  /* Wave 5: --accent-fg ensures icon contrast on every theme; --og
+     glow is per-theme-tinted. */
+  .mn-item.mn-fab .nbd-icon{ color:var(--accent-fg); }
   .mn-item.mn-fab{
     background:var(--orange); border-radius:50%;
     width:48px; height:48px; flex:0 0 48px;
     padding:0; margin-top:-14px;
-    box-shadow:0 4px 12px rgba(232,114,12,.45);
+    border:1px solid var(--accent-ring);
+    box-shadow:0 4px 12px var(--og);
   }
   .mn-item.mn-fab .mn-lbl{ display:none; }
   .mn-item.mn-fab.active{ background:var(--orange); }
@@ -7351,7 +7416,7 @@ body {
 /* 48x48 tap target (iOS HIG 44x44 minimum + 4px cushion).
    Larger font, border that visually says 'tappable' */
 .mm-close{background:var(--s2);border:1px solid var(--br);border-radius:12px;color:var(--t);font-size:22px;width:48px;height:48px;display:flex;align-items:center;justify-content:center;cursor:pointer;-webkit-tap-highlight-color:transparent;flex-shrink:0;transition:all .15s;}
-.mm-close:hover,.mm-close:active{background:var(--orange);color:var(--t);border-color:var(--orange);}
+.mm-close:hover,.mm-close:active{background:var(--orange);color:var(--accent-fg);border-color:var(--orange);}
 .mm-section{padding:8px 12px 4px;font-size:9px;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.12em;color:var(--m);font-weight:700;}
 .mm-item{display:flex;align-items:center;gap:14px;padding:15px 20px;cursor:pointer;font-size:15px;color:var(--t);border-left:3px solid transparent;transition:all .15s;-webkit-tap-highlight-color:transparent;min-height:48px;}
 .mm-item:hover,.mm-item:active{background:var(--s2);border-left-color:var(--orange);color:var(--orange);}
@@ -7396,7 +7461,7 @@ body {
   white-space:nowrap;
 }
 .map-fab:hover{background:var(--og);border-color:var(--orange);color:var(--orange);}
-.map-fab.active{background:var(--orange);border-color:var(--orange);color:var(--t);}
+.map-fab.active{background:var(--orange);border-color:var(--orange);color:var(--accent-fg);}
 .map-fab-icon{font-size:13px;}
 /* divider between fab groups */
 .map-fab-div{width:1px;background:rgba(255,255,255,.1);align-self:stretch;margin:0 2px;}
@@ -7467,7 +7532,7 @@ body {
   font-size:11px;
   font-weight:700;
   letter-spacing:.06em;
-  color:var(--t);
+  color:var(--accent-fg);
   cursor:pointer;
   flex-shrink:0;
   transition:background .15s;
@@ -7526,7 +7591,7 @@ body {
 .joe-msg.joe .joe-msg-avatar { background:linear-gradient(135deg,var(--orange),#c85010); }
 .joe-msg.user .joe-msg-avatar { background:var(--s3); }
 .joe-bubble { background:var(--s2); border:1px solid var(--br); border-radius:12px; padding:11px 14px; font-size:13px; line-height:1.6; color:var(--t); }
-.joe-msg.user .joe-bubble { background:var(--orange); border-color:var(--orange); color:var(--t); border-radius:12px 12px 4px 12px; }
+.joe-msg.user .joe-bubble { background:var(--orange); border-color:var(--orange); color:var(--accent-fg); border-radius:12px 12px 4px 12px; }
 .joe-msg.joe .joe-bubble { border-radius:4px 12px 12px 12px; }
 .joe-bubble strong { font-weight:700; }
 .joe-bubble ul { margin:6px 0 4px 16px; }
@@ -7540,7 +7605,7 @@ body {
 .joe-input-row { display:flex; gap:10px; align-items:flex-end; }
 .joe-input { flex:1; background:var(--s2); border:1px solid var(--br); border-radius:10px; padding:10px 14px; font-family:'Barlow',sans-serif; font-size:13px; color:var(--t); outline:none; resize:none; max-height:120px; min-height:42px; line-height:1.5; }
 .joe-input:focus { border-color:var(--orange); }
-.joe-send { background:var(--orange); color:var(--t); border:none; border-radius:10px; padding:10px 16px; font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700; letter-spacing:.06em; cursor:pointer; transition:background .15s; flex-shrink:0; height:42px; }
+.joe-send { background:var(--orange); color:var(--accent-fg); border:none; border-radius:10px; padding:10px 16px; font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:700; letter-spacing:.06em; cursor:pointer; transition:background .15s; flex-shrink:0; height:42px; }
 .joe-send:hover { background:var(--ob); }
 .joe-send:disabled { opacity:.4; cursor:not-allowed; }
 .joe-quick-btns { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
@@ -7582,7 +7647,7 @@ body {
 .task-add-row input[type=text]:focus{border-color:var(--orange);}
 .task-add-row input[type=date]{background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:9px 8px;font-family:'Barlow',sans-serif;font-size:12px;color:var(--t);outline:none;width:130px;}
 .task-add-row input[type=date]:focus{border-color:var(--orange);}
-.task-add-btn{background:var(--orange);color:var(--t);border:none;border-radius:7px;padding:9px 14px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.task-add-btn{background:var(--orange);color:var(--accent-fg);border:none;border-radius:7px;padding:9px 14px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;cursor:pointer;white-space:nowrap;flex-shrink:0;}
 .task-add-btn:hover{background:var(--ob);}
 .task-list{display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;}
 .task-list::-webkit-scrollbar{width:3px;}.task-list::-webkit-scrollbar-thumb{background:var(--br);}
@@ -7712,7 +7777,7 @@ body {
 .tc-active-badge {
   display: none;
   position: absolute; top: 8px; right: 8px;
-  background: var(--orange); color:var(--t);
+  background: var(--orange); color:var(--accent-fg);
   font-size: 9px; font-weight: 700; letter-spacing: .06em;
   padding: 2px 7px; border-radius: 20px; text-transform: uppercase;
 }
@@ -7816,7 +7881,10 @@ body {
   }
   .kview-count:empty{ display:none; }
   .kview-btn:hover{border-color:var(--orange);color:var(--t);}
-  .kview-btn.active{background:var(--orange);color:var(--t);border-color:var(--orange);}
+  /* Wave 5b: --accent-fg replaces var(--t) so the active label reads
+     on every theme (var(--t) on forest/neon was green-text-on-green-
+     fill). --accent-ring on the border for boundary clarity. */
+  .kview-btn.active{background:var(--orange);color:var(--accent-fg);border-color:var(--accent-ring);}
   .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 170px);max-height:calc(100dvh - 170px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
   .kcol-body::-webkit-scrollbar{width:4px;}
   .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
@@ -8232,7 +8300,7 @@ body {
   .cd-cta-btn{
     width:100%; display:flex; align-items:center; justify-content:center;
     padding:11px 14px; border-radius:8px;
-    background:var(--orange); color:#fff; border:none;
+    background:var(--orange); color:var(--accent-fg); border:none;
     font-family:inherit; font-size:13px; font-weight:700;
     letter-spacing:.02em; cursor:pointer;
     transition:all .15s;
@@ -8536,14 +8604,49 @@ body {
      two-tier graceful degradation: wrap → scroll → never truncate. */
   .crm-hdr-actions{
     display:flex; align-items:center; gap:2px;     /* Pro Chrome: was 4px — tighter clusters */
-    margin-left:auto; flex-wrap:wrap;
+    margin-left:auto;
+    /* Wave 5c 2026-05-14: dedicated side-scroller treatment.
+       The action row carries 12-15 buttons by the time you count
+       Filters + Bulk + CSV — at any viewport narrower than ~1440px it
+       overflows the .crm-header right edge. Users couldn't tell the
+       row was scrollable, so we add three discoverability cues:
+         1. mask-image fade — the rightmost ~24px of the row fades to
+            transparent, communicating "more content this way →" even
+            when stationary.
+         2. Beefier scrollbar (6px high, accent-tinted thumb) so the
+            scroll affordance is visible on hover/scroll.
+         3. scroll-padding-inline-end so a momentum-scroll glides past
+            the last button into the fade-out gracefully.
+       The fade is purely visual — events still hit the underlying
+       buttons because mask-image doesn't intercept pointer-events. */
+    flex-wrap:nowrap;
+    min-width:0;
     max-width:100%;
+    padding-right:8px;
     overflow-x:auto;
+    overflow-y:hidden;
     scrollbar-width:thin;
-    scrollbar-color:var(--br) transparent;
+    scrollbar-color:color-mix(in srgb, var(--orange) 60%, var(--br)) transparent;
+    -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 24px), transparent);
+            mask-image:linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    scroll-padding-inline-end:24px;
+    scroll-snap-type:x proximity;
   }
-  .crm-hdr-actions::-webkit-scrollbar{ height:3px; }
-  .crm-hdr-actions::-webkit-scrollbar-thumb{ background:var(--br); border-radius:2px; }
+  /* Buttons themselves become snap targets so momentum-scroll lands
+     mid-button instead of slicing one in half. */
+  .crm-hdr-actions > .crm-icon-btn,
+  .crm-hdr-actions > .crm-hdr-btn,
+  .crm-hdr-actions > .crm-tools-wrap{ scroll-snap-align:start; }
+  /* Beefier scrollbar on WebKit for affordance visibility. */
+  .crm-hdr-actions::-webkit-scrollbar{ height:6px; }
+  .crm-hdr-actions::-webkit-scrollbar-track{ background:transparent; }
+  .crm-hdr-actions::-webkit-scrollbar-thumb{
+    background:color-mix(in srgb, var(--orange) 55%, var(--br));
+    border-radius:3px;
+  }
+  .crm-hdr-actions::-webkit-scrollbar-thumb:hover{
+    background:var(--orange);
+  }
   /* Prevent label truncation inside individual buttons — long
      labels like 'Stale Shares' / 'Hot first' wrap-as-no-wrap so the
      button grows or scrolls instead of '...' on the label text. */
@@ -8697,18 +8800,22 @@ body {
      dashboard. Now 48×48, lighter shadow (12px, 30% opacity), and a
      thin outline so it reads as 'available action' rather than
      'PRIMARY CTA'. Hover restores the prominent treatment. */
+  /* Wave 5: theme-aware. --accent-fg replaces hard-coded #fff, and
+     --accent-ring replaces the white inner border that disappeared
+     on light themes. Glow uses --og (which IS per-theme tinted), so
+     the FAB reads on any theme without per-theme overrides. */
   #addLeadFab{
     position:fixed; bottom:24px; right:24px; z-index:900;
     width:48px; height:48px; border-radius:50%;
-    background:var(--orange); color:#fff;
-    border:1px solid rgba(255,255,255,0.12); cursor:pointer;
+    background:var(--orange); color:var(--accent-fg);
+    border:1px solid var(--accent-ring); cursor:pointer;
     font-size:24px; font-weight:300; line-height:1;
-    box-shadow:0 3px 12px rgba(232,114,12,.30);
+    box-shadow:0 3px 12px var(--og);
     opacity:0.88;
     display:none; align-items:center; justify-content:center;
     transition:transform .15s, box-shadow .15s, opacity .15s;
   }
-  #addLeadFab:hover{ opacity:1; transform:scale(1.06); box-shadow:0 6px 20px rgba(232,114,12,.55); }
+  #addLeadFab:hover{ opacity:1; transform:scale(1.06); box-shadow:0 6px 20px var(--og); }
   #addLeadFab:active{ transform:scale(.96); }
   /* FAB is shown only on the CRM page (Prospects has its own + button) */
   body.show-add-lead-fab #addLeadFab{ display:flex; }
@@ -8744,7 +8851,7 @@ body {
   .follow-up-alert{background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex!important;align-items:center;gap:10px;font-size:12px;}
   .fa-name{font-weight:700;color:var(--t);}
   .fa-date{color:var(--orange);font-size:11px;}
-  .fa-btn{margin-left:auto;background:var(--orange);color:var(--t);border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;}
+  .fa-btn{margin-left:auto;background:var(--orange);color:var(--accent-fg);border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;}
 
 /* ══════════════════════════════════════════════════════════════
    PROSPECTS PAGE — D2D knocks awaiting promotion
@@ -8786,7 +8893,7 @@ body {
   font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em;
   padding:7px 12px; cursor:pointer; transition:all .15s;
 }
-.prosp-view-toggle button.active { background:var(--orange); color:#fff; }
+.prosp-view-toggle button.active { background:var(--orange); color:var(--accent-fg); }
 
 /* Board wrapper */
 .prosp-board-wrap { width:100%; }
@@ -8928,7 +9035,7 @@ body {
   cursor:pointer; font-family:inherit; letter-spacing:.04em;
 }
 .prosp-stale-btn:hover { color:var(--t); border-color:var(--t); }
-.prosp-stale-btn.primary { background:var(--orange); color:#fff; border-color:var(--orange); }
+.prosp-stale-btn.primary { background:var(--orange); color:var(--accent-fg); border-color:var(--orange); }
 
 /* Conversion analytics */
 .prosp-analytics-wrap { margin-top:18px; }
@@ -9267,7 +9374,7 @@ body.theme-frosted {
 .d2d-funnel-count { font-size:16px; font-weight:900; color:var(--t); font-family:'Barlow Condensed',sans-serif; }
 .d2d-funnel-label { font-size:9px; color:rgba(255,255,255,.8); font-weight:600; text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .d2d-action-bar { display:flex; gap:10px; align-items:center; margin-bottom:14px; padding-top:14px; }
-.d2d-big-btn { display:flex; align-items:center; gap:8px; padding:12px 18px; background:var(--orange); color:var(--t); border:none; border-radius:10px; font-size:14px; font-weight:700; font-family:'Barlow Condensed',sans-serif; cursor:pointer; letter-spacing:.03em; text-transform:uppercase; transition:all .15s; white-space:nowrap; }
+.d2d-big-btn { display:flex; align-items:center; gap:8px; padding:12px 18px; background:var(--orange); color:var(--accent-fg); border:none; border-radius:10px; font-size:14px; font-weight:700; font-family:'Barlow Condensed',sans-serif; cursor:pointer; letter-spacing:.03em; text-transform:uppercase; transition:all .15s; white-space:nowrap; }
 .d2d-big-btn:hover { filter:brightness(1.1); }
 .d2d-big-btn-sec { background:var(--s2); color:var(--t); border:1px solid var(--br); }
 .d2d-big-btn-sec:hover { background:var(--br); }
@@ -9299,7 +9406,7 @@ body.theme-frosted {
 .d2d-feed-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
 .d2d-date-pills { display:flex; gap:4px; }
 .d2d-pill { padding:5px 12px; border-radius:20px; border:1px solid var(--br); background:var(--s2); color:var(--m); font-size:11px; font-weight:600; cursor:pointer; transition:all .15s; font-family:'Barlow Condensed',sans-serif; text-transform:uppercase; letter-spacing:.04em; }
-.d2d-pill.active { background:var(--orange); color:var(--t); border-color:var(--orange); }
+.d2d-pill.active { background:var(--orange); color:var(--accent-fg); border-color:var(--orange); }
 .d2d-select { padding:5px 10px; background:var(--s2); border:1px solid var(--br); border-radius:8px; color:var(--t); font-size:11px; cursor:pointer; }
 .d2d-knock-feed { display:flex; flex-direction:column; gap:4px; }
 .d2d-knock-card { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; cursor:pointer; transition:all .15s; }
@@ -9315,7 +9422,7 @@ body.theme-frosted {
 .d2d-action-btn:hover { filter:brightness(1.15); }
 .d2d-empty { text-align:center; padding:40px 20px; }
 .d2d-center-btn { position:absolute; bottom:16px; right:16px; z-index:1000; width:40px; height:40px; border-radius:50%; background:var(--s); border:2px solid var(--br); color:var(--t); font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.3); transition:all .15s; }
-.d2d-center-btn:hover { background:var(--orange); color:var(--t); border-color:var(--orange); }
+.d2d-center-btn:hover { background:var(--orange); color:var(--accent-fg); border-color:var(--orange); }
 .d2d-team-toggle { display:flex; align-items:center; gap:6px; padding:6px 12px; background:var(--s2); border:1px solid var(--br); border-radius:8px; cursor:pointer; font-size:11px; color:var(--m); font-weight:600; transition:all .15s; }
 .d2d-team-toggle.active { background:color-mix(in srgb, var(--blue) 20%, var(--s2)); border-color:var(--blue); color:var(--blue); }
 .d2d-location-pulse { width:16px; height:16px; border-radius:50%; background:var(--blue); border:3px solid #fff; box-shadow:0 0 0 0 rgba(74,158,255,.4); animation:d2dPulse 2s infinite; }
@@ -9579,7 +9686,7 @@ body.theme-frosted {
 .sv-options { display: flex; flex-direction: column; gap: 10px; }
 .sv-option { display: flex; gap: 14px; align-items: flex-start; background: var(--s2); border: 2px solid var(--br); border-radius: 10px; padding: 16px; cursor: pointer; transition: all .2s; }
 .sv-option:hover { border-color: var(--orange); background: var(--orange)08; }
-.sv-opt-letter { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--orange); color:var(--t); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.sv-opt-letter { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--orange); color:var(--accent-fg); font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; }
 .sv-opt-text { font-size: 13px; line-height: 1.6; color: var(--t); }
 
 /* Feedback */
@@ -11903,7 +12010,7 @@ function switchScTab(tab, btn) {
         </button>
         <button class="btn btn-ghost crm-hdr-btn" id="prospectsToggleBtn" onclick="goTo('prospects')" title="Open Prospects page" style="position:relative;">
           👀 <span id="prospectsBtnLabel" class="crm-hdr-btn-label">Prospects</span>
-          <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--t);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+          <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--accent-fg);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
         </button>
         <!-- Wave 35: snoozed-leads toggle. Hidden by default (snoozed
              leads are deferred-by-design); flips on to surface them
@@ -11944,7 +12051,7 @@ function switchScTab(tab, btn) {
       <div id="bulkActionBar" style="display:none;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 14px;margin-top:8px;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap;">
         <span id="bulkSelectedCount" style="color:var(--orange);font-weight:600;">0 selected</span>
         <button class="btn btn-ghost" onclick="selectAllVisibleLeads()" style="font-size:11px;padding:5px 10px;">☑ Select all visible</button>
-        <select id="bulkStageSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
+        <select id="bulkStageSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--accent-fg);">
           <option value="">Move to stage...</option>
           <!-- Populated dynamically, fallback options below -->
           <option value="new">New Lead</option>
@@ -13611,12 +13718,12 @@ function switchScTab(tab, btn) {
             <!-- Owner card (always shows) -->
             <div style="padding:16px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:12px;">
               <div style="display:flex;align-items:center;gap:12px;">
-                <div style="width:44px;height:44px;border-radius:22px;background:var(--orange);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;" id="teamOwnerInitials">JD</div>
+                <div style="width:44px;height:44px;border-radius:22px;background:var(--orange);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;" id="teamOwnerInitials">JD</div>
                 <div style="flex:1;">
-                  <div style="font-size:14px;font-weight:700;color:var(--t);" id="teamOwnerName">Loading...</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--accent-fg);" id="teamOwnerName">Loading...</div>
                   <div style="font-size:11px;color:var(--m);">Owner / Operator · Admin · All permissions</div>
                 </div>
-                <span style="font-size:9px;font-weight:700;padding:4px 10px;background:var(--orange);color:#fff;border-radius:12px;letter-spacing:.08em;">OWNER</span>
+                <span style="font-size:9px;font-weight:700;padding:4px 10px;background:var(--orange);color:var(--accent-fg);border-radius:12px;letter-spacing:.08em;">OWNER</span>
               </div>
             </div>
 
@@ -13629,7 +13736,7 @@ function switchScTab(tab, btn) {
               <div style="display:flex;gap:8px;align-items:flex-end;">
                 <div style="flex:1;">
                   <label style="font-size:10px;color:var(--m);display:block;margin-bottom:4px;">Email Address</label>
-                  <input type="email" id="inviteRepEmail" placeholder="rep@email.com" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--t);font-family:inherit;font-size:13px;">
+                  <input type="email" id="inviteRepEmail" placeholder="rep@email.com" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--accent-fg);font-family:inherit;font-size:13px;">
                 </div>
                 <div>
                   <label style="font-size:10px;color:var(--m);display:block;margin-bottom:4px;">Role</label>
@@ -13875,23 +13982,23 @@ function switchScTab(tab, btn) {
                 <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--t);line-height:1;margin-top:6px;" id="billingPlanName">—</div>
                 <div style="font-size:11px;color:var(--m);margin-top:4px;" id="billingPlanDesc">Checking subscription status...</div>
               </div>
-              <span style="font-size:9px;font-weight:700;padding:5px 11px;background:var(--orange);color:var(--t);border-radius:3px;letter-spacing:.1em;" id="billingStatusBadge">—</span>
+              <span style="font-size:9px;font-weight:700;padding:5px 11px;background:var(--orange);color:var(--accent-fg);border-radius:3px;letter-spacing:.1em;" id="billingStatusBadge">—</span>
             </div>
             <!-- Usage meters -->
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;" id="billingUsageMeters">
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
                 <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Leads</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);" id="billingLeadsUsed">—</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent-fg);" id="billingLeadsUsed">—</div>
                 <div style="height:4px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;"><div id="billingLeadsBar" style="height:100%;background:var(--orange);border-radius:2px;width:0%;transition:width .3s;"></div></div>
               </div>
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
                 <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Reports</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);" id="billingReportsUsed">—</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent-fg);" id="billingReportsUsed">—</div>
                 <div style="height:4px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;"><div id="billingReportsBar" style="height:100%;background:var(--orange);border-radius:2px;width:0%;transition:width .3s;"></div></div>
               </div>
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
                 <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">AI Calls</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);" id="billingAIUsed">—</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent-fg);" id="billingAIUsed">—</div>
                 <div style="height:4px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;"><div id="billingAIBar" style="height:100%;background:var(--orange);border-radius:2px;width:0%;transition:width .3s;"></div></div>
               </div>
             </div>
@@ -13915,7 +14022,7 @@ function switchScTab(tab, btn) {
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;text-align:center;">
                 <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;">This Month</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--t);" id="aiUsageMonth">—</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent-fg);" id="aiUsageMonth">—</div>
                 <div style="font-size:9px;color:var(--m);">API calls</div>
               </div>
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;text-align:center;">
@@ -14218,8 +14325,8 @@ function switchScTab(tab, btn) {
           <div class="panel-body">
             <p style="color:var(--m);font-size:13px;margin-bottom:16px;">Access the full keyboard shortcuts matrix and the step-by-step how-to guide anytime.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-              <button onclick="openShortcutsPanel()" style="padding:10px 20px;background:var(--orange);color:white;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">⌨️ Shortcuts Overlay</button>
-              <button onclick="window.open('how-to.html','_blank','noopener')" style="padding:10px 20px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">📖 Open Full How-To</button>
+              <button onclick="openShortcutsPanel()" style="padding:10px 20px;background:var(--orange);color:var(--accent-fg);border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">⌨️ Shortcuts Overlay</button>
+              <button onclick="window.open('how-to.html','_blank','noopener')" style="padding:10px 20px;background:var(--s2);color:var(--accent-fg);border:1px solid var(--br);border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">📖 Open Full How-To</button>
             </div>
             <div style="color:var(--m);font-size:12px;">Tip: Press <kbd style="font-family:'Barlow Condensed';font-size:11px;font-weight:600;color:var(--t);background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;">?</kbd> from anywhere in the app to open the shortcuts overlay instantly.</div>
           </div>
@@ -14612,7 +14719,7 @@ function switchScTab(tab, btn) {
     </div>
 
     <button onclick="saveQuickLead()"
-      style="width:100%;background:var(--orange);color:var(--t);border:none;border-radius:8px;padding:16px;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:8px;">
+      style="width:100%;background:var(--orange);color:var(--accent-fg);border:none;border-radius:8px;padding:16px;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:8px;">
       ＋ Add Lead
     </button>
     <button onclick="closeQuickAddLead();openLeadModal()"
@@ -14899,7 +15006,7 @@ function switchScTab(tab, btn) {
         <label>Work Performed</label>
         <input type="text" id="wcWork" placeholder="Full roof replacement — GAF Timberline HDZ" style="width:100%;">
       </div>
-      <div id="wcTierDesc" style="background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--t);line-height:1.6;"></div>
+      <div id="wcTierDesc" style="background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--accent-fg);line-height:1.6;"></div>
     </div>
 
     <div style="display:flex;gap:10px;">
@@ -14911,10 +15018,21 @@ function switchScTab(tab, btn) {
 
 <!-- PROPERTY INTEL SELECTION MODAL -->
 <div class="modal-bg" id="propertyIntelModal" style="display:none;">
-  <div class="modal" style="max-width:520px;">
+  <div class="modal m-modal-has-bar" style="max-width:520px;">
     <button class="modal-close" onclick="closePropertyIntelModal()">✕</button>
-    <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px;">🏠 Pull Property Intel</div>
-    <div style="font-size:13px;color:var(--text3);margin-bottom:24px;">Select data sources to pull. Cost shown per lookup.</div>
+    <!-- Wave 2E.2: standardized header. The 🏠 emoji on "Pull Property
+         Intel" goes — it was a Unicode-rendered icon doing icon-system
+         work; the eyebrow now carries the "INTEL" context badge in
+         brand-orange instead. -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closePropertyIntelModal()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Intel</span>
+        <span class="m-modal-bar-title">Pull Property Intel</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
+    <div style="font-size:var(--fs-base);color:var(--text3);margin-bottom:24px;">Select data sources to pull. Cost shown per lookup.</div>
     
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;" 
@@ -15026,9 +15144,18 @@ function switchScTab(tab, btn) {
 
 <!-- TASK MODAL -->
 <div class="modal-bg" id="taskModal">
-  <div class="modal" style="max-width:480px;">
+  <div class="modal m-modal-has-bar" style="max-width:480px;">
     <button class="modal-close" onclick="closeTaskModal()">✕</button>
-    <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:6px;">TASKS</div>
+    <!-- Wave 2E.2: standardized header. The TASKS eyebrow + close X
+         move into the bar; closeTaskModal() stays as the click handler. -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closeTaskModal()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Tasks</span>
+        <span class="m-modal-bar-title" id="taskModalTitle">Tasks</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
     <div class="task-modal-header">
       <div class="task-lead-name" id="taskModalName">—</div>
       <div class="task-lead-addr" id="taskModalAddr">—</div>
@@ -15046,10 +15173,22 @@ function switchScTab(tab, btn) {
 
 <!-- PHOTO VIEWER MODAL -->
 <div class="modal-bg" id="photoModal">
-  <div class="modal" style="max-width:600px;">
+  <div class="modal m-modal-has-bar" style="max-width:600px;">
     <button class="modal-close" onclick="closePhotoModal()">✕</button>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:4px;" id="photoModalTitle">Damage Photos</div>
-    <div style="font-size:11px;color:var(--m);margin-bottom:14px;" id="photoModalAddr"></div>
+    <!-- Wave 2E.2: header bar replaces ad-hoc title + corner X. The
+         existing id="photoModalTitle" stays on the title span so the
+         photo viewer JS keeps binding cleanly. The address line stays
+         immediately under the bar as a sub-header (it's content, not
+         chrome, and the bar shouldn't try to fit two strings). -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closePhotoModal()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Photos</span>
+        <span class="m-modal-bar-title" id="photoModalTitle">Damage Photos</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
+    <div style="font-size:var(--fs-sm);color:var(--m);margin-bottom:14px;" id="photoModalAddr"></div>
     <div class="upload-zone" onclick="document.getElementById('photoUploadInput').click()">
       <div class="upload-icon">📷</div>
       <div class="upload-text">Click to upload damage photos</div>
