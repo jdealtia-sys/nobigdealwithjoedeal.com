@@ -88,6 +88,66 @@
   --paper:#ffffff;  --ink:#1a1612; --rule:rgba(26,22,18,.10);
 }
 
+/* ══ Wave 6 (A.1) 2026-05-14 — Shared accent contrast contract ═════════
+   Was inline in dashboard.html; lifted here so customer.html / login.html /
+   vault.html / portal-rendered PDFs all inherit the same contract.
+   Every theme below remaps --orange to its own primary accent — that's
+   the existing strength of the system, BUT it means .btn-orange and
+   any other "background:var(--orange); color:#fff" surface paints
+   accent-on-accent on themes where --orange has surface-similar
+   luminance (forest, neon, gold, paper, ghost, batman, etc.). Two
+   tokens fix that across every component:
+
+     --accent-fg    Guaranteed-contrast foreground (text/icon) painted
+                    on top of a --orange fill. Defaults to #fff.
+     --accent-ring  Semi-transparent 1px boundary so accent surfaces
+                    read as a button on ANY surface. Defaults to a
+                    soft black rgba.
+
+   Per-theme overrides below cover the high-risk pairings (accent
+   luminance near surface luminance). Themes not listed inherit the
+   defaults. */
+:root{
+  --accent-fg:#fff;
+  --accent-ring:rgba(0,0,0,.35);
+}
+/* Light themes — accent is dark, white fg works but the ring needs to
+   be black-tinted to be visible on white surfaces. */
+:root[data-theme="paper"],
+:root[data-theme="ghost"],
+:root[data-theme="easter"],
+:root[data-theme="frosted"],
+:root[data-theme="lofi"],
+:root[data-theme="typewriter"],
+:root[data-theme="ink"],
+:root[data-theme="sakura"],
+:root[data-theme="presentation"]{
+  --accent-fg:#fff;
+  --accent-ring:rgba(0,0,0,.25);
+}
+/* Pastel-accent / greyscale-accent themes where the fill is too light
+   to carry white text — fg flips to a near-black for contrast. */
+:root[data-theme="obsidian"]{ --accent-fg:#0a0a0e; --accent-ring:rgba(255,255,255,.45); }
+:root[data-theme="steel"]    { --accent-fg:#11151c; --accent-ring:rgba(255,255,255,.35); }
+:root[data-theme="slate"]    { --accent-fg:#0f1117; --accent-ring:rgba(255,255,255,.30); }
+:root[data-theme="neon"]     { --accent-fg:#03110a; --accent-ring:rgba(0,0,0,.55);     }
+:root[data-theme="terminal"] { --accent-fg:#001500; --accent-ring:rgba(0,0,0,.55);     }
+:root[data-theme="batman"]   { --accent-fg:#080808; --accent-ring:rgba(0,0,0,.45);     }
+:root[data-theme="pokemon"]  { --accent-fg:#1a1a2e; --accent-ring:rgba(0,0,0,.40);     }
+:root[data-theme="zelda"]    { --accent-fg:#060e00; --accent-ring:rgba(0,0,0,.45);     }
+:root[data-theme="cia"]      { --accent-fg:#020202; --accent-ring:rgba(0,0,0,.45);     }
+:root[data-theme="metal"]    { --accent-fg:#0e0e10; --accent-ring:rgba(255,255,255,.35); }
+:root[data-theme="translucent"]{ --accent-fg:#030408; --accent-ring:rgba(255,255,255,.30); }
+:root[data-theme="noir"]     { --accent-fg:#080604; --accent-ring:rgba(0,0,0,.45);     }
+:root[data-theme="liquid"]   { --accent-fg:#080c12; --accent-ring:rgba(255,255,255,.30); }
+:root[data-theme="gold"]     { --accent-fg:#0F0C04; --accent-ring:rgba(0,0,0,.45);     }
+:root[data-theme="blueprint-art"]{ --accent-fg:#001428; --accent-ring:rgba(0,0,0,.45); }
+:root[data-theme="aurora"]   { --accent-fg:#020810; --accent-ring:rgba(0,0,0,.40);     }
+:root[data-theme="lightsaber"]{ --accent-fg:#000508; --accent-ring:rgba(0,0,0,.45);    }
+:root[data-theme="matrix"]   { --accent-fg:#000300; --accent-ring:rgba(0,0,0,.55);     }
+:root[data-theme="underwater"]{ --accent-fg:#000c14; --accent-ring:rgba(0,0,0,.45);    }
+/* ══ END Wave 6 accent contract ══ */
+
 /* ── Trial Banners ── */
 #trial-banner{display:flex;align-items:center;gap:12px;padding:8px 16px;font-size:12px;font-weight:500;z-index:99998;justify-content:center;flex-wrap:wrap;}
 #trial-banner span{flex:1;min-width:200px;text-align:center;}

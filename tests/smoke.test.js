@@ -3635,6 +3635,44 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 6 (A.1) — Pro Chrome on customer.html via shared theme-system.css');
+{
+  const themeCSS = read(path.join(ROOT, 'docs/pro/css/theme-system.css'));
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Shared contract lives in theme-system.css now.
+  assert('theme-system.css defines :root --accent-fg default #fff',
+    /:root\s*\{[\s\S]{0,200}--accent-fg\s*:\s*#fff/.test(themeCSS),
+    'expected --accent-fg default in shared theme-system.css');
+  assert('theme-system.css defines :root --accent-ring default',
+    /:root\s*\{[\s\S]{0,200}--accent-ring\s*:\s*rgba/.test(themeCSS),
+    'expected --accent-ring default in shared theme-system.css');
+  // 2. Per-theme overrides moved into the shared file. Some themes
+  //    share a group selector (paper + ghost + easter etc. → one
+  //    --accent-fg block), so we just check the theme name appears in
+  //    a selector that sits above an --accent-fg declaration.
+  for (const theme of ['paper','obsidian','steel','slate','neon','gold','batman','pokemon','zelda','blueprint-art']) {
+    assert('theme-system.css overrides --accent-fg for ' + theme,
+      new RegExp(':root\\[data-theme="' + theme + '"\\][^{]{0,800}\\{[\\s\\S]{0,400}--accent-fg').test(themeCSS),
+      'expected theme-system.css to override --accent-fg for ' + theme);
+  }
+  // 3. dashboard.html no longer duplicates the contract.
+  assert('dashboard.html no longer duplicates --accent-fg/--accent-ring defaults',
+    !/  --accent-fg:#fff;\s*\n\s*--accent-ring:rgba\(0,0,0,\.35\)/.test(dash),
+    'dashboard.html should inherit accent tokens from theme-system.css');
+  // 4. customer.html .btn-orange consumes the contract.
+  assert('customer.html .btn-orange uses var(--accent-fg)',
+    /\.btn-orange\s*\{[\s\S]{0,400}color:\s*var\(--accent-fg\)/.test(customer),
+    'expected customer.html .btn-orange to color: var(--accent-fg)');
+  assert('customer.html .btn-orange has var(--accent-ring) inset boundary',
+    /\.btn-orange\s*\{[\s\S]{0,400}inset 0 0 0 1px var\(--accent-ring\)/.test(customer),
+    'expected customer.html .btn-orange to include inset boundary using --accent-ring');
+  // 5. customer.html hardcoded NBD-orange rgba retired.
+  assert('customer.html: no hardcoded rgba(232,114,12,...) left',
+    !/rgba\(232,\s*114,\s*12/.test(customer),
+    'customer.html should use color-mix(in srgb, var(--orange) ...) instead of literal rgba');
+}
+
 section('Wave 5c — .crm-hdr-actions side-scroller affordance');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
@@ -3688,20 +3726,10 @@ section('Wave 5b — Gradient flatten + bulk accent-fg migration');
 
 section('Wave 5 — Theme-aware accent + contrast tokens');
 {
+  // Wave 6 (A.1) moved the tokens themselves into the shared
+  // theme-system.css — the Wave 6 section above asserts that. Here we
+  // only check that dashboard.html still CONSUMES the contract.
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  // 1. New theme-aware tokens at :root.
-  assert('--accent-fg defined at :root (default white)',
-    /--accent-fg\s*:\s*#fff/.test(dash),
-    'expected --accent-fg defined with default #fff at :root');
-  assert('--accent-ring defined at :root',
-    /--accent-ring\s*:\s*rgba/.test(dash),
-    'expected --accent-ring defined at :root');
-  // 2. Per-theme overrides exist for the highest-risk pairings.
-  for (const theme of ['paper','obsidian','steel','slate','neon','gold']) {
-    assert('theme "' + theme + '" overrides --accent-fg',
-      new RegExp(':root\\[data-theme="' + theme + '"\\][\\s\\S]{0,200}--accent-fg').test(dash),
-      'expected per-theme override of --accent-fg for ' + theme);
-  }
   // 3. .btn-orange consumes the tokens.
   assert('.btn-orange uses var(--accent-fg) for color',
     /\.btn-orange\s*\{[\s\S]{0,400}color:\s*var\(--accent-fg\)/.test(dash),
