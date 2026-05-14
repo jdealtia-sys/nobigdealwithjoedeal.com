@@ -3635,6 +3635,34 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 2A — Mobile chrome (nav SVG glyphs + centered FAB)');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Sprite now ships the mobile-nav glyphs.
+  for (const id of ['nbd-icon-home','nbd-icon-board','nbd-icon-plus','nbd-icon-more','nbd-icon-chat']) {
+    assert('sprite has <symbol id="' + id + '">',
+      new RegExp('<symbol id="' + id + '"').test(dash),
+      'expected mobile-nav sprite symbol ' + id);
+  }
+  // 2. The bottom nav was rewritten — emoji glyphs gone.
+  const navOpen = dash.indexOf('<nav id="mobile-nav">');
+  const navClose = dash.indexOf('</nav>', navOpen);
+  const navBlock = dash.slice(navOpen, navClose);
+  for (const glyph of ['📊','🗺','👥','🤖','⋯']) {
+    assert('mobile-nav no longer contains emoji glyph ' + glyph,
+      !navBlock.includes(glyph),
+      '#mobile-nav still has emoji ' + glyph + ' — should be SVG sprite ref');
+  }
+  // 3. The center "+" FAB exists.
+  assert('mobile-nav has center FAB (.mn-fab) wired to a create handler',
+    /class="mn-item mn-fab"[\s\S]{0,200}id="mni-create"/.test(navBlock),
+    'expected an orange center "+" FAB with id="mni-create"');
+  // 4. Sprite refs are present on every primary nav item.
+  assert('mobile-nav primary items reference sprite via <use href="#nbd-icon-*"/>',
+    (navBlock.match(/<use href="#nbd-icon-(home|board|plus|chat|more)"\/>/g) || []).length >= 5,
+    'expected ≥5 sprite refs across the 5 nav items');
+}
+
 section('Pro Chrome — icon system + header consolidation');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
