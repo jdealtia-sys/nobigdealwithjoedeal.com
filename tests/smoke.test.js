@@ -3635,6 +3635,28 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 5b — Gradient flatten + bulk accent-fg migration');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. .btn-orange no longer uses a linear-gradient for its base fill.
+  const btnStart = dash.indexOf('.btn-orange {');
+  const btnBlock = dash.slice(btnStart, btnStart + 600);
+  assert('.btn-orange base background is solid (no linear-gradient)',
+    /\.btn-orange\s*\{\s*background:\s*var\(--orange\)/.test(btnBlock),
+    'expected solid background:var(--orange) on .btn-orange — gradient was muddy on forest/neon themes');
+  // 2. .kview-btn.active uses --accent-fg.
+  assert('.kview-btn.active uses var(--accent-fg)',
+    /\.kview-btn\.active\{background:var\(--orange\);color:var\(--accent-fg\)/.test(dash),
+    'expected .kview-btn.active color: var(--accent-fg)');
+  // 3. No remaining text-on-accent pairings using var(--t). Regex
+  //    bounded by `"{};` so it stays within a single CSS rule or
+  //    inline style attribute (the earlier unbounded version greedy-
+  //    matched 10K chars across unrelated elements).
+  assert('no remaining text-on-accent surfaces using var(--t)',
+    !/background:\s*var\(--orange\)[^"{};]{0,200};\s*[^"{}]{0,80}color:\s*var\(--t\)/.test(dash),
+    'found a text-on-orange surface still using var(--t) — should be var(--accent-fg) for theme contrast');
+}
+
 section('Wave 5 — Theme-aware accent + contrast tokens');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
