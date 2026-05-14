@@ -3635,6 +3635,44 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // 1. Type scale.
+  for (const tok of ['--fs-2xs','--fs-xs','--fs-sm','--fs-md','--fs-base','--fs-lg','--fs-xl','--fs-2xl','--fs-3xl','--fs-4xl']) {
+    assert('type token ' + tok + ' defined at :root',
+      new RegExp(tok.replace(/-/g,'\\-') + '\\s*:').test(dash),
+      'expected ' + tok + ' definition');
+  }
+  // 2. Spacing scale.
+  for (const tok of ['--sp-0','--sp-1','--sp-2','--sp-4','--sp-6','--sp-8','--sp-12','--sp-16']) {
+    assert('spacing token ' + tok + ' defined',
+      new RegExp(tok.replace(/-/g,'\\-') + '\\s*:').test(dash),
+      'expected ' + tok + ' definition');
+  }
+  // 3. Radius scale.
+  for (const tok of ['--r-xs','--r-sm','--r-md','--r-lg','--r-xl','--r-full']) {
+    assert('radius token ' + tok + ' defined',
+      new RegExp(tok.replace(/-/g,'\\-') + '\\s*:').test(dash),
+      'expected ' + tok + ' definition');
+  }
+  // 4. Tap-target + transition tokens.
+  assert('tap-target token --tap-min defined (44px Apple HIG)',
+    /--tap-min\s*:\s*44px/.test(dash),
+    'expected --tap-min:44px');
+  assert('transition tokens (--t-fast/--t-mid/--t-slow) defined',
+    /--t-fast\s*:[\s\S]{0,80}--t-mid\s*:[\s\S]{0,80}--t-slow\s*:/.test(dash),
+    'expected --t-fast/--t-mid/--t-slow definitions');
+  // 5. Sample applications: tokens are actually being used by the
+  //    new mobile components, not just defined.
+  assert('.m-jd-name uses var(--fs-4xl)',
+    /\.m-jd-name[\s\S]{0,400}font-size:\s*var\(--fs-4xl\)/.test(dash),
+    'expected .m-jd-name to consume var(--fs-4xl)');
+  assert('.m-create-row-lbl uses var(--fs-lg)',
+    /\.m-create-row-lbl[\s\S]{0,200}font-size:\s*var\(--fs-lg\)/.test(dash),
+    'expected .m-create-row-lbl to consume var(--fs-lg)');
+}
+
 section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
