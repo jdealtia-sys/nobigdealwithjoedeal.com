@@ -14911,10 +14911,21 @@ function switchScTab(tab, btn) {
 
 <!-- PROPERTY INTEL SELECTION MODAL -->
 <div class="modal-bg" id="propertyIntelModal" style="display:none;">
-  <div class="modal" style="max-width:520px;">
+  <div class="modal m-modal-has-bar" style="max-width:520px;">
     <button class="modal-close" onclick="closePropertyIntelModal()">✕</button>
-    <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px;">🏠 Pull Property Intel</div>
-    <div style="font-size:13px;color:var(--text3);margin-bottom:24px;">Select data sources to pull. Cost shown per lookup.</div>
+    <!-- Wave 2E.2: standardized header. The 🏠 emoji on "Pull Property
+         Intel" goes — it was a Unicode-rendered icon doing icon-system
+         work; the eyebrow now carries the "INTEL" context badge in
+         brand-orange instead. -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closePropertyIntelModal()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Intel</span>
+        <span class="m-modal-bar-title">Pull Property Intel</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
+    <div style="font-size:var(--fs-base);color:var(--text3);margin-bottom:24px;">Select data sources to pull. Cost shown per lookup.</div>
     
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;" 
@@ -15026,9 +15037,18 @@ function switchScTab(tab, btn) {
 
 <!-- TASK MODAL -->
 <div class="modal-bg" id="taskModal">
-  <div class="modal" style="max-width:480px;">
+  <div class="modal m-modal-has-bar" style="max-width:480px;">
     <button class="modal-close" onclick="closeTaskModal()">✕</button>
-    <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:6px;">TASKS</div>
+    <!-- Wave 2E.2: standardized header. The TASKS eyebrow + close X
+         move into the bar; closeTaskModal() stays as the click handler. -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closeTaskModal()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Tasks</span>
+        <span class="m-modal-bar-title" id="taskModalTitle">Tasks</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
     <div class="task-modal-header">
       <div class="task-lead-name" id="taskModalName">—</div>
       <div class="task-lead-addr" id="taskModalAddr">—</div>
@@ -15046,10 +15066,22 @@ function switchScTab(tab, btn) {
 
 <!-- PHOTO VIEWER MODAL -->
 <div class="modal-bg" id="photoModal">
-  <div class="modal" style="max-width:600px;">
+  <div class="modal m-modal-has-bar" style="max-width:600px;">
     <button class="modal-close" onclick="closePhotoModal()">✕</button>
-    <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;margin-bottom:4px;" id="photoModalTitle">Damage Photos</div>
-    <div style="font-size:11px;color:var(--m);margin-bottom:14px;" id="photoModalAddr"></div>
+    <!-- Wave 2E.2: header bar replaces ad-hoc title + corner X. The
+         existing id="photoModalTitle" stays on the title span so the
+         photo viewer JS keeps binding cleanly. The address line stays
+         immediately under the bar as a sub-header (it's content, not
+         chrome, and the bar shouldn't try to fit two strings). -->
+    <div class="m-modal-bar">
+      <button class="m-modal-bar-x" onclick="closePhotoModal()" aria-label="Close">✕</button>
+      <div class="m-modal-bar-titles">
+        <span class="m-modal-bar-eyebrow">Photos</span>
+        <span class="m-modal-bar-title" id="photoModalTitle">Damage Photos</span>
+      </div>
+      <span class="m-modal-bar-spacer" aria-hidden="true"></span>
+    </div>
+    <div style="font-size:var(--fs-sm);color:var(--m);margin-bottom:14px;" id="photoModalAddr"></div>
     <div class="upload-zone" onclick="document.getElementById('photoUploadInput').click()">
       <div class="upload-icon">📷</div>
       <div class="upload-text">Click to upload damage photos</div>

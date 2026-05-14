@@ -3692,6 +3692,42 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected .k-card:hover .kc-arrow rule with opacity:1');
 }
 
+section('Wave 2E.2 — m-modal-bar applied to task / photo / propertyIntel');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // Each modal must:
+  //   1. have .m-modal-has-bar on its inner .modal
+  //   2. contain an .m-modal-bar element
+  //   3. have an eyebrow + title pair within it
+  //   4. keep its existing id="*ModalTitle" if one existed (so JS still binds)
+  const cases = [
+    { id: 'taskModal',          eyebrow: 'Tasks',  titleId: 'taskModalTitle',  closeFn: 'closeTaskModal' },
+    { id: 'photoModal',         eyebrow: 'Photos', titleId: 'photoModalTitle', closeFn: 'closePhotoModal' },
+    { id: 'propertyIntelModal', eyebrow: 'Intel',  titleId: null,              closeFn: 'closePropertyIntelModal' },
+  ];
+  for (const c of cases) {
+    const start = dash.indexOf('id="' + c.id + '"');
+    const block = dash.slice(start, start + 2200);
+    assert(c.id + ' .modal has class m-modal-has-bar',
+      /class="modal m-modal-has-bar"/.test(block),
+      'expected .modal class to carry m-modal-has-bar on ' + c.id);
+    assert(c.id + ' contains an m-modal-bar',
+      /class="m-modal-bar"/.test(block),
+      'expected .m-modal-bar inside ' + c.id);
+    assert(c.id + ' eyebrow renders "' + c.eyebrow + '"',
+      new RegExp('class="m-modal-bar-eyebrow"[^>]*>' + c.eyebrow + '<').test(block),
+      'expected eyebrow text "' + c.eyebrow + '" inside ' + c.id);
+    assert(c.id + ' bar close button calls ' + c.closeFn + '()',
+      new RegExp('class="m-modal-bar-x"\\s+onclick="' + c.closeFn + '\\(\\)"').test(block),
+      'expected the bar X to call ' + c.closeFn);
+    if (c.titleId) {
+      assert(c.id + ' preserves id="' + c.titleId + '" on the bar title span',
+        new RegExp('class="m-modal-bar-title"[^>]*id="' + c.titleId + '"').test(block),
+        c.titleId + ' should move to the m-modal-bar-title span');
+    }
+  }
+}
+
 section('Wave 2E — m-modal-bar standardization');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
