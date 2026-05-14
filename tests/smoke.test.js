@@ -3857,6 +3857,57 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Wave 5e (A.5) — second-pass theme contrast audit');
+{
+  const themeCSS = read(path.join(ROOT, 'docs/pro/css/theme-system.css'));
+  // Programmatic luminance check — every theme's --orange should give
+  // white text ≥ 3.5:1 contrast OR have an explicit --accent-fg
+  // override. Parser pulls each theme's --orange value and per-theme
+  // --accent-fg presence; assertion fails any theme that fails BOTH.
+  const reTheme = /:root\[data-theme="([^"]+)"\][^{]*\{\s*--orange:\s*(#[0-9a-fA-F]{6})/g;
+  const reFg = /:root\[data-theme="([^"]+)"\][^{]*\{[\s\S]*?--accent-fg/g;
+  const themes = {};
+  let m;
+  while ((m = reTheme.exec(themeCSS)) !== null) themes[m[1]] = m[2];
+  // Also parse the group-selector overrides (paper, ghost, etc.)
+  const groupRe = /:root\[data-theme="[^"]+"\][^{]*(?:,\s*:root\[data-theme="[^"]+"\][^{]*)*\{\s*--accent-fg/g;
+  const overridden = new Set();
+  let g;
+  while ((g = groupRe.exec(themeCSS)) !== null) {
+    const sel = g[0];
+    const names = [...sel.matchAll(/data-theme="([^"]+)"/g)].map(x => x[1]);
+    names.forEach(n => overridden.add(n));
+  }
+  function lum(hex){
+    const r=parseInt(hex.slice(1,3),16)/255;
+    const gr=parseInt(hex.slice(3,5),16)/255;
+    const b=parseInt(hex.slice(5,7),16)/255;
+    const f=v=>v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);
+    return 0.2126*f(r)+0.7152*f(gr)+0.0722*f(b);
+  }
+  // nbd-original is the canonical NBD brand — white-on-orange is the
+  // identity, so it's explicitly grandfathered here (3.07 contrast).
+  const BRAND_GRANDFATHERED = new Set(['nbd-original']);
+  const failingWithoutOverride = [];
+  for (const [name, hex] of Object.entries(themes)) {
+    if (BRAND_GRANDFATHERED.has(name)) continue;
+    const oL = lum(hex);
+    const cWhite = 1.05 / (oL + 0.05);
+    if (cWhite < 3.5 && !overridden.has(name)) {
+      failingWithoutOverride.push(`${name} (${hex}, white-contrast ${cWhite.toFixed(2)})`);
+    }
+  }
+  assert('every sub-3.5 white-contrast theme has an explicit --accent-fg override',
+    failingWithoutOverride.length === 0,
+    'these themes still need --accent-fg overrides: ' + failingWithoutOverride.join(' | '));
+  // Spot-check: A.5's 11 newly-covered themes are present.
+  for (const t of ['forest','arctic','deep-space','glow','retro','vaporwave','halloween','android','ios26','candlelit','midnight-oil']) {
+    assert('A.5 override present for theme "' + t + '"',
+      new RegExp(':root\\[data-theme="' + t + '"\\][^{]*\\{[\\s\\S]{0,200}--accent-fg').test(themeCSS),
+      'expected A.5 to override --accent-fg for ' + t);
+  }
+}
+
 section('Wave 5d (A.4) — accent contract on remaining toggle-active states');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

@@ -146,6 +146,33 @@
 :root[data-theme="lightsaber"]{ --accent-fg:#000508; --accent-ring:rgba(0,0,0,.45);    }
 :root[data-theme="matrix"]   { --accent-fg:#000300; --accent-ring:rgba(0,0,0,.55);     }
 :root[data-theme="underwater"]{ --accent-fg:#000c14; --accent-ring:rgba(0,0,0,.45);    }
+/* ══ Wave 5e (A.5) — second-pass theme contrast audit ══════════════
+   Ran a WCAG luminance check across all 66 themes for white-on-accent
+   contrast; these 11 fell under the 3.5:1 floor (white text reads as
+   low-contrast on the saturated mid-luminance accent). Each gets a
+   dark-fg override matched to its base surface tone. The user
+   explicitly flagged 'forest' on a deployed screenshot — that's the
+   highest-traffic one of the group. */
+:root[data-theme="forest"]       { --accent-fg:#0A1A0F; --accent-ring:rgba(0,0,0,.45); }
+:root[data-theme="arctic"]       { --accent-fg:#04111C; --accent-ring:rgba(0,0,0,.40); }
+:root[data-theme="deep-space"]   { --accent-fg:#06060F; --accent-ring:rgba(0,0,0,.40); }
+:root[data-theme="glow"]         { --accent-fg:#050200; --accent-ring:rgba(0,0,0,.45); }
+:root[data-theme="retro"]        { --accent-fg:#120a00; --accent-ring:rgba(0,0,0,.45); }
+:root[data-theme="vaporwave"]    { --accent-fg:#0a0014; --accent-ring:rgba(0,0,0,.40); }
+:root[data-theme="halloween"]    { --accent-fg:#080200; --accent-ring:rgba(0,0,0,.45); }
+:root[data-theme="android"]      { --accent-fg:#0a0f0a; --accent-ring:rgba(0,0,0,.45); }
+:root[data-theme="ios26"]        { --accent-fg:#050508; --accent-ring:rgba(0,0,0,.45); }
+:root[data-theme="candlelit"]    { --accent-fg:#0c0600; --accent-ring:rgba(0,0,0,.45); }
+:root[data-theme="midnight-oil"] { --accent-fg:#060402; --accent-ring:rgba(0,0,0,.45); }
+/* Borderline cases — white-contrast in the 3.0-3.5 range. Tighter
+   thresholds for primary buttons (which use ~13px bold) tip these
+   toward dark-fg. */
+:root[data-theme="wildwest"]     { --accent-fg:#120a00; --accent-ring:rgba(0,0,0,.45); }
+:root[data-theme="ember"]        { --accent-fg:#0a0300; --accent-ring:rgba(0,0,0,.45); }
+:root[data-theme="neon-rain"]    { --accent-fg:#06000e; --accent-ring:rgba(0,0,0,.45); }
+/* nbd-original (#e8720c, white 3.07) intentionally keeps white text —
+   it IS the NBD brand identity. The default --accent-fg:#fff at :root
+   handles it. */
 /* ══ END Wave 6 accent contract ══ */
 
 /* ── Trial Banners ── */
