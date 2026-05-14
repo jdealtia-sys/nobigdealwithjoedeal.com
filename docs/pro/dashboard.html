@@ -11100,7 +11100,11 @@ function switchScTab(tab, btn) {
         </button>
         <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" onclick="toggleBulkMode()" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk</span></button>
         <button class="btn btn-ghost crm-hdr-btn" onclick="exportLeadsCSV()" title="Export CSV">📤 <span class="crm-hdr-btn-label">CSV</span></button>
-        <button class="btn btn-orange crm-hdr-btn" onclick="openLeadModal()" title="Add Lead (C)">＋ <span class="crm-hdr-btn-label">Add</span> <span class="kbd-hint">C</span></button>
+        <!-- CRM cleanup 2026-05-14: inline ＋ Add button removed.
+             The orange FAB at the bottom-right (see #fabAddLead) is the
+             primary add action, and the `C` keyboard shortcut still
+             opens the lead modal — so the inline duplicate just ate
+             horizontal real estate in an already-crowded action row. -->
       </div>
       <!-- Bulk action toolbar (hidden until bulk mode active).
            Stage moves still go through moveCard() to preserve the
