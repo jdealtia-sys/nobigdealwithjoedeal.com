@@ -3614,44 +3614,12 @@
   --t-slow:.32s;
   --ease-out:cubic-bezier(.18,.89,.32,1.28);
 
-  /* ── Wave 5 — theme-aware accent + contrast tokens ────────────────
-     The original theme system overrides --orange per-theme (so on the
-     forest theme --orange == #16A34A, etc.). That's great for accent
-     consistency, but the button system was painting .btn-orange with
-     a gradient from --orange → --ob — on green/blue/light themes
-     that's accent-on-accent, no visible boundary, low legibility.
-
-     New tokens:
-       --accent-fg   The text/icon color guaranteed to read on top of
-                     the accent fill. Defaults to white; light themes
-                     and pastel themes override this per-theme.
-       --accent-ring An outer ring color (semi-transparent) that paints
-                     a 1px outline around accent buttons so they read
-                     as a button on any surface — critical when the
-                     theme's accent is similar in luminance to its
-                     surface (forest, neon, gold themes).
-
-     Themes can override either token. The default values below cover
-     ~80% of the 66 themes; the remaining ones get overrides in
-     theme-system.css (separate sweep — see Wave 5b). */
-  --accent-fg:#fff;
-  --accent-ring:rgba(0,0,0,.35);
+  /* ── Wave 5 accent contract moved to docs/pro/css/theme-system.css ──
+     in Wave 6 (A.1) so customer.html / login.html / vault.html inherit
+     the same --accent-fg / --accent-ring contract automatically. See
+     the "Shared accent contrast contract" block near the bottom of
+     theme-system.css for the per-theme overrides. */
 }
-/* Light themes flip the accent-fg/ring defaults — black text on
-   pastel/white accents wouldn't contrast. */
-:root[data-mode="light"]{
-  --accent-fg:#fff;
-  --accent-ring:rgba(0,0,0,.25);
-}
-/* Per-theme overrides for the highest-risk pairings (accent ≈ surface
-   luminance). These ride here rather than in theme-system.css because
-   they're tied to the .btn-orange contract introduced in Wave 5. */
-:root[data-theme="paper"]{ --accent-fg:#fff; --accent-ring:rgba(0,0,0,.15); }
-:root[data-theme="obsidian"]{ --accent-fg:#0a0a0e; --accent-ring:rgba(255,255,255,.45); }
-:root[data-theme="steel"]{ --accent-fg:#11151c; --accent-ring:rgba(255,255,255,.35); }
-:root[data-theme="slate"]{ --accent-fg:#0f1117; --accent-ring:rgba(255,255,255,.30); }
-:root[data-theme="neon"]{ --accent-fg:#03110a; --accent-ring:rgba(0,0,0,.55); }
-:root[data-theme="gold"]{ --accent-fg:#0F0C04; --accent-ring:rgba(0,0,0,.45); }
 *{margin:0;padding:0;box-sizing:border-box;}
 /* Global iOS auto-zoom kill: any focused input under 16px triggers Mobile
    Safari to zoom the viewport in, dismiss the keyboard, then zoom back —

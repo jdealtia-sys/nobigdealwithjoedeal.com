@@ -155,8 +155,23 @@ header {
   transition:all .15s; color:var(--t); text-decoration:none;
 }
 .btn:hover { background:var(--s3); border-color:var(--orange); }
-.btn-orange { background:var(--orange); border-color:var(--orange); color:#fff; }
-.btn-orange:hover { background:var(--ob); }
+/* Wave 6 (A.1): theme-aware. --accent-fg replaces hardcoded #fff so
+   the text reads on every theme (white text on the paper theme's
+   black accent — fine, but on neon/forest/etc the gradient went
+   green-text-on-green-fill before). --accent-ring inset boundary
+   ensures the button is visible even when --orange has the same
+   luminance as the surrounding surface. */
+.btn-orange {
+  background:var(--orange);
+  border-color:var(--orange);
+  color:var(--accent-fg);
+  box-shadow: inset 0 0 0 1px var(--accent-ring), 0 2px 8px var(--og);
+}
+.btn-orange:hover {
+  background:var(--ob);
+  color:var(--accent-fg);
+  box-shadow: inset 0 0 0 1px var(--accent-ring), 0 3px 12px var(--og);
+}
 
 /* GRID LAYOUT */
 .content-grid {
@@ -299,7 +314,7 @@ header {
 /* Reorder mode — drag handle visible, click-to-edit suppressed */
 body.nbd-photo-reorder .nbd-photo-item {
   cursor: grab;
-  outline: 2px dashed rgba(232,114,12,.55);
+  outline: 2px dashed color-mix(in srgb, var(--orange) 55%, transparent);
   outline-offset: -3px;
 }
 body.nbd-photo-reorder .nbd-photo-item.is-dragging {
@@ -625,7 +640,7 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
 }
 .milestone.active .milestone-dot {
   background:var(--orange); border-color:var(--orange);
-  box-shadow:0 0 0 8px rgba(232,114,12,.2);
+  box-shadow:0 0 0 8px color-mix(in srgb, var(--orange) 20%, transparent);
   animation:pulse-ring 2s ease-in-out infinite;
 }
 .milestone.completed .milestone-dot {
@@ -650,9 +665,9 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
   font-size:12px; color:var(--m); line-height:1.4;
 }
 @keyframes pulse-ring {
-  0% { box-shadow:0 0 0 0 rgba(232,114,12,.4); }
-  70% { box-shadow:0 0 0 12px rgba(232,114,12,0); }
-  100% { box-shadow:0 0 0 0 rgba(232,114,12,0); }
+  0% { box-shadow:0 0 0 0 color-mix(in srgb, var(--orange) 40%, transparent); }
+  70% { box-shadow:0 0 0 12px transparent; }
+  100% { box-shadow:0 0 0 0 transparent; }
 }
 
 /* INVOICE & PAYMENTS */
@@ -997,7 +1012,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         </button>
       </div>
       <div class="meta-item" id="customerIdBadge" style="display:none;">
-        <span style="font-family:monospace;font-weight:700;font-size:13px;background:rgba(232,114,12,.12);color:var(--orange);padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
+        <span style="font-family:monospace;font-weight:700;font-size:13px;background:color-mix(in srgb, var(--orange) 12%, transparent);color:var(--orange);padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
       </div>
       <div class="meta-item">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg> <span id="customerAddress">—</span>
@@ -3930,7 +3945,7 @@ async function loadEstimates(leadId) {
             <div class="estimate-amount" style="font-size:15px;font-weight:700;color:var(--green);">${est.grandTotal ? '$'+parseFloat(est.grandTotal).toLocaleString() : est.amount ? '$'+parseFloat(est.amount).toLocaleString() : 'Draft'}</div>
             <button class="nbd-est-export" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;" title="Export PDF">📤</button>
             <button class="nbd-est-share" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid rgba(46,204,138,0.45);border-radius:4px;padding:4px 8px;font-size:10px;color:#5eead4;cursor:pointer;font-family:inherit;" title="Copy customer view link">🔗</button>
-            <button class="nbd-est-cert" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid rgba(232,114,12,.4);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--orange);cursor:pointer;font-family:inherit;" title="Generate Warranty Certificate">🛡️</button>
+            <button class="nbd-est-cert" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid color-mix(in srgb, var(--orange) 40%, transparent);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--orange);cursor:pointer;font-family:inherit;" title="Generate Warranty Certificate">🛡️</button>
           </div>
         </div>
       `;
@@ -5880,7 +5895,7 @@ function nbdEscFn() {
 
 function buildPhotoBadges(photo, esc) {
   var badges = '';
-  if (photo.damageType) badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:rgba(232,114,12,.2);color:var(--orange);">' + esc(photo.damageType) + '</span>';
+  if (photo.damageType) badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:color-mix(in srgb, var(--orange) 20%, transparent);color:var(--orange);">' + esc(photo.damageType) + '</span>';
   if (photo.severity) {
     var sc = photo.severity === 'severe' ? '#ef4444' : photo.severity === 'moderate' ? '#f97316' : '#eab308';
     badges += '<span class="nbd-photo-badge" style="font-size:9px;padding:1px 5px;border-radius:4px;background:' + sc + '22;color:' + sc + ';text-transform:capitalize;">' + esc(photo.severity) + '</span>';
