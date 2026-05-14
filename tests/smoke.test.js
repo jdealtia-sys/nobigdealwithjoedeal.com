@@ -3635,6 +3635,39 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
 }
 
+section('Wave 6b (A.2) — Pro Chrome on login.html + vault.html');
+{
+  const login = read(path.join(ROOT, 'docs/pro/login.html'));
+  const vault = read(path.join(ROOT, 'docs/pro/vault.html'));
+  // 1. login.html supplies its own --accent-fg + --accent-ring (it keeps
+  //    --orange fixed for brand consistency, so it can't inherit per-theme
+  //    overrides; the contract lives locally).
+  assert('login.html defines --accent-fg + --accent-ring',
+    /:root\{[\s\S]{0,800}--accent-fg:#fff[\s\S]{0,200}--accent-ring/.test(login),
+    'expected login.html :root to declare --accent-fg + --accent-ring');
+  // 2. login.html primary action surfaces consume the contract.
+  assert('login.html .tab-btn.active uses var(--accent-fg)',
+    /\.tab-btn\.active\{[^}]*background:var\(--orange\)[^}]*color:var\(--accent-fg\)/.test(login),
+    'expected .tab-btn.active to color: var(--accent-fg)');
+  assert('login.html .btn-main uses var(--accent-fg) + inset --accent-ring',
+    /\.btn-main\{[^}]*color:var\(--accent-fg\)[\s\S]{0,500}box-shadow:inset 0 0 0 1px var\(--accent-ring\)/.test(login),
+    'expected .btn-main to use --accent-fg + inset --accent-ring boundary');
+  // 3. vault.html does the same.
+  assert('vault.html declares --accent-fg + --accent-ring',
+    /--accent-fg:#fff[\s\S]{0,200}--accent-ring:rgba/.test(vault),
+    'expected vault.html to declare the accent tokens locally');
+  assert('vault.html .btn-save / .btn-gold use var(--accent-fg)',
+    /\.btn-save \{[\s\S]{0,400}color:\s*var\(--accent-fg\)/.test(vault)
+    && /\.btn-gold \{[\s\S]{0,400}color:\s*var\(--accent-fg\)/.test(vault),
+    'expected vault.html primary-action buttons to consume --accent-fg');
+  // 4. Both files retired hardcoded NBD-orange rgba literals.
+  for (const [name, body] of [['login.html', login], ['vault.html', vault]]) {
+    assert(name + ': no hardcoded rgba(232,114,12,...) left',
+      !/rgba\(232,\s*114,\s*12/.test(body),
+      name + ' should use color-mix(in srgb, var(--orange) ...) instead of literal NBD-orange rgba');
+  }
+}
+
 section('Wave 6 (A.1) — Pro Chrome on customer.html via shared theme-system.css');
 {
   const themeCSS = read(path.join(ROOT, 'docs/pro/css/theme-system.css'));

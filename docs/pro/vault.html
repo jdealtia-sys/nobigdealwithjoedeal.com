@@ -40,10 +40,17 @@
 
   /* Accent Colors — gold remapped to brand orange */
   --gold: #e8720c;
-  --gold-dim: rgba(232,114,12,0.10);
-  --gold-glow: rgba(232,114,12,0.22);
+  --gold-dim: color-mix(in srgb, var(--orange) 10%, transparent);
+  --gold-glow: color-mix(in srgb, var(--orange) 22%, transparent);
   --orange: #e8720c;
-  --orange-dim: rgba(232,114,12,0.10);
+  --orange-dim: color-mix(in srgb, var(--orange) 10%, transparent);
+  /* Wave 6b (A.2) — accent contrast contract. vault.html keeps its
+     fixed NBD-orange palette (the locked vault page is brand-pinned)
+     but still gets readable button text + visible boundary via the
+     same tokens as dashboard.html / customer.html. */
+  --accent-fg:#fff;
+  --accent-ring:rgba(0,0,0,.35);
+  --og: color-mix(in srgb, var(--orange) 22%, transparent);
   --red: #E05252;
   --red-dim: rgba(224,82,82,0.10);
   --green: #3DD68C;
@@ -87,8 +94,8 @@ body::before {
   position: fixed;
   top:0;right:0;bottom:0;left:0;
   background-image:
-    linear-gradient(rgba(232,114,12,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(232,114,12,0.025) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--orange) 3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--orange) 3%, transparent) 1px, transparent 1px);
   background-size: 48px 48px;
   pointer-events: none;
   z-index: 0;
@@ -102,7 +109,7 @@ body::after {
   right: -200px;
   width: 800px;
   height: 800px;
-  background: radial-gradient(ellipse, rgba(232,114,12,0.04) 0%, transparent 60%);
+  background: radial-gradient(ellipse, color-mix(in srgb, var(--orange) 4%, transparent) 0%, transparent 60%);
   pointer-events: none;
   z-index: 0;
 }
@@ -212,8 +219,9 @@ body::after {
 
 .btn-save {
   background: var(--gold);
-  color: #000;
+  color: var(--accent-fg);
   border: none;
+  box-shadow: inset 0 0 0 1px var(--accent-ring);
   padding: 7px 16px;
   border-radius: var(--r);
   font-family: 'Barlow Condensed', sans-serif;
@@ -470,8 +478,8 @@ body::after {
 
 .btn-gold {
   background: var(--gold);
-  color: #000;
-  box-shadow: 0 3px 12px var(--gold-glow);
+  color: var(--accent-fg);
+  box-shadow: inset 0 0 0 1px var(--accent-ring), 0 3px 12px var(--gold-glow);
 }
 
 .btn-gold:hover {
