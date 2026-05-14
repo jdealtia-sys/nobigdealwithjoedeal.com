@@ -1,0 +1,99 @@
+{{!--
+  CHANGE ORDER — D-5
+  The "scope changed" doc. References the original contract, lists
+  added/removed items, shows the three-column "Original / Change /
+  New Total" hero, signature block from both parties.
+
+  Payload:
+    preparedFor, preparedBy, projectMeta (cover)
+    changeOrder { number, originalContractNumber, originalDate }
+    description (string)
+    itemsAdded[] { description, quantity, unit, unitPrice, lineTotal }
+    itemsRemoved[] { description, quantity, unit, unitPrice, lineTotal }
+    originalTotal, netChange, newTotal
+    scheduleImpact (string)
+--}}
+
+{{> coverPage
+  eyebrow="Change Order"
+  tagline=coverTagline
+  sub=coverSub
+  preparedFor=preparedFor
+  preparedBy=preparedBy
+  projectMeta=projectMeta
+}}
+
+<section class="page-break">
+  <div class="hero" style="margin-bottom: var(--s-5);">
+    <div class="hero-eyebrow eyebrow">Scope adjustment</div>
+    <div class="hero-title" style="font-size:30pt;">Additions and adjustments to your contracted scope.</div>
+    <p class="hero-sub">This change order amends the original contract referenced above. The work and pricing below are added to (or removed from) the previously agreed scope. Both parties sign at the foot.</p>
+  </div>
+
+  {{!-- 3-card hero: Original / Change / New --}}
+  <div class="stat-grid" style="margin-bottom: var(--s-6);">
+    <div class="stat">
+      <div class="stat-label">Original Total</div>
+      <div class="stat-value">{{money originalTotal}}</div>
+      <div class="stat-sub">per contract {{changeOrder.originalContractNumber}}</div>
+    </div>
+    <div class="stat" style="background: var(--nbd-orange-soft); border-color: var(--nbd-orange-line);">
+      <div class="stat-label" style="color: var(--nbd-orange);">Change Amount</div>
+      <div class="stat-value" style="color: var(--nbd-orange);">{{#if (gt netChange 0)}}+{{/if}}{{money netChange}}</div>
+      <div class="stat-sub">this change order</div>
+    </div>
+    <div class="stat" style="background: var(--nbd-charcoal); color: #fff; border-color: var(--nbd-charcoal);">
+      <div class="stat-label" style="color: rgba(255,255,255,0.7);">Revised Total</div>
+      <div class="stat-value" style="color: #fff;">{{money newTotal}}</div>
+      <div class="stat-sub" style="color: rgba(255,255,255,0.55);">new contract value</div>
+    </div>
+  </div>
+
+  <h2>Description of Changes</h2>
+  <p style="line-height:1.65; margin-bottom: var(--s-5);">{{description}}</p>
+
+  {{#if itemsAdded.length}}
+  <h2 class="keep-with-next">Items Added</h2>
+  <table>
+    <thead><tr><th>Description</th><th style="width:10%;" class="num">Qty</th><th style="width:8%;">Unit</th><th style="width:13%;" class="num">Rate</th><th style="width:14%;" class="num">Amount</th></tr></thead>
+    <tbody>
+      {{#each itemsAdded}}
+      <tr class="avoid-break"><td><strong>{{this.description}}</strong></td><td class="num">{{this.quantity}}</td><td>{{this.unit}}</td><td class="num money">{{money this.unitPrice}}</td><td class="num money"><strong>{{money this.lineTotal}}</strong></td></tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{/if}}
+
+  {{#if itemsRemoved.length}}
+  <h2 class="keep-with-next">Items Removed or Credited</h2>
+  <table>
+    <thead><tr><th>Description</th><th style="width:10%;" class="num">Qty</th><th style="width:8%;">Unit</th><th style="width:13%;" class="num">Rate</th><th style="width:14%;" class="num">Credit</th></tr></thead>
+    <tbody>
+      {{#each itemsRemoved}}
+      <tr class="avoid-break"><td><strong>{{this.description}}</strong></td><td class="num">{{this.quantity}}</td><td>{{this.unit}}</td><td class="num money">{{money this.unitPrice}}</td><td class="num money" style="color: var(--nbd-red);">−{{money this.lineTotal}}</td></tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{/if}}
+
+  {{#if scheduleImpact}}
+  <h2>Schedule Impact</h2>
+  <p style="line-height:1.65;">{{scheduleImpact}}</p>
+  {{/if}}
+
+  <p class="meta" style="margin-top: var(--s-5); line-height:1.6;">By signing below, both parties agree to the changes described in this change order. All other terms and conditions of the original contract remain in full force and effect.</p>
+</section>
+
+<div class="sig-block">
+  <h2 style="margin-top:0;">Acceptance</h2>
+  <div class="sig-grid">
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">{{preparedFor.name}} · Homeowner</div>
+    </div>
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">{{preparedBy.name}} · No Big Deal Home Solutions</div>
+    </div>
+  </div>
+</div>

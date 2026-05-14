@@ -106,10 +106,30 @@ window.NBDDocGen = {
    * @param {string} type - Document type (proposal, contract, inspectionHomeowner, inspectionInsurance)
    * @param {object} data - Merge field data
    */
-  generate(type, data = {}) {
+  async generate(type, data = {}) {
     // Pass the document type through data so renderGenericDoc can
     // use it for the title (the generic template handles 20+ types).
     data._documentType = type;
+
+    // ─── D-5: try server-side Puppeteer render first ───
+    // Supported types: contract / invoice / change_order. Receipt is
+    // a future call site (no client surface yet). Falls through to
+    // the legacy renderer on any error so reps are never blocked.
+    const SERVER_TYPE_MAP = {
+      contract:     'contract',
+      invoice:      'invoice',
+      change_order: 'changeOrder',
+      receipt:      'receipt',
+    };
+    if (SERVER_TYPE_MAP[type]) {
+      try {
+        const ok = await this._tryServerRender(SERVER_TYPE_MAP[type], type, data);
+        if (ok) return;
+      } catch (e) {
+        console.warn('[NBDDocGen] server render failed, falling back:', e && e.message || e);
+      }
+    }
+
     const html = this.getHTML(type, data);
     if (!html) {
       if(typeof showToast==='function') showToast('Document type not found','error'); else console.error('Document type not found:', type);
@@ -215,6 +235,213 @@ window.NBDDocGen = {
     const injected = html.replace('</body>', actionBar + '</body>');
     win.document.write(injected);
     win.document.close();
+  },
+
+  /**
+   * D-5: Server-side render via the renderPdf callable.
+   * @param {string} template - Server-side template key (e.g. 'contract')
+   * @param {string} type     - Original NBDDocGen type (used for filename)
+   * @param {object} data     - Merge data, mapped to template payload
+   */
+  async _tryServerRender(template, type, data) {
+    if (!window._functions || !window._httpsCallable) {
+      const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+      window._functions = mod.getFunctions();
+      window._httpsCallable = mod.httpsCallable;
+    }
+    const payload = this._buildServerPayload(template, data);
+    if (!payload) return false;
+
+    if (typeof showToast === 'function') showToast('Rendering ' + (this.DOCUMENT_TYPES[type]?.name || type) + '…', 'info');
+
+    const customerName = (payload.preparedFor && payload.preparedFor.name) || 'NBD-Doc';
+    const slug = customerName.replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+    const filename = 'NBD-' + (this.DOCUMENT_TYPES[type]?.name || type).replace(/\s+/g, '-') + '-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+
+    const fn = window._httpsCallable(window._functions, 'renderPdf');
+    const r = await fn({ template, payload, filename });
+    const respData = r && r.data;
+    if (!respData || !respData.ok || !respData.url) throw new Error('Render returned no URL');
+
+    if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      window.NBDDocViewer.open({
+        url: respData.url,
+        title: (this.DOCUMENT_TYPES[type]?.name || type) + (customerName ? ' — ' + customerName : ''),
+        filename: respData.filename || filename,
+      });
+    } else {
+      window.open(respData.url, '_blank', 'noopener');
+    }
+    const ms = respData.timing && respData.timing.totalMs;
+    if (typeof showToast === 'function') {
+      showToast(ms ? '✓ Document rendered in ' + ms + 'ms' : '✓ Document rendered', 'success');
+    }
+    return true;
+  },
+
+  /**
+   * D-5: Map NBDDocGen legacy data to the new template payload shape.
+   * Centralizes the conversion so the templates stay the only place
+   * that knows the doc structure.
+   */
+  _buildServerPayload(template, data) {
+    const customer = data.customer || {};
+    const fullName = customer.name
+      || ((customer.firstName || '') + ' ' + (customer.lastName || '')).trim()
+      || data.homeownerName
+      || 'Homeowner';
+    const address = customer.address || data.address || '';
+    const lead = (window._leads || []).find(l =>
+      (l.address && address && l.address.trim() === String(address).trim()) ||
+      (l.id && (l.id === customer.id || l.id === data.leadId))
+    );
+
+    const preparedFor = {
+      name: fullName,
+      address,
+      customerId: (lead && lead.customerId) || customer.customerId || null,
+      projectLine: data.projectLine || null,
+    };
+    const preparedBy = {
+      name:  (window._user && window._user.displayName) || 'Joe Deal',
+      role:  'Project Owner · No Big Deal Home Solutions',
+      phone: '(859) 420-7382',
+      email: 'jd@nobigdealwithjoedeal.com',
+    };
+    const todayStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+    // ── Per-template payload shaping ──
+    if (template === 'invoice') {
+      const lines = (data.lineItems || data.lines || []).map(i => ({
+        description: i.description || i.name || '',
+        category:    i.category || '',
+        quantity:    i.qty || i.quantity || 1,
+        unit:        i.unit || 'ea',
+        unitPrice:   Number(i.rate || i.unitPrice || 0),
+        lineTotal:   Number(i.lineTotal || ((i.qty || i.quantity || 1) * (i.rate || i.unitPrice || 0))),
+      }));
+      const subtotal = lines.reduce((s, l) => s + l.lineTotal, 0);
+      const tax = Number(data.tax || (subtotal * (data.taxRate || 0)));
+      const paymentsReceived = Number(data.paymentsReceived || 0);
+      const total = subtotal + tax;
+      const balanceDue = total - paymentsReceived;
+      return {
+        coverTagline: 'Final billing<br>for your project.',
+        coverSub:     'Itemized invoice with payment detail and remaining balance. Pay online, by check, or by ACH.',
+        preparedFor, preparedBy,
+        projectMeta: [
+          { label: 'Invoice Date', value: data.invoiceDate || todayStr },
+          { label: 'Invoice No.',  value: data.invoiceNumber || ('INV-' + Date.now().toString().slice(-6)) },
+          { label: 'Due',          value: data.dueDate || 'Upon receipt' },
+        ],
+        summary: {
+          headline: 'Invoice for completed work.',
+          body: data.notes || null,
+        },
+        invoice: {
+          number: data.invoiceNumber, date: data.invoiceDate || todayStr, dueDate: data.dueDate, status: data.status || 'due',
+        },
+        lines, subtotal, tax, paymentsReceived, total, balanceDue,
+        notes: data.notes || null,
+        payUrl: data.payUrl || null,
+      };
+    }
+
+    if (template === 'contract') {
+      return {
+        coverTagline: 'The work,<br>committed in writing.',
+        coverSub:     'A complete agreement covering scope, price, schedule, payment terms, and warranty. Both parties sign at the foot.',
+        preparedFor, preparedBy,
+        projectMeta: [
+          { label: 'Contract Date', value: data.contractDate || todayStr },
+          { label: 'Contract No.',  value: data.contractNumber || ('CT-' + Date.now().toString().slice(-6)) },
+          { label: 'Start',         value: data.startDate || 'Upon execution' },
+        ],
+        contract: { number: data.contractNumber, date: data.contractDate || todayStr, startDate: data.startDate, completionDate: data.completionDate },
+        scope: data.scope || null,
+        contractPrice: Number(data.contractPrice || data.total || 0),
+        paymentSchedule: (data.paymentSchedule || []).map(p => ({
+          stage: p.stage || p.label,
+          dueDescription: p.due || p.dueDescription || '',
+          amount: Number(p.amount || 0),
+        })),
+        paymentTerms: data.paymentTerms || 'Fifty percent (50%) due upon contract execution; remaining balance due upon substantial completion of work.',
+        materials: data.materials || null,
+        warranty: data.warranty || null,
+        rightToCancel: data.rightToCancel || 'You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached Notice of Cancellation form for an explanation of this right.',
+        additionalTerms: data.additionalTerms || [],
+      };
+    }
+
+    if (template === 'changeOrder') {
+      const itemsAdded = (data.itemsAdded || []).map(i => ({
+        description: i.item || i.description || '',
+        quantity:    i.qty || i.quantity || 1,
+        unit:        i.unit || 'ea',
+        unitPrice:   Number(i.price || i.unitPrice || 0),
+        lineTotal:   Number(i.lineTotal || ((i.qty || 1) * (i.price || 0))),
+      }));
+      const itemsRemoved = (data.itemsRemoved || []).map(i => ({
+        description: i.item || i.description || '',
+        quantity:    i.qty || i.quantity || 1,
+        unit:        i.unit || 'ea',
+        unitPrice:   Number(i.price || i.unitPrice || 0),
+        lineTotal:   Number(i.lineTotal || ((i.qty || 1) * (i.price || 0))),
+      }));
+      const addedTotal = itemsAdded.reduce((s, x) => s + x.lineTotal, 0);
+      const removedTotal = itemsRemoved.reduce((s, x) => s + x.lineTotal, 0);
+      const netChange = addedTotal - removedTotal;
+      const originalTotal = Number(data.originalTotal || 0);
+      const newTotal = originalTotal + netChange;
+      return {
+        coverTagline: 'Scope changed.<br>Amended in writing.',
+        coverSub:     'Amends the original contract referenced below. Work and pricing here are added to (or removed from) the previously agreed scope.',
+        preparedFor, preparedBy,
+        projectMeta: [
+          { label: 'CO Date',         value: data.changeOrderDate || todayStr },
+          { label: 'CO No.',          value: data.changeOrderNumber || ('CO-' + Date.now().toString().slice(-6)) },
+          { label: 'Original Contract', value: data.originalContractNumber || '—' },
+        ],
+        changeOrder: {
+          number: data.changeOrderNumber,
+          originalContractNumber: data.originalContractNumber,
+          originalDate: data.originalContractDate,
+        },
+        description: data.changesDescription || data.description || 'Additional work identified during project execution.',
+        itemsAdded, itemsRemoved,
+        originalTotal, netChange, newTotal,
+        scheduleImpact: data.scheduleImpact || 'No change to estimated completion date.',
+      };
+    }
+
+    if (template === 'receipt') {
+      const amount = Number(data.amount || data.paymentAmount || 0);
+      const contractTotal = Number(data.contractTotal || 0);
+      const priorPayments = Number(data.priorPayments || 0);
+      return {
+        coverTagline: 'Payment<br>received.',
+        coverSub:     'A record of payment posted to your project. Keep it with your project documents for warranty and tax purposes.',
+        preparedFor, preparedBy,
+        projectMeta: [
+          { label: 'Receipt Date', value: data.paymentDate || todayStr },
+          { label: 'Receipt No.',  value: data.receiptNumber || ('RCT-' + Date.now().toString().slice(-6)) },
+          { label: 'Amount',       value: '$' + amount.toLocaleString('en-US', { maximumFractionDigits: 0 }) },
+        ],
+        payment: {
+          number: data.receiptNumber,
+          date:   data.paymentDate || todayStr,
+          method: data.paymentMethod || 'Check',
+          reference: data.paymentReference || data.checkNumber || '—',
+        },
+        amount,
+        contractTotal: contractTotal || null,
+        priorPayments,
+        balanceRemaining: contractTotal ? Math.max(0, contractTotal - priorPayments - amount) : null,
+        appliedTo: data.appliedTo || (data.projectDescription) || null,
+      };
+    }
+
+    return null;
   },
 
   /**

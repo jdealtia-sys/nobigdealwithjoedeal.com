@@ -1,0 +1,90 @@
+{{!--
+  PAYMENT RECEIPT — D-5
+  The "we got your money" doc. Single-page, big PAID stamp,
+  amount + method + reference + balance remaining.
+
+  Payload:
+    preparedFor, preparedBy, projectMeta (cover)
+    payment { number, date, method, reference }
+    amount (number)
+    contractTotal (number)
+    priorPayments (number)
+    balanceRemaining (number)
+    appliedTo (string — e.g. "Roof replacement, 5520 Wolfpen Pleasant Hill")
+--}}
+
+{{> coverPage
+  eyebrow="Payment Receipt"
+  tagline=coverTagline
+  sub=coverSub
+  preparedFor=preparedFor
+  preparedBy=preparedBy
+  projectMeta=projectMeta
+}}
+
+<section class="page-break">
+  <div class="hero" style="margin-bottom: var(--s-5);">
+    <div class="hero-eyebrow eyebrow">Thank you</div>
+    <div class="hero-title" style="font-size:30pt;">Payment received with thanks.</div>
+    <p class="hero-sub">This receipt confirms payment for the project below. Keep it with your project records — you'll want it for tax season and any future warranty claims.</p>
+  </div>
+
+  {{!-- Headline payment amount with PAID stamp --}}
+  <section class="avoid-break total-block" style="margin-bottom: var(--s-6); position: relative;">
+    <div class="total-eyebrow">Amount Received</div>
+    <div class="total-amount">{{money amount}}</div>
+    {{#if payment.date}}<div class="total-validity">Posted {{payment.date}}</div>{{/if}}
+    {{!-- Diagonal PAID stamp in the corner --}}
+    <div style="position: absolute; top: 50%; right: var(--s-6); transform: translateY(-50%) rotate(-12deg); border: 3pt solid var(--nbd-green); color: var(--nbd-green); padding: 8pt 16pt; font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-size: 22pt; letter-spacing: 0.1em; text-transform: uppercase; background: rgba(255,255,255,0.04); border-radius: 4pt;">Paid</div>
+  </section>
+
+  <h2>Payment Detail</h2>
+  <div class="kv-grid">
+    {{#if payment.method}}
+    <div class="kv">
+      <div class="kv-label">Method</div>
+      <div class="kv-value">{{payment.method}}</div>
+    </div>
+    {{/if}}
+    {{#if payment.reference}}
+    <div class="kv">
+      <div class="kv-label">Reference / Check No.</div>
+      <div class="kv-value" style="font-family:'Barlow',sans-serif;font-variant-numeric:tabular-nums;">{{payment.reference}}</div>
+    </div>
+    {{/if}}
+    {{#if payment.date}}
+    <div class="kv">
+      <div class="kv-label">Date Posted</div>
+      <div class="kv-value">{{payment.date}}</div>
+    </div>
+    {{/if}}
+    {{#if payment.number}}
+    <div class="kv">
+      <div class="kv-label">Receipt No.</div>
+      <div class="kv-value" style="font-family:'Barlow',sans-serif;font-variant-numeric:tabular-nums;">{{payment.number}}</div>
+    </div>
+    {{/if}}
+    {{#if appliedTo}}
+    <div class="kv span-2">
+      <div class="kv-label">Applied To</div>
+      <div class="kv-value">{{appliedTo}}</div>
+    </div>
+    {{/if}}
+  </div>
+
+  {{#if contractTotal}}
+  <h2>Project Balance</h2>
+  <table>
+    <tbody>
+      <tr class="avoid-break"><td><strong>Contract total</strong></td><td class="num money">{{money contractTotal}}</td></tr>
+      {{#if priorPayments}}<tr class="avoid-break"><td>Prior payments received</td><td class="num money">−{{money priorPayments}}</td></tr>{{/if}}
+      <tr class="avoid-break"><td>This payment</td><td class="num money">−{{money amount}}</td></tr>
+    </tbody>
+    <tfoot>
+      <tr class="totals-row"><td class="totals-label">Balance remaining</td><td class="num money"><strong>{{money balanceRemaining}}</strong></td></tr>
+    </tfoot>
+  </table>
+  {{/if}}
+
+  <p class="meta" style="margin-top: var(--s-5); line-height:1.6; text-align: center;">Questions on this receipt? Reach Joe at <strong style="color: var(--nbd-orange);">jd@nobigdealwithjoedeal.com</strong> or <strong style="color: var(--nbd-orange);">(859) 420-7382</strong>.</p>
+</section>
