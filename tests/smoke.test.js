@@ -3857,6 +3857,37 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase D.3 — integrationStatus secret-readout completeness');
+{
+  const idx = read(path.join(ROOT, 'functions/index.js'));
+  const sh = read(path.join(ROOT, 'functions/integrations/_shared.js'));
+  // Every secret declared in _shared.js SECRETS should appear in the
+  // integrationStatus.configured map (or be intentionally aggregated
+  // into a parent key like upstash). Lists every secret name + the
+  // rule.
+  const declared = (sh.match(/[A-Z_]+:\s*defineSecret\('([A-Z_]+)'\)/g) || [])
+    .map(s => s.match(/'([A-Z_]+)'/)[1]);
+  const configuredBlock = (idx.match(/configured:\s*\{[\s\S]*?\},?\s*rateLimitProvider/) || [''])[0];
+  // These are intentionally aggregated under a single key.
+  const AGGREGATED = new Set(['UPSTASH_REDIS_REST_URL','UPSTASH_REDIS_REST_TOKEN']);
+  const missing = declared.filter(name => {
+    if (AGGREGATED.has(name)) return false;
+    return !configuredBlock.includes("'" + name + "'");
+  });
+  assert('integrationStatus.configured covers every declared secret',
+    missing.length === 0,
+    'expected every secret in _shared.js to appear in the configured readout; missing: ' + missing.join(', '));
+  // Spot-check the new D.3 additions
+  for (const k of ['hoverWebhook','eagleviewWebhook','boldsignWebhook','groq']) {
+    assert('configured.' + k + ' present in integrationStatus',
+      new RegExp('\\b' + k + ':\\s+_hasInt').test(idx),
+      'expected configured.' + k);
+  }
+  assert('integrationStatus exposes rotationRunbook URL',
+    /rotationRunbook:\s*'https:\/\/github\.com\/jdealtia-sys\/nobigdealwithjoedeal\.com\/blob\/main\/SECRET_ROTATION\.md'/.test(idx),
+    'expected rotationRunbook URL in the response so admin UI can deep-link');
+}
+
 section('Phase C.4 starter — body-level data-action delegate (goTo cluster)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

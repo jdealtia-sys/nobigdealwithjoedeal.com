@@ -724,20 +724,33 @@ exports.integrationStatus = onCall(
     return {
       providers: _intProviders,
       configured: {
-        sentry:      _hasInt('SENTRY_DSN_FUNCTIONS'),
-        slack:       _hasInt('SLACK_WEBHOOK_URL'),
-        turnstile:   _hasInt('TURNSTILE_SECRET'),
-        upstash:     _hasInt('UPSTASH_REDIS_REST_URL') && _hasInt('UPSTASH_REDIS_REST_TOKEN'),
-        hover:       _hasInt('HOVER_API_KEY'),
-        eagleview:   _hasInt('EAGLEVIEW_API_KEY'),
-        nearmap:     _hasInt('NEARMAP_API_KEY'),
-        boldsign:    _hasInt('BOLDSIGN_API_KEY'),
-        regrid:      _hasInt('REGRID_API_TOKEN'),
-        hailtrace:   _hasInt('HAILTRACE_API_KEY'),
-        calcom:      _hasInt('CALCOM_WEBHOOK_SECRET'),
-        deepgram:    _hasInt('DEEPGRAM_API_KEY')
+        sentry:             _hasInt('SENTRY_DSN_FUNCTIONS'),
+        slack:              _hasInt('SLACK_WEBHOOK_URL'),
+        turnstile:          _hasInt('TURNSTILE_SECRET'),
+        upstash:            _hasInt('UPSTASH_REDIS_REST_URL') && _hasInt('UPSTASH_REDIS_REST_TOKEN'),
+        hover:              _hasInt('HOVER_API_KEY'),
+        // Webhook secrets are tracked separately so admin can see when
+        // the inbound webhook auth is missing without conflating it
+        // with the API-key state.
+        hoverWebhook:       _hasInt('HOVER_WEBHOOK_SECRET'),
+        eagleview:          _hasInt('EAGLEVIEW_API_KEY'),
+        eagleviewWebhook:   _hasInt('EAGLEVIEW_WEBHOOK_SECRET'),
+        nearmap:            _hasInt('NEARMAP_API_KEY'),
+        boldsign:           _hasInt('BOLDSIGN_API_KEY'),
+        boldsignWebhook:    _hasInt('BOLDSIGN_WEBHOOK_SECRET'),
+        regrid:             _hasInt('REGRID_API_TOKEN'),
+        hailtrace:          _hasInt('HAILTRACE_API_KEY'),
+        calcom:             _hasInt('CALCOM_WEBHOOK_SECRET'),
+        // Voice transcription pair — Phase 1 uses Groq, Phase 2 may
+        // add Deepgram for native diarization on Pro+.
+        deepgram:           _hasInt('DEEPGRAM_API_KEY'),
+        groq:               _hasInt('GROQ_API_KEY')
       },
-      rateLimitProvider: rateLimitProvider()
+      rateLimitProvider: rateLimitProvider(),
+      // D.3 — runbook reference so the admin readout points at the
+      // rotation procedure instead of requiring the rep to dig through
+      // the repo.
+      rotationRunbook: 'https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/blob/main/SECRET_ROTATION.md'
     };
   }
 );
