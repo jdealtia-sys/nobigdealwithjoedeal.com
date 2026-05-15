@@ -268,6 +268,17 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (typeof fn === 'function') fn();
     return;
   }
+  // C.4 settings-tab cluster — the Settings view header has 10 tab
+  // buttons that each call switchSettingsTab(<key>). data-target carries
+  // the tab key (profile/appearance/estimates/daily/company/team/
+  // billing/notifications/access/help).
+  if (action === 'settingsTab') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    if (typeof switchSettingsTab === 'function') switchSettingsTab(target);
+    return;
+  }
   // C.4 docgen cluster — every Templates view row called
   // NBDDocGen.fillAndGenerate(<template>). Single delegate branch
   // reads the template name from data-target and dispatches.
