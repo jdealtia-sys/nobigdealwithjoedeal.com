@@ -11180,7 +11180,11 @@ function switchScTab(tab, btn) {
   </template>
 
   <!-- ══ MAP VIEW ══ -->
-  <div class="view" id="view-map">
+  <!-- Phase C.3-finish: MAP VIEW — empty mount, pure markup template.
+       Maps.js wires the Leaflet instance + drawing tools after the
+       hydration helper clones the template on first goTo('map'). -->
+  <div class="view" id="view-map" data-view-template="tpl-view-map"></div>
+  <template id="tpl-view-map">
     <div class="map-view active" style="flex:1;">
       <div class="map-sidebar" id="map-sidebar-map">
 
@@ -11312,7 +11316,7 @@ function switchScTab(tab, btn) {
         <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-map')">☰ Map Tools</button>
       </div>
     </div>
-  </div>
+  </template><!-- /tpl-view-map -->
 
   <!-- DELETE CONFIRM DIALOG -->
   <div class="del-confirm-overlay" id="delConfirmOverlay">
@@ -11899,8 +11903,13 @@ function switchScTab(tab, btn) {
   </div>
 
   <!-- ══ CRM ══ -->
-  <div class="view" id="view-crm">
-
+  <!-- Phase C.3-finish: CRM (PIPELINE / KANBAN) — empty mount. This is
+       the daily-driver view; crm.js binds against #kanbanBoard +
+       column body IDs after hydration. The pre-existing buildKanban-
+       Columns() call already runs on demand (not at module load), so
+       it picks up the hydrated DOM on first goTo('crm'). -->
+  <div class="view" id="view-crm" data-view-template="tpl-view-crm"></div>
+  <template id="tpl-view-crm">
     <!-- HEADER BAR — single compact row.
          Stats inline next to label, view switcher inline, action buttons
          right-aligned. ADD LEAD also surfaces as a floating action button
@@ -12205,7 +12214,7 @@ function switchScTab(tab, btn) {
     <div class="kanban-board" id="kanbanBoard">
       <!-- Populated on load by window.buildKanbanColumns() -->
     </div><!-- /kanban-board -->
-  </div><!-- /view-crm -->
+  </template><!-- /tpl-view-crm -->
 
   <!-- ══════════════════════════════════════════════════════════════════
        PROSPECTS PAGE — D2D knocks awaiting promotion to full customers
@@ -12404,7 +12413,10 @@ function switchScTab(tab, btn) {
   </template>
 
   <!-- ══ TEMPLATES ══ -->
-  <div class="view" id="view-docs">
+  <!-- Phase C.3-finish: DOCS / TEMPLATES — empty mount. Pure markup;
+       NBDDocs.render() populates panels on first goTo('docs'). -->
+  <div class="view" id="view-docs" data-view-template="tpl-view-docs"></div>
+  <template id="tpl-view-docs">
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
@@ -12728,7 +12740,7 @@ function switchScTab(tab, btn) {
         </div>
       </div>
     </div>
-  </div>
+  </template><!-- /tpl-view-docs -->
 
 
   <!-- ══ ASK JOE AI ══ -->
