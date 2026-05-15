@@ -3857,6 +3857,36 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 starter — body-level data-action delegate (goTo cluster)');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  // 1. Delegate is wired in dashboard-main.js — listens for [data-action]
+  //    clicks at the document level and dispatches goTo when matched.
+  assert('document-level click delegate registered for [data-action]',
+    /document\.addEventListener\('click',\s*function _nbdActionDelegate/.test(mainJs),
+    'expected the _nbdActionDelegate function bound to document click');
+  assert('delegate handles action="goTo" → calls goTo(target)',
+    /if \(action === 'goTo'\)[\s\S]{0,400}goTo\(target\)/.test(mainJs),
+    'expected the goTo branch in the action delegate');
+
+  // 2. dashboard.html now carries data-action="goTo" elements (≥40 — we
+  //    converted 54 simple onclick="goTo(...)" handlers).
+  const goToActions = (dash.match(/data-action="goTo"\s+data-target="[a-z][a-z0-9-]*"/g) || []).length;
+  assert('dashboard.html carries ≥40 data-action="goTo" data-target="..." elements',
+    goToActions >= 40,
+    'expected ≥40 data-action goTo conversions; got ' + goToActions);
+
+  // 3. Simple form `onclick="goTo('xxx')"` is fully retired (the only
+  //    remaining onclick="goTo(...)" calls should be compound forms
+  //    with multiple statements).
+  const simpleGoTo = (dash.match(/onclick="goTo\('[a-z][a-z0-9-]*'\)"/g) || []).length;
+  assert('no simple onclick="goTo(\'xxx\')" handlers remain in dashboard.html',
+    simpleGoTo === 0,
+    'expected 0 simple inline goTo handlers; got ' + simpleGoTo);
+}
+
 section('Phase D.2 — Cross-lead Recent Photo Feed');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
