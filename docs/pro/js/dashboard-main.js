@@ -268,6 +268,18 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (typeof fn === 'function') fn();
     return;
   }
+  // C.4 docgen cluster — every Templates view row called
+  // NBDDocGen.fillAndGenerate(<template>). Single delegate branch
+  // reads the template name from data-target and dispatches.
+  if (action === 'docgen') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    if (window.NBDDocGen && typeof window.NBDDocGen.fillAndGenerate === 'function') {
+      window.NBDDocGen.fillAndGenerate(target);
+    }
+    return;
+  }
   // C.4 mobile-nav cluster — bottom-nav items and the More-drawer
   // menu items both call mobileNav(target). The More-drawer entries
   // additionally call closeMobileMore() to dismiss the drawer; that

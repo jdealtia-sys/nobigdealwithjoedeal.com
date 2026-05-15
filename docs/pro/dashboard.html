@@ -12552,7 +12552,7 @@ function switchScTab(tab, btn) {
             <span class="tl-cat-count">4 docs</span>
           </div>
           <div class="tl-cat-body">
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('proposal')">
+            <div class="tl-doc-row" data-action="docgen" data-target="proposal">
               <div class="tl-doc-icon" style="background:color-mix(in srgb, var(--orange) 10%, transparent);color:var(--orange);">📊</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Proposal / Estimate</div>
@@ -12560,7 +12560,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('invoice')">
+            <div class="tl-doc-row" data-action="docgen" data-target="invoice">
               <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">💰</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Invoice</div>
@@ -12568,7 +12568,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('warranty_certificate')">
+            <div class="tl-doc-row" data-action="docgen" data-target="warranty_certificate">
               <div class="tl-doc-icon" style="background:rgba(218,165,32,.1);color:#DAA520;">🛡️</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Warranty Certificate</div>
@@ -12576,7 +12576,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('certificate_of_completion')">
+            <div class="tl-doc-row" data-action="docgen" data-target="certificate_of_completion">
               <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">✅</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Certificate of Completion</div>
@@ -12597,7 +12597,7 @@ function switchScTab(tab, btn) {
             <span class="tl-cat-count">5 docs</span>
           </div>
           <div class="tl-cat-body">
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('supplement_request')">
+            <div class="tl-doc-row" data-action="docgen" data-target="supplement_request">
               <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📎</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Supplement Request</div>
@@ -12605,7 +12605,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('scope_of_work')">
+            <div class="tl-doc-row" data-action="docgen" data-target="scope_of_work">
               <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📐</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Scope of Work</div>
@@ -12613,7 +12613,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('inspectionInsurance')">
+            <div class="tl-doc-row" data-action="docgen" data-target="inspectionInsurance">
               <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📋</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Inspection Report (Insurance)</div>
@@ -12621,7 +12621,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('assignment_of_benefits')">
+            <div class="tl-doc-row" data-action="docgen" data-target="assignment_of_benefits">
               <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📄</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Assignment of Benefits (AOB)</div>
@@ -12629,7 +12629,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('change_order')">
+            <div class="tl-doc-row" data-action="docgen" data-target="change_order">
               <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">🔄</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Change Order</div>
@@ -12650,7 +12650,7 @@ function switchScTab(tab, btn) {
             <span class="tl-cat-count">5 docs</span>
           </div>
           <div class="tl-cat-body">
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('contract')">
+            <div class="tl-doc-row" data-action="docgen" data-target="contract">
               <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">📝</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Roofing Contract</div>
@@ -12658,7 +12658,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('work_authorization')">
+            <div class="tl-doc-row" data-action="docgen" data-target="work_authorization">
               <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">✍️</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Work Authorization</div>
@@ -12666,7 +12666,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('payment_agreement')">
+            <div class="tl-doc-row" data-action="docgen" data-target="payment_agreement">
               <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">💳</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Payment Agreement</div>
@@ -12674,7 +12674,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('material_delivery')">
+            <div class="tl-doc-row" data-action="docgen" data-target="material_delivery">
               <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">🚚</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Material Delivery Notice</div>
@@ -12682,7 +12682,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('thank_you')">
+            <div class="tl-doc-row" data-action="docgen" data-target="thank_you">
               <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">💌</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Thank You Letter</div>
@@ -12703,7 +12703,7 @@ function switchScTab(tab, btn) {
             <span class="tl-cat-count">5 docs</span>
           </div>
           <div class="tl-cat-body">
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('company_intro')">
+            <div class="tl-doc-row" data-action="docgen" data-target="company_intro">
               <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">🏢</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Company One-Pager</div>
@@ -12711,7 +12711,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('financing_options')">
+            <div class="tl-doc-row" data-action="docgen" data-target="financing_options">
               <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">💳</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Financing Options Sheet</div>
@@ -12719,7 +12719,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('inspectionHomeowner')">
+            <div class="tl-doc-row" data-action="docgen" data-target="inspectionHomeowner">
               <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">🔍</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Inspection Report (Homeowner)</div>
@@ -12727,7 +12727,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('storm_checklist')">
+            <div class="tl-doc-row" data-action="docgen" data-target="storm_checklist">
               <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">⛈️</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Storm Damage Checklist</div>
@@ -12735,7 +12735,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('claim_guide')">
+            <div class="tl-doc-row" data-action="docgen" data-target="claim_guide">
               <div class="tl-doc-icon" style="background:rgba(156,39,176,.1);color:#9C27B0;">📖</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Insurance Claim Process Guide</div>
@@ -12756,7 +12756,7 @@ function switchScTab(tab, btn) {
             <span class="tl-cat-count">5 docs</span>
           </div>
           <div class="tl-cat-body">
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('referral_card')">
+            <div class="tl-doc-row" data-action="docgen" data-target="referral_card">
               <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">🤝</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Referral Card</div>
@@ -12764,7 +12764,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('before_after_report')">
+            <div class="tl-doc-row" data-action="docgen" data-target="before_after_report">
               <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">📸</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Before & After Report</div>
@@ -12772,7 +12772,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('door_hanger')">
+            <div class="tl-doc-row" data-action="docgen" data-target="door_hanger">
               <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">🚪</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Door Hanger</div>
@@ -12780,7 +12780,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('neighborhood_mailer')">
+            <div class="tl-doc-row" data-action="docgen" data-target="neighborhood_mailer">
               <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">📬</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Neighborhood Mailer</div>
@@ -12788,7 +12788,7 @@ function switchScTab(tab, btn) {
               </div>
               <div class="tl-doc-arrow">→</div>
             </div>
-            <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('testimonial_sheet')">
+            <div class="tl-doc-row" data-action="docgen" data-target="testimonial_sheet">
               <div class="tl-doc-icon" style="background:rgba(255,107,53,.1);color:#FF6B35;">⭐</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Customer Testimonial Sheet</div>
