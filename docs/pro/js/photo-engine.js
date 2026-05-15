@@ -999,7 +999,7 @@
 
       modal.innerHTML = `
         <div class="pe-modal-header">
-          <button class="pe-modal-back" onclick="document.getElementById('photo-preview-modal')?.remove()">
+          <button class="pe-modal-back" data-action="peRemove" data-target="photo-preview-modal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
           </button>
           <div class="pe-modal-title">Review & Tag</div>
@@ -1013,7 +1013,7 @@
               Location
             </div>
             <div class="pe-pill-scroll" id="location-pills">
-              ${QUICK_LOCATIONS.map(loc => `<button class="pe-tag-pill cat-location" data-tag="${loc.toLowerCase().replace(/ /g,'_')}" onclick="this.classList.toggle('selected')">${loc}</button>`).join('')}
+              ${QUICK_LOCATIONS.map(loc => `<button class="pe-tag-pill cat-location" data-tag="${loc.toLowerCase().replace(/ /g,'_')}" data-action="peTagToggle">${loc}</button>`).join('')}
             </div>
           </div>
 
@@ -1023,7 +1023,7 @@
               Damage Type
             </div>
             <div class="pe-pill-scroll" id="damage-pills">
-              ${QUICK_DAMAGE.map(d => `<button class="pe-tag-pill cat-damage" data-tag="${d.toLowerCase().replace(/ /g,'_')}" onclick="this.classList.toggle('selected')">${d}</button>`).join('')}
+              ${QUICK_DAMAGE.map(d => `<button class="pe-tag-pill cat-damage" data-tag="${d.toLowerCase().replace(/ /g,'_')}" data-action="peTagToggle">${d}</button>`).join('')}
             </div>
           </div>
 
@@ -1033,7 +1033,7 @@
               Photo Type
             </div>
             <div class="pe-pill-scroll" id="type-pills">
-              ${QUICK_TYPE.map(t => `<button class="pe-tag-pill cat-type" data-tag="${t.toLowerCase().replace(/ /g,'_').replace(/-/g,'_')}" onclick="this.classList.toggle('selected')">${t}</button>`).join('')}
+              ${QUICK_TYPE.map(t => `<button class="pe-tag-pill cat-type" data-tag="${t.toLowerCase().replace(/ /g,'_').replace(/-/g,'_')}" data-action="peTagToggle">${t}</button>`).join('')}
             </div>
           </div>
 
@@ -1046,7 +1046,7 @@
           </div>
 
           <div class="pe-button-group">
-            <button class="pe-btn pe-btn-secondary" onclick="document.getElementById('photo-preview-modal')?.remove()">Retake</button>
+            <button class="pe-btn pe-btn-secondary" data-action="peRemove" data-target="photo-preview-modal">Retake</button>
             <button class="pe-btn pe-btn-primary" id="save-next-btn">Save & Next</button>
           </div>
         </div>
@@ -1267,7 +1267,7 @@
               <option value="list">List View</option>
             </select>
             <button id="pe-bulk-ai-btn" type="button"
-              onclick="window.PhotoEngine._bulkAnalyze('${leadId}')"
+              data-action="peBulkAnalyze" data-lead-id="${leadId}"
               style="
                 margin-left:auto;
                 padding:8px 14px; border-radius:6px; border:1px solid #c8541a;
@@ -1300,7 +1300,7 @@
         ${photos.map(photo => `
           <div class="pe-gallery-item" data-photo-id="${photo.id}">
             <img class="pe-gallery-thumbnail" src="${photo.thumbUrl || photo.url}" alt="Photo"
-                 onclick="window.PhotoEngine._openLightbox('${photo.id}', '${leadId}')" />
+                 data-action="peOpenLightbox" data-photo-id="${photo.id}" data-lead-id="${leadId}" />
             ${state.stagedPhotos[leadId]?.includes(photo.id) ? `<div class="pe-staged-badge">OK</div>` : ''}
             <input type="checkbox" class="pe-gallery-checkbox" data-photo-id="${photo.id}" />
             <div class="pe-gallery-tags">
@@ -1382,10 +1382,10 @@
               </div>
             ` : ''}
             <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-              <button class="pe-btn pe-btn-primary" style="flex: 1;" onclick="window.PhotoEngine._stagePhoto('${photoId}', '${leadId}')">
+              <button class="pe-btn pe-btn-primary" style="flex: 1;" data-action="peStagePhoto" data-photo-id="${photoId}" data-lead-id="${leadId}">
                 Stage for Report
               </button>
-              <button class="pe-btn pe-btn-secondary" style="flex: 1;" onclick="window.PhotoEngine._deletePhoto('${photoId}')">
+              <button class="pe-btn pe-btn-secondary" style="flex: 1;" data-action="peDeletePhoto" data-photo-id="${photoId}">
                 Delete
               </button>
             </div>
@@ -1393,8 +1393,8 @@
           </div>
         </div>
         <div class="pe-lightbox-nav">
-          <button class="pe-nav-btn" onclick="document.getElementById('photo-lightbox')?.remove()">X</button>
-          <button class="pe-nav-btn" onclick="document.getElementById('photo-lightbox')?.remove()">OK</button>
+          <button class="pe-nav-btn" data-action="peRemove" data-target="photo-lightbox">X</button>
+          <button class="pe-nav-btn" data-action="peRemove" data-target="photo-lightbox">OK</button>
         </div>
       `;
 
