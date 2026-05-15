@@ -3857,6 +3857,38 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.3 — large-view extractions (photos + admin)');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  for (const v of ['photos','admin']) {
+    assert('view-' + v + ' is an empty mount with data-view-template (C.3)',
+      new RegExp('<div class="view" id="view-' + v + '"\\s+data-view-template="tpl-view-' + v + '"></div>').test(dash),
+      'expected mount div for view-' + v);
+    assert('<template id="tpl-view-' + v + '"> exists',
+      new RegExp('<template id="tpl-view-' + v + '">').test(dash),
+      'expected tpl-view-' + v + ' template element');
+  }
+  // Spot-check Wave 2C.2 shutter FAB survived the photos extraction —
+  // it moves INTO the template so the CSS selector
+  //   #view-photos.active > .m-shutter-fab
+  // matches once the template is cloned at hydration time.
+  assert('tpl-view-photos contains the m-shutter-fab as a direct child',
+    /<template id="tpl-view-photos">[\s\S]*?<button class="m-shutter-fab"/.test(dash),
+    'expected the Wave 2C.2 shutter FAB to live inside tpl-view-photos');
+  // adminCreateModal + adminEditModal stay top-level (sit OUTSIDE
+  // view-admin, independently toggled by AdminManager). Check that
+  // the admin template's body doesn't contain adminCreateModal.
+  {
+    const tplStart = dash.indexOf('<template id="tpl-view-admin">');
+    const tplEnd = dash.indexOf('</template>', tplStart);
+    const adminTplBody = dash.slice(tplStart, tplEnd);
+    assert('adminCreateModal stays top-level (outside tpl-view-admin)',
+      /<div id="adminCreateModal" class="modal-overlay"/.test(dash)
+      && !/id="adminCreateModal"/.test(adminTplBody),
+      'expected adminCreateModal to remain top-level, not inside the admin template body');
+  }
+}
+
 section('Phase C.1 + C.2 — view template-hydration sweep');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
