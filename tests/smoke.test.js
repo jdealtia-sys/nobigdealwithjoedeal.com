@@ -3857,6 +3857,32 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.3 finish-finish — crm + map + docs');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  for (const v of ['crm','map','docs']) {
+    assert('view-' + v + ' is an empty mount with data-view-template',
+      new RegExp('<div class="view" id="view-' + v + '"\\s+data-view-template="tpl-view-' + v + '"></div>').test(dash),
+      'expected mount div for view-' + v);
+    assert('<template id="tpl-view-' + v + '"> exists',
+      new RegExp('<template id="tpl-view-' + v + '">').test(dash),
+      'expected tpl-view-' + v + ' template element');
+  }
+  // Sanity: only view-est should remain as an inline (non-template) view.
+  const inlineMatches = dash.match(/class="view"[^>]*id="view-[a-z]+"[^>]*>(?!<\/div>)/g) || [];
+  // Strict count of "still-inline" views = those whose mount doesn't
+  // carry data-view-template attribute.
+  const stillInline = [];
+  const reAll = /class="view"[^>]*id="view-([a-z]+)"([^>]*)>/g;
+  let m;
+  while ((m = reAll.exec(dash)) !== null) {
+    if (!/data-view-template/.test(m[2])) stillInline.push(m[1]);
+  }
+  assert('only view-est remains inline (Rock 2 dep deferred)',
+    stillInline.length === 1 && stillInline[0] === 'est',
+    'expected only view-est inline; got: ' + stillInline.join(','));
+}
+
 section('Phase C.3 finish — view-prospects + D.1 plumbing');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
