@@ -268,6 +268,39 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (typeof fn === 'function') fn();
     return;
   }
+  // C.4 kanban-view cluster — Insurance/Cash/Finance/Warranty/Service/
+  // Jobs/All pipeline tabs on the CRM kanban. Original inline was
+  // switchKanbanView('<view>'). Note: the original markup also carries
+  // data-view="..." which other code reads; we leave that intact.
+  if (action === 'kanbanView') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    if (typeof switchKanbanView === 'function') switchKanbanView(target);
+    return;
+  }
+  // C.4 zone-color cluster — D2D zone color swatches. Original inline
+  // was selectZoneColor(<css-var-or-hex>, this). Delegate passes the
+  // string from data-target and the resolved element.
+  if (action === 'zoneColor') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    if (typeof selectZoneColor === 'function') selectZoneColor(target, el);
+    return;
+  }
+  // C.4 pin-status cluster — D2D pin status buttons (not-home /
+  // interested / not-interested / signed / callback / do-not-knock /
+  // left-material / follow-up). Original inline was selectPin(<key>,
+  // <color>, this) — both args travel through data-target / data-color.
+  if (action === 'selectPin') {
+    const target = el.dataset.target;
+    const color = el.dataset.color;
+    if (!target || !color) return;
+    e.preventDefault();
+    if (typeof selectPin === 'function') selectPin(target, color, el);
+    return;
+  }
   // C.4 line-type cluster — draw-tool color-coded line type pickers
   // (ridge / ridge vent / hip / valley / rake / eave / flashing /
   // step flash / drip edge / parapet / gutters). Original inline was

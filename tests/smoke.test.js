@@ -3857,6 +3857,45 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 kanban + zone-color + pin-status — 3 picker clusters');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  for (const action of ['kanbanView','zoneColor','selectPin']) {
+    assert("delegate handles action='" + action + "'",
+      new RegExp("if \\(action === '" + action + "'\\)").test(mainJs),
+      'expected ' + action + ' branch in _nbdActionDelegate');
+  }
+
+  const kv = (dash.match(/data-action="kanbanView"\s+data-target="[a-z]+"/g) || []).length;
+  assert('kanbanView conversions: 7 (Ins/Cash/Fin/War/Svc/Jobs/All)',
+    kv === 7, 'expected 7 kanbanView data-actions; got ' + kv);
+
+  const zc = (dash.match(/data-action="zoneColor"\s+data-target="[^"]+"/g) || []).length;
+  assert('zoneColor conversions: 6 (D2D zone swatches)',
+    zc === 6, 'expected 6 zoneColor data-actions; got ' + zc);
+
+  const sp = (dash.match(/data-action="selectPin"\s+data-target="[a-z-]+"\s+data-color="[^"]+"/g) || []).length;
+  assert('selectPin conversions: 8 (D2D pin status buttons)',
+    sp === 8, 'expected 8 selectPin data-actions; got ' + sp);
+
+  const remaining =
+    (dash.match(/onclick="switchKanbanView\(/g) || []).length +
+    (dash.match(/onclick="selectZoneColor\(/g) || []).length +
+    (dash.match(/onclick="selectPin\(/g) || []).length;
+  assert('no inline onclicks remain for these 3 clusters',
+    remaining === 0,
+    'expected 0 inline onclicks across the 3 clusters; got ' + remaining);
+
+  // The kanban buttons preserve their data-view attribute (other code
+  // reads it for filtering); confirm we didn't strip it.
+  assert('kanban buttons preserve data-view alongside the new data-action',
+    /data-view="insurance"[\s\S]{0,80}data-action="kanbanView"/.test(dash) ||
+      /data-action="kanbanView"[\s\S]{0,80}data-view="insurance"/.test(dash),
+    'expected data-view="insurance" preserved on the Ins kanban button');
+}
+
 section('Phase C.4 line-type — selLT via selLineType action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
