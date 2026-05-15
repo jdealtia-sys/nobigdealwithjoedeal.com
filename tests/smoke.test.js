@@ -3857,6 +3857,29 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 docgen — NBDDocGen.fillAndGenerate via docgen action');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  assert("delegate handles action='docgen'",
+    /if \(action === 'docgen'\)/.test(mainJs),
+    'expected docgen branch in _nbdActionDelegate');
+  assert("docgen branch dispatches NBDDocGen.fillAndGenerate(target)",
+    /window\.NBDDocGen\.fillAndGenerate\(target\)/.test(mainJs),
+    'expected NBDDocGen.fillAndGenerate(target) dispatch');
+
+  const docgenCount = (dash.match(/data-action="docgen"\s+data-target="[a-zA-Z_]+"/g) || []).length;
+  assert('docgen conversions: 24 (every Templates view row)',
+    docgenCount === 24,
+    'expected 24 docgen data-actions; got ' + docgenCount);
+
+  const remaining = (dash.match(/onclick="NBDDocGen\.fillAndGenerate/g) || []).length;
+  assert('no inline NBDDocGen.fillAndGenerate onclicks remain',
+    remaining === 0,
+    'expected 0 inline NBDDocGen onclicks; got ' + remaining);
+}
+
 section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
