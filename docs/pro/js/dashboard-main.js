@@ -210,6 +210,49 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (typeof closeCrmToolsMenu === 'function') closeCrmToolsMenu();
     return;
   }
+  // C.4 cluster 5 — arg-bearing toggles. Each named action wraps a
+  // specific global function whose original onclick passed a string,
+  // an event, or `this`. Same allowlist discipline as the no-arg
+  // toggle action.
+  if (action === 'navSection') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    if (typeof toggleNavSection === 'function') toggleNavSection(target);
+    return;
+  }
+  if (action === 'mapSidebar') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    if (typeof toggleMapSidebar === 'function') toggleMapSidebar(target);
+    return;
+  }
+  if (action === 'mapOverlay') {
+    // Pattern: data-target="heat" → toggleOverlay('heat', el). The
+    // second arg in the original inline form was `this` — the clicked
+    // element — used to toggle an .active class on the button itself.
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    if (typeof toggleOverlay === 'function') toggleOverlay(target, el);
+    return;
+  }
+  if (action === 'tradeChip') {
+    e.preventDefault();
+    if (window.toggleTradeChip && typeof window.toggleTradeChip === 'function') {
+      window.toggleTradeChip(el);
+    }
+    return;
+  }
+  if (action === 'crmToolsMenu') {
+    // Original inline was toggleCrmToolsMenu(event) — the function
+    // uses event.stopPropagation() so it has to receive the real
+    // event object.
+    e.preventDefault();
+    if (typeof toggleCrmToolsMenu === 'function') toggleCrmToolsMenu(e);
+    return;
+  }
   // C.4 cluster 4 — no-arg toggle handlers. Pattern: tap a button →
   // calls a global toggleXxx() with no arguments. Same allowlist
   // discipline as closeModal: data-target maps to a specific function

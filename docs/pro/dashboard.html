@@ -300,7 +300,7 @@
       tradeGroup.innerHTML = window.TRADES.map(t => `
         <button type="button" class="trade-chip" data-value="${t.value}" data-selected="0"
           style="font-size:11px;padding:4px 10px;border-radius:14px;border:1px solid var(--br);background:var(--s2);color:var(--m);cursor:pointer;font-family:inherit;letter-spacing:.02em;"
-          onclick="window.toggleTradeChip(this)">${t.icon || ''} ${t.label}</button>
+          data-action="tradeChip">${t.icon || ''} ${t.label}</button>
       `).join('');
     }
   };
@@ -10924,7 +10924,7 @@ function switchScTab(tab, btn) {
 
   <!-- TIER 2: TOOLS (Collapsible) -->
   <div class="nav-section">
-    <div class="nav-section-header" onclick="toggleNavSection('tools')">
+    <div class="nav-section-header" data-action="navSection" data-target="tools">
       <span>TOOLS</span>
       <span class="nav-section-toggle open" id="toggle-tools">▶</span>
     </div>
@@ -10942,7 +10942,7 @@ function switchScTab(tab, btn) {
 
   <!-- TIER 3: INSIGHTS (Collapsible) -->
   <div class="nav-section">
-    <div class="nav-section-header" onclick="toggleNavSection('insights')">
+    <div class="nav-section-header" data-action="navSection" data-target="insights">
       <span>INSIGHTS</span>
       <span class="nav-section-toggle open" id="toggle-insights">▶</span>
     </div>
@@ -10963,7 +10963,7 @@ function switchScTab(tab, btn) {
 
   <!-- AI TOOLS (Collapsible — matches TOOLS + INSIGHTS pattern) -->
   <div class="nav-section" style="margin-top:4px;">
-    <div class="nav-section-header" onclick="toggleNavSection('ai-tools')">
+    <div class="nav-section-header" data-action="navSection" data-target="ai-tools">
       <span>AI TOOLS</span>
       <span class="nav-section-toggle open" id="toggle-ai-tools">▶</span>
     </div>
@@ -11292,23 +11292,23 @@ function switchScTab(tab, btn) {
         <div class="overlay-panel">
           <div class="overlay-row">
             <div class="overlay-label"><div class="overlay-dot" style="background:#FF6B35;"></div>Door Knock Heat Map</div>
-            <div class="overlay-toggle" id="tog-heat" onclick="toggleOverlay('heat',this)" title="Density of all door knock activity"></div>
+            <div class="overlay-toggle" id="tog-heat" data-action="mapOverlay" data-target="heat" title="Density of all door knock activity"></div>
           </div>
           <div class="overlay-row">
             <div class="overlay-label"><div class="overlay-dot" style="background:#A78BFA;"></div>All Pins</div>
-            <div class="overlay-toggle on" id="tog-pins" onclick="toggleOverlay('pins',this)" title="Every dispositioned door, color-coded"></div>
+            <div class="overlay-toggle on" id="tog-pins" data-action="mapOverlay" data-target="pins" title="Every dispositioned door, color-coded"></div>
           </div>
           <div class="overlay-row">
             <div class="overlay-label"><div class="overlay-dot" style="background:var(--blue);"></div>Jobs Overlay</div>
-            <div class="overlay-toggle" id="tog-jobs" onclick="toggleOverlay('jobs',this)" title="In Progress / Complete / Finalizing leads"></div>
+            <div class="overlay-toggle" id="tog-jobs" data-action="mapOverlay" data-target="jobs" title="In Progress / Complete / Finalizing leads"></div>
           </div>
           <div class="overlay-row">
             <div class="overlay-label"><div class="overlay-dot" style="background:var(--gold);"></div>Storm Activity</div>
-            <div class="overlay-toggle" id="tog-storm" onclick="toggleOverlay('storm',this)" title="NOAA hail & wind data"></div>
+            <div class="overlay-toggle" id="tog-storm" data-action="mapOverlay" data-target="storm" title="NOAA hail & wind data"></div>
           </div>
           <div class="overlay-row">
             <div class="overlay-label"><div class="overlay-dot" style="background:#34D399;"></div>Live Weather</div>
-            <div class="overlay-toggle" id="tog-weather" onclick="toggleOverlay('weather',this)" title="Current precipitation radar"></div>
+            <div class="overlay-toggle" id="tog-weather" data-action="mapOverlay" data-target="weather" title="Current precipitation radar"></div>
           </div>
         </div>
 
@@ -11393,7 +11393,7 @@ function switchScTab(tab, btn) {
           <button class="map-fab" onclick="quickStormCheck()" title="Storm check at my location"><span class="map-fab-icon">⚡</span><span>Storm Here</span></button>
         </div>
 
-        <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-map')">☰ Map Tools</button>
+        <button class="map-toggle-btn" data-action="mapSidebar" data-target="map-sidebar-map">☰ Map Tools</button>
       </div>
     </div>
   </template><!-- /tpl-view-map -->
@@ -11653,7 +11653,7 @@ function switchScTab(tab, btn) {
       </div>
       <div class="map-area">
         <div id="drawMap"></div>
-        <button class="map-toggle-btn" onclick="toggleMapSidebar('map-sidebar-draw')">☰ Draw Tools</button>
+        <button class="map-toggle-btn" data-action="mapSidebar" data-target="map-sidebar-draw">☰ Draw Tools</button>
         <div class="map-badge" style="color:#22C55E;border-color:rgba(34,197,94,.3);">✏️ DRAWING TOOL</div>
       </div>
 
@@ -12055,7 +12055,7 @@ function switchScTab(tab, btn) {
 
         <!-- Tools dropdown (was the entire secondary toolbar) -->
         <div class="crm-tools-wrap">
-          <button class="crm-icon-btn" id="crmToolsBtn" onclick="toggleCrmToolsMenu(event)" title="Tools">
+          <button class="crm-icon-btn" id="crmToolsBtn" data-action="crmToolsMenu" title="Tools">
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="10" r="1.4"/><circle cx="10" cy="10" r="1.4"/><circle cx="16" cy="10" r="1.4"/></svg>
           </button>
           <div class="crm-tools-menu" id="crmToolsMenu" role="menu">

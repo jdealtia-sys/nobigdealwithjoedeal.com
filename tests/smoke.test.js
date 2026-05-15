@@ -3857,6 +3857,40 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 cluster 5 — arg-bearing toggle handlers');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  for (const action of ['navSection','mapSidebar','mapOverlay','tradeChip','crmToolsMenu']) {
+    assert("delegate handles action='" + action + "'",
+      new RegExp("if \\(action === '" + action + "'\\)").test(mainJs),
+      'expected ' + action + ' branch in _nbdActionDelegate');
+  }
+
+  // Markup counts
+  const navSec = (dash.match(/data-action="navSection"\s+data-target="[a-z-]+"/g) || []).length;
+  assert('navSection conversions: 3',
+    navSec === 3,
+    'expected 3 navSection conversions; got ' + navSec);
+
+  const mapSb = (dash.match(/data-action="mapSidebar"\s+data-target="[a-z-]+"/g) || []).length;
+  assert('mapSidebar conversions: 2',
+    mapSb === 2,
+    'expected 2 mapSidebar conversions; got ' + mapSb);
+
+  const mapOv = (dash.match(/data-action="mapOverlay"\s+data-target="[a-z]+"/g) || []).length;
+  assert('mapOverlay conversions: 5 (heat/jobs/pins/storm/weather)',
+    mapOv === 5,
+    'expected 5 mapOverlay conversions; got ' + mapOv);
+
+  // Inline arg-bearing toggles retired (except the documented ternary).
+  const argRemain = (dash.match(/onclick="toggle(NavSection|MapSidebar|Overlay|TradeChip|CrmToolsMenu)\(/g) || []).length;
+  assert('no inline arg-bearing toggle onclicks remain (besides the mobileCreatePopover ternary)',
+    argRemain === 0,
+    'expected 0 arg-bearing toggle onclicks; got ' + argRemain);
+}
+
 section('Phase C.4 cluster 4 — no-arg toggle handlers via toggle action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
