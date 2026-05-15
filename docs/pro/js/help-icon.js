@@ -25,8 +25,8 @@
         display: inline-flex; align-items: center; justify-content: center;
         width: 18px; height: 18px;
         margin-left: 8px;
-        background: rgba(232, 114, 12, 0.08);
-        border: 1px solid rgba(232, 114, 12, 0.3);
+        background: color-mix(in srgb, var(--orange) 8%, transparent);
+        border: 1px solid color-mix(in srgb, var(--orange) 30%, transparent);
         color: #e8720c;
         border-radius: 50%;
         font-size: 11px; font-weight: 700; font-family: 'Barlow', sans-serif;

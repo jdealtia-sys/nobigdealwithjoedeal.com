@@ -278,7 +278,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 .tier-cards{display:flex;flex-direction:column;gap:12px;}
 .tier{background:#1e2028;border:2px solid #2a2d35;border-radius:14px;padding:20px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
 .tier:hover{border-color:#e8720c40;}
-.tier.selected{border-color:#e8720c;box-shadow:0 0 20px rgba(232,114,12,.2);}
+.tier.selected{border-color:#e8720c;box-shadow:0 0 20px color-mix(in srgb, var(--orange) 20%, transparent);}
 .tier.recommended::before{content:'RECOMMENDED';position:absolute;top:10px;right:-28px;background:#e8720c;color:white;font-size:9px;font-weight:700;padding:2px 30px;transform:rotate(45deg);letter-spacing:.08em;}
 .tier-name{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
 .tier-price{font-size:28px;font-weight:700;color:#e8720c;margin:8px 0;}

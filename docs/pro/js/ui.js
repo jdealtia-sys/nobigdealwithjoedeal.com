@@ -280,7 +280,7 @@ function scrollToColumn(columnIndex) {
     // Flash highlight
     column.style.transition = 'background 0.3s';
     const originalBg = column.style.background;
-    column.style.background = 'rgba(232,114,12,0.1)';
+    column.style.background = 'color-mix(in srgb, var(--orange) 10%, transparent)';
     setTimeout(() => {
       column.style.background = originalBg;
     }, 600);
