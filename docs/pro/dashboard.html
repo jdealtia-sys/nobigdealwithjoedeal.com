@@ -12212,7 +12212,11 @@ function switchScTab(tab, btn) {
        Phase 1: kanban-by-disposition + list view + stats + filters.
        Detail modal, follow-ups, multi-photo, and analytics: Phase 2-4.
        ══════════════════════════════════════════════════════════════════ -->
-  <div class="view" id="view-prospects">
+  <!-- Phase C.3-finish: PROSPECTS — empty mount. Pure markup, no
+       inline scripts. Populated by window.Prospects.render() once the
+       template is hydrated and the user lands on the view. -->
+  <div class="view" id="view-prospects" data-view-template="tpl-view-prospects"></div>
+  <template id="tpl-view-prospects">
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
@@ -12243,7 +12247,7 @@ function switchScTab(tab, btn) {
       <!-- Conversion analytics — collapsible -->
       <div id="prospects-analytics" class="prosp-analytics-wrap"></div>
     </div>
-  </div><!-- /view-prospects -->
+  </template><!-- /tpl-view-prospects -->
 
 <!-- ══ PHOTO LIBRARY ══ -->
   <!-- Phase C.3: PHOTOS — empty mount. The Wave 2C.2 shutter FAB sits

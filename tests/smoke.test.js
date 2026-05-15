@@ -3857,6 +3857,23 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.3 finish — view-prospects + D.1 plumbing');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const testsPkg = read(path.join(ROOT, 'tests/package.json'));
+  assert('view-prospects is an empty mount with data-view-template',
+    /<div class="view" id="view-prospects"\s+data-view-template="tpl-view-prospects"><\/div>/.test(dash),
+    'expected mount div for view-prospects');
+  assert('<template id="tpl-view-prospects"> exists',
+    /<template id="tpl-view-prospects">/.test(dash),
+    'expected tpl-view-prospects template element');
+  // D.1 — engines pin so future Node-version drift doesn't break the
+  // playwright transitive install in fresh containers.
+  assert('tests/package.json declares engines.node ≥22',
+    /"engines":\s*\{\s*"node":\s*">=22"\s*\}/.test(testsPkg),
+    'expected engines.node pin to >=22 in tests/package.json');
+}
+
 section('Phase C.3 wave 2 — draw + dash + reports + settings');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

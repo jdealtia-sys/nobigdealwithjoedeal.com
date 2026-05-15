@@ -3,6 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "description": "Firestore rules + rate-limit unit tests for NBD Pro. Run against the Firebase emulator.",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "npm run test:smoke && npm run test:pricing && npm run test:address && npm run test:state && npm run test:rules && npm run test:storage && npm run test:ratelimit",
     "test:smoke": "node ./smoke.test.js",
