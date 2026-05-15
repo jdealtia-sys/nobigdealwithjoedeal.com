@@ -114,6 +114,25 @@ function _hydrateViewTemplate(name) {
   const tpl = document.getElementById(tplId);
   if (!tpl || !('content' in tpl)) return false;
   view.appendChild(tpl.content.cloneNode(true));
+
+  // Phase C.3+ — re-execute inline <script> elements after cloning.
+  // cloneNode() copies script tags as inert nodes; the browser only
+  // executes a script element when one is freshly inserted via
+  // createElement. We swap each cloned-but-inert script for a brand-
+  // new element carrying the same content + attributes, which the
+  // browser will execute on insertion. This unblocks extraction of
+  // views whose markup historically depended on inline scripts
+  // (view-draw, view-settings, view-dash, view-reports). Scripts that
+  // expect DOMContentLoaded need a `document.readyState` check (see
+  // pattern used in tpl-view-draw's accessory-panel bootstrap).
+  view.querySelectorAll('script').forEach(oldScript => {
+    const newScript = document.createElement('script');
+    for (const attr of Array.from(oldScript.attributes)) {
+      newScript.setAttribute(attr.name, attr.value);
+    }
+    newScript.text = oldScript.textContent;
+    oldScript.parentNode.replaceChild(newScript, oldScript);
+  });
   return true;
 }
 
