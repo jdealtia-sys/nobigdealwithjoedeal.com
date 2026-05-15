@@ -3857,6 +3857,29 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 line-type — selLT via selLineType action');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  assert("delegate handles action='selLineType'",
+    /if \(action === 'selLineType'\)/.test(mainJs),
+    'expected selLineType branch in _nbdActionDelegate');
+  assert("selLineType branch dispatches selLT(idx, el)",
+    /selLT\(idx, el\)/.test(mainJs),
+    'expected selLT(idx, el) dispatch');
+
+  const count = (dash.match(/data-action="selLineType"\s+data-target="\d+"/g) || []).length;
+  assert('selLineType conversions: 11 (one per draw-tool line type)',
+    count === 11,
+    'expected 11 selLineType data-actions; got ' + count);
+
+  const remaining = (dash.match(/onclick="selLT\(/g) || []).length;
+  assert('no inline selLT onclicks remain',
+    remaining === 0,
+    'expected 0 inline selLT onclicks; got ' + remaining);
+}
+
 section('Phase C.4 settings-tab — switchSettingsTab via settingsTab action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
