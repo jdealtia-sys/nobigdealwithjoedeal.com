@@ -360,7 +360,7 @@
       .pe-textarea:focus, .pe-input:focus {
         outline: none;
         border-color: var(--orange, #e8720c);
-        box-shadow: 0 0 0 3px rgba(232,114,12,.12);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 12%, transparent);
       }
       .pe-textarea { resize: none; min-height: 64px; }
 
@@ -447,7 +447,7 @@
 
       .pe-gallery-item.selected {
         border-color: var(--orange);
-        box-shadow: 0 0 0 3px rgba(232, 114, 12, 0.2);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 20%, transparent);
       }
 
       .pe-gallery-thumbnail {

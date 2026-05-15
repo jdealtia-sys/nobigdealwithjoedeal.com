@@ -194,7 +194,7 @@ function injectCSS() {
   -webkit-tap-highlight-color:transparent;
 }
 .ncm-slot.dragging { opacity:.5; transform:scale(.92); border-color:var(--orange, #e8720c); }
-.ncm-slot.drag-over { border-color:var(--orange, #e8720c); background:rgba(232,114,12,.1); transform:scale(1.04); }
+.ncm-slot.drag-over { border-color:var(--orange, #e8720c); background:color-mix(in srgb, var(--orange) 10%, transparent); transform:scale(1.04); }
 .ncm-slot-icon { font-size:22px; line-height:1; }
 .ncm-slot-label {
   font-size:9px; font-family:'Barlow Condensed',sans-serif;
@@ -232,7 +232,7 @@ function injectCSS() {
   cursor:pointer; transition:all .15s;
   -webkit-tap-highlight-color:transparent;
 }
-.ncm-pool-item:active { background:rgba(232,114,12,.12); border-color:var(--orange, #e8720c); transform:scale(.95); }
+.ncm-pool-item:active { background:color-mix(in srgb, var(--orange) 12%, transparent); border-color:var(--orange, #e8720c); transform:scale(.95); }
 .ncm-pool-item.in-bar { opacity:.35; pointer-events:none; border-style:dashed; }
 .ncm-pool-icon { font-size:20px; line-height:1; }
 .ncm-pool-name {
@@ -280,7 +280,7 @@ function injectCSS() {
   color:var(--orange, #e8720c) !important;
 }
 .mm-item-customize:hover,
-.mm-item-customize:active { background:rgba(232,114,12,.1) !important; }
+.mm-item-customize:active { background:color-mix(in srgb, var(--orange) 10%, transparent) !important; }
 
   `;
   document.head.appendChild(style);

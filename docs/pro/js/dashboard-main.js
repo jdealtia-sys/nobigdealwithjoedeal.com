@@ -652,7 +652,7 @@ function renderEstimatesList(ests) {
     if (e.signatureStatus === 'signed') {
       sigTag = '<span class="est-src-chip" style="background:rgba(46,204,138,.15);color:var(--green,#2ecc8a);border-color:var(--green,#2ecc8a);">✓ SIGNED</span>';
     } else if (e.signatureStatus === 'sent' || e.signatureStatus === 'viewed') {
-      sigTag = '<span class="est-src-chip" style="background:rgba(232,114,12,.12);color:var(--orange);border-color:var(--orange);">✍ AWAITING</span>';
+      sigTag = '<span class="est-src-chip" style="background:color-mix(in srgb, var(--orange) 12%, transparent);color:var(--orange);border-color:var(--orange);">✍ AWAITING</span>';
     } else if (e.signatureStatus === 'declined') {
       sigTag = '<span class="est-src-chip" style="background:rgba(197,48,48,.15);color:#ff6b6b;border-color:#ff6b6b;">✗ DECLINED</span>';
     } else if (e.signatureStatus === 'expired') {
@@ -2895,7 +2895,7 @@ function dsBuildThemeGrid() {
     <div onclick="dsPickTheme('${t.key}')" id="ds-tc-${t.key}" style="
       cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
       padding:10px 6px;border-radius:6px;border:2px solid ${t.key===dsSelectedTheme?'var(--orange)':'var(--br)'};
-      background:${t.key===dsSelectedTheme?'rgba(232,114,12,.08)':'var(--s2)'};
+      background:${t.key===dsSelectedTheme?'color-mix(in srgb, var(--orange) 8%, transparent)':'var(--s2)'};
       transition:all .15s;
     ">
       <span style="width:18px;height:18px;border-radius:50%;background:${t.dot};display:block;flex-shrink:0;"></span>

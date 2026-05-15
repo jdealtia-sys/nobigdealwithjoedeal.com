@@ -934,13 +934,13 @@
         display: inline-block;
         margin-top: 12px;
         padding: 6px 16px;
-        border: 1px solid rgba(232,114,12,0.3);
+        border: 1px solid color-mix(in srgb, var(--orange) 30%, transparent);
         border-radius: 20px;
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 1.5px;
         color: var(--orange, #e8720c);
-        background: rgba(232,114,12,0.08);
+        background: color-mix(in srgb, var(--orange) 8%, transparent);
       }
 
       /* ── Progress Bar (overall) ── */
@@ -991,13 +991,13 @@
       .rda-card:hover {
         border-color: var(--orange, #e8720c);
         transform: translateY(-3px);
-        box-shadow: 0 8px 28px rgba(232,114,12,0.15);
+        box-shadow: 0 8px 28px color-mix(in srgb, var(--orange) 15%, transparent);
       }
       .rda-card.completed {
         border-color: #10b981;
       }
       .rda-card-top {
-        background: linear-gradient(135deg, rgba(232,114,12,0.15), rgba(232,114,12,0.05));
+        background: linear-gradient(135deg, color-mix(in srgb, var(--orange) 15%, transparent), color-mix(in srgb, var(--orange) 5%, transparent));
         padding: 20px 20px 16px;
         display: flex;
         align-items: flex-start;
@@ -1177,7 +1177,7 @@
 
       /* ── Content Blocks ── */
       .rda-phase-block {
-        background: linear-gradient(135deg, rgba(232,114,12,0.08), rgba(232,114,12,0.03));
+        background: linear-gradient(135deg, color-mix(in srgb, var(--orange) 8%, transparent), color-mix(in srgb, var(--orange) 3%, transparent));
         border-left: 4px solid var(--orange, #e8720c);
         padding: 20px 24px;
         margin: 24px 0;
@@ -1195,7 +1195,7 @@
 
       .rda-template-block {
         background: var(--s, #181C22);
-        border: 1px solid rgba(232,114,12,0.2);
+        border: 1px solid color-mix(in srgb, var(--orange) 20%, transparent);
         border-radius: 8px;
         padding: 20px 24px;
         margin: 24px 0;
@@ -1210,7 +1210,7 @@
         color: var(--orange, #e8720c);
         margin-bottom: 12px;
         padding-bottom: 8px;
-        border-bottom: 1px solid rgba(232,114,12,0.15);
+        border-bottom: 1px solid color-mix(in srgb, var(--orange) 15%, transparent);
       }
 
       .rda-checklist-block {
@@ -1268,8 +1268,8 @@
       }
 
       .rda-action-block {
-        background: linear-gradient(135deg, rgba(232,114,12,0.12), rgba(232,114,12,0.04));
-        border: 1px solid rgba(232,114,12,0.25);
+        background: linear-gradient(135deg, color-mix(in srgb, var(--orange) 12%, transparent), color-mix(in srgb, var(--orange) 4%, transparent));
+        border: 1px solid color-mix(in srgb, var(--orange) 25%, transparent);
         border-radius: 10px;
         padding: 24px;
         margin: 32px 0;
@@ -1295,13 +1295,13 @@
       .rda-table th {
         text-align: left;
         padding: 10px 12px;
-        background: rgba(232,114,12,0.1);
+        background: color-mix(in srgb, var(--orange) 10%, transparent);
         color: var(--orange, #e8720c);
         font-weight: 700;
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        border-bottom: 2px solid rgba(232,114,12,0.2);
+        border-bottom: 2px solid color-mix(in srgb, var(--orange) 20%, transparent);
       }
       .rda-table td {
         padding: 10px 12px;

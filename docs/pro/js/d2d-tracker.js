@@ -1828,7 +1828,7 @@
     const panel = document.createElement('div');
     panel.id = 'd2d-layer-panel';
     panel.style.cssText = 'position:absolute;top:10px;right:10px;z-index:1000;'
-      + 'background:rgba(10,12,15,.92);border:1px solid rgba(232,114,12,.3);'
+      + 'background:rgba(10,12,15,.92);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);'
       + 'border-radius:10px;padding:8px;display:flex;gap:4px;'
       + '-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);'
       + 'box-shadow:0 4px 20px rgba(0,0,0,.5);';
@@ -1846,7 +1846,7 @@
       btn.type = 'button';
       btn.id = 'd2d-layer-' + ly.key;
       btn.title = ly.label;
-      btn.style.cssText = 'background:' + (d2dLayerState[ly.key] ? 'rgba(232,114,12,.2)' : 'transparent') + ';'
+      btn.style.cssText = 'background:' + (d2dLayerState[ly.key] ? 'color-mix(in srgb, var(--orange) 20%, transparent)' : 'transparent') + ';'
         + 'border:1px solid ' + (d2dLayerState[ly.key] ? '#e8720c' : 'rgba(255,255,255,.12)') + ';'
         + 'color:' + (d2dLayerState[ly.key] ? '#fff' : '#8b8e96') + ';'
         + 'padding:6px 10px;border-radius:6px;cursor:pointer;'
@@ -1875,7 +1875,7 @@
       const btn = document.getElementById('d2d-layer-' + key);
       if (!btn) return;
       const on = d2dLayerState[key];
-      btn.style.background = on ? 'rgba(232,114,12,.2)' : 'transparent';
+      btn.style.background = on ? 'color-mix(in srgb, var(--orange) 20%, transparent)' : 'transparent';
       btn.style.borderColor = on ? '#e8720c' : 'rgba(255,255,255,.12)';
       btn.style.color = on ? '#fff' : '#8b8e96';
     });
@@ -2202,7 +2202,7 @@
     if (!layer.getBounds) return;
     const center = layer.getBounds().getCenter();
     const label = L.divIcon({
-      html: '<div style="background:rgba(232,114,12,.85);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap;letter-spacing:.04em;text-transform:uppercase;">' + esc(name) + '</div>',
+      html: '<div style="background:color-mix(in srgb, var(--orange) 85%, transparent);color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap;letter-spacing:.04em;text-transform:uppercase;">' + esc(name) + '</div>',
       className: '',
       iconAnchor: [0, 0]
     });

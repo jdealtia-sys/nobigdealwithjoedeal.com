@@ -3857,6 +3857,28 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.6 step 2 — JS-file orange-rgba sweep');
+{
+  const SAFE_FILES = [
+    'docs/pro/js/close-board.js',
+    'docs/pro/js/d2d-tracker.js',
+    'docs/pro/js/d2d-tracker-2026b.js',
+    'docs/pro/js/doc-preflight.js',
+    'docs/pro/js/help-icon.js',
+    'docs/pro/js/mobile-nav-customizer.js',
+    'docs/pro/js/photo-engine.js',
+    'docs/pro/js/real-deal-academy-lab.js',
+    'docs/pro/js/ui.js',
+    'docs/pro/js/dashboard-main.js',
+  ];
+  for (const p of SAFE_FILES) {
+    const body = read(path.join(ROOT, p));
+    assert(p + ': no hardcoded rgba(232,114,12,...)',
+      !/rgba\(232,\s*114,\s*12/.test(body),
+      p + ' should use color-mix(in srgb, var(--orange) X%, transparent)');
+  }
+}
+
 section('Phase C.6 starter — retire hardcoded NBD-orange rgba in dashboard.html');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
