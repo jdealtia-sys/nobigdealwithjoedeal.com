@@ -3857,6 +3857,42 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 cluster 2 — compound goTo handlers (newEstimate / filterByStage / toolMenuGoTo)');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  // Action handlers wired in the delegate switch.
+  for (const action of ['newEstimate','filterByStage','toolMenuGoTo']) {
+    assert("delegate handles action='" + action + "'",
+      new RegExp("if \\(action === '" + action + "'\\)").test(mainJs),
+      'expected ' + action + ' branch in _nbdActionDelegate');
+  }
+
+  // Markup conversions
+  const newEst = (dash.match(/data-action="newEstimate"/g) || []).length;
+  assert('data-action="newEstimate" appears 2× (the two + New Estimate buttons)',
+    newEst === 2,
+    'expected 2 newEstimate conversions; got ' + newEst);
+
+  const stages = (dash.match(/data-action="filterByStage"\s+data-stage="[a-z_]+"/g) || []).length;
+  assert('data-action="filterByStage" appears 6× (one per dashboard stage box)',
+    stages === 6,
+    'expected 6 filterByStage conversions; got ' + stages);
+
+  const tools = (dash.match(/data-action="toolMenuGoTo"\s+data-target="[a-z]+"/g) || []).length;
+  assert('data-action="toolMenuGoTo" appears 7× (CRM tools menu items)',
+    tools === 7,
+    'expected 7 toolMenuGoTo conversions; got ' + tools);
+
+  // Only ONE inline onclick="goTo(..." remains (the one-off d2d
+  // maps-redirect notification — unique, not worth a custom action).
+  const remaining = (dash.match(/onclick="goTo\(/g) || []).length;
+  assert('only 1 inline onclick="goTo(..." remains (the d2d one-off)',
+    remaining === 1,
+    'expected exactly 1 inline goTo onclick remaining; got ' + remaining);
+}
+
 section('Phase D.3 — integrationStatus secret-readout completeness');
 {
   const idx = read(path.join(ROOT, 'functions/index.js'));
