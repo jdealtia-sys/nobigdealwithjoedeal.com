@@ -658,6 +658,11 @@ const voiceMemoIntegration   = require('./integrations/voice-memo');
 const voiceIntelligenceIntegration = require('./integrations/voice-intelligence');
 // W129: NBD Whisper unified dictate (transcribe + clean/summarize/extract-tasks)
 const dictateIntegration     = require('./dictate');
+// Phase B.2 — Storm Briefing automation (rep-facing companion to the
+// customer SMS pipeline). Fires once per unique alertId via Firestore
+// trigger + atomic sentinel dedup. See functions/integrations/storm-
+// briefing.js for the call-order scoring formula.
+const stormBriefingIntegration = require('./integrations/storm-briefing');
 Object.assign(exports, slackIntegration);
 Object.assign(exports, measurementIntegration);
 Object.assign(exports, esignIntegration);
@@ -671,6 +676,7 @@ Object.assign(exports, emailQueueWorker);
 Object.assign(exports, voiceMemoIntegration);
 Object.assign(exports, voiceIntelligenceIntegration);
 Object.assign(exports, dictateIntegration);
+Object.assign(exports, stormBriefingIntegration);
 
 // ═══════════════════════════════════════════════════════════════
 // integrationStatus — client-facing readout of which adapters are
