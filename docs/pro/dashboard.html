@@ -11480,17 +11480,17 @@ function switchScTab(tab, btn) {
         <!-- LINE TYPE GRID (hidden in perimeter/gutter mode) -->
         <div class="slabel2" id="ltGridLabel">Line Type</div>
         <div class="lt-grid" id="ltGrid">
-          <button class="lt-btn active" onclick="selLT(0,this)"><div class="lt-dot" style="background:#22C55E"></div>Ridge</button>
-          <button class="lt-btn" onclick="selLT(1,this)"><div class="lt-dot" style="background:#86EFAC"></div>Ridge Vent</button>
-          <button class="lt-btn" onclick="selLT(2,this)"><div class="lt-dot" style="background:#06B6D4"></div>Hip</button>
-          <button class="lt-btn" onclick="selLT(3,this)"><div class="lt-dot" style="background:#3B82F6"></div>Valley</button>
-          <button class="lt-btn" onclick="selLT(4,this)"><div class="lt-dot" style="background:#EC4899"></div>Rake</button>
-          <button class="lt-btn" onclick="selLT(5,this)"><div class="lt-dot" style="background:#BE185D"></div>Eave</button>
-          <button class="lt-btn" onclick="selLT(6,this)"><div class="lt-dot" style="background:#F97316"></div>Flashing</button>
-          <button class="lt-btn" onclick="selLT(7,this)"><div class="lt-dot" style="background:var(--gold)"></div>Step Flash</button>
-          <button class="lt-btn" onclick="selLT(8,this)"><div class="lt-dot" style="background:#1D4ED8"></div>Drip Edge</button>
-          <button class="lt-btn" onclick="selLT(9,this)"><div class="lt-dot" style="background:#92400E"></div>Parapet</button>
-          <button class="lt-btn" onclick="selLT(10,this)"><div class="lt-dot" style="background:#06B6D4;border:1px dashed #fff;"></div>Gutters</button>
+          <button class="lt-btn active" data-action="selLineType" data-target="0"><div class="lt-dot" style="background:#22C55E"></div>Ridge</button>
+          <button class="lt-btn" data-action="selLineType" data-target="1"><div class="lt-dot" style="background:#86EFAC"></div>Ridge Vent</button>
+          <button class="lt-btn" data-action="selLineType" data-target="2"><div class="lt-dot" style="background:#06B6D4"></div>Hip</button>
+          <button class="lt-btn" data-action="selLineType" data-target="3"><div class="lt-dot" style="background:#3B82F6"></div>Valley</button>
+          <button class="lt-btn" data-action="selLineType" data-target="4"><div class="lt-dot" style="background:#EC4899"></div>Rake</button>
+          <button class="lt-btn" data-action="selLineType" data-target="5"><div class="lt-dot" style="background:#BE185D"></div>Eave</button>
+          <button class="lt-btn" data-action="selLineType" data-target="6"><div class="lt-dot" style="background:#F97316"></div>Flashing</button>
+          <button class="lt-btn" data-action="selLineType" data-target="7"><div class="lt-dot" style="background:var(--gold)"></div>Step Flash</button>
+          <button class="lt-btn" data-action="selLineType" data-target="8"><div class="lt-dot" style="background:#1D4ED8"></div>Drip Edge</button>
+          <button class="lt-btn" data-action="selLineType" data-target="9"><div class="lt-dot" style="background:#92400E"></div>Parapet</button>
+          <button class="lt-btn" data-action="selLineType" data-target="10"><div class="lt-dot" style="background:#06B6D4;border:1px dashed #fff;"></div>Gutters</button>
         </div>
 
         <!-- GUTTER CALC (shows in gutter mode) -->

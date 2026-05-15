@@ -268,6 +268,20 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (typeof fn === 'function') fn();
     return;
   }
+  // C.4 line-type cluster — draw-tool color-coded line type pickers
+  // (ridge / ridge vent / hip / valley / rake / eave / flashing /
+  // step flash / drip edge / parapet / gutters). Original inline was
+  // selLT(<index>, this) — index drives the active line type, the
+  // element ref is used for the active-state toggle inside selLT.
+  if (action === 'selLineType') {
+    const target = el.dataset.target;
+    if (target === undefined) return;
+    const idx = parseInt(target, 10);
+    if (Number.isNaN(idx)) return;
+    e.preventDefault();
+    if (typeof selLT === 'function') selLT(idx, el);
+    return;
+  }
   // C.4 settings-tab cluster — the Settings view header has 10 tab
   // buttons that each call switchSettingsTab(<key>). data-target carries
   // the tab key (profile/appearance/estimates/daily/company/team/
