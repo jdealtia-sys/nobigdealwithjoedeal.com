@@ -150,6 +150,35 @@ function _hydrateViewTemplate(name) {
   } catch (e) { /* non-fatal — goTo() will hydrate later */ }
 })();
 
+// Phase C.4 starter — body-level click delegate for [data-action] elements.
+//
+// First action wired: data-action="goTo" data-target="<viewname>" replaces
+// 52 inline `onclick="goTo('xxx')"` handlers in dashboard.html. Future
+// actions register in the switch below.
+//
+// Why a delegate
+//   - Each onclick="..." attribute counts against script-src 'unsafe-
+//     inline' in the CSP. Once every inline handler is delegated we can
+//     drop 'unsafe-inline' (Phase C.5) and tighten the CSP.
+//   - One bound listener vs. 416 inline handlers = lower DOM cost on
+//     re-renders and fewer string-eval'd handler bodies.
+//   - data-* attributes are easier to audit, search, and refactor than
+//     inline JS strings.
+//
+// Capture phase + .closest() so clicks on icons/spans inside the action
+// element still resolve to the data-action ancestor.
+document.addEventListener('click', function _nbdActionDelegate(e) {
+  const el = e.target && e.target.closest && e.target.closest('[data-action]');
+  if (!el) return;
+  const action = el.dataset.action;
+  if (action === 'goTo') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    if (typeof goTo === 'function') goTo(target);
+  }
+});
+
 function goTo(name, params = {}) {
   // ── Lite tier gate: block Pro-only views ──
   if (window._userPlan === 'lite' && PRO_ONLY_VIEWS.includes(name)) {

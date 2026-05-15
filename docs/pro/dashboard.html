@@ -10580,14 +10580,14 @@ window.nbdNavToggle = nbdNavToggle;
     <button class="hdr-tool" onclick="if(typeof nbdPickerOpen==='function')nbdPickerOpen();else{goTo('settings');setTimeout(function(){if(typeof switchSettingsTab==='function')switchSettingsTab('appearance')},200)}" title="Change Theme &amp; Font" aria-label="Change theme and font">
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-palette"/></svg>
     </button>
-    <button class="hdr-tool" onclick="goTo('settings')" title="Settings" aria-label="Settings">
+    <button class="hdr-tool" data-action="goTo" data-target="settings" title="Settings" aria-label="Settings">
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-gear"/></svg>
     </button>
     <button class="hdr-tool" onclick="nbdHowtoOpen()" title="Theme Guide" aria-label="Theme guide">
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-book"/></svg>
     </button>
   </div>
-    <div class="upill" onclick="goTo('settings')">
+    <div class="upill" data-action="goTo" data-target="settings">
       <div class="av" id="userAvatar">J</div>
       <span class="uname" id="userName">...</span>
     </div>
@@ -10914,11 +10914,11 @@ function switchScTab(tab, btn) {
 <nav class="sidebar">
   
   <!-- TIER 1: PRIMARY WORKFLOW -->
-  <div class="ni active" onclick="goTo('home')" id="nav-home"><span class="ni-icon">🏠</span>Home</div>
-  <div class="ni" onclick="goTo('dash')" id="nav-dash"><span class="ni-icon">📊</span>Dashboard</div>
-  <div class="ni" onclick="goTo('crm')"  id="nav-crm"><span class="ni-icon">👥</span>Pipeline <span class="nbadge" id="leadBadge">0</span><span class="health-indicator" id="crmHealthBadge" title="CRM connection status"></span></div>
-  <div class="ni" onclick="goTo('prospects')" id="nav-prospects"><span class="ni-icon">👀</span>Prospects <span class="nbadge" id="prospectsNavBadge" style="display:none;">0</span></div>
-  <div class="ni" onclick="goTo('est')"  id="nav-est"><span class="ni-icon">📋</span>Estimates</div>
+  <div class="ni active" data-action="goTo" data-target="home" id="nav-home"><span class="ni-icon">🏠</span>Home</div>
+  <div class="ni" data-action="goTo" data-target="dash" id="nav-dash"><span class="ni-icon">📊</span>Dashboard</div>
+  <div class="ni" data-action="goTo" data-target="crm"  id="nav-crm"><span class="ni-icon">👥</span>Pipeline <span class="nbadge" id="leadBadge">0</span><span class="health-indicator" id="crmHealthBadge" title="CRM connection status"></span></div>
+  <div class="ni" data-action="goTo" data-target="prospects" id="nav-prospects"><span class="ni-icon">👀</span>Prospects <span class="nbadge" id="prospectsNavBadge" style="display:none;">0</span></div>
+  <div class="ni" data-action="goTo" data-target="est"  id="nav-est"><span class="ni-icon">📋</span>Estimates</div>
 
   <div class="nav-divider"></div>
 
@@ -10929,14 +10929,14 @@ function switchScTab(tab, btn) {
       <span class="nav-section-toggle open" id="toggle-tools">▶</span>
     </div>
     <div class="nav-section-content open" id="section-tools">
-      <div class="ni" onclick="goTo('d2d')" id="nav-d2d"><span class="ni-icon">🚪</span>Door-to-Door</div>
+      <div class="ni" data-action="goTo" data-target="d2d" id="nav-d2d"><span class="ni-icon">🚪</span>Door-to-Door</div>
       <div class="ni" onclick="goTo('d2d');if(!localStorage.getItem('nbd_maps_redirect_seen')){showToast('Maps features are now part of D2D Tracker — use the layer toggles on the map','info');localStorage.setItem('nbd_maps_redirect_seen','1')}" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
-      <div class="ni" onclick="goTo('photos')" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
-      <div class="ni" onclick="goTo('docs')" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
-      <div class="ni" onclick="goTo('products')" id="nav-products"><span class="ni-icon">📦</span>Products</div>
-      <div class="ni" onclick="goTo('draw')" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
-      <div class="ni" onclick="goTo('training')" id="nav-training"><span class="ni-icon">🎯</span>Sales Training</div>
-      <div class="ni" onclick="goTo('academy')" id="nav-academy"><span class="ni-icon">🎓</span>Real Deal Academy</div>
+      <div class="ni" data-action="goTo" data-target="photos" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
+      <div class="ni" data-action="goTo" data-target="docs" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
+      <div class="ni" data-action="goTo" data-target="products" id="nav-products"><span class="ni-icon">📦</span>Products</div>
+      <div class="ni" data-action="goTo" data-target="draw" id="nav-draw"><span class="ni-icon">✏️</span>Drawing</div>
+      <div class="ni" data-action="goTo" data-target="training" id="nav-training"><span class="ni-icon">🎯</span>Sales Training</div>
+      <div class="ni" data-action="goTo" data-target="academy" id="nav-academy"><span class="ni-icon">🎓</span>Real Deal Academy</div>
     </div>
   </div>
 
@@ -10947,19 +10947,19 @@ function switchScTab(tab, btn) {
       <span class="nav-section-toggle open" id="toggle-insights">▶</span>
     </div>
     <div class="nav-section-content open" id="section-insights">
-      <div class="ni" onclick="goTo('board')" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
-      <div class="ni" onclick="goTo('reports')" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
+      <div class="ni" data-action="goTo" data-target="board" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
+      <div class="ni" data-action="goTo" data-target="reports" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
       <div class="ni" onclick="window.open('/pro/daily-success/','_blank')" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
-      <div class="ni" onclick="goTo('storm')" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
-      <div class="ni" onclick="goTo('closeboard')" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
-      <div class="ni" onclick="goTo('repos')" id="nav-repos"><span class="ni-icon">🧠</span>Rep OS</div>
+      <div class="ni" data-action="goTo" data-target="storm" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
+      <div class="ni" data-action="goTo" data-target="closeboard" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
+      <div class="ni" data-action="goTo" data-target="repos" id="nav-repos"><span class="ni-icon">🧠</span>Rep OS</div>
     </div>
   </div>
 
   <div class="nav-divider"></div>
 
   <!-- TIER 4: SYSTEM (Always Visible) -->
-  <div class="ni" onclick="goTo('joe')" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe AI <span class="nbadge" style="background:var(--green);margin-left:auto;font-size:8px;padding:1px 5px;">AI</span></div>
+  <div class="ni" data-action="goTo" data-target="joe" id="nav-joe"><span class="ni-icon">🤖</span>Ask Joe AI <span class="nbadge" style="background:var(--green);margin-left:auto;font-size:8px;padding:1px 5px;">AI</span></div>
 
   <!-- AI TOOLS (Collapsible — matches TOOLS + INSIGHTS pattern) -->
   <div class="nav-section" style="margin-top:4px;">
@@ -10968,16 +10968,16 @@ function switchScTab(tab, btn) {
       <span class="nav-section-toggle open" id="toggle-ai-tools">▶</span>
     </div>
     <div class="nav-section-content open" id="section-ai-tools">
-      <div class="ni" onclick="goTo('aitree')" id="nav-aitree"><span class="ni-icon">⚡</span>Decision Engine</div>
-      <div class="ni" onclick="goTo('understand')" id="nav-understand"><span class="ni-icon">🔬</span>Deep Dive</div>
-      <div class="ni" onclick="goTo('projectcodex')" id="nav-projectcodex"><span class="ni-icon">📋</span>Project Intel</div>
-      <div class="ni" onclick="goTo('aiusage')" id="nav-aiusage"><span class="ni-icon">📊</span>AI Usage</div>
+      <div class="ni" data-action="goTo" data-target="aitree" id="nav-aitree"><span class="ni-icon">⚡</span>Decision Engine</div>
+      <div class="ni" data-action="goTo" data-target="understand" id="nav-understand"><span class="ni-icon">🔬</span>Deep Dive</div>
+      <div class="ni" data-action="goTo" data-target="projectcodex" id="nav-projectcodex"><span class="ni-icon">📋</span>Project Intel</div>
+      <div class="ni" data-action="goTo" data-target="aiusage" id="nav-aiusage"><span class="ni-icon">📊</span>AI Usage</div>
     </div>
   </div>
 
   <div class="ni" onclick="window.open('how-to.html','_blank','noopener')" id="nav-howto" title="Step-by-step instructions"><span class="ni-icon">📖</span>How To</div>
-  <div class="ni" onclick="goTo('settings')" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
-  <div class="ni" onclick="goTo('admin')" id="nav-admin" style="display:none;"><span class="ni-icon">🛡️</span>Team Manager</div>
+  <div class="ni" data-action="goTo" data-target="settings" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
+  <div class="ni" data-action="goTo" data-target="admin" id="nav-admin" style="display:none;"><span class="ni-icon">🛡️</span>Team Manager</div>
 
 </nav>
 
@@ -11071,19 +11071,19 @@ function switchScTab(tab, btn) {
         </div>
         <div class="panel-body">
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;">
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" onclick="goTo('crm')" onmouseenter="this.style.borderColor='var(--blue)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" onmouseenter="this.style.borderColor='var(--blue)'" onmouseleave="this.style.borderColor='var(--br)'">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">New Leads</div>
               <div style="font-size:24px;font-weight:700;color:var(--blue);" id="weekNewLeads">0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" onclick="goTo('est')" onmouseenter="this.style.borderColor='var(--gold)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="est" onmouseenter="this.style.borderColor='var(--gold)'" onmouseleave="this.style.borderColor='var(--br)'">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Estimates Created</div>
               <div style="font-size:24px;font-weight:700;color:var(--gold);" id="weekEstimates">0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" onclick="goTo('crm')" onmouseenter="this.style.borderColor='var(--green)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" onmouseenter="this.style.borderColor='var(--green)'" onmouseleave="this.style.borderColor='var(--br)'">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Revenue Added</div>
               <div style="font-size:24px;font-weight:700;color:var(--green);" id="weekRevenue">$0</div>
             </div>
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" onclick="goTo('crm')" onmouseenter="this.style.borderColor='var(--purple)'" onmouseleave="this.style.borderColor='var(--br)'">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:12px;cursor:pointer;transition:border-color .15s;" data-action="goTo" data-target="crm" onmouseenter="this.style.borderColor='var(--purple)'" onmouseleave="this.style.borderColor='var(--br)'">
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Tasks Completed</div>
               <div style="font-size:24px;font-weight:700;color:var(--purple);" id="weekTasks">0</div>
             </div>
@@ -11092,10 +11092,10 @@ function switchScTab(tab, btn) {
       </div>
       
       <div class="sgrid">
-        <div class="stat-card" onclick="goTo('crm')" style="cursor:pointer;"><div class="stat-icon si-b">👥</div><div><div class="stat-val" id="statLeads">0</div><div class="stat-lbl">Active Leads</div></div></div>
-        <div class="stat-card" onclick="goTo('est')" style="cursor:pointer;"><div class="stat-icon si-p">📋</div><div><div class="stat-val" id="statEsts">0</div><div class="stat-lbl">Estimates</div></div></div>
-        <div class="stat-card" onclick="goTo('crm')" style="cursor:pointer;"><div class="stat-icon si-g">💰</div><div><div class="stat-val" id="statVal" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Pipeline Value</div></div></div>
-        <div class="stat-card" onclick="goTo('crm')" style="cursor:pointer;"><div class="stat-icon" style="color:var(--green);">🏆</div><div><div class="stat-val" id="statClosed" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Closed Revenue</div></div></div>
+        <div class="stat-card" data-action="goTo" data-target="crm" style="cursor:pointer;"><div class="stat-icon si-b">👥</div><div><div class="stat-val" id="statLeads">0</div><div class="stat-lbl">Active Leads</div></div></div>
+        <div class="stat-card" data-action="goTo" data-target="est" style="cursor:pointer;"><div class="stat-icon si-p">📋</div><div><div class="stat-val" id="statEsts">0</div><div class="stat-lbl">Estimates</div></div></div>
+        <div class="stat-card" data-action="goTo" data-target="crm" style="cursor:pointer;"><div class="stat-icon si-g">💰</div><div><div class="stat-val" id="statVal" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Pipeline Value</div></div></div>
+        <div class="stat-card" data-action="goTo" data-target="crm" style="cursor:pointer;"><div class="stat-icon" style="color:var(--green);">🏆</div><div><div class="stat-val" id="statClosed" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Closed Revenue</div></div></div>
       </div>
 
       <!-- WAVE 29: HOT LEADS WIDGET ─────────────────────────────────
@@ -11188,7 +11188,7 @@ function switchScTab(tab, btn) {
 
       <div class="two-col">
         <div class="panel">
-          <div class="panel-hdr" style="cursor:pointer;" onclick="goTo('crm')"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div><span style="font-size:11px;color:var(--m);">View →</span></div>
+          <div class="panel-hdr" style="cursor:pointer;" data-action="goTo" data-target="crm"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div><span style="font-size:11px;color:var(--m);">View →</span></div>
           <div class="panel-body">
             <div class="pgrid">
               <div class="stage-box sb-new" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('new')},200)" style="cursor:pointer;"><div class="stage-count" id="dp-new">0</div><div class="stage-name">New</div></div>
@@ -11201,7 +11201,7 @@ function switchScTab(tab, btn) {
           </div>
         </div>
         <div class="panel">
-          <div class="panel-hdr"><div><div class="panel-label">Recent</div><div class="panel-title">Latest Estimates</div></div><button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="goTo('est')">View All →</button></div>
+          <div class="panel-hdr"><div><div class="panel-label">Recent</div><div class="panel-title">Latest Estimates</div></div><button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" data-action="goTo" data-target="est">View All →</button></div>
           <div class="panel-body" id="recentEsts"><div class="empty">No estimates yet.</div></div>
         </div>
       </div>
@@ -11245,7 +11245,7 @@ function switchScTab(tab, btn) {
       <div class="panel" style="margin-top:14px;">
         <div class="panel-hdr">
           <div><div class="panel-label">Tasks</div><div class="panel-title">Today's Follow-Ups</div></div>
-          <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="goTo('crm')">All Leads →</button>
+          <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" data-action="goTo" data-target="crm">All Leads →</button>
         </div>
         <div class="panel-body" id="todayTasksList">
           <div class="empty">
@@ -11270,7 +11270,7 @@ function switchScTab(tab, btn) {
 
         <!-- BREADCRUMB -->
         <div style="padding:0 0 12px;border-bottom:1px solid var(--br);margin-bottom:12px;">
-          <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" onclick="goTo('crm')">← Back to CRM</span>
+          <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" data-action="goTo" data-target="crm">← Back to CRM</span>
         </div>
 
         <!-- ADDRESS SEARCH -->
@@ -11443,7 +11443,7 @@ function switchScTab(tab, btn) {
       <div class="map-sidebar" id="map-sidebar-draw">
         <!-- BREADCRUMB -->
         <div style="padding:0 0 12px;border-bottom:1px solid var(--br);margin-bottom:12px;">
-          <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" onclick="goTo('crm')">← Back to CRM</span>
+          <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" data-action="goTo" data-target="crm">← Back to CRM</span>
         </div>
 
         <div class="slabel2">Property Address</div>
@@ -11682,7 +11682,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to CRM</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Estimates</div>
           <div class="page-sub">All roofing estimates</div>
@@ -12103,7 +12103,7 @@ function switchScTab(tab, btn) {
           <span id="staleSharesCountBadge"
             style="display:none;background:rgba(155,109,255,0.85);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
         </button>
-        <button class="btn btn-ghost crm-hdr-btn" id="prospectsToggleBtn" onclick="goTo('prospects')" title="Open Prospects page" style="position:relative;">
+        <button class="btn btn-ghost crm-hdr-btn" id="prospectsToggleBtn" data-action="goTo" data-target="prospects" title="Open Prospects page" style="position:relative;">
           👀 <span id="prospectsBtnLabel" class="crm-hdr-btn-label">Prospects</span>
           <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--accent-fg);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
         </button>
@@ -12310,13 +12310,13 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to Pipeline</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="crm">← Back to Pipeline</span>
           </div>
           <div class="page-title">Prospects</div>
           <div class="page-sub">D2D knocks awaiting promotion. Promote when qualified to add them to your kanban.</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <button class="btn btn-ghost" onclick="goTo('d2d')" style="font-size:12px;">🚪 D2D Tracker</button>
+          <button class="btn btn-ghost" data-action="goTo" data-target="d2d" style="font-size:12px;">🚪 D2D Tracker</button>
           <button class="btn btn-orange" onclick="if(window.D2D)D2D.openQuickKnock();else goTo('d2d')" style="font-size:12px;">＋ New Knock</button>
         </div>
       </div>
@@ -12349,7 +12349,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to CRM</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Photo Library</div>
           <div class="page-sub">Capture, tag, and organize property documentation</div>
@@ -12433,7 +12433,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">Storm Center</div>
           <div class="page-sub">Live weather tracking & storm-based canvassing</div>
@@ -12454,7 +12454,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to Pipeline</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="crm">← Back to Pipeline</span>
           </div>
           <div class="page-title">Close Board</div>
           <div class="page-sub">Track deals through to close</div>
@@ -12470,7 +12470,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">Rep OS</div>
           <div class="page-sub">Your personal operating system for sales success</div>
@@ -12518,7 +12518,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('crm')">← Back to CRM</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Template Library</div>
           <div class="page-sub">24 NBD-branded documents — ready to generate, print, and present</div>
@@ -12813,7 +12813,7 @@ function switchScTab(tab, btn) {
                  openUploadDocModal() which doesn't exist. The real upload
                  flow lives on customer.html (per-lead). Routing to the CRM
                  so the user can pick a lead to upload to. -->
-            <button class="btn btn-orange" onclick="goTo('crm')" style="font-size:12px;padding:8px 14px;">Open Pipeline →</button>
+            <button class="btn btn-orange" data-action="goTo" data-target="crm" style="font-size:12px;padding:8px 14px;">Open Pipeline →</button>
           </div>
         </div>
       </div>
@@ -14519,7 +14519,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">Team Manager</div>
           <div class="page-sub">Admin-only · create reps, assign roles, deactivate accounts</div>
@@ -14690,7 +14690,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">Product Library</div>
           <div class="page-sub">Shingle lines, materials, and pricing reference</div>
@@ -14712,7 +14712,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">Sales Training</div>
           <div class="page-sub">Scripts, objection handling, and closing techniques</div>
@@ -14726,7 +14726,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" onclick="goTo('dash')">← Back to Dashboard</span>
+            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">The Real Deal Academy</div>
           <div class="page-sub">Master insurance restoration & retail roofing</div>
@@ -14744,7 +14744,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr">
         <div>
           <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" onclick="goTo('crm')">← Back to CRM</span>
+            <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Schedule</div>
           <div class="page-sub">Book inspections and appointments with Cal.com</div>
