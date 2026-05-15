@@ -10546,7 +10546,7 @@ window.nbdNavToggle = nbdNavToggle;
   <div class="hright">
   <div style="display:flex;align-items:center;gap:2px;margin-right:8px;">
     <div style="position:relative;">
-      <button class="hdr-tool" onclick="toggleRecentDropdown()" title="Recent Customers" aria-label="Recent customers" id="recentBtn">
+      <button class="hdr-tool" data-action="toggle" data-target="recentDropdown" title="Recent Customers" aria-label="Recent customers" id="recentBtn">
         <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-clock"/></svg>
       </button>
       <div id="recentDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:8px;min-width:220px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;">
@@ -10555,7 +10555,7 @@ window.nbdNavToggle = nbdNavToggle;
       </div>
     </div>
     <div style="position:relative;">
-      <button class="hdr-tool" onclick="toggleNotificationDropdown()" title="Notifications" aria-label="Notifications" id="notifBtn">
+      <button class="hdr-tool" data-action="toggle" data-target="notifications" title="Notifications" aria-label="Notifications" id="notifBtn">
         <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-bell"/></svg>
         <span id="notifBadge" class="hdr-tool-badge" style="display:none;">0</span>
       </button>
@@ -10569,7 +10569,7 @@ window.nbdNavToggle = nbdNavToggle;
         </div>
         <div id="notifList" style="overflow-y:auto;max-height:300px;"></div>
         <div id="notifDismissedToggle" style="display:none;padding:8px 14px;border-top:1px solid var(--br);text-align:center;">
-          <button style="background:none;border:none;color:var(--m);font-size:10px;cursor:pointer;font-weight:600;width:100%;" onclick="toggleDismissedNotifications()">
+          <button style="background:none;border:none;color:var(--m);font-size:10px;cursor:pointer;font-weight:600;width:100%;" data-action="toggle" data-target="dismissedNotifications">
             <span id="dismissedToggleLabel">Show dismissed</span> <span id="dismissedCount" style="opacity:0.6;"></span>
           </button>
         </div>
@@ -11501,7 +11501,7 @@ function switchScTab(tab, btn) {
 
         <div class="slabel2">Controls</div>
         <div class="draw-btns">
-          <button class="draw-btn go" id="drawToggle" onclick="toggleDraw()">▶ Draw</button>
+          <button class="draw-btn go" id="drawToggle" data-action="toggle" data-target="drawing">▶ Draw</button>
           <button class="draw-btn" onclick="undoLine()">↩ Undo</button>
           <button class="draw-btn" style="border-color:var(--red);color:var(--red);" onclick="clearDraw()">✕</button>
         </div>
@@ -11602,7 +11602,7 @@ function switchScTab(tab, btn) {
         <!-- MAP TOOLS -->
         <div class="slabel2">Map Tools</div>
         <div class="draw-btns" style="flex-wrap:wrap;">
-          <button class="draw-btn" id="layerToggleBtn" onclick="toggleMapLayer()" title="Switch between Satellite / Street / Hybrid">🗺️ Layer</button>
+          <button class="draw-btn" id="layerToggleBtn" data-action="toggle" data-target="mapLayer" title="Switch between Satellite / Street / Hybrid">🗺️ Layer</button>
           <button class="draw-btn" onclick="zoomToFit()" title="Zoom to fit all drawn lines">🔍 Fit All</button>
           <button class="draw-btn" onclick="screenshotMap()" title="Export map screenshot">📸 Screenshot</button>
           <button class="draw-btn" onclick="showAngles()" title="Show angles at vertices">📐 Angles</button>
@@ -11613,8 +11613,8 @@ function switchScTab(tab, btn) {
         <div class="draw-btns" style="flex-wrap:wrap;">
           <button class="draw-btn" onclick="startShadowPitch()" title="Estimate roof pitch from satellite shadow">☀️ Shadow Pitch</button>
           <button class="draw-btn" onclick="startAutoDetect()" title="AI auto-detect roof edges">🤖 Auto-Detect</button>
-          <button class="draw-btn" id="voiceBtn" onclick="toggleVoiceControl()" title="Voice-controlled measurement">🎤 Voice</button>
-          <button class="draw-btn" onclick="toggleHistoricalImagery()" title="Compare historical satellite imagery">🕐 History</button>
+          <button class="draw-btn" id="voiceBtn" data-action="toggle" data-target="voiceControl" title="Voice-controlled measurement">🎤 Voice</button>
+          <button class="draw-btn" data-action="toggle" data-target="historicalImagery" title="Compare historical satellite imagery">🕐 History</button>
           <button class="draw-btn" onclick="startPresentation()" title="Full-screen homeowner presentation">🎬 Present</button>
           <button class="draw-btn" onclick="openComparisonMode()" title="Compare with EagleView/RoofScope report">⚖️ Compare</button>
         </div>
@@ -12036,11 +12036,11 @@ function switchScTab(tab, btn) {
       <!-- RIGHT: action icons -->
       <div class="crm-hdr-actions">
         <!-- Sidebar collapse — toggles icon-only rail to gain horizontal room -->
-        <button class="crm-icon-btn" id="sidebarToggleBtn" onclick="toggleSidebarCollapse()" title="Toggle sidebar">
+        <button class="crm-icon-btn" id="sidebarToggleBtn" data-action="toggle" data-target="sidebarCollapse" title="Toggle sidebar">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M8 3v14"/></svg>
         </button>
         <!-- Fullscreen kanban — hides chrome -->
-        <button class="crm-icon-btn" id="kanbanFullscreenBtn" onclick="toggleKanbanFullscreen()" title="Fullscreen kanban (Esc to exit)">
+        <button class="crm-icon-btn" id="kanbanFullscreenBtn" data-action="toggle" data-target="kanbanFullscreen" title="Fullscreen kanban (Esc to exit)">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg>
         </button>
 
@@ -12084,7 +12084,7 @@ function switchScTab(tab, btn) {
              kanban to leads with stale-stage (≥7d), overdue tasks,
              or stale estimates. -->
         <button class="btn btn-ghost crm-hdr-btn" id="needsAttentionBtn"
-          onclick="window.toggleNeedsAttention && window.toggleNeedsAttention()"
+          data-action="toggle" data-target="needsAttention"
           title="Show only leads that need follow-up: stale stage, overdue task, or stale estimate"
           style="position:relative;transition:background .15s,border-color .15s,color .15s;">
           🚨 <span class="crm-hdr-btn-label">Needs Attention</span>
@@ -12096,7 +12096,7 @@ function switchScTab(tab, btn) {
              flavor than Needs Attention (which surfaces stage/task/
              estimate signals). Compounds W44 lastSharedAt tracking. -->
         <button class="btn btn-ghost crm-hdr-btn" id="staleSharesBtn"
-          onclick="window.toggleStaleShares && window.toggleStaleShares()"
+          data-action="toggle" data-target="staleShares"
           title="Show only customers you shared the link with 5+ days ago who haven't responded"
           style="position:relative;transition:background .15s,border-color .15s,color .15s;">
           📤 <span class="crm-hdr-btn-label">Stale Shares</span>
@@ -12112,7 +12112,7 @@ function switchScTab(tab, btn) {
              when the rep wants to triage their snooze backlog. Count
              badge shows how many are currently snoozed. -->
         <button class="btn btn-ghost crm-hdr-btn" id="snoozedToggleBtn"
-          onclick="window.toggleShowSnoozed && window.toggleShowSnoozed()"
+          data-action="toggle" data-target="showSnoozed"
           title="Show snoozed leads (hidden by default)"
           style="position:relative;transition:background .15s,border-color .15s,color .15s;">
           💤 <span id="snoozedBtnLabel" class="crm-hdr-btn-label">Snoozed</span>
@@ -12124,13 +12124,13 @@ function switchScTab(tab, btn) {
              W91/W92 tier (✅→🔥→👀→📨→🌱). Lets reps see Hot leads
              at the top of every column for prioritization. -->
         <button class="btn btn-ghost crm-hdr-btn" id="engagementSortBtn"
-          onclick="window.toggleEngagementSort && window.toggleEngagementSort()"
+          data-action="toggle" data-target="engagementSort"
           title="Sort each column by engagement tier (Hot first)"
           style="position:relative;transition:background .15s,border-color .15s,color .15s;">
           🔥 <span class="crm-hdr-btn-label">Hot first</span>
         </button>
         <span class="crm-hdr-sep" aria-hidden="true"></span>
-        <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" onclick="toggleBulkMode()" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk</span></button>
+        <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" data-action="toggle" data-target="bulkMode" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk</span></button>
         <button class="btn btn-ghost crm-hdr-btn" onclick="exportLeadsCSV()" title="Export CSV">📤 <span class="crm-hdr-btn-label">CSV</span></button>
         <!-- CRM cleanup 2026-05-14: inline ＋ Add button removed.
              The orange FAB at the bottom-right (see #fabAddLead) is the
@@ -12262,7 +12262,7 @@ function switchScTab(tab, btn) {
       
       <!-- Debug Console (collapsible) -->
       <div style="margin-bottom:16px;">
-        <button class="btn btn-ghost" onclick="toggleDebugConsole()" style="font-size:11px;padding:4px 8px;">
+        <button class="btn btn-ghost" data-action="toggle" data-target="debugConsole" style="font-size:11px;padding:4px 8px;">
           <span id="debugConsoleToggle">▶</span> Show Debug Console
         </button>
       </div>
@@ -15445,7 +15445,7 @@ function switchScTab(tab, btn) {
     <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-chat"/></svg>
     <span class="mn-lbl">Ask Joe</span>
   </div>
-  <div class="mn-item" id="mni-more" onclick="toggleMobileMore()" role="button" aria-label="More">
+  <div class="mn-item" id="mni-more" data-action="toggle" data-target="mobileMore" role="button" aria-label="More">
     <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-more"/></svg>
     <span class="mn-lbl">More</span>
   </div>
@@ -15793,7 +15793,7 @@ function switchScTab(tab, btn) {
      Visibility is gated by body.show-add-lead-fab and body.kanban-fullscreen.
      ══════════════════════════════════════════════════════════════════ -->
 <button id="addLeadFab" type="button" onclick="openLeadModal()" aria-label="Add Lead" title="Add Lead (C)">＋</button>
-<button id="kanbanFullscreenExit" type="button" onclick="toggleKanbanFullscreen()" aria-label="Exit fullscreen">
+<button id="kanbanFullscreenExit" type="button" data-action="toggle" data-target="kanbanFullscreen" aria-label="Exit fullscreen">
   <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l5 5M15 15l-5-5M5 15l5-5M15 5l-5 5"/></svg>
   Exit fullscreen
 </button>

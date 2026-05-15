@@ -210,6 +210,21 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (typeof closeCrmToolsMenu === 'function') closeCrmToolsMenu();
     return;
   }
+  // C.4 cluster 4 — no-arg toggle handlers. Pattern: tap a button →
+  // calls a global toggleXxx() with no arguments. Same allowlist
+  // discipline as closeModal: data-target maps to a specific function
+  // name in the registry. Markup with an unknown data-target is
+  // silently ignored.
+  if (action === 'toggle') {
+    const target = el.dataset.target;
+    if (!target) return;
+    const fnName = _NBD_TOGGLE_FNS[target];
+    if (!fnName) return;
+    e.preventDefault();
+    const fn = window[fnName];
+    if (typeof fn === 'function') fn();
+    return;
+  }
   // C.4 cluster 3 — modal-close handlers. Every modal carries its own
   // closeXxxModal function (preserves cleanup logic — clear forms,
   // unbind handlers, etc.). The delegate maps a data-target value to
@@ -230,6 +245,32 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
 // Explicit registry of which modal IDs can be closed by the
 // data-action="closeModal" delegate, and which function to dispatch.
 // Adding a new modal? Register it here + use closeModal in markup.
+// C.4 cluster 4 — no-arg toggle allowlist. data-target → window.<fn>().
+// Add a new toggle? Register here + use data-action="toggle".
+const _NBD_TOGGLE_FNS = {
+  bulkMode:                'toggleBulkMode',
+  debugConsole:            'toggleDebugConsole',
+  dismissedNotifications:  'toggleDismissedNotifications',
+  drawing:                 'toggleDraw',
+  historicalImagery:       'toggleHistoricalImagery',
+  kanbanFullscreen:        'toggleKanbanFullscreen',
+  mapLayer:                'toggleMapLayer',
+  mobileMore:              'toggleMobileMore',
+  notifications:           'toggleNotificationDropdown',
+  recentDropdown:          'toggleRecentDropdown',
+  sidebarCollapse:         'toggleSidebarCollapse',
+  voiceControl:            'toggleVoiceControl',
+  // Defensive-existence-check toggles — the inline form was
+  //   onclick="window.toggleX && window.toggleX()"
+  // because these functions live in defer'd scripts that may not be
+  // loaded when the user clicks. The delegate naturally handles the
+  // "function not yet defined" case via typeof fn === 'function'.
+  engagementSort:          'toggleEngagementSort',
+  needsAttention:          'toggleNeedsAttention',
+  showSnoozed:             'toggleShowSnoozed',
+  staleShares:             'toggleStaleShares',
+};
+
 const _NBD_MODAL_CLOSE_FNS = {
   leadModal:                   'closeLeadModal',
   taskModal:                   'closeTaskModal',

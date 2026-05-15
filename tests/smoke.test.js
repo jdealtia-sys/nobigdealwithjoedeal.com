@@ -3857,6 +3857,37 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 cluster 4 — no-arg toggle handlers via toggle action');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  assert("delegate handles action='toggle' via _NBD_TOGGLE_FNS",
+    /if \(action === 'toggle'\)[\s\S]{0,400}_NBD_TOGGLE_FNS\[target\]/.test(mainJs),
+    'expected toggle branch + _NBD_TOGGLE_FNS registry');
+
+  for (const target of ['bulkMode','kanbanFullscreen','sidebarCollapse','engagementSort','needsAttention','showSnoozed','staleShares','notifications','mobileMore']) {
+    assert('_NBD_TOGGLE_FNS registers ' + target,
+      new RegExp("\\b" + target + ":\\s+'toggle").test(mainJs),
+      'expected ' + target + ' in the toggle registry');
+  }
+
+  const conversions = (dash.match(/data-action="toggle"\s+data-target="\w+"/g) || []).length;
+  assert('≥15 data-action="toggle" conversions present',
+    conversions >= 15,
+    'expected ≥15 toggle conversions; got ' + conversions);
+
+  // Simple inline toggle onclicks should be retired (defensive form too)
+  const simpleRemain = (dash.match(/onclick="toggle[A-Z]\w*\(\)"/g) || []).length;
+  const defensiveRemain = (dash.match(/onclick="window\.toggle\w+\s*&&\s*window\.toggle\w+\(\)"/g) || []).length;
+  assert('0 inline simple onclick="toggleXxx()" remain',
+    simpleRemain === 0,
+    'expected 0 simple toggle onclicks; got ' + simpleRemain);
+  assert('0 inline defensive onclick="window.toggleXxx && window.toggleXxx()" remain',
+    defensiveRemain === 0,
+    'expected 0 defensive-form toggle onclicks; got ' + defensiveRemain);
+}
+
 section('Phase C.4 cluster 3 — modal-close handlers via closeModal action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
