@@ -210,7 +210,47 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (typeof closeCrmToolsMenu === 'function') closeCrmToolsMenu();
     return;
   }
+  // C.4 cluster 3 — modal-close handlers. Every modal carries its own
+  // closeXxxModal function (preserves cleanup logic — clear forms,
+  // unbind handlers, etc.). The delegate maps a data-target value to
+  // the right close function via an explicit allowlist so the markup
+  // can't accidentally invoke an unrelated global.
+  if (action === 'closeModal') {
+    const target = el.dataset.target;
+    if (!target) return;
+    const fnName = _NBD_MODAL_CLOSE_FNS[target];
+    if (!fnName) return;       // not on the allowlist; ignore
+    e.preventDefault();
+    const fn = window[fnName];
+    if (typeof fn === 'function') fn();
+    return;
+  }
 });
+
+// Explicit registry of which modal IDs can be closed by the
+// data-action="closeModal" delegate, and which function to dispatch.
+// Adding a new modal? Register it here + use closeModal in markup.
+const _NBD_MODAL_CLOSE_FNS = {
+  leadModal:                   'closeLeadModal',
+  taskModal:                   'closeTaskModal',
+  photoModal:                  'closePhotoModal',
+  quickAddModal:               'closeQuickAddLead',
+  docViewerModal:              'closeDocViewer',
+  cardDetailModal:             'closeCardDetailModal',
+  propertyIntelModal:          'closePropertyIntelModal',
+  propertyIntelConfirmModal:   'closePropertyIntelConfirmModal',
+  comparisonModal:             'closeComparisonMode',
+  mobileJobDetail:             'closeMobileJobDetail',
+  mobileInspection:            'closeMobileInspection',
+  mobileCreatePopover:         'closeMobileCreatePopover',
+  mobileMore:                  'closeMobileMore',
+  shortcutsPanel:              'closeShortcutsPanel',
+  tipsModal:                   'closeTips',
+  cmdPalette:                  'closeCmdPalette',
+  deletedDrawer:               'closeDeletedDrawer',
+  historicalImagery:           'closeHistoricalImagery',
+  uploadDoc:                   'closeUploadDoc',
+};
 
 function goTo(name, params = {}) {
   // ── Lite tier gate: block Pro-only views ──

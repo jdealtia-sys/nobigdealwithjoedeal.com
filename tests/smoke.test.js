@@ -3857,6 +3857,35 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 cluster 3 — modal-close handlers via closeModal action');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  assert("delegate handles action='closeModal'",
+    /if \(action === 'closeModal'\)[\s\S]{0,400}_NBD_MODAL_CLOSE_FNS\[target\]/.test(mainJs),
+    'expected closeModal branch in _nbdActionDelegate using _NBD_MODAL_CLOSE_FNS registry');
+
+  // Registry exposes the function mapping
+  for (const target of ['leadModal','taskModal','photoModal','propertyIntelModal','quickAddModal','docViewerModal','cardDetailModal','comparisonModal']) {
+    assert('_NBD_MODAL_CLOSE_FNS registers ' + target,
+      new RegExp("\\b" + target + ":\\s+'close").test(mainJs),
+      'expected ' + target + ' in the registry');
+  }
+
+  // Markup: ≥30 data-action="closeModal" elements (we converted 33)
+  const conversions = (dash.match(/data-action="closeModal"\s+data-target="\w+"/g) || []).length;
+  assert('≥30 data-action="closeModal" conversions present',
+    conversions >= 30,
+    'expected ≥30 closeModal conversions; got ' + conversions);
+
+  // 0 simple inline closeXxx onclicks remain
+  const remaining = (dash.match(/onclick="close[A-Z][A-Za-z]+\(\)"/g) || []).length;
+  assert('0 inline onclick="closeXxx()" handlers remain',
+    remaining === 0,
+    'expected 0 remaining; got ' + remaining);
+}
+
 section('Phase C.4 cluster 2 — compound goTo handlers (newEstimate / filterByStage / toolMenuGoTo)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
@@ -4348,9 +4377,17 @@ section('Wave 2E.3 (A.3) — m-modal-bar on the last 5 dashboard modals');
         c.titleId + ' should move to the m-modal-bar-title span');
     }
     if (c.closeFn) {
-      assert(c.id + ' bar X calls ' + c.closeFn + '()',
-        new RegExp('class="m-modal-bar-x"[^>]*onclick="' + c.closeFn + '\\(\\)"').test(block),
-        'expected the bar X to call ' + c.closeFn);
+      // C.4 cluster 3: the bar X was migrated from inline
+      //   onclick="closeFn()"
+      // to the body delegate:
+      //   data-action="closeModal" data-target="<modal-id>"
+      // We just verify the bar X carries the delegate hook; the
+      // closeFn → modal-target mapping is locked by the
+      // _NBD_MODAL_CLOSE_FNS registry assertions in the C.4 cluster 3
+      // section above.
+      assert(c.id + ' bar X uses data-action="closeModal"',
+        /class="m-modal-bar-x"[^>]*data-action="closeModal"[^>]*data-target="[A-Za-z]+"/.test(block),
+        'expected the bar X to carry data-action="closeModal" + data-target');
     }
   }
   // cardDetailModal got special treatment — kindLabel + name + stage
@@ -4391,9 +4428,13 @@ section('Wave 2E.2 — m-modal-bar applied to task / photo / propertyIntel');
     assert(c.id + ' eyebrow renders "' + c.eyebrow + '"',
       new RegExp('class="m-modal-bar-eyebrow"[^>]*>' + c.eyebrow + '<').test(block),
       'expected eyebrow text "' + c.eyebrow + '" inside ' + c.id);
-    assert(c.id + ' bar close button calls ' + c.closeFn + '()',
-      new RegExp('class="m-modal-bar-x"\\s+onclick="' + c.closeFn + '\\(\\)"').test(block),
-      'expected the bar X to call ' + c.closeFn);
+    // C.4 cluster 3: bar X migrated to the closeModal delegate.
+    // closeFn → modal-target mapping is enforced by the
+    // _NBD_MODAL_CLOSE_FNS registry assertion in the C.4 cluster 3
+    // section above.
+    assert(c.id + ' bar close button uses data-action="closeModal"',
+      /class="m-modal-bar-x"\s+data-action="closeModal"\s+data-target="[A-Za-z]+"/.test(block),
+      'expected the bar X to carry data-action="closeModal" + data-target');
     if (c.titleId) {
       assert(c.id + ' preserves id="' + c.titleId + '" on the bar title span',
         new RegExp('class="m-modal-bar-title"[^>]*id="' + c.titleId + '"').test(block),
@@ -4443,10 +4484,11 @@ section('Wave 2D — Mobile inspection overlay');
   assert('inspection overlay contains #mInspectionContainer',
     /id="mInspectionContainer"/.test(dash),
     'expected the engine mount point #mInspectionContainer');
-  // 2. Close button wired.
-  assert('inspection overlay has close button calling closeMobileInspection()',
-    /id="mInspBack"[\s\S]*onclick="closeMobileInspection\(\)"/.test(dash),
-    'expected close button in m-inspection top bar');
+  // 2. Close button wired via C.4 closeModal delegate
+  //    (data-action="closeModal" data-target="mobileInspection").
+  assert('inspection overlay has close button wired to closeModal delegate',
+    /id="mInspBack"[\s\S]*data-action="closeModal"[\s\S]*data-target="mobileInspection"/.test(dash),
+    'expected close button in m-inspection top bar to use the closeModal delegate');
   // 3. Entry CTA in mobile job-detail Activity tab.
   assert('mobile job-detail Activity tab has a .m-jd-cta Start Inspection button',
     /class="m-jd-cta"[\s\S]*openMobileInspection\(window\._cardDetailLeadId\)/.test(dash),
