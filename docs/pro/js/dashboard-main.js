@@ -894,6 +894,130 @@ function filterPhotoLeads(query) {
   renderPhotoLeads();
 }
 
+// ══════════════════════════════════════════════════════════════════════
+// Phase D.2 — Cross-lead Recent Photo Feed
+//
+// CompanyCam-style chronological feed: every photo the rep owns,
+// grouped by date, ordered newest-first. Triggered by the "Recent"
+// tab in the Photo Library; "By Property" stays the default (existing
+// renderPhotoLeads + per-lead gallery).
+//
+// Query: photos collection, where userId == current uid, ordered by
+// uploadedAt desc, limit 200. The photos rules at firestore.rules
+// L225 already allow .read for the photo's owner so no rules update
+// is needed.
+// ══════════════════════════════════════════════════════════════════════
+function setPhotoMode(mode) {
+  if (mode !== 'recent' && mode !== 'by-property') return;
+  window._photoMode = mode;
+  const byProp = document.getElementById('photoGalleryContainer');
+  const recent = document.getElementById('photoRecentFeed');
+  document.querySelectorAll('.ph-mode-btn').forEach(b => {
+    const on = b.dataset.phMode === mode;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  if (mode === 'recent') {
+    if (byProp) byProp.style.display = 'none';
+    if (recent) recent.style.display = 'block';
+    renderRecentPhotoFeed();
+  } else {
+    if (recent) recent.style.display = 'none';
+    if (byProp) byProp.style.display = '';
+  }
+}
+window.setPhotoMode = setPhotoMode;
+
+async function renderRecentPhotoFeed() {
+  const container = document.getElementById('photoRecentFeed');
+  if (!container) return;
+  const uid = window._user && window._user.uid;
+  if (!uid) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div>Sign in to see your photos.</div>';
+    return;
+  }
+  if (!window.db || typeof window.collection !== 'function') {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Photo library still loading — try again in a moment.</div>';
+    return;
+  }
+  container.innerHTML = '<div class="empty"><div class="empty-icon">📷</div>Loading recent photos…</div>';
+
+  let docs;
+  try {
+    const q = window.query(
+      window.collection(window.db, 'photos'),
+      window.where('userId', '==', uid),
+      window.orderBy('uploadedAt', 'desc'),
+      window.limit(200)
+    );
+    const snap = await window.getDocs(q);
+    docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    console.warn('[D.2] recent feed query failed:', e && e.message);
+    container.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Could not load recent photos. Refresh to retry.</div>';
+    return;
+  }
+
+  if (!docs.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📷</div>No photos yet — capture one from any property to populate this feed.</div>';
+    return;
+  }
+
+  // Lead-name lookup off the existing window._leads cache so we can
+  // tag each tile with which property it came from.
+  const leads = window._leads || [];
+  const leadName = id => {
+    const l = leads.find(x => x.id === id);
+    if (!l) return '';
+    return ((l.firstName || '') + ' ' + (l.lastName || '')).trim() || l.name || '';
+  };
+
+  // Group by display date — Today / Yesterday / Mon DD / Mon DD YYYY.
+  const groups = new Map();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const yest = new Date(today); yest.setDate(yest.getDate() - 1);
+  const dateKey = ts => {
+    if (!ts) return 'Older';
+    const d = ts.toDate ? ts.toDate() : (ts instanceof Date ? ts : new Date(ts));
+    if (!d || isNaN(d)) return 'Older';
+    const dd = new Date(d); dd.setHours(0,0,0,0);
+    if (dd.getTime() === today.getTime()) return 'Today';
+    if (dd.getTime() === yest.getTime()) return 'Yesterday';
+    const sameYear = dd.getFullYear() === today.getFullYear();
+    return d.toLocaleDateString(undefined, sameYear
+      ? { month:'short', day:'numeric' }
+      : { month:'short', day:'numeric', year:'numeric' });
+  };
+  for (const photo of docs) {
+    const k = dateKey(photo.uploadedAt || photo.takenAt);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(photo);
+  }
+
+  const escAttr = s => String(s || '').replace(/"/g, '&quot;');
+  const escText = s => String(s || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  let html = '';
+  for (const [date, photos] of groups) {
+    html += '<div class="ph-recent-group">';
+    html += '<div class="ph-recent-date">' + escText(date) + '  ·  ' + photos.length + ' photo' + (photos.length === 1 ? '' : 's') + '</div>';
+    html += '<div class="ph-recent-grid">';
+    for (const p of photos) {
+      const url = p.thumbUrl || p.url || p.downloadUrl || p.src || '';
+      if (!url) continue;
+      const name = leadName(p.leadId);
+      html += '<div class="ph-recent-tile" onclick="window._currentPhotoLeadId=\'' + escAttr(p.leadId) + '\';if(window.PhotoEngine)PhotoEngine.openGallery(\'photoGalleryContainer\',\'' + escAttr(p.leadId) + '\');setPhotoMode(\'by-property\');">' +
+                '<img loading="lazy" src="' + escAttr(url) + '" alt="">' +
+                (name ? '<div class="ph-recent-tile-label">' + escText(name) + '</div>' : '') +
+              '</div>';
+    }
+    html += '</div></div>';
+  }
+  container.innerHTML = html;
+}
+window.renderRecentPhotoFeed = renderRecentPhotoFeed;
+
 async function renderPhotoLeads(){
   const wrap=document.getElementById('photoLeadsList');
 

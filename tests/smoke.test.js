@@ -3857,6 +3857,50 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase D.2 — Cross-lead Recent Photo Feed');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  // 1. Mode toggle present in tpl-view-photos.
+  assert('tpl-view-photos has the .ph-mode-toggle (By Property / Recent)',
+    /<div class="ph-mode-toggle"[\s\S]{0,400}data-ph-mode="by-property"[\s\S]{0,400}data-ph-mode="recent"/.test(dash),
+    'expected the by-property + recent mode buttons inside the photo template');
+
+  // 2. Recent feed mount + CSS.
+  assert('photoRecentFeed mount div present',
+    /<div id="photoRecentFeed" class="ph-recent-feed"/.test(dash),
+    'expected photoRecentFeed mount inside tpl-view-photos');
+  assert('.ph-recent-grid CSS defined (3-up grid)',
+    /\.ph-recent-grid\{[\s\S]{0,200}grid-template-columns:\s*repeat\(auto-fill/.test(dash),
+    'expected .ph-recent-grid CSS rule');
+
+  // 3. JS exports.
+  assert('window.setPhotoMode exposed',
+    /window\.setPhotoMode\s*=/.test(mainJs),
+    'expected window.setPhotoMode export');
+  assert('window.renderRecentPhotoFeed exposed',
+    /window\.renderRecentPhotoFeed\s*=/.test(mainJs),
+    'expected window.renderRecentPhotoFeed export');
+
+  // 4. Query uses where(userId == uid) + orderBy(uploadedAt desc) + limit.
+  assert('renderRecentPhotoFeed queries photos by userId + orderBy uploadedAt + limit',
+    /window\.query\(\s*window\.collection\(window\.db,\s*'photos'\)[\s\S]{0,200}window\.where\('userId',\s*'==',\s*uid\)[\s\S]{0,200}window\.orderBy\('uploadedAt',\s*'desc'\)[\s\S]{0,200}window\.limit\(/.test(mainJs),
+    'expected Firestore query: where(userId == uid).orderBy(uploadedAt,desc).limit()');
+
+  // 5. Date grouping uses Today / Yesterday smart labels.
+  assert('renderRecentPhotoFeed renders Today / Yesterday smart date labels',
+    /'Today'/.test(mainJs) && /'Yesterday'/.test(mainJs),
+    'expected Today / Yesterday labels in the date-grouper');
+
+  // 6. Tap on a tile pivots into by-property mode for that lead.
+  //    The string in source is `setPhotoMode(\\'by-property\\')` (escaped
+  //    quotes inside an HTML onclick attribute).
+  assert('Recent tiles wire onclick → setPhotoMode("by-property") for the lead',
+    /setPhotoMode\(\\'by-property\\'\)/.test(mainJs),
+    'expected the recent-tile onclick to switch back to by-property after picking a lead');
+}
+
 section('Phase C.6 step 2 — JS-file orange-rgba sweep');
 {
   const SAFE_FILES = [
