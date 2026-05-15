@@ -10597,7 +10597,7 @@ window.nbdNavToggle = nbdNavToggle;
 
 <!-- COMMAND PALETTE (Cmd/Ctrl+K) -->
 <div id="cmdPalette" class="cmd-palette" style="display:none;">
-  <div class="cmd-overlay" onclick="closeCmdPalette()"></div>
+  <div class="cmd-overlay" data-action="closeModal" data-target="cmdPalette"></div>
   <div class="cmd-modal">
     <div class="cmd-search-box">
       <span class="cmd-icon">🔍</span>
@@ -10620,14 +10620,14 @@ window.nbdNavToggle = nbdNavToggle;
 
 <!-- KEYBOARD SHORTCUTS REFERENCE PANEL (?) -->
 <div id="shortcutsPanel" class="shortcuts-panel" style="display:none;">
-  <div class="cmd-overlay" onclick="closeShortcutsPanel()"></div>
+  <div class="cmd-overlay" data-action="closeModal" data-target="shortcutsPanel"></div>
   <div class="shortcuts-modal">
     <div class="shortcuts-header">
       <div>
         <div class="shortcuts-title">Keyboard Shortcuts & Quick Guide</div>
         <div class="shortcuts-subtitle">Master the NBD CRM in seconds</div>
       </div>
-      <button class="shortcuts-close" onclick="closeShortcutsPanel()">✕</button>
+      <button class="shortcuts-close" data-action="closeModal" data-target="shortcutsPanel">✕</button>
     </div>
     <!-- Tab Bar -->
     <div class="sc-tabs" style="display:flex;gap:0;border-bottom:2px solid var(--br);padding:0 20px;">
@@ -11632,7 +11632,7 @@ function switchScTab(tab, btn) {
         <div id="historyPanel" style="display:none;padding:8px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-top:6px;">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
             <span style="font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--orange);">Historical Imagery</span>
-            <button style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;" onclick="closeHistoricalImagery()">✕</button>
+            <button style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;" data-action="closeModal" data-target="historicalImagery">✕</button>
           </div>
           <div style="margin-bottom:6px;">
             <label style="font-size:10px;color:var(--m);">Date: <span id="historyDateLabel">—</span></label>
@@ -11660,7 +11660,7 @@ function switchScTab(tab, btn) {
       <!-- COMPARISON MODAL -->
       <div id="comparisonModal" style="display:none;position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(0,0,0,.7);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:9000;align-items:center;justify-content:center;padding:16px;">
         <div style="background:var(--s);border:1px solid var(--br);border-radius:12px;width:100%;max-width:440px;padding:24px;position:relative;">
-          <button style="position:absolute;top:10px;right:14px;background:none;border:none;color:var(--m);font-size:18px;cursor:pointer;" onclick="closeComparisonMode()">✕</button>
+          <button style="position:absolute;top:10px;right:14px;background:none;border:none;color:var(--m);font-size:18px;cursor:pointer;" data-action="closeModal" data-target="comparisonModal">✕</button>
           <div style="font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Measurement Comparison</div>
           <div style="font-size:16px;font-weight:800;color:var(--t);margin-bottom:4px;">Compare Your Drawing vs. Report</div>
           <div style="font-size:12px;color:var(--m);margin-bottom:16px;">Upload an EagleView, RoofScope, or Quick Measure report (PDF or text). We'll extract measurements and compare side-by-side.</div>
@@ -11669,7 +11669,7 @@ function switchScTab(tab, btn) {
             <div style="font-weight:700;color:var(--t);font-size:12px;">Drop report here or click to browse</div>
             <input type="file" id="compFile" accept=".pdf,.txt,.csv,.xml" style="display:none;" onchange="handleComparisonFile(this.files[0])">
           </div>
-          <button class="btn btn-ghost" style="width:100%;" onclick="closeComparisonMode()">Cancel</button>
+          <button class="btn btn-ghost" style="width:100%;" data-action="closeModal" data-target="comparisonModal">Cancel</button>
         </div>
       </div>
     </div>
@@ -12234,7 +12234,7 @@ function switchScTab(tab, btn) {
         <div class="deleted-drawer-title">🗑 Deleted Leads</div>
         <div style="font-size:10px;color:var(--m);margin-top:2px;">Restore or permanently remove</div>
       </div>
-      <button class="deleted-drawer-close" onclick="closeDeletedDrawer()">✕</button>
+      <button class="deleted-drawer-close" data-action="closeModal" data-target="deletedDrawer">✕</button>
     </div>
     <div class="deleted-drawer-body" id="deletedDrawerBody">
       <div class="deleted-empty">Loading...</div>
@@ -12820,7 +12820,7 @@ function switchScTab(tab, btn) {
 
       <!-- UPLOAD AREA -->
       <div id="docUploadArea" style="display:none;" class="panel" style="margin-top:16px;">
-        <div class="panel-hdr"><div><div class="panel-label">Upload</div><div class="panel-title">Add Document</div></div><button class="btn btn-ghost" onclick="closeUploadDoc()">✕ Cancel</button></div>
+        <div class="panel-hdr"><div><div class="panel-label">Upload</div><div class="panel-title">Add Document</div></div><button class="btn btn-ghost" data-action="closeModal" data-target="uploadDoc">✕ Cancel</button></div>
         <div class="panel-body">
           <div class="mfield" style="margin-bottom:12px;"><label>Document Name</label><input type="text" id="docName" placeholder="Roofing Contract - Smith 2026"></div>
           <div class="mfield" style="margin-bottom:12px;"><label>Category</label>
@@ -14822,10 +14822,10 @@ function switchScTab(tab, btn) {
 <!-- ── QUICK ADD LEAD MODAL (mobile-first 3-tap flow) ── -->
 <div class="modal-bg" id="quickAddModal">
   <div class="modal m-modal-has-bar" style="max-width:420px;">
-    <button class="modal-close" onclick="closeQuickAddLead()">✕</button>
+    <button class="modal-close" data-action="closeModal" data-target="quickAddModal">✕</button>
     <!-- Wave 2E.3: standardized header. -->
     <div class="m-modal-bar">
-      <button class="m-modal-bar-x" onclick="closeQuickAddLead()" aria-label="Close">✕</button>
+      <button class="m-modal-bar-x" data-action="closeModal" data-target="quickAddModal" aria-label="Close">✕</button>
       <div class="m-modal-bar-titles">
         <span class="m-modal-bar-eyebrow">Quick Add</span>
         <span class="m-modal-bar-title">New Lead</span>
@@ -14888,13 +14888,13 @@ function switchScTab(tab, btn) {
 
 <div class="modal-bg" id="leadModal">
   <div class="modal m-modal-has-bar" style="max-width:600px;max-height:90vh;overflow-y:auto;">
-    <button class="modal-close" onclick="closeLeadModal()">✕</button>
+    <button class="modal-close" data-action="closeModal" data-target="leadModal">✕</button>
     <!-- Wave 2E: standard m-modal-bar replaces the floating ✕ + ad-hoc
          eyebrow/title pair. .m-modal-has-bar on the .modal hides the
          floating .modal-close above (kept for keyboard handlers that
          still reference closeLeadModal). -->
     <div class="m-modal-bar">
-      <button class="m-modal-bar-x" onclick="closeLeadModal()" aria-label="Close">✕</button>
+      <button class="m-modal-bar-x" data-action="closeModal" data-target="leadModal" aria-label="Close">✕</button>
       <div class="m-modal-bar-titles">
         <span class="m-modal-bar-eyebrow">CRM</span>
         <span class="m-modal-bar-title" id="leadModalTitle">Add Lead</span>
@@ -15182,13 +15182,13 @@ function switchScTab(tab, btn) {
 <!-- PROPERTY INTEL SELECTION MODAL -->
 <div class="modal-bg" id="propertyIntelModal" style="display:none;">
   <div class="modal m-modal-has-bar" style="max-width:520px;">
-    <button class="modal-close" onclick="closePropertyIntelModal()">✕</button>
+    <button class="modal-close" data-action="closeModal" data-target="propertyIntelModal">✕</button>
     <!-- Wave 2E.2: standardized header. The 🏠 emoji on "Pull Property
          Intel" goes — it was a Unicode-rendered icon doing icon-system
          work; the eyebrow now carries the "INTEL" context badge in
          brand-orange instead. -->
     <div class="m-modal-bar">
-      <button class="m-modal-bar-x" onclick="closePropertyIntelModal()" aria-label="Close">✕</button>
+      <button class="m-modal-bar-x" data-action="closeModal" data-target="propertyIntelModal" aria-label="Close">✕</button>
       <div class="m-modal-bar-titles">
         <span class="m-modal-bar-eyebrow">Intel</span>
         <span class="m-modal-bar-title">Pull Property Intel</span>
@@ -15264,7 +15264,7 @@ function switchScTab(tab, btn) {
     </div>
 
     <div style="display:flex;gap:12px;">
-      <button onclick="closePropertyIntelModal()" 
+      <button data-action="closeModal" data-target="propertyIntelModal" 
         style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);font-weight:600;cursor:pointer;">
         Cancel
       </button>
@@ -15279,13 +15279,13 @@ function switchScTab(tab, btn) {
 <!-- PROPERTY INTEL CONFIRMATION MODAL -->
 <div class="modal-bg" id="propertyIntelConfirmModal" style="display:none;">
   <div class="modal m-modal-has-bar" style="max-width:420px;">
-    <button class="modal-close" onclick="closePropertyIntelConfirmModal()">✕</button>
+    <button class="modal-close" data-action="closeModal" data-target="propertyIntelConfirmModal">✕</button>
     <!-- Wave 2E.3: standardized header. The 💰 emoji on the original
          header was doing icon-system work — title is now plain text,
          brand context lives in the eyebrow; price stays prominently
          under the bar as content. -->
     <div class="m-modal-bar">
-      <button class="m-modal-bar-x" onclick="closePropertyIntelConfirmModal()" aria-label="Close">✕</button>
+      <button class="m-modal-bar-x" data-action="closeModal" data-target="propertyIntelConfirmModal" aria-label="Close">✕</button>
       <div class="m-modal-bar-titles">
         <span class="m-modal-bar-eyebrow">Intel</span>
         <span class="m-modal-bar-title">Confirm Data Pull</span>
@@ -15302,7 +15302,7 @@ function switchScTab(tab, btn) {
     </div>
 
     <div style="display:flex;gap:12px;">
-      <button onclick="closePropertyIntelConfirmModal()" 
+      <button data-action="closeModal" data-target="propertyIntelConfirmModal" 
         style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);font-weight:600;cursor:pointer;">
         Go Back
       </button>
@@ -15318,11 +15318,11 @@ function switchScTab(tab, btn) {
 <!-- TASK MODAL -->
 <div class="modal-bg" id="taskModal">
   <div class="modal m-modal-has-bar" style="max-width:480px;">
-    <button class="modal-close" onclick="closeTaskModal()">✕</button>
+    <button class="modal-close" data-action="closeModal" data-target="taskModal">✕</button>
     <!-- Wave 2E.2: standardized header. The TASKS eyebrow + close X
          move into the bar; closeTaskModal() stays as the click handler. -->
     <div class="m-modal-bar">
-      <button class="m-modal-bar-x" onclick="closeTaskModal()" aria-label="Close">✕</button>
+      <button class="m-modal-bar-x" data-action="closeModal" data-target="taskModal" aria-label="Close">✕</button>
       <div class="m-modal-bar-titles">
         <span class="m-modal-bar-eyebrow">Tasks</span>
         <span class="m-modal-bar-title" id="taskModalTitle">Tasks</span>
@@ -15347,14 +15347,14 @@ function switchScTab(tab, btn) {
 <!-- PHOTO VIEWER MODAL -->
 <div class="modal-bg" id="photoModal">
   <div class="modal m-modal-has-bar" style="max-width:600px;">
-    <button class="modal-close" onclick="closePhotoModal()">✕</button>
+    <button class="modal-close" data-action="closeModal" data-target="photoModal">✕</button>
     <!-- Wave 2E.2: header bar replaces ad-hoc title + corner X. The
          existing id="photoModalTitle" stays on the title span so the
          photo viewer JS keeps binding cleanly. The address line stays
          immediately under the bar as a sub-header (it's content, not
          chrome, and the bar shouldn't try to fit two strings). -->
     <div class="m-modal-bar">
-      <button class="m-modal-bar-x" onclick="closePhotoModal()" aria-label="Close">✕</button>
+      <button class="m-modal-bar-x" data-action="closeModal" data-target="photoModal" aria-label="Close">✕</button>
       <div class="m-modal-bar-titles">
         <span class="m-modal-bar-eyebrow">Photos</span>
         <span class="m-modal-bar-title" id="photoModalTitle">Damage Photos</span>
@@ -15377,7 +15377,7 @@ function switchScTab(tab, btn) {
 <!-- TIPS MODAL -->
 <div class="modal-bg" id="tipsModal">
   <div class="modal">
-    <button class="modal-close" onclick="closeTips()">✕</button>
+    <button class="modal-close" data-action="closeModal" data-target="tipsModal">✕</button>
     <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:16px;">💡 Pro Tips & D2D Tricks</div>
     <div class="tip-card"><div class="tip-num">TIP 01</div><div class="tip-text">Use satellite view before knocking — identify roof type, visible damage, and HVAC penetrations so you walk up already informed.</div></div>
     <div class="tip-card"><div class="tip-num">TIP 02</div><div class="tip-text">Always take damage photos before knocking. Show them at the door — "I noticed some issues from the street" is 3× more credible than a cold pitch.</div></div>
@@ -15402,12 +15402,12 @@ function switchScTab(tab, btn) {
 <!-- DOC VIEWER MODAL -->
 <div class="modal-bg" id="docViewerModal">
   <div class="modal m-modal-has-bar" style="max-width:700px;max-height:90vh;">
-    <button class="modal-close" onclick="closeDocViewer()">✕</button>
+    <button class="modal-close" data-action="closeModal" data-target="docViewerModal">✕</button>
     <!-- Wave 2E.3: standardized header. Print button moves into the
          bar's right slot as the action — it was previously sharing
          the header row anyway. -->
     <div class="m-modal-bar">
-      <button class="m-modal-bar-x" onclick="closeDocViewer()" aria-label="Close">✕</button>
+      <button class="m-modal-bar-x" data-action="closeModal" data-target="docViewerModal" aria-label="Close">✕</button>
       <div class="m-modal-bar-titles">
         <span class="m-modal-bar-eyebrow">Document Template</span>
         <span class="m-modal-bar-title" id="docViewerTitle"></span>
@@ -15457,7 +15457,7 @@ function switchScTab(tab, btn) {
      the popover loop — Lead opens openLeadModal(), Task opens
      openTaskModal(), Knock fires the D2D capture flow. The Knock entry
      is NBD-only — JobNimbus / CompanyCam have nothing equivalent. -->
-<div class="m-create-backdrop" id="mCreateBackdrop" onclick="closeMobileCreatePopover()" hidden></div>
+<div class="m-create-backdrop" id="mCreateBackdrop" data-action="closeModal" data-target="mobileCreatePopover" hidden></div>
 <div class="m-create-popover" id="mCreatePopover" role="dialog" aria-modal="true" aria-label="Create new" hidden>
   <div class="m-create-handle" aria-hidden="true"></div>
   <div class="m-create-title">Create</div>
@@ -15496,7 +15496,7 @@ function switchScTab(tab, btn) {
       <span class="m-create-row-hint">Voice or text note for the day log</span>
     </span>
   </button>
-  <button class="m-create-cancel" onclick="closeMobileCreatePopover()">Cancel</button>
+  <button class="m-create-cancel" data-action="closeModal" data-target="mobileCreatePopover">Cancel</button>
 </div>
 <!-- Hidden file input used by the Photo create row to invoke the
      device camera. Kept at the bottom of the DOM so the popover can
@@ -15504,13 +15504,13 @@ function switchScTab(tab, btn) {
 <input type="file" id="mCreatePhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="window._mCreatePhotoPicked && window._mCreatePhotoPicked(event)">
 
 <!-- More menu overlay -->
-<div class="mm-overlay" id="mm-overlay" onclick="closeMobileMore()"></div>
+<div class="mm-overlay" id="mm-overlay" data-action="closeModal" data-target="mobileMore"></div>
 
 <!-- More menu panel — full-screen drawer with all tools -->
 <div id="mobile-more-menu">
   <div class="mm-header">
     <div class="mm-header-title">All Tools</div>
-    <button class="mm-close" onclick="closeMobileMore()" aria-label="Close">✕</button>
+    <button class="mm-close" data-action="closeModal" data-target="mobileMore" aria-label="Close">✕</button>
   </div>
 
   <div class="mm-section">Core</div>
@@ -15820,7 +15820,7 @@ function switchScTab(tab, btn) {
      vs mobile overlay via matchMedia(max-width:768px). -->
 <div class="m-jobdetail" id="mJobDetail" role="dialog" aria-modal="true" aria-labelledby="mJdName" hidden>
   <div class="m-jd-topbar">
-    <button class="m-jd-icon-btn" id="mJdBack" onclick="closeMobileJobDetail()" aria-label="Back">
+    <button class="m-jd-icon-btn" id="mJdBack" data-action="closeModal" data-target="mobileJobDetail" aria-label="Back">
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-arrow-left"/></svg>
     </button>
     <span class="m-jd-status" id="mJdStatus">—</span>
@@ -15908,7 +15908,7 @@ function switchScTab(tab, btn) {
      actions (engine-provided save/share/PDF buttons render inline). -->
 <div class="m-inspection" id="mInspection" role="dialog" aria-modal="true" aria-labelledby="mInspTitle" hidden>
   <div class="m-inspection-topbar">
-    <button class="m-jd-icon-btn" id="mInspBack" onclick="closeMobileInspection()" aria-label="Close inspection">
+    <button class="m-jd-icon-btn" id="mInspBack" data-action="closeModal" data-target="mobileInspection" aria-label="Close inspection">
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-close"/></svg>
     </button>
     <span class="m-inspection-title" id="mInspTitle">Inspection</span>
@@ -15923,7 +15923,7 @@ function switchScTab(tab, btn) {
 
 <div class="modal-bg" id="cardDetailModal" onclick="if(event.target===this)closeCardDetailModal()">
   <div class="modal m-modal-has-bar" style="max-width:650px;max-height:90vh;overflow-y:auto;">
-    <button class="modal-close" onclick="closeCardDetailModal()">✕</button>
+    <button class="modal-close" data-action="closeModal" data-target="cardDetailModal">✕</button>
     <!-- Wave 2E.3: standardized header. The eyebrow carries the
          CUSTOMER / PROSPECT context (existing id="cardDetailKindLabel"
          migrated here so the JS that toggles its text still binds);
@@ -15932,7 +15932,7 @@ function switchScTab(tab, btn) {
          action-slot — color-coded by stageColor() to mirror its kanban
          column. -->
     <div class="m-modal-bar">
-      <button class="m-modal-bar-x" onclick="closeCardDetailModal()" aria-label="Close">✕</button>
+      <button class="m-modal-bar-x" data-action="closeModal" data-target="cardDetailModal" aria-label="Close">✕</button>
       <div class="m-modal-bar-titles">
         <span class="m-modal-bar-eyebrow" id="cardDetailKindLabel">CUSTOMER</span>
         <span class="m-modal-bar-title" id="cardDetailName"></span>
