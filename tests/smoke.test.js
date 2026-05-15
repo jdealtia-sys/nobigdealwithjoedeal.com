@@ -3857,6 +3857,29 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 settings-tab — switchSettingsTab via settingsTab action');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  assert("delegate handles action='settingsTab'",
+    /if \(action === 'settingsTab'\)/.test(mainJs),
+    'expected settingsTab branch in _nbdActionDelegate');
+  assert("settingsTab branch dispatches switchSettingsTab(target)",
+    /switchSettingsTab\(target\)/.test(mainJs),
+    'expected switchSettingsTab(target) dispatch');
+
+  const count = (dash.match(/data-action="settingsTab"\s+data-target="[a-z]+"/g) || []).length;
+  assert('settingsTab conversions: 10 (one per Settings tab)',
+    count === 10,
+    'expected 10 settingsTab data-actions; got ' + count);
+
+  const remaining = (dash.match(/onclick="switchSettingsTab\(/g) || []).length;
+  assert('no inline switchSettingsTab onclicks remain',
+    remaining === 0,
+    'expected 0 inline switchSettingsTab onclicks; got ' + remaining);
+}
+
 section('Phase C.4 docgen — NBDDocGen.fillAndGenerate via docgen action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

@@ -13034,16 +13034,16 @@ function switchScTab(tab, btn) {
 
       <!-- ── TAB BAR ── -->
       <div id="stab-bar" style="display:flex;gap:0;border-bottom:2px solid var(--br);margin-bottom:24px;overflow-x:auto;">
-        <button class="stab-btn stab-active" onclick="switchSettingsTab('profile')" id="stab-profile">👤 Profile</button>
-        <button class="stab-btn" onclick="switchSettingsTab('appearance')" id="stab-appearance">🎨 Appearance</button>
-        <button class="stab-btn" onclick="switchSettingsTab('estimates')" id="stab-estimates">📋 Estimates</button>
-        <button class="stab-btn" onclick="switchSettingsTab('daily')" id="stab-daily">⚡ Daily OS</button>
-        <button class="stab-btn" onclick="switchSettingsTab('company')" id="stab-company">🏢 Company</button>
-        <button class="stab-btn" onclick="switchSettingsTab('team')" id="stab-team">👥 Team</button>
-        <button class="stab-btn" onclick="switchSettingsTab('billing')" id="stab-billing">💳 Billing</button>
-        <button class="stab-btn" onclick="switchSettingsTab('notifications')" id="stab-notifications">🔔 Notifications</button>
-        <button class="stab-btn" onclick="switchSettingsTab('access')" id="stab-access">🔐 Access</button>
-        <button class="stab-btn" onclick="switchSettingsTab('help')" id="stab-help">❓ Help</button>
+        <button class="stab-btn stab-active" data-action="settingsTab" data-target="profile" id="stab-profile">👤 Profile</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="appearance" id="stab-appearance">🎨 Appearance</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="estimates" id="stab-estimates">📋 Estimates</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="daily" id="stab-daily">⚡ Daily OS</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="company" id="stab-company">🏢 Company</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="team" id="stab-team">👥 Team</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="billing" id="stab-billing">💳 Billing</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="notifications" id="stab-notifications">🔔 Notifications</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="access" id="stab-access">🔐 Access</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="help" id="stab-help">❓ Help</button>
       </div>
 
       <!-- ══ TAB: PROFILE ══ -->
