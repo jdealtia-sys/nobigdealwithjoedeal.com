@@ -176,6 +176,39 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (!target) return;
     e.preventDefault();
     if (typeof goTo === 'function') goTo(target);
+    return;
+  }
+  // C.4 cluster 2 — compound goTo patterns. Named actions for each
+  // multi-statement onclick we couldn't cover with the generic goTo
+  // branch above. Each handler covers a real cluster of buttons in
+  // dashboard.html so converting the markup is mechanical.
+  if (action === 'newEstimate') {
+    e.preventDefault();
+    if (typeof goTo === 'function') goTo('est');
+    if (typeof startNewEstimate === 'function') startNewEstimate();
+    return;
+  }
+  if (action === 'filterByStage') {
+    e.preventDefault();
+    const stage = el.dataset.stage;
+    if (typeof goTo === 'function') goTo('crm');
+    // The stage-filter call is wrapped in setTimeout so the kanban
+    // has time to render before we filter (matches the original
+    // inline handler's 200ms delay).
+    setTimeout(function(){
+      if (typeof window.filterByStage === 'function') window.filterByStage(stage);
+    }, 200);
+    return;
+  }
+  if (action === 'toolMenuGoTo') {
+    // Pattern: tap a CRM-tools-menu item → goTo(target) + close the
+    // menu so the next view paints over a clean header.
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    if (typeof goTo === 'function') goTo(target);
+    if (typeof closeCrmToolsMenu === 'function') closeCrmToolsMenu();
+    return;
   }
 });
 

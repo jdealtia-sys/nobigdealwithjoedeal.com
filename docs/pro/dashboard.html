@@ -11004,7 +11004,7 @@ function switchScTab(tab, btn) {
         </div>
         <div style="display:flex;gap:6px;">
           <button class="btn btn-ghost" style="font-size:11px;padding:8px 14px;" onclick="NBDWidgets.openPicker()">⚙️ Customize</button>
-          <button class="btn btn-orange" onclick="goTo('est');startNewEstimate()">＋ New Estimate</button>
+          <button class="btn btn-orange" data-action="newEstimate">＋ New Estimate</button>
         </div>
       </div>
       <div class="widget-grid" id="widgetGrid"></div>
@@ -11020,7 +11020,7 @@ function switchScTab(tab, btn) {
     <div class="view-scroll">
       <div class="page-hdr">
         <div><div class="page-title">Welcome Back, <span id="dashName">Jonathan</span></div><div class="page-sub">Roofing operations overview</div></div>
-        <button class="btn btn-orange" onclick="goTo('est');startNewEstimate()">＋ New Estimate</button>
+        <button class="btn btn-orange" data-action="newEstimate">＋ New Estimate</button>
       </div>
       
       <!-- KPI ROW — Real-time business metrics -->
@@ -11191,12 +11191,12 @@ function switchScTab(tab, btn) {
           <div class="panel-hdr" style="cursor:pointer;" data-action="goTo" data-target="crm"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div><span style="font-size:11px;color:var(--m);">View →</span></div>
           <div class="panel-body">
             <div class="pgrid">
-              <div class="stage-box sb-new" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('new')},200)" style="cursor:pointer;"><div class="stage-count" id="dp-new">0</div><div class="stage-name">New</div></div>
-              <div class="stage-box sb-ct" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('contacted')},200)" style="cursor:pointer;"><div class="stage-count s-blue" id="dp-ct">0</div><div class="stage-name">Contacted</div></div>
-              <div class="stage-box sb-es" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('estimate_sent')},200)" style="cursor:pointer;"><div class="stage-count s-gold" id="dp-es">0</div><div class="stage-name">Est. Sent</div></div>
-              <div class="stage-box sb-ng" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('negotiating')},200)" style="cursor:pointer;"><div class="stage-count s-purple" id="dp-ng">0</div><div class="stage-name">Negotiating</div></div>
-              <div class="stage-box sb-won" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('closed')},200)" style="cursor:pointer;"><div class="stage-count s-green" id="dp-won">0</div><div class="stage-name">Won</div></div>
-              <div class="stage-box sb-lost" onclick="goTo('crm');setTimeout(()=>{if(window.filterByStage)window.filterByStage('lost')},200)" style="cursor:pointer;"><div class="stage-count s-red" id="dp-lost">0</div><div class="stage-name">Lost</div></div>
+              <div class="stage-box sb-new" data-action="filterByStage" data-stage="new" style="cursor:pointer;"><div class="stage-count" id="dp-new">0</div><div class="stage-name">New</div></div>
+              <div class="stage-box sb-ct" data-action="filterByStage" data-stage="contacted" style="cursor:pointer;"><div class="stage-count s-blue" id="dp-ct">0</div><div class="stage-name">Contacted</div></div>
+              <div class="stage-box sb-es" data-action="filterByStage" data-stage="estimate_sent" style="cursor:pointer;"><div class="stage-count s-gold" id="dp-es">0</div><div class="stage-name">Est. Sent</div></div>
+              <div class="stage-box sb-ng" data-action="filterByStage" data-stage="negotiating" style="cursor:pointer;"><div class="stage-count s-purple" id="dp-ng">0</div><div class="stage-name">Negotiating</div></div>
+              <div class="stage-box sb-won" data-action="filterByStage" data-stage="closed" style="cursor:pointer;"><div class="stage-count s-green" id="dp-won">0</div><div class="stage-name">Won</div></div>
+              <div class="stage-box sb-lost" data-action="filterByStage" data-stage="lost" style="cursor:pointer;"><div class="stage-count s-red" id="dp-lost">0</div><div class="stage-name">Lost</div></div>
             </div>
           </div>
         </div>
@@ -12059,14 +12059,14 @@ function switchScTab(tab, btn) {
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="4" cy="10" r="1.4"/><circle cx="10" cy="10" r="1.4"/><circle cx="16" cy="10" r="1.4"/></svg>
           </button>
           <div class="crm-tools-menu" id="crmToolsMenu" role="menu">
-            <button onclick="goTo('est');closeCrmToolsMenu()">📋 Estimates</button>
-            <button onclick="goTo('photos');closeCrmToolsMenu()">📸 Photos</button>
-            <button onclick="goTo('docs');closeCrmToolsMenu()">📁 Documents</button>
-            <button onclick="goTo('map');closeCrmToolsMenu()">🗺️ Map</button>
-            <button onclick="goTo('draw');closeCrmToolsMenu()">✏️ Drawing Tool</button>
-            <button onclick="goTo('schedule');closeCrmToolsMenu()">📅 Schedule</button>
+            <button data-action="toolMenuGoTo" data-target="est">📋 Estimates</button>
+            <button data-action="toolMenuGoTo" data-target="photos">📸 Photos</button>
+            <button data-action="toolMenuGoTo" data-target="docs">📁 Documents</button>
+            <button data-action="toolMenuGoTo" data-target="map">🗺️ Map</button>
+            <button data-action="toolMenuGoTo" data-target="draw">✏️ Drawing Tool</button>
+            <button data-action="toolMenuGoTo" data-target="schedule">📅 Schedule</button>
             <hr style="border:none;border-top:1px solid var(--br);margin:6px 0;">
-            <button onclick="goTo('dash');closeCrmToolsMenu()">🏠 Dashboard</button>
+            <button data-action="toolMenuGoTo" data-target="dash">🏠 Dashboard</button>
           </div>
         </div>
 
@@ -15575,7 +15575,7 @@ function switchScTab(tab, btn) {
   <div class="mm-item" onclick="window.location.href='/pro/daily-success';closeMobileMore()">
     <span class="mm-item-icon">📅</span>Daily Program
   </div>
-  <div class="mm-item" onclick="goTo('aiusage');closeMobileMore()">
+  <div class="mm-item" onclick="mobileNav('aiusage');closeMobileMore()">
     <span class="mm-item-icon">💰</span>API Analytics
   </div>
 
