@@ -481,11 +481,51 @@
         font-size: 0.65rem;
         padding: 0.2rem 0.4rem;
         border-radius: 0.25rem;
-        background: rgba(232, 114, 12, 0.8);
-        color: white;
+        background: color-mix(in srgb, var(--orange) 80%, transparent);
+        color: var(--accent-fg);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+      }
+
+      /* B.1 — AI Vision auto-tag chip. Sits in the bottom-left corner
+         of each gallery thumbnail (mirror of .pe-staged-badge in top-
+         right). Theme-aware via --accent-fg / --accent-ring; pulsing
+         dot indicates "AI-generated" so the rep knows to verify. */
+      .pe-ai-chip {
+        position: absolute;
+        bottom: 0.4rem;
+        left: 0.4rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        max-width: calc(100% - 0.8rem);
+        padding: 0.18rem 0.45rem 0.18rem 0.4rem;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--orange) 90%, transparent);
+        color: var(--accent-fg);
+        box-shadow: inset 0 0 0 1px var(--accent-ring);
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        z-index: 2;
+        -webkit-backdrop-filter: blur(2px);
+        backdrop-filter: blur(2px);
+      }
+      .pe-ai-chip-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        flex-shrink: 0;
+        animation: pe-ai-chip-pulse 2s ease-in-out infinite;
+      }
+      @keyframes pe-ai-chip-pulse {
+        0%, 100% { opacity: 1; }
+        50%      { opacity: 0.4; }
       }
 
       /* Lightbox */
@@ -1062,6 +1102,40 @@
   // FIREBASE UPLOAD
   // ============================================================================
 
+  // B.1 — Lazy-load the Functions SDK + call analyzePhotoVision in the
+  // background. Same pattern as billing-gate.js so we don't ship the
+  // functions SDK unless the rep actually uploads a photo. All errors
+  // swallowed — auto-tag is a "nice to have", upload itself must
+  // succeed regardless.
+  let _httpsCallableAnalyze = null;
+  async function _getAnalyzePhotoVision(){
+    if (_httpsCallableAnalyze) return _httpsCallableAnalyze;
+    try {
+      if (window._functions && window._httpsCallable) {
+        _httpsCallableAnalyze = window._httpsCallable(window._functions, 'analyzePhotoVision');
+        return _httpsCallableAnalyze;
+      }
+      const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+      window._functions     = window._functions     || mod.getFunctions();
+      window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      _httpsCallableAnalyze = window._httpsCallable(window._functions, 'analyzePhotoVision');
+      return _httpsCallableAnalyze;
+    } catch (e) {
+      console.warn('[PhotoEngine] AI auto-tag SDK load failed:', e && e.message);
+      return null;
+    }
+  }
+  function _autoTagPhotoBackground(photoId){
+    if (!photoId) return;
+    // Fire and forget. The server writes aiSuggestion back to the photo
+    // doc on success; renderGalleryGrid() reads it from the cache on
+    // next render. Failure (cap hit, API timeout, etc.) is silent.
+    Promise.resolve()
+      .then(_getAnalyzePhotoVision)
+      .then(fn => fn ? fn({ photoId }) : null)
+      .catch(e => console.warn('[PhotoEngine] AI auto-tag failed:', e && e.message));
+  }
+
   async function uploadPhotoToFirebase(blob, leadId, tags, description, location) {
     if (!window._storage || !window._db || !window._user) {
       throw new Error('Firebase not initialized');
@@ -1137,6 +1211,18 @@
 
       // Clear cache for this lead
       delete state.photoCache[leadId];
+
+      // ── B.1 (Phase B) — AI Vision auto-tag, fire-and-forget.
+      // After the photo lands in Firestore, kick off
+      //   analyzePhotoVision({ photoId })
+      // so Claude Vision tags damageType / severity / area / confidence
+      // and writes them back to the photo doc (server side, see
+      // functions/photo-vision.js). The lead-cost meter caps spend per
+      // lead + per user/month, so over-triggering is gated server-side.
+      // Failure is silent — manual tagging still works.
+      try {
+        _autoTagPhotoBackground(photoId);
+      } catch (e) { /* never let auto-tag break the upload flow */ }
 
       return photoData;
     } catch (err) {
@@ -1220,6 +1306,13 @@
             <div class="pe-gallery-tags">
               ${photo.tags.slice(0, 3).map(tag => `<span class="pe-mini-tag">${tag}</span>`).join('')}
             </div>
+            ${photo.aiSuggestion && photo.aiSuggestion.damageType ? `
+              <span class="pe-ai-chip"
+                title="AI suggested: ${escHtml(photo.aiSuggestion.damageType)}${photo.aiSuggestion.confidence ? ' · ' + Math.round(photo.aiSuggestion.confidence*100) + '% confidence' : ''}">
+                <span class="pe-ai-chip-dot" aria-hidden="true"></span>
+                ${escHtml(photo.aiSuggestion.damageType)}${photo.aiSuggestion.confidence ? ' · ' + Math.round(photo.aiSuggestion.confidence*100) + '%' : ''}
+              </span>
+            ` : ''}
           </div>
         `).join('')}
       </div>

@@ -3857,6 +3857,97 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase B.2 — Storm Briefing automation');
+{
+  const sb = read(path.join(ROOT, 'functions/integrations/storm-briefing.js'));
+  const idx = read(path.join(ROOT, 'functions/index.js'));
+  assert('storm-briefing module exists with onDocumentCreated trigger',
+    /exports\.stormBriefing_onAlertSent\s*=\s*onDocumentCreated/.test(sb),
+    'expected stormBriefing_onAlertSent registered');
+  assert('storm-briefing module guards SLACK_WEBHOOK_URL secret',
+    /SECRETS\.SLACK_WEBHOOK_URL/.test(sb),
+    'expected SLACK_WEBHOOK_URL declared as a secret on the trigger');
+  assert('storm-briefing uses atomic sentinel to dedup',
+    /storm_briefings_sent\/\$\{alertId\}/.test(sb)
+    && /runTransaction/.test(sb),
+    'expected dedup via storm_briefings_sent sentinel + runTransaction');
+  assert('storm-briefing scoring exports for unit tests',
+    /exports\._test\s*=\s*\{[\s\S]*scoreLead/.test(sb),
+    'expected scoreLead exported via _test');
+  assert('functions/index.js registers stormBriefingIntegration',
+    /stormBriefingIntegration\s*=\s*require\('\.\/integrations\/storm-briefing'\)/.test(idx)
+    && /Object\.assign\(exports,\s*stormBriefingIntegration\)/.test(idx),
+    'expected index.js to require + Object.assign stormBriefingIntegration');
+  // Static checks on the ranking contract — STAGE_WEIGHTS table + the
+  // shape of scoreLead. We don't require() the module here because it
+  // depends on firebase-functions which isn't in tests/node_modules.
+  assert('STAGE_WEIGHTS ranks early-stage > install_in_progress',
+    /STAGE_WEIGHTS\s*=\s*\{[\s\S]{0,1500}new:\s*1\.00/.test(sb)
+    && /install_in_progress:\s*0\.10/.test(sb),
+    'expected new=1.00 and install_in_progress=0.10 in STAGE_WEIGHTS');
+  assert('recencyWeight returns 1.00 for leads ≤30 days old',
+    /if \(ageDays <= RECENT_LEAD_DAYS\) return 1\.00/.test(sb),
+    'expected recencyWeight to cap at 1.00 for the recent window');
+  assert('storm-briefing composes a Slack briefing with leadCount + topLeadIds',
+    /leadCount:\s*scored\.length/.test(sb)
+    && /topLeadIds:\s*scored\.slice\(0, BRIEFING_LEAD_LIMIT\)\.map/.test(sb),
+    'expected the storm_briefings_sent sentinel to carry leadCount + topLeadIds for Viktor');
+}
+
+section('Phase B.3 — Viktor.ai event fan-out');
+{
+  const v = read(path.join(ROOT, 'functions/integrations/viktor.js'));
+  const sh = read(path.join(ROOT, 'functions/integrations/_shared.js'));
+  const idx = read(path.join(ROOT, 'functions/index.js'));
+  assert('_shared.js declares VIKTOR_WEBHOOK_URL secret',
+    /VIKTOR_WEBHOOK_URL:\s*defineSecret\('VIKTOR_WEBHOOK_URL'\)/.test(sh),
+    'expected VIKTOR_WEBHOOK_URL in SECRETS');
+  for (const trigger of ['viktor_onLeadWon','viktor_onStormBriefing','viktor_onHotLeadAlert']) {
+    assert('viktor.js exports ' + trigger,
+      new RegExp('exports\\.' + trigger + '\\s*=').test(v),
+      'expected ' + trigger + ' exported');
+  }
+  assert('viktor.postViktor envelopes events with source=nbd-pro + ts',
+    /source:\s*VIKTOR_SOURCE/.test(v)
+    && /ts:\s*new Date\(\)\.toISOString\(\)/.test(v),
+    'expected the envelope to carry source + ts');
+  assert('viktor.js no-ops when VIKTOR_WEBHOOK_URL unset',
+    /hasSecret\('VIKTOR_WEBHOOK_URL'\)/.test(v),
+    'expected explicit hasSecret guard');
+  assert('functions/index.js registers viktorIntegration',
+    /viktorIntegration\s*=\s*require\('\.\/integrations\/viktor'\)/.test(idx)
+    && /Object\.assign\(exports,\s*viktorIntegration\)/.test(idx),
+    'expected index.js to require + Object.assign viktorIntegration');
+}
+
+section('Phase B.1 — AI Vision auto-tag on photo upload');
+{
+  const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));
+  // 1. Background auto-tag is invoked after the photo doc lands.
+  assert('photo-engine.js fires _autoTagPhotoBackground(photoId) after setDoc',
+    /await setDoc\(photoDocRef[^)]*\)[\s\S]{0,1500}_autoTagPhotoBackground\(photoId\)/.test(pe),
+    'expected uploadPhotoToFirebase to call _autoTagPhotoBackground(photoId) after setDoc');
+  // 2. Helper lazy-loads the Functions SDK + calls analyzePhotoVision.
+  assert('_autoTagPhotoBackground helper defined',
+    /function _autoTagPhotoBackground\(photoId\)/.test(pe),
+    'expected _autoTagPhotoBackground helper');
+  assert('helper resolves the analyzePhotoVision callable',
+    /window\._httpsCallable\(window\._functions,\s*['"]analyzePhotoVision['"]\)/.test(pe),
+    'expected the helper to wire analyzePhotoVision via _httpsCallable');
+  // 3. Gallery renders the .pe-ai-chip when photo.aiSuggestion is set.
+  assert('gallery renders .pe-ai-chip for photos with aiSuggestion',
+    /photo\.aiSuggestion[\s\S]{0,200}<span class="pe-ai-chip"/.test(pe),
+    'expected gallery to render .pe-ai-chip when aiSuggestion is present');
+  // 4. .pe-ai-chip CSS is theme-aware (uses --accent-fg + --accent-ring).
+  assert('.pe-ai-chip CSS consumes var(--accent-fg) + var(--accent-ring)',
+    /\.pe-ai-chip\s*\{[\s\S]{0,600}color:\s*var\(--accent-fg\)[\s\S]{0,400}var\(--accent-ring\)/.test(pe),
+    'expected .pe-ai-chip to use --accent-fg + --accent-ring tokens');
+  // 5. Pulsing-dot keyframe present.
+  assert('AI chip dot has the pulsing keyframe',
+    /@keyframes pe-ai-chip-pulse/.test(pe),
+    'expected @keyframes pe-ai-chip-pulse');
+}
+
 section('Wave 5e (A.5) — second-pass theme contrast audit');
 {
   const themeCSS = read(path.join(ROOT, 'docs/pro/css/theme-system.css'));

@@ -32,6 +32,11 @@ const SECRETS = {
   // Observability
   SENTRY_DSN_FUNCTIONS:  defineSecret('SENTRY_DSN_FUNCTIONS'),
   SLACK_WEBHOOK_URL:     defineSecret('SLACK_WEBHOOK_URL'),
+  // Phase B.3 — Viktor.ai AI coworker webhook. Optional; if unset
+  // the viktor integration no-ops silently and the Slack pipeline
+  // still fires (Viktor can also be invited into the same Slack
+  // channel and read events that way).
+  VIKTOR_WEBHOOK_URL:    defineSecret('VIKTOR_WEBHOOK_URL'),
 
   // Human verification
   TURNSTILE_SECRET:      defineSecret('TURNSTILE_SECRET'),
