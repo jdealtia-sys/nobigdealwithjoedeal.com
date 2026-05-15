@@ -10931,8 +10931,12 @@ function switchScTab(tab, btn) {
     </div>
   </template>
 
-  <!-- ══ DASHBOARD ══ -->
-  <div class="view" id="view-dash">
+  <!-- Phase C.3: DASHBOARD — empty mount. The inline <script> below
+       (window.toggleCrewCalendar definer) is a synchronous global
+       function definition; re-running it under _hydrateViewTemplate
+       just re-assigns the same function reference, which is safe. -->
+  <div class="view" id="view-dash" data-view-template="tpl-view-dash"></div>
+  <template id="tpl-view-dash">
     <div class="view-scroll">
       <div class="page-hdr">
         <div><div class="page-title">Welcome Back, <span id="dashName">Jonathan</span></div><div class="page-sub">Roofing operations overview</div></div>
@@ -11173,7 +11177,7 @@ function switchScTab(tab, btn) {
       </div>
 
     </div>
-  </div>
+  </template>
 
   <!-- ══ MAP VIEW ══ -->
   <div class="view" id="view-map">
@@ -11343,7 +11347,14 @@ function switchScTab(tab, btn) {
   </div>
 
   <!-- ══ DRAWING TOOL ══ -->
-  <div class="view" id="view-draw">
+  <!-- Phase C.3: DRAWING TOOL — empty mount. The inline <script> below
+       that wires the accessory panel + .slabel2 collapse now uses a
+       document.readyState guard so it works whether dispatched at
+       page load (initial paint) OR at later hydration when the user
+       first navigates to view-draw. _hydrateViewTemplate() re-runs
+       inline scripts after cloning the template content. -->
+  <div class="view" id="view-draw" data-view-template="tpl-view-draw"></div>
+  <template id="tpl-view-draw">
     <div class="map-view active">
       <div class="map-sidebar" id="map-sidebar-draw">
         <!-- BREADCRUMB -->
@@ -11469,22 +11480,34 @@ function switchScTab(tab, btn) {
           <p style="font-size:10px;color:var(--m);text-align:center;padding:4px;">Click an accessory, then click the roof to place it.</p>
         </div>
         <script>
-          // Render the accessory panel once maps.js loads
-          document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(function() { if (typeof renderAccessoryPanel === 'function') renderAccessoryPanel(); }, 2000);
-            // Collapsible sidebar sections — click .slabel2 to toggle
-            document.querySelectorAll('.map-sidebar .slabel2').forEach(function(label) {
-              label.addEventListener('click', function() {
-                label.classList.toggle('collapsed');
-                // Hide all siblings until the next .slabel2
-                var next = label.nextElementSibling;
-                while (next && !next.classList.contains('slabel2')) {
-                  next.style.display = label.classList.contains('collapsed') ? 'none' : '';
-                  next = next.nextElementSibling;
-                }
+          // Render the accessory panel + wire .slabel2 collapse. Uses a
+          // readyState guard so this works at initial page load AND
+          // when called later by _hydrateViewTemplate('draw') (Phase
+          // C.3 extracted view-draw into a <template>; cloned scripts
+          // are re-executed by the hydration helper, but if the helper
+          // runs AFTER DOMContentLoaded the listener never fires).
+          (function() {
+            function _drawInit() {
+              setTimeout(function() { if (typeof renderAccessoryPanel === 'function') renderAccessoryPanel(); }, 2000);
+              document.querySelectorAll('.map-sidebar .slabel2').forEach(function(label) {
+                if (label._drawCollapseWired) return;
+                label._drawCollapseWired = true;
+                label.addEventListener('click', function() {
+                  label.classList.toggle('collapsed');
+                  var next = label.nextElementSibling;
+                  while (next && !next.classList.contains('slabel2')) {
+                    next.style.display = label.classList.contains('collapsed') ? 'none' : '';
+                    next = next.nextElementSibling;
+                  }
+                });
               });
-            });
-          });
+            }
+            if (document.readyState === 'loading') {
+              document.addEventListener('DOMContentLoaded', _drawInit);
+            } else {
+              _drawInit();
+            }
+          })();
         </script>
 
         <!-- STRUCTURES -->
@@ -11566,7 +11589,7 @@ function switchScTab(tab, btn) {
         </div>
       </div>
     </div>
-  </div>
+  </template>
 
   <!-- ══ ESTIMATES ══ -->
   <div class="view" id="view-est">
@@ -12783,12 +12806,14 @@ function switchScTab(tab, btn) {
     </div>
   </template>
 
-  <!-- ══ REPORTS ══ -->
-  <!-- Legendary Rep Report Generator. Produces bold-editorial
-       visual reports for rep coaching + owner meetings. Reports
-       render via NBDDocViewer so they support Print, PDF, Email,
-       and Save to Customer / Rep records. -->
-  <div class="view" id="view-reports">
+  <!-- Phase C.3: REPORTS — empty mount.
+       Legendary Rep Report Generator. Produces bold-editorial visual
+       reports for rep coaching + owner meetings. Reports render via
+       NBDDocViewer so they support Print, PDF, Email, and Save to
+       Customer / Rep records. No inline scripts inside this view, so
+       hydration is a pure markup clone. -->
+  <div class="view" id="view-reports" data-view-template="tpl-view-reports"></div>
+  <template id="tpl-view-reports">
     <div class="view-scroll" id="reportsViewScroll">
       <div class="page-hdr">
         <div>
@@ -12870,10 +12895,19 @@ function switchScTab(tab, btn) {
         </div>
       </div>
     </div>
-  </div>
+  </template>
 
-  <!-- ══ SETTINGS ══ -->
-  <div class="view" id="view-settings">
+  <!-- Phase C.3: SETTINGS — empty mount. Contains 5 inline <script>
+       blocks: applyCustomTheme (theme builder), SIDEBAR_ITEMS list
+       (sidebar customizer), inviteTeamMember (team admin),
+       renderBillingTab (billing tab), window._HOTKEYS registry +
+       toggle UI. All five are pure global/function definitions with
+       no DOMContentLoaded handlers — they're safe to re-execute when
+       _hydrateViewTemplate clones the template + re-runs scripts.
+       Audited to confirm no external code calls into these globals
+       before the user opens Settings. -->
+  <div class="view" id="view-settings" data-view-template="tpl-view-settings"></div>
+  <template id="tpl-view-settings">
     <div class="view-scroll" style="max-width:640px;padding-bottom:40px;">
 
       <!-- ── SETTINGS HEADER ── -->
@@ -14360,7 +14394,7 @@ function switchScTab(tab, btn) {
       </div><!-- /stab-panel-help -->
 
     </div><!-- /view-scroll -->
-  </div><!-- /view-settings -->
+  </template><!-- /tpl-view-settings -->
 
   <!-- ══ ADMIN — TEAM ACCOUNT MANAGER ══ -->
   <!-- Phase C.3: ADMIN — empty mount. adminCreateModal and adminEditModal

@@ -3857,6 +3857,49 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.3 wave 2 — draw + dash + reports + settings');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  // Each of the 4 big views: empty mount + matching template.
+  for (const v of ['draw','dash','reports','settings']) {
+    assert('view-' + v + ' is an empty mount with data-view-template',
+      new RegExp('<div class="view" id="view-' + v + '"\\s+data-view-template="tpl-view-' + v + '"></div>').test(dash),
+      'expected mount div for view-' + v);
+    assert('<template id="tpl-view-' + v + '"> exists',
+      new RegExp('<template id="tpl-view-' + v + '">').test(dash),
+      'expected tpl-view-' + v + ' template element');
+  }
+
+  // _hydrateViewTemplate now re-executes inline <script> blocks.
+  assert('_hydrateViewTemplate re-executes inline scripts after cloning',
+    /view\.querySelectorAll\('script'\)\.forEach[\s\S]{0,500}createElement\('script'\)[\s\S]{0,300}replaceChild/.test(mainJs),
+    'expected the helper to swap each cloned <script> for a fresh executable one');
+
+  // view-draw's inline script uses a readyState guard so it runs both
+  // at initial load AND at hydration-time.
+  assert('tpl-view-draw script handles both initial-load and post-hydration',
+    /tpl-view-draw[\s\S]*?_drawInit[\s\S]*?document\.readyState === 'loading'[\s\S]*?DOMContentLoaded[\s\S]*?_drawInit/.test(dash),
+    'expected _drawInit pattern with readyState guard inside tpl-view-draw');
+
+  // view-settings' 5 inline scripts all live inside the template now.
+  // Spot-check by counting <script> occurrences inside the settings
+  // template body.
+  {
+    const tplStart = dash.indexOf('<template id="tpl-view-settings">');
+    const tplEnd = dash.indexOf('</template><!-- /tpl-view-settings -->', tplStart);
+    assert('tpl-view-settings is closed by a matching </template> tag',
+      tplStart > -1 && tplEnd > tplStart,
+      'expected </template><!-- /tpl-view-settings --> to close the settings template');
+    const settingsBody = dash.slice(tplStart, tplEnd);
+    const scriptCount = (settingsBody.match(/<script>/g) || []).length;
+    assert('tpl-view-settings carries 5 inline <script> blocks',
+      scriptCount === 5,
+      'expected 5 inline scripts inside the settings template, got ' + scriptCount);
+  }
+}
+
 section('Phase C.3 — large-view extractions (photos + admin)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
