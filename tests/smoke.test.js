@@ -3857,6 +3857,20 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.6 starter — retire hardcoded NBD-orange rgba in dashboard.html');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // Same contract we already enforce on customer/login/vault.
+  assert('dashboard.html: no hardcoded rgba(232,114,12,...) NBD-orange literals',
+    !/rgba\(232,\s*114,\s*12/.test(dash),
+    'expected dashboard.html to use color-mix(in srgb, var(--orange) X%, transparent) — not literal NBD-orange rgba');
+  // Spot-check that the conversions used the right pattern (sample
+  // a known-converted opacity).
+  assert('dashboard.html now consumes color-mix(--orange) for theme-tinted decorations',
+    /color-mix\(in srgb,\s*var\(--orange\)\s+\d+%,\s*transparent\)/.test(dash),
+    'expected color-mix(in srgb, var(--orange) X%, transparent) usages');
+}
+
 section('Phase C.3 finish-finish — crm + map + docs');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
