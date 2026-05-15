@@ -3857,6 +3857,49 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 photo-engine — inline actions in rendered templates');
+{
+  const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  // Every delegate branch we registered must appear in _nbdActionDelegate.
+  for (const action of ['peRemove','peTagToggle','peBulkAnalyze','peOpenLightbox','peStagePhoto','peDeletePhoto']) {
+    assert("delegate handles action='" + action + "'",
+      new RegExp("if \\(action === '" + action + "'\\)").test(mainJs),
+      'expected ' + action + ' branch in _nbdActionDelegate');
+  }
+
+  // photo-engine.js must have zero inline onclicks left — all rendered
+  // buttons/imgs now carry data-action attributes the delegate handles.
+  const peOnclick = (pe.match(/onclick=/g) || []).length;
+  assert('photo-engine.js has zero inline onclick handlers',
+    peOnclick === 0,
+    'expected 0 onclick attrs in photo-engine.js; got ' + peOnclick);
+
+  // Spot-check key conversions in the rendered template strings.
+  assert('photo-preview-modal back button uses peRemove',
+    /data-action="peRemove"\s+data-target="photo-preview-modal"/.test(pe),
+    'expected back button to use peRemove action');
+  assert('tag pills use peTagToggle (location/damage/type pills)',
+    (pe.match(/data-action="peTagToggle"/g) || []).length >= 3,
+    'expected at least 3 peTagToggle pills (location/damage/type)');
+  assert('bulk-analyze button uses peBulkAnalyze with data-lead-id',
+    /data-action="peBulkAnalyze"\s+data-lead-id="\$\{leadId\}"/.test(pe),
+    'expected pe-bulk-ai-btn to use peBulkAnalyze');
+  assert('gallery thumbnail uses peOpenLightbox with photo+lead ids',
+    /data-action="peOpenLightbox"\s+data-photo-id="\$\{photo\.id\}"\s+data-lead-id="\$\{leadId\}"/.test(pe),
+    'expected thumbnail to use peOpenLightbox');
+  assert('lightbox stage button uses peStagePhoto',
+    /data-action="peStagePhoto"\s+data-photo-id="\$\{photoId\}"\s+data-lead-id="\$\{leadId\}"/.test(pe),
+    'expected lightbox stage button to use peStagePhoto');
+  assert('lightbox delete button uses peDeletePhoto',
+    /data-action="peDeletePhoto"\s+data-photo-id="\$\{photoId\}"/.test(pe),
+    'expected lightbox delete button to use peDeletePhoto');
+  assert('lightbox nav buttons (X / OK) use peRemove on photo-lightbox',
+    (pe.match(/data-action="peRemove"\s+data-target="photo-lightbox"/g) || []).length === 2,
+    'expected 2 peRemove buttons targeting photo-lightbox');
+}
+
 section('Phase C.4 cluster 5 — arg-bearing toggle handlers');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

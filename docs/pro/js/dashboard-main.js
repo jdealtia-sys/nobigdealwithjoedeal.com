@@ -268,6 +268,65 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (typeof fn === 'function') fn();
     return;
   }
+  // C.4 photo-engine cluster — inline handlers in dynamically-rendered
+  // photo previews, galleries, and lightboxes. Each branch corresponds
+  // to a window.PhotoEngine entry point; the el.dataset values carry
+  // the photo/lead identifiers the original inline calls inlined.
+  if (action === 'peRemove') {
+    // Generic "remove an element by id" — used by lightbox/preview
+    // close buttons that don't have a registered close function (the
+    // element is removed from the DOM entirely on close).
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    document.getElementById(target)?.remove();
+    return;
+  }
+  if (action === 'peTagToggle') {
+    // Self-toggle on the clicked pill — used by the Review & Tag
+    // modal's QUICK_LOCATIONS / QUICK_DAMAGE / QUICK_TYPE button rows.
+    e.preventDefault();
+    el.classList.toggle('selected');
+    return;
+  }
+  if (action === 'peBulkAnalyze') {
+    e.preventDefault();
+    const leadId = el.dataset.leadId;
+    if (!leadId) return;
+    if (window.PhotoEngine && typeof window.PhotoEngine._bulkAnalyze === 'function') {
+      window.PhotoEngine._bulkAnalyze(leadId);
+    }
+    return;
+  }
+  if (action === 'peOpenLightbox') {
+    e.preventDefault();
+    const photoId = el.dataset.photoId;
+    const leadId = el.dataset.leadId;
+    if (!photoId || !leadId) return;
+    if (window.PhotoEngine && typeof window.PhotoEngine._openLightbox === 'function') {
+      window.PhotoEngine._openLightbox(photoId, leadId);
+    }
+    return;
+  }
+  if (action === 'peStagePhoto') {
+    e.preventDefault();
+    const photoId = el.dataset.photoId;
+    const leadId = el.dataset.leadId;
+    if (!photoId || !leadId) return;
+    if (window.PhotoEngine && typeof window.PhotoEngine._stagePhoto === 'function') {
+      window.PhotoEngine._stagePhoto(photoId, leadId);
+    }
+    return;
+  }
+  if (action === 'peDeletePhoto') {
+    e.preventDefault();
+    const photoId = el.dataset.photoId;
+    if (!photoId) return;
+    if (window.PhotoEngine && typeof window.PhotoEngine._deletePhoto === 'function') {
+      window.PhotoEngine._deletePhoto(photoId);
+    }
+    return;
+  }
   // C.4 cluster 3 — modal-close handlers. Every modal carries its own
   // closeXxxModal function (preserves cleanup logic — clear forms,
   // unbind handlers, etc.). The delegate maps a data-target value to
