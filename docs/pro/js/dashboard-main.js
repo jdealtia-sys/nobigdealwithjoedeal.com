@@ -117,6 +117,20 @@ function _hydrateViewTemplate(name) {
   return true;
 }
 
+// Phase C.1 — eager-hydrate any .view.active (i.e. the default-active
+// view-home) at module load so the first paint shows real content
+// instead of an empty mount div. goTo() at boot is idempotent: when
+// it later calls _hydrateViewTemplate('home') the view already has
+// children and the function returns early.
+(function _eagerHydrateActiveViews(){
+  try {
+    document.querySelectorAll('.view.active[data-view-template]').forEach(v => {
+      const id = (v.id || '').replace(/^view-/, '');
+      if (id) _hydrateViewTemplate(id);
+    });
+  } catch (e) { /* non-fatal — goTo() will hydrate later */ }
+})();
+
 function goTo(name, params = {}) {
   // ── Lite tier gate: block Pro-only views ──
   if (window._userPlan === 'lite' && PRO_ONLY_VIEWS.includes(name)) {
