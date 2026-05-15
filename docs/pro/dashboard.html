@@ -3535,7 +3535,7 @@
 /* Theme variables set by [data-theme] system — see <style id="theme-system"> */
 /* Fallback defaults (overridden by theme-system) */
 :root {
-  --orange:#e8720c; --ob:#f08030; --og:rgba(232,114,12,.22);
+  --orange:#e8720c; --ob:#f08030; --og:color-mix(in srgb, var(--orange) 22%, transparent);
   --bg:#0A0C0F; --s:#111418; --s2:#181C22; --s3:#1E2229;
   --br:rgba(255,255,255,.07); --t:#E8EAF0; --m:#6B7280;
   --blue:#4A9EFF; --green:#2ECC8A; --purple:#9B6DFF; --red:#E05252; --gold:#D4A017;
@@ -4775,7 +4775,7 @@ body:has(#view-prospects.active) .breadcrumb-container{
 .nlabel{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--m);padding:14px 16px 5px;margin-top:4px;}
 .ni{display:flex;align-items:center;gap:10px;padding:11px 16px;font-size:13px;color:var(--m);cursor:pointer;border-left:3px solid transparent;transition:all .18s cubic-bezier(0.4, 0, 0.2, 1);user-select:none;position:relative;min-height:40px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .ni:hover{color:var(--t);background:var(--s2);transform:translateX(2px);}
-.ni.active{color:var(--orange);background:rgba(232,114,12,.1);border-left-color:var(--orange);font-weight:600;}
+.ni.active{color:var(--orange);background:color-mix(in srgb, var(--orange) 10%, transparent);border-left-color:var(--orange);font-weight:600;}
 .ni.active .ni-icon{transform:scale(1.1);}
 .ni-icon{font-size:15px;width:20px;text-align:center;transition:transform .2s;}
 .nbadge{margin-left:auto;background:var(--red);color:var(--t);font-size:9px;font-weight:700;border-radius:10px;padding:2px 7px;min-width:18px;text-align:center;}
@@ -5079,7 +5079,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .stat-card{background:var(--s);border:1px solid var(--br);border-radius:9px;padding:16px 18px;display:flex;align-items:center;gap:12px;}
 .stat-card:hover{border-color:rgba(255,255,255,.12);}
 .stat-icon{width:40px;height:40px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-.si-o{background:rgba(232,114,12,.15)}.si-b{background:rgba(74,158,255,.12)}.si-p{background:rgba(155,109,255,.12)}.si-g{background:rgba(46,204,138,.12)}
+.si-o{background:color-mix(in srgb, var(--orange) 15%, transparent)}.si-b{background:rgba(74,158,255,.12)}.si-p{background:rgba(155,109,255,.12)}.si-g{background:rgba(46,204,138,.12)}
 .stat-val{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:700;line-height:1;}
 .stat-lbl{font-size:11px;color:var(--m);margin-top:2px;}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
@@ -5106,12 +5106,12 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 
 /* PIN GRID */
 /* Drawing sidebar section labels — click to collapse/expand */
-.slabel2{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin:10px 0 6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(232,114,12,.15);user-select:none;-webkit-tap-highlight-color:transparent;}
+.slabel2{font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin:10px 0 6px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid color-mix(in srgb, var(--orange) 15%, transparent);user-select:none;-webkit-tap-highlight-color:transparent;}
 .slabel2::after{content:'−';font-size:14px;color:var(--m);transition:transform .15s;}
 .slabel2.collapsed::after{content:'+';}
 .pin-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:10px;}
 .pin-btn{display:flex;align-items:center;gap:7px;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:7px 9px;cursor:pointer;font-size:11px;font-weight:500;color:var(--t);transition:all .2s;}
-.pin-btn:hover,.pin-btn.active{border-color:var(--orange);background:rgba(232,114,12,.08);}
+.pin-btn:hover,.pin-btn.active{border-color:var(--orange);background:color-mix(in srgb, var(--orange) 8%, transparent);}
 /* ── MAP OVERLAY SYSTEM ── */
 .overlay-panel{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:10px;margin-bottom:10px;}
 .overlay-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--rule);}
@@ -5316,11 +5316,11 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0;}
 .tier-card{background:var(--s2);border:2px solid var(--br);border-radius:10px;padding:16px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden;}
 .tier-card:hover{border-color:rgba(255,255,255,.2);}
-.tier-card.selected{border-color:var(--orange);background:rgba(232,114,12,.07);}
+.tier-card.selected{border-color:var(--orange);background:color-mix(in srgb, var(--orange) 7%, transparent);}
 .tier-card.selected::before{content:'✓';position:absolute;top:8px;right:10px;color:var(--orange);font-weight:700;font-size:14px;}
 .tier-badge{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;padding:2px 8px;border-radius:12px;margin-bottom:8px;display:inline-block;}
 .tier-good{background:rgba(74,158,255,.15);color:var(--blue);}
-.tier-better{background:rgba(232,114,12,.15);color:var(--orange);}
+.tier-better{background:color-mix(in srgb, var(--orange) 15%, transparent);color:var(--orange);}
 .tier-best{background:rgba(46,204,138,.15);color:var(--green);}
 .tier-name{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;margin-bottom:6px;}
 .tier-items{font-size:11px;color:var(--m);line-height:1.7;}
@@ -5334,12 +5334,12 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .li-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.04);}
 .li-table .code{color:var(--orange);font-weight:700;font-family:'Barlow Condensed',sans-serif;}
 .li-table .total-row td{font-weight:700;border-top:2px solid var(--br);color:var(--t);}
-.li-table .grand{background:rgba(232,114,12,.06);}
+.li-table .grand{background:color-mix(in srgb, var(--orange) 6%, transparent);}
 .li-table .grand td{color:var(--orange);font-family:'Barlow Condensed',sans-serif;font-size:15px;}
 
 /* ESTIMATE CARD */
 .est-card{background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:13px 15px;display:flex;align-items:center;gap:12px;margin-bottom:8px;cursor:pointer;transition:all .2s;}
-.est-card:hover{border-color:var(--orange);background:rgba(232,114,12,.04);}
+.est-card:hover{border-color:var(--orange);background:color-mix(in srgb, var(--orange) 4%, transparent);}
 .est-addr{font-size:13px;font-weight:600;color:var(--blue);margin-bottom:2px;}
 .est-meta{font-size:11px;color:var(--m);}
 .est-total{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--orange);margin-left:auto;flex-shrink:0;}
@@ -5397,7 +5397,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
   padding: 2px 7px; border-radius: 3px;
   text-transform: uppercase;
 }
-.est-src-chip.v2 { background: rgba(232,114,12,.12); color: var(--orange); border: 1px solid rgba(232,114,12,.3); }
+.est-src-chip.v2 { background: color-mix(in srgb, var(--orange) 12%, transparent); color: var(--orange); border: 1px solid color-mix(in srgb, var(--orange) 30%, transparent); }
 .est-src-chip.classic { background: rgba(96,165,250,.08); color: #60a5fa; border: 1px solid rgba(96,165,250,.25); }
 .est-date { font-size: 10px; color: var(--m, #888); margin-left: auto; }
 .nbd-est-card .est-card-total {
@@ -5430,7 +5430,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
-.est-act-btn:hover { color: var(--orange, var(--orange)); border-color: var(--orange, var(--orange)); background: rgba(232,114,12,.06); }
+.est-act-btn:hover { color: var(--orange, var(--orange)); border-color: var(--orange, var(--orange)); background: color-mix(in srgb, var(--orange) 6%, transparent); }
 .est-act-btn.danger:hover { color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,.06); }
 @media (max-width: 600px) {
   .nbd-est-card .est-card-main { flex-wrap: wrap; }
@@ -5469,7 +5469,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 /* ═══ TEMPLATE LIBRARY ═══ */
 .tl-filters{display:flex;gap:8px;flex-wrap:wrap;padding:0 16px 16px;margin-top:-4px;}
 .tl-filter-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:20px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:.04em;cursor:pointer;transition:all .2s;-webkit-tap-highlight-color:transparent;white-space:nowrap;}
-.tl-filter-btn:hover{background:var(--s2);color:var(--t);border-color:rgba(232,114,12,.3);}
+.tl-filter-btn:hover{background:var(--s2);color:var(--t);border-color:color-mix(in srgb, var(--orange) 30%, transparent);}
 .tl-filter-btn:active{transform:scale(.96);}
 .tl-filter-active{background:var(--orange)!important;color:var(--accent-fg)!important;border-color:var(--orange)!important;}
 .tl-filter-count{font-size:11px;opacity:.7;font-weight:400;}
@@ -5477,7 +5477,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .tl-category:hover{box-shadow:0 2px 12px rgba(0,0,0,.08);}
 .tl-cat-header{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;user-select:none;transition:background .15s;-webkit-tap-highlight-color:transparent;}
 .tl-cat-header:hover{background:var(--s2);}
-.tl-cat-header:active{background:rgba(232,114,12,.06);}
+.tl-cat-header:active{background:color-mix(in srgb, var(--orange) 6%, transparent);}
 .tl-cat-chevron{font-size:14px;color:var(--m);font-weight:700;width:16px;text-align:center;transition:transform .2s;}
 .tl-category.tl-collapsed .tl-cat-chevron{transform:rotate(-90deg);}
 .tl-cat-icon{font-size:20px;}
@@ -5489,7 +5489,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .tl-doc-row{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--br);cursor:pointer;transition:background .15s,padding-left .15s;-webkit-tap-highlight-color:transparent;}
 .tl-doc-row:last-child{border-bottom:none;}
 .tl-doc-row:hover{background:var(--s2);padding-left:20px;}
-.tl-doc-row:active{background:rgba(232,114,12,.06);}
+.tl-doc-row:active{background:color-mix(in srgb, var(--orange) 6%, transparent);}
 .tl-doc-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;transition:transform .15s;}
 .tl-doc-row:hover .tl-doc-icon{transform:scale(1.08);}
 .tl-doc-info{flex:1;min-width:0;}
@@ -5756,7 +5756,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 
 
 /* MEAS LABEL */
-.meas-label{background:rgba(10,12,15,.88);color:var(--t);border:1px solid rgba(232,114,12,.6);border-radius:3px;padding:2px 6px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;cursor:pointer;pointer-events:auto;}
+.meas-label{background:rgba(10,12,15,.88);color:var(--t);border:1px solid color-mix(in srgb, var(--orange) 60%, transparent);border-radius:3px;padding:2px 6px;font-size:10px;font-weight:700;font-family:'Barlow Condensed',sans-serif;white-space:nowrap;cursor:pointer;pointer-events:auto;}
 
 /* DRAW TOOL — shortcut hint */
 .draw-shortcut-hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(10,12,15,.92);color:var(--t);font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:10px 24px;border-radius:8px;border:1px solid var(--orange);pointer-events:none;z-index:9000;animation:shintFade .7s ease-out forwards;}
@@ -5781,7 +5781,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 /* DRAW TOOL — structure list */
 .structure-row{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--s2);border:1px solid var(--br);border-radius:5px;font-size:11px;cursor:pointer;transition:all .15s;margin-bottom:3px;}
 .structure-row:hover{border-color:var(--orange);}
-.structure-active{border-color:var(--orange);background:rgba(232,114,12,.06);}
+.structure-active{border-color:var(--orange);background:color-mix(in srgb, var(--orange) 6%, transparent);}
 .structure-icon{font-size:14px;}
 .structure-name{flex:1;font-weight:700;font-family:'Barlow Condensed',sans-serif;color:var(--t);letter-spacing:.03em;text-transform:uppercase;}
 .structure-rename,.structure-del{background:none;border:none;color:var(--m);cursor:pointer;font-size:11px;padding:2px 4px;}
@@ -5817,12 +5817,12 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .comp-off{background:rgba(239,68,68,.06);}.comp-off .comp-diff{color:var(--red);}
 
 /* MARKER CLUSTER — NBD Pro brand */
-.marker-cluster-small{background:rgba(232,114,12,0.35)!important}
-.marker-cluster-small div{background:rgba(232,114,12,0.7)!important;color:var(--t)!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
-.marker-cluster-medium{background:rgba(232,114,12,0.45)!important}
-.marker-cluster-medium div{background:rgba(232,114,12,0.8)!important;color:var(--t)!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
-.marker-cluster-large{background:rgba(232,114,12,0.55)!important}
-.marker-cluster-large div{background:rgba(232,114,12,0.9)!important;color:var(--t)!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
+.marker-cluster-small{background:color-mix(in srgb, var(--orange) 35%, transparent)!important}
+.marker-cluster-small div{background:color-mix(in srgb, var(--orange) 70%, transparent)!important;color:var(--t)!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
+.marker-cluster-medium{background:color-mix(in srgb, var(--orange) 45%, transparent)!important}
+.marker-cluster-medium div{background:color-mix(in srgb, var(--orange) 80%, transparent)!important;color:var(--t)!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
+.marker-cluster-large{background:color-mix(in srgb, var(--orange) 55%, transparent)!important}
+.marker-cluster-large div{background:color-mix(in srgb, var(--orange) 90%, transparent)!important;color:var(--t)!important;font-family:'Barlow Condensed',sans-serif!important;font-weight:700!important}
 
 /* ═══ DAILY COMMAND CENTER WIDGET ═══ */
 .dt-widget{margin:0 0 16px;border:1px solid var(--br);border-radius:10px;background:var(--s);overflow:hidden;}
@@ -5910,7 +5910,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
    ════════════════════════════════════════════════════════════════════ */
 .widget-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;padding:0 0 20px;}
 .w-card{background:var(--s);border:1px solid var(--br);border-radius:10px;overflow:hidden;transition:border-color .2s,box-shadow .2s;}
-.w-card:hover{border-color:rgba(232,114,12,.3);box-shadow:0 4px 20px rgba(0,0,0,.15);}
+.w-card:hover{border-color:color-mix(in srgb, var(--orange) 30%, transparent);box-shadow:0 4px 20px rgba(0,0,0,.15);}
 .w-sm{grid-column:span 1;}
 .w-md{grid-column:span 1;}
 .w-lg{grid-column:span 2;}
@@ -5929,7 +5929,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .w-bar-fill{height:100%;background:var(--orange);border-radius:3px;transition:width .3s ease;}
 .w-lead-row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--br);cursor:pointer;}
 .w-lead-row:last-child{border-bottom:none;}
-.w-lead-row:hover{background:rgba(232,114,12,.03);}
+.w-lead-row:hover{background:color-mix(in srgb, var(--orange) 3%, transparent);}
 .w-lead-name{font-size:11px;font-weight:600;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:70%;}
 .w-lead-stage{font-size:10px;font-weight:700;}
 .w-activity-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--br);}
@@ -5954,7 +5954,7 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .w-picker-cat{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);padding:12px 0 6px;border-bottom:1px solid var(--br);margin-bottom:4px;}
 .w-picker-row{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:6px;cursor:pointer;transition:background .1s;}
 .w-picker-row:hover{background:var(--s2);}
-.w-picker-active{background:rgba(232,114,12,.05);}
+.w-picker-active{background:color-mix(in srgb, var(--orange) 5%, transparent);}
 .w-picker-row input[type="checkbox"]{accent-color:var(--orange);}
 .w-picker-icon{font-size:16px;}
 .w-picker-name{flex:1;font-size:13px;font-weight:600;color:var(--t);}
@@ -6007,7 +6007,7 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--orange);
   color: var(--orange);
   background: var(--og);
-  box-shadow: 0 0 0 3px rgba(232,114,12,.06);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--orange) 6%, transparent);
 }
 
 /* ── PREMIUM MODAL ANIMATIONS ── */
@@ -6280,8 +6280,8 @@ input:focus, select:focus, textarea:focus {
   animation: columnGlow .8s ease infinite alternate;
 }
 @keyframes columnGlow {
-  from { box-shadow: inset 0 0 20px rgba(232,114,12,.05); }
-  to { box-shadow: inset 0 0 20px rgba(232,114,12,.15); }
+  from { box-shadow: inset 0 0 20px color-mix(in srgb, var(--orange) 5%, transparent); }
+  to { box-shadow: inset 0 0 20px color-mix(in srgb, var(--orange) 15%, transparent); }
 }
 
 /* Column count badge */
@@ -6946,7 +6946,7 @@ body {
 }
 .crm-sec-btn.active {
   color: var(--orange, #e8720c);
-  background: rgba(232,114,12,.10);
+  background: color-mix(in srgb, var(--orange) 10%, transparent);
   box-shadow: inset 0 -2px 0 var(--orange, #e8720c);
 }
 /* Drop the radial-gradient ::before overlay. The orange glow on hover
@@ -6990,7 +6990,7 @@ body {
   transition: background .2s;
 }
 .crm-sec-restore:hover {
-  background: rgba(232,114,12,.08);
+  background: color-mix(in srgb, var(--orange) 8%, transparent);
   color: var(--orange, var(--orange));
 }
 
@@ -7128,16 +7128,16 @@ body {
   .mn-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:6px 8px 4px;cursor:pointer;border-radius:12px;flex:1;transition:all .18s ease;position:relative;-webkit-tap-highlight-color:transparent;min-width:0;}
   .mn-item::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:0;height:2px;background:var(--orange);border-radius:0 0 3px 3px;transition:width .2s ease;}
   .mn-item.active::before{width:28px;}
-  .mn-item.active{background:rgba(232,114,12,.1);}
-  .mn-item.active .mn-icon{color:var(--orange);transform:scale(1.12);filter:drop-shadow(0 0 6px rgba(232,114,12,.5));}
+  .mn-item.active{background:color-mix(in srgb, var(--orange) 10%, transparent);}
+  .mn-item.active .mn-icon{color:var(--orange);transform:scale(1.12);filter:drop-shadow(0 0 6px color-mix(in srgb, var(--orange) 50%, transparent));}
   .mn-item.active .mn-lbl{color:var(--orange);font-weight:700;}
-  .mn-item:active{background:rgba(232,114,12,.08);transform:scale(.94);}
+  .mn-item:active{background:color-mix(in srgb, var(--orange) 8%, transparent);transform:scale(.94);}
   .mn-icon{font-size:19px;line-height:1;transition:all .18s ease;color:var(--m);}
   /* Wave 2A — mobile-nav uses .nbd-icon SVG glyphs now (parity with global
      header). Emoji-rendered .mn-icon spans are kept as a fallback but the
      SVG is the primary visual; sizing matches the old emoji rendering. */
   .mn-item .nbd-icon{ width:22px; height:22px; transition:transform .18s ease, color .18s ease; }
-  .mn-item.active .nbd-icon{ color:var(--orange); transform:scale(1.12); filter:drop-shadow(0 0 6px rgba(232,114,12,.5)); }
+  .mn-item.active .nbd-icon{ color:var(--orange); transform:scale(1.12); filter:drop-shadow(0 0 6px color-mix(in srgb, var(--orange) 50%, transparent)); }
   /* Center "+" gets the brand-accent FAB treatment within the nav strip —
      mirrors JobNimbus's centered "+" but stays orange-keyed. */
   /* Wave 5: --accent-fg ensures icon contrast on every theme; --og
@@ -7585,7 +7585,7 @@ body {
 .joe-key-input-row { display:flex; gap:8px; max-width:440px; margin:0 auto; }
 .joe-key-input-row input { flex:1; background:var(--s2); border:1px solid var(--br); border-radius:7px; padding:9px 12px; font-family:'Barlow',sans-serif; font-size:12px; color:var(--t); outline:none; }
 .joe-key-input-row input:focus { border-color:var(--orange); }
-.joe-context-bar { background:rgba(232,114,12,.06); border-bottom:1px solid rgba(232,114,12,.15); padding:7px 20px; font-size:10px; font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em; color:var(--orange); flex-shrink:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.joe-context-bar { background:color-mix(in srgb, var(--orange) 6%, transparent); border-bottom:1px solid color-mix(in srgb, var(--orange) 15%, transparent); padding:7px 20px; font-size:10px; font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em; color:var(--orange); flex-shrink:0; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
 /* ── END ASK JOE ─────────────────────────────── */
 
 /* ── TASK SYSTEM ─────────────────────────────── */
@@ -7856,7 +7856,7 @@ body {
   .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 170px);max-height:calc(100dvh - 170px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
   .kcol-body::-webkit-scrollbar{width:4px;}
   .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
-  .kcol-body.drag-over{background:rgba(232,114,12,.06);outline:2px dashed var(--orange);}
+  .kcol-body.drag-over{background:color-mix(in srgb, var(--orange) 6%, transparent);outline:2px dashed var(--orange);}
   /* T3.d: slim empty-column state. The old version had a centered SVG
      tombstone + 'Drop leads here' that ate ~80px of vertical real
      estate. New version is a single thin dashed line of muted text. */
@@ -7887,7 +7887,7 @@ body {
     background: transparent; border: 1px solid var(--br);
     border-radius: 4px; transition: all .15s;
   }
-  .kc-overflow:hover{color: var(--orange); border-color: var(--orange); background: rgba(232,114,12,.08);}
+  .kc-overflow:hover{color: var(--orange); border-color: var(--orange); background: color-mix(in srgb, var(--orange) 8%, transparent);}
   @media (pointer: coarse) { .kc-overflow{ min-width: 32px; min-height: 32px; padding: 6px 10px; } }
   /* T1.c support: kc-carrier visual weight. The previous treatment was
      subtle (var(--s3) background) which lost visually next to the loud
@@ -9158,7 +9158,7 @@ body {
   padding:3px 8px;border-radius:10px;
   text-transform:uppercase;flex-shrink:0;
 }
-.cmd-badge.recent{background:rgba(232,114,12,.12);color:var(--orange);}
+.cmd-badge.recent{background:color-mix(in srgb, var(--orange) 12%, transparent);color:var(--orange);}
 .cmd-badge.new{background:rgba(74,158,255,.12);color:var(--blue);}
 .cmd-badge.action{background:rgba(155,109,255,.12);color:var(--purple);}
 
@@ -9270,7 +9270,7 @@ body.theme-frosted {
 .npm-fonts { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
 .npm-font-card { background: #0e1218; border: 1.5px solid #1e2530; border-radius: 8px; padding: 12px 14px; cursor: pointer; transition: .2s; }
 .npm-font-card:hover { border-color: var(--orange, var(--orange)); background: #12181e; }
-.npm-font-card.active { border-color: var(--orange, var(--orange)); box-shadow: 0 0 0 1px rgba(232,114,12,.2); }
+.npm-font-card.active { border-color: var(--orange, var(--orange)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--orange) 20%, transparent); }
 .npm-font-head { font-size: 9px; color: var(--orange, var(--orange)); letter-spacing: .5px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
 .npm-font-check { width: 8px; height: 8px; border-radius: 50%; background: var(--orange, var(--orange)); display: none; }
 .npm-font-card.active .npm-font-check { display: block; }
@@ -9610,8 +9610,8 @@ body.theme-frosted {
 .d2d-detail-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
 .d2d-detail-actions .d2d-action-btn { flex:1; min-width:calc(50% - 4px); justify-content:center; }
 /* ── D2D FAB (floating knock button on mobile) ── */
-.d2d-fab { display:none; position:fixed; bottom:80px; right:16px; z-index:999; width:60px; height:60px; border-radius:50%; background:var(--orange,var(--orange)); color:white; border:none; box-shadow:0 4px 16px rgba(232,114,12,.5); font-size:24px; cursor:pointer; align-items:center; justify-content:center; transition:transform .15s,box-shadow .15s; -webkit-tap-highlight-color:transparent; }
-.d2d-fab:active { transform:scale(.92); box-shadow:0 2px 8px rgba(232,114,12,.4); }
+.d2d-fab { display:none; position:fixed; bottom:80px; right:16px; z-index:999; width:60px; height:60px; border-radius:50%; background:var(--orange,var(--orange)); color:white; border:none; box-shadow:0 4px 16px color-mix(in srgb, var(--orange) 50%, transparent); font-size:24px; cursor:pointer; align-items:center; justify-content:center; transition:transform .15s,box-shadow .15s; -webkit-tap-highlight-color:transparent; }
+.d2d-fab:active { transform:scale(.92); box-shadow:0 2px 8px color-mix(in srgb, var(--orange) 40%, transparent); }
 @media(max-width:768px) {
   .d2d-fab { display:flex; }
 }
@@ -9624,7 +9624,7 @@ body.theme-frosted {
 .tm-section-label { font-size: 10px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--m); margin: 24px 0 12px; padding: 0 4px; }
 .training-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
 .training-card { background: var(--s2); border: 1px solid var(--br); border-radius: 10px; padding: 18px; cursor: pointer; transition: all .2s; }
-.training-card:hover { border-color: var(--orange); box-shadow: 0 4px 16px rgba(232,114,12,.12); transform: translateY(-2px); }
+.training-card:hover { border-color: var(--orange); box-shadow: 0 4px 16px color-mix(in srgb, var(--orange) 12%, transparent); transform: translateY(-2px); }
 .tc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
 .tc-icon { font-size: 28px; }
 .tc-diff { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
@@ -9837,7 +9837,7 @@ function nbdSetSize(size) {
     var active = b.dataset.size === size;
     b.style.borderColor = active ? 'var(--orange)' : '';
     b.style.color = active ? 'var(--orange)' : '';
-    b.style.background = active ? 'rgba(232,114,12,.08)' : '';
+    b.style.background = active ? 'color-mix(in srgb, var(--orange) 8%, transparent)' : '';
   });
   if (typeof showToast === 'function') showToast('UI size: ' + size, 'info');
 }
@@ -9848,7 +9848,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var active = b.dataset.size === saved;
     b.style.borderColor = active ? 'var(--orange)' : '';
     b.style.color = active ? 'var(--orange)' : '';
-    b.style.background = active ? 'rgba(232,114,12,.08)' : '';
+    b.style.background = active ? 'color-mix(in srgb, var(--orange) 8%, transparent)' : '';
   });
 });
 
@@ -9894,7 +9894,7 @@ function nbdApplyFont(fontId) {
   document.querySelectorAll('.nbd-font-card').forEach(function(c) {
     var active = c.dataset.fontId === fontId;
     c.style.borderColor = active ? 'var(--orange)' : 'var(--br)';
-    c.style.background = active ? 'rgba(232,114,12,.06)' : 'var(--s2)';
+    c.style.background = active ? 'color-mix(in srgb, var(--orange) 6%, transparent)' : 'var(--s2)';
   });
   if (typeof showToast === 'function') showToast('Font: ' + font.label, 'info');
 }
@@ -9905,7 +9905,7 @@ function nbdRenderFontGrid() {
   var saved = localStorage.getItem('nbd_font') || 'barlow';
   grid.innerHTML = _NBD_LEGACY_FONTS.map(function(f) {
     var active = f.id === saved;
-    return '<div class="nbd-font-card" data-font-id="' + f.id + '" onclick="nbdApplyFont(\'' + f.id + '\')" style="background:' + (active ? 'rgba(232,114,12,.06)' : 'var(--s2)') + ';border:2px solid ' + (active ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;">'
+    return '<div class="nbd-font-card" data-font-id="' + f.id + '" onclick="nbdApplyFont(\'' + f.id + '\')" style="background:' + (active ? 'color-mix(in srgb, var(--orange) 6%, transparent)' : 'var(--s2)') + ';border:2px solid ' + (active ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;">'
       + '<div style="font-family:' + f.body + ';font-size:18px;font-weight:700;color:var(--t);margin-bottom:4px;">Aa</div>'
       + '<div style="font-size:10px;color:var(--m);font-weight:600;">' + f.label + '</div>'
       + '</div>';
@@ -9947,7 +9947,7 @@ document.addEventListener('DOMContentLoaded', function() {
 :root {
   --nbd-nav-h: 52px;
   --nbd-nav-bg: #0f1d42;
-  --nbd-nav-border: rgba(232,114,12,0.25);
+  --nbd-nav-border: color-mix(in srgb, var(--orange) 25%, transparent);
   --nbd-nav-orange: var(--orange);
   --nbd-nav-cyan: #00d4ff;
   --nbd-nav-text: #8b9bb4;
@@ -10033,8 +10033,8 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 #nbd-pro-nav .nnav-link.active {
   color: var(--nbd-nav-orange);
-  background: rgba(232,114,12,.1);
-  border-color: rgba(232,114,12,.2);
+  background: color-mix(in srgb, var(--orange) 10%, transparent);
+  border-color: color-mix(in srgb, var(--orange) 20%, transparent);
 }
 #nbd-pro-nav .nnav-link.demo-link {
   color: var(--nbd-nav-cyan);
@@ -10126,8 +10126,8 @@ document.addEventListener('DOMContentLoaded', function() {
   color: var(--nbd-nav-white);
 }
 .nnav-drawer-link.active {
-  background: rgba(232,114,12,.1);
-  border-color: rgba(232,114,12,.2);
+  background: color-mix(in srgb, var(--orange) 10%, transparent);
+  border-color: color-mix(in srgb, var(--orange) 20%, transparent);
   color: var(--nbd-nav-orange);
 }
 .nnav-drawer-link.demo-link { color: var(--nbd-nav-cyan); }
@@ -10951,7 +10951,7 @@ function switchScTab(tab, btn) {
         .kpi-card:hover{border-color:var(--blue);}
         .kpi-primary{border-left:3px solid var(--blue);}
         .kpi-green{border-left:3px solid var(--green,var(--green));}
-        .kpi-warning{border-left:3px solid var(--orange);background:rgba(232,114,12,0.06);}
+        .kpi-warning{border-left:3px solid var(--orange);background:color-mix(in srgb, var(--orange) 6%, transparent);}
         .kpi-icon{font-size:22px;flex-shrink:0;}
         .kpi-data{min-width:0;}
         .kpi-value{font-size:22px;font-weight:800;color:var(--t);line-height:1.2;font-family:'Barlow Condensed',sans-serif;}
@@ -11669,7 +11669,7 @@ function switchScTab(tab, btn) {
           <div class="panel-hdr"><div><div class="panel-label">Step 1</div><div class="panel-title">Confirm Measurements</div></div><button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;gap:6px;" onclick="openQMImportModal()">📎 Import Quick Measure</button></div>
           <div class="panel-body">
             <div id="drawImportNote" style="display:none;background:rgba(46,204,138,.08);border:1px solid rgba(46,204,138,.2);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--green);">✓ Measurements imported from Drawing Tool</div>
-            <div id="qmImportNote" style="display:none;background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.3);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--orange);">📎 Measurements imported from GAF Quick Measure — verified by aerial measurement report</div>
+            <div id="qmImportNote" style="display:none;background:color-mix(in srgb, var(--orange) 8%, transparent);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--orange);">📎 Measurements imported from GAF Quick Measure — verified by aerial measurement report</div>
             <div class="est-meas-grid">
               <div class="meas-field"><label>Property Address</label><div class="ac-wrap">
             <input type="text" id="estAddr" placeholder="Property address" autocomplete="off">
@@ -12451,12 +12451,12 @@ function switchScTab(tab, btn) {
             <span class="tl-cat-chevron">▾</span>
             <span class="tl-cat-icon">⚡</span>
             <h3 class="tl-cat-title" style="color:var(--orange);">Generators</h3>
-            <span class="tl-cat-badge" style="background:rgba(232,114,12,.12);color:var(--orange);">Auto-fill from CRM</span>
+            <span class="tl-cat-badge" style="background:color-mix(in srgb, var(--orange) 12%, transparent);color:var(--orange);">Auto-fill from CRM</span>
             <span class="tl-cat-count">4 docs</span>
           </div>
           <div class="tl-cat-body">
             <div class="tl-doc-row" onclick="NBDDocGen.fillAndGenerate('proposal')">
-              <div class="tl-doc-icon" style="background:rgba(232,114,12,.1);color:var(--orange);">📊</div>
+              <div class="tl-doc-icon" style="background:color-mix(in srgb, var(--orange) 10%, transparent);color:var(--orange);">📊</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Proposal / Estimate</div>
                 <div class="tl-doc-desc">Branded proposal with tiered pricing, warranty details, and project photos</div>
@@ -13833,7 +13833,7 @@ function switchScTab(tab, btn) {
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:14px;">NBD Pro's multi-user architecture is designed for scale. The foundation is live — Firestore collections, security rules, role-based access control, and company scoping are production-ready. These features activate as your team grows:</p>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-              <div style="padding:12px;background:rgba(232,114,12,.05);border:1px solid rgba(232,114,12,.15);border-radius:6px;">
+              <div style="padding:12px;background:color-mix(in srgb, var(--orange) 5%, transparent);border:1px solid color-mix(in srgb, var(--orange) 15%, transparent);border-radius:6px;">
                 <div style="font-size:11px;font-weight:700;color:var(--orange);margin-bottom:4px;">Live Now</div>
                 <ul style="font-size:11px;color:var(--t);line-height:1.7;padding-left:16px;margin:0;">
                   <li>Company + member data model</li>
@@ -14025,7 +14025,7 @@ function switchScTab(tab, btn) {
         <div class="panel" style="margin-bottom:16px;">
           <div class="panel-hdr"><div><div class="panel-label">Current Plan</div><div class="panel-title" id="billingPlanTitle">Loading...</div></div></div>
           <div class="panel-body" id="billingCurrentPlan">
-            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px;background:linear-gradient(135deg,rgba(232,114,12,.15),rgba(232,114,12,.05));border:2px solid var(--orange);border-radius:10px;margin-bottom:14px;">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px;background:linear-gradient(135deg,color-mix(in srgb, var(--orange) 15%, transparent),color-mix(in srgb, var(--orange) 5%, transparent));border:2px solid var(--orange);border-radius:10px;margin-bottom:14px;">
               <div>
                 <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);" id="billingPlanBadge">LOADING</div>
                 <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--t);line-height:1;margin-top:6px;" id="billingPlanName">—</div>
@@ -14139,7 +14139,7 @@ function switchScTab(tab, btn) {
           cards.innerHTML = Object.entries(plans).map(function(entry) {
             var key = entry[0], p = entry[1];
             var isCurrent = key === info.plan;
-            return '<div style="background:' + (isCurrent ? 'rgba(232,114,12,.08)' : 'var(--s2)') + ';border:2px solid ' + (isCurrent ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:14px;text-align:center;">'
+            return '<div style="background:' + (isCurrent ? 'color-mix(in srgb, var(--orange) 8%, transparent)' : 'var(--s2)') + ';border:2px solid ' + (isCurrent ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:14px;text-align:center;">'
               + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;color:var(--t);text-transform:uppercase;margin-bottom:4px;">' + p.label + '</div>'
               + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:24px;font-weight:800;color:' + (isCurrent ? 'var(--orange)' : 'var(--t)') + ';">' + (p.price === null ? 'Custom' : (p.price === 0 ? 'Free' : '$' + p.price)) + '</div>'
               + '<div style="font-size:10px;color:var(--m);margin-top:4px;">' + (p.leads === Infinity ? '∞' : p.leads) + ' leads/mo</div>'
@@ -15072,7 +15072,7 @@ function switchScTab(tab, btn) {
         <label>Work Performed</label>
         <input type="text" id="wcWork" placeholder="Full roof replacement — GAF Timberline HDZ" style="width:100%;">
       </div>
-      <div id="wcTierDesc" style="background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.2);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--accent-fg);line-height:1.6;"></div>
+      <div id="wcTierDesc" style="background:color-mix(in srgb, var(--orange) 8%, transparent);border:1px solid color-mix(in srgb, var(--orange) 20%, transparent);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--accent-fg);line-height:1.6;"></div>
     </div>
 
     <div style="display:flex;gap:10px;">
@@ -15847,7 +15847,7 @@ function switchScTab(tab, btn) {
          Wraps the promote CTA + a row of quick actions (Call/Text/Email/
          Re-knock/Map/Hide/Delete) so the rep never has to leave the
          modal to operate on the prospect. -->
-    <div id="cardDetailPromoteBanner" style="display:none;background:linear-gradient(135deg,rgba(232,114,12,.12),rgba(232,114,12,.04));border:1px solid rgba(232,114,12,.35);border-radius:8px;padding:14px 16px;margin-bottom:16px;flex-direction:column;gap:12px;">
+    <div id="cardDetailPromoteBanner" style="display:none;background:linear-gradient(135deg,color-mix(in srgb, var(--orange) 12%, transparent),color-mix(in srgb, var(--orange) 4%, transparent));border:1px solid color-mix(in srgb, var(--orange) 35%, transparent);border-radius:8px;padding:14px 16px;margin-bottom:16px;flex-direction:column;gap:12px;">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <div style="flex:1;min-width:180px;">
           <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">👀 PROSPECT</div>
@@ -15856,7 +15856,7 @@ function switchScTab(tab, btn) {
         <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;white-space:nowrap;" onclick="window.confirmPromoteProspect(window._cardDetailLeadId)">✓ Promote to Customer</button>
       </div>
       <!-- Quick actions row -->
-      <div id="prospectQuickActions" style="display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid rgba(232,114,12,.15);padding-top:10px;">
+      <div id="prospectQuickActions" style="display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid color-mix(in srgb, var(--orange) 15%, transparent);padding-top:10px;">
         <!-- Populated by populateProspectQuickActions() when modal opens -->
       </div>
     </div>
