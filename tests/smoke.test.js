@@ -3857,6 +3857,39 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.1 + C.2 — view template-hydration sweep');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  // C.1 — every stub view should be an empty mount div + matching template.
+  // Whitespace between attributes is flexible (some are aligned in columns).
+  const stubs = ['aitree','understand','projectcodex','aiusage','products','d2d','training','academy','closeboard','repos','board','home'];
+  for (const v of stubs) {
+    assert('view-' + v + ' is an empty mount with data-view-template',
+      new RegExp('<div class="view( active)?" id="view-' + v + '"\\s+data-view-template="tpl-view-' + v + '"></div>').test(dash),
+      'expected mount div for view-' + v);
+    assert('<template id="tpl-view-' + v + '"> exists',
+      new RegExp('<template id="tpl-view-' + v + '">').test(dash),
+      'expected tpl-view-' + v + ' template element');
+  }
+
+  // C.2 — medium views (joe + schedule) extracted.
+  for (const v of ['joe','schedule']) {
+    assert('view-' + v + ' is an empty mount with data-view-template (C.2)',
+      new RegExp('<div class="view" id="view-' + v + '"\\s+data-view-template="tpl-view-' + v + '"></div>').test(dash),
+      'expected mount div for view-' + v);
+    assert('<template id="tpl-view-' + v + '"> exists',
+      new RegExp('<template id="tpl-view-' + v + '">').test(dash),
+      'expected tpl-view-' + v + ' template element');
+  }
+
+  // Eager-hydration helper runs at module load (covers default-active home).
+  assert('dashboard-main.js eager-hydrates .view.active[data-view-template] on load',
+    /_eagerHydrateActiveViews[\s\S]{0,400}\.view\.active\[data-view-template\]/.test(mainJs),
+    'expected _eagerHydrateActiveViews IIFE that queries .view.active[data-view-template]');
+}
+
 section('Phase B.2 — Storm Briefing automation');
 {
   const sb = read(path.join(ROOT, 'functions/integrations/storm-briefing.js'));

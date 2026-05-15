@@ -10910,7 +10910,12 @@ function switchScTab(tab, btn) {
   </div>
 
   <!-- ══ HOME (Widget Dashboard) ══ -->
-  <div class="view active" id="view-home">
+  <!-- Phase C.1: HOME — empty mount. Default-active on first paint;
+       dashboard-main.js eagerly hydrates every .view.active at module
+       load so this paints content immediately, then goTo('home') at
+       boot (line ~490) is idempotent on the hydrated DOM. -->
+  <div class="view active" id="view-home" data-view-template="tpl-view-home"></div>
+  <template id="tpl-view-home">
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
@@ -10924,7 +10929,7 @@ function switchScTab(tab, btn) {
       </div>
       <div class="widget-grid" id="widgetGrid"></div>
     </div>
-  </div>
+  </template>
 
   <!-- ══ DASHBOARD ══ -->
   <div class="view" id="view-dash">
@@ -12303,7 +12308,10 @@ function switchScTab(tab, btn) {
   </template>
 
   <!-- ══ CLOSE BOARD ══ -->
-  <div class="view" id="view-closeboard">
+  <!-- Phase C.1: CLOSEBOARD / REPOS — empty mounts. -->
+  <div class="view" id="view-closeboard" data-view-template="tpl-view-closeboard"></div>
+  <div class="view" id="view-repos"      data-view-template="tpl-view-repos"></div>
+  <template id="tpl-view-closeboard">
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
@@ -12318,10 +12326,8 @@ function switchScTab(tab, btn) {
         <div class="empty"><div class="empty-icon">🏆</div>Loading Close Board...</div>
       </div>
     </div>
-  </div>
-
-  <!-- ══ REP OS ══ -->
-  <div class="view" id="view-repos">
+  </template>
+  <template id="tpl-view-repos">
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
@@ -12336,25 +12342,34 @@ function switchScTab(tab, btn) {
         <div class="empty"><div class="empty-icon">🎯</div>Loading Rep OS...</div>
       </div>
     </div>
-  </div>
+  </template>
 
   <!-- ══ AI TOOLS (embedded as iframes inside dashboard views) ══ -->
   <!-- April 2026: These were standalone HTML pages that felt
        disconnected from the CRM. Now embedded inside dashboard
        views so the sidebar nav stays visible + same theme wraps
        the tool. Each iframe loads lazily on first view open. -->
-  <div class="view" id="view-aitree">
+  <!-- Phase C.1: 4 iframe stub views — empty mount divs hydrated by
+       _hydrateViewTemplate(name) on first goTo(). Templates live just
+       below in the C.1 template block. -->
+  <div class="view" id="view-aitree" data-view-template="tpl-view-aitree"></div>
+  <div class="view" id="view-understand" data-view-template="tpl-view-understand"></div>
+  <div class="view" id="view-projectcodex" data-view-template="tpl-view-projectcodex"></div>
+  <div class="view" id="view-aiusage" data-view-template="tpl-view-aiusage"></div>
+
+  <!-- Phase C.1 templates for the iframe stubs. -->
+  <template id="tpl-view-aitree">
     <iframe id="iframe-aitree" style="width:100%;height:100%;border:none;flex:1;" data-src="/pro/ai-tree.html"></iframe>
-  </div>
-  <div class="view" id="view-understand">
+  </template>
+  <template id="tpl-view-understand">
     <iframe id="iframe-understand" style="width:100%;height:100%;border:none;flex:1;" data-src="/pro/understand.html"></iframe>
-  </div>
-  <div class="view" id="view-projectcodex">
+  </template>
+  <template id="tpl-view-projectcodex">
     <iframe id="iframe-projectcodex" style="width:100%;height:100%;border:none;flex:1;" data-src="/pro/project-codex.html"></iframe>
-  </div>
-  <div class="view" id="view-aiusage">
+  </template>
+  <template id="tpl-view-aiusage">
     <iframe id="iframe-aiusage" style="width:100%;height:100%;border:none;flex:1;" data-src="/pro/analytics.html"></iframe>
-  </div>
+  </template>
 
   <!-- ══ TEMPLATES ══ -->
   <div class="view" id="view-docs">
@@ -12685,8 +12700,9 @@ function switchScTab(tab, btn) {
 
 
   <!-- ══ ASK JOE AI ══ -->
-  <div class="view" id="view-joe">
-
+  <!-- Phase C.2: ASK JOE — empty mount. -->
+  <div class="view" id="view-joe" data-view-template="tpl-view-joe"></div>
+  <template id="tpl-view-joe">
     <!-- Header -->
     <div class="joe-header">
       <div class="joe-avatar">🤠</div>
@@ -12741,11 +12757,11 @@ function switchScTab(tab, btn) {
         Joe AI · Live pipeline data · Claude Haiku · <span style="color:var(--orange);cursor:pointer;" onclick="clearJoeKey()">Change Key</span>
       </div>
     </div>
+  </template>
 
-  </div>
-
-<!-- ══ LEADERBOARD ══ -->
-  <div class="view" id="view-board">
+<!-- Phase C.1: LEADERBOARD/BOARD — empty mount. -->
+  <div class="view" id="view-board" data-view-template="tpl-view-board"></div>
+  <template id="tpl-view-board">
     <div class="view-scroll">
       <div class="page-hdr"><div><div class="page-title">Analytics & Leaderboard</div><div class="page-sub">Performance metrics and rankings</div></div></div>
 
@@ -12760,7 +12776,7 @@ function switchScTab(tab, btn) {
         </div>
       </div>
     </div>
-  </div>
+  </template>
 
   <!-- ══ REPORTS ══ -->
   <!-- Legendary Rep Report Generator. Produces bold-editorial
@@ -14509,8 +14525,13 @@ function switchScTab(tab, btn) {
     </div>
   </div>
 
-  <!-- ══ PRODUCTS ══ -->
-  <div class="view" id="view-products">
+  <!-- Phase C.1: PRODUCTS / D2D / TRAINING / ACADEMY — empty mounts. -->
+  <div class="view" id="view-products" data-view-template="tpl-view-products"></div>
+  <div class="view" id="view-d2d"      data-view-template="tpl-view-d2d"></div>
+  <div class="view" id="view-training" data-view-template="tpl-view-training"></div>
+  <div class="view" id="view-academy"  data-view-template="tpl-view-academy"></div>
+  <!-- Phase C.1 templates for the stub views above. -->
+  <template id="tpl-view-products">
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
@@ -14525,18 +14546,14 @@ function switchScTab(tab, btn) {
         <div class="empty"><div class="empty-icon">📦</div>Loading product library...</div>
       </div>
     </div>
-  </div>
-
-  <!-- ══ DOOR-TO-DOOR TRACKER ══ -->
-  <div class="view" id="view-d2d">
+  </template>
+  <template id="tpl-view-d2d">
     <div id="d2dMap" style="width:100%;height:55vh;height:55dvh;min-height:300px;position:relative;z-index:1;"></div>
     <div class="view-scroll" id="d2dContent" style="flex:1;overflow-y:auto;padding:0 16px 80px;">
       <div class="empty"><div class="empty-icon">🚪</div>Loading Door-to-Door Tracker...</div>
     </div>
-  </div>
-
-  <!-- ══ SALES TRAINING ══ -->
-  <div class="view" id="view-training">
+  </template>
+  <template id="tpl-view-training">
     <div class="view-scroll" id="trainingContent">
       <div class="page-hdr">
         <div>
@@ -14549,10 +14566,8 @@ function switchScTab(tab, btn) {
       </div>
       <div class="empty"><div class="empty-icon">📚</div>Loading Sales Training...</div>
     </div>
-  </div>
-
-  <!-- ══ REAL DEAL ACADEMY ══ -->
-  <div class="view" id="view-academy">
+  </template>
+  <template id="tpl-view-academy">
     <div class="view-scroll" id="academyContainer">
       <div class="page-hdr">
         <div>
@@ -14565,10 +14580,12 @@ function switchScTab(tab, btn) {
       </div>
       <div class="empty"><div class="empty-icon">🎓</div>Loading Academy...</div>
     </div>
-  </div>
+  </template>
 
   <!-- ══ CAL.COM SCHEDULING ══ -->
-  <div class="view" id="view-schedule">
+  <!-- Phase C.2: SCHEDULE — empty mount. -->
+  <div class="view" id="view-schedule" data-view-template="tpl-view-schedule"></div>
+  <template id="tpl-view-schedule">
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
@@ -14642,7 +14659,7 @@ function switchScTab(tab, btn) {
         </div>
       </div>
     </div>
-  </div>
+  </template>
 
 </div><!-- /content -->
 </div><!-- /app-body -->
