@@ -3857,6 +3857,42 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+
+  assert("delegate handles action='mobileNav'",
+    /if \(action === 'mobileNav'\)/.test(mainJs),
+    'expected mobileNav branch in _nbdActionDelegate');
+  assert("mobileNav branch dispatches mobileNav(target)",
+    /if \(typeof mobileNav === 'function'\) mobileNav\(target\)/.test(mainJs),
+    'expected mobileNav(target) dispatch');
+  assert("mobileNav branch honors data-close-more flag",
+    /el\.hasAttribute\('data-close-more'\)[\s\S]{0,120}closeMobileMore\(\)/.test(mainJs),
+    'expected closeMobileMore() called when data-close-more present');
+
+  // 3 bottom-nav items (mn-item) plus 19 More-drawer items = 22 total
+  // mobileNav data-actions in the markup. (Crew-calendar More item
+  // intentionally remains inline — defensive existence check.)
+  const mnCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"/g) || []).length;
+  assert('mobileNav conversions: 22 (3 bottom-nav + 19 more-drawer)',
+    mnCount === 22,
+    'expected 22 mobileNav data-actions; got ' + mnCount);
+
+  const closeMoreCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"\s+data-close-more/g) || []).length;
+  assert('19 mobileNav items carry data-close-more (More-drawer items)',
+    closeMoreCount === 19,
+    'expected 19 data-close-more flags; got ' + closeMoreCount);
+
+  // Only one inline mobileNav onclick should remain — the crew-calendar
+  // compound with the defensive existence check.
+  const remaining = (dash.match(/onclick="mobileNav\(/g) || []).length;
+  assert('only 1 inline mobileNav onclick remains (crew-calendar)',
+    remaining === 1,
+    'expected exactly 1 inline mobileNav onclick; got ' + remaining);
+}
+
 section('Phase C.4 photo-engine — inline actions in rendered templates');
 {
   const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));

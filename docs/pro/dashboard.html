@@ -15428,11 +15428,11 @@ function switchScTab(tab, btn) {
      pattern while staying NBD-orange. Tapping it opens the create
      popover (toggleMobileCreatePopover, defined in Wave 2C). -->
 <nav id="mobile-nav">
-  <div class="mn-item active" id="mni-dash" onclick="mobileNav('dash')" role="button" aria-label="Home">
+  <div class="mn-item active" id="mni-dash" data-action="mobileNav" data-target="dash" role="button" aria-label="Home">
     <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-home"/></svg>
     <span class="mn-lbl">Home</span>
   </div>
-  <div class="mn-item" id="mni-crm" onclick="mobileNav('crm')" role="button" aria-label="Pipeline">
+  <div class="mn-item" id="mni-crm" data-action="mobileNav" data-target="crm" role="button" aria-label="Pipeline">
     <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-board"/></svg>
     <span class="mn-lbl">Pipeline</span>
     <span class="mn-badge" id="mni-crm-badge" style="display:none;"></span>
@@ -15441,7 +15441,7 @@ function switchScTab(tab, btn) {
     <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-plus"/></svg>
     <span class="mn-lbl">New</span>
   </div>
-  <div class="mn-item" id="mni-joe" onclick="mobileNav('joe')" role="button" aria-label="Ask Joe">
+  <div class="mn-item" id="mni-joe" data-action="mobileNav" data-target="joe" role="button" aria-label="Ask Joe">
     <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-chat"/></svg>
     <span class="mn-lbl">Ask Joe</span>
   </div>
@@ -15514,19 +15514,19 @@ function switchScTab(tab, btn) {
   </div>
 
   <div class="mm-section">Core</div>
-  <div class="mm-item" onclick="mobileNav('home');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="home" data-close-more>
     <span class="mm-item-icon">🏠</span>Home
   </div>
-  <div class="mm-item" onclick="mobileNav('dash');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="dash" data-close-more>
     <span class="mm-item-icon">📊</span>Dashboard
   </div>
-  <div class="mm-item" onclick="mobileNav('crm');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="crm" data-close-more>
     <span class="mm-item-icon">👥</span>Pipeline
   </div>
-  <div class="mm-item" onclick="mobileNav('prospects');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="prospects" data-close-more>
     <span class="mm-item-icon">👀</span>Prospects
   </div>
-  <div class="mm-item" onclick="mobileNav('est');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="est" data-close-more>
     <span class="mm-item-icon">📋</span>Estimate Builder
   </div>
 
@@ -15534,25 +15534,25 @@ function switchScTab(tab, btn) {
   <div class="mm-item" onclick="mobileNav('d2d');closeMobileMore()">
     <span class="mm-item-icon">🚪</span>Door-to-Door
   </div>
-  <div class="mm-item" onclick="mobileNav('map');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="map" data-close-more>
     <span class="mm-item-icon">🗺️</span>Maps &amp; Pins
   </div>
-  <div class="mm-item" onclick="mobileNav('photos');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="photos" data-close-more>
     <span class="mm-item-icon">📸</span>Damage Photos
   </div>
-  <div class="mm-item" onclick="mobileNav('docs');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="docs" data-close-more>
     <span class="mm-item-icon">📁</span>Templates
   </div>
-  <div class="mm-item" onclick="mobileNav('products');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="products" data-close-more>
     <span class="mm-item-icon">📦</span>Products
   </div>
-  <div class="mm-item" onclick="mobileNav('draw');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="draw" data-close-more>
     <span class="mm-item-icon">✏️</span>Drawing Tool
   </div>
-  <div class="mm-item" onclick="mobileNav('training');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="training" data-close-more>
     <span class="mm-item-icon">🎯</span>Sales Training
   </div>
-  <div class="mm-item" onclick="mobileNav('academy');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="academy" data-close-more>
     <span class="mm-item-icon">🎓</span>Real Deal Academy
   </div>
   <div class="mm-item" onclick="if(typeof toggleCrewCalendar==='function'){toggleCrewCalendar();mobileNav('home');}closeMobileMore()">
@@ -15560,30 +15560,30 @@ function switchScTab(tab, btn) {
   </div>
 
   <div class="mm-section">Insights</div>
-  <div class="mm-item" onclick="mobileNav('storm');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="storm" data-close-more>
     <span class="mm-item-icon">⛈️</span>Storm Center
   </div>
-  <div class="mm-item" onclick="mobileNav('closeboard');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="closeboard" data-close-more>
     <span class="mm-item-icon">📋</span>Close Board
   </div>
-  <div class="mm-item" onclick="mobileNav('repos');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="repos" data-close-more>
     <span class="mm-item-icon">🧠</span>Rep OS
   </div>
-  <div class="mm-item" onclick="mobileNav('board');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="board" data-close-more>
     <span class="mm-item-icon">🏆</span>Leaderboard
   </div>
   <div class="mm-item" onclick="window.location.href='/pro/daily-success';closeMobileMore()">
     <span class="mm-item-icon">📅</span>Daily Program
   </div>
-  <div class="mm-item" onclick="mobileNav('aiusage');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="aiusage" data-close-more>
     <span class="mm-item-icon">💰</span>API Analytics
   </div>
 
   <div class="mm-section">System</div>
-  <div class="mm-item" onclick="mobileNav('joe');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="joe" data-close-more>
     <span class="mm-item-icon">🤖</span>Ask Joe AI
   </div>
-  <div class="mm-item" onclick="mobileNav('settings');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="settings" data-close-more>
     <span class="mm-item-icon">⚙️</span>Settings
   </div>
 </div>
