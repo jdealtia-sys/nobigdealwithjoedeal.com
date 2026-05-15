@@ -268,6 +268,22 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (typeof fn === 'function') fn();
     return;
   }
+  // C.4 mobile-nav cluster — bottom-nav items and the More-drawer
+  // menu items both call mobileNav(target). The More-drawer entries
+  // additionally call closeMobileMore() to dismiss the drawer; that
+  // post-step is signalled by the presence of a data-close-more
+  // attribute on the markup (its value is irrelevant, the attribute's
+  // existence is the flag).
+  if (action === 'mobileNav') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    if (typeof mobileNav === 'function') mobileNav(target);
+    if (el.hasAttribute('data-close-more') && typeof closeMobileMore === 'function') {
+      closeMobileMore();
+    }
+    return;
+  }
   // C.4 photo-engine cluster — inline handlers in dynamically-rendered
   // photo previews, galleries, and lightboxes. Each branch corresponds
   // to a window.PhotoEngine entry point; the el.dataset values carry
