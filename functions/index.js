@@ -663,10 +663,6 @@ const dictateIntegration     = require('./dictate');
 // trigger + atomic sentinel dedup. See functions/integrations/storm-
 // briefing.js for the call-order scoring formula.
 const stormBriefingIntegration = require('./integrations/storm-briefing');
-// Phase B.3 — Viktor.ai event fan-out (alongside Slack). Posts the
-// same high-signal events to Viktor's webhook with action metadata so
-// the AI coworker can act on them in #nbd-ops.
-const viktorIntegration      = require('./integrations/viktor');
 Object.assign(exports, slackIntegration);
 Object.assign(exports, measurementIntegration);
 Object.assign(exports, esignIntegration);
@@ -681,7 +677,6 @@ Object.assign(exports, voiceMemoIntegration);
 Object.assign(exports, voiceIntelligenceIntegration);
 Object.assign(exports, dictateIntegration);
 Object.assign(exports, stormBriefingIntegration);
-Object.assign(exports, viktorIntegration);
 
 // ═══════════════════════════════════════════════════════════════
 // integrationStatus — client-facing readout of which adapters are

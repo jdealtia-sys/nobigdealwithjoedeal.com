@@ -3894,32 +3894,6 @@ section('Phase B.2 — Storm Briefing automation');
     'expected the storm_briefings_sent sentinel to carry leadCount + topLeadIds for Viktor');
 }
 
-section('Phase B.3 — Viktor.ai event fan-out');
-{
-  const v = read(path.join(ROOT, 'functions/integrations/viktor.js'));
-  const sh = read(path.join(ROOT, 'functions/integrations/_shared.js'));
-  const idx = read(path.join(ROOT, 'functions/index.js'));
-  assert('_shared.js declares VIKTOR_WEBHOOK_URL secret',
-    /VIKTOR_WEBHOOK_URL:\s*defineSecret\('VIKTOR_WEBHOOK_URL'\)/.test(sh),
-    'expected VIKTOR_WEBHOOK_URL in SECRETS');
-  for (const trigger of ['viktor_onLeadWon','viktor_onStormBriefing','viktor_onHotLeadAlert']) {
-    assert('viktor.js exports ' + trigger,
-      new RegExp('exports\\.' + trigger + '\\s*=').test(v),
-      'expected ' + trigger + ' exported');
-  }
-  assert('viktor.postViktor envelopes events with source=nbd-pro + ts',
-    /source:\s*VIKTOR_SOURCE/.test(v)
-    && /ts:\s*new Date\(\)\.toISOString\(\)/.test(v),
-    'expected the envelope to carry source + ts');
-  assert('viktor.js no-ops when VIKTOR_WEBHOOK_URL unset',
-    /hasSecret\('VIKTOR_WEBHOOK_URL'\)/.test(v),
-    'expected explicit hasSecret guard');
-  assert('functions/index.js registers viktorIntegration',
-    /viktorIntegration\s*=\s*require\('\.\/integrations\/viktor'\)/.test(idx)
-    && /Object\.assign\(exports,\s*viktorIntegration\)/.test(idx),
-    'expected index.js to require + Object.assign viktorIntegration');
-}
-
 section('Phase B.1 — AI Vision auto-tag on photo upload');
 {
   const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));
