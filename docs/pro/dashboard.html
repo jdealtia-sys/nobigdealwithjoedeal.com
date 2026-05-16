@@ -16116,6 +16116,12 @@ function switchScTab(tab, btn) {
               data-action="call" data-fn="cdaVoiceMemo">
         <span class="fs-14">🎙</span> Voice Memo
       </button>
+      <!-- Voicemail pipeline — record or upload a forwarded voicemail.
+           AI summarizes + auto-creates a task for each action item. -->
+      <button class="cd-share-btn cd-voice-btn" title="Process a voicemail — summary + auto-tasks from action items"
+              onclick="window.NBDVoicemail && window.NBDVoicemail.openForLead(window._cardDetailLeadId)">
+        <span style="font-size:14px;">📩</span> Voicemail
+      </button>
       <button class="cd-icon-btn cd-icon-btn-danger" title="Revoke all active portal links and mint a new one"
               data-action="call" data-fn="cdaRevokePortalLink">
         🚫
@@ -16215,6 +16221,12 @@ function switchScTab(tab, btn) {
      timeline with conflict and tight-travel warnings. Must load after
      maps.js because it uses window.hav() (haversine distance). -->
 <script defer src="js/smart-calendar.js?v=1"></script>
+<!-- Voicemail pipeline — record OR upload a voicemail, route through
+     the dictate callable in summarize mode, write a structured
+     activity entry, and auto-create tasks from extracted action items.
+     Loaded after voice-memo.js (sibling module) — they coexist; this
+     adds the summary + upload + auto-task layer. -->
+<script defer src="js/voicemail.js?v=1"></script>
 <!-- estimate-config.js MUST load before estimates.js + estimate-builder-v2.js;
      it exposes window.NBD_ESTIMATE_CONFIG which both engines read. -->
 <script defer src="js/estimate-config.js?v=2"></script>
