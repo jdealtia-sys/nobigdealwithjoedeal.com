@@ -499,3 +499,216 @@ tfoot td {
   padding-top: 10pt;
 }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ═════════════════════════════════════════════════════════════════
+   D-2 additions: severity, photo grid, page-break utilities, cover
+   ═════════════════════════════════════════════════════════════════ */
+
+/* ── Severity badges (component findings, scope severity) ────── */
+.sev {
+  display: inline-flex;
+  align-items: center;
+  gap: 4pt;
+  padding: 2pt 8pt;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 999pt;
+  white-space: nowrap;
+}
+.sev::before {
+  content: '';
+  width: 5pt; height: 5pt;
+  border-radius: 50%;
+  background: currentColor;
+}
+.sev-good     { color: var(--nbd-green); background: rgba(42, 124, 80, 0.10); }
+.sev-fair     { color: var(--nbd-amber); background: rgba(184, 134, 11, 0.10); }
+.sev-poor     { color: var(--nbd-orange); background: var(--nbd-orange-soft); }
+.sev-critical { color: var(--nbd-red);  background: rgba(185, 28, 28, 0.10); }
+.sev-neutral  { color: var(--nbd-ink-muted); background: rgba(138, 143, 154, 0.08); }
+
+/* ── Stat cards (executive summary) ──────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-3);
+  margin: var(--s-4) 0 var(--s-5);
+}
+.stat {
+  padding: var(--s-3) var(--s-4);
+  background: var(--nbd-surface-soft);
+  border: 0.5pt solid var(--nbd-rule);
+  border-radius: 3pt;
+}
+.stat .stat-label {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-muted);
+  margin-bottom: 4pt;
+}
+.stat .stat-value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 26pt;
+  line-height: 1.0;
+  color: var(--nbd-charcoal);
+  font-variant-numeric: tabular-nums;
+}
+.stat .stat-sub {
+  font-size: 9pt;
+  color: var(--nbd-ink-muted);
+  margin-top: 3pt;
+}
+
+/* ── Photo evidence grid ─────────────────────────────────────── */
+/* 2-col by default; templates can override to 3 for many small shots. */
+.photo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+  margin: var(--s-3) 0;
+}
+.photo-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+.photo-cell {
+  display: flex;
+  flex-direction: column;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.photo-cell .photo-frame {
+  aspect-ratio: 4 / 3;
+  background: var(--nbd-cream);
+  border: 0.5pt solid var(--nbd-rule);
+  overflow: hidden;
+  position: relative;
+}
+.photo-cell .photo-frame img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.photo-cell .photo-tag {
+  position: absolute;
+  top: 6pt;
+  left: 6pt;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(20, 24, 31, 0.78);
+  padding: 2pt 6pt;
+  border-radius: 2pt;
+}
+.photo-cell .photo-meta {
+  padding-top: 6pt;
+  display: flex;
+  gap: 8pt;
+  align-items: baseline;
+}
+.photo-cell .photo-caption {
+  flex: 1;
+  font-size: 9.5pt;
+  color: var(--nbd-ink);
+  line-height: 1.35;
+}
+.photo-cell .photo-loc {
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-muted);
+  white-space: nowrap;
+}
+
+/* Full-bleed hero photo on cover / section opener pages. */
+.photo-hero {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: var(--nbd-charcoal);
+  margin: 0 0 var(--s-5);
+  overflow: hidden;
+  position: relative;
+  border-radius: 2pt;
+}
+.photo-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-hero .photo-hero-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0));
+  padding: var(--s-4) var(--s-5);
+  color: #fff;
+}
+
+/* ── Component findings table — denser than default ──────────── */
+table.findings { width: 100%; }
+table.findings th { padding: 6pt 8pt; }
+table.findings td { padding: 8pt; vertical-align: top; }
+table.findings td .findings-note {
+  display: block;
+  font-size: 9.5pt;
+  color: var(--nbd-ink-soft);
+  margin-top: 3pt;
+  line-height: 1.4;
+}
+
+/* ── Page break utilities — used by multi-page templates ────── */
+.page-break { page-break-before: always; break-before: page; }
+.avoid-break { page-break-inside: avoid; break-inside: avoid; }
+.keep-with-next { page-break-after: avoid; break-after: avoid; }
+
+/* ── Cover page treatment ────────────────────────────────────── */
+.cover {
+  min-height: 8.4in;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-top: var(--s-3);
+}
+.cover .cover-eyebrow {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  margin-bottom: var(--s-3);
+}
+.cover .cover-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 64pt;
+  line-height: 0.9;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+  margin-bottom: var(--s-4);
+}
+.cover .cover-subject {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  font-size: 22pt;
+  line-height: 1.15;
+  color: var(--nbd-ink-soft);
+  margin-bottom: var(--s-6);
+}
+.cover .cover-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-5);
+  padding-top: var(--s-5);
+  border-top: 1.5pt solid var(--nbd-orange);
+}
+.cover .cover-meta .kv-label { font-size: var(--type-eyebrow); }
+.cover .cover-meta .kv-value {
+  border-bottom: none;
+  font-size: 12pt;
+  padding-bottom: 0;
+}
