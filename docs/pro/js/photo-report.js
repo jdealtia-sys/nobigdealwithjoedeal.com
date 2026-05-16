@@ -95,6 +95,22 @@
       const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || 'Homeowner';
       const now = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
+      // ─── D-4: try server-side Puppeteer render first ───
+      // The new template uses the shared cover + design system, with
+      // mode-aware sections (homeowner = visual story, adjuster =
+      // evidence dossier). The legacy buildReportHTML stays as a
+      // fallback for any case the server rejects.
+      try {
+        const ok = await _tryServerRenderPhotoReport({
+          lead, name, before, during, after,
+          mode: reportMode,
+          allPhotos: photos,
+        });
+        if (ok) return;
+      } catch (e) {
+        console.warn('[photo-report] server render failed, falling back:', e && e.message || e);
+      }
+
       const html = buildReportHTML(lead, name, before, during, after, now, hasPhases, reportMode);
 
       // Route through the Universal Document Viewer so the user
@@ -549,6 +565,150 @@
 </div>
 </body>
 </html>`;
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // D-4: Server-side photo-report render
+  // ═════════════════════════════════════════════════════════
+  async function _tryServerRenderPhotoReport(opts) {
+    if (!window._functions || !window._httpsCallable) {
+      const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+      window._functions = mod.getFunctions();
+      window._httpsCallable = mod.httpsCallable;
+    }
+    const { lead, name, before, during, after, mode, allPhotos } = opts;
+
+    if (typeof showToast === 'function') showToast('Rendering photo report…', 'ok');
+
+    // Shape each phase into the template's photo cell payload.
+    const shapePhoto = (p) => {
+      const url = (p && p.urls && (p.urls.lg || p.urls.md)) || (p && p.url) || '';
+      if (!url) return null;
+      return {
+        url,
+        caption:  _captionFor(p, mode) || p.aiCaption || '',
+        location: p.location || '',
+        damageType: p.damageType || '',
+        severity: p.severity || '',
+      };
+    };
+    const shape = (arr) => (arr || []).map(shapePhoto).filter(Boolean);
+
+    // Auto-pair before/after by location (same rule as D-2.7's helper)
+    const pairs = (function () {
+      const byLoc = new Map();
+      (allPhotos || []).forEach((p) => {
+        const loc = (p.location || '').trim();
+        if (!loc) return;
+        const phase = String(p.phase || '').toLowerCase();
+        if (phase !== 'before' && phase !== 'after') return;
+        if (!byLoc.has(loc)) byLoc.set(loc, { before: null, after: null });
+        const slot = byLoc.get(loc);
+        const ms = (p.createdAt && (p.createdAt.toMillis ? p.createdAt.toMillis() : (p.createdAt.seconds ? p.createdAt.seconds * 1000 : 0))) || 0;
+        if (phase === 'before') {
+          if (!slot.before || ms > slot.before._ms) slot.before = Object.assign({}, p, { _ms: ms });
+        } else {
+          if (!slot.after || ms > slot.after._ms) slot.after = Object.assign({}, p, { _ms: ms });
+        }
+      });
+      const out = [];
+      byLoc.forEach((slot, loc) => {
+        if (!slot.before || !slot.after) return;
+        const bUrl = (slot.before.urls && (slot.before.urls.lg || slot.before.urls.md)) || slot.before.url;
+        const aUrl = (slot.after.urls  && (slot.after.urls.lg  || slot.after.urls.md))  || slot.after.url;
+        if (!bUrl || !aUrl) return;
+        out.push({ location: loc, before: { url: bUrl }, after: { url: aUrl } });
+      });
+      return out.slice(0, 8);
+    })();
+
+    const beforeShaped = shape(before);
+    const duringShaped = shape(during);
+    const afterShaped  = shape(after);
+
+    // Cover-page payload (shared partial)
+    const preparedFor = {
+      name,
+      address:     lead.address || '',
+      customerId:  lead.customerId || null,
+      projectLine: lead.damageType ? lead.damageType : null,
+    };
+    const preparedBy = {
+      name:  (window._user && window._user.displayName) || 'Joe Deal',
+      role:  (mode === 'adjuster' ? 'Documentation · ' : 'Project Owner · ') + 'No Big Deal Home Solutions',
+      phone: '(859) 420-7382',
+      email: 'jd@nobigdealwithjoedeal.com',
+    };
+    const reportNumber = (mode === 'adjuster' ? 'ADJ-' : 'PHO-') + Date.now().toString().slice(-6);
+    const projectMeta = [
+      { label: 'Report Date', value: new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) },
+      { label: 'Total Photos', value: String((allPhotos || []).length) },
+      { label: 'Report No.', value: reportNumber },
+    ];
+
+    const summary = mode === 'adjuster'
+      ? {
+          headline: 'Photographic evidence dossier',
+          body: 'Documentation of property condition before, during, and after work performed by No Big Deal Home Solutions. Photos tagged with location, damage type, and severity where applicable.',
+        }
+      : {
+          headline: 'The story of your project, in pictures',
+          body: 'A walkthrough of how the property looked before we started, the work as it happened, and the finished result.',
+        };
+
+    const stats = [
+      { label: 'Before', value: String(beforeShaped.length), sub: 'pre-work' },
+      { label: 'During', value: String(duringShaped.length), sub: 'in progress' },
+      { label: 'After',  value: String(afterShaped.length),  sub: 'completed' },
+    ];
+
+    const payload = {
+      // Cover (shared partial)
+      preparedFor,
+      preparedBy,
+      projectMeta,
+      coverEyebrow: (mode === 'adjuster' ? 'Photo Report · Adjuster Dossier' : 'Photo Report · Project Story'),
+      coverTagline: (mode === 'adjuster'
+        ? 'Documented.<br>Defensible.'
+        : 'The work,<br>in pictures.'),
+      coverSub: (mode === 'adjuster'
+        ? 'Comprehensive photographic record of property condition prior to, during, and following the scope of work performed.'
+        : 'A visual walkthrough of your roof — what we found, what we did, and what it looks like now.'),
+      coverPhoto: (beforeShaped[0] && beforeShaped[0].url) || (afterShaped[0] && afterShaped[0].url) || null,
+      coverCaption: (beforeShaped[0] && beforeShaped[0].location) || null,
+      // Body
+      summary,
+      stats,
+      mode,
+      pairs,
+      before: beforeShaped,
+      during: duringShaped,
+      after:  afterShaped,
+    };
+
+    const fn = window._httpsCallable(window._functions, 'renderPdf');
+    const slug = (name || 'photos').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+    const modeTag = mode === 'adjuster' ? 'Adjuster' : 'Homeowner';
+    const filename = 'NBD-' + modeTag + 'Photos-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+
+    const r = await fn({ template: 'photoReport', payload, filename });
+    const data = r && r.data;
+    if (!data || !data.ok || !data.url) throw new Error('Render returned no URL');
+
+    if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      window.NBDDocViewer.open({
+        url: data.url,
+        title: modeTag + ' Photo Report — ' + name,
+        filename: data.filename || filename,
+      });
+    } else {
+      window.open(data.url, '_blank', 'noopener');
+    }
+    const ms = data.timing && data.timing.totalMs;
+    if (typeof showToast === 'function') {
+      showToast(ms ? '✓ Photo report rendered in ' + ms + 'ms' : '✓ Photo report rendered', 'ok');
+    }
+    return true;
   }
 
   window.generatePhotoReport = generatePhotoReport;
