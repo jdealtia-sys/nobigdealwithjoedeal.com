@@ -3857,6 +3857,36 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase orange-rgba — 7 deferred JS files reviewed');
+{
+  // Theme-aware surfaces converted to color-mix(in srgb, var(--orange) X%, transparent).
+  for (const [file, opts] of [
+    ['docs/pro/js/estimate-finalization.js', {expect: 0, kind: 'theme-aware (selected estimate card)'}],
+    ['docs/pro/js/nbd-doc-viewer.js',        {expect: 0, kind: 'theme-aware (.nbdv-action-btn hover)'}],
+    ['docs/pro/js/rep-report-generator.js',  {expect: 1, kind: 'partial — line ~497 converted; line ~1441 stays as literal (PDF narrative-badge brand-pin)'}],
+  ]) {
+    const src = read(path.join(ROOT, file));
+    const n = (src.match(/rgba\(\s*232\s*,/g) || []).length;
+    assert(file + ' has ' + opts.expect + ' rgba(232,…) literals — ' + opts.kind,
+      n === opts.expect,
+      'expected ' + opts.expect + ' rgba(232,…) in ' + file + '; got ' + n);
+  }
+  // Brand-pinned files keep their literals — these surfaces should NOT
+  // theme-shift (PDFs, customer-facing auth + share, theme-engine config).
+  for (const [file, expectedCount, reason] of [
+    ['docs/pro/js/document-generator-templates.js', 1, 'PDF template box-shadow — brand-pin (PDFs do not theme-shift)'],
+    ['docs/pro/js/share-gallery.js',                1, 'customer-facing share gallery — brand-pin per Phase A'],
+    ['docs/pro/js/nbd-auth.js',                     3, 'auth screen border + bg — brand-pin per Phase A'],
+    ['docs/pro/js/theme-engine.js',                 2, 'theme-engine defaults (rgba(232,114,12,...)) — config, not styling'],
+  ]) {
+    const src = read(path.join(ROOT, file));
+    const n = (src.match(/rgba\(\s*232\s*,\s*114\s*,\s*12\s*,/g) || []).length;
+    assert(file + ' keeps ' + expectedCount + ' brand-pinned orange-rgba — ' + reason,
+      n === expectedCount,
+      'expected ' + expectedCount + ' rgba(232,114,12,…) in ' + file + '; got ' + n);
+  }
+}
+
 section('Phase C.6 — inline-style sweep + utility-class layer');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

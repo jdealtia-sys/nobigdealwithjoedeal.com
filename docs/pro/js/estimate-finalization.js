@@ -488,7 +488,7 @@ ${footer}
               <div style="border:${selected ? '3' : '1'}px solid ${t.color};
                           border-radius:8px; padding:20px; text-align:center;
                           background:${selected ? '#fff8f5' : '#fff'};
-                          ${selected ? 'box-shadow:0 4px 12px rgba(232,114,12,0.15);' : ''}">
+                          ${selected ? 'box-shadow:0 4px 12px color-mix(in srgb, var(--orange) 15%, transparent);' : ''}">
                 <div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;
                             font-weight:700;letter-spacing:.2em;color:${t.color};">
                   ${escapeHtml(t.label)}

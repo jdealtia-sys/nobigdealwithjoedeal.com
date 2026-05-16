@@ -187,9 +187,9 @@
         touch-action: manipulation;
       }
       .nbdv-action-btn:hover {
-        border-color: #e8720c;
-        color: #e8720c;
-        background: rgba(232, 114, 12, .06);
+        border-color: var(--orange);
+        color: var(--orange);
+        background: color-mix(in srgb, var(--orange) 6%, transparent);
       }
       .nbdv-action-btn.primary {
         background: #e8720c;
