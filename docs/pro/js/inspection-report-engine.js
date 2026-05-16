@@ -2273,6 +2273,41 @@
         });
       });
 
+      // D-2.7: build before/after pairs from the same photo pool.
+      // Pairing rule: same `location`, one `Before` + one `After`,
+      // most-recent of each wins. Empty array when nothing pairs.
+      const photoPairs = (function () {
+        const byLoc = new Map();
+        photoPool.forEach((p) => {
+          const loc = (p.location || '').trim();
+          if (!loc) return;
+          const phase = String(p.phase || '').toLowerCase();
+          if (phase !== 'before' && phase !== 'after') return;
+          if (!byLoc.has(loc)) byLoc.set(loc, { before: null, after: null });
+          const slot = byLoc.get(loc);
+          const ms = (p.createdAt && (p.createdAt.toMillis ? p.createdAt.toMillis() : (p.createdAt.seconds ? p.createdAt.seconds * 1000 : 0))) || 0;
+          if (phase === 'before') {
+            if (!slot.before || ms > slot.before._ms) slot.before = Object.assign({}, p, { _ms: ms });
+          } else {
+            if (!slot.after  || ms > slot.after._ms)  slot.after  = Object.assign({}, p, { _ms: ms });
+          }
+        });
+        const out = [];
+        byLoc.forEach((slot, loc) => {
+          if (!slot.before || !slot.after) return;
+          const bUrl = (slot.before.urls && (slot.before.urls.lg || slot.before.urls.md)) || slot.before.url;
+          const aUrl = (slot.after.urls  && (slot.after.urls.lg  || slot.after.urls.md))  || slot.after.url;
+          if (!bUrl || !aUrl) return;
+          out.push({
+            location: loc,
+            before: { url: bUrl },
+            after:  { url: aUrl },
+          });
+        });
+        // 8 max — the PDF only needs the strongest comparisons.
+        return out.slice(0, 8);
+      })();
+
       // Scope rows from estimatedWork.
       const scope = (Array.isArray(d.estimatedWork) ? d.estimatedWork : []).map((w) => ({
         area:     w.area || w.location || '',
@@ -2341,6 +2376,8 @@
         scope,
         totalScope: d.totalScope || null,
         recommendations: d.recommendations || '',
+        // D-2.7: paired before/after photos by location
+        photoPairs,
         // D-2.5 cover fields
         coverPhoto:    (photos[0] && photos[0].url) || null,
         coverCaption:  (photos[0] && photos[0].caption) || (photos[0] && photos[0].area) || null,
