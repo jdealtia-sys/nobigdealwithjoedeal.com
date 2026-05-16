@@ -63,21 +63,29 @@ togglePw.addEventListener('click', () => {
   passwordInput.type = isText ? 'password' : 'text';
   togglePw.textContent = isText ? '👁' : '🙈';
 });
-[emailInput, passwordInput].forEach(el =>
-  el.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); })
-);
-loginBtn.addEventListener('click', doLogin);
-// iOS Safari sometimes drops the synthetic click event after a focus
-// transition from the password input (autofill, keyboard dismiss, etc.),
-// leaving the button visually responsive but not actually triggering its
-// click handler. Pressing the keyboard Enter key still works (that path
-// uses the keydown listener above), but a tap on the button silently
-// does nothing. Mirror with touchend so a tap is always honoured;
-// preventDefault stops the synthetic click that would otherwise
-// double-fire doLogin on browsers where click does work normally.
-loginBtn.addEventListener('touchend', e => {
+// Route everything through the form's submit event. Browsers detect a
+// real email+password form submission and offer to save the password,
+// and saved credentials autofill the inputs on subsequent visits.
+// Enter-key on either input now triggers form submission natively, so
+// we no longer need keydown listeners. The button is type="submit", so
+// click + touchend both fire submit too — handled here in one place.
+const loginForm = document.getElementById('loginForm');
+loginForm.addEventListener('submit', e => {
   e.preventDefault();
   doLogin();
+});
+// iOS Safari sometimes drops the synthetic click event after a focus
+// transition from the password input (autofill, keyboard dismiss, etc.).
+// touchend on the submit button calls requestSubmit() so the same code
+// path runs as a normal submit — preventDefault stops the synthetic
+// click from double-firing on browsers where click works normally.
+loginBtn.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (typeof loginForm.requestSubmit === 'function') {
+    loginForm.requestSubmit();
+  } else {
+    doLogin();
+  }
 });
 // HTML ships the button disabled so Playwright's
 // `#loginBtn:not([disabled])` wait — and any human who taps before the
@@ -98,6 +106,22 @@ async function doLogin() {
   try {
     await setPersistence(auth, rememberMe.checked ? browserLocalPersistence : browserSessionPersistence);
     await signInWithEmailAndPassword(auth, email, pass);
+    // Explicit Credential Management API hint. Chrome / Edge / Safari
+    // already prompt to save on form submission, but storing the
+    // credential here gives the browser a stable name/id to associate
+    // with the saved password and works reliably across hash-router /
+    // SPA flows where the navigation right after login might otherwise
+    // suppress the prompt.
+    if (window.PasswordCredential) {
+      try {
+        const cred = new window.PasswordCredential({
+          id: email,
+          password: pass,
+          name: email,
+        });
+        await navigator.credentials.store(cred);
+      } catch (_) { /* silent — fallback is the form-submit save prompt */ }
+    }
     window.location.replace('/pro/dashboard.html');
   } catch (err) {
     loginErrorMsg.textContent = friendlyError(err.code);
@@ -121,8 +145,10 @@ document.getElementById('backToLogin').addEventListener('click', () => {
   document.getElementById('resetError').classList.remove('show');
   document.getElementById('resetSuccess').classList.remove('show');
 });
-document.getElementById('resetEmail').addEventListener('keydown', e => { if (e.key === 'Enter') doReset(); });
-document.getElementById('resetBtn').addEventListener('click', doReset);
+document.getElementById('resetForm').addEventListener('submit', e => {
+  e.preventDefault();
+  doReset();
+});
 
 async function doReset() {
   const email = document.getElementById('resetEmail').value.trim();
