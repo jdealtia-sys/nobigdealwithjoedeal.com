@@ -236,11 +236,212 @@ window.addEventListener('DOMContentLoaded', () => {
   if (input) {
     input.addEventListener('input', (e) => handleCmdSearch(e.target.value));
   }
+  // Phase 1 Step 1: voice input on the cmd palette. Wire the mic
+  // button. Uses MediaRecorder → base64 → existing dictate callable
+  // (Deepgram transcribe + Claude cleanup), then drops the cleaned
+  // text into the input and triggers the same search path as typing.
+  const micBtn = document.getElementById('cmdMicBtn');
+  if (micBtn) {
+    micBtn.addEventListener('click', cmdToggleVoice);
+  }
 });
+
+// ═══════════════════════════════════════════════
+// VOICE INPUT (Phase 1, Step 1)
+// ═══════════════════════════════════════════════
+let _cmdMediaRecorder = null;
+let _cmdAudioChunks = [];
+let _cmdRecordStream = null;
+// Auto-stop after this many ms of recording — Whisper / Deepgram both
+// price by audio second, and a runaway recorder would burn cost. 30s
+// is longer than any real command someone speaks at the palette.
+const CMD_MAX_RECORD_MS = 30_000;
+let _cmdAutoStopTimer = null;
+
+async function cmdToggleVoice() {
+  const btn = document.getElementById('cmdMicBtn');
+  if (!btn) return;
+  const state = btn.dataset.state || 'idle';
+  if (state === 'recording') {
+    // Stop the recorder; transcription kicks in via mediaRecorder.onstop.
+    _cmdStopRecording();
+    return;
+  }
+  if (state === 'transcribing') {
+    // No-op; let the in-flight transcription finish.
+    return;
+  }
+  await _cmdStartRecording();
+}
+
+async function _cmdStartRecording() {
+  const btn = document.getElementById('cmdMicBtn');
+  const input = document.getElementById('cmdInput');
+  if (!btn || !input) return;
+  // MediaRecorder availability check — desktop Safari < 14.1 + some
+  // older Android lack it. Surface a clear error rather than failing
+  // mysteriously.
+  if (typeof navigator === 'undefined' || !navigator.mediaDevices
+      || typeof MediaRecorder === 'undefined') {
+    if (typeof showToast === 'function') showToast('Voice input not supported in this browser', 'error');
+    return;
+  }
+  try {
+    _cmdRecordStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (e) {
+    // NotAllowedError, NotFoundError, etc. — most often "user said no".
+    if (typeof showToast === 'function') showToast('Mic access denied — enable in browser settings', 'error');
+    return;
+  }
+  _cmdAudioChunks = [];
+  const mimeType = _cmdPickAudioMime();
+  try {
+    _cmdMediaRecorder = mimeType
+      ? new MediaRecorder(_cmdRecordStream, { mimeType })
+      : new MediaRecorder(_cmdRecordStream);
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('Voice recorder failed to start: ' + e.message, 'error');
+    _cmdReleaseStream();
+    return;
+  }
+  _cmdMediaRecorder.addEventListener('dataavailable', (e) => {
+    if (e.data && e.data.size > 0) _cmdAudioChunks.push(e.data);
+  });
+  _cmdMediaRecorder.addEventListener('stop', () => _cmdHandleRecordingStop(mimeType));
+  _cmdMediaRecorder.start();
+  btn.dataset.state = 'recording';
+  btn.setAttribute('aria-label', 'Stop recording');
+  input.placeholder = 'Listening… (click mic to stop)';
+  // Hard cap on record duration.
+  clearTimeout(_cmdAutoStopTimer);
+  _cmdAutoStopTimer = setTimeout(_cmdStopRecording, CMD_MAX_RECORD_MS);
+}
+
+function _cmdStopRecording() {
+  clearTimeout(_cmdAutoStopTimer);
+  _cmdAutoStopTimer = null;
+  try {
+    if (_cmdMediaRecorder && _cmdMediaRecorder.state !== 'inactive') {
+      _cmdMediaRecorder.stop();
+    }
+  } catch (_) {}
+}
+
+function _cmdReleaseStream() {
+  if (_cmdRecordStream) {
+    try { _cmdRecordStream.getTracks().forEach(t => t.stop()); } catch (_) {}
+    _cmdRecordStream = null;
+  }
+}
+
+// Pick the best supported audio MIME. webm/opus is the desktop default;
+// Safari handles audio/mp4 better. Returns '' to let the browser default
+// kick in if neither is supported (rare).
+function _cmdPickAudioMime() {
+  if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
+  for (const c of candidates) {
+    if (MediaRecorder.isTypeSupported(c)) return c;
+  }
+  return '';
+}
+
+async function _cmdHandleRecordingStop(mimeType) {
+  _cmdReleaseStream();
+  const btn = document.getElementById('cmdMicBtn');
+  const input = document.getElementById('cmdInput');
+  if (!btn || !input) return;
+  if (_cmdAudioChunks.length === 0) {
+    btn.dataset.state = 'idle';
+    btn.setAttribute('aria-label', 'Dictate a command (voice input)');
+    input.placeholder = 'Search or jump to...';
+    return;
+  }
+  btn.dataset.state = 'transcribing';
+  btn.setAttribute('aria-label', 'Transcribing…');
+  input.placeholder = 'Transcribing…';
+
+  // Build base64. Browsers don't have a one-liner; chunk-encode via
+  // FileReader to avoid the call-stack overflow that a naive
+  // String.fromCharCode(...new Uint8Array(buf)) hits on big buffers.
+  let audioBase64 = '';
+  try {
+    const blob = new Blob(_cmdAudioChunks, { type: mimeType || 'audio/webm' });
+    audioBase64 = await _cmdBlobToBase64(blob);
+  } catch (e) {
+    _cmdResetMic('Could not encode audio: ' + (e.message || ''));
+    return;
+  }
+
+  // Lazy-load the Firebase Functions SDK if it isn't already on window.
+  let callDictate;
+  try {
+    if (window._functions && window._httpsCallable) {
+      callDictate = window._httpsCallable(window._functions, 'dictate');
+    } else {
+      const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+      window._functions = window._functions || mod.getFunctions();
+      window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      callDictate = window._httpsCallable(window._functions, 'dictate');
+    }
+  } catch (e) {
+    _cmdResetMic('Voice service unavailable');
+    return;
+  }
+
+  try {
+    const res = await callDictate({
+      audioBase64,
+      mimeType: mimeType || 'audio/webm',
+      mode: 'clean',
+    });
+    const text = (res && res.data && (res.data.cleaned || res.data.transcript)) || '';
+    if (!text) {
+      _cmdResetMic('Didn\'t catch that — try again');
+      return;
+    }
+    // Drop the transcription into the input and trigger the existing
+    // search handler. The 'input' event mirrors what the rep would see
+    // if they typed it themselves.
+    input.value = text;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    _cmdResetMic();
+  } catch (e) {
+    const msg = (e && e.message) || 'Transcription failed';
+    _cmdResetMic(msg.includes('Rate limit') ? 'Voice rate limit — wait a moment' : 'Voice transcription failed');
+  }
+}
+
+function _cmdResetMic(errorMsg) {
+  const btn = document.getElementById('cmdMicBtn');
+  const input = document.getElementById('cmdInput');
+  if (btn) {
+    btn.dataset.state = 'idle';
+    btn.setAttribute('aria-label', 'Dictate a command (voice input)');
+  }
+  if (input) input.placeholder = 'Search or jump to...';
+  if (errorMsg && typeof showToast === 'function') showToast(errorMsg, 'error');
+}
+
+function _cmdBlobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result || '';
+      // result is a data URL like "data:audio/webm;base64,XXXX"
+      const idx = result.indexOf('base64,');
+      if (idx < 0) { reject(new Error('Bad encoding')); return; }
+      resolve(result.slice(idx + 7));
+    };
+    reader.onerror = () => reject(new Error('FileReader failed'));
+    reader.readAsDataURL(blob);
+  });
+}
 
 // Expose functions to window
 window.openCmdPalette = openCmdPalette;
 window.closeCmdPalette = closeCmdPalette;
+window.cmdToggleVoice = cmdToggleVoice;
 
 
 // ══════════════════════════════════════════════

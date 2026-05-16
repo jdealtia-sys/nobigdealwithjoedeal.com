@@ -4272,6 +4272,50 @@ body:has(#view-prospects.active) .breadcrumb-container{
 #cmdInput::placeholder{
   color:var(--m);
 }
+/* Phase 1 Step 1: voice input affordance in the cmd palette. */
+.cmd-mic-btn{
+  background:transparent;
+  border:1px solid var(--br);
+  color:var(--m);
+  width:32px;
+  height:32px;
+  border-radius:8px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  flex-shrink:0;
+  transition:background .15s, border-color .15s, color .15s, transform .08s;
+  -webkit-tap-highlight-color:transparent;
+}
+.cmd-mic-btn:hover{
+  border-color:var(--orange);
+  color:var(--orange);
+}
+.cmd-mic-btn:active{ transform:scale(.94); }
+.cmd-mic-btn[data-state="recording"]{
+  background:var(--red, #ef4444);
+  border-color:var(--red, #ef4444);
+  color:#fff;
+  animation:cmdMicPulse 1.2s ease-in-out infinite;
+}
+.cmd-mic-btn[data-state="transcribing"]{
+  background:var(--orange);
+  border-color:var(--orange);
+  color:#fff;
+  animation:cmdMicSpin 1s linear infinite;
+}
+.cmd-mic-btn[disabled]{
+  opacity:.5;
+  cursor:not-allowed;
+}
+@keyframes cmdMicPulse{
+  0%,100%{ box-shadow:0 0 0 0 rgba(239,68,68,.5); }
+  50%    { box-shadow:0 0 0 8px rgba(239,68,68,0); }
+}
+@keyframes cmdMicSpin{
+  to{ transform:rotate(360deg); }
+}
 .cmd-kbd{
   font-family:'Barlow Condensed',sans-serif;
   font-size:11px;
@@ -10602,6 +10646,18 @@ window.nbdNavToggle = nbdNavToggle;
     <div class="cmd-search-box">
       <span class="cmd-icon">🔍</span>
       <input type="text" id="cmdInput" placeholder="Search or jump to..." autocomplete="off" aria-label="Search the command palette — search leads, jump to a view, or run a quick action" role="combobox" aria-autocomplete="list" aria-controls="cmdResults" aria-expanded="true" />
+      <!-- Phase 1 Step 1: voice input. Click to dictate; transcribed
+           text drops into the input and triggers the same search path
+           as typing. Uses the existing dictate callable (Deepgram +
+           Claude cleanup). -->
+      <button id="cmdMicBtn" class="cmd-mic-btn" type="button" aria-label="Dictate a command (voice input)" title="Voice input — speak a command or search">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </button>
       <div class="cmd-kbd">Esc</div>
     </div>
     <div class="cmd-results" id="cmdResults"></div>
