@@ -1445,8 +1445,17 @@
       closeTaskModal();
     }
     
+    // Shift+N - Quick Add Lead (one-tap / GPS-first flow) — checked
+    // BEFORE the bare 'N' branch so the shifted variant doesn't
+    // accidentally fire both handlers.
+    if ((e.key === 'N') && e.shiftKey && isHotkeyEnabled('hk_n')) {
+      e.preventDefault();
+      if (typeof window.openQuickAddLead === 'function') window.openQuickAddLead();
+      return;
+    }
+
     // N - New lead (toggleable)
-    if ((e.key === 'n' || e.key === 'N') && isHotkeyEnabled('hk_n')) {
+    if ((e.key === 'n' || e.key === 'N') && !e.shiftKey && isHotkeyEnabled('hk_n')) {
       goTo('crm');
       setTimeout(() => openLeadModal(), 100);
     }
@@ -2528,7 +2537,10 @@
 
               await loadPins(); // Refresh map pins
               await loadLeads();
-              return;
+              // Return the new leadId so callers (e.g. Quick Add) can
+              // chain follow-up writes — initial activity entry, first
+              // task, etc. — without re-querying Firestore.
+              return leadRef.id;
             }
           } catch (geoError) {
             console.warn('Geocoding failed, creating lead without pin:', geoError);
@@ -2577,6 +2589,9 @@
           window._pendingPinId = null;
           window._pendingPinLatLng = null;
         }
+        await loadLeads();
+        // Return the newly-created lead's id (no-geocode fallback path).
+        return fallbackRef.id;
       } else {
         // EDIT EXISTING: Just update
         await updateDoc(doc(db,'leads',editId), {
@@ -2587,6 +2602,9 @@
         // (e.g. stage changes that should move the card to a new column)
         // without waiting on the loadLeads round-trip.
         _optimisticInsertLead(editId, data);
+        await loadLeads();
+        // Return the edited lead's id so callers know which doc was touched.
+        return editId;
       }
     } catch(e) {
       // Surface the failure rather than fabricating a ghost lead. The
@@ -14889,6 +14907,16 @@ function switchScTab(tab, btn) {
       <span class="m-modal-bar-spacer" aria-hidden="true"></span>
     </div>
     <div style="font-size:11px;color:var(--m);margin-bottom:16px;">3 fields. In the field. Done.</div>
+
+    <!-- step-2: one-tap GPS — fills the address field from device location. -->
+    <button type="button" id="qaGpsBtn" data-action="call" data-fn="qaUseMyLocation"
+      style="width:100%;background:var(--s2);color:var(--t);border:1px solid var(--orange);border-radius:8px;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 22s-8-7.58-8-13a8 8 0 0 1 16 0c0 5.42-8 13-8 13z"/>
+        <circle cx="12" cy="9" r="3"/>
+      </svg>
+      <span id="qaGpsBtnLabel">Use my location</span>
+    </button>
 
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
       <div>

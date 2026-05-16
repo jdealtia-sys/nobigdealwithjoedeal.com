@@ -276,11 +276,103 @@ function openQuickAddLead() {
   document.getElementById('qaAddr').value = '';
   document.getElementById('qaPhone').value = '';
   document.getElementById('qaErr').style.display = 'none';
+  _qaResetGpsBtn();
   setTimeout(() => document.getElementById('qaAddr').focus(), 120);
 }
 function closeQuickAddLead() {
   document.getElementById('quickAddModal').classList.remove('open');
 }
+
+// "Use my location" — fetch device GPS and reverse-geocode to populate
+// the address field. Lets a D2D rep create a lead at the door they're
+// standing in front of in two taps (Quick Add → Use my location → Save).
+// We still require a final tap so the rep can eyeball the resolved
+// address (Nominatim can be off by one house number in dense suburbs).
+async function qaUseMyLocation() {
+  const btn = document.getElementById('qaGpsBtn');
+  const lbl = document.getElementById('qaGpsBtnLabel');
+  const errEl = document.getElementById('qaErr');
+  const addrInput = document.getElementById('qaAddr');
+  if (!('geolocation' in navigator)) {
+    if (errEl) { errEl.textContent = 'GPS not available on this device.'; errEl.style.display = 'block'; }
+    return;
+  }
+  if (btn && btn.disabled) return;
+  if (btn) btn.disabled = true;
+  if (lbl) lbl.textContent = 'Locating…';
+
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 30000
+      });
+    });
+    const lat = pos.coords.latitude;
+    const lng = pos.coords.longitude;
+    // Stash for _saveLead so the new lead gets accurate lat/lng even
+    // when reverse-geocode produces a slightly-off house number — the
+    // _pendingPinLatLng pattern is the same one the map-pin flow uses.
+    window._pendingPinLatLng = { lat, lng };
+
+    if (lbl) lbl.textContent = 'Resolving address…';
+    const addr = await _qaReverseGeocode(lat, lng);
+    if (addr && addrInput) {
+      addrInput.value = addr;
+      if (lbl) lbl.textContent = '✓ Address set';
+    } else {
+      // Fall back to lat,lng string so the lead still gets created with
+      // useful coordinates even if the geocoder is rate-limited.
+      if (addrInput) addrInput.value = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      if (lbl) lbl.textContent = '✓ Location set (no address)';
+    }
+    // Reset button after a beat so user knows the action completed and
+    // they can retry if needed.
+    setTimeout(_qaResetGpsBtn, 1800);
+  } catch (e) {
+    console.warn('[QuickAdd] GPS lookup failed:', e);
+    const msg = (e && e.code === 1) ? 'Location permission denied.'
+              : (e && e.code === 3) ? 'Location request timed out.'
+              : 'Could not get your location.';
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    _qaResetGpsBtn();
+  }
+}
+
+function _qaResetGpsBtn() {
+  const btn = document.getElementById('qaGpsBtn');
+  const lbl = document.getElementById('qaGpsBtnLabel');
+  if (btn) btn.disabled = false;
+  if (lbl) lbl.textContent = 'Use my location';
+}
+
+// Lightweight Nominatim reverse-geocode — same provider d2d-tracker
+// uses. Inlined here to avoid coupling Quick Add to the d2d module's
+// IIFE-scoped helper. Returns a USPS-style string when window.formatMailingAddress
+// is loaded, otherwise a basic "num road, city, state" composition.
+async function _qaReverseGeocode(lat, lng) {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&addressdetails=1&zoom=18&lat=${lat}&lon=${lng}`;
+    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!resp.ok) return '';
+    const data = await resp.json();
+    if (typeof window.formatMailingAddress === 'function') {
+      const formatted = window.formatMailingAddress(data);
+      if (formatted) return formatted;
+    }
+    const a = data && data.address;
+    if (a) {
+      const num = a.house_number || '';
+      const road = a.road || a.street || a.pedestrian || '';
+      const city = a.city || a.town || a.village || a.hamlet || '';
+      const st = a.state_code || a.state || '';
+      return `${num} ${road}${city ? ', ' + city : ''}${st ? ', ' + st : ''}`.trim();
+    }
+  } catch (_) { /* network/CORS — caller handles fallback */ }
+  return '';
+}
+
 async function saveQuickLead() {
   const addr = document.getElementById('qaAddr').value.trim();
   const phone = document.getElementById('qaPhone').value.trim();
@@ -301,7 +393,7 @@ async function saveQuickLead() {
   btn.disabled = true;
 
   try {
-    await window._saveLead({
+    const leadId = await window._saveLead({
       address: addr,
       phone: phone || '',
       damageType: damage,
@@ -314,9 +406,27 @@ async function saveQuickLead() {
       followUp: '',
       insCarrier: '',
       jobValue: '',
-      claimStatus: 'No Claim'
+      claimStatus: 'No Claim',
+      // Tag the source path so usage analytics can see Quick-Add uptake
+      // separately from the full-form / D2D-convert flows.
+      _createdVia: 'quick-add'
     });
-    showToast('✓ Lead added — tap CRM to view', 'success');
+
+    // Bail quietly if _saveLead short-circuited (over plan limit, dedup
+    // declined). It surfaced its own toast already.
+    if (!leadId) {
+      btn.textContent = orig;
+      btn.disabled = false;
+      return;
+    }
+
+    // "Create Everything" — fan-out side-effects so the rep doesn't have
+    // to come back later to fill the lead in with structure. Each write
+    // is fire-and-forget on failure: the lead doc is the source of truth,
+    // and a missing activity row / task isn't worth blocking the save.
+    await _qaCreateEverything(leadId, { source, damage });
+
+    showToast('✓ Lead added — initial task scheduled', 'success');
     closeQuickAddLead();
     loadLeads();
   } catch(e) {
@@ -326,9 +436,65 @@ async function saveQuickLead() {
     btn.disabled = false;
   }
 }
+
+// Fan-out helper: writes the initial activity entry + a 24h follow-up
+// task alongside the freshly-created lead. Kept tolerant of any single
+// write failing — partial success is better than dropping the lead.
+async function _qaCreateEverything(leadId, meta) {
+  if (!leadId || !window._db) return;
+  const db = window._db;
+  const uid = window._user?.uid || null;
+  const companyId = window._userClaims?.companyId || uid || null;
+
+  // Initial activity entry — gives the rep a timeline anchor in the
+  // lead detail view, and lets analytics distinguish quick-add leads
+  // from full-form / D2D-converted ones.
+  try {
+    if (window.addDoc && window.collection && window.serverTimestamp) {
+      await window.addDoc(
+        window.collection(db, 'leads', leadId, 'activity'),
+        {
+          kind: 'lead_created',
+          channel: 'quick-add',
+          source: meta?.source || '',
+          damageType: meta?.damage || '',
+          message: 'Lead created via Quick Add — needs enrichment',
+          userId: uid,
+          companyId,
+          createdAt: window.serverTimestamp()
+        }
+      );
+    }
+  } catch (e) { console.warn('[QuickAdd] activity write skipped:', e?.message || e); }
+
+  // 24h follow-up task — the single most-effective behavior in roofing
+  // sales is contact within 24h. Auto-creating the task means it shows
+  // up on the rep's Today list without them having to remember.
+  try {
+    if (window.addDoc && window.collection && window.serverTimestamp) {
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const dueDate = tomorrow.toISOString().slice(0, 10);
+      await window.addDoc(
+        window.collection(db, 'leads', leadId, 'tasks'),
+        {
+          title: 'Reach out within 24h',
+          body: 'Auto-created on Quick Add — call, text, or knock back.',
+          dueDate,
+          status: 'open',
+          priority: 'high',
+          userId: uid,
+          companyId,
+          createdAt: window.serverTimestamp()
+        }
+      );
+    }
+  } catch (e) { console.warn('[QuickAdd] follow-up task skipped:', e?.message || e); }
+}
+
 window.openQuickAddLead = openQuickAddLead;
 window.closeQuickAddLead = closeQuickAddLead;
 window.saveQuickLead = saveQuickLead;
+window.qaUseMyLocation = qaUseMyLocation;
 // ══ END QUICK ADD ══════════════════════════════════════════════════════
 
 // (warranty certificate functions removed — canonical source is warranty-cert.js)
