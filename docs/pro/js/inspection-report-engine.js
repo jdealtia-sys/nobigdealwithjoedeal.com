@@ -2289,11 +2289,49 @@
           : '',
       };
 
+      // D-2.5: shared cover-page partial payload. Same shape every
+      // doc sends, so the brand stays consistent and only template-
+      // specific content (eyebrow / tagline) varies.
+      const inspectorName = d.inspectorName
+        || (window._user && (window._user.displayName || window._user.email))
+        || 'NBD Inspector';
+
+      const inspectionDateRaw = d.inspectionDate || new Date();
+      const inspectionDateFmt = (function () {
+        let dt;
+        if (inspectionDateRaw instanceof Date) dt = inspectionDateRaw;
+        else if (typeof inspectionDateRaw === 'string') dt = new Date(inspectionDateRaw);
+        else dt = new Date();
+        return isNaN(dt.getTime())
+          ? String(inspectionDateRaw)
+          : dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      })();
+
+      const preparedFor = {
+        name:        leadName,
+        address:     lead.address || '',
+        customerId:  lead.customerId || null,
+        projectLine: d.roofType
+          ? `${d.roofType}${d.totalSquares ? ' · ' + d.totalSquares + ' squares' : ''}`
+          : null,
+      };
+      const preparedBy = {
+        name:  inspectorName,
+        role:  'Inspector · No Big Deal Home Solutions',
+        phone: '(859) 420-7382',
+        email: 'jd@nobigdealwithjoedeal.com',
+      };
+      const projectMeta = [
+        { label: 'Inspection Date', value: inspectionDateFmt },
+        { label: 'Claim No.',       value: lead.claimNumber || '—' },
+        { label: 'Report No.',      value: reportNumber },
+      ];
+
       return {
         leadName,
         address: lead.address || '',
         inspectionDate: d.inspectionDate || new Date(),
-        inspectorName:  d.inspectorName || (window._user && window._user.displayName) || 'NBD Inspector',
+        inspectorName,
         reportNumber,
         summary,
         stats,
@@ -2303,7 +2341,14 @@
         scope,
         totalScope: d.totalScope || null,
         recommendations: d.recommendations || '',
-        coverPhoto: (photos[0] && photos[0].url) || null,
+        // D-2.5 cover fields
+        coverPhoto:    (photos[0] && photos[0].url) || null,
+        coverCaption:  (photos[0] && photos[0].caption) || (photos[0] && photos[0].area) || null,
+        coverTagline:  'Where your roof<br>stands today.',
+        coverSub:      'A visual record of the property at the time of inspection — components, conditions, and the scope we recommend bringing the roof back to standard.',
+        preparedFor,
+        preparedBy,
+        projectMeta,
       };
     },
 
