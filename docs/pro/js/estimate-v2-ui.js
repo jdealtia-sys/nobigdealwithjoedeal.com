@@ -1591,10 +1591,192 @@
   }
 
   // ═════════════════════════════════════════════════════════
+  // D-3: Server-side estimate render (Puppeteer + new template)
+  // ═════════════════════════════════════════════════════════
+  //
+  // Tries the renderPdf callable first. Returns true on success so
+  // the legacy formatter path can short-circuit. Throws on real
+  // errors (which the caller catches and falls back from).
+  async function _tryServerRenderEstimate(format, estimate, meta) {
+    if (!window._functions || !window._httpsCallable) {
+      const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+      window._functions = mod.getFunctions();
+      window._httpsCallable = mod.httpsCallable;
+    }
+    const payload = _buildEstimatePayload(format, estimate, meta);
+    if (!payload) return false;
+
+    if (typeof window.showToast === 'function') window.showToast('Rendering estimate…', 'info');
+
+    const fn = window._httpsCallable(window._functions, 'renderPdf');
+    const slug = (payload.preparedFor && payload.preparedFor.name || 'estimate')
+      .replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+    const filename = 'NBD-Estimate-' + slug + '-' + (meta.estimate && meta.estimate.number || Date.now()) + '.pdf';
+
+    const r = await fn({ template: 'estimate', payload, filename });
+    const data = r && r.data;
+    if (!data || !data.ok || !data.url) throw new Error('Render returned no URL');
+
+    if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      window.NBDDocViewer.open({
+        url:      data.url,
+        title:    'Project Estimate' + (payload.preparedFor && payload.preparedFor.name ? ' — ' + payload.preparedFor.name : ''),
+        filename: data.filename || filename,
+        onSave:   async () => { await save(); },
+      });
+    } else {
+      window.open(data.url, '_blank', 'noopener');
+    }
+
+    const ms = data.timing && data.timing.totalMs;
+    if (typeof window.showToast === 'function') {
+      window.showToast(ms ? `✓ Estimate rendered in ${ms}ms` : '✓ Estimate rendered', 'success');
+    }
+    return true;
+  }
+
+  // Maps the estimate builder's internal data to the new estimate.hbs
+  // payload shape. Centralized so the template stays the only place
+  // that knows the doc structure.
+  function _buildEstimatePayload(format, estimate, meta) {
+    const customer = meta.customer || {};
+    const fullName = ((customer.firstName || '') + ' ' + (customer.lastName || '')).trim()
+      || customer.name
+      || 'Homeowner';
+
+    // Look up the lead by address (closest match) to pick up customerId
+    // for the cover's PREPARED FOR block. Tolerant of misses.
+    const lead = (window._leads || []).find(l =>
+      (l.address && customer.address && l.address.trim() === String(customer.address).trim()) ||
+      (l.firstName && customer.firstName && l.firstName === customer.firstName && l.lastName === customer.lastName)
+    );
+
+    const estNum = (meta.estimate && meta.estimate.number) || 'EST-' + Date.now().toString().slice(-6);
+    const dateStr = (meta.estimate && meta.estimate.date)
+      || new Date().toISOString().split('T')[0];
+    const dateFmt = (function () {
+      try {
+        return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US',
+          { month: 'long', day: 'numeric', year: 'numeric' });
+      } catch (_) { return dateStr; }
+    })();
+
+    const preparedFor = {
+      name:        fullName,
+      address:     customer.address || '',
+      customerId:  (lead && lead.customerId) || null,
+      projectLine: (function () {
+        const parts = [];
+        if (estimate.materialType || customer.material) parts.push(estimate.materialType || customer.material);
+        if (meta && meta.tiers) parts.push('Good / Better / Best comparison');
+        return parts.length ? parts.join(' · ') : null;
+      })(),
+    };
+    const preparedBy = {
+      name:  (meta.estimate && meta.estimate.preparedBy) || (window._user && window._user.displayName) || 'Joe Deal',
+      role:  'Project Owner · No Big Deal Home Solutions',
+      phone: '(859) 420-7382',
+      email: 'jd@nobigdealwithjoedeal.com',
+    };
+    const projectMeta = [
+      { label: 'Estimate Date',  value: dateFmt },
+      { label: 'Estimate No.',   value: estNum },
+      { label: 'Valid For',      value: '30 days' },
+    ];
+
+    // Tier comparison block — only when meta.tiers is populated by
+    // the retail-quote path. Marks the middle tier (Better) as
+    // recommended unless a different one is flagged.
+    let tierList = null;
+    if (meta.tiers && (meta.tiers.good || meta.tiers.better || meta.tiers.best)) {
+      const recommended = meta.tiers.recommended || 'better';
+      const buildTier = (key, name, subtitle, features) => {
+        const src = meta.tiers[key];
+        if (!src) return null;
+        return {
+          name,
+          subtitle,
+          total: Number(src.total || src.grandTotal || 0),
+          features,
+          priceNote: null,
+          isRecommended: key === recommended,
+        };
+      };
+      tierList = [
+        buildTier('good',   'Good',   '25-yr architectural shingle · standard install',
+          ['Owens Corning Oakridge or equivalent', 'Standard ridge vent + flashing', 'Labor warranty: 10 years', 'Full tear-off included']),
+        buildTier('better', 'Better', '30-yr architectural · upgraded underlayment',
+          ['GAF Timberline HDZ or equivalent', 'Synthetic underlayment upgrade', 'Ice & water shield on eaves + valleys', 'Labor warranty: 15 years', 'Full tear-off included']),
+        buildTier('best',   'Best',   'Lifetime designer · full system warranty',
+          ['GAF Timberline ULTRA HDZ Lifetime', 'Synthetic underlayment + ice & water full perimeter', 'Premium ridge vent', 'Labor warranty: Lifetime', 'Full system warranty by GAF', 'Annual courtesy inspection']),
+      ].filter(Boolean);
+    }
+
+    // Line items mapped to the template shape.
+    const lines = (estimate.lines || []).map((l) => ({
+      code:        l.code || '',
+      description: l.name || l.description || '',
+      category:    l.category || '',
+      quantity:    l.quantity || l.qty || 1,
+      unit:        l.unit || 'ea',
+      unitPrice:   Number(l.unitPrice || l.price || 0),
+      lineTotal:   Number(l.lineTotal || l.total || ((l.quantity || 1) * (l.unitPrice || 0))),
+    }));
+
+    // Stats card row — surface the headline numbers above the table.
+    const stats = [
+      { label: 'Line Items',  value: String(lines.length),  sub: 'in scope' },
+      { label: 'Material',    value: estimate.materialType || meta.materialType || 'GAF Timberline', sub: '' },
+      { label: 'Estimate',    value: '$' + (Number(estimate.total || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })), sub: 'before tax' },
+    ];
+
+    const summary = {
+      headline: tierList
+        ? 'Three ways to do this. Same crew, same workmanship.'
+        : 'Scope and pricing for the proposed work.',
+      body: tierList
+        ? 'Pick the level that fits your budget and how long you want the roof to last. Our recommendation is flagged.'
+        : 'Itemized breakdown below covers materials, labor, and overhead. Subtotal and final total at the foot of the table.',
+    };
+
+    const validUntilMs = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    const validUntilFmt = new Date(validUntilMs).toLocaleDateString('en-US',
+      { month: 'long', day: 'numeric', year: 'numeric' });
+
+    return {
+      // Cover (shared partial)
+      preparedFor,
+      preparedBy,
+      projectMeta,
+      coverTagline: 'Built to last.<br>Priced to fit.',
+      coverSub:     'A clear estimate with itemized scope and three tiers to choose from — no upsell pressure, no fine-print surprises.',
+      coverPhoto:   null,
+      coverCaption: null,
+      // Body content
+      summary,
+      stats,
+      tierList,
+      tiers: tierList ? true : false, // template gates on truthy
+      lines,
+      subtotal: Number(estimate.subtotal || 0),
+      tax:      Number(estimate.tax || 0),
+      total:    Number(estimate.total || 0),
+      terms: {
+        validityDays: 30,
+        validUntil:   validUntilFmt,
+        depositPct:   25,
+        scheduleNote: 'Typical start: 2-4 weeks from signed contract.',
+        warranty:     '10 years labor minimum; tier-dependent extensions',
+      },
+      notes: null,
+    };
+  }
+
+  // ═════════════════════════════════════════════════════════
   // Finalization — opens formatted estimate in new window
   // ═════════════════════════════════════════════════════════
 
-  function finalize(format) {
+  async function finalize(format) {
     // Normalize format defensively — buttons pass 'insurance-scope' |
     // 'retail-quote' | 'internal-view', but older call sites also use
     // 'internal'. Map legacy aliases so the formatter + titleMap both
@@ -1685,6 +1867,22 @@
       toast('Preview formatter returned no document. Check console for details.', 'error');
       return;
     }
+
+    // ─── D-3: try server-side Puppeteer render first ───
+    // Routes through the new renderPdf callable so the estimate
+    // comes out as a real vector PDF with the shared design system
+    // (cover, brand band, social rail, tier comparison, etc.). The
+    // legacy html2canvas path stays as a fallback for any case the
+    // server rejects (transient error, missing template, etc.).
+    if (format === 'retail-quote' || format === 'internal-view') {
+      try {
+        const ok = await _tryServerRenderEstimate(format, estimate, meta);
+        if (ok) return;
+      } catch (e) {
+        console.warn('[V2 finalize] server render failed, falling back:', e && e.message || e);
+      }
+    }
+
     // Route through the Universal Document Viewer so the user
     // can Save, Email, Print, or Download PDF without being
     // dumped into a blank popup with no way back.
