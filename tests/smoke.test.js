@@ -655,7 +655,7 @@ section('Wave A4: rotateAccessCodes button');
     /async function rotateAccessCodes/.test(adm));
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   assert('Team Manager header renders rotate button',
-    /AdminManager\.rotateAccessCodes\(\)/.test(dash));
+    /data-target="AdminManager\.rotateAccessCodes"/.test(dash));
 }
 
 section('Wave A5: firestore rules tests cover new collections');
@@ -1269,7 +1269,7 @@ section('F8: Voice memo transcription');
   // KEEP the recordForLead wiring check.
   assert('Voice Memo button on lead detail',
     /(Voice Memo|Record Voice Memo)/.test(dash) &&
-    /NBDVoiceMemo\.recordForLead\(window\._cardDetailLeadId\)/.test(dash));
+    /data-action="call" data-fn="cdaVoiceMemo"/.test(dash));
   const idx = read(path.join(FUNCTIONS, 'index.js'));
   assert('integrationStatus reports deepgram',
     /deepgram:\s*_hasInt\('DEEPGRAM_API_KEY'\)/.test(idx));
@@ -3062,11 +3062,11 @@ section('Bulk lead operations — writeBatch + NBDStore + new fields');
   // Toolbar UI — new selects + buttons must be in the DOM.
   assert('dashboard.html bulk toolbar has bulkCarrierSelect + bulkDamageSelect',
     /id="bulkCarrierSelect"/.test(dash) && /id="bulkDamageSelect"/.test(dash));
-  assert('dashboard.html toolbar wires bulkAssignCarrier + bulkAssignDamage onclick',
-    /onclick="bulkAssignCarrier\(\)"/.test(dash)
-    && /onclick="bulkAssignDamage\(\)"/.test(dash));
+  assert('dashboard.html toolbar wires bulkAssignCarrier + bulkAssignDamage',
+    /data-action="call" data-fn="bulkAssignCarrier"/.test(dash)
+    && /data-action="call" data-fn="bulkAssignDamage"/.test(dash));
   assert('dashboard.html toolbar has Select-all-visible button',
-    /onclick="selectAllVisibleLeads\(\)"/.test(dash));
+    /data-action="call" data-fn="selectAllVisibleLeads"/.test(dash));
 
   // Public API — every helper exposed on window so inline
   // onclick handlers can reach them.
@@ -3857,6 +3857,55 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.4 finale + C.5 — long-tail delegate + script-src tightening');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const firebaseJson = read(path.join(ROOT, 'firebase.json'));
+
+  // Zero inline onclicks left in dashboard.html.
+  const remaining = (dash.match(/onclick=/g) || []).length;
+  assert('dashboard.html has zero inline onclick handlers',
+    remaining === 0,
+    'expected 0 inline onclicks; got ' + remaining);
+
+  // New generic delegate branches all present.
+  for (const action of ['call','module','windowOpen','signOut','reload','closeOpen','clickProxy','hideEl','stopProp','removeSelf','removeParent','removeClosest','modalBackdropClose']) {
+    assert("delegate handles action='" + action + "'",
+      new RegExp("if \\(action === '" + action + "'\\)").test(mainJs),
+      'expected ' + action + ' branch in _nbdActionDelegate');
+  }
+
+  // Allowlist Set declared and has a reasonable lower bound.
+  assert('_NBD_CALL_ALLOWLIST Set declared with allowed call targets',
+    /_NBD_CALL_ALLOWLIST\s*=\s*new Set\(\[/.test(mainJs),
+    'expected _NBD_CALL_ALLOWLIST = new Set([...]) declaration');
+
+  // Spot-check that key wrappers exist as window globals.
+  for (const fn of ['cdaReport','cdaEnrich','cdaPhotos','cdaInvoice','cdaInspection','cdaInspectionDeep','cdaMjdAct','cdaEditLead','cdaOpenMobileInspection','cdaVoiceMemo','cdaSharePortalLink','cdaRevokePortalLink','cdaConfirmPromote','cdaOpenTaskModal','mCreateFabRoute','openDailyProgramFromMore','openCrewCalendarFromMore','mQuickAddRoute','restartOnboardingTour','openDecisionPicker','openD2DOrGo','clearAccentTheme','openSettingsTab','openPhotoEngineOrClickProxy','openReportGenerator','enrichReportData','openPhotoEngineCurrentLead','openInspectionBuilderCurrentLead','closeInspectionBuilder','hideFollowUpAlerts','goToD2DFromMaps','openCalBookingUrl','hardResetTest','gstaticTest','modeLineDraw']) {
+    assert('window.' + fn + ' defined',
+      new RegExp('window\\.' + fn + '\\s*=\\s*function').test(mainJs),
+      'expected window.' + fn + ' = function(...)');
+  }
+
+  // C.5 — script-src 'unsafe-inline' dropped from line-44 enforcing CSP.
+  // The Report-Only policy already lacked it; now the enforcing one matches.
+  const csps = firebaseJson.match(/"Content-Security-Policy",\s*"value":\s*"([^"]+)"/g) || [];
+  assert('at least one enforcing CSP declared',
+    csps.length >= 1, 'expected ≥1 Content-Security-Policy in firebase.json');
+  // The PRO route (line 44) is the only one with script-src 'unsafe-inline';
+  // assert that NO enforcing CSP includes "script-src 'self' 'unsafe-inline'".
+  assert("no enforcing CSP retains script-src 'self' 'unsafe-inline'",
+    !/script-src\s+'self'\s+'unsafe-inline'/.test(firebaseJson) ||
+      /script-src\s+'self'\s+'unsafe-inline'/.test(firebaseJson.match(/Content-Security-Policy-Report-Only[\s\S]*?(?=\}\s*,|\}\s*\])/) || ''),
+    "expected script-src to drop 'unsafe-inline' on enforcing CSP");
+  // The enforcing CSP also adds script-src-attr 'none' to block any
+  // inline event-handler attribute that could be reintroduced.
+  assert("enforcing CSP declares script-src-attr 'none'",
+    /script-src-attr\s+'none'/.test(firebaseJson),
+    "expected script-src-attr 'none' in enforcing CSP");
+}
+
 section('Phase C.4 kanban + zone-color + pin-status — 3 picker clusters');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
@@ -3993,12 +4042,12 @@ section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
     closeMoreCount === 19,
     'expected 19 data-close-more flags; got ' + closeMoreCount);
 
-  // Only one inline mobileNav onclick should remain — the crew-calendar
-  // compound with the defensive existence check.
+  // C.4 finale: every mobileNav handler is delegated. The crew-calendar
+  // compound is now routed through window.openCrewCalendarFromMore.
   const remaining = (dash.match(/onclick="mobileNav\(/g) || []).length;
-  assert('only 1 inline mobileNav onclick remains (crew-calendar)',
-    remaining === 1,
-    'expected exactly 1 inline mobileNav onclick; got ' + remaining);
+  assert('zero inline mobileNav onclicks remain (all delegated)',
+    remaining === 0,
+    'expected exactly 0 inline mobileNav onclicks; got ' + remaining);
 }
 
 section('Phase C.4 photo-engine — inline actions in rendered templates');
@@ -4166,12 +4215,12 @@ section('Phase C.4 cluster 2 — compound goTo handlers (newEstimate / filterByS
     tools === 7,
     'expected 7 toolMenuGoTo conversions; got ' + tools);
 
-  // Only ONE inline onclick="goTo(..." remains (the one-off d2d
-  // maps-redirect notification — unique, not worth a custom action).
+  // C.4 finale: every inline goTo() is delegated; the d2d maps-redirect
+  // compound is routed through window.goToD2DFromMaps.
   const remaining = (dash.match(/onclick="goTo\(/g) || []).length;
-  assert('only 1 inline onclick="goTo(..." remains (the d2d one-off)',
-    remaining === 1,
-    'expected exactly 1 inline goTo onclick remaining; got ' + remaining);
+  assert('zero inline onclick="goTo(..." remain (all delegated)',
+    remaining === 0,
+    'expected exactly 0 inline goTo onclicks; got ' + remaining);
 }
 
 section('Phase D.3 — integrationStatus secret-readout completeness');
@@ -4743,8 +4792,8 @@ section('Wave 2D — Mobile inspection overlay');
     'expected close button in m-inspection top bar to use the closeModal delegate');
   // 3. Entry CTA in mobile job-detail Activity tab.
   assert('mobile job-detail Activity tab has a .m-jd-cta Start Inspection button',
-    /class="m-jd-cta"[\s\S]*openMobileInspection\(window\._cardDetailLeadId\)/.test(dash),
-    'expected a .m-jd-cta wired to openMobileInspection');
+    /class="m-jd-cta"[\s\S]*data-action="call" data-fn="cdaOpenMobileInspection"/.test(dash),
+    'expected a .m-jd-cta wired to cdaOpenMobileInspection');
   // 4. JS hooks exposed.
   for (const fn of ['openMobileInspection','closeMobileInspection']) {
     assert('window.' + fn + ' exposed',
@@ -4780,8 +4829,8 @@ section('Wave 2C.2 — Camera FAB + native share');
     /class="m-shutter-fab"[\s\S]*id="mShutterFab"/.test(vpBlock),
     'expected #mShutterFab button inside view-photos');
   // 3. Share button in mobile job-detail top bar.
-  assert('mobile job-detail has #mJdShare button wired to _mJdShare()',
-    /id="mJdShare"[\s\S]*onclick="_mJdShare\(\)"/.test(dash),
+  assert('mobile job-detail has #mJdShare button wired to _mJdShare',
+    /id="mJdShare"[\s\S]*data-action="call" data-fn="_mJdShare"/.test(dash),
     'expected the share icon button in the mobile job-detail top bar');
   // 4. JS handler exposed.
   assert('window._mJdShare exposed',
@@ -4808,11 +4857,11 @@ section('Wave 2C.1 — Mobile create popover');
   assert('mCreateBackdrop element exists',
     /<div class="m-create-backdrop" id="mCreateBackdrop"/.test(dash),
     'expected the backdrop div');
-  // 2. Five create rows wired.
+  // 2. Five create rows wired (via data-action="call" data-fn="_mCreate").
   for (const kind of ['lead','photo','task','knock','note']) {
-    assert('create row wires onclick="_mCreate(\'' + kind + '\')"',
-      new RegExp("_mCreate\\('" + kind + "'\\)").test(dash),
-      'missing _mCreate(\'' + kind + '\') row');
+    assert('create row wires _mCreate(\'' + kind + '\') via delegate',
+      new RegExp('data-action="call"\\s+data-fn="_mCreate"\\s+data-arg="' + kind + '"').test(dash),
+      'missing _mCreate(' + kind + ') row');
   }
   // 3. Hidden camera-capture input present.
   assert('hidden camera input #mCreatePhotoInput with capture=environment',
@@ -4824,9 +4873,11 @@ section('Wave 2C.1 — Mobile create popover');
       new RegExp('window\\.' + fn.replace(/_/g,'_') + '\\s*=').test(mainJs),
       'expected window.' + fn);
   }
-  // 5. Center FAB still points to toggleMobileCreatePopover with a fallback.
-  assert('mobile-nav center FAB calls toggleMobileCreatePopover (with openLeadModal fallback)',
-    /toggleMobileCreatePopover\s*\(\)\s*:\s*openLeadModal\s*\(\)/.test(dash),
+  // 5. Center FAB routes through mCreateFabRoute (toggleMobileCreatePopover
+  //    with an openLeadModal fallback, defined as a single global).
+  assert('mobile-nav center FAB routes through mCreateFabRoute',
+    /data-action="call" data-fn="mCreateFabRoute"/.test(dash) &&
+    /mCreateFabRoute\s*=\s*function/.test(mainJs),
     'expected the FAB onclick to test for toggleMobileCreatePopover and fall back to openLeadModal');
   // 6. Desktop force-hide guard.
   assert('@media (min-width:769px) hides .m-create-popover',
