@@ -56,10 +56,10 @@ const TEMPLATES = {
   inspection: { file: 'inspection.hbs', docType: 'Inspection Report',    seal: 'Inspection' },
   estimate:   { file: 'estimate.hbs',   docType: 'Project Estimate',     seal: 'Estimate' },
   photoReport:{ file: 'photoReport.hbs',docType: 'Photo Report',         seal: 'Photo Report' },
-  // invoice:    { file: 'invoice.hbs',    docType: 'Invoice',          seal: 'Invoice' },
-  // contract:   { file: 'contract.hbs',   docType: 'Project Contract', seal: 'Contract' },
-  // changeOrder:{ file: 'changeOrder.hbs',docType: 'Change Order',     seal: 'CO' },
-  // receipt:    { file: 'receipt.hbs',    docType: 'Receipt',          seal: 'Receipt' },
+  invoice:    { file: 'invoice.hbs',    docType: 'Invoice',              seal: 'Invoice' },
+  contract:   { file: 'contract.hbs',   docType: 'Project Contract',     seal: 'Contract' },
+  changeOrder:{ file: 'changeOrder.hbs',docType: 'Change Order',         seal: 'Change Order' },
+  receipt:    { file: 'receipt.hbs',    docType: 'Payment Receipt',      seal: 'Receipt' },
   // photoReport:{ file: 'photoReport.hbs',docType: 'Photo Report',     seal: 'Photo Report' },
 };
 
@@ -108,6 +108,9 @@ function registerHelpersOnce() {
   Handlebars.registerHelper('inc', (n) => Number(n) + 1);
   Handlebars.registerHelper('gt',  (a, b) => Number(a) > Number(b));
   Handlebars.registerHelper('eq',  (a, b) => a === b);
+  Handlebars.registerHelper('add', (a, b) => Number(a) + Number(b));
+  Handlebars.registerHelper('sub', (a, b) => Number(a) - Number(b));
+  Handlebars.registerHelper('mul', (a, b) => Number(a) * Number(b));
 
   // Format a Date | ISO | timestamp into "Month D, YYYY" in en-US.
   // Templates pass raw values from the lead; we don't trust them
