@@ -387,6 +387,18 @@ exports.getHomeownerPortalView = onRequest(
       referralStats: lead.referralStats
         ? { sent: lead.referralStats.sent || 0 }
         : { sent: 0 },
+      // Step 17: Digital Warranty Card payload — set when the rep
+      // generates a warranty certificate from customer.html. Null
+      // means no cert has been issued yet, in which case the portal
+      // hides the warranty card entirely.
+      warranty: lead.warranty ? {
+        tier:        lead.warranty.tier || 'standard',
+        tierLabel:   lead.warranty.tierLabel || '',
+        tierDesc:    lead.warranty.tierDesc || '',
+        work:        lead.warranty.work || '',
+        installDate: lead.warranty.installDate || null,
+        certNumber:  lead.warranty.certNumber || null,
+      } : null,
       rep: {
         displayName:    rep.displayName || lead.repName || 'Your Rep',
         calcomUsername: rep.calcomUsername || null,
