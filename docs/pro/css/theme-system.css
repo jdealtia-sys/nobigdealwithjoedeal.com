@@ -181,3 +181,56 @@
 .trial-warning{background:rgba(232,114,12,.12);color:var(--orange);border-bottom:1px solid rgba(232,114,12,.2);}
 .trial-urgent{background:rgba(224,82,82,.15);color:var(--red);border-bottom:1px solid rgba(224,82,82,.25);}
 .trial-expired{background:rgba(224,82,82,.2);color:#fca5a5;border-bottom:1px solid rgba(224,82,82,.3);}
+
+/* ══ Phase C.6 utility-class layer (2026-05-16) ════════════════════════════
+   Replaces ~421 exact-match inline style="..." attributes from dashboard.html
+   with single-class shorthands. Each class equals the inline declaration it
+   replaces — same cascade order, same visual outcome, but no `style="..."`
+   attribute on the element so style-src CSP can eventually drop 'unsafe-inline'
+   once JS template-literal style emitters are also migrated. */
+.dn{display:none;}
+.mb-md{margin-bottom:16px;}
+.mb-lg{margin-bottom:20px;}
+.mb-14{margin-bottom:14px;}
+.mb-12{margin-bottom:12px;}
+.mt-14{margin-top:14px;}
+.meta-11{font-size:11px;color:var(--m);}
+.meta-10{font-size:10px;color:var(--m);}
+.meta-10-mt2{font-size:10px;color:var(--m);margin-top:2px;}
+.meta-12-mb14{font-size:12px;color:var(--m);margin-bottom:14px;}
+.meta-12-mb16{font-size:12px;color:var(--m);margin-bottom:16px;}
+.body-13{font-size:13px;color:var(--t);}
+.heading-13{font-size:13px;font-weight:700;color:var(--t);}
+.h-13-mb2{font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;}
+.fs-11{font-size:11px;}
+.fs-12{font-size:12px;}
+.fs-14{font-size:14px;}
+.fwt-14{font-weight:600;color:var(--text);font-size:14px;}
+.fw-bold-t{font-weight:600;color:var(--t);}
+.gold-14{font-weight:700;color:var(--gold);font-size:14px;}
+.fg-orange{color:var(--orange);}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;}
+.eyebrow-9{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;}
+.eyebrow-9i{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);}
+.bc-chip{font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;}
+.bc-meta-cp{font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;}
+.kbd-input{background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;}
+.btn-11{font-size:11px;padding:5px 10px;}
+.btn-12{font-size:12px;padding:8px 14px;}
+.btn-input-40{width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;}
+.row-tight{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.row-card{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;}
+.card-7{padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;}
+.flex-g8{display:flex;gap:8px;}
+.fwgap-8{display:flex;gap:8px;flex-wrap:wrap;}
+.cell{padding:8px 4px;}
+.cell-t{padding:8px 4px;color:var(--t);}
+.cell-m{padding:8px 4px;color:var(--m);}
+.bb{border-bottom:1px solid var(--br);}
+.cp{cursor:pointer;}
+.w-full{width:100%;}
+.f1{flex:1;}
+.pos-rel{position:relative;}
+.ac-orange{accent-color:var(--orange);}
+.chip-green{background:rgba(46,204,138,.1);color:var(--green);}
+.chip-blue{background:rgba(74,158,255,.1);color:var(--blue);}

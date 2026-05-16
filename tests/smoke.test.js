@@ -3857,6 +3857,47 @@ section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
     'expected touch-device override to keep arrows fully visible');
 }
 
+section('Phase C.6 — inline-style sweep + utility-class layer');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const theme = read(path.join(ROOT, 'docs/pro/css/theme-system.css'));
+
+  // The utility-class layer is declared in theme-system.css.
+  for (const cls of ['dn','mb-md','mb-lg','meta-11','meta-10','f1','eyebrow','bc-chip',
+                     'row-tight','body-13','btn-11','fs-11','bc-meta-cp','row-card',
+                     'cp','cell','cell-t','cell-m','bb','w-full','mt-14',
+                     'fs-12','fs-14','heading-13','flex-g8','fwgap-8',
+                     'fg-orange','eyebrow-9','card-7','btn-input-40','kbd-input',
+                     'pos-rel','ac-orange','chip-green','chip-blue']) {
+    assert("theme-system.css declares ." + cls,
+      new RegExp("\\." + cls + "\\s*\\{").test(theme),
+      'expected utility class .' + cls + ' in theme-system.css');
+  }
+
+  // Hard upper bound — we cleaned up at least ~400 of the original 1,187
+  // inline styles. Truly dynamic / one-off styles can remain, but the
+  // count must not regress above 850 (was 1,187 before this sweep).
+  const remaining = (dash.match(/style="[^"]+"/g) || []).length;
+  assert('inline style count cut to ≤850 (was 1,187)',
+    remaining <= 850,
+    'expected ≤850 inline style attrs after C.6; got ' + remaining);
+
+  // .dn class must hide WITHOUT !important — JS toggling style.display='block'
+  // must still win over the class rule.
+  assert('.dn rule uses display:none (no !important — keeps JS show/hide working)',
+    /\.dn\{display:none;\}/.test(theme),
+    '.dn should be display:none (no !important)');
+
+  // Spot-check: the 7-property eyebrow / 8-property row-card declarations
+  // are present and match exactly the strings the sweep replaced.
+  assert('.eyebrow has the 7-property uppercase label declaration',
+    /\.eyebrow\{font-size:10px;font-weight:700;letter-spacing:\.1em;text-transform:uppercase;color:var\(--m\);display:block;margin-bottom:6px;\}/.test(theme),
+    'expected .eyebrow with the full 7-property declaration');
+  assert('.row-card has the bordered row declaration',
+    /\.row-card\{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var\(--s2\);border:1px solid var\(--br\);border-radius:7px;cursor:pointer;\}/.test(theme),
+    'expected .row-card with the full row declaration');
+}
+
 section('Phase C.4 finale + C.5 — long-tail delegate + script-src tightening');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
@@ -4992,9 +5033,10 @@ section('Pro Chrome — icon system + header consolidation');
       !headerBlock.includes(glyph),
       'global <header> still has emoji ' + glyph + ' — should be SVG sprite ref now');
   }
-  // 4. The notif badge keeps working via the new .hdr-tool-badge class.
+  // 4. The notif badge keeps working via the new .hdr-tool-badge class
+  // (and may carry the .dn utility from the C.6 sweep when count=0).
   assert('notif button keeps its #notifBadge under .hdr-tool-badge',
-    /<button class="hdr-tool"[^>]*id="notifBtn"[\s\S]{0,500}id="notifBadge" class="hdr-tool-badge"/.test(dash),
+    /<button class="hdr-tool"[^>]*id="notifBtn"[\s\S]{0,500}id="notifBadge" class="hdr-tool-badge( dn)?"/.test(dash),
     'expected #notifBadge inside the .hdr-tool#notifBtn with .hdr-tool-badge class');
   // 5. The CRM action row was given group dividers (3 .crm-hdr-sep spans).
   assert('CRM action row has ≥3 .crm-hdr-sep dividers between groups',
