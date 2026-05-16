@@ -63,6 +63,60 @@ const CORS_ORIGINS = [
 // 32-char no-confusable alphabet (no 0/O, 1/I/L). 24 bytes of
 // crypto.randomBytes → 24 chars of token → ~120 bits of entropy.
 const PORTAL_TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+/**
+ * D-2.7 — auto-pair before/after photos for the homeowner portal.
+ *
+ * Given the raw photo docs (already filtered to sharedWithHomeowner
+ * by the caller), find the strongest before/after pair per location.
+ * Returns an array of { before, after, location } in stable order.
+ *
+ * Pairing rule:
+ *   group by photo.location (skip photos without a location)
+ *   per group: pick the most-recent phase==='Before' and the most-
+ *   recent phase==='After'. Both required for a valid pair.
+ *
+ * We deliberately don't fall back to "any two photos at this location"
+ * — a before/after slider with two random shots is worse than no
+ * slider. Reps who want a pair need to phase-tag both shots.
+ *
+ * Returns at most 6 pairs (avoids overwhelming the portal page).
+ */
+function _pairBeforeAfter(photos) {
+  if (!Array.isArray(photos) || photos.length < 2) return [];
+  const byLoc = new Map();
+  for (const p of photos) {
+    const loc = (p.location || '').trim();
+    if (!loc) continue;
+    const phase = String(p.phase || '').toLowerCase();
+    if (phase !== 'before' && phase !== 'after') continue;
+    if (!byLoc.has(loc)) byLoc.set(loc, { before: null, after: null });
+    const slot = byLoc.get(loc);
+    const created = p.createdAt && (p.createdAt.toMillis ? p.createdAt.toMillis() : (p.createdAt.seconds ? p.createdAt.seconds * 1000 : 0)) || 0;
+    if (phase === 'before') {
+      if (!slot.before || created > (slot.before._ms || 0)) slot.before = Object.assign({}, p, { _ms: created });
+    } else {
+      if (!slot.after  || created > (slot.after._ms  || 0)) slot.after  = Object.assign({}, p, { _ms: created });
+    }
+  }
+  const pairs = [];
+  for (const [loc, slot] of byLoc.entries()) {
+    if (slot.before && slot.after) {
+      pairs.push({
+        location: loc,
+        before: { url: slot.before.url || null, urls: slot.before.urls || null },
+        after:  { url: slot.after.url  || null, urls: slot.after.urls  || null },
+      });
+    }
+  }
+  // Newest-after-first so the most-recent comparison surfaces at top.
+  pairs.sort((a, b) => (b.after._ms || 0) - (a.after._ms || 0));
+  return pairs.slice(0, 6).map(p => ({
+    location: p.location,
+    before:   p.before,
+    after:    p.after,
+  }));
+}
+
 function mintPortalToken() {
   const bytes = require('crypto').randomBytes(24);
   let s = '';
@@ -422,6 +476,11 @@ exports.getHomeownerPortalView = onRequest(
           caption: p.homeownerCaption || ''
         };
       }),
+      // D-2.7: auto-pair before/after photos by location. The portal
+      // renders a draggable slider per pair; PDFs render side-by-side.
+      // Pairing rule: same `location`, one phase='Before' + one
+      // phase='After', most-recent of each wins. Empty when no pairs.
+      photoPairs: _pairBeforeAfter(photoSnap.docs.map(d => ({ id: d.id, ...d.data() }))),
       tokenInfo: {
         daysRemaining: tok.expiresAt
           ? Math.max(0, Math.ceil((tok.expiresAt.toMillis() - Date.now()) / 86_400_000))

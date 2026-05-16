@@ -373,6 +373,11 @@
   <a href="https://nobigdealwithjoedeal.com">nobigdealwithjoedeal.com</a>
 </footer>
 
+<!-- D-2.7: Before/After draggable slider. Loaded after the main
+     page body so the portal's render path can call NBDBeforeAfter
+     once view data lands. Self-contained — no Firebase deps. -->
+<script defer src="./js/before-after-slider.js?v=1"></script>
+
 <script>
 (function () {
   'use strict';
@@ -728,6 +733,23 @@
       );
     }
 
+    // ── D-2.7: Before & After photo sliders ──
+    // Card only renders when the server returned at least one
+    // before/after pair (auto-matched by location + phase tag).
+    // Each pair becomes a draggable slider — homeowner drags the
+    // orange handle left/right to reveal the After over the Before.
+    if (Array.isArray(view.photoPairs) && view.photoPairs.length > 0) {
+      const slots = view.photoPairs.map((_, i) => '<div class="ba-slot" data-i="' + i + '"></div>').join('');
+      parts.push(
+        '<div class="card" id="ba-card">' +
+          '<div class="card-label">📸 Before &amp; After</div>' +
+          '<div class="card-title">See the transformation</div>' +
+          '<p style="color:var(--muted);margin:0 0 16px;font-size:13px;line-height:1.5;">Drag the orange handle to slide between the before and after for each location.</p>' +
+          '<div style="display:flex;flex-direction:column;gap:24px;">' + slots + '</div>' +
+        '</div>'
+      );
+    }
+
     // ── Wave 123: Async messaging card (homeowner ↔ rep) ──
     // Always rendered. Thread loads via getPortalMessages on mount,
     // refreshes every 30s while the page is visible.
@@ -788,9 +810,37 @@
     wireRatingCard(view);
     // Wave 123: wire up the messaging thread + compose.
     wireMessagingCard();
+    // D-2.7: hydrate each before/after slot with the slider widget.
+    wireBeforeAfterSliders(view);
     // Phase 5 (Output Engine): wire phase tabs + location chips that
     // filter the photo gallery client-side.
     wirePhotoFilters();
+  }
+
+  // ─── D-2.7: Before & After ────────────────────────────────────
+  function wireBeforeAfterSliders(view) {
+    if (!Array.isArray(view.photoPairs) || view.photoPairs.length === 0) return;
+    if (!window.NBDBeforeAfter || typeof window.NBDBeforeAfter.render !== 'function') {
+      // Script hasn't loaded yet — retry on next tick. The script tag
+      // is `defer` so DOMContentLoaded normally runs first, but if the
+      // view fetched faster than expected this guard catches the race.
+      setTimeout(() => wireBeforeAfterSliders(view), 200);
+      return;
+    }
+    document.querySelectorAll('#ba-card .ba-slot').forEach((slot) => {
+      const i = parseInt(slot.dataset.i, 10);
+      const pair = view.photoPairs[i];
+      if (!pair) return;
+      const beforeUrl = (pair.before && (pair.before.urls && (pair.before.urls.lg || pair.before.urls.md)) || (pair.before && pair.before.url)) || null;
+      const afterUrl  = (pair.after  && (pair.after.urls  && (pair.after.urls.lg  || pair.after.urls.md))  || (pair.after  && pair.after.url))  || null;
+      if (!beforeUrl || !afterUrl) return;
+      window.NBDBeforeAfter.render(slot, {
+        before:   { url: beforeUrl },
+        after:    { url: afterUrl },
+        location: pair.location || '',
+        idx: i,
+      });
+    });
   }
 
   // ─── Phase 5: portal photo gallery filtering ──────────────────
