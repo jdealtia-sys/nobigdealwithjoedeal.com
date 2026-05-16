@@ -429,8 +429,18 @@ exports.getHomeownerPortalView = onRequest(
       homeowner: {
         firstName: lead.firstName || '',
         lastName:  lead.lastName || '',
-        address:   lead.address || ''
+        address:   lead.address || '',
+        // Step 16: expose customerId so the portal can build a stable
+        // referral link (/refer.html?ref=NBD-0001). customerId is
+        // already public — the rep shares it informally — and the
+        // referral endpoint validates it server-side anyway.
+        customerId: lead.customerId || null
       },
+      // Step 16: referral counter, drives the "X friends sent your way"
+      // pill in the portal's Refer-a-friend card.
+      referralStats: lead.referralStats
+        ? { sent: lead.referralStats.sent || 0 }
+        : { sent: 0 },
       rep: {
         displayName:    rep.displayName || lead.repName || 'Your Rep',
         calcomUsername: rep.calcomUsername || null,

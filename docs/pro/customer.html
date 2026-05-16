@@ -1014,6 +1014,14 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <div class="meta-item" id="customerIdBadge" style="display:none;">
         <span style="font-family:monospace;font-weight:700;font-size:13px;background:color-mix(in srgb, var(--orange) 12%, transparent);color:var(--orange);padding:2px 8px;border-radius:6px;letter-spacing:.5px;" id="customerIdDisplay">—</span>
       </div>
+      <!-- Step 16: Referred-by badge — only shown when lead.referredByLeadId
+           is set (incoming referral from another customer's portal share). -->
+      <div class="meta-item" id="referredByBadge" style="display:none;">
+        <a href="#" id="referredByLink" title="Open the referring customer"
+           style="font-size:11px;font-weight:600;background:rgba(46,204,138,.14);color:#5eead4;border:1px solid rgba(46,204,138,.45);padding:3px 9px;border-radius:12px;letter-spacing:.02em;text-decoration:none;">
+          📨 Referred by <span id="referredByName">—</span>
+        </a>
+      </div>
       <div class="meta-item">
         <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M10 11a3 3 0 100-6 3 3 0 000 6z"/><path d="M10 18s-6-5.35-6-10a6 6 0 1112 0c0 4.65-6 10-6 10z"/></svg> <span id="customerAddress">—</span>
       </div>
@@ -3050,6 +3058,23 @@ async function loadCustomerData(id) {
     if (lead.customerId) {
       document.getElementById('customerIdDisplay').textContent = lead.customerId;
       document.getElementById('customerIdBadge').style.display = '';
+    }
+
+    // Step 16: Referred-by badge — surfaces the upstream relationship
+    // so the rep knows this lead came in via a past customer's share
+    // link. Falls back to the customerId when the name isn't set
+    // (older referrals before Step 16's name capture).
+    if (lead.referredByLeadId) {
+      const badge = document.getElementById('referredByBadge');
+      const nameEl = document.getElementById('referredByName');
+      const link = document.getElementById('referredByLink');
+      if (badge && nameEl && link) {
+        nameEl.textContent = lead.referredByName
+          || lead.referredByCustomerId
+          || 'a past customer';
+        link.href = '/pro/customer.html?id=' + encodeURIComponent(lead.referredByLeadId);
+        badge.style.display = '';
+      }
     }
 
     // Populate header
