@@ -1,0 +1,87 @@
+{{!--
+  SHARED COVER PAGE — D-2.5
+  ──────────────────────────────────────────────────────────────────
+  One canonical cover layout every doc inherits from. Same chrome,
+  same rhythm — but the content surfaces THIS customer and THIS
+  project. The brand stays consistent so a homeowner who's received
+  multiple NBD docs recognizes them instantly; the personalization
+  surfaces just enough to make the doc feel like it's about them.
+
+  Variables consumed:
+    eyebrow      → small brand-orange tagline at top ("Warranty Certificate · Lifetime Pledge")
+    tagline      → the big editorial display line ("Backed by our name on the line.")
+    sub          → optional one-line subtitle under the tagline
+    heroPhoto    → optional URL for the hero image / color block
+    heroCaption  → optional overlay caption for the hero
+    preparedFor  → { name, address, customerId?, projectLine? }
+    preparedBy   → { name, role, phone, email }
+    projectMeta  → array of { label, value } shown in the bottom strip
+                   (e.g., inspection date, claim no., report no.)
+--}}
+
+<section class="cover-v2 avoid-break">
+
+  {{#if eyebrow}}<div class="cover-v2-eyebrow">{{eyebrow}}</div>{{/if}}
+
+  {{#if tagline}}<div class="cover-v2-tagline">{{{tagline}}}</div>{{/if}}
+
+  {{#if sub}}<p class="cover-v2-sub">{{sub}}</p>{{/if}}
+
+  {{#if heroPhoto}}
+    <div class="cover-v2-hero">
+      <img src="{{heroPhoto}}" alt="">
+      {{#if heroCaption}}
+        <div class="cover-v2-hero-overlay">
+          <div class="cover-v2-hero-eyebrow">Cover photo</div>
+          <div class="cover-v2-hero-caption">{{heroCaption}}</div>
+        </div>
+      {{/if}}
+    </div>
+  {{/if}}
+
+  <div class="cover-v2-parties">
+    {{#if preparedFor}}
+    <div class="cover-v2-party">
+      <div class="cover-v2-party-label">Prepared for</div>
+      <div class="cover-v2-party-primary">{{preparedFor.name}}</div>
+      {{#if preparedFor.address}}
+        <div class="cover-v2-party-line">{{preparedFor.address}}</div>
+      {{/if}}
+      {{#if preparedFor.projectLine}}
+        <div class="cover-v2-party-line cover-v2-party-line--accent">{{preparedFor.projectLine}}</div>
+      {{/if}}
+      {{#if preparedFor.customerId}}
+        <div class="cover-v2-party-id">Customer ID · {{preparedFor.customerId}}</div>
+      {{/if}}
+    </div>
+    {{/if}}
+
+    {{#if preparedBy}}
+    <div class="cover-v2-party">
+      <div class="cover-v2-party-label">Prepared by</div>
+      <div class="cover-v2-party-primary">{{preparedBy.name}}</div>
+      {{#if preparedBy.role}}
+        <div class="cover-v2-party-line">{{preparedBy.role}}</div>
+      {{/if}}
+      {{#if preparedBy.phone}}
+        <div class="cover-v2-party-line">{{preparedBy.phone}}</div>
+      {{/if}}
+      {{#if preparedBy.email}}
+        <div class="cover-v2-party-line">{{preparedBy.email}}</div>
+      {{/if}}
+    </div>
+    {{/if}}
+  </div>
+
+  {{#if projectMeta.length}}
+  <div class="cover-v2-meta">
+    {{#each projectMeta}}
+    <div class="cover-v2-meta-cell">
+      <div class="cover-v2-meta-label">{{this.label}}</div>
+      <div class="cover-v2-meta-value">{{this.value}}</div>
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+
+</section>

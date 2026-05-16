@@ -27,33 +27,17 @@
     recommendations (string)
 --}}
 
-{{!-- ─────────── 1. COVER ─────────── --}}
-<section class="cover avoid-break">
-  <div>
-    <div class="cover-eyebrow">Roof Inspection Report</div>
-    <div class="cover-title">{{leadName}}</div>
-    <div class="cover-subject">{{address}}</div>
-  </div>
-  {{#if coverPhoto}}
-    <div class="photo-hero">
-      <img src="{{coverPhoto}}" alt="">
-    </div>
-  {{/if}}
-  <div class="cover-meta">
-    <div class="kv">
-      <div class="kv-label">Inspection Date</div>
-      <div class="kv-value">{{fmtDate inspectionDate}}</div>
-    </div>
-    <div class="kv">
-      <div class="kv-label">Inspected By</div>
-      <div class="kv-value">{{inspectorName}}</div>
-    </div>
-    <div class="kv">
-      <div class="kv-label">Report No.</div>
-      <div class="kv-value" style="font-variant-numeric:tabular-nums;">{{reportNumber}}</div>
-    </div>
-  </div>
-</section>
+{{!-- ─────────── 1. COVER (shared D-2.5 partial) ─────────── --}}
+{{> coverPage
+  eyebrow="Roof Inspection Report"
+  tagline=coverTagline
+  sub=coverSub
+  heroPhoto=coverPhoto
+  heroCaption=coverCaption
+  preparedFor=preparedFor
+  preparedBy=preparedBy
+  projectMeta=projectMeta
+}}
 
 {{!-- ─────────── 2. EXECUTIVE SUMMARY ─────────── --}}
 <section class="page-break">

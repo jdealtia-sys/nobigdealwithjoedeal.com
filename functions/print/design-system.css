@@ -712,3 +712,164 @@ table.findings td .findings-note {
   font-size: 12pt;
   padding-bottom: 0;
 }
+
+/* ═════════════════════════════════════════════════════════════════
+   D-2.5: shared cover-page component (.cover-v2)
+   ─────────────────────────────────────────────────────────────────
+   One canonical cover layout every template inherits from. Same
+   editorial chrome, same rhythm, same brand DNA — but the content
+   surfaces THIS customer and THIS project. Homeowner recognizes
+   the company at a glance; recognizes themselves a beat later.
+   ═════════════════════════════════════════════════════════════════ */
+.cover-v2 {
+  min-height: 8.4in;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--s-2);
+}
+
+.cover-v2-eyebrow {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 10pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  margin-bottom: var(--s-4);
+}
+
+.cover-v2-tagline {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 56pt;
+  line-height: 0.9;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+  margin-bottom: var(--s-3);
+}
+
+.cover-v2-sub {
+  font-size: 13pt;
+  line-height: 1.5;
+  color: var(--nbd-ink-soft);
+  max-width: 82%;
+  margin: 0 0 var(--s-6);
+}
+
+/* Hero photo (or color block) — full-bleed-ish, hairline-cropped */
+.cover-v2-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--nbd-charcoal);
+  margin-bottom: var(--s-6);
+  overflow: hidden;
+  border-radius: 3pt;
+}
+.cover-v2-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover-v2-hero-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: linear-gradient(to top, rgba(20, 24, 31, 0.78), rgba(20, 24, 31, 0));
+  padding: var(--s-5) var(--s-5) var(--s-4);
+  color: #fff;
+}
+.cover-v2-hero-eyebrow {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin-bottom: 3pt;
+}
+.cover-v2-hero-caption {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 16pt;
+  letter-spacing: 0.04em;
+}
+
+/* "Prepared for" / "Prepared by" — the personalization moment */
+.cover-v2-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-7);
+  padding: var(--s-5) 0 var(--s-5);
+  border-top: 0.5pt solid var(--nbd-rule);
+  margin-top: auto; /* push toward bottom of cover */
+}
+.cover-v2-party {
+  display: flex;
+  flex-direction: column;
+  gap: 2pt;
+}
+.cover-v2-party-label {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  margin-bottom: 6pt;
+}
+.cover-v2-party-primary {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 22pt;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: var(--nbd-charcoal);
+  margin-bottom: 4pt;
+}
+.cover-v2-party-line {
+  font-size: 11pt;
+  line-height: 1.45;
+  color: var(--nbd-ink-soft);
+}
+.cover-v2-party-line--accent {
+  color: var(--nbd-ink);
+  font-weight: 600;
+  padding-top: 3pt;
+}
+.cover-v2-party-id {
+  font-family: 'Barlow', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 9pt;
+  letter-spacing: 0.08em;
+  color: var(--nbd-ink-muted);
+  text-transform: uppercase;
+  margin-top: 4pt;
+  padding-top: 4pt;
+  border-top: 0.5pt solid var(--nbd-rule);
+}
+
+/* Project meta strip — date / claim no. / report no., the
+   "official-looking" footer that says this is a real document */
+.cover-v2-meta {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--s-5);
+  padding: var(--s-3) 0 0;
+  border-top: 2pt solid var(--nbd-orange);
+}
+.cover-v2-meta-cell { display: flex; flex-direction: column; gap: 2pt; }
+.cover-v2-meta-label {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-muted);
+}
+.cover-v2-meta-value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 14pt;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--nbd-charcoal);
+  font-variant-numeric: tabular-nums;
+}
