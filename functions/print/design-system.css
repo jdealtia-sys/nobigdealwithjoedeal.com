@@ -566,6 +566,177 @@ p:last-child { margin-bottom: 0; }
   color: var(--nbd-ink);
   font-weight: 700;
 }
+
+/* ═════════════════════════════════════════════════════════════════
+   D-3: Estimate / Proposal — tier comparison, line table, headline
+   ═════════════════════════════════════════════════════════════════ */
+
+/* ── Tier comparison grid (Good / Better / Best) ──────────────── */
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-3);
+  margin: var(--s-4) 0;
+}
+.tier-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-4) var(--s-4) var(--s-4);
+  background: var(--nbd-surface);
+  border: 0.5pt solid var(--nbd-rule);
+  border-radius: 4pt;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.tier-card--recommended {
+  background: var(--nbd-orange-soft);
+  border: 1.5pt solid var(--nbd-orange);
+  padding-top: var(--s-5);
+}
+.tier-flag {
+  position: absolute;
+  top: -8pt;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--nbd-orange);
+  color: #fff;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 800;
+  font-size: 8pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 4pt 12pt;
+  border-radius: 999pt;
+  white-space: nowrap;
+}
+.tier-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 22pt;
+  line-height: 1.0;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+  margin-bottom: 3pt;
+}
+.tier-sub {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 600;
+  font-size: 9.5pt;
+  color: var(--nbd-ink-soft);
+  margin-bottom: var(--s-3);
+  line-height: 1.35;
+}
+.tier-price {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 30pt;
+  line-height: 1.0;
+  color: var(--nbd-charcoal);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 2pt;
+}
+.tier-card--recommended .tier-price {
+  color: var(--nbd-orange);
+}
+.tier-price-note {
+  font-size: 8.5pt;
+  color: var(--nbd-ink-muted);
+  margin-bottom: var(--s-3);
+}
+.tier-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 0.5pt solid var(--nbd-rule);
+  padding-top: var(--s-3);
+}
+.tier-features li {
+  position: relative;
+  padding: 4pt 0 4pt 14pt;
+  font-size: 9.5pt;
+  color: var(--nbd-ink);
+  line-height: 1.4;
+}
+.tier-features li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8pt;
+  width: 5pt;
+  height: 5pt;
+  border-radius: 50%;
+  background: var(--nbd-orange);
+}
+
+/* ── Line-item table (estimate-specific overrides) ────────────── */
+table.estimate-lines th {
+  font-size: 8.5pt;
+}
+table.estimate-lines td {
+  font-size: 10pt;
+  vertical-align: top;
+}
+table.estimate-lines .line-code {
+  font-family: 'Barlow', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 9pt;
+  font-weight: 700;
+  color: var(--nbd-ink-muted);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+table.estimate-lines .line-cat {
+  font-size: 8.5pt;
+  color: var(--nbd-ink-muted);
+  margin-top: 2pt;
+}
+table.estimate-lines tfoot .totals-row td {
+  border-top: none;
+  padding: 4pt 8pt;
+}
+table.estimate-lines tfoot .totals-row .totals-label {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 9pt;
+  color: var(--nbd-ink-soft);
+}
+
+/* ── Headline total block — the yes/no number ─────────────────── */
+.total-block {
+  margin-top: var(--s-6);
+  padding: var(--s-5) var(--s-6);
+  background: var(--nbd-charcoal);
+  color: #fff;
+  border-radius: 4pt;
+  text-align: right;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.total-block .total-eyebrow {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 10pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  margin-bottom: var(--s-2);
+}
+.total-block .total-amount {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 48pt;
+  line-height: 1.0;
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: var(--s-2);
+}
+.total-block .total-validity {
+  font-size: 9.5pt;
+  color: rgba(255, 255, 255, 0.75);
+}
 @page {
   @bottom-center {
     content: element(footer);

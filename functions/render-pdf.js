@@ -54,7 +54,7 @@ const CORS_ORIGINS = [
 const TEMPLATES = {
   warranty:   { file: 'warranty.hbs',   docType: 'Warranty Certificate', seal: 'Lifetime Pledge' },
   inspection: { file: 'inspection.hbs', docType: 'Inspection Report',    seal: 'Inspection' },
-  // estimate:   { file: 'estimate.hbs',   docType: 'Estimate',         seal: 'Estimate' },
+  estimate:   { file: 'estimate.hbs',   docType: 'Project Estimate',     seal: 'Estimate' },
   // invoice:    { file: 'invoice.hbs',    docType: 'Invoice',          seal: 'Invoice' },
   // contract:   { file: 'contract.hbs',   docType: 'Project Contract', seal: 'Contract' },
   // changeOrder:{ file: 'changeOrder.hbs',docType: 'Change Order',     seal: 'CO' },
