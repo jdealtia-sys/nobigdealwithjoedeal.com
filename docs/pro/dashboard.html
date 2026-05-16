@@ -235,7 +235,7 @@
           <div class="kcol-label">${label}</div>
           <div class="kcol-meta">
             <div class="kcol-count" id="kcount-${stageKey}">0</div>
-            <div class="kcol-total" id="ktotal-${stageKey}" style="display:none;"></div>
+            <div class="kcol-total dn" id="ktotal-${stageKey}"></div>
           </div>
         </div>
         <div class="kcol-body" id="kbody-${stageKey}"
@@ -1070,7 +1070,7 @@
         banner.id = 'liteBanner';
         banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,var(--s),var(--s2));border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
         banner.innerHTML = `
-          <span>🚀 You're on <strong style="color:var(--orange);">NBD Pro Lite</strong> (25 leads max)</span>
+          <span>🚀 You're on <strong class="fg-orange">NBD Pro Lite</strong> (25 leads max)</span>
           <a href="/pro/landing.html#pricing" style="background:var(--orange);color:var(--accent-fg);padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
           <button data-action="removeParent" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
         `;
@@ -1476,15 +1476,15 @@
         <div style="background:var(--s);border:1px solid var(--br);border-radius:12px;padding:24px;max-width:400px;width:90%;" data-action="stopProp">
           <div style="font-size:18px;font-weight:700;margin-bottom:16px;font-family:'Barlow Condensed',sans-serif;">⌨️ Keyboard Shortcuts</div>
           <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:13px;">
-            <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">N</kbd>
+            <kbd class="kbd-input">N</kbd>
             <span>New Lead</span>
-            <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">E</kbd>
+            <kbd class="kbd-input">E</kbd>
             <span>New Estimate</span>
-            <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">/</kbd>
+            <kbd class="kbd-input">/</kbd>
             <span>Focus Search</span>
-            <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">ESC</kbd>
+            <kbd class="kbd-input">ESC</kbd>
             <span>Close Modals</span>
-            <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">?</kbd>
+            <kbd class="kbd-input">?</kbd>
             <span>Show This Help</span>
           </div>
           <button class="btn btn-orange" style="width:100%;margin-top:16px;justify-content:center;" data-action="removeClosest" data-target="div[style*=fixed]">Got it</button>
@@ -9863,7 +9863,7 @@ body.theme-frosted {
 <!-- NBD Pro loading spinner — shown until DOMContentLoaded fires,
      then fades out. Makes the 75-script load feel instant. -->
 <div id="nbd-loader" style="position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;transition:opacity .4s;">
-  <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--t);letter-spacing:.06em;">NBD <span style="color:var(--orange);">PRO</span></div>
+  <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--t);letter-spacing:.06em;">NBD <span class="fg-orange">PRO</span></div>
   <div style="width:120px;height:3px;background:#1e2228;border-radius:2px;overflow:hidden;">
     <div style="width:40%;height:100%;background:var(--orange);border-radius:2px;animation:nbd-load-bar 1.2s ease-in-out infinite;"></div>
   </div>
@@ -10301,7 +10301,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <a href="/pro/landing.html" class="nnav-logo">
     <div class="nnav-mark">NBD</div>
     <div>
-      <div class="nnav-wordmark"><span style="color:var(--t);">NBD</span> <span style="color:var(--orange);">PRO</span></div>
+      <div class="nnav-wordmark"><span style="color:var(--t);">NBD</span> <span class="fg-orange">PRO</span></div>
     </div>
   </a>
 
@@ -10545,7 +10545,7 @@ window.nbdNavToggle = nbdNavToggle;
   </div>
   <div class="hright">
   <div style="display:flex;align-items:center;gap:2px;margin-right:8px;">
-    <div style="position:relative;">
+    <div class="pos-rel">
       <button class="hdr-tool" data-action="toggle" data-target="recentDropdown" title="Recent Customers" aria-label="Recent customers" id="recentBtn">
         <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-clock"/></svg>
       </button>
@@ -10554,10 +10554,10 @@ window.nbdNavToggle = nbdNavToggle;
         <div id="recentList"></div>
       </div>
     </div>
-    <div style="position:relative;">
+    <div class="pos-rel">
       <button class="hdr-tool" data-action="toggle" data-target="notifications" title="Notifications" aria-label="Notifications" id="notifBtn">
         <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-bell"/></svg>
-        <span id="notifBadge" class="hdr-tool-badge" style="display:none;">0</span>
+        <span id="notifBadge" class="hdr-tool-badge dn">0</span>
       </button>
       <div id="notifDropdown" style="display:none;position:absolute;top:100%;right:0;background:var(--s);border:1px solid var(--br);border-radius:8px;padding:0;min-width:320px;max-width:400px;margin-top:4px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:9999;max-height:400px;overflow:hidden;flex-direction:column;">
         <div style="font-size:11px;color:var(--t);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;">
@@ -10596,7 +10596,7 @@ window.nbdNavToggle = nbdNavToggle;
 </header>
 
 <!-- COMMAND PALETTE (Cmd/Ctrl+K) -->
-<div id="cmdPalette" class="cmd-palette" style="display:none;">
+<div id="cmdPalette" class="cmd-palette dn">
   <div class="cmd-overlay" data-action="closeModal" data-target="cmdPalette"></div>
   <div class="cmd-modal">
     <div class="cmd-search-box">
@@ -10619,7 +10619,7 @@ window.nbdNavToggle = nbdNavToggle;
 <div id="toastContainer" class="toast-container"></div>
 
 <!-- KEYBOARD SHORTCUTS REFERENCE PANEL (?) -->
-<div id="shortcutsPanel" class="shortcuts-panel" style="display:none;">
+<div id="shortcutsPanel" class="shortcuts-panel dn">
   <div class="cmd-overlay" data-action="closeModal" data-target="shortcutsPanel"></div>
   <div class="shortcuts-modal">
     <div class="shortcuts-header">
@@ -10759,7 +10759,7 @@ window.nbdNavToggle = nbdNavToggle;
       </div>
 
       <!-- ═══ HOW-TO TAB ═══ -->
-      <div id="scTabHowto" style="display:none;">
+      <div id="scTabHowto" class="dn">
         <div class="shortcuts-grid">
 
           <!-- CRM BASICS -->
@@ -10917,7 +10917,7 @@ function switchScTab(tab, btn) {
   <div class="ni active" data-action="goTo" data-target="home" id="nav-home"><span class="ni-icon">🏠</span>Home</div>
   <div class="ni" data-action="goTo" data-target="dash" id="nav-dash"><span class="ni-icon">📊</span>Dashboard</div>
   <div class="ni" data-action="goTo" data-target="crm"  id="nav-crm"><span class="ni-icon">👥</span>Pipeline <span class="nbadge" id="leadBadge">0</span><span class="health-indicator" id="crmHealthBadge" title="CRM connection status"></span></div>
-  <div class="ni" data-action="goTo" data-target="prospects" id="nav-prospects"><span class="ni-icon">👀</span>Prospects <span class="nbadge" id="prospectsNavBadge" style="display:none;">0</span></div>
+  <div class="ni" data-action="goTo" data-target="prospects" id="nav-prospects"><span class="ni-icon">👀</span>Prospects <span class="nbadge dn" id="prospectsNavBadge">0</span></div>
   <div class="ni" data-action="goTo" data-target="est"  id="nav-est"><span class="ni-icon">📋</span>Estimates</div>
 
   <div class="nav-divider"></div>
@@ -10977,7 +10977,7 @@ function switchScTab(tab, btn) {
 
   <div class="ni" data-action="windowOpen" data-target="how-to.html" id="nav-howto" title="Step-by-step instructions"><span class="ni-icon">📖</span>How To</div>
   <div class="ni" data-action="goTo" data-target="settings" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
-  <div class="ni" data-action="goTo" data-target="admin" id="nav-admin" style="display:none;"><span class="ni-icon">🛡️</span>Team Manager</div>
+  <div class="ni dn" data-action="goTo" data-target="admin" id="nav-admin"><span class="ni-icon">🛡️</span>Team Manager</div>
 
 </nav>
 
@@ -11024,7 +11024,7 @@ function switchScTab(tab, btn) {
       </div>
       
       <!-- KPI ROW — Real-time business metrics -->
-      <div id="kpiRow" style="margin-bottom:16px;"></div>
+      <div id="kpiRow" class="mb-md"></div>
       <style>
         .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;}
         .kpi-card{background:var(--s2,#1a1d23);border:1px solid var(--br);border-radius:10px;padding:14px 16px;display:flex;align-items:center;gap:12px;transition:border-color .15s;}
@@ -11065,7 +11065,7 @@ function switchScTab(tab, btn) {
       </script>
 
       <!-- THIS WEEK QUICK STATS -->
-      <div class="panel" style="margin-bottom:16px;">
+      <div class="panel mb-md">
         <div class="panel-hdr">
           <div><div class="panel-label">Activity</div><div class="panel-title">This Week</div></div>
         </div>
@@ -11092,10 +11092,10 @@ function switchScTab(tab, btn) {
       </div>
       
       <div class="sgrid">
-        <div class="stat-card" data-action="goTo" data-target="crm" style="cursor:pointer;"><div class="stat-icon si-b">👥</div><div><div class="stat-val" id="statLeads">0</div><div class="stat-lbl">Active Leads</div></div></div>
-        <div class="stat-card" data-action="goTo" data-target="est" style="cursor:pointer;"><div class="stat-icon si-p">📋</div><div><div class="stat-val" id="statEsts">0</div><div class="stat-lbl">Estimates</div></div></div>
-        <div class="stat-card" data-action="goTo" data-target="crm" style="cursor:pointer;"><div class="stat-icon si-g">💰</div><div><div class="stat-val" id="statVal" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Pipeline Value</div></div></div>
-        <div class="stat-card" data-action="goTo" data-target="crm" style="cursor:pointer;"><div class="stat-icon" style="color:var(--green);">🏆</div><div><div class="stat-val" id="statClosed" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Closed Revenue</div></div></div>
+        <div class="stat-card cp" data-action="goTo" data-target="crm"><div class="stat-icon si-b">👥</div><div><div class="stat-val" id="statLeads">0</div><div class="stat-lbl">Active Leads</div></div></div>
+        <div class="stat-card cp" data-action="goTo" data-target="est"><div class="stat-icon si-p">📋</div><div><div class="stat-val" id="statEsts">0</div><div class="stat-lbl">Estimates</div></div></div>
+        <div class="stat-card cp" data-action="goTo" data-target="crm"><div class="stat-icon si-g">💰</div><div><div class="stat-val" id="statVal" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Pipeline Value</div></div></div>
+        <div class="stat-card cp" data-action="goTo" data-target="crm"><div class="stat-icon" style="color:var(--green);">🏆</div><div><div class="stat-val" id="statClosed" style="color:var(--green);font-size:18px;">$0</div><div class="stat-lbl">Closed Revenue</div></div></div>
       </div>
 
       <!-- WAVE 29: HOT LEADS WIDGET ─────────────────────────────────
@@ -11105,10 +11105,10 @@ function switchScTab(tab, btn) {
            see the list, that's their first hour planned. Click a
            row to open the customer page (instant via Wave 11
            handoff). Uses window.LeadScoring.scoreAll(). ─────────── -->
-      <div class="panel" style="margin-top:14px;">
+      <div class="panel mt-14">
         <div class="panel-hdr">
           <div><div class="panel-label">Today</div><div class="panel-title">🔥 Hot Leads</div></div>
-          <span style="font-size:11px;color:var(--m);">Top 5 to call first</span>
+          <span class="meta-11">Top 5 to call first</span>
         </div>
         <div class="panel-body" id="hot-leads-body">
           <div style="padding:22px;text-align:center;color:var(--m);font-size:12px;">Loading…</div>
@@ -11122,10 +11122,10 @@ function switchScTab(tab, btn) {
            AI-enriches the top 5 in the background (bounded API spend
            — exactly 5 calls per render, not N).
            ──────────────────────────────────────────────────────── -->
-      <div class="panel" style="margin-top:14px;">
+      <div class="panel mt-14">
         <div class="panel-hdr">
           <div><div class="panel-label">Today</div><div class="panel-title">🎯 Next Best Actions</div></div>
-          <span style="font-size:11px;color:var(--m);">AI-prioritized · top 5</span>
+          <span class="meta-11">AI-prioritized · top 5</span>
         </div>
         <div class="panel-body" id="smart-followup-briefing-body">
           <div style="padding:22px;text-align:center;color:var(--m);font-size:12px;">Loading…</div>
@@ -11139,10 +11139,10 @@ function switchScTab(tab, btn) {
              Hot Leads = "who do I call FIRST?"
              Almost There = "who almost said YES?"
            Excludes snoozed leads (Wave 35). ──────────────────────── -->
-      <div class="panel" style="margin-top:14px;">
+      <div class="panel mt-14">
         <div class="panel-hdr">
           <div><div class="panel-label">Today</div><div class="panel-title">🎯 Almost There</div></div>
-          <span style="font-size:11px;color:var(--m);">Engaged · uncommitted</span>
+          <span class="meta-11">Engaged · uncommitted</span>
         </div>
         <div class="panel-body" id="almost-there-body">
           <div style="padding:22px;text-align:center;color:var(--m);font-size:12px;">Loading…</div>
@@ -11157,10 +11157,10 @@ function switchScTab(tab, btn) {
            buttons. Compounds W44 lastSharedAt + W54 filter logic
            — both surfaces (kanban filter + dashboard widget) use
            the same StaleShares.compute() match criteria. ────────── -->
-      <div class="panel" style="margin-top:14px;">
+      <div class="panel mt-14">
         <div class="panel-hdr">
           <div><div class="panel-label">Today</div><div class="panel-title">📤 Stale Shares</div></div>
-          <span style="font-size:11px;color:var(--m);">Sent · ghosted</span>
+          <span class="meta-11">Sent · ghosted</span>
         </div>
         <div class="panel-body" id="stale-shares-body">
           <div style="padding:22px;text-align:center;color:var(--m);font-size:12px;">Loading…</div>
@@ -11176,10 +11176,10 @@ function switchScTab(tab, btn) {
            a glance: "lots of Hot but no Responded → conversion
            gap" or "everyone's still New → no shares going out."
            ────────────────────────────────────────────────────── -->
-      <div class="panel" style="margin-top:14px;">
+      <div class="panel mt-14">
         <div class="panel-hdr">
           <div><div class="panel-label">Pipeline</div><div class="panel-title">📊 Engagement Cohort</div></div>
-          <span style="font-size:11px;color:var(--m);" id="engagement-cohort-total">—</span>
+          <span class="meta-11" id="engagement-cohort-total">—</span>
         </div>
         <div class="panel-body" id="engagement-cohort-body">
           <div style="padding:22px;text-align:center;color:var(--m);font-size:12px;">Loading…</div>
@@ -11188,20 +11188,20 @@ function switchScTab(tab, btn) {
 
       <div class="two-col">
         <div class="panel">
-          <div class="panel-hdr" style="cursor:pointer;" data-action="goTo" data-target="crm"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div><span style="font-size:11px;color:var(--m);">View →</span></div>
+          <div class="panel-hdr cp" data-action="goTo" data-target="crm"><div><div class="panel-label">CRM Pipeline</div><div class="panel-title">Lead Stages</div></div><span class="meta-11">View →</span></div>
           <div class="panel-body">
             <div class="pgrid">
-              <div class="stage-box sb-new" data-action="filterByStage" data-stage="new" style="cursor:pointer;"><div class="stage-count" id="dp-new">0</div><div class="stage-name">New</div></div>
-              <div class="stage-box sb-ct" data-action="filterByStage" data-stage="contacted" style="cursor:pointer;"><div class="stage-count s-blue" id="dp-ct">0</div><div class="stage-name">Contacted</div></div>
-              <div class="stage-box sb-es" data-action="filterByStage" data-stage="estimate_sent" style="cursor:pointer;"><div class="stage-count s-gold" id="dp-es">0</div><div class="stage-name">Est. Sent</div></div>
-              <div class="stage-box sb-ng" data-action="filterByStage" data-stage="negotiating" style="cursor:pointer;"><div class="stage-count s-purple" id="dp-ng">0</div><div class="stage-name">Negotiating</div></div>
-              <div class="stage-box sb-won" data-action="filterByStage" data-stage="closed" style="cursor:pointer;"><div class="stage-count s-green" id="dp-won">0</div><div class="stage-name">Won</div></div>
-              <div class="stage-box sb-lost" data-action="filterByStage" data-stage="lost" style="cursor:pointer;"><div class="stage-count s-red" id="dp-lost">0</div><div class="stage-name">Lost</div></div>
+              <div class="stage-box sb-new cp" data-action="filterByStage" data-stage="new"><div class="stage-count" id="dp-new">0</div><div class="stage-name">New</div></div>
+              <div class="stage-box sb-ct cp" data-action="filterByStage" data-stage="contacted"><div class="stage-count s-blue" id="dp-ct">0</div><div class="stage-name">Contacted</div></div>
+              <div class="stage-box sb-es cp" data-action="filterByStage" data-stage="estimate_sent"><div class="stage-count s-gold" id="dp-es">0</div><div class="stage-name">Est. Sent</div></div>
+              <div class="stage-box sb-ng cp" data-action="filterByStage" data-stage="negotiating"><div class="stage-count s-purple" id="dp-ng">0</div><div class="stage-name">Negotiating</div></div>
+              <div class="stage-box sb-won cp" data-action="filterByStage" data-stage="closed"><div class="stage-count s-green" id="dp-won">0</div><div class="stage-name">Won</div></div>
+              <div class="stage-box sb-lost cp" data-action="filterByStage" data-stage="lost"><div class="stage-count s-red" id="dp-lost">0</div><div class="stage-name">Lost</div></div>
             </div>
           </div>
         </div>
         <div class="panel">
-          <div class="panel-hdr"><div><div class="panel-label">Recent</div><div class="panel-title">Latest Estimates</div></div><button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" data-action="goTo" data-target="est">View All →</button></div>
+          <div class="panel-hdr"><div><div class="panel-label">Recent</div><div class="panel-title">Latest Estimates</div></div><button class="btn btn-ghost btn-11" data-action="goTo" data-target="est">View All →</button></div>
           <div class="panel-body" id="recentEsts"><div class="empty">No estimates yet.</div></div>
         </div>
       </div>
@@ -11212,10 +11212,10 @@ function switchScTab(tab, btn) {
            that stage. Renders on init + on 'nbd:data-refreshed' +
            every 5 minutes so day-counts tick over even if the rep
            leaves the dashboard open all day. ─────────────────────── -->
-      <div class="panel" style="margin-top:14px;">
+      <div class="panel mt-14">
         <div class="panel-hdr">
           <div><div class="panel-label">Operational</div><div class="panel-title">Pipeline Bottlenecks</div></div>
-          <span style="font-size:11px;color:var(--m);">Avg days in stage</span>
+          <span class="meta-11">Avg days in stage</span>
         </div>
         <div class="panel-body" id="pipeline-bottleneck-body">
           <div style="padding:24px;text-align:center;color:var(--m);font-size:12px;">
@@ -11229,10 +11229,10 @@ function switchScTab(tab, btn) {
            in-memory caches. Click a row to jump to the related lead
            or estimate (lead navigation reuses Wave 11 handoff so the
            customer page renders instantly). ────────────────────── -->
-      <div class="panel" style="margin-top:14px;">
+      <div class="panel mt-14">
         <div class="panel-hdr">
           <div><div class="panel-label">Activity</div><div class="panel-title">Recent Activity</div></div>
-          <span style="font-size:11px;color:var(--m);">Latest 20 events</span>
+          <span class="meta-11">Latest 20 events</span>
         </div>
         <div class="panel-body" id="activity-feed-body" style="padding:0;">
           <div style="padding:24px;text-align:center;color:var(--m);font-size:12px;">
@@ -11242,10 +11242,10 @@ function switchScTab(tab, btn) {
       </div>
 
       <!-- TODAY'S TASKS PANEL -->
-      <div class="panel" style="margin-top:14px;">
+      <div class="panel mt-14">
         <div class="panel-hdr">
           <div><div class="panel-label">Tasks</div><div class="panel-title">Today's Follow-Ups</div></div>
-          <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" data-action="goTo" data-target="crm">All Leads →</button>
+          <button class="btn btn-ghost btn-11" data-action="goTo" data-target="crm">All Leads →</button>
         </div>
         <div class="panel-body" id="todayTasksList">
           <div class="empty">
@@ -11265,7 +11265,7 @@ function switchScTab(tab, btn) {
        hydration helper clones the template on first goTo('map'). -->
   <div class="view" id="view-map" data-view-template="tpl-view-map"></div>
   <template id="tpl-view-map">
-    <div class="map-view active" style="flex:1;">
+    <div class="map-view active f1">
       <div class="map-sidebar" id="map-sidebar-map">
 
         <!-- BREADCRUMB -->
@@ -11276,13 +11276,13 @@ function switchScTab(tab, btn) {
         <!-- ADDRESS SEARCH -->
         <div class="slabel2">Address Search</div>
         <div class="search-row">
-          <div class="ac-wrap" style="flex:1;">
+          <div class="ac-wrap f1">
             <input type="text" id="mapSearch" placeholder="Enter address..." onkeydown="if(event.key==='Enter'){hideAcDrop('mapSearch');searchMap();}" autocomplete="off">
-            <div class="ac-drop" id="ac-mapSearch" style="display:none;"></div>
+            <div class="ac-drop dn" id="ac-mapSearch"></div>
           </div>
           <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" data-action="call" data-fn="searchMap">Go</button>
         </div>
-        <div id="propCard" style="display:none;">
+        <div id="propCard" class="dn">
           <div class="slabel2">Property Info</div>
           <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px;margin-bottom:10px;" id="propCardInner"></div>
         </div>
@@ -11335,9 +11335,9 @@ function switchScTab(tab, btn) {
         <!-- DROP A PIN -->
         <div class="slabel2">Drop a Pin</div>
         <div class="addr-pin-row">
-          <div class="ac-wrap" style="flex:1;">
+          <div class="ac-wrap f1">
             <input type="text" id="pinAddrInput" placeholder="Address (blank = map center)" autocomplete="off">
-            <div class="ac-drop" id="ac-pinAddrInput" style="display:none;"></div>
+            <div class="ac-drop dn" id="ac-pinAddrInput"></div>
           </div>
           <button class="btn btn-orange" style="padding:7px 10px;font-size:11px;" data-action="call" data-fn="dropPinByAddress">📍</button>
         </div>
@@ -11368,7 +11368,7 @@ function switchScTab(tab, btn) {
         <button class="map-spyglass-btn" data-action="call" data-fn="spyglassSearch">Go</button>
       </div>
 
-      <div class="map-area" id="mainMapArea" style="position:relative;">
+      <div class="map-area pos-rel" id="mainMapArea">
         <div id="mainMap"></div>
 
         <!-- Pin stats — top left -->
@@ -11448,9 +11448,9 @@ function switchScTab(tab, btn) {
 
         <div class="slabel2">Property Address</div>
         <div class="search-row">
-          <div class="ac-wrap" style="flex:1;">
+          <div class="ac-wrap f1">
             <input type="text" id="drawSearch" placeholder="Address..." onkeydown="if(event.key==='Enter'){hideAcDrop('drawSearch');searchDraw();}" autocomplete="off">
-            <div class="ac-drop" id="ac-drawSearch" style="display:none;"></div>
+            <div class="ac-drop dn" id="ac-drawSearch"></div>
           </div>
           <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" data-action="call" data-fn="searchDraw">Go</button>
         </div>
@@ -11635,12 +11635,12 @@ function switchScTab(tab, btn) {
             <button style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;" data-action="closeModal" data-target="historicalImagery">✕</button>
           </div>
           <div style="margin-bottom:6px;">
-            <label style="font-size:10px;color:var(--m);">Date: <span id="historyDateLabel">—</span></label>
-            <input type="range" min="0" max="7" value="7" style="width:100%;" oninput="setHistoricalLayer(parseInt(this.value))">
+            <label class="meta-10">Date: <span id="historyDateLabel">—</span></label>
+            <input type="range" min="0" max="7" value="7" class="w-full" oninput="setHistoricalLayer(parseInt(this.value))">
           </div>
           <div>
-            <label style="font-size:10px;color:var(--m);">Opacity: <span id="historyOpacityLabel">100%</span></label>
-            <input type="range" min="0" max="1" step="0.05" value="1" style="width:100%;" oninput="updateHistoryOpacity(this.value)">
+            <label class="meta-10">Opacity: <span id="historyOpacityLabel">100%</span></label>
+            <input type="range" min="0" max="1" step="0.05" value="1" class="w-full" oninput="updateHistoryOpacity(this.value)">
           </div>
         </div>
 
@@ -11663,13 +11663,13 @@ function switchScTab(tab, btn) {
           <button style="position:absolute;top:10px;right:14px;background:none;border:none;color:var(--m);font-size:18px;cursor:pointer;" data-action="closeModal" data-target="comparisonModal">✕</button>
           <div style="font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Measurement Comparison</div>
           <div style="font-size:16px;font-weight:800;color:var(--t);margin-bottom:4px;">Compare Your Drawing vs. Report</div>
-          <div style="font-size:12px;color:var(--m);margin-bottom:16px;">Upload an EagleView, RoofScope, or Quick Measure report (PDF or text). We'll extract measurements and compare side-by-side.</div>
+          <div class="meta-12-mb16">Upload an EagleView, RoofScope, or Quick Measure report (PDF or text). We'll extract measurements and compare side-by-side.</div>
           <div style="border:2px dashed var(--br);border-radius:10px;padding:24px;text-align:center;cursor:pointer;margin-bottom:12px;" data-action="clickProxy" data-target="compFile">
             <div style="font-size:28px;margin-bottom:6px;">📄</div>
             <div style="font-weight:700;color:var(--t);font-size:12px;">Drop report here or click to browse</div>
-            <input type="file" id="compFile" accept=".pdf,.txt,.csv,.xml" style="display:none;" onchange="handleComparisonFile(this.files[0])">
+            <input type="file" id="compFile" accept=".pdf,.txt,.csv,.xml" class="dn" onchange="handleComparisonFile(this.files[0])">
           </div>
-          <button class="btn btn-ghost" style="width:100%;" data-action="closeModal" data-target="comparisonModal">Cancel</button>
+          <button class="btn btn-ghost w-full" data-action="closeModal" data-target="comparisonModal">Cancel</button>
         </div>
       </div>
     </div>
@@ -11681,8 +11681,8 @@ function switchScTab(tab, btn) {
     <div id="est-list" class="view-scroll">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="crm">← Back to CRM</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Estimates</div>
           <div class="page-sub">All roofing estimates</div>
@@ -11694,7 +11694,7 @@ function switchScTab(tab, btn) {
                on data refresh; hidden until estimates load. -->
           <div id="estStats" style="display:none;margin-top:10px;"></div>
         </div>
-        <div style="display:flex;gap:8px;">
+        <div class="flex-g8">
           <!-- W145: V2 Builder is now the primary path. Classic
                4-step wizard demoted to a small ghost button for
                reps who specifically want the older flow. The BETA
@@ -11716,7 +11716,7 @@ function switchScTab(tab, btn) {
         <div class="empty-icon">📋</div>
         <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:6px;">No estimates yet</div>
         <div style="font-size:12px;color:var(--m);margin-bottom:14px;max-width:380px;">Build your first estimate to send a homeowner. The builder steps you through scope, materials, labor, and supplements automatically.</div>
-        <button class="btn btn-orange" data-action="call" data-fn="startNewEstimate" style="font-size:12px;padding:8px 14px;">＋ Build your first estimate</button>
+        <button class="btn btn-orange btn-12" data-action="call" data-fn="startNewEstimate">＋ Build your first estimate</button>
       </div></div>
     </div>
     <!-- Step builder (hidden until new) -->
@@ -11753,7 +11753,7 @@ function switchScTab(tab, btn) {
             <div class="est-meas-grid">
               <div class="meas-field"><label>Property Address</label><div class="ac-wrap">
             <input type="text" id="estAddr" placeholder="Property address" autocomplete="off">
-            <div class="ac-drop" id="ac-estAddr" style="display:none;"></div>
+            <div class="ac-drop dn" id="ac-estAddr"></div>
           </div></div>
               <div class="meas-field"><label>Owner Name</label><input type="text" id="estOwner" placeholder="Homeowner name"></div>
               <div class="meas-field"><label>Parcel ID</label><input type="text" id="estParcel" placeholder="Parcel number"></div>
@@ -11770,7 +11770,7 @@ function switchScTab(tab, btn) {
       </div>
 
       <!-- STEP 2: Roof Type -->
-      <div id="estStep2" style="display:none;">
+      <div id="estStep2" class="dn">
         <div class="panel">
           <div class="panel-hdr"><div><div class="panel-label">Step 2</div><div class="panel-title">Roof Type & Pitch</div></div></div>
           <div class="panel-body">
@@ -11813,7 +11813,7 @@ function switchScTab(tab, btn) {
             </div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;font-size:12px;">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                <input type="checkbox" id="estCutUp" onchange="updateEstCalc()" style="accent-color:var(--orange);">
+                <input type="checkbox" id="estCutUp" onchange="updateEstCalc()" class="ac-orange">
                 <span>Cut-up roof (dormers / valleys / +3% waste)</span>
               </label>
               <label style="display:flex;align-items:center;gap:8px;">
@@ -11865,15 +11865,15 @@ function switchScTab(tab, btn) {
             </div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--t);">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                <input type="checkbox" id="estValley" onchange="calcTierPrices()" style="accent-color:var(--orange);">
+                <input type="checkbox" id="estValley" onchange="calcTierPrices()" class="ac-orange">
                 <span>Valley metal flashing</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                <input type="checkbox" id="estChimney" onchange="calcTierPrices()" style="accent-color:var(--orange);">
+                <input type="checkbox" id="estChimney" onchange="calcTierPrices()" class="ac-orange">
                 <span>Chimney flashing (+$425)</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                <input type="checkbox" id="estSkylight" onchange="calcTierPrices()" style="accent-color:var(--orange);">
+                <input type="checkbox" id="estSkylight" onchange="calcTierPrices()" class="ac-orange">
                 <span>Skylight flashing (+$275)</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;">
@@ -11930,7 +11930,7 @@ function switchScTab(tab, btn) {
       </div>
 
       <!-- STEP 3: Good / Better / Best -->
-      <div id="estStep3" style="display:none;">
+      <div id="estStep3" class="dn">
         <div class="panel">
           <div class="panel-hdr"><div><div class="panel-label">Step 3</div><div class="panel-title">Select Package</div></div></div>
           <div class="panel-body">
@@ -11963,10 +11963,10 @@ function switchScTab(tab, btn) {
       </div>
 
       <!-- STEP 4: Review & Export -->
-      <div id="estStep4" style="display:none;">
+      <div id="estStep4" class="dn">
         <div class="panel">
           <div class="panel-hdr"><div><div class="panel-label">Step 4</div><div class="panel-title">Review & Export</div></div>
-            <div style="display:flex;gap:8px;">
+            <div class="flex-g8">
               <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" data-action="call" data-fn="exportEstimate">📤 Export PDF</button>
               <button class="btn btn-orange" style="font-size:11px;padding:6px 12px;" data-action="call" data-fn="saveEstimate">💾 Save</button>
             </div>
@@ -12103,7 +12103,7 @@ function switchScTab(tab, btn) {
           <span id="staleSharesCountBadge"
             style="display:none;background:rgba(155,109,255,0.85);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
         </button>
-        <button class="btn btn-ghost crm-hdr-btn" id="prospectsToggleBtn" data-action="goTo" data-target="prospects" title="Open Prospects page" style="position:relative;">
+        <button class="btn btn-ghost crm-hdr-btn pos-rel" id="prospectsToggleBtn" data-action="goTo" data-target="prospects" title="Open Prospects page">
           👀 <span id="prospectsBtnLabel" class="crm-hdr-btn-label">Prospects</span>
           <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--accent-fg);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
         </button>
@@ -12145,7 +12145,7 @@ function switchScTab(tab, btn) {
            crm.js) — atomic, 1 round-trip per 450-lead chunk. -->
       <div id="bulkActionBar" style="display:none;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 14px;margin-top:8px;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap;">
         <span id="bulkSelectedCount" style="color:var(--orange);font-weight:600;">0 selected</span>
-        <button class="btn btn-ghost" data-action="call" data-fn="selectAllVisibleLeads" style="font-size:11px;padding:5px 10px;">☑ Select all visible</button>
+        <button class="btn btn-ghost btn-11" data-action="call" data-fn="selectAllVisibleLeads">☑ Select all visible</button>
         <select id="bulkStageSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--accent-fg);">
           <option value="">Move to stage...</option>
           <!-- Populated dynamically, fallback options below -->
@@ -12159,7 +12159,7 @@ function switchScTab(tab, btn) {
           <option value="closed">Closed</option>
           <option value="lost">Lost</option>
         </select>
-        <button class="btn btn-ghost" data-action="call" data-fn="bulkMoveStage" style="font-size:11px;padding:5px 10px;">▶ Move</button>
+        <button class="btn btn-ghost btn-11" data-action="call" data-fn="bulkMoveStage">▶ Move</button>
         <select id="bulkCarrierSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
           <option value="">Set carrier...</option>
           <option value="State Farm">State Farm</option>
@@ -12173,7 +12173,7 @@ function switchScTab(tab, btn) {
           <option value="American Family">American Family</option>
           <option value="Other">Other</option>
         </select>
-        <button class="btn btn-ghost" data-action="call" data-fn="bulkAssignCarrier" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <button class="btn btn-ghost btn-11" data-action="call" data-fn="bulkAssignCarrier">▶ Apply</button>
         <select id="bulkDamageSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
           <option value="">Set damage...</option>
           <option value="Roof - Hail">Roof - Hail</option>
@@ -12184,7 +12184,7 @@ function switchScTab(tab, btn) {
           <option value="Gutters">Gutters</option>
           <option value="Other">Other</option>
         </select>
-        <button class="btn btn-ghost" data-action="call" data-fn="bulkAssignDamage" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <button class="btn btn-ghost btn-11" data-action="call" data-fn="bulkAssignDamage">▶ Apply</button>
         <!-- Wave 32: source bulk-edit. Common post-import cleanup —
              "all 50 imported leads should be tagged 'Spring Hailstorm'".
              The custom text input lets reps tag a campaign that's not
@@ -12202,7 +12202,7 @@ function switchScTab(tab, btn) {
           <option value="Other">Other</option>
         </select>
         <input id="bulkSourceCustom" type="text" placeholder="…or type custom" maxlength="60" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);width:130px;" />
-        <button class="btn btn-ghost" data-action="call" data-fn="bulkAssignSource" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <button class="btn btn-ghost btn-11" data-action="call" data-fn="bulkAssignSource">▶ Apply</button>
         <!-- Wave 32: jobType bulk-edit. Routes leads into the
              insurance / cash / finance pipeline view filters. -->
         <select id="bulkJobTypeSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
@@ -12211,13 +12211,13 @@ function switchScTab(tab, btn) {
           <option value="cash">Cash</option>
           <option value="finance">Finance</option>
         </select>
-        <button class="btn btn-ghost" data-action="call" data-fn="bulkAssignJobType" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <button class="btn btn-ghost btn-11" data-action="call" data-fn="bulkAssignJobType">▶ Apply</button>
         <!-- Wave 37: bulk snooze. Opens LeadSnooze.bulkPrompt which
              handles preset/custom date selection + writeBatch commit
              + cache patch + auto-exit bulk mode. -->
         <button class="btn btn-ghost" data-action="call" data-fn="bulkSnoozeLeads" style="font-size:11px;padding:5px 10px;color:#cab8ff;">💤 Snooze...</button>
         <button class="btn btn-ghost" data-action="call" data-fn="bulkDelete" style="font-size:11px;padding:5px 10px;color:var(--red);">🗑 Delete</button>
-        <button class="btn btn-ghost" data-action="call" data-fn="clearBulkSelection" style="font-size:11px;padding:5px 10px;">✕ Cancel</button>
+        <button class="btn btn-ghost btn-11" data-action="call" data-fn="clearBulkSelection">✕ Cancel</button>
       </div>
     </div>
 
@@ -12225,7 +12225,7 @@ function switchScTab(tab, btn) {
          A hidden stub element is kept so any goTo()/script that does
          document.getElementById('crmSecondaryHeader') still finds something
          and doesn't throw. The visible toolbar lives in .crm-tools-menu now. -->
-    <div class="crm-secondary-header" id="crmSecondaryHeader" style="display:none;"></div>
+    <div class="crm-secondary-header dn" id="crmSecondaryHeader"></div>
 
   <!-- DELETED LEADS DRAWER -->
   <div class="deleted-drawer" id="deletedDrawer">
@@ -12261,7 +12261,7 @@ function switchScTab(tab, btn) {
       <div id="crmDiagnosticDetails" style="font-family:monospace;font-size:11px;background:var(--s1);padding:12px;border-radius:4px;color:var(--m);margin-bottom:16px;"></div>
       
       <!-- Debug Console (collapsible) -->
-      <div style="margin-bottom:16px;">
+      <div class="mb-md">
         <button class="btn btn-ghost" data-action="toggle" data-target="debugConsole" style="font-size:11px;padding:4px 8px;">
           <span id="debugConsoleToggle">▶</span> Show Debug Console
         </button>
@@ -12272,7 +12272,7 @@ function switchScTab(tab, btn) {
         </div>
       </div>
       
-      <div style="display:flex;gap:8px;">
+      <div class="flex-g8">
         <button class="btn btn-orange" data-action="call" data-fn="loadSampleData">🎲 Load Sample Data</button>
         <button class="btn btn-ghost" data-action="call" data-fn="retryLoadLeads">🔄 Retry Load</button>
         <button class="btn btn-ghost" data-action="call" data-fn="testFirestoreRules">🔐 Test Rules</button>
@@ -12309,15 +12309,15 @@ function switchScTab(tab, btn) {
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="crm">← Back to Pipeline</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="crm">← Back to Pipeline</span>
           </div>
           <div class="page-title">Prospects</div>
           <div class="page-sub">D2D knocks awaiting promotion. Promote when qualified to add them to your kanban.</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <button class="btn btn-ghost" data-action="goTo" data-target="d2d" style="font-size:12px;">🚪 D2D Tracker</button>
-          <button class="btn btn-orange" data-action="call" data-fn="openD2DOrGo" style="font-size:12px;">＋ New Knock</button>
+          <button class="btn btn-ghost fs-12" data-action="goTo" data-target="d2d">🚪 D2D Tracker</button>
+          <button class="btn btn-orange fs-12" data-action="call" data-fn="openD2DOrGo">＋ New Knock</button>
         </div>
       </div>
 
@@ -12348,15 +12348,15 @@ function switchScTab(tab, btn) {
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="crm">← Back to CRM</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Photo Library</div>
           <div class="page-sub">Capture, tag, and organize property documentation</div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-orange" data-action="call" data-fn="openPhotoEngineCurrentLead" style="font-size:12px;">📷 Open Camera</button>
-          <button class="btn btn-ghost" data-action="call" data-fn="openInspectionBuilderCurrentLead" style="font-size:12px;">📄 New Report</button>
+        <div class="fwgap-8">
+          <button class="btn btn-orange fs-12" data-action="call" data-fn="openPhotoEngineCurrentLead">📷 Open Camera</button>
+          <button class="btn btn-ghost fs-12" data-action="call" data-fn="openInspectionBuilderCurrentLead">📄 New Report</button>
         </div>
       </div>
       <!-- Search + Quick actions bar -->
@@ -12380,7 +12380,7 @@ function switchScTab(tab, btn) {
           <option value="">Select a property...</option>
         </select>
         <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;cursor:pointer;white-space:nowrap;font-size:11px;color:var(--m);">
-          <input type="checkbox" id="photosOnlyWithPhotos" onchange="window._photosOnlyWithPhotos=this.checked;renderPhotoLeads();" style="accent-color:var(--orange);">
+          <input type="checkbox" id="photosOnlyWithPhotos" onchange="window._photosOnlyWithPhotos=this.checked;renderPhotoLeads();" class="ac-orange">
           Only with photos
         </label>
         <button class="btn btn-ghost" data-action="call" data-fn="damageNearMePhotos" style="font-size:11px;padding:6px 12px;">📍 Near Me</button>
@@ -12432,8 +12432,8 @@ function switchScTab(tab, btn) {
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">Storm Center</div>
           <div class="page-sub">Live weather tracking & storm-based canvassing</div>
@@ -12453,8 +12453,8 @@ function switchScTab(tab, btn) {
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="crm">← Back to Pipeline</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="crm">← Back to Pipeline</span>
           </div>
           <div class="page-title">Close Board</div>
           <div class="page-sub">Track deals through to close</div>
@@ -12469,8 +12469,8 @@ function switchScTab(tab, btn) {
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">Rep OS</div>
           <div class="page-sub">Your personal operating system for sales success</div>
@@ -12517,8 +12517,8 @@ function switchScTab(tab, btn) {
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="crm">← Back to CRM</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Template Library</div>
           <div class="page-sub">24 NBD-branded documents — ready to generate, print, and present</div>
@@ -12547,7 +12547,7 @@ function switchScTab(tab, btn) {
           <div class="tl-cat-header" data-action="call" data-fn="tlToggleCat" data-pass-el>
             <span class="tl-cat-chevron">▾</span>
             <span class="tl-cat-icon">⚡</span>
-            <h3 class="tl-cat-title" style="color:var(--orange);">Generators</h3>
+            <h3 class="tl-cat-title fg-orange">Generators</h3>
             <span class="tl-cat-badge" style="background:color-mix(in srgb, var(--orange) 12%, transparent);color:var(--orange);">Auto-fill from CRM</span>
             <span class="tl-cat-count">4 docs</span>
           </div>
@@ -12561,7 +12561,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" data-action="docgen" data-target="invoice">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">💰</div>
+              <div class="tl-doc-icon chip-green">💰</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Invoice</div>
                 <div class="tl-doc-desc">Professional invoice with line items, payment methods, and balance due</div>
@@ -12577,7 +12577,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" data-action="docgen" data-target="certificate_of_completion">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">✅</div>
+              <div class="tl-doc-icon chip-green">✅</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Certificate of Completion</div>
                 <div class="tl-doc-desc">Job completion verification with inspection checklist and warranty activation</div>
@@ -12598,7 +12598,7 @@ function switchScTab(tab, btn) {
           </div>
           <div class="tl-cat-body">
             <div class="tl-doc-row" data-action="docgen" data-target="supplement_request">
-              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📎</div>
+              <div class="tl-doc-icon chip-blue">📎</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Supplement Request</div>
                 <div class="tl-doc-desc">Itemized supplement with codes, quantities, and justification for adjusters</div>
@@ -12606,7 +12606,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" data-action="docgen" data-target="scope_of_work">
-              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📐</div>
+              <div class="tl-doc-icon chip-blue">📐</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Scope of Work</div>
                 <div class="tl-doc-desc">7-section scope with removal, decking, underlayment, flashing, shingles, ventilation, and cleanup</div>
@@ -12614,7 +12614,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" data-action="docgen" data-target="inspectionInsurance">
-              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📋</div>
+              <div class="tl-doc-icon chip-blue">📋</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Inspection Report (Insurance)</div>
                 <div class="tl-doc-desc">Detailed damage assessment formatted for insurance claims with photo zones</div>
@@ -12622,7 +12622,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" data-action="docgen" data-target="assignment_of_benefits">
-              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">📄</div>
+              <div class="tl-doc-icon chip-blue">📄</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Assignment of Benefits (AOB)</div>
                 <div class="tl-doc-desc">Legal assignment authorizing NBD to negotiate and receive insurance proceeds</div>
@@ -12630,7 +12630,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" data-action="docgen" data-target="change_order">
-              <div class="tl-doc-icon" style="background:rgba(74,158,255,.1);color:var(--blue);">🔄</div>
+              <div class="tl-doc-icon chip-blue">🔄</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Change Order</div>
                 <div class="tl-doc-desc">Contract modification with added/removed items and revised project totals</div>
@@ -12651,7 +12651,7 @@ function switchScTab(tab, btn) {
           </div>
           <div class="tl-cat-body">
             <div class="tl-doc-row" data-action="docgen" data-target="contract">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">📝</div>
+              <div class="tl-doc-icon chip-green">📝</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Roofing Contract</div>
                 <div class="tl-doc-desc">Full legal contract with terms, conditions, warranty, and signature blocks</div>
@@ -12659,7 +12659,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" data-action="docgen" data-target="work_authorization">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">✍️</div>
+              <div class="tl-doc-icon chip-green">✍️</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Work Authorization</div>
                 <div class="tl-doc-desc">Homeowner authorization to begin work with access instructions and cancellation notice</div>
@@ -12667,7 +12667,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" data-action="docgen" data-target="payment_agreement">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">💳</div>
+              <div class="tl-doc-icon chip-green">💳</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Payment Agreement</div>
                 <div class="tl-doc-desc">Payment schedule with deposit, progress, and final milestones plus accepted methods</div>
@@ -12675,7 +12675,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" data-action="docgen" data-target="material_delivery">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">🚚</div>
+              <div class="tl-doc-icon chip-green">🚚</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Material Delivery Notice</div>
                 <div class="tl-doc-desc">Professional delivery notice with material list, date, and homeowner instructions</div>
@@ -12683,7 +12683,7 @@ function switchScTab(tab, btn) {
               <div class="tl-doc-arrow">→</div>
             </div>
             <div class="tl-doc-row" data-action="docgen" data-target="thank_you">
-              <div class="tl-doc-icon" style="background:rgba(46,204,138,.1);color:var(--green);">💌</div>
+              <div class="tl-doc-icon chip-green">💌</div>
               <div class="tl-doc-info">
                 <div class="tl-doc-name">Thank You Letter</div>
                 <div class="tl-doc-desc">Personal post-project letter with warranty reminder, maintenance tips, and referral ask</div>
@@ -12813,7 +12813,7 @@ function switchScTab(tab, btn) {
                  openUploadDocModal() which doesn't exist. The real upload
                  flow lives on customer.html (per-lead). Routing to the CRM
                  so the user can pick a lead to upload to. -->
-            <button class="btn btn-orange" data-action="goTo" data-target="crm" style="font-size:12px;padding:8px 14px;">Open Pipeline →</button>
+            <button class="btn btn-orange btn-12" data-action="goTo" data-target="crm">Open Pipeline →</button>
           </div>
         </div>
       </div>
@@ -12822,13 +12822,13 @@ function switchScTab(tab, btn) {
       <div id="docUploadArea" style="display:none;" class="panel" style="margin-top:16px;">
         <div class="panel-hdr"><div><div class="panel-label">Upload</div><div class="panel-title">Add Document</div></div><button class="btn btn-ghost" data-action="closeModal" data-target="uploadDoc">✕ Cancel</button></div>
         <div class="panel-body">
-          <div class="mfield" style="margin-bottom:12px;"><label>Document Name</label><input type="text" id="docName" placeholder="Roofing Contract - Smith 2026"></div>
-          <div class="mfield" style="margin-bottom:12px;"><label>Category</label>
+          <div class="mfield mb-12"><label>Document Name</label><input type="text" id="docName" placeholder="Roofing Contract - Smith 2026"></div>
+          <div class="mfield mb-12"><label>Category</label>
             <select id="docCategory">
               <option>Contract</option><option>Supplement</option><option>Scope of Work</option><option>Photo Report</option><option>Insurance Correspondence</option><option>Other</option>
             </select>
           </div>
-          <div class="upload-zone" data-action="clickProxy" data-target="docFileInput" style="margin-bottom:12px;">
+          <div class="upload-zone mb-12" data-action="clickProxy" data-target="docFileInput">
             <div class="upload-icon">📎</div>
             <div class="upload-text">Click to select file (PDF, DOC, JPG)</div>
             <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange="handleDocUpload(this)">
@@ -12855,18 +12855,18 @@ function switchScTab(tab, btn) {
         <div class="joe-status-dot"></div>
         ONLINE
       </div>
-      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" data-action="call" data-fn="openDecisionPicker" title="Pick a scenario from the Decision Engine — drops a battle-tested prompt into Ask Joe">⚡ Scenarios</button>
-      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" data-action="call" data-fn="clearJoeChat">🗑️ New Chat</button>
+      <button class="btn btn-ghost btn-11" data-action="call" data-fn="openDecisionPicker" title="Pick a scenario from the Decision Engine — drops a battle-tested prompt into Ask Joe">⚡ Scenarios</button>
+      <button class="btn btn-ghost btn-11" data-action="call" data-fn="clearJoeChat">🗑️ New Chat</button>
     </div>
 
     <!-- Context bar (populated by JS) -->
-    <div class="joe-context-bar" id="joeContextBar" style="display:none;"></div>
+    <div class="joe-context-bar dn" id="joeContextBar"></div>
 
     <!-- No API key state -->
     <div id="joeNoKey" style="display:none; flex:1; overflow-y:auto;">
       <div class="joe-no-key">
         <div class="joe-no-key-icon">🤖</div>
-        <p style="margin-bottom:14px;">To activate Joe AI, add your Anthropic API key.<br>
+        <p class="mb-14">To activate Joe AI, add your Anthropic API key.<br>
         Get one free at <strong>console.anthropic.com</strong> → API Keys.</p>
         <div class="joe-key-input-row">
           <input type="password" id="joeKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
@@ -12877,10 +12877,10 @@ function switchScTab(tab, btn) {
     </div>
 
     <!-- Chat messages -->
-    <div class="joe-messages" id="joeMessages" style="display:none;"></div>
+    <div class="joe-messages dn" id="joeMessages"></div>
 
     <!-- Input area -->
-    <div class="joe-input-area" id="joeInputArea" style="display:none;">
+    <div class="joe-input-area dn" id="joeInputArea">
       <div class="joe-quick-btns" id="joeQuickBtns">
         <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="What should I focus on today?">📋 Today's priorities</button>
         <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="Which leads are most likely to close?">🎯 Best leads to close</button>
@@ -12907,7 +12907,7 @@ function switchScTab(tab, btn) {
       <div class="page-hdr"><div><div class="page-title">Analytics & Leaderboard</div><div class="page-sub">Performance metrics and rankings</div></div></div>
 
       <!-- Full Analytics Dashboard -->
-      <div id="analyticsContainer" style="margin-bottom:20px;"></div>
+      <div id="analyticsContainer" class="mb-lg"></div>
 
       <!-- Leaderboard Rankings -->
       <div class="panel">
@@ -12933,7 +12933,7 @@ function switchScTab(tab, btn) {
           <div class="page-title">Reports</div>
           <div class="page-sub">Generate visual rep and business reports for meetings</div>
         </div>
-        <div style="display:flex;gap:8px;">
+        <div class="flex-g8">
           <button class="btn btn-ghost" id="btnEnrichData" data-action="call" data-fn="enrichReportData" title="One-time analytics enrichment: reverse-geocode knock GPS coords into city/zip and derive time-of-day buckets. Enables the Top Territories and Heatmap metrics on historical data.">✨ Enrich Data</button>
           <button class="btn btn-orange" id="btnOpenReportGenerator" data-action="call" data-fn="openReportGenerator">＋ New Report</button>
         </div>
@@ -12942,7 +12942,7 @@ function switchScTab(tab, btn) {
       <!-- Wave 153: performance dashboard panel.
            KPI tiles + period comparison + conversion funnel.
            Renders into #reportsDashboardPanel via reports-dashboard.js. -->
-      <div class="panel" style="margin-bottom:20px;">
+      <div class="panel mb-lg">
         <div id="reportsDashboardPanel">
           <div class="empty"><div class="empty-icon">📊</div>Loading dashboard…</div>
         </div>
@@ -12950,7 +12950,7 @@ function switchScTab(tab, btn) {
 
       <!-- Wave 154: revenue trend sparkline + top performers.
            Renders into #reportsTrendsPanel via reports-trends.js. -->
-      <div class="panel" style="margin-bottom:20px;">
+      <div class="panel mb-lg">
         <div id="reportsTrendsPanel">
           <div class="empty"><div class="empty-icon">📈</div>Loading trends…</div>
         </div>
@@ -12959,13 +12959,13 @@ function switchScTab(tab, btn) {
       <!-- Lead Source ROI panel — instant read on which sources actually
            generate revenue. Computed live off window._leads — no backend
            call. Re-renders on leadsChanged. -->
-      <div class="panel" style="margin-bottom:20px;">
+      <div class="panel mb-lg">
         <div class="panel-hdr">
           <div>
             <div class="panel-label">Insights</div>
             <div class="panel-title">Lead Source ROI</div>
           </div>
-          <div style="font-size:11px;color:var(--m);">All-time · live</div>
+          <div class="meta-11">All-time · live</div>
         </div>
         <div class="panel-body" id="leadSourceROIPanel">
           <div class="empty"><div class="empty-icon">📊</div>Loading source breakdown…</div>
@@ -12976,13 +12976,13 @@ function switchScTab(tab, btn) {
            scenarios + top weighted deals + at-risk callouts. Each open
            lead's jobValue × stage probability = expected $. Click any
            deal row to jump straight into the card detail modal. -->
-      <div class="panel" style="margin-bottom:20px;">
+      <div class="panel mb-lg">
         <div class="panel-hdr">
           <div>
             <div class="panel-label">Forecast</div>
             <div class="panel-title">Pipeline Forecast</div>
           </div>
-          <div style="font-size:11px;color:var(--m);">Weighted by stage probability</div>
+          <div class="meta-11">Weighted by stage probability</div>
         </div>
         <div class="panel-body" id="forecastPanel">
           <div class="empty"><div class="empty-icon">📈</div>Loading forecast…</div>
@@ -13049,7 +13049,7 @@ function switchScTab(tab, btn) {
       <!-- ══ TAB: PROFILE ══ -->
       <div class="stab-panel" id="stab-panel-profile">
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Account</div><div class="panel-title">Your Profile</div></div></div>
           <div class="panel-body">
             <div class="sf-row">
@@ -13073,7 +13073,7 @@ function switchScTab(tab, btn) {
               <div class="sf"><label>License #</label><input type="text" id="settingsLicense" placeholder="OH-12345"></div>
             </div>
             <div class="sf-row">
-              <div class="sf" style="flex:1;">
+              <div class="sf f1">
                 <label>Cal.com username <span style="font-size:10px;color:var(--m);font-weight:400;">· optional · homeowners book inspections at cal.com/&lt;username&gt;</span></label>
                 <input type="text" id="settingsCalcom" placeholder="joedeal" autocomplete="off" spellcheck="false"
                   oninput="(function(el){var v=(el.value||'').trim().replace(/^@+/,'').replace(/\/+$/,'').toLowerCase();var p=document.getElementById('settingsCalcomPreview');if(p){p.textContent=v?('https://cal.com/'+v):'';p.style.display=v?'':'none';}})(this)">
@@ -13084,7 +13084,7 @@ function switchScTab(tab, btn) {
             <!-- Wave 16: weekly digest opt-in/out. Default ON for new
                  users; this toggle just persists the override. -->
             <div class="sf-row" style="margin-top:6px;">
-              <div class="sf" style="flex:1;">
+              <div class="sf f1">
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:500;">
                   <input type="checkbox" id="settingsWeeklyDigest" checked
                     style="width:16px;height:16px;cursor:pointer;accent-color:var(--orange);">
@@ -13102,7 +13102,7 @@ function switchScTab(tab, btn) {
                  toggle from the digest because the two emails serve
                  different intents (informational vs operational). -->
             <div class="sf-row" style="margin-top:6px;">
-              <div class="sf" style="flex:1;">
+              <div class="sf f1">
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:500;">
                   <input type="checkbox" id="settingsDormantNudge" checked
                     style="width:16px;height:16px;cursor:pointer;accent-color:var(--orange);">
@@ -13123,7 +13123,7 @@ function switchScTab(tab, btn) {
              as CSV at any time — escape hatch + spreadsheet bridge.
              Operates against in-memory caches so it's instant + offline-
              tolerant. -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr">
             <div><div class="panel-label">Data</div><div class="panel-title">Export &amp; Backup</div></div>
           </div>
@@ -13153,13 +13153,13 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">CRM</div><div class="panel-title">Pipeline Preferences</div></div></div>
           <div class="panel-body">
             <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
               <div>
-                <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;">Secondary Toolbar</div>
-                <div style="font-size:11px;color:var(--m);">Quick nav to Estimates, Photos, Docs, Map</div>
+                <div class="h-13-mb2">Secondary Toolbar</div>
+                <div class="meta-11">Quick nav to Estimates, Photos, Docs, Map</div>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="crmSecHeaderToggle" onchange="setCrmSecHeaderEnabled(this.checked)" checked>
@@ -13171,8 +13171,8 @@ function switchScTab(tab, btn) {
             <div style="padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
                 <div>
-                  <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;">Card Density</div>
-                  <div style="font-size:11px;color:var(--m);">How tightly leads pack into the kanban</div>
+                  <div class="h-13-mb2">Card Density</div>
+                  <div class="meta-11">How tightly leads pack into the kanban</div>
                 </div>
               </div>
               <div id="kanbanDensityGroup" style="display:flex;gap:6px;">
@@ -13185,8 +13185,8 @@ function switchScTab(tab, btn) {
             <!-- Bold-hierarchy toggle -->
             <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:8px;">
               <div>
-                <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;">Bold Name &amp; Value</div>
-                <div style="font-size:11px;color:var(--m);">Promotes the lead name and dollar amount; mutes everything else</div>
+                <div class="h-13-mb2">Bold Name &amp; Value</div>
+                <div class="meta-11">Promotes the lead name and dollar amount; mutes everything else</div>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="kanbanBoldToggle" onchange="setKanbanBoldHierarchy(this.checked)">
@@ -13200,8 +13200,8 @@ function switchScTab(tab, btn) {
                  the extra column height when actively browsing. -->
             <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
               <div>
-                <div style="font-size:13px;font-weight:600;color:var(--t);margin-bottom:2px;">Auto-collapse header on scroll</div>
-                <div style="font-size:11px;color:var(--m);">Tightens the header while you're actively scrolling or dragging cards. Off by default.</div>
+                <div class="h-13-mb2">Auto-collapse header on scroll</div>
+                <div class="meta-11">Tightens the header while you're actively scrolling or dragging cards. Off by default.</div>
               </div>
               <label class="toggle-switch">
                 <input type="checkbox" id="crmAutoCollapseToggle" onchange="setCrmAutoCollapse(this.checked)">
@@ -13211,17 +13211,17 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Ask Joe AI</div><div class="panel-title">API Key</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your Anthropic API key powers Joe AI. Get one free at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" style="color:var(--orange);">console.anthropic.com</a> → API Keys.</p>
+            <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your Anthropic API key powers Joe AI. Get one free at <a href="https://console.anthropic.com" target="_blank" rel="noopener noreferrer" class="fg-orange">console.anthropic.com</a> → API Keys.</p>
             <div style="display:flex;gap:8px;margin-bottom:8px;">
               <input type="password" id="joeKeyInputSettings" placeholder="sk-ant-api03-..." autocomplete="off"
                 style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
               <button class="btn btn-orange" data-action="call" data-fn="saveJoeKeyFromSettings">Save Key</button>
-              <button class="btn btn-ghost" data-action="call" data-fn="clearJoeKey" style="font-size:11px;">Clear</button>
+              <button class="btn btn-ghost fs-11" data-action="call" data-fn="clearJoeKey">Clear</button>
             </div>
-            <div id="joeKeyStatus" style="font-size:11px;color:var(--m);"></div>
+            <div id="joeKeyStatus" class="meta-11"></div>
           </div>
         </div>
 
@@ -13241,10 +13241,10 @@ function switchScTab(tab, btn) {
       </div><!-- /stab-panel-profile -->
 
       <!-- ══ TAB: APPEARANCE ══ -->
-      <div class="stab-panel" id="stab-panel-appearance" style="display:none;">
+      <div class="stab-panel dn" id="stab-panel-appearance">
 
         <!-- Theme picker: filter buttons + flat grid -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Theme Engine</div><div class="panel-title">155 Themes</div></div></div>
           <div class="panel-body">
             <!-- Category filter buttons -->
@@ -13255,7 +13255,7 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- Effects toggles -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Effects</div><div class="panel-title">Overlays & Sound</div></div></div>
           <div class="panel-body" style="display:flex;gap:16px;flex-wrap:wrap;">
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--m);cursor:pointer;">
@@ -13268,7 +13268,7 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- Professional Mode (DE-MOJI) -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Display</div><div class="panel-title">Professional Mode</div></div></div>
           <div class="panel-body">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0;">
@@ -13282,7 +13282,7 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- GX Effects: Glow & Animation -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">GX Effects</div><div class="panel-title">Glow & Animation</div></div></div>
           <div class="panel-body">
             <div id="gx-settings-panel">
@@ -13291,7 +13291,7 @@ function switchScTab(tab, btn) {
                 <input type="checkbox" id="gxMasterToggle" checked onchange="if(window.ThemeGX)ThemeGX.setEnabled(this.checked)" style="accent-color:var(--orange);width:18px;height:18px;">
                 <div>
                   <div style="font-size:13px;font-weight:600;color:var(--t);">Enable GX Effects</div>
-                  <div style="font-size:11px;color:var(--m);">Glow borders, animated backgrounds, and neon highlights</div>
+                  <div class="meta-11">Glow borders, animated backgrounds, and neon highlights</div>
                 </div>
               </label>
 
@@ -13308,19 +13308,19 @@ function switchScTab(tab, btn) {
               </label>
 
               <!-- Intensity slider -->
-              <div style="margin-bottom:16px;">
-                <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Glow Intensity</label>
+              <div class="mb-md">
+                <label class="eyebrow">Glow Intensity</label>
                 <div style="display:flex;align-items:center;gap:10px;">
-                  <span style="font-size:10px;color:var(--m);">Subtle</span>
+                  <span class="meta-10">Subtle</span>
                   <input type="range" id="gxIntensitySlider" min="0" max="100" value="60" oninput="if(window.ThemeGX)ThemeGX.setIntensity(this.value/100);document.getElementById('gxIntensityVal').textContent=this.value+'%'" style="flex:1;accent-color:var(--orange);">
-                  <span style="font-size:10px;color:var(--m);">Neon</span>
+                  <span class="meta-10">Neon</span>
                   <span id="gxIntensityVal" style="font-size:11px;color:var(--orange);font-weight:700;min-width:35px;">60%</span>
                 </div>
               </div>
 
               <!-- Accent color override -->
-              <div style="margin-bottom:12px;">
-                <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Custom Accent Color</label>
+              <div class="mb-12">
+                <label class="eyebrow">Custom Accent Color</label>
                 <div style="display:flex;gap:8px;align-items:center;">
                   <input type="color" id="gxAccentPicker" value="#e8720c" onchange="if(window.ThemeGX)ThemeGX.setAccent(this.value)" style="width:40px;height:32px;border:1px solid var(--br);border-radius:4px;cursor:pointer;background:none;">
                   <button class="btn btn-ghost" style="font-size:10px;padding:6px 10px;" data-action="call" data-fn="clearAccentTheme">Reset to Default</button>
@@ -13336,7 +13336,7 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- Achievement Themes -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Achievements</div><div class="panel-title">Unlock Special Themes</div></div></div>
           <div class="panel-body">
             <div id="te-achievements-panel"></div>
@@ -13344,45 +13344,45 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- Custom Theme Builder -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Builder</div><div class="panel-title">Create Your Own Theme</div></div></div>
           <div class="panel-body">
             <div id="te-builder-panel">
-              <p style="font-size:12px;color:var(--m);margin-bottom:16px;">Create a custom theme with your own colors. Changes apply instantly — save when you're happy.</p>
+              <p class="meta-12-mb16">Create a custom theme with your own colors. Changes apply instantly — save when you're happy.</p>
 
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
                 <div>
-                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Accent Color</label>
-                  <input type="color" id="tbAccent" value="#e8720c" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                  <label class="eyebrow">Accent Color</label>
+                  <input type="color" id="tbAccent" value="#e8720c" onchange="applyCustomTheme()" class="btn-input-40">
                 </div>
                 <div>
-                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Background</label>
-                  <input type="color" id="tbBg" value="#0A0C0F" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                  <label class="eyebrow">Background</label>
+                  <input type="color" id="tbBg" value="#0A0C0F" onchange="applyCustomTheme()" class="btn-input-40">
                 </div>
                 <div>
-                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Surface (Cards)</label>
-                  <input type="color" id="tbSurface" value="#181C22" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                  <label class="eyebrow">Surface (Cards)</label>
+                  <input type="color" id="tbSurface" value="#181C22" onchange="applyCustomTheme()" class="btn-input-40">
                 </div>
                 <div>
-                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Text Color</label>
-                  <input type="color" id="tbText" value="#E8EAF0" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                  <label class="eyebrow">Text Color</label>
+                  <input type="color" id="tbText" value="#E8EAF0" onchange="applyCustomTheme()" class="btn-input-40">
                 </div>
                 <div>
-                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Muted Text</label>
-                  <input type="color" id="tbMuted" value="#6B7280" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                  <label class="eyebrow">Muted Text</label>
+                  <input type="color" id="tbMuted" value="#6B7280" onchange="applyCustomTheme()" class="btn-input-40">
                 </div>
                 <div>
-                  <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Border</label>
-                  <input type="color" id="tbBorder" value="#2a2d35" onchange="applyCustomTheme()" style="width:100%;height:40px;border:1px solid var(--br);border-radius:6px;cursor:pointer;background:none;">
+                  <label class="eyebrow">Border</label>
+                  <input type="color" id="tbBorder" value="#2a2d35" onchange="applyCustomTheme()" class="btn-input-40">
                 </div>
               </div>
 
-              <div style="margin-bottom:14px;">
-                <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Theme Name</label>
+              <div class="mb-14">
+                <label class="eyebrow">Theme Name</label>
                 <input type="text" id="tbName" placeholder="My Custom Theme" maxlength="30" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--t);font-family:inherit;font-size:13px;">
               </div>
 
-              <div style="display:flex;gap:8px;">
+              <div class="flex-g8">
                 <button class="btn btn-orange" style="flex:1;justify-content:center;" data-action="call" data-fn="saveCustomTheme">Save Theme</button>
                 <button class="btn btn-ghost" style="flex:1;justify-content:center;" data-action="call" data-fn="resetCustomTheme">Reset to Default</button>
               </div>
@@ -13455,12 +13455,12 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- Typography: fonts + sizing -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Typography</div><div class="panel-title">Fonts & Sizing</div></div></div>
           <div class="panel-body">
 
             <!-- SITE-WIDE SIZING SELECTOR -->
-            <div style="margin-bottom:20px;">
+            <div class="mb-lg">
               <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:8px;">UI Size</label>
               <div style="display:flex;gap:6px;flex-wrap:wrap;" id="sizingBtnGroup">
                 <button class="btn btn-ghost nbd-size-btn" data-size="compact" data-action="call" data-fn="nbdSetSize" data-arg="compact" style="font-size:11px;padding:8px 14px;">Compact</button>
@@ -13478,10 +13478,10 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- SIDEBAR CUSTOMIZER -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Navigation</div><div class="panel-title">Customize Sidebar</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:14px;">Toggle sidebar items on/off. Hidden items are still accessible via the search bar (press /).</p>
+            <p class="meta-12-mb14">Toggle sidebar items on/off. Hidden items are still accessible via the search bar (press /).</p>
             <div id="sidebarCustomizerGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
             <div style="display:flex;gap:8px;margin-top:14px;">
               <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:11px;" data-action="call" data-fn="resetSidebarCustomizer">Reset to Default</button>
@@ -13548,7 +13548,7 @@ function switchScTab(tab, btn) {
             var isLocked = item.alwaysOn;
             return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid ' + (isHidden ? 'var(--br)' : 'var(--orange)') + ';border-radius:6px;cursor:' + (isLocked ? 'not-allowed' : 'pointer') + ';opacity:' + (isHidden ? '.5' : '1') + ';transition:all .15s;">'
               + '<input type="checkbox" ' + (isHidden ? '' : 'checked') + ' ' + (isLocked ? 'disabled' : '') + ' onchange="toggleSidebarItem(\'' + item.id + '\')" style="accent-color:var(--orange);width:16px;height:16px;">'
-              + '<span style="font-size:14px;">' + item.icon + '</span>'
+              + '<span class="fs-14">' + item.icon + '</span>'
               + '<span style="font-size:12px;color:var(--t);font-weight:600;">' + item.label + '</span>'
               + (isLocked ? '<span style="font-size:9px;color:var(--m);margin-left:auto;">Required</span>' : '')
               + '</label>';
@@ -13586,13 +13586,13 @@ function switchScTab(tab, btn) {
       </div><!-- /stab-panel-appearance -->
 
       <!-- ══ TAB: ESTIMATES ══ -->
-      <div class="stab-panel" id="stab-panel-estimates" style="display:none;">
+      <div class="stab-panel dn" id="stab-panel-estimates">
 
         <!-- ▸ Per-SQ Tier Rates (v2 engine) -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">V2 Engine · Per-SQ Mode</div><div class="panel-title">Tier Rates</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:16px;">Flat per-square pricing used when V2 Estimate Builder is in Per-SQ mode. Locked contractor pricing from the April 2026 price review.</p>
+            <p class="meta-12-mb16">Flat per-square pricing used when V2 Estimate Builder is in Per-SQ mode. Locked contractor pricing from the April 2026 price review.</p>
             <div class="sf-row">
               <div class="sf"><label>Good Tier ($/SQ)</label><input type="number" id="v2rateGood" value="545" step="5"></div>
               <div class="sf"><label>Better Tier ($/SQ)</label><input type="number" id="v2rateBetter" value="595" step="5"></div>
@@ -13612,10 +13612,10 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- ▸ OH&P Markup -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">V2 Engine · Line-Item Mode</div><div class="panel-title">Overhead, Profit & Markup</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:16px;">Controls for the 3-catalog linked model. These percentages apply to every line-item estimate.</p>
+            <p class="meta-12-mb16">Controls for the 3-catalog linked model. These percentages apply to every line-item estimate.</p>
             <div class="sf-row">
               <div class="sf"><label>Material Markup %</label><input type="number" id="v2matMarkup" value="25" step="1"></div>
               <div class="sf"><label>Overhead %</label><input type="number" id="v2overhead" value="10" step="1"></div>
@@ -13625,7 +13625,7 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- ▸ Default Measurements -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Defaults</div><div class="panel-title">Measurement & Waste Defaults</div></div></div>
           <div class="panel-body">
             <div class="sf-row">
@@ -13647,7 +13647,7 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- ▸ Permit Costs (city-specific) -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Permits</div><div class="panel-title">City-Specific Permit Costs</div></div></div>
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">These values auto-populate the permit line when an estimate's county is set. Update as your local jurisdictions change their fees.</p>
@@ -13667,7 +13667,7 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- ▸ County Sales Tax Rates -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Sales Tax</div><div class="panel-title">County Tax Rates</div></div></div>
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Applied automatically on cash estimates based on the customer's county. Insurance mode skips tax.</p>
@@ -13687,7 +13687,7 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- ▸ Catalog Summary (read-only) -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Catalog Summary</div><div class="panel-title">Loaded Catalogs</div></div></div>
           <div class="panel-body">
             <div id="v2catalogSummary" style="font-size:13px;color:var(--t);line-height:1.8;">
@@ -13702,7 +13702,7 @@ function switchScTab(tab, btn) {
         <!-- ▸ Save/Reset -->
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
           <button class="btn btn-orange" data-action="call" data-fn="_saveEstimateDefaultsV2">💾 Save All Estimate Settings</button>
-          <button class="btn btn-ghost" data-action="call" data-fn="_resetEstimateDefaultsV2" style="font-size:11px;">↺ Reset to Defaults</button>
+          <button class="btn btn-ghost fs-11" data-action="call" data-fn="_resetEstimateDefaultsV2">↺ Reset to Defaults</button>
           <button class="btn btn-ghost" data-action="call" data-fn="openEstimateV2Builder" style="font-size:11px;color:var(--orange);">✨ Open V2 Builder →</button>
         </div>
         <div id="v2save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Estimate settings saved</div>
@@ -13710,9 +13710,9 @@ function switchScTab(tab, btn) {
       </div><!-- /stab-panel-estimates -->
 
       <!-- ══ TAB: DAILY OS ══ -->
-      <div class="stab-panel" id="stab-panel-daily" style="display:none;">
+      <div class="stab-panel dn" id="stab-panel-daily">
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Daily Program</div><div class="panel-title">North Star Goal</div></div></div>
           <div class="panel-body">
             <div class="sf-row">
@@ -13739,7 +13739,7 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Daily Program</div><div class="panel-title">Daily Floors</div></div></div>
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Up to 7 non-negotiables — the minimum you show up for every day.</p>
@@ -13754,7 +13754,7 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Daily Program</div><div class="panel-title">Golden Goose Reward</div></div></div>
           <div class="panel-body">
             <div class="sf">
@@ -13772,7 +13772,7 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Daily Program</div><div class="panel-title">Program Theme</div></div></div>
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Separate from your dashboard theme — the Daily Program has its own look.</p>
@@ -13782,7 +13782,7 @@ function switchScTab(tab, btn) {
 
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
           <button class="btn btn-orange" data-action="call" data-fn="dsSaveConfig">💾 Save Daily Program Settings</button>
-          <button class="btn btn-ghost" data-action="call" data-fn="dsResetDefaults" style="font-size:11px;">↺ Reset to Defaults</button>
+          <button class="btn btn-ghost fs-11" data-action="call" data-fn="dsResetDefaults">↺ Reset to Defaults</button>
           <a href="/pro/daily-success/" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:var(--orange);text-decoration:none;">Open Daily Program ↗</a>
         </div>
         <div id="ds-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Daily Program settings saved</div>
@@ -13790,8 +13790,8 @@ function switchScTab(tab, btn) {
       </div><!-- /stab-panel-daily -->
 
       <!-- ══ TAB: COMPANY ══ -->
-      <div class="stab-panel" id="stab-panel-company" style="display:none;">
-        <div class="panel" style="margin-bottom:16px;">
+      <div class="stab-panel dn" id="stab-panel-company">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Brand Identity</div><div class="panel-title">Company Info</div></div></div>
           <div class="panel-body">
             <div class="sf-row">
@@ -13817,7 +13817,7 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Licensing & Insurance</div><div class="panel-title">Credentials</div></div></div>
           <div class="panel-body">
             <div class="sf-row">
@@ -13835,7 +13835,7 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Territory</div><div class="panel-title">Service Area</div></div></div>
           <div class="panel-body">
             <div class="sf"><label>Primary Service Area (counties, comma-separated)</label>
@@ -13849,38 +13849,38 @@ function switchScTab(tab, btn) {
 
         <div style="display:flex;gap:8px;margin-top:4px;">
           <button class="btn btn-orange" data-action="call" data-fn="_saveCompanySettings">💾 Save Company Info</button>
-          <button class="btn btn-ghost" data-action="call" data-fn="_loadCompanySettings" style="font-size:11px;">↺ Reload</button>
+          <button class="btn btn-ghost fs-11" data-action="call" data-fn="_loadCompanySettings">↺ Reload</button>
         </div>
         <div id="co-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Company info saved</div>
       </div><!-- /stab-panel-company -->
 
       <!-- ══ TAB: TEAM ══ -->
-      <div class="stab-panel" id="stab-panel-team" style="display:none;">
+      <div class="stab-panel dn" id="stab-panel-team">
 
         <!-- CURRENT TEAM -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Your Team</div><div class="panel-title">Team Members</div></div></div>
           <div class="panel-body">
             <!-- Owner card (always shows) -->
             <div style="padding:16px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:12px;">
               <div style="display:flex;align-items:center;gap:12px;">
                 <div style="width:44px;height:44px;border-radius:22px;background:var(--orange);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;" id="teamOwnerInitials">JD</div>
-                <div style="flex:1;">
+                <div class="f1">
                   <div style="font-size:14px;font-weight:700;color:var(--accent-fg);" id="teamOwnerName">Loading...</div>
-                  <div style="font-size:11px;color:var(--m);">Owner / Operator · Admin · All permissions</div>
+                  <div class="meta-11">Owner / Operator · Admin · All permissions</div>
                 </div>
                 <span style="font-size:9px;font-weight:700;padding:4px 10px;background:var(--orange);color:var(--accent-fg);border-radius:12px;letter-spacing:.08em;">OWNER</span>
               </div>
             </div>
 
             <!-- Team members list (populated by JS) -->
-            <div id="teamMembersList" style="margin-bottom:14px;"></div>
+            <div id="teamMembersList" class="mb-14"></div>
 
             <!-- Invite form -->
             <div style="border-top:1px solid var(--br);padding-top:14px;">
               <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:8px;">Invite a Rep</div>
               <div style="display:flex;gap:8px;align-items:flex-end;">
-                <div style="flex:1;">
+                <div class="f1">
                   <label style="font-size:10px;color:var(--m);display:block;margin-bottom:4px;">Email Address</label>
                   <input type="email" id="inviteRepEmail" placeholder="rep@email.com" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--accent-fg);font-family:inherit;font-size:13px;">
                 </div>
@@ -13900,7 +13900,7 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- ROLE PERMISSIONS -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Access Control</div><div class="panel-title">Role Permissions</div></div></div>
           <div class="panel-body">
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;">
@@ -13925,10 +13925,10 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- ENTERPRISE ROADMAP -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Enterprise</div><div class="panel-title">Growth Roadmap</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:14px;">NBD Pro's multi-user architecture is designed for scale. The foundation is live — Firestore collections, security rules, role-based access control, and company scoping are production-ready. These features activate as your team grows:</p>
+            <p class="meta-12-mb14">NBD Pro's multi-user architecture is designed for scale. The foundation is live — Firestore collections, security rules, role-based access control, and company scoping are production-ready. These features activate as your team grows:</p>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
               <div style="padding:12px;background:color-mix(in srgb, var(--orange) 5%, transparent);border:1px solid color-mix(in srgb, var(--orange) 15%, transparent);border-radius:6px;">
                 <div style="font-size:11px;font-weight:700;color:var(--orange);margin-bottom:4px;">Live Now</div>
@@ -13950,7 +13950,7 @@ function switchScTab(tab, btn) {
               </div>
             </div>
             <div style="font-size:11px;color:var(--m);padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:4px;">
-              <strong style="color:var(--orange);">Pricing:</strong> Solo operators never pay for team features. Multi-user unlocks at the Growth tier ($249/mo, up to 5 reps) and scales with Enterprise (unlimited, custom pricing).
+              <strong class="fg-orange">Pricing:</strong> Solo operators never pay for team features. Multi-user unlocks at the Growth tier ($249/mo, up to 5 reps) and scales with Enterprise (unlimited, custom pricing).
             </div>
           </div>
         </div>
@@ -14012,8 +14012,8 @@ function switchScTab(tab, btn) {
             var roleColors = { sales_rep:'var(--green)', manager:'var(--blue)', viewer:'var(--m)' };
             return '<div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:6px;display:flex;align-items:center;gap:12px;">'
               + '<div style="width:36px;height:36px;border-radius:18px;background:var(--s3);color:var(--m);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">' + (m.email||'?')[0].toUpperCase() + '</div>'
-              + '<div style="flex:1;"><div style="font-size:13px;font-weight:600;color:var(--t);">' + (m.email||'') + '</div>'
-              + '<div style="font-size:10px;color:var(--m);">' + (m.role||'rep').replace(/_/g,' ') + ' · ' + (m.status||'invited') + '</div></div>'
+              + '<div class="f1"><div style="font-size:13px;font-weight:600;color:var(--t);">' + (m.email||'') + '</div>'
+              + '<div class="meta-10">' + (m.role||'rep').replace(/_/g,' ') + ' · ' + (m.status||'invited') + '</div></div>'
               + '<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:10px;border:1px solid ' + (roleColors[m.role]||'var(--br)') + ';color:' + (roleColors[m.role]||'var(--m)') + ';text-transform:uppercase;letter-spacing:.06em;">' + (m.role||'rep').replace(/_/g,' ') + '</span>'
               + '</div>';
           }).join('');
@@ -14034,50 +14034,50 @@ function switchScTab(tab, btn) {
       </script>
 
       <!-- ══ TAB: ACCESS ══ -->
-      <div class="stab-panel" id="stab-panel-access" style="display:none;">
-        <div class="panel" style="margin-bottom:16px;">
+      <div class="stab-panel dn" id="stab-panel-access">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Login Security</div><div class="panel-title">Access Methods</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:14px;">NBD Pro supports three login methods. You can enable or disable each one.</p>
+            <p class="meta-12-mb14">NBD Pro supports three login methods. You can enable or disable each one.</p>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
               <div>
-                <div style="font-size:13px;font-weight:700;color:var(--t);">Email + Password</div>
-                <div style="font-size:11px;color:var(--m);">Standard Firebase Auth login</div>
+                <div class="heading-13">Email + Password</div>
+                <div class="meta-11">Standard Firebase Auth login</div>
               </div>
               <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:var(--green);border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
               <div>
-                <div style="font-size:13px;font-weight:700;color:var(--t);">Access Code</div>
-                <div style="font-size:11px;color:var(--m);">Hidden. Admins can reveal the active code from the Team Manager.</div>
+                <div class="heading-13">Access Code</div>
+                <div class="meta-11">Hidden. Admins can reveal the active code from the Team Manager.</div>
               </div>
               <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:var(--green);border-radius:3px;letter-spacing:.08em;" id="accessCodeStatus">✓ ENABLED</span>
             </div>
 
             <div style="display:flex;justify-content:space-between;align-items:center;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
               <div>
-                <div style="font-size:13px;font-weight:700;color:var(--t);">Demo / Try It Mode</div>
-                <div style="font-size:11px;color:var(--m);">Read-only sandbox on landing page</div>
+                <div class="heading-13">Demo / Try It Mode</div>
+                <div class="meta-11">Read-only sandbox on landing page</div>
               </div>
               <span style="font-size:10px;font-weight:700;padding:4px 10px;background:rgba(46,204,138,.15);color:var(--green);border-radius:3px;letter-spacing:.08em;">✓ ENABLED</span>
             </div>
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Session</div><div class="panel-title">Current Session</div></div></div>
           <div class="panel-body">
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:12px;">
-              <div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);">Signed in as</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accSignedInAs">—</div></div>
-              <div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);">User ID</label><div style="font-size:11px;color:var(--m);font-family:monospace;word-break:break-all;" id="accUserId">—</div></div>
-              <div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);">Login method</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accLoginMethod">Email + Password</div></div>
-              <div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);">Session started</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accSessionStarted">—</div></div>
+              <div><label class="eyebrow-9i">Signed in as</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accSignedInAs">—</div></div>
+              <div><label class="eyebrow-9i">User ID</label><div style="font-size:11px;color:var(--m);font-family:monospace;word-break:break-all;" id="accUserId">—</div></div>
+              <div><label class="eyebrow-9i">Login method</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accLoginMethod">Email + Password</div></div>
+              <div><label class="eyebrow-9i">Session started</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accSessionStarted">—</div></div>
             </div>
             <div style="display:flex;gap:8px;margin-top:16px;">
               <button class="btn btn-red" data-action="signOut">Sign Out Everywhere</button>
-              <button class="btn btn-ghost" data-action="reload" style="font-size:11px;">Refresh Session</button>
+              <button class="btn btn-ghost fs-11" data-action="reload">Refresh Session</button>
             </div>
           </div>
         </div>
@@ -14086,10 +14086,10 @@ function switchScTab(tab, btn) {
           <div class="panel-hdr"><div><div class="panel-label">Data Retention</div><div class="panel-title">Export & Cleanup</div></div></div>
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your data is yours. Export it anytime.</p>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-ghost" data-action="call" data-fn="_exportAllData" style="font-size:11px;">📥 Export All Leads (CSV)</button>
-              <button class="btn btn-ghost" data-action="call" data-fn="_exportEstimates" style="font-size:11px;">📥 Export Estimates (CSV)</button>
-              <button class="btn btn-ghost" data-action="call" data-fn="_exportPhotos" style="font-size:11px;">📥 Export Photos (ZIP)</button>
+            <div class="fwgap-8">
+              <button class="btn btn-ghost fs-11" data-action="call" data-fn="_exportAllData">📥 Export All Leads (CSV)</button>
+              <button class="btn btn-ghost fs-11" data-action="call" data-fn="_exportEstimates">📥 Export Estimates (CSV)</button>
+              <button class="btn btn-ghost fs-11" data-action="call" data-fn="_exportPhotos">📥 Export Photos (ZIP)</button>
             </div>
           </div>
         </div>
@@ -14100,12 +14100,12 @@ function switchScTab(tab, btn) {
           <div class="panel-hdr"><div><div class="panel-label">Your Rights (GDPR)</div><div class="panel-title">Download or Delete Your Account</div></div></div>
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Under GDPR Articles 17 and 20 you can download a complete copy of your data or permanently delete your account. Both actions are logged in our audit trail.</p>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-ghost" style="font-size:11px;"
+            <div class="fwgap-8">
+              <button class="btn btn-ghost fs-11"
                       data-action="call" data-fn="_gdprExport">
                 📦 Export All My Data (JSON)
               </button>
-              <button class="btn btn-red" style="font-size:11px;"
+              <button class="btn btn-red fs-11"
                       data-action="call" data-fn="_gdprRequestErasure">
                 🗑 Permanently Delete My Account
               </button>
@@ -14116,10 +14116,10 @@ function switchScTab(tab, btn) {
       </div><!-- /stab-panel-access -->
 
       <!-- ══ TAB: BILLING ══ -->
-      <div class="stab-panel" id="stab-panel-billing" style="display:none;">
+      <div class="stab-panel dn" id="stab-panel-billing">
 
         <!-- CURRENT PLAN STATUS -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Current Plan</div><div class="panel-title" id="billingPlanTitle">Loading...</div></div></div>
           <div class="panel-body" id="billingCurrentPlan">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:18px;background:linear-gradient(135deg,color-mix(in srgb, var(--orange) 15%, transparent),color-mix(in srgb, var(--orange) 5%, transparent));border:2px solid var(--orange);border-radius:10px;margin-bottom:14px;">
@@ -14148,7 +14148,7 @@ function switchScTab(tab, btn) {
                 <div style="height:4px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;"><div id="billingAIBar" style="height:100%;background:var(--orange);border-radius:2px;width:0%;transition:width .3s;"></div></div>
               </div>
             </div>
-            <div style="display:flex;gap:8px;">
+            <div class="flex-g8">
               <a href="/pro/pricing.html" class="btn btn-orange" style="font-size:11px;padding:8px 14px;text-decoration:none;">View All Plans</a>
               <!-- Stripe customer-portal session opener (openCustomerPortalSession)
                    isn't wired yet, so this used to call an undefined function and
@@ -14161,10 +14161,10 @@ function switchScTab(tab, btn) {
         </div>
 
         <!-- AI USAGE -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Platform</div><div class="panel-title">Ask Joe AI Usage</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:14px;">Anthropic API charges pass through directly to your key. We don't mark up AI calls.</p>
+            <p class="meta-12-mb14">Anthropic API charges pass through directly to your key. We don't mark up AI calls.</p>
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;text-align:center;">
                 <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;">This Month</div>
@@ -14281,16 +14281,16 @@ function switchScTab(tab, btn) {
       </script>
 
       <!-- ══ TAB: NOTIFICATIONS ══ -->
-      <div class="stab-panel" id="stab-panel-notifications" style="display:none;">
-        <div class="panel" style="margin-bottom:16px;">
+      <div class="stab-panel dn" id="stab-panel-notifications">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Mode</div><div class="panel-title">How Noisy Should Joe Be?</div></div></div>
           <div class="panel-body">
-            <p style="font-size:12px;color:var(--m);margin-bottom:14px;">Pick one default mode. Critical-only is recommended — keeps interruptions under 4/day.</p>
+            <p class="meta-12-mb14">Pick one default mode. Critical-only is recommended — keeps interruptions under 4/day.</p>
 
             <label style="display:flex;gap:12px;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:8px;cursor:pointer;">
               <input type="radio" name="notifMode" value="critical" id="notifCritical" checked style="margin-top:3px;">
               <div>
-                <div style="font-size:13px;font-weight:700;color:var(--t);">Critical Only (Recommended)</div>
+                <div class="heading-13">Critical Only (Recommended)</div>
                 <div style="font-size:11px;color:var(--m);margin-top:2px;">Overdue follow-ups, hot leads, storm alerts in your area. Max 3–4/day.</div>
               </div>
             </label>
@@ -14298,7 +14298,7 @@ function switchScTab(tab, btn) {
             <label style="display:flex;gap:12px;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:8px;cursor:pointer;">
               <input type="radio" name="notifMode" value="digest" id="notifDigest" style="margin-top:3px;">
               <div>
-                <div style="font-size:13px;font-weight:700;color:var(--t);">Scheduled Digests</div>
+                <div class="heading-13">Scheduled Digests</div>
                 <div style="font-size:11px;color:var(--m);margin-top:2px;">7am morning briefing + 3pm afternoon update. No real-time interruptions.</div>
               </div>
             </label>
@@ -14306,63 +14306,63 @@ function switchScTab(tab, btn) {
             <label style="display:flex;gap:12px;padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
               <input type="radio" name="notifMode" value="firehose" id="notifFirehose" style="margin-top:3px;">
               <div>
-                <div style="font-size:13px;font-weight:700;color:var(--t);">Real-Time Firehose</div>
+                <div class="heading-13">Real-Time Firehose</div>
                 <div style="font-size:11px;color:var(--m);margin-top:2px;">Every lead change, every message, every event. Power user mode.</div>
               </div>
             </label>
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Triggers</div><div class="panel-title">What Triggers an Alert</div></div></div>
           <div class="panel-body">
             <div style="display:flex;flex-direction:column;gap:8px;">
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+              <label class="row-card">
                 <div>
-                  <div style="font-size:13px;color:var(--t);">Overdue Follow-Ups</div>
-                  <div style="font-size:10px;color:var(--m);">Lead has no touch in 3+ days</div>
+                  <div class="body-13">Overdue Follow-Ups</div>
+                  <div class="meta-10">Lead has no touch in 3+ days</div>
                 </div>
                 <input type="checkbox" id="notifOverdue" checked>
               </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+              <label class="row-card">
                 <div>
-                  <div style="font-size:13px;color:var(--t);">Hot Leads</div>
-                  <div style="font-size:10px;color:var(--m);">High lead score + recent activity</div>
+                  <div class="body-13">Hot Leads</div>
+                  <div class="meta-10">High lead score + recent activity</div>
                 </div>
                 <input type="checkbox" id="notifHot" checked>
               </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+              <label class="row-card">
                 <div>
-                  <div style="font-size:13px;color:var(--t);">Storm Alerts</div>
-                  <div style="font-size:10px;color:var(--m);">Hail / wind event in service area</div>
+                  <div class="body-13">Storm Alerts</div>
+                  <div class="meta-10">Hail / wind event in service area</div>
                 </div>
                 <input type="checkbox" id="notifStorm" checked>
               </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+              <label class="row-card">
                 <div>
-                  <div style="font-size:13px;color:var(--t);">Estimate Approvals</div>
-                  <div style="font-size:10px;color:var(--m);">Customer signs / adjuster approves</div>
+                  <div class="body-13">Estimate Approvals</div>
+                  <div class="meta-10">Customer signs / adjuster approves</div>
                 </div>
                 <input type="checkbox" id="notifApproval" checked>
               </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+              <label class="row-card">
                 <div>
-                  <div style="font-size:13px;color:var(--t);">Inbound Messages</div>
-                  <div style="font-size:10px;color:var(--m);">Customer texts, emails, calls</div>
+                  <div class="body-13">Inbound Messages</div>
+                  <div class="meta-10">Customer texts, emails, calls</div>
                 </div>
                 <input type="checkbox" id="notifInbound" checked>
               </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+              <label class="row-card">
                 <div>
-                  <div style="font-size:13px;color:var(--t);">D2D Territory Updates</div>
-                  <div style="font-size:10px;color:var(--m);">New knocks, interested dispositions</div>
+                  <div class="body-13">D2D Territory Updates</div>
+                  <div class="meta-10">New knocks, interested dispositions</div>
                 </div>
                 <input type="checkbox" id="notifD2d">
               </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
+              <label class="row-card">
                 <div>
-                  <div style="font-size:13px;color:var(--t);">Missing-Field Reminders</div>
-                  <div style="font-size:10px;color:var(--m);">Lead stuck without a required field (carrier, claim #, job value, etc.)</div>
+                  <div class="body-13">Missing-Field Reminders</div>
+                  <div class="meta-10">Lead stuck without a required field (carrier, claim #, job value, etc.)</div>
                 </div>
                 <input type="checkbox" id="notifNeedsField" checked>
               </label>
@@ -14370,58 +14370,58 @@ function switchScTab(tab, btn) {
           </div>
         </div>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Channels</div><div class="panel-title">Where Alerts Go</div></div></div>
           <div class="panel-body">
             <div style="display:flex;flex-direction:column;gap:8px;">
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
-                <div style="font-size:13px;color:var(--t);">🖥️ In-app banner</div>
+              <label class="row-card">
+                <div class="body-13">🖥️ In-app banner</div>
                 <input type="checkbox" id="chInApp" checked>
               </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
-                <div style="font-size:13px;color:var(--t);">📱 Push (browser / PWA)</div>
+              <label class="row-card">
+                <div class="body-13">📱 Push (browser / PWA)</div>
                 <input type="checkbox" id="chPush">
               </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
-                <div style="font-size:13px;color:var(--t);">📧 Email</div>
+              <label class="row-card">
+                <div class="body-13">📧 Email</div>
                 <input type="checkbox" id="chEmail" checked>
               </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;cursor:pointer;">
-                <div style="font-size:13px;color:var(--t);">📞 SMS (coming soon)</div>
+              <label class="row-card">
+                <div class="body-13">📞 SMS (coming soon)</div>
                 <input type="checkbox" id="chSms" disabled>
               </label>
             </div>
           </div>
         </div>
 
-        <div style="display:flex;gap:8px;">
+        <div class="flex-g8">
           <button class="btn btn-orange" data-action="call" data-fn="_saveNotifSettings">💾 Save Notification Settings</button>
-          <button class="btn btn-ghost" data-action="call" data-fn="_testNotif" style="font-size:11px;">🧪 Test Notification</button>
+          <button class="btn btn-ghost fs-11" data-action="call" data-fn="_testNotif">🧪 Test Notification</button>
         </div>
         <div id="notif-save-msg" style="display:none;margin-top:10px;font-size:11px;color:#4caf82;">✓ Notification preferences saved</div>
       </div><!-- /stab-panel-notifications -->
 
       <!-- ══ TAB: HELP ══ -->
-      <div class="stab-panel" id="stab-panel-help" style="display:none;">
+      <div class="stab-panel dn" id="stab-panel-help">
 
         <!-- Onboarding tour restart — re-runs the first-time 5-step tour for
              reps who skipped it or want a refresher. -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Tour</div><div class="panel-title">Welcome Tour</div></div></div>
           <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
             <div style="flex:1;min-width:200px;">
               <div style="font-size:13px;color:var(--t);margin-bottom:4px;font-weight:600;">5-step product tour</div>
-              <div style="font-size:11px;color:var(--m);">Quick walkthrough of the kanban, prospects, D2D tracker, and settings. Useful for new reps or as a refresher.</div>
+              <div class="meta-11">Quick walkthrough of the kanban, prospects, D2D tracker, and settings. Useful for new reps or as a refresher.</div>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-orange" data-action="call" data-fn="restartOnboardingTour" style="font-size:12px;padding:8px 14px;">▶ Start Tour</button>
-              <button class="btn btn-ghost" data-action="windowOpen" data-target="how-to.html" style="font-size:12px;padding:8px 14px;">📖 Full How-To</button>
+            <div class="fwgap-8">
+              <button class="btn btn-orange btn-12" data-action="call" data-fn="restartOnboardingTour">▶ Start Tour</button>
+              <button class="btn btn-ghost btn-12" data-action="windowOpen" data-target="how-to.html">📖 Full How-To</button>
             </div>
           </div>
         </div>
 
         <!-- Hotkey Toggles -->
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Keyboard</div><div class="panel-title">Hotkey Toggles</div></div></div>
           <div class="panel-body">
             <p style="color:var(--m);font-size:12px;margin-bottom:14px;">Toggle individual keyboard shortcuts on or off. Disable any that you accidentally trigger while typing.</p>
@@ -14466,7 +14466,7 @@ function switchScTab(tab, btn) {
         document.addEventListener('DOMContentLoaded', renderHotkeyToggles);
         </script>
 
-        <div class="panel" style="margin-bottom:16px;">
+        <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Quick Reference</div><div class="panel-title">Shortcuts & How-To Guide</div></div></div>
           <div class="panel-body">
             <p style="color:var(--m);font-size:13px;margin-bottom:16px;">Access the full keyboard shortcuts matrix and the step-by-step how-to guide anytime.</p>
@@ -14490,16 +14490,16 @@ function switchScTab(tab, btn) {
                 </tr>
               </thead>
               <tbody>
-                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">Cmd+K</kbd></td><td style="padding:8px 4px;color:var(--t);">Command palette</td><td style="padding:8px 4px;color:var(--m);">Everywhere</td></tr>
-                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">?</kbd></td><td style="padding:8px 4px;color:var(--t);">Shortcuts & guide</td><td style="padding:8px 4px;color:var(--m);">Everywhere</td></tr>
-                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">C</kbd> / <kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">N</kbd></td><td style="padding:8px 4px;color:var(--t);">New lead</td><td style="padding:8px 4px;color:var(--m);">Dashboard</td></tr>
-                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">E</kbd></td><td style="padding:8px 4px;color:var(--t);">New estimate</td><td style="padding:8px 4px;color:var(--m);">Dashboard</td></tr>
-                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">/</kbd></td><td style="padding:8px 4px;color:var(--t);">Focus search</td><td style="padding:8px 4px;color:var(--m);">Dashboard</td></tr>
-                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">1</kbd>-<kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">7</kbd></td><td style="padding:8px 4px;color:var(--t);">Jump to kanban column</td><td style="padding:8px 4px;color:var(--m);">CRM view</td></tr>
-                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">Esc</kbd></td><td style="padding:8px 4px;color:var(--t);">Close modal</td><td style="padding:8px 4px;color:var(--m);">Everywhere</td></tr>
-                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">↑</kbd> <kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">↓</kbd></td><td style="padding:8px 4px;color:var(--t);">Navigate results</td><td style="padding:8px 4px;color:var(--m);">Dropdowns</td></tr>
-                <tr style="border-bottom:1px solid var(--br);"><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">←</kbd> <kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">→</kbd></td><td style="padding:8px 4px;color:var(--t);">Navigate photos</td><td style="padding:8px 4px;color:var(--m);">Lightbox</td></tr>
-                <tr><td style="padding:8px 4px;"><kbd style="font-family:'Barlow Condensed';font-weight:600;background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;font-size:11px;">Enter</kbd></td><td style="padding:8px 4px;color:var(--t);">Send / Submit / Select</td><td style="padding:8px 4px;color:var(--m);">Forms & AI</td></tr>
+                <tr class="bb"><td class="cell"><kbd class="bc-chip">Cmd+K</kbd></td><td class="cell-t">Command palette</td><td class="cell-m">Everywhere</td></tr>
+                <tr class="bb"><td class="cell"><kbd class="bc-chip">?</kbd></td><td class="cell-t">Shortcuts & guide</td><td class="cell-m">Everywhere</td></tr>
+                <tr class="bb"><td class="cell"><kbd class="bc-chip">C</kbd> / <kbd class="bc-chip">N</kbd></td><td class="cell-t">New lead</td><td class="cell-m">Dashboard</td></tr>
+                <tr class="bb"><td class="cell"><kbd class="bc-chip">E</kbd></td><td class="cell-t">New estimate</td><td class="cell-m">Dashboard</td></tr>
+                <tr class="bb"><td class="cell"><kbd class="bc-chip">/</kbd></td><td class="cell-t">Focus search</td><td class="cell-m">Dashboard</td></tr>
+                <tr class="bb"><td class="cell"><kbd class="bc-chip">1</kbd>-<kbd class="bc-chip">7</kbd></td><td class="cell-t">Jump to kanban column</td><td class="cell-m">CRM view</td></tr>
+                <tr class="bb"><td class="cell"><kbd class="bc-chip">Esc</kbd></td><td class="cell-t">Close modal</td><td class="cell-m">Everywhere</td></tr>
+                <tr class="bb"><td class="cell"><kbd class="bc-chip">↑</kbd> <kbd class="bc-chip">↓</kbd></td><td class="cell-t">Navigate results</td><td class="cell-m">Dropdowns</td></tr>
+                <tr class="bb"><td class="cell"><kbd class="bc-chip">←</kbd> <kbd class="bc-chip">→</kbd></td><td class="cell-t">Navigate photos</td><td class="cell-m">Lightbox</td></tr>
+                <tr><td class="cell"><kbd class="bc-chip">Enter</kbd></td><td class="cell-t">Send / Submit / Select</td><td class="cell-m">Forms & AI</td></tr>
               </tbody>
             </table>
           </div>
@@ -14518,8 +14518,8 @@ function switchScTab(tab, btn) {
     <div class="view-scroll" style="max-width:1100px;padding-bottom:40px;">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">Team Manager</div>
           <div class="page-sub">Admin-only · create reps, assign roles, deactivate accounts</div>
@@ -14535,7 +14535,7 @@ function switchScTab(tab, btn) {
       </div>
 
       <!-- Analytics rollup (C3) — last 30 days -->
-      <div class="panel" style="margin-bottom:14px;">
+      <div class="panel mb-14">
         <div class="panel-hdr">
           <div>
             <div class="panel-label">Last 30 Days</div>
@@ -14553,26 +14553,26 @@ function switchScTab(tab, btn) {
 
       <!-- Summary cards -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:18px;" id="adminSummaryCards">
-        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+        <div class="card-7">
           <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Total Members</div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--t);" id="adminStatTotal">—</div>
         </div>
-        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+        <div class="card-7">
           <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Active</div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--green);" id="adminStatActive">—</div>
         </div>
-        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+        <div class="card-7">
           <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Pending Invite</div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--orange);" id="adminStatInvited">—</div>
         </div>
-        <div style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
+        <div class="card-7">
           <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Deactivated</div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--m);" id="adminStatDeactivated">—</div>
         </div>
       </div>
 
       <!-- Roster table -->
-      <div class="panel" style="margin-bottom:20px;">
+      <div class="panel mb-lg">
         <div class="panel-hdr">
           <div>
             <div class="panel-label">Roster</div>
@@ -14616,15 +14616,15 @@ function switchScTab(tab, btn) {
       </div>
       <div style="display:grid;gap:12px;">
         <div>
-          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Email</label>
+          <label class="eyebrow-9">Email</label>
           <input id="adminNewEmail" type="email" placeholder="rep@company.com" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);"/>
         </div>
         <div>
-          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Display Name</label>
+          <label class="eyebrow-9">Display Name</label>
           <input id="adminNewName" type="text" placeholder="Jane Doe" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);"/>
         </div>
         <div>
-          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Role</label>
+          <label class="eyebrow-9">Role</label>
           <select id="adminNewRole" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);">
             <option value="sales_rep">Sales Rep — create leads, log knocks</option>
             <option value="manager">Manager — see all team leads + reports</option>
@@ -14651,13 +14651,13 @@ function switchScTab(tab, btn) {
         <div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);">Team</div>
           <div style="font-size:20px;font-weight:800;color:var(--t);" id="adminEditTitle">Edit Member</div>
-          <div style="font-size:11px;color:var(--m);" id="adminEditSub">—</div>
+          <div class="meta-11" id="adminEditSub">—</div>
         </div>
         <button class="btn btn-ghost" style="font-size:18px;padding:4px 10px;" data-action="module" data-target="AdminManager.closeEdit">×</button>
       </div>
       <div style="display:grid;gap:14px;">
         <div>
-          <label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);display:block;margin-bottom:4px;">Role</label>
+          <label class="eyebrow-9">Role</label>
           <select id="adminEditRole" style="width:100%;font-size:13px;padding:10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;color:var(--t);">
             <option value="sales_rep">Sales Rep</option>
             <option value="manager">Manager</option>
@@ -14667,7 +14667,7 @@ function switchScTab(tab, btn) {
         </div>
         <div id="adminEditStatusBlock" style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:5px;">
           <div style="font-size:11px;color:var(--m);margin-bottom:8px;">Account status: <strong id="adminEditStatusText" style="color:var(--t);">—</strong></div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="fwgap-8">
             <button id="adminEditDeactivateBtn" class="btn btn-red" style="font-size:11px;padding:8px 14px;" data-action="module" data-target="AdminManager.toggleDeactivate">Deactivate Account</button>
           </div>
         </div>
@@ -14689,8 +14689,8 @@ function switchScTab(tab, btn) {
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">Product Library</div>
           <div class="page-sub">Shingle lines, materials, and pricing reference</div>
@@ -14711,8 +14711,8 @@ function switchScTab(tab, btn) {
     <div class="view-scroll" id="trainingContent">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">Sales Training</div>
           <div class="page-sub">Scripts, objection handling, and closing techniques</div>
@@ -14725,8 +14725,8 @@ function switchScTab(tab, btn) {
     <div class="view-scroll" id="academyContainer">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
-            <span style="font-size:10px;color:var(--m);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;" data-action="goTo" data-target="dash">← Back to Dashboard</span>
+          <div class="row-tight">
+            <span class="bc-meta-cp" data-action="goTo" data-target="dash">← Back to Dashboard</span>
           </div>
           <div class="page-title">The Real Deal Academy</div>
           <div class="page-sub">Master insurance restoration & retail roofing</div>
@@ -14743,7 +14743,7 @@ function switchScTab(tab, btn) {
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <div class="row-tight">
             <span style="font-size:10px;color:var(--orange);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;font-weight:600;" data-action="goTo" data-target="crm">← Back to CRM</span>
           </div>
           <div class="page-title">Schedule</div>
@@ -14759,7 +14759,7 @@ function switchScTab(tab, btn) {
             <input type="text" id="calBookingUrl" value="https://cal.com/nobigdeal/roof-inspection" readonly style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);">
             <button class="btn btn-orange" style="padding:10px 16px;font-size:12px;white-space:nowrap;" data-action="call" data-fn="copyCalLink">📋 Copy Link</button>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="fwgap-8">
             <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" data-action="call" data-fn="shareCalViaSMS">💬 Text to Client</button>
             <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" data-action="call" data-fn="shareCalViaEmail">✉️ Email to Client</button>
             <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" data-action="call" data-fn="openCalBookingUrl">🔗 Open Full Page</button>
@@ -14773,11 +14773,11 @@ function switchScTab(tab, btn) {
         <div class="panel-body">
           <div class="sf-row">
             <div class="sf" style="flex:2;">
-              <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Cal.com Username</label>
+              <label class="eyebrow">Cal.com Username</label>
               <input type="text" id="calUsername" placeholder="nobigdeal" value="nobigdeal" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" oninput="updateCalEmbed()">
             </div>
             <div class="sf" style="flex:2;">
-              <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Event Type Slug</label>
+              <label class="eyebrow">Event Type Slug</label>
               <input type="text" id="calEventSlug" placeholder="roof-inspection" value="roof-inspection" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" oninput="updateCalEmbed()">
             </div>
             <div class="sf" style="flex:1;display:flex;align-items:flex-end;">
@@ -14836,21 +14836,21 @@ function switchScTab(tab, btn) {
 
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
       <div>
-        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Address *</label>
+        <label class="eyebrow">Address *</label>
         <div class="ac-wrap">
           <input type="text" id="qaAddr" placeholder="123 Main St, Goshen OH..."
             style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:14px;font-family:inherit;font-size:16px;color:var(--t);outline:none;"
             autocomplete="off" autocorrect="off" autocapitalize="words">
-          <div class="ac-drop" id="ac-qaAddr" style="display:none;"></div>
+          <div class="ac-drop dn" id="ac-qaAddr"></div>
         </div>
       </div>
       <div>
-        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Phone</label>
+        <label class="eyebrow">Phone</label>
         <input type="tel" id="qaPhone" placeholder="(513) 555-0100"
           style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:14px;font-family:inherit;font-size:16px;color:var(--t);outline:none;">
       </div>
       <div>
-        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Damage Type</label>
+        <label class="eyebrow">Damage Type</label>
         <select id="qaDamage"
           style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:14px;font-family:inherit;font-size:16px;color:var(--t);outline:none;appearance:none;">
           <option value="Roof - Hail">Roof — Hail</option>
@@ -14862,7 +14862,7 @@ function switchScTab(tab, btn) {
         </select>
       </div>
       <div>
-        <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Source</label>
+        <label class="eyebrow">Source</label>
         <select id="qaSource"
           style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:14px;font-family:inherit;font-size:16px;color:var(--t);outline:none;appearance:none;">
           <option value="Door Knock">Door Knock</option>
@@ -14909,7 +14909,7 @@ function switchScTab(tab, btn) {
     <div class="mfield"><label>Address</label>
       <div class="ac-wrap">
         <input type="text" id="lAddr" placeholder="1054 Klondyke Rd, Goshen OH 45122" autocomplete="off">
-        <div class="ac-drop" id="ac-lAddr" style="display:none;"></div>
+        <div class="ac-drop dn" id="ac-lAddr"></div>
       </div>
     </div>
     <div class="mrow">
@@ -14990,7 +14990,7 @@ function switchScTab(tab, btn) {
       </div>
     </div>
     <!-- SUB-TYPE + TRADES — populated dynamically, hidden until job type is set -->
-    <div class="mrow" id="lSubTypeRow" style="display:none;">
+    <div class="mrow dn" id="lSubTypeRow">
       <div class="mfield"><label>Sub-Type</label>
         <select id="lSubType">
           <option value="">— optional —</option>
@@ -15147,19 +15147,19 @@ function switchScTab(tab, btn) {
     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:20px;">
       <div class="mfield">
         <label>Homeowner Name</label>
-        <input type="text" id="wcOwner" placeholder="John & Jane Smith" style="width:100%;">
+        <input type="text" id="wcOwner" placeholder="John & Jane Smith" class="w-full">
       </div>
       <div class="mfield">
         <label>Property Address</label>
-        <input type="text" id="wcAddr" placeholder="1054 Klondyke Rd, Goshen OH 45122" style="width:100%;">
+        <input type="text" id="wcAddr" placeholder="1054 Klondyke Rd, Goshen OH 45122" class="w-full">
       </div>
       <div class="mfield">
         <label>Installation Date</label>
-        <input type="date" id="wcDate" style="width:100%;">
+        <input type="date" id="wcDate" class="w-full">
       </div>
       <div class="mfield">
         <label>Guarantee Tier</label>
-        <select id="wcTier" style="width:100%;" onchange="updateCertPreview()">
+        <select id="wcTier" class="w-full" onchange="updateCertPreview()">
           <option value="standard">Standard — NBD Lifetime Pledge</option>
           <option value="preferred">Preferred — Lifetime + Transferable to One Owner</option>
           <option value="elite">Elite — Lifetime + Fully Transferable + Annual Inspection</option>
@@ -15167,20 +15167,20 @@ function switchScTab(tab, btn) {
       </div>
       <div class="mfield">
         <label>Work Performed</label>
-        <input type="text" id="wcWork" placeholder="Full roof replacement — GAF Timberline HDZ" style="width:100%;">
+        <input type="text" id="wcWork" placeholder="Full roof replacement — GAF Timberline HDZ" class="w-full">
       </div>
       <div id="wcTierDesc" style="background:color-mix(in srgb, var(--orange) 8%, transparent);border:1px solid color-mix(in srgb, var(--orange) 20%, transparent);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--accent-fg);line-height:1.6;"></div>
     </div>
 
     <div style="display:flex;gap:10px;">
-      <button class="btn btn-ghost" data-action="closeOpen" data-target="warrantyCertModal" style="flex:1;">Cancel</button>
+      <button class="btn btn-ghost f1" data-action="closeOpen" data-target="warrantyCertModal">Cancel</button>
       <button class="btn btn-orange" data-action="call" data-fn="generateWarrantyCertPDF" style="flex:2;">🛡️ Generate PDF Certificate</button>
     </div>
   </div>
 </div>
 
 <!-- PROPERTY INTEL SELECTION MODAL -->
-<div class="modal-bg" id="propertyIntelModal" style="display:none;">
+<div class="modal-bg dn" id="propertyIntelModal">
   <div class="modal m-modal-has-bar" style="max-width:520px;">
     <button class="modal-close" data-action="closeModal" data-target="propertyIntelModal">✕</button>
     <!-- Wave 2E.2: standardized header. The 🏠 emoji on "Pull Property
@@ -15203,11 +15203,11 @@ function switchScTab(tab, btn) {
         onmouseleave="this.style.borderColor='transparent'">
         <input type="checkbox" id="piOwnerContact" onchange="updatePropertyIntelCost()" 
           style="width:18px;height:18px;cursor:pointer;">
-        <div style="flex:1;">
-          <div style="font-weight:600;color:var(--text);font-size:14px;">Owner Name & Contact</div>
+        <div class="f1">
+          <div class="fwt-14">Owner Name & Contact</div>
           <div style="font-size:12px;color:var(--text3);">Name, phone, mailing address</div>
         </div>
-        <div style="font-weight:700;color:var(--gold);font-size:14px;">$0.30</div>
+        <div class="gold-14">$0.30</div>
       </label>
 
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
@@ -15215,11 +15215,11 @@ function switchScTab(tab, btn) {
         onmouseleave="this.style.borderColor='transparent'">
         <input type="checkbox" id="piPropertyDetails" onchange="updatePropertyIntelCost()"
           style="width:18px;height:18px;cursor:pointer;">
-        <div style="flex:1;">
-          <div style="font-weight:600;color:var(--text);font-size:14px;">Property Details</div>
+        <div class="f1">
+          <div class="fwt-14">Property Details</div>
           <div style="font-size:12px;color:var(--text3);">Year built, sq ft, bedrooms, baths</div>
         </div>
-        <div style="font-weight:700;color:var(--gold);font-size:14px;">$0.15</div>
+        <div class="gold-14">$0.15</div>
       </label>
 
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
@@ -15227,11 +15227,11 @@ function switchScTab(tab, btn) {
         onmouseleave="this.style.borderColor='transparent'">
         <input type="checkbox" id="piZestimate" onchange="updatePropertyIntelCost()"
           style="width:18px;height:18px;cursor:pointer;">
-        <div style="flex:1;">
-          <div style="font-weight:600;color:var(--text);font-size:14px;">Zillow Zestimate</div>
+        <div class="f1">
+          <div class="fwt-14">Zillow Zestimate</div>
           <div style="font-size:12px;color:var(--text3);">Estimated home value</div>
         </div>
-        <div style="font-weight:700;color:var(--gold);font-size:14px;">$0.05</div>
+        <div class="gold-14">$0.05</div>
       </label>
 
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
@@ -15239,19 +15239,19 @@ function switchScTab(tab, btn) {
         onmouseleave="this.style.borderColor='transparent'">
         <input type="checkbox" id="piTaxData" onchange="updatePropertyIntelCost()"
           style="width:18px;height:18px;cursor:pointer;">
-        <div style="flex:1;">
-          <div style="font-weight:600;color:var(--text);font-size:14px;">Tax Assessor Data</div>
+        <div class="f1">
+          <div class="fwt-14">Tax Assessor Data</div>
           <div style="font-size:12px;color:var(--text3);">Assessed value, tax records</div>
         </div>
-        <div style="font-weight:700;color:var(--gold);font-size:14px;">$0.10</div>
+        <div class="gold-14">$0.10</div>
       </label>
 
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--green-dim);border-radius:var(--r);cursor:pointer;border:1px solid var(--green);"
         title="Calculated from property age - no API cost">
         <input type="checkbox" id="piRoofAge" checked disabled
           style="width:18px;height:18px;cursor:not-allowed;opacity:0.6;">
-        <div style="flex:1;">
-          <div style="font-weight:600;color:var(--text);font-size:14px;">Roof Age Estimate</div>
+        <div class="f1">
+          <div class="fwt-14">Roof Age Estimate</div>
           <div style="font-size:12px;color:var(--text3);">Calculated from year built</div>
         </div>
         <div style="font-weight:700;color:var(--green);font-size:14px;">FREE</div>
@@ -15277,7 +15277,7 @@ function switchScTab(tab, btn) {
 </div>
 
 <!-- PROPERTY INTEL CONFIRMATION MODAL -->
-<div class="modal-bg" id="propertyIntelConfirmModal" style="display:none;">
+<div class="modal-bg dn" id="propertyIntelConfirmModal">
   <div class="modal m-modal-has-bar" style="max-width:420px;">
     <button class="modal-close" data-action="closeModal" data-target="propertyIntelConfirmModal">✕</button>
     <!-- Wave 2E.3: standardized header. The 💰 emoji on the original
@@ -15435,7 +15435,7 @@ function switchScTab(tab, btn) {
   <div class="mn-item" id="mni-crm" data-action="mobileNav" data-target="crm" role="button" aria-label="Pipeline">
     <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-board"/></svg>
     <span class="mn-lbl">Pipeline</span>
-    <span class="mn-badge" id="mni-crm-badge" style="display:none;"></span>
+    <span class="mn-badge dn" id="mni-crm-badge"></span>
   </div>
   <div class="mn-item mn-fab" id="mni-create" data-action="call" data-fn="mCreateFabRoute" role="button" aria-label="Create new">
     <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-plus"/></svg>
@@ -15501,7 +15501,7 @@ function switchScTab(tab, btn) {
 <!-- Hidden file input used by the Photo create row to invoke the
      device camera. Kept at the bottom of the DOM so the popover can
      focus-trigger it without scroll jumps. -->
-<input type="file" id="mCreatePhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="window._mCreatePhotoPicked && window._mCreatePhotoPicked(event)">
+<input type="file" id="mCreatePhotoInput" accept="image/*" capture="environment" class="dn" onchange="window._mCreatePhotoPicked && window._mCreatePhotoPicked(event)">
 
 <!-- More menu overlay -->
 <div class="mm-overlay" id="mm-overlay" data-action="closeModal" data-target="mobileMore"></div>
@@ -15627,7 +15627,7 @@ function switchScTab(tab, btn) {
           <!-- Density -->
           <div>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:14px;" aria-hidden="true">📐</span>
+              <span class="fs-14" aria-hidden="true">📐</span>
               <span style="font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--m);">Density</span>
             </div>
             <div style="display:flex; gap:6px;">
@@ -15641,7 +15641,7 @@ function switchScTab(tab, btn) {
           <!-- Text size -->
           <div>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:14px;" aria-hidden="true">🔠</span>
+              <span class="fs-14" aria-hidden="true">🔠</span>
               <span style="font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--m);">Text size</span>
             </div>
             <div style="display:flex; gap:6px;">
@@ -15655,20 +15655,20 @@ function switchScTab(tab, btn) {
           <!-- Motion + Professional Mode toggles -->
           <div>
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
-              <span style="font-size:14px;" aria-hidden="true">⚙️</span>
+              <span class="fs-14" aria-hidden="true">⚙️</span>
               <span style="font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--m);">Preferences</span>
             </div>
             <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
               <div>
-                <div style="font-weight:600; color:var(--t);">Reduce motion</div>
-                <div style="font-size:10px; color:var(--m); margin-top:2px;">Disable pulse + slide animations.</div>
+                <div class="fw-bold-t">Reduce motion</div>
+                <div class="meta-10-mt2">Disable pulse + slide animations.</div>
               </div>
               <input type="checkbox" id="npm-reduce-motion" onchange="nbdComfortSet('motion', this.checked ? 'reduce' : 'normal')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
             <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
               <div>
-                <div style="font-weight:600; color:var(--t);">Professional mode</div>
-                <div style="font-size:10px; color:var(--m); margin-top:2px;">Hide decorative emojis. Clean text-only look.</div>
+                <div class="fw-bold-t">Professional mode</div>
+                <div class="meta-10-mt2">Hide decorative emojis. Clean text-only look.</div>
               </div>
               <input type="checkbox" id="npm-pro-mode" onchange="nbdComfortSet('proMode', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
@@ -15680,8 +15680,8 @@ function switchScTab(tab, btn) {
                  stale-share alerts, snooze pills, etc.) -->
             <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
               <div>
-                <div style="font-weight:600; color:var(--t);">Color-blind safe</div>
-                <div style="font-size:10px; color:var(--m); margin-top:2px;">Swap red/green to blue/orange for deuteranopia + protanopia.</div>
+                <div class="fw-bold-t">Color-blind safe</div>
+                <div class="meta-10-mt2">Swap red/green to blue/orange for deuteranopia + protanopia.</div>
               </div>
               <input type="checkbox" id="npm-cb-safe" onchange="nbdComfortSet('cbSafe', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
@@ -15693,8 +15693,8 @@ function switchScTab(tab, btn) {
                  tracks "office light" / "ambient dark". -->
             <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
               <div>
-                <div style="font-weight:600; color:var(--t);">Auto theme by time</div>
-                <div style="font-size:10px; color:var(--m); margin-top:2px;">Light theme during the day, dark after 7 PM.</div>
+                <div class="fw-bold-t">Auto theme by time</div>
+                <div class="meta-10-mt2">Light theme during the day, dark after 7 PM.</div>
               </div>
               <input type="checkbox" id="npm-auto-theme" onchange="nbdComfortSet('autoTheme', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
@@ -15705,8 +15705,8 @@ function switchScTab(tab, btn) {
                  whatever input is focused. -->
             <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
               <div>
-                <div style="font-weight:600; color:var(--t);">🎤 Hold-to-talk hotkey</div>
-                <div style="font-size:10px; color:var(--m); margin-top:2px;">Hold a key anywhere to dictate. Release to insert.</div>
+                <div class="fw-bold-t">🎤 Hold-to-talk hotkey</div>
+                <div class="meta-10-mt2">Hold a key anywhere to dictate. Release to insert.</div>
               </div>
               <input type="checkbox" id="npm-whisper-hotkey" onchange="nbdComfortSetWhisperHotkey(this.checked)" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
@@ -16014,11 +16014,11 @@ function switchScTab(tab, btn) {
          doesn't dominate the modal. -->
     <div class="cd-share-row">
       <button class="cd-share-btn" data-action="call" data-fn="cdaSharePortalLink">
-        <span style="font-size:14px;">🔗</span> Share Homeowner Portal
+        <span class="fs-14">🔗</span> Share Homeowner Portal
       </button>
       <button class="cd-share-btn cd-voice-btn" title="Record a voice memo — auto-transcribed + attached to this lead"
               data-action="call" data-fn="cdaVoiceMemo">
-        <span style="font-size:14px;">🎙</span> Voice Memo
+        <span class="fs-14">🎙</span> Voice Memo
       </button>
       <button class="cd-icon-btn cd-icon-btn-danger" title="Revoke all active portal links and mint a new one"
               data-action="call" data-fn="cdaRevokePortalLink">
