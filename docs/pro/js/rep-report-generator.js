@@ -493,8 +493,8 @@
     _selectedTemplate = id;
     document.querySelectorAll('.report-template-card').forEach(c => {
       const isActive = c.dataset.template === id;
-      c.style.borderColor = isActive ? '#e8720c' : 'var(--br)';
-      c.style.background = isActive ? 'rgba(232,114,12,.06)' : 'var(--s2)';
+      c.style.borderColor = isActive ? 'var(--orange)' : 'var(--br)';
+      c.style.background = isActive ? 'color-mix(in srgb, var(--orange) 6%, transparent)' : 'var(--s2)';
     });
   }
 
