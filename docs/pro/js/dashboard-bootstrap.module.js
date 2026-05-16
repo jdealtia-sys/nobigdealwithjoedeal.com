@@ -25,7 +25,7 @@
     STAGE_ACTIONS, actionsForStage,
     REQUIRED_FIELDS_BY_TYPE, requiredFieldsFor, missingRequiredFields,
     tagClass as _tagClass
-  } from './js/crm-stages.js';
+  } from './crm-stages.js';
   // Expose the new helpers to non-module scripts (crm.js)
   window.actionsForStage = actionsForStage;
   window.requiredFieldsFor = requiredFieldsFor;
