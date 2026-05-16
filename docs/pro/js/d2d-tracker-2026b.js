@@ -685,11 +685,81 @@
   }
 
   // ============================================================================
-  // WALKING ROUTE OPTIMIZATION (nearest-neighbor)
+  // WALKING ROUTE OPTIMIZATION
+  // ----------------------------------------------------------------------------
+  // Strategy: nearest-neighbor for an initial path, then a 2-opt swap pass to
+  // remove crossings. Real haversine distance (window.hav from maps.js, feet)
+  // is used instead of planar Euclidean so the route is accurate even when
+  // the route spans a few miles in WGS-84 coordinates. Falls back to Euclidean
+  // if maps.js hasn't loaded yet — same behavior as before for that branch.
+  //
+  // Step 5: route is decorated with `_stats` so the renderer + toast can show
+  // total distance and walking time (3 mph) without recomputing.
   // ============================================================================
+
+  // Pace constants. 3 mph is a moderate D2D walking pace including pauses at
+  // each door — conservative enough that reps don't underestimate timing.
+  const WALK_SPEED_MPH = 3;
+  const FEET_PER_MILE = 5280;
+
+  function _segmentFeet(a, b) {
+    if (typeof window.hav === 'function') {
+      // hav() returns feet; signature expects { lat, lng } pairs.
+      return window.hav({ lat: a.lat, lng: a.lng }, { lat: b.lat, lng: b.lng });
+    }
+    // Fallback: degrees-squared. Wildly imprecise but keeps the sort order
+    // self-consistent so the route is still nearest-neighbor-ish.
+    return Math.sqrt(
+      Math.pow(b.lat - a.lat, 2) + Math.pow(b.lng - a.lng, 2)
+    ) * 364000; // rough degrees → feet at mid-latitudes (~1 deg ≈ 69 miles)
+  }
+
+  function _routeLengthFeet(points) {
+    let total = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+      total += _segmentFeet(points[i], points[i + 1]);
+    }
+    return total;
+  }
+
+  // 2-opt swap pass — for each pair of non-adjacent edges (i,i+1) and (j,j+1),
+  // try reversing the slice between them. If the resulting route is shorter,
+  // keep the swap. Repeat until no improvement is found OR we hit MAX_PASSES,
+  // which guards against pathological inputs. O(n²) per pass; cheap up to ~50
+  // stops, which is well above what a rep walks in a day.
+  function _twoOpt(points) {
+    if (points.length < 4) return points;
+    const MAX_PASSES = 50;
+    let best = points.slice();
+    let bestLen = _routeLengthFeet(best);
+    let improved = true;
+    let passes = 0;
+
+    while (improved && passes < MAX_PASSES) {
+      improved = false;
+      passes++;
+      for (let i = 1; i < best.length - 2; i++) {
+        for (let j = i + 1; j < best.length - 1; j++) {
+          // Reverse the slice [i..j] and measure. Cheap to do as a copy here
+          // since path lengths are small; profiler can switch to delta-cost
+          // if this ever becomes hot.
+          const candidate = best.slice(0, i)
+            .concat(best.slice(i, j + 1).reverse())
+            .concat(best.slice(j + 1));
+          const len = _routeLengthFeet(candidate);
+          if (len + 0.5 < bestLen) { // 0.5ft tolerance avoids float noise
+            best = candidate;
+            bestLen = len;
+            improved = true;
+          }
+        }
+      }
+    }
+    return best;
+  }
+
   function calculateWalkingRoute() {
     const unvisited = [];
-    const addrSet = new Set(knocks.map(k => normalizeAddress(k.address)));
 
     // Get latest knock per address for pins
     // Audit #18: raw `k.createdAt > other.createdAt` compared Firestore
@@ -717,26 +787,49 @@
 
     if (unvisited.length < 2) {
       walkingRoute = unvisited;
+      if (walkingRoute) walkingRoute._stats = { stopCount: unvisited.length, totalFeet: 0, totalMiles: 0, walkMinutes: 0 };
       return unvisited;
     }
 
-    // Nearest-neighbor from current location or first point
+    // ─── Pass 1: nearest-neighbor from current location or first point ───
     const start = currentLocation ? { lat: currentLocation[0], lng: currentLocation[1] } : unvisited[0];
-    const route = [];
+    let route = [];
     const remaining = [...unvisited];
     let current = start;
 
     while (remaining.length > 0) {
       let nearestIdx = 0;
       let nearestDist = Infinity;
-      remaining.forEach((p, i) => {
-        const dist = Math.sqrt(Math.pow(p.lat - current.lat, 2) + Math.pow(p.lng - current.lng, 2));
-        if (dist < nearestDist) { nearestDist = dist; nearestIdx = i; }
-      });
+      for (let i = 0; i < remaining.length; i++) {
+        const d = _segmentFeet(current, remaining[i]);
+        if (d < nearestDist) { nearestDist = d; nearestIdx = i; }
+      }
       const next = remaining.splice(nearestIdx, 1)[0];
       route.push(next);
       current = next;
     }
+
+    // ─── Pass 2: 2-opt swap pass to remove crossings ───
+    // We prepend `start` to the path during optimization so the 2-opt knows
+    // the rep's anchor point. Strip it back off afterward so the public
+    // route array still represents "stops" (not including the rep's
+    // starting position, which the renderer adds as an implicit origin).
+    const withAnchor = [start, ...route];
+    const optimized = _twoOpt(withAnchor);
+    // Drop the anchor from index 0 — but only if 2-opt didn't move it.
+    // If it did, the path is still valid; we just keep the new order.
+    route = optimized[0] === start ? optimized.slice(1) : optimized;
+
+    // ─── Stats: total distance + walking time at 3 mph ───
+    const totalFeet = _routeLengthFeet([start, ...route]);
+    const totalMiles = totalFeet / FEET_PER_MILE;
+    const walkMinutes = (totalMiles / WALK_SPEED_MPH) * 60;
+    route._stats = {
+      stopCount: route.length,
+      totalFeet,
+      totalMiles,
+      walkMinutes
+    };
 
     walkingRoute = route;
     return route;
@@ -3092,6 +3185,22 @@
           </div>
           ${route.length > 0 ? `
             <div class="d2d-section-title">Optimized Route (${route.length} stops)</div>
+            ${route._stats && route._stats.totalMiles > 0 ? `
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;">
+                <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:8px 10px;">
+                  <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--m);">Stops</div>
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--t);">${route._stats.stopCount}</div>
+                </div>
+                <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:8px 10px;">
+                  <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--m);">Distance</div>
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--t);">${route._stats.totalMiles.toFixed(2)} mi</div>
+                </div>
+                <div style="background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:8px 10px;">
+                  <div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--m);">Walk Time</div>
+                  <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--t);">${Math.round(route._stats.walkMinutes)} min</div>
+                </div>
+              </div>
+            ` : ''}
             <div class="d2d-route-list">
               ${route.map((p, i) => `
                 <div class="d2d-route-stop" onclick="window.D2D.openQuickKnock({address:'${esc(p.address)}',lat:${p.lat},lng:${p.lng}})">
@@ -3342,7 +3451,22 @@
     sendFollowUpEmail,
     openSMSChooser: (knockId) => { const k = knocks.find(x => x.id === knockId); if (k) openSMSTemplateChooser(k); },
     exportCSV: exportKnocksCSV,
-    calcRoute: () => { calculateWalkingRoute(); drawWalkingRoute(); renderD2D(); window.showToast?.(`Route calculated: ${walkingRoute?.length || 0} stops`, 'info'); },
+    calcRoute: () => {
+      calculateWalkingRoute();
+      drawWalkingRoute();
+      renderD2D();
+      // Detailed toast — stops + distance + walking time at 3mph — so the
+      // rep knows immediately whether to commit the walk or break it up.
+      // Falls back to a bare count for the < 2 stop edge case where _stats
+      // distance is zero.
+      const stats = walkingRoute?._stats;
+      const n = walkingRoute?.length || 0;
+      const msg = stats && stats.totalMiles > 0
+        ? `${n} stops · ${stats.totalMiles.toFixed(2)} mi · ${Math.round(stats.walkMinutes)} min walk`
+        : n === 0 ? 'No unvisited doors to route'
+        : `Route calculated: ${n} stops`;
+      window.showToast?.(msg, 'info');
+    },
     clearRoute: () => { clearWalkingRoute(); renderD2D(); },
     loadRepProfile,
     loadTeamKnocks,
