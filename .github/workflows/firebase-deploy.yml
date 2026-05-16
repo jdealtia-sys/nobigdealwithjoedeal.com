@@ -366,7 +366,7 @@ jobs:
           # those roles are granted.
           # recordingRetentionCron added 2026-04-15: scheduled fn from
           # voice-intelligence.js fails on update (same SA gap).
-          NBD_DEPLOY_SKIP_LIST: "nightlyFirestoreBackup,auditLogRetentionCron,checkStormAlerts,emailQueueWorker,onFollowUpDue,onAppointmentReminder,hailMatchCron,onRepSignup,recordingRetentionCron"
+          NBD_DEPLOY_SKIP_LIST: ""
         run: |
           set -e
           # Enumerate every function export across functions/*.js +
@@ -402,7 +402,7 @@ jobs:
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-          NBD_DEPLOY_SKIP_LIST: "nightlyFirestoreBackup,auditLogRetentionCron,checkStormAlerts,emailQueueWorker,onFollowUpDue,onAppointmentReminder,hailMatchCron,onRepSignup,recordingRetentionCron"
+          NBD_DEPLOY_SKIP_LIST: ""
         run: |
           set +e
           RETRY=""
