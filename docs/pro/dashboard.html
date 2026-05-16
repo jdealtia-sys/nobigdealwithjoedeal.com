@@ -14887,7 +14887,7 @@ function switchScTab(tab, btn) {
             <div class="panel-title">Your Schedule</div>
           </div>
           <button type="button" class="btn btn-ghost" style="font-size:11px;padding:6px 12px;"
-            onclick="if(typeof window.loadSmartCalendar==='function') window.loadSmartCalendar()">
+            data-action="call" data-fn="loadSmartCalendar">
             ↻ Refresh
           </button>
         </div>
@@ -16119,7 +16119,7 @@ function switchScTab(tab, btn) {
       <!-- Voicemail pipeline — record or upload a forwarded voicemail.
            AI summarizes + auto-creates a task for each action item. -->
       <button class="cd-share-btn cd-voice-btn" title="Process a voicemail — summary + auto-tasks from action items"
-              onclick="window.NBDVoicemail && window.NBDVoicemail.openForLead(window._cardDetailLeadId)">
+              data-action="call" data-fn="cdaOpenVoicemail">
         <span style="font-size:14px;">📩</span> Voicemail
       </button>
       <button class="cd-icon-btn cd-icon-btn-danger" title="Revoke all active portal links and mint a new one"
