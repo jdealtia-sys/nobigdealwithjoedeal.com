@@ -142,7 +142,7 @@
           const banner = document.createElement('div');
           banner.id = 'trial-banner';
           banner.className = urgency;
-          banner.innerHTML = `<span>${msg}</span><a href="/pro/register.html?plan=pro" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button onclick="window._nbdDismissTrial(this)" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
+          banner.innerHTML = `<span>${msg}</span><a href="/pro/register.html?plan=pro" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button data-action="call" data-fn="_nbdDismissTrial" data-pass-el style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
           document.body.prepend(banner);
         }
       } else if (NBDAuth.isTrialExpired) {
@@ -361,8 +361,8 @@
     panel.querySelector('.nap-title').textContent = `Next actions — ${stageName}`;
     const body = panel.querySelector('.nap-body');
     body.innerHTML = actions.map(a => `
-      <button type="button" class="nap-btn" data-action="${a.id}" data-kind="${a.kind}"
-        onclick="window.runLeadAction('${a.id}', '${a.kind}')"
+      <button type="button" class="nap-btn" data-action-id="${a.id}" data-kind="${a.kind}"
+        data-action="call" data-fn="runLeadAction" data-arg="${a.id}" data-arg2="${a.kind}"
         title="${a.kind === 'doc' ? 'Generate document' : a.kind === 'stage' ? 'Advance stage' : 'Action'}">
         <span class="nap-ico">${a.icon || ''}</span>
         <span class="nap-lbl">${a.label}</span>
@@ -1072,7 +1072,7 @@
         banner.innerHTML = `
           <span>🚀 You're on <strong style="color:var(--orange);">NBD Pro Lite</strong> (25 leads max)</span>
           <a href="/pro/landing.html#pricing" style="background:var(--orange);color:var(--accent-fg);padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
-          <button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
+          <button data-action="removeParent" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
         `;
         document.body.appendChild(banner);
       }, 2000);
@@ -1263,7 +1263,7 @@
           '<div style="font-size:32px;margin-bottom:12px;">⚠️</div>' +
           '<div style="font-size:16px;font-weight:600;margin-bottom:8px;color:var(--t, #fff);">Couldn\'t finish loading the CRM.</div>' +
           '<div style="font-size:13px;margin-bottom:18px;">Your data is safe — this is usually a slow connection during cold start.</div>' +
-          '<button type="button" onclick="window.location.reload()" style="padding:10px 22px;border-radius:6px;background:var(--orange, #c8541a);color:#fff;border:none;cursor:pointer;font:inherit;font-size:14px;">Reload</button>' +
+          '<button type="button" data-action="reload" style="padding:10px 22px;border-radius:6px;background:var(--orange, #c8541a);color:#fff;border:none;cursor:pointer;font:inherit;font-size:14px;">Reload</button>' +
           '</div>';
       }
       // First attempt fires synchronously after loadLeads resolves.
@@ -1472,8 +1472,8 @@
   
   function showShortcutsHelp() {
     const helpHTML = `
-      <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:99999;display:flex;align-items:center;justify-content:center;" onclick="this.remove()">
-        <div style="background:var(--s);border:1px solid var(--br);border-radius:12px;padding:24px;max-width:400px;width:90%;" onclick="event.stopPropagation()">
+      <div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:99999;display:flex;align-items:center;justify-content:center;" data-action="removeSelf">
+        <div style="background:var(--s);border:1px solid var(--br);border-radius:12px;padding:24px;max-width:400px;width:90%;" data-action="stopProp">
           <div style="font-size:18px;font-weight:700;margin-bottom:16px;font-family:'Barlow Condensed',sans-serif;">⌨️ Keyboard Shortcuts</div>
           <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 16px;font-size:13px;">
             <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">N</kbd>
@@ -1487,7 +1487,7 @@
             <kbd style="background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-family:'DM Mono',monospace;font-size:11px;">?</kbd>
             <span>Show This Help</span>
           </div>
-          <button class="btn btn-orange" style="width:100%;margin-top:16px;justify-content:center;" onclick="this.closest('div[style*=fixed]').remove()">Got it</button>
+          <button class="btn btn-orange" style="width:100%;margin-top:16px;justify-content:center;" data-action="removeClosest" data-target="div[style*=fixed]">Got it</button>
         </div>
       </div>
     `;
@@ -1529,7 +1529,7 @@
           buttons.push(
             `<a class="rc-action" href="tel:${e(phoneDigits)}" title="Call ${e(lead.phone)}"
                style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(16,185,129,0.14);color:#10b981;text-decoration:none;font-size:11px;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
-               onclick="event.stopPropagation();"
+               data-action="stopProp"
                onmouseover="this.style.transform='scale(1.1)'"
                onmouseout="this.style.transform=''"
              >📞</a>`);
@@ -5571,12 +5571,12 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
      <div class="modal-bg" id="someModal">
        <div class="modal m-modal-has-bar">
          <div class="m-modal-bar">
-           <button class="m-modal-bar-x" onclick="...">✕</button>
+           <button class="m-modal-bar-x" data-action="closeModal" data-target="...">✕</button>
            <div class="m-modal-bar-titles">
              <span class="m-modal-bar-eyebrow">CRM</span>
              <span class="m-modal-bar-title">Add Lead</span>
            </div>
-           <button class="m-modal-bar-action" onclick="...">Save</button>
+           <button class="m-modal-bar-action" data-action="call" data-fn="...">Save</button>
          </div>
          <!-- form body -->
        </div>
@@ -9985,7 +9985,7 @@ function nbdRenderFontGrid() {
   var saved = localStorage.getItem('nbd_font') || 'barlow';
   grid.innerHTML = _NBD_LEGACY_FONTS.map(function(f) {
     var active = f.id === saved;
-    return '<div class="nbd-font-card" data-font-id="' + f.id + '" onclick="nbdApplyFont(\'' + f.id + '\')" style="background:' + (active ? 'color-mix(in srgb, var(--orange) 6%, transparent)' : 'var(--s2)') + ';border:2px solid ' + (active ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;">'
+    return '<div class="nbd-font-card" data-font-id="' + f.id + '" data-action="call" data-fn="nbdApplyFont" data-arg="' + f.id + '" style="background:' + (active ? 'color-mix(in srgb, var(--orange) 6%, transparent)' : 'var(--s2)') + ';border:2px solid ' + (active ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;">'
       + '<div style="font-family:' + f.body + ';font-size:18px;font-weight:700;color:var(--t);margin-bottom:4px;">Aa</div>'
       + '<div style="font-size:10px;color:var(--m);font-weight:600;">' + f.label + '</div>'
       + '</div>';
@@ -10319,7 +10319,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div class="nnav-right">
     <span class="nnav-user" id="nnav-user-label"></span>
     <a href="/pro/login.html" class="nnav-login-btn" id="nnav-auth-btn">Login</a>
-    <button class="nnav-burger" id="nnav-burger" onclick="nbdNavToggle()" aria-label="Menu">
+    <button class="nnav-burger" id="nnav-burger" data-action="call" data-fn="nbdNavToggle" aria-label="Menu">
       <span></span><span></span><span></span>
     </button>
   </div>
@@ -10563,8 +10563,8 @@ window.nbdNavToggle = nbdNavToggle;
         <div style="font-size:11px;color:var(--t);font-weight:600;padding:12px 14px;border-bottom:1px solid var(--br);display:flex;justify-content:space-between;align-items:center;">
           <span>Notifications</span>
           <div style="display:flex;gap:8px;align-items:center;">
-            <button style="background:none;border:none;color:var(--orange);font-size:10px;cursor:pointer;font-weight:600;" onclick="markAllNotificationsRead()">Mark all read</button>
-            <button style="background:none;border:none;color:var(--m);font-size:10px;cursor:pointer;font-weight:600;" onclick="clearAllNotifications()" id="clearAllNotifBtn">Clear all</button>
+            <button style="background:none;border:none;color:var(--orange);font-size:10px;cursor:pointer;font-weight:600;" data-action="call" data-fn="markAllNotificationsRead">Mark all read</button>
+            <button style="background:none;border:none;color:var(--m);font-size:10px;cursor:pointer;font-weight:600;" data-action="call" data-fn="clearAllNotifications" id="clearAllNotifBtn">Clear all</button>
           </div>
         </div>
         <div id="notifList" style="overflow-y:auto;max-height:300px;"></div>
@@ -10577,13 +10577,13 @@ window.nbdNavToggle = nbdNavToggle;
       </div>
     </div>
     <span class="hdr-tool-divider" aria-hidden="true"></span>
-    <button class="hdr-tool" onclick="if(typeof nbdPickerOpen==='function')nbdPickerOpen();else{goTo('settings');setTimeout(function(){if(typeof switchSettingsTab==='function')switchSettingsTab('appearance')},200)}" title="Change Theme &amp; Font" aria-label="Change theme and font">
+    <button class="hdr-tool" data-action="call" data-fn="openSettingsTab" data-arg="appearance" title="Change Theme &amp; Font" aria-label="Change theme and font">
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-palette"/></svg>
     </button>
     <button class="hdr-tool" data-action="goTo" data-target="settings" title="Settings" aria-label="Settings">
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-gear"/></svg>
     </button>
-    <button class="hdr-tool" onclick="nbdHowtoOpen()" title="Theme Guide" aria-label="Theme guide">
+    <button class="hdr-tool" data-action="call" data-fn="nbdHowtoOpen" title="Theme Guide" aria-label="Theme guide">
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-book"/></svg>
     </button>
   </div>
@@ -10591,7 +10591,7 @@ window.nbdNavToggle = nbdNavToggle;
       <div class="av" id="userAvatar">J</div>
       <span class="uname" id="userName">...</span>
     </div>
-    <button class="so" onclick="window._signOut()">Sign Out →</button>
+    <button class="so" data-action="signOut">Sign Out →</button>
   </div>
 </header>
 
@@ -10631,8 +10631,8 @@ window.nbdNavToggle = nbdNavToggle;
     </div>
     <!-- Tab Bar -->
     <div class="sc-tabs" style="display:flex;gap:0;border-bottom:2px solid var(--br);padding:0 20px;">
-      <button class="sc-tab active" onclick="switchScTab('shortcuts',this)" style="padding:10px 18px;border:none;background:none;font-weight:600;font-size:13px;color:var(--t);cursor:pointer;border-bottom:2px solid var(--orange);margin-bottom:-2px;">Shortcuts</button>
-      <button class="sc-tab" onclick="switchScTab('howto',this)" style="padding:10px 18px;border:none;background:none;font-weight:600;font-size:13px;color:var(--m);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;">How-To Guide</button>
+      <button class="sc-tab active" data-action="call" data-fn="switchScTab" data-arg="shortcuts" data-pass-el style="padding:10px 18px;border:none;background:none;font-weight:600;font-size:13px;color:var(--t);cursor:pointer;border-bottom:2px solid var(--orange);margin-bottom:-2px;">Shortcuts</button>
+      <button class="sc-tab" data-action="call" data-fn="switchScTab" data-arg="howto" data-pass-el style="padding:10px 18px;border:none;background:none;font-weight:600;font-size:13px;color:var(--m);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;">How-To Guide</button>
     </div>
     <div class="shortcuts-body">
       <!-- ═══ SHORTCUTS TAB ═══ -->
@@ -10930,7 +10930,7 @@ function switchScTab(tab, btn) {
     </div>
     <div class="nav-section-content open" id="section-tools">
       <div class="ni" data-action="goTo" data-target="d2d" id="nav-d2d"><span class="ni-icon">🚪</span>Door-to-Door</div>
-      <div class="ni" onclick="goTo('d2d');if(!localStorage.getItem('nbd_maps_redirect_seen')){showToast('Maps features are now part of D2D Tracker — use the layer toggles on the map','info');localStorage.setItem('nbd_maps_redirect_seen','1')}" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
+      <div class="ni" data-action="call" data-fn="goToD2DFromMaps" id="nav-map"><span class="ni-icon">🗺️</span>Maps & Pins</div>
       <div class="ni" data-action="goTo" data-target="photos" id="nav-photos"><span class="ni-icon">📸</span>Photos</div>
       <div class="ni" data-action="goTo" data-target="docs" id="nav-docs"><span class="ni-icon">📁</span>Templates</div>
       <div class="ni" data-action="goTo" data-target="products" id="nav-products"><span class="ni-icon">📦</span>Products</div>
@@ -10949,7 +10949,7 @@ function switchScTab(tab, btn) {
     <div class="nav-section-content open" id="section-insights">
       <div class="ni" data-action="goTo" data-target="board" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
       <div class="ni" data-action="goTo" data-target="reports" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
-      <div class="ni" onclick="window.open('/pro/daily-success/','_blank')" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
+      <div class="ni" data-action="windowOpen" data-target="/pro/daily-success/" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
       <div class="ni" data-action="goTo" data-target="storm" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
       <div class="ni" data-action="goTo" data-target="closeboard" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
       <div class="ni" data-action="goTo" data-target="repos" id="nav-repos"><span class="ni-icon">🧠</span>Rep OS</div>
@@ -10975,7 +10975,7 @@ function switchScTab(tab, btn) {
     </div>
   </div>
 
-  <div class="ni" onclick="window.open('how-to.html','_blank','noopener')" id="nav-howto" title="Step-by-step instructions"><span class="ni-icon">📖</span>How To</div>
+  <div class="ni" data-action="windowOpen" data-target="how-to.html" id="nav-howto" title="Step-by-step instructions"><span class="ni-icon">📖</span>How To</div>
   <div class="ni" data-action="goTo" data-target="settings" id="nav-settings"><span class="ni-icon">⚙️</span>Settings</div>
   <div class="ni" data-action="goTo" data-target="admin" id="nav-admin" style="display:none;"><span class="ni-icon">🛡️</span>Team Manager</div>
 
@@ -11003,7 +11003,7 @@ function switchScTab(tab, btn) {
           <div class="page-sub">Your personalized command center</div>
         </div>
         <div style="display:flex;gap:6px;">
-          <button class="btn btn-ghost" style="font-size:11px;padding:8px 14px;" onclick="NBDWidgets.openPicker()">⚙️ Customize</button>
+          <button class="btn btn-ghost" style="font-size:11px;padding:8px 14px;" data-action="module" data-target="NBDWidgets.openPicker">⚙️ Customize</button>
           <button class="btn btn-orange" data-action="newEstimate">＋ New Estimate</button>
         </div>
       </div>
@@ -11280,7 +11280,7 @@ function switchScTab(tab, btn) {
             <input type="text" id="mapSearch" placeholder="Enter address..." onkeydown="if(event.key==='Enter'){hideAcDrop('mapSearch');searchMap();}" autocomplete="off">
             <div class="ac-drop" id="ac-mapSearch" style="display:none;"></div>
           </div>
-          <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" onclick="searchMap()">Go</button>
+          <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" data-action="call" data-fn="searchMap">Go</button>
         </div>
         <div id="propCard" style="display:none;">
           <div class="slabel2">Property Info</div>
@@ -11325,12 +11325,12 @@ function switchScTab(tab, btn) {
             <div data-action="zoneColor" data-target="var(--red)" style="width:18px;height:18px;border-radius:50%;background:var(--red);cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
           </div>
           <div style="display:flex;gap:5px;">
-            <button class="btn btn-orange" style="flex:1;justify-content:center;font-size:11px;" onclick="saveZone()">💾 Save Zone</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:6px 10px;" onclick="cancelZoneDraw()">✕</button>
+            <button class="btn btn-orange" style="flex:1;justify-content:center;font-size:11px;" data-action="call" data-fn="saveZone">💾 Save Zone</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:6px 10px;" data-action="call" data-fn="cancelZoneDraw">✕</button>
           </div>
         </div>
         <div class="zone-list" id="zoneList"></div>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:10px;font-size:11px;" onclick="startZoneDraw()">🗺 Draw New Zone</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:10px;font-size:11px;" data-action="call" data-fn="startZoneDraw">🗺 Draw New Zone</button>
 
         <!-- DROP A PIN -->
         <div class="slabel2">Drop a Pin</div>
@@ -11339,7 +11339,7 @@ function switchScTab(tab, btn) {
             <input type="text" id="pinAddrInput" placeholder="Address (blank = map center)" autocomplete="off">
             <div class="ac-drop" id="ac-pinAddrInput" style="display:none;"></div>
           </div>
-          <button class="btn btn-orange" style="padding:7px 10px;font-size:11px;" onclick="dropPinByAddress()">📍</button>
+          <button class="btn btn-orange" style="padding:7px 10px;font-size:11px;" data-action="call" data-fn="dropPinByAddress">📍</button>
         </div>
         <div class="pin-grid">
           <button class="pin-btn active" data-action="selectPin" data-target="not-home" data-color="#9CA3AF"><div class="pin-dot" style="background:#9CA3AF"></div>Not Home</button>
@@ -11352,8 +11352,8 @@ function switchScTab(tab, btn) {
           <button class="pin-btn" data-action="selectPin" data-target="follow-up" data-color="var(--orange)"><div class="pin-dot" style="background:var(--orange)"></div>Follow Up</button>
         </div>
         <p style="font-size:10px;color:var(--m);margin-bottom:10px;">Select status → click map or enter address to drop pin</p>
-        <button class="btn btn-ghost" style="width:100%;margin-bottom:6px;justify-content:center;" onclick="damagNearMe()">📍 My Location</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;" onclick="clearAllPins()">🗑 Clear All Pins</button>
+        <button class="btn btn-ghost" style="width:100%;margin-bottom:6px;justify-content:center;" data-action="call" data-fn="damagNearMe">📍 My Location</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;" data-action="call" data-fn="clearAllPins">🗑 Clear All Pins</button>
       </div>
       <!-- Spyglass search bar: OUTSIDE map-area so it can reflow on mobile -->
       <div class="map-spyglass-panel" id="mapSpyglassPanel" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:900;">
@@ -11364,8 +11364,8 @@ function switchScTab(tab, btn) {
             onkeydown="if(event.key==='Enter'){hideAcDrop('spyglassInput');spyglassSearch();}">
           <div class="ac-drop" id="ac-spyglassInput" style="display:none;top:calc(100% + 8px);"></div>
         </div>
-        <button class="map-spyglass-loc-btn" onclick="spyglassGoToLocation()" title="Go to my location">📍</button>
-        <button class="map-spyglass-btn" onclick="spyglassSearch()">Go</button>
+        <button class="map-spyglass-loc-btn" data-action="call" data-fn="spyglassGoToLocation" title="Go to my location">📍</button>
+        <button class="map-spyglass-btn" data-action="call" data-fn="spyglassSearch">Go</button>
       </div>
 
       <div class="map-area" id="mainMapArea" style="position:relative;">
@@ -11379,18 +11379,18 @@ function switchScTab(tab, btn) {
 
         <!-- Floating action bar — bottom center -->
         <div class="map-fab-bar">
-          <button class="map-fab" onclick="spyglassGoToLocation()" title="My Location">
+          <button class="map-fab" data-action="call" data-fn="spyglassGoToLocation" title="My Location">
             <span class="map-fab-icon">📍</span><span>My Location</span>
           </button>
           <div class="map-fab-div"></div>
-          <button class="map-fab" id="fab-heat"    onclick="fabToggle('heat',this)"    title="Heat Map"><span class="map-fab-icon">🔥</span><span>Heat</span></button>
-          <button class="map-fab" id="fab-pins"    onclick="fabToggle('pins',this)"    title="All Pins"><span class="map-fab-icon">📌</span><span>Pins</span></button>
-          <button class="map-fab" id="fab-jobs"    onclick="fabToggle('jobs',this)"    title="Jobs"><span class="map-fab-icon">💰</span><span>Jobs</span></button>
-          <button class="map-fab" id="fab-storm"   onclick="fabToggle('storm',this)"   title="Storm Radar"><span class="map-fab-icon">⛈</span><span>Storm</span></button>
-          <button class="map-fab" id="fab-weather" onclick="fabToggle('weather',this)" title="Live Weather"><span class="map-fab-icon">🌧</span><span>Weather</span></button>
+          <button class="map-fab" id="fab-heat"    data-action="call" data-fn="fabToggle" data-arg="heat" data-pass-el    title="Heat Map"><span class="map-fab-icon">🔥</span><span>Heat</span></button>
+          <button class="map-fab" id="fab-pins"    data-action="call" data-fn="fabToggle" data-arg="pins" data-pass-el    title="All Pins"><span class="map-fab-icon">📌</span><span>Pins</span></button>
+          <button class="map-fab" id="fab-jobs"    data-action="call" data-fn="fabToggle" data-arg="jobs" data-pass-el    title="Jobs"><span class="map-fab-icon">💰</span><span>Jobs</span></button>
+          <button class="map-fab" id="fab-storm"   data-action="call" data-fn="fabToggle" data-arg="storm" data-pass-el   title="Storm Radar"><span class="map-fab-icon">⛈</span><span>Storm</span></button>
+          <button class="map-fab" id="fab-weather" data-action="call" data-fn="fabToggle" data-arg="weather" data-pass-el title="Live Weather"><span class="map-fab-icon">🌧</span><span>Weather</span></button>
           <div class="map-fab-div"></div>
-          <button class="map-fab" id="fab-zone" onclick="startZoneDraw()" title="Draw Territory"><span class="map-fab-icon">🗺</span><span>Zone</span></button>
-          <button class="map-fab" onclick="quickStormCheck()" title="Storm check at my location"><span class="map-fab-icon">⚡</span><span>Storm Here</span></button>
+          <button class="map-fab" id="fab-zone" data-action="call" data-fn="startZoneDraw" title="Draw Territory"><span class="map-fab-icon">🗺</span><span>Zone</span></button>
+          <button class="map-fab" data-action="call" data-fn="quickStormCheck" title="Storm check at my location"><span class="map-fab-icon">⚡</span><span>Storm Here</span></button>
         </div>
 
         <button class="map-toggle-btn" data-action="mapSidebar" data-target="map-sidebar-map">☰ Map Tools</button>
@@ -11406,8 +11406,8 @@ function switchScTab(tab, btn) {
       <div class="del-confirm-sub">This lead will be moved to your Deleted bin. You can restore it anytime from the CRM header.</div>
       <div class="del-confirm-name" id="delConfirmName">—</div>
       <div class="del-confirm-btns">
-        <button class="btn btn-ghost" onclick="cancelDeleteConfirm()">Cancel</button>
-        <button class="btn" style="flex:1;justify-content:center;background:var(--red);color:var(--t);border-color:var(--red);" onclick="confirmDeleteLead()">Move to Deleted</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="cancelDeleteConfirm">Cancel</button>
+        <button class="btn" style="flex:1;justify-content:center;background:var(--red);color:var(--t);border-color:var(--red);" data-action="call" data-fn="confirmDeleteLead">Move to Deleted</button>
       </div>
     </div>
   </div>
@@ -11424,8 +11424,8 @@ function switchScTab(tab, btn) {
       <div class="pin-confirm-coords" id="pcd-coords"></div>
       <textarea class="pin-confirm-notes" id="pcd-notes" rows="2" placeholder="Notes (optional)..."></textarea>
       <div class="pin-confirm-btns">
-        <button class="btn btn-ghost" onclick="cancelPinConfirm()">Cancel</button>
-        <button class="btn btn-orange" onclick="commitPin()">📍 Save Pin</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="cancelPinConfirm">Cancel</button>
+        <button class="btn btn-orange" data-action="call" data-fn="commitPin">📍 Save Pin</button>
       </div>
     </div>
   </div>
@@ -11452,28 +11452,28 @@ function switchScTab(tab, btn) {
             <input type="text" id="drawSearch" placeholder="Address..." onkeydown="if(event.key==='Enter'){hideAcDrop('drawSearch');searchDraw();}" autocomplete="off">
             <div class="ac-drop" id="ac-drawSearch" style="display:none;"></div>
           </div>
-          <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" onclick="searchDraw()">Go</button>
+          <button class="btn btn-orange" style="padding:9px 12px;font-size:12px;" data-action="call" data-fn="searchDraw">Go</button>
         </div>
-        <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px;padding:7px 12px;display:flex;align-items:center;justify-content:center;gap:6px;" onclick="goToMyLocation()" id="myLocBtn">📍 My Location</button>
+        <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px;padding:7px 12px;display:flex;align-items:center;justify-content:center;gap:6px;" data-action="call" data-fn="goToMyLocation" id="myLocBtn">📍 My Location</button>
         <!-- DRAW MODE SELECTOR -->
         <div class="slabel2">Draw Mode</div>
         <div class="draw-mode-row">
-          <button class="draw-mode-btn active" id="modeLineBtn" onclick="setDrawMode('line',this)" title="Draw individual measurement lines">📏 Lines</button>
-          <button class="draw-mode-btn mode-perim" id="modePerimBtn" onclick="setDrawMode('perim',this)" title="Trace perimeter for sq footage">⬡ Perimeter</button>
-          <button class="draw-mode-btn mode-er" id="modeERBtn" onclick="setDrawMode('er',this)" title="Toggle any perimeter line between Eave and Rake">↔ Eave/Rake</button>
-          <button class="draw-mode-btn mode-gutter" id="modeGutterBtn" onclick="setDrawMode('gutter',this)" title="Draw gutter runs only">🪣 Gutters</button>
+          <button class="draw-mode-btn active" id="modeLineBtn" data-action="call" data-fn="setDrawMode" data-arg="line" data-pass-el title="Draw individual measurement lines">📏 Lines</button>
+          <button class="draw-mode-btn mode-perim" id="modePerimBtn" data-action="call" data-fn="setDrawMode" data-arg="perim" data-pass-el title="Trace perimeter for sq footage">⬡ Perimeter</button>
+          <button class="draw-mode-btn mode-er" id="modeERBtn" data-action="call" data-fn="setDrawMode" data-arg="er" data-pass-el title="Toggle any perimeter line between Eave and Rake">↔ Eave/Rake</button>
+          <button class="draw-mode-btn mode-gutter" id="modeGutterBtn" data-action="call" data-fn="setDrawMode" data-arg="gutter" data-pass-el title="Draw gutter runs only">🪣 Gutters</button>
         </div>
 
         <!-- STATUS BARS -->
         <div class="perim-bar" id="perimBar">⬡ Perimeter mode — click map to trace. Click first dot to close.</div>
-        <div class="er-bar" id="erBar">↔ Click any Eave or Rake line on the map to toggle it.<button class="er-close-btn" onclick="setDrawMode('line',document.getElementById('modeLineBtn'))">Exit Eave/Rake mode</button></div>
+        <div class="er-bar" id="erBar">↔ Click any Eave or Rake line on the map to toggle it.<button class="er-close-btn" data-action="call" data-fn="modeLineDraw">Exit Eave/Rake mode</button></div>
 
         <!-- RAKE/EAVE CHOOSER (shows during perimeter draw after first point) -->
         <div class="re-chooser" id="reChooser">
           <div class="re-chooser-title">This segment is a...</div>
           <div class="re-row">
-            <button class="re-btn re-btn-eave" onclick="perimChooseType('eave')">— Eave (solid)</button>
-            <button class="re-btn re-btn-rake" onclick="perimChooseType('rake')">- - Rake (dashed)</button>
+            <button class="re-btn re-btn-eave" data-action="call" data-fn="perimChooseType" data-arg="eave">— Eave (solid)</button>
+            <button class="re-btn re-btn-rake" data-action="call" data-fn="perimChooseType" data-arg="rake">- - Rake (dashed)</button>
           </div>
         </div>
 
@@ -11502,8 +11502,8 @@ function switchScTab(tab, btn) {
         <div class="slabel2">Controls</div>
         <div class="draw-btns">
           <button class="draw-btn go" id="drawToggle" data-action="toggle" data-target="drawing">▶ Draw</button>
-          <button class="draw-btn" onclick="undoLine()">↩ Undo</button>
-          <button class="draw-btn" style="border-color:var(--red);color:var(--red);" onclick="clearDraw()">✕</button>
+          <button class="draw-btn" data-action="call" data-fn="undoLine">↩ Undo</button>
+          <button class="draw-btn" style="border-color:var(--red);color:var(--red);" data-action="call" data-fn="clearDraw">✕</button>
         </div>
         <div class="slabel2">Lines</div>
         <div class="line-list" id="lineList"><p style="font-size:10px;color:var(--m);text-align:center;padding:8px;">No lines yet.</p></div>
@@ -11546,17 +11546,17 @@ function switchScTab(tab, btn) {
           <div class="cr-row hl"><span class="cr-key">Squares</span><span class="cr-val" id="cr-sq">0.0 sq</span></div>
         </div>
         <!-- SMART WASTE -->
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:11px;margin-bottom:4px;border-color:var(--green);color:var(--green);" onclick="applySmartWaste()" title="Calculate waste based on roof complexity">🧠 Smart Waste (AI)</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:11px;margin-bottom:4px;border-color:var(--green);color:var(--green);" data-action="call" data-fn="applySmartWaste" title="Calculate waste based on roof complexity">🧠 Smart Waste (AI)</button>
         <div id="smartWasteInfo" style="display:none;font-size:10px;color:var(--m);padding:4px 6px;background:var(--s2);border-radius:5px;margin-bottom:8px;"></div>
 
-        <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="importToEstimate()">📋 Generate Estimate</button>
-        <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;background:var(--green);border-color:var(--green);" onclick="saveDrawingToCustomer()">💾 Save to Customer</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" onclick="loadDrawingFromCustomer()">📂 Load from Customer</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="exportDrawReport()">📤 Measurement Report</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" onclick="generateScopeFromDrawing()">📋 Scope of Work</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" onclick="showMaterialTakeoff()">🧱 Material Takeoff</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--gold);color:var(--gold);" onclick="exportXactimateESX()">📎 Xactimate Export (ESX)</button>
-        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:#EAB308;color:#EAB308;" onclick="runSolarAnalysis()">☀️ Solar Analysis</button>
+        <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;" data-action="call" data-fn="importToEstimate">📋 Generate Estimate</button>
+        <button class="btn btn-orange" style="width:100%;justify-content:center;margin-bottom:6px;background:var(--green);border-color:var(--green);" data-action="call" data-fn="saveDrawingToCustomer">💾 Save to Customer</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" data-action="call" data-fn="loadDrawingFromCustomer">📂 Load from Customer</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" data-action="call" data-fn="exportDrawReport">📤 Measurement Report</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;" data-action="call" data-fn="generateScopeFromDrawing">📋 Scope of Work</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--green);color:var(--green);" data-action="call" data-fn="showMaterialTakeoff">🧱 Material Takeoff</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:var(--gold);color:var(--gold);" data-action="call" data-fn="exportXactimateESX">📎 Xactimate Export (ESX)</button>
+        <button class="btn btn-ghost" style="width:100%;justify-content:center;margin-bottom:6px;border-color:#EAB308;color:#EAB308;" data-action="call" data-fn="runSolarAnalysis">☀️ Solar Analysis</button>
 
         <!-- ACCESSORIES -->
         <div class="slabel2">Accessories</div>
@@ -11597,26 +11597,26 @@ function switchScTab(tab, btn) {
         <!-- STRUCTURES -->
         <div class="slabel2">Structures</div>
         <div id="structureList"><p style="font-size:10px;color:var(--m);text-align:center;padding:6px;">Single structure. Add more for garage, shed, etc.</p></div>
-        <button class="draw-btn" style="width:100%;margin-bottom:8px;font-size:10px;" onclick="addStructure()">＋ Add Structure (Garage, Shed...)</button>
+        <button class="draw-btn" style="width:100%;margin-bottom:8px;font-size:10px;" data-action="call" data-fn="addStructure">＋ Add Structure (Garage, Shed...)</button>
 
         <!-- MAP TOOLS -->
         <div class="slabel2">Map Tools</div>
         <div class="draw-btns" style="flex-wrap:wrap;">
           <button class="draw-btn" id="layerToggleBtn" data-action="toggle" data-target="mapLayer" title="Switch between Satellite / Street / Hybrid">🗺️ Layer</button>
-          <button class="draw-btn" onclick="zoomToFit()" title="Zoom to fit all drawn lines">🔍 Fit All</button>
-          <button class="draw-btn" onclick="screenshotMap()" title="Export map screenshot">📸 Screenshot</button>
-          <button class="draw-btn" onclick="showAngles()" title="Show angles at vertices">📐 Angles</button>
+          <button class="draw-btn" data-action="call" data-fn="zoomToFit" title="Zoom to fit all drawn lines">🔍 Fit All</button>
+          <button class="draw-btn" data-action="call" data-fn="screenshotMap" title="Export map screenshot">📸 Screenshot</button>
+          <button class="draw-btn" data-action="call" data-fn="showAngles" title="Show angles at vertices">📐 Angles</button>
         </div>
 
         <!-- WOW TOOLS -->
         <div class="slabel2">Advanced Tools</div>
         <div class="draw-btns" style="flex-wrap:wrap;">
-          <button class="draw-btn" onclick="startShadowPitch()" title="Estimate roof pitch from satellite shadow">☀️ Shadow Pitch</button>
-          <button class="draw-btn" onclick="startAutoDetect()" title="AI auto-detect roof edges">🤖 Auto-Detect</button>
+          <button class="draw-btn" data-action="call" data-fn="startShadowPitch" title="Estimate roof pitch from satellite shadow">☀️ Shadow Pitch</button>
+          <button class="draw-btn" data-action="call" data-fn="startAutoDetect" title="AI auto-detect roof edges">🤖 Auto-Detect</button>
           <button class="draw-btn" id="voiceBtn" data-action="toggle" data-target="voiceControl" title="Voice-controlled measurement">🎤 Voice</button>
           <button class="draw-btn" data-action="toggle" data-target="historicalImagery" title="Compare historical satellite imagery">🕐 History</button>
-          <button class="draw-btn" onclick="startPresentation()" title="Full-screen homeowner presentation">🎬 Present</button>
-          <button class="draw-btn" onclick="openComparisonMode()" title="Compare with EagleView/RoofScope report">⚖️ Compare</button>
+          <button class="draw-btn" data-action="call" data-fn="startPresentation" title="Full-screen homeowner presentation">🎬 Present</button>
+          <button class="draw-btn" data-action="call" data-fn="openComparisonMode" title="Compare with EagleView/RoofScope report">⚖️ Compare</button>
         </div>
 
         <!-- SHADOW PITCH BAR -->
@@ -11624,8 +11624,8 @@ function switchScTab(tab, btn) {
 
         <!-- AUTO-DETECT ACCEPT/CANCEL -->
         <div id="autoDetectBar" style="display:none;gap:6px;margin-top:6px;">
-          <button class="btn btn-orange" style="flex:1;font-size:11px;padding:8px;" onclick="acceptAutoDetect()">✓ Accept Edges</button>
-          <button class="btn btn-ghost" style="flex:1;font-size:11px;padding:8px;" onclick="cancelAutoDetect()">✕ Cancel</button>
+          <button class="btn btn-orange" style="flex:1;font-size:11px;padding:8px;" data-action="call" data-fn="acceptAutoDetect">✓ Accept Edges</button>
+          <button class="btn btn-ghost" style="flex:1;font-size:11px;padding:8px;" data-action="call" data-fn="cancelAutoDetect">✕ Cancel</button>
         </div>
 
         <!-- HISTORICAL IMAGERY PANEL -->
@@ -11664,7 +11664,7 @@ function switchScTab(tab, btn) {
           <div style="font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Measurement Comparison</div>
           <div style="font-size:16px;font-weight:800;color:var(--t);margin-bottom:4px;">Compare Your Drawing vs. Report</div>
           <div style="font-size:12px;color:var(--m);margin-bottom:16px;">Upload an EagleView, RoofScope, or Quick Measure report (PDF or text). We'll extract measurements and compare side-by-side.</div>
-          <div style="border:2px dashed var(--br);border-radius:10px;padding:24px;text-align:center;cursor:pointer;margin-bottom:12px;" onclick="document.getElementById('compFile').click()">
+          <div style="border:2px dashed var(--br);border-radius:10px;padding:24px;text-align:center;cursor:pointer;margin-bottom:12px;" data-action="clickProxy" data-target="compFile">
             <div style="font-size:28px;margin-bottom:6px;">📄</div>
             <div style="font-weight:700;color:var(--t);font-size:12px;">Drop report here or click to browse</div>
             <input type="file" id="compFile" accept=".pdf,.txt,.csv,.xml" style="display:none;" onchange="handleComparisonFile(this.files[0])">
@@ -11708,15 +11708,15 @@ function switchScTab(tab, btn) {
                to default — every new estimate goes through the
                consolidated config (estimate-config.js) instead of
                the parallel Classic constants. -->
-          <button class="btn btn-orange" onclick="openEstimateV2Builder()" title="Build a new estimate with the V2 builder (270 line items, presets, tier comparison, BoldSign signing)">＋ New Estimate</button>
-          <button class="btn btn-ghost" onclick="startNewEstimateOriginal()" title="Classic 4-step wizard (legacy — V2 has full feature parity)" style="font-size:11px;padding:6px 12px;color:var(--m);">Classic</button>
+          <button class="btn btn-orange" data-action="call" data-fn="openEstimateV2Builder" title="Build a new estimate with the V2 builder (270 line items, presets, tier comparison, BoldSign signing)">＋ New Estimate</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="startNewEstimateOriginal" title="Classic 4-step wizard (legacy — V2 has full feature parity)" style="font-size:11px;padding:6px 12px;color:var(--m);">Classic</button>
         </div>
       </div>
       <div id="estListWrap"><div class="empty">
         <div class="empty-icon">📋</div>
         <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:6px;">No estimates yet</div>
         <div style="font-size:12px;color:var(--m);margin-bottom:14px;max-width:380px;">Build your first estimate to send a homeowner. The builder steps you through scope, materials, labor, and supplements automatically.</div>
-        <button class="btn btn-orange" onclick="if(typeof startNewEstimate==='function')startNewEstimate();" style="font-size:12px;padding:8px 14px;">＋ Build your first estimate</button>
+        <button class="btn btn-orange" data-action="call" data-fn="startNewEstimate" style="font-size:12px;padding:8px 14px;">＋ Build your first estimate</button>
       </div></div>
     </div>
     <!-- Step builder (hidden until new) -->
@@ -11732,7 +11732,7 @@ function switchScTab(tab, btn) {
             <option value="redeck">Full Redeck</option>
             <option value="hail">Hail Damage Insurance</option>
           </select>
-          <button class="btn btn-ghost" onclick="cancelEstimate()">← Back</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="cancelEstimate">← Back</button>
         </div>
       </div>
       <!-- Progress -->
@@ -11746,7 +11746,7 @@ function switchScTab(tab, btn) {
       <!-- STEP 1: Measurements -->
       <div id="estStep1">
         <div class="panel">
-          <div class="panel-hdr"><div><div class="panel-label">Step 1</div><div class="panel-title">Confirm Measurements</div></div><button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;gap:6px;" onclick="openQMImportModal()">📎 Import Quick Measure</button></div>
+          <div class="panel-hdr"><div><div class="panel-label">Step 1</div><div class="panel-title">Confirm Measurements</div></div><button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;gap:6px;" data-action="call" data-fn="openQMImportModal">📎 Import Quick Measure</button></div>
           <div class="panel-body">
             <div id="drawImportNote" style="display:none;background:rgba(46,204,138,.08);border:1px solid rgba(46,204,138,.2);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--green);">✓ Measurements imported from Drawing Tool</div>
             <div id="qmImportNote" style="display:none;background:color-mix(in srgb, var(--orange) 8%, transparent);border:1px solid color-mix(in srgb, var(--orange) 30%, transparent);border-radius:7px;padding:10px 13px;margin-bottom:14px;font-size:12px;color:var(--orange);">📎 Measurements imported from GAF Quick Measure — verified by aerial measurement report</div>
@@ -11766,7 +11766,7 @@ function switchScTab(tab, btn) {
             </div>
           </div>
         </div>
-        <button class="btn btn-orange" onclick="estNext(1)">Continue → Roof Type</button>
+        <button class="btn btn-orange" data-action="call" data-fn="estNext" data-arg="1">Continue → Roof Type</button>
       </div>
 
       <!-- STEP 2: Roof Type -->
@@ -11924,8 +11924,8 @@ function switchScTab(tab, btn) {
           </div>
         </div>
         <div style="display:flex;gap:10px;">
-          <button class="btn btn-ghost" onclick="estBack(2)">← Back</button>
-          <button class="btn btn-orange" onclick="estNext(2)">Continue → Choose Package</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="estBack" data-arg="2">← Back</button>
+          <button class="btn btn-orange" data-action="call" data-fn="estNext" data-arg="2">Continue → Choose Package</button>
         </div>
       </div>
 
@@ -11935,19 +11935,19 @@ function switchScTab(tab, btn) {
           <div class="panel-hdr"><div><div class="panel-label">Step 3</div><div class="panel-title">Select Package</div></div></div>
           <div class="panel-body">
             <div class="tier-grid">
-              <div class="tier-card" onclick="selectTier('good',this)">
+              <div class="tier-card" data-action="call" data-fn="selectTier" data-arg="good" data-pass-el>
                 <div class="tier-badge tier-good">Good</div>
                 <div class="tier-name">Standard Reroof</div>
                 <div class="tier-items">✓ Architectural shingles<br>✓ Felt underlayment<br>✓ Tear off existing<br>✓ Starter strip<br>✓ Drip edge<br>✓ Ridge cap</div>
                 <div class="tier-price" id="price-good">—</div>
               </div>
-              <div class="tier-card" onclick="selectTier('better',this)">
+              <div class="tier-card" data-action="call" data-fn="selectTier" data-arg="better" data-pass-el>
                 <div class="tier-badge tier-better">Better</div>
                 <div class="tier-name">Reroof Plus</div>
                 <div class="tier-items">✓ Everything in Standard<br>✓ Ice & water shield<br>✓ Pipe boots (all)<br>✓ Hip cap shingles<br>✓ 15% decking allowance</div>
                 <div class="tier-price" id="price-better">—</div>
               </div>
-              <div class="tier-card" onclick="selectTier('best',this)">
+              <div class="tier-card" data-action="call" data-fn="selectTier" data-arg="best" data-pass-el>
                 <div class="tier-badge tier-best">Best</div>
                 <div class="tier-name">Full Redeck</div>
                 <div class="tier-items">✓ Everything in Reroof Plus<br>✓ Full OSB decking<br>✓ Seamless gutters (6")<br>✓ Premium warranty<br>✓ Full redeck labor</div>
@@ -11957,8 +11957,8 @@ function switchScTab(tab, btn) {
           </div>
         </div>
         <div style="display:flex;gap:10px;">
-          <button class="btn btn-ghost" onclick="estBack(3)">← Back</button>
-          <button class="btn btn-orange" id="estStep3Next" onclick="estNext(3)" disabled style="opacity:.4;">Continue → Review</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="estBack" data-arg="3">← Back</button>
+          <button class="btn btn-orange" id="estStep3Next" data-action="call" data-fn="estNext" data-arg="3" disabled style="opacity:.4;">Continue → Review</button>
         </div>
       </div>
 
@@ -11967,16 +11967,16 @@ function switchScTab(tab, btn) {
         <div class="panel">
           <div class="panel-hdr"><div><div class="panel-label">Step 4</div><div class="panel-title">Review & Export</div></div>
             <div style="display:flex;gap:8px;">
-              <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" onclick="exportEstimate()">📤 Export PDF</button>
-              <button class="btn btn-orange" style="font-size:11px;padding:6px 12px;" onclick="saveEstimate()">💾 Save</button>
+              <button class="btn btn-ghost" style="font-size:11px;padding:6px 12px;" data-action="call" data-fn="exportEstimate">📤 Export PDF</button>
+              <button class="btn btn-orange" style="font-size:11px;padding:6px 12px;" data-action="call" data-fn="saveEstimate">💾 Save</button>
             </div>
           </div>
           <div class="panel-body" id="estReviewBody"></div>
         </div>
         <div style="display:flex;gap:10px;">
-          <button class="btn btn-ghost" onclick="estBack(4)">← Back</button>
-          <button class="btn btn-orange" onclick="saveEstimate()">💾 Save Estimate</button>
-          <button class="btn btn-green" onclick="exportEstimate()">📤 Export PDF</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="estBack" data-arg="4">← Back</button>
+          <button class="btn btn-orange" data-action="call" data-fn="saveEstimate">💾 Save Estimate</button>
+          <button class="btn btn-green" data-action="call" data-fn="exportEstimate">📤 Export PDF</button>
         </div>
       </div>
     </div>
@@ -12010,7 +12010,7 @@ function switchScTab(tab, btn) {
           <input type="text" id="crmSearch" placeholder="Search leads…"
             class="crm-hdr-input" oninput="kanbanFilterDebounced()"
             aria-label="Search leads in the pipeline by name, address, phone, or claim number">
-          <button id="crmSearchClear" class="crm-hdr-search-clear" onclick="clearCrmSearch()" title="Clear search">✕</button>
+          <button id="crmSearchClear" class="crm-hdr-search-clear" data-action="call" data-fn="clearCrmSearch" title="Clear search">✕</button>
         </div>
         <span id="crmSearchCount" style="font-size:11px;color:var(--m);white-space:nowrap;"></span>
         <select id="crmDmgFilter" class="crm-hdr-select" onchange="kanbanFilter()">
@@ -12049,7 +12049,7 @@ function switchScTab(tab, btn) {
              open Settings just to flip from Comfy to Compact when
              they're scanning a busy column. This button cycles
              Compact → Comfortable → Spacious in place. -->
-        <button class="crm-icon-btn" id="kanbanDensityToggleBtn" onclick="cycleKanbanDensity()" title="Card density (cycles Compact → Comfortable → Spacious)">
+        <button class="crm-icon-btn" id="kanbanDensityToggleBtn" data-action="call" data-fn="cycleKanbanDensity" title="Card density (cycles Compact → Comfortable → Spacious)">
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
         </button>
 
@@ -12071,11 +12071,11 @@ function switchScTab(tab, btn) {
         </div>
 
         <span class="crm-hdr-sep" aria-hidden="true"></span>
-        <button class="btn btn-ghost btn-trash-toggle crm-hdr-btn" onclick="openDeletedDrawer()" title="Deleted Leads">
+        <button class="btn btn-ghost btn-trash-toggle crm-hdr-btn" data-action="call" data-fn="openDeletedDrawer" title="Deleted Leads">
           🗑
           <span class="trash-count-badge" id="trashCountBadge"></span>
         </button>
-        <button class="btn btn-ghost crm-hdr-btn" id="loadSampleDataBtn" onclick="loadSampleData()" style="display:none;background:var(--purple);color:white;" title="Add 5 sample leads">
+        <button class="btn btn-ghost crm-hdr-btn" id="loadSampleDataBtn" data-action="call" data-fn="loadSampleData" style="display:none;background:var(--purple);color:white;" title="Add 5 sample leads">
           🎲 Sample
         </button>
         <span class="crm-hdr-sep" aria-hidden="true"></span>
@@ -12131,7 +12131,7 @@ function switchScTab(tab, btn) {
         </button>
         <span class="crm-hdr-sep" aria-hidden="true"></span>
         <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" data-action="toggle" data-target="bulkMode" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk</span></button>
-        <button class="btn btn-ghost crm-hdr-btn" onclick="exportLeadsCSV()" title="Export CSV">📤 <span class="crm-hdr-btn-label">CSV</span></button>
+        <button class="btn btn-ghost crm-hdr-btn" data-action="call" data-fn="exportLeadsCSV" title="Export CSV">📤 <span class="crm-hdr-btn-label">CSV</span></button>
         <!-- CRM cleanup 2026-05-14: inline ＋ Add button removed.
              The orange FAB at the bottom-right (see #fabAddLead) is the
              primary add action, and the `C` keyboard shortcut still
@@ -12145,7 +12145,7 @@ function switchScTab(tab, btn) {
            crm.js) — atomic, 1 round-trip per 450-lead chunk. -->
       <div id="bulkActionBar" style="display:none;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 14px;margin-top:8px;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap;">
         <span id="bulkSelectedCount" style="color:var(--orange);font-weight:600;">0 selected</span>
-        <button class="btn btn-ghost" onclick="selectAllVisibleLeads()" style="font-size:11px;padding:5px 10px;">☑ Select all visible</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="selectAllVisibleLeads" style="font-size:11px;padding:5px 10px;">☑ Select all visible</button>
         <select id="bulkStageSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--accent-fg);">
           <option value="">Move to stage...</option>
           <!-- Populated dynamically, fallback options below -->
@@ -12159,7 +12159,7 @@ function switchScTab(tab, btn) {
           <option value="closed">Closed</option>
           <option value="lost">Lost</option>
         </select>
-        <button class="btn btn-ghost" onclick="bulkMoveStage()" style="font-size:11px;padding:5px 10px;">▶ Move</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="bulkMoveStage" style="font-size:11px;padding:5px 10px;">▶ Move</button>
         <select id="bulkCarrierSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
           <option value="">Set carrier...</option>
           <option value="State Farm">State Farm</option>
@@ -12173,7 +12173,7 @@ function switchScTab(tab, btn) {
           <option value="American Family">American Family</option>
           <option value="Other">Other</option>
         </select>
-        <button class="btn btn-ghost" onclick="bulkAssignCarrier()" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="bulkAssignCarrier" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
         <select id="bulkDamageSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
           <option value="">Set damage...</option>
           <option value="Roof - Hail">Roof - Hail</option>
@@ -12184,7 +12184,7 @@ function switchScTab(tab, btn) {
           <option value="Gutters">Gutters</option>
           <option value="Other">Other</option>
         </select>
-        <button class="btn btn-ghost" onclick="bulkAssignDamage()" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="bulkAssignDamage" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
         <!-- Wave 32: source bulk-edit. Common post-import cleanup —
              "all 50 imported leads should be tagged 'Spring Hailstorm'".
              The custom text input lets reps tag a campaign that's not
@@ -12202,7 +12202,7 @@ function switchScTab(tab, btn) {
           <option value="Other">Other</option>
         </select>
         <input id="bulkSourceCustom" type="text" placeholder="…or type custom" maxlength="60" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);width:130px;" />
-        <button class="btn btn-ghost" onclick="bulkAssignSource()" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="bulkAssignSource" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
         <!-- Wave 32: jobType bulk-edit. Routes leads into the
              insurance / cash / finance pipeline view filters. -->
         <select id="bulkJobTypeSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
@@ -12211,13 +12211,13 @@ function switchScTab(tab, btn) {
           <option value="cash">Cash</option>
           <option value="finance">Finance</option>
         </select>
-        <button class="btn btn-ghost" onclick="bulkAssignJobType()" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="bulkAssignJobType" style="font-size:11px;padding:5px 10px;">▶ Apply</button>
         <!-- Wave 37: bulk snooze. Opens LeadSnooze.bulkPrompt which
              handles preset/custom date selection + writeBatch commit
              + cache patch + auto-exit bulk mode. -->
-        <button class="btn btn-ghost" onclick="bulkSnoozeLeads()" style="font-size:11px;padding:5px 10px;color:#cab8ff;">💤 Snooze...</button>
-        <button class="btn btn-ghost" onclick="bulkDelete()" style="font-size:11px;padding:5px 10px;color:var(--red);">🗑 Delete</button>
-        <button class="btn btn-ghost" onclick="clearBulkSelection()" style="font-size:11px;padding:5px 10px;">✕ Cancel</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="bulkSnoozeLeads" style="font-size:11px;padding:5px 10px;color:#cab8ff;">💤 Snooze...</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="bulkDelete" style="font-size:11px;padding:5px 10px;color:var(--red);">🗑 Delete</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="clearBulkSelection" style="font-size:11px;padding:5px 10px;">✕ Cancel</button>
       </div>
     </div>
 
@@ -12247,7 +12247,7 @@ function switchScTab(tab, btn) {
     <div id="followUpAlertsWrap" style="display:none;padding:0 16px 8px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <span id="followUpAlertsLabel" style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);">Follow-ups Due</span>
-        <button onclick="document.getElementById('followUpAlertsWrap').style.display='none';localStorage.setItem('nbd_crm_followup_hidden','1');" style="background:none;border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">Dismiss</button>
+        <button data-action="call" data-fn="hideFollowUpAlerts" style="background:none;border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;font-family:inherit;">Dismiss</button>
       </div>
       <div id="followUpAlerts"></div>
     </div>
@@ -12273,11 +12273,11 @@ function switchScTab(tab, btn) {
       </div>
       
       <div style="display:flex;gap:8px;">
-        <button class="btn btn-orange" onclick="loadSampleData()">🎲 Load Sample Data</button>
-        <button class="btn btn-ghost" onclick="retryLoadLeads()">🔄 Retry Load</button>
-        <button class="btn btn-ghost" onclick="testFirestoreRules()">🔐 Test Rules</button>
-        <button class="btn btn-ghost" onclick="copyDebugInfo()">📋 Copy Debug Info</button>
-        <button class="btn btn-ghost" onclick="document.getElementById('crmDiagnostic').style.display='none'">✕ Dismiss</button>
+        <button class="btn btn-orange" data-action="call" data-fn="loadSampleData">🎲 Load Sample Data</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="retryLoadLeads">🔄 Retry Load</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="testFirestoreRules">🔐 Test Rules</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="copyDebugInfo">📋 Copy Debug Info</button>
+        <button class="btn btn-ghost" data-action="hideEl" data-target="crmDiagnostic">✕ Dismiss</button>
       </div>
     </div>
 
@@ -12317,7 +12317,7 @@ function switchScTab(tab, btn) {
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
           <button class="btn btn-ghost" data-action="goTo" data-target="d2d" style="font-size:12px;">🚪 D2D Tracker</button>
-          <button class="btn btn-orange" onclick="if(window.D2D)D2D.openQuickKnock();else goTo('d2d')" style="font-size:12px;">＋ New Knock</button>
+          <button class="btn btn-orange" data-action="call" data-fn="openD2DOrGo" style="font-size:12px;">＋ New Knock</button>
         </div>
       </div>
 
@@ -12355,8 +12355,8 @@ function switchScTab(tab, btn) {
           <div class="page-sub">Capture, tag, and organize property documentation</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;">
-          <button class="btn btn-orange" onclick="if(window.PhotoEngine){PhotoEngine.openCamera(window._currentPhotoLeadId||'')}else{showToast('Photo engine loading...','error')}" style="font-size:12px;">📷 Open Camera</button>
-          <button class="btn btn-ghost" onclick="if(window.InspectionReportEngine){InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._currentPhotoLeadId||'')}else{showToast('Report engine loading...','error')}" style="font-size:12px;">📄 New Report</button>
+          <button class="btn btn-orange" data-action="call" data-fn="openPhotoEngineCurrentLead" style="font-size:12px;">📷 Open Camera</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="openInspectionBuilderCurrentLead" style="font-size:12px;">📄 New Report</button>
         </div>
       </div>
       <!-- Search + Quick actions bar -->
@@ -12368,9 +12368,9 @@ function switchScTab(tab, btn) {
              firestore.rules L225. -->
         <div class="ph-mode-toggle" role="tablist" aria-label="Photo browsing mode">
           <button class="ph-mode-btn active" data-ph-mode="by-property" role="tab" aria-selected="true"
-            onclick="setPhotoMode('by-property')">By Property</button>
+            data-action="call" data-fn="setPhotoMode" data-arg="by-property">By Property</button>
           <button class="ph-mode-btn" data-ph-mode="recent" role="tab" aria-selected="false"
-            onclick="setPhotoMode('recent')">Recent</button>
+            data-action="call" data-fn="setPhotoMode" data-arg="recent">Recent</button>
         </div>
         <div style="position:relative;flex:1;min-width:180px;max-width:320px;">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--m);pointer-events:none;"><circle cx="9" cy="9" r="5"/><path d="M13 13l4 4"/></svg>
@@ -12383,7 +12383,7 @@ function switchScTab(tab, btn) {
           <input type="checkbox" id="photosOnlyWithPhotos" onchange="window._photosOnlyWithPhotos=this.checked;renderPhotoLeads();" style="accent-color:var(--orange);">
           Only with photos
         </label>
-        <button class="btn btn-ghost" onclick="damageNearMePhotos()" style="font-size:11px;padding:6px 12px;">📍 Near Me</button>
+        <button class="btn btn-ghost" data-action="call" data-fn="damageNearMePhotos" style="font-size:11px;padding:6px 12px;">📍 Near Me</button>
       </div>
       <!-- Photo gallery container (rendered by PhotoEngine) -->
       <div id="photoGalleryContainer" style="padding:0 16px;">
@@ -12406,7 +12406,7 @@ function switchScTab(tab, btn) {
          this fires the same hidden file-input as the create popover's
          Photo row, so capture flow is one consistent path. -->
     <button class="m-shutter-fab" id="mShutterFab" type="button"
-      onclick="if(window.PhotoEngine && window._currentPhotoLeadId) PhotoEngine.openCamera(window._currentPhotoLeadId); else document.getElementById('mCreatePhotoInput')?.click()"
+      data-action="call" data-fn="openPhotoEngineOrClickProxy" data-arg="mCreatePhotoInput"
       aria-label="Capture photo">
       <svg class="nbd-icon nbd-icon-lg" aria-hidden="true"><use href="#nbd-icon-shutter"/></svg>
     </button>
@@ -12415,7 +12415,7 @@ function switchScTab(tab, btn) {
   <!-- ══ INSPECTION REPORT BUILDER OVERLAY (works from any view) ══ -->
   <div id="inspectionBuilderOverlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;z-index:9990;background:var(--bg,var(--bg));overflow-y:auto;">
     <div style="max-width:900px;margin:0 auto;padding:20px;">
-      <button onclick="document.getElementById('inspectionBuilderOverlay').style.display='none';document.getElementById('inspectionBuilderContainer').innerHTML='';" style="position:fixed;top:16px;right:20px;z-index:9991;background:var(--s2);border:1px solid var(--br);color:var(--t);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">✕ Close Builder</button>
+      <button data-action="call" data-fn="closeInspectionBuilder" style="position:fixed;top:16px;right:20px;z-index:9991;background:var(--s2);border:1px solid var(--br);color:var(--t);padding:8px 16px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">✕ Close Builder</button>
       <div id="inspectionBuilderContainer" style="padding:16px 0;"></div>
     </div>
   </div>
@@ -12523,7 +12523,7 @@ function switchScTab(tab, btn) {
           <div class="page-title">Template Library</div>
           <div class="page-sub">24 NBD-branded documents — ready to generate, print, and present</div>
         </div>
-        <button class="btn btn-orange" onclick="openUploadDoc()">＋ Upload</button>
+        <button class="btn btn-orange" data-action="call" data-fn="openUploadDoc">＋ Upload</button>
       </div>
       <div style="font-size:11px;color:var(--m);padding:0 0 10px;display:flex;gap:12px;align-items:center;">
         <span>Click a template to fill & generate. Use the <strong>Blank</strong> button to print an empty copy for hand-fill.</span>
@@ -12531,12 +12531,12 @@ function switchScTab(tab, btn) {
 
       <!-- CATEGORY FILTER BUTTONS -->
       <div class="tl-filters" id="tlFilters">
-        <button class="tl-filter-btn tl-filter-active" onclick="tlFilterCat('all',this)">All <span class="tl-filter-count">24</span></button>
-        <button class="tl-filter-btn" onclick="tlFilterCat('generators',this)">⚡ Generators <span class="tl-filter-count">4</span></button>
-        <button class="tl-filter-btn" onclick="tlFilterCat('insurance',this)">🛡️ Insurance <span class="tl-filter-count">5</span></button>
-        <button class="tl-filter-btn" onclick="tlFilterCat('contracts',this)">📝 Contracts <span class="tl-filter-count">5</span></button>
-        <button class="tl-filter-btn" onclick="tlFilterCat('leave_behind',this)">📂 Leave-Behinds <span class="tl-filter-count">5</span></button>
-        <button class="tl-filter-btn" onclick="tlFilterCat('marketing',this)">📣 Marketing <span class="tl-filter-count">5</span></button>
+        <button class="tl-filter-btn tl-filter-active" data-action="call" data-fn="tlFilterCat" data-arg="all" data-pass-el>All <span class="tl-filter-count">24</span></button>
+        <button class="tl-filter-btn" data-action="call" data-fn="tlFilterCat" data-arg="generators" data-pass-el>⚡ Generators <span class="tl-filter-count">4</span></button>
+        <button class="tl-filter-btn" data-action="call" data-fn="tlFilterCat" data-arg="insurance" data-pass-el>🛡️ Insurance <span class="tl-filter-count">5</span></button>
+        <button class="tl-filter-btn" data-action="call" data-fn="tlFilterCat" data-arg="contracts" data-pass-el>📝 Contracts <span class="tl-filter-count">5</span></button>
+        <button class="tl-filter-btn" data-action="call" data-fn="tlFilterCat" data-arg="leave_behind" data-pass-el>📂 Leave-Behinds <span class="tl-filter-count">5</span></button>
+        <button class="tl-filter-btn" data-action="call" data-fn="tlFilterCat" data-arg="marketing" data-pass-el>📣 Marketing <span class="tl-filter-count">5</span></button>
       </div>
 
       <!-- COLLAPSIBLE CATEGORIES -->
@@ -12544,7 +12544,7 @@ function switchScTab(tab, btn) {
 
         <!-- ── GENERATORS ── -->
         <div class="tl-category" data-cat="generators">
-          <div class="tl-cat-header" onclick="tlToggleCat(this)">
+          <div class="tl-cat-header" data-action="call" data-fn="tlToggleCat" data-pass-el>
             <span class="tl-cat-chevron">▾</span>
             <span class="tl-cat-icon">⚡</span>
             <h3 class="tl-cat-title" style="color:var(--orange);">Generators</h3>
@@ -12589,7 +12589,7 @@ function switchScTab(tab, btn) {
 
         <!-- ── INSURANCE DOCUMENTS ── -->
         <div class="tl-category" data-cat="insurance">
-          <div class="tl-cat-header" onclick="tlToggleCat(this)">
+          <div class="tl-cat-header" data-action="call" data-fn="tlToggleCat" data-pass-el>
             <span class="tl-cat-chevron">▾</span>
             <span class="tl-cat-icon">🛡️</span>
             <h3 class="tl-cat-title" style="color:var(--blue);">Insurance Documents</h3>
@@ -12642,7 +12642,7 @@ function switchScTab(tab, btn) {
 
         <!-- ── CONTRACTS & AGREEMENTS ── -->
         <div class="tl-category" data-cat="contracts">
-          <div class="tl-cat-header" onclick="tlToggleCat(this)">
+          <div class="tl-cat-header" data-action="call" data-fn="tlToggleCat" data-pass-el>
             <span class="tl-cat-chevron">▾</span>
             <span class="tl-cat-icon">📝</span>
             <h3 class="tl-cat-title" style="color:var(--green);">Contracts & Agreements</h3>
@@ -12695,7 +12695,7 @@ function switchScTab(tab, btn) {
 
         <!-- ── LEAVE-BEHIND PACKETS ── -->
         <div class="tl-category" data-cat="leave_behind">
-          <div class="tl-cat-header" onclick="tlToggleCat(this)">
+          <div class="tl-cat-header" data-action="call" data-fn="tlToggleCat" data-pass-el>
             <span class="tl-cat-chevron">▾</span>
             <span class="tl-cat-icon">📂</span>
             <h3 class="tl-cat-title" style="color:#9C27B0;">Leave-Behind Packets</h3>
@@ -12748,7 +12748,7 @@ function switchScTab(tab, btn) {
 
         <!-- ── MARKETING & MAILERS ── -->
         <div class="tl-category" data-cat="marketing">
-          <div class="tl-cat-header" onclick="tlToggleCat(this)">
+          <div class="tl-cat-header" data-action="call" data-fn="tlToggleCat" data-pass-el>
             <span class="tl-cat-chevron">▾</span>
             <span class="tl-cat-icon">📣</span>
             <h3 class="tl-cat-title" style="color:#FF6B35;">Marketing & Mailers</h3>
@@ -12828,12 +12828,12 @@ function switchScTab(tab, btn) {
               <option>Contract</option><option>Supplement</option><option>Scope of Work</option><option>Photo Report</option><option>Insurance Correspondence</option><option>Other</option>
             </select>
           </div>
-          <div class="upload-zone" onclick="document.getElementById('docFileInput').click()" style="margin-bottom:12px;">
+          <div class="upload-zone" data-action="clickProxy" data-target="docFileInput" style="margin-bottom:12px;">
             <div class="upload-icon">📎</div>
             <div class="upload-text">Click to select file (PDF, DOC, JPG)</div>
             <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange="handleDocUpload(this)">
           </div>
-          <button class="btn btn-orange" onclick="saveDocUpload()" id="docSaveBtn">Upload Document</button>
+          <button class="btn btn-orange" data-action="call" data-fn="saveDocUpload" id="docSaveBtn">Upload Document</button>
         </div>
       </div>
     </div>
@@ -12855,8 +12855,8 @@ function switchScTab(tab, btn) {
         <div class="joe-status-dot"></div>
         ONLINE
       </div>
-      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="if(window.DecisionEngine&&window.DecisionEngine.openPicker)window.DecisionEngine.openPicker();else if(typeof showToast==='function')showToast('Decision Engine still loading…','info');" title="Pick a scenario from the Decision Engine — drops a battle-tested prompt into Ask Joe">⚡ Scenarios</button>
-      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" onclick="clearJoeChat()">🗑️ New Chat</button>
+      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" data-action="call" data-fn="openDecisionPicker" title="Pick a scenario from the Decision Engine — drops a battle-tested prompt into Ask Joe">⚡ Scenarios</button>
+      <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px;" data-action="call" data-fn="clearJoeChat">🗑️ New Chat</button>
     </div>
 
     <!-- Context bar (populated by JS) -->
@@ -12870,7 +12870,7 @@ function switchScTab(tab, btn) {
         Get one free at <strong>console.anthropic.com</strong> → API Keys.</p>
         <div class="joe-key-input-row">
           <input type="password" id="joeKeyInput" placeholder="sk-ant-api03-..." autocomplete="off">
-          <button class="btn btn-orange" onclick="saveJoeKey()">Activate</button>
+          <button class="btn btn-orange" data-action="call" data-fn="saveJoeKey">Activate</button>
         </div>
         <p style="margin-top:10px;font-size:10px;color:var(--m);">Your key is stored locally and never leaves your browser.</p>
       </div>
@@ -12882,20 +12882,20 @@ function switchScTab(tab, btn) {
     <!-- Input area -->
     <div class="joe-input-area" id="joeInputArea" style="display:none;">
       <div class="joe-quick-btns" id="joeQuickBtns">
-        <button class="joe-quick" onclick="joeQuick('What should I focus on today?')">📋 Today's priorities</button>
-        <button class="joe-quick" onclick="joeQuick('Which leads are most likely to close?')">🎯 Best leads to close</button>
-        <button class="joe-quick" onclick="joeQuick('Help me write a supplement request')">📄 Supplement request</button>
-        <button class="joe-quick" onclick="joeQuick('How do I handle a lowball adjuster estimate?')">💬 Adjuster pushback</button>
-        <button class="joe-quick" onclick="joeQuick('What does my pipeline look like right now?')">📊 Pipeline summary</button>
+        <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="What should I focus on today?">📋 Today's priorities</button>
+        <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="Which leads are most likely to close?">🎯 Best leads to close</button>
+        <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="Help me write a supplement request">📄 Supplement request</button>
+        <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="How do I handle a lowball adjuster estimate?">💬 Adjuster pushback</button>
+        <button class="joe-quick" data-action="call" data-fn="joeQuick" data-arg="What does my pipeline look like right now?">📊 Pipeline summary</button>
       </div>
       <div class="joe-input-row">
         <textarea class="joe-input" id="joeInput" placeholder="Ask Joe anything about your leads, claims, estimates, or strategy..." rows="1"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendJoeMessage();}
           this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px';"></textarea>
-        <button class="joe-send" id="joeSendBtn" onclick="sendJoeMessage()">SEND</button>
+        <button class="joe-send" id="joeSendBtn" data-action="call" data-fn="sendJoeMessage">SEND</button>
       </div>
       <div style="text-align:center;margin-top:6px;font-size:9px;color:var(--m);font-family:'Barlow Condensed',sans-serif;letter-spacing:.06em;">
-        Joe AI · Live pipeline data · Claude Haiku · <span style="color:var(--orange);cursor:pointer;" onclick="clearJoeKey()">Change Key</span>
+        Joe AI · Live pipeline data · Claude Haiku · <span style="color:var(--orange);cursor:pointer;" data-action="call" data-fn="clearJoeKey">Change Key</span>
       </div>
     </div>
   </template>
@@ -12934,8 +12934,8 @@ function switchScTab(tab, btn) {
           <div class="page-sub">Generate visual rep and business reports for meetings</div>
         </div>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-ghost" id="btnEnrichData" onclick="if(window.NBDReports){window.NBDReports.enrichData()}else{showToast('Report engine loading...','error')}" title="One-time analytics enrichment: reverse-geocode knock GPS coords into city/zip and derive time-of-day buckets. Enables the Top Territories and Heatmap metrics on historical data.">✨ Enrich Data</button>
-          <button class="btn btn-orange" id="btnOpenReportGenerator" onclick="if(window.NBDReports){window.NBDReports.openGenerator()}else{showToast('Report engine loading...','error')}">＋ New Report</button>
+          <button class="btn btn-ghost" id="btnEnrichData" data-action="call" data-fn="enrichReportData" title="One-time analytics enrichment: reverse-geocode knock GPS coords into city/zip and derive time-of-day buckets. Enables the Top Territories and Heatmap metrics on historical data.">✨ Enrich Data</button>
+          <button class="btn btn-orange" id="btnOpenReportGenerator" data-action="call" data-fn="openReportGenerator">＋ New Report</button>
         </div>
       </div>
 
@@ -13115,7 +13115,7 @@ function switchScTab(tab, btn) {
                 </label>
               </div>
             </div>
-            <button class="btn btn-orange" onclick="window._saveSettings()" style="margin-top:4px;">💾 Save Profile</button>
+            <button class="btn btn-orange" data-action="call" data-fn="_saveSettings" style="margin-top:4px;">💾 Save Profile</button>
           </div>
         </div>
 
@@ -13132,19 +13132,19 @@ function switchScTab(tab, btn) {
               Download a copy of your CRM data as CSV. Open in Excel, Numbers, or Google Sheets. Exports use the data currently loaded in this tab.
             </div>
             <div style="display:flex; gap:10px; flex-wrap:wrap;">
-              <button type="button" class="btn btn-orange" onclick="window.exportLeadsCsv && window.exportLeadsCsv()"
+              <button type="button" class="btn btn-orange" data-action="call" data-fn="exportLeadsCsv"
                 style="display:inline-flex; align-items:center; gap:8px;">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M10 3v10M6 9l4 4 4-4"/><rect x="3" y="15" width="14" height="2.5" rx="1"/></svg>
                 Export Leads (CSV)
               </button>
-              <button type="button" class="btn btn-ghost" onclick="window.exportEstimatesCsv && window.exportEstimatesCsv()"
+              <button type="button" class="btn btn-ghost" data-action="call" data-fn="exportEstimatesCsv"
                 style="display:inline-flex; align-items:center; gap:8px;">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M10 3v10M6 9l4 4 4-4"/><rect x="3" y="15" width="14" height="2.5" rx="1"/></svg>
                 Export Estimates (CSV)
               </button>
               <!-- Wave 23: import path. Reuses LeadDedup to skip
                    high-confidence duplicates row-by-row. -->
-              <button type="button" class="btn btn-ghost" onclick="window.openLeadImport && window.openLeadImport()"
+              <button type="button" class="btn btn-ghost" data-action="call" data-fn="openLeadImport"
                 style="display:inline-flex; align-items:center; gap:8px;">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M10 17V7M6 11l4-4 4 4"/><rect x="3" y="2.5" width="14" height="2.5" rx="1"/></svg>
                 Import Leads (CSV)
@@ -13176,9 +13176,9 @@ function switchScTab(tab, btn) {
                 </div>
               </div>
               <div id="kanbanDensityGroup" style="display:flex;gap:6px;">
-                <button type="button" class="kdens-btn" data-density="compact"  onclick="setKanbanDensity('compact')"  style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Compact</button>
-                <button type="button" class="kdens-btn" data-density="comfortable" onclick="setKanbanDensity('comfortable')" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Comfortable</button>
-                <button type="button" class="kdens-btn" data-density="spacious" onclick="setKanbanDensity('spacious')" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Spacious</button>
+                <button type="button" class="kdens-btn" data-density="compact"  data-action="call" data-fn="setKanbanDensity" data-arg="compact"  style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Compact</button>
+                <button type="button" class="kdens-btn" data-density="comfortable" data-action="call" data-fn="setKanbanDensity" data-arg="comfortable" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Comfortable</button>
+                <button type="button" class="kdens-btn" data-density="spacious" data-action="call" data-fn="setKanbanDensity" data-arg="spacious" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Spacious</button>
               </div>
             </div>
 
@@ -13218,8 +13218,8 @@ function switchScTab(tab, btn) {
             <div style="display:flex;gap:8px;margin-bottom:8px;">
               <input type="password" id="joeKeyInputSettings" placeholder="sk-ant-api03-..." autocomplete="off"
                 style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
-              <button class="btn btn-orange" onclick="saveJoeKeyFromSettings()">Save Key</button>
-              <button class="btn btn-ghost" onclick="clearJoeKey()" style="font-size:11px;">Clear</button>
+              <button class="btn btn-orange" data-action="call" data-fn="saveJoeKeyFromSettings">Save Key</button>
+              <button class="btn btn-ghost" data-action="call" data-fn="clearJoeKey" style="font-size:11px;">Clear</button>
             </div>
             <div id="joeKeyStatus" style="font-size:11px;color:var(--m);"></div>
           </div>
@@ -13229,11 +13229,11 @@ function switchScTab(tab, btn) {
           <div class="panel-hdr"><div><div class="panel-label">Account</div><div class="panel-title">Danger Zone</div></div></div>
           <div class="panel-body">
             <div style="display:flex;flex-direction:column;gap:8px;max-width:320px;">
-              <button class="btn btn-ghost" onclick="loadSampleData()" style="justify-content:flex-start;gap:8px;">
+              <button class="btn btn-ghost" data-action="call" data-fn="loadSampleData" style="justify-content:flex-start;gap:8px;">
                 🧪 Load Sample Data
                 <span style="font-size:10px;color:var(--m);margin-left:auto;">Adds 13 demo leads</span>
               </button>
-              <button class="btn btn-red" onclick="window._signOut()">Sign Out</button>
+              <button class="btn btn-red" data-action="signOut">Sign Out</button>
             </div>
           </div>
         </div>
@@ -13323,7 +13323,7 @@ function switchScTab(tab, btn) {
                 <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:6px;">Custom Accent Color</label>
                 <div style="display:flex;gap:8px;align-items:center;">
                   <input type="color" id="gxAccentPicker" value="#e8720c" onchange="if(window.ThemeGX)ThemeGX.setAccent(this.value)" style="width:40px;height:32px;border:1px solid var(--br);border-radius:4px;cursor:pointer;background:none;">
-                  <button class="btn btn-ghost" style="font-size:10px;padding:6px 10px;" onclick="if(window.ThemeGX){ThemeGX.clearAccentOverride();document.getElementById('gxAccentPicker').value='#e8720c';}">Reset to Default</button>
+                  <button class="btn btn-ghost" style="font-size:10px;padding:6px 10px;" data-action="call" data-fn="clearAccentTheme">Reset to Default</button>
                 </div>
               </div>
 
@@ -13383,8 +13383,8 @@ function switchScTab(tab, btn) {
               </div>
 
               <div style="display:flex;gap:8px;">
-                <button class="btn btn-orange" style="flex:1;justify-content:center;" onclick="saveCustomTheme()">Save Theme</button>
-                <button class="btn btn-ghost" style="flex:1;justify-content:center;" onclick="resetCustomTheme()">Reset to Default</button>
+                <button class="btn btn-orange" style="flex:1;justify-content:center;" data-action="call" data-fn="saveCustomTheme">Save Theme</button>
+                <button class="btn btn-ghost" style="flex:1;justify-content:center;" data-action="call" data-fn="resetCustomTheme">Reset to Default</button>
               </div>
             </div>
 
@@ -13463,10 +13463,10 @@ function switchScTab(tab, btn) {
             <div style="margin-bottom:20px;">
               <label style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--m);display:block;margin-bottom:8px;">UI Size</label>
               <div style="display:flex;gap:6px;flex-wrap:wrap;" id="sizingBtnGroup">
-                <button class="btn btn-ghost nbd-size-btn" data-size="compact" onclick="nbdSetSize('compact')" style="font-size:11px;padding:8px 14px;">Compact</button>
-                <button class="btn btn-ghost nbd-size-btn" data-size="default" onclick="nbdSetSize('default')" style="font-size:11px;padding:8px 14px;">Default</button>
-                <button class="btn btn-ghost nbd-size-btn" data-size="comfortable" onclick="nbdSetSize('comfortable')" style="font-size:11px;padding:8px 14px;">Comfortable</button>
-                <button class="btn btn-ghost nbd-size-btn" data-size="large" onclick="nbdSetSize('large')" style="font-size:11px;padding:8px 14px;">Large</button>
+                <button class="btn btn-ghost nbd-size-btn" data-size="compact" data-action="call" data-fn="nbdSetSize" data-arg="compact" style="font-size:11px;padding:8px 14px;">Compact</button>
+                <button class="btn btn-ghost nbd-size-btn" data-size="default" data-action="call" data-fn="nbdSetSize" data-arg="default" style="font-size:11px;padding:8px 14px;">Default</button>
+                <button class="btn btn-ghost nbd-size-btn" data-size="comfortable" data-action="call" data-fn="nbdSetSize" data-arg="comfortable" style="font-size:11px;padding:8px 14px;">Comfortable</button>
+                <button class="btn btn-ghost nbd-size-btn" data-size="large" data-action="call" data-fn="nbdSetSize" data-arg="large" style="font-size:11px;padding:8px 14px;">Large</button>
               </div>
               <div style="font-size:10px;color:var(--m);margin-top:6px;">Scales text, padding, and spacing across the entire app.</div>
             </div>
@@ -13484,7 +13484,7 @@ function switchScTab(tab, btn) {
             <p style="font-size:12px;color:var(--m);margin-bottom:14px;">Toggle sidebar items on/off. Hidden items are still accessible via the search bar (press /).</p>
             <div id="sidebarCustomizerGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
             <div style="display:flex;gap:8px;margin-top:14px;">
-              <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:11px;" onclick="resetSidebarCustomizer()">Reset to Default</button>
+              <button class="btn btn-ghost" style="flex:1;justify-content:center;font-size:11px;" data-action="call" data-fn="resetSidebarCustomizer">Reset to Default</button>
             </div>
           </div>
         </div>
@@ -13701,9 +13701,9 @@ function switchScTab(tab, btn) {
 
         <!-- ▸ Save/Reset -->
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
-          <button class="btn btn-orange" onclick="window._saveEstimateDefaultsV2()">💾 Save All Estimate Settings</button>
-          <button class="btn btn-ghost" onclick="window._resetEstimateDefaultsV2()" style="font-size:11px;">↺ Reset to Defaults</button>
-          <button class="btn btn-ghost" onclick="window.openEstimateV2Builder()" style="font-size:11px;color:var(--orange);">✨ Open V2 Builder →</button>
+          <button class="btn btn-orange" data-action="call" data-fn="_saveEstimateDefaultsV2">💾 Save All Estimate Settings</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="_resetEstimateDefaultsV2" style="font-size:11px;">↺ Reset to Defaults</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="openEstimateV2Builder" style="font-size:11px;color:var(--orange);">✨ Open V2 Builder →</button>
         </div>
         <div id="v2save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Estimate settings saved</div>
 
@@ -13747,7 +13747,7 @@ function switchScTab(tab, btn) {
               <span>Floor Label</span><span style="text-align:center;">Target</span><span style="text-align:center;">Unit</span><span></span>
             </div>
             <div id="ds-floor-editor"></div>
-            <button onclick="dsAddFloor()"
+            <button data-action="call" data-fn="dsAddFloor"
               style="margin-top:8px;width:100%;background:transparent;border:1.5px dashed var(--br);border-radius:4px;padding:8px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--m);cursor:pointer;transition:all .15s;"
               onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)';"
               onmouseout="this.style.borderColor='var(--br)';this.style.color='var(--m)';">+ ADD FLOOR</button>
@@ -13781,8 +13781,8 @@ function switchScTab(tab, btn) {
         </div>
 
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px;">
-          <button class="btn btn-orange" onclick="dsSaveConfig()">💾 Save Daily Program Settings</button>
-          <button class="btn btn-ghost" onclick="dsResetDefaults()" style="font-size:11px;">↺ Reset to Defaults</button>
+          <button class="btn btn-orange" data-action="call" data-fn="dsSaveConfig">💾 Save Daily Program Settings</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="dsResetDefaults" style="font-size:11px;">↺ Reset to Defaults</button>
           <a href="/pro/daily-success/" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:var(--orange);text-decoration:none;">Open Daily Program ↗</a>
         </div>
         <div id="ds-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Daily Program settings saved</div>
@@ -13848,8 +13848,8 @@ function switchScTab(tab, btn) {
         </div>
 
         <div style="display:flex;gap:8px;margin-top:4px;">
-          <button class="btn btn-orange" onclick="window._saveCompanySettings()">💾 Save Company Info</button>
-          <button class="btn btn-ghost" onclick="window._loadCompanySettings()" style="font-size:11px;">↺ Reload</button>
+          <button class="btn btn-orange" data-action="call" data-fn="_saveCompanySettings">💾 Save Company Info</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="_loadCompanySettings" style="font-size:11px;">↺ Reload</button>
         </div>
         <div id="co-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Company info saved</div>
       </div><!-- /stab-panel-company -->
@@ -13892,7 +13892,7 @@ function switchScTab(tab, btn) {
                     <option value="viewer">Viewer</option>
                   </select>
                 </div>
-                <button class="btn btn-orange" style="padding:10px 16px;white-space:nowrap;" onclick="inviteTeamMember()">Send Invite</button>
+                <button class="btn btn-orange" style="padding:10px 16px;white-space:nowrap;" data-action="call" data-fn="inviteTeamMember">Send Invite</button>
               </div>
               <div style="font-size:10px;color:var(--m);margin-top:6px;">Invited reps receive an email with a sign-up link scoped to your company. They see only their own leads and territory.</div>
             </div>
@@ -14076,8 +14076,8 @@ function switchScTab(tab, btn) {
               <div><label style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);">Session started</label><div style="font-size:13px;color:var(--t);font-weight:600;" id="accSessionStarted">—</div></div>
             </div>
             <div style="display:flex;gap:8px;margin-top:16px;">
-              <button class="btn btn-red" onclick="window._signOut()">Sign Out Everywhere</button>
-              <button class="btn btn-ghost" onclick="location.reload()" style="font-size:11px;">Refresh Session</button>
+              <button class="btn btn-red" data-action="signOut">Sign Out Everywhere</button>
+              <button class="btn btn-ghost" data-action="reload" style="font-size:11px;">Refresh Session</button>
             </div>
           </div>
         </div>
@@ -14087,9 +14087,9 @@ function switchScTab(tab, btn) {
           <div class="panel-body">
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Your data is yours. Export it anytime.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-ghost" onclick="window._exportAllData && window._exportAllData()" style="font-size:11px;">📥 Export All Leads (CSV)</button>
-              <button class="btn btn-ghost" onclick="window._exportEstimates && window._exportEstimates()" style="font-size:11px;">📥 Export Estimates (CSV)</button>
-              <button class="btn btn-ghost" onclick="window._exportPhotos && window._exportPhotos()" style="font-size:11px;">📥 Export Photos (ZIP)</button>
+              <button class="btn btn-ghost" data-action="call" data-fn="_exportAllData" style="font-size:11px;">📥 Export All Leads (CSV)</button>
+              <button class="btn btn-ghost" data-action="call" data-fn="_exportEstimates" style="font-size:11px;">📥 Export Estimates (CSV)</button>
+              <button class="btn btn-ghost" data-action="call" data-fn="_exportPhotos" style="font-size:11px;">📥 Export Photos (ZIP)</button>
             </div>
           </div>
         </div>
@@ -14102,11 +14102,11 @@ function switchScTab(tab, btn) {
             <p style="font-size:12px;color:var(--m);margin-bottom:12px;">Under GDPR Articles 17 and 20 you can download a complete copy of your data or permanently delete your account. Both actions are logged in our audit trail.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
               <button class="btn btn-ghost" style="font-size:11px;"
-                      onclick="window._gdprExport && window._gdprExport()">
+                      data-action="call" data-fn="_gdprExport">
                 📦 Export All My Data (JSON)
               </button>
               <button class="btn btn-red" style="font-size:11px;"
-                      onclick="window._gdprRequestErasure && window._gdprRequestErasure()">
+                      data-action="call" data-fn="_gdprRequestErasure">
                 🗑 Permanently Delete My Account
               </button>
             </div>
@@ -14395,8 +14395,8 @@ function switchScTab(tab, btn) {
         </div>
 
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-orange" onclick="window._saveNotifSettings()">💾 Save Notification Settings</button>
-          <button class="btn btn-ghost" onclick="window._testNotif && window._testNotif()" style="font-size:11px;">🧪 Test Notification</button>
+          <button class="btn btn-orange" data-action="call" data-fn="_saveNotifSettings">💾 Save Notification Settings</button>
+          <button class="btn btn-ghost" data-action="call" data-fn="_testNotif" style="font-size:11px;">🧪 Test Notification</button>
         </div>
         <div id="notif-save-msg" style="display:none;margin-top:10px;font-size:11px;color:#4caf82;">✓ Notification preferences saved</div>
       </div><!-- /stab-panel-notifications -->
@@ -14414,8 +14414,8 @@ function switchScTab(tab, btn) {
               <div style="font-size:11px;color:var(--m);">Quick walkthrough of the kanban, prospects, D2D tracker, and settings. Useful for new reps or as a refresher.</div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
-              <button class="btn btn-orange" onclick="if(window.OnboardingTour)window.OnboardingTour.forceRestart();else showToast('Tour module not loaded','error')" style="font-size:12px;padding:8px 14px;">▶ Start Tour</button>
-              <button class="btn btn-ghost" onclick="window.open('how-to.html','_blank','noopener')" style="font-size:12px;padding:8px 14px;">📖 Full How-To</button>
+              <button class="btn btn-orange" data-action="call" data-fn="restartOnboardingTour" style="font-size:12px;padding:8px 14px;">▶ Start Tour</button>
+              <button class="btn btn-ghost" data-action="windowOpen" data-target="how-to.html" style="font-size:12px;padding:8px 14px;">📖 Full How-To</button>
             </div>
           </div>
         </div>
@@ -14471,8 +14471,8 @@ function switchScTab(tab, btn) {
           <div class="panel-body">
             <p style="color:var(--m);font-size:13px;margin-bottom:16px;">Access the full keyboard shortcuts matrix and the step-by-step how-to guide anytime.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
-              <button onclick="openShortcutsPanel()" style="padding:10px 20px;background:var(--orange);color:var(--accent-fg);border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">⌨️ Shortcuts Overlay</button>
-              <button onclick="window.open('how-to.html','_blank','noopener')" style="padding:10px 20px;background:var(--s2);color:var(--accent-fg);border:1px solid var(--br);border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">📖 Open Full How-To</button>
+              <button data-action="call" data-fn="openShortcutsPanel" style="padding:10px 20px;background:var(--orange);color:var(--accent-fg);border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">⌨️ Shortcuts Overlay</button>
+              <button data-action="windowOpen" data-target="how-to.html" style="padding:10px 20px;background:var(--s2);color:var(--accent-fg);border:1px solid var(--br);border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">📖 Open Full How-To</button>
             </div>
             <div style="color:var(--m);font-size:12px;">Tip: Press <kbd style="font-family:'Barlow Condensed';font-size:11px;font-weight:600;color:var(--t);background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;">?</kbd> from anywhere in the app to open the shortcuts overlay instantly.</div>
           </div>
@@ -14526,11 +14526,11 @@ function switchScTab(tab, btn) {
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <span id="adminRoleBadge" style="font-size:10px;font-weight:700;padding:4px 10px;background:color-mix(in srgb, var(--orange) 15%, transparent);border:1px solid var(--orange);color:var(--orange);border-radius:3px;letter-spacing:.08em;text-transform:uppercase;">Admin</span>
-          <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;" onclick="window.AdminManager && window.AdminManager.refresh()">↻ Refresh</button>
+          <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;" data-action="module" data-target="AdminManager.refresh">↻ Refresh</button>
           <button class="btn btn-ghost" style="font-size:11px;padding:8px 12px;"
                   title="Disable legacy hardcoded access codes in one click"
-                  onclick="window.AdminManager && window.AdminManager.rotateAccessCodes && window.AdminManager.rotateAccessCodes()">🔐 Rotate Access Codes</button>
-          <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;" onclick="window.AdminManager && window.AdminManager.openCreate()">+ New User</button>
+                  data-action="module" data-target="AdminManager.rotateAccessCodes">🔐 Rotate Access Codes</button>
+          <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;" data-action="module" data-target="AdminManager.openCreate">+ New User</button>
         </div>
       </div>
 
@@ -14542,7 +14542,7 @@ function switchScTab(tab, btn) {
             <div class="panel-title" id="adminAnalyticsTitle">Analytics</div>
           </div>
           <button class="btn btn-ghost" style="font-size:11px;padding:6px 10px;"
-                  onclick="window.AdminManager && window.AdminManager.loadAnalytics && window.AdminManager.loadAnalytics()">↻ Reload</button>
+                  data-action="module" data-target="AdminManager.loadAnalytics">↻ Reload</button>
         </div>
         <div class="panel-body">
           <div id="adminAnalyticsGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;font-size:12px;color:var(--m);">
@@ -14612,7 +14612,7 @@ function switchScTab(tab, btn) {
           <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);">Team</div>
           <div style="font-size:20px;font-weight:800;color:var(--t);">Create Team Member</div>
         </div>
-        <button class="btn btn-ghost" style="font-size:18px;padding:4px 10px;" onclick="window.AdminManager && window.AdminManager.closeCreate()">×</button>
+        <button class="btn btn-ghost" style="font-size:18px;padding:4px 10px;" data-action="module" data-target="AdminManager.closeCreate">×</button>
       </div>
       <div style="display:grid;gap:12px;">
         <div>
@@ -14637,8 +14637,8 @@ function switchScTab(tab, btn) {
           We'll create the Firebase account and send an invite via the password reset flow. The rep sets their own password on first login.
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-          <button class="btn btn-ghost" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.closeCreate()">Cancel</button>
-          <button id="adminNewSubmit" class="btn btn-orange" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.submitCreate()">Create User</button>
+          <button class="btn btn-ghost" style="font-size:12px;padding:10px 16px;" data-action="module" data-target="AdminManager.closeCreate">Cancel</button>
+          <button id="adminNewSubmit" class="btn btn-orange" style="font-size:12px;padding:10px 16px;" data-action="module" data-target="AdminManager.submitCreate">Create User</button>
         </div>
       </div>
     </div>
@@ -14653,7 +14653,7 @@ function switchScTab(tab, btn) {
           <div style="font-size:20px;font-weight:800;color:var(--t);" id="adminEditTitle">Edit Member</div>
           <div style="font-size:11px;color:var(--m);" id="adminEditSub">—</div>
         </div>
-        <button class="btn btn-ghost" style="font-size:18px;padding:4px 10px;" onclick="window.AdminManager && window.AdminManager.closeEdit()">×</button>
+        <button class="btn btn-ghost" style="font-size:18px;padding:4px 10px;" data-action="module" data-target="AdminManager.closeEdit">×</button>
       </div>
       <div style="display:grid;gap:14px;">
         <div>
@@ -14668,12 +14668,12 @@ function switchScTab(tab, btn) {
         <div id="adminEditStatusBlock" style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:5px;">
           <div style="font-size:11px;color:var(--m);margin-bottom:8px;">Account status: <strong id="adminEditStatusText" style="color:var(--t);">—</strong></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button id="adminEditDeactivateBtn" class="btn btn-red" style="font-size:11px;padding:8px 14px;" onclick="window.AdminManager && window.AdminManager.toggleDeactivate()">Deactivate Account</button>
+            <button id="adminEditDeactivateBtn" class="btn btn-red" style="font-size:11px;padding:8px 14px;" data-action="module" data-target="AdminManager.toggleDeactivate">Deactivate Account</button>
           </div>
         </div>
         <div style="display:flex;gap:8px;justify-content:flex-end;">
-          <button class="btn btn-ghost" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.closeEdit()">Cancel</button>
-          <button id="adminEditSubmit" class="btn btn-orange" style="font-size:12px;padding:10px 16px;" onclick="window.AdminManager && window.AdminManager.submitEdit()">Save Changes</button>
+          <button class="btn btn-ghost" style="font-size:12px;padding:10px 16px;" data-action="module" data-target="AdminManager.closeEdit">Cancel</button>
+          <button id="adminEditSubmit" class="btn btn-orange" style="font-size:12px;padding:10px 16px;" data-action="module" data-target="AdminManager.submitEdit">Save Changes</button>
         </div>
       </div>
     </div>
@@ -14757,12 +14757,12 @@ function switchScTab(tab, btn) {
         <div class="panel-body">
           <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
             <input type="text" id="calBookingUrl" value="https://cal.com/nobigdeal/roof-inspection" readonly style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);">
-            <button class="btn btn-orange" style="padding:10px 16px;font-size:12px;white-space:nowrap;" onclick="copyCalLink()">📋 Copy Link</button>
+            <button class="btn btn-orange" style="padding:10px 16px;font-size:12px;white-space:nowrap;" data-action="call" data-fn="copyCalLink">📋 Copy Link</button>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" onclick="shareCalViaSMS()">💬 Text to Client</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" onclick="shareCalViaEmail()">✉️ Email to Client</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" onclick="window.open(document.getElementById('calBookingUrl').value,'_blank')">🔗 Open Full Page</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" data-action="call" data-fn="shareCalViaSMS">💬 Text to Client</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" data-action="call" data-fn="shareCalViaEmail">✉️ Email to Client</button>
+            <button class="btn btn-ghost" style="font-size:11px;padding:7px 14px;" data-action="call" data-fn="openCalBookingUrl">🔗 Open Full Page</button>
           </div>
         </div>
       </div>
@@ -14781,7 +14781,7 @@ function switchScTab(tab, btn) {
               <input type="text" id="calEventSlug" placeholder="roof-inspection" value="roof-inspection" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" oninput="updateCalEmbed()">
             </div>
             <div class="sf" style="flex:1;display:flex;align-items:flex-end;">
-              <button class="btn btn-orange" style="width:100%;padding:10px;font-size:12px;" onclick="saveCalSettings()">Save</button>
+              <button class="btn btn-orange" style="width:100%;padding:10px;font-size:12px;" data-action="call" data-fn="saveCalSettings">Save</button>
             </div>
           </div>
           <div style="font-size:11px;color:var(--m);margin-top:8px;">Don't have Cal.com? <a href="https://cal.com/signup" target="_blank" rel="noopener noreferrer" style="color:var(--orange);text-decoration:underline;">Sign up free</a> — unlimited bookings, zero cost.</div>
@@ -14874,11 +14874,11 @@ function switchScTab(tab, btn) {
       </div>
     </div>
 
-    <button onclick="saveQuickLead()"
+    <button data-action="call" data-fn="saveQuickLead"
       style="width:100%;background:var(--orange);color:var(--accent-fg);border:none;border-radius:8px;padding:16px;font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:8px;">
       ＋ Add Lead
     </button>
-    <button onclick="closeQuickAddLead();openLeadModal()"
+    <button data-action="call" data-fn="mQuickAddRoute"
       style="width:100%;background:transparent;color:var(--m);border:1px solid var(--br);border-radius:8px;padding:12px;font-family:inherit;font-size:13px;cursor:pointer;">
       Full Form →
     </button>
@@ -14899,7 +14899,7 @@ function switchScTab(tab, btn) {
         <span class="m-modal-bar-eyebrow">CRM</span>
         <span class="m-modal-bar-title" id="leadModalTitle">Add Lead</span>
       </div>
-      <button class="m-modal-bar-action" id="leadModalSave" onclick="(typeof saveLead==='function')?saveLead():null" aria-label="Save lead">Save</button>
+      <button class="m-modal-bar-action" id="leadModalSave" data-action="call" data-fn="saveLead" aria-label="Save lead">Save</button>
     </div>
     <div class="merr" id="mErr"></div><div class="mok" id="mOk"></div>
     <div class="mrow">
@@ -15112,7 +15112,7 @@ function switchScTab(tab, btn) {
     </div>
 
     <!-- PROPERTY INTEL PULL -->
-    <button class="pull-intel-btn" id="pullIntelBtn" onclick="pullIntelForModal()">🏠 Pull Property Intel</button>
+    <button class="pull-intel-btn" id="pullIntelBtn" data-action="call" data-fn="pullIntelForModal">🏠 Pull Property Intel</button>
     <div class="modal-intel-result" id="modalIntelResult"></div>
     <div class="mfield"><label>Notes</label><textarea id="lNotes" placeholder="Roof age, damage details, adjuster notes, supplements..." style="min-height:80px;"></textarea></div>
     <input type="hidden" id="lEditId">
@@ -15125,7 +15125,7 @@ function switchScTab(tab, btn) {
       <div class="nap-body" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
     </div>
 
-    <button class="msave" onclick="saveLead()" id="leadSaveBtn">Save Lead</button>
+    <button class="msave" data-action="call" data-fn="saveLead" id="leadSaveBtn">Save Lead</button>
   </div>
 </div>
 
@@ -15133,10 +15133,10 @@ function switchScTab(tab, btn) {
 <!-- ── WARRANTY CERTIFICATE WIZARD ── -->
 <div class="modal-bg" id="warrantyCertModal">
   <div class="modal m-modal-has-bar" style="max-width:480px;">
-    <button class="modal-close" onclick="document.getElementById('warrantyCertModal').classList.remove('open')">✕</button>
+    <button class="modal-close" data-action="closeOpen" data-target="warrantyCertModal">✕</button>
     <!-- Wave 2E.3: standardized header. -->
     <div class="m-modal-bar">
-      <button class="m-modal-bar-x" onclick="document.getElementById('warrantyCertModal').classList.remove('open')" aria-label="Close">✕</button>
+      <button class="m-modal-bar-x" data-action="closeOpen" data-target="warrantyCertModal" aria-label="Close">✕</button>
       <div class="m-modal-bar-titles">
         <span class="m-modal-bar-eyebrow">NBD Guarantee</span>
         <span class="m-modal-bar-title">Generate Warranty Certificate</span>
@@ -15173,8 +15173,8 @@ function switchScTab(tab, btn) {
     </div>
 
     <div style="display:flex;gap:10px;">
-      <button class="btn btn-ghost" onclick="document.getElementById('warrantyCertModal').classList.remove('open')" style="flex:1;">Cancel</button>
-      <button class="btn btn-orange" onclick="generateWarrantyCertPDF()" style="flex:2;">🛡️ Generate PDF Certificate</button>
+      <button class="btn btn-ghost" data-action="closeOpen" data-target="warrantyCertModal" style="flex:1;">Cancel</button>
+      <button class="btn btn-orange" data-action="call" data-fn="generateWarrantyCertPDF" style="flex:2;">🛡️ Generate PDF Certificate</button>
     </div>
   </div>
 </div>
@@ -15268,7 +15268,7 @@ function switchScTab(tab, btn) {
         style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);font-weight:600;cursor:pointer;">
         Cancel
       </button>
-      <button onclick="confirmPropertyIntelPull()" id="piPullBtn"
+      <button data-action="call" data-fn="confirmPropertyIntelPull" id="piPullBtn"
         style="flex:1;padding:12px;background:var(--gold);border:none;color:#000;border-radius:var(--r);font-weight:700;cursor:pointer;">
         Pull Selected Data →
       </button>
@@ -15306,7 +15306,7 @@ function switchScTab(tab, btn) {
         style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);color:var(--text2);border-radius:var(--r);font-weight:600;cursor:pointer;">
         Go Back
       </button>
-      <button onclick="executePullPropertyIntel()" id="piConfirmBtn"
+      <button data-action="call" data-fn="executePullPropertyIntel" id="piConfirmBtn"
         style="flex:1;padding:12px;background:var(--gold);border:none;color:#000;border-radius:var(--r);font-weight:700;cursor:pointer;">
         Confirm & Pull
       </button>
@@ -15336,7 +15336,7 @@ function switchScTab(tab, btn) {
     <div class="task-add-row">
       <input type="text" id="taskInput" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addTask()">
       <input type="date" id="taskDue" title="Due date (optional)">
-      <button class="task-add-btn" onclick="addTask()">+ Add</button>
+      <button class="task-add-btn" data-action="call" data-fn="addTask">+ Add</button>
     </div>
     <div class="task-list" id="taskList">
       <div class="task-empty">No tasks yet. Add one above.</div>
@@ -15362,7 +15362,7 @@ function switchScTab(tab, btn) {
       <span class="m-modal-bar-spacer" aria-hidden="true"></span>
     </div>
     <div style="font-size:var(--fs-sm);color:var(--m);margin-bottom:14px;" id="photoModalAddr"></div>
-    <div class="upload-zone" onclick="document.getElementById('photoUploadInput').click()">
+    <div class="upload-zone" data-action="clickProxy" data-target="photoUploadInput">
       <div class="upload-icon">📷</div>
       <div class="upload-text">Click to upload damage photos</div>
       <!-- No capture="environment" here: iOS treats it as a hard mandate
@@ -15412,7 +15412,7 @@ function switchScTab(tab, btn) {
         <span class="m-modal-bar-eyebrow">Document Template</span>
         <span class="m-modal-bar-title" id="docViewerTitle"></span>
       </div>
-      <button class="m-modal-bar-action" onclick="printDoc()" aria-label="Print">🖨️ Print</button>
+      <button class="m-modal-bar-action" data-action="call" data-fn="printDoc" aria-label="Print">🖨️ Print</button>
     </div>
     <div class="doc-viewer-content" id="docViewerContent"></div>
   </div>
@@ -15437,7 +15437,7 @@ function switchScTab(tab, btn) {
     <span class="mn-lbl">Pipeline</span>
     <span class="mn-badge" id="mni-crm-badge" style="display:none;"></span>
   </div>
-  <div class="mn-item mn-fab" id="mni-create" onclick="window.toggleMobileCreatePopover ? window.toggleMobileCreatePopover() : openLeadModal()" role="button" aria-label="Create new">
+  <div class="mn-item mn-fab" id="mni-create" data-action="call" data-fn="mCreateFabRoute" role="button" aria-label="Create new">
     <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-plus"/></svg>
     <span class="mn-lbl">New</span>
   </div>
@@ -15461,35 +15461,35 @@ function switchScTab(tab, btn) {
 <div class="m-create-popover" id="mCreatePopover" role="dialog" aria-modal="true" aria-label="Create new" hidden>
   <div class="m-create-handle" aria-hidden="true"></div>
   <div class="m-create-title">Create</div>
-  <button class="m-create-row" onclick="_mCreate('lead')">
+  <button class="m-create-row" data-action="call" data-fn="_mCreate" data-arg="lead">
     <span class="m-create-row-ico m-create-row-ico--orange"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-plus"/></svg></span>
     <span class="m-create-row-text">
       <span class="m-create-row-lbl">New Lead</span>
       <span class="m-create-row-hint">Add a customer to the pipeline</span>
     </span>
   </button>
-  <button class="m-create-row" onclick="_mCreate('photo')">
+  <button class="m-create-row" data-action="call" data-fn="_mCreate" data-arg="photo">
     <span class="m-create-row-ico"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-camera"/></svg></span>
     <span class="m-create-row-text">
       <span class="m-create-row-lbl">Photo</span>
       <span class="m-create-row-hint">Capture damage / measurement / progress</span>
     </span>
   </button>
-  <button class="m-create-row" onclick="_mCreate('task')">
+  <button class="m-create-row" data-action="call" data-fn="_mCreate" data-arg="task">
     <span class="m-create-row-ico"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-doc"/></svg></span>
     <span class="m-create-row-text">
       <span class="m-create-row-lbl">Task</span>
       <span class="m-create-row-hint">Schedule a follow-up or to-do</span>
     </span>
   </button>
-  <button class="m-create-row" onclick="_mCreate('knock')">
+  <button class="m-create-row" data-action="call" data-fn="_mCreate" data-arg="knock">
     <span class="m-create-row-ico m-create-row-ico--knock"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-pin"/></svg></span>
     <span class="m-create-row-text">
       <span class="m-create-row-lbl">D2D Knock</span>
       <span class="m-create-row-hint">Log this door — NBD only</span>
     </span>
   </button>
-  <button class="m-create-row" onclick="_mCreate('note')">
+  <button class="m-create-row" data-action="call" data-fn="_mCreate" data-arg="note">
     <span class="m-create-row-ico"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-chat"/></svg></span>
     <span class="m-create-row-text">
       <span class="m-create-row-lbl">Quick Note</span>
@@ -15531,7 +15531,7 @@ function switchScTab(tab, btn) {
   </div>
 
   <div class="mm-section">Tools</div>
-  <div class="mm-item" onclick="mobileNav('d2d');closeMobileMore()">
+  <div class="mm-item" data-action="mobileNav" data-target="d2d" data-close-more>
     <span class="mm-item-icon">🚪</span>Door-to-Door
   </div>
   <div class="mm-item" data-action="mobileNav" data-target="map" data-close-more>
@@ -15555,7 +15555,7 @@ function switchScTab(tab, btn) {
   <div class="mm-item" data-action="mobileNav" data-target="academy" data-close-more>
     <span class="mm-item-icon">🎓</span>Real Deal Academy
   </div>
-  <div class="mm-item" onclick="if(typeof toggleCrewCalendar==='function'){toggleCrewCalendar();mobileNav('home');}closeMobileMore()">
+  <div class="mm-item" data-action="call" data-fn="openCrewCalendarFromMore">
     <span class="mm-item-icon">📅</span>Crew Calendar
   </div>
 
@@ -15572,7 +15572,7 @@ function switchScTab(tab, btn) {
   <div class="mm-item" data-action="mobileNav" data-target="board" data-close-more>
     <span class="mm-item-icon">🏆</span>Leaderboard
   </div>
-  <div class="mm-item" onclick="window.location.href='/pro/daily-success';closeMobileMore()">
+  <div class="mm-item" data-action="call" data-fn="openDailyProgramFromMore">
     <span class="mm-item-icon">📅</span>Daily Program
   </div>
   <div class="mm-item" data-action="mobileNav" data-target="aiusage" data-close-more>
@@ -15597,19 +15597,19 @@ function switchScTab(tab, btn) {
         <div class="npm-title">🎨 Appearance</div>
         <div class="npm-subtitle" id="npm-active-sub">NBD Default · NBD Default font</div>
       </div>
-      <button class="npm-close" onclick="nbdPickerClose()">✕</button>
+      <button class="npm-close" data-action="call" data-fn="nbdPickerClose">✕</button>
     </div>
     <div class="npm-tabs">
-      <button class="npm-tab on" onclick="nbdPickerTab('themes',this)">Themes</button>
-      <button class="npm-tab" onclick="nbdPickerTab('fonts',this)">Fonts</button>
-      <button class="npm-tab" onclick="nbdPickerTab('comfort',this)">Comfort</button>
-      <button class="npm-tab" onclick="nbdPickerTab('custom',this)">Custom Builder</button>
+      <button class="npm-tab on" data-action="call" data-fn="nbdPickerTab" data-arg="themes" data-pass-el>Themes</button>
+      <button class="npm-tab" data-action="call" data-fn="nbdPickerTab" data-arg="fonts" data-pass-el>Fonts</button>
+      <button class="npm-tab" data-action="call" data-fn="nbdPickerTab" data-arg="comfort" data-pass-el>Comfort</button>
+      <button class="npm-tab" data-action="call" data-fn="nbdPickerTab" data-arg="custom" data-pass-el>Custom Builder</button>
     </div>
     <div class="npm-body">
       <div class="npm-panel on" id="npm-panel-themes">
         <div class="npm-controls">
           <input class="npm-search" id="npm-search" placeholder="Search themes…" oninput="nbdRenderThemes()">
-          <button class="npm-rnd" onclick="nbdRandom()">⚄ Random</button>
+          <button class="npm-rnd" data-action="call" data-fn="nbdRandom">⚄ Random</button>
         </div>
         <div class="npm-cats" id="npm-cats"></div>
         <div class="npm-grid" id="npm-grid"></div>
@@ -15631,9 +15631,9 @@ function switchScTab(tab, btn) {
               <span style="font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--m);">Density</span>
             </div>
             <div style="display:flex; gap:6px;">
-              <button type="button" class="npm-comfort-btn" data-comfort="density" data-value="compact" onclick="nbdComfortSet('density','compact')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">Compact</button>
-              <button type="button" class="npm-comfort-btn" data-comfort="density" data-value="comfortable" onclick="nbdComfortSet('density','comfortable')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">Default</button>
-              <button type="button" class="npm-comfort-btn" data-comfort="density" data-value="spacious" onclick="nbdComfortSet('density','spacious')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">Spacious</button>
+              <button type="button" class="npm-comfort-btn" data-comfort="density" data-value="compact" data-action="call" data-fn="nbdComfortSet" data-arg="density" data-arg2="compact" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">Compact</button>
+              <button type="button" class="npm-comfort-btn" data-comfort="density" data-value="comfortable" data-action="call" data-fn="nbdComfortSet" data-arg="density" data-arg2="comfortable" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">Default</button>
+              <button type="button" class="npm-comfort-btn" data-comfort="density" data-value="spacious" data-action="call" data-fn="nbdComfortSet" data-arg="density" data-arg2="spacious" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">Spacious</button>
             </div>
             <div style="font-size:10px; color:var(--m); margin-top:6px; line-height:1.4;">Card padding + gaps. Affects kanban + dashboard widgets.</div>
           </div>
@@ -15645,9 +15645,9 @@ function switchScTab(tab, btn) {
               <span style="font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--m);">Text size</span>
             </div>
             <div style="display:flex; gap:6px;">
-              <button type="button" class="npm-comfort-btn" data-comfort="size" data-value="small" onclick="nbdComfortSet('size','small')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">A · Small</button>
-              <button type="button" class="npm-comfort-btn" data-comfort="size" data-value="medium" onclick="nbdComfortSet('size','medium')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">A · Default</button>
-              <button type="button" class="npm-comfort-btn" data-comfort="size" data-value="large" onclick="nbdComfortSet('size','large')" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:13px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">A · Large</button>
+              <button type="button" class="npm-comfort-btn" data-comfort="size" data-value="small" data-action="call" data-fn="nbdComfortSet" data-arg="size" data-arg2="small" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">A · Small</button>
+              <button type="button" class="npm-comfort-btn" data-comfort="size" data-value="medium" data-action="call" data-fn="nbdComfortSet" data-arg="size" data-arg2="medium" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">A · Default</button>
+              <button type="button" class="npm-comfort-btn" data-comfort="size" data-value="large" data-action="call" data-fn="nbdComfortSet" data-arg="size" data-arg2="large" style="flex:1; padding:9px 8px; border-radius:6px; border:1px solid var(--br); background:var(--s); color:var(--m); font-family:inherit; font-size:13px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; cursor:pointer; transition:all .15s;">A · Large</button>
             </div>
             <div style="font-size:10px; color:var(--m); margin-top:6px; line-height:1.4;">Scales every text element via root font-size. Easier on the eyes during long sessions.</div>
           </div>
@@ -15737,8 +15737,8 @@ function switchScTab(tab, btn) {
             <div class="npm-custom-field"><label>Muted</label>      <input type="color" class="npm-cp" id="ncp-m"      value="#8a93a8" oninput="nbdLiveCustom()"></div>
           </div>
           <div class="npm-custom-btns">
-            <button class="npm-btn-apply" onclick="nbdApplyCustom()">Apply Preview</button>
-            <button class="npm-btn-save"  onclick="nbdSaveCustom()">Save as Custom Theme</button>
+            <button class="npm-btn-apply" data-action="call" data-fn="nbdApplyCustom">Apply Preview</button>
+            <button class="npm-btn-save"  data-action="call" data-fn="nbdSaveCustom">Save as Custom Theme</button>
           </div>
           <div style="font-size:9px;color:#5a6478;line-height:1.7;margin-top:4px;">
             Custom themes saved to your device.<br>
@@ -15750,8 +15750,8 @@ function switchScTab(tab, btn) {
     <div class="npm-foot">
       <div class="npm-active-lbl">Active: <strong id="npm-active-name">NBD Default</strong></div>
       <div style="display:flex;gap:6px;">
-        <button class="npm-copy-btn" onclick="nbdHowtoOpen()">📖 Guide</button>
-        <button class="npm-copy-btn" onclick="nbdCopyFS()">Copy Firestore Write</button>
+        <button class="npm-copy-btn" data-action="call" data-fn="nbdHowtoOpen">📖 Guide</button>
+        <button class="npm-copy-btn" data-action="call" data-fn="nbdCopyFS">Copy Firestore Write</button>
       </div>
     </div>
   </div>
@@ -15761,7 +15761,7 @@ function switchScTab(tab, btn) {
   <div class="nhm-inner">
     <div class="nhm-head">
       <div><div class="nhm-title">📖 Theme Guide</div><div class="nhm-sub">NBD PRO — APPEARANCE SYSTEM</div></div>
-      <button class="nhm-close" onclick="nbdHowtoClose()">✕</button>
+      <button class="nhm-close" data-action="call" data-fn="nbdHowtoClose">✕</button>
     </div>
     <div class="nhm-section">
       <div class="nhm-section-title">Changing Your Theme</div>
@@ -15792,7 +15792,7 @@ function switchScTab(tab, btn) {
      Lives outside #view-crm so view switches don't remount them.
      Visibility is gated by body.show-add-lead-fab and body.kanban-fullscreen.
      ══════════════════════════════════════════════════════════════════ -->
-<button id="addLeadFab" type="button" onclick="openLeadModal()" aria-label="Add Lead" title="Add Lead (C)">＋</button>
+<button id="addLeadFab" type="button" data-action="call" data-fn="openLeadModal" aria-label="Add Lead" title="Add Lead (C)">＋</button>
 <button id="kanbanFullscreenExit" type="button" data-action="toggle" data-target="kanbanFullscreen" aria-label="Exit fullscreen">
   <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l5 5M15 15l-5-5M5 15l5-5M15 5l-5 5"/></svg>
   Exit fullscreen
@@ -15824,10 +15824,10 @@ function switchScTab(tab, btn) {
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-arrow-left"/></svg>
     </button>
     <span class="m-jd-status" id="mJdStatus">—</span>
-    <button class="m-jd-icon-btn" id="mJdShare" onclick="_mJdShare()" aria-label="Share lead">
+    <button class="m-jd-icon-btn" id="mJdShare" data-action="call" data-fn="_mJdShare" aria-label="Share lead">
       <svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-share"/></svg>
     </button>
-    <button class="m-jd-edit" id="mJdEdit" onclick="window._cardDetailLeadId && window.editLead && window.editLead(window._cardDetailLeadId)" aria-label="Edit lead">Edit</button>
+    <button class="m-jd-edit" id="mJdEdit" data-action="call" data-fn="cdaEditLead" aria-label="Edit lead">Edit</button>
   </div>
   <div class="m-jd-scroll">
     <div class="m-jd-hero" id="mJdHero" aria-hidden="true">
@@ -15843,31 +15843,31 @@ function switchScTab(tab, btn) {
       <div class="m-jd-value" id="mJdValue" hidden></div>
     </div>
     <div class="m-jd-actions" role="group" aria-label="Quick actions">
-      <button class="m-jd-act" id="mJdCall" onclick="window._cardDetailLeadId && _mJdAct('call')" aria-label="Call">
+      <button class="m-jd-act" id="mJdCall" data-action="call" data-fn="cdaMjdAct" data-arg="call" aria-label="Call">
         <span class="m-jd-act-ring"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-phone"/></svg></span>
         <span class="m-jd-act-lbl">Call</span>
       </button>
-      <button class="m-jd-act" id="mJdText" onclick="window._cardDetailLeadId && _mJdAct('text')" aria-label="Text">
+      <button class="m-jd-act" id="mJdText" data-action="call" data-fn="cdaMjdAct" data-arg="text" aria-label="Text">
         <span class="m-jd-act-ring"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-chat"/></svg></span>
         <span class="m-jd-act-lbl">Text</span>
       </button>
-      <button class="m-jd-act" id="mJdEmail" onclick="window._cardDetailLeadId && _mJdAct('email')" aria-label="Email">
+      <button class="m-jd-act" id="mJdEmail" data-action="call" data-fn="cdaMjdAct" data-arg="email" aria-label="Email">
         <span class="m-jd-act-ring"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-mail"/></svg></span>
         <span class="m-jd-act-lbl">Email</span>
       </button>
-      <button class="m-jd-act" id="mJdPhotos" onclick="window._cardDetailLeadId && _mJdAct('photos')" aria-label="Photos">
+      <button class="m-jd-act" id="mJdPhotos" data-action="call" data-fn="cdaMjdAct" data-arg="photos" aria-label="Photos">
         <span class="m-jd-act-ring"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-camera"/></svg></span>
         <span class="m-jd-act-lbl">Photos</span>
       </button>
-      <button class="m-jd-act" id="mJdEstimate" onclick="window._cardDetailLeadId && _mJdAct('estimate')" aria-label="Estimate">
+      <button class="m-jd-act" id="mJdEstimate" data-action="call" data-fn="cdaMjdAct" data-arg="estimate" aria-label="Estimate">
         <span class="m-jd-act-ring"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-doc"/></svg></span>
         <span class="m-jd-act-lbl">Estimate</span>
       </button>
     </div>
     <div class="m-jd-tabs" role="tablist" aria-label="Lead detail sections">
-      <button class="m-jd-tab active" data-tab="activity" role="tab" aria-selected="true" onclick="_mJdSwitchTab('activity')">Activity</button>
-      <button class="m-jd-tab" data-tab="photos" role="tab" aria-selected="false" onclick="_mJdSwitchTab('photos')">Photos</button>
-      <button class="m-jd-tab" data-tab="details" role="tab" aria-selected="false" onclick="_mJdSwitchTab('details')">Details</button>
+      <button class="m-jd-tab active" data-tab="activity" role="tab" aria-selected="true" data-action="call" data-fn="_mJdSwitchTab" data-arg="activity">Activity</button>
+      <button class="m-jd-tab" data-tab="photos" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="photos">Photos</button>
+      <button class="m-jd-tab" data-tab="details" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="details">Details</button>
     </div>
     <div class="m-jd-tab-body" id="mJdTabActivity" role="tabpanel" aria-labelledby="activity">
       <!-- Wave 2D: contextual entry point for the InspectionReportEngine
@@ -15875,7 +15875,7 @@ function switchScTab(tab, btn) {
            Activity tab. Reps in the field need one-tap access to start
            an inspection; the action ring is full so this slot serves as
            the inspection lane. -->
-      <button class="m-jd-cta" type="button" onclick="window._cardDetailLeadId && openMobileInspection(window._cardDetailLeadId)">
+      <button class="m-jd-cta" type="button" data-action="call" data-fn="cdaOpenMobileInspection">
         <span class="m-jd-cta-ico"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-doc"/></svg></span>
         <span class="m-jd-cta-text">
           <span class="m-jd-cta-lbl">Start Inspection</span>
@@ -15921,7 +15921,7 @@ function switchScTab(tab, btn) {
   </div>
 </div>
 
-<div class="modal-bg" id="cardDetailModal" onclick="if(event.target===this)closeCardDetailModal()">
+<div class="modal-bg" id="cardDetailModal" data-action="modalBackdropClose" data-target="closeCardDetailModal">
   <div class="modal m-modal-has-bar" style="max-width:650px;max-height:90vh;overflow-y:auto;">
     <button class="modal-close" data-action="closeModal" data-target="cardDetailModal">✕</button>
     <!-- Wave 2E.3: standardized header. The eyebrow carries the
@@ -15950,7 +15950,7 @@ function switchScTab(tab, btn) {
           <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">👀 PROSPECT</div>
           <div style="font-size:12px;color:var(--t);line-height:1.4;">This lead was auto-created from a door knock and hasn't been qualified yet. Promote when you're ready.</div>
         </div>
-        <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;white-space:nowrap;" onclick="window.confirmPromoteProspect(window._cardDetailLeadId)">✓ Promote to Customer</button>
+        <button class="btn btn-orange" style="font-size:11px;padding:8px 14px;white-space:nowrap;" data-action="call" data-fn="cdaConfirmPromote">✓ Promote to Customer</button>
       </div>
       <!-- Quick actions row -->
       <div id="prospectQuickActions" style="display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid color-mix(in srgb, var(--orange) 15%, transparent);padding-top:10px;">
@@ -15989,22 +15989,22 @@ function switchScTab(tab, btn) {
          Three rows of 2 on mobile, two rows of 3 on tablet+, one row of 6
          on wide screens. Driven by .cd-actions auto-fill. -->
     <div class="cd-actions">
-      <button class="cd-action-btn" onclick="openPhotosForLead()">
+      <button class="cd-action-btn" data-action="call" data-fn="openPhotosForLead">
         <span class="cd-action-icon">📸</span><span>Photos</span>
       </button>
-      <button class="cd-action-btn" onclick="openDocsForLead()">
+      <button class="cd-action-btn" data-action="call" data-fn="openDocsForLead">
         <span class="cd-action-icon">📄</span><span>Documents</span>
       </button>
-      <button class="cd-action-btn" onclick="openTaskModal(window._cardDetailLeadId,null)">
+      <button class="cd-action-btn" data-action="call" data-fn="cdaOpenTaskModal">
         <span class="cd-action-icon">✓</span><span>Tasks</span>
       </button>
-      <button class="cd-action-btn" onclick="if(window.PhotoEngine){closeCardDetailModal();PhotoEngine.openCamera(window._cardDetailLeadId)}else{showToast('Photo engine loading…','error')}">
+      <button class="cd-action-btn" data-action="call" data-fn="cdaPhotos">
         <span class="cd-action-icon">📷</span><span>Camera</span>
       </button>
-      <button class="cd-action-btn" onclick="if(window.InvoicePipeline){closeCardDetailModal();InvoicePipeline.createInvoiceUI(window._cardDetailLeadId)}else{showToast('Invoice module loading…','error')}">
+      <button class="cd-action-btn" data-action="call" data-fn="cdaInvoice">
         <span class="cd-action-icon">💰</span><span>Invoice</span>
       </button>
-      <button class="cd-action-btn" onclick="if(window.InspectionReportEngine){const _lid=window._cardDetailLeadId;closeCardDetailModal();setTimeout(()=>{document.getElementById('inspectionBuilderOverlay').style.display='block';InspectionReportEngine.openBuilder('inspectionBuilderContainer',_lid)},200)}else{showToast('Report engine loading…','error')}">
+      <button class="cd-action-btn" data-action="call" data-fn="cdaInspectionDeep">
         <span class="cd-action-icon">📋</span><span>Report</span>
       </button>
     </div>
@@ -16013,27 +16013,27 @@ function switchScTab(tab, btn) {
          a full red bar. The portal share is a subtle accent button that
          doesn't dominate the modal. -->
     <div class="cd-share-row">
-      <button class="cd-share-btn" onclick="window._sharePortalLink && window._sharePortalLink(window._cardDetailLeadId)">
+      <button class="cd-share-btn" data-action="call" data-fn="cdaSharePortalLink">
         <span style="font-size:14px;">🔗</span> Share Homeowner Portal
       </button>
       <button class="cd-share-btn cd-voice-btn" title="Record a voice memo — auto-transcribed + attached to this lead"
-              onclick="window.NBDVoiceMemo && window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId)">
+              data-action="call" data-fn="cdaVoiceMemo">
         <span style="font-size:14px;">🎙</span> Voice Memo
       </button>
       <button class="cd-icon-btn cd-icon-btn-danger" title="Revoke all active portal links and mint a new one"
-              onclick="window._revokePortalLink && window._revokePortalLink(window._cardDetailLeadId)">
+              data-action="call" data-fn="cdaRevokePortalLink">
         🚫
       </button>
     </div>
 
     <!-- Primary CTA — full-width but a tier below "shouting orange". -->
-    <button class="cd-cta-btn" onclick="openFullCustomerDetails()">
+    <button class="cd-cta-btn" data-action="call" data-fn="openFullCustomerDetails">
       View Full Customer Details
       <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px;"><path d="M5 10h10M11 6l4 4-4 4"/></svg>
     </button>
 
     <div style="text-align:center;margin-top:12px;">
-      <button class="cd-edit-link" onclick="editCardDetails()">✎ Edit Details</button>
+      <button class="cd-edit-link" data-action="call" data-fn="editCardDetails">✎ Edit Details</button>
     </div>
   </div>
 </div>
@@ -16596,10 +16596,10 @@ window.nbdDiag = function() {
           // testers and Joe can drive them from the on-page banner instead
           // of pasting JS into the console.
           '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">' +
-            '<button onclick="event.stopPropagation();window.__nbdHardReset&&window.__nbdHardReset()" ' +
+            '<button data-action="call" data-fn="hardResetTest" ' +
               'style="background:#c33;border:none;color:#fff;border-radius:4px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;flex:1;min-height:32px;">' +
               '↻ Hard Reset (SW + caches)</button>' +
-            '<button id="nbd-ls-gstatic-btn" onclick="event.stopPropagation();window.__nbdGstaticTest&&window.__nbdGstaticTest()" ' +
+            '<button id="nbd-ls-gstatic-btn" data-action="call" data-fn="gstaticTest" ' +
               'style="background:#246;border:none;color:#fff;border-radius:4px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;flex:1;min-height:32px;">' +
               'Test gstatic fetch</button>' +
           '</div>' +

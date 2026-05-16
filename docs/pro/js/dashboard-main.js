@@ -413,6 +413,128 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     }
     return;
   }
+  // C.4 finale — generic dispatchers that cover the long tail of
+  // inline handlers. Each shape gets its own action so the markup
+  // stays explicit + the allowlist limits which globals the delegate
+  // can ever invoke.
+  //
+  // call         → window[data-fn](...args) — args from data-arg/data-arg2;
+  //                pass the resolved element if data-pass-el is set.
+  //                Requires data-fn to be on _NBD_CALL_ALLOWLIST.
+  // module       → window[Module]?.[method](...) defensive dispatch;
+  //                falls back to a toast (data-fallback-toast).
+  // windowOpen   → window.open(url, '_blank', 'noopener')
+  // signOut      → window._signOut()
+  // reload       → window.location.reload()
+  // closeOpen    → getElementById(target).classList.remove('open')
+  // clickProxy   → getElementById(target).click()  (file input triggers)
+  // hideEl       → getElementById(target).style.display = 'none'
+  // stopProp     → event.stopPropagation() (no preventDefault)
+  if (action === 'call') {
+    const fnName = el.dataset.fn;
+    if (!fnName || !_NBD_CALL_ALLOWLIST.has(fnName)) return;
+    const fn = window[fnName];
+    if (typeof fn !== 'function') return;
+    e.preventDefault();
+    const args = [];
+    if (el.dataset.arg !== undefined) args.push(el.dataset.arg);
+    if (el.dataset.arg2 !== undefined) args.push(el.dataset.arg2);
+    if (el.hasAttribute('data-pass-el')) args.push(el);
+    fn(...args);
+    return;
+  }
+  if (action === 'module') {
+    const target = el.dataset.target;
+    if (!target || target.indexOf('.') === -1) return;
+    const dot = target.indexOf('.');
+    const moduleName = target.slice(0, dot);
+    const method = target.slice(dot + 1);
+    e.preventDefault();
+    const mod = window[moduleName];
+    if (mod && typeof mod[method] === 'function') {
+      const args = [];
+      if (el.dataset.arg !== undefined) args.push(el.dataset.arg);
+      if (el.dataset.arg2 !== undefined) args.push(el.dataset.arg2);
+      mod[method](...args);
+    } else {
+      const fallback = el.dataset.fallbackToast;
+      if (fallback && typeof showToast === 'function') showToast(fallback, 'error');
+    }
+    return;
+  }
+  if (action === 'windowOpen') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    window.open(target, '_blank', 'noopener');
+    return;
+  }
+  if (action === 'signOut') {
+    e.preventDefault();
+    if (typeof window._signOut === 'function') window._signOut();
+    return;
+  }
+  if (action === 'reload') {
+    e.preventDefault();
+    window.location.reload();
+    return;
+  }
+  if (action === 'closeOpen') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    document.getElementById(target)?.classList.remove('open');
+    return;
+  }
+  if (action === 'clickProxy') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    document.getElementById(target)?.click();
+    return;
+  }
+  if (action === 'hideEl') {
+    const target = el.dataset.target;
+    if (!target) return;
+    e.preventDefault();
+    const tgt = document.getElementById(target);
+    if (tgt) tgt.style.display = 'none';
+    return;
+  }
+  if (action === 'stopProp') {
+    e.stopPropagation();
+    return;
+  }
+  if (action === 'removeSelf') {
+    e.preventDefault();
+    el.remove();
+    return;
+  }
+  if (action === 'removeParent') {
+    e.preventDefault();
+    el.parentElement?.remove();
+    return;
+  }
+  if (action === 'removeClosest') {
+    const sel = el.dataset.target;
+    if (!sel) return;
+    e.preventDefault();
+    el.closest(sel)?.remove();
+    return;
+  }
+  if (action === 'modalBackdropClose') {
+    // Original onclick: if(event.target===this)closeXxxModal()
+    // Click only triggers close if it landed on the backdrop itself,
+    // not on a child element (the modal content). data-target carries
+    // the close fn name; e.target must equal el.
+    if (e.target !== el) return;
+    const fnName = el.dataset.target;
+    if (!fnName) return;
+    e.preventDefault();
+    const fn = window[fnName];
+    if (typeof fn === 'function') fn();
+    return;
+  }
   // C.4 cluster 3 — modal-close handlers. Every modal carries its own
   // closeXxxModal function (preserves cleanup logic — clear forms,
   // unbind handlers, etc.). The delegate maps a data-target value to
@@ -479,6 +601,343 @@ const _NBD_MODAL_CLOSE_FNS = {
   deletedDrawer:               'closeDeletedDrawer',
   historicalImagery:           'closeHistoricalImagery',
   uploadDoc:                   'closeUploadDoc',
+};
+
+// C.4 finale — allowlist of window-globals the generic `call` action
+// is permitted to invoke. Anything not in this Set is silently
+// ignored by the delegate. Add functions here only when their inline
+// onclick is being migrated to data-action="call" data-fn="...".
+const _NBD_CALL_ALLOWLIST = new Set([
+  // Mobile job-detail / create-popover internals
+  '_mJdSwitchTab', '_mJdAct', '_mJdShare', '_mCreate',
+  // CRM kanban + filters
+  'tlFilterCat', 'tlToggleCat', 'setKanbanDensity', 'cycleKanbanDensity',
+  // Joe AI quick prompts + chat lifecycle
+  'joeQuick', 'clearJoeChat', 'clearJoeKey',
+  // Draw / zone / pin tools
+  'setDrawMode', 'startZoneDraw', 'cancelZoneDraw', 'clearDraw',
+  'clearAllPins', 'commitPin', 'cancelPinConfirm',
+  // Estimate flow
+  'estNext', 'estBack', 'saveEstimate', 'exportEstimate', 'cancelEstimate',
+  'importToEstimate', 'startNewEstimate', 'selectTier',
+  'exportXactimateESX', 'exportDrawReport',
+  // Photos / damage / drawing
+  'setPhotoMode', 'damagNearMe', 'damageNearMePhotos', 'acceptAutoDetect',
+  'cancelAutoDetect', 'generateScopeFromDrawing', 'loadDrawingFromCustomer',
+  // Customer / lead modals
+  'openLeadModal', 'openTaskModal', 'openShortcutsPanel', 'openQMImportModal',
+  'openPhotosForLead', 'openFullCustomerDetails', 'openDocsForLead',
+  'openDeletedDrawer', 'openComparisonMode', 'openUploadDoc', 'openEstimateV2Builder',
+  'editCardDetails', 'confirmDeleteLead', 'confirmPropertyIntelPull',
+  'executePullPropertyIntel', 'pullIntelForModal', 'addTask',
+  // Bulk operations
+  'bulkSnoozeLeads', 'bulkMoveStage', 'bulkDelete', 'bulkAssignSource',
+  'bulkAssignJobType', 'bulkAssignDamage', 'bulkAssignCarrier',
+  'clearBulkSelection', 'applySmartWaste',
+  // Notifications
+  'markAllNotificationsRead', 'clearAllNotifications',
+  // Misc tools
+  'zoomToFit', 'goToMyLocation', 'spyglassGoToLocation', 'dropPinByAddress',
+  'quickStormCheck', 'addStructure', 'perimChooseType',
+  'copyDebugInfo', 'copyCalLink', 'loadSampleData', 'inviteTeamMember',
+  'exportLeadsCSV', 'generateWarrantyCertPDF', 'printDoc', 'clearCrmSearch',
+  // Appearance picker
+  'nbdSetSize', 'nbdPickerTab', 'nbdComfortSet', 'nbdHowtoOpen', 'nbdHowtoClose',
+  'nbdSaveCustom', 'nbdRandom', 'nbdPickerClose', 'nbdNavToggle', 'nbdCopyFS',
+  'nbdApplyFont', 'nbdApplyCustom', 'nbdPickerOpen',
+  'resetCustomTheme', 'resetSidebarCustomizer',
+  // FAB / scoreboard tabs
+  'fabToggle', 'switchScTab',
+  // Daily-success / floors config
+  'dsSaveConfig', 'dsResetDefaults', 'dsAddFloor',
+  // Misc page-level
+  'cancelDeleteConfirm',
+  // Settings page private setters (defensive: only fire if loaded)
+  '_saveSettings', '_saveNotifSettings', '_saveEstimateDefaultsV2',
+  '_saveCompanySettings', '_testNotif', '_sharePortalLink',
+  '_revokePortalLink', 'exportLeadsCsv', 'exportEstimatesCsv',
+  'confirmPromoteProspect', 'runLeadAction', 'openLeadImport',
+  // Quick-add flow
+  'closeQuickAddLead',
+  // Card-detail action helpers (defined below, glue around _cardDetailLeadId)
+  'cdaReport', 'cdaEnrich', 'cdaPhotos', 'cdaInvoice', 'cdaInspection',
+  'cdaInspectionDeep',
+  // Mobile-more compound rewrites
+  'openDailyProgramFromMore', 'openCrewCalendarFromMore',
+  // Mobile create-popover routing
+  'mCreateFabRoute',
+  // Settings page private setters (defensive — delegate's typeof
+  // guard makes the && existence-check redundant)
+  '_nbdDismissTrial', '_loadCompanySettings', '_resetEstimateDefaultsV2',
+  '_gdprRequestErasure', '_gdprExport', '_exportPhotos', '_exportEstimates',
+  '_exportAllData',
+  // Card-detail action wrappers (defined below)
+  'cdaMjdAct', 'cdaEditLead', 'cdaOpenMobileInspection', 'cdaVoiceMemo',
+  // Draw / misc
+  'undoLine', 'testFirestoreRules', 'startShadowPitch', 'startPresentation',
+  // Quick-add ternary rewrite
+  'mQuickAddRoute',
+  // OnboardingTour / DecisionEngine / D2D / ThemeGX / settings ternary rewrites
+  'restartOnboardingTour', 'openDecisionPicker', 'openD2DOrGo',
+  'clearAccentTheme', 'openSettingsTab', 'openPhotoEngineOrClickProxy',
+  // Card-detail share/revoke/promote/task wrappers
+  'cdaSharePortalLink', 'cdaRevokePortalLink', 'cdaConfirmPromote',
+  'cdaOpenTaskModal',
+  // Compound rewrites for ~15 remaining one-off handlers
+  'openReportGenerator', 'enrichReportData', 'openPhotoEngineCurrentLead',
+  'openInspectionBuilderCurrentLead', 'closeInspectionBuilder',
+  'hideFollowUpAlerts', 'goToD2DFromMaps', 'openCalBookingUrl',
+  'hardResetTest', 'gstaticTest', 'modeLineDraw',
+  // Misc directly-callable global referenced in surveyed onclicks
+  'goTo',
+]);
+
+// C.4 finale — card-detail action helpers. These wrap the live
+// `window._cardDetailLeadId` global (set when a card-detail modal
+// opens) and the defensive module-load fallback into single named
+// globals that the `call` delegate dispatches.
+window.cdaReport = function cdaReport() {
+  if (window.NBDReports && typeof window.NBDReports.openGenerator === 'function') {
+    window.NBDReports.openGenerator(window._cardDetailLeadId);
+  } else if (typeof showToast === 'function') {
+    showToast('Report module loading...', 'error');
+  }
+};
+window.cdaEnrich = function cdaEnrich() {
+  if (window.NBDReports && typeof window.NBDReports.enrichData === 'function') {
+    window.NBDReports.enrichData(window._cardDetailLeadId);
+  } else if (typeof showToast === 'function') {
+    showToast('Report module loading...', 'error');
+  }
+};
+window.cdaPhotos = function cdaPhotos() {
+  if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
+    if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
+    window.PhotoEngine.openCamera(window._cardDetailLeadId);
+  } else if (typeof showToast === 'function') {
+    showToast('Photo engine loading...', 'error');
+  }
+};
+window.cdaInvoice = function cdaInvoice() {
+  if (window.InvoicePipeline && typeof window.InvoicePipeline.createInvoiceUI === 'function') {
+    if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
+    window.InvoicePipeline.createInvoiceUI(window._cardDetailLeadId);
+  } else if (typeof showToast === 'function') {
+    showToast('Invoice pipeline loading...', 'error');
+  }
+};
+window.cdaInspection = function cdaInspection() {
+  if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
+    window.InspectionReportEngine.openBuilder(window._cardDetailLeadId);
+  } else if (typeof showToast === 'function') {
+    showToast('Inspection engine loading...', 'error');
+  }
+};
+window.cdaInspectionDeep = function cdaInspectionDeep() {
+  // The original onclick was: close the card-detail modal, then after 200ms
+  // show the inspectionBuilderOverlay and call openBuilder. The setTimeout
+  // gives the modal-close animation time to finish.
+  if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
+    const lid = window._cardDetailLeadId;
+    if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
+    setTimeout(function(){
+      const overlay = document.getElementById('inspectionBuilderOverlay');
+      if (overlay) overlay.style.display = 'block';
+      window.InspectionReportEngine.openBuilder(lid);
+    }, 200);
+  } else if (typeof showToast === 'function') {
+    showToast('Inspection engine loading...', 'error');
+  }
+};
+
+// C.4 finale — More-drawer compound rewrites. The original onclicks
+// were `mobileNav('home');closeMobileMore()` style chains; we
+// consolidate the side-effects here so the markup uses data-action="call".
+window.openDailyProgramFromMore = function openDailyProgramFromMore() {
+  if (typeof closeMobileMore === 'function') closeMobileMore();
+  window.location.href = '/pro/daily-success';
+};
+window.openCrewCalendarFromMore = function openCrewCalendarFromMore() {
+  if (typeof toggleCrewCalendar === 'function') {
+    toggleCrewCalendar();
+    if (typeof mobileNav === 'function') mobileNav('home');
+  }
+  if (typeof closeMobileMore === 'function') closeMobileMore();
+};
+
+// C.4 finale — mobile FAB create routing. Replaces the ternary
+// `window.toggleMobileCreatePopover ? toggleMobileCreatePopover() : openLeadModal()`.
+window.mCreateFabRoute = function mCreateFabRoute() {
+  if (typeof window.toggleMobileCreatePopover === 'function') {
+    window.toggleMobileCreatePopover();
+  } else if (typeof openLeadModal === 'function') {
+    openLeadModal();
+  }
+};
+
+// C.4 finale — card-detail-lead-id guarded wrappers. Each replaces
+// an inline `window._cardDetailLeadId && fn(window._cardDetailLeadId)`
+// short-circuit so the markup only carries data-action="call".
+window.cdaMjdAct = function cdaMjdAct(actionType) {
+  if (!window._cardDetailLeadId || typeof _mJdAct !== 'function') return;
+  _mJdAct(actionType, window._cardDetailLeadId);
+};
+window.cdaEditLead = function cdaEditLead() {
+  if (window._cardDetailLeadId && typeof window.editLead === 'function') {
+    window.editLead(window._cardDetailLeadId);
+  }
+};
+window.cdaOpenMobileInspection = function cdaOpenMobileInspection() {
+  if (window._cardDetailLeadId && typeof openMobileInspection === 'function') {
+    openMobileInspection(window._cardDetailLeadId);
+  }
+};
+window.cdaVoiceMemo = function cdaVoiceMemo() {
+  if (window._cardDetailLeadId &&
+      window.NBDVoiceMemo &&
+      typeof window.NBDVoiceMemo.recordForLead === 'function') {
+    window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId);
+  }
+};
+
+// C.4 finale — ternary / compound rewrites for the few one-off handlers
+// that don't fit the generic call / module shapes.
+window.mQuickAddRoute = function mQuickAddRoute() {
+  if (typeof closeQuickAddLead === 'function') closeQuickAddLead();
+  if (typeof openLeadModal === 'function') openLeadModal();
+};
+window.restartOnboardingTour = function restartOnboardingTour() {
+  if (window.OnboardingTour && typeof window.OnboardingTour.forceRestart === 'function') {
+    window.OnboardingTour.forceRestart();
+  } else if (typeof showToast === 'function') {
+    showToast('Tour module loading...', 'error');
+  }
+};
+window.openDecisionPicker = function openDecisionPicker() {
+  if (window.DecisionEngine && typeof window.DecisionEngine.openPicker === 'function') {
+    window.DecisionEngine.openPicker();
+  } else if (typeof showToast === 'function') {
+    showToast('Decision engine loading...', 'error');
+  }
+};
+window.openD2DOrGo = function openD2DOrGo() {
+  if (window.D2D && typeof window.D2D.openQuickKnock === 'function') {
+    window.D2D.openQuickKnock();
+  } else if (typeof goTo === 'function') {
+    goTo('d2d');
+  }
+};
+window.clearAccentTheme = function clearAccentTheme() {
+  if (window.ThemeGX && typeof window.ThemeGX.clearAccentOverride === 'function') {
+    window.ThemeGX.clearAccentOverride();
+  }
+  const picker = document.getElementById('customAccentColorPicker');
+  if (picker) picker.value = '#e8720c';
+};
+window.openSettingsTab = function openSettingsTab(tabKey) {
+  if (typeof nbdPickerOpen === 'function') {
+    nbdPickerOpen();
+  } else {
+    if (typeof goTo === 'function') goTo('settings');
+    setTimeout(function(){
+      if (typeof switchSettingsTab === 'function') switchSettingsTab(tabKey);
+    }, 200);
+  }
+};
+window.openPhotoEngineOrClickProxy = function openPhotoEngineOrClickProxy(fallbackInputId) {
+  if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
+    window.PhotoEngine.openCamera();
+  } else if (fallbackInputId) {
+    document.getElementById(fallbackInputId)?.click();
+  }
+};
+window.cdaSharePortalLink = function cdaSharePortalLink() {
+  if (window._cardDetailLeadId && typeof window._sharePortalLink === 'function') {
+    window._sharePortalLink(window._cardDetailLeadId);
+  }
+};
+window.cdaRevokePortalLink = function cdaRevokePortalLink() {
+  if (window._cardDetailLeadId && typeof window._revokePortalLink === 'function') {
+    window._revokePortalLink(window._cardDetailLeadId);
+  }
+};
+window.cdaConfirmPromote = function cdaConfirmPromote() {
+  if (window._cardDetailLeadId && typeof window.confirmPromoteProspect === 'function') {
+    window.confirmPromoteProspect(window._cardDetailLeadId);
+  }
+};
+window.cdaOpenTaskModal = function cdaOpenTaskModal() {
+  if (window._cardDetailLeadId && typeof openTaskModal === 'function') {
+    openTaskModal(window._cardDetailLeadId, null);
+  }
+};
+window.openReportGenerator = function openReportGenerator() {
+  if (window.NBDReports && typeof window.NBDReports.openGenerator === 'function') {
+    window.NBDReports.openGenerator();
+  } else if (typeof showToast === 'function') {
+    showToast('Report engine loading…', 'error');
+  }
+};
+window.enrichReportData = function enrichReportData() {
+  if (window.NBDReports && typeof window.NBDReports.enrichData === 'function') {
+    window.NBDReports.enrichData();
+  } else if (typeof showToast === 'function') {
+    showToast('Report engine loading…', 'error');
+  }
+};
+window.openPhotoEngineCurrentLead = function openPhotoEngineCurrentLead() {
+  if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
+    window.PhotoEngine.openCamera(window._currentPhotoLeadId || '');
+  } else if (typeof showToast === 'function') {
+    showToast('Photo engine loading…', 'error');
+  }
+};
+window.openInspectionBuilderCurrentLead = function openInspectionBuilderCurrentLead() {
+  if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
+    window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._currentPhotoLeadId || '');
+  } else if (typeof showToast === 'function') {
+    showToast('Report engine loading…', 'error');
+  }
+};
+window.closeInspectionBuilder = function closeInspectionBuilder() {
+  const overlay = document.getElementById('inspectionBuilderOverlay');
+  const container = document.getElementById('inspectionBuilderContainer');
+  if (overlay) overlay.style.display = 'none';
+  if (container) container.innerHTML = '';
+};
+window.hideFollowUpAlerts = function hideFollowUpAlerts() {
+  const wrap = document.getElementById('followUpAlertsWrap');
+  if (wrap) wrap.style.display = 'none';
+  try { localStorage.setItem('nbd_crm_followup_hidden', '1'); } catch (e) {}
+};
+window.goToD2DFromMaps = function goToD2DFromMaps() {
+  if (typeof goTo === 'function') goTo('d2d');
+  try {
+    if (!localStorage.getItem('nbd_maps_redirect_seen')) {
+      if (typeof showToast === 'function') {
+        showToast('Maps features are now part of D2D Tracker — use the layer toggles on the map', 'info');
+      }
+      localStorage.setItem('nbd_maps_redirect_seen', '1');
+    }
+  } catch (e) {}
+};
+window.openCalBookingUrl = function openCalBookingUrl() {
+  const input = document.getElementById('calBookingUrl');
+  if (input && input.value) window.open(input.value, '_blank', 'noopener');
+};
+window.hardResetTest = function hardResetTest() {
+  if (typeof window.__nbdHardReset === 'function') window.__nbdHardReset();
+};
+window.gstaticTest = function gstaticTest() {
+  if (typeof window.__nbdGstaticTest === 'function') window.__nbdGstaticTest();
+};
+window.modeLineDraw = function modeLineDraw() {
+  // The original onclick was setDrawMode('line', document.getElementById('modeLineBtn'))
+  // — explicit element ref because the user might activate via keyboard shortcut
+  // and we still want the active-state ring on the line button.
+  if (typeof setDrawMode === 'function') {
+    setDrawMode('line', document.getElementById('modeLineBtn'));
+  }
 };
 
 function goTo(name, params = {}) {
