@@ -46,12 +46,42 @@ function read(file) { return fs.readFileSync(file, 'utf8'); }
 // that read dashboard.html and grep for code patterns now need to
 // see BOTH files. readDashboard() returns the concatenation so the
 // assertions don't care where a given handler lives.
+//
+// CSP hotfix (2026-05-16): the remaining inline <script> blocks in
+// dashboard.html were also extracted (production CSP
+// `script-src-elem 'self'` was blocking them, hanging the dashboard
+// at the loading screen). readDashboard() now also includes every
+// new dashboard-*.js shard so existing regex assertions keep working
+// regardless of which JS file the handler ended up in.
+const DASHBOARD_EXTRACTED_SHARDS = [
+  'dashboard-main.js',
+  'dashboard-legacy-redirect.js',
+  'dashboard-appcheck-config.js',
+  'dashboard-auth-gate.module.js',
+  'dashboard-bootstrap.module.js',
+  'dashboard-loader-fadeout.js',
+  'dashboard-ui-prefs-boot.js',
+  'dashboard-nav-init.js',
+  'dashboard-shortcuts-tabs.js',
+  'dashboard-crew-calendar-toggle.js',
+  'dashboard-accessory-panel-init.js',
+  'dashboard-insurance-overlay-toggle.js',
+  'dashboard-custom-theme.js',
+  'dashboard-sidebar-customizer.js',
+  'dashboard-team-tab.js',
+  'dashboard-billing-tab.js',
+  'dashboard-hotkey-toggles.js',
+  'dashboard-sw-bootstrap.js',
+  'dashboard-load-status-banner.js',
+];
 function readDashboard() {
-  const html  = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = fs.existsSync(path.join(ROOT, 'docs/pro/js/dashboard-main.js'))
-    ? read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'))
-    : '';
-  return html + '\n' + mainJs;
+  const html = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const parts = [html];
+  for (const shard of DASHBOARD_EXTRACTED_SHARDS) {
+    const p = path.join(ROOT, 'docs/pro/js', shard);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
+  return parts.join('\n');
 }
 
 function syntaxCheck(file) {
@@ -187,7 +217,12 @@ section('C-3: public form gate');
 // ── C-4: App Check init in dashboard ────────────────────────
 section('C-4: App Check initialization');
 {
-  const src = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix (2026-05-16): App Check init module + key-config were
+  // extracted into dashboard-bootstrap.module.js + dashboard-appcheck-config.js
+  // respectively (production CSP `script-src-elem 'self'` was blocking
+  // them inline). readDashboard() concatenates the HTML + all dashboard
+  // shards so the same regex assertions keep working.
+  const src = readDashboard();
   // Either provider is acceptable. Joe's prod key is reCAPTCHA Enterprise
   // (registered in Google Cloud Console, not the classic v3 admin), so the
   // import + provider must use ReCaptchaEnterpriseProvider, not the v3 one.
@@ -490,7 +525,9 @@ section('UI-D: Hail overlay on D2D + Pipeline badge');
 
 section('UI-E: Cal.com in Settings');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix: _saveSettings lives in dashboard-bootstrap.module.js
+  // after extraction, so use readDashboard() (HTML + all shards).
+  const dash = readDashboard();
   assert('settingsCalcom input present', /id="settingsCalcom"/.test(dash));
   assert('settingsCalcomPreview anchor present',
     /id="settingsCalcomPreview"/.test(dash));
@@ -546,7 +583,7 @@ section('Push-3: booking-link SMS uses calcomUsername');
     /sendBookingSMS[\s\S]{0,300}window\._repBookingUrl\(\)/.test(src));
   assert('sendFollowUpSMS uses _repBookingUrl',
     /sendFollowUpSMS[\s\S]{0,500}window\._repBookingUrl\(\)/.test(src));
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboard();
   assert('dashboard hydrates _currentRep.calcomUsername on auth',
     /window\._currentRep[\s\S]{0,500}calcomUsername: calVal/.test(dash));
 }
@@ -699,7 +736,8 @@ section('Wave B2: V2 prefill from lead');
 
 section('Wave B3: live estimates snapshot');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.
+  const dash = readDashboard();
   assert('onSnapshot imported',    /onSnapshot/.test(dash));
   assert('_subscribeEstimates wired', /window\._subscribeEstimates/.test(dash));
   assert('subscribe called on auth ready',
@@ -1060,7 +1098,7 @@ section('D9: new-device sign-in alert');
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('user_devices locked to admin SDK',
     /match \/user_devices\/\{uid\}[\s\S]{0,200}allow read, write: if false/.test(rules));
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboard();
   assert('dashboard invokes registerDeviceFingerprint on auth',
     /registerDeviceFingerprint/.test(dash));
 }
@@ -1104,7 +1142,10 @@ section('E3: CODEOWNERS + PR template + Dependabot');
 
 section('E4: service-worker kill switch');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix: SW bootstrap was inline; now lives in
+  // dashboard-sw-bootstrap.js. Use readDashboard() so the regex
+  // matches whichever file the kill-switch logic lives in.
+  const dash = readDashboard();
   assert('SW bootstrap honors ?nosw=1',  /urlKill = params\.has\('nosw'\)/.test(dash));
   assert('SW bootstrap checks /pro/nosw.txt', /fetch\('\/pro\/nosw\.txt'/.test(dash));
   assert('SW kill unregisters + flushes caches',
@@ -3519,11 +3560,15 @@ section('Customer photo grid — surgical render path');
 
 section('Audit batch 6 — repos.js wired into dashboard write path');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix: lead-create write path is in dashboard-bootstrap.module.js
+  // now. We need raw HTML for the <script defer src="js/repos.js"> assertion
+  // (that's about HTML structure, not JS content), so we keep both.
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboard();
   const repos = read(path.join(ROOT, 'docs/pro/js/repos.js'));
 
   assert('dashboard.html loads repos.js in defer chain',
-    /<script defer src="js\/repos\.js/.test(dash),
+    /<script defer src="js\/repos\.js/.test(dashHtml),
     'expected <script defer src="js/repos.js" ...> in dashboard.html');
 
   assert('repos.js exposes window.NBDRepos.leads / photos / estimates',
@@ -3616,12 +3661,17 @@ section('Audit batch 4 — admin function role-check drift guard');
 
 section('Rock 4 rollback fallback (Phase 3 prep)');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix (2026-05-16): the redirect script was inline; now it
+  // lives in docs/pro/js/dashboard-legacy-redirect.js. dashboard.html
+  // still ships the <script src> reference, and readDashboard() rolls
+  // in the new shard so the body assertions still match.
+  const dash = readDashboard();
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   const legacyPath = path.join(ROOT, 'docs/pro/dashboard.legacy.html');
-  // 1. dashboard.html ships the ?legacy=1 redirect script.
+  // 1. dashboard ships the ?legacy=1 redirect logic (inline or external).
   assert('dashboard.html has ?legacy=1 redirect to dashboard.legacy.html',
     /URLSearchParams\(location\.search\)\.has\(['"]legacy['"]\)[\s\S]{0,200}location\.replace\(['"]\/pro\/dashboard\.legacy\.html/.test(dash),
-    'expected an inline <script> that redirects when ?legacy=1 is present');
+    'expected a <script> (inline or external) that redirects when ?legacy=1 is present');
   // 2. The redirect's pathname guard prevents an infinite loop on the
   //    legacy snapshot itself. The script must compare against
   //    '/pro/dashboard' (no .legacy suffix) so that location.pathname
@@ -3633,6 +3683,12 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
   assert('dashboard.legacy.html exists and is non-empty',
     fs.existsSync(legacyPath) && fs.statSync(legacyPath).size > 100000,
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
+  // 4. dashboard.html itself still references the redirect script, so
+  //    the rollback path can never silently disappear in a future edit.
+  assert('dashboard.html references the legacy-redirect script',
+    /dashboard-legacy-redirect\.js/.test(dashHtml) ||
+    /URLSearchParams\(location\.search\)\.has\(['"]legacy['"]\)/.test(dashHtml),
+    'expected dashboard.html to ship the redirect either inline or via <script src>');
 }
 
 section('Wave 6b (A.2) — Pro Chrome on login.html + vault.html');
@@ -4498,15 +4554,29 @@ section('Phase C.3 wave 2 — draw + dash + reports + settings');
     /view\.querySelectorAll\('script'\)\.forEach[\s\S]{0,500}createElement\('script'\)[\s\S]{0,300}replaceChild/.test(mainJs),
     'expected the helper to swap each cloned <script> for a fresh executable one');
 
-  // view-draw's inline script uses a readyState guard so it runs both
-  // at initial load AND at hydration-time.
+  // CSP hotfix (2026-05-16): the inline scripts inside tpl-view-draw
+  // and tpl-view-settings were extracted to external files
+  // (dashboard-accessory-panel-init.js + the appearance/team/billing/
+  // hotkey/sidebar shards). _hydrateViewTemplate handles both inline
+  // AND external scripts (createElement copies all attributes including
+  // src), so the readyState guard logic now lives in
+  // dashboard-accessory-panel-init.js.
   assert('tpl-view-draw script handles both initial-load and post-hydration',
+    /tpl-view-draw[\s\S]*?dashboard-accessory-panel-init\.js/.test(dash) ||
     /tpl-view-draw[\s\S]*?_drawInit[\s\S]*?document\.readyState === 'loading'[\s\S]*?DOMContentLoaded[\s\S]*?_drawInit/.test(dash),
-    'expected _drawInit pattern with readyState guard inside tpl-view-draw');
+    'expected dashboard-accessory-panel-init.js inside tpl-view-draw, or the _drawInit pattern inline');
 
-  // view-settings' 5 inline scripts all live inside the template now.
-  // Spot-check by counting <script> occurrences inside the settings
-  // template body.
+  // Confirm the extracted file still carries the readyState guard.
+  const drawInit = fs.existsSync(path.join(ROOT, 'docs/pro/js/dashboard-accessory-panel-init.js'))
+    ? read(path.join(ROOT, 'docs/pro/js/dashboard-accessory-panel-init.js')) : '';
+  assert('dashboard-accessory-panel-init.js carries readyState/_drawInit guard',
+    /_drawInit[\s\S]*?document\.readyState === 'loading'[\s\S]*?DOMContentLoaded[\s\S]*?_drawInit/.test(drawInit),
+    'expected the extracted file to keep the readyState/DOMContentLoaded guard');
+
+  // view-settings' 5 (formerly inline) scripts all live inside the
+  // template now — either as inline or external references. Count
+  // BOTH styles. Previously checked for `<script>` (5 inline blocks);
+  // after CSP extraction these are `<script src="dashboard-*.js?v=1">`.
   {
     const tplStart = dash.indexOf('<template id="tpl-view-settings">');
     const tplEnd = dash.indexOf('</template><!-- /tpl-view-settings -->', tplStart);
@@ -4514,10 +4584,12 @@ section('Phase C.3 wave 2 — draw + dash + reports + settings');
       tplStart > -1 && tplEnd > tplStart,
       'expected </template><!-- /tpl-view-settings --> to close the settings template');
     const settingsBody = dash.slice(tplStart, tplEnd);
-    const scriptCount = (settingsBody.match(/<script>/g) || []).length;
-    assert('tpl-view-settings carries 5 inline <script> blocks',
+    // Count all <script ...> opening tags (inline or external) inside
+    // the template. Inline = `<script>`; external = `<script src=...>`.
+    const scriptCount = (settingsBody.match(/<script[\s>]/g) || []).length;
+    assert('tpl-view-settings carries 5 <script> blocks (inline or external)',
       scriptCount === 5,
-      'expected 5 inline scripts inside the settings template, got ' + scriptCount);
+      'expected 5 scripts inside the settings template, got ' + scriptCount);
   }
 }
 
