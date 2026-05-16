@@ -19,7 +19,10 @@
 {{> brandBandTop docNumber=docNumber docType=docType}}
 
 {{!-- Footer is the @bottom-center running element so it repeats on
-     every page. The @page rule lives in design-system.css. --}}
+     every page. The @page rule lives in design-system.css. D-2.6
+     adds the social rail to the right so reviewers, prospective
+     buyers, and adjusters can one-tap to our Google reviews, site,
+     and social presence — same affordance every doc, every page. --}}
 <div class="doc-band-bottom">
   <div class="seal">NBD<br>{{seal}}</div>
   <div class="footer-body">
@@ -27,6 +30,7 @@
     <div>(859) 420-7382 · jd@nobigdealwithjoedeal.com · Greater Cincinnati, OH</div>
     {{#if docNumber}}<div>{{docType}} · {{docNumber}}</div>{{/if}}
   </div>
+  {{> socialRail}}
 </div>
 
 <main>
