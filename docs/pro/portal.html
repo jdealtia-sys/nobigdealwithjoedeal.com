@@ -915,9 +915,16 @@
         '<div class="card-title">Quick questions, anytime</div>' +
         '<p style="color:var(--muted);margin:0 0 14px;font-size:13px;line-height:1.5;">No phone tag. ' + esc(repName.split(' ')[0]) + ' will see this in their CRM.</p>' +
         '<div id="pm-thread" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:8px;background:var(--bg, #0a1424);border-radius:8px;border:1px solid var(--br, #2a3344);margin-bottom:12px;">' +
-          '<div id="pm-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:14px 8px;">No messages yet — send the first one.</div>' +
+          '<div id="pm-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:18px 8px;line-height:1.5;">' +
+            '<div style="font-size:28px;margin-bottom:6px;">💬</div>' +
+            '<div style="font-weight:600;color:inherit;margin-bottom:4px;">Start a conversation with ' + esc(repName.split(' ')[0]) + '</div>' +
+            'Ask anything — pricing, scheduling, what to expect.' +
+          '</div>' +
         '</div>' +
-        '<textarea id="pm-text" rows="2" maxlength="2000" placeholder="Type your message…" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:14px;box-sizing:border-box;resize:vertical;margin-bottom:8px;"></textarea>' +
+        '<textarea id="pm-text" rows="2" maxlength="2000" placeholder="Type your message… (Enter to send · Shift+Enter for new line)" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:14px;box-sizing:border-box;resize:vertical;margin-bottom:6px;"></textarea>' +
+        '<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px;">' +
+          '<div id="pm-counter" style="font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;">0 / 2000</div>' +
+        '</div>' +
         '<button id="pm-send" type="button" class="btn" disabled style="width:100%;padding:12px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;">Send</button>' +
         '<div id="pm-status" style="display:none;margin-top:8px;padding:8px;border-radius:6px;font-size:12px;"></div>' +
       '</div>'
@@ -1080,19 +1087,45 @@
     }
   }
 
-  // ─── Wave 123: Async messaging ────────────────────────────────
+  // ─── Wave 123 + Step 14 polish: Async messaging ────────────────
   // Loads the thread on mount, polls every 30s while visible, and
   // posts new messages via sendPortalMessage. The poll handle is
   // tracked so we can clear it on pagehide / visibilitychange.
+  //
+  // Step 14 adds:
+  //   - Enter-to-send (Shift+Enter for newline)
+  //   - Live char counter that warns when near the 2000-char ceiling
+  //   - Optimistic local bubble (instant feedback + retry on failure)
+  //   - Read receipt (✓ Delivered / ✓✓ Read) on outgoing bubbles
+  //   - Timestamp grouping — only show time at the start of a new
+  //     "burst" (>5 min gap from previous message)
   let _pmPollHandle = null;
   let _pmLastFetch = 0;
+  // Locally-tracked outgoing messages waiting for the server roundtrip
+  // to surface them in the next fetched thread. Keyed by client-side
+  // pending id; cleared once the server message with matching text
+  // shows up in the polled response.
+  const _pmPending = new Map();
   function wireMessagingCard() {
     const threadEl = document.getElementById('pm-thread');
     const emptyEl = document.getElementById('pm-empty');
     const textEl = document.getElementById('pm-text');
     const sendBtn = document.getElementById('pm-send');
     const statusEl = document.getElementById('pm-status');
+    const counterEl = document.getElementById('pm-counter');
     if (!threadEl || !textEl || !sendBtn) return;
+
+    // ── Char counter — warns at 80% capacity, errors past max ───
+    const MAX_CHARS = 2000;
+    const WARN_AT = 1700;
+    function updateCounter() {
+      if (!counterEl) return;
+      const n = textEl.value.length;
+      counterEl.textContent = n + ' / ' + MAX_CHARS;
+      counterEl.style.color = n >= WARN_AT
+        ? (n >= MAX_CHARS ? '#fca5a5' : '#fbbf24')
+        : 'var(--muted, #888)';
+    }
 
     function escMsg(s) {
       return String(s == null ? '' : s)
@@ -1119,35 +1152,93 @@
       statusEl.style.border = kind === 'error' ? '1px solid rgba(239,68,68,0.45)' : '1px solid var(--br, #2a3344)';
     }
 
+    // Toggle the "Sending…" → "Sent" → "Read" indicator on outgoing
+    // bubbles. WhatsApp-style: ✓ delivered (server ack), ✓✓ read
+    // (rep marked the thread read). Falls back to the original
+    // timestamp line when the message hasn't reached either state.
+    function bubbleStatusLine(m, isYou) {
+      const time = escMsg(fmtTime(m.createdAt || (m._pending ? Date.now() : 0)));
+      if (!isYou) return time;
+      if (m._pending && !m._failed) return '<span style="opacity:.7;">Sending…</span>';
+      if (m._failed)                 return '<span style="color:#fca5a5;">Tap to retry</span>';
+      const readMark = m.readByRecipient
+        ? '<span style="color:#fff;letter-spacing:-3px;">✓✓</span>'
+        : '<span style="opacity:.7;">✓</span>';
+      return time + ' · ' + readMark;
+    }
+
+    // Step 14: only emit a timestamp / header line at the start of
+    // a new "burst" (defined as >5 min from the previous message).
+    // Keeps the thread visually quieter for rapid back-and-forth.
+    const BURST_GAP_MS = 5 * 60_000;
+    function shouldShowTime(prev, cur) {
+      if (!prev) return true;
+      const pMs = prev.createdAt || (prev._pending ? prev._localMs : 0);
+      const cMs = cur.createdAt  || (cur._pending  ? cur._localMs  : 0);
+      if (!pMs || !cMs) return true;
+      if (prev.source !== cur.source) return true;
+      return (cMs - pMs) > BURST_GAP_MS;
+    }
+
     function renderThread(messages) {
-      if (!Array.isArray(messages) || messages.length === 0) {
-        if (emptyEl) { emptyEl.style.display = 'block'; }
-        // Clear any stale messages from a prior render.
-        Array.from(threadEl.querySelectorAll('.pm-bubble')).forEach(n => n.remove());
+      // Merge in any pending optimistic messages. We dedup by text +
+      // source: if the server already returned a homeowner message
+      // matching the pending text, the pending entry gets dropped.
+      const serverMsgs = Array.isArray(messages) ? messages.slice() : [];
+      const pendingArr = Array.from(_pmPending.values());
+      pendingArr.forEach(p => {
+        const matched = serverMsgs.find(s =>
+          s.source === 'homeowner' && s.text === p.text);
+        if (matched) {
+          _pmPending.delete(p._pendingId);
+        }
+      });
+      const merged = serverMsgs.concat(
+        Array.from(_pmPending.values())
+          // Stable-sort by createdAt; pending entries use _localMs.
+          .sort((a, b) => (a._localMs || 0) - (b._localMs || 0))
+      );
+
+      if (merged.length === 0) {
+        if (emptyEl) emptyEl.style.display = 'block';
+        Array.from(threadEl.querySelectorAll('.pm-bubble, .pm-empty-spacer')).forEach(n => n.remove());
         return;
       }
       if (emptyEl) emptyEl.style.display = 'none';
-      // Replace bubbles entirely on each render — small thread,
-      // simpler than diffing.
-      Array.from(threadEl.querySelectorAll('.pm-bubble')).forEach(n => n.remove());
+      Array.from(threadEl.querySelectorAll('.pm-bubble, .pm-empty-spacer')).forEach(n => n.remove());
       const accent = 'var(--accent, #c8541a)';
-      messages.forEach(m => {
+      let prev = null;
+      merged.forEach(m => {
         const bubble = document.createElement('div');
         bubble.className = 'pm-bubble';
         const isYou = m.source === 'homeowner';
+        const dim = m._pending && !m._failed ? '0.65' : '1';
         bubble.style.cssText =
           'max-width:80%;padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.4;' +
           'word-wrap:break-word;align-self:' + (isYou ? 'flex-end' : 'flex-start') + ';' +
           'background:' + (isYou ? accent : 'rgba(255,255,255,0.08)') + ';' +
           'color:' + (isYou ? '#fff' : 'inherit') + ';' +
+          'opacity:' + dim + ';' +
           'border-bottom-' + (isYou ? 'right' : 'left') + '-radius:4px;';
-        bubble.innerHTML =
-          '<div>' + escMsg(m.text) + '</div>' +
-          '<div style="font-size:10px;opacity:0.7;margin-top:4px;text-align:' +
-            (isYou ? 'right' : 'left') + ';">' +
-            (isYou ? 'You' : esc(repName.split(' ')[0])) + ' · ' + escMsg(fmtTime(m.createdAt)) +
-          '</div>';
+
+        const showTime = shouldShowTime(prev, m);
+        const statusLine = showTime
+          ? '<div style="font-size:10px;opacity:0.7;margin-top:4px;text-align:' + (isYou ? 'right' : 'left') + ';">' +
+              (isYou ? 'You' : esc(repName.split(' ')[0])) + ' · ' + bubbleStatusLine(m, isYou) +
+            '</div>'
+          : '';
+
+        bubble.innerHTML = '<div>' + escMsg(m.text) + '</div>' + statusLine;
+
+        // Failed-bubble click handler — retry the send.
+        if (m._failed && m._pendingId) {
+          bubble.style.cursor = 'pointer';
+          bubble.title = 'Tap to retry';
+          bubble.addEventListener('click', () => retryPending(m._pendingId));
+        }
+
         threadEl.appendChild(bubble);
+        prev = m;
       });
       // Auto-scroll to the latest message.
       threadEl.scrollTop = threadEl.scrollHeight;
@@ -1203,18 +1294,29 @@
     window.addEventListener('pagehide', stopPoll, { once: true });
 
     // Compose: enable Send only when there's content.
+    // Step 14: also drive the live char counter from the same handler.
     textEl.addEventListener('input', () => {
       const has = textEl.value.trim().length > 0;
       sendBtn.disabled = !has;
       sendBtn.style.opacity = has ? '1' : '0.55';
+      updateCounter();
     });
 
-    sendBtn.addEventListener('click', async () => {
-      const text = textEl.value.trim();
-      if (!text) return;
-      sendBtn.disabled = true;
-      sendBtn.textContent = 'Sending…';
-      setStatus('');
+    // Step 14: Enter-to-send (Shift+Enter inserts a newline). Matches
+    // the convention every messaging app on the planet uses; the help
+    // text is in the textarea placeholder.
+    textEl.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' && !ev.shiftKey) {
+        ev.preventDefault();
+        if (!sendBtn.disabled) sendBtn.click();
+      }
+    });
+
+    // Core send path — extracted so the retry-failed-bubble flow can
+    // reuse it. The optimistic local bubble appears immediately; the
+    // server roundtrip either confirms it (next fetch matches by text)
+    // or marks it failed so the rep can tap to retry without retyping.
+    async function doSend(text, pendingId) {
       try {
         const res = await fetch(FUNCTIONS_BASE + '/sendPortalMessage', {
           method: 'POST',
@@ -1223,22 +1325,82 @@
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
+          // Per-token daily quota / expired / 4xx — surface the server
+          // message and mark the bubble failed.
+          const p = _pmPending.get(pendingId);
+          if (p) { p._failed = true; p._pending = false; renderThread(_lastMessages); }
           setStatus(json.error || 'Could not send. Try again.', 'error');
-          sendBtn.disabled = false;
-          sendBtn.textContent = 'Send';
-          return;
+          return false;
         }
-        textEl.value = '';
-        sendBtn.textContent = 'Send';
-        sendBtn.style.opacity = '0.55';
-        // Optimistic re-fetch to surface the new message immediately.
+        // Success — leave the pending bubble in place until the next
+        // poll surfaces the server message and the dedup logic drops it.
         await fetchMessages();
+        setStatus('');
+        return true;
       } catch (err) {
-        setStatus('Network error: ' + (err.message || 'try again'), 'error');
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'Send';
+        const p = _pmPending.get(pendingId);
+        if (p) { p._failed = true; p._pending = false; renderThread(_lastMessages); }
+        setStatus('Network error — tap your message to retry.', 'error');
+        return false;
       }
+    }
+
+    function retryPending(pendingId) {
+      const p = _pmPending.get(pendingId);
+      if (!p) return;
+      p._failed = false;
+      p._pending = true;
+      p._localMs = Date.now();
+      renderThread(_lastMessages);
+      doSend(p.text, pendingId);
+    }
+
+    // Tracks the most recent server-side message list so optimistic
+    // renders can re-merge against it on retry / failure-state flips.
+    let _lastMessages = [];
+    const origRenderThread = renderThread;
+    renderThread = function(messages) {
+      if (Array.isArray(messages)) _lastMessages = messages;
+      else messages = _lastMessages;
+      origRenderThread(messages);
+    };
+
+    sendBtn.addEventListener('click', async () => {
+      const text = textEl.value.trim();
+      if (!text) return;
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      setStatus('');
+
+      // Optimistic bubble — render immediately so the homeowner sees
+      // their message in-thread before the network call resolves.
+      const pendingId = 'p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+      _pmPending.set(pendingId, {
+        _pendingId: pendingId,
+        _pending: true,
+        _failed: false,
+        _localMs: Date.now(),
+        source: 'homeowner',
+        text,
+        readByRecipient: false
+      });
+      textEl.value = '';
+      updateCounter();
+      renderThread(_lastMessages);
+
+      const ok = await doSend(text, pendingId);
+      // Reset compose state regardless — failures keep the pending
+      // bubble visible (with retry affordance) so the rep doesn't lose
+      // their work.
+      sendBtn.textContent = 'Send';
+      sendBtn.disabled = false;
+      sendBtn.style.opacity = '0.55';
     });
+
+    // Drive the counter once on mount so the "0 / 2000" reflects any
+    // pre-filled textarea state (e.g., browser autofill restoring a
+    // previous draft).
+    updateCounter();
   }
 
   // ─── Wave 121: Customer rating ─────────────────────────────────
