@@ -3215,6 +3215,23 @@ const anniversaryTouch = require('./anniversary-touch');
 exports.anniversaryAutoTouch = anniversaryTouch.anniversaryAutoTouch;
 
 // ═══════════════════════════════════════════════════════════════
+// REFERRAL CAPTURE — public POST from /refer.html
+// ═══════════════════════════════════════════════════════════════
+//
+// Past customer shares a link (?ref=NBD-0001) with a friend; friend
+// fills out /refer.html; this endpoint creates a new lead on the
+// source customer's rep's book with referredByLeadId / customerId /
+// Name fields populated, writes a `referral_sent` activity on the
+// source customer's lead, and notifies the rep via /notifications.
+//
+// Anti-spam: per-IP rate limit (5/10min) and per-source-customer cap
+// (10 referrals/24h). Phone+email validation; at least one required.
+// No portal token needed — customerId is public and the friend self-
+// identifies in the form.
+const referrals = require('./referrals');
+exports.submitReferral = referrals.submitReferral;
+
+// ═══════════════════════════════════════════════════════════════
 // VISUALIZER IMAGE GENERATION — Gemini 2.5 Flash Image
 // ═══════════════════════════════════════════════════════════════
 //

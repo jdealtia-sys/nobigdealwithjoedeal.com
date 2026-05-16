@@ -43,6 +43,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 |---|---|---|
 | `stripeWebhook` | onRequest | Stripe signature verification + idempotency via `stripe_events/{eventId}` |
 | `getHomeownerPortalView` | onRequest | Portal token validation, IP rate-limit, length check |
+| `submitReferral` | onRequest | Per-IP + per-source-customer rate limit, phone/email validation, customerId lookup |
 | `cspReport` | onRequest | Logs only, no side effects |
 | `onRepSignup` | beforeUserCreated | Auth blocker — runs before user create |
 | `shareSSR` | onRequest | Returns rendered share-link HTML (token-authed lookup) |

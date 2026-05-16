@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Send a referral · No Big Deal Home Solutions</title>
+<meta name="description" content="A neighbor sent you our way. Fill in your info and we'll be in touch about your roof.">
+<meta name="robots" content="noindex">
+<style>
+  :root {
+    --bg:#0a1424; --surface:#0f1c30; --surface-2:#13243d;
+    --border:#2a3344; --muted:#8a8f9a; --text:#e5e7eb;
+    --accent:#c8541a; --accent-dark:#a64516; --accent-soft:rgba(200,84,26,.12);
+    --green:#2ecc8a; --red:#dc2626;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; padding:0;
+    font-family:'Barlow','Segoe UI',Roboto,system-ui,sans-serif;
+    background:var(--bg); color:var(--text);
+    min-height:100vh; line-height:1.5;
+  }
+  .wrap { max-width:520px; margin:0 auto; padding:24px 18px 60px; }
+  .hero {
+    background:linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+    color:#fff; border-radius:14px; padding:28px 22px; margin-bottom:18px;
+  }
+  .hero-eyebrow {
+    font-size:11px; letter-spacing:.16em; text-transform:uppercase;
+    opacity:.85; font-weight:700; margin-bottom:6px;
+  }
+  .hero h1 {
+    margin:0 0 6px; font-size:24px; font-weight:800; letter-spacing:-.3px;
+    font-family:'Barlow Condensed','Barlow',sans-serif; text-transform:uppercase;
+  }
+  .hero p { margin:0; font-size:14px; opacity:.95; line-height:1.5; }
+
+  .card {
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:12px; padding:20px; margin-bottom:16px;
+  }
+  .card h2 {
+    margin:0 0 12px; font-size:15px; font-weight:700; color:var(--text);
+    letter-spacing:.02em;
+  }
+  label {
+    display:block; font-size:10px; font-weight:700; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--muted); margin-bottom:6px;
+  }
+  input[type="text"], input[type="tel"], input[type="email"], textarea {
+    width:100%; padding:12px 14px; border-radius:8px;
+    border:1px solid var(--border); background:var(--bg); color:inherit;
+    font:inherit; font-size:15px; outline:none;
+  }
+  input:focus, textarea:focus { border-color:var(--accent); }
+  textarea { resize:vertical; min-height:80px; }
+  .field { margin-bottom:14px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .submit {
+    width:100%; padding:14px; background:var(--accent); color:#fff;
+    border:none; border-radius:10px; font-weight:700; font-size:15px;
+    letter-spacing:.04em; text-transform:uppercase; cursor:pointer;
+    transition:opacity .2s;
+  }
+  .submit:disabled { opacity:.55; cursor:default; }
+  .submit:hover:not(:disabled) { background:var(--accent-dark); }
+  .status {
+    margin-top:12px; padding:12px 14px; border-radius:8px;
+    font-size:13px; display:none;
+  }
+  .status.error { background:rgba(220,38,38,.12); color:#fca5a5;
+    border:1px solid rgba(220,38,38,.45); display:block; }
+  .status.success {
+    background:rgba(46,204,138,.12); color:#a7f3d0;
+    border:1px solid rgba(46,204,138,.4); display:block;
+  }
+  .legal { font-size:11px; color:var(--muted); line-height:1.5; margin-top:14px; }
+  .empty-link {
+    text-align:center; padding:40px 20px; color:var(--muted); font-size:14px;
+  }
+  /* Success-state takeover */
+  .done-wrap {
+    text-align:center; padding:24px 12px;
+  }
+  .done-wrap .check {
+    width:64px; height:64px; border-radius:50%;
+    background:var(--accent-soft);
+    display:flex; align-items:center; justify-content:center;
+    margin:0 auto 14px; font-size:32px; color:var(--accent);
+  }
+  .done-wrap h2 { font-size:20px; margin:0 0 6px; }
+  .done-wrap p { color:var(--muted); margin:0; font-size:14px; }
+</style>
+</head>
+<body>
+<div class="wrap" id="wrap">
+  <div class="hero">
+    <div class="hero-eyebrow">📨 Referral</div>
+    <h1>A neighbor sent us your way</h1>
+    <p>Quick form below — we'll be in touch about your roof. No pressure, no spam.</p>
+  </div>
+
+  <div id="emptyState" style="display:none;" class="card">
+    <div class="empty-link">
+      <div style="font-size:32px;margin-bottom:8px;">🤷</div>
+      <strong style="color:var(--text);display:block;margin-bottom:4px;">No referral link found</strong>
+      Open the link your friend shared with you.
+    </div>
+  </div>
+
+  <form id="referForm" class="card" style="display:none;" novalidate>
+    <h2>Your info</h2>
+    <div class="row2">
+      <div class="field">
+        <label for="firstName">First name *</label>
+        <input id="firstName" type="text" autocomplete="given-name" required maxlength="80">
+      </div>
+      <div class="field">
+        <label for="lastName">Last name</label>
+        <input id="lastName" type="text" autocomplete="family-name" maxlength="80">
+      </div>
+    </div>
+    <div class="field">
+      <label for="phone">Phone *</label>
+      <input id="phone" type="tel" autocomplete="tel" placeholder="(555) 555-0100">
+    </div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" placeholder="you@example.com">
+    </div>
+    <div class="field">
+      <label for="address">Address (optional)</label>
+      <input id="address" type="text" autocomplete="street-address" maxlength="200">
+    </div>
+    <div class="field">
+      <label for="notes">Anything we should know? (optional)</label>
+      <textarea id="notes" maxlength="600" placeholder="Storm damage? Just looking for a quote?"></textarea>
+    </div>
+    <button id="submitBtn" class="submit" type="submit">Send my info</button>
+    <div id="status" class="status"></div>
+    <div class="legal">
+      We'll reach out by phone or text within a business day. No marketing list — just a roof conversation.
+    </div>
+  </form>
+
+  <div id="doneState" style="display:none;" class="card done-wrap">
+    <div class="check">✓</div>
+    <h2>Thanks — we got it</h2>
+    <p>Your rep will be in touch shortly. Tell your neighbor we said thanks!</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const FUNCTIONS_BASE = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+
+  function getRef() {
+    try {
+      const p = new URLSearchParams(location.search);
+      return (p.get('ref') || '').trim().toUpperCase();
+    } catch (e) { return ''; }
+  }
+
+  function show(el) { el.style.display = 'block'; }
+  function hide(el) { el.style.display = 'none'; }
+
+  const ref = getRef();
+  const form = document.getElementById('referForm');
+  const empty = document.getElementById('emptyState');
+  const done = document.getElementById('doneState');
+  const statusEl = document.getElementById('status');
+  const btn = document.getElementById('submitBtn');
+
+  if (!ref) {
+    show(empty);
+    return;
+  }
+  show(form);
+
+  function setStatus(msg, kind) {
+    if (!msg) { hide(statusEl); statusEl.className = 'status'; return; }
+    statusEl.textContent = msg;
+    statusEl.className = 'status ' + (kind || '');
+  }
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    setStatus('');
+    const firstName = document.getElementById('firstName').value.trim();
+    const lastName  = document.getElementById('lastName').value.trim();
+    const phone     = document.getElementById('phone').value.trim();
+    const email     = document.getElementById('email').value.trim();
+    const address   = document.getElementById('address').value.trim();
+    const notes     = document.getElementById('notes').value.trim();
+
+    if (!firstName) { setStatus('First name is required.', 'error'); return; }
+    const digits = phone.replace(/\D/g, '');
+    if (!digits && !email) { setStatus('Phone or email is required.', 'error'); return; }
+    if (digits && digits.length < 10) { setStatus('Phone needs at least 10 digits.', 'error'); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setStatus('Email looks invalid.', 'error'); return;
+    }
+
+    btn.disabled = true;
+    const origLabel = btn.textContent;
+    btn.textContent = 'Sending…';
+
+    try {
+      const res = await fetch(FUNCTIONS_BASE + '/submitReferral', {
+        method: 'POST',
+        credentials: 'omit',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref, firstName, lastName, phone, email, address, notes }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setStatus(json.error || 'Could not send your info. Try again.', 'error');
+        btn.disabled = false;
+        btn.textContent = origLabel;
+        return;
+      }
+      hide(form);
+      show(done);
+    } catch (err) {
+      setStatus('Network error — please try again.', 'error');
+      btn.disabled = false;
+      btn.textContent = origLabel;
+    }
+  });
+})();
+</script>
+</body>
+</html>
