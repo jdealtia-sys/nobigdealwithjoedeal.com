@@ -89,6 +89,7 @@ These were initially miscategorized as admin during the audit. They operate on t
 | `onPhotoUploaded` | Storage onFinalize | New photo in `photos/{uid}/...` → variant pipeline |
 | `weeklyDigest` | scheduler | Weekly rep digest email |
 | `dormantLeadNudge` | scheduler | Stale-lead notification |
+| `anniversaryAutoTouch` | scheduler | 1-year customer anniversary digest + activity write |
 | `runAbandonRecovery` | scheduler | Funnel-drop recovery |
 | `visualizerImageGen` | onCall | Visualizer AI image gen (rate-limited per session) |
 | `dunningEmailQueue` | Firestore onWrite | Stripe payment_failed → dunning |
