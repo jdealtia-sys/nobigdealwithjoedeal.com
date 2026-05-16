@@ -11317,12 +11317,12 @@ function switchScTab(tab, btn) {
         <div class="zone-panel" id="zonePanel">
           <input class="zone-name-input" id="zoneNameInput" placeholder="Zone name (e.g. North Territory)">
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;" id="zoneColorPicker">
-            <div onclick="selectZoneColor('var(--blue)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--blue);cursor:pointer;border:2px solid transparent;"></div>
-            <div onclick="selectZoneColor('var(--green)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid transparent;"></div>
-            <div onclick="selectZoneColor('var(--orange)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--orange);cursor:pointer;border:2px solid transparent;"></div>
-            <div onclick="selectZoneColor('var(--purple)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--purple);cursor:pointer;border:2px solid transparent;"></div>
-            <div onclick="selectZoneColor('var(--gold)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid transparent;"></div>
-            <div onclick="selectZoneColor('var(--red)',this)" style="width:18px;height:18px;border-radius:50%;background:var(--red);cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
+            <div data-action="zoneColor" data-target="var(--blue)" style="width:18px;height:18px;border-radius:50%;background:var(--blue);cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="var(--green)" style="width:18px;height:18px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="var(--orange)" style="width:18px;height:18px;border-radius:50%;background:var(--orange);cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="var(--purple)" style="width:18px;height:18px;border-radius:50%;background:var(--purple);cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="var(--gold)" style="width:18px;height:18px;border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="var(--red)" style="width:18px;height:18px;border-radius:50%;background:var(--red);cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
           </div>
           <div style="display:flex;gap:5px;">
             <button class="btn btn-orange" style="flex:1;justify-content:center;font-size:11px;" onclick="saveZone()">💾 Save Zone</button>
@@ -11342,14 +11342,14 @@ function switchScTab(tab, btn) {
           <button class="btn btn-orange" style="padding:7px 10px;font-size:11px;" onclick="dropPinByAddress()">📍</button>
         </div>
         <div class="pin-grid">
-          <button class="pin-btn active" onclick="selectPin('not-home','#9CA3AF',this)"><div class="pin-dot" style="background:#9CA3AF"></div>Not Home</button>
-          <button class="pin-btn" onclick="selectPin('interested','var(--green)',this)"><div class="pin-dot" style="background:var(--green)"></div>Interested</button>
-          <button class="pin-btn" onclick="selectPin('not-interested','var(--red)',this)"><div class="pin-dot" style="background:var(--red)"></div>Not Interested</button>
-          <button class="pin-btn" onclick="selectPin('signed','var(--gold)',this)"><div class="pin-dot" style="background:var(--gold)"></div>⭐ Signed</button>
-          <button class="pin-btn" onclick="selectPin('callback','var(--blue)',this)"><div class="pin-dot" style="background:var(--blue)"></div>Callback</button>
-          <button class="pin-btn" onclick="selectPin('do-not-knock','#374151',this)"><div class="pin-dot" style="background:#374151"></div>Do Not Knock</button>
-          <button class="pin-btn" onclick="selectPin('left-material','var(--purple)',this)"><div class="pin-dot" style="background:var(--purple)"></div>Left Material</button>
-          <button class="pin-btn" onclick="selectPin('follow-up','var(--orange)',this)"><div class="pin-dot" style="background:var(--orange)"></div>Follow Up</button>
+          <button class="pin-btn active" data-action="selectPin" data-target="not-home" data-color="#9CA3AF"><div class="pin-dot" style="background:#9CA3AF"></div>Not Home</button>
+          <button class="pin-btn" data-action="selectPin" data-target="interested" data-color="var(--green)"><div class="pin-dot" style="background:var(--green)"></div>Interested</button>
+          <button class="pin-btn" data-action="selectPin" data-target="not-interested" data-color="var(--red)"><div class="pin-dot" style="background:var(--red)"></div>Not Interested</button>
+          <button class="pin-btn" data-action="selectPin" data-target="signed" data-color="var(--gold)"><div class="pin-dot" style="background:var(--gold)"></div>⭐ Signed</button>
+          <button class="pin-btn" data-action="selectPin" data-target="callback" data-color="var(--blue)"><div class="pin-dot" style="background:var(--blue)"></div>Callback</button>
+          <button class="pin-btn" data-action="selectPin" data-target="do-not-knock" data-color="#374151"><div class="pin-dot" style="background:#374151"></div>Do Not Knock</button>
+          <button class="pin-btn" data-action="selectPin" data-target="left-material" data-color="var(--purple)"><div class="pin-dot" style="background:var(--purple)"></div>Left Material</button>
+          <button class="pin-btn" data-action="selectPin" data-target="follow-up" data-color="var(--orange)"><div class="pin-dot" style="background:var(--orange)"></div>Follow Up</button>
         </div>
         <p style="font-size:10px;color:var(--m);margin-bottom:10px;">Select status → click map or enter address to drop pin</p>
         <button class="btn btn-ghost" style="width:100%;margin-bottom:6px;justify-content:center;" onclick="damagNearMe()">📍 My Location</button>
@@ -12023,13 +12023,13 @@ function switchScTab(tab, btn) {
 
         <!-- VIEW switcher inline (replaces the old VIEW: row) -->
         <div class="crm-hdr-views" id="kanbanViewSwitcher" role="tablist" aria-label="Pipeline view">
-          <button class="kview-btn active" data-view="insurance" onclick="switchKanbanView('insurance')">Ins<span class="kview-count" id="kview-count-insurance"></span></button>
-          <button class="kview-btn" data-view="cash" onclick="switchKanbanView('cash')">Cash<span class="kview-count" id="kview-count-cash"></span></button>
-          <button class="kview-btn" data-view="finance" onclick="switchKanbanView('finance')">Fin<span class="kview-count" id="kview-count-finance"></span></button>
-          <button class="kview-btn" data-view="warranty" onclick="switchKanbanView('warranty')" title="Warranty / callback pipeline">War<span class="kview-count" id="kview-count-warranty"></span></button>
-          <button class="kview-btn" data-view="service" onclick="switchKanbanView('service')" title="Service / small repair pipeline">Svc<span class="kview-count" id="kview-count-service"></span></button>
-          <button class="kview-btn" data-view="jobs" onclick="switchKanbanView('jobs')">Jobs<span class="kview-count" id="kview-count-jobs"></span></button>
-          <button class="kview-btn" data-view="simple" onclick="switchKanbanView('simple')">All<span class="kview-count" id="kview-count-simple"></span></button>
+          <button class="kview-btn active" data-view="insurance" data-action="kanbanView" data-target="insurance">Ins<span class="kview-count" id="kview-count-insurance"></span></button>
+          <button class="kview-btn" data-view="cash" data-action="kanbanView" data-target="cash">Cash<span class="kview-count" id="kview-count-cash"></span></button>
+          <button class="kview-btn" data-view="finance" data-action="kanbanView" data-target="finance">Fin<span class="kview-count" id="kview-count-finance"></span></button>
+          <button class="kview-btn" data-view="warranty" data-action="kanbanView" data-target="warranty" title="Warranty / callback pipeline">War<span class="kview-count" id="kview-count-warranty"></span></button>
+          <button class="kview-btn" data-view="service" data-action="kanbanView" data-target="service" title="Service / small repair pipeline">Svc<span class="kview-count" id="kview-count-service"></span></button>
+          <button class="kview-btn" data-view="jobs" data-action="kanbanView" data-target="jobs">Jobs<span class="kview-count" id="kview-count-jobs"></span></button>
+          <button class="kview-btn" data-view="simple" data-action="kanbanView" data-target="simple">All<span class="kview-count" id="kview-count-simple"></span></button>
         </div>
       </div>
 
