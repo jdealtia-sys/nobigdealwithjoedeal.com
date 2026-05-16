@@ -953,6 +953,57 @@
       '</div>'
     );
 
+    // ── Step 17: Digital Warranty Card ──
+    // Rendered when the rep has generated a warranty certificate from
+    // customer.html (which now persists `lead.warranty`). Acts as the
+    // homeowner's permanent reference: tier, terms, contact CTA. Hidden
+    // until the rep issues a cert.
+    if (view.warranty) {
+      const w = view.warranty;
+      const tierAccent = w.tier === 'elite' ? '#111'
+                       : w.tier === 'preferred' ? '#1a3260'
+                       : '#c8541a';
+      const installLabel = w.installDate
+        ? new Date(w.installDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+        : '—';
+      const claimBody = encodeURIComponent(
+        "Hi — I have a warranty question about my roof. Cert " + (w.certNumber || '') + ". Can you call me back?"
+      );
+      parts.push(
+        '<div class="card" id="wc-card" style="background:linear-gradient(135deg, rgba(232,114,12,.04), rgba(232,114,12,.01)); border:1px solid rgba(232,114,12,.35);">' +
+          '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">' +
+            '<div>' +
+              '<div class="card-label" style="color:var(--accent,#c8541a);">🛡️ Digital Warranty Card</div>' +
+              '<div class="card-title" style="margin-top:2px;">' + esc(w.tierLabel || 'NBD Lifetime Pledge') + '</div>' +
+            '</div>' +
+            '<div style="background:' + tierAccent + ';color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border-radius:3px;white-space:nowrap;">' + esc(w.tier || 'standard') + '</div>' +
+          '</div>' +
+
+          (w.tierDesc ? '<p style="color:var(--text);margin:0 0 14px;font-size:13px;line-height:1.55;">' + esc(w.tierDesc) + '</p>' : '') +
+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">' +
+            '<div style="background:rgba(255,255,255,.04);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;">' +
+              '<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Installed</div>' +
+              '<div style="font-size:13px;font-weight:700;color:var(--text);">' + esc(installLabel) + '</div>' +
+            '</div>' +
+            '<div style="background:rgba(255,255,255,.04);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;">' +
+              '<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Cert No.</div>' +
+              '<div style="font-size:13px;font-weight:700;color:var(--text);font-family:\'DM Mono\',monospace;">' + esc(w.certNumber || '—') + '</div>' +
+            '</div>' +
+          '</div>' +
+
+          (w.work ? '<div style="background:rgba(255,255,255,.04);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;margin-bottom:14px;">' +
+            '<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Work Performed</div>' +
+            '<div style="font-size:13px;color:var(--text);">' + esc(w.work) + '</div>' +
+          '</div>' : '') +
+
+          '<a href="sms:?&body=' + claimBody + '" style="display:block;text-align:center;padding:12px;background:var(--accent,#c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">🛟 Start a warranty claim</a>' +
+
+          '<p style="font-size:11px;color:var(--muted);margin:12px 0 0;line-height:1.5;text-align:center;">Save this page or screenshot it — your permanent warranty reference.</p>' +
+        '</div>'
+      );
+    }
+
     // ── Step 16: Refer a friend ──
     // Only render the card when we have a stable referral code
     // (customerId — NBD-0001 format). Leads without one are usually
