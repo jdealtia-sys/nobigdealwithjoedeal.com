@@ -34,6 +34,8 @@ function closeCmdPalette() {
 function getCmdActions() {
   return [
     { type: 'action', icon: '➕', title: 'New Lead', meta: 'Create a new customer lead', action: () => { closeCmdPalette(); openLeadModal(); } },
+    { type: 'action', icon: '⚡', title: 'Quick Lead', meta: 'Fast 3-field add — for the field', action: () => { closeCmdPalette(); if (typeof window.openQuickAddLead === 'function') window.openQuickAddLead(); } },
+    { type: 'action', icon: '📍', title: 'Lead Here (GPS)', meta: 'Create lead at my current location', action: () => { closeCmdPalette(); if (typeof window.openQuickAddLead === 'function') { window.openQuickAddLead(); setTimeout(() => { if (typeof window.qaUseMyLocation === 'function') window.qaUseMyLocation(); }, 200); } } },
     { type: 'action', icon: '📋', title: 'New Estimate', meta: 'Build a new estimate', action: () => { closeCmdPalette(); goTo('est'); if(typeof startNewEstimate==='function')startNewEstimate(); } },
     { type: 'action', icon: '👥', title: 'Pipeline', meta: 'Open the kanban board', action: () => { closeCmdPalette(); goTo('crm'); } },
     { type: 'action', icon: '👀', title: 'Prospects', meta: 'D2D knocks awaiting promotion', action: () => { closeCmdPalette(); goTo('prospects'); } },
