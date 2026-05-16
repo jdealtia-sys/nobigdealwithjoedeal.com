@@ -999,13 +999,21 @@
     // The legacy modal-based flow that lived here referenced DOM that was
     // never built (#onboardingModal, #onbStep1, etc.); call removed.
     const name = user.displayName || user.email.split('@')[0];
-    document.getElementById('userName').textContent   = name;
-    document.getElementById('userAvatar').textContent = name[0].toUpperCase();
-    document.getElementById('dashName').textContent   = name;
-    const homeGreet = document.getElementById('homeGreeting');
-    if(homeGreet) homeGreet.textContent = 'Welcome Back, ' + name.split(' ')[0];
-    document.getElementById('settingsName').value     = user.displayName || '';
-    document.getElementById('settingsEmail').value    = user.email || '';
+    // Template-hydration safety: #dashName, #homeGreeting, and the
+    // settings inputs live inside <template id="tpl-view-*"> mounts
+    // that don't exist in the live DOM until dashboard-main.js
+    // hydrates the view. Without these guards, the first null throw
+    // aborts the rest of onAuthStateChanged → loadLeads is never
+    // called → kanban shows zero cards. View-hydrate code re-populates
+    // these from window._user when the view becomes active.
+    const _setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    const _setVal  = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    _setText('userName',     name);
+    _setText('userAvatar',   name[0].toUpperCase());
+    _setText('dashName',     name);
+    _setText('homeGreeting', 'Welcome Back, ' + name.split(' ')[0]);
+    _setVal('settingsName',  user.displayName || '');
+    _setVal('settingsEmail', user.email || '');
     // Cal.com username — pull from the user profile if set and prime
     // the shareable link preview so reps can copy the URL straight
     // into an SMS / email. Also stash on window._currentRep so

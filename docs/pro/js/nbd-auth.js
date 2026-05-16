@@ -52,7 +52,7 @@ const DEFAULT_SENTRY_DSN = "";
   if (window.NBDSentry && window.NBDSentry.__sentinel === 'nbd-sentry-v1') return;
   try {
     const s = document.createElement('script');
-    s.src = '/pro/js/sentry-init.js?v=1';
+    s.src = '/pro/js/sentry-init.js?v=2';
     s.async = true;
     document.head.appendChild(s);
   } catch (e) { /* non-fatal — error reporter failing to load is not an app-breaking event */ }
