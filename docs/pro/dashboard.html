@@ -14876,13 +14876,25 @@ function switchScTab(tab, btn) {
         </div>
       </div>
 
-      <!-- UPCOMING BOOKINGS (placeholder for future webhook integration) -->
+      <!-- TODAY'S SCHEDULE — populated by smart-calendar.js. The module
+           reads /appointments for the current rep, cross-refs with
+           window._leads for jobValue + lat/lng, then renders a vertical
+           timeline with travel-time, conflict, and priority warnings. -->
       <div class="panel">
-        <div class="panel-hdr"><div><div class="panel-label">Upcoming</div><div class="panel-title">Scheduled Appointments</div></div></div>
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Today</div>
+            <div class="panel-title">Your Schedule</div>
+          </div>
+          <button type="button" class="btn btn-ghost" style="font-size:11px;padding:6px 12px;"
+            onclick="if(typeof window.loadSmartCalendar==='function') window.loadSmartCalendar()">
+            ↻ Refresh
+          </button>
+        </div>
         <div class="panel-body">
           <div id="calUpcoming" style="text-align:center;padding:20px;color:var(--m);font-size:12px;">
-            <div style="font-size:24px;margin-bottom:6px;">📋</div>
-            Bookings will appear here once Cal.com is connected. Future update: webhook integration for real-time sync.
+            <div style="font-size:24px;margin-bottom:6px;">⏳</div>
+            Loading today's schedule…
           </div>
         </div>
       </div>
@@ -16197,6 +16209,12 @@ function switchScTab(tab, btn) {
 <script defer src="js/invoice-pipeline.js?v=3"></script>
 <script defer src="js/inspection-report-engine.js?v=4"></script>
 <script defer src="js/maps.js?v=9"></script>
+<!-- Smart Calendar — Today's Schedule with travel-time + priority. Reads
+     /appointments (Cal.com webhook output) for the current rep, cross-
+     refs with window._leads for jobValue + lat/lng, and renders a
+     timeline with conflict and tight-travel warnings. Must load after
+     maps.js because it uses window.hav() (haversine distance). -->
+<script defer src="js/smart-calendar.js?v=1"></script>
 <!-- estimate-config.js MUST load before estimates.js + estimate-builder-v2.js;
      it exposes window.NBD_ESTIMATE_CONFIG which both engines read. -->
 <script defer src="js/estimate-config.js?v=2"></script>
