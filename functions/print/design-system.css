@@ -1,0 +1,501 @@
+/*
+ * NBD Pro — Print Design System
+ * ─────────────────────────────────────────────────────────────────
+ * This is the canonical typography + spacing + color system for
+ * every PDF the platform generates. Every template inherits from
+ * this file. If a doc needs an exception, add it as a NAMED variant
+ * in this file — don't fork the tokens in a template.
+ *
+ * Goals:
+ *   - Vector PDF output (Puppeteer renders real text, not bitmaps)
+ *   - Print-native rules: @page margins, page breaks, running headers
+ *   - One typography scale, one spacing scale, one color palette
+ *   - Brand-locked: NBD orange + charcoal + warm gray + cream
+ *   - Editorial restraint — no decoration for its own sake
+ *
+ * The design language draws from the existing NBD brand DNA
+ * (Barlow Condensed display + Barlow body + brand orange + charcoal)
+ * but elevates it with:
+ *   - Real typographic hierarchy
+ *   - 8pt baseline grid
+ *   - Tabular numerals everywhere money appears
+ *   - Hairline rules instead of borders
+ *   - Generous whitespace — these docs are meant to be lingered over
+ */
+
+/* ── Print page setup ──────────────────────────────────────────── */
+@page {
+  size: Letter;
+  margin: 18mm 18mm 22mm 18mm;
+}
+@page :first {
+  margin-top: 14mm;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+/* ── Design tokens (CSS custom props — do not hardcode hex elsewhere) ── */
+:root {
+  /* Brand */
+  --nbd-orange:        #C8541A;
+  --nbd-orange-dark:   #A64516;
+  --nbd-orange-soft:   rgba(200, 84, 26, 0.08);
+  --nbd-orange-line:   rgba(200, 84, 26, 0.35);
+  --nbd-charcoal:      #14181F;
+  --nbd-charcoal-2:    #2A2F39;
+
+  /* Neutrals — warm gray family, deliberately not cool/blue */
+  --nbd-ink:           #14181F;   /* body text */
+  --nbd-ink-soft:      #4A4F58;   /* secondary text */
+  --nbd-ink-muted:     #8A8F9A;   /* labels, captions */
+  --nbd-rule:          #E8E5DF;   /* hairline rules */
+  --nbd-cream:         #FAF7F2;   /* warm off-white surface */
+  --nbd-surface:       #FFFFFF;
+  --nbd-surface-soft:  #F7F4EE;   /* call-out blocks */
+
+  /* Status (used sparingly — money, badges) */
+  --nbd-green:         #2A7C50;
+  --nbd-amber:         #B8860B;
+  --nbd-red:           #B91C1C;
+
+  /* Type scale — 1.25 minor third, anchored at 11pt body */
+  --type-display:      48pt;   /* hero — once per doc */
+  --type-h1:           28pt;   /* section opening */
+  --type-h2:           18pt;
+  --type-h3:           13pt;
+  --type-body:         11pt;
+  --type-meta:         9pt;
+  --type-eyebrow:      8pt;    /* uppercase + letterspaced labels */
+
+  /* Spacing — 8pt baseline grid */
+  --s-1:   4pt;
+  --s-2:   8pt;
+  --s-3:   12pt;
+  --s-4:   16pt;
+  --s-5:   24pt;
+  --s-6:   32pt;
+  --s-7:   48pt;
+  --s-8:   64pt;
+}
+
+/* ── Body + base type ──────────────────────────────────────────── */
+html, body {
+  background: var(--nbd-surface);
+  color: var(--nbd-ink);
+  font-family: 'Barlow', system-ui, -apple-system, sans-serif;
+  font-size: var(--type-body);
+  line-height: 1.55;
+  font-feature-settings: 'kern' 1, 'liga' 1, 'calt' 1;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Display + heading family ──────────────────────────────────── */
+.display, h1.display {
+  font-family: 'Barlow Condensed', 'Barlow', sans-serif;
+  font-weight: 800;
+  font-size: var(--type-display);
+  line-height: 0.92;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+}
+
+h1 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: var(--type-h1);
+  line-height: 1.0;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+}
+
+h2 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-h2);
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+  margin-top: var(--s-5);
+  margin-bottom: var(--s-3);
+}
+
+h3 {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-h3);
+  line-height: 1.3;
+  color: var(--nbd-charcoal);
+  margin-top: var(--s-4);
+  margin-bottom: var(--s-2);
+}
+
+p {
+  margin-bottom: var(--s-3);
+  color: var(--nbd-ink);
+}
+p.lead {
+  font-size: 12.5pt;
+  line-height: 1.5;
+  color: var(--nbd-ink-soft);
+}
+p:last-child { margin-bottom: 0; }
+
+/* ── Eyebrow + meta — uppercase letter-spaced labels ───────────── */
+.eyebrow {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  line-height: 1;
+}
+.eyebrow.muted { color: var(--nbd-ink-muted); }
+
+.meta {
+  font-size: var(--type-meta);
+  color: var(--nbd-ink-muted);
+  line-height: 1.4;
+}
+
+/* Tabular numerals — every money, count, date column. Without this,
+   numbers in columns wiggle by ~1px per digit. */
+.tabular-nums, .money, .num, td.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ── Hairline rules ────────────────────────────────────────────── */
+.rule {
+  height: 0;
+  border: 0;
+  border-top: 0.5pt solid var(--nbd-rule);
+  margin: var(--s-4) 0;
+}
+.rule.accent {
+  border-top: 1.5pt solid var(--nbd-orange);
+}
+.rule.thick {
+  border-top: 2.5pt solid var(--nbd-charcoal);
+}
+
+/* ── Brand chrome — top band, footer band ──────────────────────── */
+.doc-band-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-5);
+  padding-bottom: var(--s-3);
+  border-bottom: 2.5pt solid var(--nbd-orange);
+  margin-bottom: var(--s-5);
+}
+.doc-band-top .brand-lockup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+}
+.doc-band-top .brand-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 22pt;
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+}
+.doc-band-top .brand-name .accent {
+  color: var(--nbd-orange);
+}
+.doc-band-top .brand-tag {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 600;
+  font-size: 8.5pt;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-soft);
+}
+.doc-band-top .brand-contact {
+  font-size: 9pt;
+  color: var(--nbd-ink-muted);
+  margin-top: 2pt;
+}
+.doc-band-top .doc-meta {
+  text-align: right;
+  align-self: flex-end;
+  display: flex;
+  flex-direction: column;
+  gap: 3pt;
+}
+.doc-band-top .doc-type {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-muted);
+}
+.doc-band-top .doc-number {
+  font-family: 'Barlow', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 10pt;
+  color: var(--nbd-ink-soft);
+}
+
+/* ── Hero / opening block ──────────────────────────────────────── */
+.hero {
+  margin-bottom: var(--s-6);
+}
+.hero .hero-eyebrow {
+  margin-bottom: var(--s-2);
+}
+.hero .hero-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 40pt;
+  line-height: 0.95;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+  margin-bottom: var(--s-3);
+}
+.hero .hero-sub {
+  font-size: 13pt;
+  line-height: 1.45;
+  color: var(--nbd-ink-soft);
+  max-width: 78%;
+}
+
+/* ── Tier / status badge ───────────────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4pt;
+  padding: 5pt 12pt;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 10pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  border-radius: 2pt;
+  color: #fff;
+  background: var(--nbd-orange);
+}
+.badge.tier-standard  { background: var(--nbd-orange); }
+.badge.tier-preferred { background: #1A3260; }
+.badge.tier-elite     { background: var(--nbd-charcoal); }
+.badge.status-paid    { background: var(--nbd-green); }
+.badge.status-due     { background: var(--nbd-amber); }
+.badge.status-past    { background: var(--nbd-red); }
+.badge.ghost {
+  background: transparent;
+  color: var(--nbd-orange);
+  border: 1pt solid var(--nbd-orange);
+}
+
+/* ── Key/value grid (property details, signatory lines) ───────── */
+.kv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--s-4) var(--s-6);
+  margin-bottom: var(--s-4);
+}
+.kv-grid .kv {
+  display: flex;
+  flex-direction: column;
+  gap: 3pt;
+}
+.kv-grid .kv.span-2 { grid-column: 1 / -1; }
+.kv .kv-label {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-muted);
+}
+.kv .kv-value {
+  font-size: 13pt;
+  font-weight: 600;
+  color: var(--nbd-ink);
+  line-height: 1.3;
+  border-bottom: 0.5pt solid var(--nbd-rule);
+  padding-bottom: 4pt;
+  min-height: 22pt;
+}
+.kv .kv-value.money {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Pull block — call-out paragraph w/ orange accent rail ─────── */
+.pull {
+  display: flex;
+  gap: var(--s-3);
+  background: var(--nbd-surface-soft);
+  padding: var(--s-4) var(--s-5);
+  border-radius: 3pt;
+  border-left: 3pt solid var(--nbd-orange);
+  margin: var(--s-4) 0;
+}
+.pull .pull-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 13pt;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  margin-bottom: var(--s-1);
+}
+.pull .pull-body {
+  font-size: 11pt;
+  color: var(--nbd-ink);
+  line-height: 1.6;
+}
+
+/* ── Feature list (bullets) — bordered dots, not glyphs ────────── */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7pt var(--s-4);
+  margin: var(--s-3) 0;
+}
+.feature {
+  display: flex;
+  gap: 8pt;
+  align-items: baseline;
+  font-size: 10.5pt;
+  color: var(--nbd-ink);
+  line-height: 1.4;
+}
+.feature::before {
+  content: '';
+  display: inline-block;
+  width: 6pt;
+  height: 6pt;
+  background: var(--nbd-orange);
+  border-radius: 50%;
+  flex-shrink: 0;
+  transform: translateY(1pt);
+}
+
+/* ── Signature block ───────────────────────────────────────────── */
+.sig-block {
+  margin-top: var(--s-7);
+  padding-top: var(--s-4);
+  border-top: 0.5pt solid var(--nbd-rule);
+}
+.sig-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-7);
+}
+.sig {
+  display: flex;
+  flex-direction: column;
+}
+.sig .sig-line {
+  border-bottom: 1pt solid var(--nbd-charcoal);
+  height: 32pt;
+  margin-bottom: 4pt;
+}
+.sig .sig-caption {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-muted);
+}
+
+/* ── Footer band — running on every page via fixed positioning ── */
+.doc-band-bottom {
+  position: running(footer);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--s-2);
+  border-top: 0.5pt solid var(--nbd-rule);
+  font-size: 8pt;
+  color: var(--nbd-ink-muted);
+}
+.doc-band-bottom .seal {
+  width: 38pt;
+  height: 38pt;
+  border: 1.5pt solid var(--nbd-orange);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 7pt;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  text-align: center;
+  line-height: 1.15;
+}
+.doc-band-bottom .footer-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1pt;
+  padding-left: var(--s-3);
+}
+.doc-band-bottom .footer-name {
+  font-weight: 700;
+  color: var(--nbd-ink);
+  font-size: 9pt;
+}
+.doc-band-bottom .page-num {
+  font-variant-numeric: tabular-nums;
+  font-size: 8pt;
+  color: var(--nbd-ink-muted);
+}
+@page {
+  @bottom-center {
+    content: element(footer);
+  }
+}
+
+/* Avoid widows/orphans on body copy and keep section heads with their content. */
+p { orphans: 3; widows: 3; }
+h1, h2, h3 { page-break-after: avoid; break-after: avoid; }
+.sig-block { page-break-inside: avoid; break-inside: avoid; }
+.pull       { page-break-inside: avoid; break-inside: avoid; }
+
+/* Tables (line items, supplements, schedules) — covered in detail
+   by later D-PRs. Baseline rules here so any template that uses
+   <table> gets coherent output. */
+table { width: 100%; border-collapse: collapse; }
+th, td {
+  text-align: left;
+  padding: 7pt 8pt;
+  font-size: 10.5pt;
+  line-height: 1.4;
+}
+thead th {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-muted);
+  border-bottom: 1pt solid var(--nbd-rule);
+}
+tbody tr + tr td { border-top: 0.5pt solid var(--nbd-rule); }
+tfoot td {
+  font-weight: 700;
+  border-top: 1pt solid var(--nbd-charcoal);
+  padding-top: 10pt;
+}
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
