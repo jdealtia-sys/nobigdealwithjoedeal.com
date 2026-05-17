@@ -30,7 +30,15 @@
     } catch (_) {}
     return 'https://nobigdealwithjoedeal.com';
   })();
-  const LOGO_URL = ORIGIN + '/assets/images/nbd-logo.png';
+  // Prefer the inlined data URI from nbd-logo-asset.js — bypasses CORP/cache
+  // issues in iframe-srcdoc. Fall back to absolute URL if the asset script
+  // failed to load. The SVG monogram inside each <object> is the final fallback.
+  const LOGO_URL = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
+    ? window.NBD_LOGO_DATA_URI
+    : ORIGIN + '/assets/images/nbd-logo.png';
+  const LOGO_TYPE = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
+    ? 'image/jpeg'
+    : 'image/png';
 
   // Register new document types
   Object.assign(DG.DOCUMENT_TYPES, {
@@ -114,7 +122,7 @@
     // wordmark shows instead — always branded, never empty.
     return `<div class="letterhead">
       <div class="letterhead-brand">
-        <object class="letterhead-logo-obj" type="image/png" data="${LOGO_URL}" aria-label="${C.name}">
+        <object class="letterhead-logo-obj" type="${LOGO_TYPE}" data="${LOGO_URL}" aria-label="${C.name}">
           <svg class="letterhead-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NBD">
             <defs><linearGradient id="lhRing" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#e8720c"/>
@@ -749,7 +757,7 @@
       </style>
 
       <div class="intro-hero">
-        <object class="intro-hero-logo" type="image/png" data="${LOGO_URL}" aria-label="${C.name}" style="display:block;width:80px;height:80px;margin:0 auto 14px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:12px;padding:6px;box-sizing:border-box;">
+        <object class="intro-hero-logo" type="${LOGO_TYPE}" data="${LOGO_URL}" aria-label="${C.name}" style="display:block;width:80px;height:80px;margin:0 auto 14px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:12px;padding:6px;box-sizing:border-box;">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" role="img" aria-label="NBD">
             <defs><linearGradient id="ihRing" x1="0" y1="0" x2="1" y2="1">
               <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#e8720c"/>
