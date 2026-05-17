@@ -584,66 +584,120 @@ window.NBDDocGen = {
         }
 
         .document-header {
-          border-top: 8px solid ${this.COMPANY.colors.primary};
-          border-bottom: 2px solid ${this.COMPANY.colors.borderGray};
-          padding-bottom: 0.3in;
-          margin-bottom: 0.3in;
+          position: relative;
+          background: linear-gradient(180deg, ${this.COMPANY.colors.primary} 0%, ${this.COMPANY.colors.secondary} 100%);
+          color: #fff;
+          margin: -0.5in -0.5in 0.3in -0.5in;
+          padding: 0.35in 0.5in 0.25in 0.5in;
+          border-bottom: 6px solid ${this.COMPANY.colors.accent};
         }
 
         .header-top {
           display: flex;
           justify-content: space-between;
-          align-items: flex-start;
-          margin-bottom: 0.15in;
+          align-items: center;
+          gap: 0.3in;
+          margin-bottom: 0.12in;
         }
 
         .header-logo {
-          flex: 1;
+          flex: 0 0 auto;
         }
 
-        .header-logo svg {
-          height: 60px;
+        /* Logo: image with text fallback. The text block is positioned
+           behind the img — if the img loads, it covers the text; if it
+           fails (offline / CSP), the text mark shows through. */
+        .nbd-logo-wrap {
+          position: relative;
+          width: 220px;
+          height: 56px;
+          display: flex;
+          align-items: center;
+        }
+        .nbd-logo-img {
+          height: 56px;
+          width: auto;
+          max-width: 220px;
+          object-fit: contain;
+          background: rgba(255,255,255,.08);
+          border-radius: 6px;
+          padding: 4px 8px;
+        }
+        .nbd-logo-text {
+          position: absolute;
+          left: 8px; top: 50%;
+          transform: translateY(-50%);
+          z-index: -1;
+          color: #fff;
+        }
+        .nbd-logo-mark {
+          font: 800 26px/1 'Helvetica Neue', Arial, sans-serif;
+          letter-spacing: .04em;
+          color: #fff;
+        }
+        .nbd-logo-sub {
+          font: 700 9px/1.1 'Helvetica Neue', Arial, sans-serif;
+          letter-spacing: .14em;
+          color: rgba(255,255,255,.85);
+          margin-top: 3px;
         }
 
         .header-info {
-          font-size: 11px;
+          font: 600 10px/1.55 'Helvetica Neue', Arial, sans-serif;
           text-align: right;
-          color: #666;
-          line-height: 1.4;
+          color: rgba(255,255,255,.95);
+          letter-spacing: .02em;
         }
+        .header-info > div + div { margin-top: 1px; }
 
         .header-company-name {
-          font-size: 18px;
-          font-weight: bold;
-          color: ${this.COMPANY.colors.secondary};
-          font-family: 'Helvetica Neue', Arial, sans-serif;
-          margin: 0.1in 0;
+          font: 800 18px/1.1 'Helvetica Neue', Arial, sans-serif;
+          color: #fff;
+          letter-spacing: .04em;
+          text-transform: uppercase;
+          margin: 0.08in 0 0 0;
+        }
+        .header-tagline {
+          font: italic 400 11px/1.3 Georgia, serif;
+          color: ${this.COMPANY.colors.accent};
+          margin-top: 2px;
         }
 
         .header-contact-row {
-          font-size: 11px;
-          color: #666;
-          margin-top: 0.1in;
-          border-top: 1px solid ${this.COMPANY.colors.borderGray};
-          padding-top: 0.1in;
+          font: 600 10px/1.4 'Helvetica Neue', Arial, sans-serif;
+          color: rgba(255,255,255,.85);
+          margin-top: 0.08in;
+          padding-top: 0.06in;
+          border-top: 1px solid rgba(255,255,255,.18);
+          letter-spacing: .02em;
         }
 
         .document-title {
-          font-size: 24px;
-          font-weight: bold;
+          font: 800 26px/1.1 'Helvetica Neue', Arial, sans-serif;
           color: ${this.COMPANY.colors.secondary};
           text-align: center;
-          font-family: 'Helvetica Neue', Arial, sans-serif;
-          margin: 0.2in 0;
+          margin: 0.25in 0 0.08in 0;
           text-transform: uppercase;
-          letter-spacing: 1px;
+          letter-spacing: 2px;
+          position: relative;
+          padding-bottom: 0.12in;
+        }
+        .document-title:after {
+          content: "";
+          display: block;
+          width: 64px;
+          height: 4px;
+          background: ${this.COMPANY.colors.accent};
+          margin: 0.1in auto 0 auto;
+          border-radius: 2px;
         }
 
         .document-subtitle {
-          font-size: 12px;
+          font: 600 12px/1.4 'Helvetica Neue', Arial, sans-serif;
           text-align: center;
-          color: #666;
-          margin-bottom: 0.2in;
+          color: ${this.COMPANY.colors.primary};
+          margin-bottom: 0.22in;
+          letter-spacing: .04em;
         }
 
         .document-content {
@@ -653,23 +707,31 @@ window.NBDDocGen = {
         }
 
         .section {
-          margin-bottom: 0.25in;
-          padding-left: 0.15in;
-          border-left: 3px solid ${this.COMPANY.colors.primary};
-          padding: 0.15in;
-          padding-left: 0.15in;
+          margin-bottom: 0.22in;
+          padding: 0.12in 0.18in;
+          border-left: 4px solid ${this.COMPANY.colors.accent};
+          background: linear-gradient(90deg, rgba(232,114,12,.04) 0%, rgba(232,114,12,0) 60%);
+          border-radius: 0 6px 6px 0;
         }
 
         .section-title {
-          font-size: 13px;
-          font-weight: bold;
-          color: ${this.COMPANY.colors.secondary};
-          font-family: 'Helvetica Neue', Arial, sans-serif;
-          margin-bottom: 0.1in;
+          font: 800 13px/1.1 'Helvetica Neue', Arial, sans-serif;
+          color: ${this.COMPANY.colors.primary};
+          margin-bottom: 0.12in;
           text-transform: uppercase;
-          letter-spacing: 0.5px;
-          border-bottom: 1px solid ${this.COMPANY.colors.primary};
-          padding-bottom: 0.05in;
+          letter-spacing: 1.2px;
+          padding-bottom: 0.06in;
+          position: relative;
+          display: inline-block;
+          padding-right: 0.3in;
+        }
+        .section-title:after {
+          content: "";
+          position: absolute;
+          left: 0; bottom: 0;
+          width: 28px; height: 3px;
+          background: ${this.COMPANY.colors.accent};
+          border-radius: 2px;
         }
 
         .summary-text {
@@ -835,24 +897,36 @@ window.NBDDocGen = {
 
         /* FOOTER */
         .document-footer {
-          border-top: 2px solid ${this.COMPANY.colors.borderGray};
-          border-bottom: 4px solid ${this.COMPANY.colors.primary};
-          padding: 0.15in;
+          margin: 0.2in -0.5in -0.5in -0.5in;
+          padding: 0.18in 0.5in;
           text-align: center;
-          font-size: 9px;
-          color: #999;
-          margin-top: auto;
+          font: 600 10px/1.4 'Helvetica Neue', Arial, sans-serif;
+          color: rgba(255,255,255,.92);
+          background: linear-gradient(180deg, ${this.COMPANY.colors.secondary} 0%, ${this.COMPANY.colors.primary} 100%);
+          border-top: 4px solid ${this.COMPANY.colors.accent};
+          letter-spacing: .04em;
+        }
+        .document-footer .footer-brand {
+          display: block;
+          font: 800 11px/1.2 'Helvetica Neue', Arial, sans-serif;
+          color: #fff;
+          letter-spacing: .1em;
+          text-transform: uppercase;
+          margin-bottom: 3px;
         }
 
         .footer-page-number {
           display: inline-block;
           margin: 0 0.2in;
+          color: rgba(255,255,255,.7);
         }
 
         .footer-credit {
           display: block;
-          font-size: 8px;
-          margin-top: 0.05in;
+          font-size: 9px;
+          color: rgba(255,255,255,.65);
+          margin-top: 0.04in;
+          letter-spacing: .06em;
         }
 
         /* ACTION BAR — fixed top bar with Close + Print/Save */
@@ -1002,12 +1076,39 @@ window.NBDDocGen = {
   // ============================================================================
 
   /**
-   * Render NBD text logo as inline SVG
+   * Origin for absolute asset URLs. Docs render inside the
+   * universal viewer (often `about:blank` / srcdoc), where relative
+   * paths can't resolve. We bake the parent origin in at render time
+   * so the logo loads regardless of viewer context. Falls back to
+   * the production host for headless/server-side renders.
    * @private
-   * @returns {string} SVG string
+   */
+  _assetOrigin() {
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') {
+        return window.location.origin;
+      }
+    } catch (_) {}
+    return 'https://nobigdealwithjoedeal.com';
+  },
+
+  /**
+   * Render NBD logo + textual fallback. The text fallback ships
+   * inside the same anchor so if the image fails (offline, CSP) the
+   * customer still sees a readable brand mark — no JS error handler
+   * needed (strict CSP blocks inline onerror anyway).
+   * @private
+   * @returns {string} HTML
    */
   renderNBDLogo() {
-    return `<img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:60px;width:auto;" crossorigin="anonymous" onerror="this.style.display='none';this.parentNode.innerHTML='<div style=\\'font-size:24px;font-weight:800;color:${this.COMPANY.colors.primary}\\'>NBD</div><div style=\\'font-size:9px;font-weight:700;letter-spacing:1px;color:${this.COMPANY.colors.primary}\\'>NO BIG DEAL HOME SOLUTIONS</div>'">`;
+    const origin = this._assetOrigin();
+    return `<div class="nbd-logo-wrap">
+      <img class="nbd-logo-img" src="${origin}/assets/images/nbd-logo.png" alt="" width="64" height="64" />
+      <div class="nbd-logo-text">
+        <div class="nbd-logo-mark">NBD</div>
+        <div class="nbd-logo-sub">NO BIG DEAL HOME SOLUTIONS</div>
+      </div>
+    </div>`;
   },
 
   /**
@@ -1017,7 +1118,7 @@ window.NBDDocGen = {
    */
   renderHeader(data = {}) {
     const address = data.address || this.COMPANY.address;
-    const showAddress = address ? `<div>${address}</div>` : '';
+    const showAddress = address ? ` &middot; ${address}` : '';
 
     return `
       <div class="document-header">
@@ -1032,9 +1133,9 @@ window.NBDDocGen = {
           </div>
         </div>
         <div class="header-company-name">${this.COMPANY.name}</div>
+        <div class="header-tagline">${this.COMPANY.tagline}</div>
         <div class="header-contact-row">
-          <strong>${this.COMPANY.phone}</strong> | ${this.COMPANY.email} | ${this.COMPANY.website}
-          ${showAddress}
+          ${this.COMPANY.phone} &nbsp;|&nbsp; ${this.COMPANY.email} &nbsp;|&nbsp; ${this.COMPANY.website}${showAddress}
         </div>
       </div>
     `;
@@ -1051,8 +1152,10 @@ window.NBDDocGen = {
 
     return `
       <div class="document-footer">
+        <span class="footer-brand">${this.COMPANY.name}</span>
+        <div>${this.COMPANY.phone} &nbsp;|&nbsp; ${this.COMPANY.email} &nbsp;|&nbsp; ${this.COMPANY.website}</div>
         ${pageText}
-        <span class="footer-credit">Generated by NBD Pro</span>
+        <span class="footer-credit">${this.COMPANY.tagline}</span>
       </div>
     `;
   },

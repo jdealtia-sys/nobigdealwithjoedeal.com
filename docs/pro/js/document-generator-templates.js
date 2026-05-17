@@ -17,6 +17,21 @@
   const S = C.colors?.secondary || '#1a1a2e'; // Dark navy — body text headings
   const A = C.colors?.accent || '#e8720c';    // Orange — CTAs, totals, highlights
 
+  // Origin for absolute asset URLs. Generated docs render inside the
+  // Universal Doc Viewer (popup/about:blank/srcdoc), where root-
+  // relative paths can't resolve. Bake the parent origin in at render
+  // time so the logo always loads. Falls back to the production host
+  // for headless/server-side renders.
+  const ORIGIN = (function () {
+    try {
+      if (typeof window !== 'undefined' && window.location && window.location.origin && window.location.origin !== 'null') {
+        return window.location.origin;
+      }
+    } catch (_) {}
+    return 'https://nobigdealwithjoedeal.com';
+  })();
+  const LOGO_URL = ORIGIN + '/assets/images/nbd-logo.png';
+
   // Register new document types
   Object.assign(DG.DOCUMENT_TYPES, {
     warranty_certificate: { name: 'Warranty Certificate', template: 'renderWarrantyCertificate' },
@@ -41,8 +56,10 @@
     .doc-page { max-width:8.5in; margin:0 auto; padding:40px 50px; }
     .orange { color:${A}; }
     .section { margin-bottom:28px; }
-    .section-title { font-size:16px; font-weight:700; text-transform:uppercase; letter-spacing:0.08em;
-      color:${P}; border-bottom:2px solid ${P}; padding-bottom:6px; margin-bottom:16px; }
+    .section-title { font-size:15px; font-weight:800; text-transform:uppercase; letter-spacing:0.1em;
+      color:${P}; padding-bottom:8px; margin-bottom:14px; position:relative; display:inline-block; padding-right:24px; }
+    .section-title:after { content:""; position:absolute; left:0; bottom:0; width:32px; height:3px;
+      background:${A}; border-radius:2px; }
     table.items { width:100%; border-collapse:collapse; margin:16px 0; }
     table.items th { background:${P}; color:#fff; padding:10px 14px; text-align:left; font-family:'Helvetica Neue',Arial,sans-serif;
       font-size:12px; text-transform:uppercase; letter-spacing:0.06em; }
@@ -55,15 +72,27 @@
       justify-content:center; color:#999; font-size:13px; background:#fafafa; }
     .badge { display:inline-block; padding:6px 16px; border-radius:20px; font-size:12px; font-weight:700;
       font-family:'Helvetica Neue',Arial,sans-serif; letter-spacing:0.04em; }
-    .letterhead { border-top:6px solid ${P}; padding:24px 0 16px; margin-bottom:24px;
-      display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #ddd; gap:18px; }
-    .letterhead-brand { display:flex; align-items:center; gap:14px; min-width:0; }
-    .letterhead-logo { height:56px; width:auto; flex-shrink:0; display:block; }
-    .letterhead-name { font-family:'Helvetica Neue',Arial,sans-serif; font-size:22px; font-weight:700; color:${S}; }
-    .letterhead-tagline { font-size:12px; color:${A}; font-style:italic; margin-top:2px; }
-    .letterhead-contact { text-align:right; font-size:12px; color:#555; line-height:1.8; flex-shrink:0; }
-    .footer { border-top:2px solid ${P}; margin-top:40px; padding-top:12px; display:flex;
-      justify-content:space-between; font-size:10px; color:#999; }
+    .letterhead { background:linear-gradient(180deg,${P} 0%,${S} 100%); color:#fff;
+      padding:24px 32px; margin:-40px -50px 28px -50px; border-bottom:6px solid ${A};
+      display:flex; justify-content:space-between; align-items:center; gap:18px; }
+    .letterhead-brand { display:flex; align-items:center; gap:14px; min-width:0; position:relative; }
+    .letterhead-logo-wrap { position:relative; width:64px; height:64px; display:flex; align-items:center; justify-content:center;
+      background:rgba(255,255,255,.08); border-radius:8px; flex-shrink:0; }
+    .letterhead-logo { width:56px; height:56px; object-fit:contain; display:block; }
+    .letterhead-logo-fallback { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+      justify-content:center; font-family:'Helvetica Neue',Arial,sans-serif; color:#fff; z-index:-1; }
+    .letterhead-logo-fallback .mark { font-size:22px; font-weight:800; letter-spacing:.04em; line-height:1; }
+    .letterhead-logo-fallback .sub  { font-size:7px; font-weight:700; letter-spacing:.1em; margin-top:3px; }
+    .letterhead-name { font-family:'Helvetica Neue',Arial,sans-serif; font-size:22px; font-weight:800;
+      color:#fff; letter-spacing:.04em; text-transform:uppercase; line-height:1.1; }
+    .letterhead-tagline { font-family:Georgia,serif; font-size:12px; color:${A}; font-style:italic; margin-top:4px; }
+    .letterhead-contact { text-align:right; font-family:'Helvetica Neue',Arial,sans-serif;
+      font-size:11px; color:rgba(255,255,255,.92); line-height:1.7; flex-shrink:0; letter-spacing:.02em; }
+    .footer { background:linear-gradient(180deg,${S} 0%,${P} 100%); color:rgba(255,255,255,.92);
+      margin:40px -50px -40px -50px; padding:18px 32px; border-top:4px solid ${A};
+      display:flex; justify-content:space-between; align-items:center; gap:18px;
+      font-family:'Helvetica Neue',Arial,sans-serif; font-size:10px; letter-spacing:.04em; }
+    .footer .footer-brand { font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:#fff; font-size:11px; }
     .print-btn { text-align:center; padding:24px; }
     .print-btn button { background:${A}; color:#fff; border:none; padding:14px 36px; border-radius:8px;
       font-size:16px; cursor:pointer; font-weight:600; font-family:'Helvetica Neue',Arial,sans-serif; }
@@ -78,16 +107,22 @@
   }
 
   function letterhead() {
-    // Branding sweep: every generated document now includes the actual
-    // NBD logo image (not just the text name) so homeowners receive a
-    // visually branded document. Logo is absolute-path so it resolves
-    // both in the universal doc viewer (popup window) and on print/PDF
-    // export. alt= text falls back to plain text if image fails to load
-    // (offline rendering, blocked CDN, etc.) so the letterhead never
-    // looks empty.
+    // Logo URL is computed at render-time via window.location.origin
+    // so it resolves inside the universal doc viewer (which loads
+    // documents in about:blank / srcdoc, where relative paths fail).
+    // The "NBD / NO BIG DEAL HOME SOLUTIONS" text mark sits behind
+    // the img (z-index:-1) — if the image fails to load, the text
+    // shows through. No JS error handler needed (strict CSP blocks
+    // inline onerror anyway).
     return `<div class="letterhead">
       <div class="letterhead-brand">
-        <img class="letterhead-logo" src="/assets/images/nbd-logo.png" alt="${C.name}" />
+        <div class="letterhead-logo-wrap">
+          <img class="letterhead-logo" src="${LOGO_URL}" alt="" width="56" height="56" />
+          <div class="letterhead-logo-fallback">
+            <div class="mark">NBD</div>
+            <div class="sub">NO BIG DEAL</div>
+          </div>
+        </div>
         <div><div class="letterhead-name">${C.name}</div>
         <div class="letterhead-tagline">${C.tagline || 'No Big Deal — We\'ve Got You Covered'}</div></div>
       </div>
@@ -95,8 +130,11 @@
   }
 
   function footer(extra) {
-    return `<div class="footer"><span>${C.name} | ${C.phone}</span><span>${extra || ''}</span>
-    <span>Generated by NBD Pro</span></div>`;
+    return `<div class="footer">
+      <span class="footer-brand">${C.name}</span>
+      <span>${C.phone} &middot; ${C.email} &middot; ${C.website}</span>
+      <span>${extra || C.tagline || ''}</span>
+    </div>`;
   }
 
   function sigBlock(labels) {
