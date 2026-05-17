@@ -242,11 +242,6 @@ const PHOTO_MAX_BATCH = 25; // max photos per upload session (iOS 'Select All' s
 const PHOTO_ALLOWED_TYPES = ['image/jpeg','image/png','image/webp','image/gif','image/heic','image/heif','image/avif'];
 
 // ══════════════════════════════════════════════
-// STORM MAP state
-// ══════════════════════════════════════════════
-let stormMap;
-
-// ══════════════════════════════════════════════
 // PROPERTY INTEL cache
 // ══════════════════════════════════════════════
 // Cache to avoid repeat lookups on same address

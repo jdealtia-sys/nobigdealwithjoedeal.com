@@ -765,8 +765,6 @@ if(typeof hideAcDrop!=='undefined') window.hideAcDrop = hideAcDrop;
 if(typeof makeLeadFromSearch!=='undefined') window.makeLeadFromSearch = makeLeadFromSearch;
 if(typeof fetchPropertyIntel!=='undefined') window.fetchPropertyIntel = fetchPropertyIntel;
 if(typeof pullIntelForModal!=='undefined') window.pullIntelForModal = pullIntelForModal;
-// Storm - in maps.js
-if(typeof loadStorm!=='undefined') window.loadStorm = loadStorm;
 // Drawing tool - in maps.js
 if(typeof searchDraw!=='undefined') window.searchDraw = searchDraw;
 if(typeof selLT!=='undefined') window.selLT = selLT;
