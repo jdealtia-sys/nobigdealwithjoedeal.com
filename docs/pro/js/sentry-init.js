@@ -38,7 +38,7 @@
   const script = document.createElement('script');
   script.src = 'https://browser.sentry-cdn.com/7.120.0/bundle.tracing.min.js';
   script.crossOrigin = 'anonymous';
-  script.integrity = 'sha384-BJiNUJQfF4A6WvVJx3uwnwd6SpC8TxZDzJFiubxsT/rIb2hMDvNNNTP0XfBPf6L2';
+  script.integrity = 'sha384-qcwbea4ny6qhrhRBPu+pNH1T7WSXwcaxP5mUNeYCnHiJ5BUfyFyJzB41byw7i8BV';
   script.onload = function () {
     try {
       window.Sentry.init({
