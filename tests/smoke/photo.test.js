@@ -371,8 +371,8 @@ section('Photos §3.1: three-tier before/after pairing heuristic');
   assert('used set excludes already-paired photos across tiers',
     /const used\s*=\s*new Set\(\)/.test(pr)
     && /used\.has\([a-zA-Z]+\)/.test(pr));
-  assert('Tier 3 only fires when fewer than 2 pairs found',
-    /out\.length\s*<\s*2/.test(pr));
+  assert('Tier 3 only fires when tiers 1+2 produced nothing (out.length === 0)',
+    /out\.length\s*===\s*0/.test(pr));
 }
 
 };

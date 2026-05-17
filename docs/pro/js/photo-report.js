@@ -288,8 +288,13 @@
       const aMap = bestByKey(afterPhotos,  (p) => normKey(dmgOf(p)), false, used);
       tryTier(bMap, aMap, (k) => 'Damage: ' + k.replace(/_/g, ' '));
     }
-    // Tier 3: chronological overview if we still have <2 pairs.
-    if (out.length < 2) {
+    // Tier 3: chronological overview ONLY when tiers 1+2 found nothing.
+    // Original design said `< 2` but that misbehaved: a lead with one
+    // location pair AND leftover same-location photos would get a
+    // bonus "Project overview" pair pulled from those leftovers,
+    // mislabeling them. §3.2 unit-test caught it. With `=== 0` this
+    // tier fires only for genuinely untagged leads (its real purpose).
+    if (out.length === 0) {
       const remBefore = beforePhotos.filter(p => !used.has(idOf(p)))
         .sort((x, y) => ms(x) - ms(y));
       const remAfter  = afterPhotos.filter(p => !used.has(idOf(p)))
