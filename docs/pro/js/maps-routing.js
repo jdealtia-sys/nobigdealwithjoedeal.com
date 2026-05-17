@@ -117,21 +117,37 @@ function initDrawMap() {
   if (!container) { console.error('drawMap container not found'); return; }
 
   drawMap = L.map('drawMap',{preferCanvas:true}).setView([39.07,-84.17],20);
-  // Map layers — Esri World Imagery (documented, reliable, ToS-friendly).
-  // Previously used undocumented Google mt{s}.google.com endpoint which
-  // routinely 403s and has no SLA. Esri caps at z=19 native — we let
-  // Leaflet upscale to z=22 for drawing precision.
+  // Map layers — Esri World Imagery primary (documented, ToS-friendly).
+  // Esri caps at z=19 native — Leaflet upscales to z=22 for drawing precision.
+  //
+  // Esri free tier has been returning sporadic 503s in burst conditions
+  // (~20 tiles at once on initial map paint). Fallback chain on `tileerror`:
+  // for each failed Esri tile, swap the <img>.src to Google's mt{0-3}.google
+  // satellite endpoint. Google is undocumented and was the prior provider
+  // (commit d2e... — see git log) but tends to fail differently from Esri,
+  // so the two together cover each other's gaps. The SVG attribution
+  // still credits Esri since that's the primary.
+  const ESRI_TILE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  const GOOGLE_SAT_FALLBACK = (z, x, y) =>
+    `https://mt${(x + y) % 4}.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${z}`;
   const ESRI_ATTR = 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community';
-  drawMapLayers.satellite = L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    { attribution: ESRI_ATTR, maxNativeZoom: 19, maxZoom: 22 }
-  );
+
+  function attachFallback(layer) {
+    layer.on('tileerror', function (ev) {
+      if (!ev.tile || !ev.coords) return;
+      if (ev.tile.dataset.nbdFallbackTried === '1') return; // give up after one retry
+      ev.tile.dataset.nbdFallbackTried = '1';
+      ev.tile.src = GOOGLE_SAT_FALLBACK(ev.coords.z, ev.coords.x, ev.coords.y);
+    });
+    return layer;
+  }
+
+  drawMapLayers.satellite = attachFallback(L.tileLayer(ESRI_TILE, {
+    attribution: ESRI_ATTR, maxNativeZoom: 19, maxZoom: 22
+  }));
   drawMapLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxNativeZoom:19,maxZoom:22});
   drawMapLayers.hybrid = L.layerGroup([
-    L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { maxNativeZoom: 19, maxZoom: 22 }
-    ),
+    attachFallback(L.tileLayer(ESRI_TILE, { maxNativeZoom: 19, maxZoom: 22 })),
     L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
       { maxNativeZoom: 19, maxZoom: 22, opacity: 0.75 }
