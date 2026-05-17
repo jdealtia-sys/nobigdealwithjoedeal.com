@@ -181,6 +181,29 @@
   function _locationLabel(p) {
     return p.location || (p.inferredLocation && p.inferredLocation.label) || '';
   }
+  // Emits the `src` (+ `srcset`+`sizes` when the variants pipeline has
+  // run) for a photo tile. The report renders in a popped-out document
+  // that doesn't have window.buildPhotoImgAttrs from customer.html, so
+  // we replicate the same shape locally. Without this, the fallback
+  // path drops the full-resolution iPhone original (3-5 MB) into every
+  // tile — a 40-photo report could pull 200+ MB.
+  function _imgAttrs(p, sizes) {
+    sizes = sizes || '220px';
+    const urls = p && p.urls;
+    const primary = /^https?:/i.test(String(p && p.url || '')) ? p.url : '';
+    const hasVariants = urls
+      && /^https?:/i.test(String(urls.thumb || ''))
+      && /^https?:/i.test(String(urls.med   || ''))
+      && /^https?:/i.test(String(urls.full  || ''));
+    if (!hasVariants) {
+      return 'src="' + _esc(primary) + '"';
+    }
+    const srcset = _esc(urls.thumb) + ' 200w, ' +
+                   _esc(urls.med)   + ' 600w, ' +
+                   _esc(urls.full)  + ' 1600w';
+    const fallback = _esc(urls.med || primary);
+    return 'src="' + fallback + '" srcset="' + srcset + '" sizes="' + _esc(sizes) + '"';
+  }
 
   function buildReportHTML(lead, name, before, during, after, dateStr, hasPhases, mode) {
     const isAdjuster = mode === 'adjuster';
@@ -197,7 +220,7 @@
         const num = (i + 1).toString().padStart(2, '0');
         return (
           '<div class="photo-tile photo-tile-adj">' +
-            '<img src="' + _esc(p.url) + '" alt="Photo ' + num + '">' +
+            '<img ' + _imgAttrs(p, '180px') + ' alt="Photo ' + num + '">' +
             '<div class="adj-meta">' +
               '<div class="adj-meta-num">#' + num + '</div>' +
               (loc ? '<div class="adj-meta-row"><span class="adj-meta-k">Location</span><span class="adj-meta-v">' + _esc(loc) + '</span></div>' : '') +
@@ -210,7 +233,7 @@
       // Homeowner: just thumbnail + optional caption
       return (
         '<div class="photo-tile">' +
-          '<img src="' + _esc(p.url) + '">' +
+          '<img ' + _imgAttrs(p, '220px') + '>' +
           (cap ? '<div class="photo-tile-cap">' + _esc(cap) + '</div>' : '') +
         '</div>'
       );
@@ -542,7 +565,7 @@
   ${lead.scopeOfWork ? `
   <div class="section">
     <div class="section-title">Work Performed</div>
-    <p style="font-size: var(--nbd-text-sm); color: var(--nbd-ink);">${lead.scopeOfWork}</p>
+    <p style="font-size: var(--nbd-text-sm); color: var(--nbd-ink); white-space: pre-line;">${_esc(lead.scopeOfWork)}</p>
   </div>` : ''}
 
   ${during.length > 0 ? `<div class="section">
