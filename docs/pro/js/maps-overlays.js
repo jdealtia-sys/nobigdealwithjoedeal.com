@@ -238,8 +238,8 @@ function buildPinPopupHTML(p, lead) {
         ${p.notes ? `<div class="plp-row"><span class="plp-key">Notes</span><span class="plp-val">${esc(p.notes)}</span></div>` : ''}
       </div>
       <div class="plp-btns">
-        <button class="plp-btn-go" onclick="goToLeadFromPin('${escA(lead.id)}')">→ Go to Lead</button>
-        <button class="plp-btn-del" onclick="deleteLeadFromPin('${escA(lead.id)}','${escA(name)}',this)">🗑 Delete Lead</button>
+        <button class="plp-btn-go" data-mo-action="goToLeadFromPin" data-mo-id="${escA(lead.id)}">→ Go to Lead</button>
+        <button class="plp-btn-del" data-mo-action="deleteLeadFromPin" data-mo-id="${escA(lead.id)}" data-mo-name="${escA(name)}">🗑 Delete Lead</button>
       </div>
     </div>`;
   } else {
@@ -250,8 +250,8 @@ function buildPinPopupHTML(p, lead) {
         <div class="plp-addr">${esc(p.notes || 'No notes')}</div>
       </div>
       <div class="plp-btns">
-        <button class="plp-btn-go" onclick="makeLeadFromPin('${escA(p.id)}')">＋ Create Lead Here</button>
-        <button class="plp-btn-del" onclick="deletePinOnly('${escA(p.id)}')">🗑 Delete Pin</button>
+        <button class="plp-btn-go" data-mo-action="makeLeadFromPin" data-mo-id="${escA(p.id)}">＋ Create Lead Here</button>
+        <button class="plp-btn-del" data-mo-action="deletePinOnly" data-mo-id="${escA(p.id)}">🗑 Delete Pin</button>
       </div>
     </div>`;
   }
@@ -411,7 +411,7 @@ async function searchMap() {
       <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
       <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
     </div>
-    <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+    <button class="make-lead-btn" data-mo-action="makeLeadFromSearch">＋ Make This a Lead</button>`;
   // Fire intel lookup
   fetchPropertyIntel(data, 'propCardInner');
 }
@@ -462,3 +462,27 @@ function damagNearMe() {
     { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
   );
 }
+
+
+// CSP-safe delegation for 5 data-mo-action attrs (maps overlays — pin popups).
+(function () {
+  if (window._NBD_MO_DELEGATE_BOUND) return;
+  window._NBD_MO_DELEGATE_BOUND = true;
+  document.addEventListener('click', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-mo-action]');
+    if (!t) return;
+    const action = t.dataset.moAction;
+    const id = t.dataset.moId;
+    const name = t.dataset.moName;
+    try {
+      switch (action) {
+        case 'goToLeadFromPin': if (typeof goToLeadFromPin === 'function') goToLeadFromPin(id); break;
+        case 'deleteLeadFromPin': if (typeof deleteLeadFromPin === 'function') deleteLeadFromPin(id, name, t); break;
+        case 'makeLeadFromPin':  if (typeof makeLeadFromPin === 'function') makeLeadFromPin(id); break;
+        case 'deletePinOnly':    if (typeof deletePinOnly === 'function') deletePinOnly(id); break;
+        case 'makeLeadFromSearch': if (typeof makeLeadFromSearch === 'function') makeLeadFromSearch(); break;
+        default: console.warn('[maps-overlays] no dispatch for', action);
+      }
+    } catch (e) { console.error('[maps-overlays] dispatch ' + action + ' failed:', e); }
+  });
+})();
