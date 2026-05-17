@@ -1467,7 +1467,7 @@ section('Phase D.3 — integrationStatus secret-readout completeness');
       'expected configured.' + k);
   }
   assert('integrationStatus exposes rotationRunbook URL',
-    /rotationRunbook:\s*'https:\/\/github\.com\/jdealtia-sys\/nobigdealwithjoedeal\.com\/blob\/main\/SECRET_ROTATION\.md'/.test(idx),
+    /rotationRunbook:\s*'https:\/\/github\.com\/jdealtia-sys\/nobigdealwithjoedeal\.com\/blob\/main\/documentation\/runbooks\/SECRET_ROTATION\.md'/.test(idx),
     'expected rotationRunbook URL in the response so admin UI can deep-link');
 }
 

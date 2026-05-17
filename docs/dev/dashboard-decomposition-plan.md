@@ -8,7 +8,7 @@
 ## Why this exists
 
 `docs/pro/dashboard.html` is the daily driver and the largest single file
-in the repo. Per [BIG_ROCKS.md](../../BIG_ROCKS.md) Rock 4, it must come
+in the repo. Per [BIG_ROCKS.md](../../documentation/projects/BIG_ROCKS.md) Rock 4, it must come
 apart over 5+ phases. This document is the manifest Phase 2+ work uses to
 plan each extraction. **No view should be extracted without first
 verifying its entry against this manifest** — the inline-handler / global

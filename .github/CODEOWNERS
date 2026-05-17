@@ -52,8 +52,8 @@
 # ─── Compliance / privacy ────────────────────────────────────
 /docs/privacy.html                      @jdealtia-sys
 /SECURITY.md                            @jdealtia-sys
-/SECRET_ROTATION.md                     @jdealtia-sys
-/SECURITY_BATTLE_PLAN.md                @jdealtia-sys
+/documentation/runbooks/SECRET_ROTATION.md  @jdealtia-sys
+/documentation/archive/legacy/SECURITY_BATTLE_PLAN.md  @jdealtia-sys
 
 # ─── Tests covering security-critical paths ──────────────────
 /tests/firestore-rules.test.js          @jdealtia-sys

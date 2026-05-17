@@ -92,7 +92,7 @@ exports.integrationStatus = onCall(
       // D.3 — runbook reference so the admin readout points at the
       // rotation procedure instead of requiring the rep to dig through
       // the repo.
-      rotationRunbook: 'https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/blob/main/SECRET_ROTATION.md'
+      rotationRunbook: 'https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/blob/main/documentation/runbooks/SECRET_ROTATION.md'
     };
   }
 );

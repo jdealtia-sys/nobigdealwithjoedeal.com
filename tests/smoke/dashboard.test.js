@@ -1212,9 +1212,10 @@ section('Phase C.4 starter — body-level data-action delegate (goTo cluster)');
 
 section('Phase C.6 step 2 — JS-file orange-rgba sweep');
 {
+  // Step 5 (2026-05-17): legacy docs/pro/js/d2d-tracker.js was deleted
+  // — only the d2d-tracker-2026b.js shards are live now.
   const SAFE_FILES = [
     'docs/pro/js/close-board.js',
-    'docs/pro/js/d2d-tracker.js',
     'docs/pro/js/d2d-tracker-2026b.js',
     'docs/pro/js/doc-preflight.js',
     'docs/pro/js/help-icon.js',
