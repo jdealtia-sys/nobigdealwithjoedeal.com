@@ -99,7 +99,7 @@ const WIDGETS = [
       }).slice(0, 5);
       if(!leads.length) { el.innerHTML = '<div class="w-empty">No hot leads right now</div>'; return; }
       el.innerHTML = leads.map(l => `
-        <div class="w-lead-row" onclick="if(window.goTo){goTo('crm')}">
+        <div class="w-lead-row" data-w-goto="crm">
           <div class="w-lead-name">${esc(l.name || l.address || 'Unknown')}</div>
           <div class="w-lead-stage" style="color:${l.stage==='Contacted'?'#A855F7':l.stage==='Est. Sent'?'#F97316':'var(--m)'}">${esc(l.stage)}</div>
         </div>`).join('');
@@ -287,7 +287,7 @@ const WIDGETS = [
       el.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
           <span style="font-size:11px;font-weight:700;color:var(--t);">Today</span>
-          <button class="w-mini-btn" onclick="goTo('schedule')">Open Calendar →</button>
+          <button class="w-mini-btn" data-w-goto="schedule">Open Calendar →</button>
         </div>
         <div class="w-empty" style="font-size:11px;">Cal.com appointments will appear here with future webhook integration.</div>`;
     }},
@@ -303,7 +303,7 @@ const WIDGETS = [
         </label>`).join('') + `</div>
         <div style="margin-top:6px;display:flex;gap:4px;">
           <input type="text" id="w-task-input" placeholder="Add task..." style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:5px 8px;font-size:11px;color:var(--t);font-family:inherit;">
-          <button class="w-mini-btn" onclick="window._wAddTask()">+</button>
+          <button class="w-mini-btn" data-w-action="addTask">+</button>
         </div>`;
     }},
 
@@ -367,7 +367,7 @@ const WIDGETS = [
             <select id="w-ql-damage" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px;font-size:11px;color:var(--t);font-family:inherit;">
               <option>Roof - Hail</option><option>Roof - Wind</option><option>Siding</option><option>Full Exterior</option>
             </select>
-            <button class="btn btn-orange" style="padding:8px 16px;font-size:11px;" onclick="window._wQuickAddLead()">Add →</button>
+            <button class="btn btn-orange" style="padding:8px 16px;font-size:11px;" data-w-action="quickAddLead">Add →</button>
           </div>
         </div>`;
     }},
@@ -376,7 +376,7 @@ const WIDGETS = [
     render(el){
       el.innerHTML = `
         <input type="text" id="w-qd-addr" placeholder="Address to measure..." style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px;font-size:12px;color:var(--t);font-family:inherit;margin-bottom:8px;">
-        <button class="btn btn-orange" style="width:100%;padding:10px;font-size:12px;justify-content:center;" onclick="window._wQuickDraw()">📏 Open Drawing Tool</button>`;
+        <button class="btn btn-orange" style="width:100%;padding:10px;font-size:12px;justify-content:center;" data-w-action="quickDraw">📏 Open Drawing Tool</button>`;
     }},
 
   {id:'ask-joe-mini', name:'Ask Joe', icon:'🤠', cat:'Tools & Quick Actions', size:'md',
@@ -385,7 +385,7 @@ const WIDGETS = [
         <div id="w-joe-response" style="font-size:12px;color:var(--m);min-height:40px;margin-bottom:8px;max-height:120px;overflow-y:auto;">Ask Joe anything about sales, claims, or your pipeline.</div>
         <div style="display:flex;gap:6px;">
           <input type="text" id="w-joe-input" placeholder="Ask Joe..." style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px;font-size:12px;color:var(--t);font-family:inherit;" onkeydown="if(event.key==='Enter')window._wAskJoe()">
-          <button class="btn btn-orange" style="padding:8px 12px;font-size:11px;" onclick="window._wAskJoe()">Ask</button>
+          <button class="btn btn-orange" style="padding:8px 12px;font-size:11px;" data-w-action="askJoe">Ask</button>
         </div>`;
     }},
 
@@ -394,7 +394,7 @@ const WIDGETS = [
       const ests = (window._estimates || []).slice(-3).reverse();
       if(!ests.length) { el.innerHTML = '<div class="w-empty">No estimates yet</div>'; return; }
       el.innerHTML = ests.map(e => `
-        <div class="w-lead-row" onclick="goTo('est')">
+        <div class="w-lead-row" data-w-goto="est">
           <div class="w-lead-name">${esc(e.address || e.addr || 'Estimate')}</div>
           <div style="font-size:10px;color:var(--orange);font-weight:700;">${e.total ? '$'+parseFloat(e.total).toLocaleString() : '—'}</div>
         </div>`).join('');
@@ -403,8 +403,8 @@ const WIDGETS = [
   {id:'recent-docs', name:'Recent Documents', icon:'📄', cat:'Tools & Quick Actions', size:'sm',
     render(el){
       el.innerHTML = `
-        <div class="w-lead-row" onclick="goTo('docs')"><div class="w-lead-name">Template Library</div><div style="font-size:10px;color:var(--m);">24 templates</div></div>
-        <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px;padding:7px;justify-content:center;" onclick="goTo('docs')">Open Template Library →</button>`;
+        <div class="w-lead-row" data-w-goto="docs"><div class="w-lead-name">Template Library</div><div style="font-size:10px;color:var(--m);">24 templates</div></div>
+        <button class="btn btn-ghost" style="width:100%;margin-top:6px;font-size:11px;padding:7px;justify-content:center;" data-w-goto="docs">Open Template Library →</button>`;
     }},
 
   {id:'booking-link', name:'Booking Link', icon:'🔗', cat:'Tools & Quick Actions', size:'sm',
@@ -415,8 +415,8 @@ const WIDGETS = [
       el.innerHTML = `
         <div style="font-size:11px;color:var(--m);margin-bottom:8px;word-break:break-all;">${url}</div>
         <div style="display:flex;gap:4px;">
-          <button class="w-mini-btn" style="flex:1;" onclick="navigator.clipboard.writeText('${url}');showToast('Copied!','ok')">📋 Copy</button>
-          <button class="w-mini-btn" style="flex:1;" onclick="window.open('sms:?body='+encodeURIComponent('Book here: ${url}'))">💬 SMS</button>
+          <button class="w-mini-btn" style="flex:1;" data-w-action="copyToClipboard" data-w-id="${url}">📋 Copy</button>
+          <button class="w-mini-btn" style="flex:1;" data-w-action="smsBookLink" data-w-id="${url}">💬 SMS</button>
         </div>`;
     }},
 
@@ -447,7 +447,7 @@ const WIDGETS = [
           </div>
           <div class="w-bar-track"><div class="w-bar-fill" style="width:${pct}%;${pct>=100?'background:var(--green);':''}"></div></div>
         </div>`;
-      }).join('') + `<button class="w-mini-btn" style="width:100%;margin-top:4px;" onclick="window.open('/pro/daily-success/','_self')">Open Daily Tracker →</button>`;
+      }).join('') + `<button class="w-mini-btn" style="width:100%;margin-top:4px;" data-w-action="openDailyTracker">Open Daily Tracker →</button>`;
     }},
 
   {id:'streak-counter', name:'Streak Counter', icon:'🔥', cat:'Motivation & Tracking', size:'sm',
@@ -566,7 +566,7 @@ const WIDGETS = [
   {id:'territory-mini', name:'Territory Heat Map', icon:'🗺️', cat:'Data & Analytics', size:'lg',
     render(el){
       el.innerHTML = `<div id="w-mini-heat" style="height:180px;border-radius:6px;overflow:hidden;"></div>
-        <button class="w-mini-btn" style="width:100%;margin-top:6px;" onclick="goTo('map')">Open Full Map →</button>`;
+        <button class="w-mini-btn" style="width:100%;margin-top:6px;" data-w-goto="map">Open Full Map →</button>`;
       setTimeout(() => {
         if(!window.L) return;
         if(window._wMiniHeat){try{window._wMiniHeat.remove();}catch(e){}}
@@ -662,7 +662,7 @@ function renderWidgetHome() {
       <div class="w-card-hdr">
         <span class="w-card-icon">${w.icon}</span>
         <span class="w-card-title">${w.name}</span>
-        <button class="w-card-remove" onclick="event.stopPropagation();window.NBDWidgets.removeWidget('${w.id}')" title="Remove widget">✕</button>
+        <button class="w-card-remove" data-w-action="removeWidget" data-w-id="${w.id}" data-w-stop="1" title="Remove widget">✕</button>
       </div>
       <div class="w-card-body" id="wb-${w.id}"></div>`;
     grid.appendChild(card);
@@ -689,14 +689,14 @@ function openWidgetPicker() {
   const activeIds = getActiveWidgets();
   const cats = [...new Set(WIDGETS.map(w => w.cat))];
 
-  let html = `<div class="w-picker-overlay" id="wPickerOverlay" onclick="if(event.target===this)window.NBDWidgets.closePicker()">
+  let html = `<div class="w-picker-overlay" id="wPickerOverlay" data-w-action="closePickerIfSelf">
     <div class="w-picker">
       <div class="w-picker-hdr">
         <div>
           <div style="font-size:9px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--orange);">Customize Home</div>
           <div style="font-size:18px;font-weight:800;color:var(--t);">Widget Library</div>
         </div>
-        <button style="background:none;border:none;color:var(--m);font-size:20px;cursor:pointer;" onclick="window.NBDWidgets.closePicker()">✕</button>
+        <button style="background:none;border:none;color:var(--m);font-size:20px;cursor:pointer;" data-w-action="closePicker">✕</button>
       </div>
       <div class="w-picker-body">`;
 
@@ -716,8 +716,8 @@ function openWidgetPicker() {
 
   html += `</div>
       <div class="w-picker-footer">
-        <button class="btn btn-ghost" style="font-size:11px;padding:8px 14px;" onclick="window.NBDWidgets.resetDefaults()">Reset to Defaults</button>
-        <button class="btn btn-orange" style="font-size:12px;padding:8px 20px;" onclick="window.NBDWidgets.closePicker()">Done</button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:8px 14px;" data-w-action="resetDefaults">Reset to Defaults</button>
+        <button class="btn btn-orange" style="font-size:12px;padding:8px 20px;" data-w-action="closePicker">Done</button>
       </div>
     </div>
   </div>`;
@@ -845,5 +845,46 @@ window.NBDWidgets = {
   resetDefaults,
   getActive: getActiveWidgets,
 };
+
+// ── CSP-SAFE EVENT DELEGATION ──────────────────────────────────
+// Prod CSP `script-src-attr 'none'` blocks every inline onclick=, even
+// when injected via innerHTML. Widgets render through innerHTML, so
+// every button used to be dead in prod. Single document-level click
+// listener (addEventListener is NOT blocked by CSP) dispatches based on
+// `data-w-action="X"` / `data-w-goto="X"` / `data-w-id="..."` attrs.
+
+const _wActions = {
+  addTask:        () => { if (typeof window._wAddTask === 'function') window._wAddTask(); },
+  quickAddLead:   () => { if (typeof window._wQuickAddLead === 'function') window._wQuickAddLead(); },
+  quickDraw:      () => { if (typeof window._wQuickDraw === 'function') window._wQuickDraw(); },
+  askJoe:         () => { if (typeof window._wAskJoe === 'function') window._wAskJoe(); },
+  copyToClipboard: (url) => { if (url) { navigator.clipboard.writeText(url); if (typeof showToast === 'function') showToast('Copied!','ok'); } },
+  smsBookLink:    (url) => { if (url) window.open('sms:?body=' + encodeURIComponent('Book here: ' + url)); },
+  openDailyTracker: () => window.open('/pro/daily-success/', '_self'),
+  removeWidget:   (id) => window.NBDWidgets.removeWidget(id),
+  closePicker:    () => window.NBDWidgets.closePicker(),
+  closePickerIfSelf: (_id, ev, target) => { if (ev && ev.target === target) window.NBDWidgets.closePicker(); },
+  resetDefaults:  () => window.NBDWidgets.resetDefaults(),
+};
+
+if (!window._NBD_WIDGETS_DELEGATE_BOUND) {
+  window._NBD_WIDGETS_DELEGATE_BOUND = true;
+  document.addEventListener('click', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-w-action], [data-w-goto]');
+    if (!t) return;
+    if (t.dataset.wStop === '1') ev.stopPropagation();
+    if (t.dataset.wGoto) {
+      if (typeof window.goTo === 'function') window.goTo(t.dataset.wGoto);
+      return;
+    }
+    const fn = _wActions[t.dataset.wAction];
+    if (!fn) { console.warn('[widgets] no dispatch for', t.dataset.wAction); return; }
+    try {
+      fn(t.dataset.wId, ev, t);
+    } catch (e) {
+      console.error('[widgets] dispatch ' + t.dataset.wAction + ' failed:', e);
+    }
+  });
+}
 
 })();
