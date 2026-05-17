@@ -604,42 +604,25 @@ window.NBDDocGen = {
           flex: 0 0 auto;
         }
 
-        /* Logo: image with text fallback. The text block is positioned
-           behind the img — if the img loads, it covers the text; if it
-           fails (offline / CSP), the text mark shows through. */
-        .nbd-logo-wrap {
-          position: relative;
-          width: 220px;
-          height: 56px;
-          display: flex;
-          align-items: center;
+        /* Logo: <object> wraps an inline SVG monogram. If the PNG
+           loads, browsers render it and the inner SVG is hidden. If
+           the PNG fails (CORP block, offline, missing file) the SVG
+           shows through automatically — no JS needed. */
+        .nbd-logo-obj {
+          display: block;
+          width: 72px;
+          height: 72px;
+          background: rgba(255,255,255,.10);
+          border: 1px solid rgba(255,255,255,.18);
+          border-radius: 10px;
+          padding: 4px;
+          box-sizing: border-box;
+          overflow: hidden;
         }
-        .nbd-logo-img {
-          height: 56px;
-          width: auto;
-          max-width: 220px;
-          object-fit: contain;
-          background: rgba(255,255,255,.08);
-          border-radius: 6px;
-          padding: 4px 8px;
-        }
-        .nbd-logo-text {
-          position: absolute;
-          left: 8px; top: 50%;
-          transform: translateY(-50%);
-          z-index: -1;
-          color: #fff;
-        }
-        .nbd-logo-mark {
-          font: 800 26px/1 'Helvetica Neue', Arial, sans-serif;
-          letter-spacing: .04em;
-          color: #fff;
-        }
-        .nbd-logo-sub {
-          font: 700 9px/1.1 'Helvetica Neue', Arial, sans-serif;
-          letter-spacing: .14em;
-          color: rgba(255,255,255,.85);
-          margin-top: 3px;
+        .nbd-logo-svg {
+          display: block;
+          width: 100%;
+          height: 100%;
         }
 
         .header-info {
@@ -1102,13 +1085,25 @@ window.NBDDocGen = {
    */
   renderNBDLogo() {
     const origin = this._assetOrigin();
-    return `<div class="nbd-logo-wrap">
-      <img class="nbd-logo-img" src="${origin}/assets/images/nbd-logo.png" alt="" width="64" height="64" />
-      <div class="nbd-logo-text">
-        <div class="nbd-logo-mark">NBD</div>
-        <div class="nbd-logo-sub">NO BIG DEAL HOME SOLUTIONS</div>
-      </div>
-    </div>`;
+    // Bulletproof brand mark: an inline SVG monogram is always present
+    // and looks intentional on its own. The PNG logo loads on top via
+    // <object> — which gracefully falls back to its inner content when
+    // the resource fails to load (broken URL, CORP block, offline).
+    // Unlike <img onerror>, this fallback is pure markup and works
+    // under strict CSP.
+    return `<object class="nbd-logo-obj" type="image/png" data="${origin}/assets/images/nbd-logo.png" aria-label="No Big Deal Home Solutions">
+      <svg class="nbd-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="NBD">
+        <defs>
+          <linearGradient id="nbdRing" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#f59e0b"/>
+            <stop offset="100%" stop-color="#e8720c"/>
+          </linearGradient>
+        </defs>
+        <circle cx="32" cy="32" r="29" fill="none" stroke="url(#nbdRing)" stroke-width="3"/>
+        <path d="M14 36 L32 18 L50 36" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="32" y="48" font-family="Helvetica Neue,Arial,sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1.5">NBD</text>
+      </svg>
+    </object>`;
   },
 
   /**

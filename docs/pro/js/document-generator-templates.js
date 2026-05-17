@@ -76,13 +76,10 @@
       padding:24px 32px; margin:-40px -50px 28px -50px; border-bottom:6px solid ${A};
       display:flex; justify-content:space-between; align-items:center; gap:18px; }
     .letterhead-brand { display:flex; align-items:center; gap:14px; min-width:0; position:relative; }
-    .letterhead-logo-wrap { position:relative; width:64px; height:64px; display:flex; align-items:center; justify-content:center;
-      background:rgba(255,255,255,.08); border-radius:8px; flex-shrink:0; }
-    .letterhead-logo { width:56px; height:56px; object-fit:contain; display:block; }
-    .letterhead-logo-fallback { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
-      justify-content:center; font-family:'Helvetica Neue',Arial,sans-serif; color:#fff; z-index:-1; }
-    .letterhead-logo-fallback .mark { font-size:22px; font-weight:800; letter-spacing:.04em; line-height:1; }
-    .letterhead-logo-fallback .sub  { font-size:7px; font-weight:700; letter-spacing:.1em; margin-top:3px; }
+    .letterhead-logo-obj { display:block; width:72px; height:72px; background:rgba(255,255,255,.10);
+      border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:4px; box-sizing:border-box;
+      overflow:hidden; flex-shrink:0; }
+    .letterhead-logo-svg { display:block; width:100%; height:100%; }
     .letterhead-name { font-family:'Helvetica Neue',Arial,sans-serif; font-size:22px; font-weight:800;
       color:#fff; letter-spacing:.04em; text-transform:uppercase; line-height:1.1; }
     .letterhead-tagline { font-family:Georgia,serif; font-size:12px; color:${A}; font-style:italic; margin-top:4px; }
@@ -107,22 +104,26 @@
   }
 
   function letterhead() {
-    // Logo URL is computed at render-time via window.location.origin
-    // so it resolves inside the universal doc viewer (which loads
-    // documents in about:blank / srcdoc, where relative paths fail).
-    // The "NBD / NO BIG DEAL HOME SOLUTIONS" text mark sits behind
-    // the img (z-index:-1) — if the image fails to load, the text
-    // shows through. No JS error handler needed (strict CSP blocks
-    // inline onerror anyway).
+    // The PNG logo loads via <object> with an inline SVG monogram as
+    // its fallback content. <object> automatically renders its inner
+    // content if the resource fails to load — works under strict CSP
+    // without JS, and survives CORP same-origin blocks (which is why
+    // root-relative <img src> failed for months inside the doc
+    // viewer's null-origin iframe srcdoc). When the PNG loads, the
+    // SVG is hidden. When it doesn't, the SVG ring + roof + "NBD"
+    // wordmark shows instead — always branded, never empty.
     return `<div class="letterhead">
       <div class="letterhead-brand">
-        <div class="letterhead-logo-wrap">
-          <img class="letterhead-logo" src="${LOGO_URL}" alt="" width="56" height="56" />
-          <div class="letterhead-logo-fallback">
-            <div class="mark">NBD</div>
-            <div class="sub">NO BIG DEAL</div>
-          </div>
-        </div>
+        <object class="letterhead-logo-obj" type="image/png" data="${LOGO_URL}" aria-label="${C.name}">
+          <svg class="letterhead-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NBD">
+            <defs><linearGradient id="lhRing" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#e8720c"/>
+            </linearGradient></defs>
+            <circle cx="32" cy="32" r="29" fill="none" stroke="url(#lhRing)" stroke-width="3"/>
+            <path d="M14 36 L32 18 L50 36" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="32" y="48" font-family="Helvetica Neue,Arial,sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1.5">NBD</text>
+          </svg>
+        </object>
         <div><div class="letterhead-name">${C.name}</div>
         <div class="letterhead-tagline">${C.tagline || 'No Big Deal — We\'ve Got You Covered'}</div></div>
       </div>
@@ -748,6 +749,16 @@
       </style>
 
       <div class="intro-hero">
+        <object class="intro-hero-logo" type="image/png" data="${LOGO_URL}" aria-label="${C.name}" style="display:block;width:80px;height:80px;margin:0 auto 14px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:12px;padding:6px;box-sizing:border-box;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" role="img" aria-label="NBD">
+            <defs><linearGradient id="ihRing" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#e8720c"/>
+            </linearGradient></defs>
+            <circle cx="32" cy="32" r="29" fill="none" stroke="url(#ihRing)" stroke-width="3"/>
+            <path d="M14 36 L32 18 L50 36" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="32" y="48" font-family="Helvetica Neue,Arial,sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1.5">NBD</text>
+          </svg>
+        </object>
         <h1>${C.name}</h1>
         <div class="tagline">No Big Deal — We've Got You Covered</div>
         <p style="margin-top:16px;font-size:14px;opacity:0.9;max-width:500px;margin-left:auto;margin-right:auto;">
