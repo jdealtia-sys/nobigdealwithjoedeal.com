@@ -546,15 +546,6 @@ async function renderRecentPhotoFeed() {
 window.renderRecentPhotoFeed = renderRecentPhotoFeed;
 
 // ══════════════════════════════════════════════
-// STORM MAP — Leaflet init
-// ══════════════════════════════════════════════
-function initStormMap(){
-  stormMap=L.map('stormMap').setView([39.4,-84.2],8);
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19}).addTo(stormMap);
-  loadStorm();
-}
-
-// ══════════════════════════════════════════════
 // PROPERTY INTEL — card render + modal pull
 // ══════════════════════════════════════════════
 function renderIntelCard(targetElId, intel, county, address) {

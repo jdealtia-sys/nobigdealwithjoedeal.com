@@ -50,30 +50,6 @@ async function loadPhotoCounts() {
 }
 
 // ══════════════════════════════════════════════
-// STORM MAP — weather.gov alerts pull
-// ══════════════════════════════════════════════
-async function loadStorm(){
-  const list=document.getElementById('alertsList');
-  list.innerHTML='<div style="font-size:11px;color:var(--m);">Loading alerts...</div>';
-  try{
-    const res=await fetch('https://api.weather.gov/alerts/active?area=OH',{headers:{'User-Agent':'NBDPro/1.0'}});
-    const data=await res.json();
-    const alerts=(data.features||[]).slice(0,8);
-    if(!alerts.length){list.innerHTML='<div style="font-size:11px;color:var(--green);">✓ No active alerts for Ohio</div>';return;}
-    const esc = window.nbdEsc || (s => String(s == null ? '' : s));
-    list.innerHTML=alerts.map(a=>{
-      const p=a.properties || {};
-      return`<div style="background:rgba(224,82,82,.08);border:1px solid rgba(224,82,82,.25);border-left:3px solid var(--red);border-radius:6px;padding:9px;margin-bottom:7px;">
-        <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:3px;">⚠️ ${esc(p.event)}</div>
-        <div style="font-size:10px;color:var(--m);">${esc(p.areaDesc)}</div>
-        <div style="font-size:10px;color:var(--m);margin-top:3px;">${esc(String(p.headline||'').substring(0,120))}</div>
-      </div>`;
-    }).join('');
-    if(stormMap) alerts.forEach(a=>{if(a.geometry)L.geoJSON(a.geometry,{style:{color:'var(--red)',weight:2,fillOpacity:.12}}).addTo(stormMap);});
-  }catch(e){list.innerHTML='<div style="font-size:11px;color:var(--m);">Could not load alerts.</div>';}
-}
-
-// ══════════════════════════════════════════════
 // LEADERBOARD — Firestore knocks query
 // ══════════════════════════════════════════════
 async function renderLeaderboard(){
@@ -358,12 +334,12 @@ async function saveDocUpload(){
 }
 async function loadDocs(){
   try {
-    const _duid = window._user?.uid;
-    if (!_duid) { if(wrap) wrap.innerHTML='<div class="empty"><div class="empty-icon">📁</div>No documents yet.</div>'; return; }
-    const snap = await getDocs(query(collection(window._db,'documents'), window.where('userId','==',_duid)));
-    const docs = snap.docs.map(d=>({id:d.id,...d.data()}));
     const wrap = document.getElementById('uploadedDocsWrap');
     if(!wrap) return;
+    const _duid = window._user?.uid;
+    if (!_duid) { wrap.innerHTML='<div class="empty"><div class="empty-icon">📁</div>No documents yet.</div>'; return; }
+    const snap = await getDocs(query(collection(window._db,'documents'), window.where('userId','==',_duid)));
+    const docs = snap.docs.map(d=>({id:d.id,...d.data()}));
     if(!docs.length){ wrap.innerHTML='<div class="empty"><div class="empty-icon">📁</div>No uploaded documents yet.</div>'; return; }
     const esc = window.nbdEsc || (s => String(s == null ? '' : s));
     wrap.innerHTML = docs.map(d=>{

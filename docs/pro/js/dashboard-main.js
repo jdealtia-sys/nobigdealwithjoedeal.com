@@ -17,12 +17,12 @@
  *
  * If you're hunting for code that was here pre-split:
  *   - Module state / constants / boot IIFEs → dashboard-state.js
- *   - loadPhotoCounts, loadStorm, renderLeaderboard, fetchPropertyIntel,
+ *   - loadPhotoCounts, renderLeaderboard, fetchPropertyIntel,
  *     geocode, saveDocUpload, loadDocs, _gdpr*, _sharePortalLink,
  *     _revokePortalLink → dashboard-api.js
  *   - renderEstimatesList, viewEstimate, renderPhotoLeads,
  *     renderPhotoGrid, openPhotoFor, uploadPhotos,
- *     renderRecentPhotoFeed, initStormMap, renderIntelCard,
+ *     renderRecentPhotoFeed, renderIntelCard,
  *     fetchPropertyIntelModal, renderZoneList, updatePinStats,
  *     openCardDetailModal, closeCardDetailModal, openMobileJobDetail,
  *     closeMobileJobDetail, populateProspectQuickActions
