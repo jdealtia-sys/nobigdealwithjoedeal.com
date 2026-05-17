@@ -1922,6 +1922,15 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .line-len{color:var(--orange);font-weight:700;font-family:'Barlow Condensed',sans-serif;font-size:12px;}
 .line-del{background:none;border:none;color:var(--m);cursor:pointer;font-size:12px;padding:1px 3px;transition:color .2s;}
 .line-del:hover{color:var(--red);}
+/* Per-type totals at the top of the LINES list */
+.line-totals{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid var(--br);}
+.line-total-chip{display:inline-flex;align-items:center;gap:5px;background:var(--s2);border:1px solid var(--br);border-radius:999px;padding:3px 9px;font-size:10px;color:var(--t);line-height:1;}
+.line-total-chip .lt-dot{width:7px;height:7px;}
+.line-total-chip-name{font-weight:600;}
+.line-total-chip-meta{color:var(--m);}
+.line-total-chip-len{color:var(--orange);font-weight:700;font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.02em;}
+/* Per-line type ordinal (#N) */
+.line-num{color:var(--m);font-weight:500;margin-left:2px;}
 .calc-selects{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px;}
 .calc-select{background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 9px;font-family:'Barlow',sans-serif;font-size:11px;color:var(--t);outline:none;width:100%;}
 .calc-select:focus{border-color:var(--orange);}

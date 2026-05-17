@@ -1067,22 +1067,61 @@ function renderLineList() {
   const el = document.getElementById('lineList');
   if(!drawnLines.length) {
     el.innerHTML = '<p style="font-size:10px;color:var(--m);text-align:center;padding:8px;">No lines yet.</p>';
+    el.onclick = null;
+    el.onchange = null;
     return;
   }
+  // Per-type aggregates (count + total feet), preserving LT order
+  const totals = LT.map(() => ({count:0, len:0}));
+  drawnLines.forEach(l => {
+    if (totals[l.type]) { totals[l.type].count++; totals[l.type].len += l.dist; }
+  });
+  const chips = totals.map((t, idx) => {
+    if (!t.count) return '';
+    const lt = LT[idx];
+    return `<span class="line-total-chip" title="${lt.n}: ${t.count} line${t.count===1?'':'s'}, ${t.len.toFixed(1)} ft total">
+      <span class="lt-dot" style="background:${lt.color};${idx===4?'border:1px dashed #fff;':''}"></span>
+      <span class="line-total-chip-name">${lt.n}</span>
+      <span class="line-total-chip-meta">×${t.count}</span>
+      <span class="line-total-chip-len">${t.len.toFixed(1)} ft</span>
+    </span>`;
+  }).join('');
+  // Per-type ordinal (#N) numbering as we iterate drawnLines in original order
+  const ridx = {};
   const ltOpts = LT.map((lt, i) => `<option value="${i}">${lt.n}</option>`).join('');
-  el.innerHTML = drawnLines.map(l => {
+  const rows = drawnLines.map(l => {
+    ridx[l.type] = (ridx[l.type] || 0) + 1;
     const isSel = l.id === selectedLineId;
-    return `<div class="line-item ${isSel ? 'selected' : ''}" onclick="selectLine(${l.id})">
+    return `<div class="line-item ${isSel ? 'selected' : ''}" data-action="selectLine" data-line-id="${l.id}">
       <div class="lt-dot" style="background:${l.color};${l.type===4?'border:1px dashed #fff;':''}"></div>
-      <span class="line-lbl">${l.name}</span>
+      <span class="line-lbl">${l.name}<span class="line-num"> #${ridx[l.type]}</span></span>
       <span class="line-len">${l.dist.toFixed(1)} ft</span>
-      ${isSel ? `<select class="line-type-sel" onchange="retypeLine(${l.id},parseInt(this.value))" onclick="event.stopPropagation()">${ltOpts}</select>` : `<button class="line-del" onclick="event.stopPropagation();deleteLine(${l.id})">✕</button>`}
+      ${isSel
+        ? `<select class="line-type-sel" data-action="retypeLine" data-line-id="${l.id}">${ltOpts}</select>`
+        : `<button class="line-del" data-action="deleteLine" data-line-id="${l.id}" aria-label="Delete line">✕</button>`}
     </div>`;
   }).join('');
+  el.innerHTML = (chips ? `<div class="line-totals">${chips}</div>` : '') + rows;
   if(selectedLineId !== null) {
     const sel = el.querySelector('.line-type-sel');
     if(sel) { const l = drawnLines.find(x => x.id === selectedLineId); if(l) sel.value = l.type; }
   }
+  // CSP-safe delegated handlers via DOM-property assignment (NOT inline onclick=
+  // attribute, which is blocked by the prod CSP `script-src-attr 'none'`).
+  el.onclick = function(ev) {
+    const target = ev.target.closest('[data-action]');
+    if (!target) return;
+    const action = target.dataset.action;
+    const id = parseInt(target.dataset.lineId, 10);
+    if (action === 'deleteLine')      { ev.stopPropagation(); deleteLine(id); }
+    else if (action === 'selectLine') { selectLine(id); }
+    else if (action === 'retypeLine') { ev.stopPropagation(); /* change-handler does the work */ }
+  };
+  el.onchange = function(ev) {
+    const target = ev.target.closest('[data-action="retypeLine"]');
+    if (!target) return;
+    retypeLine(parseInt(target.dataset.lineId, 10), parseInt(target.value, 10));
+  };
   // Show angles when lines exist
   showAngles();
 }
