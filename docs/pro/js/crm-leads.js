@@ -185,18 +185,24 @@ async function saveLead(){
   const intelData = window._modalIntel || {};
   // saveLead: proceed with save
   try {
+    // Field reads below all use optional chaining; the 6 that previously
+    // assumed `.value` directly (lLname/lPhone/lEmail/lStage/lSource/lNotes)
+    // would null-deref if the lead-modal markup ever ships without one of
+    // them. The entry guards on lines 139/143 cover the common case but
+    // we make the field-level reads safe too for consistency with the
+    // rest of the object literal.
     await window._saveLead({
       id: (document.getElementById('lEditId')?.value||undefined)||undefined,
       firstName: fname,
-      lastName: document.getElementById('lLname').value.trim(),
+      lastName: document.getElementById('lLname')?.value?.trim() || '',
       address: addr,
-      phone: document.getElementById('lPhone').value.trim(),
-      email: document.getElementById('lEmail').value.trim(),
-      stage: document.getElementById('lStage').value,
+      phone: document.getElementById('lPhone')?.value?.trim() || '',
+      email: document.getElementById('lEmail')?.value?.trim() || '',
+      stage: document.getElementById('lStage')?.value || '',
       jobType: document.getElementById('lJobType')?.value || '',
       subType: document.getElementById('lSubType')?.value || '',
       trades: (typeof window.getSelectedTrades === 'function') ? window.getSelectedTrades() : [],
-      source: document.getElementById('lSource').value,
+      source: document.getElementById('lSource')?.value || '',
       damageType: document.getElementById('lDamageType')?.value||'',
       claimStatus: document.getElementById('lClaimStatus')?.value||'No Claim',
       jobValue: parseFloat(document.getElementById('lJobValue')?.value)||0,
@@ -219,7 +225,7 @@ async function saveLead(){
       // Job fields
       scheduledDate: document.getElementById('lScheduledDate')?.value||'',
       crew: document.getElementById('lCrew')?.value?.trim()||'',
-      notes: document.getElementById('lNotes').value.trim(),
+      notes: document.getElementById('lNotes')?.value?.trim() || '',
       yearBuilt:     intelData.yearBuilt   || null,
       marketValue:   intelData.marketValue || null,
       lastSaleDate:  intelData.lastSaleDate || null,
