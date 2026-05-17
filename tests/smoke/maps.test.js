@@ -22,7 +22,7 @@ section('UI-D: Hail overlay on D2D + Pipeline badge');
   assert('D2D exposes showHail', /showHail:\s*async/.test(src));
   assert('D2D exposes hideHail', /hideHail:\s*\(\)\s*=>/.test(src));
   assert('Hail button rendered in map controls',
-    /onclick="window\._d2dHailLayer/.test(src));
+    /data-d2d-action="toggleHail"/.test(src));
   // Step 4b: buildCard (which renders the hail badge) lives in
   // crm-pipeline.js post-split — concat via readCrm() so the
   // assertion finds the pattern.
