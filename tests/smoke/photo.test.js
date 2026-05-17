@@ -548,6 +548,30 @@ section('Photos §3.1: three-tier before/after pairing heuristic');
     /out\.length\s*===\s*0/.test(pr));
 }
 
+section('customer.html: blank-preview escape hatch on prereq warning');
+{
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+
+  // The Can't-Generate modal now has a second CTA — "Preview blank
+  // template" — so a rep can render any template even when prereqs
+  // aren't met. Useful for showing customers what a doc looks like
+  // before all data is gathered, or QA-ing the template itself.
+  assert('window._previewBlankDoc exposed',
+    /window\._previewBlankDoc\s*=\s*function/.test(customer));
+  assert('_blankifyDocData fills placeholder values for missing fields',
+    /function _blankifyDocData\([^)]*\)[\s\S]{0,1500}placeholders\s*=\s*\{[\s\S]{0,1500}\[Customer Name\]/.test(customer));
+  assert('blank-preview data flags _isBlankPreview = true',
+    /out\._isBlankPreview\s*=\s*true/.test(customer));
+  assert('prereq modal renders "Preview blank template" button',
+    /class="nbd-preq-preview"[\s\S]{0,300}Preview blank template/.test(customer));
+  assert('preview button wires to _previewBlankDoc(type)',
+    /nbd-preq-preview['"]\s*\)\.addEventListener\(\s*['"]click['"][\s\S]{0,200}window\._previewBlankDoc\(\s*type\s*\)/.test(customer));
+  assert('_previewBlankDoc bypasses prereq check (no checkPrerequisites call inside)',
+    !/_previewBlankDoc[\s\S]{0,500}checkPrerequisites/.test(customer));
+  assert('_previewBlankDoc calls NBDDocGen.generate directly',
+    /window\._previewBlankDoc[\s\S]{0,600}window\.NBDDocGen\.generate\(\s*type\s*,\s*blank\s*\)/.test(customer));
+}
+
 section('NBDUrl helper: canonical customer URL builder');
 {
   const helper = read(path.join(ROOT, 'docs/pro/js/nbd-url.js'));

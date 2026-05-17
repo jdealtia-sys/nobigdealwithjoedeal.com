@@ -7003,6 +7003,71 @@ function checkPrerequisites(type, data) {
   return missing.length > 0 ? { ok: false, missing, label: prereq.label, msg: prereq.msg } : { ok: true };
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Blank-preview escape hatch. Lets a rep render any template even
+// when prereqs aren't met — useful for:
+//   - "what does this doc look like?" before gathering data
+//   - showing the customer a blank preview so they know what's coming
+//   - QA / spot-checking templates after a template change
+// Renders the doc with real data WHERE AVAILABLE, sentinel placeholders
+// (e.g. "[Customer name]") where fields are missing. Skips DocPreflight
+// and the prereq check entirely. Output goes to the standard
+// NBDDocGen.generate viewer, with a banner marking it as a preview.
+// ─────────────────────────────────────────────────────────────────
+function _blankifyDocData(realData) {
+  const out = Object.assign({}, realData || {});
+  // Substitute placeholders for empty primitives so templates that do
+  // `data.firstName.toUpperCase()` produce something legible instead
+  // of empty strings or undefined-crashes.
+  const placeholders = {
+    firstName: '[First Name]',
+    lastName: '[Last Name]',
+    name: '[Customer Name]',
+    fullName: '[Customer Name]',
+    homeownerName: '[Customer Name]',
+    email: '[customer@email.com]',
+    phone: '[(555) 555-5555]',
+    address: '[123 Main St, City, State]',
+    propertyAddress: '[123 Main St, City, State]',
+    claimNumber: '[Claim #]',
+    insCarrier: '[Carrier]',
+    insuranceCarrier: '[Carrier]',
+    policyNumber: '[Policy #]',
+    dateOfLoss: '[Date of Loss]',
+    scopeOfWork: '[Scope of work — to be added]',
+    jobType: '[Job type]',
+    damageType: '[Damage type]',
+    jobValue: '[Job value]',
+    estimateTotal: '[Estimate total]',
+    warrantyTier: '[Warranty tier]',
+  };
+  for (const k in placeholders) {
+    if (out[k] == null || out[k] === '' || out[k] === 0) out[k] = placeholders[k];
+  }
+  out._isBlankPreview = true;
+  return out;
+}
+
+window._previewBlankDoc = function (type) {
+  if (!window.NBDDocGen) {
+    showToast('Document generator loading...', 'error');
+    return;
+  }
+  const realData = getCustomerDocData();
+  const blank = _blankifyDocData(realData);
+  // Quick visible toast so the rep knows this is a preview, not a
+  // real doc. The viewer itself doesn't currently have a "draft"
+  // watermark; tracking it via _isBlankPreview on the data object
+  // gives templates a hook to render one in the future.
+  showToast('Blank preview — fields shown in brackets are missing.', 'info');
+  try {
+    window.NBDDocGen.generate(type, blank);
+  } catch (err) {
+    console.error('[blank-preview]', type, 'failed:', err);
+    showToast('Preview failed: ' + (err && err.message || err), 'error');
+  }
+};
+
 window.generateCustomerDoc = function(type) {
   if (!window.NBDDocGen) {
     showToast('Document generator loading...', 'error');
@@ -7013,22 +7078,33 @@ window.generateCustomerDoc = function(type) {
   const check = checkPrerequisites(type, data);
 
   if (!check.ok) {
-    // Show prerequisite warning with specific missing items
+    // Show prerequisite warning with specific missing items.
+    // Two CTAs: "Got It" (acknowledge), and the new "Preview blank
+    // template" escape hatch — the rep can still see the doc layout
+    // even when data isn't ready, useful for showing the customer
+    // what's coming or QA-ing the template itself.
     const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     const label = check.label || type;
     const modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;';
     modal.innerHTML = `
-      <div style="background:var(--card,#111);border:1px solid var(--border,#333);border-radius:14px;padding:32px;max-width:440px;width:90%;text-align:center;">
+      <div style="background:var(--card,#111);border:1px solid var(--border,#333);border-radius:14px;padding:32px;max-width:460px;width:90%;text-align:center;">
         <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--text,#fff);margin-bottom:8px;">Can't Generate ${esc(label)}</div>
         <div style="font-size:13px;color:var(--muted,#888);margin-bottom:16px;">This document requires data that hasn't been added yet:</div>
         <div style="text-align:left;background:var(--surface,#1a1a2e);border-radius:8px;padding:14px;margin-bottom:20px;">
           ${check.missing.map(m => '<div style="font-size:13px;color:var(--orange);padding:4px 0;">• ' + esc(m) + '</div>').join('')}
         </div>
-        <button class="nbd-preq-close" style="padding:12px 28px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got It</button>
+        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+          <button class="nbd-preq-preview" style="padding:12px 22px;background:rgba(255,255,255,.08);color:var(--text,#fff);border:1px solid var(--border,#333);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">👁 Preview blank template</button>
+          <button class="nbd-preq-close" style="padding:12px 28px;background:var(--orange);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got It</button>
+        </div>
       </div>`;
     modal.querySelector('.nbd-preq-close').addEventListener('click', () => modal.remove());
+    modal.querySelector('.nbd-preq-preview').addEventListener('click', () => {
+      modal.remove();
+      window._previewBlankDoc(type);
+    });
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     return;
