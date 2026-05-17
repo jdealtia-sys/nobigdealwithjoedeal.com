@@ -496,44 +496,52 @@ body {
 
     <div class="or-divider">or sign up with email</div>
 
-    <form id="regForm">
+    <!-- Real <form action="#" method="post"> + name= on every input +
+         matching autocomplete tokens — every browser's password
+         manager (1Password, Bitwarden, Chrome, Safari, Firefox) needs
+         these signals together to (a) offer autofill on revisit and
+         (b) prompt "Save password?" after a successful submit.
+         js/pages/register.js binds via form.addEventListener('submit',
+         register) so the manager sees the submission before we hand
+         off to Firebase. -->
+    <form id="regForm" action="#" method="post" novalidate>
       <div class="reg-err" id="regErr"></div>
       <div class="reg-ok"  id="regOk"></div>
 
       <!-- Access code FIRST — most important gate -->
       <div class="ffield code-field">
         <label>Access Code <span style="font-weight:400;color:rgba(255,255,255,.3);">(optional — leave blank for free tier)</span></label>
-        <input class="finput" id="regCode" type="text" placeholder="NBD-XXXXX or leave blank" autocomplete="off" spellcheck="false">
+        <input class="finput" id="regCode" name="access-code" type="text" placeholder="NBD-XXXXX or leave blank" autocomplete="off" spellcheck="false">
         <div class="code-hint">Use code <strong style="color:#e8720c;letter-spacing:.05em;">NBD-PRO</strong> to get started, or <a href="mailto:jd@nobigdealwithjoedeal.com">email Joe</a> for a custom code.</div>
       </div>
 
       <div class="frow">
         <div class="ffield">
           <label>First Name <span>*</span></label>
-          <input class="finput" id="regFirst" type="text" placeholder="Joe" autocomplete="given-name">
+          <input class="finput" id="regFirst" name="given-name" type="text" placeholder="Joe" autocomplete="given-name" autocapitalize="words">
         </div>
         <div class="ffield">
           <label>Last Name</label>
-          <input class="finput" id="regLast" type="text" placeholder="Deal" autocomplete="family-name">
+          <input class="finput" id="regLast" name="family-name" type="text" placeholder="Deal" autocomplete="family-name" autocapitalize="words">
         </div>
       </div>
 
       <div class="ffield">
         <label>Company Name</label>
-        <input class="finput" id="regCompany" type="text" placeholder="No Big Deal Home Solutions" autocomplete="organization">
+        <input class="finput" id="regCompany" name="organization" type="text" placeholder="No Big Deal Home Solutions" autocomplete="organization" autocapitalize="words">
       </div>
 
       <div class="ffield">
         <label>Email <span>*</span></label>
-        <input class="finput" id="regEmail" type="email" placeholder="you@yourcompany.com" autocomplete="email">
+        <input class="finput" id="regEmail" name="email" type="email" placeholder="you@yourcompany.com" autocomplete="email" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" required>
       </div>
 
       <div class="ffield">
         <label>Password <span>*</span></label>
         <div class="finput-wrap">
-          <input class="finput" id="regPass" type="password" placeholder="8+ characters"
-            autocomplete="new-password" style="padding-right:40px;">
-          <button type="button" class="pass-toggle" data-target="regPass">👁</button>
+          <input class="finput" id="regPass" name="new-password" type="password" placeholder="8+ characters"
+            autocomplete="new-password" minlength="8" required style="padding-right:40px;">
+          <button type="button" class="pass-toggle" data-target="regPass" aria-label="Show password">👁</button>
         </div>
         <div class="pass-strength"><div class="pass-strength-bar" id="strengthBar"></div></div>
       </div>
@@ -541,9 +549,9 @@ body {
       <div class="ffield">
         <label>Confirm Password <span>*</span></label>
         <div class="finput-wrap">
-          <input class="finput" id="regConfirm" type="password" placeholder="Repeat password"
-            autocomplete="new-password" style="padding-right:40px;">
-          <button type="button" class="pass-toggle" data-target="regConfirm">👁</button>
+          <input class="finput" id="regConfirm" name="new-password-confirm" type="password" placeholder="Repeat password"
+            autocomplete="new-password" minlength="8" required style="padding-right:40px;">
+          <button type="button" class="pass-toggle" data-target="regConfirm" aria-label="Show password">👁</button>
         </div>
       </div>
 
