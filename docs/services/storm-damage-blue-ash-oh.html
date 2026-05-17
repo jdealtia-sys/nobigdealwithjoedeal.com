@@ -320,6 +320,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -339,7 +340,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -371,9 +372,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -492,19 +509,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Storm Damage FAQ — <span>Blue Ash</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Why is Blue Ash at high risk for storm damage? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Why is Blue Ash at high risk for storm damage? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Blue Ash sits northeast of Cincinnati in the direct path of spring storm systems that track from the southwest. These systems often carry hail across the Cincinnati metro before dissipating further east — which means Blue Ash receives storms at or near full strength. The area's older housing stock also means roofs have less resilience than newer impact-rated construction.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What should I do right after a storm hits my Blue Ash property? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What should I do right after a storm hits my Blue Ash property? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Photograph any visible damage from ground level — gutters, siding, AC units, and any debris. Don't go on the roof yourself. Call Joe for a free inspection. Avoid signing any documents with your insurance carrier's adjuster until you have an independent contractor assessment. Ohio claims have filing windows, so acting within the first few days matters.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Does Joe handle both residential and commercial storm damage in Blue Ash? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Does Joe handle both residential and commercial storm damage in Blue Ash? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">For residential properties, yes — full scope from inspection through completed replacement. For smaller commercial properties, Joe provides assessments and coordinates with the appropriate crews. Blue Ash's commercial presence means some properties have flat or low-slope roofing that requires different documentation than standard residential claims.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does a storm damage insurance claim take in Blue Ash? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How long does a storm damage insurance claim take in Blue Ash? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">From inspection to completed roof replacement, most Blue Ash storm claims run four to eight weeks — inspection and documentation first, then adjuster visit, then approval and materials lead time, then installation. Joe tracks each step and follows up with your carrier on your behalf so you're not managing the process alone.</div>
       </div>
     </div>

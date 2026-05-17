@@ -330,6 +330,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -349,7 +350,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -381,9 +382,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -491,19 +508,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Roof Repair FAQ — <span>Mason</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I know if my Mason roof needs repair or full replacement? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How do I know if my Mason roof needs repair or full replacement? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Roof repair makes sense when damage is isolated — a few missing shingles, a cracked pipe boot, lifted flashing at one valley — and the surrounding shingles still have granule coverage and structural integrity. Full replacement is better when more than 25–30% of the surface is affected or when shingles are at end of life. Joe does a free inspection and gives you a straight answer either way — no upselling.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What does a roof repair inspection include? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What does a roof repair inspection include? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Joe goes on the roof (not a drive-by assessment), checks every penetration point (chimney, vents, skylights), inspects flashing at all valleys and transitions, looks for lifted or missing ridge cap, checks for granule loss patterns that indicate age-related wear, and does an attic moisture check if access is available. You get photo documentation of every finding.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Does homeowners insurance cover roof repairs in Mason? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Does homeowners insurance cover roof repairs in Mason? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">It depends on the cause. Storm-related damage (hail impact, wind uplift) is typically covered under your homeowners policy subject to your deductible. Wear-and-tear repairs generally aren't. Joe can help document the damage properly if there's an insurance angle — and if it's maintenance-related, he'll tell you upfront so you know what to expect.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does a typical roof repair take? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How long does a typical roof repair take? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Most repairs are a half-day to full-day job depending on scope. Shingle repairs, pipe boot replacements, and minor flashing work can usually be completed in one trip. Larger flashing repairs or areas with decking rot may take a full day. Joe schedules with real windows, not four-hour arrival ranges.</div>
       </div>
     </div>

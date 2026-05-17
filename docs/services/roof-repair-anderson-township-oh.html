@@ -320,6 +320,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -339,7 +340,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -371,9 +372,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -492,19 +509,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Roof Repair FAQ — <span>Anderson Township</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I know if my Anderson Township roof needs repair or replacement? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How do I know if my Anderson Township roof needs repair or replacement? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">The honest answer depends on what Joe finds in the inspection. Age alone doesn't determine the answer — some 1970s roofs in Anderson Township still have sound decking and adequate remaining life. The key factors are the condition of the decking beneath the shingles, the integrity of existing flashing, and whether current leaks are isolated or systemic. Joe gives you a documented picture of all three.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What are the most common roof repair issues in Anderson Township homes? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What are the most common roof repair issues in Anderson Township homes? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">On homes built in the 1960s through 1980s, the most common repair issues are failed chimney flashing, cracked valley metal, lifted ridge cap shingles from wind, and pipe boot failures around plumbing penetrations. These are all targeted repairs that can extend roof life meaningfully when the overall structure is still sound.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can a roof repair be covered by my homeowner's insurance? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Can a roof repair be covered by my homeowner's insurance? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">If the repair is needed because of storm or hail damage, yes — most Ohio homeowner's policies cover storm-caused repairs. Age-related deterioration is not typically covered. Joe inspects for both scenarios and tells you honestly which category your damage falls into before you decide how to proceed.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does a roof repair take in Anderson Township? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How long does a roof repair take in Anderson Township? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Most targeted repairs — flashing replacement, shingle sections, pipe boots — are completed in a single half-day or full day visit. Larger partial-replacement scopes may take two days. Joe gives you a specific estimate for your job after the inspection so there are no surprises.</div>
       </div>
     </div>

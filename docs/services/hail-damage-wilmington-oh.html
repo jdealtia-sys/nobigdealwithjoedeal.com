@@ -329,6 +329,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -348,7 +349,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -380,9 +381,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -488,19 +505,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Hail Damage FAQ — <span>Wilmington, OH</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Why are hail damage claims in Wilmington, OH often under-documented? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Why are hail damage claims in Wilmington, OH often under-documented? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Clinton County's smaller insurance restoration contractor pool means claims get under-documented. Homeowners file without professional advocacy and accept initial payments that don't reflect actual damage. Wilmington's position east of the Cincinnati metro also means hail-producing storm systems frequently pass through after already delivering damage to Warren and Hamilton Counties.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Will Joe really drive out to Wilmington for a free hail inspection? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Will Joe really drive out to Wilmington for a free hail inspection? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes. Joe covers all of Clinton County with the same free inspection and thorough documentation approach he uses in larger markets. No travel fees, no abbreviated inspection — Wilmington gets the same on-roof assessment with impact density measurement that he performs everywhere.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How can I tell if my Wilmington home has hail damage? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How can I tell if my Wilmington home has hail damage? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Ground-level indicators include dented gutters, dings on AC units, and chipped paint on window trim or fascia. On the roof: random dark spots (granule loss exposing the asphalt mat beneath). Joe's inspection includes impact density documentation — dents per 10 sq ft — which gives adjusters the evidence they need to approve a valid claim.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can Joe help if the adjuster underpays my Wilmington hail claim? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Can Joe help if the adjuster underpays my Wilmington hail claim? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes. Supplement negotiation is a standard part of Joe's process. In smaller markets like Clinton County where adjuster presence is thin and initial assessments often run low, professional documentation and a contractor willing to negotiate the shortfall makes a real difference in the final settlement.</div>
       </div>
     </div>

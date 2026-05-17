@@ -312,6 +312,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -331,7 +332,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -363,9 +364,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -476,19 +493,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Roof Repair FAQ — <span>Erlanger, KY</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I know if my Erlanger, KY roof needs repair or full replacement? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How do I know if my Erlanger, KY roof needs repair or full replacement? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Joe's free inspection assesses the age of the roof, how many existing layers are present, the condition of the decking, and the extent of damage. Erlanger homes from the 1950s–1960s often have had one prior re-cover — once you're at two existing layers, Kentucky building code requires full tear-off before any new shingles go down, which changes the math considerably.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What types of roof repair does Joe handle in Erlanger? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What types of roof repair does Joe handle in Erlanger? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Shingle replacement, flashing repair and replacement, pipe boot sealing, valley repair, ridge cap replacement, and leak source diagnosis. Joe traces active leaks to their actual entry point — which is often not directly above where water appears inside the home.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can a roof repair in Erlanger be covered by homeowner's insurance? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Can a roof repair in Erlanger be covered by homeowner's insurance? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">If the damage is from a covered event (storm, wind, hail), yes — even partial repairs can qualify for insurance coverage in Kentucky. Joe assesses the cause of damage and advises whether a claim is worth pursuing based on your deductible and the actual repair scope.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">My Erlanger roof leaks but it's not that old. What would cause that? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">My Erlanger roof leaks but it's not that old. What would cause that? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Flashing failures and improper sealing around penetrations (pipes, vents, chimneys) are the most common cause of leaks on relatively young roofs. These are repairable without full replacement if caught early. Joe diagnoses the actual source before recommending any work.</div>
       </div>
     </div>

@@ -328,6 +328,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -347,7 +348,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -379,9 +380,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -488,19 +505,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Hail Damage FAQ — <span>Cincinnati</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How can I tell if my Cincinnati roof has hail damage? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How can I tell if my Cincinnati roof has hail damage? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">From the ground: dented gutters, chipped paint on trim, dings on AC units or mailboxes. On the roof: dark spots where granules are knocked off, exposing the asphalt mat. Joe's inspection covers all of it.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Will hail damage affect my Cincinnati roof right away? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Will hail damage affect my Cincinnati roof right away? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Not always visually, but yes structurally. Hail cracks the fiberglass mat inside shingles, accelerating aging. Unrepaired hail damage will cause your roof to fail years ahead of schedule.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What size hail causes damage? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What size hail causes damage? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Hail as small as 1 inch (quarter-sized) can damage standard architectural shingles. Wind speed matters as much as size — wind-driven hail hits much harder.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">My Cincinnati neighbor got a new roof from their claim. Should I file too? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">My Cincinnati neighbor got a new roof from their claim. Should I file too? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">If you're in the same area, probably yes. Hail storms affect entire neighborhoods. Joe offers free inspections — if there's no damage, he tells you honestly and you won't file unnecessarily.</div>
       </div>
     </div>

@@ -320,6 +320,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -339,7 +340,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -371,9 +372,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -493,19 +510,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Roof Replacement FAQ — <span>Blue Ash</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does roof replacement take in Blue Ash? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How long does roof replacement take in Blue Ash? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Most Blue Ash residential roof replacements are completed in one to two days. The 1950s and 1960s homes in the area often have simpler rooflines than newer construction, which can speed the process — though decking that needs replacement adds time. Joe gives you a specific timeline based on what the inspection finds.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Are 1950s–1970s Blue Ash homes due for roof replacement? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Are 1950s–1970s Blue Ash homes due for roof replacement? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Many of them, yes. Architectural shingles installed in the 1990s or early 2000s on these homes are at or past their useful lifespan. Original single-layer installations from before that period are well beyond it. Joe's inspection gives you a clear picture of exactly where your roof stands — not just a sales pitch for replacement.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Does Joe handle roof replacement permits in Blue Ash? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Does Joe handle roof replacement permits in Blue Ash? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes. Blue Ash requires permits for full roof replacements under Ohio building code. Joe's crew handles all required permitting and coordinates inspections so you don't have to manage the paperwork. The permit process is included in every full replacement scope.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can a storm or hail event cover my roof replacement cost in Blue Ash? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Can a storm or hail event cover my roof replacement cost in Blue Ash? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">If the replacement is triggered by storm or hail damage, most Ohio homeowner's policies will cover the cost minus your deductible. Blue Ash's position in the direct path of west-to-east storm systems means hail events here are common. Joe inspects for storm damage first and tells you honestly whether a claim is worth pursuing before you file anything.</div>
       </div>
     </div>

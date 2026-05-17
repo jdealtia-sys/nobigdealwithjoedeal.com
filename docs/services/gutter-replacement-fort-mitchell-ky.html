@@ -312,6 +312,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -331,7 +332,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -363,9 +364,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -475,19 +492,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Gutter Replacement FAQ — <span>Fort Mitchell, KY</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What gutter size do Fort Mitchell homes typically need? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What gutter size do Fort Mitchell homes typically need? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Fort Mitchell's housing stock spans bungalows through 1960s–1980s ranches, and most original gutter systems are 4-inch — undersized by modern standards. Joe installs 5-inch K-style as the standard upgrade and 6-inch where roof pitch or surface area demands it. He sizes each run on-site before cutting.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Fort Mitchell has many older homes — does that affect gutter replacement complexity? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Fort Mitchell has many older homes — does that affect gutter replacement complexity? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Older Fort Mitchell homes often have wood fascia that's been compromised by years of seam leaks, and some have roofline geometry that requires careful downspout placement to carry water clear of older foundation systems. Joe does a full fascia and drainage assessment before any material is cut, so surprises are caught before installation begins.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How does Kentucky's freeze-thaw cycle affect Fort Mitchell gutters? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How does Kentucky's freeze-thaw cycle affect Fort Mitchell gutters? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Kenton County's winters include repeated freeze-thaw cycles that stress sectional gutter joints — sealants crack, seams separate, and water infiltrates behind the fascia. Seamless gutters cut on-site to exact run length eliminate mid-run seam failure points entirely and are installed to Kentucky pitch standards for proper drainage.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Do you handle downspout placement on Fort Mitchell's sloped lots? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Do you handle downspout placement on Fort Mitchell's sloped lots? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes. Many Fort Mitchell properties have sloped lots and older foundation systems that need careful water management. Joe positions downspouts to discharge at least 6 feet from the foundation and adds splash blocks or underground drain connections where grade or landscaping requires it to protect the foundation.</div>
       </div>
     </div>

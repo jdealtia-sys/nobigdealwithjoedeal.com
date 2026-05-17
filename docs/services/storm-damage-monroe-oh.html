@@ -320,6 +320,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -339,7 +340,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -371,9 +372,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -479,19 +496,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Storm Damage FAQ — <span>Monroe, OH</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I know if last month's storm damaged my Monroe roof? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How do I know if last month's storm damaged my Monroe roof? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">From the ground, look for dented gutters, dings on AC units or vents, and displaced shingles at the edges. On the roof itself, impact damage to aging builder-grade shingles often looks like dark spots or bare areas where granules have been knocked off. Joe's free inspection covers both ground-level and on-roof assessment.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Monroe gets a lot of storms — how do I know which storm caused the damage? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Monroe gets a lot of storms — how do I know which storm caused the damage? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Insurance policies require you to file within a window of the storm event — typically one to three years depending on your carrier. Joe checks weather records for Monroe-area storm events and aligns the documentation to the correct date so your claim is properly supported.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">My Monroe home's shingles are old — will insurance still cover storm damage? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">My Monroe home's shingles are old — will insurance still cover storm damage? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Older shingles complicate claims because adjusters may apply depreciation or argue pre-existing wear. Joe's documentation separates storm impact damage from general wear and presents the case for what the storm actually caused — giving your claim the best chance of approval.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Does Joe do storm damage repairs in Monroe or only full replacements? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Does Joe do storm damage repairs in Monroe or only full replacements? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Both. If the damage is confined to specific areas and the rest of the roof is sound, a repair may be the right call. If the storm damage is widespread or compounding existing wear, replacement often makes more financial sense. Joe gives you an honest recommendation after the inspection.</div>
       </div>
     </div>

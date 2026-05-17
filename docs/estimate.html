@@ -438,7 +438,23 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor;vertical-align:-2px;margin-right:6px"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg>Call Joe
     </a>
   </div>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()"><span></span><span></span><span></span></button>
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav"><span></span><span></span><span></span></button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -519,7 +535,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </div>
 
-  <button class="btn-primary" onclick="goToStep(2)" style="margin-top:20px;">Continue &#x2192;</button>
+  <button class="btn-primary" data-step="2" style="margin-top:20px;">Continue &#x2192;</button>
 </div>
 
 <!-- ═══════════════════════ STEP 2: CONFIRM ═══════════════════════ -->
@@ -539,8 +555,8 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </div>
 
-  <button class="btn-primary" onclick="goToStep(3)" style="margin-top:20px;">Yes, this is my home &#x2192;</button>
-  <button class="btn-back" onclick="goToStep(1)">&#8592; Different address</button>
+  <button class="btn-primary" data-step="3" style="margin-top:20px;">Yes, this is my home &#x2192;</button>
+  <button class="btn-back" data-step="1">&#8592; Different address</button>
 </div>
 
 <!-- ═══════════════════════ STEP 3: PROJECT ═══════════════════════ -->
@@ -552,30 +568,30 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <div class="funnel-card">
     <div class="funnel-card-glow"></div>
 
-    <div class="tile-group">
+    <div class="tile-group" data-group="service">
       <div class="tile-group-label">Service Needed</div>
       <div class="tiles">
-        <div class="tile" data-value="roof-replacement" onclick="selectTile(this,'service')">
+        <div class="tile" data-value="roof-replacement">
           <div class="tile-icon">&#127968;</div>
           <div class="tile-label">Roof Replacement</div>
           <div class="tile-desc">Full tear-off</div>
         </div>
-        <div class="tile" data-value="roof-repair" onclick="selectTile(this,'service')">
+        <div class="tile" data-value="roof-repair">
           <div class="tile-icon">&#128295;</div>
           <div class="tile-label">Roof Repair</div>
           <div class="tile-desc">Leaks &amp; damage</div>
         </div>
-        <div class="tile" data-value="siding-replacement" onclick="selectTile(this,'service')">
+        <div class="tile" data-value="siding-replacement">
           <div class="tile-icon">&#127969;</div>
           <div class="tile-label">Siding</div>
           <div class="tile-desc">Replace or repair</div>
         </div>
-        <div class="tile" data-value="gutter-replacement" onclick="selectTile(this,'service')">
+        <div class="tile" data-value="gutter-replacement">
           <div class="tile-icon">&#127783;</div>
           <div class="tile-label">Gutters</div>
           <div class="tile-desc">Seamless install</div>
         </div>
-        <div class="tile" data-value="storm-damage" onclick="selectTile(this,'service')">
+        <div class="tile" data-value="storm-damage">
           <div class="tile-icon">&#9889;</div>
           <div class="tile-label">Storm Damage</div>
           <div class="tile-desc">Insurance claim</div>
@@ -583,25 +599,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       </div>
     </div>
 
-    <div class="tile-group" id="roofTypeGroup" style="display:none;">
+    <div class="tile-group" id="roofTypeGroup" data-group="roofType" style="display:none;">
       <div class="tile-group-label">Roof Material</div>
       <div class="tiles">
-        <div class="tile selected" data-value="asphalt" onclick="selectTile(this,'roofType')">
+        <div class="tile selected" data-value="asphalt">
           <div class="tile-icon">&#127968;</div>
           <div class="tile-label">Asphalt Shingle</div>
           <div class="tile-desc">Most common</div>
         </div>
-        <div class="tile" data-value="metal" onclick="selectTile(this,'roofType')">
+        <div class="tile" data-value="metal">
           <div class="tile-icon">&#128296;</div>
           <div class="tile-label">Metal</div>
           <div class="tile-desc">Standing seam</div>
         </div>
-        <div class="tile" data-value="flat" onclick="selectTile(this,'roofType')">
+        <div class="tile" data-value="flat">
           <div class="tile-icon">&#128208;</div>
           <div class="tile-label">Flat / Low-slope</div>
           <div class="tile-desc">EPDM / TPO</div>
         </div>
-        <div class="tile" data-value="other" onclick="selectTile(this,'roofType')">
+        <div class="tile" data-value="other">
           <div class="tile-icon">&#10067;</div>
           <div class="tile-label">Not Sure</div>
           <div class="tile-desc">Joe will check</div>
@@ -609,25 +625,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       </div>
     </div>
 
-    <div class="tile-group" id="homeSizeGroup">
+    <div class="tile-group" id="homeSizeGroup" data-group="homeSize">
       <div class="tile-group-label">Home Size</div>
       <div class="tiles">
-        <div class="tile" data-value="small" onclick="selectTile(this,'homeSize')">
+        <div class="tile" data-value="small">
           <div class="tile-icon">&#127969;</div>
           <div class="tile-label">Small</div>
           <div class="tile-desc">Under 1,500 sq ft</div>
         </div>
-        <div class="tile selected" data-value="typical" onclick="selectTile(this,'homeSize')">
+        <div class="tile selected" data-value="typical">
           <div class="tile-icon">&#127968;</div>
           <div class="tile-label">Typical</div>
           <div class="tile-desc">1,500 – 2,500 sq ft</div>
         </div>
-        <div class="tile" data-value="large" onclick="selectTile(this,'homeSize')">
+        <div class="tile" data-value="large">
           <div class="tile-icon">&#127960;</div>
           <div class="tile-label">Large</div>
           <div class="tile-desc">2,500+ sq ft</div>
         </div>
-        <div class="tile" data-value="not_sure" onclick="selectTile(this,'homeSize')">
+        <div class="tile" data-value="not_sure">
           <div class="tile-icon">&#10067;</div>
           <div class="tile-label">Not Sure</div>
           <div class="tile-desc">Joe will measure</div>
@@ -635,25 +651,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       </div>
     </div>
 
-    <div class="tile-group">
+    <div class="tile-group" data-group="timeline">
       <div class="tile-group-label">Timeline</div>
       <div class="tiles">
-        <div class="tile" data-value="asap" onclick="selectTile(this,'timeline')">
+        <div class="tile" data-value="asap">
           <div class="tile-icon">&#128680;</div>
           <div class="tile-label">ASAP</div>
           <div class="tile-desc">Active damage/leak</div>
         </div>
-        <div class="tile" data-value="few-weeks" onclick="selectTile(this,'timeline')">
+        <div class="tile" data-value="few-weeks">
           <div class="tile-icon">&#128467;</div>
           <div class="tile-label">Next Few Weeks</div>
           <div class="tile-desc">Ready to go</div>
         </div>
-        <div class="tile" data-value="1-3-months" onclick="selectTile(this,'timeline')">
+        <div class="tile" data-value="1-3-months">
           <div class="tile-icon">&#128197;</div>
           <div class="tile-label">1-3 Months</div>
           <div class="tile-desc">Planning ahead</div>
         </div>
-        <div class="tile" data-value="exploring" onclick="selectTile(this,'timeline')">
+        <div class="tile" data-value="exploring">
           <div class="tile-icon">&#128269;</div>
           <div class="tile-label">Just Exploring</div>
           <div class="tile-desc">Getting info</div>
@@ -661,9 +677,9 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       </div>
     </div>
 
-    <button class="btn-primary" id="btnStep3" onclick="goToStep(4)" disabled>See My Estimate &#x2192;</button>
+    <button class="btn-primary" id="btnStep3" data-step="4" disabled>See My Estimate &#x2192;</button>
   </div>
-  <button class="btn-back" onclick="goToStep(2)">&#8592; Back</button>
+  <button class="btn-back" data-step="2">&#8592; Back</button>
 </div>
 
 <!-- ═══════════════════════ STEP 4: BALLPARK REVEAL ═══════════════════════ -->
@@ -704,9 +720,9 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <p>Unlock material tier pricing, Joe's professional assessment, and a free inspection offer.</p>
     </div>
 
-    <button class="btn-primary" onclick="goToStep(5)">Unlock My Detailed Estimate &#x2192;</button>
+    <button class="btn-primary" data-step="5">Unlock My Detailed Estimate &#x2192;</button>
   </div>
-  <button class="btn-back" onclick="goToStep(3)">&#8592; Back</button>
+  <button class="btn-back" data-step="3">&#8592; Back</button>
 </div>
 
 <!-- ═══════════════════════ STEP 5: CONTACT + VERIFY ═══════════════════════ -->
@@ -735,7 +751,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <label for="phoneNumber">Phone Number</label>
       <div class="phone-input-row">
         <input type="tel" id="phoneNumber" placeholder="(513) 555-1234" autocomplete="tel">
-        <button class="btn-send-code" id="btnSendCode" onclick="sendVerificationCode()">Send Code</button>
+        <button class="btn-send-code" id="btnSendCode" data-action="sendCode">Send Code</button>
       </div>
       <div class="error-msg">Valid phone number required</div>
     </div>
@@ -764,10 +780,10 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <label for="tcpaConsent">I agree to receive my estimate and follow-up communication from No Big Deal Home Solutions. Message &amp; data rates may apply. Reply STOP to opt out. <a href="/privacy">Privacy Policy</a></label>
     </div>
 
-    <button class="btn-primary" id="btnSubmit" onclick="submitAndGetEstimate()" disabled>Get My Free Detailed Estimate &#x2192;</button>
+    <button class="btn-primary" id="btnSubmit" data-action="submitEstimate" disabled>Get My Free Detailed Estimate &#x2192;</button>
     <div id="submitError" style="font-size:.78rem;color:var(--error);text-align:center;margin-top:8px;display:none;"></div>
   </div>
-  <button class="btn-back" onclick="goToStep(4)">&#8592; Back</button>
+  <button class="btn-back" data-step="4">&#8592; Back</button>
 </div>
 
 <!-- ═══════════════════════ LOADING (between step 5 and results) ═════════════════════════ -->
@@ -793,9 +809,9 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div style="font-size:.8rem;color:rgba(255,255,255,.4);margin-bottom:20px;text-align:center;" id="resultAddr"></div>
 
     <div class="tier-tabs">
-      <button class="tier-tab" data-tier="good" onclick="switchTier('good')">Good &#183; 3-Tab</button>
-      <button class="tier-tab active" data-tier="better" onclick="switchTier('better')">Better &#183; Architectural</button>
-      <button class="tier-tab" data-tier="best" onclick="switchTier('best')">Best &#183; Designer</button>
+      <button class="tier-tab" data-tier="good">Good &#183; 3-Tab</button>
+      <button class="tier-tab active" data-tier="better">Better &#183; Architectural</button>
+      <button class="tier-tab" data-tier="best">Best &#183; Designer</button>
     </div>
 
     <div class="result-range">
@@ -836,7 +852,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
           </div>
           <div class="ns-card-desc">For exact numbers, Joe needs to see your roof in person. He'll check decking condition, existing layers, gutter state, pitch, and do a full attic inspection from inside. <strong>Free, no obligation, ~30 minutes.</strong></div>
           <div class="ns-card-detail">Interior access recommended — Joe inspects attic ventilation, structural integrity, and details only visible from inside.</div>
-          <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="ns-card-btn" onclick="trackCTA('inspection')">Schedule Free Inspection &#x2192;</a>
+          <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="ns-card-btn" data-cta="inspection">Schedule Free Inspection &#x2192;</a>
         </div>
 
         <!-- Path 2: Talk to Joe (medium commitment) -->
@@ -846,7 +862,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             <span class="ns-card-label">Talk to Joe First</span>
           </div>
           <div class="ns-card-desc">Have questions before scheduling? Call or text Joe directly. He'll walk you through what to expect and answer anything — zero pressure. An on-site visit is still needed for final pricing.</div>
-          <a href="tel:8594207382" class="ns-card-btn outline" onclick="trackCTA('call')">Call Joe: (859) 420-7382</a>
+          <a href="tel:8594207382" class="ns-card-btn outline" data-cta="call">Call Joe: (859) 420-7382</a>
         </div>
 
         <!-- Path 3: Email Estimate (lowest commitment) -->
@@ -856,7 +872,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             <span class="ns-card-label">Email My Estimate for Now</span>
           </div>
           <div class="ns-card-desc">Not ready yet? No problem. We'll send this estimate to your inbox so you have it when you're ready. When you want exact numbers, Joe will need an on-site assessment with interior access for attic, ventilation, and structural details.</div>
-          <button class="ns-card-btn outline" onclick="emailEstimate()">Send to My Email &#x2192;</button>
+          <button class="ns-card-btn outline" data-action="emailEstimate">Send to My Email &#x2192;</button>
         </div>
       </div>
 
@@ -865,7 +881,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       </div>
 
       <div class="cta-reset">
-        <button onclick="resetFunnel()">&#8634; Start over with a new address</button>
+        <button data-action="resetFunnel">&#8634; Start over with a new address</button>
       </div>
     </div>
   </div>
@@ -1213,7 +1229,7 @@ async function searchAddress(q) {
     if (!data.length) { acDrop.style.display = 'none'; return; }
     acDrop.innerHTML = data.map(function(d, i) {
       const safe = String(d.display_name || '').replace(/[<>]/g, '');
-      return '<div class="ac-item" role="option" onclick="selectAddr(' + i + ')">' + safe + '</div>';
+      return '<div class="ac-item" role="option" data-idx="' + i + '">' + safe + '</div>';
     }).join('');
     acDrop.style.display = 'block';
     window._acResults = data;
@@ -2020,6 +2036,36 @@ function resetFunnel() {
 function trackEvent(name, params) {
   if (window.gtag) window.gtag('event', name, params);
 }
+
+/* ── Delegated click handlers (CSP disallows inline onclick=) ── */
+document.addEventListener('click', function (e) {
+  var step = e.target.closest('[data-step]');
+  if (step) { goToStep(parseInt(step.dataset.step, 10)); return; }
+
+  var tile = e.target.closest('.tile');
+  if (tile) {
+    var grp = tile.closest('[data-group]');
+    if (grp) { selectTile(tile, grp.dataset.group); return; }
+  }
+
+  var tier = e.target.closest('.tier-tab[data-tier]');
+  if (tier) { switchTier(tier.dataset.tier); return; }
+
+  var cta = e.target.closest('[data-cta]');
+  if (cta) { trackCTA(cta.dataset.cta); /* don't return — let the link navigate */ }
+
+  var ac = e.target.closest('.ac-item[data-idx]');
+  if (ac) { selectAddr(parseInt(ac.dataset.idx, 10)); return; }
+
+  var act = e.target.closest('[data-action]');
+  if (act) {
+    var a = act.dataset.action;
+    if (a === 'sendCode') sendVerificationCode();
+    else if (a === 'submitEstimate') submitAndGetEstimate();
+    else if (a === 'emailEstimate') emailEstimate();
+    else if (a === 'resetFunnel') resetFunnel();
+  }
+});
 </script>
 
 <!-- Google Analytics -->

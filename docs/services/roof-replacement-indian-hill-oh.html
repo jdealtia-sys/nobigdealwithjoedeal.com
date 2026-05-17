@@ -329,6 +329,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -348,7 +349,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -380,9 +381,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -490,19 +507,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Roof Replacement FAQ — <span>Indian Hill, OH</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do you handle the complex roof geometry common in Indian Hill homes? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How do you handle the complex roof geometry common in Indian Hill homes? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Indian Hill properties frequently have multiple intersecting roof planes, steep pitches, and architectural details that require precision cuts and careful flashing work at every valley and transition. Joe is GAF® Certified Contractor and experienced with these complex layouts — every valley, ridge, and penetration is done to manufacturer spec to protect the warranty.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can you match premium shingle profiles for an Indian Hill replacement? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Can you match premium shingle profiles for an Indian Hill replacement? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes. GAF's premium shingle lines — including Camelot, Grand Canyon, and Timberline HDZ — are available in profiles that complement the architectural character of Indian Hill homes. Joe reviews your existing material and helps you select the best match for appearance and longevity.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">My Indian Hill home has a high replacement cost value — how does that affect my insurance claim? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">My Indian Hill home has a high replacement cost value — how does that affect my insurance claim? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">High-value properties often face more adjuster scrutiny and more complex policy language. Joe has 7+ years of insurance restoration experience and documents the damage in the format that supports full claim approval — including premium material pricing and accurate square footage for complex roof layouts.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does roof replacement take on a large Indian Hill home? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How long does roof replacement take on a large Indian Hill home? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">A standard single-story or straightforward two-story is typically one to two days. Larger estates with complex geometry, skylights, and multiple valleys can run two to three days. Joe provides a realistic schedule before any contract is signed.</div>
       </div>
     </div>

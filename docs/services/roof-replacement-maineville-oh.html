@@ -329,6 +329,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -348,7 +349,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -380,9 +381,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -492,19 +509,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Roof Replacement FAQ — <span>Maineville</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does a roof replacement take in Maineville? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How long does a roof replacement take in Maineville? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Most Maineville homes are completed in one day. Larger or more complex roofs — common in the 2000s-era two-story builds along the Kings Island corridor — may run into a second day. Joe gives you a realistic timeline at the free inspection, not after materials arrive.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">My Maineville home is only 15 years old. Does it need a full replacement? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">My Maineville home is only 15 years old. Does it need a full replacement? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Possibly not — but if you've had hail events in that time (Warren County averages 3–4 significant hail events per year), builder-grade shingles may be degraded well ahead of schedule. Joe's free inspection will give you an honest answer.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Do you handle permits for roof replacement in Warren County? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Do you handle permits for roof replacement in Warren County? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes. Joe pulls all required permits in Warren County including Maineville. You won't have to navigate the building department yourself.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can I use my insurance claim to pay for a roof replacement in Maineville? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Can I use my insurance claim to pay for a roof replacement in Maineville? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">If the damage meets your policy's threshold, yes. Joe has a 7-year track record with Warren County insurance claims and can help you document storm or hail damage, coordinate with the adjuster, and supplement the claim if the initial payment is short.</div>
       </div>
     </div>
