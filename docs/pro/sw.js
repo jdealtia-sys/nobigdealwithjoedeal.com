@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v20', // v20 — landscape fullscreen fix: lock body/view overflow + scroll-snap on kanban + extended scrollLeft=0 fire window (rAF/50/200/500/1000ms). Forces installed PWAs to pick up the fix without a manual reinstall.
-  cdn: 'nbd-cdn-v20',     // v20 — paired bump
+  shell: 'nbd-shell-v21', // v21 — force-evict caches after PR #409 fixed CSP connect-src to allow CDN origins. Users with the v20 SW were stuck on "hard-reset is the magic key" because the byte content of sw.js didn't change in the CSP fix (firebase.json only), so their SW never updated and kept serving from the old failed-fetch state. Bumping CACHE_VERSIONS changes sw.js bytes → browser detects update → new SW activates → clients.claim() + SW_UPDATE_AVAILABLE broadcasts → page auto-reloads with fresh caches.
+  cdn: 'nbd-cdn-v21',     // v21 — paired bump; flushes any 503 / stale CDN responses cached during the broken-CSP window.
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
