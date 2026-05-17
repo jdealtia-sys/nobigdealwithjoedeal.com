@@ -44,7 +44,7 @@
       const attempts = state.trainingHistory.filter(h => h.scenarioId === s.id).length;
 
       return `
-        <div class="training-card" onclick="window.SalesTraining.startScenario('${s.id}')">
+        <div class="training-card" data-st-action="startScenario" data-st-id="${s.id}">
           <div class="tc-header">
             <span class="tc-icon">${s.icon}</span>
             <div class="tc-diff" style="color:${s.diffColor};">${s.difficulty}</div>
@@ -72,12 +72,12 @@
             <div class="tm-sub">Sharpen your pitch. Handle any objection. Close more doors.</div>
           </div>
           <div class="tm-actions">
-            <button class="btn btn-ghost" onclick="window.SalesTraining.showProfile()" style="font-size:12px;padding:7px 14px;">📊 My Profile</button>
+            <button class="btn btn-ghost" data-st-action="showProfile" style="font-size:12px;padding:7px 14px;">📊 My Profile</button>
           </div>
         </div>
 
         <!-- Rapid Fire Banner -->
-        <div class="rapid-banner" onclick="window.SalesTraining.startRapidFire()">
+        <div class="rapid-banner" data-st-action="startRapidFire">
           <div class="rb-left">
             <div class="rb-icon">⚡</div>
             <div>
@@ -129,7 +129,7 @@
     return `
       <div class="scenario-view">
         <div class="sv-header">
-          <button class="btn btn-ghost" onclick="window.SalesTraining.backToMenu()" style="font-size:11px;">← Exit</button>
+          <button class="btn btn-ghost" data-st-action="backToMenu" style="font-size:11px;">← Exit</button>
           <div class="sv-title">${state.currentScenario.icon} ${state.currentScenario.title}</div>
           <div class="sv-progress">Step ${progress + 1}</div>
         </div>
@@ -139,7 +139,7 @@
         <div class="sv-options-label">What do you say?</div>
         <div class="sv-options">
           ${node.options.map((opt, i) => `
-            <div class="sv-option" onclick="window.SalesTraining.chooseOption(${i})">
+            <div class="sv-option" data-st-action="chooseOption" data-st-id="${i}">
               <div class="sv-opt-letter">${String.fromCharCode(65 + i)}</div>
               <div class="sv-opt-text">${opt.text}</div>
             </div>
@@ -161,7 +161,7 @@
     return `
       <div class="scenario-view">
         <div class="sv-header">
-          <button class="btn btn-ghost" onclick="window.SalesTraining.backToMenu()" style="font-size:11px;">← Exit</button>
+          <button class="btn btn-ghost" data-st-action="backToMenu" style="font-size:11px;">← Exit</button>
           <div class="sv-title">${state.currentScenario.icon} ${state.currentScenario.title}</div>
           <div class="sv-progress">Feedback</div>
         </div>
@@ -188,7 +188,7 @@
           <div class="fb-better-text">"${ranked[0].text.substring(0, 200)}${ranked[0].text.length > 200 ? '...' : ''}"</div>
         </div>` : ''}
 
-        <button class="btn btn-orange" style="width:100%;padding:14px;font-size:15px;font-weight:700;margin-top:16px;" onclick="window.SalesTraining.advance()">
+        <button class="btn btn-orange" style="width:100%;padding:14px;font-size:15px;font-weight:700;margin-top:16px;" data-st-action="advance">
           Continue →
         </button>
       </div>`;
@@ -244,8 +244,8 @@
         </div>
 
         <div class="rv-actions">
-          <button class="btn btn-orange" onclick="window.SalesTraining.startScenario('${r.scenario.id}')" style="flex:1;padding:12px;font-weight:700;">🔄 Try Again</button>
-          <button class="btn btn-ghost" onclick="window.SalesTraining.backToMenu()" style="flex:1;padding:12px;">← Back to Menu</button>
+          <button class="btn btn-orange" data-st-action="startScenario" data-st-id="${r.scenario.id}" style="flex:1;padding:12px;font-weight:700;">🔄 Try Again</button>
+          <button class="btn btn-ghost" data-st-action="backToMenu" style="flex:1;padding:12px;">← Back to Menu</button>
         </div>
       </div>`;
   }
@@ -257,7 +257,7 @@
     return `
       <div class="rapid-view">
         <div class="rapid-header">
-          <button class="btn btn-ghost" onclick="window.SalesTraining.backToMenu()" style="font-size:11px;">← Exit</button>
+          <button class="btn btn-ghost" data-st-action="backToMenu" style="font-size:11px;">← Exit</button>
           <div class="rapid-stats-bar">
             <span class="rs-item">⚡ ${progress}</span>
             <span class="rs-item">🎯 ${state.rapidCorrect}/${state.rapidIndex}${state.rapidIndex > 0 ? '' : ''}</span>
@@ -281,7 +281,7 @@
               extra = `<div class="rapid-opt-explain">${opt.explanation}</div>`;
             }
             return `
-              <div class="${optClass}" onclick="${state.rapidAnswered ? '' : `window.SalesTraining.rapidAnswer(${i})`}" ${state.rapidAnswered ? 'style="pointer-events:none;"' : ''}>
+              <div class="${optClass}" ${state.rapidAnswered ? "" : `data-st-action="rapidAnswer" data-st-id="${i}"`} ${state.rapidAnswered ? 'style="pointer-events:none;"' : ''}>
                 <div class="rapid-opt-text">${opt.text}</div>
                 <div class="rapid-opt-score">${state.rapidAnswered ? `${opt.score}/3` : ''}</div>
                 ${state.rapidAnswered ? extra : ''}
@@ -290,7 +290,7 @@
         </div>
 
         ${state.rapidAnswered ? `
-          <button class="btn btn-orange" style="width:100%;padding:14px;font-size:15px;font-weight:700;margin-top:12px;" onclick="window.SalesTraining.rapidNext()">
+          <button class="btn btn-orange" style="width:100%;padding:14px;font-size:15px;font-weight:700;margin-top:12px;" data-st-action="rapidNext">
             ${state.rapidIndex + 1 >= state.OBJECTIONS.length ? 'See Results →' : 'Next Objection →'}
           </button>` : ''}
       </div>`;
@@ -326,8 +326,8 @@
         </div>
 
         <div class="rv-actions">
-          <button class="btn btn-orange" onclick="window.SalesTraining.startRapidFire()" style="flex:1;padding:12px;font-weight:700;">⚡ Try Again</button>
-          <button class="btn btn-ghost" onclick="window.SalesTraining.backToMenu()" style="flex:1;padding:12px;">← Back to Menu</button>
+          <button class="btn btn-orange" data-st-action="startRapidFire" style="flex:1;padding:12px;font-weight:700;">⚡ Try Again</button>
+          <button class="btn btn-ghost" data-st-action="backToMenu" style="flex:1;padding:12px;">← Back to Menu</button>
         </div>
       </div>`;
   }
@@ -338,7 +338,7 @@
     return `
       <div class="profile-view">
         <div class="pv-header">
-          <button class="btn btn-ghost" onclick="window.SalesTraining.backToMenu()" style="font-size:11px;">← Back</button>
+          <button class="btn btn-ghost" data-st-action="backToMenu" style="font-size:11px;">← Back</button>
           <div class="pv-title">📊 Training Profile</div>
         </div>
 
