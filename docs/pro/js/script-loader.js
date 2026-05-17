@@ -47,7 +47,11 @@
       'js/real-deal-academy.js?v=2'
     ],
     training: [
-      'js/sales-training.js?v=1'
+      // Step 4f (2026-05-17): sales-training.js split into engine +
+      // ui modules + thin shim. Load order: engine → ui → shim.
+      'js/sales-training-engine.js?v=1',
+      'js/sales-training-ui.js?v=1',
+      'js/sales-training.js?v=2'
     ],
     storm: [
       'js/storm-center.js?v=1',

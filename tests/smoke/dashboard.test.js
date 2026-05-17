@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, readCrm, readMaps, readFunctionsIndex, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, readCrm, readMaps, readD2DLive, readFunctionsIndex, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section, bumpPassed, bumpFailed } = ctx;
@@ -31,6 +31,14 @@ const syntaxFiles = [
   path.join(PRO_JS, 'maps-core.js'),
   path.join(PRO_JS, 'maps-overlays.js'),
   path.join(PRO_JS, 'maps-routing.js'),
+  // Step 4f split — d2d-tracker-2026b core + ui modules must each parse.
+  path.join(PRO_JS, 'd2d-tracker-core-2026b.js'),
+  path.join(PRO_JS, 'd2d-tracker-ui-2026b.js'),
+  path.join(PRO_JS, 'd2d-tracker-2026b.js'),
+  // Step 4f split — sales-training engine + ui modules + shim must each parse.
+  path.join(PRO_JS, 'sales-training-engine.js'),
+  path.join(PRO_JS, 'sales-training-ui.js'),
+  path.join(PRO_JS, 'sales-training.js'),
   path.join(PRO_JS, 'estimates.js'),
   path.join(PRO_JS, 'estimate-v2-ui.js'),
   path.join(PRO_JS, 'estimate-finalization.js'),
@@ -1217,7 +1225,12 @@ section('Phase C.6 step 2 — JS-file orange-rgba sweep');
     'docs/pro/js/dashboard-main.js',
   ];
   for (const p of SAFE_FILES) {
-    const body = read(path.join(ROOT, p));
+    // Step 4f (2026-05-17): d2d-tracker-2026b.js was split into three
+    // shards. Pull the concatenated post-split source so the assertion
+    // catches orange-rgba in core or ui too, not just in the thin shim.
+    const body = p === 'docs/pro/js/d2d-tracker-2026b.js'
+      ? readD2DLive()
+      : read(path.join(ROOT, p));
     assert(p + ': no hardcoded rgba(232,114,12,...)',
       !/rgba\(232,\s*114,\s*12/.test(body),
       p + ' should use color-mix(in srgb, var(--orange) X%, transparent)');
