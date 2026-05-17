@@ -1097,6 +1097,8 @@ window.addEventListener('nbd:ai-classify-skipped', (e) => {
   const reason = e.detail && e.detail.reason;
   const msg = reason === 'lead-cap'
     ? 'AI cap reached for this lead ($10) — chips you set still save.'
+    : reason === 'daily-cap'
+    ? 'Daily AI cap reached (100/day) — chips you set still save.'
     : 'Monthly AI cap reached — chips you set still save.';
   showToast(msg);
 });
