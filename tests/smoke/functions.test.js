@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readCrm, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -189,7 +189,10 @@ section('Unified client + status endpoint');
 
 section('Push-3: booking-link SMS uses calcomUsername');
 {
-  const src = read(path.join(PRO_JS, 'crm.js'));
+  // Step 4b: _repBookingUrl + sendBookingSMS + sendFollowUpSMS moved
+  // to crm-portal-bridge.js — concat via readCrm() so the assertions
+  // find them.
+  const src = readCrm();
   assert('_repBookingUrl helper defined',
     /window\._repBookingUrl\s*=\s*function/.test(src));
   assert('sendBookingSMS uses _repBookingUrl',
@@ -212,7 +215,10 @@ section('Push-5: measurement webhook auto-attaches to lead');
     /measurementReady: true/.test(src));
   assert('idempotency guard: checks previous status before writing',
     /wasReadyAlready = measurementData\.status === 'ready'/.test(src));
-  const crm = read(path.join(PRO_JS, 'crm.js'));
+  // Step 4b: buildCard (which renders the measurement chip) lives in
+  // crm-pipeline.js post-split — concat via readCrm() so the
+  // assertion finds it.
+  const crm = readCrm();
   assert('kanban card renders measurement chip when l.measurementReady',
     /l\.measurementReady \?/.test(crm));
 }

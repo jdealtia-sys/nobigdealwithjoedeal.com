@@ -37,7 +37,11 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm.js?v=31" as="script">
+<link rel="preload" href="js/crm-leads.js?v=1" as="script">
+<link rel="preload" href="js/crm-pipeline.js?v=1" as="script">
+<link rel="preload" href="js/crm-snooze.js?v=1" as="script">
+<link rel="preload" href="js/crm-portal-bridge.js?v=1" as="script">
+<link rel="preload" href="js/crm.js?v=32" as="script">
 <link rel="preload" href="js/maps.js?v=9" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12097,7 +12101,19 @@ body.theme-frosted {
      /photos, /estimates. New write sites should prefer NBDRepos;
      existing call sites migrate at their own pace. -->
 <script defer src="js/repos.js?v=1"></script>
-<script defer src="js/crm.js?v=31"></script>
+<!-- Step 4b (2026-05-16): crm.js (175KB) was split into four sibling
+     modules + a thin shim. Load order is locked:
+       leads → pipeline → snooze → portal-bridge → crm (shim)
+     Each script `defer`s so they execute in document order after
+     parse but before the eager-kanban-init IIFE in crm.js fires.
+     All four split files run BEFORE the shim so the long sweep
+     of window.* exports in the shim can reach functions defined
+     in the split files via classic-script sibling-scope globals. -->
+<script defer src="js/crm-leads.js?v=1"></script>
+<script defer src="js/crm-pipeline.js?v=1"></script>
+<script defer src="js/crm-snooze.js?v=1"></script>
+<script defer src="js/crm-portal-bridge.js?v=1"></script>
+<script defer src="js/crm.js?v=32"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>

@@ -7,7 +7,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readCrm } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -19,7 +19,10 @@ section('UI-D: Hail overlay on D2D + Pipeline badge');
   assert('D2D exposes hideHail', /hideHail:\s*\(\)\s*=>/.test(src));
   assert('Hail button rendered in map controls',
     /onclick="window\._d2dHailLayer/.test(src));
-  const crm = read(path.join(PRO_JS, 'crm.js'));
+  // Step 4b: buildCard (which renders the hail badge) lives in
+  // crm-pipeline.js post-split — concat via readCrm() so the
+  // assertion finds the pattern.
+  const crm = readCrm();
   assert('Kanban card renders hail badge when hailHit.sizeInches present',
     /l\.hailHit && l\.hailHit\.sizeInches/.test(crm));
 }

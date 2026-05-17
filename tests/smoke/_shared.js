@@ -97,6 +97,30 @@ function readDashboardMain() {
   return parts.join('\n');
 }
 
+// Step 4b (2026-05-16): the 3552-line crm.js got split into four
+// sibling modules + a thin shim using the same pattern as Step 4a.
+// Assertions that historically grep'd a single crm.js for the lead
+// modal / kanban / notifications / bulk surface now need the
+// concatenated post-split source. readCrm() returns crm-leads.js +
+// crm-pipeline.js + crm-snooze.js + crm-portal-bridge.js + crm.js
+// joined in load order, so existing `read(...crm.js)` call sites
+// can switch to this helper with no regex changes.
+const CRM_SPLIT = [
+  'crm-leads.js',
+  'crm-pipeline.js',
+  'crm-snooze.js',
+  'crm-portal-bridge.js',
+  'crm.js',
+];
+function readCrm() {
+  const parts = [];
+  for (const shard of CRM_SPLIT) {
+    const p = path.join(ROOT, 'docs/pro/js', shard);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
+  return parts.join('\n');
+}
+
 function syntaxCheck(file) {
   try {
     execSync(`node --check "${file}"`, { stdio: 'pipe' });
@@ -143,6 +167,7 @@ module.exports = {
   read,
   readDashboard,
   readDashboardMain,
+  readCrm,
   syntaxCheck,
   makeContext,
 };

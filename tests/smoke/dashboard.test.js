@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, readCrm, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section, bumpPassed, bumpFailed } = ctx;
@@ -21,6 +21,11 @@ const syntaxFiles = [
   path.join(PRO_JS, 'script-loader.js'),
   path.join(PRO_JS, 'admin-manager.js'),
   path.join(PRO_JS, 'crm.js'),
+  // Step 4b split — the four sibling modules must each parse.
+  path.join(PRO_JS, 'crm-leads.js'),
+  path.join(PRO_JS, 'crm-pipeline.js'),
+  path.join(PRO_JS, 'crm-snooze.js'),
+  path.join(PRO_JS, 'crm-portal-bridge.js'),
   path.join(PRO_JS, 'maps.js'),
   path.join(PRO_JS, 'estimates.js'),
   path.join(PRO_JS, 'estimate-v2-ui.js'),
@@ -143,7 +148,10 @@ section('Wave A4: rotateAccessCodes button');
 // ── Null-guard smoke: hot-spot functions use guards ──────────
 section('Null guards on hot paths');
 {
-  const crm = read(path.join(PRO_JS, 'crm.js'));
+  // Step 4b: crm.js was split into 4 modules + a shim — concat them
+  // via readCrm() so these null-guard assertions find their patterns
+  // regardless of which split file the code landed in.
+  const crm = readCrm();
   assert('openLeadModal checks modal existence',
     /function openLeadModal[\s\S]{0,200}if \(!modal\) return/.test(crm));
   assert('saveLead guards modal elements',
@@ -1362,7 +1370,10 @@ section('Wave 5e (A.5) — second-pass theme contrast audit');
 section('Wave 5d (A.4) — accent contract on remaining toggle-active states');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const crmJs = read(path.join(ROOT, 'docs/pro/js/crm.js'));
+  // Step 4b: search-highlight + saveBtn cssText assertions cross
+  // the split — concat via readCrm() so the regexes match
+  // regardless of which split file the inline-style strings landed in.
+  const crmJs = readCrm();
   // 1. .crm-icon-btn.active gains the inset --accent-ring boundary.
   assert('.crm-icon-btn.active includes box-shadow inset --accent-ring',
     /\.crm-icon-btn\.active\{[\s\S]{0,400}box-shadow:inset 0 0 0 1px var\(--accent-ring\)/.test(dash),
@@ -1617,7 +1628,9 @@ section('Wave 2B — Mobile job-detail screen');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   const mainJs = readDashboardMain();
-  const crmJs = read(path.join(ROOT, 'docs/pro/js/crm.js'));
+  // Step 4b: handleCardClick (asserted below) lives in crm-pipeline.js
+  // post-split — concat via readCrm() so the assertion finds it.
+  const crmJs = readCrm();
   // 1. Overlay DOM is present with the expected anchors.
   assert('m-jobdetail overlay element exists with id=mJobDetail',
     /<div class="m-jobdetail" id="mJobDetail"/.test(dash),
