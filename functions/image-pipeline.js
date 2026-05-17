@@ -218,6 +218,22 @@ exports.onPhotoUploaded = onObjectFinalized(
 
       if (snap.empty) {
         logger.info('image_pipeline_no_doc_matched', { objectName, uid });
+        // Bump a metrics counter so we know if this branch is hot
+        // enough to warrant a full backfill function (audit §2.2).
+        // Variants are already in Storage at photos/{uid}/_variants/...
+        // with the originating sourcePath in their metadata — a future
+        // backfill can read those + stamp the matching photo doc — but
+        // we'd rather not build that until we know the orphan rate.
+        // Best-effort: a failed metrics write must not break the
+        // trigger, so this is fire-and-forget with a swallowed catch.
+        try {
+          await db.doc('metrics/imagePipeline').set({
+            noDocMatched:    admin.firestore.FieldValue.increment(1),
+            lastNoMatchAt:   admin.firestore.FieldValue.serverTimestamp(),
+            lastNoMatchPath: objectName,
+            lastNoMatchUid:  uid,
+          }, { merge: true });
+        } catch (_) { /* metrics write is best-effort */ }
         return;
       }
 
