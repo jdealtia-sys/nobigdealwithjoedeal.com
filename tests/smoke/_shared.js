@@ -144,6 +144,27 @@ function readMaps() {
   return parts.join('\n');
 }
 
+// Step 4f (2026-05-17): the 3539-line d2d-tracker-2026b.js (the LIVE
+// d2d-tracker, loaded by dashboard.html) got split into a core module
+// + a ui module + a thin shim. Assertions that grep d2d-tracker-2026b.js
+// for orange-rgba use, render markup, etc. now need the concatenated
+// post-split source. readD2DLive() returns core + ui + shim joined in
+// load order, so existing read(... d2d-tracker-2026b.js) call sites
+// can switch to this helper with no regex changes.
+const D2D_LIVE_SPLIT = [
+  'd2d-tracker-core-2026b.js',
+  'd2d-tracker-ui-2026b.js',
+  'd2d-tracker-2026b.js',
+];
+function readD2DLive() {
+  const parts = [];
+  for (const shard of D2D_LIVE_SPLIT) {
+    const p = path.join(ROOT, 'docs/pro/js', shard);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
+  return parts.join('\n');
+}
+
 // Step 4c (2026-05-16): functions/index.js (147KB) got split into a
 // thin aggregator shim + 9 handler modules under functions/handlers/.
 // Existing smoke assertions that grep'd a single functions/index.js
@@ -221,6 +242,7 @@ module.exports = {
   readDashboardMain,
   readCrm,
   readMaps,
+  readD2DLive,
   readFunctionsIndex,
   syntaxCheck,
   makeContext,
