@@ -6,7 +6,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readFunctionsIndex } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -34,7 +34,7 @@ section('Push-1: public lead forms use submitPublicLead');
 
 section('Wave C3: admin analytics');
 {
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('getAdminAnalytics exported', /exports\.getAdminAnalytics\s*=/.test(idx));
   assert('returns signatures + measurements + portal + claude + leads',
     /signatures:[\s\S]{0,500}measurements:[\s\S]{0,500}portal:[\s\S]{0,500}claude:[\s\S]{0,500}leads:/.test(idx));
@@ -44,7 +44,7 @@ section('Wave C3: admin analytics');
 
 section('H-04: getAdminAnalytics admin/company_admin gate + rate limit');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('H-04: isSoloOwner reference removed',
     !/isSoloOwner/.test(src));
   // The new gate throws permission-denied unless isPlatformAdmin||isCompanyAdmin.

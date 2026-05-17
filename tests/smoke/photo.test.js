@@ -8,14 +8,14 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboardMain } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboardMain, readFunctionsIndex } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
 
 section('D8 / R-03: imageProxy stub still emits RFC 8594/9745 deprecation signals');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('imageProxy stub sets Deprecation header',
     /imageProxy[\s\S]*?res\.set\('Deprecation', 'true'\)/.test(src));
   assert('imageProxy stub sets Sunset header',
@@ -31,7 +31,7 @@ section('D8 / R-03: imageProxy stub still emits RFC 8594/9745 deprecation signal
 
 section('R-03: imageProxy retired — 410 Gone stub');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   // The old streaming implementation MUST be gone. Its signature
   // tokens were createReadStream, imageProxy:ip rate limit, and the
   // DEPRECATED log warning — none should remain.

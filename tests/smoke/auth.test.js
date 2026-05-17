@@ -12,7 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readFunctionsIndex, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -20,7 +20,7 @@ module.exports.run = function run(ctx) {
 // ── C-1: invite role allowlist ──────────────────────────────
 section('C-1: onRepSignup allowlist');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('INVITE_ALLOWED_ROLES set defined',
     /INVITE_ALLOWED_ROLES = new Set\(\[/.test(src));
   assert("INVITE_ALLOWED_ROLES excludes 'admin'",
@@ -53,7 +53,7 @@ section('C-3: public form gate');
     assert('rules deny client writes to ' + col,
       new RegExp('match /' + col + '/\\{[^}]+\\}\\s*\\{[\\s\\S]{0,200}allow create, update, delete: if false').test(rules));
   }
-  const fn = read(path.join(FUNCTIONS, 'index.js'));
+  const fn = readFunctionsIndex();
   assert('submitPublicLead uses httpRateLimit',
     /submitPublicLead[\s\S]{0,2000}httpRateLimit\(req, res, 'publicLead:ip'/.test(fn));
   assert('submitPublicLead has honeypot field',
@@ -85,7 +85,7 @@ section('C-4: App Check initialization');
 // successor endpoint.
 section('H-3: signImageUrl tenant scoping (successor to imageProxy)');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('signImageUrl checks caller role is company_admin or manager',
     /\['manager', 'company_admin'\]\.includes\(callerRole\)/.test(src));
   assert('signImageUrl falls back to Firestore lookup if companyId claim missing',
@@ -106,7 +106,7 @@ section('H-4: audit_log triggers');
     /PII_KEYS\s*=\s*\/[^/]*email[^/]*\//.test(src));
   assert('dedicated alert on invite doc setting role=admin',
     /security_admin_grant_attempt/.test(src));
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('index.js loads audit-triggers module',
     /require\(['"]\.\/audit-triggers['"]\)/.test(idx));
 }
@@ -114,7 +114,7 @@ section('H-4: audit_log triggers');
 // ── H-5: per-company Claude budget ──────────────────────────
 section('H-5: per-company Claude budget');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('CLAUDE_COMPANY_BUDGET table exists',
     /CLAUDE_COMPANY_BUDGET\s*=\s*\{/.test(src));
   // M2: per-company budget enforcement moved off the range-scan of
@@ -137,7 +137,7 @@ section('H-5: per-company Claude budget');
 // ── M-1: email verification gate ────────────────────────────
 section('M-1: email verification');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('claudeProxy requires email_verified before AI',
     /email_verified !== true[\s\S]{0,200}Verify your email/.test(src));
 }
@@ -242,7 +242,7 @@ section('F-06: getHomeownerPortalView is POST-only');
 
 section('F-09: CSP report-uri + cspReport function');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('F-09: cspReport function exported',
     /exports\.cspReport\s*=\s*onRequest/.test(src));
   const fb = read(path.join(ROOT, 'firebase.json'));
@@ -327,7 +327,7 @@ section('Q4: Turnstile fetch is aborted before handler budget expires');
 
 section('Q3: admin MFA enforcement (feature-flag gated)');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('Q3: beforeUserSignedIn imported',
     /beforeUserSignedIn\s*[,}]/.test(src));
   // Q3 trigger body is present but NOT exported — Identity Platform
@@ -402,6 +402,10 @@ section('Q6: deploy bundle excludes seed / find-secrets helpers');
   // file at container startup causes every function in the
   // container to fail with "Failed to update function". Hard to
   // diagnose without the per-function Cloud Build log.
+  // Scope to index.js only — Step 4c extracted handlers to
+  // functions/handlers/ which use relative paths (../shared,
+  // ./_shared) that would false-fail this walker if we concat'd
+  // their bodies in via readFunctionsIndex().
   const idx = read(path.join(FUNCTIONS, 'index.js'));
   const requires = Array.from(idx.matchAll(/require\(\s*['"]\.\/([^'"]+)['"]\s*\)/g))
     .map(m => m[1])
@@ -483,7 +487,7 @@ section('C-02: SMS subscription + email-verify gate');
 
 section('C-03 + M-03: claudeProxy transactional budget + starter plan entry');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('C-03: reserveClaudeBudget helper defined',
     /async function reserveClaudeBudget\s*\(/.test(src));
   assert('C-03: reserveClaudeBudget uses a Firestore transaction',
@@ -517,7 +521,7 @@ section('C-03 + M-03: claudeProxy transactional budget + starter plan entry');
 
 section('H-07: claudeProxy message-array + payload-size caps');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('H-07: CLAUDE_MAX_MESSAGES constant defined',
     /const CLAUDE_MAX_MESSAGES\s*=\s*40\b/.test(src));
   assert('H-07: CLAUDE_MAX_PAYLOAD_BYTES constant defined',
@@ -530,7 +534,7 @@ section('H-07: claudeProxy message-array + payload-size caps');
 
 section('H-01 + R-03: signImageUrl portals/ strip (imageProxy retired)');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   // Only signImageUrl still runs path-allowlist regex now that
   // imageProxy is a 410 stub. Assertion guards against portal paths
   // being reintroduced to the signer's alternation.
@@ -542,7 +546,7 @@ section('H-01 + R-03: signImageUrl portals/ strip (imageProxy retired)');
 
 section('H-06: integrationStatus admin-only gate');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   // The role check sits inside the integrationStatus handler block.
   const m = src.match(/exports\.integrationStatus\s*=\s*onCall\s*\([\s\S]+?\}\s*\);/);
   assert('H-06: integrationStatus handler block located', !!m);
@@ -555,7 +559,7 @@ section('H-06: integrationStatus admin-only gate');
 
 section('M-04: submitPublicLead optional-field allowlist');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   assert('M-04: PUBLIC_LEAD_OPTIONAL_DEFAULTS defined (utm + referrer)',
     /PUBLIC_LEAD_OPTIONAL_DEFAULTS\s*=\s*\[[^\]]*utm_source[^\]]*utm_medium[^\]]*utm_campaign[^\]]*referrer/.test(src));
   assert('M-04: guide kind carries an explicit optional list',
@@ -719,7 +723,7 @@ section('R-01: rate-limit provider visibility + cold-start misconfig warning');
   assert('R-01: provider() returns a string in {upstash, firestore}',
     ['upstash', 'firestore'].includes(adapter.provider()));
 
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('R-01: integrationStatus surfaces rateLimitProvider to admin callers',
     /rateLimitProvider:\s*rateLimitProvider\(\)/.test(idx)
     && /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(idx));

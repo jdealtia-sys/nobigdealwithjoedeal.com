@@ -121,6 +121,35 @@ function readCrm() {
   return parts.join('\n');
 }
 
+// Step 4c (2026-05-16): functions/index.js (147KB) got split into a
+// thin aggregator shim + 9 handler modules under functions/handlers/.
+// Existing smoke assertions that grep'd a single functions/index.js
+// for inline handler code (claudeProxy, signImageUrl, integrationStatus,
+// onRepSignup, etc.) now need the concatenated post-split surface.
+// readFunctionsIndex() returns functions/index.js + handlers/*.js
+// joined together, so existing `read(...index.js)` call sites can
+// switch to this helper with no regex changes.
+const FUNCTIONS_INDEX_SPLIT = [
+  'index.js',
+  'handlers/_shared.js',
+  'handlers/ai.js',
+  'handlers/photo.js',
+  'handlers/admin.js',
+  'handlers/auth.js',
+  'handlers/migrations.js',
+  'handlers/integrations.js',
+  'handlers/portal.js',
+  'handlers/monitoring.js',
+];
+function readFunctionsIndex() {
+  const parts = [];
+  for (const shard of FUNCTIONS_INDEX_SPLIT) {
+    const p = path.join(FUNCTIONS, shard);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
+  return parts.join('\n');
+}
+
 function syntaxCheck(file) {
   try {
     execSync(`node --check "${file}"`, { stdio: 'pipe' });
@@ -168,6 +197,7 @@ module.exports = {
   readDashboard,
   readDashboardMain,
   readCrm,
+  readFunctionsIndex,
   syntaxCheck,
   makeContext,
 };
