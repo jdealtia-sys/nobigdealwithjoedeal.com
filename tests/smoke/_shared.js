@@ -121,6 +121,29 @@ function readCrm() {
   return parts.join('\n');
 }
 
+// Step 4d (2026-05-16): the 4254-line maps.js got split into three
+// sibling modules + a thin shim using the same pattern as Steps
+// 4a/4b. Assertions that historically grep'd a single maps.js for
+// pin-popup / draw-tool / overlay logic now need the concatenated
+// post-split source. readMaps() returns maps-core.js +
+// maps-overlays.js + maps-routing.js + maps.js joined in load
+// order, so existing `read(...maps.js)` call sites can switch to
+// this helper with no regex changes.
+const MAPS_SPLIT = [
+  'maps-core.js',
+  'maps-overlays.js',
+  'maps-routing.js',
+  'maps.js',
+];
+function readMaps() {
+  const parts = [];
+  for (const shard of MAPS_SPLIT) {
+    const p = path.join(ROOT, 'docs/pro/js', shard);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
+  return parts.join('\n');
+}
+
 // Step 4c (2026-05-16): functions/index.js (147KB) got split into a
 // thin aggregator shim + 9 handler modules under functions/handlers/.
 // Existing smoke assertions that grep'd a single functions/index.js
@@ -197,6 +220,7 @@ module.exports = {
   readDashboard,
   readDashboardMain,
   readCrm,
+  readMaps,
   readFunctionsIndex,
   syntaxCheck,
   makeContext,
