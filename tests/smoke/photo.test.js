@@ -274,4 +274,54 @@ section('Photos Tier-1: analyzeRoofPhoto pins current Sonnet build');
     'expected the stale Sonnet pin to be gone from photo.js');
 }
 
+section('Photos §2.3: cap-skip event fires from BOTH AI wrappers');
+{
+  const classifier = read(path.join(ROOT, 'docs/pro/js/photo-ai-classifier.js'));
+  const ai         = read(path.join(ROOT, 'docs/pro/js/photo-ai.js'));
+
+  // Haiku path (analyzePhotoVision callable) — server returns
+  // { skipped: true, reason }, classifier bubbles via CustomEvent.
+  assert('photo-ai-classifier dispatches nbd:ai-classify-skipped on data.skipped',
+    /data\.skipped[\s\S]{0,300}dispatchEvent\(new CustomEvent\(\s*['"]nbd:ai-classify-skipped['"]/.test(classifier),
+    'expected classifier to dispatch nbd:ai-classify-skipped on cap-skip');
+
+  // Sonnet path (analyzeRoofPhoto HTTP) — daily cap returns 429.
+  // photo-ai.js must dispatch the same event so UI surfaces see
+  // both paths consistently.
+  assert('photo-ai dispatches nbd:ai-classify-skipped on 429',
+    /res\.status\s*===\s*429[\s\S]{0,400}dispatchEvent\(new CustomEvent\(\s*['"]nbd:ai-classify-skipped['"]/.test(ai),
+    'expected photo-ai.js to dispatch nbd:ai-classify-skipped when analyzeRoofPhoto returns 429');
+  assert("photo-ai uses reason='daily-cap' for the Sonnet path",
+    /reason:\s*['"]daily-cap['"]/.test(ai),
+    "expected photo-ai.js skip event to carry reason: 'daily-cap'");
+}
+
+section('Photos §2.3: bulk-analyze surfaces a cap-aware finishing toast');
+{
+  const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));
+
+  // _bulkAnalyze must attach + detach a listener for the cap event so
+  // the post-batch toast can swap to a friendlier "hit your cap" copy.
+  assert('_bulkAnalyze attaches a nbd:ai-classify-skipped listener',
+    /_bulkAnalyze[\s\S]{0,2000}addEventListener\(\s*['"]nbd:ai-classify-skipped['"]/.test(pe),
+    'expected _bulkAnalyze to addEventListener on nbd:ai-classify-skipped');
+  assert('_bulkAnalyze detaches its listener in finally',
+    /_bulkAnalyze[\s\S]{0,3500}finally\s*\{[\s\S]{0,200}removeEventListener\(\s*['"]nbd:ai-classify-skipped['"]/.test(pe),
+    'expected _bulkAnalyze finally{} block to removeEventListener');
+  assert('_bulkAnalyze toast distinguishes daily / lead / user caps',
+    /daily-cap[\s\S]{0,200}lead-cap[\s\S]{0,200}user-cap/.test(pe),
+    'expected _bulkAnalyze finishing toast to branch on the three cap reasons');
+}
+
+section('Photos §2.3: review UI handles daily-cap reason explicitly');
+{
+  const review = read(path.join(ROOT, 'docs/pro/photo-review.html'));
+  // Pre-existing listener was lead-cap vs else ("Monthly cap"). The
+  // new Sonnet daily-cap path would have landed in the misleading
+  // "Monthly" branch — daily ≠ monthly.
+  assert('photo-review listener has a daily-cap branch',
+    /reason\s*===\s*['"]daily-cap['"][\s\S]{0,200}Daily AI cap reached/.test(review),
+    'expected photo-review.html listener to branch on daily-cap reason');
+}
+
 };

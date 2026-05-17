@@ -1627,6 +1627,16 @@
         btn.style.cursor = 'wait';
         btn.textContent = '⏳ Starting…';
       }
+      // Listen for the cap-reached event from PhotoAI / PhotoAIClassifier
+      // so the finishing toast can give a friendlier "hit your cap"
+      // message instead of just "N failed". Detached in `finally`.
+      let capSkipped = 0;
+      let capReason = null;
+      const onCapSkip = (e) => {
+        capSkipped++;
+        if (!capReason && e && e.detail && e.detail.reason) capReason = e.detail.reason;
+      };
+      window.addEventListener('nbd:ai-classify-skipped', onCapSkip);
       try {
         // Filter to roof + damage photos by default — those are what
         // the model is trained on. If the user has filtered by tag,
@@ -1655,14 +1665,24 @@
         if (summarySlot && window.PhotoAI.renderSummaryBanner) {
           summarySlot.innerHTML = window.PhotoAI.renderSummaryBanner(summary);
         }
-        const msg = summary.failed > 0
-          ? `Analyzed ${summary.analyzed} of ${summary.total - summary.skipped} (${summary.failed} failed)`
-          : `Analyzed ${summary.analyzed} photo${summary.analyzed === 1 ? '' : 's'}`;
-        showToast(msg, summary.failed > 0 ? 'error' : 'success');
+        if (capSkipped > 0) {
+          const reasonLabel = capReason === 'daily-cap' ? 'daily (100/day)'
+                            : capReason === 'lead-cap'  ? 'per-lead ($10)'
+                            : capReason === 'user-cap'  ? 'monthly ($50)'
+                            : 'AI';
+          const msg = `Hit ${reasonLabel} cap. Analyzed ${summary.analyzed} — try again later.`;
+          showToast(msg, 'info');
+        } else {
+          const msg = summary.failed > 0
+            ? `Analyzed ${summary.analyzed} of ${summary.total - summary.skipped} (${summary.failed} failed)`
+            : `Analyzed ${summary.analyzed} photo${summary.analyzed === 1 ? '' : 's'}`;
+          showToast(msg, summary.failed > 0 ? 'error' : 'success');
+        }
       } catch (err) {
         console.error('[PhotoEngine] bulk analyze failed', err);
         showToast('Bulk analysis failed: ' + err.message, 'error');
       } finally {
+        window.removeEventListener('nbd:ai-classify-skipped', onCapSkip);
         if (btn) {
           btn.disabled = false;
           btn.style.opacity = '';

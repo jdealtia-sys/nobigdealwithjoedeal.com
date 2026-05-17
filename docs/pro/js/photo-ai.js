@@ -57,6 +57,17 @@
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       const msg = data && data.error ? data.error : 'Analysis failed';
+      // 429 = analyzeRoofPhoto daily cap (100/uid/day). Fire the same
+      // event the Haiku classifier dispatches so any cap-aware UI
+      // surface (photo-review banner, bulk-analyze toast in photo-
+      // engine, etc.) sees both paths.
+      if (res.status === 429) {
+        try {
+          window.dispatchEvent(new CustomEvent('nbd:ai-classify-skipped', {
+            detail: { photoId, reason: 'daily-cap' }
+          }));
+        } catch (_) {}
+      }
       throw new Error(msg + ' (' + res.status + ')');
     }
     return data.analysis;
