@@ -1307,7 +1307,7 @@ Any additional damage discovered during work shall be documented and submitted a
       <div style="padding: 20px; background: white;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1 style="margin: 0; color: var(--orange);">Template Library</h1>
-          <button onclick="window.NBDTemplateSuite.openNewTemplateModal()"
+          <button data-ts-action="openNewTemplateModal"
             style="padding: 10px 20px; background: var(--orange); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
             + Add Template
           </button>
@@ -1367,7 +1367,7 @@ Any additional damage discovered during work shall be documented and submitted a
               ${tpl.isDefault ? `<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px;">DEFAULT</span>` : ''}
             </div>
           </div>
-          <button onclick="window.NBDTemplateSuite.deleteTemplate('${tpl.id}')"
+          <button data-ts-action="deleteTemplate" data-ts-id="${tpl.id}"
             style="background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
             Delete
           </button>
@@ -1383,15 +1383,15 @@ Any additional damage discovered during work shall be documented and submitted a
         </div>
 
         <div style="display: flex; gap: 8px;">
-          <button onclick="window.NBDTemplateSuite.openTemplateEditor('${tpl.id}')"
+          <button data-ts-action="openTemplateEditor" data-ts-id="${tpl.id}"
             style="flex: 1; background: var(--orange); color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: bold;">
             Edit
           </button>
-          <button onclick="window.NBDTemplateSuite.duplicateTemplate('${tpl.id}')"
+          <button data-ts-action="duplicateTemplate" data-ts-id="${tpl.id}"
             style="flex: 1; background: #2196F3; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">
             Duplicate
           </button>
-          <button onclick="window.NBDTemplateSuite.previewTemplate('${tpl.id}')"
+          <button data-ts-action="previewTemplate" data-ts-id="${tpl.id}"
             style="flex: 1; background: #9C27B0; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">
             Preview
           </button>
@@ -1452,9 +1452,9 @@ Any additional damage discovered during work shall be documented and submitted a
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Email Body *</label>
           <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-            <button type="button" onclick="window.NBDTemplateSuite.insertMergeField('firstName', 'tpl-body')" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Insert {{firstName}}</button>
-            <button type="button" onclick="window.NBDTemplateSuite.insertMergeField('lastName', 'tpl-body')" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Insert {{lastName}}</button>
-            <button type="button" onclick="window.NBDTemplateSuite.insertMergeField('address', 'tpl-body')" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Insert {{address}}</button>
+            <button type="button" data-ts-action="insertMergeField" data-ts-id="firstName" data-ts-target="tpl-body" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Insert {{firstName}}</button>
+            <button type="button" data-ts-action="insertMergeField" data-ts-id="lastName" data-ts-target="tpl-body" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Insert {{lastName}}</button>
+            <button type="button" data-ts-action="insertMergeField" data-ts-id="address" data-ts-target="tpl-body" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Insert {{address}}</button>
           </div>
           <textarea id="tpl-body" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; height: 250px; font-family: monospace; font-size: 12px;">${tpl.body || ''}</textarea>
         </div>
@@ -1484,11 +1484,11 @@ Any additional damage discovered during work shall be documented and submitted a
 
     formHTML += `
       <div style="display: flex; gap: 10px; margin-top: 20px;">
-        <button onclick="window.NBDTemplateSuite.saveTemplate()"
+        <button data-ts-action="saveTemplate"
           style="flex: 1; padding: 10px; background: var(--orange); color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 14px;">
           Save Template
         </button>
-        <button onclick="window.NBDTemplateSuite.closeTemplateEditor()"
+        <button data-ts-action="closeTemplateEditor"
           style="flex: 1; padding: 10px; background: #ddd; color: #333; border: none; border-radius: 4px; cursor: pointer;">
           Cancel
         </button>
@@ -1516,18 +1516,18 @@ Any additional damage discovered during work shall be documented and submitted a
       <div style="background: white; padding: 30px; border-radius: 8px; text-align: center;">
         <h2 style="margin-top: 0; color: var(--orange);">Choose Template Type</h2>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
-          <button onclick="window.NBDTemplateSuite.openTemplateEditor(); this.closest('div').parentElement.remove();"
+          <button data-ts-action="openEditorAndDismissParent"
             style="padding: 15px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Email</button>
-          <button onclick="window.NBDTemplateSuite.openTemplateEditor(); this.closest('div').parentElement.remove();"
+          <button data-ts-action="openEditorAndDismissParent"
             style="padding: 15px; background: #FF9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Estimate</button>
-          <button onclick="window.NBDTemplateSuite.openTemplateEditor(); this.closest('div').parentElement.remove();"
+          <button data-ts-action="openEditorAndDismissParent"
             style="padding: 15px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Contract</button>
-          <button onclick="window.NBDTemplateSuite.openTemplateEditor(); this.closest('div').parentElement.remove();"
+          <button data-ts-action="openEditorAndDismissParent"
             style="padding: 15px; background: #9C27B0; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">SOW</button>
-          <button onclick="window.NBDTemplateSuite.openTemplateEditor(); this.closest('div').parentElement.remove();"
+          <button data-ts-action="openEditorAndDismissParent"
             style="padding: 15px; background: #00BCD4; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">Sequence</button>
         </div>
-        <button onclick="this.parentElement.parentElement.remove()"
+        <button data-ts-action="dismissGrandparent"
           style="margin-top: 15px; padding: 10px 20px; background: #ddd; border: none; border-radius: 4px; cursor: pointer;">Cancel</button>
       </div>
     `;
@@ -1596,7 +1596,7 @@ Any additional damage discovered during work shall be documented and submitted a
         <div style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; background: #f9f9f9; white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.5;">
           ${escapeHtml(preview)}
         </div>
-        <button onclick="this.parentElement.parentElement.remove()"
+        <button data-ts-action="dismissGrandparent"
           style="margin-top: 15px; padding: 10px 20px; background: var(--orange); color: white; border: none; border-radius: 4px; cursor: pointer;">
           Close Preview
         </button>
@@ -1729,6 +1729,40 @@ Any additional damage discovered during work shall be documented and submitted a
     initialize: initializeSuite
   };
 })();
+
+// ── CSP-SAFE EVENT DELEGATION ──────────────────────────────────
+// Prod CSP `script-src-attr 'none'` blocks every inline onclick=, even
+// when injected via innerHTML. Templates render via innerHTML, so the
+// 17 buttons in this file used to be dead in prod. One document-level
+// click listener dispatches based on data-ts-action attributes.
+if (!window._NBD_TEMPLATE_SUITE_DELEGATE_BOUND) {
+  window._NBD_TEMPLATE_SUITE_DELEGATE_BOUND = true;
+  document.addEventListener('click', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-ts-action]');
+    if (!t) return;
+    const action = t.dataset.tsAction;
+    const id = t.dataset.tsId;
+    const target = t.dataset.tsTarget;
+    const TS = window.NBDTemplateSuite || {};
+    try {
+      if (action === 'openEditorAndDismissParent') {
+        if (typeof TS.openTemplateEditor === 'function') TS.openTemplateEditor();
+        const wrap = t.closest('div');
+        if (wrap && wrap.parentElement) wrap.parentElement.remove();
+      } else if (action === 'dismissGrandparent') {
+        if (t.parentElement && t.parentElement.parentElement) t.parentElement.parentElement.remove();
+      } else if (action === 'insertMergeField') {
+        if (typeof TS.insertMergeField === 'function') TS.insertMergeField(id, target);
+      } else if (typeof TS[action] === 'function') {
+        id !== undefined ? TS[action](id) : TS[action]();
+      } else {
+        console.warn('[template-suite] no dispatch for', action);
+      }
+    } catch (e) {
+      console.error('[template-suite] dispatch ' + action + ' failed:', e);
+    }
+  });
+}
 
 // Auto-initialize when module loads
 if (document.readyState === 'loading') {
