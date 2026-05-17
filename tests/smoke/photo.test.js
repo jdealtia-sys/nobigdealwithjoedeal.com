@@ -317,15 +317,37 @@ section('Photos §2.3: bulk-analyze surfaces a cap-aware finishing toast');
     'expected _bulkAnalyze finishing toast to branch on the three cap reasons');
 }
 
-section('Photos §2.3: review UI handles daily-cap reason explicitly');
+section('photo-review.html has zero inline scripts (CSP-safe)');
 {
   const review = read(path.join(ROOT, 'docs/pro/photo-review.html'));
-  // Pre-existing listener was lead-cap vs else ("Monthly cap"). The
-  // new Sonnet daily-cap path would have landed in the misleading
-  // "Monthly" branch — daily ≠ monthly.
+  // The strict ** CSP at firebase.json:44 applies to /pro/photo-review
+  // (no route-specific override). An inline <script type="module">
+  // gets silently blocked → Firebase init never runs → page hangs on
+  // "Loading..." forever. The page's JS now lives in
+  // docs/pro/js/pages/photo-review.js loaded via <script type="module"
+  // src="...">. If anyone reintroduces an inline <script> the page
+  // breaks again, so guard it.
+  const inlineScripts = (review.match(/<script(?:\s+type="module")?\s*>/g) || []).length;
+  assert('zero inline <script> blocks in photo-review.html',
+    inlineScripts === 0,
+    'expected 0 inline script tags, got ' + inlineScripts);
+  assert('photo-review.html loads its module via external src',
+    /<script\s+type="module"\s+src="js\/pages\/photo-review\.js/.test(review));
+  // The extracted file exists and is non-empty.
+  const reviewJs = read(path.join(ROOT, 'docs/pro/js/pages/photo-review.js'));
+  assert('docs/pro/js/pages/photo-review.js exists with imports',
+    /import\s*\{[^}]*\}\s*from\s+["']https:\/\/www\.gstatic\.com\/firebasejs/.test(reviewJs));
+}
+
+section('Photos §2.3: review UI handles daily-cap reason explicitly');
+{
+  // Code moved from inline <script> in photo-review.html to
+  // docs/pro/js/pages/photo-review.js after the inline-module
+  // CSP-block bug. Pattern unchanged.
+  const reviewJs = read(path.join(ROOT, 'docs/pro/js/pages/photo-review.js'));
   assert('photo-review listener has a daily-cap branch',
-    /reason\s*===\s*['"]daily-cap['"][\s\S]{0,200}Daily AI cap reached/.test(review),
-    'expected photo-review.html listener to branch on daily-cap reason');
+    /reason\s*===\s*['"]daily-cap['"][\s\S]{0,200}Daily AI cap reached/.test(reviewJs),
+    'expected photo-review.js listener to branch on daily-cap reason');
 }
 
 section('Photos §3.3 phase 1: photo-engine TOC + section markers');
@@ -574,13 +596,15 @@ section('NBDUrl helper: canonical customer URL builder');
     inlinePhotoReviewLead.length === 0,
     'expected callers to use NBDUrl.photoReview() or `?id=`, got ' + inlinePhotoReviewLead.length);
 
-  // ── photo-review.html keeps accepting BOTH ?lead= and ?id= ──
+  // ── photo-review keeps accepting BOTH ?lead= and ?id= ──
   // Old Slack links / bookmarks must keep working. Page-level parsing
   // stays back-compat even after we standardize callers on ?id=.
-  assert('photo-review.html still accepts ?lead= (back-compat)',
-    /params\.get\(\s*['"]lead['"]\s*\)\s*\|\|\s*params\.get\(\s*['"]id['"]\s*\)/.test(photoReview)
-    || /params\.get\(\s*['"]id['"]\s*\)\s*\|\|\s*params\.get\(\s*['"]lead['"]\s*\)/.test(photoReview),
-    'expected photo-review.html to read both lead and id (with ||)');
+  // Code lives in docs/pro/js/pages/photo-review.js after extraction.
+  const photoReviewJs = read(path.join(ROOT, 'docs/pro/js/pages/photo-review.js'));
+  assert('photo-review.js still accepts ?lead= (back-compat)',
+    /params\.get\(\s*['"]lead['"]\s*\)\s*\|\|\s*params\.get\(\s*['"]id['"]\s*\)/.test(photoReviewJs)
+    || /params\.get\(\s*['"]id['"]\s*\)\s*\|\|\s*params\.get\(\s*['"]lead['"]\s*\)/.test(photoReviewJs),
+    'expected photo-review.js to read both lead and id (with ||)');
 
   // ── Callers use the helper (with a string fallback for safety) ──
   assert('customer.html click handler uses NBDUrl.photoReview',
