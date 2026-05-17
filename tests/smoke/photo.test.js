@@ -526,6 +526,34 @@ section('Photos §3.1: three-tier before/after pairing heuristic');
     /out\.length\s*===\s*0/.test(pr));
 }
 
+section('customer.html: prReviewBtn reads window._customerId at click time (no defer-race)');
+{
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+
+  // Old render-time wire() raced against the auth → loadCustomerData
+  // chain. After the §perf defer pass, the customer ID often wasn't
+  // set when wire() ran, leaving the button at the placeholder ?lead=
+  // and dumping the user on photo-review's empty-state page.
+  //
+  // The fix attaches a click handler that reads window._customerId
+  // at click time and navigates manually. The href stays a no-op
+  // placeholder; the listener does the navigation.
+  assert('prReviewBtn has a click listener that reads window._customerId',
+    /document\.getElementById\(\s*['"]prReviewBtn['"]\s*\)[\s\S]{0,500}addEventListener\(\s*['"]click['"]/.test(customer)
+    && /prReviewBtn[\s\S]{0,1000}window\._customerId/.test(customer),
+    'expected an addEventListener("click", ...) on prReviewBtn that reads window._customerId');
+  assert('click handler prevents default when customer ID missing',
+    /prReviewBtn[\s\S]{0,1500}e\.preventDefault\(\)[\s\S]{0,300}if\s*\(\s*!id\s*\)/.test(customer));
+  assert('click handler navigates via window.location.href when ID present',
+    /prReviewBtn[\s\S]{0,2000}window\.location\.href\s*=\s*['"]photo-review\.html\?lead=/.test(customer));
+  // The old render-time wire() pattern with setTimeout fallbacks
+  // shouldn't return. The hook on prReviewBtn should be the click
+  // handler, not href mutation.
+  assert('no setTimeout(wire,...) pattern wiring prReviewBtn href',
+    !/setTimeout\(\s*wire\s*,/.test(customer),
+    'expected the render-time setTimeout wire pattern to be gone');
+}
+
 section('customer.html: perf — all <script src> defers, preconnect hints present, images lazy/async');
 {
   const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
