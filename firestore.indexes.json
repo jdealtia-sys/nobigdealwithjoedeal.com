@@ -437,6 +437,21 @@
       ]
     },
     {
+      "_comment": "W160 dashboard-bootstrap.module.js _loadReports: where('userId','==',uid) + orderBy('createdAt','desc'). Without this composite index the Reports panel hangs on 'Loading dashboard…' / 'Loading trends…' and console shows FirebaseError 'requires an index'.",
+      "collectionGroup": "reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "api_usage",
       "queryScope": "COLLECTION",
       "fields": [
