@@ -189,6 +189,14 @@
    attribute on the element so style-src CSP can eventually drop 'unsafe-inline'
    once JS template-literal style emitters are also migrated. */
 .dn{display:none;}
+/* Doubled-class selector .dn.dn has specificity (0,2,0) so it ALWAYS beats
+   single-class rules like `.cmd-palette { display:flex }` or `.ni { display:flex }`
+   that load later in dashboard.html's inline <style> block and otherwise win
+   the cascade. Without this, every overlay-class element + .dn was visible
+   on page load until the user dismissed it (kbd-shortcuts modal, search
+   palette, hidden admin nav item, etc. — full audit found 4 such offenders).
+   Inline `style.display = 'flex'` from openers still wins (inline = 1,0,0,0). */
+.dn.dn{display:none;}
 .mb-md{margin-bottom:16px;}
 .mb-lg{margin-bottom:20px;}
 .mb-14{margin-bottom:14px;}
