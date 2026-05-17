@@ -18,6 +18,10 @@
 <link rel="dns-prefetch" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
 <!-- Escape helpers for user-controlled strings — exposes window.nbdEsc -->
 <script type="module" src="js/dom-safe.js"></script>
+<!-- Canonical customer URL builder (window.NBDUrl). Loads early so
+     every caller below — inline click handlers, deferred externals —
+     finds the helper ready. See firestore.rules for the IDOR guard. -->
+<script defer src="js/nbd-url.js?v=1"></script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <link rel="manifest" href="/pro/manifest.json">
@@ -1437,7 +1441,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
                  UI. The 5-minute review screen lives on /pro/photo-review.html
                  so it can be optimized for the sort-100-photos sprint
                  without competing with customer.html's other panels. -->
-            <a class="btn" href="photo-review.html?lead=" id="prReviewBtn" style="font-size:13px;padding:6px 16px;background:#7c3aed;border-color:#7c3aed;color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">✦ Review &amp; Sort</a>
+            <a class="btn" href="photo-review.html?id=" id="prReviewBtn" style="font-size:13px;padding:6px 16px;background:#7c3aed;border-color:#7c3aed;color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">✦ Review &amp; Sort</a>
             <button class="btn" data-action="ShareGallery.generate" data-pass-customer-id="true" style="font-size:13px;padding:6px 16px;background:#0088ff;border-color:#0088ff;color:#fff;">Share Gallery</button>
           </div>
         </div>
@@ -1469,7 +1473,8 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
                 }
                 return;
               }
-              window.location.href = 'photo-review.html?lead=' + encodeURIComponent(id);
+              window.location.href = (window.NBDUrl && window.NBDUrl.photoReview(id))
+                || ('photo-review.html?id=' + encodeURIComponent(id));
             });
           })();
         </script>

@@ -11445,6 +11445,9 @@ body.theme-frosted {
      from inside event-listener callbacks and timer-scheduled work,
      never at parse time — so defer is safe and gives us the first-
      paint win (no parser block on the formerly-255KB file). -->
+<!-- Canonical customer URL builder (window.NBDUrl). Loaded BEFORE
+     dashboard-actions.js because that file calls NBDUrl.customer(). -->
+<script defer src="js/nbd-url.js?v=1"></script>
 <script defer src="js/dashboard-state.js?v=1"></script>
 <script defer src="js/dashboard-api.js?v=1"></script>
 <script defer src="js/dashboard-widgets.js?v=1"></script>
