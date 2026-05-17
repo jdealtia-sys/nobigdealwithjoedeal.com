@@ -7,14 +7,18 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readCrm } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readCrm, readD2DLive } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
 
 section('UI-D: Hail overlay on D2D + Pipeline badge');
 {
-  const src = read(path.join(PRO_JS, 'd2d-tracker.js'));
+  // Step 5 (2026-05-17): legacy docs/pro/js/d2d-tracker.js was deleted
+  // (not loaded by any HTML; split into d2d-tracker-{core,ui}-2026b.js +
+  // d2d-tracker-2026b.js in step 4f). Use readD2DLive() to grep the
+  // post-split surface for showHail / hideHail / _d2dHailLayer.
+  const src = readD2DLive();
   assert('D2D exposes showHail', /showHail:\s*async/.test(src));
   assert('D2D exposes hideHail', /hideHail:\s*\(\)\s*=>/.test(src));
   assert('Hail button rendered in map controls',

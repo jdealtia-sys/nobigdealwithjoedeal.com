@@ -9,7 +9,7 @@
 #   5. Marketing-site Firestore rules (SEPARATE project)
 #
 # PRECONDITIONS — do these ONCE before the first deploy:
-#   1. Rotate every secret per SECRET_ROTATION.md and run
+#   1. Rotate every secret per documentation/runbooks/SECRET_ROTATION.md and run
 #      `firebase functions:secrets:set <NAME>` for each one.
 #   2. `node scripts/grant-admin-claim.js`
 #   3. `node scripts/seed-access-codes.js`
