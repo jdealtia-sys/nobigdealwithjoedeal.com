@@ -7,7 +7,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -50,7 +50,8 @@ section('Wave B2: V2 prefill from lead');
 
 section('Wave B3: live estimates snapshot');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix: subscribe wiring is in dashboard-bootstrap.module.js.
+  const dash = readDashboard();
   assert('onSnapshot imported',    /onSnapshot/.test(dash));
   assert('_subscribeEstimates wired', /window\._subscribeEstimates/.test(dash));
   assert('subscribe called on auth ready',

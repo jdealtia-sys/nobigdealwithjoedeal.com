@@ -373,6 +373,11 @@
   <a href="https://nobigdealwithjoedeal.com">nobigdealwithjoedeal.com</a>
 </footer>
 
+<!-- D-2.7: Before/After draggable slider. Loaded after the main
+     page body so the portal's render path can call NBDBeforeAfter
+     once view data lands. Self-contained — no Firebase deps. -->
+<script defer src="./js/before-after-slider.js?v=1"></script>
+
 <script>
 (function () {
   'use strict';
@@ -407,6 +412,28 @@
     } catch (e) { return ''; }
   }
 
+  // ─── Live-poll state ────────────────────────────────────────────
+  // Step 13: portal becomes "push-feeling" via 30s visibility-aware
+  // polling against the same getHomeownerPortalView callable. Diffs the
+  // new view against _lastView; on real changes (stage / photos /
+  // messages / estimate) surfaces an inline banner before re-rendering.
+  // Server changes: none. Cost: 1 callable invocation / tab / 30s while
+  // the page is visible. Pauses entirely when document.hidden.
+  const POLL_INTERVAL_MS = 30_000;
+  let _lastView = null;
+  let _pollTimer = null;
+  let _pollInflight = false;
+
+  async function _fetchView(token) {
+    const res = await fetch(FUNCTIONS_BASE + '/getHomeownerPortalView', {
+      method: 'POST',
+      credentials: 'omit',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+    return res;
+  }
+
   async function loadView() {
     const token = getToken().trim();
     const main = document.getElementById('mainWrap');
@@ -420,12 +447,7 @@
       // page URL still carries ?token= in the browser history (from
       // the emailed link) but the *server-side* log chain no longer
       // receives it.
-      const res = await fetch(FUNCTIONS_BASE + '/getHomeownerPortalView', {
-        method: 'POST',
-        credentials: 'omit',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
-      });
+      const res = await _fetchView(token);
       if (res.status === 410) {
         main.innerHTML = '<div class="error-state"><h2>This link has expired</h2><div>Contact your rep for a new one.</div></div>';
         return;
@@ -436,13 +458,152 @@
       }
       if (!res.ok) throw new Error('Status ' + res.status);
       const view = await res.json();
+      _lastView = view;
       renderView(view);
+      _showLivePill();
+      _startLivePolling();
       // Audit batch 7: emit a portal_open event so the rep's
       // customer-side activity log captures the visit. Fire-and-forget;
       // never block the page on telemetry.
       _emitAuditEvent('portal_open');
     } catch (e) {
       main.innerHTML = '<div class="error-state"><h2>Couldn\'t load your project</h2><div>Please try again in a moment.</div></div>';
+    }
+  }
+
+  // ─── Diff helpers ───────────────────────────────────────────────
+  // Stage / progress label changes are the most important signal —
+  // the rep marking "Inspection Done" → "Estimate Ready" is what the
+  // homeowner is waiting on. Photos / messages are next-tier.
+  function _diffView(prev, next) {
+    if (!prev) return null; // first paint — nothing to announce
+    const events = [];
+    const pStage = (prev.progress && prev.progress.currentLabel) || '';
+    const nStage = (next.progress && next.progress.currentLabel) || '';
+    if (pStage && nStage && pStage !== nStage) {
+      events.push({ kind: 'stage', from: pStage, to: nStage, msg: `🎉 Status update: now ${nStage}` });
+    }
+    const pPhotos = (prev.photos && prev.photos.length) || 0;
+    const nPhotos = (next.photos && next.photos.length) || 0;
+    if (nPhotos > pPhotos) {
+      const added = nPhotos - pPhotos;
+      events.push({ kind: 'photos', delta: added, msg: `📸 ${added} new photo${added === 1 ? '' : 's'} from your rep` });
+    }
+    const pMsgs = (prev.messages && prev.messages.length) || 0;
+    const nMsgs = (next.messages && next.messages.length) || 0;
+    if (nMsgs > pMsgs) {
+      events.push({ kind: 'message', msg: `💬 New message from your rep` });
+    }
+    const pEstId = (prev.estimate && prev.estimate.id) || null;
+    const nEstId = (next.estimate && next.estimate.id) || null;
+    if (nEstId && pEstId !== nEstId) {
+      events.push({ kind: 'estimate', msg: `📋 New estimate ready to review` });
+    }
+    return events.length ? events : null;
+  }
+
+  // ─── Banner UI ──────────────────────────────────────────────────
+  // One banner at a time, slides in from the top of the page. Auto-
+  // dismisses after 8s; clicking it dismisses immediately.
+  function _showUpdateBanner(events) {
+    if (!Array.isArray(events) || !events.length) return;
+    const existing = document.getElementById('liveBanner');
+    if (existing) existing.remove();
+    const banner = document.createElement('div');
+    banner.id = 'liveBanner';
+    banner.setAttribute('role', 'status');
+    banner.setAttribute('aria-live', 'polite');
+    banner.style.cssText = 'position:fixed;top:14px;left:50%;transform:translate(-50%, -120%);background:var(--green, #2ecc8a);color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:9999;cursor:pointer;max-width:90vw;transition:transform .35s cubic-bezier(.22,.61,.36,1);';
+    // Stack the messages — typically 1-2; cap at 3 lines so it can't
+    // grow off-screen if a slow homeowner returns to a much-updated page.
+    banner.innerHTML = events.slice(0, 3).map(e => `<div>${e.msg}</div>`).join('');
+    banner.addEventListener('click', () => banner.remove());
+    document.body.appendChild(banner);
+    // Trigger the slide-in via rAF so the initial off-screen style applies first.
+    requestAnimationFrame(() => { banner.style.transform = 'translate(-50%, 0)'; });
+    setTimeout(() => {
+      if (banner.parentNode) {
+        banner.style.transform = 'translate(-50%, -120%)';
+        setTimeout(() => banner.remove(), 400);
+      }
+    }, 8000);
+  }
+
+  // Tiny "🟢 Live" indicator pinned to the page corner so the homeowner
+  // sees this is current data, not a snapshot. Gently pulses when a
+  // poll fires so they get visual confirmation the page is alive.
+  function _showLivePill() {
+    if (document.getElementById('livePill')) return;
+    const pill = document.createElement('div');
+    pill.id = 'livePill';
+    pill.style.cssText = 'position:fixed;bottom:14px;right:14px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:6px 10px;border-radius:999px;font-weight:500;letter-spacing:.04em;backdrop-filter:blur(6px);z-index:9998;display:flex;align-items:center;gap:6px;';
+    pill.innerHTML = '<span id="livePillDot" style="width:6px;height:6px;border-radius:50%;background:#2ecc8a;display:inline-block;transition:transform .2s;"></span><span>Live</span>';
+    document.body.appendChild(pill);
+  }
+  function _pulseLivePill() {
+    const dot = document.getElementById('livePillDot');
+    if (!dot) return;
+    dot.style.transform = 'scale(1.8)';
+    setTimeout(() => { dot.style.transform = 'scale(1)'; }, 220);
+  }
+
+  // ─── Poll loop ──────────────────────────────────────────────────
+  function _startLivePolling() {
+    if (_pollTimer) return; // already running
+    _scheduleNextPoll();
+    document.addEventListener('visibilitychange', _onVisibility);
+  }
+
+  function _scheduleNextPoll() {
+    clearTimeout(_pollTimer);
+    if (document.hidden) { _pollTimer = null; return; }
+    _pollTimer = setTimeout(_pollOnce, POLL_INTERVAL_MS);
+  }
+
+  function _onVisibility() {
+    // Tab hidden → halt timer to save battery + Cloud Function cost.
+    // Tab returning → fire one immediate poll so the homeowner doesn't
+    // wait 30s for the catch-up after coming back to the page.
+    if (document.hidden) {
+      clearTimeout(_pollTimer);
+      _pollTimer = null;
+    } else {
+      _pollOnce();
+    }
+  }
+
+  async function _pollOnce() {
+    if (_pollInflight) { _scheduleNextPoll(); return; }
+    _pollInflight = true;
+    _pulseLivePill();
+    try {
+      const token = getToken().trim();
+      if (!token) return;
+      const res = await _fetchView(token);
+      if (res.status === 410 || res.status === 404) {
+        // Link revoked/expired mid-session — stop polling and surface
+        // a non-destructive notice. Don't wipe the rendered view; the
+        // homeowner can still see what they had.
+        clearTimeout(_pollTimer);
+        _pollTimer = null;
+        _showUpdateBanner([{ msg: 'This link is no longer valid. Contact your rep for a fresh link.' }]);
+        return;
+      }
+      if (!res.ok) return; // transient failure — try again on next tick
+      const view = await res.json();
+      const events = _diffView(_lastView, view);
+      _lastView = view;
+      if (events) {
+        // Re-render first so the banner refers to data the user can see,
+        // then show the banner. Avoids the "🎉 Status: Approved" toast
+        // landing before the UI has caught up.
+        renderView(view);
+        _showUpdateBanner(events);
+      }
+    } catch (e) { /* swallow — transient network errors during polling shouldn't disrupt the page */ }
+    finally {
+      _pollInflight = false;
+      _scheduleNextPoll();
     }
   }
 
@@ -728,6 +889,23 @@
       );
     }
 
+    // ── D-2.7: Before & After photo sliders ──
+    // Card only renders when the server returned at least one
+    // before/after pair (auto-matched by location + phase tag).
+    // Each pair becomes a draggable slider — homeowner drags the
+    // orange handle left/right to reveal the After over the Before.
+    if (Array.isArray(view.photoPairs) && view.photoPairs.length > 0) {
+      const slots = view.photoPairs.map((_, i) => '<div class="ba-slot" data-i="' + i + '"></div>').join('');
+      parts.push(
+        '<div class="card" id="ba-card">' +
+          '<div class="card-label">📸 Before &amp; After</div>' +
+          '<div class="card-title">See the transformation</div>' +
+          '<p style="color:var(--muted);margin:0 0 16px;font-size:13px;line-height:1.5;">Drag the orange handle to slide between the before and after for each location.</p>' +
+          '<div style="display:flex;flex-direction:column;gap:24px;">' + slots + '</div>' +
+        '</div>'
+      );
+    }
+
     // ── Wave 123: Async messaging card (homeowner ↔ rep) ──
     // Always rendered. Thread loads via getPortalMessages on mount,
     // refreshes every 30s while the page is visible.
@@ -737,9 +915,16 @@
         '<div class="card-title">Quick questions, anytime</div>' +
         '<p style="color:var(--muted);margin:0 0 14px;font-size:13px;line-height:1.5;">No phone tag. ' + esc(repName.split(' ')[0]) + ' will see this in their CRM.</p>' +
         '<div id="pm-thread" style="max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding:8px;background:var(--bg, #0a1424);border-radius:8px;border:1px solid var(--br, #2a3344);margin-bottom:12px;">' +
-          '<div id="pm-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:14px 8px;">No messages yet — send the first one.</div>' +
+          '<div id="pm-empty" style="color:var(--muted);font-size:13px;text-align:center;padding:18px 8px;line-height:1.5;">' +
+            '<div style="font-size:28px;margin-bottom:6px;">💬</div>' +
+            '<div style="font-weight:600;color:inherit;margin-bottom:4px;">Start a conversation with ' + esc(repName.split(' ')[0]) + '</div>' +
+            'Ask anything — pricing, scheduling, what to expect.' +
+          '</div>' +
         '</div>' +
-        '<textarea id="pm-text" rows="2" maxlength="2000" placeholder="Type your message…" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:14px;box-sizing:border-box;resize:vertical;margin-bottom:8px;"></textarea>' +
+        '<textarea id="pm-text" rows="2" maxlength="2000" placeholder="Type your message… (Enter to send · Shift+Enter for new line)" style="width:100%;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:14px;box-sizing:border-box;resize:vertical;margin-bottom:6px;"></textarea>' +
+        '<div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:8px;">' +
+          '<div id="pm-counter" style="font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;">0 / 2000</div>' +
+        '</div>' +
         '<button id="pm-send" type="button" class="btn" disabled style="width:100%;padding:12px;font-size:14px;background:var(--accent, #c8541a);color:#fff;border:none;border-radius:8px;cursor:pointer;opacity:0.55;">Send</button>' +
         '<div id="pm-status" style="display:none;margin-top:8px;padding:8px;border-radius:6px;font-size:12px;"></div>' +
       '</div>'
@@ -768,6 +953,95 @@
       '</div>'
     );
 
+    // ── Step 17: Digital Warranty Card ──
+    // Rendered when the rep has generated a warranty certificate from
+    // customer.html (which now persists `lead.warranty`). Acts as the
+    // homeowner's permanent reference: tier, terms, contact CTA. Hidden
+    // until the rep issues a cert.
+    if (view.warranty) {
+      const w = view.warranty;
+      const tierAccent = w.tier === 'elite' ? '#111'
+                       : w.tier === 'preferred' ? '#1a3260'
+                       : '#c8541a';
+      const installLabel = w.installDate
+        ? new Date(w.installDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })
+        : '—';
+      const claimBody = encodeURIComponent(
+        "Hi — I have a warranty question about my roof. Cert " + (w.certNumber || '') + ". Can you call me back?"
+      );
+      parts.push(
+        '<div class="card" id="wc-card" style="background:linear-gradient(135deg, rgba(232,114,12,.04), rgba(232,114,12,.01)); border:1px solid rgba(232,114,12,.35);">' +
+          '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">' +
+            '<div>' +
+              '<div class="card-label" style="color:var(--accent,#c8541a);">🛡️ Digital Warranty Card</div>' +
+              '<div class="card-title" style="margin-top:2px;">' + esc(w.tierLabel || 'NBD Lifetime Pledge') + '</div>' +
+            '</div>' +
+            '<div style="background:' + tierAccent + ';color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border-radius:3px;white-space:nowrap;">' + esc(w.tier || 'standard') + '</div>' +
+          '</div>' +
+
+          (w.tierDesc ? '<p style="color:var(--text);margin:0 0 14px;font-size:13px;line-height:1.55;">' + esc(w.tierDesc) + '</p>' : '') +
+
+          '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">' +
+            '<div style="background:rgba(255,255,255,.04);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;">' +
+              '<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Installed</div>' +
+              '<div style="font-size:13px;font-weight:700;color:var(--text);">' + esc(installLabel) + '</div>' +
+            '</div>' +
+            '<div style="background:rgba(255,255,255,.04);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;">' +
+              '<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Cert No.</div>' +
+              '<div style="font-size:13px;font-weight:700;color:var(--text);font-family:\'DM Mono\',monospace;">' + esc(w.certNumber || '—') + '</div>' +
+            '</div>' +
+          '</div>' +
+
+          (w.work ? '<div style="background:rgba(255,255,255,.04);border:1px solid var(--br,#2a3344);border-radius:7px;padding:10px 12px;margin-bottom:14px;">' +
+            '<div style="font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;">Work Performed</div>' +
+            '<div style="font-size:13px;color:var(--text);">' + esc(w.work) + '</div>' +
+          '</div>' : '') +
+
+          '<a href="sms:?&body=' + claimBody + '" style="display:block;text-align:center;padding:12px;background:var(--accent,#c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">🛟 Start a warranty claim</a>' +
+
+          '<p style="font-size:11px;color:var(--muted);margin:12px 0 0;line-height:1.5;text-align:center;">Save this page or screenshot it — your permanent warranty reference.</p>' +
+        '</div>'
+      );
+    }
+
+    // ── Step 16: Refer a friend ──
+    // Only render the card when we have a stable referral code
+    // (customerId — NBD-0001 format). Leads without one are usually
+    // unstamped or pre-Wave 0 stragglers; rather than build a
+    // half-working link we hide the card entirely.
+    const customerId = view.homeowner && view.homeowner.customerId;
+    if (customerId) {
+      const referLink = 'https://nobigdeal-pro.web.app/pro/refer.html?ref=' + encodeURIComponent(customerId);
+      const sent = (view.referralStats && view.referralStats.sent) || 0;
+      const statPill = sent > 0
+        ? '<span style="background:rgba(46,204,138,.16);color:#a7f3d0;border:1px solid rgba(46,204,138,.4);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.04em;">✓ ' + sent + ' sent your way</span>'
+        : '';
+      const smsBody = encodeURIComponent(
+        "Hey — wanted to share my roofing guys (No Big Deal Home Solutions). They did a great job for me. " + referLink
+      );
+      const emailSubject = encodeURIComponent('My roofing recommendation');
+      const emailBody = encodeURIComponent(
+        "Hey,\n\nIf you ever need roof work, the guys who did mine were great — No Big Deal Home Solutions. Sharing my referral link below:\n\n" + referLink + "\n\nNo pressure, just thought I'd pass it along."
+      );
+      parts.push(
+        '<div class="card" id="rf-card">' +
+          '<div class="card-label">📨 Refer a friend</div>' +
+          '<div class="card-title">Know someone with a beat-up roof?</div>' +
+          '<p style="color:var(--muted);margin:0 0 14px;font-size:13px;line-height:1.5;">Send your neighbor our way — they get a no-pressure roof check, you get our thanks.</p>' +
+          (statPill ? '<div style="margin-bottom:14px;">' + statPill + '</div>' : '') +
+          '<div style="display:flex;gap:8px;margin-bottom:10px;">' +
+            '<input id="rf-link" type="text" readonly value="' + esc(referLink) + '" style="flex:1;padding:10px;border-radius:6px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:12px;">' +
+            '<button id="rf-copy" type="button" style="padding:0 14px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:var(--surface-2,#13243d);color:var(--text);border:1px solid var(--br, #2a3344);border-radius:6px;cursor:pointer;white-space:nowrap;">Copy</button>' +
+          '</div>' +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;">' +
+            '<a href="sms:?&body=' + smsBody + '" style="flex:1;min-width:120px;text-align:center;padding:10px;background:var(--accent, #c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;">💬 Text it</a>' +
+            '<a href="mailto:?subject=' + emailSubject + '&body=' + emailBody + '" style="flex:1;min-width:120px;text-align:center;padding:10px;background:var(--surface-2,#13243d);color:var(--text);border:1px solid var(--br, #2a3344);border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;">✉️ Email it</a>' +
+          '</div>' +
+          '<div id="rf-status" style="display:none;margin-top:10px;padding:8px 10px;border-radius:6px;font-size:12px;background:rgba(46,204,138,.12);color:#a7f3d0;border:1px solid rgba(46,204,138,.4);text-align:center;"></div>' +
+        '</div>'
+      );
+    }
+
     // ── Expiry note ──
     if (view.tokenInfo && view.tokenInfo.daysRemaining != null) {
       const d = view.tokenInfo.daysRemaining;
@@ -788,9 +1062,73 @@
     wireRatingCard(view);
     // Wave 123: wire up the messaging thread + compose.
     wireMessagingCard();
+    // D-2.7: hydrate each before/after slot with the slider widget.
+    wireBeforeAfterSliders(view);
+    // Step 16: wire the Refer-a-friend Copy button (no-op when card
+    // wasn't rendered, e.g. lead missing customerId).
+    wireReferralCard();
     // Phase 5 (Output Engine): wire phase tabs + location chips that
     // filter the photo gallery client-side.
     wirePhotoFilters();
+  }
+
+  // ─── D-2.7: Before & After ────────────────────────────────────
+  function wireBeforeAfterSliders(view) {
+    if (!Array.isArray(view.photoPairs) || view.photoPairs.length === 0) return;
+    if (!window.NBDBeforeAfter || typeof window.NBDBeforeAfter.render !== 'function') {
+      // Script hasn't loaded yet — retry on next tick. The script tag
+      // is `defer` so DOMContentLoaded normally runs first, but if the
+      // view fetched faster than expected this guard catches the race.
+      setTimeout(() => wireBeforeAfterSliders(view), 200);
+      return;
+    }
+    document.querySelectorAll('#ba-card .ba-slot').forEach((slot) => {
+      const i = parseInt(slot.dataset.i, 10);
+      const pair = view.photoPairs[i];
+      if (!pair) return;
+      const beforeUrl = (pair.before && (pair.before.urls && (pair.before.urls.lg || pair.before.urls.md)) || (pair.before && pair.before.url)) || null;
+      const afterUrl  = (pair.after  && (pair.after.urls  && (pair.after.urls.lg  || pair.after.urls.md))  || (pair.after  && pair.after.url))  || null;
+      if (!beforeUrl || !afterUrl) return;
+      window.NBDBeforeAfter.render(slot, {
+        before:   { url: beforeUrl },
+        after:    { url: afterUrl },
+        location: pair.location || '',
+        idx: i,
+      });
+    });
+  }
+
+  // ─── Step 16: Refer a friend ─────────────────────────────────
+  function wireReferralCard() {
+    const linkEl = document.getElementById('rf-link');
+    const copyBtn = document.getElementById('rf-copy');
+    const statusEl = document.getElementById('rf-status');
+    if (!linkEl || !copyBtn) return;
+    copyBtn.addEventListener('click', async () => {
+      const val = linkEl.value;
+      let ok = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(val);
+          ok = true;
+        } else {
+          // Fallback for iOS standalone PWAs / older Safari that don't
+          // expose navigator.clipboard outside HTTPS contexts.
+          linkEl.select();
+          document.execCommand('copy');
+          ok = true;
+        }
+      } catch (_) { /* swallow — status path handles failure */ }
+      if (statusEl) {
+        statusEl.textContent = ok ? '✓ Link copied — paste it anywhere' : 'Copy failed — long-press the link to copy manually.';
+        statusEl.style.display = 'block';
+        statusEl.style.background = ok ? 'rgba(46,204,138,.12)' : 'rgba(220,38,38,.12)';
+        statusEl.style.color = ok ? '#a7f3d0' : '#fca5a5';
+        statusEl.style.borderColor = ok ? 'rgba(46,204,138,.4)' : 'rgba(220,38,38,.4)';
+        clearTimeout(wireReferralCard._t);
+        wireReferralCard._t = setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
+      }
+    });
   }
 
   // ─── Phase 5: portal photo gallery filtering ──────────────────
@@ -874,19 +1212,45 @@
     }
   }
 
-  // ─── Wave 123: Async messaging ────────────────────────────────
+  // ─── Wave 123 + Step 14 polish: Async messaging ────────────────
   // Loads the thread on mount, polls every 30s while visible, and
   // posts new messages via sendPortalMessage. The poll handle is
   // tracked so we can clear it on pagehide / visibilitychange.
+  //
+  // Step 14 adds:
+  //   - Enter-to-send (Shift+Enter for newline)
+  //   - Live char counter that warns when near the 2000-char ceiling
+  //   - Optimistic local bubble (instant feedback + retry on failure)
+  //   - Read receipt (✓ Delivered / ✓✓ Read) on outgoing bubbles
+  //   - Timestamp grouping — only show time at the start of a new
+  //     "burst" (>5 min gap from previous message)
   let _pmPollHandle = null;
   let _pmLastFetch = 0;
+  // Locally-tracked outgoing messages waiting for the server roundtrip
+  // to surface them in the next fetched thread. Keyed by client-side
+  // pending id; cleared once the server message with matching text
+  // shows up in the polled response.
+  const _pmPending = new Map();
   function wireMessagingCard() {
     const threadEl = document.getElementById('pm-thread');
     const emptyEl = document.getElementById('pm-empty');
     const textEl = document.getElementById('pm-text');
     const sendBtn = document.getElementById('pm-send');
     const statusEl = document.getElementById('pm-status');
+    const counterEl = document.getElementById('pm-counter');
     if (!threadEl || !textEl || !sendBtn) return;
+
+    // ── Char counter — warns at 80% capacity, errors past max ───
+    const MAX_CHARS = 2000;
+    const WARN_AT = 1700;
+    function updateCounter() {
+      if (!counterEl) return;
+      const n = textEl.value.length;
+      counterEl.textContent = n + ' / ' + MAX_CHARS;
+      counterEl.style.color = n >= WARN_AT
+        ? (n >= MAX_CHARS ? '#fca5a5' : '#fbbf24')
+        : 'var(--muted, #888)';
+    }
 
     function escMsg(s) {
       return String(s == null ? '' : s)
@@ -913,35 +1277,93 @@
       statusEl.style.border = kind === 'error' ? '1px solid rgba(239,68,68,0.45)' : '1px solid var(--br, #2a3344)';
     }
 
+    // Toggle the "Sending…" → "Sent" → "Read" indicator on outgoing
+    // bubbles. WhatsApp-style: ✓ delivered (server ack), ✓✓ read
+    // (rep marked the thread read). Falls back to the original
+    // timestamp line when the message hasn't reached either state.
+    function bubbleStatusLine(m, isYou) {
+      const time = escMsg(fmtTime(m.createdAt || (m._pending ? Date.now() : 0)));
+      if (!isYou) return time;
+      if (m._pending && !m._failed) return '<span style="opacity:.7;">Sending…</span>';
+      if (m._failed)                 return '<span style="color:#fca5a5;">Tap to retry</span>';
+      const readMark = m.readByRecipient
+        ? '<span style="color:#fff;letter-spacing:-3px;">✓✓</span>'
+        : '<span style="opacity:.7;">✓</span>';
+      return time + ' · ' + readMark;
+    }
+
+    // Step 14: only emit a timestamp / header line at the start of
+    // a new "burst" (defined as >5 min from the previous message).
+    // Keeps the thread visually quieter for rapid back-and-forth.
+    const BURST_GAP_MS = 5 * 60_000;
+    function shouldShowTime(prev, cur) {
+      if (!prev) return true;
+      const pMs = prev.createdAt || (prev._pending ? prev._localMs : 0);
+      const cMs = cur.createdAt  || (cur._pending  ? cur._localMs  : 0);
+      if (!pMs || !cMs) return true;
+      if (prev.source !== cur.source) return true;
+      return (cMs - pMs) > BURST_GAP_MS;
+    }
+
     function renderThread(messages) {
-      if (!Array.isArray(messages) || messages.length === 0) {
-        if (emptyEl) { emptyEl.style.display = 'block'; }
-        // Clear any stale messages from a prior render.
-        Array.from(threadEl.querySelectorAll('.pm-bubble')).forEach(n => n.remove());
+      // Merge in any pending optimistic messages. We dedup by text +
+      // source: if the server already returned a homeowner message
+      // matching the pending text, the pending entry gets dropped.
+      const serverMsgs = Array.isArray(messages) ? messages.slice() : [];
+      const pendingArr = Array.from(_pmPending.values());
+      pendingArr.forEach(p => {
+        const matched = serverMsgs.find(s =>
+          s.source === 'homeowner' && s.text === p.text);
+        if (matched) {
+          _pmPending.delete(p._pendingId);
+        }
+      });
+      const merged = serverMsgs.concat(
+        Array.from(_pmPending.values())
+          // Stable-sort by createdAt; pending entries use _localMs.
+          .sort((a, b) => (a._localMs || 0) - (b._localMs || 0))
+      );
+
+      if (merged.length === 0) {
+        if (emptyEl) emptyEl.style.display = 'block';
+        Array.from(threadEl.querySelectorAll('.pm-bubble, .pm-empty-spacer')).forEach(n => n.remove());
         return;
       }
       if (emptyEl) emptyEl.style.display = 'none';
-      // Replace bubbles entirely on each render — small thread,
-      // simpler than diffing.
-      Array.from(threadEl.querySelectorAll('.pm-bubble')).forEach(n => n.remove());
+      Array.from(threadEl.querySelectorAll('.pm-bubble, .pm-empty-spacer')).forEach(n => n.remove());
       const accent = 'var(--accent, #c8541a)';
-      messages.forEach(m => {
+      let prev = null;
+      merged.forEach(m => {
         const bubble = document.createElement('div');
         bubble.className = 'pm-bubble';
         const isYou = m.source === 'homeowner';
+        const dim = m._pending && !m._failed ? '0.65' : '1';
         bubble.style.cssText =
           'max-width:80%;padding:9px 12px;border-radius:12px;font-size:14px;line-height:1.4;' +
           'word-wrap:break-word;align-self:' + (isYou ? 'flex-end' : 'flex-start') + ';' +
           'background:' + (isYou ? accent : 'rgba(255,255,255,0.08)') + ';' +
           'color:' + (isYou ? '#fff' : 'inherit') + ';' +
+          'opacity:' + dim + ';' +
           'border-bottom-' + (isYou ? 'right' : 'left') + '-radius:4px;';
-        bubble.innerHTML =
-          '<div>' + escMsg(m.text) + '</div>' +
-          '<div style="font-size:10px;opacity:0.7;margin-top:4px;text-align:' +
-            (isYou ? 'right' : 'left') + ';">' +
-            (isYou ? 'You' : esc(repName.split(' ')[0])) + ' · ' + escMsg(fmtTime(m.createdAt)) +
-          '</div>';
+
+        const showTime = shouldShowTime(prev, m);
+        const statusLine = showTime
+          ? '<div style="font-size:10px;opacity:0.7;margin-top:4px;text-align:' + (isYou ? 'right' : 'left') + ';">' +
+              (isYou ? 'You' : esc(repName.split(' ')[0])) + ' · ' + bubbleStatusLine(m, isYou) +
+            '</div>'
+          : '';
+
+        bubble.innerHTML = '<div>' + escMsg(m.text) + '</div>' + statusLine;
+
+        // Failed-bubble click handler — retry the send.
+        if (m._failed && m._pendingId) {
+          bubble.style.cursor = 'pointer';
+          bubble.title = 'Tap to retry';
+          bubble.addEventListener('click', () => retryPending(m._pendingId));
+        }
+
         threadEl.appendChild(bubble);
+        prev = m;
       });
       // Auto-scroll to the latest message.
       threadEl.scrollTop = threadEl.scrollHeight;
@@ -997,18 +1419,29 @@
     window.addEventListener('pagehide', stopPoll, { once: true });
 
     // Compose: enable Send only when there's content.
+    // Step 14: also drive the live char counter from the same handler.
     textEl.addEventListener('input', () => {
       const has = textEl.value.trim().length > 0;
       sendBtn.disabled = !has;
       sendBtn.style.opacity = has ? '1' : '0.55';
+      updateCounter();
     });
 
-    sendBtn.addEventListener('click', async () => {
-      const text = textEl.value.trim();
-      if (!text) return;
-      sendBtn.disabled = true;
-      sendBtn.textContent = 'Sending…';
-      setStatus('');
+    // Step 14: Enter-to-send (Shift+Enter inserts a newline). Matches
+    // the convention every messaging app on the planet uses; the help
+    // text is in the textarea placeholder.
+    textEl.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' && !ev.shiftKey) {
+        ev.preventDefault();
+        if (!sendBtn.disabled) sendBtn.click();
+      }
+    });
+
+    // Core send path — extracted so the retry-failed-bubble flow can
+    // reuse it. The optimistic local bubble appears immediately; the
+    // server roundtrip either confirms it (next fetch matches by text)
+    // or marks it failed so the rep can tap to retry without retyping.
+    async function doSend(text, pendingId) {
       try {
         const res = await fetch(FUNCTIONS_BASE + '/sendPortalMessage', {
           method: 'POST',
@@ -1017,22 +1450,82 @@
         });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
+          // Per-token daily quota / expired / 4xx — surface the server
+          // message and mark the bubble failed.
+          const p = _pmPending.get(pendingId);
+          if (p) { p._failed = true; p._pending = false; renderThread(_lastMessages); }
           setStatus(json.error || 'Could not send. Try again.', 'error');
-          sendBtn.disabled = false;
-          sendBtn.textContent = 'Send';
-          return;
+          return false;
         }
-        textEl.value = '';
-        sendBtn.textContent = 'Send';
-        sendBtn.style.opacity = '0.55';
-        // Optimistic re-fetch to surface the new message immediately.
+        // Success — leave the pending bubble in place until the next
+        // poll surfaces the server message and the dedup logic drops it.
         await fetchMessages();
+        setStatus('');
+        return true;
       } catch (err) {
-        setStatus('Network error: ' + (err.message || 'try again'), 'error');
-        sendBtn.disabled = false;
-        sendBtn.textContent = 'Send';
+        const p = _pmPending.get(pendingId);
+        if (p) { p._failed = true; p._pending = false; renderThread(_lastMessages); }
+        setStatus('Network error — tap your message to retry.', 'error');
+        return false;
       }
+    }
+
+    function retryPending(pendingId) {
+      const p = _pmPending.get(pendingId);
+      if (!p) return;
+      p._failed = false;
+      p._pending = true;
+      p._localMs = Date.now();
+      renderThread(_lastMessages);
+      doSend(p.text, pendingId);
+    }
+
+    // Tracks the most recent server-side message list so optimistic
+    // renders can re-merge against it on retry / failure-state flips.
+    let _lastMessages = [];
+    const origRenderThread = renderThread;
+    renderThread = function(messages) {
+      if (Array.isArray(messages)) _lastMessages = messages;
+      else messages = _lastMessages;
+      origRenderThread(messages);
+    };
+
+    sendBtn.addEventListener('click', async () => {
+      const text = textEl.value.trim();
+      if (!text) return;
+      sendBtn.disabled = true;
+      sendBtn.textContent = 'Sending…';
+      setStatus('');
+
+      // Optimistic bubble — render immediately so the homeowner sees
+      // their message in-thread before the network call resolves.
+      const pendingId = 'p-' + Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+      _pmPending.set(pendingId, {
+        _pendingId: pendingId,
+        _pending: true,
+        _failed: false,
+        _localMs: Date.now(),
+        source: 'homeowner',
+        text,
+        readByRecipient: false
+      });
+      textEl.value = '';
+      updateCounter();
+      renderThread(_lastMessages);
+
+      const ok = await doSend(text, pendingId);
+      // Reset compose state regardless — failures keep the pending
+      // bubble visible (with retry affordance) so the rep doesn't lose
+      // their work.
+      sendBtn.textContent = 'Send';
+      sendBtn.disabled = false;
+      sendBtn.style.opacity = '0.55';
     });
+
+    // Drive the counter once on mount so the "0 / 2000" reflects any
+    // pre-filled textarea state (e.g., browser autofill restoring a
+    // previous draft).
+    updateCounter();
   }
 
   // ─── Wave 121: Customer rating ─────────────────────────────────

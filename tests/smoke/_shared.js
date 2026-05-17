@@ -28,16 +28,40 @@ const FUNCTIONS = path.join(ROOT, 'functions');
 function read(file) { return fs.readFileSync(file, 'utf8'); }
 
 // Audit batch 10: dashboard.html's 3986-line inline <script> got
-// extracted to docs/pro/js/dashboard-main.js. Existing smoke tests
-// that read dashboard.html and grep for code patterns now need to
-// see BOTH files. readDashboard() returns the concatenation so the
-// assertions don't care where a given handler lives.
+// extracted to docs/pro/js/dashboard-main.js. CSP hotfix (2026-05-16)
+// extracted the remaining inline <script> blocks to a fleet of
+// dashboard-*.js shards. readDashboard() returns the concatenation of
+// dashboard.html + every shard so existing assertions keep finding
+// patterns regardless of which file the handler ended up in.
+const DASHBOARD_EXTRACTED_SHARDS = [
+  'dashboard-main.js',
+  'dashboard-legacy-redirect.js',
+  'dashboard-appcheck-config.js',
+  'dashboard-auth-gate.module.js',
+  'dashboard-bootstrap.module.js',
+  'dashboard-loader-fadeout.js',
+  'dashboard-ui-prefs-boot.js',
+  'dashboard-nav-init.js',
+  'dashboard-shortcuts-tabs.js',
+  'dashboard-crew-calendar-toggle.js',
+  'dashboard-accessory-panel-init.js',
+  'dashboard-insurance-overlay-toggle.js',
+  'dashboard-custom-theme.js',
+  'dashboard-sidebar-customizer.js',
+  'dashboard-team-tab.js',
+  'dashboard-billing-tab.js',
+  'dashboard-hotkey-toggles.js',
+  'dashboard-sw-bootstrap.js',
+  'dashboard-load-status-banner.js',
+];
 function readDashboard() {
-  const html  = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = fs.existsSync(path.join(ROOT, 'docs/pro/js/dashboard-main.js'))
-    ? read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'))
-    : '';
-  return html + '\n' + mainJs;
+  const html = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const parts = [html];
+  for (const shard of DASHBOARD_EXTRACTED_SHARDS) {
+    const p = path.join(ROOT, 'docs/pro/js', shard);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
+  return parts.join('\n');
 }
 
 function syntaxCheck(file) {

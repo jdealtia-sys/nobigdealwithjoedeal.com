@@ -2133,25 +2133,260 @@
     },
 
     /**
-     * Generate and open the report
+     * Generate and open the report.
+     *
+     * D-2: tries the new server-side Puppeteer renderer first. The
+     * legacy blob-popup path stays as a fallback so reps are never
+     * blocked if the callable errors out. Only the full-inspection
+     * template currently has a server template; storm-damage,
+     * supplement, and completion still go through the legacy path
+     * until D-2 follow-ups port them.
      */
     async _generateAndOpen(state) {
+      this._saveDraft(state.leadId, state.data);
+
+      // ── D-2 server path ──
+      if (state.templateId === 'full-inspection') {
+        try {
+          const ok = await this._tryServerRender(state);
+          if (ok) return;
+        } catch (e) {
+          console.warn('[inspection] server render failed, falling back:', e && e.message || e);
+        }
+      }
+
+      // ── Legacy blob-popup path (always runs for non-full-inspection
+      //    templates, or as fallback after a server-render error) ──
       const html = this.generateReport(state.leadId, state.templateId, state.data);
       if (!html) {
         showToast('Failed to generate report', 'error');
         return;
       }
-
-      // Save draft
-      this._saveDraft(state.leadId, state.data);
-
-      // Open in new window for printing (uses blob URL for Safari standalone compatibility)
       const blob = new Blob([html], { type: 'text/html' });
       const blobUrl = URL.createObjectURL(blob);
       window.open(blobUrl, '_blank');
       setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
       showToast('Report generated! Use Print or Save as PDF from the browser.', 'success');
+    },
+
+    /**
+     * D-2: Try the server-side renderer. Builds the inspection payload
+     * from the wizard state, calls renderPdf, opens NBDDocViewer with
+     * the returned signed URL. Returns true on success so the caller
+     * can short-circuit the legacy path.
+     */
+    async _tryServerRender(state) {
+      if (!window._functions || !window._httpsCallable) {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = mod.getFunctions();
+        window._httpsCallable = mod.httpsCallable;
+      }
+      const payload = this._buildInspectionPayload(state);
+      if (!payload) return false;
+
+      showToast('Rendering report…', 'info');
+
+      const fn = window._httpsCallable(window._functions, 'renderPdf');
+      const slug = (payload.leadName || 'inspection').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
+      const filename = 'NBD-Inspection-' + slug + '-' + payload.reportNumber + '.pdf';
+
+      const r = await fn({
+        template: 'inspection',
+        payload,
+        filename,
+      });
+      const data = r && r.data;
+      if (!data || !data.ok || !data.url) throw new Error('Render returned no URL');
+
+      if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+        window.NBDDocViewer.open({
+          url:      data.url,
+          title:    'Inspection Report' + (payload.leadName ? ' — ' + payload.leadName : ''),
+          filename: data.filename || filename,
+          leadId:   state.leadId,
+        });
+      } else {
+        window.open(data.url, '_blank', 'noopener');
+      }
+      const ms = data.timing && data.timing.totalMs;
+      showToast(ms ? `✓ Report rendered in ${ms}ms` : '✓ Report rendered', 'success');
+      return true;
+    },
+
+    /**
+     * Map the wizard's internal state to the new inspection.hbs
+     * payload shape. Centralized here so the template stays the only
+     * place that knows the doc structure.
+     */
+    _buildInspectionPayload(state) {
+      const lead = this._getLead(state.leadId);
+      if (!lead) return null;
+      const d = state.data || {};
+
+      const leadName = (lead.name && String(lead.name).trim())
+        || ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim()
+        || 'Customer';
+      const reportNumber = 'INS-' + Date.now().toString().slice(-6);
+
+      // Components → findings rows (only those with a recorded condition).
+      const findings = [];
+      const components = d.components || {};
+      Object.keys(components).forEach((compName) => {
+        const c = components[compName] || {};
+        if (!c.condition) return; // skip un-rated components
+        findings.push({
+          component: compName,
+          condition: c.condition,
+          notes: c.notes || '',
+        });
+      });
+
+      // Stat cards — pulled from inspection meta + content counts.
+      const stats = [
+        { label: 'Total Squares', value: d.totalSquares || '—', sub: d.roofType || '' },
+        { label: 'Components Inspected', value: String(findings.length), sub: 'rated Good → Critical' },
+        { label: 'Scope Items', value: String((d.estimatedWork || []).length), sub: 'recommended for follow-up' },
+      ];
+
+      // Property overview KV pairs.
+      const property = [];
+      if (d.roofType)      property.push({ label: 'Roof Type',     value: d.roofType });
+      if (d.roofAge)       property.push({ label: 'Approx. Age',    value: d.roofAge });
+      if (d.totalSquares)  property.push({ label: 'Total Squares',  value: d.totalSquares });
+      if (d.slopes)        property.push({ label: 'Slopes',         value: String(d.slopes) });
+
+      // Photo evidence — pulled from PhotoEngine if available. We map
+      // to the inspection.hbs photo shape: { url, caption, area, severity }.
+      const photos = [];
+      const photoPool = (window.PhotoEngine && window.PhotoEngine.getPhotosForLead && state.leadId)
+        ? (window.PhotoEngine.getPhotosForLead(state.leadId) || [])
+        : [];
+      photoPool.slice(0, 24).forEach((p) => {
+        const url = (p && p.urls && (p.urls.lg || p.urls.md)) || (p && p.url) || '';
+        if (!url) return;
+        photos.push({
+          url,
+          caption:  p.caption || p.aiCaption || '',
+          area:     p.location || p.area || p.phase || '',
+          severity: p.severity || '',
+        });
+      });
+
+      // D-2.7: build before/after pairs from the same photo pool.
+      // Pairing rule: same `location`, one `Before` + one `After`,
+      // most-recent of each wins. Empty array when nothing pairs.
+      const photoPairs = (function () {
+        const byLoc = new Map();
+        photoPool.forEach((p) => {
+          const loc = (p.location || '').trim();
+          if (!loc) return;
+          const phase = String(p.phase || '').toLowerCase();
+          if (phase !== 'before' && phase !== 'after') return;
+          if (!byLoc.has(loc)) byLoc.set(loc, { before: null, after: null });
+          const slot = byLoc.get(loc);
+          const ms = (p.createdAt && (p.createdAt.toMillis ? p.createdAt.toMillis() : (p.createdAt.seconds ? p.createdAt.seconds * 1000 : 0))) || 0;
+          if (phase === 'before') {
+            if (!slot.before || ms > slot.before._ms) slot.before = Object.assign({}, p, { _ms: ms });
+          } else {
+            if (!slot.after  || ms > slot.after._ms)  slot.after  = Object.assign({}, p, { _ms: ms });
+          }
+        });
+        const out = [];
+        byLoc.forEach((slot, loc) => {
+          if (!slot.before || !slot.after) return;
+          const bUrl = (slot.before.urls && (slot.before.urls.lg || slot.before.urls.md)) || slot.before.url;
+          const aUrl = (slot.after.urls  && (slot.after.urls.lg  || slot.after.urls.md))  || slot.after.url;
+          if (!bUrl || !aUrl) return;
+          out.push({
+            location: loc,
+            before: { url: bUrl },
+            after:  { url: aUrl },
+          });
+        });
+        // 8 max — the PDF only needs the strongest comparisons.
+        return out.slice(0, 8);
+      })();
+
+      // Scope rows from estimatedWork.
+      const scope = (Array.isArray(d.estimatedWork) ? d.estimatedWork : []).map((w) => ({
+        area:     w.area || w.location || '',
+        item:     w.item || w.description || '',
+        severity: w.severity || 'Fair',
+        quantity: w.quantity || w.qty || '',
+        notes:    w.notes || '',
+      }));
+
+      const summary = {
+        headline: 'Inspection findings & recommended scope',
+        body: d.damageAssessment && d.damageAssessment.summary
+          ? d.damageAssessment.summary
+          : '',
+      };
+
+      // D-2.5: shared cover-page partial payload. Same shape every
+      // doc sends, so the brand stays consistent and only template-
+      // specific content (eyebrow / tagline) varies.
+      const inspectorName = d.inspectorName
+        || (window._user && (window._user.displayName || window._user.email))
+        || 'NBD Inspector';
+
+      const inspectionDateRaw = d.inspectionDate || new Date();
+      const inspectionDateFmt = (function () {
+        let dt;
+        if (inspectionDateRaw instanceof Date) dt = inspectionDateRaw;
+        else if (typeof inspectionDateRaw === 'string') dt = new Date(inspectionDateRaw);
+        else dt = new Date();
+        return isNaN(dt.getTime())
+          ? String(inspectionDateRaw)
+          : dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+      })();
+
+      const preparedFor = {
+        name:        leadName,
+        address:     lead.address || '',
+        customerId:  lead.customerId || null,
+        projectLine: d.roofType
+          ? `${d.roofType}${d.totalSquares ? ' · ' + d.totalSquares + ' squares' : ''}`
+          : null,
+      };
+      const preparedBy = {
+        name:  inspectorName,
+        role:  'Inspector · No Big Deal Home Solutions',
+        phone: '(859) 420-7382',
+        email: 'jd@nobigdealwithjoedeal.com',
+      };
+      const projectMeta = [
+        { label: 'Inspection Date', value: inspectionDateFmt },
+        { label: 'Claim No.',       value: lead.claimNumber || '—' },
+        { label: 'Report No.',      value: reportNumber },
+      ];
+
+      return {
+        leadName,
+        address: lead.address || '',
+        inspectionDate: d.inspectionDate || new Date(),
+        inspectorName,
+        reportNumber,
+        summary,
+        stats,
+        property,
+        findings,
+        photos,
+        scope,
+        totalScope: d.totalScope || null,
+        recommendations: d.recommendations || '',
+        // D-2.7: paired before/after photos by location
+        photoPairs,
+        // D-2.5 cover fields
+        coverPhoto:    (photos[0] && photos[0].url) || null,
+        coverCaption:  (photos[0] && photos[0].caption) || (photos[0] && photos[0].area) || null,
+        coverTagline:  'Where your roof<br>stands today.',
+        coverSub:      'A visual record of the property at the time of inspection — components, conditions, and the scope we recommend bringing the roof back to standard.',
+        preparedFor,
+        preparedBy,
+        projectMeta,
+      };
     },
 
     /**

@@ -12,7 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -63,7 +63,7 @@ section('C-3: public form gate');
 // ── C-4: App Check init in dashboard ────────────────────────
 section('C-4: App Check initialization');
 {
-  const src = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const src = readDashboard();
   // Either provider is acceptable. Joe's prod key is reCAPTCHA Enterprise
   // (registered in Google Cloud Console, not the classic v3 admin), so the
   // import + provider must use ReCaptchaEnterpriseProvider, not the v3 one.

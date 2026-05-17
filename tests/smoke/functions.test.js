@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -196,7 +196,7 @@ section('Push-3: booking-link SMS uses calcomUsername');
     /sendBookingSMS[\s\S]{0,300}window\._repBookingUrl\(\)/.test(src));
   assert('sendFollowUpSMS uses _repBookingUrl',
     /sendFollowUpSMS[\s\S]{0,500}window\._repBookingUrl\(\)/.test(src));
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboard();
   assert('dashboard hydrates _currentRep.calcomUsername on auth',
     /window\._currentRep[\s\S]{0,500}calcomUsername: calVal/.test(dash));
 }
@@ -453,7 +453,7 @@ section('D9: new-device sign-in alert');
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('user_devices locked to admin SDK',
     /match \/user_devices\/\{uid\}[\s\S]{0,200}allow read, write: if false/.test(rules));
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboard();
   assert('dashboard invokes registerDeviceFingerprint on auth',
     /registerDeviceFingerprint/.test(dash));
 }
@@ -497,7 +497,10 @@ section('E3: CODEOWNERS + PR template + Dependabot');
 
 section('E4: service-worker kill switch');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix: SW bootstrap was inline; now lives in
+  // dashboard-sw-bootstrap.js. Use readDashboard() so the regex
+  // matches whichever file the kill-switch logic lives in.
+  const dash = readDashboard();
   assert('SW bootstrap honors ?nosw=1',  /urlKill = params\.has\('nosw'\)/.test(dash));
   assert('SW bootstrap checks /pro/nosw.txt', /fetch\('\/pro\/nosw\.txt'/.test(dash));
   assert('SW kill unregisters + flushes caches',

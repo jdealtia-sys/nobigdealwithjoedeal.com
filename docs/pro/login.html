@@ -23,7 +23,7 @@
 <link rel="manifest" href="/pro/manifest.json">
 <!-- Sentry must register before any other script that might throw. -->
 <script src="js/sentry-config.js?v=1"></script>
-<script src="js/sentry-init.js?v=1"></script>
+<script src="js/sentry-init.js?v=2"></script>
 <script src="js/standalone-compat.js"></script>
 <title>NBD Pro — Member Login</title>
 <meta name="robots" content="noindex, nofollow">
@@ -259,23 +259,29 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
       <h2 class="view-title">SIGN IN</h2>
       <p class="view-sub">Not a member? <a href="/pro/landing.html#pricing">View plans →</a></p>
       <div class="alert alert-error" id="loginError"><span class="alert-icon">⚠</span><span id="loginErrorMsg">Invalid email or password.</span></div>
-      <div class="fg">
-        <label class="fl" for="emailInput">Email Address</label>
-        <input type="email" id="emailInput" class="fi" placeholder="you@email.com" autocomplete="email" inputmode="email">
-      </div>
-      <div class="fg">
-        <label class="fl" for="passwordInput">Password</label>
-        <input type="password" id="passwordInput" class="fi has-icon" placeholder="••••••••••••" autocomplete="current-password">
-        <button class="icon-btn" id="togglePw" type="button">👁</button>
-      </div>
-      <div class="form-row">
-        <label class="remember"><input type="checkbox" id="rememberMe"> Remember me</label>
-        <button class="forgot" id="showResetBtn" type="button">Forgot password?</button>
-      </div>
-      <button class="btn-main" id="loginBtn" type="button" disabled>
-        <span class="btn-text">Enter Dashboard</span>
-        <div class="spinner"></div>
-      </button>
+      <!-- Wrapped in a real <form> so Chrome/Safari/Firefox detect the
+           email+password pair, offer autofill, and prompt to save the
+           password after a successful submit. action="#" + JS preventDefault
+           keeps the actual sign-in in our Firebase handler. -->
+      <form id="loginForm" action="#" method="post" novalidate>
+        <div class="fg">
+          <label class="fl" for="emailInput">Email Address</label>
+          <input type="email" id="emailInput" name="email" class="fi" placeholder="you@email.com" autocomplete="email" inputmode="email" required>
+        </div>
+        <div class="fg">
+          <label class="fl" for="passwordInput">Password</label>
+          <input type="password" id="passwordInput" name="password" class="fi has-icon" placeholder="••••••••••••" autocomplete="current-password" required>
+          <button class="icon-btn" id="togglePw" type="button">👁</button>
+        </div>
+        <div class="form-row">
+          <label class="remember"><input type="checkbox" id="rememberMe"> Remember me</label>
+          <button class="forgot" id="showResetBtn" type="button">Forgot password?</button>
+        </div>
+        <button class="btn-main" id="loginBtn" type="submit" disabled>
+          <span class="btn-text">Enter Dashboard</span>
+          <div class="spinner"></div>
+        </button>
+      </form>
       <div class="fn">
         Invite-only for NBD members. Questions? <a href="tel:8594207382">(859) 420-7382</a> or <a href="mailto:jd@nobigdealwithjoedeal.com">email Joe</a>
       </div>
@@ -286,14 +292,16 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
       <p class="view-sub" style="margin-bottom:20px">Enter your email and we'll send a reset link.</p>
       <div class="alert alert-error" id="resetError"><span class="alert-icon">⚠</span><span id="resetErrorMsg">Something went wrong.</span></div>
       <div class="alert alert-success" id="resetSuccess"><span class="alert-icon">✓</span><span>Reset link sent! Check your inbox.</span></div>
-      <div class="fg">
-        <label class="fl" for="resetEmail">Email Address</label>
-        <input type="email" id="resetEmail" class="fi" placeholder="you@email.com" autocomplete="email">
-      </div>
-      <button class="btn-main" id="resetBtn" type="button" style="margin-bottom:0">
-        <span class="btn-text">Send Reset Link</span>
-        <div class="spinner"></div>
-      </button>
+      <form id="resetForm" action="#" method="post" novalidate>
+        <div class="fg">
+          <label class="fl" for="resetEmail">Email Address</label>
+          <input type="email" id="resetEmail" name="email" class="fi" placeholder="you@email.com" autocomplete="email" required>
+        </div>
+        <button class="btn-main" id="resetBtn" type="submit" style="margin-bottom:0">
+          <span class="btn-text">Send Reset Link</span>
+          <div class="spinner"></div>
+        </button>
+      </form>
       <button class="back-btn" id="backToLogin" type="button">← Back to sign in</button>
     </div>
   </div>

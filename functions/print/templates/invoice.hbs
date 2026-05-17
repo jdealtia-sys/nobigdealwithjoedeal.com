@@ -1,0 +1,83 @@
+{{!--
+  INVOICE — D-5
+  Shared cover. Line items in a real PDF table. Status pill in the
+  cover meta strip (DUE / PAID / PAST DUE). Total block at the foot
+  with "Pay Now" link if `payUrl` provided.
+
+  Payload:
+    preparedFor, preparedBy, projectMeta (cover)
+    invoice { number, date, dueDate, status }
+    lines[] { description, quantity, unit, unitPrice, lineTotal }
+    subtotal, tax, total, paymentsReceived, balanceDue
+    notes (optional)
+    payUrl (optional)
+--}}
+
+{{> coverPage
+  eyebrow="Invoice"
+  tagline=coverTagline
+  sub=coverSub
+  preparedFor=preparedFor
+  preparedBy=preparedBy
+  projectMeta=projectMeta
+}}
+
+<section class="page-break">
+  <div class="hero" style="margin-bottom: var(--s-5);">
+    <div class="hero-eyebrow eyebrow">Invoice Detail</div>
+    <div class="hero-title" style="font-size:30pt;">{{summary.headline}}</div>
+    {{#if summary.body}}<p class="hero-sub">{{summary.body}}</p>{{/if}}
+  </div>
+
+  <h2>Line Items</h2>
+  <table class="estimate-lines">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th style="width:10%;" class="num">Qty</th>
+        <th style="width:8%;">Unit</th>
+        <th style="width:13%;" class="num">Rate</th>
+        <th style="width:14%;" class="num">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each lines}}
+      <tr class="avoid-break">
+        <td><strong>{{this.description}}</strong>{{#if this.category}}<div class="line-cat">{{this.category}}</div>{{/if}}</td>
+        <td class="num">{{this.quantity}}</td>
+        <td>{{this.unit}}</td>
+        <td class="num money">{{money this.unitPrice}}</td>
+        <td class="num money"><strong>{{money this.lineTotal}}</strong></td>
+      </tr>
+      {{/each}}
+    </tbody>
+    <tfoot>
+      <tr class="totals-row"><td colspan="3"></td><td class="num totals-label">Subtotal</td><td class="num money">{{money subtotal}}</td></tr>
+      {{#if tax}}<tr class="totals-row"><td colspan="3"></td><td class="num totals-label">Tax</td><td class="num money">{{money tax}}</td></tr>{{/if}}
+      {{#if paymentsReceived}}<tr class="totals-row"><td colspan="3"></td><td class="num totals-label">Payments Received</td><td class="num money">−{{money paymentsReceived}}</td></tr>{{/if}}
+    </tfoot>
+  </table>
+</section>
+
+<section class="avoid-break total-block">
+  <div class="total-eyebrow">Balance Due</div>
+  <div class="total-amount">{{money balanceDue}}</div>
+  {{#if invoice.dueDate}}<div class="total-validity">Due {{invoice.dueDate}}</div>{{/if}}
+</section>
+
+{{#if payUrl}}
+<section class="avoid-break" style="margin-top: var(--s-4); text-align: center;">
+  <a href="{{payUrl}}" style="display:inline-block;padding: 12pt 28pt; background: var(--nbd-orange); color:#fff; font-family:'Barlow Condensed', sans-serif; font-weight:800; font-size: 16pt; letter-spacing: 0.08em; text-transform:uppercase; border-radius: 4pt; text-decoration: none;">Pay this invoice online</a>
+</section>
+{{/if}}
+
+{{#if notes}}
+<section class="avoid-break" style="margin-top: var(--s-6);">
+  <h2>Notes</h2>
+  <p style="line-height:1.65;">{{notes}}</p>
+</section>
+{{/if}}
+
+<div class="sig-block">
+  <p class="meta" style="text-align:center; margin: 0;">Thank you for your business — questions on this invoice can go directly to <strong style="color: var(--nbd-orange);">jd@nobigdealwithjoedeal.com</strong> or <strong style="color: var(--nbd-orange);">(859) 420-7382</strong>.</p>
+</div>

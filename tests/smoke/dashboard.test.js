@@ -120,7 +120,9 @@ section('UI-C: Regrid wire-in to property-intel');
 
 section('UI-E: Cal.com in Settings');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix: _saveSettings lives in dashboard-bootstrap.module.js
+  // after extraction, so use readDashboard() (HTML + all shards).
+  const dash = readDashboard();
   assert('settingsCalcom input present', /id="settingsCalcom"/.test(dash));
   assert('settingsCalcomPreview anchor present',
     /id="settingsCalcomPreview"/.test(dash));
@@ -391,11 +393,15 @@ section('Sentry — DSN config wired across high-value pages');
 
 section('Audit batch 6 — repos.js wired into dashboard write path');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix: lead-create write path is in dashboard-bootstrap.module.js
+  // now. We need raw HTML for the <script defer src="js/repos.js"> assertion
+  // (that's about HTML structure, not JS content), so we keep both.
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboard();
   const repos = read(path.join(ROOT, 'docs/pro/js/repos.js'));
 
   assert('dashboard.html loads repos.js in defer chain',
-    /<script defer src="js\/repos\.js/.test(dash),
+    /<script defer src="js\/repos\.js/.test(dashHtml),
     'expected <script defer src="js/repos.js" ...> in dashboard.html');
 
   assert('repos.js exposes window.NBDRepos.leads / photos / estimates',
@@ -488,12 +494,17 @@ section('Audit batch 4 — admin function role-check drift guard');
 
 section('Rock 4 rollback fallback (Phase 3 prep)');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  // CSP hotfix (2026-05-16): the redirect script was inline; now it
+  // lives in docs/pro/js/dashboard-legacy-redirect.js. dashboard.html
+  // still ships the <script src> reference, and readDashboard() rolls
+  // in the new shard so the body assertions still match.
+  const dash = readDashboard();
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   const legacyPath = path.join(ROOT, 'docs/pro/dashboard.legacy.html');
-  // 1. dashboard.html ships the ?legacy=1 redirect script.
+  // 1. dashboard ships the ?legacy=1 redirect logic (inline or external).
   assert('dashboard.html has ?legacy=1 redirect to dashboard.legacy.html',
     /URLSearchParams\(location\.search\)\.has\(['"]legacy['"]\)[\s\S]{0,200}location\.replace\(['"]\/pro\/dashboard\.legacy\.html/.test(dash),
-    'expected an inline <script> that redirects when ?legacy=1 is present');
+    'expected a <script> (inline or external) that redirects when ?legacy=1 is present');
   // 2. The redirect's pathname guard prevents an infinite loop on the
   //    legacy snapshot itself. The script must compare against
   //    '/pro/dashboard' (no .legacy suffix) so that location.pathname
@@ -505,6 +516,12 @@ section('Rock 4 rollback fallback (Phase 3 prep)');
   assert('dashboard.legacy.html exists and is non-empty',
     fs.existsSync(legacyPath) && fs.statSync(legacyPath).size > 100000,
     'expected docs/pro/dashboard.legacy.html with >100KB of content');
+  // 4. dashboard.html itself still references the redirect script, so
+  //    the rollback path can never silently disappear in a future edit.
+  assert('dashboard.html references the legacy-redirect script',
+    /dashboard-legacy-redirect\.js/.test(dashHtml) ||
+    /URLSearchParams\(location\.search\)\.has\(['"]legacy['"]\)/.test(dashHtml),
+    'expected dashboard.html to ship the redirect either inline or via <script src>');
 }
 
 section('Wave 6b (A.2) — Pro Chrome on login.html + vault.html');
@@ -1252,15 +1269,29 @@ section('Phase C.3 wave 2 — draw + dash + reports + settings');
     /view\.querySelectorAll\('script'\)\.forEach[\s\S]{0,500}createElement\('script'\)[\s\S]{0,300}replaceChild/.test(mainJs),
     'expected the helper to swap each cloned <script> for a fresh executable one');
 
-  // view-draw's inline script uses a readyState guard so it runs both
-  // at initial load AND at hydration-time.
+  // CSP hotfix (2026-05-16): the inline scripts inside tpl-view-draw
+  // and tpl-view-settings were extracted to external files
+  // (dashboard-accessory-panel-init.js + the appearance/team/billing/
+  // hotkey/sidebar shards). _hydrateViewTemplate handles both inline
+  // AND external scripts (createElement copies all attributes including
+  // src), so the readyState guard logic now lives in
+  // dashboard-accessory-panel-init.js.
   assert('tpl-view-draw script handles both initial-load and post-hydration',
+    /tpl-view-draw[\s\S]*?dashboard-accessory-panel-init\.js/.test(dash) ||
     /tpl-view-draw[\s\S]*?_drawInit[\s\S]*?document\.readyState === 'loading'[\s\S]*?DOMContentLoaded[\s\S]*?_drawInit/.test(dash),
-    'expected _drawInit pattern with readyState guard inside tpl-view-draw');
+    'expected dashboard-accessory-panel-init.js inside tpl-view-draw, or the _drawInit pattern inline');
 
-  // view-settings' 5 inline scripts all live inside the template now.
-  // Spot-check by counting <script> occurrences inside the settings
-  // template body.
+  // Confirm the extracted file still carries the readyState guard.
+  const drawInit = fs.existsSync(path.join(ROOT, 'docs/pro/js/dashboard-accessory-panel-init.js'))
+    ? read(path.join(ROOT, 'docs/pro/js/dashboard-accessory-panel-init.js')) : '';
+  assert('dashboard-accessory-panel-init.js carries readyState/_drawInit guard',
+    /_drawInit[\s\S]*?document\.readyState === 'loading'[\s\S]*?DOMContentLoaded[\s\S]*?_drawInit/.test(drawInit),
+    'expected the extracted file to keep the readyState/DOMContentLoaded guard');
+
+  // view-settings' 5 (formerly inline) scripts all live inside the
+  // template now — either as inline or external references. Count
+  // BOTH styles. Previously checked for `<script>` (5 inline blocks);
+  // after CSP extraction these are `<script src="dashboard-*.js?v=1">`.
   {
     const tplStart = dash.indexOf('<template id="tpl-view-settings">');
     const tplEnd = dash.indexOf('</template><!-- /tpl-view-settings -->', tplStart);
@@ -1268,10 +1299,12 @@ section('Phase C.3 wave 2 — draw + dash + reports + settings');
       tplStart > -1 && tplEnd > tplStart,
       'expected </template><!-- /tpl-view-settings --> to close the settings template');
     const settingsBody = dash.slice(tplStart, tplEnd);
-    const scriptCount = (settingsBody.match(/<script>/g) || []).length;
-    assert('tpl-view-settings carries 5 inline <script> blocks',
+    // Count all <script ...> opening tags (inline or external) inside
+    // the template. Inline = `<script>`; external = `<script src=...>`.
+    const scriptCount = (settingsBody.match(/<script[\s>]/g) || []).length;
+    assert('tpl-view-settings carries 5 <script> blocks (inline or external)',
       scriptCount === 5,
-      'expected 5 inline scripts inside the settings template, got ' + scriptCount);
+      'expected 5 scripts inside the settings template, got ' + scriptCount);
   }
 }
 
