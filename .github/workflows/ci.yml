@@ -17,7 +17,20 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
-      # Smoke tests are dependency-free — just run them.
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+      # Most smoke tests are dependency-free, but the photo-vision sanitizer
+      # test does a real `require()` of functions/photo-vision.js, which
+      # itself pulls in firebase-functions/v2/https. Install functions deps
+      # so that require resolves.
+      - name: Install functions deps
+        run: |
+          cd functions
+          if [ -f package-lock.json ]; then
+            npm ci --silent || npm install --silent --no-audit --no-fund
+          else
+            npm install --silent --no-audit --no-fund
+          fi
       - name: Run smoke tests
         run: node tests/smoke.test.js
 
