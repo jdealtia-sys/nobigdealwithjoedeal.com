@@ -3233,6 +3233,47 @@ const renderPdfMod = require('./render-pdf');
 exports.renderPdf = renderPdfMod.renderPdf;
 
 // ═══════════════════════════════════════════════════════════════
+// ANNIVERSARY AUTO-TOUCH — daily 1-year customer touch nudge
+// ═══════════════════════════════════════════════════════════════
+//
+// Daily 8am Eastern scan for customers whose install anniversary
+// falls in the 360-380 day window. Writes an `anniversary_due`
+// activity row on each match (the CRM bell catches it regardless
+// of email mode) and emails the owning rep a morning digest with
+// a drop-in SMS script + deep links to each customer record.
+//
+// We don't auto-send to the homeowner — TCPA / CAN-SPAM compliance
+// on a 1-year-later message is outside the original transaction's
+// consent. Rep stays in the loop and taps one button in the CRM
+// to send the touch.
+//
+// Idempotent: writes lead.anniversaryTouchedAt after each successful
+// email send so manual re-runs don't double-touch.
+//
+// Per-user opt-out: users/{uid}.anniversaryTouchEnabled === false.
+// Ships DRY-RUN by default. Set ANNIVERSARY_TOUCH_ENABLED=true
+// on the anniversaryAutoTouch Cloud Run revision to go live.
+const anniversaryTouch = require('./anniversary-touch');
+exports.anniversaryAutoTouch = anniversaryTouch.anniversaryAutoTouch;
+
+// ═══════════════════════════════════════════════════════════════
+// REFERRAL CAPTURE — public POST from /refer.html
+// ═══════════════════════════════════════════════════════════════
+//
+// Past customer shares a link (?ref=NBD-0001) with a friend; friend
+// fills out /refer.html; this endpoint creates a new lead on the
+// source customer's rep's book with referredByLeadId / customerId /
+// Name fields populated, writes a `referral_sent` activity on the
+// source customer's lead, and notifies the rep via /notifications.
+//
+// Anti-spam: per-IP rate limit (5/10min) and per-source-customer cap
+// (10 referrals/24h). Phone+email validation; at least one required.
+// No portal token needed — customerId is public and the friend self-
+// identifies in the form.
+const referrals = require('./referrals');
+exports.submitReferral = referrals.submitReferral;
+
+// ═══════════════════════════════════════════════════════════════
 // VISUALIZER IMAGE GENERATION — Gemini 2.5 Flash Image
 // ═══════════════════════════════════════════════════════════════
 //

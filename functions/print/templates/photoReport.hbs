@@ -1,0 +1,185 @@
+{{!--
+  PHOTO REPORT — D-4
+  ──────────────────────────────────────────────────────────────────
+  The doc with the most photos. Two modes:
+
+    mode='homeowner' — visual story. Friendly captions, before/after
+      pairs prominent, light-touch on technical fields.
+    mode='adjuster'  — dense evidence dossier. Tighter grids, every
+      photo stamped with location · damageType · severity.
+
+  Same shared chrome (cover, brand band, social rail, footer seal).
+  Phase sections rendered only when they have content.
+
+  Required payload:
+    eyebrow, tagline, sub (cover hero)
+    preparedFor, preparedBy, projectMeta (shared cover partial)
+    summary { headline, body }
+    stats[]  (3 cards)
+    mode     'homeowner' | 'adjuster'
+    pairs[]  optional — { before, after, location }
+    before[] { url, caption, location?, damageType?, severity? }
+    during[]
+    after[]
+--}}
+
+{{!-- ─────────── 1. COVER ─────────── --}}
+{{> coverPage
+  eyebrow=coverEyebrow
+  tagline=coverTagline
+  sub=coverSub
+  heroPhoto=coverPhoto
+  heroCaption=coverCaption
+  preparedFor=preparedFor
+  preparedBy=preparedBy
+  projectMeta=projectMeta
+}}
+
+{{!-- ─────────── 2. SUMMARY + STATS ─────────── --}}
+<section class="page-break">
+  <div class="hero" style="margin-bottom: var(--s-5);">
+    <div class="hero-eyebrow eyebrow">At a Glance</div>
+    <div class="hero-title" style="font-size:30pt;">{{summary.headline}}</div>
+    {{#if summary.body}}<p class="hero-sub">{{summary.body}}</p>{{/if}}
+  </div>
+
+  {{#if stats}}
+  <div class="stat-grid">
+    {{#each stats}}
+    <div class="stat">
+      <div class="stat-label">{{this.label}}</div>
+      <div class="stat-value">{{this.value}}</div>
+      {{#if this.sub}}<div class="stat-sub">{{this.sub}}</div>{{/if}}
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+</section>
+
+{{!-- ─────────── 3. BEFORE & AFTER PAIRS (if any) ─────────── --}}
+{{#if pairs.length}}
+<section class="page-break ba-pair-section">
+  <h2 class="keep-with-next">Before &amp; After</h2>
+  <p class="meta" style="margin-bottom: var(--s-4);">Side-by-side comparisons of the same locations at start and finish. Drag the orange handle in your online project portal to see the transition; the print version shows them paired.</p>
+  {{#each pairs}}
+  <div class="ba-pair">
+    <div class="ba-cell">
+      <div class="ba-frame">
+        <img src="{{this.before.url}}" alt="Before">
+        <div class="ba-stamp">Before</div>
+      </div>
+    </div>
+    <div class="ba-cell">
+      <div class="ba-frame">
+        <img src="{{this.after.url}}" alt="After">
+        <div class="ba-stamp after">After</div>
+      </div>
+    </div>
+    <div class="ba-loc" style="grid-column: 1 / -1;">
+      <strong>{{this.location}}</strong>
+      <span>Pair {{inc @index}} of {{len ../pairs}}</span>
+    </div>
+  </div>
+  {{/each}}
+</section>
+{{/if}}
+
+{{!-- ─────────── 4. PHOTO PHASES — Before / During / After ─────────── --}}
+{{#if before.length}}
+<section class="page-break">
+  <h2 class="keep-with-next">Before</h2>
+  <p class="meta" style="margin-bottom: var(--s-4);">{{#if (eq mode "adjuster")}}Photographic documentation of property condition prior to work commencing.{{else}}Photos of the property at the start of the project.{{/if}}</p>
+  <div class="photo-grid{{#if (gt (len before) 6)}} three{{/if}}">
+    {{#each before}}
+    <div class="photo-cell">
+      <div class="photo-frame">
+        <img src="{{this.url}}" alt="">
+        {{#if this.location}}<div class="photo-tag">{{this.location}}</div>{{/if}}
+      </div>
+      <div class="photo-meta">
+        <div class="photo-caption">
+          {{#if (eq ../mode "adjuster")}}
+            {{#if this.damageType}}<strong>{{this.damageType}}</strong> · {{/if}}{{this.caption}}
+          {{else}}
+            {{this.caption}}
+          {{/if}}
+        </div>
+        {{#if this.severity}}<div class="photo-loc"><span class="sev {{severityClass this.severity}}" style="font-size:7pt;padding:1pt 5pt;">{{this.severity}}</span></div>{{/if}}
+      </div>
+    </div>
+    {{/each}}
+  </div>
+</section>
+{{/if}}
+
+{{#if during.length}}
+<section class="page-break">
+  <h2 class="keep-with-next">During</h2>
+  <p class="meta" style="margin-bottom: var(--s-4);">{{#if (eq mode "adjuster")}}Mid-project documentation of work in progress.{{else}}Photos taken while the crew was on the property.{{/if}}</p>
+  <div class="photo-grid{{#if (gt (len during) 6)}} three{{/if}}">
+    {{#each during}}
+    <div class="photo-cell">
+      <div class="photo-frame">
+        <img src="{{this.url}}" alt="">
+        {{#if this.location}}<div class="photo-tag">{{this.location}}</div>{{/if}}
+      </div>
+      <div class="photo-meta">
+        <div class="photo-caption">
+          {{#if (eq ../mode "adjuster")}}
+            {{#if this.damageType}}<strong>{{this.damageType}}</strong> · {{/if}}{{this.caption}}
+          {{else}}
+            {{this.caption}}
+          {{/if}}
+        </div>
+      </div>
+    </div>
+    {{/each}}
+  </div>
+</section>
+{{/if}}
+
+{{#if after.length}}
+<section class="page-break">
+  <h2 class="keep-with-next">After</h2>
+  <p class="meta" style="margin-bottom: var(--s-4);">{{#if (eq mode "adjuster")}}Final-condition documentation post-completion.{{else}}The finished work — what the property looks like now.{{/if}}</p>
+  <div class="photo-grid{{#if (gt (len after) 6)}} three{{/if}}">
+    {{#each after}}
+    <div class="photo-cell">
+      <div class="photo-frame">
+        <img src="{{this.url}}" alt="">
+        {{#if this.location}}<div class="photo-tag">{{this.location}}</div>{{/if}}
+      </div>
+      <div class="photo-meta">
+        <div class="photo-caption">
+          {{#if (eq ../mode "adjuster")}}
+            {{#if this.damageType}}<strong>{{this.damageType}}</strong> · {{/if}}{{this.caption}}
+          {{else}}
+            {{this.caption}}
+          {{/if}}
+        </div>
+      </div>
+    </div>
+    {{/each}}
+  </div>
+</section>
+{{/if}}
+
+{{!-- ─────────── 5. SIGN-OFF ─────────── --}}
+{{#if (eq mode "adjuster")}}
+<section class="avoid-break" style="margin-top: var(--s-6);">
+  <h2>Documentation Attestation</h2>
+  <p style="line-height:1.65;">The photographs contained in this report were captured at the property described above by No Big Deal Home Solutions personnel. All images are unmodified except for standard format conversion and EXIF preservation. Original files available upon request.</p>
+</section>
+<div class="sig-block">
+  <div class="sig-grid">
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">{{preparedBy.name}} · No Big Deal Home Solutions</div>
+    </div>
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">Adjuster Acknowledgment &amp; Date</div>
+    </div>
+  </div>
+</div>
+{{/if}}

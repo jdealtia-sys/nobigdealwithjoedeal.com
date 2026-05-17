@@ -1,0 +1,195 @@
+{{!--
+  ESTIMATE / PROPOSAL — D-3
+  ──────────────────────────────────────────────────────────────────
+  The signature moment. The homeowner is deciding whether to spend
+  $20-40k with us. This template treats that weight seriously:
+
+    - Cover (shared partial) with customer name as hero
+    - Tier comparison (Good / Better / Best) IF available — the
+      sales moment; recommended tier highlighted with orange rail
+    - Detailed line items in a real PDF table
+    - Totals block with the headline total in display-scale Barlow
+      Condensed (the "yes/no" number)
+    - Terms (validity, payment schedule)
+    - Signature block
+
+  Required payload:
+    eyebrow, tagline, sub (cover hero)
+    preparedFor, preparedBy, projectMeta (shared cover partial)
+    summary { headline, body }
+    tiers (optional): { good: {label, total, features[]}, better: {...}, best: {...}, recommended }
+    lines[]: { code, description, quantity, unit, unitPrice, lineTotal, category? }
+    subtotal, tax, total
+    terms: { validityDays, depositPct, scheduleNote }
+    notes (optional, free-form pre-signature paragraph)
+--}}
+
+{{!-- ─────────── 1. COVER ─────────── --}}
+{{> coverPage
+  eyebrow="Project Estimate · Proposal"
+  tagline=coverTagline
+  sub=coverSub
+  heroPhoto=coverPhoto
+  heroCaption=coverCaption
+  preparedFor=preparedFor
+  preparedBy=preparedBy
+  projectMeta=projectMeta
+}}
+
+{{!-- ─────────── 2. EXECUTIVE SUMMARY ─────────── --}}
+<section class="page-break">
+  <div class="hero" style="margin-bottom: var(--s-5);">
+    <div class="hero-eyebrow eyebrow">Project Summary</div>
+    <div class="hero-title" style="font-size:32pt;">{{summary.headline}}</div>
+    {{#if summary.body}}<p class="hero-sub">{{summary.body}}</p>{{/if}}
+  </div>
+
+  {{#if stats}}
+  <div class="stat-grid">
+    {{#each stats}}
+    <div class="stat">
+      <div class="stat-label">{{this.label}}</div>
+      <div class="stat-value">{{this.value}}</div>
+      {{#if this.sub}}<div class="stat-sub">{{this.sub}}</div>{{/if}}
+    </div>
+    {{/each}}
+  </div>
+  {{/if}}
+</section>
+
+{{!-- ─────────── 3. TIER COMPARISON (the sales moment) ─────────── --}}
+{{#if tiers}}
+<section class="page-break">
+  <h2 class="keep-with-next">Choose your level</h2>
+  <p class="meta" style="margin-bottom: var(--s-4);">Three ways to do this job — same crew, same workmanship, different materials and warranty length. Our recommendation is flagged below.</p>
+
+  <div class="tier-grid">
+    {{#each tierList}}
+    <div class="tier-card{{#if this.isRecommended}} tier-card--recommended{{/if}}">
+      {{#if this.isRecommended}}<div class="tier-flag">Recommended</div>{{/if}}
+      <div class="tier-name">{{this.name}}</div>
+      <div class="tier-sub">{{this.subtitle}}</div>
+      <div class="tier-price">{{money this.total}}</div>
+      {{#if this.priceNote}}<div class="tier-price-note">{{this.priceNote}}</div>{{/if}}
+      <ul class="tier-features">
+        {{#each this.features}}<li>{{this}}</li>{{/each}}
+      </ul>
+    </div>
+    {{/each}}
+  </div>
+</section>
+{{/if}}
+
+{{!-- ─────────── 4. LINE ITEMS ─────────── --}}
+{{#if lines.length}}
+<section class="page-break">
+  <h2 class="keep-with-next">Scope &amp; Pricing</h2>
+  <p class="meta" style="margin-bottom: var(--s-3);">Itemized breakdown of materials and labor included in this estimate.</p>
+  <table class="estimate-lines">
+    <thead>
+      <tr>
+        <th style="width:11%;">Code</th>
+        <th>Description</th>
+        <th style="width:10%;" class="num">Qty</th>
+        <th style="width:8%;">Unit</th>
+        <th style="width:13%;" class="num">Unit Price</th>
+        <th style="width:14%;" class="num">Line Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each lines}}
+      <tr class="avoid-break">
+        <td class="line-code">{{this.code}}</td>
+        <td>
+          <strong>{{this.description}}</strong>
+          {{#if this.category}}<div class="line-cat">{{this.category}}</div>{{/if}}
+        </td>
+        <td class="num">{{this.quantity}}</td>
+        <td>{{this.unit}}</td>
+        <td class="num money">{{money this.unitPrice}}</td>
+        <td class="num money"><strong>{{money this.lineTotal}}</strong></td>
+      </tr>
+      {{/each}}
+    </tbody>
+    <tfoot>
+      <tr class="totals-row">
+        <td colspan="4"></td>
+        <td class="num totals-label">Subtotal</td>
+        <td class="num money">{{money subtotal}}</td>
+      </tr>
+      {{#if tax}}
+      <tr class="totals-row">
+        <td colspan="4"></td>
+        <td class="num totals-label">Tax</td>
+        <td class="num money">{{money tax}}</td>
+      </tr>
+      {{/if}}
+    </tfoot>
+  </table>
+</section>
+{{/if}}
+
+{{!-- ─────────── 5. HEADLINE TOTAL (the yes/no number) ─────────── --}}
+<section class="avoid-break total-block">
+  <div class="total-eyebrow">Project Total</div>
+  <div class="total-amount">{{money total}}</div>
+  {{#if terms.validityDays}}
+    <div class="total-validity">Estimate valid for {{terms.validityDays}} days from the date above.</div>
+  {{/if}}
+</section>
+
+{{!-- ─────────── 6. TERMS ─────────── --}}
+{{#if terms}}
+<section class="avoid-break" style="margin-top: var(--s-6);">
+  <h2>Terms &amp; Schedule</h2>
+  <div class="kv-grid">
+    {{#if terms.depositPct}}
+    <div class="kv">
+      <div class="kv-label">Deposit Required</div>
+      <div class="kv-value">{{terms.depositPct}}% at contract signing</div>
+    </div>
+    {{/if}}
+    {{#if terms.scheduleNote}}
+    <div class="kv">
+      <div class="kv-label">Schedule</div>
+      <div class="kv-value">{{terms.scheduleNote}}</div>
+    </div>
+    {{/if}}
+    {{#if terms.validityDays}}
+    <div class="kv">
+      <div class="kv-label">Estimate Valid Until</div>
+      <div class="kv-value">{{terms.validUntil}}</div>
+    </div>
+    {{/if}}
+    {{#if terms.warranty}}
+    <div class="kv">
+      <div class="kv-label">Workmanship Warranty</div>
+      <div class="kv-value">{{terms.warranty}}</div>
+    </div>
+    {{/if}}
+  </div>
+</section>
+{{/if}}
+
+{{#if notes}}
+<section class="avoid-break" style="margin-top: var(--s-5);">
+  <h2>Notes</h2>
+  <p style="line-height:1.65;">{{notes}}</p>
+</section>
+{{/if}}
+
+{{!-- ─────────── 7. SIGNATURES ─────────── --}}
+<div class="sig-block">
+  <h2 style="margin-top:0;">Acceptance</h2>
+  <p class="meta" style="margin-bottom: var(--s-3);">By signing below, the homeowner accepts the scope, materials, and pricing described in this estimate. Final contract will be issued upon acceptance.</p>
+  <div class="sig-grid">
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">Homeowner Signature &amp; Date</div>
+    </div>
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">{{preparedBy.name}} · No Big Deal Home Solutions</div>
+    </div>
+  </div>
+</div>

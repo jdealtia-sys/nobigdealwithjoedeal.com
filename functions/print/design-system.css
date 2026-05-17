@@ -198,6 +198,21 @@ p:last-child { margin-bottom: 0; }
   border-bottom: 2.5pt solid var(--nbd-orange);
   margin-bottom: var(--s-5);
 }
+/* D-2.6: logo + wordmark row. Logo image lives in /assets/images on
+   the public marketing site so it's always the canonical brand mark.
+   42pt is roughly 0.58" tall — substantial but not domineering. */
+.doc-band-top .brand-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+}
+.doc-band-top .brand-mark {
+  width: 42pt;
+  height: 42pt;
+  border-radius: 4pt;
+  object-fit: cover;
+  flex-shrink: 0;
+}
 .doc-band-top .brand-lockup {
   display: flex;
   flex-direction: column;
@@ -461,6 +476,267 @@ p:last-child { margin-bottom: 0; }
   font-size: 8pt;
   color: var(--nbd-ink-muted);
 }
+
+/* ── D-2.6: social rail in the running footer ──────────────────── */
+.doc-band-bottom .social-rail {
+  display: flex;
+  align-items: center;
+  gap: 6pt;
+  margin-left: var(--s-3);
+}
+.doc-band-bottom .social-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18pt;
+  height: 18pt;
+  border-radius: 50%;
+  background: var(--nbd-cream);
+  border: 0.5pt solid var(--nbd-rule);
+  color: var(--nbd-ink-soft);
+  text-decoration: none;
+  transition: none; /* PDFs don't animate */
+}
+.doc-band-bottom .social-icon svg {
+  width: 10pt;
+  height: 10pt;
+  display: block;
+}
+.doc-band-bottom .social-icon:hover {
+  /* Hover state only affects the HTML preview path in NBDDocViewer
+     iframe-html mode; PDFs render the static color. */
+  background: var(--nbd-orange-soft);
+  color: var(--nbd-orange);
+  border-color: var(--nbd-orange-line);
+}
+
+/* ── D-2.7: Before / After side-by-side comparison ─────────────
+   Print-side counterpart to the portal's draggable slider. PDF
+   can't do interactive drag, so we render the two photos side-by-
+   side with bold BEFORE / AFTER labels. `break-inside: avoid` keeps
+   the pair together if a page break would otherwise split them. */
+.ba-pair-section { margin-top: var(--s-5); }
+.ba-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.ba-pair .ba-cell {
+  display: flex;
+  flex-direction: column;
+}
+.ba-pair .ba-frame {
+  aspect-ratio: 4 / 3;
+  background: var(--nbd-cream);
+  border: 0.5pt solid var(--nbd-rule);
+  overflow: hidden;
+  position: relative;
+}
+.ba-pair .ba-frame img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.ba-pair .ba-frame .ba-stamp {
+  position: absolute;
+  top: 8pt;
+  left: 8pt;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 800;
+  font-size: 9pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(20, 24, 31, 0.78);
+  padding: 3pt 8pt;
+  border-radius: 2pt;
+}
+.ba-pair .ba-frame .ba-stamp.after { background: var(--nbd-orange); }
+.ba-pair .ba-loc {
+  padding-top: 6pt;
+  font-size: 9.5pt;
+  color: var(--nbd-ink-soft);
+  display: flex;
+  justify-content: space-between;
+}
+.ba-pair .ba-loc strong {
+  color: var(--nbd-ink);
+  font-weight: 700;
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   D-3: Estimate / Proposal — tier comparison, line table, headline
+   ═════════════════════════════════════════════════════════════════ */
+
+/* ── Tier comparison grid (Good / Better / Best) ──────────────── */
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-3);
+  margin: var(--s-4) 0;
+}
+.tier-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-4) var(--s-4) var(--s-4);
+  background: var(--nbd-surface);
+  border: 0.5pt solid var(--nbd-rule);
+  border-radius: 4pt;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.tier-card--recommended {
+  background: var(--nbd-orange-soft);
+  border: 1.5pt solid var(--nbd-orange);
+  padding-top: var(--s-5);
+}
+.tier-flag {
+  position: absolute;
+  top: -8pt;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--nbd-orange);
+  color: #fff;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 800;
+  font-size: 8pt;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  padding: 4pt 12pt;
+  border-radius: 999pt;
+  white-space: nowrap;
+}
+.tier-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 22pt;
+  line-height: 1.0;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+  margin-bottom: 3pt;
+}
+.tier-sub {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 600;
+  font-size: 9.5pt;
+  color: var(--nbd-ink-soft);
+  margin-bottom: var(--s-3);
+  line-height: 1.35;
+}
+.tier-price {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 30pt;
+  line-height: 1.0;
+  color: var(--nbd-charcoal);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 2pt;
+}
+.tier-card--recommended .tier-price {
+  color: var(--nbd-orange);
+}
+.tier-price-note {
+  font-size: 8.5pt;
+  color: var(--nbd-ink-muted);
+  margin-bottom: var(--s-3);
+}
+.tier-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 0.5pt solid var(--nbd-rule);
+  padding-top: var(--s-3);
+}
+.tier-features li {
+  position: relative;
+  padding: 4pt 0 4pt 14pt;
+  font-size: 9.5pt;
+  color: var(--nbd-ink);
+  line-height: 1.4;
+}
+.tier-features li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8pt;
+  width: 5pt;
+  height: 5pt;
+  border-radius: 50%;
+  background: var(--nbd-orange);
+}
+
+/* ── Line-item table (estimate-specific overrides) ────────────── */
+table.estimate-lines th {
+  font-size: 8.5pt;
+}
+table.estimate-lines td {
+  font-size: 10pt;
+  vertical-align: top;
+}
+table.estimate-lines .line-code {
+  font-family: 'Barlow', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 9pt;
+  font-weight: 700;
+  color: var(--nbd-ink-muted);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+table.estimate-lines .line-cat {
+  font-size: 8.5pt;
+  color: var(--nbd-ink-muted);
+  margin-top: 2pt;
+}
+table.estimate-lines tfoot .totals-row td {
+  border-top: none;
+  padding: 4pt 8pt;
+}
+table.estimate-lines tfoot .totals-row .totals-label {
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-size: 9pt;
+  color: var(--nbd-ink-soft);
+}
+
+/* ── Headline total block — the yes/no number ─────────────────── */
+.total-block {
+  margin-top: var(--s-6);
+  padding: var(--s-5) var(--s-6);
+  background: var(--nbd-charcoal);
+  color: #fff;
+  border-radius: 4pt;
+  text-align: right;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.total-block .total-eyebrow {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 10pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  margin-bottom: var(--s-2);
+}
+.total-block .total-amount {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 48pt;
+  line-height: 1.0;
+  letter-spacing: -0.005em;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: var(--s-2);
+}
+.total-block .total-validity {
+  font-size: 9.5pt;
+  color: rgba(255, 255, 255, 0.75);
+}
 @page {
   @bottom-center {
     content: element(footer);
@@ -499,3 +775,377 @@ tfoot td {
   padding-top: 10pt;
 }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ═════════════════════════════════════════════════════════════════
+   D-2 additions: severity, photo grid, page-break utilities, cover
+   ═════════════════════════════════════════════════════════════════ */
+
+/* ── Severity badges (component findings, scope severity) ────── */
+.sev {
+  display: inline-flex;
+  align-items: center;
+  gap: 4pt;
+  padding: 2pt 8pt;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 999pt;
+  white-space: nowrap;
+}
+.sev::before {
+  content: '';
+  width: 5pt; height: 5pt;
+  border-radius: 50%;
+  background: currentColor;
+}
+.sev-good     { color: var(--nbd-green); background: rgba(42, 124, 80, 0.10); }
+.sev-fair     { color: var(--nbd-amber); background: rgba(184, 134, 11, 0.10); }
+.sev-poor     { color: var(--nbd-orange); background: var(--nbd-orange-soft); }
+.sev-critical { color: var(--nbd-red);  background: rgba(185, 28, 28, 0.10); }
+.sev-neutral  { color: var(--nbd-ink-muted); background: rgba(138, 143, 154, 0.08); }
+
+/* ── Stat cards (executive summary) ──────────────────────────── */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-3);
+  margin: var(--s-4) 0 var(--s-5);
+}
+.stat {
+  padding: var(--s-3) var(--s-4);
+  background: var(--nbd-surface-soft);
+  border: 0.5pt solid var(--nbd-rule);
+  border-radius: 3pt;
+}
+.stat .stat-label {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-muted);
+  margin-bottom: 4pt;
+}
+.stat .stat-value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 26pt;
+  line-height: 1.0;
+  color: var(--nbd-charcoal);
+  font-variant-numeric: tabular-nums;
+}
+.stat .stat-sub {
+  font-size: 9pt;
+  color: var(--nbd-ink-muted);
+  margin-top: 3pt;
+}
+
+/* ── Photo evidence grid ─────────────────────────────────────── */
+/* 2-col by default; templates can override to 3 for many small shots. */
+.photo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-3);
+  margin: var(--s-3) 0;
+}
+.photo-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+.photo-cell {
+  display: flex;
+  flex-direction: column;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.photo-cell .photo-frame {
+  aspect-ratio: 4 / 3;
+  background: var(--nbd-cream);
+  border: 0.5pt solid var(--nbd-rule);
+  overflow: hidden;
+  position: relative;
+}
+.photo-cell .photo-frame img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.photo-cell .photo-tag {
+  position: absolute;
+  top: 6pt;
+  left: 6pt;
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(20, 24, 31, 0.78);
+  padding: 2pt 6pt;
+  border-radius: 2pt;
+}
+.photo-cell .photo-meta {
+  padding-top: 6pt;
+  display: flex;
+  gap: 8pt;
+  align-items: baseline;
+}
+.photo-cell .photo-caption {
+  flex: 1;
+  font-size: 9.5pt;
+  color: var(--nbd-ink);
+  line-height: 1.35;
+}
+.photo-cell .photo-loc {
+  font-size: 8pt;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-muted);
+  white-space: nowrap;
+}
+
+/* Full-bleed hero photo on cover / section opener pages. */
+.photo-hero {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  background: var(--nbd-charcoal);
+  margin: 0 0 var(--s-5);
+  overflow: hidden;
+  position: relative;
+  border-radius: 2pt;
+}
+.photo-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-hero .photo-hero-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.45), rgba(0,0,0,0));
+  padding: var(--s-4) var(--s-5);
+  color: #fff;
+}
+
+/* ── Component findings table — denser than default ──────────── */
+table.findings { width: 100%; }
+table.findings th { padding: 6pt 8pt; }
+table.findings td { padding: 8pt; vertical-align: top; }
+table.findings td .findings-note {
+  display: block;
+  font-size: 9.5pt;
+  color: var(--nbd-ink-soft);
+  margin-top: 3pt;
+  line-height: 1.4;
+}
+
+/* ── Page break utilities — used by multi-page templates ────── */
+.page-break { page-break-before: always; break-before: page; }
+.avoid-break { page-break-inside: avoid; break-inside: avoid; }
+.keep-with-next { page-break-after: avoid; break-after: avoid; }
+
+/* ── Cover page treatment ────────────────────────────────────── */
+.cover {
+  min-height: 8.4in;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-top: var(--s-3);
+}
+.cover .cover-eyebrow {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: var(--type-eyebrow);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  margin-bottom: var(--s-3);
+}
+.cover .cover-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 64pt;
+  line-height: 0.9;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+  margin-bottom: var(--s-4);
+}
+.cover .cover-subject {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 600;
+  font-size: 22pt;
+  line-height: 1.15;
+  color: var(--nbd-ink-soft);
+  margin-bottom: var(--s-6);
+}
+.cover .cover-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--s-5);
+  padding-top: var(--s-5);
+  border-top: 1.5pt solid var(--nbd-orange);
+}
+.cover .cover-meta .kv-label { font-size: var(--type-eyebrow); }
+.cover .cover-meta .kv-value {
+  border-bottom: none;
+  font-size: 12pt;
+  padding-bottom: 0;
+}
+
+/* ═════════════════════════════════════════════════════════════════
+   D-2.5: shared cover-page component (.cover-v2)
+   ─────────────────────────────────────────────────────────────────
+   One canonical cover layout every template inherits from. Same
+   editorial chrome, same rhythm, same brand DNA — but the content
+   surfaces THIS customer and THIS project. Homeowner recognizes
+   the company at a glance; recognizes themselves a beat later.
+   ═════════════════════════════════════════════════════════════════ */
+.cover-v2 {
+  min-height: 8.4in;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--s-2);
+}
+
+.cover-v2-eyebrow {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 10pt;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  margin-bottom: var(--s-4);
+}
+
+.cover-v2-tagline {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 56pt;
+  line-height: 0.9;
+  letter-spacing: -0.005em;
+  text-transform: uppercase;
+  color: var(--nbd-charcoal);
+  margin-bottom: var(--s-3);
+}
+
+.cover-v2-sub {
+  font-size: 13pt;
+  line-height: 1.5;
+  color: var(--nbd-ink-soft);
+  max-width: 82%;
+  margin: 0 0 var(--s-6);
+}
+
+/* Hero photo (or color block) — full-bleed-ish, hairline-cropped */
+.cover-v2-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--nbd-charcoal);
+  margin-bottom: var(--s-6);
+  overflow: hidden;
+  border-radius: 3pt;
+}
+.cover-v2-hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cover-v2-hero-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: linear-gradient(to top, rgba(20, 24, 31, 0.78), rgba(20, 24, 31, 0));
+  padding: var(--s-5) var(--s-5) var(--s-4);
+  color: #fff;
+}
+.cover-v2-hero-eyebrow {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  margin-bottom: 3pt;
+}
+.cover-v2-hero-caption {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 16pt;
+  letter-spacing: 0.04em;
+}
+
+/* "Prepared for" / "Prepared by" — the personalization moment */
+.cover-v2-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s-7);
+  padding: var(--s-5) 0 var(--s-5);
+  border-top: 0.5pt solid var(--nbd-rule);
+  margin-top: auto; /* push toward bottom of cover */
+}
+.cover-v2-party {
+  display: flex;
+  flex-direction: column;
+  gap: 2pt;
+}
+.cover-v2-party-label {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--nbd-orange);
+  margin-bottom: 6pt;
+}
+.cover-v2-party-primary {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 22pt;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: var(--nbd-charcoal);
+  margin-bottom: 4pt;
+}
+.cover-v2-party-line {
+  font-size: 11pt;
+  line-height: 1.45;
+  color: var(--nbd-ink-soft);
+}
+.cover-v2-party-line--accent {
+  color: var(--nbd-ink);
+  font-weight: 600;
+  padding-top: 3pt;
+}
+.cover-v2-party-id {
+  font-family: 'Barlow', sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-size: 9pt;
+  letter-spacing: 0.08em;
+  color: var(--nbd-ink-muted);
+  text-transform: uppercase;
+  margin-top: 4pt;
+  padding-top: 4pt;
+  border-top: 0.5pt solid var(--nbd-rule);
+}
+
+/* Project meta strip — date / claim no. / report no., the
+   "official-looking" footer that says this is a real document */
+.cover-v2-meta {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: var(--s-5);
+  padding: var(--s-3) 0 0;
+  border-top: 2pt solid var(--nbd-orange);
+}
+.cover-v2-meta-cell { display: flex; flex-direction: column; gap: 2pt; }
+.cover-v2-meta-label {
+  font-family: 'Barlow', sans-serif;
+  font-weight: 700;
+  font-size: 8pt;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--nbd-ink-muted);
+}
+.cover-v2-meta-value {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 14pt;
+  line-height: 1.1;
+  letter-spacing: 0.02em;
+  color: var(--nbd-charcoal);
+  font-variant-numeric: tabular-nums;
+}

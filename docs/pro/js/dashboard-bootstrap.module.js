@@ -1303,8 +1303,17 @@
       closeTaskModal();
     }
     
+    // Shift+N - Quick Add Lead (one-tap / GPS-first flow) — checked
+    // BEFORE the bare 'N' branch so the shifted variant doesn't
+    // accidentally fire both handlers.
+    if ((e.key === 'N') && e.shiftKey && isHotkeyEnabled('hk_n')) {
+      e.preventDefault();
+      if (typeof window.openQuickAddLead === 'function') window.openQuickAddLead();
+      return;
+    }
+
     // N - New lead (toggleable)
-    if ((e.key === 'n' || e.key === 'N') && isHotkeyEnabled('hk_n')) {
+    if ((e.key === 'n' || e.key === 'N') && !e.shiftKey && isHotkeyEnabled('hk_n')) {
       goTo('crm');
       setTimeout(() => openLeadModal(), 100);
     }
@@ -2386,7 +2395,10 @@
 
               await loadPins(); // Refresh map pins
               await loadLeads();
-              return;
+              // Return the new leadId so callers (e.g. Quick Add) can
+              // chain follow-up writes — initial activity entry, first
+              // task, etc. — without re-querying Firestore.
+              return leadRef.id;
             }
           } catch (geoError) {
             console.warn('Geocoding failed, creating lead without pin:', geoError);
@@ -2435,6 +2447,9 @@
           window._pendingPinId = null;
           window._pendingPinLatLng = null;
         }
+        await loadLeads();
+        // Return the newly-created lead's id (no-geocode fallback path).
+        return fallbackRef.id;
       } else {
         // EDIT EXISTING: Just update
         await updateDoc(doc(db,'leads',editId), {
@@ -2445,6 +2460,9 @@
         // (e.g. stage changes that should move the card to a new column)
         // without waiting on the loadLeads round-trip.
         _optimisticInsertLead(editId, data);
+        await loadLeads();
+        // Return the edited lead's id so callers know which doc was touched.
+        return editId;
       }
     } catch(e) {
       // Surface the failure rather than fabricating a ghost lead. The

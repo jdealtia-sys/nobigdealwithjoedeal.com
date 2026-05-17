@@ -690,6 +690,10 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'hardResetTest', 'gstaticTest', 'modeLineDraw',
   // Misc directly-callable global referenced in surveyed onclicks
   'goTo',
+  // step-3: smart-calendar refresh button
+  'loadSmartCalendar',
+  // step-4: voicemail open-for-lead wrapper
+  'cdaOpenVoicemail',
 ]);
 
 // C.4 finale — card-detail action helpers. These wrap the live
@@ -797,6 +801,14 @@ window.cdaVoiceMemo = function cdaVoiceMemo() {
       window.NBDVoiceMemo &&
       typeof window.NBDVoiceMemo.recordForLead === 'function') {
     window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId);
+  }
+};
+// step-4: opens the voicemail-pipeline modal for the current card-detail lead.
+window.cdaOpenVoicemail = function cdaOpenVoicemail() {
+  if (window._cardDetailLeadId &&
+      window.NBDVoicemail &&
+      typeof window.NBDVoicemail.openForLead === 'function') {
+    window.NBDVoicemail.openForLead(window._cardDetailLeadId);
   }
 };
 

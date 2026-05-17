@@ -11,8 +11,19 @@ var WC_TIER_DESCS = WC_TIER_DESCS || {
   elite: 'NBD will return and correct any labor-related defect at no charge for the lifetime of the installation. Fully transferable — follows the property through all subsequent owners. Annual courtesy inspection included.'
 };
 
+// Step 17: track the lead id that opened the wizard so the generator
+// can persist the warranty payload back onto the lead doc. Previously
+// the PDF was one-shot — generated, downloaded, gone. Now the same
+// data drives a digital warranty card on the homeowner portal.
+var _wcCurrentLeadId = null;
+
 function openWarrantyCertWizard(lead) {
   const modal = document.getElementById('warrantyCertModal');
+  // Step 17: remember the lead so generateWarrantyCertPDF can write
+  // back. Tolerates both string ids (passed directly) and full lead
+  // objects (the common case).
+  _wcCurrentLeadId = lead && typeof lead === 'object' ? (lead.id || null)
+                  : (typeof lead === 'string' ? lead : null);
   // Pre-fill from lead if provided
   if (lead) {
     const owner = `${lead.firstName||''} ${lead.lastName||''}`.trim() || '';
@@ -195,6 +206,24 @@ async function generateWarrantyCertPDF() {
       w.document.close();
     }
   }
+
+  // Step 17: persist the warranty payload onto the lead doc so the
+  // homeowner portal can render a Digital Warranty Card without
+  // re-running the wizard. Fire-and-forget — PDF generation already
+  // succeeded; a Firestore write failure shouldn't surface as an error
+  // to the rep.
+  _persistWarrantyToLead({
+    leadId: _wcCurrentLeadId,
+    tier,
+    tierLabel,
+    tierDesc,
+    work,
+    owner,
+    address: addr,
+    installDate: date,
+    certNumber: certNum,
+  }).catch(() => { /* silent — see comment above */ });
+
   showToast('✓ Warranty certificate generated', 'success');
 }
 
@@ -220,6 +249,34 @@ async function _tryServerRender(payload) {
   const slug = (payload.owner || 'warranty').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
   const filename = 'NBD-Warranty-' + slug + '-' + payload.certNum + '.pdf';
 
+  // D-2.5: shape the customer-specific + brand-consistent cover-page
+  // payload. The cover is rendered by a SHARED partial across every
+  // doc, so we always send the same {preparedFor, preparedBy,
+  // projectMeta} structure — only the eyebrow/tagline change per doc.
+  const repName = (window._user && (window._user.displayName || window._user.email)) || 'NBD Installer';
+  const lead    = (window._leads || []).find(l =>
+    (l.address && l.address.trim() === payload.addr.trim()) ||
+    (l.firstName && payload.owner && payload.owner.startsWith((l.firstName + ' ' + (l.lastName||'')).trim()))
+  );
+  const customerId   = lead && lead.customerId;
+  const projectMeta  = [
+    { label: 'Installation Date', value: payload.dateFormatted },
+    { label: 'Coverage Tier',     value: (payload.tier || '').toUpperCase() },
+    { label: 'Certificate No.',   value: payload.certNum },
+  ];
+  const preparedFor  = {
+    name:        payload.owner,
+    address:     payload.addr,
+    customerId:  customerId || null,
+    projectLine: payload.work || null,
+  };
+  const preparedBy   = {
+    name:  repName,
+    role:  'Project Owner · No Big Deal Home Solutions',
+    phone: '(859) 420-7382',
+    email: 'jd@nobigdealwithjoedeal.com',
+  };
+
   const r = await fn({
     template: 'warranty',
     payload: {
@@ -234,6 +291,10 @@ async function _tryServerRender(payload) {
       certNumber:     payload.certNum,
       isElite:        payload.isElite,
       isPreferred:    payload.isPreferred,
+      // D-2.5 cover fields
+      preparedFor,
+      preparedBy,
+      projectMeta,
     },
     filename,
   });
@@ -261,6 +322,38 @@ async function _tryServerRender(payload) {
     showToast(ms ? `✓ Cert rendered in ${ms}ms` : '✓ Cert rendered', 'success');
   }
   return true;
+}
+
+// Step 17: writes lead.warranty so the homeowner-side portal can
+// surface a Digital Warranty Card. Uses direct addDoc/updateDoc rather
+// than NBDRepos because that helper insists on creating a brand-new
+// document, and we want a merge-update onto the existing lead. Falls
+// back gracefully when called outside the dashboard's Firebase context.
+async function _persistWarrantyToLead({ leadId, tier, tierLabel, tierDesc, work, owner, address, installDate, certNumber }) {
+  if (!leadId) return;
+  if (!window._db || !window.doc || !window.updateDoc || !window.serverTimestamp) return;
+  try {
+    await window.updateDoc(window.doc(window._db, 'leads', leadId), {
+      warranty: {
+        tier,
+        tierLabel,
+        tierDesc,
+        work,
+        ownerName: owner,
+        address,
+        installDate: installDate || null,
+        certNumber,
+        // We pass the wall-clock millis here (not serverTimestamp)
+        // because Firestore rejects nested serverTimestamp sentinels.
+        // The outer updatedAt below is the source of truth for "when
+        // the warranty record was created/updated".
+        createdAtMs: Date.now(),
+      },
+      updatedAt: window.serverTimestamp(),
+    });
+  } catch (e) {
+    console.warn('[warranty-cert] persist failed:', e && e.message || e);
+  }
 }
 
 window.openWarrantyCertWizard = openWarrantyCertWizard;

@@ -1,0 +1,110 @@
+{{!--
+  PROJECT CONTRACT — D-5
+  The doc the customer signs. Legal weight + brand chrome.
+  Shared cover, then clauses in numbered sections, signature block.
+
+  Payload:
+    preparedFor, preparedBy, projectMeta (cover)
+    contract { number, date, startDate, completionDate }
+    scope (string or array)
+    contractPrice (number)
+    paymentSchedule[] { stage, amount, dueDescription }
+    paymentTerms (string)
+    materials (string)
+    warranty (string)
+    rightToCancel (string)
+    additionalTerms (array of {title, body})
+--}}
+
+{{> coverPage
+  eyebrow="Project Contract · Roofing Services"
+  tagline=coverTagline
+  sub=coverSub
+  preparedFor=preparedFor
+  preparedBy=preparedBy
+  projectMeta=projectMeta
+}}
+
+<section class="page-break">
+  <div class="hero" style="margin-bottom: var(--s-5);">
+    <div class="hero-eyebrow eyebrow">Agreement</div>
+    <div class="hero-title" style="font-size:30pt;">The work, the price, the timeline.</div>
+    <p class="hero-sub">This document is a binding agreement between the homeowner and No Big Deal Home Solutions for the roofing services described below. Both parties sign at the end.</p>
+  </div>
+
+  {{!-- Headline contract price card --}}
+  <section class="avoid-break total-block" style="margin-bottom: var(--s-6);">
+    <div class="total-eyebrow">Contract Price</div>
+    <div class="total-amount">{{money contractPrice}}</div>
+    {{#if contract.startDate}}<div class="total-validity">Estimated start: {{contract.startDate}}{{#if contract.completionDate}} · Completion: {{contract.completionDate}}{{/if}}</div>{{/if}}
+  </section>
+
+  <h2>1 · Scope of Work</h2>
+  {{#if scope}}<div style="line-height: 1.65; white-space: pre-wrap;">{{scope}}</div>{{else}}<p class="meta">See attached Estimate for itemized scope.</p>{{/if}}
+
+  {{#if paymentSchedule.length}}
+  <h2>2 · Payment Schedule</h2>
+  <table>
+    <thead>
+      <tr><th>Stage</th><th>Due</th><th class="num">Amount</th></tr>
+    </thead>
+    <tbody>
+      {{#each paymentSchedule}}
+      <tr class="avoid-break">
+        <td><strong>{{this.stage}}</strong></td>
+        <td>{{this.dueDescription}}</td>
+        <td class="num money"><strong>{{money this.amount}}</strong></td>
+      </tr>
+      {{/each}}
+    </tbody>
+  </table>
+  {{/if}}
+
+  {{#if paymentTerms}}
+  <h2>3 · Payment Terms</h2>
+  <p style="line-height:1.65;">{{paymentTerms}}</p>
+  {{/if}}
+
+  {{#if materials}}
+  <h2>4 · Materials &amp; Workmanship</h2>
+  <p style="line-height:1.65;">{{materials}}</p>
+  {{/if}}
+
+  {{#if warranty}}
+  <h2>5 · Warranty</h2>
+  <div class="pull">
+    <div>
+      <div class="pull-title">NBD Workmanship Warranty</div>
+      <div class="pull-body">{{warranty}}</div>
+    </div>
+  </div>
+  {{/if}}
+
+  {{#if rightToCancel}}
+  <h2>6 · Right to Cancel</h2>
+  <p style="line-height:1.65;">{{rightToCancel}}</p>
+  {{/if}}
+
+  {{#if additionalTerms.length}}
+  {{#each additionalTerms}}
+  <h2>{{add @index 7}} · {{this.title}}</h2>
+  <p style="line-height:1.65;">{{this.body}}</p>
+  {{/each}}
+  {{/if}}
+</section>
+
+<div class="sig-block page-break">
+  <h2 style="margin-top:0;">Acceptance &amp; Signatures</h2>
+  <p class="meta" style="margin-bottom: var(--s-4);">By signing below, both parties acknowledge they have read, understood, and agree to all terms of this contract. This document constitutes the complete agreement between the parties; no other promises, representations, or agreements shall be binding unless in writing.</p>
+  <div class="sig-grid">
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">{{preparedFor.name}} · Homeowner</div>
+    </div>
+    <div class="sig">
+      <div class="sig-line"></div>
+      <div class="sig-caption">{{preparedBy.name}} · No Big Deal Home Solutions</div>
+    </div>
+  </div>
+  <p class="meta" style="margin-top: var(--s-4); font-size: 9pt; text-align: center;">Each party should retain a fully-signed copy of this contract for their records.</p>
+</div>

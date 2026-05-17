@@ -10790,13 +10790,25 @@ body.theme-frosted {
         </div>
       </div>
 
-      <!-- UPCOMING BOOKINGS (placeholder for future webhook integration) -->
+      <!-- TODAY'S SCHEDULE — populated by smart-calendar.js. The module
+           reads /appointments for the current rep, cross-refs with
+           window._leads for jobValue + lat/lng, then renders a vertical
+           timeline with travel-time, conflict, and priority warnings. -->
       <div class="panel">
-        <div class="panel-hdr"><div><div class="panel-label">Upcoming</div><div class="panel-title">Scheduled Appointments</div></div></div>
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Today</div>
+            <div class="panel-title">Your Schedule</div>
+          </div>
+          <button type="button" class="btn btn-ghost" style="font-size:11px;padding:6px 12px;"
+            data-action="call" data-fn="loadSmartCalendar">
+            ↻ Refresh
+          </button>
+        </div>
         <div class="panel-body">
           <div id="calUpcoming" style="text-align:center;padding:20px;color:var(--m);font-size:12px;">
-            <div style="font-size:24px;margin-bottom:6px;">📋</div>
-            Bookings will appear here once Cal.com is connected. Future update: webhook integration for real-time sync.
+            <div style="font-size:24px;margin-bottom:6px;">⏳</div>
+            Loading today's schedule…
           </div>
         </div>
       </div>
@@ -10821,6 +10833,16 @@ body.theme-frosted {
       <span class="m-modal-bar-spacer" aria-hidden="true"></span>
     </div>
     <div style="font-size:11px;color:var(--m);margin-bottom:16px;">3 fields. In the field. Done.</div>
+
+    <!-- step-2: one-tap GPS — fills the address field from device location. -->
+    <button type="button" id="qaGpsBtn" data-action="call" data-fn="qaUseMyLocation"
+      style="width:100%;background:var(--s2);color:var(--t);border:1px solid var(--orange);border-radius:8px;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;margin-bottom:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 22s-8-7.58-8-13a8 8 0 0 1 16 0c0 5.42-8 13-8 13z"/>
+        <circle cx="12" cy="9" r="3"/>
+      </svg>
+      <span id="qaGpsBtnLabel">Use my location</span>
+    </button>
 
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
       <div>
@@ -12008,6 +12030,12 @@ body.theme-frosted {
               data-action="call" data-fn="cdaVoiceMemo">
         <span class="fs-14">🎙</span> Voice Memo
       </button>
+      <!-- Voicemail pipeline — record or upload a forwarded voicemail.
+           AI summarizes + auto-creates a task for each action item. -->
+      <button class="cd-share-btn cd-voice-btn" title="Process a voicemail — summary + auto-tasks from action items"
+              data-action="call" data-fn="cdaOpenVoicemail">
+        <span style="font-size:14px;">📩</span> Voicemail
+      </button>
       <button class="cd-icon-btn cd-icon-btn-danger" title="Revoke all active portal links and mint a new one"
               data-action="call" data-fn="cdaRevokePortalLink">
         🚫
@@ -12101,6 +12129,18 @@ body.theme-frosted {
 <script defer src="js/invoice-pipeline.js?v=3"></script>
 <script defer src="js/inspection-report-engine.js?v=4"></script>
 <script defer src="js/maps.js?v=9"></script>
+<!-- Smart Calendar — Today's Schedule with travel-time + priority. Reads
+     /appointments (Cal.com webhook output) for the current rep, cross-
+     refs with window._leads for jobValue + lat/lng, and renders a
+     timeline with conflict and tight-travel warnings. Must load after
+     maps.js because it uses window.hav() (haversine distance). -->
+<script defer src="js/smart-calendar.js?v=1"></script>
+<!-- Voicemail pipeline — record OR upload a voicemail, route through
+     the dictate callable in summarize mode, write a structured
+     activity entry, and auto-create tasks from extracted action items.
+     Loaded after voice-memo.js (sibling module) — they coexist; this
+     adds the summary + upload + auto-task layer. -->
+<script defer src="js/voicemail.js?v=1"></script>
 <!-- estimate-config.js MUST load before estimates.js + estimate-builder-v2.js;
      it exposes window.NBD_ESTIMATE_CONFIG which both engines read. -->
 <script defer src="js/estimate-config.js?v=2"></script>
