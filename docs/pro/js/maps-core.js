@@ -75,12 +75,21 @@ let pendingPin = null; // { lat, lng, status, color } — waiting for confirm
 
 function initMainMap() {
   mainMap = L.map('mainMap').setView([39.07,-84.17],14);
-  // Esri World Imagery — documented, stable endpoint. Native z=19, upscale to 22.
-  // Previously used undocumented mt{s}.google.com which returns 403 with no SLA.
-  L.tileLayer(
+  // Esri World Imagery primary. Native z=19, upscale to 22. Esri free tier
+  // returns sporadic 503s in burst conditions — on tileerror we swap the
+  // failed tile <img>.src to Google's mt{0-3}.google.com satellite endpoint.
+  const sat = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     { attribution: 'Tiles © Esri', maxNativeZoom: 19, maxZoom: 22 }
-  ).addTo(mainMap);
+  );
+  sat.on('tileerror', function (ev) {
+    if (!ev.tile || !ev.coords) return;
+    if (ev.tile.dataset.nbdFallbackTried === '1') return;
+    ev.tile.dataset.nbdFallbackTried = '1';
+    const c = ev.coords;
+    ev.tile.src = `https://mt${(c.x + c.y) % 4}.google.com/vt/lyrs=s&x=${c.x}&y=${c.y}&z=${c.z}`;
+  });
+  sat.addTo(mainMap);
   // Initialize marker cluster group for performance with many pins
   if(typeof L.markerClusterGroup === 'function') {
     pinClusterGroup = L.markerClusterGroup({ maxClusterRadius:50, spiderfyOnMaxZoom:true, showCoverageOnHover:false, zoomToBoundsOnClick:true, disableClusteringAtZoom:18 });
