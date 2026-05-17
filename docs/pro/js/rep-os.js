@@ -381,6 +381,30 @@
   // UI RENDERING
   // ============================================================================
 
+  // CSP-safe delegated click dispatcher. The view's inline onclick
+  // attributes set via innerHTML were blocked by the prod CSP
+  // `script-src-attr 'none'`, leaving every button dead. data-* attrs
+  // + a single property handler on the container restore the wiring.
+  function attachRepOsHandlers(scroll) {
+    scroll.onclick = function (ev) {
+      const target = ev.target.closest('[data-repos-action], [data-repos-goto]');
+      if (!target) return;
+      if (target.dataset.reposAction) {
+        const fn = window.RepOS && window.RepOS[target.dataset.reposAction];
+        if (typeof fn === 'function') {
+          try { fn(); } catch (e) { console.error('[rep-os] dispatch failed:', e); }
+        }
+      } else if (target.dataset.reposGoto) {
+        const dest = target.dataset.reposGoto;
+        if (typeof window.goTo === 'function') window.goTo(dest);
+        const d2dTab = target.dataset.reposD2dTab;
+        if (d2dTab && window.D2D && typeof window.D2D.setTab === 'function') {
+          window.D2D.setTab(d2dTab);
+        }
+      }
+    };
+  }
+
   function render() {
     const container = document.getElementById('view-repos');
     if (!container) return;
@@ -388,6 +412,7 @@
 
     if (!todayBriefing && !isGenerating) {
       scroll.innerHTML = renderWelcome();
+      attachRepOsHandlers(scroll);
       return;
     }
 
@@ -415,7 +440,7 @@
           <div style="font-size:22px;font-weight:800;font-family:'Barlow Condensed',sans-serif;color:var(--t);letter-spacing:.02em;">🧠 REP OS</div>
           <div style="font-size:12px;color:var(--m);margin-top:2px;">${fmtDate(new Date())}</div>
         </div>
-        <button onclick="window.RepOS.regenerate()" style="padding:8px 14px;background:var(--s2);border:1px solid var(--br);color:var(--t);border-radius:8px;font-size:11px;font-weight:600;font-family:'Barlow Condensed',sans-serif;cursor:pointer;">🔄 Refresh</button>
+        <button data-repos-action="regenerate" style="padding:8px 14px;background:var(--s2);border:1px solid var(--br);color:var(--t);border-radius:8px;font-size:11px;font-weight:600;font-family:'Barlow Condensed',sans-serif;cursor:pointer;">🔄 Refresh</button>
       </div>
     `;
 
@@ -482,7 +507,7 @@
             <div style="font-size:14px;font-weight:700;color:var(--t);">${b.gamification.streak || 0} Day Streak</div>
             <div style="font-size:11px;color:var(--m);">${b.gamification.completedChallenges || 0}/${b.gamification.totalChallenges || 0} daily challenges completed</div>
           </div>
-          <button onclick="goTo('d2d');window.D2D&&window.D2D.setTab&&window.D2D.setTab('gamify')" style="padding:6px 12px;background:var(--orange);color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">VIEW</button>
+          <button data-repos-goto="d2d" data-repos-d2d-tab="gamify" style="padding:6px 12px;background:var(--orange);color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">VIEW</button>
         </div>
       `;
     }
@@ -493,7 +518,7 @@
         <div style="background:#ff6d0015;border:1px solid #ff6d0040;border-radius:10px;padding:14px;margin-bottom:10px;">
           <div style="font-size:12px;font-weight:700;color:#ff6d00;margin-bottom:6px;">⛈️ STORM OPPORTUNITY</div>
           <div style="font-size:13px;color:var(--t);">${b.storms.activeAlerts} active alert${b.storms.activeAlerts !== 1 ? 's' : ''} · ${b.storms.activeZones} storm zone${b.storms.activeZones !== 1 ? 's' : ''} ready to canvass</div>
-          <button onclick="goTo('storm')" style="margin-top:8px;padding:6px 14px;background:#ff6d00;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">OPEN STORM CENTER →</button>
+          <button data-repos-goto="storm" style="margin-top:8px;padding:6px 14px;background:#ff6d00;color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">OPEN STORM CENTER →</button>
         </div>
       `;
     }
@@ -508,7 +533,7 @@
             <span style="color:#ffab00;">${b.deals.pending} awaiting response</span>
             <span style="color:var(--green);">${b.deals.signed} signed</span>
           </div>
-          ${b.deals.pending > 0 ? `<button onclick="goTo('closeboard')" style="margin-top:8px;padding:6px 14px;background:var(--blue);color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">CHECK DEALS →</button>` : ''}
+          ${b.deals.pending > 0 ? `<button data-repos-goto="closeboard" style="margin-top:8px;padding:6px 14px;background:var(--blue);color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">CHECK DEALS →</button>` : ''}
         </div>
       `;
     }
@@ -565,15 +590,16 @@
     html += `
       <div style="font-size:11px;font-weight:700;color:var(--t);text-transform:uppercase;letter-spacing:.06em;margin:16px 0 8px;">⚡ Quick Actions</div>
       <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;">
-        <button onclick="goTo('d2d')" style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:10px;font-size:12px;font-weight:600;color:var(--t);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;">🚪 Start Knocking</button>
-        <button onclick="goTo('storm')" style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:10px;font-size:12px;font-weight:600;color:var(--t);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;">⛈️ Storm Center</button>
-        <button onclick="goTo('closeboard')" style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:10px;font-size:12px;font-weight:600;color:var(--t);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;">📋 Close Board</button>
-        <button onclick="goTo('training')" style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:10px;font-size:12px;font-weight:600;color:var(--t);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;">🎓 Sales Practice</button>
+        <button data-repos-goto="d2d" style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:10px;font-size:12px;font-weight:600;color:var(--t);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;">🚪 Start Knocking</button>
+        <button data-repos-goto="storm" style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:10px;font-size:12px;font-weight:600;color:var(--t);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;">⛈️ Storm Center</button>
+        <button data-repos-goto="closeboard" style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:10px;font-size:12px;font-weight:600;color:var(--t);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;">📋 Close Board</button>
+        <button data-repos-goto="training" style="padding:14px;background:var(--s2);border:1px solid var(--br);border-radius:10px;font-size:12px;font-weight:600;color:var(--t);cursor:pointer;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;">🎓 Sales Practice</button>
       </div>
     `;
 
     html += '</div>';
     scroll.innerHTML = html;
+    attachRepOsHandlers(scroll);
   }
 
   function renderWelcome() {
@@ -583,7 +609,7 @@
           <div style="font-size:60px;margin-bottom:16px;">🧠</div>
           <div style="font-size:24px;font-weight:800;font-family:'Barlow Condensed',sans-serif;color:var(--t);">REP OS</div>
           <div style="font-size:14px;color:var(--m);margin-top:6px;max-width:320px;margin-left:auto;margin-right:auto;line-height:1.5;">Your AI-powered daily briefing. Weather, follow-ups, coaching, and optimized route — all in one view.</div>
-          <button onclick="window.RepOS.generate()" style="margin-top:20px;padding:14px 28px;background:var(--orange,#e8720c);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
+          <button data-repos-action="generate" style="margin-top:20px;padding:14px 28px;background:var(--orange,#e8720c);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
             ⚡ GENERATE TODAY'S BRIEFING
           </button>
         </div>
