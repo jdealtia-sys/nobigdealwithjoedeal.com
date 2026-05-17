@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v21', // v21 — force-evict caches after PR #409 fixed CSP connect-src to allow CDN origins. Users with the v20 SW were stuck on "hard-reset is the magic key" because the byte content of sw.js didn't change in the CSP fix (firebase.json only), so their SW never updated and kept serving from the old failed-fetch state. Bumping CACHE_VERSIONS changes sw.js bytes → browser detects update → new SW activates → clients.claim() + SW_UPDATE_AVAILABLE broadcasts → page auto-reloads with fresh caches.
-  cdn: 'nbd-cdn-v21',     // v21 — paired bump; flushes any 503 / stale CDN responses cached during the broken-CSP window.
+  shell: 'nbd-shell-v22', // v22 — paired with isAuthGatedHTML fix that recognizes both /pro/dashboard AND /pro/dashboard.html as auth-gated. Without the canonical-no-.html match, /pro/dashboard fell through to handleAssetRequest which network-firsts BUT caches successful responses (including their CSP headers). After PR #409 updated CSP on the server, the SW kept serving the stale-CSP cached response on normal reloads. Hard-reset bypassed the SW → fresh CSP. Bumping v21→v22 forces a SW reinstall; activate handler then evicts all v21 caches AND walks surviving caches deleting any auth-gated HTML entries (using the FIXED isAuthGatedHTML, which now matches /pro/dashboard).
+  cdn: 'nbd-cdn-v22',     // v22 — paired bump.
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
@@ -54,7 +54,18 @@ const NO_CACHE_HTML = new Set([
 
 function isAuthGatedHTML(url) {
   if (url.origin !== self.location.origin) return false;
+  // Firebase Hosting has cleanUrls:true — incoming /foo.html is rewritten
+  // to /foo before serving. So the canonical URL the SW intercepts is the
+  // no-.html form. Check BOTH forms so the SW recognizes auth-gated HTML
+  // whether the URL was requested as /pro/dashboard or /pro/dashboard.html.
+  // Without this, /pro/dashboard fell through to handleAssetRequest, which
+  // is network-first but caches successful responses — INCLUDING their CSP
+  // headers. After a CSP update the SW kept serving the stale-CSP response
+  // from cache on every normal reload; only hard-reset (bypasses SW) saw
+  // the new CSP. Root cause of "hard reset is the magic key" + the
+  // returning "CSP violations" the user kept seeing after PR #409.
   if (NO_CACHE_HTML.has(url.pathname)) return true;
+  if (NO_CACHE_HTML.has(url.pathname + '.html')) return true;
   if (url.pathname.startsWith('/admin/')) return true;
   return false;
 }
