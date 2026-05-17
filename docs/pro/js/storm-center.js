@@ -659,7 +659,7 @@
             ${alert.hailSize ? `<div style="margin-top:4px;font-size:12px;">🧊 ${alert.hailSize}" hail</div>` : ''}
             ${alert.windSpeed ? `<div style="margin-top:2px;font-size:12px;">💨 ${alert.windSpeed} mph</div>` : ''}
             <div style="margin-top:6px;font-size:11px;">Damage probability: <strong>${Math.round(alert.damageProb * 100)}%</strong></div>
-            <button onclick="window.StormCenter.createZone('${alert.id}')" style="margin-top:8px;padding:6px 12px;background:#e8720c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">Create Storm Zone</button>
+            <button data-storm-action="createZone" data-storm-id="${alert.id}" style="margin-top:8px;padding:6px 12px;background:#e8720c;color:white;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:700;">Create Storm Zone</button>
           </div>
         `);
       }
@@ -683,8 +683,8 @@
             <div style="font-size:11px;margin-top:4px;">Status: <strong>${zone.status.toUpperCase()}</strong></div>
             <div style="font-size:11px;">Est. roofs: ${zone.estimatedRoofs} · Knocks: ${zone.knockCount}</div>
             <div style="margin-top:6px;display:flex;gap:6px;">
-              <button onclick="window.StormCenter.openZone('${zone.id}')" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">View</button>
-              <button onclick="window.StormCenter.pushToD2D('${zone.id}')" style="padding:5px 10px;background:#e8720c;color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">Start Knocking</button>
+              <button data-storm-action="openZone" data-storm-id="${zone.id}" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">View</button>
+              <button data-storm-action="pushToD2D" data-storm-id="${zone.id}" style="padding:5px 10px;background:#e8720c;color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">Start Knocking</button>
             </div>
           </div>
         `);
@@ -709,7 +709,7 @@
 
     const tabBtn = (id, label, icon) => {
       const active = currentTab === id;
-      return `<button onclick="window.StormCenter.setTab('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#e8720c)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
+      return `<button data-storm-action="setTab" data-storm-id="${id}" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#e8720c)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
     };
 
     // Stats bar
@@ -728,7 +728,7 @@
             <div style="font-size:22px;font-weight:800;font-family:'Barlow Condensed',sans-serif;color:var(--t);letter-spacing:.02em;">⛈️ STORM CENTER</div>
             <div style="font-size:12px;color:var(--m);margin-top:2px;">Weather intelligence → Revenue pipeline</div>
           </div>
-          <button onclick="window.StormCenter.refresh()" style="padding:8px 16px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
+          <button data-storm-action="refresh" style="padding:8px 16px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
             ${isLoading ? '⏳ Loading...' : '🔄 Refresh Alerts'}
           </button>
         </div>
@@ -783,6 +783,25 @@
 
     scroll.innerHTML = html;
 
+    // Delegated click handler — restores all previously-inline onclick
+    // dispatchers (setTab/refresh/createZone/openZone/pushToD2D/generatePlan)
+    // under the prod CSP `script-src-attr 'none'`, which silently blocks
+    // onclick= attributes whether static or injected via innerHTML.
+    scroll.onclick = function (ev) {
+      const target = ev.target.closest('[data-storm-action]');
+      if (!target) return;
+      const action = target.dataset.stormAction;
+      const id = target.dataset.stormId;
+      if (target.dataset.stormStop === '1') ev.stopPropagation();
+      const fn = window.StormCenter && window.StormCenter[action];
+      if (typeof fn === 'function') {
+        try { id ? fn(id) : fn(); }
+        catch (e) { console.error('[storm-center] dispatch failed for ' + action + ':', e); }
+      } else {
+        console.warn('[storm-center] unknown action:', action);
+      }
+    };
+
     // Re-init map after DOM update
     stormMap = null;
     setTimeout(initMap, 50);
@@ -828,7 +847,7 @@
               <div style="text-align:right;flex-shrink:0;">
                 <div style="font-size:10px;color:var(--m);">${timeAgo(a.sent)}</div>
                 <div style="font-size:10px;color:var(--m);margin-top:2px;">Expires ${fmtDate(a.expires)}</div>
-                <button onclick="window.StormCenter.createZone('${a.id}')" style="margin-top:8px;padding:6px 14px;background:var(--orange,#e8720c);color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;">
+                <button data-storm-action="createZone" data-storm-id="${a.id}" style="margin-top:8px;padding:6px 14px;background:var(--orange,#e8720c);color:white;border:none;border-radius:6px;font-size:11px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;">
                   CREATE ZONE
                 </button>
               </div>
@@ -855,7 +874,7 @@
         ${stormZones.map(z => {
           const rev = estimateZoneRevenue(z);
           return `
-            <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;" onclick="window.StormCenter.openZone('${z.id}')">
+            <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer;" data-storm-action="openZone" data-storm-id="${z.id}">
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;">
                 <div>
                   <div style="font-size:14px;font-weight:700;color:var(--t);">🌩️ ${esc(z.name)}</div>
@@ -868,8 +887,8 @@
                   </div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-                  <button onclick="event.stopPropagation();window.StormCenter.generatePlan('${z.id}')" style="padding:5px 12px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📋 Plan</button>
-                  <button onclick="event.stopPropagation();window.StormCenter.pushToD2D('${z.id}')" style="padding:5px 12px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🚪 Knock</button>
+                  <button data-storm-action="generatePlan" data-storm-id="${z.id}" data-storm-stop="1" style="padding:5px 12px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📋 Plan</button>
+                  <button data-storm-action="pushToD2D" data-storm-id="${z.id}" data-storm-stop="1" style="padding:5px 12px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🚪 Knock</button>
                 </div>
               </div>
             </div>
@@ -956,7 +975,7 @@
             <div style="font-size:11px;color:var(--m);">📅 Est. completion: <strong style="color:var(--t);">${plan.daysToComplete} day${plan.daysToComplete > 1 ? 's' : ''}</strong></div>
           </div>
 
-          <button onclick="window.StormCenter.pushToD2D('${z.id}')" style="width:100%;margin-top:12px;padding:12px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
+          <button data-storm-action="pushToD2D" data-storm-id="${z.id}" style="width:100%;margin-top:12px;padding:12px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
             🚪 START KNOCKING THIS ZONE
           </button>
         </div>
