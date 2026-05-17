@@ -572,7 +572,9 @@ function startZoneDraw() {
   zoneDrawing = true;
   zonePoints = [];
   zoneDots = [];
-  document.getElementById('zonePanel').classList.add('visible');
+  // zonePanel lives inside tpl-view-map (lazy-hydrated). Use optional
+  // chaining so a stray invocation outside #/map doesn't null-deref.
+  document.getElementById('zonePanel')?.classList.add('visible');
   showToast('Click map to draw zone boundary. Click Save when done.');
   mainMap.getContainer().style.cursor = 'crosshair';
 
@@ -602,7 +604,7 @@ function cancelZoneDraw() {
   zoneDots.forEach(d => mainMap?.removeLayer(d));
   zoneDots = [];
   if(zoneTempPoly) { mainMap?.removeLayer(zoneTempPoly); zoneTempPoly = null; }
-  document.getElementById('zonePanel').classList.remove('visible');
+  document.getElementById('zonePanel')?.classList.remove('visible');
 }
 
 function saveZone() {
@@ -623,8 +625,9 @@ function saveZone() {
   const id = Date.now();
   zones.push({id, name, color:zoneColor, points:[...zonePoints], layer});
   zonePoints = []; zoneDots = [];
-  document.getElementById('zonePanel').classList.remove('visible');
-  if(document.getElementById('zoneNameInput')) document.getElementById('zoneNameInput').value = '';
+  document.getElementById('zonePanel')?.classList.remove('visible');
+  const _zni = document.getElementById('zoneNameInput');
+  if (_zni) _zni.value = '';
   renderZoneList();
   showToast(`Zone "${name}" saved ✓`);
 }
