@@ -1,6 +1,67 @@
 /**
- * PhotoEngine - Comprehensive Photo Management for NBD Pro Roofing CRM
- * Handles camera capture, tagging, Firebase storage, and photo galleries
+ * PhotoEngine — Comprehensive Photo Management for NBD Pro Roofing CRM
+ *
+ * Handles camera capture, tagging, Firebase Storage upload, gallery,
+ * lightbox, AI auto-tag, and bulk analyze. Single-file monolith by
+ * design (§3.3 audit deferred multi-file split — see PR notes; rough
+ * section map below makes navigation easy enough that the split isn't
+ * load-bearing yet).
+ *
+ * ── Sections (rough line ranges, search for "// ════" to jump) ──────
+ *   1.  TAG SYSTEM         — TAG_CATEGORIES enum (~line  14)
+ *   2.  QUALITY PRESETS    — QUALITY_PRESETS enum (~line  55)
+ *   3.  STATE              — module-private `state` object (~line 77)
+ *   4.  STYLES             — injectStyles() injects all CSS once (~line  90)
+ *   5.  UTILITY FUNCTIONS  — resizeImage, escapeHtml, etc. (~line 690)
+ *   6.  CAMERA CAPTURE     — openCamera() + getUserMedia flow (~line 761)
+ *   7.  PREVIEW & TAGGING  — showPreview() post-capture screen (~line 983)
+ *   8.  FIREBASE UPLOAD    — uploadPhotoToFirebase() + AI auto-tag (~line 1101)
+ *   9.  GALLERY & BROWSER  — renderGallery() + filtering/sorting (~line 1234)
+ *  10.  LIGHTBOX           — openLightbox() full-screen viewer (~line 1322)
+ *  11.  FIRESTORE QUERIES  — getPhotosForLead() etc. (~line 1422)
+ *  12.  STAGING & REPORT   — stagePhoto() / report wiring (~line 1513)
+ *  13.  PUBLIC API         — window.PhotoEngine = { ... } (~line 1540)
+ *
+ * ── Public API (window.PhotoEngine) ──────────────────────────────────
+ *   openCamera(leadId)                — start the capture flow
+ *   uploadPhotoToFirebase(blob, ...)  — direct upload bypass for files
+ *   renderGallery(containerId, leadId)— populate a gallery container
+ *   openLightbox(photoId, leadId)     — full-screen viewer
+ *   deletePhotoFromFirebase(photoId)  — delete photo doc + Storage blob
+ *   getPhotosForLead(leadId)          — Firestore read (cached)
+ *   __updatePhotoCache(leadId, ...)   — in-memory cache patch (used by AI)
+ *
+ *   Inline-action delegate targets (called from data-action attributes
+ *   in rendered HTML — wired in dashboard-actions.js):
+ *     peRemove · peTagToggle · peBulkAnalyze · peOpenLightbox
+ *     peStagePhoto · peDeletePhoto
+ *
+ * ── State shape ──────────────────────────────────────────────────────
+ *   currentPreset       — 'quick' | 'standard' | 'high-res'
+ *   selectedTags        — string[]    (active filter chips)
+ *   stagedPhotos        — { [leadId]: photoId[] }
+ *   cameraStream        — MediaStream | null (active camera)
+ *   currentLeadId       — string | null
+ *   photoCache          — { [leadId]: photoData[] }
+ *   sessionPhotoCount   — number      (since modal opened)
+ *   lastThumbUrl        — string      (camera "last shot" preview)
+ *   uploadQueue         — pending uploads (offline-safe queue)
+ *
+ * ── Load order requirement ───────────────────────────────────────────
+ *   Firebase SDK + window._storage / _db / _user / _auth must be ready
+ *   before this file runs. The IIFE warns (doesn't throw) so the page
+ *   doesn't hard-crash; methods fail gracefully if called before init.
+ *
+ * ── Related modules ──────────────────────────────────────────────────
+ *   photo-ai-classifier.js  — Haiku auto-tag wrapper (per-upload, USD-capped)
+ *   photo-ai.js             — Sonnet deep-analysis wrapper (on-demand)
+ *   photo-report.js         — Homeowner/adjuster PDF generator
+ *   photo-editor.js         — Annotation overlay tool
+ *   photo-smart-ingest.js   — Pre-upload EXIF/GPS analysis
+ *
+ * See functions/handlers/photo.js + functions/photo-vision.js for the
+ * server-side AI paths (intentional two-path design — Haiku auto-tag
+ * + Sonnet deep — documented at the top of those files).
  */
 
 (function() {
@@ -11,7 +72,9 @@
     console.warn('PhotoEngine: Firebase not fully initialized. Waiting...');
   }
 
-  // TAG SYSTEM - Categories and definitions
+  // ============================================================================
+  // TAG SYSTEM — Categories and definitions
+  // ============================================================================
   const TAG_CATEGORIES = {
     damage: {
       label: 'Damage Type',
@@ -52,7 +115,9 @@
     }
   };
 
+  // ============================================================================
   // QUALITY PRESETS
+  // ============================================================================
   const QUALITY_PRESETS = {
     quick: {
       label: 'Quick',
@@ -74,7 +139,9 @@
     }
   };
 
-  // STATE
+  // ============================================================================
+  // STATE — module-private. Shape documented in the file header above.
+  // ============================================================================
   let state = {
     currentPreset: localStorage.getItem('photoEnginePreset') || 'standard',
     selectedTags: [],
@@ -1125,6 +1192,9 @@
       return null;
     }
   }
+  // ──────────────────────────────────────────────────────────────────
+  // MARK: AI auto-tag (Haiku classifier, per-upload, USD-capped server-side)
+  // ──────────────────────────────────────────────────────────────────
   function _autoTagPhotoBackground(photoId){
     if (!photoId) return;
     // Fire and forget. The server writes aiSuggestion back to the photo
