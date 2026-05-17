@@ -754,4 +754,55 @@ section('L-04: confirmAccountErasure GET is rate-limited');
     /confirmErasureGet:ip[^)]*,\s*60,\s*60_000/.test(src));
 }
 
+section('login + register pages are autofill / password-manager friendly');
+{
+  const login = read(path.join(ROOT, 'docs/pro/login.html'));
+  const register = read(path.join(ROOT, 'docs/pro/register.html'));
+  const loginJs = read(path.join(ROOT, 'docs/pro/js/pages/login.js'));
+  const regJs = read(path.join(ROOT, 'docs/pro/js/pages/register.js'));
+
+  // ── login.html ──
+  // Password managers need: real <form>, type="email"+name="email"+autocomplete="email",
+  // type="password"+name="password"+autocomplete="current-password",
+  // <button type="submit">, and a real `submit` event handler (not
+  // just click on the button — the manager hooks the submit event
+  // to detect a successful login and prompt "Save password?").
+  assert('login.html wraps fields in a real <form>',
+    /<form[^>]*id="loginForm"[^>]*action="#"[^>]*method="post"/.test(login));
+  assert('login.html email input has type=email, name=email, autocomplete=email',
+    /<input[^>]*type="email"[^>]*name="email"[^>]*autocomplete="email"/.test(login)
+    || /<input[^>]*name="email"[^>]*type="email"[^>]*autocomplete="email"/.test(login)
+    || /<input[^>]*type="email"[^>]*autocomplete="email"[^>]*name="email"/.test(login));
+  assert('login.html password input has type=password, name=password, autocomplete=current-password',
+    /<input[^>]*type="password"[^>]*name="password"[^>]*autocomplete="current-password"/.test(login)
+    || /<input[^>]*name="password"[^>]*type="password"[^>]*autocomplete="current-password"/.test(login));
+  assert('login.html has <button type="submit"> for the loginBtn',
+    /<button[^>]*id="loginBtn"[^>]*type="submit"/.test(login)
+    || /<button[^>]*type="submit"[^>]*id="loginBtn"/.test(login));
+  assert('login.js binds form.addEventListener("submit", ...)',
+    /loginForm\.addEventListener\(\s*['"]submit['"]/.test(loginJs));
+
+  // ── register.html ──
+  // Same shape but with autocomplete="new-password" (signals "saving
+  // a new credential" so the manager offers a generated password
+  // instead of autofilling an existing one).
+  assert('register.html form has action=# method=post',
+    /<form[^>]*id="regForm"[^>]*action="#"[^>]*method="post"/.test(register));
+  assert('register.html email input has name=email + autocomplete=email + type=email',
+    /<input[^>]*id="regEmail"[^>]*name="email"[\s\S]{0,300}autocomplete="email"/.test(register));
+  assert('register.html password input has name + type=password + autocomplete=new-password',
+    /<input[^>]*id="regPass"[^>]*name="[^"]+"[^>]*type="password"[\s\S]{0,400}autocomplete="new-password"/.test(register));
+  assert('register.html confirm-password input has autocomplete=new-password',
+    /<input[^>]*id="regConfirm"[\s\S]{0,400}autocomplete="new-password"/.test(register));
+  assert('register.html given-name + family-name + organization have name= attrs',
+    /<input[^>]*id="regFirst"[^>]*name="given-name"/.test(register)
+    && /<input[^>]*id="regLast"[^>]*name="family-name"/.test(register)
+    && /<input[^>]*id="regCompany"[^>]*name="organization"/.test(register));
+  assert('register.html has <button type="submit"> for the regBtn',
+    /<button[^>]*id="regBtn"[^>]*type="submit"/.test(register)
+    || /<button[^>]*type="submit"[^>]*id="regBtn"/.test(register));
+  assert('register.js binds form.addEventListener("submit", register)',
+    /form\.addEventListener\(\s*['"]submit['"]\s*,\s*register\s*\)/.test(regJs));
+}
+
 };
