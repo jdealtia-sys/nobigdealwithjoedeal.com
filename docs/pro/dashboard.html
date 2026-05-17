@@ -3967,7 +3967,9 @@ body {
   /* Compact card on mobile */
   .k-card{ padding:9px 10px 8px!important; }
   .kc-name{ font-size:12px!important; padding-right:52px!important; }
-  .kc-val-badge{ font-size:13px!important; top:8px!important; right:8px!important; }
+  /* Mobile size override — top/right removed in tandem with the desktop
+     absolute-positioning fix above. Badge now flows inside .kc-val-row. */
+  .kc-val-badge{ font-size:13px!important; }
   .kc-addr{ font-size:9px!important; margin-bottom:4px!important; }
   .kc-phone-row{ margin-bottom:4px!important; }
   .kc-phone-link{ font-size:10px!important; }
@@ -4754,9 +4756,19 @@ body {
   .k-card.dragging{opacity:.45;cursor:grabbing;}
   /* Ink-soft = muted text on the card surface, derived from theme. */
   .k-card{ --ink-soft: color-mix(in srgb, var(--ink) 60%, var(--paper)); }
-  /* Job value — big and prominent at top right */
+  /* Job value — flows inside .kc-val-row (text-align:right) instead of
+     position:absolute top:10px right:12px. The absolute placement caused
+     the orange price to land on top of the est/photo count chips in the
+     top-right corner — the R6 layout (see comment near rule above at
+     line 2911) deliberately gave the value its OWN row to avoid that
+     collision, but the absolute positioning here was overriding that
+     intent (later rule wins). Removing position/top/right lets the
+     wrapping row right-align the badge as designed.
+     padding-right:64px on .kc-name below (line 4767) was companion
+     scaffolding to clear the absolute badge; it's now dead weight but
+     I'm leaving it for now — removing it changes truncation behavior on
+     long names and that's a separate visual call. */
   .kc-val-badge{
-    position:absolute;top:10px;right:12px;
     font-family:'Barlow Condensed',sans-serif;
     font-size:var(--kcard-val-fz);
     font-weight:800;
