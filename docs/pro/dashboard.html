@@ -2935,7 +2935,10 @@ input:focus, select:focus, textarea:focus {
   text-transform: uppercase;
   transition: transform .15s;
 }
-.kc-tag:hover { transform: scale(1.05); }
+/* Hover feedback via brightness — scale(1.05) caused jiggle when the
+   cursor sat at the tag's edge (scale up → cursor outside → scale
+   down → cursor inside → loop). Brightness is a paint-only change. */
+.kc-tag:hover { filter: brightness(1.12); }
 
 /* Card action buttons */
 .kc-btn {
@@ -2960,13 +2963,14 @@ input:focus, select:focus, textarea:focus {
 
 /* Card photo hover zoom */
 .kc-photo-thumb {
-  transition: transform .2s, box-shadow .2s;
+  transition: box-shadow .15s ease, filter .15s ease;
 }
 .kc-photo-thumb:hover {
-  transform: scale(1.15);
+  /* scale(1.15) + dynamic position:relative caused layout reflow +
+     edge-jiggle on hover. Brightness + shadow gives the same
+     "interactive" feel without changing the element's bounds. */
+  filter: brightness(1.1);
   box-shadow: 0 4px 12px rgba(0,0,0,.3);
-  z-index: 5;
-  position: relative;
 }
 
 /* ── KANBAN COLUMN POLISH ── */
@@ -3268,9 +3272,11 @@ input:focus, select:focus, textarea:focus {
   justify-content: center;
 }
 .kc-arrow:hover {
+  /* scale(1.15) caused stage-nav arrows to wiggle off-cursor when
+     hovered near their edge. Color + background still gives clear
+     hover affordance without changing the hit area. */
   color: var(--orange);
   background: var(--og);
-  transform: scale(1.15);
 }
 
 /* ── TASK ITEMS ── */
@@ -3328,7 +3334,8 @@ input:focus, select:focus, textarea:focus {
   transition: all .2s;
 }
 .kc-days:hover {
-  transform: scale(1.08);
+  /* scale(1.08) caused days-badge jiggle when the cursor sat at its
+     edge. Shadow alone signals interactivity without changing bounds. */
   box-shadow: 0 2px 8px rgba(0,0,0,.15);
 }
 
