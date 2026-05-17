@@ -1623,16 +1623,45 @@
       }
       
       const finalUid = window._user?.uid;
+
+      // Wave 187: PRE-FLIGHT connection cycle on FIRST loadLeads per
+      // page load. The Firestore SDK's WebSocket/long-poll often
+      // survives same-tab reloads in a "warm-but-dead" state — the
+      // browser killed the underlying socket during navigation but
+      // the SDK doesn't notice until getDocs hits the 10s timeout
+      // below. Doing the cycle BEFORE the first query (instead of
+      // reactively in the catch path) eliminates the "every other
+      // reload shows skeleton" alternation pattern: the user used to
+      // hit 50% stuck loads because each successful load "warmed" a
+      // socket that the next reload would inherit and then hang on.
+      //
+      // Cost: ~250-400ms added to cold start, ONCE per tab (gated by
+      // window._firestoreCycledOnBoot so subsequent loadLeads calls
+      // — view switches, manual refreshes — skip the cycle).
+      //
+      // Escape hatch: append ?nocycle=1 to the URL to skip this if it
+      // ever regresses on a specific browser. Mirror of ?nosw=1.
+      const _nocycle = new URLSearchParams(location.search).has('nocycle');
+      if (!window._firestoreCycledOnBoot && !_nocycle) {
+        window._firestoreCycledOnBoot = true;
+        try {
+          await disableNetwork(db);
+          await new Promise(r => setTimeout(r, 100));
+          await enableNetwork(db);
+        } catch (preflightErr) {
+          console.warn('Pre-flight network cycle failed (non-fatal):', preflightErr.message);
+        }
+      }
+
       // 10s timeout — getDocs on a stale iOS bfcache connection hangs
       // forever instead of rejecting, leaving healthBadge stuck on the
       // 'loading' class (yellow dot in connection-status-btn).
       //
-      // On failure, cycle the Firestore connection (disableNetwork →
-      // enableNetwork) and retry once. iOS Safari throttles background
-      // tabs and silently breaks Firestore's WebSocket — the SDK never
-      // notices, so the only way to force a fresh connection is to
-      // explicitly disable + re-enable the network. ~80% of "every
-      // other time it errors" failures are recoverable on the retry.
+      // On failure (despite the pre-flight cycle above), cycle the
+      // Firestore connection AGAIN and retry once. The pre-flight covers
+      // the common reload-stale case; this reactive cycle remains the
+      // belt-and-suspenders fallback for transient iOS background-tab
+      // throttling and other in-session connection deaths.
       const _runQuery = () => Promise.race([
         getDocs(query(collection(db,'leads'), where('userId','==',finalUid))),
         new Promise((_, reject) => setTimeout(() => reject(new Error('getDocs(leads) timeout after 10000ms')), 10000))
