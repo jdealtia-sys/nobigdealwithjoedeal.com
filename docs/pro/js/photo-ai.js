@@ -1,14 +1,23 @@
 /**
  * photo-ai.js — Wave 10 (AI photo analysis MVP)
  *
- * Calls the analyzeRoofPhoto Cloud Function and renders the result
- * in the photo lightbox. Exposes:
+ * Client wrapper for the DEEP-analysis path. Calls the
+ * analyzeRoofPhoto Cloud Function (Sonnet) and renders the rich
+ * result (severity / materials / observations / recommendations /
+ * confidence) in the photo lightbox + bulk-analyze flow.
  *
  *   window.PhotoAI.analyze(photoId)            → Promise<analysis>
  *   window.PhotoAI.renderAnalysisCard(analysis)→ HTML string
  *   window.PhotoAI.severityBadge(severity)     → HTML span
  *   window.PhotoAI.injectInLightbox(photoId, container)
  *      → adds an "Analyze with AI" button or shows an existing analysis.
+ *
+ * ── Sister wrapper ──
+ * For the per-upload AUTO-TAG path (Haiku, returns 1-tap-accept
+ * chip suggestions), see photo-ai-classifier.js / PhotoAIClassifier.
+ * Two paths exist by design — different cost profiles, different
+ * surfaces. The split is documented at the top of
+ * functions/handlers/photo.js + functions/photo-vision.js.
  *
  * Safe to include as a <script defer>. No side effects on load.
  */

@@ -2,6 +2,11 @@
  * photo-ai-classifier.js — Phase 3 client wrapper for the
  * analyzePhotoVision Cloud Function.
  *
+ * Client wrapper for the AUTO-TAG path. Returns a light suggestion
+ * (phase / damageType / severity / caption / confidence) that the
+ * upload flow stamps onto every photo and the Review UI surfaces as
+ * 1-tap-accept chips.
+ *
  * The function is heavyweight (1-3s/photo, costs money). This module
  * gives the upload flow a fire-and-forget API plus a throttled batch
  * mode for the Review UI (Phase 4):
@@ -18,6 +23,13 @@
  * so the Review UI doesn't need to thread them through state — it can
  * just read photos from Firestore and chip whichever ones have a
  * suggestion populated.
+ *
+ * ── Sister wrapper ──
+ * For the on-demand DEEP-analysis path (Sonnet, returns rich
+ * observations + recommendations), see photo-ai.js / PhotoAI. Two
+ * paths exist by design — different cost profiles, different
+ * surfaces. Design split documented at the top of
+ * functions/photo-vision.js + functions/handlers/photo.js.
  */
 (function () {
   'use strict';

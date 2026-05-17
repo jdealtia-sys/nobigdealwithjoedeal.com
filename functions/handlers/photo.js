@@ -218,10 +218,35 @@ exports.imageProxy = onRequest(
 // ═══════════════════════════════════════════════════════════════════
 // analyzeRoofPhoto — Wave 10 (AI photo analysis MVP)
 //
-// Reads a photo doc by ID, fetches the image bytes from Storage, and
-// asks Claude Sonnet (vision) to identify visible roof damage. Returns
-// a structured JSON result and stamps it on the photo doc as
-// `aiAnalysis` for later display in the inspection report.
+// The DEEP-analysis path. Reads a photo doc by ID, fetches the image
+// bytes from Storage, and asks Claude Sonnet (vision) to identify
+// visible roof damage. Returns a rich structured JSON result
+// (severity, materials, observations[], recommendations[],
+// confidence, notRoof) and stamps it on the photo doc as
+// `aiAnalysis` for later display in the inspection report and
+// lightbox.
+//
+// ── TWO AI PATHS, BY DESIGN ──
+// This file's analyzeRoofPhoto pairs with functions/photo-vision.js's
+// analyzePhotoVision. The split is intentional, not legacy:
+//
+//   analyzeRoofPhoto (this, Sonnet)  — on-demand, deep, rich output.
+//     Called from the lightbox "Analyze damage with AI" button
+//     (docs/pro/js/photo-ai.js) and the gallery bulk-analyze button
+//     (photo-engine.js _bulkAnalyze). Returns observations + repair
+//     recommendations a rep can paste into a supplement. ~$0.005/call
+//     at Sonnet pricing. Capped by COUNT (100/uid/day).
+//
+//   analyzePhotoVision (Haiku) — per-upload, fast, light output.
+//     Fires fire-and-forget on every photo upload via the
+//     PhotoAIClassifier client wrapper. Returns a 1-tap-accept
+//     suggestion (phase/damageType/severity/caption/confidence) so
+//     the Review UI's chips are pre-filled. Capped by USD ($10/lead,
+//     $50/uid/month) because it runs constantly and we want
+//     hard-stop financial guards.
+//
+// Don't merge them — they serve different surfaces with different
+// latency / cost / output-richness requirements.
 //
 // Security:
 //  - App Check + Firebase auth required.
