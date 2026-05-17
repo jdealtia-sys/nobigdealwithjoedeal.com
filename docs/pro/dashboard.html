@@ -784,7 +784,11 @@ body:has(#view-prospects.active) .breadcrumb-container{
   color:var(--t);
 }
 
-/* COMMAND PALETTE */
+/* COMMAND PALETTE
+   Default hidden — same reasoning as .shortcuts-panel (see comment there).
+   `.dn` utility (display:none) has equal specificity and was losing to this
+   inline rule, so the palette was auto-opening on every page load. openCmd
+   Palette() in ui.js sets `style.display = 'flex'` explicitly. */
 .cmd-palette{
   position:fixed;
   top:0;
@@ -792,7 +796,7 @@ body:has(#view-prospects.active) .breadcrumb-container{
   right:0;
   bottom:0;
   z-index:10000;
-  display:flex;
+  display:none;
   align-items:flex-start;
   justify-content:center;
   padding-top:15vh;
