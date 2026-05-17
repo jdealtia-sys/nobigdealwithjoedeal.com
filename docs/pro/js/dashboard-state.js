@@ -26,7 +26,14 @@
 // ══════════════════════════════════════════════
 const mapInited = {};
 
-// Route configuration: maps view names to display labels and parent routes
+// Route configuration: maps view names to display labels and parent routes.
+//
+// Every `<div id="view-X">` in dashboard.html MUST have a matching entry
+// here, otherwise the hashchange handler in dashboard-main.js silently
+// ignores `#/X` URLs (it gates on `routeConfig[name]`), leaving the
+// previous view active. The 8 entries below "// W160" were missing for
+// months — clicking the sidebar item worked (calls goTo directly) but
+// hard-refresh / direct URL / browser-back navigation didn't.
 const routeConfig = {
   'home': { label: 'Home', parent: null },
   'dash': { label: 'Dashboard', parent: null },
@@ -45,7 +52,16 @@ const routeConfig = {
   'board': { label: 'Leaderboard', parent: null },
   'products': { label: 'Products', parent: null },
   'training': { label: 'Sales Training', parent: null },
-  'settings': { label: 'Settings', parent: null }
+  'settings': { label: 'Settings', parent: null },
+  // W160: missing routes that left direct URLs / hard-refresh broken.
+  'reports':      { label: 'Reports',           parent: null },
+  'prospects':    { label: 'Prospects',         parent: null },
+  'admin':        { label: 'Team Manager',      parent: null },
+  'academy':      { label: 'Real Deal Academy', parent: null },
+  'aitree':       { label: 'Decision Engine',   parent: null },
+  'understand':   { label: 'Deep Dive',         parent: null },
+  'projectcodex': { label: 'Project Intel',     parent: null },
+  'aiusage':      { label: 'AI Usage',          parent: null }
 };
 
 // Pro-only views — Lite users see upgrade prompt instead
