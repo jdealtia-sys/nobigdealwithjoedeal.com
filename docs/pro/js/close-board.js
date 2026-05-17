@@ -612,7 +612,7 @@ function submitDeal() {
 
     const tabBtn = (id, label, icon) => {
       const active = currentTab === id;
-      return `<button onclick="window.CloseBoard.setTab('${id}')" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#e8720c)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
+      return `<button data-cb-action="setTab" data-cb-id="${id}" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#e8720c)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
     };
 
     const active = dealRooms.filter(d => d.status !== DEAL_STATUS.EXPIRED);
@@ -626,7 +626,7 @@ function submitDeal() {
             <div style="font-size:22px;font-weight:800;font-family:'Barlow Condensed',sans-serif;color:var(--t);letter-spacing:.02em;">📋 CLOSE BOARD</div>
             <div style="font-size:12px;color:var(--m);margin-top:2px;">Shareable deal rooms — one link to close</div>
           </div>
-          <button onclick="window.CloseBoard.createNew()" style="padding:8px 16px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
+          <button data-cb-action="createNew" style="padding:8px 16px;background:var(--orange,#e8720c);color:white;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;">
             + NEW DEAL
           </button>
         </div>
@@ -672,6 +672,25 @@ function submitDeal() {
 
     html += '</div>';
     scroll.innerHTML = html;
+
+    // Delegated click handler — replaces previously-inline onclick handlers
+    // that were silently no-op'd by prod CSP `script-src-attr 'none'`. The
+    // CSP blocks inline event-handler attributes even when injected via
+    // innerHTML, so the buttons rendered above need a property-based
+    // handler attached to the container.
+    scroll.onclick = function (ev) {
+      const target = ev.target.closest('[data-cb-action]');
+      if (!target) return;
+      const action = target.dataset.cbAction;
+      const id = target.dataset.cbId;
+      const fn = window.CloseBoard && window.CloseBoard[action];
+      if (typeof fn === 'function') {
+        try { id ? fn(id) : fn(); }
+        catch (e) { console.error('[close-board] dispatch failed for ' + action + ':', e); }
+      } else {
+        console.warn('[close-board] unknown action:', action);
+      }
+    };
   }
 
   function renderActiveDeals() {
@@ -699,10 +718,10 @@ function submitDeal() {
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
-            <button onclick="window.CloseBoard.preview('${esc(d.id)}')" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">👁 Preview</button>
-            <button onclick="window.CloseBoard.sendSMS('${esc(d.id)}')" style="padding:5px 10px;background:var(--green,#2ECC8A);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📱 Text</button>
-            <button onclick="window.CloseBoard.sendEmail('${esc(d.id)}')" style="padding:5px 10px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📧 Email</button>
-            <button onclick="window.CloseBoard.copyLink('${esc(d.id)}')" style="padding:5px 10px;background:var(--s);border:1px solid var(--br);color:var(--t);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🔗 Copy</button>
+            <button data-cb-action="preview" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">👁 Preview</button>
+            <button data-cb-action="sendSMS" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--green,#2ECC8A);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📱 Text</button>
+            <button data-cb-action="sendEmail" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📧 Email</button>
+            <button data-cb-action="copyLink" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--s);border:1px solid var(--br);color:var(--t);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🔗 Copy</button>
           </div>
         </div>
         <div style="font-size:10px;color:var(--m);margin-top:8px;">Created ${timeAgo(d.createdAt)} · Expires ${fmtDate(d.expiresAt)}</div>
@@ -763,7 +782,7 @@ function submitDeal() {
           </div>
         </div>
 
-        <button onclick="window.CloseBoard.submitCreate()" style="width:100%;padding:14px;background:var(--orange,#e8720c);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;margin-top:8px;">
+        <button data-cb-action="submitCreate" style="width:100%;padding:14px;background:var(--orange,#e8720c);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;margin-top:8px;">
           CREATE DEAL ROOM
         </button>
       </div>
