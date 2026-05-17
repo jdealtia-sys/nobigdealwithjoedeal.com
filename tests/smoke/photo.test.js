@@ -572,6 +572,43 @@ section('customer.html: blank-preview escape hatch on prereq warning');
     /window\._previewBlankDoc[\s\S]{0,600}window\.NBDDocGen\.generate\(\s*type\s*,\s*blank\s*\)/.test(customer));
 }
 
+section('doc-template cards: per-card ⓘ blank-preview button');
+{
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const docGen = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+
+  // Every doc-template-card (currently 15) has a nested ⓘ button
+  // routing to _previewBlankDoc. The CSS guarantees position:relative
+  // on the card and absolute on the button so the icon stays in the
+  // top-right without disturbing existing card layout.
+  const cardCount = (customer.match(/class="doc-template-card"/g) || []).length;
+  const btnCount  = (customer.match(/class="dt-preview-btn"/g) || []).length;
+  assert('one dt-preview-btn per doc-template-card (currently 15)',
+    cardCount > 0 && btnCount === cardCount);
+  assert('dt-preview-btn dispatches data-action="_previewBlankDoc"',
+    /class="dt-preview-btn"[^>]*data-action="_previewBlankDoc"/.test(customer));
+  assert('dt-preview-btn carries its own data-doc-type for the delegate',
+    /class="dt-preview-btn"[^>]*data-doc-type="[a-z_]+"/i.test(customer));
+  assert('doc-template-card is position:relative so the icon anchors',
+    /\.doc-template-card\s*\{[\s\S]{0,200}position:\s*relative/.test(customer));
+  assert('.dt-preview-btn is position:absolute (top-right corner)',
+    /\.dt-preview-btn\s*\{[\s\S]{0,400}position:\s*absolute/.test(customer));
+
+  // NBDDocGen.generate stamps a "Blank Preview" watermark whenever
+  // data._isBlankPreview is true. One source of truth so every
+  // template picks it up (15 doc types share this code path).
+  assert('NBDDocGen.generate reads data._isBlankPreview',
+    /data\._isBlankPreview/.test(docGen));
+  assert('watermark element carries data-nbd-watermark="blank-preview"',
+    /data-nbd-watermark="blank-preview"/.test(docGen));
+  assert('watermark text reads "Blank Preview"',
+    /Blank Preview/.test(docGen));
+  assert('watermark injected before </body> via regex replace',
+    /html\.replace\(\s*\/<\\\/body>\/i\s*,\s*wm\s*\+\s*['"]<\/body>['"]\s*\)/.test(docGen));
+  assert('html declared with let (mutation required for watermark injection)',
+    /let\s+html\s*=\s*this\.getHTML\(type,\s*data\)/.test(docGen));
+}
+
 section('NBDUrl helper: canonical customer URL builder');
 {
   const helper = read(path.join(ROOT, 'docs/pro/js/nbd-url.js'));
