@@ -623,22 +623,24 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
     /_assetOrigin\s*\(\)\s*\{[\s\S]{0,400}window\.location\.origin/.test(docGen));
   assert('document-generator: fallback host is production',
     /['"]https:\/\/nobigdealwithjoedeal\.com['"]/.test(docGen));
-  assert('document-generator: logo img uses ${origin}/assets/images/nbd-logo.png',
-    /\$\{origin\}\/assets\/images\/nbd-logo\.png/.test(docGen));
+  assert('document-generator: logo loaded via <object> with absolute origin',
+    /<object[^>]*data="\$\{origin\}\/assets\/images\/nbd-logo\.png"/.test(docGen));
+  assert('document-generator: SVG monogram is the <object> fallback content',
+    /<object[\s\S]{0,500}<svg[\s\S]{0,800}NBD[\s\S]{0,100}<\/svg>[\s\S]{0,80}<\/object>/.test(docGen));
   assert('document-generator: legacy onerror handler removed (CSP-blocked)',
     !/onerror=["'][^"']*nbd-logo/.test(docGen));
-  assert('document-generator: text-fallback (NBD mark) ships behind img',
-    /class="nbd-logo-mark"[\s\S]{0,80}NBD/.test(docGen));
 
   // templates.js (20 of 24 templates) gets the same fix.
   assert('templates.js: ORIGIN constant computed at IIFE load',
     /const ORIGIN\s*=\s*\(function\s*\(\)\s*\{[\s\S]{0,400}window\.location\.origin/.test(templates));
   assert('templates.js: LOGO_URL = ORIGIN + /assets/images/nbd-logo.png',
     /const LOGO_URL\s*=\s*ORIGIN\s*\+\s*['"]\/assets\/images\/nbd-logo\.png['"]/.test(templates));
-  assert('templates.js: letterhead img src uses ${LOGO_URL}',
-    /src=["']\$\{LOGO_URL\}["']/.test(templates));
-  assert('templates.js: text fallback NBD mark behind img',
-    /letterhead-logo-fallback[\s\S]{0,200}NBD/.test(templates));
+  assert('templates.js: letterhead uses <object data="${LOGO_URL}">',
+    /<object[^>]*data="\$\{LOGO_URL\}"/.test(templates));
+  assert('templates.js: SVG monogram fallback inside <object>',
+    /<object[\s\S]{0,500}<svg[\s\S]{0,800}NBD[\s\S]{0,100}<\/svg>[\s\S]{0,80}<\/object>/.test(templates));
+  assert('templates.js: Company Intro hero has its own logo monogram',
+    /<object class="intro-hero-logo"[\s\S]{0,800}NBD/.test(templates));
 
   // Branded header — strong navy gradient + orange accent stripe.
   assert('document-generator: header uses navy gradient',
@@ -661,6 +663,18 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
     /\.footer\s*\{[\s\S]{0,300}border-top:4px solid \$\{A\}/.test(templates));
   assert('templates.js: section-title carries orange underline accent',
     /\.section-title:after[\s\S]{0,200}background:\$\{A\}/.test(templates));
+
+  // firebase.json must serve /assets/images/** with CORP cross-origin
+  // so the Universal Doc Viewer's null-origin iframe srcdoc can embed
+  // the brand logo. Without this override the global same-origin CORP
+  // blocks the load and every doc shows a broken-image placeholder.
+  const firebaseJson = read(path.join(ROOT, 'firebase.json'));
+  const fbCfg = JSON.parse(firebaseJson);
+  const imgRule = (fbCfg.hosting.headers || []).find(h => h.source === '/assets/images/**');
+  assert('firebase.json: /assets/images/** header override exists',
+    !!imgRule);
+  assert('firebase.json: image assets serve CORP cross-origin',
+    !!(imgRule && (imgRule.headers || []).find(h => h.key === 'Cross-Origin-Resource-Policy' && h.value === 'cross-origin')));
 }
 
 section('NBDUrl helper: canonical customer URL builder');
