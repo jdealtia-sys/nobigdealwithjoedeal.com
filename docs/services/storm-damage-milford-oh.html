@@ -329,6 +329,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -348,7 +349,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -380,9 +381,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -488,19 +505,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Storm Damage FAQ — <span>Milford, OH</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Why does Milford, OH see concentrated storm damage? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Why does Milford, OH see concentrated storm damage? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Milford sits in the Little Miami River valley, and valley terrain funnels wind and precipitation in ways that can produce localized damage more severe than open-area forecasts suggest. Storms that look moderate on radar can deliver heavier-than-expected wind uplift and hail impact once they enter the valley corridor.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">My Milford home was built in the 1970s. Does age affect my storm damage claim? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">My Milford home was built in the 1970s. Does age affect my storm damage claim? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Older shingle systems are more vulnerable to storm damage, which is actually relevant to your claim. Original flashing and aging shingles fail at lower wind speeds and smaller hail sizes. Joe documents the condition of existing materials so your insurer has the full picture.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What if I'm not sure whether to file a storm damage claim in Milford? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What if I'm not sure whether to file a storm damage claim in Milford? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Get a free inspection first. Joe will tell you plainly whether the damage meets the threshold for a viable claim. Filing an unnecessary claim can affect your rates — Joe won't push you to file if the damage doesn't warrant it.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Does Joe cover all of Clermont County including Milford? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Does Joe cover all of Clermont County including Milford? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes. Joe covers all of Clermont County with free inspection, photo documentation, and full insurance claim support. Milford is well within his primary service area — no travel fees, no delays.</div>
       </div>
     </div>

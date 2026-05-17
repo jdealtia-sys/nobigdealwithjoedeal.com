@@ -330,6 +330,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -349,7 +350,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -381,9 +382,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -489,19 +506,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Gutter Replacement FAQ — <span>Mason</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How often should I replace the gutters on my Mason home? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How often should I replace the gutters on my Mason home? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Most gutters last 20–30 years if maintained, but that lifespan shortens significantly in areas with heavy storm activity. In Mason, Warren County's spring hail season and the high rainfall volumes that follow accelerate wear on the original builder-grade sectional gutters found on most 1990s–2000s homes here — the seams fail first, causing drips that damage fascia and redirect water toward the foundation. If your gutters are pulling away from the fascia, have visible joint separation, or were installed with the original builder package, replacement is likely overdue.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What's the difference between sectional and seamless gutters? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What's the difference between sectional and seamless gutters? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Sectional gutters come in pre-cut lengths joined with connectors — every connector is a potential leak point. Seamless gutters are cut on-site from a single coil of aluminum to the exact length needed, with no mid-run seams. They have fewer failure points, look cleaner, and last longer. Joe installs seamless 5- and 6-inch K-style gutters on-site using a portable roll-forming machine — no delivery damage, perfect fit every time.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Do I need gutter guards in Mason? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Do I need gutter guards in Mason? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">It depends on your tree coverage. Mason's newer planned communities often have less mature canopy, reducing debris loads — but the established neighborhoods along Western Row and the older sections near downtown Mason have enough tree cover to make guards worth the investment. Micro-mesh guards are the most effective option — they block debris down to shingle grit while still allowing water flow. Foam and reverse-curve styles have their place in lower-debris situations. Joe can assess your situation during the free estimate and give you an honest recommendation without upselling.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Should I replace my gutters at the same time as my roof? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Should I replace my gutters at the same time as my roof? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Often yes — if your roof is being replaced due to age or storm damage, the gutters are frequently in similar condition. Coordinating both avoids having new roofing material overhang old, failing gutters, and scheduling both together saves a return mobilization. Joe can assess both during the same inspection and give you an honest picture of whether your gutters need immediate replacement or can wait.</div>
       </div>
     </div>

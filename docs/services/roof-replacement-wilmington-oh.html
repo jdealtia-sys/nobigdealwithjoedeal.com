@@ -320,6 +320,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -339,7 +340,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -371,9 +372,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -481,19 +498,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Roof Replacement FAQ — <span>Wilmington, OH</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I know if my Wilmington home needs a full replacement or a repair? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How do I know if my Wilmington home needs a full replacement or a repair? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Wilmington's housing mix spans 1950s–1970s downtown properties and 1980s–1990s suburban builds on the city's edges. If your roof is over 20 years old and showing granule loss, curling, or recurring leaks — especially after a Clinton County storm event — replacement is almost always the smarter investment. Joe's free inspection gives you a straight answer.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Does homeowner's insurance cover roof replacement in Wilmington? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Does homeowner's insurance cover roof replacement in Wilmington? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Clinton County sees severe weather that often goes under-documented — a smaller local contractor market means fewer homeowners get proper insurance advocacy. If storm or hail damage has contributed to your roof's condition, your policy may cover replacement. Joe provides thorough inspection and claim support to make sure you don't leave money on the table.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Can you work on older historic homes in downtown Wilmington? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Can you work on older historic homes in downtown Wilmington? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes. Older Wilmington properties often have steeper pitches, varying shingle profiles, and sometimes original wood or slate underlayment that requires careful handling during tear-off. Joe reviews the full scope during the free inspection and prices accordingly — no surprises on job day.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does roof replacement take on a typical Wilmington home? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How long does roof replacement take on a typical Wilmington home? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Most single-story and ranch-style homes in the Wilmington area are completed in one day. Larger two-story homes or properties with significant decking damage may run two days. Joe gives you a realistic timeline before work begins.</div>
       </div>
     </div>

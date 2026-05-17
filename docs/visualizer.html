@@ -400,7 +400,23 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
       <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor;vertical-align:-2px;margin-right:6px"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg>Call Joe
     </a>
   </div>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()"><span></span><span></span><span></span></button>
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav"><span></span><span></span><span></span></button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">The Guarantee</div>
@@ -463,7 +479,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
         <span class="upload-icon">📸</span>
         <h3>Upload a Photo of Your Home</h3>
         <p>For the AI to render shingle detail well, the roof needs to be a clear, large piece of the photo — not just a strip across the top. Stand close enough that the roof fills at least one-third of the frame.</p>
-        <button class="upload-btn" onclick="document.getElementById('fileInput').click()">Choose Photo</button>
+        <button class="upload-btn" data-action="pickFile">Choose Photo</button>
         <input type="file" id="fileInput" accept="image/*">
         <div class="upload-tips">
           <span class="upload-tip">Stand close — roof should fill 1/3+ of frame</span>
@@ -475,11 +491,11 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
       </div>
       <div id="previewContainer" class="preview-container" style="display:none">
         <img id="previewImg" src="data:," alt="Your home">
-        <button class="change-photo-btn" onclick="resetUpload()">Change Photo</button>
+        <button class="change-photo-btn" data-action="resetUpload">Change Photo</button>
       </div>
       <div class="panel-nav">
         <span class="hint">Step 1 of 3</span>
-        <button class="btn-primary" id="toStep2" onclick="goToStep(2)" disabled>Choose Options →</button>
+        <button class="btn-primary" id="toStep2" data-step="2" disabled>Choose Options →</button>
       </div>
     </div>
 
@@ -577,8 +593,8 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 
       </div>
       <div class="panel-nav">
-        <button class="btn-secondary" onclick="goToStep(1)">← Back</button>
-        <button class="btn-primary" onclick="runVisualizer()">Generate Visualization ✨</button>
+        <button class="btn-secondary" data-step="1">← Back</button>
+        <button class="btn-primary" data-action="runVisualizer">Generate Visualization ✨</button>
       </div>
     </div>
 
@@ -616,8 +632,8 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
         </div>
         <div class="results-actions">
           <a href="/#contact" class="btn-primary">Get a Free Estimate for This →</a>
-          <button class="btn-secondary" onclick="goToStep(2)">← Adjust Options</button>
-          <button class="btn-secondary" onclick="goToStep(1)">Start Over</button>
+          <button class="btn-secondary" data-step="2">← Adjust Options</button>
+          <button class="btn-secondary" data-step="1">Start Over</button>
         </div>
       </div>
     </div>
@@ -1548,6 +1564,18 @@ async function runVisualizer() {
     tagsBox.appendChild(tag);
   });
 }
+
+/* Delegated click handlers (CSP disallows inline onclick=) */
+document.addEventListener('click', function (e) {
+  var step = e.target.closest('[data-step]');
+  if (step) { goToStep(parseInt(step.dataset.step, 10)); return; }
+  var act = e.target.closest('[data-action]');
+  if (!act) return;
+  var a = act.dataset.action;
+  if (a === 'pickFile') document.getElementById('fileInput').click();
+  else if (a === 'resetUpload') resetUpload();
+  else if (a === 'runVisualizer') runVisualizer();
+});
 </script>
 </body>
 </html>

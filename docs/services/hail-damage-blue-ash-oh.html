@@ -320,6 +320,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -339,7 +340,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -371,9 +372,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -492,19 +509,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Hail Damage FAQ — <span>Blue Ash</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I identify hail damage on my Blue Ash home? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How do I identify hail damage on my Blue Ash home? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">From the ground, look for dents on gutters, AC condenser fins, and metal vents. These soft-metal surfaces show hail impact clearly. On the roof itself, hail leaves a random pattern of dark spots where granules are knocked off — exposing the asphalt mat underneath. Joe's inspection covers both levels and documents every impact point with photos.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What soft-metal surfaces should I check after hail in Blue Ash? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What soft-metal surfaces should I check after hail in Blue Ash? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Check aluminum gutters, downspouts, AC condenser fins, metal vents on the roof, metal window frames, and any aluminum flashing around chimneys or skylights. These surfaces dent easily and tell the story of the hail event — size, density, and wind direction — in ways that directly support an insurance claim scope.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Do 1950s and 1960s Blue Ash roofs fail faster after hail? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Do 1950s and 1960s Blue Ash roofs fail faster after hail? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes. Older roofing has aged decking underneath and fiberglass mat that has already been degraded by UV exposure over decades. Hail cracks that mat further, which accelerates moisture intrusion and granule loss. A Blue Ash home from this era with unrepaired hail damage will fail noticeably faster than newer construction with the same damage.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">My neighbor in Blue Ash filed a hail claim — should I check my roof? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">My neighbor in Blue Ash filed a hail claim — should I check my roof? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes. Hail storms don't respect property lines — if your neighbor had damage, the same storm crossed your roof. Joe's free inspection takes about 45 minutes and gives you a clear answer. If there's no claim-worthy damage, he'll tell you honestly. If there is, he walks you through the next steps.</div>
       </div>
     </div>

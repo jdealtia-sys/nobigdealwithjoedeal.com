@@ -320,6 +320,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -339,7 +340,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -371,9 +372,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -479,19 +496,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Hail Damage FAQ — <span>Clarksville, OH</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What hail size causes insurance-qualifying damage in Clarksville? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What hail size causes insurance-qualifying damage in Clarksville? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Hail as small as one inch (quarter-sized) can cause qualifying damage to standard architectural shingles. Wind speed and density of impact matter as much as size — a moderate hailstorm with high wind driving the stones can cause more damage than a larger but slower-falling hail event. Joe measures impact density per 10 square feet and documents the storm event data to support your claim.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">My Clarksville neighbors didn't file — should I? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">My Clarksville neighbors didn't file — should I? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Hail affects entire neighborhoods, but whether neighbors file is a personal decision — many don't because they don't know the damage is there or don't want the hassle. Joe's free inspection tells you definitively whether damage exists. If it does, you have a claim right. If it doesn't, you know where you stand.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I start a hail claim for my Clarksville home? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How do I start a hail claim for my Clarksville home? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Start by calling Joe for a free inspection. He'll document the damage, identify the storm event, and walk you through the claim process. In Clinton County's smaller contractor market, having someone who knows the insurance side as well as the roofing side makes a significant difference in claim outcomes.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Does hail damage have to be visible to qualify for a Clarksville insurance claim? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Does hail damage have to be visible to qualify for a Clarksville insurance claim? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">No. The most significant hail damage — cracks in the fiberglass mat inside the shingle — is often invisible from the ground and even difficult to see without knowing what to look for on the roof. Joe's inspection includes close-up documentation of mat fractures that may not be apparent on a casual walkover.</div>
       </div>
     </div>

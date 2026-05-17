@@ -320,6 +320,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -339,7 +340,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -371,9 +372,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -479,19 +496,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Hail Damage FAQ — <span>Blanchester, OH</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I know if my Blanchester home has hail damage? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How do I know if my Blanchester home has hail damage? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Check gutters for granule accumulation, look for dents on metal vents or AC units, and inspect shingles from the ground for dark spots or bare patches where granules are missing. Hail impacts on older Blanchester housing stock are often subtle — Joe's on-roof inspection catches what a ground-level look misses.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Will insurance cover hail damage on an older Blanchester home? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Will insurance cover hail damage on an older Blanchester home? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Yes, if the damage is storm-caused, age alone doesn't disqualify the claim. Adjusters may try to apply depreciation to older roofs, but Joe documents impact damage separately from general wear — which is the key to getting the claim paid at the right amount.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Are there hail damage contractors who actually serve Blanchester? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Are there hail damage contractors who actually serve Blanchester? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">The limited local contractor market in small Clinton County communities like Blanchester means most homeowners either don't get an inspection or get a rushed visit from someone passing through. Joe drives out to Blanchester specifically, does a thorough inspection, and handles the claim from start to finish — not just the estimate.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does it take to file and complete a hail claim in Blanchester? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How long does it take to file and complete a hail claim in Blanchester? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">From inspection to completed repair, a straightforward hail claim typically runs four to eight weeks — dependent on carrier response time and material availability. Joe manages the timeline and keeps you updated at each step so nothing falls through the cracks.</div>
       </div>
     </div>

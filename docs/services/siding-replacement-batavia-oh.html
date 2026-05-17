@@ -331,6 +331,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -350,7 +351,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -382,9 +383,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -491,19 +508,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Siding Replacement FAQ — <span>Batavia</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I know if my Batavia home needs siding replacement vs. repair? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How do I know if my Batavia home needs siding replacement vs. repair? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Repair makes sense when damage is isolated to a few panels — a cracked section, lifted J-channel, or a gap at one window. Replacement is better when: damage covers more than 20–25% of a wall, panels are faded or brittle throughout, moisture has gotten behind the siding and compromised the house wrap, or hail damage is widespread enough to support an insurance claim. Joe inspects the full envelope and gives you a straight answer.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What siding material does NBD install? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">What siding material does NBD install? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">Vinyl is the most common — durable, low-maintenance, and available in hundreds of colors and profiles. Fiber cement (James Hardie) offers a more solid feel and is excellent for homes that see heavy moisture or UV exposure. LP SmartSide is a treated wood composite that holds paint well and resists impact better than standard vinyl. Joe can walk you through the trade-offs for your specific home and budget.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">Does homeowners insurance cover siding replacement in Batavia? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">Does homeowners insurance cover siding replacement in Batavia? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">When a storm causes the damage, yes — hail, wind, and falling debris are covered perils under standard homeowners policies. The key is documenting the damage correctly. Joe photographs impact patterns, measures dent/crack density, and presents the findings in the format adjusters expect. Clermont County storm seasons regularly deliver hail and high-wind events that accelerate siding failures on older homes — lifted panels, moisture behind trim, and brittle vinyl that cracks on impact all create documentable storm damage. Joe provides the same thorough inspection and insurance documentation in Batavia as he does in the larger Cincinnati market. If the cause is wear and tear rather than storm damage, he'll tell you that upfront.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How long does siding replacement take? <span class="faq-arrow">▸</span></div>
+        <div class="faq-q">How long does siding replacement take? <span class="faq-arrow">▸</span></div>
         <div class="faq-a">A typical single-family home takes 2–4 days depending on square footage, number of penetrations (windows, doors, vents), and material. Fiber cement takes longer than vinyl due to cutting and fastening requirements. Joe sequences the job to keep the home weathered at the end of each day — no open walls overnight.</div>
       </div>
     </div>

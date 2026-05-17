@@ -302,6 +302,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/service-mobile-polish.css"><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+  <script src="/assets/js/nav-faq.js" defer></script>
 </head>
 <body>
 
@@ -321,7 +322,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
   </a>
   <ul class="nav-links" id="navLinks">
-    <li class="dropdown"><a href="/#services" onclick="if(window.innerWidth&gt;900){event.preventDefault();var p=this.parentElement;var wasOpen=p.classList.contains(&apos;open&apos;);document.querySelectorAll(&apos;.nav-links .dropdown.open&apos;).forEach(function(d){d.classList.remove(&apos;open&apos;)});if(!wasOpen)p.classList.add(&apos;open&apos;);this.blur()}">Services
+    <li class="dropdown"><a href="/#services">Services
       <svg class="nav-ico" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg></a>
       <ul class="dropdown-menu">
         <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
@@ -353,9 +354,25 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <svg class="nav-ico" viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg></a></li>
     <li><a href="/#contact" class="nav-cta">Free Estimate &rarr;</a></li>
   </ul>
-  <button class="hamburger" id="hamburger" aria-label="Open menu" onclick="(function(){var m=document.getElementById('mobileNav');if(m){m.classList.toggle('open')}})()">
+  <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
+  <script>
+  (function(){
+    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
+    if(!hb||!mn)return;
+    hb.addEventListener('click',function(){
+      var open=mn.classList.toggle('open');
+      hb.setAttribute('aria-expanded',open?'true':'false');
+      var b=hb.querySelectorAll('span');
+      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
+      else{b.forEach(function(s){s.style.cssText=''});}
+    });
+    mn.addEventListener('click',function(e){
+      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
+    });
+  })();
+  </script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -465,19 +482,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <h2 class="sec-title">Hail Damage FAQ — <span>Fairfield, OH</span></h2>
     <div style="margin-top:20px">
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How do I know if my Fairfield, OH home has hail damage? <span class="faq-arrow">&#9658;</span></div>
+        <div class="faq-q">How do I know if my Fairfield, OH home has hail damage? <span class="faq-arrow">&#9658;</span></div>
         <div class="faq-a">Check gutters for dents, window screens for punctures, and AC units for dings — these are easy ground-level indicators. On the roof, hail leaves random dark spots where granules are knocked off, exposing the asphalt mat. Fairfield's older shingles show this damage more readily than newer installs. Joe's free inspection confirms the full extent.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">How quickly does hail damage lead to roof failure? <span class="faq-arrow">&#9658;</span></div>
+        <div class="faq-q">How quickly does hail damage lead to roof failure? <span class="faq-arrow">&#9658;</span></div>
         <div class="faq-a">Hail cracks the fiberglass mat inside shingles, which allows moisture to penetrate and accelerates aging. A Fairfield home with 20-year-old shingles that takes hail damage may fail in 3–5 years rather than the expected additional decade. Catching it early and filing the claim correctly is the financially sound move.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">What size hail causes insurance-claimable damage in Ohio? <span class="faq-arrow">&#9658;</span></div>
+        <div class="faq-q">What size hail causes insurance-claimable damage in Ohio? <span class="faq-arrow">&#9658;</span></div>
         <div class="faq-a">One inch (quarter-sized) is the standard threshold for architectural shingle damage. Smaller hail with high wind speed can also cause functional damage. Ohio insurance carriers recognize impact damage down to three-quarter inch in some policy language. Joe documents size, density, and pattern — the full picture.</div>
       </div>
       <div class="faq-item">
-        <div class="faq-q" onclick="this.parentElement.classList.toggle('open')">My neighbor filed a hail claim. Should I have my Fairfield roof inspected too? <span class="faq-arrow">&#9658;</span></div>
+        <div class="faq-q">My neighbor filed a hail claim. Should I have my Fairfield roof inspected too? <span class="faq-arrow">&#9658;</span></div>
         <div class="faq-a">Yes — hail events affect neighborhoods uniformly. If your neighbor's claim was paid, there's a strong likelihood your roof has compensable damage too. Joe offers free inspections — if the damage doesn't meet threshold, he'll tell you honestly and you won't file an unnecessary claim.</div>
       </div>
     </div>
