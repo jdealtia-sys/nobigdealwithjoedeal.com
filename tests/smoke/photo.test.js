@@ -609,6 +609,60 @@ section('doc-template cards: per-card ⓘ blank-preview button');
     /let\s+html\s*=\s*this\.getHTML\(type,\s*data\)/.test(docGen));
 }
 
+section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme');
+{
+  const docGen     = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+  const templates  = read(path.join(ROOT, 'docs/pro/js/document-generator-templates.js'));
+
+  // The logo path was the #1 cause of the "broken-image alt text" look
+  // in generated docs — root-relative URLs don't resolve inside the
+  // doc viewer's about:blank/srcdoc context. Both generator files now
+  // compute the asset origin at render time via window.location.origin
+  // and fall back to the production host for headless renders.
+  assert('document-generator: _assetOrigin helper present',
+    /_assetOrigin\s*\(\)\s*\{[\s\S]{0,400}window\.location\.origin/.test(docGen));
+  assert('document-generator: fallback host is production',
+    /['"]https:\/\/nobigdealwithjoedeal\.com['"]/.test(docGen));
+  assert('document-generator: logo img uses ${origin}/assets/images/nbd-logo.png',
+    /\$\{origin\}\/assets\/images\/nbd-logo\.png/.test(docGen));
+  assert('document-generator: legacy onerror handler removed (CSP-blocked)',
+    !/onerror=["'][^"']*nbd-logo/.test(docGen));
+  assert('document-generator: text-fallback (NBD mark) ships behind img',
+    /class="nbd-logo-mark"[\s\S]{0,80}NBD/.test(docGen));
+
+  // templates.js (20 of 24 templates) gets the same fix.
+  assert('templates.js: ORIGIN constant computed at IIFE load',
+    /const ORIGIN\s*=\s*\(function\s*\(\)\s*\{[\s\S]{0,400}window\.location\.origin/.test(templates));
+  assert('templates.js: LOGO_URL = ORIGIN + /assets/images/nbd-logo.png',
+    /const LOGO_URL\s*=\s*ORIGIN\s*\+\s*['"]\/assets\/images\/nbd-logo\.png['"]/.test(templates));
+  assert('templates.js: letterhead img src uses ${LOGO_URL}',
+    /src=["']\$\{LOGO_URL\}["']/.test(templates));
+  assert('templates.js: text fallback NBD mark behind img',
+    /letterhead-logo-fallback[\s\S]{0,200}NBD/.test(templates));
+
+  // Branded header — strong navy gradient + orange accent stripe.
+  assert('document-generator: header uses navy gradient',
+    /\.document-header\s*\{[\s\S]{0,400}linear-gradient\([^)]*\$\{this\.COMPANY\.colors\.primary\}/.test(docGen));
+  assert('document-generator: header has orange accent stripe (border-bottom)',
+    /\.document-header\s*\{[\s\S]{0,500}border-bottom:\s*6px solid\s*\$\{this\.COMPANY\.colors\.accent\}/.test(docGen));
+  assert('document-generator: section-title carries orange underline accent',
+    /\.section-title:after\s*\{[\s\S]{0,300}background:\s*\$\{this\.COMPANY\.colors\.accent\}/.test(docGen));
+  assert('document-generator: document-title has orange underline accent',
+    /\.document-title:after\s*\{[\s\S]{0,300}background:\s*\$\{this\.COMPANY\.colors\.accent\}/.test(docGen));
+  assert('document-generator: branded footer (navy bg + orange border-top)',
+    /\.document-footer\s*\{[\s\S]{0,500}border-top:\s*4px solid\s*\$\{this\.COMPANY\.colors\.accent\}/.test(docGen));
+
+  // templates.js: matching branded letterhead/footer.
+  assert('templates.js: letterhead has navy gradient bg',
+    /\.letterhead\s*\{[\s\S]{0,200}linear-gradient\([^)]*\$\{P\}/.test(templates));
+  assert('templates.js: letterhead has orange accent stripe',
+    /\.letterhead\s*\{[\s\S]{0,300}border-bottom:6px solid \$\{A\}/.test(templates));
+  assert('templates.js: footer carries orange border + navy gradient',
+    /\.footer\s*\{[\s\S]{0,300}border-top:4px solid \$\{A\}/.test(templates));
+  assert('templates.js: section-title carries orange underline accent',
+    /\.section-title:after[\s\S]{0,200}background:\$\{A\}/.test(templates));
+}
+
 section('NBDUrl helper: canonical customer URL builder');
 {
   const helper = read(path.join(ROOT, 'docs/pro/js/nbd-url.js'));
