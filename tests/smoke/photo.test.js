@@ -441,5 +441,35 @@ section('Photos §2.1: two AI paths documented + analyzeRoofPhoto baseline cover
   assert('analyzeRoofPhoto stamps aiAnalysis on the photo doc',
     /photoRef\.update\(\s*\{\s*aiAnalysis:\s*result\s*\}\s*\)/.test(handlerPhoto));
 }
+section('Photos §2.2: image-pipeline no_doc_matched bumps a metrics counter');
+{
+  const pipeline = read(path.join(ROOT, 'functions/image-pipeline.js'));
+
+  // The original branch only logged; we need a Firestore counter so we
+  // know whether to invest in a real backfill function or leave the
+  // current "orphan blobs in Storage" state alone.
+  assert('no_doc_matched branch still emits the structured log',
+    /image_pipeline_no_doc_matched/.test(pipeline));
+
+  // Counter doc must be `metrics/imagePipeline` with merge:true (so
+  // multiple invocations don't clobber each other) and use
+  // FieldValue.increment for the count (atomic across concurrent
+  // triggers).
+  assert('no_doc_matched bumps metrics/imagePipeline counter',
+    /db\.doc\(\s*['"]metrics\/imagePipeline['"]\s*\)\.set\(/.test(pipeline),
+    'expected db.doc("metrics/imagePipeline").set(...) write');
+  assert('counter uses FieldValue.increment(1) on noDocMatched',
+    /noDocMatched:\s*admin\.firestore\.FieldValue\.increment\(1\)/.test(pipeline));
+  assert('counter write uses merge:true (no clobber)',
+    /metrics\/imagePipeline[\s\S]{0,400}\{\s*merge:\s*true\s*\}/.test(pipeline));
+  // Diagnostic context for triage when the counter does climb.
+  assert('counter captures lastNoMatchPath + lastNoMatchUid',
+    /lastNoMatchPath:\s*objectName/.test(pipeline)
+    && /lastNoMatchUid:\s*uid/.test(pipeline));
+  // Metric write must never break the trigger — it's swallowed.
+  assert('metrics write failure is swallowed (best-effort)',
+    /metrics\/imagePipeline[\s\S]{0,500}catch\s*\(\s*_\s*\)\s*\{\s*\/\*\s*metrics write is best-effort/.test(pipeline),
+    'expected the metrics write to be wrapped in a swallow-catch so it never breaks the trigger');
+}
 
 };
