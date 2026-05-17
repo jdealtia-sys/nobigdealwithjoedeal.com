@@ -384,5 +384,62 @@ section('Photos §3.3 phase 1: photo-engine TOC + section markers');
     /MARK:\s*AI auto-tag/.test(pe),
     'expected a "MARK: AI auto-tag" sub-section header');
 }
+section('Photos §2.1: two AI paths documented + analyzeRoofPhoto baseline coverage');
+{
+  const handlerPhoto = read(path.join(FUNCTIONS, 'handlers/photo.js'));
+  const vision       = read(path.join(FUNCTIONS, 'photo-vision.js'));
+  const ai           = read(path.join(ROOT, 'docs/pro/js/photo-ai.js'));
+  const classifier   = read(path.join(ROOT, 'docs/pro/js/photo-ai-classifier.js'));
+  const idx          = read(FUNCTIONS + '/index.js');
+
+  // ── Design-intent docstrings: every entry point cross-refs the other ──
+  // Future maintainers (or future-me) hitting any one of these files
+  // should immediately see why both paths exist and where the sister
+  // function/wrapper lives.
+  assert('handlers/photo.js documents the DEEP-analysis path',
+    /DEEP-analysis path/.test(handlerPhoto) || /on-demand, deep, rich output/.test(handlerPhoto),
+    'expected analyzeRoofPhoto header to call out its on-demand/deep purpose');
+  assert('handlers/photo.js cross-references analyzePhotoVision',
+    /analyzePhotoVision/.test(handlerPhoto) && /photo-vision\.js/.test(handlerPhoto));
+
+  assert('photo-vision.js documents the AUTO-TAG path',
+    /AUTO-TAG path/.test(vision) || /per-upload, fast, light/.test(vision));
+  assert('photo-vision.js cross-references analyzeRoofPhoto',
+    /analyzeRoofPhoto/.test(vision) && /handlers\/photo\.js/.test(vision));
+
+  assert('photo-ai.js client wrapper cross-references PhotoAIClassifier',
+    /photo-ai-classifier\.js/.test(ai) && /PhotoAIClassifier/.test(ai));
+  assert('photo-ai-classifier.js cross-references PhotoAI',
+    /photo-ai\.js/.test(classifier) && /\bPhotoAI\b/.test(classifier));
+
+  // ── Baseline coverage for analyzeRoofPhoto (audit gap §2.1) ──
+  // analyzePhotoVision had extensive coverage from earlier sections;
+  // analyzeRoofPhoto had none. Bring the older path up to par.
+  assert('analyzeRoofPhoto is exported from handlers/photo.js',
+    /exports\.analyzeRoofPhoto\s*=\s*onRequest/.test(handlerPhoto));
+  assert('functions/index.js re-exports analyzeRoofPhoto',
+    /analyzeRoofPhoto/.test(idx));
+  assert('analyzeRoofPhoto enforces App Check',
+    /exports\.analyzeRoofPhoto[\s\S]{0,1500}enforceAppCheck:\s*true/.test(handlerPhoto));
+  assert('analyzeRoofPhoto declares a 100/uid/day cap constant',
+    /const PHOTO_AI_DAILY_CAP\s*=\s*100/.test(handlerPhoto));
+  assert('analyzeRoofPhoto uses the daily cap in enforceRateLimit',
+    /enforceRateLimit\(\s*['"]analyzeRoofPhoto:uid['"][\s\S]{0,80}PHOTO_AI_DAILY_CAP/.test(handlerPhoto));
+  assert('analyzeRoofPhoto requires owner uid match (no cross-tenant)',
+    /photo\.userId\s*!==\s*decoded\.uid[\s\S]{0,300}status\(403\)/.test(handlerPhoto));
+  // Source contains a regex literal `/^https:\/\/firebasestorage\.googleapis\.com\//`,
+  // so the file text has literal backslashes — match the raw text shape.
+  assert('analyzeRoofPhoto SSRF-guards the photo URL (Firebase Storage only)',
+    /firebasestorage\\\.googleapis\\\.com[\s\S]{0,200}storage\\\.googleapis\\\.com/.test(handlerPhoto));
+  assert('analyzeRoofPhoto rejects images >4MB',
+    /4\s*\*\s*1024\s*\*\s*1024[\s\S]{0,200}status\(413\)/.test(handlerPhoto));
+  // Server-side enum clamps so a drifting model can't poison the doc.
+  assert('analyzeRoofPhoto clamps severity to the allowed enum',
+    /validSeverity\s*=\s*\[\s*['"]none['"],\s*['"]minor['"],\s*['"]moderate['"],\s*['"]severe['"]\s*\]/.test(handlerPhoto));
+  assert('analyzeRoofPhoto clamps confidence to low/medium/high',
+    /validConfidence\s*=\s*\[\s*['"]low['"],\s*['"]medium['"],\s*['"]high['"]\s*\]/.test(handlerPhoto));
+  assert('analyzeRoofPhoto stamps aiAnalysis on the photo doc',
+    /photoRef\.update\(\s*\{\s*aiAnalysis:\s*result\s*\}\s*\)/.test(handlerPhoto));
+}
 
 };

@@ -1,12 +1,34 @@
 /**
  * photo-vision.js — Phase 3 of the photo system rebuild.
  *
- * Single-photo Claude Vision classifier. The client calls
- * analyzePhotoVision({photoId}) and receives a suggestion object:
+ * The AUTO-TAG path. Single-photo Claude Vision classifier. The
+ * client calls analyzePhotoVision({photoId}) and receives a light
+ * suggestion object:
  *
  *   { phase, damageType, severity, caption, confidence }
  *
- * which the Review UI (Phase 4) renders as 1-tap-accept chips.
+ * which the Review UI (Phase 4) renders as 1-tap-accept chips and
+ * the upload flow fires fire-and-forget to pre-populate suggestions
+ * before the rep ever opens Review.
+ *
+ * ── TWO AI PATHS, BY DESIGN ──
+ * This file's analyzePhotoVision pairs with handlers/photo.js's
+ * analyzeRoofPhoto. The split is intentional, not legacy:
+ *
+ *   analyzePhotoVision (this, Haiku) — per-upload, fast, light.
+ *     Fires fire-and-forget on every photo upload via the
+ *     PhotoAIClassifier client wrapper (docs/pro/js/photo-ai-
+ *     classifier.js). Capped by USD ($10/lead, $50/uid/month)
+ *     because it runs constantly — financial hard-stop matters.
+ *
+ *   analyzeRoofPhoto (Sonnet) — on-demand, deep, rich output.
+ *     Called from the lightbox "Analyze with AI" button and the
+ *     gallery bulk-analyze button. Returns observations + repair
+ *     recommendations a rep can paste into an insurance supplement.
+ *     Capped by COUNT (100/uid/day).
+ *
+ * Don't merge them — different surfaces, different latency / cost /
+ * output-richness requirements.
  *
  * Architecture choices (locked with the user):
  *   - claude-haiku-4-5-20251001 for vision (cheap, fast, in toolchain)
