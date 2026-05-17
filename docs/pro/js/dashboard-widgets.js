@@ -18,12 +18,25 @@
 // ESTIMATES LIST + builder open
 // ══════════════════════════════════════════════
 function renderEstimatesList(ests) {
-  document.getElementById('statEsts').textContent=ests?.length||0;
+  // Null-guard the analytics stat tiles AND the list wrapper. After the
+  // Step 4a split (PR #400), this function gets called on every dashboard
+  // load to populate the estimates analytics — but on routes like #/crm
+  // the statEsts/statVal/estListWrap elements don't exist in the DOM at
+  // all. The previous version (assuming those elements were always
+  // present) threw "Cannot set properties of null (setting 'textContent')"
+  // which cascaded through bootstrap into a 30-second retry loop that
+  // never recovered → skeleton-only page. Guard each touch; if the list
+  // wrapper isn't here either, this whole page doesn't show estimates,
+  // so we can return early after the stat update attempt.
+  const statEsts = document.getElementById('statEsts');
+  if (statEsts) statEsts.textContent = ests?.length || 0;
   const totalVal=(ests||[]).reduce((s,e)=>s+(e.grandTotal||0),0);
-  document.getElementById('statVal').textContent='$'+Math.round(totalVal/1000)+'K';
+  const statVal = document.getElementById('statVal');
+  if (statVal) statVal.textContent = '$' + Math.round(totalVal/1000) + 'K';
 
   const esc = window.nbdEsc || (s => String(s == null ? '' : s));
   const wrap=document.getElementById('estListWrap');
+  if (!wrap) return; // Page has no estimates list — analytics-only call.
   if(!ests||!ests.length){
     // Empty state — the 2 builder options are already visible
     // above this wrap in the page header, so we just invite the
