@@ -30,11 +30,19 @@ function read(file) { return fs.readFileSync(file, 'utf8'); }
 // Audit batch 10: dashboard.html's 3986-line inline <script> got
 // extracted to docs/pro/js/dashboard-main.js. CSP hotfix (2026-05-16)
 // extracted the remaining inline <script> blocks to a fleet of
-// dashboard-*.js shards. readDashboard() returns the concatenation of
+// dashboard-*.js shards. Step 4a (2026-05-16) further split the
+// 5408-line dashboard-main.js into five sibling modules + a thin
+// main shim. readDashboard() returns the concatenation of
 // dashboard.html + every shard so existing assertions keep finding
 // patterns regardless of which file the handler ended up in.
 const DASHBOARD_EXTRACTED_SHARDS = [
   'dashboard-main.js',
+  // Step 4a split — load order: state → api → widgets → ui → actions → main
+  'dashboard-state.js',
+  'dashboard-api.js',
+  'dashboard-widgets.js',
+  'dashboard-ui.js',
+  'dashboard-actions.js',
   'dashboard-legacy-redirect.js',
   'dashboard-appcheck-config.js',
   'dashboard-auth-gate.module.js',
@@ -58,6 +66,31 @@ function readDashboard() {
   const html = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   const parts = [html];
   for (const shard of DASHBOARD_EXTRACTED_SHARDS) {
+    const p = path.join(ROOT, 'docs/pro/js', shard);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
+  return parts.join('\n');
+}
+
+// Step 4a (2026-05-16): dashboard-main.js got split into 5 sibling
+// modules + a thin shim. Assertions that historically grep'd a single
+// dashboard-main.js for delegate branches, allowlist entries, window
+// exports, etc. now need the concatenated post-split surface.
+// readDashboardMain() returns dashboard-main.js plus the 5 split
+// modules joined in load order, so the existing `read(...
+// dashboard-main.js)` call sites can switch to this helper with no
+// regex changes.
+const DASHBOARD_MAIN_SPLIT = [
+  'dashboard-state.js',
+  'dashboard-api.js',
+  'dashboard-widgets.js',
+  'dashboard-ui.js',
+  'dashboard-actions.js',
+  'dashboard-main.js',
+];
+function readDashboardMain() {
+  const parts = [];
+  for (const shard of DASHBOARD_MAIN_SPLIT) {
     const p = path.join(ROOT, 'docs/pro/js', shard);
     if (fs.existsSync(p)) parts.push(read(p));
   }
@@ -109,6 +142,7 @@ module.exports = {
   FUNCTIONS,
   read,
   readDashboard,
+  readDashboardMain,
   syntaxCheck,
   makeContext,
 };

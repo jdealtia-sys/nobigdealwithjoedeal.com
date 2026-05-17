@@ -8,7 +8,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboardMain } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -160,7 +160,7 @@ section('Image pipeline (Storage trigger → WebP variants → srcset)');
 section('Phase C.4 photo-engine — inline actions in rendered templates');
 {
   const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   // Every delegate branch we registered must appear in _nbdActionDelegate.
   for (const action of ['peRemove','peTagToggle','peBulkAnalyze','peOpenLightbox','peStagePhoto','peDeletePhoto']) {

@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section, bumpPassed, bumpFailed } = ctx;
@@ -820,7 +820,7 @@ section('Phase C.6 — inline-style sweep + utility-class layer');
 section('Phase C.4 finale + C.5 — long-tail delegate + script-src tightening');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
   const firebaseJson = read(path.join(ROOT, 'firebase.json'));
 
   // Zero inline onclicks left in dashboard.html.
@@ -869,7 +869,7 @@ section('Phase C.4 finale + C.5 — long-tail delegate + script-src tightening')
 section('Phase C.4 kanban + zone-color + pin-status — 3 picker clusters');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   for (const action of ['kanbanView','zoneColor','selectPin']) {
     assert("delegate handles action='" + action + "'",
@@ -908,7 +908,7 @@ section('Phase C.4 kanban + zone-color + pin-status — 3 picker clusters');
 section('Phase C.4 line-type — selLT via selLineType action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   assert("delegate handles action='selLineType'",
     /if \(action === 'selLineType'\)/.test(mainJs),
@@ -931,7 +931,7 @@ section('Phase C.4 line-type — selLT via selLineType action');
 section('Phase C.4 settings-tab — switchSettingsTab via settingsTab action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   assert("delegate handles action='settingsTab'",
     /if \(action === 'settingsTab'\)/.test(mainJs),
@@ -954,7 +954,7 @@ section('Phase C.4 settings-tab — switchSettingsTab via settingsTab action');
 section('Phase C.4 docgen — NBDDocGen.fillAndGenerate via docgen action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   assert("delegate handles action='docgen'",
     /if \(action === 'docgen'\)/.test(mainJs),
@@ -977,7 +977,7 @@ section('Phase C.4 docgen — NBDDocGen.fillAndGenerate via docgen action');
 section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   assert("delegate handles action='mobileNav'",
     /if \(action === 'mobileNav'\)/.test(mainJs),
@@ -1013,7 +1013,7 @@ section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
 section('Phase C.4 cluster 5 — arg-bearing toggle handlers');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   for (const action of ['navSection','mapSidebar','mapOverlay','tradeChip','crmToolsMenu']) {
     assert("delegate handles action='" + action + "'",
@@ -1047,7 +1047,7 @@ section('Phase C.4 cluster 5 — arg-bearing toggle handlers');
 section('Phase C.4 cluster 4 — no-arg toggle handlers via toggle action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   assert("delegate handles action='toggle' via _NBD_TOGGLE_FNS",
     /if \(action === 'toggle'\)[\s\S]{0,400}_NBD_TOGGLE_FNS\[target\]/.test(mainJs),
@@ -1078,7 +1078,7 @@ section('Phase C.4 cluster 4 — no-arg toggle handlers via toggle action');
 section('Phase C.4 cluster 3 — modal-close handlers via closeModal action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   assert("delegate handles action='closeModal'",
     /if \(action === 'closeModal'\)[\s\S]{0,400}_NBD_MODAL_CLOSE_FNS\[target\]/.test(mainJs),
@@ -1107,7 +1107,7 @@ section('Phase C.4 cluster 3 — modal-close handlers via closeModal action');
 section('Phase C.4 cluster 2 — compound goTo handlers (newEstimate / filterByStage / toolMenuGoTo)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   // Action handlers wired in the delegate switch.
   for (const action of ['newEstimate','filterByStage','toolMenuGoTo']) {
@@ -1143,7 +1143,7 @@ section('Phase C.4 cluster 2 — compound goTo handlers (newEstimate / filterByS
 section('Phase C.4 starter — body-level data-action delegate (goTo cluster)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   // 1. Delegate is wired in dashboard-main.js — listens for [data-action]
   //    clicks at the document level and dispatches goTo when matched.
@@ -1252,7 +1252,7 @@ section('Phase C.3 finish — view-prospects + D.1 plumbing');
 section('Phase C.3 wave 2 — draw + dash + reports + settings');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   // Each of the 4 big views: empty mount + matching template.
   for (const v of ['draw','dash','reports','settings']) {
@@ -1505,7 +1505,7 @@ section('Wave 2E — m-modal-bar standardization');
 section('Wave 2D — Mobile inspection overlay');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
   // 1. Overlay DOM exists.
   assert('m-inspection overlay element exists',
     /<div class="m-inspection" id="mInspection"/.test(dash),
@@ -1541,7 +1541,7 @@ section('Wave 2D — Mobile inspection overlay');
 section('Wave 2C.2 — Camera FAB + native share');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
   // 1. Sprite has the new shutter + share glyphs.
   assert('sprite has nbd-icon-shutter',
     /<symbol id="nbd-icon-shutter"/.test(dash),
@@ -1577,7 +1577,7 @@ section('Wave 2C.2 — Camera FAB + native share');
 section('Wave 2C.1 — Mobile create popover');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
   // 1. Popover DOM + backdrop exist.
   assert('mCreatePopover element exists',
     /<div class="m-create-popover" id="mCreatePopover"/.test(dash),
@@ -1616,7 +1616,7 @@ section('Wave 2C.1 — Mobile create popover');
 section('Wave 2B — Mobile job-detail screen');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
   const crmJs = read(path.join(ROOT, 'docs/pro/js/crm.js'));
   // 1. Overlay DOM is present with the expected anchors.
   assert('m-jobdetail overlay element exists with id=mJobDetail',
@@ -1734,7 +1734,7 @@ section('Pro Chrome — icon system + header consolidation');
 section('Rock 4 Phase 3 — view-storm lazy hydration');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
   // 1. The active view DIV is now an empty mount carrying the template ref.
   assert('view-storm is an empty mount div with data-view-template',
     /<div class="view" id="view-storm" data-view-template="tpl-view-storm"><\/div>/.test(dash),

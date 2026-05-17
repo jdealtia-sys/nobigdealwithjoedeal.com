@@ -11401,13 +11401,23 @@ body.theme-frosted {
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
-<!-- Audit batch 10: routing + map init + handlers extracted to
-     /pro/js/dashboard-main.js. The two inline classic <script> blocks
-     later in this file (SW bootstrap + load-status banner) only touch
-     dashboard-main.js globals from inside event-listener callbacks
-     and timer-scheduled work, never at parse time — so defer is safe
-     and gives us the first-paint win (no parser block on a 183KB file). -->
-<script defer src="js/dashboard-main.js?v=3"></script>
+<!-- Audit batch 10 → Step 4a (2026-05-16): routing + map init +
+     handlers extracted to /pro/js/dashboard-main.js, then split into
+     five sibling modules + a thin main shim. Load order is locked:
+     state → api → widgets → ui → actions → main. Each script `defer`s
+     so they execute in document order after parse but before
+     DOMContentLoaded fires the boot logic in dashboard-main.js. The
+     two inline classic <script> blocks later in this file (SW
+     bootstrap + load-status banner) only touch the resulting globals
+     from inside event-listener callbacks and timer-scheduled work,
+     never at parse time — so defer is safe and gives us the first-
+     paint win (no parser block on the formerly-255KB file). -->
+<script defer src="js/dashboard-state.js?v=1"></script>
+<script defer src="js/dashboard-api.js?v=1"></script>
+<script defer src="js/dashboard-widgets.js?v=1"></script>
+<script defer src="js/dashboard-ui.js?v=1"></script>
+<script defer src="js/dashboard-actions.js?v=1"></script>
+<script defer src="js/dashboard-main.js?v=4"></script>
 
 <!-- DOC VIEWER MODAL -->
 <div class="modal-bg" id="docViewerModal">

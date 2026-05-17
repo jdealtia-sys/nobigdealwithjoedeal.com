@@ -7,7 +7,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, read } = require('./_shared');
+const { ROOT, read, readDashboardMain } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -355,7 +355,7 @@ section('Customer photo grid — surgical render path');
 section('Phase D.2 — Cross-lead Recent Photo Feed');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   // 1. Mode toggle present in tpl-view-photos.
   assert('tpl-view-photos has the .ph-mode-toggle (By Property / Recent)',
@@ -399,7 +399,7 @@ section('Phase D.2 — Cross-lead Recent Photo Feed');
 section('Phase C.1 + C.2 — view template-hydration sweep');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
-  const mainJs = read(path.join(ROOT, 'docs/pro/js/dashboard-main.js'));
+  const mainJs = readDashboardMain();
 
   // C.1 — every stub view should be an empty mount div + matching template.
   // Whitespace between attributes is flexible (some are aligned in columns).
