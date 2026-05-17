@@ -316,9 +316,16 @@
 
   function buildReportHTML(lead, name, before, during, after, dateStr, hasPhases, mode) {
     const isAdjuster = mode === 'adjuster';
+    const allPhotos  = before.concat(during).concat(after);
 
-    // ── Adjuster tile: dense metadata grid under each thumbnail ──
-    // Homeowner tile: just a clean caption (or nothing).
+    // ── Photo tile rendering ─────────────────────────────────────────
+    // Homeowner: 4/3 aspect, caption below if available, no metadata
+    //   clutter — visual story format.
+    // Adjuster:  numbered tile with location + damage·severity + caption,
+    //   1/1 aspect for a denser dossier grid.
+    // Both modes lock aspect-ratio so phone/drone/closeup photos land
+    // uniform — the old report rendered native aspect ratios and looked
+    // like a collage.
     const photoGrid = (photos) => photos.map((p, i) => {
       const cap = _captionFor(p, mode);
       const loc = _locationLabel(p);
@@ -328,373 +335,534 @@
       if (isAdjuster) {
         const num = (i + 1).toString().padStart(2, '0');
         return (
-          '<div class="photo-tile photo-tile-adj">' +
-            '<img ' + _imgAttrs(p, '180px') + ' alt="Photo ' + num + '">' +
-            '<div class="adj-meta">' +
-              '<div class="adj-meta-num">#' + num + '</div>' +
-              (loc ? '<div class="adj-meta-row"><span class="adj-meta-k">Location</span><span class="adj-meta-v">' + _esc(loc) + '</span></div>' : '') +
-              (dmg ? '<div class="adj-meta-row"><span class="adj-meta-k">Damage</span><span class="adj-meta-v">' + _esc(dmg) + (sev ? ' · ' + _esc(sev) : '') + '</span></div>' : '') +
-              (cap ? '<div class="adj-meta-cap">' + _esc(cap) + '</div>' : '') +
+          '<div class="ph-tile ph-tile-adj">' +
+            '<div class="ph-img"><img ' + _imgAttrs(p, '200px') + ' alt="Photo ' + num + '"></div>' +
+            '<div class="ph-meta">' +
+              '<div class="ph-num">#' + num + '</div>' +
+              (loc ? '<div class="ph-row"><span class="ph-k">Location</span><span class="ph-v">' + _esc(loc) + '</span></div>' : '') +
+              (dmg ? '<div class="ph-row"><span class="ph-k">Damage</span><span class="ph-v">' + _esc(dmg) + (sev ? ' · ' + _esc(sev) : '') + '</span></div>' : '') +
+              (cap ? '<div class="ph-cap">' + _esc(cap) + '</div>' : '') +
             '</div>' +
           '</div>'
         );
       }
-      // Homeowner: just thumbnail + optional caption
       return (
-        '<div class="photo-tile">' +
-          '<img ' + _imgAttrs(p, '220px') + '>' +
-          (cap ? '<div class="photo-tile-cap">' + _esc(cap) + '</div>' : '') +
+        '<div class="ph-tile">' +
+          '<div class="ph-img"><img ' + _imgAttrs(p, '260px') + ' alt=""></div>' +
+          (cap ? '<div class="ph-cap-ho">' + _esc(cap) + '</div>' : '') +
         '</div>'
       );
     }).join('');
 
-    // Adjuster-only summary block: counts + damage breakdown.
-    const adjusterSummary = isAdjuster ? (() => {
-      const all = before.concat(during).concat(after);
+    // ── Stats strip (always shown when there's at least 1 photo) ─────
+    // Phase counts + AI-severity totals when classifier data exists.
+    // This replaces the old "DAMAGE SUMMARY" block in adjuster mode and
+    // adds it to homeowner mode too (with friendlier labels).
+    const sevCounts = { minor: 0, moderate: 0, severe: 0 };
+    let damagedCount = 0;
+    for (const p of allPhotos) {
+      const s = (p.severity || (p.aiSuggestion && p.aiSuggestion.severity) || '').toLowerCase();
+      if (sevCounts.hasOwnProperty(s)) { sevCounts[s]++; damagedCount++; }
+    }
+    const statCell = (n, label, sub) =>
+      '<div class="stat">'
+      + '<div class="stat-num">' + n + '</div>'
+      + '<div class="stat-label">' + label + '</div>'
+      + (sub ? '<div class="stat-sub">' + sub + '</div>' : '')
+      + '</div>';
+    const stats =
+      '<div class="stat-grid">'
+      + statCell(allPhotos.length, 'Total Photos', '')
+      + (before.length ? statCell(before.length, 'Before', isAdjuster ? 'pre-loss' : 'pre-project') : '')
+      + (during.length ? statCell(during.length, 'During', 'in progress') : '')
+      + (after.length  ? statCell(after.length,  'After',  'completed') : '')
+      + (damagedCount  ? statCell(damagedCount,  'With damage', sevCounts.severe ? sevCounts.severe + ' severe' : '') : '')
+      + '</div>';
+
+    // ── Adjuster-only damage breakdown ───────────────────────────────
+    // Shown ONLY when there's real data. The old report rendered four
+    // labeled cells with em-dash placeholders when fields were empty —
+    // that looked like the report itself was broken. Now: render nothing
+    // unless at least one of dmg/sev/loc has counts.
+    let adjusterSummary = '';
+    if (isAdjuster) {
       const dmgCounts = {};
-      const sevCounts = {};
       const locCounts = {};
-      for (const p of all) {
+      for (const p of allPhotos) {
         const d = _damageLabel(p); if (d) dmgCounts[d] = (dmgCounts[d] || 0) + 1;
-        const s = _severityLabel(p); if (s) sevCounts[s] = (sevCounts[s] || 0) + 1;
         const l = _locationLabel(p); if (l) locCounts[l] = (locCounts[l] || 0) + 1;
       }
       const sortPairs = (obj) => Object.entries(obj).sort((a, b) => b[1] - a[1]);
-      const renderPair = ([k, v]) => '<span class="adj-tag"><strong>' + v + '</strong> ' + _esc(k) + '</span>';
-      const dmgRow = sortPairs(dmgCounts).map(renderPair).join(' ');
-      const sevRow = sortPairs(sevCounts).map(renderPair).join(' ');
-      const locRow = sortPairs(locCounts).slice(0, 8).map(renderPair).join(' ');
-      return (
-        '<div class="adj-summary">' +
-          '<div class="adj-summary-title">DAMAGE SUMMARY</div>' +
-          '<div class="adj-summary-grid">' +
-            '<div><div class="adj-summary-label">Total photos</div><div class="adj-summary-num">' + all.length + '</div></div>' +
-            '<div><div class="adj-summary-label">Damage types</div><div class="adj-summary-tags">' + (dmgRow || '<span class="adj-tag-empty">—</span>') + '</div></div>' +
-            '<div><div class="adj-summary-label">Severity mix</div><div class="adj-summary-tags">' + (sevRow || '<span class="adj-tag-empty">—</span>') + '</div></div>' +
-            '<div><div class="adj-summary-label">Locations covered</div><div class="adj-summary-tags">' + (locRow || '<span class="adj-tag-empty">—</span>') + '</div></div>' +
-          '</div>' +
-        '</div>'
-      );
-    })() : '';
+      const renderTag = ([k, v]) => '<span class="dmg-tag"><strong>' + v + '</strong> ' + _esc(k) + '</span>';
+      const dmgEntries = sortPairs(dmgCounts);
+      const sevEntries = Object.entries(sevCounts).filter(([, v]) => v > 0);
+      const locEntries = sortPairs(locCounts);
+      const hasAnyData = dmgEntries.length || sevEntries.length || locEntries.length;
+      if (hasAnyData) {
+        const rows = [];
+        if (dmgEntries.length) rows.push('<div class="dmg-row"><div class="dmg-row-label">Damage types</div><div class="dmg-row-tags">' + dmgEntries.map(renderTag).join('') + '</div></div>');
+        if (sevEntries.length) rows.push('<div class="dmg-row"><div class="dmg-row-label">Severity mix</div><div class="dmg-row-tags">' + sevEntries.map(([k,v]) => '<span class="dmg-tag dmg-sev-' + k + '"><strong>' + v + '</strong> ' + k + '</span>').join('') + '</div></div>');
+        if (locEntries.length) rows.push('<div class="dmg-row"><div class="dmg-row-label">Locations covered</div><div class="dmg-row-tags">' + locEntries.slice(0, 10).map(renderTag).join('') + '</div></div>');
+        adjusterSummary =
+          '<div class="dmg-summary">'
+          + '<div class="dmg-summary-title">Damage Summary</div>'
+          + rows.join('')
+          + '</div>';
+      }
+    }
+
+    // ── Before / After pair section (homeowner mode — visual story) ──
+    // The pairs come from _buildPairs which we run on the full photo set
+    // earlier in the server-render code path. For the standalone fallback
+    // we re-run it here so the homeowner version gets the showcase grid.
+    let pairsSection = '';
+    if (!isAdjuster) {
+      const pairs = _buildPairs(allPhotos);
+      if (pairs.length) {
+        const items = pairs.map((pair) => (
+          '<div class="ba-pair">'
+          + '<div class="ba-cell"><div class="ba-frame"><img src="' + _esc(pair.before.url) + '" alt="Before"><div class="ba-stamp">Before</div></div></div>'
+          + '<div class="ba-cell"><div class="ba-frame"><img src="' + _esc(pair.after.url)  + '" alt="After"><div class="ba-stamp ba-after">After</div></div></div>'
+          + '<div class="ba-loc">' + _esc(pair.location) + '</div>'
+          + '</div>'
+        )).join('');
+        pairsSection =
+          '<div class="section avoid-break">'
+          + '<div class="section-eyebrow">The Transformation</div>'
+          + '<div class="section-title">Before &amp; After</div>'
+          + '<p class="section-lead">Side-by-side comparisons of the same locations at start and finish.</p>'
+          + '<div class="ba-grid">' + items + '</div>'
+          + '</div>';
+      }
+    }
+
+    // Cover photo for the homeowner hero — first BEFORE photo that
+    // has a usable URL. Adjuster mode skips the hero to keep dense.
+    const heroPhoto = !isAdjuster ? before.find(p => (p.urls && (p.urls.full || p.urls.med || p.urls.lg)) || p.url) : null;
+    const heroUrl = heroPhoto ? ((heroPhoto.urls && (heroPhoto.urls.full || heroPhoto.urls.lg || heroPhoto.urls.med)) || heroPhoto.url) : '';
 
     return `<!DOCTYPE html>
-<html data-nbd-brand="true">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Photo Report — ${name}</title>
+<title>${isAdjuster ? 'Adjuster' : 'Homeowner'} Photo Report — ${_esc(name)}</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap">
-<link rel="stylesheet" href="/pro/css/nbd-brand.css">
 <style>
-  /* Photo report layout — every color/type/space pulls from
-     nbd-brand.css so the PDF a homeowner receives looks identical to
-     the portal they were already shown. NO local color or font values. */
-  @media print { body{margin:0;} .no-print{display:none!important;} @page{margin:0.5in;} }
+  /* All colors / typography / spacing inlined — no external token
+     dependencies. The fallback renders in a doc-viewer iframe that
+     historically failed to load nbd-brand.css; the report then
+     collapsed visually. This is a print-friendly light theme with
+     explicit hex values, identical in every render context. */
   *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{ background:#ffffff; }
   body{
-    font-family: var(--nbd-font-body);
-    color: var(--nbd-ink);
-    line-height: var(--nbd-leading-body);
-    background: var(--nbd-bg);
+    font-family: 'Barlow', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    color:#111827;
+    line-height:1.55;
+    -webkit-font-smoothing: antialiased;
   }
-  .header{
-    background: linear-gradient(135deg, var(--nbd-bg-tint), var(--nbd-bg));
-    border-bottom: 1px solid var(--nbd-line);
-    padding: var(--nbd-space-8) var(--nbd-space-8);
-    text-align: center;
-  }
-  .header h1{
-    font-family: var(--nbd-font-display);
-    font-size: var(--nbd-text-2xl);
-    font-weight: 800;
-    color: var(--nbd-ink);
-    letter-spacing: var(--nbd-tracking-wide);
-    margin-bottom: var(--nbd-space-2);
-  }
-  .header .sub{
-    color: var(--nbd-orange);
-    font-size: var(--nbd-text-sm);
-    letter-spacing: var(--nbd-tracking-wider);
-    text-transform: uppercase;
-    font-weight: 700;
-  }
-  .brand-bar{
-    display:flex; align-items:center; justify-content:space-between;
-    padding: var(--nbd-space-3) var(--nbd-space-8);
-    background: var(--nbd-bg-elevated);
-    border-bottom: 1px solid var(--nbd-line);
-    font-size: var(--nbd-text-xs);
-    color: var(--nbd-ink-muted);
-    gap: var(--nbd-space-4);
-  }
-  .brand-bar-left{ display:flex; align-items:center; gap: var(--nbd-space-3); min-width:0; }
-  .brand-bar-name{
-    font-family: var(--nbd-font-display);
-    font-weight: 800;
-    color: var(--nbd-ink);
-    text-transform: uppercase;
-    letter-spacing: var(--nbd-tracking-wide);
-  }
-  .brand-logo{ height:36px; width:auto; display:block; flex-shrink:0; }
-  .content{ max-width: 800px; margin: 0 auto; padding: var(--nbd-space-8); }
-  .section{ margin-bottom: var(--nbd-space-8); }
-  .section-label{
-    display: inline-block;
-    padding: 5px 14px;
-    border-radius: var(--nbd-radius-pill);
-    font-size: var(--nbd-text-xs);
-    font-weight: 700;
-    font-family: var(--nbd-font-body);
-    letter-spacing: var(--nbd-tracking-wider);
-    text-transform: uppercase;
-    margin-bottom: var(--nbd-space-3);
-    border: 1px solid transparent;
-  }
-  .before-label{ background: var(--nbd-danger-soft);  color: var(--nbd-danger);     border-color: rgba(220,38,38,.25); }
-  .during-label{ background: var(--nbd-orange-soft);  color: var(--nbd-orange-ink); border-color: var(--nbd-orange-medium); }
-  .after-label { background: var(--nbd-success-soft); color: var(--nbd-success);    border-color: rgba(22,163,74,.25); }
-  .section-title{
-    font-family: var(--nbd-font-display);
-    font-size: var(--nbd-text-lg);
-    font-weight: 700;
-    color: var(--nbd-ink);
-    margin-bottom: var(--nbd-space-4);
-  }
-  .photo-grid{
-    display:grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: var(--nbd-space-3);
-  }
-  .photo-tile{
-    background: var(--nbd-bg-elevated);
-    border: 1px solid var(--nbd-line);
-    border-radius: var(--nbd-radius-md);
-    overflow: hidden;
-    break-inside: avoid;
-  }
-  .photo-tile img{ width:100%; height:200px; object-fit:cover; display:block; background: var(--nbd-bg-sunken); }
-  .photo-tile-cap{
-    padding: var(--nbd-space-2) var(--nbd-space-3);
-    font-size: var(--nbd-text-xs);
-    color: var(--nbd-ink-muted);
-    line-height: var(--nbd-leading-snug);
-    text-align: center;
-  }
-  /* Adjuster-mode tile: same image area + a dense metadata strip
-     below. Numbered for cross-reference in supplements. */
-  .photo-tile-adj img{ height: 180px; }
-  .adj-meta{
-    padding: var(--nbd-space-2) var(--nbd-space-3);
-    border-top: 1px solid var(--nbd-line-rule);
-    background: var(--nbd-bg-sunken);
-  }
-  .adj-meta-num{
-    font-family: var(--nbd-font-display); font-weight: 800;
-    font-size: var(--nbd-text-xs); color: var(--nbd-orange);
-    letter-spacing: var(--nbd-tracking-wider);
-    margin-bottom: 4px;
-  }
-  .adj-meta-row{
-    display: grid;
-    grid-template-columns: 64px 1fr;
-    gap: 6px;
-    font-size: 11px;
-    line-height: 1.35;
-    margin-bottom: 2px;
-  }
-  .adj-meta-k{
-    color: var(--nbd-ink-subtle);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: var(--nbd-tracking-wide);
-    font-size: 9.5px;
-    align-self: center;
-  }
-  .adj-meta-v{ color: var(--nbd-ink); font-weight: 500; }
-  .adj-meta-cap{
-    font-size: 11px;
-    color: var(--nbd-ink-muted);
-    line-height: var(--nbd-leading-snug);
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px dashed var(--nbd-line-rule);
+  h1,h2,h3,h4{ font-family:'Barlow Condensed','Barlow',sans-serif; font-weight:800; letter-spacing:.02em; line-height:1.15; color:#111827; }
+  @media print{
+    .no-print{ display:none!important; }
+    body{ margin:0; }
+    @page{ margin:0.5in; }
+    .section,.ba-pair,.ph-tile{ break-inside: avoid; }
+    .page-break{ page-break-before: always; }
   }
 
-  /* Adjuster summary block (top of report) */
-  .adj-summary{
-    background: var(--nbd-bg-elevated);
-    border: 1px solid var(--nbd-line);
-    border-radius: var(--nbd-radius-md);
-    padding: var(--nbd-space-4) var(--nbd-space-5);
-    margin-bottom: var(--nbd-space-6);
-  }
-  .adj-summary-title{
-    font-family: var(--nbd-font-body);
-    font-size: var(--nbd-text-xs);
-    font-weight: 700;
-    letter-spacing: var(--nbd-tracking-widest);
-    text-transform: uppercase;
-    color: var(--nbd-orange);
-    margin-bottom: var(--nbd-space-3);
-  }
-  .adj-summary-grid{
-    display: grid;
-    grid-template-columns: auto 1fr 1fr 1fr;
-    gap: var(--nbd-space-4);
-    align-items: start;
-  }
-  @media (max-width: 720px) {
-    .adj-summary-grid{ grid-template-columns: 1fr; gap: var(--nbd-space-3); }
-  }
-  .adj-summary-label{
-    font-size: 9.5px;
-    font-weight: 700;
-    letter-spacing: var(--nbd-tracking-wider);
-    text-transform: uppercase;
-    color: var(--nbd-ink-subtle);
-    margin-bottom: 4px;
-  }
-  .adj-summary-num{
-    font-family: var(--nbd-font-display);
-    font-size: var(--nbd-text-2xl);
-    font-weight: 800;
-    color: var(--nbd-orange);
-    line-height: 1;
-  }
-  .adj-summary-tags{ display: flex; flex-wrap: wrap; gap: 6px; }
-  .adj-tag{
-    display: inline-flex; align-items: center; gap: 3px;
-    padding: 2px 8px;
-    border-radius: var(--nbd-radius-pill);
-    background: var(--nbd-orange-soft);
-    color: var(--nbd-orange-ink);
-    font-size: 10.5px;
-    font-weight: 600;
-  }
-  .adj-tag strong{ font-weight: 800; }
-  .adj-tag-empty{ font-size: 11px; color: var(--nbd-ink-subtle); }
-
-  /* Tighter grid for adjuster mode (3-up instead of fluid 220px+) */
-  body[data-report-mode="adjuster"] .photo-grid{
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: var(--nbd-space-3);
-  }
-  body[data-report-mode="adjuster"] .header h1::after{
-    content: ' — ADJUSTER COPY';
-    font-size: 0.6em;
-    color: var(--nbd-orange);
-    letter-spacing: var(--nbd-tracking-wider);
-    font-weight: 700;
-  }
-  .info-row{
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--nbd-space-3);
-    margin-bottom: var(--nbd-space-6);
-    font-size: var(--nbd-text-sm);
-    color: var(--nbd-ink);
-  }
-  .info-row strong{ color: var(--nbd-ink); font-weight: 700; }
-  .footer{
-    text-align:center;
-    padding: var(--nbd-space-6);
-    border-top: 1px solid var(--nbd-line);
-    margin-top: var(--nbd-space-10);
-    font-size: var(--nbd-text-xs);
-    color: var(--nbd-ink-muted);
-  }
-  .footer strong{ color: var(--nbd-ink); font-family: var(--nbd-font-display); letter-spacing: var(--nbd-tracking-wide); text-transform: uppercase; }
+  /* ── No-print top bar (Close / Print) ────────────────────────── */
   .top-bar{
     position:fixed; top:0; left:0; right:0; height:52px;
-    background: var(--nbd-bg-elevated);
-    border-bottom: 1px solid var(--nbd-line);
+    background:#ffffff; border-bottom:1px solid #e5e7eb;
     display:flex; align-items:center; justify-content:space-between;
-    padding: 0 var(--nbd-space-5);
-    z-index:1000;
-    box-shadow: var(--nbd-shadow-sm);
-    font-family: var(--nbd-font-body);
+    padding:0 20px; z-index:1000;
+    box-shadow:0 1px 3px rgba(0,0,0,.06);
   }
   .top-bar-btn{
-    padding: 8px 16px;
-    background: var(--nbd-bg-sunken);
-    border: 1px solid var(--nbd-line);
-    border-radius: var(--nbd-radius-md);
-    color: var(--nbd-ink);
-    font-weight: 700;
-    font-size: var(--nbd-text-sm);
-    cursor: pointer;
+    padding:8px 16px; background:#f3f4f6;
+    border:1px solid #e5e7eb; border-radius:8px;
+    color:#111827; font-weight:700; font-size:13px;
+    cursor:pointer; font-family:inherit;
   }
-  .top-bar-btn-primary{
-    background: var(--nbd-orange);
-    border-color: var(--nbd-orange);
-    color: var(--nbd-ink-on-orange);
+  .top-bar-btn-primary{ background:#e8720c; border-color:#e8720c; color:#ffffff; }
+  .top-bar-btn-primary:hover{ background:#c8541a; }
+  .top-bar-mode{ color:#6b7280; font-size:13px; }
+
+  /* ── Hero / cover band ───────────────────────────────────────── */
+  .hero{
+    position:relative;
+    background:linear-gradient(135deg,#fffaf4 0%,#ffffff 60%);
+    border-bottom:1px solid #e5e7eb;
+    padding:48px 56px 36px;
+    overflow:hidden;
   }
-  .top-bar-btn-primary:hover{ background: var(--nbd-orange-deep); }
+  .hero-eyebrow{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:11px; font-weight:700;
+    letter-spacing:.18em; text-transform:uppercase;
+    color:#e8720c; margin-bottom:10px;
+  }
+  .hero-title{
+    font-size:42px; font-weight:800;
+    color:#111827; letter-spacing:.01em;
+    margin-bottom:8px;
+  }
+  .hero-sub{
+    font-size:14px; color:#6b7280;
+    max-width:560px; line-height:1.5;
+  }
+  .hero-photo{
+    position:absolute; right:-40px; top:50%;
+    transform:translateY(-50%);
+    width:340px; height:220px;
+    border-radius:14px; overflow:hidden;
+    box-shadow:0 10px 30px rgba(0,0,0,.18);
+    border:6px solid #ffffff;
+  }
+  .hero-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+  @media (max-width:820px){ .hero-photo{ display:none; } .hero{ padding:36px 24px 28px; } .hero-title{ font-size:30px; } }
+
+  /* ── Brand band ──────────────────────────────────────────────── */
+  .brand-bar{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 56px; background:#111827; color:#f9fafb;
+    font-size:12px; gap:16px;
+  }
+  .brand-bar-left{ display:flex; align-items:center; gap:14px; }
+  .brand-logo{ height:32px; width:auto; display:block; }
+  .brand-bar-name{
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:800; color:#ffffff;
+    text-transform:uppercase; letter-spacing:.06em; font-size:14px;
+  }
+  .brand-bar-contact{ color:#d1d5db; font-size:12px; }
+  @media (max-width:600px){ .brand-bar{ padding:14px 24px; flex-direction:column; gap:8px; text-align:center; } }
+
+  /* ── Content shell ───────────────────────────────────────────── */
+  .content{ max-width:920px; margin:0 auto; padding:32px 56px 64px; }
+  @media (max-width:820px){ .content{ padding:24px 20px 48px; } }
+
+  /* ── Property info card ──────────────────────────────────────── */
+  .info-card{
+    border:1px solid #e5e7eb; border-radius:12px;
+    padding:20px 24px; margin-bottom:32px;
+    background:#fafafa;
+    display:grid; grid-template-columns:1fr 1fr; gap:14px 32px;
+    font-size:13.5px;
+  }
+  .info-card .info-k{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:10px; font-weight:700;
+    letter-spacing:.14em; text-transform:uppercase;
+    color:#9ca3af; margin-bottom:2px;
+  }
+  .info-card .info-v{ color:#111827; font-weight:600; }
+  @media (max-width:600px){ .info-card{ grid-template-columns:1fr; padding:16px 18px; } }
+
+  /* ── Stats strip ─────────────────────────────────────────────── */
+  .stat-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr));
+    gap:12px; margin-bottom:32px;
+  }
+  .stat{
+    border:1px solid #e5e7eb; border-radius:10px;
+    background:#ffffff; padding:14px 16px; text-align:left;
+  }
+  .stat-num{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:32px; font-weight:800;
+    color:#e8720c; line-height:1;
+  }
+  .stat-label{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:11px; font-weight:700;
+    letter-spacing:.12em; text-transform:uppercase;
+    color:#374151; margin-top:8px;
+  }
+  .stat-sub{ font-size:11px; color:#9ca3af; margin-top:2px; }
+
+  /* ── Adjuster Damage Summary (only when has-data) ───────────── */
+  .dmg-summary{
+    border:1px solid #e5e7eb; border-radius:12px;
+    background:#fffaf4; padding:18px 22px; margin-bottom:32px;
+  }
+  .dmg-summary-title{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:11px; font-weight:700;
+    letter-spacing:.16em; text-transform:uppercase;
+    color:#c8541a; margin-bottom:12px;
+  }
+  .dmg-row{ display:flex; align-items:flex-start; gap:14px; margin-bottom:10px; flex-wrap:wrap; }
+  .dmg-row:last-child{ margin-bottom:0; }
+  .dmg-row-label{
+    flex-shrink:0; width:130px;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:11px; font-weight:700;
+    letter-spacing:.1em; text-transform:uppercase;
+    color:#6b7280; padding-top:3px;
+  }
+  .dmg-row-tags{ flex:1; display:flex; flex-wrap:wrap; gap:6px; }
+  .dmg-tag{
+    display:inline-flex; align-items:center; gap:4px;
+    padding:3px 10px; border-radius:999px;
+    background:#ffe8d5; color:#c8541a;
+    font-size:11px; font-weight:600;
+  }
+  .dmg-tag strong{ font-weight:800; }
+  .dmg-sev-minor   { background:#fef9c3; color:#854d0e; }
+  .dmg-sev-moderate{ background:#ffedd5; color:#9a3412; }
+  .dmg-sev-severe  { background:#fee2e2; color:#991b1b; }
+
+  /* ── Section headers ─────────────────────────────────────────── */
+  .section{ margin-bottom:40px; }
+  .section-eyebrow{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:11px; font-weight:700;
+    letter-spacing:.16em; text-transform:uppercase;
+    color:#e8720c; margin-bottom:6px;
+  }
+  .section-title{
+    font-size:26px; font-weight:800;
+    color:#111827; margin-bottom:8px;
+  }
+  .section-lead{
+    color:#6b7280; font-size:14px;
+    max-width:560px; margin-bottom:18px;
+  }
+  .section-count{
+    color:#9ca3af; font-size:13px; font-weight:500;
+    margin-left:8px;
+  }
+  .section-eyebrow.is-before{ color:#dc2626; }
+  .section-eyebrow.is-during{ color:#e8720c; }
+  .section-eyebrow.is-after { color:#16a34a; }
+
+  /* ── Before/After pair grid (homeowner showcase) ─────────────── */
+  .ba-grid{ display:grid; grid-template-columns:1fr; gap:24px; }
+  .ba-pair{
+    display:grid; grid-template-columns:1fr 1fr; gap:12px;
+    border:1px solid #e5e7eb; border-radius:14px;
+    background:#ffffff; padding:14px;
+  }
+  .ba-cell{ position:relative; }
+  .ba-frame{
+    position:relative; aspect-ratio:4/3;
+    border-radius:10px; overflow:hidden;
+    background:#f3f4f6;
+  }
+  .ba-frame img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .ba-stamp{
+    position:absolute; left:10px; top:10px;
+    background:#dc2626; color:#ffffff;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:11px; font-weight:800;
+    letter-spacing:.12em; text-transform:uppercase;
+    padding:4px 10px; border-radius:6px;
+    box-shadow:0 2px 6px rgba(0,0,0,.18);
+  }
+  .ba-stamp.ba-after{ background:#16a34a; }
+  .ba-loc{
+    grid-column:1/-1;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:13px; font-weight:700;
+    letter-spacing:.05em; text-transform:uppercase;
+    color:#374151; padding:8px 4px 2px;
+  }
+
+  /* ── Photo tile grid ─────────────────────────────────────────── */
+  .photo-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:14px;
+  }
+  @media (max-width:820px){ .photo-grid{ grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:520px){ .photo-grid{ grid-template-columns:1fr; } }
+  .ph-tile{
+    border:1px solid #e5e7eb; border-radius:10px;
+    background:#ffffff; overflow:hidden;
+    display:flex; flex-direction:column;
+  }
+  .ph-img{
+    aspect-ratio:4/3; background:#f3f4f6;
+    overflow:hidden; position:relative;
+  }
+  .ph-img img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .ph-cap-ho{
+    padding:10px 12px; font-size:12px;
+    color:#6b7280; line-height:1.4;
+    border-top:1px solid #f3f4f6;
+  }
+
+  /* Adjuster tile = square, dense metadata under image */
+  .photo-grid.is-adjuster{ grid-template-columns:repeat(4,1fr); gap:10px; }
+  @media (max-width:820px){ .photo-grid.is-adjuster{ grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:520px){ .photo-grid.is-adjuster{ grid-template-columns:repeat(2,1fr); } }
+  .ph-tile-adj .ph-img{ aspect-ratio:1/1; }
+  .ph-meta{
+    padding:8px 10px; background:#fafafa;
+    border-top:1px solid #f3f4f6;
+    font-size:11px; line-height:1.4;
+  }
+  .ph-num{
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:800; font-size:11px;
+    letter-spacing:.1em; color:#e8720c;
+    margin-bottom:4px;
+  }
+  .ph-row{ display:grid; grid-template-columns:60px 1fr; gap:6px; margin-bottom:2px; }
+  .ph-k{
+    color:#9ca3af; font-weight:700;
+    letter-spacing:.06em; text-transform:uppercase;
+    font-size:9.5px; align-self:center;
+  }
+  .ph-v{ color:#111827; font-weight:500; font-size:11px; }
+  .ph-cap{
+    color:#6b7280; font-size:11px;
+    margin-top:6px; padding-top:6px;
+    border-top:1px dashed #e5e7eb;
+    line-height:1.4;
+  }
+
+  /* ── Work performed narrative ────────────────────────────────── */
+  .scope-block{
+    border-left:3px solid #e8720c;
+    padding:8px 0 8px 18px; margin-bottom:32px;
+  }
+  .scope-block h2{ font-size:22px; margin-bottom:10px; }
+  .scope-block p{ font-size:14px; color:#374151; line-height:1.65; white-space:pre-line; }
+
+  /* ── Footer / brand seal ─────────────────────────────────────── */
+  .footer{
+    border-top:1px solid #e5e7eb;
+    margin-top:40px; padding:24px 56px 12px;
+    background:#fafafa;
+    font-size:12px; color:#6b7280; text-align:center;
+  }
+  .footer-brand{
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:800; color:#111827;
+    text-transform:uppercase; letter-spacing:.08em;
+    font-size:14px; margin-bottom:4px;
+  }
+  .footer-tag{
+    font-style:italic; color:#e8720c;
+    font-size:11px; margin-top:6px;
+    font-family:'Barlow Condensed',sans-serif;
+    letter-spacing:.06em; text-transform:uppercase;
+  }
 </style>
 </head>
-<body class="nbd-brand" data-report-mode="${isAdjuster ? 'adjuster' : 'homeowner'}">
+<body data-report-mode="${isAdjuster ? 'adjuster' : 'homeowner'}">
+
+<!-- No-print top bar -->
 <div class="no-print top-bar">
-  <div style="display:flex;align-items:center;gap: 12px;">
-    <button onclick="window.close()" class="top-bar-btn">&#8592; Close</button>
-    <span style="color: var(--nbd-ink-muted); font-size: var(--nbd-text-sm);">${isAdjuster ? 'Adjuster Report' : 'Homeowner Report'}</span>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <button id="rpt-close-btn" class="top-bar-btn">&#8592; Close</button>
+    <span class="top-bar-mode">${isAdjuster ? 'Adjuster Report' : 'Homeowner Report'}</span>
   </div>
-  <button onclick="window.print()" class="top-bar-btn top-bar-btn-primary">Print / Save PDF</button>
+  <button id="rpt-print-btn" class="top-bar-btn top-bar-btn-primary">Print / Save PDF</button>
 </div>
 <div style="height:52px;"></div>
+<script>
+  // The report renders inside its own window/viewer; wire the top-bar
+  // buttons via addEventListener so CSP \`script-src-attr 'none'\`
+  // doesn't block them the way inline onclick="..." would.
+  (function(){
+    var c = document.getElementById('rpt-close-btn');
+    var p = document.getElementById('rpt-print-btn');
+    if (c) c.addEventListener('click', function(){ window.close(); });
+    if (p) p.addEventListener('click', function(){ window.print(); });
+  })();
+<\/script>
 
-<div class="header">
-  <h1>${isAdjuster ? 'CLAIM PHOTO DOCUMENTATION' : 'PROJECT DOCUMENTATION'}</h1>
-  <div class="sub">${isAdjuster ? 'Loss Documentation Package' : 'Before &amp; After Photo Report'}</div>
-</div>
+<!-- Hero -->
+<header class="hero">
+  <div class="hero-eyebrow">${isAdjuster ? 'Loss Documentation · Adjuster Copy' : 'Project Story · Before &amp; After'}</div>
+  <h1 class="hero-title">${isAdjuster ? 'Claim Photo Documentation' : _esc(name) + '’s Project'}</h1>
+  <div class="hero-sub">${isAdjuster
+    ? 'Photographic evidence of property condition before, during, and after the scope of work performed by ' + BRAND.name + '. Every image stamped with location, damage type, and severity where applicable.'
+    : 'A visual walkthrough of your roof project — what we found, the work as it happened, and the result.'}</div>
+  ${heroUrl ? '<div class="hero-photo"><img src="' + _esc(heroUrl) + '" alt=""></div>' : ''}
+</header>
+
+<!-- Brand band -->
 <div class="brand-bar">
   <div class="brand-bar-left">
-    <img class="brand-logo" src="/assets/images/nbd-logo.png" alt="${BRAND.name}" />
+    <img class="brand-logo" src="/assets/images/nbd-logo.png" alt="${BRAND.name}">
     <span class="brand-bar-name">${BRAND.name}</span>
   </div>
-  <span>${BRAND.phone} &nbsp;·&nbsp; ${BRAND.email}</span>
+  <span class="brand-bar-contact">${BRAND.phone} &nbsp;·&nbsp; ${BRAND.email} &nbsp;·&nbsp; ${BRAND.website}</span>
 </div>
 
-<div class="content">
-  <div class="info-row">
-    <div><strong>${isAdjuster ? 'Insured' : 'Property Owner'}:</strong> ${_esc(name)}</div>
-    <div><strong>${isAdjuster ? 'Loss Type' : 'Project'}:</strong> ${_esc(lead.jobType || lead.damageType || 'Exterior')}</div>
-    <div><strong>Address:</strong> ${_esc(lead.address || '')}</div>
-    <div><strong>Date:</strong> ${_esc(dateStr)}</div>
-    ${isAdjuster && lead.claimNumber ? '<div><strong>Claim #:</strong> ' + _esc(lead.claimNumber) + '</div>' : ''}
-    ${isAdjuster && (lead.insCarrier || lead.insuranceCarrier) ? '<div><strong>Carrier:</strong> ' + _esc(lead.insCarrier || lead.insuranceCarrier) + '</div>' : ''}
+<main class="content">
+
+  <!-- Property info -->
+  <div class="info-card">
+    <div>
+      <div class="info-k">${isAdjuster ? 'Insured' : 'Property Owner'}</div>
+      <div class="info-v">${_esc(name)}</div>
+    </div>
+    <div>
+      <div class="info-k">${isAdjuster ? 'Loss Type' : 'Project'}</div>
+      <div class="info-v">${_esc(lead.jobType || lead.damageType || 'Exterior')}</div>
+    </div>
+    <div>
+      <div class="info-k">Address</div>
+      <div class="info-v">${_esc(lead.address || '—')}</div>
+    </div>
+    <div>
+      <div class="info-k">Date</div>
+      <div class="info-v">${_esc(dateStr)}</div>
+    </div>
+    ${isAdjuster && lead.claimNumber ? '<div><div class="info-k">Claim #</div><div class="info-v">' + _esc(lead.claimNumber) + '</div></div>' : ''}
+    ${isAdjuster && (lead.insCarrier || lead.insuranceCarrier) ? '<div><div class="info-k">Carrier</div><div class="info-v">' + _esc(lead.insCarrier || lead.insuranceCarrier) + '</div></div>' : ''}
   </div>
 
+  <!-- Stats strip -->
+  ${stats}
+
+  <!-- Damage summary (adjuster only, only when has-data) -->
   ${adjusterSummary}
 
-  ${before.length > 0 ? `<div class="section">
-    <div class="section-label before-label">${hasPhases ? 'BEFORE' : 'PROJECT PHOTOS'}</div>
-    <div class="section-title">${hasPhases ? 'Pre-Project Condition' : 'Documentation'} (${before.length} photos)</div>
-    <div class="photo-grid">${photoGrid(before)}</div>
-  </div>` : ''}
+  <!-- Before/After pairs (homeowner showcase) -->
+  ${pairsSection}
 
-  ${lead.scopeOfWork ? `
-  <div class="section">
-    <div class="section-title">Work Performed</div>
-    <p style="font-size: var(--nbd-text-sm); color: var(--nbd-ink); white-space: pre-line;">${_esc(lead.scopeOfWork)}</p>
-  </div>` : ''}
+  ${before.length > 0 ? `<section class="section">
+    <div class="section-eyebrow is-before">${hasPhases ? 'Before' : 'Project Photos'}</div>
+    <h2 class="section-title">${hasPhases ? 'Pre-Project Condition' : 'Documentation'}<span class="section-count">${before.length} photo${before.length === 1 ? '' : 's'}</span></h2>
+    <p class="section-lead">${isAdjuster
+      ? (hasPhases ? 'Documentation of property condition prior to work commencing.' : 'Photographic record of the property.')
+      : (hasPhases ? 'Photos of the property at the start of the project.' : 'Photos of your project.')}</p>
+    <div class="photo-grid${isAdjuster ? ' is-adjuster' : ''}">${photoGrid(before)}</div>
+  </section>` : ''}
 
-  ${during.length > 0 ? `<div class="section">
-    <div class="section-label during-label">DURING</div>
-    <div class="section-title">Work In Progress (${during.length} photos)</div>
-    <div class="photo-grid">${photoGrid(during)}</div>
-  </div>` : ''}
+  ${lead.scopeOfWork ? `<section class="scope-block">
+    <h2>Work Performed</h2>
+    <p>${_esc(lead.scopeOfWork)}</p>
+  </section>` : ''}
 
-  ${after.length > 0 ? `<div class="section">
-    <div class="section-label after-label">AFTER</div>
-    <div class="section-title">Completed Project (${after.length} photos)</div>
-    <div class="photo-grid">${photoGrid(after)}</div>
-  </div>` : ''}
+  ${during.length > 0 ? `<section class="section">
+    <div class="section-eyebrow is-during">During</div>
+    <h2 class="section-title">Work In Progress<span class="section-count">${during.length} photo${during.length === 1 ? '' : 's'}</span></h2>
+    <p class="section-lead">${isAdjuster ? 'Mid-project documentation of work in progress.' : 'Photos taken while the crew was on the property.'}</p>
+    <div class="photo-grid${isAdjuster ? ' is-adjuster' : ''}">${photoGrid(during)}</div>
+  </section>` : ''}
 
-  <div class="footer">
-    <strong>${BRAND.name}</strong><br>
-    ${BRAND.phone} &nbsp;·&nbsp; ${BRAND.email} &nbsp;·&nbsp; ${BRAND.website}<br>
-    <em>We Put Our Name On It</em>
-  </div>
-</div>
+  ${after.length > 0 ? `<section class="section">
+    <div class="section-eyebrow is-after">After</div>
+    <h2 class="section-title">Completed Project<span class="section-count">${after.length} photo${after.length === 1 ? '' : 's'}</span></h2>
+    <p class="section-lead">${isAdjuster ? 'Final-condition documentation post-completion.' : 'The finished work — what the property looks like now.'}</p>
+    <div class="photo-grid${isAdjuster ? ' is-adjuster' : ''}">${photoGrid(after)}</div>
+  </section>` : ''}
+
+</main>
+
+<footer class="footer">
+  <div class="footer-brand">${BRAND.name}</div>
+  <div>${BRAND.phone} &nbsp;·&nbsp; ${BRAND.email} &nbsp;·&nbsp; ${BRAND.website}</div>
+  <div class="footer-tag">We Put Our Name On It</div>
+</footer>
+
 </body>
 </html>`;
   }

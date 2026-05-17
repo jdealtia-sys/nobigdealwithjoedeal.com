@@ -244,10 +244,14 @@ section('Photos Tier-1: photo-report uses variants + escapes scope-of-work');
 
   // Both tile renderers route through _imgAttrs — no raw _esc(p.url)
   // single-source images left in either grid.
-  assert('adjuster tile uses _imgAttrs with 180px hint',
-    /<img ' \+ _imgAttrs\(p,\s*'180px'\)/.test(pr));
-  assert('homeowner tile uses _imgAttrs with 220px hint',
-    /<img ' \+ _imgAttrs\(p,\s*'220px'\)/.test(pr));
+  // Adjuster tile is denser (1/1 aspect, 4-up grid → 200px hint).
+  // Homeowner tile is roomier (4/3 aspect, 3-up grid → 260px hint).
+  // Either size is fine; the assertion just locks that _imgAttrs is
+  // being called from both renderers (regression guard from §1.1).
+  assert('adjuster tile uses _imgAttrs with sized hint',
+    /<img ' \+ _imgAttrs\(p,\s*'\d+px'\)\s*\+\s*' alt="Photo/.test(pr));
+  assert('homeowner tile uses _imgAttrs with sized hint',
+    /<img ' \+ _imgAttrs\(p,\s*'\d+px'\)\s*\+\s*' alt=""/.test(pr));
   assert('photo-report no longer emits raw <img src=_esc(p.url) in tiles',
     !/'<img src="'\s*\+\s*_esc\(p\.url\)/.test(pr),
     'expected zero raw single-resolution <img src=_esc(p.url) tile renderers');
