@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, readCrm, readFunctionsIndex, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, readCrm, readMaps, readFunctionsIndex, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section, bumpPassed, bumpFailed } = ctx;
@@ -27,6 +27,10 @@ const syntaxFiles = [
   path.join(PRO_JS, 'crm-snooze.js'),
   path.join(PRO_JS, 'crm-portal-bridge.js'),
   path.join(PRO_JS, 'maps.js'),
+  // Step 4d split — the three sibling modules must each parse.
+  path.join(PRO_JS, 'maps-core.js'),
+  path.join(PRO_JS, 'maps-overlays.js'),
+  path.join(PRO_JS, 'maps-routing.js'),
   path.join(PRO_JS, 'estimates.js'),
   path.join(PRO_JS, 'estimate-v2-ui.js'),
   path.join(PRO_JS, 'estimate-finalization.js'),
@@ -157,7 +161,10 @@ section('Null guards on hot paths');
   assert('saveLead guards modal elements',
     /saveLead[\s\S]{0,400}if\s*\(\s*!mErr\s*\|\|\s*!mOk/.test(crm));
 
-  const maps = read(path.join(PRO_JS, 'maps.js'));
+  // Step 4d: openPinConfirm now lives in maps-overlays.js, recalcGutters
+  // in maps-routing.js. readMaps() concats the split modules so the
+  // existing regex assertions keep finding the functions.
+  const maps = readMaps();
   assert('openPinConfirm guards dot/lbl/coord/notes',
     /function openPinConfirm[\s\S]{0,400}if\s*\(\s*dot\s*\)/.test(maps));
   assert('recalcGutters guards total+ds',
