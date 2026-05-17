@@ -130,10 +130,19 @@ window.NBDDocGen = {
       }
     }
 
-    const html = this.getHTML(type, data);
+    let html = this.getHTML(type, data);
     if (!html) {
       if(typeof showToast==='function') showToast('Document type not found','error'); else console.error('Document type not found:', type);
       return;
+    }
+    // Blank-preview watermark. Set by _blankifyDocData() on
+    // customer.html when the rep uses the "Preview blank template"
+    // escape hatch (either from the doc-template ⓘ icon or the
+    // Can't-Generate prereq modal). Stamped here, in one place, so
+    // every template type picks it up without per-template work.
+    if (data && data._isBlankPreview && /<\/body>/i.test(html)) {
+      const wm = '<div data-nbd-watermark="blank-preview" style="position:fixed;top:14px;left:50%;transform:translateX(-50%);background:#fef9c3;color:#92400e;border:1px solid #f59e0b;border-radius:8px;padding:6px 14px;font:700 11px/1 Barlow,sans-serif;letter-spacing:.12em;text-transform:uppercase;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.15);pointer-events:none;white-space:nowrap;">&#9888;&#65039; Blank Preview &middot; Not for Delivery</div>';
+      html = html.replace(/<\/body>/i, wm + '</body>');
     }
     const typeName = this.DOCUMENT_TYPES[type]?.name || type;
     // Route through the Universal Document Viewer so the user
