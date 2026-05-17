@@ -623,8 +623,11 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
     /_assetOrigin\s*\(\)\s*\{[\s\S]{0,400}window\.location\.origin/.test(docGen));
   assert('document-generator: fallback host is production',
     /['"]https:\/\/nobigdealwithjoedeal\.com['"]/.test(docGen));
-  assert('document-generator: logo loaded via <object> with absolute origin',
-    /<object[^>]*data="\$\{origin\}\/assets\/images\/nbd-logo\.png"/.test(docGen));
+  assert('document-generator: logo loaded via <object> with NBD_LOGO_DATA_URI preferred',
+    /<object[^>]*data="\$\{src\}"/.test(docGen)
+      && /window\.NBD_LOGO_DATA_URI/.test(docGen));
+  assert('document-generator: fallback path is absolute origin + /assets/images/nbd-logo.png',
+    /_assetOrigin\(\)\s*\+\s*['"]\/assets\/images\/nbd-logo\.png['"]/.test(docGen));
   assert('document-generator: SVG monogram is the <object> fallback content',
     /<object[\s\S]{0,500}<svg[\s\S]{0,800}NBD[\s\S]{0,100}<\/svg>[\s\S]{0,80}<\/object>/.test(docGen));
   assert('document-generator: legacy onerror handler removed (CSP-blocked)',
@@ -633,8 +636,8 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
   // templates.js (20 of 24 templates) gets the same fix.
   assert('templates.js: ORIGIN constant computed at IIFE load',
     /const ORIGIN\s*=\s*\(function\s*\(\)\s*\{[\s\S]{0,400}window\.location\.origin/.test(templates));
-  assert('templates.js: LOGO_URL = ORIGIN + /assets/images/nbd-logo.png',
-    /const LOGO_URL\s*=\s*ORIGIN\s*\+\s*['"]\/assets\/images\/nbd-logo\.png['"]/.test(templates));
+  assert('templates.js: LOGO_URL prefers NBD_LOGO_DATA_URI, falls back to ORIGIN + /assets/images/nbd-logo.png',
+    /const LOGO_URL\s*=[\s\S]{0,200}window\.NBD_LOGO_DATA_URI[\s\S]{0,200}ORIGIN\s*\+\s*['"]\/assets\/images\/nbd-logo\.png['"]/.test(templates));
   assert('templates.js: letterhead uses <object data="${LOGO_URL}">',
     /<object[^>]*data="\$\{LOGO_URL\}"/.test(templates));
   assert('templates.js: SVG monogram fallback inside <object>',

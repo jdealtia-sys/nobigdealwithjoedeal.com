@@ -1084,14 +1084,15 @@ window.NBDDocGen = {
    * @returns {string} HTML
    */
   renderNBDLogo() {
-    const origin = this._assetOrigin();
-    // Bulletproof brand mark: an inline SVG monogram is always present
-    // and looks intentional on its own. The PNG logo loads on top via
-    // <object> — which gracefully falls back to its inner content when
-    // the resource fails to load (broken URL, CORP block, offline).
-    // Unlike <img onerror>, this fallback is pure markup and works
-    // under strict CSP.
-    return `<object class="nbd-logo-obj" type="image/png" data="${origin}/assets/images/nbd-logo.png" aria-label="No Big Deal Home Solutions">
+    // Inline data URI from nbd-logo-asset.js — bypasses CORP/cache/CSP for the
+    // iframe-srcdoc doc viewer (which has a null opaque origin and can't
+    // reliably fetch /assets/images/nbd-logo.png). The SVG monogram inside
+    // <object> remains as a final fallback in case the asset script failed
+    // to load.
+    const src = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
+      ? window.NBD_LOGO_DATA_URI
+      : this._assetOrigin() + '/assets/images/nbd-logo.png';
+    return `<object class="nbd-logo-obj" type="image/jpeg" data="${src}" aria-label="No Big Deal Home Solutions">
       <svg class="nbd-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="NBD">
         <defs>
           <linearGradient id="nbdRing" x1="0" y1="0" x2="1" y2="1">
