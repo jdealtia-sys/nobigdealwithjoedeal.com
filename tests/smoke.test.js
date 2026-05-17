@@ -31,6 +31,8 @@ const DOMAINS = [
   './smoke/crm.test.js',
   './smoke/portal.test.js',
   './smoke/photo.test.js',
+  './smoke/photo-vision-sanitizer.test.js',  // §3.2 unit tests — real fn calls
+  './smoke/photo-report-pairs.test.js',      // §3.2 _buildPairs fixture tests
   './smoke/maps.test.js',
   './smoke/reports.test.js',
 ];
