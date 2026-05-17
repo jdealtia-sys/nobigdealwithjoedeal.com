@@ -144,22 +144,26 @@ function renderEstimatesList(ests) {
     });
   });
 
-  // Recent on dashboard — each card opens that specific estimate
+  // Recent on dashboard — each card opens that specific estimate.
+  // recentEsts only mounts on the dashboard root tile; #/estimates has
+  // estListWrap above but not this sibling, so guard separately.
   const rc=document.getElementById('recentEsts');
-  rc.innerHTML=ests.slice(0,4).map(e=>`
-    <div class="est-card nbd-recent-est" data-id="${esc(e.id)}" style="margin-bottom:8px;cursor:pointer;">
-      <div style="font-size:18px;">📋</div>
-      <div><div class="est-addr" style="font-size:12px;">${esc(e.addr||'No address')}</div>
-      <div class="est-meta">${esc(e.tierName||'')}</div></div>
-      <div class="est-total" style="font-size:16px;">$${Number(e.grandTotal||0).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
-    </div>`).join('');
-  rc.querySelectorAll('.nbd-recent-est').forEach(el => {
-    el.addEventListener('click', () => {
-      const id = el.dataset.id;
-      goTo('est');
-      setTimeout(() => viewEstimate(id), 200);
+  if (rc) {
+    rc.innerHTML=ests.slice(0,4).map(e=>`
+      <div class="est-card nbd-recent-est" data-id="${esc(e.id)}" style="margin-bottom:8px;cursor:pointer;">
+        <div style="font-size:18px;">📋</div>
+        <div><div class="est-addr" style="font-size:12px;">${esc(e.addr||'No address')}</div>
+        <div class="est-meta">${esc(e.tierName||'')}</div></div>
+        <div class="est-total" style="font-size:16px;">$${Number(e.grandTotal||0).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
+      </div>`).join('');
+    rc.querySelectorAll('.nbd-recent-est').forEach(el => {
+      el.addEventListener('click', () => {
+        const id = el.dataset.id;
+        goTo('est');
+        setTimeout(() => viewEstimate(id), 200);
+      });
     });
-  });
+  }
 
   // Update weekly stats
   if (typeof calculateWeeklyStats === 'function') calculateWeeklyStats();
@@ -274,7 +278,10 @@ window.viewEstimate = viewEstimate;
 // PHOTO LEADS LIST + PHOTO MODAL
 // ══════════════════════════════════════════════
 async function renderPhotoLeads(){
+  // photoLeadsList only mounts on the Photos Near Me view. If a
+  // bootstrap path calls us on another route, bail rather than crash.
   const wrap=document.getElementById('photoLeadsList');
+  if (!wrap) return;
 
   // Ensure photo counts are loaded before we render so the sort
   // can put photos-first. First open shows a loading state; later
@@ -367,17 +374,24 @@ async function renderPhotoLeads(){
 }
 
 async function openPhotoFor(leadId, addr){
+  // photoModal + its title/addr/grid children mount together in the
+  // dashboard template. If the modal root isn't on this route, bail —
+  // the sub-element accesses below would otherwise null-deref.
+  const modal = document.getElementById('photoModal');
+  if (!modal) return;
   currentPhotoLeadId=leadId; currentPhotoAddr=addr;
   document.getElementById('photoModalTitle').textContent='Damage Photos';
   document.getElementById('photoModalAddr').textContent=addr;
   document.getElementById('photoGridModal').innerHTML='<div style="font-size:12px;color:var(--m);padding:10px;text-align:center;">Loading...</div>';
-  document.getElementById('photoModal').classList.add('open');
+  modal.classList.add('open');
   const photos=await window._getPhotos(leadId);
   renderPhotoGrid(photos);
 }
 
 function renderPhotoGrid(photos){
+  // photoGridModal is a child of photoModal; both mount together.
   const grid=document.getElementById('photoGridModal');
+  if (!grid) return;
   if(!photos.length){grid.innerHTML='<p style="font-size:11px;color:var(--m);text-align:center;padding:10px;">No photos yet. Upload above.</p>';return;}
   // Build via DOM so user-controlled `p.url` and `p.name` cannot inject markup.
   grid.textContent='';
@@ -624,7 +638,10 @@ function renderIntelCard(targetElId, intel, county, address) {
 }
 
 async function fetchPropertyIntelModal(geo, addr) {
+  // modalIntelResult only renders inside the Property Intel modal,
+  // which only mounts on certain dashboard routes. Bail if absent.
   const resultEl = document.getElementById('modalIntelResult');
+  if (!resultEl) return;
   const gAddr = geo.address || {};
   const county = (gAddr.county||'').replace(' County','').trim();
 
@@ -766,6 +783,12 @@ function openCardDetailModal(leadId) {
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead) return;
 
+  // cardDetailModal and all its cardDetail* children are mounted as
+  // one block in the CRM/kanban template. Bail if the root isn't on
+  // this route — sub-element accesses below assume it's present.
+  const modal = document.getElementById('cardDetailModal');
+  if (!modal) return;
+
   window._cardDetailLeadId = leadId;
 
   // Populate modal
@@ -813,13 +836,14 @@ function openCardDetailModal(leadId) {
   const kindLabel = document.getElementById('cardDetailKindLabel');
   if (kindLabel) kindLabel.textContent = lead.isProspect ? 'PROSPECT' : 'CUSTOMER';
 
-  // Show modal
-  document.getElementById('cardDetailModal').classList.add('open');
+  // Show modal — use the cached `modal` ref from the entry-guard above.
+  modal.classList.add('open');
 }
 window.openCardDetailModal = openCardDetailModal;
 
 function closeCardDetailModal() {
-  document.getElementById('cardDetailModal').classList.remove('open');
+  const modal = document.getElementById('cardDetailModal');
+  if (modal) modal.classList.remove('open');
   window._cardDetailLeadId = null;
 }
 window.closeCardDetailModal = closeCardDetailModal;
@@ -840,9 +864,16 @@ window.closeCardDetailModal = closeCardDetailModal;
 function openMobileJobDetail(leadId) {
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead) return;
-  window._cardDetailLeadId = leadId;
 
   const $ = (id) => document.getElementById(id);
+
+  // mJobDetail and all its m-jd-* children mount together as the mobile
+  // job-detail overlay. If the root isn't on this route, bail — every
+  // $('mJd…') access below assumes the overlay block is present.
+  const root = $('mJobDetail');
+  if (!root) return;
+
+  window._cardDetailLeadId = leadId;
 
   // ── Status pill (uses the same stageLabel/stageColor as the desktop modal) ──
   const rawStage = lead._stageKey || lead.stage || 'new';
@@ -961,8 +992,7 @@ function openMobileJobDetail(leadId) {
   // ── Reset to Activity tab on every open ──
   _mJdSwitchTab('activity');
 
-  // Show
-  const root = $('mJobDetail');
+  // Show — reuse the cached `root` ref from the entry-guard above.
   root.hidden = false;
   root.classList.add('open');
   document.body.style.overflow = 'hidden';
