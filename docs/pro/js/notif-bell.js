@@ -450,7 +450,7 @@
                 text-decoration:none; font-size:12px;
                 -webkit-tap-highlight-color:transparent;
                 transition:transform .12s;"
-              onclick="event.stopPropagation();"
+              data-nb-stop-self="1"
               onmouseover="this.style.transform='scale(1.08)'"
               onmouseout="this.style.transform=''"
             >📞</a>`);
@@ -464,7 +464,7 @@
                 border:none; font-size:12px; cursor:pointer;
                 -webkit-tap-highlight-color:transparent;
                 transition:transform .12s;"
-              onclick="event.stopPropagation(); window.NotifBell._actionSms('${escapeHtml(lead.id)}')"
+              data-nb-action="actionSms" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
               onmouseover="this.style.transform='scale(1.08)'"
               onmouseout="this.style.transform=''"
             >💬</button>`);
@@ -480,7 +480,7 @@
                 border:none; font-size:12px; cursor:pointer;
                 -webkit-tap-highlight-color:transparent;
                 transition:transform .12s;"
-              onclick="event.stopPropagation(); window.NotifBell._actionEmail('${escapeHtml(lead.id)}')"
+              data-nb-action="actionEmail" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
               onmouseover="this.style.transform='scale(1.08)'"
               onmouseout="this.style.transform=''"
             >📧</button>`);
@@ -503,7 +503,7 @@
                 border:none; font-size:12px; cursor:pointer;
                 -webkit-tap-highlight-color:transparent;
                 transition:transform .12s;"
-              onclick="event.stopPropagation(); window.NotifBell._actionPreview('${escapeHtml(lead.id)}')"
+              data-nb-action="actionPreview" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
               onmouseover="this.style.transform='scale(1.08)'"
               onmouseout="this.style.transform=''"
             >🔍</button>`);
@@ -528,7 +528,7 @@
                   border:none; font-size:12px; cursor:pointer;
                   -webkit-tap-highlight-color:transparent;
                   transition:transform .12s;"
-                onclick="event.stopPropagation(); window.NotifBell._actionUnsnooze('${escapeHtml(lead.id)}')"
+                data-nb-action="actionUnsnooze" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
                 onmouseover="this.style.transform='scale(1.08)'"
                 onmouseout="this.style.transform=''"
               >⏰</button>`);
@@ -543,7 +543,7 @@
                   border:none; font-size:12px; cursor:pointer;
                   -webkit-tap-highlight-color:transparent;
                   transition:transform .12s;"
-                onclick="event.stopPropagation(); window.NotifBell._actionSnooze('${escapeHtml(lead.id)}')"
+                data-nb-action="actionSnooze" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
                 onmouseover="this.style.transform='scale(1.08)'"
                 onmouseout="this.style.transform=''"
               >💤</button>`);
@@ -566,7 +566,7 @@
           transition:background .15s;"
         onmouseover="this.style.background='var(--s2,#1a1f2a)'"
         onmouseout="this.style.background=''"
-        onclick="window.NotifBell._handleClick('${escapeHtml(n.id)}')">
+        data-nb-action="handleClick" data-nb-id="${escapeHtml(n.id)}">
         <div style="font-size:16px; flex-shrink:0; line-height:1.2;">${n.icon}</div>
         <div style="flex:1; min-width:0;">
           <div style="font-size:12px; font-weight:600; color:var(--t,#e8eaf0); margin-bottom:2px;">
@@ -586,7 +586,7 @@
             background:transparent; border:none; color:var(--m,#9aa3b2);
             cursor:pointer; padding:4px 8px; font-size:14px; line-height:1;
             opacity:0.6; align-self:flex-start;"
-          onclick="event.stopPropagation(); window.NotifBell._dismiss('${escapeHtml(n.id)}')">
+          data-nb-action="dismiss" data-nb-id="${escapeHtml(n.id)}" data-nb-stop="1">
           ×
         </button>
       </div>`;
@@ -762,4 +762,27 @@
   } else {
     setTimeout(init, 2500);
   }
+})();
+
+
+// ── CSP-safe delegation for 8 data-nb-action attrs (notif bell)
+(function () {
+  if (window._NBD_NB_DELEGATE_BOUND) return;
+  window._NBD_NB_DELEGATE_BOUND = true;
+  document.addEventListener('click', function (ev) {
+    // data-nb-stop-self on a wrapper element prevents bubbling from the wrapper itself
+    const stopSelf = ev.target.closest && ev.target.closest('[data-nb-stop-self="1"]');
+    if (stopSelf && ev.target === stopSelf) ev.stopPropagation();
+    const t = ev.target.closest && ev.target.closest('[data-nb-action]');
+    if (!t) return;
+    if (t.dataset.nbStop === '1') ev.stopPropagation();
+    const action = t.dataset.nbAction;
+    const id = t.dataset.nbId;
+    const NB = window.NotifBell || {};
+    const internal = '_' + action; // _actionSms, _handleClick, _dismiss, etc.
+    const fn = NB[internal];
+    if (typeof fn !== 'function') { console.warn('[notif-bell] no dispatch for', action); return; }
+    try { id !== undefined ? fn(id) : fn(); }
+    catch (e) { console.error('[notif-bell] dispatch ' + action + ' failed:', e); }
+  });
 })();
