@@ -526,6 +526,57 @@ section('Photos §3.1: three-tier before/after pairing heuristic');
     /out\.length\s*===\s*0/.test(pr));
 }
 
+section('customer.html: perf — all <script src> defers, preconnect hints present, images lazy/async');
+{
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+
+  // Every external <script src="..."> must be deferred (or async, or
+  // type="module" which is deferred-by-default). Anything else blocks
+  // HTML parsing until the script downloads + executes — that's the
+  // 53-script TTI tax we just paid down.
+  const scriptLines = customer.split('\n').filter(l => /<script[^>]*\ssrc=/.test(l));
+  const blocking = scriptLines.filter(l =>
+    !/ defer[ >]/.test(l) && !/type="module"/.test(l) && !/ async[ >]/.test(l)
+  );
+  assert('zero blocking <script src> tags remain in customer.html',
+    blocking.length === 0,
+    'expected 0 blocking script tags, got ' + blocking.length + ': ' + blocking.slice(0,3).join(' | '));
+
+  // Preconnect hints in <head> warm TCP+TLS for the origins this page
+  // hits hardest. Without them the browser serializes connect setup
+  // with HTML parse — adds 100-300ms per origin on first paint.
+  const expectedPreconnects = [
+    'fonts.googleapis.com',
+    'fonts.gstatic.com',
+    'www.gstatic.com',
+    'firebasestorage.googleapis.com',
+    'cdnjs.cloudflare.com',
+  ];
+  for (const host of expectedPreconnects) {
+    const escaped = host.replace(/\./g, '\\.');
+    const re = new RegExp('<link\\s+rel="preconnect"\\s+href="https://' + escaped + '"');
+    assert("preconnect to " + host,
+      re.test(customer),
+      'expected <link rel="preconnect" href="https://' + host + '">');
+  }
+
+  // Every static <img> must have either loading="lazy" OR
+  // fetchpriority="high" (the above-fold logo). Plain unannotated
+  // <img> tags fetch eagerly + block on decode.
+  const imgs = (customer.match(/<img\s[^>]*>/g) || []).filter(t => /\ssrc="/.test(t));
+  const annotated = imgs.filter(t =>
+    /loading="lazy"/.test(t) || /fetchpriority="high"/.test(t)
+  );
+  assert('every static <img> has loading=lazy or fetchpriority=high',
+    annotated.length === imgs.length,
+    'expected ' + imgs.length + ' annotated, got ' + annotated.length);
+  // Plus decoding="async" so the decode doesn't block paint.
+  const asyncDecoded = imgs.filter(t => /decoding="async"/.test(t));
+  assert('every static <img> has decoding="async"',
+    asyncDecoded.length === imgs.length,
+    'expected ' + imgs.length + ' with decoding=async, got ' + asyncDecoded.length);
+}
+
 section('nbd-doc-viewer: PDF download preserves <head> <style>/<link> in body clone');
 {
   const dv = read(path.join(ROOT, 'docs/pro/js/nbd-doc-viewer.js'));
