@@ -522,4 +522,45 @@ section('Photos §3.1: three-tier before/after pairing heuristic');
     /out\.length\s*===\s*0/.test(pr));
 }
 
+section('customer.html doc-template cards use data-action delegation (CSP-safe)');
+{
+  // The /pro/customer CSP at firebase.json:80 has `script-src-attr 'none'`,
+  // which blocks every inline event handler (onclick, onmouseover, etc.).
+  // The 15 doc-template cards used `onclick="generateCustomerDoc(...)"`
+  // until 2026-05-17 — every click silently no-op'd in prod. They were
+  // migrated to data-action delegation (mirror of dashboard.html C.4/C.5).
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+
+  // All 15 cards now carry data-action + data-doc-type.
+  const dataActionCount = (customer.match(/class="doc-template-card"[^>]*data-action="generateCustomerDoc"/g) || []).length;
+  assert('all 15 doc-template cards use data-action="generateCustomerDoc"',
+    dataActionCount === 15,
+    'expected 15 doc-template-card data-action wirings, got ' + dataActionCount);
+
+  // Each card has a non-empty data-doc-type.
+  assert('each doc-template card carries a data-doc-type attribute',
+    /class="doc-template-card"[\s\S]*?data-doc-type="[a-z_]+"/.test(customer));
+
+  // NO inline onclick="generateCustomerDoc(...)" left.
+  assert('zero inline onclick="generateCustomerDoc(...)" remain on doc-template cards',
+    !/class="doc-template-card"[^>]*onclick="generateCustomerDoc/.test(customer),
+    'expected no inline onclicks on doc-template cards — CSP blocks them silently');
+
+  // NO inline onmouseover/onmouseout remain on the cards either —
+  // hover effect is now in CSS.
+  assert('zero inline onmouseover/onmouseout remain on doc-template cards',
+    !/class="doc-template-card"[^>]*onmouseover=/.test(customer)
+    && !/class="doc-template-card"[^>]*onmouseout=/.test(customer));
+
+  // CSS hover rule replaces the JS-driven hover effect.
+  assert('CSS .doc-template-card:hover rule exists',
+    /\.doc-template-card:hover\s*\{[\s\S]{0,200}border-color:\s*var\(--orange\)/.test(customer));
+
+  // Document-level delegate listener catches the data-action clicks.
+  assert('delegate listener listens for data-action="generateCustomerDoc"',
+    /addEventListener\(\s*['"]click['"][\s\S]{0,500}closest\(\s*['"]\[data-action="generateCustomerDoc"\]['"]/.test(customer));
+  assert('delegate listener calls window.generateCustomerDoc(docType)',
+    /closest\(\s*['"]\[data-action="generateCustomerDoc"\]['"][\s\S]{0,600}window\.generateCustomerDoc\s*\(\s*docType/.test(customer));
+}
+
 };
