@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, readCrm, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, readCrm, readFunctionsIndex, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section, bumpPassed, bumpFailed } = ctx;
@@ -450,7 +450,7 @@ section('Audit batch 4 — admin function role-check drift guard');
     adminNames.length >= 10,
     'expected the admin section to enumerate all admin exports');
 
-  // The 4 known admin-gating patterns we accept anywhere in the file
+  // The 5 known admin-gating patterns we accept anywhere in the file
   // that defines the function. Mostly we look at functions/index.js
   // because that's where the inline definitions live; for the few
   // admin functions exported from sub-modules we look at the source.
@@ -459,6 +459,13 @@ section('Audit batch 4 — admin function role-check drift guard');
     /adminOnly:\s*true/,
     /requireTeamAdmin\s*\(/,
     /isAdmin\s*\(\)/,
+    // integrationStatus uses an includes()-style allowlist —
+    // `['admin', 'company_admin'].includes(callerRole)` — which the
+    // original walker accidentally matched via the NEXT handler
+    // (getAdminAnalytics) being within 8000 chars in the old monolithic
+    // index.js. Step 4c split that out into its own handler file, so we
+    // need an explicit pattern for the includes shape.
+    /\[\s*['"]admin['"][^\]]*\]\.includes\(\s*[a-zA-Z_]+Role\s*\)/,
   ];
 
   // Scan every .js in functions/ (skip node_modules) for definitions
@@ -471,6 +478,16 @@ section('Audit batch 4 — admin function role-check drift guard');
       .filter(f => f.endsWith('.js') && f !== 'index.js')
       .map(f => 'functions/' + f);
     candidates.push(...subFiles);
+    // Step 4c: inline handlers moved to functions/handlers/<area>.js.
+    // The definition site for setStorageCors, getAdminAnalytics,
+    // integrationStatus, etc. is now inside that subdirectory.
+    const handlersDir = path.join(ROOT, 'functions/handlers');
+    if (fs.existsSync(handlersDir)) {
+      const handlerFiles = fs.readdirSync(handlersDir)
+        .filter(f => f.endsWith('.js'))
+        .map(f => 'functions/handlers/' + f);
+      candidates.push(...handlerFiles);
+    }
     for (const c of candidates) {
       const full = path.join(ROOT, c);
       if (!fs.existsSync(full)) continue;

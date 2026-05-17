@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readCrm, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readCrm, readFunctionsIndex, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -21,7 +21,7 @@ module.exports.run = function run(ctx) {
 // ── Cloud Functions contract ─────────────────────────────────
 section('Cloud Functions exports');
 {
-  const src = read(path.join(FUNCTIONS, 'index.js'));
+  const src = readFunctionsIndex();
   for (const fn of ['createTeamMember', 'updateUserRole', 'deactivateUser',
                     'listTeamMembers', 'rotateAccessCodes', 'submitPublicLead']) {
     assert('exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=').test(src));
@@ -77,7 +77,7 @@ section('Sentry');
   assert('client registers window.NBDSentry', /window\.NBDSentry\s*=/.test(cli));
   assert('client redacts email + phone + Bearer tokens',
     /\[email\]/.test(cli) && /\[phone\]/.test(cli) && /\[token\]/.test(cli));
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('index.js imports withSentry', /require\(['"]\.\/integrations\/sentry['"]\)/.test(idx));
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   assert('dashboard loads sentry-init.js', /sentry-init\.js/.test(dash));
@@ -104,7 +104,7 @@ section('Turnstile');
   assert('verifyTurnstile exported', /module\.exports\s*=\s*\{\s*verifyTurnstile\s*\}/.test(src));
   assert('fails closed on verifier error',
     /Fail CLOSED/i.test(src) && /'verify-error'/.test(src));
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('submitPublicLead invokes verifyTurnstile',
     /verifyTurnstile\(\s*\(req\.body && req\.body\.turnstileToken\)/.test(idx));
 }
@@ -118,7 +118,7 @@ section('Upstash rate limiter adapter');
     /firestoreLimiter\.enforceRateLimit/.test(src));
   assert('uses pipeline INCR + EXPIRE NX',
     /\['INCR', key\][\s\S]{0,100}\['EXPIRE', key/.test(src));
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('index.js now requires the adapter',
     /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(idx));
 }
@@ -183,7 +183,7 @@ section('Unified client + status endpoint');
   for (const fn of ['requestMeasurement','sendForSignature','lookupParcel','getHailHistory']) {
     assert('NBDIntegrations.' + fn, new RegExp('async function ' + fn + '\\(').test(src));
   }
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('integrationStatus callable exported', /exports\.integrationStatus\s*=/.test(idx));
 }
 
@@ -275,7 +275,7 @@ section('Wave A5: firestore rules tests cover new collections');
 
 section('Wave C1: signImageUrl replaces imageProxy streaming');
 {
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('signImageUrl onRequest exported', /exports\.signImageUrl\s*=/.test(idx));
   assert('signImageUrl issues 15-min signed URL',
     /getSignedUrl[\s\S]{0,200}Date\.now\(\) \+ 15 \* 60_000/.test(idx));
@@ -293,7 +293,7 @@ section('Wave C2: hail cron');
   assert('daily schedule', /schedule:\s*'every day/.test(src));
   assert('slack summary posted when newHits > 0',
     /newHits\.length > 0[\s\S]{0,400}postSlackSummary/.test(src));
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('index.js registers hail-cron', /require\(['"]\.\/integrations\/hail-cron['"]\)/.test(idx));
 }
 
@@ -323,7 +323,7 @@ section('Wave C5: Stripe invoice auto-generation');
 
 section('Wave C6: per-lead Claude cost attribution');
 {
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('api_usage writes now include leadId', /leadId,\s*\/\/ C6/.test(idx));
   assert('api_usage writes now include feature',
     /feature,\s*\/\/ e\.g\. 'ask-joe'/.test(idx));
@@ -337,7 +337,7 @@ section('Wave C6: per-lead Claude cost attribution');
 
 section('D1: mutation callables rate-limited');
 {
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   // B2: callableRateLimit is defined in functions/shared.js and
   // imported by index.js + portal.js. Check both: the helper lives
   // in shared.js, and index.js imports it.
@@ -885,7 +885,7 @@ section('C2: Recording rules + Storage audio path + composite index');
 section('C1: Voice Intelligence backend pipeline');
 {
   const src = read(path.join(FUNCTIONS, 'integrations/voice-intelligence.js'));
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   const shared = read(path.join(FUNCTIONS, 'integrations/_shared.js'));
 
   // Secrets + provider registry
@@ -932,7 +932,7 @@ section('R-05: hot-path Cloud Function sizing for 10k-user spike');
   // L-03 cont.: Stripe handlers moved to functions/stripe.js. Scan
   // both files so hot-path sizing asserts work no matter which
   // module owns the handler today.
-  const src = read(path.join(FUNCTIONS, 'index.js'))
+  const src = readFunctionsIndex()
     + '\n' + read(path.join(FUNCTIONS, 'stripe.js'));
 
   // Helper: extract the {…} config-object immediately following
@@ -1054,7 +1054,7 @@ section('L-03: portal handlers extracted to functions/portal.js');
     assert('L-03: portal.js is self-contained (does not require ../index)',
       !/require\(['"]\.\.\/index['"]\)/.test(psrc));
   }
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('L-03: index.js loads portal.js via require + Object.assign',
     /require\(['"]\.\/portal['"]\)/.test(idx)
     && /Object\.assign\(exports,\s*portalFunctions\)/.test(idx));
@@ -1104,10 +1104,15 @@ section('B2: shared authz + rate-limit helpers');
 
   // Migration: the three callers (index.js, portal.js, sms-functions.js)
   // must now import from shared, NOT define their own inline copies.
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  // Step 4c: index.js itself only `require()`s shared for side effects;
+  // the destructured imports live in handlers/admin.js et al., which
+  // use the relative path '../shared' (resolves to the same file).
+  // readFunctionsIndex() concats index.js + handlers/*, so accept
+  // either path shape.
+  const idx = readFunctionsIndex();
   assert('B2: index.js imports callableRateLimit from ./shared',
-    /require\(['"]\.\/shared['"]\)[\s\S]{0,200}callableRateLimit/.test(idx)
-    || /\{[^}]*callableRateLimit[^}]*\}\s*=\s*require\(['"]\.\/shared['"]\)/.test(idx));
+    /require\(['"]\.{1,2}\/shared['"]\)[\s\S]{0,200}callableRateLimit/.test(idx)
+    || /\{[^}]*callableRateLimit[^}]*\}\s*=\s*require\(['"]\.{1,2}\/shared['"]\)/.test(idx));
   assert('B2: index.js no longer defines callableRateLimit inline',
     !/async function callableRateLimit\s*\(/.test(idx));
 
@@ -1147,7 +1152,7 @@ section('L-03 cont.: Stripe handlers extracted to functions/stripe.js');
     assert('Stripe: stripe.js imports httpRateLimit from the upstash adapter',
       /require\(['"]\.\/integrations\/upstash-ratelimit['"]\)/.test(s));
   }
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('Stripe: index.js loads stripe.js via require + Object.assign',
     /require\(['"]\.\/stripe['"]\)/.test(idx)
     && /Object\.assign\(exports,\s*stripeFunctions\)/.test(idx));
@@ -1433,7 +1438,11 @@ section('Migration framework — versioned runner');
 
 section('Phase D.3 — integrationStatus secret-readout completeness');
 {
-  const idx = read(path.join(ROOT, 'functions/index.js'));
+  // Step 4c: integrationStatus body moved to handlers/integrations.js.
+  // readFunctionsIndex() concatenates index.js + handlers/*.js so the
+  // assertions below still find the configured{} block + rotationRunbook
+  // regardless of which file the handler lives in.
+  const idx = readFunctionsIndex();
   const sh = read(path.join(ROOT, 'functions/integrations/_shared.js'));
   // Every secret declared in _shared.js SECRETS should appear in the
   // integrationStatus.configured map (or be intentionally aggregated

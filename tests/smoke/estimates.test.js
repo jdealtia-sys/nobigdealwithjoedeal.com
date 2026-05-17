@@ -7,7 +7,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readFunctionsIndex } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -104,7 +104,7 @@ section('F8: Voice memo transcription');
   assert('Voice Memo button on lead detail',
     /(Voice Memo|Record Voice Memo)/.test(dash) &&
     /data-action="call" data-fn="cdaVoiceMemo"/.test(dash));
-  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  const idx = readFunctionsIndex();
   assert('integrationStatus reports deepgram',
     /deepgram:\s*_hasInt\('DEEPGRAM_API_KEY'\)/.test(idx));
 }
