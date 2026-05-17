@@ -6,6 +6,16 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="var(--bg)">
+<!-- Preconnect hints — warm TCP+TLS for the origins this page hits hardest.
+     Saves ~100-300ms on first paint by parallelizing connection setup with HTML parse.
+     `crossorigin` is required for fetched origins (font binaries, Firebase SDK, photos). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="dns-prefetch" href="https://nobigdeal-pro.firebaseapp.com">
+<link rel="dns-prefetch" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
 <!-- Escape helpers for user-controlled strings — exposes window.nbdEsc -->
 <script type="module" src="js/dom-safe.js"></script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -15,21 +25,21 @@
 <link rel="stylesheet" href="/pro/css/mobile-polish.css?v=1">
 <title>Customer Details — NBD Pro</title>
 <meta name="robots" content="noindex, nofollow">
-<script src="js/console-quiet.js?v=1"></script>
+<script defer src="js/console-quiet.js?v=1"></script>
 <!-- Sentry must register before any other script that might throw, so
      uncaught errors from Firebase init / page boot get captured. -->
-<script src="js/sentry-config.js?v=1"></script>
-<script src="js/sentry-init.js?v=2"></script>
+<script defer src="js/sentry-config.js?v=1"></script>
+<script defer src="js/sentry-init.js?v=2"></script>
 <!-- NBDStore — tiny pub/sub state store. Loaded early so any
      downstream script that wants to subscribe can do so on first
      run. See docs/pro/js/state-store.js. -->
-<script src="js/state-store.js?v=1"></script>
+<script defer src="js/state-store.js?v=1"></script>
 <!-- NBDIDBCache — IndexedDB-backed offline cache. Layers
      stale-while-revalidate semantics on top of NBDStore so the
      customer page paints from cache in <50ms instead of waiting
      on a Firestore round-trip. See docs/pro/js/idb-cache.js. -->
-<script src="js/idb-cache.js?v=1"></script>
-<script src="js/standalone-compat.js"></script>
+<script defer src="js/idb-cache.js?v=1"></script>
+<script defer src="js/standalone-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -935,7 +945,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <body>
 
 <header>
-  <div class="logo"><img class="logo-img" src="/assets/images/nbd-logo.png" alt="NBD Pro" />NBD <span>PRO</span></div>
+  <div class="logo"><img class="logo-img" src="/assets/images/nbd-logo.png" alt="NBD Pro" decoding="async" fetchpriority="high" />NBD <span>PRO</span></div>
   <!-- Audit batch 8: Presentation Mode toggle. When ON, the customer
        page renders in light NBD brand instead of the rep's chosen
        dashboard theme. Useful when the rep is showing the homeowner
@@ -1749,7 +1759,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <div class="lightbox" id="lightbox">
   <button class="lightbox-close" data-action="closeLightbox">×</button>
   <button class="lightbox-nav lightbox-prev" data-action="prevPhoto">‹</button>
-  <img class="lightbox-img" id="lightboxImg" src="" alt="Photo">
+  <img class="lightbox-img" id="lightboxImg" src="" alt="Photo" loading="lazy" decoding="async">
   <button class="lightbox-nav lightbox-next" data-action="nextPhoto">›</button>
 </div>
 
@@ -1949,8 +1959,8 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="js/icons.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script defer src="js/icons.js"></script>
 <script>
 
 // ============================================
@@ -4182,7 +4192,7 @@ window.exportCustomerEstimate = function(estId) {
 </head><body>
   <div class="hdr">
     <div style="display:flex;align-items:center;gap:14px;">
-      <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:54px;width:auto;display:block;flex-shrink:0;" />
+      <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:54px;width:auto;display:block;flex-shrink:0;" loading="lazy" decoding="async" />
       <div><div class="brand">No Big <span>Deal</span> Home Solutions</div><div style="font-size:13px;color:#666;margin-top:2px;">nobigdealwithjoedeal.com</div><div class="badge">Insurance Restoration Specialists</div></div>
     </div>
     <div class="est-hdr">
@@ -5226,7 +5236,7 @@ window.generateCertFromEstimate = async function(estimateId) {
 </style><link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head><body>
 <div class="cert">
-  <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:64px;width:auto;display:block;margin:0 auto 10px;" />
+  <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:64px;width:auto;display:block;margin:0 auto 10px;" loading="lazy" decoding="async" />
   <div class="logo">NBD</div>
   <div class="logo-sub">No Big Deal Home Solutions</div>
   <h1>WARRANTY CERTIFICATE</h1>
@@ -7245,9 +7255,9 @@ window.closeLightbox = function() {
 console.log('✓ Customer page enhancements loaded');
 
 </script>
-<script src="js/nbd-comms.js?v=1"></script>
-<script src="js/nbd-input-guards.js?v=1"></script>
-<script src="js/email_system.js"></script>
+<script defer src="js/nbd-comms.js?v=1"></script>
+<script defer src="js/nbd-input-guards.js?v=1"></script>
+<script defer src="js/email_system.js"></script>
 <script>
 // ── Gallery Share Panel Functions ──
 // Manages the persistent gallery share URL for a customer.
@@ -7622,8 +7632,8 @@ document.addEventListener('DOMContentLoaded', function() {
   setTimeout(loadSignedDocs, 2000);
 });
 </script>
-<script src="js/customer-portal.js?v=3"></script>
-<script src="js/clipboard-fix.js?v=1"></script>
+<script defer src="js/customer-portal.js?v=3"></script>
+<script defer src="js/clipboard-fix.js?v=1"></script>
 <!-- html2pdf.js — powers NBDDocViewer's client-side PDF generation -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
 <!-- Universal in-app document viewer — routes photo reports, docs,
@@ -7631,17 +7641,17 @@ document.addEventListener('DOMContentLoaded', function() {
 <script defer src="js/nbd-doc-viewer.js?v=2"></script>
 <!-- Photo system Phase 2: client-side EXIF + heading-to-slope inference.
      Loaded BEFORE upload code so analyze() is available at upload time. -->
-<script src="js/photo-smart-ingest.js?v=1"></script>
+<script defer src="js/photo-smart-ingest.js?v=1"></script>
 <!-- Photo system Phase 3: Claude Vision classifier client wrapper.
      Throttled batch + fire-and-forget API; reads aiSuggestion off photo
      docs once the function writes back. -->
-<script src="js/photo-ai-classifier.js?v=1"></script>
-<script src="js/photo-report.js?v=3"></script>
-<script src="js/review-engine.js?v=2"></script>
-<script src="js/profit-tracker.js?v=2"></script>
-<script src="js/lead-scoring.js?v=2"></script>
-<script src="js/insurance-claim.js?v=2"></script>
-<script src="js/offline-manager.js?v=5"></script>
+<script defer src="js/photo-ai-classifier.js?v=1"></script>
+<script defer src="js/photo-report.js?v=3"></script>
+<script defer src="js/review-engine.js?v=2"></script>
+<script defer src="js/profit-tracker.js?v=2"></script>
+<script defer src="js/lead-scoring.js?v=2"></script>
+<script defer src="js/insurance-claim.js?v=2"></script>
+<script defer src="js/offline-manager.js?v=5"></script>
 <script defer src="js/customer-dnd-upload.js?v=1"></script>
 <script defer src="js/customer-quick-action-bar.js?v=1"></script>
 <!-- Wave 35/36: lead-snooze must load before the banner since the
@@ -7666,14 +7676,14 @@ document.addEventListener('DOMContentLoaded', function() {
 <!-- W137: Customer-page score chip + breakdown panel -->
 <script defer src="js/lead-score-panel.js?v=1"></script>
 <script defer src="js/customer-smart-followup-panel.js?v=1"></script>
-<script src="js/share-gallery.js?v=2"></script>
+<script defer src="js/share-gallery.js?v=2"></script>
 <!-- R-03: signImageUrl client helper. Must load before the inspection
      editor below, which calls window.NBDSignedUrl.get() for canvas
      image loads (un-tainted fetch → blob → object URL). -->
-<script src="js/signed-image-url.js?v=1"></script>
-<script src="js/photo-editor.js?v=5"></script>
-<script src="js/document-generator.js?v=4"></script>
-<script src="js/document-generator-templates.js?v=2"></script>
+<script defer src="js/signed-image-url.js?v=1"></script>
+<script defer src="js/photo-editor.js?v=5"></script>
+<script defer src="js/document-generator.js?v=4"></script>
+<script defer src="js/document-generator-templates.js?v=2"></script>
 <script defer src="js/doc-preflight.js?v=1"></script>
 
 <!-- ──────────────────────────────────────────────────────────────
