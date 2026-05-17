@@ -205,6 +205,110 @@
     return 'src="' + fallback + '" srcset="' + srcset + '" sizes="' + _esc(sizes) + '"';
   }
 
+  // ─── Before/after pairing (§3.1) ───────────────────────────────────
+  // Three tiers, applied in order. Each tier picks the BEFORE with the
+  // EARLIEST createdAt (worst initial state) and the AFTER with the
+  // LATEST (completed state) per key; photos consumed in one tier
+  // aren't reused in later tiers; cap at 8 pairs total.
+  //
+  //   1. Location match. Normalizes by lowercasing and taking the first
+  //      comma-segment so "North slope, ridge" pairs with "North Slope".
+  //      Strongest signal — survives every tier above unchanged.
+  //   2. Damage-type match. Fills remaining slots when reps tag what
+  //      kind of damage but not where (or location strings don't match).
+  //   3. Project-overview fallback. If <2 pairs after tiers 1+2 and any
+  //      unused before/after exist anywhere, add ONE chronological pair
+  //      (earliest before + latest after) labeled "Project overview".
+  //      Untagged leads still get a usable report.
+  function _buildPairs(allPhotos) {
+    const list = Array.isArray(allPhotos) ? allPhotos : [];
+    // Normalize a tag/location: lowercase, take first comma-segment,
+    // collapse whitespace. Empty string when input lacks the field.
+    const normKey = (s) => String(s || '').toLowerCase().split(',')[0].trim().replace(/\s+/g, ' ');
+    const ms = (p) => (p && p.createdAt && (p.createdAt.toMillis ? p.createdAt.toMillis() : (p.createdAt.seconds ? p.createdAt.seconds * 1000 : 0))) || 0;
+    const urlOf = (p) => (p && p.urls && (p.urls.lg || p.urls.med || p.urls.full)) || (p && p.url) || '';
+    const idOf  = (p) => (p && (p.id || (p.urls && (p.urls.lg || p.urls.med || p.urls.full)) || p.url)) || '';
+    const locOf = (p) => (p && (p.location || (p.inferredLocation && p.inferredLocation.label))) || '';
+    const dmgOf = (p) => (p && (p.damageType || (p.aiSuggestion && p.aiSuggestion.damageType))) || '';
+
+    const beforePhotos = list.filter(p => String(p && p.phase || '').toLowerCase() === 'before');
+    const afterPhotos  = list.filter(p => String(p && p.phase || '').toLowerCase() === 'after');
+    if (!beforePhotos.length || !afterPhotos.length) return [];
+
+    // Build a key→best-photo map. `pickEarliest=true` for before tiles,
+    // false (= latest wins) for after tiles. Photos already used by an
+    // earlier tier are filtered out via `excludeIds`.
+    function bestByKey(photos, keyFn, pickEarliest, excludeIds) {
+      const map = new Map();
+      for (const p of photos) {
+        if (!p) continue;
+        if (excludeIds && excludeIds.has(idOf(p))) continue;
+        const k = keyFn(p);
+        if (!k) continue;
+        const m = ms(p);
+        const cur = map.get(k);
+        const better = !cur || (pickEarliest ? m < cur._ms : m > cur._ms);
+        if (better) map.set(k, Object.assign({}, p, { _ms: m }));
+      }
+      return map;
+    }
+
+    const used = new Set();
+    const out = [];
+    function tryTier(beforeMap, afterMap, labelFor) {
+      // Sort keys for deterministic order (alphabetical by key).
+      const keys = Array.from(beforeMap.keys()).sort();
+      for (const k of keys) {
+        if (out.length >= 8) return;
+        const b = beforeMap.get(k);
+        const a = afterMap.get(k);
+        if (!b || !a) continue;
+        const bId = idOf(b), aId = idOf(a);
+        if (used.has(bId) || used.has(aId)) continue;
+        const bUrl = urlOf(b), aUrl = urlOf(a);
+        if (!bUrl || !aUrl) continue;
+        used.add(bId); used.add(aId);
+        out.push({
+          location: labelFor(k, b, a),
+          before: { url: bUrl },
+          after:  { url: aUrl },
+        });
+      }
+    }
+
+    // Tier 1: location.
+    {
+      const bMap = bestByKey(beforePhotos, (p) => normKey(locOf(p)), true,  used);
+      const aMap = bestByKey(afterPhotos,  (p) => normKey(locOf(p)), false, used);
+      tryTier(bMap, aMap, (k, b) => locOf(b) || k);
+    }
+    // Tier 2: damage type.
+    if (out.length < 8) {
+      const bMap = bestByKey(beforePhotos, (p) => normKey(dmgOf(p)), true,  used);
+      const aMap = bestByKey(afterPhotos,  (p) => normKey(dmgOf(p)), false, used);
+      tryTier(bMap, aMap, (k) => 'Damage: ' + k.replace(/_/g, ' '));
+    }
+    // Tier 3: chronological overview if we still have <2 pairs.
+    if (out.length < 2) {
+      const remBefore = beforePhotos.filter(p => !used.has(idOf(p)))
+        .sort((x, y) => ms(x) - ms(y));
+      const remAfter  = afterPhotos.filter(p => !used.has(idOf(p)))
+        .sort((x, y) => ms(y) - ms(x));
+      const b = remBefore[0], a = remAfter[0];
+      if (b && a) {
+        const bUrl = urlOf(b), aUrl = urlOf(a);
+        if (bUrl && aUrl) {
+          out.push({
+            location: 'Project overview',
+            before: { url: bUrl },
+            after:  { url: aUrl },
+          });
+        }
+      }
+    }
+    return out.slice(0, 8);
+  }
+
   function buildReportHTML(lead, name, before, during, after, dateStr, hasPhases, mode) {
     const isAdjuster = mode === 'adjuster';
 
@@ -617,33 +721,11 @@
     };
     const shape = (arr) => (arr || []).map(shapePhoto).filter(Boolean);
 
-    // Auto-pair before/after by location (same rule as D-2.7's helper)
-    const pairs = (function () {
-      const byLoc = new Map();
-      (allPhotos || []).forEach((p) => {
-        const loc = (p.location || '').trim();
-        if (!loc) return;
-        const phase = String(p.phase || '').toLowerCase();
-        if (phase !== 'before' && phase !== 'after') return;
-        if (!byLoc.has(loc)) byLoc.set(loc, { before: null, after: null });
-        const slot = byLoc.get(loc);
-        const ms = (p.createdAt && (p.createdAt.toMillis ? p.createdAt.toMillis() : (p.createdAt.seconds ? p.createdAt.seconds * 1000 : 0))) || 0;
-        if (phase === 'before') {
-          if (!slot.before || ms > slot.before._ms) slot.before = Object.assign({}, p, { _ms: ms });
-        } else {
-          if (!slot.after || ms > slot.after._ms) slot.after = Object.assign({}, p, { _ms: ms });
-        }
-      });
-      const out = [];
-      byLoc.forEach((slot, loc) => {
-        if (!slot.before || !slot.after) return;
-        const bUrl = (slot.before.urls && (slot.before.urls.lg || slot.before.urls.md)) || slot.before.url;
-        const aUrl = (slot.after.urls  && (slot.after.urls.lg  || slot.after.urls.md))  || slot.after.url;
-        if (!bUrl || !aUrl) return;
-        out.push({ location: loc, before: { url: bUrl }, after: { url: aUrl } });
-      });
-      return out.slice(0, 8);
-    })();
+    // Auto-pair before/after — three-tier heuristic (§3.1).
+    // Tier 1: normalized location → Tier 2: damageType → Tier 3:
+    // chronological "Project overview" when <2 pairs found. See
+    // _buildPairs at the top of this module for the full picker logic.
+    const pairs = _buildPairs(allPhotos);
 
     const beforeShaped = shape(before);
     const duringShaped = shape(during);
@@ -735,5 +817,9 @@
   }
 
   window.generatePhotoReport = generatePhotoReport;
+  // Exposed for smoke + future Playwright coverage. Pure function —
+  // takes an array of photo docs, returns up to 8 {location, before,
+  // after} pair objects. No DOM, no Firebase, safe to unit-test.
+  window._buildPhotoReportPairs = _buildPairs;
 
 })();
