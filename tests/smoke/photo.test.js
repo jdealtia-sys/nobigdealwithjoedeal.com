@@ -324,4 +324,55 @@ section('Photos §2.3: review UI handles daily-cap reason explicitly');
     'expected photo-review.html listener to branch on daily-cap reason');
 }
 
+section('Photos §3.1: three-tier before/after pairing heuristic');
+{
+  const pr = read(path.join(ROOT, 'docs/pro/js/photo-report.js'));
+
+  // _buildPairs replaces the inline IIFE. Exposing it on window keeps
+  // it unit-testable (no DOM, no Firebase deps).
+  assert('photo-report defines a module-scoped _buildPairs(allPhotos)',
+    /function _buildPairs\(allPhotos\)/.test(pr));
+  assert('_buildPairs is exposed on window for testing',
+    /window\._buildPhotoReportPairs\s*=\s*_buildPairs/.test(pr));
+  assert('_tryServerRenderPhotoReport now calls _buildPairs (no inline IIFE)',
+    /const pairs\s*=\s*_buildPairs\(allPhotos\)/.test(pr));
+  // The old inline byLoc map is gone — make sure we didn't leave both
+  // implementations in the file.
+  assert('inline IIFE pairing block was removed',
+    !/const pairs\s*=\s*\(function\s*\(\)\s*\{[\s\S]{0,500}byLoc/.test(pr));
+
+  // ── Heuristic structure ──
+  // Normalization: lowercase + first comma-segment, so "North slope,
+  // ridge" and "north slope" hit the same bucket.
+  assert('normKey lowercases and takes first comma-segment',
+    /toLowerCase\(\)\s*\.\s*split\(\s*['"],['"]\s*\)\s*\[\s*0\s*\]\s*\.\s*trim\(\)/.test(pr));
+
+  // BEFORE picks earliest createdAt (worst pre-state), AFTER picks
+  // latest (final completed state). Encoded as `pickEarliest` arg.
+  assert('bestByKey takes a pickEarliest boolean',
+    /function bestByKey\(photos,\s*keyFn,\s*pickEarliest/.test(pr));
+  assert('beforePhotos call passes pickEarliest=true',
+    /bestByKey\(beforePhotos[\s\S]{0,200}true/.test(pr));
+  assert('afterPhotos call passes pickEarliest=false',
+    /bestByKey\(afterPhotos[\s\S]{0,200}false/.test(pr));
+
+  // Three tiers labeled in source so a future reader can find them.
+  assert('Tier 1 (location) present',
+    /Tier 1:\s*location/i.test(pr));
+  assert('Tier 2 (damage type) present',
+    /Tier 2:\s*damage type/i.test(pr));
+  assert('Tier 3 (chronological / Project overview) present',
+    /Tier 3[\s\S]{0,300}Project overview/.test(pr));
+
+  // Pairs cap at 8 (template hard limit) and dedupe via a `used` set
+  // so photos consumed in tier 1 don't get re-paired in tier 2.
+  assert('pairs cap at 8',
+    /return out\.slice\(0,\s*8\)/.test(pr));
+  assert('used set excludes already-paired photos across tiers',
+    /const used\s*=\s*new Set\(\)/.test(pr)
+    && /used\.has\([a-zA-Z]+\)/.test(pr));
+  assert('Tier 3 only fires when fewer than 2 pairs found',
+    /out\.length\s*<\s*2/.test(pr));
+}
+
 };
