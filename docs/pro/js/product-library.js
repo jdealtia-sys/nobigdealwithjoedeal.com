@@ -201,7 +201,7 @@
       const count = products.filter(p => p.isActive !== false && p.category === id).length;
       if (count === 0) return '';
       const isActive = currentFilter.category === id;
-      return `<button onclick="window._productLib.setFilter('${id}')" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:2px solid ${isActive ? cat.color : 'var(--br)'};background:${isActive ? cat.color + '18' : 'var(--s)'};color:${isActive ? cat.color : 'var(--t)'};cursor:pointer;font-size:12px;font-weight:${isActive?'600':'500'};white-space:nowrap;">${cat.icon} ${cat.label} <span style="background:${isActive ? cat.color : 'var(--br)'};color:${isActive?'#fff':'var(--m)'};border-radius:10px;padding:1px 7px;font-size:11px;">${count}</span></button>`;
+      return `<button data-pl-action="setFilter" data-pl-id="${id}" style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:2px solid ${isActive ? cat.color : 'var(--br)'};background:${isActive ? cat.color + '18' : 'var(--s)'};color:${isActive ? cat.color : 'var(--t)'};cursor:pointer;font-size:12px;font-weight:${isActive?'600':'500'};white-space:nowrap;">${cat.icon} ${cat.label} <span style="background:${isActive ? cat.color : 'var(--br)'};color:${isActive?'#fff':'var(--m)'};border-radius:10px;padding:1px 7px;font-size:11px;">${count}</span></button>`;
     }).join('');
 
     // Product cards by category (collapsible accordion)
@@ -212,7 +212,7 @@
       const chevron = isCollapsed ? '▸' : '▾';
       productsHtml += `
         <div style="margin-bottom:28px;">
-          <div onclick="window._productLib.toggleCategory('${catId}')" style="display:flex;align-items:center;gap:8px;margin-bottom:${isCollapsed ? '0' : '12'}px;cursor:pointer;user-select:none;padding:8px 12px;background:var(--s);border-radius:8px;border:1px solid var(--br);transition:all .15s;" onmouseenter="this.style.background='var(--s2)'" onmouseleave="this.style.background='var(--s)'">
+          <div data-pl-action="toggleCategory" data-pl-id="${catId}" style="display:flex;align-items:center;gap:8px;margin-bottom:${isCollapsed ? '0' : '12'}px;cursor:pointer;user-select:none;padding:8px 12px;background:var(--s);border-radius:8px;border:1px solid var(--br);transition:all .15s;">
             <span style="font-size:14px;color:var(--m);font-weight:700;width:16px;text-align:center;">${chevron}</span>
             <span style="font-size:20px;">${catIcon(catId)}</span>
             <h3 style="margin:0;font-size:16px;font-weight:700;color:${catColor(catId)};flex:1;">${catLabel(catId)}</h3>
@@ -271,8 +271,8 @@
             <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px solid var(--br);">
               <div style="font-size:12px;color:var(--m);"><strong>Gross Profit <span style="font-weight:400;opacity:.7;">(${TIER_LABELS[tierForMargin]})</span>:</strong> <span style="color:${m >= 40 ? '#10b981' : m >= 25 ? '#f59e0b' : '#ef4444'};font-weight:700;">${formatCurrency(sellPrice - myCost)}/${p.unit} (${m}%)</span></div>
               <div style="display:flex;gap:6px;">
-                <button onclick="window._productLib.editProduct('${p.id}')" style="padding:5px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Edit</button>
-                <button onclick="window._productLib.archiveProduct('${p.id}')" style="padding:5px 10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;">Archive</button>
+                <button data-pl-action="editProduct" data-pl-id="${p.id}" style="padding:5px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Edit</button>
+                <button data-pl-action="archiveProduct" data-pl-id="${p.id}" style="padding:5px 10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;">Archive</button>
               </div>
             </div>
           </div>
@@ -291,9 +291,9 @@
             <p style="margin:6px 0 0;font-size:13px;color:var(--m);">Materials, labor, and pricing for your estimates — ${activeCount} products across ${categoryCount} categories</p>
           </div>
           <div style="display:flex;gap:8px;">
-            <button onclick="window._productLib.addProduct()" style="padding:8px 16px;background:#e8720c;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Add Product</button>
-            <button onclick="window._productLib.exportCSV()" style="padding:8px 14px;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;">Export CSV</button>
-            <button onclick="window._productLib.resetDefaults()" style="padding:8px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;">Reset</button>
+            <button data-pl-action="addProduct" style="padding:8px 16px;background:#e8720c;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">+ Add Product</button>
+            <button data-pl-action="exportCSV" style="padding:8px 14px;background:#10b981;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;">Export CSV</button>
+            <button data-pl-action="resetDefaults" style="padding:8px 14px;background:#ef4444;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500;font-size:13px;">Reset</button>
           </div>
         </div>
 
@@ -325,16 +325,16 @@
 
           <!-- Tier Filter Buttons -->
           <div style="display:flex;gap:6px;margin-bottom:12px;">
-            <button onclick="window._productLib.setTierFilter(null)" style="flex:1;padding:8px 12px;border-radius:8px;border:2px solid ${!currentFilter.tier ? '#e8720c' : 'var(--br)'};background:${!currentFilter.tier ? '#e8720c18' : 'var(--s)'};color:${!currentFilter.tier ? '#e8720c' : 'var(--m)'};cursor:pointer;font-size:12px;font-weight:600;">All Tiers</button>
+            <button data-pl-action="setTierFilter" data-pl-id="" style="flex:1;padding:8px 12px;border-radius:8px;border:2px solid ${!currentFilter.tier ? '#e8720c' : 'var(--br)'};background:${!currentFilter.tier ? '#e8720c18' : 'var(--s)'};color:${!currentFilter.tier ? '#e8720c' : 'var(--m)'};cursor:pointer;font-size:12px;font-weight:600;">All Tiers</button>
             ${TIERS.map(t => {
               const isActive = currentFilter.tier === t;
-              return `<button onclick="window._productLib.setTierFilter('${t}')" style="flex:1;padding:8px 12px;border-radius:8px;border:2px solid ${isActive ? TIER_COLORS[t] : 'var(--br)'};background:${isActive ? TIER_COLORS[t]+'18' : 'var(--s)'};color:${isActive ? TIER_COLORS[t] : 'var(--m)'};cursor:pointer;font-size:12px;font-weight:600;">${TIER_LABELS[t]}</button>`;
+              return `<button data-pl-action="setTierFilter" data-pl-id="${t}" style="flex:1;padding:8px 12px;border-radius:8px;border:2px solid ${isActive ? TIER_COLORS[t] : 'var(--br)'};background:${isActive ? TIER_COLORS[t]+'18' : 'var(--s)'};color:${isActive ? TIER_COLORS[t] : 'var(--m)'};cursor:pointer;font-size:12px;font-weight:600;">${TIER_LABELS[t]}</button>`;
             }).join('')}
           </div>
 
           <!-- Category Filter Pills -->
           <div style="display:flex;flex-wrap:wrap;gap:6px;">
-            <button onclick="window._productLib.setFilter(null)" style="padding:6px 12px;border-radius:20px;border:2px solid ${!currentFilter.category ? '#e8720c' : 'var(--br)'};background:${!currentFilter.category ? '#e8720c18' : 'var(--s)'};color:${!currentFilter.category ? '#e8720c' : 'var(--t)'};cursor:pointer;font-size:12px;font-weight:${!currentFilter.category?'600':'500'};">All (${activeCount})</button>
+            <button data-pl-action="setFilter" data-pl-id="" style="padding:6px 12px;border-radius:20px;border:2px solid ${!currentFilter.category ? '#e8720c' : 'var(--br)'};background:${!currentFilter.category ? '#e8720c18' : 'var(--s)'};color:${!currentFilter.category ? '#e8720c' : 'var(--t)'};cursor:pointer;font-size:12px;font-weight:${!currentFilter.category?'600':'500'};">All (${activeCount})</button>
             ${catPills}
           </div>
         </div>
@@ -373,7 +373,7 @@
       <div style="background:var(--s);border-radius:12px;width:95%;max-width:680px;max-height:92vh;overflow-y:auto;padding:24px;box-shadow:0 20px 40px rgba(0,0,0,.2);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
           <h2 style="margin:0;font-size:20px;font-weight:700;color:var(--t);">${p ? 'Edit Product' : 'Add Product'}</h2>
-          <button onclick="window._productLib.closeModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--m);padding:4px 8px;">×</button>
+          <button data-pl-action="closeModal" style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--m);padding:4px 8px;">×</button>
         </div>
 
         <div style="display:grid;gap:16px;">
@@ -495,10 +495,10 @@
 
           <!-- Actions -->
           <div style="display:flex;justify-content:space-between;padding-top:12px;border-top:1px solid var(--br);">
-            ${p ? '<button onclick="window._productLib.deleteFromModal()" style="padding:8px 16px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">Delete</button>' : '<div></div>'}
+            ${p ? '<button data-pl-action="deleteFromModal" style="padding:8px 16px;background:#ef4444;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;">Delete</button>' : '<div></div>'}
             <div style="display:flex;gap:8px;">
-              <button onclick="window._productLib.closeModal()" style="padding:8px 16px;background:var(--s2);color:var(--t);border:none;border-radius:6px;cursor:pointer;font-size:13px;">Cancel</button>
-              <button onclick="window._productLib.saveFromModal()" style="padding:8px 20px;background:#e8720c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">${p ? 'Update' : 'Add Product'}</button>
+              <button data-pl-action="closeModal" style="padding:8px 16px;background:var(--s2);color:var(--t);border:none;border-radius:6px;cursor:pointer;font-size:13px;">Cancel</button>
+              <button data-pl-action="saveFromModal" style="padding:8px 20px;background:#e8720c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:13px;">${p ? 'Update' : 'Add Product'}</button>
             </div>
           </div>
         </div>
