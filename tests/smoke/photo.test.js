@@ -526,6 +526,69 @@ section('Photos §3.1: three-tier before/after pairing heuristic');
     /out\.length\s*===\s*0/.test(pr));
 }
 
+section('NBDUrl helper: canonical customer URL builder');
+{
+  const helper = read(path.join(ROOT, 'docs/pro/js/nbd-url.js'));
+  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const dashboard = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dashActions = read(path.join(ROOT, 'docs/pro/js/dashboard-actions.js'));
+  const photoReview = read(path.join(ROOT, 'docs/pro/photo-review.html'));
+
+  // ── Helper file exists and exposes the right surface ──
+  assert('nbd-url.js defines window.NBDUrl',
+    /window\.NBDUrl\s*=\s*\{/.test(helper));
+  assert('NBDUrl.customer(id) builds /pro/customer.html?id=<encoded>',
+    /function customer\(id\)[\s\S]{0,300}\/pro\/customer\.html\?id='\s*\+\s*encodeURIComponent\(id\)/.test(helper));
+  assert('NBDUrl.photoReview(id) builds /pro/photo-review.html?id=<encoded>',
+    /function photoReview\(id\)[\s\S]{0,300}\/pro\/photo-review\.html\?id='\s*\+\s*encodeURIComponent\(id\)/.test(helper));
+  assert('NBDUrl validates id (rejects empty/non-string)',
+    /function _valid\(id\)[\s\S]{0,200}typeof id\s*===\s*['"]string['"][\s\S]{0,80}id\.length\s*>\s*0/.test(helper));
+
+  // ── Both consuming pages load the helper ──
+  assert('customer.html loads nbd-url.js',
+    /<script\s+defer\s+src="js\/nbd-url\.js/.test(customer));
+  assert('dashboard.html loads nbd-url.js',
+    /<script\s+defer\s+src="js\/nbd-url\.js/.test(dashboard));
+  // dashboard.html must load nbd-url.js BEFORE dashboard-actions.js
+  // (actions.js calls NBDUrl.customer). Both are defer, defer order
+  // is document order, so nbd-url.js needs to come first in source.
+  assert('dashboard.html loads nbd-url.js BEFORE dashboard-actions.js',
+    /nbd-url\.js[\s\S]{0,500}dashboard-actions\.js/.test(dashboard),
+    'expected the nbd-url.js script tag to appear before dashboard-actions.js');
+
+  // ── Zero raw bad-pattern literals in source ──
+  // customer.html?lead= was always broken (customer.html reads ?id=).
+  // It must not appear anywhere except in comments/docstrings.
+  const badCustomerLead = (customer.match(/customer\.html\?lead=/g) || [])
+    .concat(dashActions.match(/customer\.html\?lead=/g) || []);
+  assert('zero raw "customer.html?lead=" literals in source',
+    badCustomerLead.length === 0,
+    'expected 0 occurrences, got ' + badCustomerLead.length);
+
+  // photo-review.html?lead= still works as a URL (page accepts it),
+  // but new code shouldn't emit it. Allow the page itself to keep
+  // its fallback parsing logic; just check no caller emits it.
+  const inlinePhotoReviewLead = (customer.match(/photo-review\.html\?lead=/g) || [])
+    .concat(dashActions.match(/photo-review\.html\?lead=/g) || []);
+  assert('zero raw "photo-review.html?lead=" literals in caller code',
+    inlinePhotoReviewLead.length === 0,
+    'expected callers to use NBDUrl.photoReview() or `?id=`, got ' + inlinePhotoReviewLead.length);
+
+  // ── photo-review.html keeps accepting BOTH ?lead= and ?id= ──
+  // Old Slack links / bookmarks must keep working. Page-level parsing
+  // stays back-compat even after we standardize callers on ?id=.
+  assert('photo-review.html still accepts ?lead= (back-compat)',
+    /params\.get\(\s*['"]lead['"]\s*\)\s*\|\|\s*params\.get\(\s*['"]id['"]\s*\)/.test(photoReview)
+    || /params\.get\(\s*['"]id['"]\s*\)\s*\|\|\s*params\.get\(\s*['"]lead['"]\s*\)/.test(photoReview),
+    'expected photo-review.html to read both lead and id (with ||)');
+
+  // ── Callers use the helper (with a string fallback for safety) ──
+  assert('customer.html click handler uses NBDUrl.photoReview',
+    /window\.NBDUrl\s*&&\s*window\.NBDUrl\.photoReview\(id\)/.test(customer));
+  assert('dashboard-actions.js uses NBDUrl.customer',
+    /window\.NBDUrl\s*&&\s*window\.NBDUrl\.customer\(id\)/.test(dashActions));
+}
+
 section('customer.html: prReviewBtn reads window._customerId at click time (no defer-race)');
 {
   const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
@@ -545,7 +608,8 @@ section('customer.html: prReviewBtn reads window._customerId at click time (no d
   assert('click handler prevents default when customer ID missing',
     /prReviewBtn[\s\S]{0,1500}e\.preventDefault\(\)[\s\S]{0,300}if\s*\(\s*!id\s*\)/.test(customer));
   assert('click handler navigates via window.location.href when ID present',
-    /prReviewBtn[\s\S]{0,2000}window\.location\.href\s*=\s*['"]photo-review\.html\?lead=/.test(customer));
+    /prReviewBtn[\s\S]{0,2500}window\.location\.href\s*=\s*\(?\s*(?:window\.NBDUrl|['"]photo-review\.html\?id=)/.test(customer),
+    'expected click handler to navigate via NBDUrl.photoReview(id) (or literal photo-review.html?id= fallback)');
   // The old render-time wire() pattern with setTimeout fallbacks
   // shouldn't return. The hook on prReviewBtn should be the click
   // handler, not href mutation.

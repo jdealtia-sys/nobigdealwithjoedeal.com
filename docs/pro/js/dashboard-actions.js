@@ -1069,7 +1069,8 @@ function _mJdShare() {
   // otherwise the customer-page URL with leadId.
   const portal = lead.portalShortUrl || lead.portalUrl
     || (lead.portalToken
-        ? location.origin + '/pro/customer.html?lead=' + encodeURIComponent(id)
+        ? location.origin + ((window.NBDUrl && window.NBDUrl.customer(id))
+            || ('/pro/customer.html?id=' + encodeURIComponent(id)))
             + '&t=' + encodeURIComponent(lead.portalToken)
         : '');
   const text = lead.address ? (name + ' — ' + lead.address) : name;
