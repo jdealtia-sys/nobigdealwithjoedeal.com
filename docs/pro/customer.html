@@ -6728,6 +6728,7 @@ window.showPhotoActions = function(idx, event) {
     '</div>' +
     
     '<div style="display:flex;gap:8px;">' +
+    '<button data-action="_previewPhotoFromPopup" data-arg="' + idx + '" style="flex:2;padding:10px;background:rgba(255,255,255,.08);color:var(--text,#fff);border:1px solid var(--br,#334155);border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">👁 Preview</button>' +
     '<button data-action="_openPhotoInEditorAndClose" data-arg="' + idx + '" style="flex:2;padding:10px;background:var(--orange);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Open Editor</button>' +
     '<button data-action="deletePhoto" data-arg="' + photo.id + '" style="flex:1;padding:10px;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Delete</button>' +
     '</div>';
@@ -7041,6 +7042,20 @@ function _openPhotoInEditorAndClose(idx) {
   if (typeof openPhotoInEditor === 'function') openPhotoInEditor(+idx);
   _closePhotoActionPopup();
 }
+function _previewPhotoFromPopup(idx) {
+  // Preview = "just look at the photo at full size." The action popup
+  // (showPhotoActions) handled phase/damage/severity edits + Open
+  // Editor + Delete, but had no plain "view it bigger" affordance.
+  // openPhotoLightbox is the simple <div id="lightbox"> viewer already
+  // defined further down; we just hand it the URL + description and
+  // close the popup so the user sees the image fullscreen.
+  var photo = (window._allPhotos || [])[+idx];
+  if (!photo) return;
+  if (typeof openPhotoLightbox === 'function') {
+    openPhotoLightbox(photo.url, photo.description || '');
+  }
+  _closePhotoActionPopup();
+}
 function _sendReferralCodeAndSms() {
   if (!window.ReviewEngine || !window._customerId) return;
   ReviewEngine.assignReferralCode(window._customerId).then(function (c) {
@@ -7067,6 +7082,7 @@ window._closePhotoActionPopup        = _closePhotoActionPopup;
 window._triggerFileInput             = _triggerFileInput;
 window._openInDashboardEstimate      = _openInDashboardEstimate;
 window._openPhotoInEditorAndClose    = _openPhotoInEditorAndClose;
+window._previewPhotoFromPopup        = _previewPhotoFromPopup;
 window._sendReferralCodeAndSms       = _sendReferralCodeAndSms;
 window._applyBulkPhotoUpdateAndReset = _applyBulkPhotoUpdateAndReset;
 window._handleFileSelectFromEl       = _handleFileSelectFromEl;
