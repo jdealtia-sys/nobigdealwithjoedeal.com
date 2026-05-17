@@ -324,4 +324,65 @@ section('Photos §2.3: review UI handles daily-cap reason explicitly');
     'expected photo-review.html listener to branch on daily-cap reason');
 }
 
+section('Photos §3.3 phase 1: photo-engine TOC + section markers');
+{
+  const pe = read(path.join(ROOT, 'docs/pro/js/photo-engine.js'));
+
+  // Top-of-file TOC: maintainers should find the section map and
+  // public API listed at the top without scrolling.
+  assert('header TOC lists section ranges',
+    /Sections \(rough line ranges/.test(pe),
+    'expected "Sections (rough line ranges" header in the file doc-block');
+  assert('header documents Public API (window.PhotoEngine surface)',
+    /Public API \(window\.PhotoEngine\)/.test(pe));
+  assert('header documents State shape',
+    /State shape[\s\S]{0,400}currentPreset[\s\S]{0,200}cameraStream/.test(pe));
+  assert('header documents load-order requirement (Firebase init)',
+    /Load order requirement/.test(pe) && /Firebase SDK/.test(pe));
+  assert('header lists each major related photo module',
+    /photo-ai-classifier\.js/.test(pe)
+    && /photo-ai\.js/.test(pe)
+    && /photo-report\.js/.test(pe)
+    && /photo-editor\.js/.test(pe)
+    && /photo-smart-ingest\.js/.test(pe));
+
+  // ── Section markers: every concern called out in the TOC should
+  // also be findable via a `// ════` divider in the body.
+  // Existing markers covered: STYLES, UTILITY FUNCTIONS, CAMERA CAPTURE,
+  // PREVIEW & TAGGING, FIREBASE UPLOAD, GALLERY & BROWSER, LIGHTBOX,
+  // FIRESTORE QUERIES, STAGING & REPORT, PUBLIC API.
+  // §3.3 phase 1 adds dividers for TAG SYSTEM, QUALITY PRESETS, STATE.
+  const expectedSections = [
+    'TAG SYSTEM',
+    'QUALITY PRESETS',
+    'STATE',
+    'STYLES',
+    'UTILITY FUNCTIONS',
+    'CAMERA CAPTURE',
+    'PREVIEW & TAGGING',
+    'FIREBASE UPLOAD',
+    'GALLERY & BROWSER',
+    'LIGHTBOX',
+    'FIRESTORE QUERIES',
+    'STAGING & REPORT',
+    'PUBLIC API',
+  ];
+  for (const label of expectedSections) {
+    // Each label should appear immediately after a `// ════` line.
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp('//\\s*={5,}[\\s\\S]{0,5}\\s*//\\s*' + escaped + '\\b');
+    assert("section '" + label + "' has a `// ════` divider",
+      re.test(pe),
+      'expected ' + label + ' to be preceded by a // ============ divider');
+  }
+
+  // Sub-marker for the AI auto-tag helper inside FIREBASE UPLOAD —
+  // the helper that bridges per-upload writes to the Haiku classifier.
+  // Easy to lose in a 1700-line file; the MARK comment makes it
+  // jump-to-able.
+  assert('AI auto-tag has a MARK: sub-marker',
+    /MARK:\s*AI auto-tag/.test(pe),
+    'expected a "MARK: AI auto-tag" sub-section header');
+}
+
 };
