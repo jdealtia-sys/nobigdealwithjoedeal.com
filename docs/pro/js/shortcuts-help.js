@@ -75,7 +75,9 @@
   function openPanel() {
     const p = panelEl();
     if (!p) return;
-    p.style.display = '';
+    // Set explicit display:flex — CSS default is now `display:none` so an
+    // empty inline value would leave the panel hidden.
+    p.style.display = 'flex';
   }
 
   function closePanel() {

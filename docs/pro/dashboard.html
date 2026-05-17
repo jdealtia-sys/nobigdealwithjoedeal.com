@@ -997,7 +997,12 @@ body:has(#view-prospects.active) .breadcrumb-container{
   font-size:14px;
 }
 
-/* KEYBOARD SHORTCUTS PANEL */
+/* KEYBOARD SHORTCUTS PANEL
+   Default hidden so the panel doesn't blanket the dashboard on every page
+   load (the .dn utility class has equal specificity and was losing to this
+   block because it loads earlier — making the panel always-visible until
+   the user dismissed it, blocking every click underneath). openPanel() now
+   sets `display:flex` explicitly. */
 .shortcuts-panel{
   position:fixed;
   top:0;
@@ -1005,7 +1010,7 @@ body:has(#view-prospects.active) .breadcrumb-container{
   right:0;
   bottom:0;
   z-index:10001;
-  display:flex;
+  display:none;
   align-items:center;
   justify-content:center;
   padding:40px;
