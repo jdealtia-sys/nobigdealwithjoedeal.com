@@ -367,7 +367,7 @@ exports.analyzeRoofPhoto = onRequest(
 
       // Call Claude (Sonnet for better vision accuracy on small details)
       const anthropicBody = {
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 800,
         system: ROOF_ANALYSIS_SYSTEM_PROMPT,
         messages: [{

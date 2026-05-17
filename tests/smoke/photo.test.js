@@ -228,4 +228,50 @@ section('Phase B.1 — AI Vision auto-tag on photo upload');
     'expected @keyframes pe-ai-chip-pulse');
 }
 
+section('Photos Tier-1: photo-report uses variants + escapes scope-of-work');
+{
+  const pr = read(path.join(ROOT, 'docs/pro/js/photo-report.js'));
+
+  // §1.1 — _imgAttrs helper replicates buildPhotoImgAttrs locally since
+  // the report renders in a popped-out doc without access to window.*.
+  assert('photo-report defines a local _imgAttrs(p, sizes) helper',
+    /function _imgAttrs\(p,\s*sizes\)/.test(pr),
+    'expected _imgAttrs(p, sizes) helper in photo-report.js');
+  assert('_imgAttrs emits srcset 200w/600w/1600w when variants present',
+    /200w[\s\S]{0,80}600w[\s\S]{0,80}1600w/.test(pr));
+  assert('_imgAttrs falls back to primary url when variants missing',
+    /if \(!hasVariants\)[\s\S]{0,200}src="' \+ _esc\(primary\)/.test(pr));
+
+  // Both tile renderers route through _imgAttrs — no raw _esc(p.url)
+  // single-source images left in either grid.
+  assert('adjuster tile uses _imgAttrs with 180px hint',
+    /<img ' \+ _imgAttrs\(p,\s*'180px'\)/.test(pr));
+  assert('homeowner tile uses _imgAttrs with 220px hint',
+    /<img ' \+ _imgAttrs\(p,\s*'220px'\)/.test(pr));
+  assert('photo-report no longer emits raw <img src=_esc(p.url) in tiles',
+    !/'<img src="'\s*\+\s*_esc\(p\.url\)/.test(pr),
+    'expected zero raw single-resolution <img src=_esc(p.url) tile renderers');
+
+  // §1.2 — XSS plug: scopeOfWork must flow through _esc().
+  assert('scopeOfWork is escaped before injection',
+    /_esc\(lead\.scopeOfWork\)/.test(pr),
+    'expected ${_esc(lead.scopeOfWork)} in Work Performed section');
+  assert('scopeOfWork is not injected raw',
+    !/\$\{lead\.scopeOfWork\}/.test(pr),
+    'expected zero unescaped ${lead.scopeOfWork} interpolations');
+}
+
+section('Photos Tier-1: analyzeRoofPhoto pins current Sonnet build');
+{
+  const src = read(path.join(FUNCTIONS, 'handlers/photo.js'));
+  // §1.4 — bump off the May 2025 dated Sonnet. The handler builds the
+  // Anthropic body inline (no allowlist gate), so this is isolated.
+  assert('analyzeRoofPhoto uses claude-sonnet-4-6',
+    /model:\s*'claude-sonnet-4-6'/.test(src),
+    'expected analyzeRoofPhoto to pin model: claude-sonnet-4-6');
+  assert('analyzeRoofPhoto no longer pins claude-sonnet-4-20250514',
+    !/'claude-sonnet-4-20250514'/.test(src),
+    'expected the stale Sonnet pin to be gone from photo.js');
+}
+
 };
