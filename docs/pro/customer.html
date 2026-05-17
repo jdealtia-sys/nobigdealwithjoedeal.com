@@ -917,6 +917,15 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   transform: translateY(-2px);
 }
 
+/* Photo-upload dashed dropzone (the "+ Drag and drop photos here"
+   box under photos-by-phase). Same migration as above — replaces
+   the inline onmouseover/onmouseout that bumped border-color on
+   hover. Targets the data-action="openUploadModal" element since
+   the dropzone is the sole instance and it carries that attr. */
+[data-action="openUploadModal"]:hover {
+  border-color: var(--orange);
+}
+
 </style>
   <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/customer">
 <link rel="stylesheet" href="css/photo-editor.css?v=3">
@@ -934,7 +943,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
        doesn't want their personal theme (synthwave / vaporwave / etc.)
        leaking through. Toggle persists per-session so a rep who flips
        it on for a walkthrough stays in light mode through tab switches. -->
-  <button id="presentationModeBtn" class="back-btn" onclick="window.togglePresentationMode && window.togglePresentationMode()" title="Switch to light brand view for in-person walkthroughs" aria-pressed="false" style="margin-right:8px;">
+  <button id="presentationModeBtn" class="back-btn" data-action="togglePresentationMode" title="Switch to light brand view for in-person walkthroughs" aria-pressed="false" style="margin-right:8px;">
     🎤 Presentation
   </button>
   <a href="dashboard.html" class="back-btn">
@@ -1047,29 +1056,29 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <a class="btn" id="callLink" href="tel:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><path d="M4 3h3l2 4-2.5 1.5A9 9 0 0011.5 13.5L13 11l4 2v3a1 1 0 01-1 1C8.4 17 3 11.6 3 4a1 1 0 011-1z"/></svg> Call</a>
       <a class="btn" id="smsBookingLink" href="sms:" style="display:none;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg> Book Inspection</a>
       <a class="btn" id="emailLink" href="mailto:"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;vertical-align:middle;"><rect x="2" y="4" width="16" height="12" rx="1.5"/><path d="M2 6l8 5 8-5"/></svg> Email</a>
-      <button class="btn" onclick="copyBookingLink()" id="copyBookingBtn" title="Copy booking link to clipboard" style="display:none;">
+      <button class="btn" data-action="copyBookingLink" id="copyBookingBtn" title="Copy booking link to clipboard" style="display:none;">
         📋 Copy Booking Link
       </button>
-      <button class="btn" onclick="exportCustomerPDF()" title="Export customer report as PDF">
+      <button class="btn" data-action="exportCustomerPDF" title="Export customer report as PDF">
         📄 Export PDF
       </button>
-      <button class="btn" onclick="openEditCustomerModal()" title="Edit customer information" style="border-color:var(--orange);color:var(--orange);">
+      <button class="btn" data-action="openEditCustomerModal" title="Edit customer information" style="border-color:var(--orange);color:var(--orange);">
         ✏️ Edit Info
       </button>
-      <button class="btn btn-orange" id="stageProgressBtn" style="display:none;" onclick="progressStage()">
+      <button class="btn btn-orange" id="stageProgressBtn" style="display:none;" data-action="progressStage">
         → Move to Next Stage
       </button>
       <!-- Wave 40: one-click copy of the Full Project Portal link.
            Auto-generates if missing, copies to clipboard, toasts.
            Falls back to opening the share panel on hard failure. -->
-      <button class="btn btn-orange" id="quickCopyPortalBtn" onclick="window.quickCopyPortalLink && window.quickCopyPortalLink()"
+      <button class="btn btn-orange" id="quickCopyPortalBtn" data-action="quickCopyPortalLink"
         title="Generate (if needed) and copy the customer portal link in one click">
         📋 Copy Portal Link
       </button>
       <!-- Wave 41: SMS variant — opens the device's native SMS
            composer with the portal link + a friendly greeting
            pre-filled, addressed to the customer's phone. -->
-      <button class="btn" id="quickSmsPortalBtn" onclick="window.quickSmsPortalLink && window.quickSmsPortalLink()"
+      <button class="btn" id="quickSmsPortalBtn" data-action="quickSmsPortalLink"
         title="Open SMS composer with the portal link pre-filled to the customer">
         💬 Text Portal Link
       </button>
@@ -1077,7 +1086,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
            with subject + body pre-filled to the customer's email
            address. Completes the trio of share methods alongside
            Copy (W40) and Text (W41). -->
-      <button class="btn" id="quickEmailPortalBtn" onclick="window.quickEmailPortalLink && window.quickEmailPortalLink()"
+      <button class="btn" id="quickEmailPortalBtn" data-action="quickEmailPortalLink"
         title="Open email composer with the portal link pre-filled to the customer">
         📧 Email Portal Link
       </button>
@@ -1085,18 +1094,18 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
            homeowner will see before sharing. Quality assurance
            UX so reps catch missing photos / wrong status before
            the link goes out. -->
-      <button class="btn" id="quickPreviewPortalBtn" onclick="window.quickPreviewPortalLink && window.quickPreviewPortalLink()"
+      <button class="btn" id="quickPreviewPortalBtn" data-action="quickPreviewPortalLink"
         title="Open the portal in a preview window — see what the customer will see">
         🔍 Preview Portal
       </button>
-      <button class="btn" onclick="openGallerySharePanel()" title="Generate or view shareable customer gallery link">
+      <button class="btn" data-action="openGallerySharePanel" title="Generate or view shareable customer gallery link">
         🔗 Share Portal
       </button>
       <!-- Customer Sharing Panel — dual portals -->
       <div id="gallerySharePanel" style="display:none;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:14px;margin-top:10px;width:100%;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);">Customer Sharing</span>
-          <button class="btn btn-ghost" style="font-size:9px;padding:3px 8px;margin-left:auto;" onclick="document.getElementById('gallerySharePanel').style.display='none'">Close</button>
+          <button class="btn btn-ghost" style="font-size:9px;padding:3px 8px;margin-left:auto;" data-action="_closeGallerySharePanel">Close</button>
         </div>
 
         <!-- Photo Portal -->
@@ -1105,9 +1114,9 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
           <div style="font-size:10px;color:var(--m);margin-bottom:8px;">Just photos — perfect for showing a homeowner your work at the door.</div>
           <div style="display:flex;gap:6px;align-items:center;">
             <input type="text" id="photoPortalUrl" readonly placeholder="Click Generate to create link" aria-label="Photo gallery share link" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--t);font-family:inherit;">
-            <button class="btn btn-orange" style="font-size:10px;padding:6px 10px;white-space:nowrap;" onclick="generatePhotoPortalLink()">Generate</button>
-            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" onclick="copyPortalUrl('photoPortalUrl')">📋</button>
-            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" onclick="if(typeof CustomerPortal!=='undefined')CustomerPortal.preview(window._customerId,'photo')">👁</button>
+            <button class="btn btn-orange" style="font-size:10px;padding:6px 10px;white-space:nowrap;" data-action="generatePhotoPortalLink">Generate</button>
+            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="copyPortalUrl" data-arg="photoPortalUrl">📋</button>
+            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="CustomerPortal.preview" data-pass-customer-id="true" data-arg="photo">👁</button>
           </div>
         </div>
 
@@ -1117,19 +1126,19 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
           <div style="font-size:10px;color:var(--m);margin-bottom:8px;">Photos + status + timeline + next steps. Send to customers for project tracking.</div>
           <div style="display:flex;gap:6px;align-items:center;">
             <input type="text" id="fullPortalUrl" readonly placeholder="Click Generate to create link" aria-label="Full project portal share link" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--t);font-family:inherit;">
-            <button class="btn btn-orange" style="font-size:10px;padding:6px 10px;white-space:nowrap;" onclick="generateFullPortalLink()">Generate</button>
-            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" onclick="copyPortalUrl('fullPortalUrl')">📋</button>
-            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" onclick="if(typeof CustomerPortal!=='undefined')CustomerPortal.preview(window._customerId,'full')">👁</button>
+            <button class="btn btn-orange" style="font-size:10px;padding:6px 10px;white-space:nowrap;" data-action="generateFullPortalLink">Generate</button>
+            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="copyPortalUrl" data-arg="fullPortalUrl">📋</button>
+            <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="CustomerPortal.preview" data-pass-customer-id="true" data-arg="full">👁</button>
           </div>
         </div>
       </div>
-      <button class="btn" onclick="openPhotoReportPicker()" title="Choose Homeowner or Adjuster report style">
+      <button class="btn" data-action="openPhotoReportPicker" title="Choose Homeowner or Adjuster report style">
         📸 Photo Report
       </button>
-      <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.sendReviewSMS(window._customerId)" title="Send Google review request via SMS">
+      <button class="btn" data-action="ReviewEngine.sendReviewSMS" data-pass-customer-id="true" title="Send Google review request via SMS">
         ⭐ Review Request
       </button>
-      <button class="btn" onclick="if(window.ReviewEngine)ReviewEngine.assignReferralCode(window._customerId).then(c=>{if(c)ReviewEngine.sendReferralSMS(window._customerId)})" title="Generate and send referral code">
+      <button class="btn" data-action="_sendReferralCodeAndSms" title="Generate and send referral code">
         🎁 Referral Code
       </button>
     </div>
@@ -1156,17 +1165,17 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
           <div class="panel-title" style="margin:0;">Timeline & Tasks</div>
-          <button class="btn btn-orange" onclick="openTaskModal()" style="font-size:11px;padding:6px 12px;">
+          <button class="btn btn-orange" data-action="openTaskModal" style="font-size:11px;padding:6px 12px;">
             ✅ Add Task
           </button>
         </div>
         <div class="tl-filters" id="tlFilters">
-          <span class="tl-pill active" data-filter="all" onclick="filterTimeline('all',this)">All</span>
-          <span class="tl-pill" data-filter="stage" onclick="filterTimeline('stage',this)">Stage Changes</span>
-          <span class="tl-pill" data-filter="photo" onclick="filterTimeline('photo',this)">Photos</span>
-          <span class="tl-pill" data-filter="task" onclick="filterTimeline('task',this)">Tasks</span>
-          <span class="tl-pill" data-filter="document" onclick="filterTimeline('document',this)">Documents</span>
-          <span class="tl-pill" data-filter="note" onclick="filterTimeline('note',this)">Notes</span>
+          <span class="tl-pill active" data-filter="all" data-action="filterTimeline" data-arg="all" data-pass-el="true">All</span>
+          <span class="tl-pill" data-filter="stage" data-action="filterTimeline" data-arg="stage" data-pass-el="true">Stage Changes</span>
+          <span class="tl-pill" data-filter="photo" data-action="filterTimeline" data-arg="photo" data-pass-el="true">Photos</span>
+          <span class="tl-pill" data-filter="task" data-action="filterTimeline" data-arg="task" data-pass-el="true">Tasks</span>
+          <span class="tl-pill" data-filter="document" data-action="filterTimeline" data-arg="document" data-pass-el="true">Documents</span>
+          <span class="tl-pill" data-filter="note" data-action="filterTimeline" data-arg="note" data-pass-el="true">Notes</span>
         </div>
         <div id="timelineList">
           <div class="empty">
@@ -1175,7 +1184,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
           </div>
         </div>
         <div class="tl-show-all" id="tlShowAll">
-          <button onclick="toggleTimelineCollapse()">Show all items</button>
+          <button data-action="toggleTimelineCollapse">Show all items</button>
         </div>
       </div>
 
@@ -1183,7 +1192,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;">Photos</div>
-          <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:11px;padding:6px 12px;">Upload</button>
+          <button class="btn btn-orange" data-action="openUploadModal" style="font-size:11px;padding:6px 12px;">Upload</button>
         </div>
         <div id="photoList">
           <div class="empty">
@@ -1197,7 +1206,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;">Documents</div>
-          <button class="btn btn-orange" onclick="openDocUploadModal()" style="font-size:11px;padding:6px 12px;">
+          <button class="btn btn-orange" data-action="openDocUploadModal" style="font-size:11px;padding:6px 12px;">
             📤 Upload
           </button>
         </div>
@@ -1315,8 +1324,8 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;">Estimates</div>
           <div style="display:flex;gap:8px;">
-            <button class="btn btn-ghost" onclick="openEstimateModal()" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 5h5l2 2h7a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg> Log Estimate</button>
-            <button class="btn btn-orange" onclick="window.location.href='/pro/dashboard.html?lead='+window._customerId" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Build Estimate</button>
+            <button class="btn btn-ghost" data-action="openEstimateModal" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 5h5l2 2h7a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg> Log Estimate</button>
+            <button class="btn btn-orange" data-action="_openInDashboardEstimate" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Build Estimate</button>
           </div>
         </div>
         <div id="estimateList">
@@ -1331,7 +1340,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;">Notes</div>
-          <button onclick="openNotesModal()" title="Open larger editor"
+          <button data-action="openNotesModal" title="Open larger editor"
             style="background:transparent;border:none;color:var(--m);font-size:11px;cursor:pointer;padding:4px 6px;text-decoration:underline;">
             Open larger editor
           </button>
@@ -1353,7 +1362,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
             <span id="quickNoteStatus" style="font-size:10px;color:var(--m);"></span>
             <div style="display:flex;align-items:center;gap:8px;">
               <span style="font-size:10px;color:var(--m);">Cmd/Ctrl+Enter</span>
-              <button id="quickNoteSend" type="button" onclick="window.quickAddNote && window.quickAddNote()"
+              <button id="quickNoteSend" type="button" data-action="quickAddNote"
                 style="
                   background:linear-gradient(135deg,#c8541a 0%,#a64516 100%);
                   color:#fff;border:none;padding:6px 14px;border-radius:6px;
@@ -1413,13 +1422,13 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
           <div class="panel-title" style="margin:0;">Project Photos</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button class="btn btn-orange" onclick="openUploadModal()" style="font-size:13px;padding:6px 16px;">Upload Photos</button>
+            <button class="btn btn-orange" data-action="openUploadModal" style="font-size:13px;padding:6px 16px;">Upload Photos</button>
             <!-- Photo system Phase 4: link to the dedicated Review Sprint
                  UI. The 5-minute review screen lives on /pro/photo-review.html
                  so it can be optimized for the sort-100-photos sprint
                  without competing with customer.html's other panels. -->
             <a class="btn" href="photo-review.html?lead=" id="prReviewBtn" style="font-size:13px;padding:6px 16px;background:#7c3aed;border-color:#7c3aed;color:#fff;text-decoration:none;display:inline-flex;align-items:center;gap:6px;">✦ Review &amp; Sort</a>
-            <button class="btn" onclick="if(window.ShareGallery)window.ShareGallery.generate(window._customerId)" style="font-size:13px;padding:6px 16px;background:#0088ff;border-color:#0088ff;color:#fff;">Share Gallery</button>
+            <button class="btn" data-action="ShareGallery.generate" data-pass-customer-id="true" style="font-size:13px;padding:6px 16px;background:#0088ff;border-color:#0088ff;color:#fff;">Share Gallery</button>
           </div>
         </div>
         <script>
@@ -1445,25 +1454,25 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 
         <!-- Filter Bar -->
         <div style="display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center;">
-          <button class="btn photo-filter-btn active" onclick="filterPhotos('all',this)" style="font-size:11px;padding:5px 12px;">All</button>
-          <button class="btn photo-filter-btn" onclick="filterPhotos('Before',this)" style="font-size:11px;padding:5px 12px;border-color:#3b82f6;color:#3b82f6;">Before</button>
-          <button class="btn photo-filter-btn" onclick="filterPhotos('During',this)" style="font-size:11px;padding:5px 12px;border-color:var(--orange);color:var(--orange);">During</button>
-          <button class="btn photo-filter-btn" onclick="filterPhotos('After',this)" style="font-size:11px;padding:5px 12px;border-color:var(--green);color:var(--green);">After</button>
+          <button class="btn photo-filter-btn active" data-action="filterPhotos" data-arg="all" data-pass-el="true" style="font-size:11px;padding:5px 12px;">All</button>
+          <button class="btn photo-filter-btn" data-action="filterPhotos" data-arg="Before" data-pass-el="true" style="font-size:11px;padding:5px 12px;border-color:#3b82f6;color:#3b82f6;">Before</button>
+          <button class="btn photo-filter-btn" data-action="filterPhotos" data-arg="During" data-pass-el="true" style="font-size:11px;padding:5px 12px;border-color:var(--orange);color:var(--orange);">During</button>
+          <button class="btn photo-filter-btn" data-action="filterPhotos" data-arg="After" data-pass-el="true" style="font-size:11px;padding:5px 12px;border-color:var(--green);color:var(--green);">After</button>
           <span style="width:1px;height:20px;background:var(--br);margin:0 4px;"></span>
-          <button class="btn photo-filter-btn" onclick="filterPhotos('annotated',this)" style="font-size:11px;padding:5px 12px;border-color:#a855f7;color:#a855f7;">Annotated</button>
-          <button type="button" class="nbd-photo-bulk-toggle" id="nbdPhotoSelectToggle" onclick="window.togglePhotoSelectMode()">Select</button>
+          <button class="btn photo-filter-btn" data-action="filterPhotos" data-arg="annotated" data-pass-el="true" style="font-size:11px;padding:5px 12px;border-color:#a855f7;color:#a855f7;">Annotated</button>
+          <button type="button" class="nbd-photo-bulk-toggle" id="nbdPhotoSelectToggle" data-action="togglePhotoSelectMode">Select</button>
         </div>
 
         <!-- Bulk action bar — visible only when one or more photos are selected. -->
         <div class="nbd-photo-bulk-bar" id="nbdPhotoBulkBar">
           <span class="nbd-photo-bulk-count" id="nbdPhotoBulkCount">0 selected</span>
-          <select id="nbdBulkPhase" onchange="window.applyBulkPhotoUpdate('phase', this.value); this.value='';">
+          <select id="nbdBulkPhase" data-change-action="_applyBulkPhotoUpdateAndReset" data-arg="phase" data-pass-el="true">
             <option value="">Set phase…</option>
             <option value="Before">Before</option>
             <option value="During">During</option>
             <option value="After">After</option>
           </select>
-          <select id="nbdBulkDamage" onchange="window.applyBulkPhotoUpdate('damageType', this.value); this.value='';">
+          <select id="nbdBulkDamage" data-change-action="_applyBulkPhotoUpdateAndReset" data-arg="damageType" data-pass-el="true">
             <option value="">Set damage…</option>
             <option value="hail">Hail</option>
             <option value="wind">Wind</option>
@@ -1474,21 +1483,21 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
             <option value="other">Other</option>
             <option value="__clear__">— Clear —</option>
           </select>
-          <select id="nbdBulkSeverity" onchange="window.applyBulkPhotoUpdate('severity', this.value); this.value='';">
+          <select id="nbdBulkSeverity" data-change-action="_applyBulkPhotoUpdateAndReset" data-arg="severity" data-pass-el="true">
             <option value="">Set severity…</option>
             <option value="minor">Minor</option>
             <option value="moderate">Moderate</option>
             <option value="severe">Severe</option>
             <option value="__clear__">— Clear —</option>
           </select>
-          <button type="button" class="nbd-bulk-delete" onclick="window.applyBulkPhotoDelete()">Delete</button>
-          <button type="button" class="nbd-bulk-cancel" onclick="window.exitPhotoSelectMode()">Cancel</button>
+          <button type="button" class="nbd-bulk-delete" data-action="applyBulkPhotoDelete">Delete</button>
+          <button type="button" class="nbd-bulk-cancel" data-action="exitPhotoSelectMode">Cancel</button>
         </div>
 
         <div id="photosByPhase">
           <div class="empty"><div class="empty-icon">&#128248;</div>Loading photos...</div>
         </div>
-        <div onclick="openUploadModal()" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;" onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor=''">
+        <div data-action="openUploadModal" style="margin-top:16px;border:2px dashed var(--border);border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:border-color .2s;">
           <div style="font-size:28px;margin-bottom:6px;">+</div>
           <div style="font-size:14px;font-weight:600;color:var(--text);">Drag and drop photos here</div>
           <div style="font-size:12px;color:var(--muted);margin-top:4px;">or click to browse — JPG, PNG, HEIC, WebP, AVIF · up to 15 MB each · 25 per batch</div>
@@ -1593,15 +1602,15 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
           <div style="font-size:11px;color:var(--muted);">Camera scan or file upload</div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button class="btn btn-orange" style="flex:1;min-width:140px;justify-content:center;min-height:48px;" onclick="uploadSignedDoc('camera')">
+          <button class="btn btn-orange" style="flex:1;min-width:140px;justify-content:center;min-height:48px;" data-action="uploadSignedDoc" data-arg="camera">
             📷 Scan with Camera
           </button>
-          <button class="btn" style="flex:1;min-width:140px;justify-content:center;min-height:48px;" onclick="uploadSignedDoc('file')">
+          <button class="btn" style="flex:1;min-width:140px;justify-content:center;min-height:48px;" data-action="uploadSignedDoc" data-arg="file">
             📄 Upload File
           </button>
         </div>
-        <input type="file" id="signedDocFileInput" accept="image/*,.pdf" capture="environment" style="display:none;" onchange="handleSignedDocUpload(this)">
-        <input type="file" id="signedDocBrowseInput" accept="image/*,.pdf,.doc,.docx" style="display:none;" onchange="handleSignedDocUpload(this)">
+        <input type="file" id="signedDocFileInput" accept="image/*,.pdf" capture="environment" style="display:none;" data-change-action="handleSignedDocUpload" data-pass-el="true">
+        <input type="file" id="signedDocBrowseInput" accept="image/*,.pdf,.doc,.docx" style="display:none;" data-change-action="handleSignedDocUpload" data-pass-el="true">
         <div id="signedDocsList" style="margin-top:12px;"></div>
       </div>
 
@@ -1635,7 +1644,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
           <div class="panel">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
               <div class="panel-title" style="margin:0;">Shared Documents</div>
-              <button class="btn btn-orange" onclick="openDocUploadModal()" style="font-size:11px;padding:6px 12px;">Upload</button>
+              <button class="btn btn-orange" data-action="openDocUploadModal" style="font-size:11px;padding:6px 12px;">Upload</button>
             </div>
             <div id="sharedDocList">
               <div class="empty">
@@ -1738,10 +1747,10 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 
 <!-- LIGHTBOX -->
 <div class="lightbox" id="lightbox">
-  <button class="lightbox-close" onclick="closeLightbox()">×</button>
-  <button class="lightbox-nav lightbox-prev" onclick="prevPhoto()">‹</button>
+  <button class="lightbox-close" data-action="closeLightbox">×</button>
+  <button class="lightbox-nav lightbox-prev" data-action="prevPhoto">‹</button>
   <img class="lightbox-img" id="lightboxImg" src="" alt="Photo">
-  <button class="lightbox-nav lightbox-next" onclick="nextPhoto()">›</button>
+  <button class="lightbox-nav lightbox-next" data-action="nextPhoto">›</button>
 </div>
 
 <!-- PHOTO UPLOAD MODAL -->
@@ -1749,16 +1758,16 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   <div class="modal-content">
     <div class="modal-header">
       <div class="modal-title">Upload Photos</div>
-      <button class="modal-close" onclick="closeUploadModal()">×</button>
+      <button class="modal-close" data-action="closeUploadModal">×</button>
     </div>
     
     <!-- No capture="environment": iOS treats it as a mandate and hides
          the photo library. Multi-photo upload should let the user pick
          existing shots — D2D's quick-camera flow uses a separate
          dynamic input for camera-only capture. -->
-    <input type="file" id="fileInput" accept="image/*,.heic,.heif,.avif" multiple style="display:none;" onchange="handleFileSelect(event)">
+    <input type="file" id="fileInput" accept="image/*,.heic,.heif,.avif" multiple style="display:none;" data-change-action="_handleFileSelectFromEl" data-pass-el="true">
     
-    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+    <div class="upload-zone" id="uploadZone" data-action="_triggerFileInput">
       <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M10 13V3"/><path d="M6 7l4-4 4 4"/><path d="M3 13v3a1 1 0 001 1h12a1 1 0 001-1v-3"/></svg></div>
       <div class="upload-text">Click to browse or drag photos here</div>
       <div class="upload-hint">JPG, PNG, HEIC, HEIF, WebP, AVIF • Max 15 MB per file • Up to 25 per batch</div>
@@ -1767,10 +1776,10 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     <div class="upload-preview" id="uploadPreview"></div>
     
     <div style="margin-top:20px; display:flex; gap:8px;">
-      <button class="btn btn-orange" id="uploadBtn" onclick="uploadPhotos()" style="flex:1; display:none;">
+      <button class="btn btn-orange" id="uploadBtn" data-action="uploadPhotos" style="flex:1; display:none;">
         📤 Upload <span id="uploadCount">0</span> Photos
       </button>
-      <button class="btn" onclick="closeUploadModal()" style="flex:1;">
+      <button class="btn" data-action="closeUploadModal" style="flex:1;">
         Cancel
       </button>
     </div>
@@ -1788,7 +1797,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     <div class="nbd-upload-widget-count" id="nbdUploadWidgetCount"></div>
   </div>
   <div class="nbd-upload-widget-bar"><div class="nbd-upload-widget-bar-fill" id="nbdUploadWidgetBarFill"></div></div>
-  <button type="button" class="nbd-upload-widget-reopen" id="nbdUploadWidgetReopen" onclick="openUploadModal()">View details</button>
+  <button type="button" class="nbd-upload-widget-reopen" id="nbdUploadWidgetReopen" data-action="openUploadModal">View details</button>
 </div>
 
 <!-- DOCUMENT UPLOAD MODAL -->
@@ -1808,10 +1817,10 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     <div id="docUploadPreview" class="upload-preview"></div>
     
     <div style="display:flex;gap:8px;margin-top:16px;">
-      <button class="btn btn-orange" id="uploadDocBtn" onclick="uploadDocuments()" style="flex:1;display:none;">
+      <button class="btn btn-orange" id="uploadDocBtn" data-action="uploadDocuments" style="flex:1;display:none;">
         📤 Upload <span id="uploadDocCount">0</span> Document(s)
       </button>
-      <button class="btn" onclick="closeDocUploadModal()" style="flex:1;">
+      <button class="btn" data-action="closeDocUploadModal" style="flex:1;">
         Cancel
       </button>
     </div>
@@ -1840,10 +1849,10 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     "></textarea>
     
     <div style="display:flex;gap:8px;">
-      <button class="btn btn-orange" onclick="saveNote()" style="flex:1;">
+      <button class="btn btn-orange" data-action="saveNote" style="flex:1;">
         💾 Save Note
       </button>
-      <button class="btn" onclick="closeNotesModal()" style="flex:1;">
+      <button class="btn" data-action="closeNotesModal" style="flex:1;">
         Cancel
       </button>
     </div>
@@ -1906,10 +1915,10 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     </div>
     
     <div style="display:flex;gap:8px;">
-      <button class="btn btn-orange" onclick="saveEstimate()" style="flex:1;">
+      <button class="btn btn-orange" data-action="saveEstimate" style="flex:1;">
         💾 Save Estimate
       </button>
-      <button class="btn" onclick="closeEstimateModal()" style="flex:1;">
+      <button class="btn" data-action="closeEstimateModal" style="flex:1;">
         Cancel
       </button>
     </div>
@@ -1927,7 +1936,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <h3 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:20px;letter-spacing:.04em;text-transform:uppercase;">
         📋 Estimate
       </h3>
-      <button onclick="closeEstimateViewerModal()" aria-label="Close" style="background:none;border:1px solid var(--br);color:var(--m);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:16px;line-height:1;">✕</button>
+      <button data-action="closeEstimateViewerModal" aria-label="Close" style="background:none;border:1px solid var(--br);color:var(--m);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:16px;line-height:1;">✕</button>
     </div>
 
     <div id="estimateModalContent"></div>
@@ -1935,7 +1944,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     <div style="display:flex;gap:8px;margin-top:18px;">
       <button class="btn btn-orange" id="editEstimateBtn" style="flex:1;">✏️ Edit in Builder</button>
       <button class="btn" id="deleteEstimateBtn" style="flex:1;">🗄️ Archive</button>
-      <button class="btn" onclick="closeEstimateViewerModal()" style="flex:0 0 auto;">Close</button>
+      <button class="btn" data-action="closeEstimateViewerModal" style="flex:0 0 auto;">Close</button>
     </div>
   </div>
 </div>
@@ -3381,7 +3390,7 @@ async function loadCustomerData(id) {
       // exist, throwing a TypeError on top of the documents-load failure.
       const dl = document.getElementById('docList');
       if (dl) dl.innerHTML = `
-        <div class="upload-zone" onclick="openDocUploadModal()">
+        <div class="upload-zone" data-action="openDocUploadModal">
           <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
           <div class="upload-text">Click to upload documents</div>
           <div class="upload-hint">Drag & drop PDFs, contracts, or images</div>
@@ -3703,7 +3712,7 @@ async function loadTimeline(leadId, lead) {
   }).join('');
 
   document.getElementById('timelineList').innerHTML = html ||
-    '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div><div style="margin-bottom:10px;">No activity yet</div><button class="btn btn-orange" onclick="openTaskModal()" style="font-size:13px;padding:8px 16px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Add First Task</button></div>';
+    '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div><div style="margin-bottom:10px;">No activity yet</div><button class="btn btn-orange" data-action="openTaskModal" style="font-size:13px;padding:8px 16px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Add First Task</button></div>';
 
   // Wire task toggles via event listeners rather than inline onclick.
   const tlListEl = document.getElementById('timelineList');
@@ -3794,7 +3803,7 @@ function renderCustomerPhotoStrip() {
   if (!listEl) return;
 
   if (photos.length === 0) {
-    listEl.innerHTML = '<div class="upload-zone" onclick="openUploadModal()">'
+    listEl.innerHTML = '<div class="upload-zone" data-action="openUploadModal">'
       + '<div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>'
       + '<div class="upload-text">No photos yet</div>'
       + '<div class="upload-hint">Click to upload your first photo</div></div>';
@@ -3822,14 +3831,14 @@ function renderCustomerPhotoStrip() {
 
   if (photos.length > cap) {
     var label = expanded ? ('Show first ' + cap) : ('Show all ' + photos.length);
-    html += '<button type="button" class="nbd-photo-show-all-btn" onclick="window.toggleCustomerPhotosExpanded()">'
+    html += '<button type="button" class="nbd-photo-show-all-btn" data-action="toggleCustomerPhotosExpanded">'
          + label + ' (' + photos.length + ' total)</button>';
   }
 
   html += '<div style="display:flex;gap:8px;margin-top:12px;align-items:center;">'
-       + '<button class="btn btn-orange" style="flex:1;" onclick="openUploadModal()">📤 Upload More</button>'
-       + '<button class="btn" style="flex:1;background:var(--blue);border-color:var(--blue);color:#fff;" onclick="generatePhotoReport(window._customerId)">📋 Generate Report</button>'
-       + '<button type="button" class="nbd-photo-reorder-btn" id="nbdReorderToggle" onclick="window.toggleCustomerPhotoReorder()">Reorder</button>'
+       + '<button class="btn btn-orange" style="flex:1;" data-action="openUploadModal">📤 Upload More</button>'
+       + '<button class="btn" style="flex:1;background:var(--blue);border-color:var(--blue);color:#fff;" data-action="generatePhotoReport" data-pass-customer-id="true">📋 Generate Report</button>'
+       + '<button type="button" class="nbd-photo-reorder-btn" id="nbdReorderToggle" data-action="toggleCustomerPhotoReorder">Reorder</button>'
        + '</div>';
 
   listEl.innerHTML = html;
@@ -3928,7 +3937,7 @@ async function loadPhotos(leadId) {
   } catch (e) {
     console.error('Error loading photos:', e);
     document.getElementById('photoList').innerHTML = `
-      <div class="upload-zone" onclick="openUploadModal()">
+      <div class="upload-zone" data-action="openUploadModal">
         <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg></div>
         <div class="upload-text">Click to upload photos</div>
       </div>`;
@@ -4625,7 +4634,7 @@ function renderUploadPreviewStructure() {
     html += '<div class="preview-item" data-upload-idx="' + i + '">';
     html += '<img src="' + item.preview + '" alt="Preview" loading="lazy" decoding="async">';
     if (!item.uploading) {
-      html += '<button class="preview-remove" onclick="removeFromQueue(' + i + ')">×</button>';
+      html += '<button class="preview-remove" data-action="removeFromQueue" data-arg=" + i + ">×</button>';
     }
     html += '<div class="preview-progress" style="display:' + (item.uploading ? 'block' : 'none') + ';">';
     html += '<div class="preview-progress-bar" style="width:' + (item.progress || 0) + '%"></div>';
@@ -5236,7 +5245,7 @@ window.generateCertFromEstimate = async function(estimateId) {
     <div class="sig"><div class="sig-line">Contractor Signature</div></div>
     <div class="sig"><div class="sig-line">Date Issued: ${new Date().toLocaleDateString()}</div></div>
   </div>
-  <button class="print-btn" onclick="window.print()">🖨️ Print Certificate</button>
+  <button class="print-btn" data-action="print">🖨️ Print Certificate</button>
 </div></body></html>`;
 
   const win = window.open('', '_blank');
@@ -5544,7 +5553,7 @@ const taskModalHTML = `
   <div class="modal-content" style="max-width:500px;">
     <div class="modal-header">
       <h3 style="margin:0;">Add Task</h3>
-      <button onclick="closeTaskModal()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">&times;</button>
+      <button data-action="closeTaskModal" style="background:none;border:none;font-size:24px;cursor:pointer;color:#666;">&times;</button>
     </div>
     <div class="modal-body">
       <div style="margin-bottom:15px;">
@@ -5575,10 +5584,10 @@ const taskModalHTML = `
       </div>
     </div>
     <div class="modal-footer">
-      <button onclick="closeTaskModal()" class="btn" style="background:#6c757d;border-color:#6c757d;color:#fff;">
+      <button data-action="closeTaskModal" class="btn" style="background:#6c757d;border-color:#6c757d;color:#fff;">
         Cancel
       </button>
-      <button onclick="saveTask()" class="btn btn-orange">
+      <button data-action="saveTask" class="btn btn-orange">
         Add Task
       </button>
     </div>
@@ -6671,7 +6680,7 @@ window.showPhotoActions = function(idx, event) {
     '<div style="display:flex;align-items:center;gap:10px;">' +
     '<img src="' + photo.url + '" loading="lazy" decoding="async" style="width:48px;height:48px;border-radius:8px;object-fit:cover;">' +
     '<div style="font-size:16px;font-weight:700;">Edit Photo</div></div>' +
-    '<button onclick="document.getElementById(\'photoActionPopup\').remove()" style="background:none;border:none;color:var(--muted,#999);font-size:22px;cursor:pointer;">&times;</button></div>' +
+    '<button data-action="_closePhotoActionPopup" style="background:none;border:none;color:var(--muted,#999);font-size:22px;cursor:pointer;">&times;</button></div>' +
     
     '<div style="margin-bottom:14px;">' +
     '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Phase</label>' +
@@ -6679,14 +6688,14 @@ window.showPhotoActions = function(idx, event) {
     ['Before','During','After'].map(function(p) {
       var active = photo.phase === p;
       var c = phaseColors[p];
-      return '<button onclick="quickSetPhase(\'' + p + '\',this)" style="flex:1;padding:8px;font-size:13px;font-weight:600;border-radius:6px;cursor:pointer;border:1px solid ' + c + ';' + 
+      return '<button data-action="quickSetPhase" data-arg="' + p + '" data-pass-el="true" style="flex:1;padding:8px;font-size:13px;font-weight:600;border-radius:6px;cursor:pointer;border:1px solid ' + c + ';' +
         (active ? 'background:' + c + ';color:#fff;' : 'background:transparent;color:' + c + ';') + '">' + p + '</button>';
     }).join('') +
     '</div></div>' +
     
     '<div style="margin-bottom:14px;">' +
     '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Damage Type</label>' +
-    '<select id="qeDamageType" onchange="quickSaveMeta()" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;">' +
+    '<select id="qeDamageType" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;">' +
     '<option value="">None</option>' +
     ['Hail','Wind','Leak','Missing Shingle','Cracked Tile','Flashing','Gutter','Soffit/Fascia','Tree Damage','Other'].map(function(t) {
       return '<option value="' + t + '"' + (photo.damageType === t ? ' selected' : '') + '>' + t + '</option>';
@@ -6699,14 +6708,14 @@ window.showPhotoActions = function(idx, event) {
     ['minor','moderate','severe'].map(function(s) {
       var active = photo.severity === s;
       var c = sevColors[s];
-      return '<button onclick="quickSetSeverity(\'' + s + '\',this)" style="flex:1;padding:7px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer;border:1px solid ' + c + ';text-transform:capitalize;' +
+      return '<button data-action="quickSetSeverity" data-arg="' + s + '" data-pass-el="true" style="flex:1;padding:7px;font-size:12px;font-weight:600;border-radius:6px;cursor:pointer;border:1px solid ' + c + ';text-transform:capitalize;' +
         (active ? 'background:' + c + ';color:#fff;' : 'background:transparent;color:' + c + ';') + '">' + s + '</button>';
     }).join('') +
     '</div></div>' +
     
     '<div style="margin-bottom:14px;">' +
     '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Location</label>' +
-    '<select id="qeLocation" onchange="quickSaveMeta()" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;">' +
+    '<select id="qeLocation" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;">' +
     '<option value="">None</option>' +
     ['Ridge','Hip','Valley','Field','Edge','Flashing','Vent','Chimney','Skylight','Gutter','Soffit','Fascia'].map(function(l) {
       return '<option value="' + l + '"' + (photo.location === l ? ' selected' : '') + '>' + l + '</option>';
@@ -6715,12 +6724,12 @@ window.showPhotoActions = function(idx, event) {
     
     '<div style="margin-bottom:20px;">' +
     '<label style="font-size:11px;font-weight:600;color:var(--muted,#94a3b8);display:block;margin-bottom:4px;">Description</label>' +
-    '<input type="text" id="qeDescription" value="' + (photo.description || '').replace(/"/g, '&quot;') + '" placeholder="Add description..." aria-label="Photo description" onchange="quickSaveMeta()" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;box-sizing:border-box;">' +
+    '<input type="text" id="qeDescription" value="' + (photo.description || '').replace(/"/g, '&quot;') + '" placeholder="Add description..." aria-label="Photo description" data-change-action="quickSaveMeta" style="width:100%;padding:8px;background:var(--s2,#1e293b);border:1px solid var(--br,#334155);border-radius:6px;color:var(--text,#fff);font-size:13px;box-sizing:border-box;">' +
     '</div>' +
     
     '<div style="display:flex;gap:8px;">' +
-    '<button onclick="openPhotoInEditor(' + idx + ');document.getElementById(\'photoActionPopup\').remove();" style="flex:2;padding:10px;background:var(--orange);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Open Editor</button>' +
-    '<button onclick="deletePhoto(\'' + photo.id + '\')" style="flex:1;padding:10px;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Delete</button>' +
+    '<button data-action="_openPhotoInEditorAndClose" data-arg="' + idx + '" style="flex:2;padding:10px;background:var(--orange);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Open Editor</button>' +
+    '<button data-action="deletePhoto" data-arg="' + photo.id + '" style="flex:1;padding:10px;background:rgba(239,68,68,.15);color:#ef4444;border:1px solid rgba(239,68,68,.3);border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;">Delete</button>' +
     '</div>';
   
   popup.appendChild(card);
@@ -7005,22 +7014,137 @@ window.generateCustomerDoc = function(type) {
   logGeneratedDoc(type, data);
 };
 
-// Delegate click handler for the doc-template card grid. The cards
-// previously used inline `onclick="generateCustomerDoc('TYPE')"`,
-// which the strict prod CSP `script-src-attr 'none'` (firebase.json
-// /pro/customer route) blocks — every click silently no-op'd in
-// prod. Mirror of the dashboard.html C.4/C.5 inline-handler migration:
-// markup carries `data-action="generateCustomerDoc"` + `data-doc-type`,
-// this single document-level listener dispatches.
-document.addEventListener('click', function _nbdCustomerActionDelegate(e) {
-  var el = e.target && e.target.closest && e.target.closest('[data-action="generateCustomerDoc"]');
-  if (!el) return;
-  var docType = el.dataset && el.dataset.docType;
-  if (!docType) return;
-  e.preventDefault();
-  if (typeof window.generateCustomerDoc === 'function') {
-    window.generateCustomerDoc(docType);
+// ─────────────────────────────────────────────────────────────────
+// Tiny wrapper functions for inline DOM tweaks that previously
+// lived inside onclick="..." strings. The strict CSP blocks the
+// raw inline JS, but each of these is trivially expressed as a
+// named function that the delegate below can dispatch to.
+function _closeGallerySharePanel() {
+  var el = document.getElementById('gallerySharePanel');
+  if (el) el.style.display = 'none';
+}
+function _closePhotoActionPopup() {
+  var el = document.getElementById('photoActionPopup');
+  if (el) el.remove();
+}
+function _triggerFileInput() {
+  var el = document.getElementById('fileInput');
+  if (el) el.click();
+}
+function _openInDashboardEstimate() {
+  if (window._customerId) {
+    window.location.href = '/pro/dashboard.html?lead=' + window._customerId;
   }
+}
+function _openPhotoInEditorAndClose(idx) {
+  // data-arg is always a string; coerce so array indexing works.
+  if (typeof openPhotoInEditor === 'function') openPhotoInEditor(+idx);
+  _closePhotoActionPopup();
+}
+function _sendReferralCodeAndSms() {
+  if (!window.ReviewEngine || !window._customerId) return;
+  ReviewEngine.assignReferralCode(window._customerId).then(function (c) {
+    if (c) ReviewEngine.sendReferralSMS(window._customerId);
+  });
+}
+// onchange wrappers — multi-statement or shape-adapting handlers
+function _applyBulkPhotoUpdateAndReset(field, el) {
+  if (typeof window.applyBulkPhotoUpdate === 'function') {
+    window.applyBulkPhotoUpdate(field, el.value);
+  }
+  el.value = '';
+}
+function _handleFileSelectFromEl(el) {
+  // Original handleFileSelect(event) reads event.target.files; the
+  // delegate hands us the input el directly, so synthesize a minimal
+  // event-shaped object.
+  if (typeof handleFileSelect === 'function') {
+    handleFileSelect({ target: el });
+  }
+}
+window._closeGallerySharePanel       = _closeGallerySharePanel;
+window._closePhotoActionPopup        = _closePhotoActionPopup;
+window._triggerFileInput             = _triggerFileInput;
+window._openInDashboardEstimate      = _openInDashboardEstimate;
+window._openPhotoInEditorAndClose    = _openPhotoInEditorAndClose;
+window._sendReferralCodeAndSms       = _sendReferralCodeAndSms;
+window._applyBulkPhotoUpdateAndReset = _applyBulkPhotoUpdateAndReset;
+window._handleFileSelectFromEl       = _handleFileSelectFromEl;
+
+// ─────────────────────────────────────────────────────────────────
+// CSP-safe action delegate for customer.html.
+// Why this exists: the prod /pro/customer CSP at firebase.json:80
+// has `script-src-attr 'none'`, which silently blocks every inline
+// event handler (onclick, onmouseover, etc.). Every button on the
+// page previously broke. Mirror of the dashboard.html C.4/C.5
+// migration pattern.
+//
+// Markup contract:
+//   <button data-action="funcName">…</button>
+//     → calls window.funcName()
+//
+//   <button data-action="Namespace.method">…</button>
+//     → walks dotted path: window.Namespace.method()
+//
+//   <button data-action="funcName" data-arg="x" data-arg2="y" data-arg3="z">…</button>
+//     → window.funcName('x', 'y', 'z')   (positional, up to 3 string args)
+//
+//   <button data-action="funcName" data-pass-customer-id="true">…</button>
+//     → window.funcName(window._customerId, …)   (prepended)
+//
+//   <button data-action="funcName" data-pass-el="true">…</button>
+//     → window.funcName(…, clickedEl)            (appended)
+//
+// Unknown actions log a console.error so missed migrations are
+// visible in dev tools instead of silently no-op'ing.
+// ─────────────────────────────────────────────────────────────────
+function _nbdCustomerActionDispatch(action, el) {
+  // Walk dotted action names so "ReviewEngine.sendReviewSMS" finds
+  // window.ReviewEngine.sendReviewSMS without a separate registration.
+  var fn = action.split('.').reduce(function (o, k) { return o ? o[k] : null; }, window);
+  if (typeof fn !== 'function') {
+    console.error('[customer-action] unknown action:', action);
+    return;
+  }
+  // Build the args list in invocation order.
+  var args = [];
+  if (el.dataset.passCustomerId === 'true') args.push(window._customerId);
+  // data-doc-type is the legacy alias for data-arg from the §430
+  // doc-template-card migration. Honor both so previously-migrated
+  // markup keeps working.
+  if (el.dataset.docType !== undefined) args.push(el.dataset.docType);
+  else if (el.dataset.arg !== undefined) args.push(el.dataset.arg);
+  if (el.dataset.arg2 !== undefined) args.push(el.dataset.arg2);
+  if (el.dataset.arg3 !== undefined) args.push(el.dataset.arg3);
+  if (el.dataset.passEl === 'true') args.push(el);
+  try {
+    fn.apply(window, args);
+  } catch (err) {
+    console.error('[customer-action]', action, 'failed:', err);
+  }
+}
+
+// Click delegate — fires on [data-action] elements.
+document.addEventListener('click', function _nbdCustomerClickDelegate(e) {
+  var el = e.target && e.target.closest && e.target.closest('[data-action]');
+  if (!el) return;
+  var action = el.dataset && el.dataset.action;
+  if (!action) return;
+  e.preventDefault();
+  _nbdCustomerActionDispatch(action, el);
+});
+
+// Change delegate — fires on [data-change-action] elements (selects,
+// file inputs, text inputs). Uses a separate attribute so the
+// dispatch is unambiguous: a <select data-change-action="..."> fires
+// on the change event (when the user picks an option), not on the
+// click that opens the dropdown.
+document.addEventListener('change', function _nbdCustomerChangeDelegate(e) {
+  var el = e.target && e.target.closest && e.target.closest('[data-change-action]');
+  if (!el) return;
+  var action = el.dataset && el.dataset.changeAction;
+  if (!action) return;
+  _nbdCustomerActionDispatch(action, el);
 });
 
 // Expose logGeneratedDoc globally so doc-preflight.js can call it
@@ -7549,15 +7673,15 @@ document.addEventListener('DOMContentLoaded', function() {
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);">Photo Report</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--t);margin-top:2px;">Pick a style</div>
       </div>
-      <button onclick="closePhotoReportPicker()" style="background:none;border:none;color:var(--m);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">×</button>
+      <button data-action="closePhotoReportPicker" style="background:none;border:none;color:var(--m);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">×</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-      <button onclick="pickPhotoReport('homeowner')" class="prp-card" style="text-align:left;background:var(--s2);border:1px solid var(--br);border-radius:12px;padding:18px;cursor:pointer;color:var(--t);font-family:inherit;transition:border-color .15s,transform .08s;">
+      <button data-action="pickPhotoReport" data-arg="homeowner" class="prp-card" style="text-align:left;background:var(--s2);border:1px solid var(--br);border-radius:12px;padding:18px;cursor:pointer;color:var(--t);font-family:inherit;transition:border-color .15s,transform .08s;">
         <div style="font-size:28px;margin-bottom:10px;">👋</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);margin-bottom:6px;">Homeowner</div>
         <div style="font-size:12px;color:var(--m);line-height:1.45;">Visual story · friendly captions · before/after focus. The PDF you email the homeowner.</div>
       </button>
-      <button onclick="pickPhotoReport('adjuster')" class="prp-card" style="text-align:left;background:var(--s2);border:1px solid var(--br);border-radius:12px;padding:18px;cursor:pointer;color:var(--t);font-family:inherit;transition:border-color .15s,transform .08s;">
+      <button data-action="pickPhotoReport" data-arg="adjuster" class="prp-card" style="text-align:left;background:var(--s2);border:1px solid var(--br);border-radius:12px;padding:18px;cursor:pointer;color:var(--t);font-family:inherit;transition:border-color .15s,transform .08s;">
         <div style="font-size:28px;margin-bottom:10px;">📋</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);margin-bottom:6px;">Adjuster</div>
         <div style="font-size:12px;color:var(--m);line-height:1.45;">Dense metadata · damage summary · numbered photos for supplements. The PDF you attach to a claim.</div>
@@ -7619,7 +7743,7 @@ document.addEventListener('DOMContentLoaded', function() {
   <div style="background:var(--card);border-radius:16px;width:90%;max-width:480px;max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:24px;border:1px solid var(--border);">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
       <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text);">Edit Customer</div>
-      <button onclick="closeEditCustomerModal()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;padding:4px 8px;">✕</button>
+      <button data-action="closeEditCustomerModal" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;padding:4px 8px;">✕</button>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div>
@@ -7651,8 +7775,8 @@ document.addEventListener('DOMContentLoaded', function() {
         <input id="editJobValue" type="text" inputmode="decimal" aria-label="Job value in dollars" style="width:100%;padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:14px;box-sizing:border-box;" placeholder="$0.00" />
       </div>
       <div style="display:flex;gap:10px;margin-top:8px;">
-        <button onclick="closeEditCustomerModal()" style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-weight:700;font-size:13px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.04em;">Cancel</button>
-        <button onclick="saveCustomerEdits()" id="saveEditBtn" style="flex:1;padding:12px;background:var(--orange);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.04em;">Save Changes</button>
+        <button data-action="closeEditCustomerModal" style="flex:1;padding:12px;background:var(--surface);border:1px solid var(--border);border-radius:10px;color:var(--text);font-weight:700;font-size:13px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.04em;">Cancel</button>
+        <button data-action="saveCustomerEdits" id="saveEditBtn" style="flex:1;padding:12px;background:var(--orange);border:none;border-radius:10px;color:#fff;font-weight:700;font-size:13px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.04em;">Save Changes</button>
       </div>
     </div>
   </div>

@@ -522,45 +522,95 @@ section('Photos §3.1: three-tier before/after pairing heuristic');
     /out\.length\s*===\s*0/.test(pr));
 }
 
-section('customer.html doc-template cards use data-action delegation (CSP-safe)');
+section('customer.html: every inline event handler migrated to data-action delegation (CSP-safe)');
 {
   // The /pro/customer CSP at firebase.json:80 has `script-src-attr 'none'`,
-  // which blocks every inline event handler (onclick, onmouseover, etc.).
-  // The 15 doc-template cards used `onclick="generateCustomerDoc(...)"`
-  // until 2026-05-17 — every click silently no-op'd in prod. They were
-  // migrated to data-action delegation (mirror of dashboard.html C.4/C.5).
+  // which blocks every inline event handler (onclick, onmouseover, onchange,
+  // etc.). The first migration (#430) covered just the doc-template card
+  // grid; the full sweep migrates ALL inline handlers (88 onclicks +
+  // 1 onmouseover + 1 onmouseout + 9 onchanges = 99 total) to data-action /
+  // data-change-action delegation via a single generic dispatcher.
   const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
 
-  // All 15 cards now carry data-action + data-doc-type.
-  const dataActionCount = (customer.match(/class="doc-template-card"[^>]*data-action="generateCustomerDoc"/g) || []).length;
-  assert('all 15 doc-template cards use data-action="generateCustomerDoc"',
-    dataActionCount === 15,
-    'expected 15 doc-template-card data-action wirings, got ' + dataActionCount);
+  // ── Zero inline event handlers remain on real markup ──
+  // (Comment lines that mention "onclick" in plain text are excluded
+  // by requiring the attribute to be inside an open tag.)
+  const realOnclicks = (customer.match(/<[^>]*\sonclick="/g) || []).length;
+  assert('zero inline onclick= attributes remain on real elements',
+    realOnclicks === 0,
+    'expected 0 inline onclick attributes, got ' + realOnclicks);
 
-  // Each card has a non-empty data-doc-type.
-  assert('each doc-template card carries a data-doc-type attribute',
-    /class="doc-template-card"[\s\S]*?data-doc-type="[a-z_]+"/.test(customer));
+  const realOnchanges = (customer.match(/<[^>]*\sonchange="/g) || []).length;
+  assert('zero inline onchange= attributes remain',
+    realOnchanges === 0,
+    'expected 0 inline onchange attributes, got ' + realOnchanges);
 
-  // NO inline onclick="generateCustomerDoc(...)" left.
-  assert('zero inline onclick="generateCustomerDoc(...)" remain on doc-template cards',
-    !/class="doc-template-card"[^>]*onclick="generateCustomerDoc/.test(customer),
-    'expected no inline onclicks on doc-template cards — CSP blocks them silently');
+  const realOnmouseover = (customer.match(/<[^>]*\sonmouseover="/g) || []).length;
+  const realOnmouseout  = (customer.match(/<[^>]*\sonmouseout="/g)  || []).length;
+  assert('zero inline onmouseover/onmouseout remain',
+    realOnmouseover === 0 && realOnmouseout === 0,
+    'expected 0 inline hover handlers, got ' + realOnmouseover + ' / ' + realOnmouseout);
 
-  // NO inline onmouseover/onmouseout remain on the cards either —
-  // hover effect is now in CSS.
-  assert('zero inline onmouseover/onmouseout remain on doc-template cards',
-    !/class="doc-template-card"[^>]*onmouseover=/.test(customer)
-    && !/class="doc-template-card"[^>]*onmouseout=/.test(customer));
+  // ── data-action coverage proves the migration landed ──
+  // 15 doc-template cards + dozens of buttons/links = many data-actions.
+  // Loose check: must have at least 60 data-action attributes.
+  const dataActionCount = (customer.match(/\sdata-action="/g) || []).length;
+  assert('customer.html has ≥60 data-action attributes (migration landed)',
+    dataActionCount >= 60,
+    'expected ≥60 data-action attrs, got ' + dataActionCount);
 
-  // CSS hover rule replaces the JS-driven hover effect.
-  assert('CSS .doc-template-card:hover rule exists',
+  // 9 onchanges migrated → 9 data-change-action attributes.
+  const dataChangeActionCount = (customer.match(/\sdata-change-action="/g) || []).length;
+  assert('customer.html has ≥9 data-change-action attributes',
+    dataChangeActionCount >= 9,
+    'expected ≥9 data-change-action attrs, got ' + dataChangeActionCount);
+
+  // ── Dispatch helper + click + change delegates all wired ──
+  assert('shared _nbdCustomerActionDispatch helper exists',
+    /function _nbdCustomerActionDispatch\(action,\s*el\)/.test(customer));
+  assert('dispatch walks dotted action names (Namespace.method support)',
+    /action\.split\(['"]\.['"]\)\.reduce/.test(customer));
+  assert('click delegate registered on document',
+    /addEventListener\(\s*['"]click['"][\s\S]{0,300}closest\(\s*['"]\[data-action\]['"]/.test(customer));
+  assert('change delegate registered on document',
+    /addEventListener\(\s*['"]change['"][\s\S]{0,300}closest\(\s*['"]\[data-change-action\]['"]/.test(customer));
+  assert('dispatch supports data-pass-customer-id flag',
+    /el\.dataset\.passCustomerId\s*===\s*['"]true['"][\s\S]{0,80}window\._customerId/.test(customer));
+  assert('dispatch supports data-pass-el flag',
+    /el\.dataset\.passEl\s*===\s*['"]true['"][\s\S]{0,80}args\.push\(el\)/.test(customer));
+  assert('dispatch console.errors unknown actions (visible failure mode)',
+    /console\.error\(['"]\[customer-action\] unknown action/.test(customer));
+
+  // ── Wrapper functions for multi-statement / shape-adapting handlers ──
+  // These replace inline JS like `funcA();funcB()` or `func(this.value)`.
+  const expectedWrappers = [
+    '_closeGallerySharePanel',
+    '_closePhotoActionPopup',
+    '_triggerFileInput',
+    '_openInDashboardEstimate',
+    '_openPhotoInEditorAndClose',
+    '_sendReferralCodeAndSms',
+    '_applyBulkPhotoUpdateAndReset',
+    '_handleFileSelectFromEl',
+  ];
+  for (const fn of expectedWrappers) {
+    assert("wrapper function '" + fn + "' defined and exposed on window",
+      new RegExp('function ' + fn + '\\b').test(customer)
+      && new RegExp('window\\.' + fn + '\\s*=').test(customer),
+      'expected ' + fn + ' to be defined and assigned to window');
+  }
+
+  // ── CSS replaces JS-driven hover effects ──
+  assert('CSS .doc-template-card:hover rule present',
     /\.doc-template-card:hover\s*\{[\s\S]{0,200}border-color:\s*var\(--orange\)/.test(customer));
+  assert('CSS upload-zone hover rule present',
+    /\[data-action="openUploadModal"\]:hover\s*\{[\s\S]{0,100}border-color:\s*var\(--orange\)/.test(customer));
 
-  // Document-level delegate listener catches the data-action clicks.
-  assert('delegate listener listens for data-action="generateCustomerDoc"',
-    /addEventListener\(\s*['"]click['"][\s\S]{0,500}closest\(\s*['"]\[data-action="generateCustomerDoc"\]['"]/.test(customer));
-  assert('delegate listener calls window.generateCustomerDoc(docType)',
-    /closest\(\s*['"]\[data-action="generateCustomerDoc"\]['"][\s\S]{0,600}window\.generateCustomerDoc\s*\(\s*docType/.test(customer));
+  // ── Doc-template card grid still has its 15 wirings ──
+  const cardCount = (customer.match(/class="doc-template-card"[^>]*data-action="generateCustomerDoc"/g) || []).length;
+  assert('all 15 doc-template cards still wired (regression guard)',
+    cardCount === 15,
+    'expected 15 doc-template-card data-action wirings, got ' + cardCount);
 }
 
 };
