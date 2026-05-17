@@ -30,14 +30,6 @@
         ]
       },
       {
-        "_comment": "Public brand assets (logo, illustrations) must be embeddable cross-origin. The Universal Doc Viewer (docs/pro/js/nbd-doc-viewer.js) renders generated PDFs inside <iframe srcdoc> without `allow-same-origin` — that gives the iframe a `null` origin, and the global Cross-Origin-Resource-Policy: same-origin (below) refuses to serve these images into it, leaving every generated document with a broken-image placeholder where the company logo should be. These are public marketing assets — letting them embed cross-origin is safe (CORP only governs *embedding*; it does not grant script-level read access). Targeted at /assets/images/** specifically so unrelated assets keep the stricter default.",
-        "source": "/assets/images/**",
-        "headers": [
-          { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" },
-          { "key": "Cache-Control", "value": "public, max-age=86400" }
-        ]
-      },
-      {
         "_comment": "Source is '**' not '**/*.html' because cleanUrls:true rewrites incoming /pro/foo.html requests to /pro/foo BEFORE header matching runs. With **/*.html only the JS/CSS rule above matched anything; HTML responses got HSTS only. '**' applies these headers to every response. CSP/X-Frame are no-ops on non-HTML responses (browsers ignore), so the over-application is safe; Cache-Control is overridden per-path below for dashboard/customer/etc.",
         "source": "**",
         "headers": [
@@ -59,6 +51,14 @@
         "source": "/sw.js",
         "headers": [
           { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
+        ]
+      },
+      {
+        "_comment": "Public brand assets (logo, illustrations) must be embeddable cross-origin. The Universal Doc Viewer (docs/pro/js/nbd-doc-viewer.js) renders generated PDFs inside <iframe srcdoc> *without* `allow-same-origin` — that gives the iframe a `null` origin, and the global Cross-Origin-Resource-Policy: same-origin above refuses to serve these images into it, leaving every generated document with a broken-image placeholder where the company logo should be. These are public marketing assets — letting them embed cross-origin is safe (CORP only governs *embedding*; it does not grant script-level read access). Targeted at /assets/images/** specifically so unrelated assets keep the stricter default. Placed AFTER the ** rule so last-match-wins lets this one stick.",
+        "source": "/assets/images/**",
+        "headers": [
+          { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" },
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
         ]
       },
       {
