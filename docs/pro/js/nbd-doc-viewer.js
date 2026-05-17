@@ -422,6 +422,20 @@
       flashStatus('PDF failed: empty document');
       return;
     }
+    // ── Preserve <head> <style> + <link rel="stylesheet"> ──────────
+    // html2pdf operates on the body subtree only. Without this, every
+    // generator that puts its CSS in <head> renders as an unstyled
+    // text dump in Download-PDF (photo-report, contracts, estimates,
+    // any future doc). Prepend the head's <style>/<link> nodes inside
+    // body so the cloned subtree carries its own styles.
+    const headStyleNodes = parsed.head
+      ? parsed.head.querySelectorAll('style, link[rel="stylesheet"]')
+      : [];
+    if (headStyleNodes.length) {
+      for (let i = headStyleNodes.length - 1; i >= 0; i--) {
+        body.insertBefore(headStyleNodes[i].cloneNode(true), body.firstChild);
+      }
+    }
     // Defense in depth: strip any <script> / <iframe> / event-handler
     // attrs before handing the tree to html2pdf. parseFromString marks
     // script nodes inert, but html2pdf reparents the tree into the

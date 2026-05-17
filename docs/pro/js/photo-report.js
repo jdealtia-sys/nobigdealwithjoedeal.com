@@ -447,6 +447,8 @@
 <meta charset="UTF-8">
 <title>${isAdjuster ? 'Adjuster' : 'Homeowner'} Photo Report — ${_esc(name)}</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap">
+</head>
+<body data-report-mode="${isAdjuster ? 'adjuster' : 'homeowner'}">
 <style>
   /* All colors / typography / spacing inlined — no external token
      dependencies. The fallback renders in a doc-viewer iframe that
@@ -751,8 +753,6 @@
     letter-spacing:.06em; text-transform:uppercase;
   }
 </style>
-</head>
-<body data-report-mode="${isAdjuster ? 'adjuster' : 'homeowner'}">
 
 <!-- No-print top bar -->
 <div class="no-print top-bar">

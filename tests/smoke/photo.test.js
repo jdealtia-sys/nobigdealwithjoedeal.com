@@ -526,6 +526,32 @@ section('Photos §3.1: three-tier before/after pairing heuristic');
     /out\.length\s*===\s*0/.test(pr));
 }
 
+section('nbd-doc-viewer: PDF download preserves <head> <style>/<link> in body clone');
+{
+  const dv = read(path.join(ROOT, 'docs/pro/js/nbd-doc-viewer.js'));
+  // html2pdf operates on the body subtree only. Generators that put CSS
+  // in <head> (photo-report, contracts, estimates) used to render as
+  // unstyled text dumps in Download-PDF. The fix prepends head's
+  // <style>/<link rel="stylesheet"> nodes into body before processing.
+  assert('docviewer extracts head style nodes',
+    /parsed\.head[\s\S]{0,200}querySelectorAll\(\s*['"]style,\s*link\[rel="stylesheet"\]['"]\s*\)/.test(dv),
+    'expected parsed.head.querySelectorAll(\'style, link[rel="stylesheet"]\') in the PDF-save path');
+  assert('docviewer prepends head style nodes into body before html2pdf',
+    /body\.insertBefore\(\s*headStyleNodes\[[^\]]+\]\.cloneNode\(true\),\s*body\.firstChild\s*\)/.test(dv),
+    'expected body.insertBefore(headStyleNodes[i].cloneNode(true), body.firstChild) so the cloned subtree carries its own styles');
+}
+
+section('photo-report: <style> lives in <body> (survives docviewer body-only clone)');
+{
+  const pr = read(path.join(ROOT, 'docs/pro/js/photo-report.js'));
+  // Belt-and-suspenders with the docviewer fix: even if a future
+  // docviewer refactor regresses, photo-report's styles still travel
+  // with its body. The </head><body...> tag must appear BEFORE <style>.
+  assert('photo-report.js puts the <style> block inside <body>',
+    /<\/head>[\s\S]{0,300}<body[^>]*>[\s\S]{0,200}<style>/.test(pr),
+    'expected </head><body...><style> ordering in the emitted HTML — style must live in body');
+}
+
 section('customer.html: every inline event handler migrated to data-action delegation (CSP-safe)');
 {
   // The /pro/customer CSP at firebase.json:80 has `script-src-attr 'none'`,
