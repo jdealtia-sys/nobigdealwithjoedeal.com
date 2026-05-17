@@ -589,6 +589,7 @@ section('customer.html: every inline event handler migrated to data-action deleg
     '_triggerFileInput',
     '_openInDashboardEstimate',
     '_openPhotoInEditorAndClose',
+    '_previewPhotoFromPopup',
     '_sendReferralCodeAndSms',
     '_applyBulkPhotoUpdateAndReset',
     '_handleFileSelectFromEl',
@@ -611,6 +612,17 @@ section('customer.html: every inline event handler migrated to data-action deleg
   assert('all 15 doc-template cards still wired (regression guard)',
     cardCount === 15,
     'expected 15 doc-template-card data-action wirings, got ' + cardCount);
+
+  // ── Photo action popup now has a Preview button (3-button row) ──
+  // Originally the popup only offered Open Editor + Delete — clicking
+  // a photo had no plain "view it bigger" affordance. Preview wraps
+  // the existing openPhotoLightbox() + closes the popup.
+  assert('photo action popup template emits a Preview button',
+    /data-action="_previewPhotoFromPopup"[\s\S]{0,500}Preview/.test(customer));
+  assert('Preview button order: Preview before Open Editor before Delete',
+    /_previewPhotoFromPopup[\s\S]{0,600}_openPhotoInEditorAndClose[\s\S]{0,600}deletePhoto/.test(customer));
+  assert('_previewPhotoFromPopup calls openPhotoLightbox with url + description',
+    /function _previewPhotoFromPopup[\s\S]{0,1200}openPhotoLightbox\(photo\.url,\s*photo\.description/.test(customer));
 }
 
 };
