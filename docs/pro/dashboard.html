@@ -4732,7 +4732,11 @@ body {
      today's DOM are snake_case stage keys; the capitalized legacy
      IDs (kbody-New, kbody-Estimate Sent, …) never exist anymore so
      these rules were dead. */
-  .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.18);transform:translateY(-2px);}
+  /* Hover lift removed — translateY(-2px) caused cards to jiggle when
+     the cursor sat near a card edge (hover ON → card moves up out of
+     cursor → hover OFF → card drops → hover ON …). The line 2788
+     rule already gives a box-shadow hover affordance. */
+  .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.18);}
   :root[data-mode="light"] .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.10);}
   .k-card.dragging{opacity:.45;cursor:grabbing;}
   /* Ink-soft = muted text on the card surface, derived from theme. */
