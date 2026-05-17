@@ -7,7 +7,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, read, readDashboardMain } = require('./_shared');
+const { ROOT, read, readDashboardMain, readCrm } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -100,7 +100,10 @@ section('NBDIDBCache — IndexedDB offline-first cache');
 
 section('Bulk lead operations — writeBatch + NBDStore + new fields');
 {
-  const crm  = read(path.join(ROOT, 'docs/pro/js/crm.js'));
+  // Step 4b: crm.js was split into 4 modules + a shim — concat them
+  // via readCrm() so the bulk-section assertions below find their
+  // patterns regardless of which split file the code landed in.
+  const crm  = readCrm();
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
 
   // Selection state must live in NBDStore now — direct mutation
