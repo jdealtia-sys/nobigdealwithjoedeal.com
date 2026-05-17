@@ -38,7 +38,8 @@
     // Academy / training — never loaded unless the user enters an
     // academy or training tab. Biggest single lazy win (~150KB).
     academy: [
-      'js/academy-insurance-tree.js?v=1',
+      'js/academy-insurance-tree-data.js?v=1',
+      'js/academy-insurance-tree.js?v=2',
       'js/academy-retail-tree.js?v=1',
       'js/academy-courses.js?v=1',
       'js/academy-admin.js?v=2',
