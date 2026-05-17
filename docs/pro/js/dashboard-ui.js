@@ -994,18 +994,25 @@ function hideAcDrop(inputId) {
 function initAllAutocomplete() {
   if(!window._acCallbacks) window._acCallbacks = {};
 
-  // mapSearch — on select, trigger full map search
+  // mapSearch — on select, trigger full map search.
+  // propCard/propCardInner live inside tpl-view-map; only present in
+  // the DOM once #/map is hydrated. Guard so any pre-hydration call
+  // (autocomplete fires before user navigates) doesn't null-deref.
   window._acCallbacks['mapSearch'] = (r, label) => {
     window._lastMapSearch = r;
     if(mainMap) mainMap.setView([parseFloat(r.lat), parseFloat(r.lon)], 19);
-    document.getElementById('propCard').style.display = 'block';
-    document.getElementById('propCardInner').innerHTML = `
-      <div class="pi-card">
-        <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
-        <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
-      </div>
-      <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
-    fetchPropertyIntel(r, 'propCardInner');
+    const propCard = document.getElementById('propCard');
+    const propCardInner = document.getElementById('propCardInner');
+    if (propCard && propCardInner) {
+      propCard.style.display = 'block';
+      propCardInner.innerHTML = `
+        <div class="pi-card">
+          <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
+          <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
+        </div>
+        <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+      fetchPropertyIntel(r, 'propCardInner');
+    }
   };
 
   // pinAddrInput — just fill, no side effect
@@ -1211,7 +1218,12 @@ function openDocTemplate(key){
 }
 function closeDocViewer(){ document.getElementById('docViewerModal').classList.remove('open'); }
 function printDoc(){ window.print(); }
-function openUploadDoc(){ document.getElementById('docUploadArea').style.display='block'; }
+function openUploadDoc(){
+  // docUploadArea lives inside tpl-view-docs (lazy-hydrated). Guard
+  // for routes that haven't visited #/docs yet.
+  const el = document.getElementById('docUploadArea');
+  if (el) el.style.display = 'block';
+}
 
 // ── Inject "Blank" buttons on every template row ──
 // Runs once after DOM is ready. Each .tl-doc-row that calls
@@ -1244,7 +1256,10 @@ function openUploadDoc(){ document.getElementById('docUploadArea').style.display
     else row.appendChild(btn);
   });
 })();
-function closeUploadDoc(){ document.getElementById('docUploadArea').style.display='none'; }
+function closeUploadDoc(){
+  const el = document.getElementById('docUploadArea');
+  if (el) el.style.display = 'none';
+}
 function handleDocUpload(inp){ _docFile = inp.files[0]; showToast('File selected: '+(_docFile?.name||''),'ok'); }
 
 // ══════════════════════════════════════════════
@@ -1985,16 +2000,20 @@ async function spyglassSearch() {
   const data = await geocode(q);
   if(!data) return;
   if(mainMap) mainMap.setView([parseFloat(data.lat), parseFloat(data.lon)], 18);
-  // Also show property card
+  // Also show property card — guard since propCard lives in tpl-view-map.
   window._lastMapSearch = data;
-  document.getElementById('propCard').style.display = 'block';
-  document.getElementById('propCardInner').innerHTML = `
-    <div class="pi-card">
-      <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
-      <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
-    </div>
-    <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
-  fetchPropertyIntel(data, 'propCardInner');
+  const propCard = document.getElementById('propCard');
+  const propCardInner = document.getElementById('propCardInner');
+  if (propCard && propCardInner) {
+    propCard.style.display = 'block';
+    propCardInner.innerHTML = `
+      <div class="pi-card">
+        <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
+        <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
+      </div>
+      <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+    fetchPropertyIntel(data, 'propCardInner');
+  }
   // Show sidebar if hidden
   const sidebar = document.getElementById('map-sidebar-map');
   if(sidebar && !sidebar.classList.contains('open') && window.innerWidth <= 768) {
@@ -2074,14 +2093,19 @@ async function quickStormCheck() {
     window._acCallbacks['spyglassInput'] = (r, label) => {
       window._lastMapSearch = r;
       if(mainMap) mainMap.setView([parseFloat(r.lat), parseFloat(r.lon)], 18);
-      document.getElementById('propCard').style.display = 'block';
-      document.getElementById('propCardInner').innerHTML = `
-        <div class="pi-card">
-          <div class="pi-header"><span class="pi-title">🏠 Property Intel</span></div>
-          <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
-        </div>
-        <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
-      fetchPropertyIntel(r, 'propCardInner');
+      // propCard/propCardInner live in tpl-view-map — guard.
+      const propCard = document.getElementById('propCard');
+      const propCardInner = document.getElementById('propCardInner');
+      if (propCard && propCardInner) {
+        propCard.style.display = 'block';
+        propCardInner.innerHTML = `
+          <div class="pi-card">
+            <div class="pi-header"><span class="pi-title">🏠 Property Intel</span></div>
+            <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
+          </div>
+          <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+        fetchPropertyIntel(r, 'propCardInner');
+      }
     };
     if(typeof initAddressAutocomplete === 'function') {
       initAddressAutocomplete('spyglassInput');
