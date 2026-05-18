@@ -4,15 +4,7 @@
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <link rel="stylesheet" href="css/theme-system.css">
-<script type="module">
-  import { NBDAuth } from '/pro/js/nbd-auth.js';
-  window._nbdAuth = NBDAuth.init({
-    requiredPlan: 'professional',
-    onReady: (user) => {
-      console.log('NBD Auth ready — plan:', NBDAuth.userPlan);
-    }
-  });
-</script>
+<script type="module" src="js/ai-tool-finder-auth.module.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>AI Selection Codex — NBD Pro</title>
@@ -510,6 +502,8 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
 }
 #nbd-pro-nav.pos-dock .nnav-wordmark,
 #nbd-pro-nav.pos-dock .nnav-sub { display: none; }
+/* CSP-safe hover (was inline onmouseover/onmouseout) */
+.aif-orange-hover:hover { border-color: var(--orange) !important; color: var(--orange) !important; }
 </style>
 
 <!-- NAV HTML -->
@@ -536,7 +530,7 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
   <div class="nnav-right">
     <span class="nnav-user" id="nnav-user-label"></span>
     <a href="/pro/login.html" class="nnav-login-btn" id="nnav-auth-btn">Login</a>
-    <button class="nnav-burger" id="nnav-burger" onclick="nbdNavToggle()" aria-label="Menu">
+    <button class="nnav-burger" id="nnav-burger" data-tf-action="nbdNavToggle" aria-label="Menu">
       <span></span><span></span><span></span>
     </button>
   </div>
@@ -561,114 +555,14 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
   </div>
 </div>
 
-<script>
-/* ── NBD NAV CONFIG ─────────────────────────────────────────────
-   Change position here or wire to a settings page later.
-   Options: 'top' | 'bottom' | 'dock'
-   ─────────────────────────────────────────────────────────────── */
-const NBD_NAV_CONFIG = {
-  position: 'top',      // 'top' | 'bottom' | 'dock'
-  activeColor: '#e8720c',
-  showLabels: true,
-};
-
-(function nbdNavInit() {
-  // Apply position
-  const nav = document.getElementById('nbd-pro-nav');
-  if (NBD_NAV_CONFIG.position !== 'top') {
-    nav.classList.add('pos-' + NBD_NAV_CONFIG.position);
-    nav.style.position = 'fixed';
-    if (NBD_NAV_CONFIG.position === 'bottom' || NBD_NAV_CONFIG.position === 'dock') {
-      document.body.style.paddingBottom = '68px';
-      document.body.style.paddingTop = '0';
-    }
-  }
-
-  // Mark active page
-  const path = window.location.pathname;
-  const pageMap = {
-    '/pro/': 'home',
-    '/pro/dashboard.html': 'dashboard',
-    '/pro/daily-success/': 'daily-success',
-    '/pro/daily-success/index.html': 'daily-success',
-    '/pro/ai-tree.html': 'ai-tree',
-    '/pro/codex.html': 'codex',
-    '/pro/understand.html': 'understand',
-    '/pro/demo.html': 'demo',
-    '/pro/landing.html': 'features',
-  };
-  const activePage = pageMap[path] || '';
-  document.querySelectorAll('.nnav-link[data-page], .nnav-drawer-link[data-page]').forEach(el => {
-    if (el.dataset.page === activePage) el.classList.add('active');
-  });
-
-  // Auth state — use modular NBDAuth (v10 SDK) instead of legacy compat API
-  (async () => {
-    try {
-      // Wait for NBDAuth to initialize
-      for (let i = 0; i < 50; i++) {
-        if (window._auth || window.NBDAuth) break;
-        await new Promise(r => setTimeout(r, 100));
-      }
-      const { onAuthStateChanged, signOut } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
-      const auth = window._auth;
-      if (!auth) return;
-      onAuthStateChanged(auth, user => {
-        const btn = document.getElementById('nnav-auth-btn');
-        const drawerBtn = document.getElementById('nnav-drawer-auth-btn');
-        const userLabel = document.getElementById('nnav-user-label');
-        const drawerUser = document.getElementById('nnav-drawer-user');
-        if (user) {
-          const name = user.displayName || user.email?.split('@')[0] || 'Member';
-          if (userLabel) userLabel.textContent = name;
-          if (drawerUser) drawerUser.textContent = '● ' + (user.email || name);
-          if (btn) { btn.textContent = 'Logout'; btn.classList.add('logout'); btn.href = '#'; btn.onclick = e => { e.preventDefault(); signOut(auth); }; }
-          if (drawerBtn) { drawerBtn.textContent = 'Logout'; drawerBtn.classList.add('logout'); drawerBtn.href = '#'; drawerBtn.onclick = e => { e.preventDefault(); signOut(auth); }; }
-        } else {
-          if (userLabel) userLabel.textContent = '';
-          if (drawerUser) drawerUser.textContent = '';
-        }
-      });
-    } catch(e) {}
-  })();
-})();
-
-function nbdNavToggle() {
-  const drawer = document.getElementById('nbd-nav-drawer');
-  const burger = document.getElementById('nnav-burger');
-  const open = drawer.classList.toggle('open');
-  burger.style.opacity = open ? '0.6' : '1';
-  document.body.style.overflow = open ? 'hidden' : '';
-}
-
-// Close drawer on link click
-document.querySelectorAll('.nnav-drawer-link').forEach(l => {
-  l.addEventListener('click', () => {
-    document.getElementById('nbd-nav-drawer').classList.remove('open');
-    document.body.style.overflow = '';
-  });
-});
-
-// Close on outside click
-document.addEventListener('click', e => {
-  const drawer = document.getElementById('nbd-nav-drawer');
-  const burger = document.getElementById('nnav-burger');
-  const nav = document.getElementById('nbd-pro-nav');
-  if (drawer.classList.contains('open') && !nav.contains(e.target) && !drawer.contains(e.target)) {
-    drawer.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-});
-
-window.nbdNavToggle = nbdNavToggle;
-</script>
+<script src="js/ai-tool-finder-page-1.js?v=1"></script>
 
 <div class="app">
 
 <!-- ── TOPBAR ── -->
 <header class="topbar">
-  <button class="mobile-nav-btn" id="mobileNavBtn" onclick="toggleMobileNav()">☰</button>
-  <a class="topbar-logo" href="#" onclick="navTo('synthesis');return false">
+  <button class="mobile-nav-btn" id="mobileNavBtn" data-tf-action="toggleMobileNav">☰</button>
+  <a class="topbar-logo" href="#" data-tf-action="navTo" data-arg="synthesis">
     <div class="logo-seal">AI</div>
     <div class="logo-text">
       <div class="logo-title"><span style="color:#E8EAF0;">NBD</span> <span style="color:#e8720c;">PRO</span></div>
@@ -677,16 +571,16 @@ window.nbdNavToggle = nbdNavToggle;
   </a>
   <div class="topbar-chips">
     <a href="/pro/dashboard.html" style="color:#e8720c;text-decoration:none;font-size:13px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;">&#8592; Back to Dashboard</a>
-    <a href="/pro/understand.html" style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:none;color:var(--text3);font-family:'DM Mono',monospace;font-size:10px;text-decoration:none;letter-spacing:.5px;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">🔮 Understand</a>
-    <a href="/pro/ai-tree.html" style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:none;color:var(--text3);font-family:'DM Mono',monospace;font-size:10px;text-decoration:none;letter-spacing:.5px;transition:all var(--t) var(--ease)" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">🛠 AI Tree</a>
-    <button class="topbar-guide-btn" onclick="openGuide()">? How To Use</button>
+    <a href="/pro/understand.html" style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:none;color:var(--text3);font-family:'DM Mono',monospace;font-size:10px;text-decoration:none;letter-spacing:.5px;transition:all var(--t) var(--ease)" class="aif-orange-hover">🔮 Understand</a>
+    <a href="/pro/ai-tree.html" style="display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:var(--r);border:1px solid var(--border2);background:none;color:var(--text3);font-family:'DM Mono',monospace;font-size:10px;text-decoration:none;letter-spacing:.5px;transition:all var(--t) var(--ease)" class="aif-orange-hover">🛠 AI Tree</a>
+    <button class="topbar-guide-btn" data-tf-action="openGuide">? How To Use</button>
     <span class="chip chip-gold" id="versionChip">v11.0</span>
     <span class="chip chip-muted" id="sessionChip">S11</span>
   </div>
 </header>
 
 <!-- ── MOBILE NAV OVERLAY ── -->
-<div class="mobile-nav-overlay" id="mobileNavOverlay" onclick="closeMobileNav()"></div>
+<div class="mobile-nav-overlay" id="mobileNavOverlay" data-tf-action="closeMobileNav"></div>
 <div class="mobile-sidebar" id="mobileSidebar">
   <div style="padding:16px 12px;border-bottom:1px solid var(--border);font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:var(--orange)">NAVIGATION</div>
   <div id="mobileSidebarNav"></div>
@@ -698,11 +592,11 @@ window.nbdNavToggle = nbdNavToggle;
   <!-- ── SIDEBAR ── -->
   <nav class="sidebar" id="sidebarNav">
     <div class="sidebar-section">Command Center</div>
-    <button class="nav-item active" data-page="synthesis" onclick="navTo('synthesis')">
+    <button class="nav-item active" data-page="synthesis" data-tf-action="navTo" data-arg="synthesis">
       <span class="nav-item-icon">⬛</span>
       <span class="nav-item-label">Synthesis</span>
     </button>
-    <button class="nav-item" data-page="tasks" onclick="navTo('tasks')">
+    <button class="nav-item" data-page="tasks" data-tf-action="navTo" data-arg="tasks">
       <span class="nav-item-icon">◈</span>
       <span class="nav-item-label">Task Registry</span>
       <span class="nav-item-badge" id="taskBadge">0</span>
@@ -710,29 +604,29 @@ window.nbdNavToggle = nbdNavToggle;
 
     <div class="sidebar-divider"></div>
     <div class="sidebar-section">History</div>
-    <button class="nav-item" data-page="sessions" onclick="navTo('sessions')">
+    <button class="nav-item" data-page="sessions" data-tf-action="navTo" data-arg="sessions">
       <span class="nav-item-icon">◎</span>
       <span class="nav-item-label">Session Log</span>
     </button>
-    <button class="nav-item" data-page="directives" onclick="navTo('directives')">
+    <button class="nav-item" data-page="directives" data-tf-action="navTo" data-arg="directives">
       <span class="nav-item-icon">⟡</span>
       <span class="nav-item-label">Directives</span>
     </button>
 
     <div class="sidebar-divider"></div>
     <div class="sidebar-section">Project</div>
-    <button class="nav-item" data-page="dna" onclick="navTo('dna')">
+    <button class="nav-item" data-page="dna" data-tf-action="navTo" data-arg="dna">
       <span class="nav-item-icon">❖</span>
       <span class="nav-item-label">Project DNA</span>
     </button>
-    <button class="nav-item" data-page="export" onclick="navTo('export')">
+    <button class="nav-item" data-page="export" data-tf-action="navTo" data-arg="export">
       <span class="nav-item-icon">↓</span>
       <span class="nav-item-label">Export</span>
     </button>
 
     <div class="sidebar-divider"></div>
     <div style="padding:12px 16px">
-      <button class="btn btn-gold btn-sm" style="width:100%;justify-content:center" onclick="navTo('sessions');setTimeout(()=>openNewSession(),100)">+ Log Session</button>
+      <button class="btn btn-gold btn-sm" style="width:100%;justify-content:center" data-tf-action="navToThenOpenNewSession">+ Log Session</button>
     </div>
   </nav>
 
@@ -741,7 +635,7 @@ window.nbdNavToggle = nbdNavToggle;
 
     <!-- ══ SYNTHESIS ══ -->
     <div class="page active" id="page-synthesis">
-      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Synthesis</span></div>
+      <div class="breadcrumb"><button class="bc-home" data-tf-action="navTo" data-arg="synthesis">Codex</button><span class="bc-sep">/</span><span class="bc-current">Synthesis</span></div>
       <div class="page-header">
         <div class="page-header-top">
           <div>
@@ -750,8 +644,8 @@ window.nbdNavToggle = nbdNavToggle;
             <div class="page-sub" id="lastUpdated">Last updated: S11 · 2026-03-20</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-gold" onclick="navTo('sessions');setTimeout(()=>openNewSession(),100)">+ Log Session</button>
-            <button class="btn btn-ghost" onclick="navTo('export')">↓ Export</button>
+            <button class="btn btn-gold" data-tf-action="navToThenOpenNewSession">+ Log Session</button>
+            <button class="btn btn-ghost" data-tf-action="navTo" data-arg="export">↓ Export</button>
           </div>
         </div>
       </div>
@@ -772,7 +666,7 @@ window.nbdNavToggle = nbdNavToggle;
           <div class="sec-head">
             <div class="sec-title">Execution Debt</div>
             <div class="sec-line"></div>
-            <button class="btn btn-ghost btn-sm" onclick="navTo('tasks')">View All →</button>
+            <button class="btn btn-ghost btn-sm" data-tf-action="navTo" data-arg="tasks">View All →</button>
           </div>
           <div class="stat-row">
             <div class="stat-chip"><div class="stat-val" id="sCritical">0</div><div class="stat-lbl">Critical</div></div>
@@ -794,11 +688,11 @@ window.nbdNavToggle = nbdNavToggle;
           <div class="card" style="margin-bottom:0">
             <div class="card-title">Quick Nav</div>
             <div style="display:flex;flex-direction:column;gap:6px">
-              <button class="btn btn-gold btn-sm" style="justify-content:center;width:100%" onclick="navTo('sessions');setTimeout(()=>openNewSession(),100)">+ Log New Session</button>
-              <button class="btn btn-outline btn-sm" style="justify-content:center;width:100%" onclick="navTo('tasks')">◈ Task Registry</button>
-              <button class="btn btn-ghost btn-sm" style="justify-content:center;width:100%" onclick="navTo('sessions')">◎ Session Log</button>
-              <button class="btn btn-ghost btn-sm" style="justify-content:center;width:100%" onclick="navTo('directives')">⟡ Directives</button>
-              <button class="btn btn-ghost btn-sm" style="justify-content:center;width:100%" onclick="navTo('export')">↓ Export Codex</button>
+              <button class="btn btn-gold btn-sm" style="justify-content:center;width:100%" data-tf-action="navToThenOpenNewSession">+ Log New Session</button>
+              <button class="btn btn-outline btn-sm" style="justify-content:center;width:100%" data-tf-action="navTo" data-arg="tasks">◈ Task Registry</button>
+              <button class="btn btn-ghost btn-sm" style="justify-content:center;width:100%" data-tf-action="navTo" data-arg="sessions">◎ Session Log</button>
+              <button class="btn btn-ghost btn-sm" style="justify-content:center;width:100%" data-tf-action="navTo" data-arg="directives">⟡ Directives</button>
+              <button class="btn btn-ghost btn-sm" style="justify-content:center;width:100%" data-tf-action="navTo" data-arg="export">↓ Export Codex</button>
             </div>
           </div>
         </div>
@@ -807,7 +701,7 @@ window.nbdNavToggle = nbdNavToggle;
 
     <!-- ══ TASK REGISTRY ══ -->
     <div class="page" id="page-tasks">
-      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Task Registry</span></div>
+      <div class="breadcrumb"><button class="bc-home" data-tf-action="navTo" data-arg="synthesis">Codex</button><span class="bc-sep">/</span><span class="bc-current">Task Registry</span></div>
       <div class="page-header">
         <div class="page-header-top">
           <div>
@@ -816,7 +710,7 @@ window.nbdNavToggle = nbdNavToggle;
             <div class="page-sub" id="taskMeta">11 tasks tracked</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-gold" onclick="toggleTaskForm()">+ Add Task</button>
+            <button class="btn btn-gold" data-tf-action="toggleTaskForm">+ Add Task</button>
           </div>
         </div>
       </div>
@@ -829,15 +723,15 @@ window.nbdNavToggle = nbdNavToggle;
       </div>
 
       <div class="toolbar">
-        <button class="filter-btn on" onclick="filterTasks('all',this)">All</button>
-        <button class="filter-btn" onclick="filterTasks('critical',this)">🔴 Critical</button>
-        <button class="filter-btn" onclick="filterTasks('high',this)">🟡 High</button>
-        <button class="filter-btn" onclick="filterTasks('open',this)">Open Only</button>
-        <button class="filter-btn" onclick="filterTasks('done',this)">✓ Closed</button>
+        <button class="filter-btn on" data-tf-action="filterTasks" data-arg="all">All</button>
+        <button class="filter-btn" data-tf-action="filterTasks" data-arg="critical">🔴 Critical</button>
+        <button class="filter-btn" data-tf-action="filterTasks" data-arg="high">🟡 High</button>
+        <button class="filter-btn" data-tf-action="filterTasks" data-arg="open">Open Only</button>
+        <button class="filter-btn" data-tf-action="filterTasks" data-arg="done">✓ Closed</button>
       </div>
 
       <div class="form-panel" id="taskForm">
-        <div class="form-title">New Task <button class="btn btn-ghost btn-sm" onclick="toggleTaskForm()">✕ Cancel</button></div>
+        <div class="form-title">New Task <button class="btn btn-ghost btn-sm" data-tf-action="toggleTaskForm">✕ Cancel</button></div>
         <div class="grid2">
           <div class="fg"><div class="fl">Task Description *</div><input class="fi" id="ntTask" placeholder="What needs to be done?"></div>
           <div class="fg"><div class="fl">Priority</div><select class="fi" id="ntPriority"><option value="critical">🔴 Critical</option><option value="high">🟡 High</option><option value="med">🟢 Med</option></select></div>
@@ -845,8 +739,8 @@ window.nbdNavToggle = nbdNavToggle;
           <div class="fg"><div class="fl">Est. Time</div><input class="fi" id="ntTime" placeholder="e.g. 30 min, 2 hrs"></div>
         </div>
         <div class="form-footer">
-          <button class="btn btn-ghost btn-sm" onclick="toggleTaskForm()">Cancel</button>
-          <button class="btn btn-gold btn-sm" onclick="saveTask()">Save Task</button>
+          <button class="btn btn-ghost btn-sm" data-tf-action="toggleTaskForm">Cancel</button>
+          <button class="btn btn-gold btn-sm" data-tf-action="saveTask">Save Task</button>
         </div>
       </div>
 
@@ -855,7 +749,7 @@ window.nbdNavToggle = nbdNavToggle;
 
     <!-- ══ SESSION LOG ══ -->
     <div class="page" id="page-sessions">
-      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Session Log</span></div>
+      <div class="breadcrumb"><button class="bc-home" data-tf-action="navTo" data-arg="synthesis">Codex</button><span class="bc-sep">/</span><span class="bc-current">Session Log</span></div>
       <div class="page-header">
         <div class="page-header-top">
           <div>
@@ -864,22 +758,22 @@ window.nbdNavToggle = nbdNavToggle;
             <div class="page-sub">Append-only · 11 sessions recorded</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-gold" id="newSessBtn" onclick="openNewSession()">+ Log Session</button>
-            <button class="btn btn-ghost btn-sm" onclick="expandAllSessions()">Expand All</button>
-            <button class="btn btn-ghost btn-sm" onclick="collapseAllSessions()">Collapse</button>
+            <button class="btn btn-gold" id="newSessBtn" data-tf-action="openNewSession">+ Log Session</button>
+            <button class="btn btn-ghost btn-sm" data-tf-action="expandAllSessions">Expand All</button>
+            <button class="btn btn-ghost btn-sm" data-tf-action="collapseAllSessions">Collapse</button>
           </div>
         </div>
       </div>
 
       <div class="toolbar">
-        <button class="filter-btn on" onclick="filterSessions('all',this)">All (11)</button>
-        <button class="filter-btn" onclick="filterSessions('original',this)">🟢 Original</button>
-        <button class="filter-btn" onclick="filterSessions('reconstructed',this)">🔵 Reconstructed</button>
+        <button class="filter-btn on" data-tf-action="filterSessions" data-arg="all">All (11)</button>
+        <button class="filter-btn" data-tf-action="filterSessions" data-arg="original">🟢 Original</button>
+        <button class="filter-btn" data-tf-action="filterSessions" data-arg="reconstructed">🔵 Reconstructed</button>
       </div>
 
       <!-- New session form -->
       <div class="form-panel" id="sessionForm">
-        <div class="form-title">New Session Entry <button class="btn btn-ghost btn-sm" onclick="closeNewSession()">✕ Cancel</button></div>
+        <div class="form-title">New Session Entry <button class="btn btn-ghost btn-sm" data-tf-action="closeNewSession">✕ Cancel</button></div>
         <div class="grid2">
           <div class="fg"><div class="fl">Session Title *</div><input class="fi" id="nsTitle" placeholder='e.g. "Stripe Integration Complete"'></div>
           <div class="fg"><div class="fl">Date</div><input class="fi" id="nsDate" type="datetime-local"></div>
@@ -894,8 +788,8 @@ window.nbdNavToggle = nbdNavToggle;
         </div>
         <div class="fg"><div class="fl">🔁 Open Loops Carried Forward (one per line)</div><textarea class="fi" id="nsLoops" rows="3" placeholder="What's still open after this session?"></textarea></div>
         <div class="form-footer">
-          <button class="btn btn-ghost btn-sm" onclick="closeNewSession()">Cancel</button>
-          <button class="btn btn-gold" onclick="saveSession()">✓ Log Session</button>
+          <button class="btn btn-ghost btn-sm" data-tf-action="closeNewSession">Cancel</button>
+          <button class="btn btn-gold" data-tf-action="saveSession">✓ Log Session</button>
         </div>
       </div>
 
@@ -904,7 +798,7 @@ window.nbdNavToggle = nbdNavToggle;
 
     <!-- ══ DIRECTIVES ══ -->
     <div class="page" id="page-directives">
-      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Directives</span></div>
+      <div class="breadcrumb"><button class="bc-home" data-tf-action="navTo" data-arg="synthesis">Codex</button><span class="bc-sep">/</span><span class="bc-current">Directives</span></div>
       <div class="page-header">
         <div class="page-header-top">
           <div>
@@ -913,17 +807,17 @@ window.nbdNavToggle = nbdNavToggle;
             <div class="page-sub">Enforced forever · Append-only</div>
           </div>
           <div class="page-actions">
-            <button class="btn btn-gold" onclick="openAddDirective()">+ Add Directive</button>
+            <button class="btn btn-gold" data-tf-action="openAddDirective">+ Add Directive</button>
           </div>
         </div>
       </div>
 
       <div class="form-panel" id="directiveForm">
-        <div class="form-title">New Directive <button class="btn btn-ghost btn-sm" onclick="closeAddDirective()">✕ Cancel</button></div>
+        <div class="form-title">New Directive <button class="btn btn-ghost btn-sm" data-tf-action="closeAddDirective">✕ Cancel</button></div>
         <div class="fg"><div class="fl">Directive Text *</div><input class="fi" id="newDirectiveText" placeholder="Enter the directive — be specific and binding..."></div>
         <div class="form-footer">
-          <button class="btn btn-ghost btn-sm" onclick="closeAddDirective()">Cancel</button>
-          <button class="btn btn-gold btn-sm" onclick="saveDirective()">Save Directive</button>
+          <button class="btn btn-ghost btn-sm" data-tf-action="closeAddDirective">Cancel</button>
+          <button class="btn btn-gold btn-sm" data-tf-action="saveDirective">Save Directive</button>
         </div>
       </div>
 
@@ -956,7 +850,7 @@ window.nbdNavToggle = nbdNavToggle;
 
     <!-- ══ PROJECT DNA ══ -->
     <div class="page" id="page-dna">
-      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Project DNA</span></div>
+      <div class="breadcrumb"><button class="bc-home" data-tf-action="navTo" data-arg="synthesis">Codex</button><span class="bc-sep">/</span><span class="bc-current">Project DNA</span></div>
       <div class="page-header">
         <div>
           <div class="page-eyebrow">§1 · Project DNA</div>
@@ -1010,7 +904,7 @@ window.nbdNavToggle = nbdNavToggle;
 
     <!-- ══ EXPORT ══ -->
     <div class="page" id="page-export">
-      <div class="breadcrumb"><button class="bc-home" onclick="navTo('synthesis')">Codex</button><span class="bc-sep">/</span><span class="bc-current">Export</span></div>
+      <div class="breadcrumb"><button class="bc-home" data-tf-action="navTo" data-arg="synthesis">Codex</button><span class="bc-sep">/</span><span class="bc-current">Export</span></div>
       <div class="page-header">
         <div>
           <div class="page-eyebrow">Export Codex</div>
@@ -1023,11 +917,11 @@ window.nbdNavToggle = nbdNavToggle;
         <div>
           <div class="card">
             <div class="card-title">↓ Export Options</div>
-            <div class="fg"><div class="fl">Next Version Number</div><input class="fi" id="exportVersion" placeholder="e.g. v12.0" oninput="buildExportPreview()"></div>
+            <div class="fg"><div class="fl">Next Version Number</div><input class="fi" id="exportVersion" placeholder="e.g. v12.0" data-aif-action="buildExportPreview"></div>
             <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
-              <button class="btn btn-gold" style="justify-content:center" onclick="exportMarkdown()">↓ Export as Markdown (.md)</button>
-              <button class="btn btn-outline" style="justify-content:center" onclick="exportText()">↓ Export as Plain Text (.txt)</button>
-              <button class="btn btn-ghost" style="justify-content:center" onclick="copyExport()">⎘ Copy to Clipboard</button>
+              <button class="btn btn-gold" style="justify-content:center" data-tf-action="exportMarkdown">↓ Export as Markdown (.md)</button>
+              <button class="btn btn-outline" style="justify-content:center" data-tf-action="exportText">↓ Export as Plain Text (.txt)</button>
+              <button class="btn btn-ghost" style="justify-content:center" data-tf-action="copyExport">⎘ Copy to Clipboard</button>
             </div>
             <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;color:var(--text3);line-height:1.6">
               Export generates the full Codex: all sessions, tasks, directives, architecture, and synthesis — ready to paste at the start of a new AI conversation as context.
@@ -1048,11 +942,11 @@ window.nbdNavToggle = nbdNavToggle;
 </div>
 
 <!-- ── HOW-TO GUIDE MODAL ── -->
-<div class="modal-backdrop" id="guideModal" onclick="closeGuideOnBg(event)">
+<div class="modal-backdrop" id="guideModal" data-tf-action="closeGuideOnBg">
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title">How to Use — AI Selection Codex</div>
-      <button class="modal-close" onclick="closeGuide()">✕</button>
+      <button class="modal-close" data-tf-action="closeGuide">✕</button>
     </div>
     <div class="modal-body">
       <div style="font-size:14px;color:var(--text2);margin-bottom:20px;line-height:1.6">The AI Selection Codex is a <strong style="color:var(--text)">living project memory system</strong> for NBD Pro. Every session, decision, directive, and open loop lives here — permanently. Use it to brief a new AI agent, track progress, and never lose context.</div>
@@ -1118,431 +1012,6 @@ window.nbdNavToggle = nbdNavToggle;
 
 <div class="tcon" id="tcon"></div>
 
-<script>
-// ══════════════════════════════════════════════════════════
-// DATA
-//
-// April 2026: the hardcoded S1-S12 demo sessions from the NBD Pro
-// site-build process have been removed. They were shipped as static
-// HTML-embedded data so every user saw the same 12 sessions — not
-// a security leak (nothing was read from another user's Firestore),
-// but confusing because it looked like someone else's history was
-// showing up under your account.
-//
-// The page now starts with an empty session list. User-logged
-// sessions persist via window.storage → localStorage on the user's
-// own device only. Nothing in this file touches Firestore.
-// ══════════════════════════════════════════════════════════
-let codex = {
-  version:'v13.0', totalSessions:0, lastSession:null,
-  tasks:[],
-  sessions:[],
-  directives:[]
-};
-
-let taskFilter='all', sessionFilter='all';
-
-// ── STORAGE ADAPTER ──
-// Wire window.storage to localStorage so save/load actually persist
-window.storage = {
-  async set(key, value) { localStorage.setItem(key, value); },
-  async get(key) { const v = localStorage.getItem(key); return v ? { value: v } : null; },
-  async remove(key) { localStorage.removeItem(key); }
-};
-
-// ── STORAGE ──
-async function save(){try{await window.storage.set('nbd-codex-v2',JSON.stringify({tasks:codex.tasks,totalSessions:codex.totalSessions,lastSession:codex.lastSession,version:codex.version,sessions:codex.sessions.filter(s=>s.source==='original'||s.num>=10),directives:codex.directives}))}catch(e){}}
-async function load(){
-  try{
-    const r=await window.storage.get('nbd-codex-v2');
-    if(!r)return;
-    const s=JSON.parse(r.value);
-    // Merge done-states into base tasks
-    if(s.tasks){s.tasks.forEach(st=>{const t=codex.tasks.find(t=>t.id===st.id);if(t)t.done=st.done;else if(st.source!=='base')codex.tasks.push(st)})}
-    // Add any user-logged sessions (num > 11)
-    if(s.sessions){s.sessions.filter(ss=>ss.num>11).forEach(ss=>{if(!codex.sessions.find(x=>x.id===ss.id))codex.sessions.unshift(ss)})}
-    if(s.version&&s.totalSessions>codex.totalSessions){codex.version=s.version;codex.totalSessions=s.totalSessions;codex.lastSession=s.lastSession}
-    if(s.directives)codex.directives=s.directives;
-  }catch(e){}
-}
-
-function uid(){return Math.random().toString(36).slice(2,9)}
-function g(id){return document.getElementById(id)}
-function set(id,v){const e=g(id);if(e)e.textContent=v}
-
-// ── NAVIGATION ──
-function navTo(page){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
-  const pg=g('page-'+page);if(pg)pg.classList.add('active');
-  document.querySelectorAll(`[data-page="${page}"]`).forEach(n=>n.classList.add('active'));
-  window.scrollTo(0,0);
-  g('mainContent').scrollTo(0,0);
-  if(page==='tasks')renderTasks();
-  if(page==='sessions')renderSessions();
-  if(page==='export')buildExportPreview();
-  closeMobileNav();
-}
-
-// ── TOAST ──
-function toast(msg,type=''){
-  const c=g('tcon'),t=document.createElement('div');
-  t.className='toast'+(type?' '+type:'');
-  t.innerHTML=`<span>${type==='green'?'✓':type==='red'?'✕':type==='blue'?'◈':'◆'}</span><span>${msg}</span>`;
-  c.appendChild(t);
-  setTimeout(()=>{t.style.transition='.2s';t.style.opacity='0';t.style.transform='translateX(20px)';setTimeout(()=>t.remove(),200)},3200);
-}
-
-// ── HEADER ──
-function updateHeader(){
-  set('versionChip',codex.version);
-  set('sessionChip','S'+codex.totalSessions);
-  set('lastUpdated','Last updated: S'+codex.totalSessions+' · '+codex.lastSession);
-  updateDebtCounts();
-}
-
-function updateDebtCounts(){
-  const crit=codex.tasks.filter(t=>t.priority==='critical'&&!t.done).length;
-  const high=codex.tasks.filter(t=>t.priority==='high'&&!t.done).length;
-  const med=codex.tasks.filter(t=>t.priority==='med'&&!t.done).length;
-  const done=codex.tasks.filter(t=>t.done).length;
-  set('sCritical',crit);set('sHigh',high);set('sMed',med);set('sDone',done);
-  set('tCrit',crit);set('tHigh',high);set('tMed',med);set('tDone',done);
-  // task badge in nav
-  const badge=g('taskBadge');
-  const openCrit=codex.tasks.filter(t=>t.priority==='critical'&&!t.done).length;
-  if(badge){badge.textContent=openCrit;badge.style.display=openCrit>0?'':'none'}
-  set('taskMeta',codex.tasks.length+' tasks · '+done+' closed');
-}
-
-// ── TASKS ──
-function renderTasks(){
-  const grid=g('taskGrid');if(!grid)return;
-  let list=[...codex.tasks];
-  if(taskFilter==='critical')list=list.filter(t=>t.priority==='critical'&&!t.done);
-  else if(taskFilter==='high')list=list.filter(t=>t.priority==='high'&&!t.done);
-  else if(taskFilter==='open')list=list.filter(t=>!t.done);
-  else if(taskFilter==='done')list=list.filter(t=>t.done);
-  list.sort((a,b)=>{if(a.done!==b.done)return a.done?1:-1;const o={critical:0,high:1,med:2};return(o[a.priority]||2)-(o[b.priority]||2)});
-  grid.innerHTML=list.map(t=>`
-    <div class="task-row${t.done?' done':''}" id="tr-${t.id}">
-      <div class="task-check" onclick="toggleTask('${t.id}')">${t.done?'✓':''}</div>
-      <div>
-        <div class="task-name">${t.task}</div>
-        ${t.time?`<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-top:2px">Est: ${t.time}</div>`:''}
-      </div>
-      <div class="task-time">${t.origin||'—'}</div>
-      <div class="p-dot ${t.priority}"></div>
-      <button class="btn btn-red btn-xs" onclick="deleteTask('${t.id}')">✕</button>
-    </div>`).join('')||'<div style="text-align:center;padding:32px;color:var(--text3);font-family:\'Syne Mono\',monospace;font-size:11px">No tasks match this filter</div>';
-  updateDebtCounts();
-}
-
-function filterTasks(f,btn){
-  taskFilter=f;
-  document.querySelectorAll('#page-tasks .filter-btn').forEach(b=>b.classList.remove('on'));
-  if(btn)btn.classList.add('on');
-  renderTasks();
-}
-
-function toggleTask(id){
-  const t=codex.tasks.find(t=>t.id===id);if(!t)return;
-  t.done=!t.done;save();renderTasks();
-  toast(t.done?'✓ Task closed':'Task reopened',t.done?'green':'');
-}
-
-function deleteTask(id){
-  codex.tasks=codex.tasks.filter(t=>t.id!==id);
-  save();renderTasks();toast('Task removed','');
-}
-
-function toggleTaskForm(){
-  const f=g('taskForm');f.classList.toggle('open');
-  if(f.classList.contains('open'))g('ntTask').focus();
-}
-
-function saveTask(){
-  const task=g('ntTask').value.trim();
-  if(!task){toast('Task description required','red');return}
-  codex.tasks.push({id:uid(),task,priority:g('ntPriority').value,origin:g('ntOrigin').value.trim()||'S'+codex.totalSessions,time:g('ntTime').value.trim(),done:false});
-  save();renderTasks();
-  g('ntTask').value='';g('ntOrigin').value='';g('ntTime').value='';
-  g('taskForm').classList.remove('open');
-  toast('Task added','green');
-}
-
-// ── SESSIONS ──
-function renderSessions(){
-  const list=g('sessionList');if(!list)return;
-  let sessions=[...codex.sessions];
-  if(sessionFilter==='original')sessions=sessions.filter(s=>s.source==='original');
-  else if(sessionFilter==='reconstructed')sessions=sessions.filter(s=>s.source==='reconstructed');
-  list.innerHTML=sessions.map(s=>buildSessionCard(s)).join('');
-}
-
-function filterSessions(f,btn){
-  sessionFilter=f;
-  document.querySelectorAll('#page-sessions .filter-btn').forEach(b=>b.classList.remove('on'));
-  if(btn)btn.classList.add('on');
-  renderSessions();
-}
-
-function buildSessionCard(s){
-  const outputs=s.output?s.output.split('\n').filter(Boolean):[];
-  const decisions=s.keyDecisions?s.keyDecisions.split('\n').filter(Boolean):[];
-  const files=s.filesProduced?s.filesProduced.split('\n').filter(Boolean):[];
-  const loops=s.loops?s.loops.split('\n').filter(Boolean):[];
-  return`<div class="session-card" id="sc-${s.id}">
-    <button class="session-trigger" onclick="toggleSession('${s.id}')">
-      <div class="session-num">S${s.num}</div>
-      <div class="session-info">
-        <div class="session-title">"${s.title}"</div>
-        <div class="session-meta">
-          <span class="session-date">${s.date}</span>
-          <span class="session-badge ${s.source}">${s.source==='original'?'ORIGINAL LOG':'RECONSTRUCTED'}</span>
-        </div>
-      </div>
-      <div class="session-chev">▼</div>
-    </button>
-    <div class="session-body">
-      ${s.summary?`<div style="font-size:16px;color:var(--text);line-height:1.7;padding:12px 16px;background:var(--lift);border-radius:var(--r);border-left:2px solid var(--orange);margin-bottom:4px">${s.summary}</div>`:''}
-      ${s.input?`<div class="slabel">📥 Input Vector</div><div class="stext">${s.input}</div>`:''}
-      ${outputs.length?`<div class="slabel">📤 Output Vector</div><ul class="sbullets">${outputs.map(o=>`<li>${o}</li>`).join('')}</ul>`:''}
-      ${s.delta?`<div class="slabel">⚡ Delta Log</div><div class="smono">${s.delta}</div>`:''}
-      ${decisions.length?`<div class="slabel">🔒 Key Decisions</div><ul class="sbullets">${decisions.map(d=>`<li>${d}</li>`).join('')}</ul>`:''}
-      ${files.length?`<div class="slabel">📁 Files Produced</div><div class="sfiles">${files.map(f=>`<span class="sfile-chip">${f}</span>`).join('')}</div>`:''}
-      ${loops.length?`<div class="slabel">🔁 Open Loops Carried Forward</div>${loops.map(l=>`<div class="sloop"><div class="sloop-dot"></div><span>${l}</span></div>`).join('')}`:''}
-      ${s.source==='reconstructed'?`<div class="recon-note">ℹ This session was reconstructed from Codex v10.0 directives, task registry origins, architecture evolution, and non-negotiable timestamps. The session happened — the exact words are inferred from the evidence it left behind. Original session logs for S1–S9 were not included in the v10.0 export.</div>`:''}
-    </div>
-  </div>`;
-}
-
-function toggleSession(id){
-  const el=g('sc-'+id);if(el)el.classList.toggle('open');
-}
-
-function expandAllSessions(){document.querySelectorAll('.session-card').forEach(e=>e.classList.add('open'))}
-function collapseAllSessions(){document.querySelectorAll('.session-card').forEach(e=>e.classList.remove('open'))}
-
-function openNewSession(){
-  const f=g('sessionForm');f.classList.add('open');
-  const now=new Date();g('nsDate').value=now.toISOString().slice(0,16);
-  g('nsTitle').focus();
-  f.scrollIntoView({behavior:'smooth',block:'start'});
-}
-
-function closeNewSession(){
-  g('sessionForm').classList.remove('open');
-}
-
-function saveSession(){
-  const title=g('nsTitle').value.trim();
-  if(!title){toast('Session title required','red');return}
-  const newNum=codex.totalSessions+1;
-  const entry={
-    id:'s'+newNum, num:newNum, title,
-    date:g('nsDate').value?new Date(g('nsDate').value).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}):new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}),
-    summary:g('nsSummary').value.trim(),
-    input:g('nsInput').value.trim(),
-    output:g('nsOutput').value.trim(),
-    delta:g('nsDelta').value.trim(),
-    keyDecisions:g('nsDecisions').value.trim(),
-    filesProduced:g('nsFiles').value.trim(),
-    loops:g('nsLoops').value.trim(),
-    source:'original'
-  };
-  codex.sessions.unshift(entry);
-  codex.totalSessions=newNum;
-  codex.lastSession=new Date().toISOString().split('T')[0];
-  const vp=codex.version.replace('v','').split('.');vp[0]=String(parseInt(vp[0])+1);codex.version='v'+vp.join('.');
-  save();updateHeader();renderSessions();
-  ['nsTitle','nsInput','nsOutput','nsDelta','nsLoops','nsSummary','nsDecisions','nsFiles'].forEach(id=>{const el=g(id);if(el)el.value=''});
-  closeNewSession();
-  toast('Session S'+newNum+' logged · Codex '+codex.version,'green');
-}
-
-// ── DIRECTIVES ──
-function openAddDirective(){g('directiveForm').classList.add('open');g('newDirectiveText').focus()}
-function closeAddDirective(){g('directiveForm').classList.remove('open')}
-
-function saveDirective(){
-  const text=g('newDirectiveText').value.trim();
-  if(!text){toast('Directive text required','red');return}
-  const session='S'+codex.totalSessions;
-  if(!codex.directives)codex.directives=[];
-  codex.directives.push({session,text,date:new Date().toISOString()});
-  save();
-  const div=document.createElement('div');
-  div.className='directive-row';
-  div.innerHTML=`<div class="d-session" style="color:var(--orange)">${session}</div><div class="d-text"><strong>${text}</strong></div>`;
-  g('directiveList').appendChild(div);
-  g('newDirectiveText').value='';
-  closeAddDirective();
-  toast('Directive added · '+session,'green');
-}
-
-// ── EXPORT ──
-function buildExportContent(version){
-  const v=version||codex.version;
-  const now=new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
-  const openTasks=codex.tasks.filter(t=>!t.done);
-  const doneTasks=codex.tasks.filter(t=>t.done);
-  return`ETERNAL-CODEX-EXPORT-${v}
-AI SELECTION CODEX – NBD PRO
-Version: ${v} | Last Session: ${codex.lastSession} | Total Sessions: ${codex.totalSessions}
-Generated: ${now}
-
-${'━'.repeat(60)}
-
-0. LIVING EXECUTIVE SYNTHESIS
-Sessions complete: ${codex.totalSessions} | Open critical tasks: ${codex.tasks.filter(t=>t.priority==='critical'&&!t.done).length}
-
-Session ${codex.totalSessions+1} Mission (locked):
-1. Commit ds-final-deploy + crm-final-deploy to GitHub — 4 min, do first
-2. Wire Stripe — Payment Links + .plan Firestore write. Full stop.
-3. Build Understanding Tool per 40-question spec
-4. Deploy AI Selection Codex + AI Usability Tree to /pro
-
-${'━'.repeat(60)}
-
-1. PROJECT DNA (immutable)
-Core Vision: "Make massive success feel like no big deal."
-GitHub: https://github.com/jdealtia-sys/nobigdealwithjoedeal.com
-
-Key Paths:
-- Daily Success: pro/daily-success/index.html
-- CRM/Dashboard: pro/dashboard.html
-- Visualizer: visualizer.html
-- Main: index.html
-
-Four Pillars:
-1. Authority Blueprint — 35-page gated blueprint + 12-section masterclass
-2. Daily Momentum Engine — Daily Success tracker + streaks + leaderboards
-3. CRM OS — Dual pipeline, AI nudge, storm intel
-4. Homeowner Conversion Engine — AI visualizer → inbound leads → CRM
-
-Architecture:
-- nbdApplyTheme(id) — SINGLE SOURCE OF TRUTH. Never bypass.
-- 100 v5 themes (body.theme-{id}) + 176 v3 themes (:root[data-theme]) — permanently bridged
-- PLAN_UNLOCK = {blueprint:15, foundation:35, infused:55, team:70, command:80}
-- Stripe: NOT WIRED — all gating fake until Stripe lands
-
-${'━'.repeat(60)}
-
-2. CHRONOLOGICAL MASTER LOG (append-only)
-
-${codex.sessions.map(s=>`Session ${s.num} — ${s.date} — "${s.title}"
-Input: ${s.input||'—'}
-Output:
-${s.output?s.output.split('\n').filter(Boolean).map(l=>'  - '+l).join('\n'):'  —'}
-Delta: ${s.delta||'—'}
-Key Decisions: ${s.keyDecisions||'—'}
-Files: ${s.filesProduced||'—'}
-Open Loops:
-${s.loops?s.loops.split('\n').filter(Boolean).map(l=>'  □ '+l).join('\n'):'  —'}
-`).join('\n')}
-
-${'━'.repeat(60)}
-
-4. MASTER TASK REGISTRY
-
-OPEN:
-${openTasks.map((t,i)=>`${i+1}. [${t.priority.toUpperCase()}] ${t.task} | ${t.origin} | Est: ${t.time||'—'}`).join('\n')}
-
-${doneTasks.length?'CLOSED:\n'+doneTasks.map((t,i)=>`${i+1}. ✓ ${t.task}`).join('\n'):''}
-
-${'━'.repeat(60)}
-
-6. META-CODEX DIRECTIVES (enforced forever)
-- Append-only Section 2
-- Section 0 rewritten each session — higher altitude only
-- S3: Wiring Phase Doctrine standing
-- S4: Architecture decisions binding until explicitly revised
-- S5: "Never lose a job" — standing CRM constraint
-- S6: crm-leads.js — single source of truth for lead/job Firestore ops
-- S6: Visualizer is the fourth pillar
-- S7: nbdApplyTheme() is the single point of theme write — never bypass
-- S7: Light theme CSS audit mandatory before launch
-- S7: Stripe is the standing blocker for plan-gating reality
-- S8: Close before opening — 2+ session open loops must close first
-- S9: GitHub repo fixed — never ask again
-- S9: 176-theme v3 library canonical — do not revert
-- S10: nbdApplyTheme() governs ALL theme state — no parallel paths
-- S10: CRM file path is pro/dashboard.html — not pro/crm/index.html
-- S10: v5 and v3 permanently bridged — maintain bridge, never remove
-- S${codex.totalSessions}: Stripe ships in S${codex.totalSessions+1}. No exceptions.
-${codex.directives&&codex.directives.length?codex.directives.map(d=>`- ${d.session}: ${d.text}`).join('\n'):''}
-
-${'━'.repeat(60)}
-END OF CODEX ${v}
-Generated by AI Selection Codex · nobigdealwithjoedeal.com/pro`;
-}
-
-function buildExportPreview(){
-  const version=g('exportVersion')?.value||codex.version;
-  const preview=buildExportContent(version);
-  const el=g('exportPreview');if(el)el.textContent=preview;
-}
-
-function exportMarkdown(){
-  const version=g('exportVersion')?.value||codex.version;
-  const blob=new Blob([buildExportContent(version)],{type:'text/markdown'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=`CODEX-EXPORT-${version}.md`;a.click();
-  toast('Codex exported as '+version,'green');
-}
-
-function exportText(){
-  const version=g('exportVersion')?.value||codex.version;
-  const blob=new Blob([buildExportContent(version)],{type:'text/plain'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=`CODEX-EXPORT-${version}.txt`;a.click();
-  toast('Codex exported as plain text','green');
-}
-
-function copyExport(){
-  const version=g('exportVersion')?.value||codex.version;
-  navigator.clipboard.writeText(buildExportContent(version)).then(()=>toast('Codex copied to clipboard','green'));
-}
-
-// ── GUIDE MODAL ──
-function openGuide(){g('guideModal').classList.add('open')}
-function closeGuide(){g('guideModal').classList.remove('open')}
-function closeGuideOnBg(e){if(e.target===g('guideModal'))closeGuide()}
-
-// ── MOBILE NAV ──
-function buildMobileNav(){
-  const nav=g('mobileSidebarNav');if(!nav)return;
-  nav.innerHTML=g('sidebarNav').innerHTML;
-  nav.querySelectorAll('.nav-item').forEach(btn=>{
-    const page=btn.getAttribute('data-page');
-    if(page){btn.addEventListener('click',()=>{navTo(page);closeMobileNav()})}
-  });
-  const addBtn=nav.querySelector('.btn-gold');
-  if(addBtn){addBtn.addEventListener('click',()=>{navTo('sessions');setTimeout(()=>openNewSession(),100);closeMobileNav()})}
-}
-
-function toggleMobileNav(){
-  g('mobileSidebar').classList.toggle('open');
-  g('mobileNavOverlay').classList.toggle('open');
-}
-
-function closeMobileNav(){
-  g('mobileSidebar').classList.remove('open');
-  g('mobileNavOverlay').classList.remove('open');
-}
-
-// ── INIT ──
-async function init(){
-  await load();
-  updateHeader();
-  renderSessions();
-  buildMobileNav();
-  // start on synthesis
-  navTo('synthesis');
-  setTimeout(()=>toast('AI Selection Codex · '+codex.version+' · '+codex.totalSessions+' sessions','blue'),800);
-}
-init();
-</script>
+<script src="js/ai-tool-finder-page-2.js?v=1"></script>
 </body>
 </html>
