@@ -279,8 +279,6 @@
                 transition: background 0.2s ease;
                 width: 100%;
               "
-              onmouseover="this.style.background='#d96326'"
-              onmouseout="this.style.background='#e8720c'"
             >
               ${status.nextStage !== 'Complete' ? 'Advance to ' + status.nextStage : 'Workflow Complete'}
             </button>

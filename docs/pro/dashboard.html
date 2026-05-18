@@ -6848,6 +6848,30 @@ body.theme-frosted {
   .tt-search{max-width:none;}
 }
 
+/* ══════════════════════════════════════════════════════════════════════
+   CSP-safe hover effects (replaces stripped inline onmouseover/out).
+   The strict CSP at firebase.json:44 (`script-src-attr 'none'`) blocked
+   the inline `this.style.transform='scale(...)'` handlers across
+   notif-bell, global-search, activity-feed, smart-followup, decision-
+   engine, and a few others — they were dead. These rules give the same
+   visual feedback via the CSS engine, which is unaffected by CSP.
+   ══════════════════════════════════════════════════════════════════════ */
+.notif-action:hover,
+.af-action:hover,
+.cmd-action:hover,
+.gs-action:hover,
+.sfp-action:hover,
+[data-nb-action]:hover,
+[data-af-action]:hover,
+[data-gs-action]:hover {
+  transform: scale(1.08);
+  transition: transform .12s ease;
+}
+.gs-action:hover,
+[data-gs-action]:hover,
+.cmd-action:hover { transform: scale(1.10); }
+.notif-item:hover { background: var(--s2, #1a1f2a); transition: background .12s ease; }
+
 /* ── PRINT STYLESHEET ─────────────────────────────── */
 @media print {
   /* Hide navigation, toolbars, modals, FAB */
@@ -10049,9 +10073,7 @@ body.theme-frosted {
             </div>
             <div id="ds-floor-editor"></div>
             <button data-action="call" data-fn="dsAddFloor"
-              style="margin-top:8px;width:100%;background:transparent;border:1.5px dashed var(--br);border-radius:4px;padding:8px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--m);cursor:pointer;transition:all .15s;"
-              onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)';"
-              onmouseout="this.style.borderColor='var(--br)';this.style.color='var(--m)';">+ ADD FLOOR</button>
+              style="margin-top:8px;width:100%;background:transparent;border:1.5px dashed var(--br);border-radius:4px;padding:8px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--m);cursor:pointer;transition:all .15s;">+ ADD FLOOR</button>
           </div>
         </div>
 

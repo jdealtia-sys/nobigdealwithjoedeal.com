@@ -329,8 +329,6 @@
               -webkit-tap-highlight-color:transparent;
               transition:transform .12s;"
             data-gs-stop-self="1"
-            onmouseover="this.style.transform='scale(1.10)'"
-            onmouseout="this.style.transform=''"
           >📞</a>`);
         buttons.push(`
           <button class="cmd-action" type="button"
@@ -343,8 +341,6 @@
               border:none; font-size:11px; cursor:pointer;
               -webkit-tap-highlight-color:transparent;
               transition:transform .12s;"
-            onmouseover="this.style.transform='scale(1.10)'"
-            onmouseout="this.style.transform=''"
           >💬</button>`);
       }
       if (email) {
@@ -359,8 +355,6 @@
               border:none; font-size:11px; cursor:pointer;
               -webkit-tap-highlight-color:transparent;
               transition:transform .12s;"
-            onmouseover="this.style.transform='scale(1.10)'"
-            onmouseout="this.style.transform=''"
           >📧</button>`);
       }
       // Wave 63: portal preview action. Sits between the share
@@ -387,8 +381,6 @@
               border:none; font-size:11px; cursor:pointer;
               -webkit-tap-highlight-color:transparent;
               transition:transform .12s;"
-            onmouseover="this.style.transform='scale(1.10)'"
-            onmouseout="this.style.transform=''"
           >🔍</button>`);
       }
       // Wave 61: Cmd+K direct snooze action. Sits next to the
@@ -410,8 +402,6 @@
                 border:none; font-size:11px; cursor:pointer;
                 -webkit-tap-highlight-color:transparent;
                 transition:transform .12s;"
-              onmouseover="this.style.transform='scale(1.10)'"
-              onmouseout="this.style.transform=''"
             >⏰</button>`);
         } else {
           buttons.push(`
@@ -425,8 +415,6 @@
                 border:none; font-size:11px; cursor:pointer;
                 -webkit-tap-highlight-color:transparent;
                 transition:transform .12s;"
-              onmouseover="this.style.transform='scale(1.10)'"
-              onmouseout="this.style.transform=''"
             >💤</button>`);
         }
       }

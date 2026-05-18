@@ -1397,22 +1397,16 @@
             `<a class="rc-action" href="tel:${e(phoneDigits)}" title="Call ${e(lead.phone)}"
                style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(16,185,129,0.14);color:#10b981;text-decoration:none;font-size:11px;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
                data-action="stopProp"
-               onmouseover="this.style.transform='scale(1.1)'"
-               onmouseout="this.style.transform=''"
              >📞</a>`);
           buttons.push(
             `<button class="rc-action" type="button" data-action="sms" data-lead-id="${e(lead.id)}" title="Text portal link to ${e(lead.phone)}"
                style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(59,130,246,0.14);color:#3b82f6;border:none;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
-               onmouseover="this.style.transform='scale(1.1)'"
-               onmouseout="this.style.transform=''"
              >💬</button>`);
         }
         if (email) {
           buttons.push(
             `<button class="rc-action" type="button" data-action="email" data-lead-id="${e(lead.id)}" title="Email portal link to ${e(email)}"
                style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(139,92,246,0.14);color:#8b5cf6;border:none;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
-               onmouseover="this.style.transform='scale(1.1)'"
-               onmouseout="this.style.transform=''"
              >📧</button>`);
         }
         // Wave 67: portal preview action — finishes the recent-
@@ -1426,8 +1420,6 @@
           buttons.push(
             `<button class="rc-action" type="button" data-action="preview" data-lead-id="${e(lead.id)}" title="Preview the portal — see what the customer will see"
                style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(245,158,11,0.14);color:#f59e0b;border:none;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
-               onmouseover="this.style.transform='scale(1.1)'"
-               onmouseout="this.style.transform=''"
              >🔍</button>`);
         }
         // Wave 62: state-aware snooze/unsnooze button on the recent
@@ -1443,15 +1435,11 @@
             buttons.push(
               `<button class="rc-action" type="button" data-action="unsnooze" data-lead-id="${e(lead.id)}" title="Unsnooze (was until ${e(untilLabel)})"
                  style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(155,109,255,0.14);color:#cab8ff;border:none;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
-                 onmouseover="this.style.transform='scale(1.1)'"
-                 onmouseout="this.style.transform=''"
                >⏰</button>`);
           } else {
             buttons.push(
               `<button class="rc-action" type="button" data-action="snooze" data-lead-id="${e(lead.id)}" title="Snooze this lead"
                  style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:4px;background:rgba(155,109,255,0.10);color:#a890e8;border:none;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;"
-                 onmouseover="this.style.transform='scale(1.1)'"
-                 onmouseout="this.style.transform=''"
                >💤</button>`);
           }
         }
@@ -1465,9 +1453,7 @@
         const name = `${lead.firstName || ''} ${lead.lastName || ''}`.trim() || 'Unknown';
         const shortAddr = (lead.address || '').split(',')[0];
         return `
-          <div class="nbd-recent-row" data-id="${e(r.id)}" style="display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s;font-size:12px;"
-               onmouseover="this.style.background='var(--s2)'"
-               onmouseout="this.style.background='transparent'">
+          <div class="nbd-recent-row" data-id="${e(r.id)}" style="display:flex;gap:8px;align-items:center;padding:6px 8px;border-radius:6px;cursor:pointer;transition:background .15s;font-size:12px;">
             <div style="flex:1;min-width:0;">
               <div style="font-weight:600;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e(name)}</div>
               <div style="font-size:10px;color:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${e(shortAddr)}</div>

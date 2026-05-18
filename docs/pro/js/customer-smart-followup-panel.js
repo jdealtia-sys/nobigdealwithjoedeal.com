@@ -140,8 +140,7 @@
                text-decoration:none; font:inherit; font-size:12px; font-weight:700;
                cursor:${phone ? 'pointer' : 'not-allowed'}; opacity:${phone ? 1 : 0.4};
                -webkit-tap-highlight-color:transparent; transition:transform .12s;"
-        ${phone ? "" : "data-csfp-stop-self=\"1\""}
-        onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform=''">📞 Call</a>`;
+        ${phone ? "" : "data-csfp-stop-self=\"1\""}>📞 Call</a>`;
 
     const smsBtnHtml = `
       <button class="csf-btn" type="button" data-csf-action="sms"
@@ -151,8 +150,7 @@
                border:1px solid ${smsPrimary ? accent : 'rgba(59,130,246,0.45)'};
                font:inherit; font-size:12px; font-weight:700;
                cursor:${phone ? 'pointer' : 'not-allowed'}; opacity:${phone ? 1 : 0.4};
-               -webkit-tap-highlight-color:transparent; transition:transform .12s;"
-        onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform=''">💬 SMS</button>`;
+               -webkit-tap-highlight-color:transparent; transition:transform .12s;">💬 SMS</button>`;
 
     const emailBtnHtml = `
       <button class="csf-btn" type="button" data-csf-action="email"
@@ -162,8 +160,7 @@
                border:1px solid ${emailPrimary ? accent : 'rgba(139,92,246,0.45)'};
                font:inherit; font-size:12px; font-weight:700;
                cursor:${email ? 'pointer' : 'not-allowed'}; opacity:${email ? 1 : 0.4};
-               -webkit-tap-highlight-color:transparent; transition:transform .12s;"
-        onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform=''">📧 Email</button>`;
+               -webkit-tap-highlight-color:transparent; transition:transform .12s;">📧 Email</button>`;
 
     const dismissBtnHtml = `
       <button class="csf-btn" type="button" data-csf-action="dismiss"
