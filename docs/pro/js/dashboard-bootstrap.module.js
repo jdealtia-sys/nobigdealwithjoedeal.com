@@ -2241,11 +2241,19 @@
       });
     });
     
-    // Update DOM
-    document.getElementById('weekNewLeads').textContent = newLeads.length;
-    document.getElementById('weekEstimates').textContent = newEstimates.length;
-    document.getElementById('weekRevenue').textContent = '$' + weekRevenue.toLocaleString();
-    document.getElementById('weekTasks').textContent = weekTasks;
+    // Update DOM — all 4 stat tiles live inside the lazy-hydrated
+    // tpl-view-home template. When loadLeads resolves before the home
+    // view has been mounted (cold-load race), getElementById returns
+    // null and the first textContent assignment throws — the catch in
+    // _attemptRender then kicks in a 30s retry loop that the user sees
+    // as a half-loaded / blank dashboard. Guard each access so the
+    // function is a clean no-op when its targets don't exist yet, and
+    // the retry only fires when there's actually something to do.
+    const _setStat = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    _setStat('weekNewLeads',  newLeads.length);
+    _setStat('weekEstimates', newEstimates.length);
+    _setStat('weekRevenue',   '$' + weekRevenue.toLocaleString());
+    _setStat('weekTasks',     weekTasks);
   }
 
   // Optimistic kanban refresh helper — push the just-saved lead into
