@@ -928,6 +928,13 @@
       }, 2000);
     }
     window._user = user;
+    // Fetch the shop-wide Company Profile so every doc generated this
+    // session uses the rep's saved legal text / financing / marketing.
+    // Fire-and-forget — defaults are already in window._companyProfile,
+    // so docs work even if this hangs.
+    if (typeof window._loadCompanyProfile === 'function') {
+      window._loadCompanyProfile().catch(() => {});
+    }
     // Pre-warm the notification-settings cache from Firestore so a rep
     // signing in on a new device gets their saved preferences before
     // they ever open Settings → Notifications. Fire-and-forget — the
@@ -3078,6 +3085,140 @@
       const el = document.getElementById(f);
       if (el && data[f] != null) el.value = data[f];
     });
+  };
+
+  // ═════════════════════════════════════════════════════════
+  // COMPANY PROFILE — doc-constants editable from Settings UI
+  // (legal text, financing tiers, marketing copy, code refs)
+  // Backed by Firestore singleton `companyProfile/main` via
+  // company-profile.js. _loadCompanyProfile() runs on boot, this
+  // tab just populates form fields from window._companyProfile.
+  // ═════════════════════════════════════════════════════════
+  const _CP_LEGAL_FIELDS = [
+    'cancellationWindowText','cancellationStatute',
+    'cancellationContractClause','cancellationProposalShort',
+    'changeOrderClause','changeOrderClauseShort',
+    'disputeResolutionClause','insuranceAssignmentClause','entireAgreementClause',
+    'paymentTermsContract','paymentTermsProposal','paymentMethodsNoCash',
+    'materialsWarrantyDisclaimer','limitationOfLiability','latePaymentChargeText',
+    'proposalValidityDays'
+  ];
+  const _CP_MARKETING_FIELDS = ['tagline','serviceArea','financePartner','codeCycle','codeJurisdiction'];
+
+  function _cpReadFormToProfile() {
+    const defaults = window.NBD_COMPANY_PROFILE_DEFAULTS || {};
+    const out = {};
+    _CP_LEGAL_FIELDS.concat(_CP_MARKETING_FIELDS).forEach(k => {
+      const el = document.getElementById('cp_' + k);
+      if (!el) return;
+      const v = el.value;
+      if (k === 'proposalValidityDays') {
+        const n = parseInt(v, 10);
+        out[k] = Number.isFinite(n) && n > 0 ? n : (defaults[k] || 30);
+      } else {
+        out[k] = v == null ? '' : String(v);
+      }
+    });
+    // Financing tiers — 3 fixed slots.
+    out.financingTiers = [0, 1, 2].map(i => {
+      const apr = parseFloat(document.getElementById('cp_tier' + i + '_apr')?.value);
+      const months = parseInt(document.getElementById('cp_tier' + i + '_months')?.value, 10);
+      const label = document.getElementById('cp_tier' + i + '_label')?.value || '';
+      const badge = document.getElementById('cp_tier' + i + '_badge')?.value || '';
+      const def = (defaults.financingTiers || [])[i] || {};
+      return {
+        apr: Number.isFinite(apr) ? apr : (def.apr || 0),
+        months: Number.isFinite(months) && months > 0 ? months : (def.months || 12),
+        label: label || def.label || '',
+        badge: badge || def.badge || '',
+        color: def.color || '#0ea5e9'
+      };
+    });
+    // Services — 6 fixed slots; skip rows where all three fields are blank.
+    out.services = [];
+    for (let i = 0; i < 6; i++) {
+      const icon = document.getElementById('cp_svc' + i + '_icon')?.value || '';
+      const name = document.getElementById('cp_svc' + i + '_name')?.value || '';
+      const desc = document.getElementById('cp_svc' + i + '_desc')?.value || '';
+      if (icon || name || desc) out.services.push({ icon, name, desc });
+    }
+    // Value props — 4 fixed slots; skip blanks.
+    out.valueProps = [];
+    for (let i = 0; i < 4; i++) {
+      const icon = document.getElementById('cp_vp' + i + '_icon')?.value || '';
+      const title = document.getElementById('cp_vp' + i + '_title')?.value || '';
+      const desc = document.getElementById('cp_vp' + i + '_desc')?.value || '';
+      if (icon || title || desc) out.valueProps.push({ icon, title, desc });
+    }
+    return out;
+  }
+
+  function _cpPopulateFormFromProfile(profile) {
+    const defaults = window.NBD_COMPANY_PROFILE_DEFAULTS || {};
+    const p = profile || defaults;
+    _CP_LEGAL_FIELDS.concat(_CP_MARKETING_FIELDS).forEach(k => {
+      const el = document.getElementById('cp_' + k);
+      if (el) el.value = p[k] != null ? p[k] : (defaults[k] != null ? defaults[k] : '');
+    });
+    const tiers = (Array.isArray(p.financingTiers) && p.financingTiers.length === 3) ? p.financingTiers : (defaults.financingTiers || []);
+    [0, 1, 2].forEach(i => {
+      const t = tiers[i] || {};
+      const apr = document.getElementById('cp_tier' + i + '_apr');     if (apr)    apr.value = t.apr != null ? t.apr : '';
+      const months = document.getElementById('cp_tier' + i + '_months'); if (months) months.value = t.months != null ? t.months : '';
+      const label = document.getElementById('cp_tier' + i + '_label');   if (label)  label.value = t.label || '';
+      const badge = document.getElementById('cp_tier' + i + '_badge');   if (badge)  badge.value = t.badge || '';
+    });
+    const services = (Array.isArray(p.services) ? p.services : (defaults.services || []));
+    for (let i = 0; i < 6; i++) {
+      const s = services[i] || {};
+      const iconEl = document.getElementById('cp_svc' + i + '_icon'); if (iconEl) iconEl.value = s.icon || '';
+      const nameEl = document.getElementById('cp_svc' + i + '_name'); if (nameEl) nameEl.value = s.name || '';
+      const descEl = document.getElementById('cp_svc' + i + '_desc'); if (descEl) descEl.value = s.desc || '';
+    }
+    const valueProps = (Array.isArray(p.valueProps) ? p.valueProps : (defaults.valueProps || []));
+    for (let i = 0; i < 4; i++) {
+      const v = valueProps[i] || {};
+      const iconEl = document.getElementById('cp_vp' + i + '_icon');   if (iconEl)  iconEl.value = v.icon || '';
+      const titleEl = document.getElementById('cp_vp' + i + '_title'); if (titleEl) titleEl.value = v.title || '';
+      const descEl = document.getElementById('cp_vp' + i + '_desc');   if (descEl)  descEl.value = v.desc || '';
+    }
+  }
+
+  window._loadCompanyProfileSettings = async function () {
+    // Refresh from Firestore (sets window._companyProfile), then mirror
+    // into the form. Falls back to whatever's already in memory if the
+    // network call fails.
+    try {
+      if (typeof window._loadCompanyProfile === 'function') await window._loadCompanyProfile();
+    } catch (_) {}
+    _cpPopulateFormFromProfile(window._companyProfile);
+  };
+
+  window._saveCompanyProfileSettings = async function () {
+    const overrides = _cpReadFormToProfile();
+    try {
+      if (typeof window._saveCompanyProfile !== 'function') {
+        throw new Error('company-profile.js not loaded');
+      }
+      await window._saveCompanyProfile(overrides);
+      const msg = document.getElementById('cp-save-msg');
+      if (msg) {
+        msg.style.display = 'block';
+        setTimeout(() => msg.style.display = 'none', 3000);
+      }
+      if (typeof showToast === 'function') showToast('✓ Company profile saved — new docs will use these values', 'success');
+    } catch (e) {
+      console.warn('Company profile save failed:', e);
+      if (typeof showToast === 'function') showToast('Save failed: ' + (e && e.message || 'unknown'), 'error');
+    }
+  };
+
+  window._resetCompanyProfileSettings = function () {
+    const defaults = window.NBD_COMPANY_PROFILE_DEFAULTS;
+    if (!defaults) return;
+    if (!confirm('Reset every Company Profile field to factory defaults? Unsaved edits will be lost. (You still need to click Save to persist.)')) return;
+    _cpPopulateFormFromProfile(defaults);
+    if (typeof showToast === 'function') showToast('↶ Fields reset to defaults — click Save to persist', 'info');
   };
 
   // ═════════════════════════════════════════════════════════
