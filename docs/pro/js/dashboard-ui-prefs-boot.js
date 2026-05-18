@@ -258,6 +258,13 @@ function nbdTogglePhotosOnly(on) {
 // (We use data-on-after for this one — no wrapper needed; the dispatcher
 // chains the second call.)
 
+// ── D2D dispo filter (formerly inline onchange on the SELECT) ──
+function d2dSetDispoFilter(value) {
+  if (window.D2D && typeof window.D2D.setDispoFilter === 'function') {
+    window.D2D.setDispoFilter(value);
+  }
+}
+
 // ── Cal.com username live-preview (formerly an inline IIFE) ──
 function nbdSettingsUpdateCalcomPreview(value) {
   var v = (value || '').trim().replace(/^@+/, '').replace(/\/+$/, '').toLowerCase();

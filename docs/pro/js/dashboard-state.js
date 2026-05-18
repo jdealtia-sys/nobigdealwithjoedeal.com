@@ -227,6 +227,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'nbdSetCrmSecHeaderEnabledT', 'nbdSetKanbanBoldHierarchyT', 'nbdSetCrmAutoCollapseT',
   'nbdSelectPhotoLead', 'nbdTogglePhotosOnly',
   'nbdSettingsUpdateCalcomPreview',
+  'd2dSetDispoFilter',
   // Pre-existing globals that also fire from inline onchange/oninput
   'recalc', 'updateEstCalc', 'calcTierPrices', 'toggleInsuranceOverlay',
   'applyEstimatePreset', 'applyCustomTheme', 'kanbanFilter', 'kanbanFilterDebounced',
