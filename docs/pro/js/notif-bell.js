@@ -451,8 +451,6 @@
                 -webkit-tap-highlight-color:transparent;
                 transition:transform .12s;"
               data-nb-stop-self="1"
-              onmouseover="this.style.transform='scale(1.08)'"
-              onmouseout="this.style.transform=''"
             >📞</a>`);
           buttons.push(`
             <button class="notif-action" type="button"
@@ -465,8 +463,6 @@
                 -webkit-tap-highlight-color:transparent;
                 transition:transform .12s;"
               data-nb-action="actionSms" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
-              onmouseover="this.style.transform='scale(1.08)'"
-              onmouseout="this.style.transform=''"
             >💬</button>`);
         }
         if (email) {
@@ -481,8 +477,6 @@
                 -webkit-tap-highlight-color:transparent;
                 transition:transform .12s;"
               data-nb-action="actionEmail" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
-              onmouseover="this.style.transform='scale(1.08)'"
-              onmouseout="this.style.transform=''"
             >📧</button>`);
         }
         // Wave 68: portal preview action — always available, no
@@ -504,8 +498,6 @@
                 -webkit-tap-highlight-color:transparent;
                 transition:transform .12s;"
               data-nb-action="actionPreview" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
-              onmouseover="this.style.transform='scale(1.08)'"
-              onmouseout="this.style.transform=''"
             >🔍</button>`);
         }
         // Wave 68: state-aware snooze/unsnooze. Bell rows can
@@ -529,8 +521,6 @@
                   -webkit-tap-highlight-color:transparent;
                   transition:transform .12s;"
                 data-nb-action="actionUnsnooze" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
-                onmouseover="this.style.transform='scale(1.08)'"
-                onmouseout="this.style.transform=''"
               >⏰</button>`);
           } else {
             buttons.push(`
@@ -544,8 +534,6 @@
                   -webkit-tap-highlight-color:transparent;
                   transition:transform .12s;"
                 data-nb-action="actionSnooze" data-nb-id="${escapeHtml(lead.id)}" data-nb-stop="1"
-                onmouseover="this.style.transform='scale(1.08)'"
-                onmouseout="this.style.transform=''"
               >💤</button>`);
           }
         }
@@ -564,8 +552,6 @@
           padding:10px 14px; border-bottom:1px solid var(--br,#1e2530);
           display:flex; gap:10px; cursor:pointer; opacity:${opacity};
           transition:background .15s;"
-        onmouseover="this.style.background='var(--s2,#1a1f2a)'"
-        onmouseout="this.style.background=''"
         data-nb-action="handleClick" data-nb-id="${escapeHtml(n.id)}">
         <div style="font-size:16px; flex-shrink:0; line-height:1.2;">${n.icon}</div>
         <div style="flex:1; min-width:0;">

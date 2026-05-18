@@ -1001,9 +1001,7 @@
       return `<button data-scenario="${_esc(s.id)}" style="display:block;width:100%;text-align:left;
         padding:12px 14px;margin-bottom:8px;border:1px solid var(--br,rgba(255,255,255,.08));
         background:var(--s2,#1F232A);border-radius:10px;cursor:pointer;font-family:inherit;
-        color:var(--t,#E8EAF0);transition:border-color .15s,transform .1s;"
-        onmouseover="this.style.borderColor='${priColor}'"
-        onmouseout="this.style.borderColor=''">
+        color:var(--t,#E8EAF0);transition:border-color .15s,transform .1s;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
           <strong style="font-size:13px;">${_esc(s.title)}</strong>
           ${s.priority ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;
