@@ -618,6 +618,12 @@ window.NBDDocGen = {
           height: 72px;
           object-fit: contain;
           object-position: left center;
+          /* White card so the navy-on-white logo stays legible
+             against the navy gradient header below. */
+          background: #fff;
+          border-radius: 8px;
+          padding: 6px 10px;
+          box-sizing: border-box;
         }
 
         .header-info {
