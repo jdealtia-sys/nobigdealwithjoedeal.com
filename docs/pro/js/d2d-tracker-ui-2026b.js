@@ -833,7 +833,7 @@
               </button>
             `).join('')}
           </div>
-          <select class="d2d-select" onchange="window.D2D.setDispoFilter(this.value)">
+          <select class="d2d-select" data-on-change="d2dSetDispoFilter">
             <option value="">All Dispositions</option>
             ${DISPO_ORDER.map(key => `<option value="${key}" ${filterDispo === key ? 'selected' : ''}>${DISPOSITIONS[key].label}</option>`).join('')}
           </select>
