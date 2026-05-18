@@ -124,16 +124,19 @@
     // wordmark shows instead — always branded, never empty.
     return `<div class="letterhead">
       <div class="letterhead-brand">
-        <object class="letterhead-logo-obj" type="${LOGO_TYPE}" data="${LOGO_URL}" aria-label="${C.name}">
-          <svg class="letterhead-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="NBD">
-            <defs><linearGradient id="lhRing" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#e8720c"/>
-            </linearGradient></defs>
-            <circle cx="32" cy="32" r="29" fill="none" stroke="url(#lhRing)" stroke-width="3"/>
-            <path d="M14 36 L32 18 L50 36" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <text x="32" y="48" font-family="Helvetica Neue,Arial,sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1.5">NBD</text>
-          </svg>
-        </object>
+        <!-- Inline brand monogram (square, 72×72 slot). Inline because the
+             doc viewer's iframe srcdoc CSP has object-src 'none', which
+             blocks <object> from loading its data URI — every previous
+             attempt fell back to the orange-circle placeholder. Inline
+             SVG is unaffected by object-src. Brand colors: navy ring +
+             white house roof + orange "D" matching the wordmark's
+             "DEAL"-in-orange convention. -->
+        <svg class="letterhead-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${C.name}">
+          <circle cx="32" cy="32" r="29" fill="#1e3a6e" stroke="#c8541a" stroke-width="3"/>
+          <path d="M14 36 L32 18 L50 36" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="42" y="22" width="3.5" height="9" fill="#fff"/>
+          <text x="32" y="49" font-family="Helvetica Neue,Arial,sans-serif" font-size="13" font-weight="900" fill="#fff" text-anchor="middle" letter-spacing="1.2">NB<tspan fill="#c8541a">D</tspan></text>
+        </svg>
         <div><div class="letterhead-name">${C.name}</div>
         <div class="letterhead-tagline">${C.tagline || 'No Big Deal — We\'ve Got You Covered'}</div></div>
       </div>
@@ -759,16 +762,15 @@
       </style>
 
       <div class="intro-hero">
-        <object class="intro-hero-logo" type="${LOGO_TYPE}" data="${LOGO_URL}" aria-label="${C.name}" style="display:block;width:80px;height:80px;margin:0 auto 14px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:12px;padding:6px;box-sizing:border-box;">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="100%" height="100%" role="img" aria-label="NBD">
-            <defs><linearGradient id="ihRing" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#e8720c"/>
-            </linearGradient></defs>
-            <circle cx="32" cy="32" r="29" fill="none" stroke="url(#ihRing)" stroke-width="3"/>
-            <path d="M14 36 L32 18 L50 36" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            <text x="32" y="48" font-family="Helvetica Neue,Arial,sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1.5">NBD</text>
-          </svg>
-        </object>
+        <!-- Inline brand monogram (80×80 hero slot). Inline because the
+             doc viewer's iframe CSP has object-src 'none' (same reason
+             as letterhead-logo above). -->
+        <svg class="intro-hero-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${C.name}" style="display:block;width:80px;height:80px;margin:0 auto 14px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.20);border-radius:12px;padding:6px;box-sizing:border-box;">
+          <circle cx="32" cy="32" r="29" fill="#1e3a6e" stroke="#c8541a" stroke-width="3"/>
+          <path d="M14 36 L32 18 L50 36" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <rect x="42" y="22" width="3.5" height="9" fill="#fff"/>
+          <text x="32" y="49" font-family="Helvetica Neue,Arial,sans-serif" font-size="13" font-weight="900" fill="#fff" text-anchor="middle" letter-spacing="1.2">NB<tspan fill="#c8541a">D</tspan></text>
+        </svg>
         <h1>${C.name}</h1>
         <div class="tagline">No Big Deal — We've Got You Covered</div>
         <p style="margin-top:16px;font-size:14px;opacity:0.9;max-width:500px;margin-left:auto;margin-right:auto;">
