@@ -6778,6 +6778,60 @@ body.theme-frosted {
 #nbd-pro-nav.pos-dock .nnav-wordmark,
 #nbd-pro-nav.pos-dock .nnav-sub { display: none; }
 
+/* ══ TALK TANK ══ */
+.tt-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap;}
+.tt-title{font-size:26px;font-weight:800;color:var(--t);letter-spacing:-0.5px;display:flex;align-items:center;gap:10px;}
+.tt-tagline{font-size:13px;color:var(--st);margin-top:4px;}
+.tt-rec-btn{display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:0;border-radius:999px;padding:10px 18px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(220,38,38,.32);transition:transform .12s ease, box-shadow .12s ease;}
+.tt-rec-btn:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(220,38,38,.42);}
+.tt-rec-btn:active{transform:translateY(0);}
+.tt-rec-dot{width:10px;height:10px;border-radius:50%;background:#fff;animation:tt-pulse 1.4s ease-in-out infinite;}
+@keyframes tt-pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.tt-controls{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap;}
+.tt-search{flex:1;min-width:200px;max-width:380px;background:var(--bg2);border:1px solid var(--br);border-radius:10px;padding:9px 12px;color:var(--t);font-size:13px;}
+.tt-search:focus{outline:0;border-color:var(--fg-orange);}
+.tt-chips{display:flex;gap:6px;flex-wrap:wrap;}
+.tt-chip{background:var(--bg2);border:1px solid var(--br);color:var(--st);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;transition:background .12s ease, color .12s ease, border-color .12s ease;}
+.tt-chip:hover{color:var(--t);border-color:var(--st);}
+.tt-chip-active{background:var(--fg-orange);color:#fff;border-color:var(--fg-orange);}
+.tt-chip-count{background:rgba(255,255,255,.18);padding:1px 7px;border-radius:999px;font-size:11px;}
+.tt-chip-active .tt-chip-count{background:rgba(0,0,0,.18);}
+.tt-list{display:flex;flex-direction:column;gap:8px;}
+.tt-row{background:var(--bg2);border:1px solid var(--br);border-radius:12px;overflow:hidden;transition:border-color .12s ease;}
+.tt-row:hover{border-color:var(--st);}
+.tt-row-head{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;}
+.tt-row-icon{width:36px;height:36px;border-radius:50%;background:rgba(255,140,40,.14);color:var(--fg-orange);display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.tt-row-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.tt-row-meta{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--st);flex-wrap:wrap;}
+.tt-row-preview{font-size:13.5px;color:var(--t);line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.tt-row-when{font-size:11px;color:var(--st);white-space:nowrap;}
+.tt-row-caret{color:var(--st);font-size:14px;transition:transform .15s ease;}
+.tt-row-expanded .tt-row-caret{transform:rotate(180deg);}
+.tt-ctx{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;}
+.tt-ctx-linked{background:rgba(34,197,94,.14);color:#22c55e;}
+.tt-ctx-standalone{background:rgba(148,163,184,.14);color:var(--st);}
+.tt-tasks{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;color:var(--fg-orange);}
+.tt-detail{padding:0 14px 14px 62px;border-top:1px solid var(--br);background:rgba(0,0,0,.08);}
+.tt-detail-block{padding-top:10px;}
+.tt-detail-label{font-size:11px;font-weight:700;color:var(--st);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;}
+.tt-detail-text{font-size:13px;color:var(--t);line-height:1.5;white-space:pre-wrap;}
+.tt-detail-transcript{font-size:12.5px;color:var(--st);line-height:1.5;white-space:pre-wrap;max-height:220px;overflow-y:auto;padding:8px 10px;background:var(--bg);border:1px solid var(--br);border-radius:8px;}
+.tt-action-list{margin:6px 0 0;padding-left:20px;font-size:12.5px;color:var(--t);}
+.tt-action-list li{margin-bottom:2px;}
+.tt-detail-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.tt-detail-btn{background:var(--bg);border:1px solid var(--br);color:var(--t);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;transition:background .12s ease, border-color .12s ease;}
+.tt-detail-btn:hover{border-color:var(--fg-orange);}
+.tt-detail-btn-danger{color:#ef4444;border-color:rgba(239,68,68,.4);}
+.tt-detail-btn-danger:hover{background:rgba(239,68,68,.1);border-color:#ef4444;}
+.tt-empty{text-align:center;padding:50px 20px;color:var(--st);}
+.tt-empty-icon{font-size:46px;margin-bottom:12px;opacity:.7;}
+.tt-empty-msg{font-size:15px;font-weight:600;color:var(--t);margin-bottom:6px;}
+.tt-empty-sub{font-size:13px;}
+@media (max-width:640px){
+  .tt-detail{padding-left:14px;}
+  .tt-search{max-width:none;}
+}
+
 /* ── PRINT STYLESHEET ─────────────────────────────── */
 @media print {
   /* Hide navigation, toolbars, modals, FAB */
@@ -7380,6 +7434,7 @@ body.theme-frosted {
       <div class="ni" data-action="goTo" data-target="storm" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
       <div class="ni" data-action="goTo" data-target="closeboard" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
       <div class="ni" data-action="goTo" data-target="repos" id="nav-repos"><span class="ni-icon">🧠</span>Rep OS</div>
+      <div class="ni" data-action="goTo" data-target="talk-tank" id="nav-talk-tank"><span class="ni-icon">🎙️</span>Talk Tank</div>
     </div>
   </div>
 
@@ -8831,6 +8886,8 @@ body.theme-frosted {
   <!-- Phase C.1: CLOSEBOARD / REPOS — empty mounts. -->
   <div class="view" id="view-closeboard" data-view-template="tpl-view-closeboard"></div>
   <div class="view" id="view-repos"      data-view-template="tpl-view-repos"></div>
+  <!-- Talk Tank: empty mount; talk-tank.js renders into .view-scroll on init. -->
+  <div class="view" id="view-talk-tank"><div class="view-scroll"></div></div>
   <template id="tpl-view-closeboard">
     <div class="view-scroll">
       <div class="page-hdr">
@@ -12132,6 +12189,11 @@ body.theme-frosted {
 <!-- Universal in-app document viewer — routes every generator's
      HTML through one modal so we never launch a blank popup again. -->
 <script defer src="js/nbd-doc-viewer.js?v=2"></script>
+<!-- Talk Tank: unified voice-capture inbox under #/talk-tank. Reads
+     users/<uid>/captures (written by quick-capture.js). REC button on
+     the page invokes window.NBDQuickCapture.open() — no duplicate
+     recording UI. -->
+<script defer src="js/talk-tank.js?v=1"></script>
 <!-- Legendary Rep Report Generator — bold-editorial visual
      reports for rep coaching + owner meetings. -->
 <script defer src="js/billing-gate.js?v=1"></script>

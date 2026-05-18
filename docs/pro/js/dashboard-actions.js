@@ -412,6 +412,7 @@ function goTo(name, params = {}) {
   if(name==='storm')      { _lazyPreload.then(() => { if (window.StormCenter) window.StormCenter.init(); }); }
   if(name==='closeboard') { _lazyPreload.then(() => { if (window.CloseBoard)  window.CloseBoard.init();  }); }
   if(name==='repos')      { _lazyPreload.then(() => { if (window.RepOS)       window.RepOS.init();       }); }
+  if(name==='talk-tank')  { if (window.TalkTank)  window.TalkTank.init();  }
   if(name==='board') { if(window.AnalyticsKPI) window.AnalyticsKPI.render('analyticsContainer'); renderLeaderboard(); }
   if(name==='photos') {
     renderPhotoLeads();

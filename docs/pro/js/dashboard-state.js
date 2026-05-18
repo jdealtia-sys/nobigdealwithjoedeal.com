@@ -61,11 +61,13 @@ const routeConfig = {
   'aitree':       { label: 'Decision Engine',   parent: null },
   'understand':   { label: 'Deep Dive',         parent: null },
   'projectcodex': { label: 'Project Intel',     parent: null },
-  'aiusage':      { label: 'AI Usage',          parent: null }
+  'aiusage':      { label: 'AI Usage',          parent: null },
+  // Talk Tank — unified voice-capture inbox (#/talk-tank)
+  'talk-tank':    { label: 'Talk Tank',         parent: null }
 };
 
 // Pro-only views — Lite users see upgrade prompt instead
-const PRO_ONLY_VIEWS = ['photos','docs','map','draw','storm','joe','schedule','board','closeboard','repos','training','academy'];
+const PRO_ONLY_VIEWS = ['photos','docs','map','draw','storm','joe','schedule','board','closeboard','repos','training','academy','talk-tank'];
 
 // ══════════════════════════════════════════════
 // data-action DELEGATE ALLOWLISTS
