@@ -829,6 +829,12 @@ function switchSettingsTab(tab) {
 
   // Lazy-load appearance tab content — render theme/font grids
   if (tab === 'appearance') {
+    // Render the font picker grid + repaint size buttons. Both are
+    // inside the lazy-hydrated settings template, so the boot-time
+    // DOMContentLoaded callback ran while these elements were still
+    // stuck inside <template>. Calling them here is idempotent.
+    if (typeof window.nbdRenderFontGrid === 'function') window.nbdRenderFontGrid();
+    if (typeof window.nbdSyncSizeBtns === 'function') window.nbdSyncSizeBtns();
     // === ThemeEngine: filter buttons + flat grid ===
     const teGrid = document.getElementById('te-theme-grid');
     const teCatBar = document.getElementById('te-cat-bar');
