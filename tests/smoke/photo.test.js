@@ -623,16 +623,18 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
     /_assetOrigin\s*\(\)\s*\{[\s\S]{0,400}window\.location\.origin/.test(docGen));
   assert('document-generator: fallback host is production',
     /['"]https:\/\/nobigdealwithjoedeal\.com['"]/.test(docGen));
-  // 2026-05-18: switched away from <object> + data URI because the doc
-  // viewer's iframe srcdoc CSP has `object-src 'none'` — the data URI
-  // never loaded and every render fell back to the inner monogram.
-  // Logo is now inline SVG in renderNBDLogo(); object-src can't touch it.
-  assert('document-generator: renderNBDLogo returns inline SVG (no <object>)',
-    /renderNBDLogo\s*\(\s*\)\s*\{[\s\S]{0,2000}return\s*`<svg class="nbd-logo-svg"/.test(docGen));
-  assert('document-generator: inline brand SVG uses brand navy + orange colors',
-    /renderNBDLogo[\s\S]{0,2000}#1e3a6e[\s\S]{0,2000}#c8541a/.test(docGen));
-  assert('document-generator: inline brand SVG has the NO BIG DEAL wordmark',
-    /renderNBDLogo[\s\S]{0,2000}NO BIG [\s\S]{0,200}DEAL/.test(docGen));
+  // 2026-05-18: switched away from <object> because the doc viewer's
+  // iframe srcdoc CSP has `object-src 'none'` — the data URI never
+  // loaded and every render fell back to a placeholder. Logo is now
+  // inline <img> backed by NBD_LOGO_DATA_URI (the actual brand image
+  // bytes from docs/assets/images/nbd-logo.png). img-src allows data:,
+  // so this path works inside the iframe srcdoc.
+  assert('document-generator: renderNBDLogo returns inline <img> (no <object>)',
+    /renderNBDLogo\s*\(\s*\)\s*\{[\s\S]{0,1500}return\s*`<img class="nbd-logo-img"/.test(docGen));
+  assert('document-generator: renderNBDLogo sources NBD_LOGO_DATA_URI',
+    /renderNBDLogo[\s\S]{0,1500}window\.NBD_LOGO_DATA_URI/.test(docGen));
+  assert('document-generator: .nbd-logo-img CSS sized for header strip',
+    /\.nbd-logo-img\s*\{[\s\S]{0,400}width:\s*200px/.test(docGen));
   assert('document-generator: legacy onerror handler removed (CSP-blocked)',
     !/onerror=["'][^"']*nbd-logo/.test(docGen));
 
@@ -641,17 +643,17 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
     /const ORIGIN\s*=\s*\(function\s*\(\)\s*\{[\s\S]{0,400}window\.location\.origin/.test(templates));
   assert('templates.js: LOGO_URL prefers NBD_LOGO_DATA_URI, falls back to ORIGIN + /assets/images/nbd-logo.png',
     /const LOGO_URL\s*=[\s\S]{0,200}window\.NBD_LOGO_DATA_URI[\s\S]{0,200}ORIGIN\s*\+\s*['"]\/assets\/images\/nbd-logo\.png['"]/.test(templates));
-  // 2026-05-18: same iframe object-src 'none' issue as above. letterhead
-  // and intro-hero now use inline SVG monograms (square slots) with the
-  // real brand colors instead of the orange-only fallback ring.
-  assert('templates.js: letterhead-logo-svg is inline (no <object>)',
-    /<svg class="letterhead-logo-svg"/.test(templates)
+  // 2026-05-18: letterhead and intro-hero now render <img> tags backed
+  // by NBD_LOGO_DATA_URI (the real brand image), replacing the earlier
+  // hand-drawn SVG recreations. img-src + data: passes CSP cleanly.
+  assert('templates.js: letterhead uses <img class="letterhead-logo-img">',
+    /<img class="letterhead-logo-img"/.test(templates)
       && !/<object[^>]*class="letterhead-logo-obj"/.test(templates));
-  assert('templates.js: letterhead monogram uses brand navy + orange',
-    /letterhead-logo-svg[\s\S]{0,500}#1e3a6e[\s\S]{0,500}#c8541a/.test(templates));
-  assert('templates.js: intro-hero-logo is inline SVG (no <object>)',
-    /<svg class="intro-hero-logo"/.test(templates)
-      && !/<object class="intro-hero-logo"/.test(templates));
+  assert('templates.js: letterhead-logo-img CSS sized as banner',
+    /\.letterhead-logo-img\s*\{[\s\S]{0,300}width:\s*\d+px/.test(templates));
+  assert('templates.js: intro-hero-logo uses <img>',
+    /<img class="intro-hero-logo"/.test(templates)
+      && !/<svg class="intro-hero-logo"/.test(templates));
 
   // Branded header — strong navy gradient + orange accent stripe.
   assert('document-generator: header uses navy gradient',

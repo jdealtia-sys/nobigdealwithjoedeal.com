@@ -604,25 +604,20 @@ window.NBDDocGen = {
           flex: 0 0 auto;
         }
 
-        /* Logo: <object> wraps an inline SVG monogram. If the PNG
-           loads, browsers render it and the inner SVG is hidden. If
-           the PNG fails (CORP block, offline, missing file) the SVG
-           shows through automatically — no JS needed. */
-        .nbd-logo-obj {
+        /* Logo: inline <img> backed by an inline data URI of the real
+           NBD brand mark (docs/assets/images/nbd-logo.png, 1536x1024).
+           Switched from <object> after we discovered the iframe srcdoc
+           CSP includes object-src 'none', which blocks <object> from
+           loading its data URI regardless of MIME. <img> + data: URIs
+           are allowed by img-src. The source image has a lot of
+           whitespace around it; object-fit:contain keeps the mark
+           centered with breathing room in this header strip. */
+        .nbd-logo-img {
           display: block;
-          width: 72px;
+          width: 200px;
           height: 72px;
-          background: rgba(255,255,255,.10);
-          border: 1px solid rgba(255,255,255,.18);
-          border-radius: 10px;
-          padding: 4px;
-          box-sizing: border-box;
-          overflow: hidden;
-        }
-        .nbd-logo-svg {
-          display: block;
-          width: 100%;
-          height: 100%;
+          object-fit: contain;
+          object-position: left center;
         }
 
         .header-info {
@@ -1084,39 +1079,16 @@ window.NBDDocGen = {
    * @returns {string} HTML
    */
   renderNBDLogo() {
-    // INLINE SVG, not <object>. The doc viewer renders into an iframe
-    // srcdoc whose CSP (object-src 'none') blocks <object> from loading
-    // its data URI — that's why every previous attempt fell back to the
-    // orange-circle monogram. Inline SVG is unaffected by object-src.
-    //
-    // This is the brand mark: stylized house-roof silhouette above a
-    // bold "NO BIG / DEAL" wordmark (DEAL in orange), a thin "Home
-    // Solutions" subtitle, and the cursive "No Big Deal with Joe Deal"
-    // tagline. Colors locked to the brand palette so it stays on-brand
-    // regardless of the page theme.
-    return `<svg class="nbd-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet" role="img" aria-label="No Big Deal Home Solutions">
-      <!-- ROOF: silhouette + chimney accent (navy) -->
-      <g fill="#1e3a6e" stroke="none">
-        <path d="M 320 230 L 600 110 L 880 230 L 855 230 L 600 145 L 345 230 Z" />
-        <rect x="800" y="155" width="22" height="55" />
-      </g>
-      <!-- WORDMARK: navy "NO BIG " + orange "DEAL" -->
-      <text x="600" y="430" text-anchor="middle"
-            font-family="'Barlow Condensed Black','Barlow Condensed','Oswald','Impact','Arial Black',sans-serif"
-            font-size="180" font-weight="900" letter-spacing="2" fill="#1e3a6e">
-        NO BIG <tspan fill="#c8541a">DEAL</tspan>
-      </text>
-      <!-- Subtitle rules + text -->
-      <line x1="270" y1="500" x2="430" y2="500" stroke="#5f6671" stroke-width="3"/>
-      <line x1="770" y1="500" x2="930" y2="500" stroke="#5f6671" stroke-width="3"/>
-      <text x="600" y="515" text-anchor="middle"
-            font-family="'Georgia','Times New Roman',serif"
-            font-size="48" font-weight="600" letter-spacing="6" fill="#5f6671">Home Solutions</text>
-      <!-- Script tagline -->
-      <text x="600" y="640" text-anchor="middle"
-            font-family="'Brush Script MT','Apple Chancery','Snell Roundhand','Lucida Handwriting','Segoe Script',cursive"
-            font-style="italic" font-size="80" font-weight="600" fill="#1e3a6e">No Big Deal with Joe Deal</text>
-    </svg>`;
+    // Inline data URI of the REAL company logo (docs/assets/images/nbd-logo.png).
+    // Uses <img> instead of <object> because the doc viewer's iframe srcdoc
+    // CSP includes `object-src 'none'`, which blocks <object> entirely. The
+    // img-src directive allows `data:`, so inline data URIs through <img>
+    // work. The actual logo bytes live in nbd-logo-asset.js, which is loaded
+    // before any document render and exposes window.NBD_LOGO_DATA_URI.
+    const src = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
+      ? window.NBD_LOGO_DATA_URI
+      : this._assetOrigin() + '/assets/images/nbd-logo.png';
+    return `<img class="nbd-logo-img" src="${src}" alt="No Big Deal Home Solutions" />`;
   },
 
   /**
