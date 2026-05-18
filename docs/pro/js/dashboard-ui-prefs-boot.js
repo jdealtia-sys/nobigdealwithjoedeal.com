@@ -196,3 +196,74 @@ document.addEventListener('DOMContentLoaded', function() {
   var cb = document.getElementById('professionalModeToggle');
   if (cb) cb.checked = localStorage.getItem('nbd_professional_mode') === '1';
 });
+
+// ══════════════════════════════════════════════════════════════════════
+// CSP-safe wrappers for the inline onchange handlers we just stripped.
+//
+// `data-on-change` / `data-on-input` delegate (dashboard-ui.js) calls
+// `window[fnName](firstArg)` where firstArg comes from `data-on-pass`.
+// Inline handlers that did compound work (`if (window.X) X.f(this.y)`,
+// ternaries, multi-statement, etc.) need a wrapper function that takes
+// a single arg and does the original work. Each wrapper also fires
+// `showToast` confirmation so users see the toggle reacting.
+// ══════════════════════════════════════════════════════════════════════
+function _nbdToast(msg, type) {
+  if (typeof showToast === 'function') showToast(msg, type || 'info');
+}
+
+// ── ThemeGX wrappers (GX = the glow/accent/animated-bg layer) ──
+function nbdGxSetEnabled(on)     { if (window.ThemeGX) window.ThemeGX.setEnabled(!!on); _nbdToast('Theme Effects ' + (on ? 'ON' : 'OFF')); }
+function nbdGxSetGlow(on)        { if (window.ThemeGX) window.ThemeGX.setGlow(!!on);    _nbdToast('Glow ' + (on ? 'ON' : 'OFF')); }
+function nbdGxSetAnimatedBg(on)  { if (window.ThemeGX) window.ThemeGX.setAnimatedBg(!!on); _nbdToast('Animated background ' + (on ? 'ON' : 'OFF')); }
+function nbdGxSetAccent(color)   { if (window.ThemeGX) window.ThemeGX.setAccent(color); _nbdToast('Accent: ' + color); }
+function nbdGxSetIntensityFromSlider(pct) {
+  var v = parseFloat(pct);
+  if (window.ThemeGX && typeof window.ThemeGX.setIntensity === 'function') window.ThemeGX.setIntensity(v / 100);
+  var lbl = document.getElementById('gxIntensityVal');
+  if (lbl) lbl.textContent = Math.round(v) + '%';
+}
+// ── ThemeOverlays / ThemeSounds (visual effects + ambient audio) ──
+function nbdOverlaysSetEnabled(on) { if (window.ThemeOverlays) window.ThemeOverlays.setEnabled(!!on); _nbdToast('Visual overlays ' + (on ? 'ON' : 'OFF')); }
+function nbdSoundsSetEnabled(on)   { if (window.ThemeSounds)   window.ThemeSounds.setEnabled(!!on);   _nbdToast('Ambient sound ' + (on ? 'ON' : 'OFF')); }
+
+// ── Comfort tab ternaries (boolean → enum string) ──
+// nbdComfortSet takes (key, value) where value is an enum string. The
+// inline handlers were `nbdComfortSet('motion', this.checked ? 'reduce' : 'normal')`
+// etc. — we wrap each.
+function nbdComfortSetMotion(on)     { if (typeof nbdComfortSet === 'function') nbdComfortSet('motion',    on ? 'reduce' : 'normal'); _nbdToast('Reduced motion ' + (on ? 'ON' : 'OFF')); }
+function nbdComfortSetProMode(on)    { if (typeof nbdComfortSet === 'function') nbdComfortSet('proMode',   on ? '1'      : '0');      _nbdToast('Pro mode ' + (on ? 'ON' : 'OFF')); }
+function nbdComfortSetCbSafe(on)     { if (typeof nbdComfortSet === 'function') nbdComfortSet('cbSafe',    on ? '1'      : '0');      _nbdToast('Color-blind palette ' + (on ? 'ON' : 'OFF')); }
+function nbdComfortSetAutoTheme(on)  { if (typeof nbdComfortSet === 'function') nbdComfortSet('autoTheme', on ? '1'      : '0');      _nbdToast('Auto-theme ' + (on ? 'ON' : 'OFF')); }
+
+// ── Other settings toggles (with confirmation toast) ──
+// These wrap pre-existing global functions to add toast feedback so the
+// user sees the toggle reacting even if the underlying effect is subtle.
+function nbdSetCrmSecHeaderEnabledT(on) { if (typeof setCrmSecHeaderEnabled === 'function') setCrmSecHeaderEnabled(!!on); _nbdToast('Secondary header ' + (on ? 'ON' : 'OFF')); }
+function nbdSetKanbanBoldHierarchyT(on) { if (typeof setKanbanBoldHierarchy === 'function') setKanbanBoldHierarchy(!!on); _nbdToast('Bold hierarchy ' + (on ? 'ON' : 'OFF')); }
+function nbdSetCrmAutoCollapseT(on)     { if (typeof setCrmAutoCollapse === 'function')     setCrmAutoCollapse(!!on);     _nbdToast('Auto-collapse ' + (on ? 'ON' : 'OFF')); }
+
+// ── Photos view: compound state mutations ──
+function nbdSelectPhotoLead(leadId) {
+  window._currentPhotoLeadId = leadId;
+  if (window.PhotoEngine && typeof window.PhotoEngine.openGallery === 'function') {
+    window.PhotoEngine.openGallery('photoGalleryContainer', leadId);
+  }
+}
+function nbdTogglePhotosOnly(on) {
+  window._photosOnlyWithPhotos = !!on;
+  if (typeof renderPhotoLeads === 'function') renderPhotoLeads();
+}
+
+// ── Estimate compound: calcTierPrices + toggleInsuranceOverlay ──
+// (We use data-on-after for this one — no wrapper needed; the dispatcher
+// chains the second call.)
+
+// ── Cal.com username live-preview (formerly an inline IIFE) ──
+function nbdSettingsUpdateCalcomPreview(value) {
+  var v = (value || '').trim().replace(/^@+/, '').replace(/\/+$/, '').toLowerCase();
+  var p = document.getElementById('settingsCalcomPreview');
+  if (p) {
+    p.textContent = v ? ('https://cal.com/' + v) : '';
+    p.style.display = v ? '' : 'none';
+  }
+}

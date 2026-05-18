@@ -136,6 +136,67 @@ function _hydrateViewTemplate(name) {
 //
 // Capture phase + .closest() so clicks on icons/spans inside the action
 // element still resolve to the data-action ancestor.
+// ══════════════════════════════════════════════
+// DATA-ON CHANGE / INPUT DELEGATE — CSP-safe replacement for
+// inline `onchange="..."` and `oninput="..."` attributes (the same
+// CSP `script-src-attr 'none'` that blocks `onclick=` blocks these).
+//
+// Markup:
+//   <input data-on-change="setFoo" data-on-pass="checked" ...>
+//   <input data-on-input="setBar" data-on-pass="value" ...>
+//   <select data-on-change="setBaz" data-on-pass="value" ...>
+//   <input type="file" data-on-change="handleUpload" data-on-pass="files0" ...>
+//
+// `data-on-pass` controls what's passed as the first argument:
+//   'checked' → el.checked (booleans)
+//   'value'   → el.value (default)
+//   'files0'  → el.files && el.files[0]
+//   'int'     → parseInt(el.value, 10)
+//   'float'   → parseFloat(el.value)
+//   'element' → el itself (for handlers that read multiple properties)
+//   'event'   → the event object (rare; for handlers expecting an event)
+//
+// `data-on-arg` provides a STATIC second argument (literal string).
+// Function name must be on `_NBD_CALL_ALLOWLIST`.
+//
+// `data-on-after` (optional) names a SECOND function called immediately
+// after the first — covers the inline pattern `f(this.checked); g()`.
+function _nbdOnChangeDelegate(e, attrName) {
+  const el = e.target && e.target.closest && e.target.closest('[' + attrName + ']');
+  if (!el) return;
+  const fnName = el.getAttribute(attrName);
+  if (!fnName || (typeof _NBD_CALL_ALLOWLIST !== 'undefined' && !_NBD_CALL_ALLOWLIST.has(fnName))) return;
+  const fn = window[fnName];
+  if (typeof fn !== 'function') return;
+  const pass = el.getAttribute('data-on-pass') || 'value';
+  let arg;
+  switch (pass) {
+    case 'checked': arg = el.checked; break;
+    case 'value':   arg = el.value; break;
+    case 'files0':  arg = el.files && el.files[0]; break;
+    case 'int':     arg = parseInt(el.value, 10); break;
+    case 'float':   arg = parseFloat(el.value); break;
+    case 'element': arg = el; break;
+    case 'event':   arg = e; break;
+    default:        arg = el.value;
+  }
+  const args = [arg];
+  const staticArg = el.getAttribute('data-on-arg');
+  if (staticArg !== null) args.push(staticArg);
+  fn(...args);
+  const after = el.getAttribute('data-on-after');
+  if (after && (typeof _NBD_CALL_ALLOWLIST === 'undefined' || _NBD_CALL_ALLOWLIST.has(after))) {
+    const afterFn = window[after];
+    if (typeof afterFn === 'function') afterFn();
+  }
+}
+document.addEventListener('change', function _nbdOnChangeHandler(e) {
+  _nbdOnChangeDelegate(e, 'data-on-change');
+});
+document.addEventListener('input', function _nbdOnInputHandler(e) {
+  _nbdOnChangeDelegate(e, 'data-on-input');
+});
+
 document.addEventListener('click', function _nbdActionDelegate(e) {
   const el = e.target && e.target.closest && e.target.closest('[data-action]');
   if (!el) return;
