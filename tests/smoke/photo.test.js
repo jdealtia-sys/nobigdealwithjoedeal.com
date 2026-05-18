@@ -623,13 +623,16 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
     /_assetOrigin\s*\(\)\s*\{[\s\S]{0,400}window\.location\.origin/.test(docGen));
   assert('document-generator: fallback host is production',
     /['"]https:\/\/nobigdealwithjoedeal\.com['"]/.test(docGen));
-  assert('document-generator: logo loaded via <object> with NBD_LOGO_DATA_URI preferred',
-    /<object[^>]*data="\$\{src\}"/.test(docGen)
-      && /window\.NBD_LOGO_DATA_URI/.test(docGen));
-  assert('document-generator: fallback path is absolute origin + /assets/images/nbd-logo.png',
-    /_assetOrigin\(\)\s*\+\s*['"]\/assets\/images\/nbd-logo\.png['"]/.test(docGen));
-  assert('document-generator: SVG monogram is the <object> fallback content',
-    /<object[\s\S]{0,500}<svg[\s\S]{0,800}NBD[\s\S]{0,100}<\/svg>[\s\S]{0,80}<\/object>/.test(docGen));
+  // 2026-05-18: switched away from <object> + data URI because the doc
+  // viewer's iframe srcdoc CSP has `object-src 'none'` — the data URI
+  // never loaded and every render fell back to the inner monogram.
+  // Logo is now inline SVG in renderNBDLogo(); object-src can't touch it.
+  assert('document-generator: renderNBDLogo returns inline SVG (no <object>)',
+    /renderNBDLogo\s*\(\s*\)\s*\{[\s\S]{0,2000}return\s*`<svg class="nbd-logo-svg"/.test(docGen));
+  assert('document-generator: inline brand SVG uses brand navy + orange colors',
+    /renderNBDLogo[\s\S]{0,2000}#1e3a6e[\s\S]{0,2000}#c8541a/.test(docGen));
+  assert('document-generator: inline brand SVG has the NO BIG DEAL wordmark',
+    /renderNBDLogo[\s\S]{0,2000}NO BIG [\s\S]{0,200}DEAL/.test(docGen));
   assert('document-generator: legacy onerror handler removed (CSP-blocked)',
     !/onerror=["'][^"']*nbd-logo/.test(docGen));
 
@@ -638,12 +641,17 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
     /const ORIGIN\s*=\s*\(function\s*\(\)\s*\{[\s\S]{0,400}window\.location\.origin/.test(templates));
   assert('templates.js: LOGO_URL prefers NBD_LOGO_DATA_URI, falls back to ORIGIN + /assets/images/nbd-logo.png',
     /const LOGO_URL\s*=[\s\S]{0,200}window\.NBD_LOGO_DATA_URI[\s\S]{0,200}ORIGIN\s*\+\s*['"]\/assets\/images\/nbd-logo\.png['"]/.test(templates));
-  assert('templates.js: letterhead uses <object data="${LOGO_URL}">',
-    /<object[^>]*data="\$\{LOGO_URL\}"/.test(templates));
-  assert('templates.js: SVG monogram fallback inside <object>',
-    /<object[\s\S]{0,500}<svg[\s\S]{0,800}NBD[\s\S]{0,100}<\/svg>[\s\S]{0,80}<\/object>/.test(templates));
-  assert('templates.js: Company Intro hero has its own logo monogram',
-    /<object class="intro-hero-logo"[\s\S]{0,800}NBD/.test(templates));
+  // 2026-05-18: same iframe object-src 'none' issue as above. letterhead
+  // and intro-hero now use inline SVG monograms (square slots) with the
+  // real brand colors instead of the orange-only fallback ring.
+  assert('templates.js: letterhead-logo-svg is inline (no <object>)',
+    /<svg class="letterhead-logo-svg"/.test(templates)
+      && !/<object[^>]*class="letterhead-logo-obj"/.test(templates));
+  assert('templates.js: letterhead monogram uses brand navy + orange',
+    /letterhead-logo-svg[\s\S]{0,500}#1e3a6e[\s\S]{0,500}#c8541a/.test(templates));
+  assert('templates.js: intro-hero-logo is inline SVG (no <object>)',
+    /<svg class="intro-hero-logo"/.test(templates)
+      && !/<object class="intro-hero-logo"/.test(templates));
 
   // Branded header — strong navy gradient + orange accent stripe.
   assert('document-generator: header uses navy gradient',

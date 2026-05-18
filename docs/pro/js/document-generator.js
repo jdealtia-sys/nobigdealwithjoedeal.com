@@ -1084,32 +1084,39 @@ window.NBDDocGen = {
    * @returns {string} HTML
    */
   renderNBDLogo() {
-    // Inline data URI from nbd-logo-asset.js — bypasses CORP/cache/CSP for the
-    // iframe-srcdoc doc viewer (which has a null opaque origin and can't
-    // reliably fetch /assets/images/nbd-logo.png). The SVG monogram inside
-    // <object> remains as a final fallback in case the asset script failed
-    // to load.
-    const src = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
-      ? window.NBD_LOGO_DATA_URI
-      : this._assetOrigin() + '/assets/images/nbd-logo.png';
-    // Derive MIME from the data URI so a JPEG/PNG/SVG swap in
-    // nbd-logo-asset.js doesn't need a parallel edit here.
-    const mime = (typeof src === 'string' && src.startsWith('data:'))
-      ? (src.match(/^data:([^;,]+)/) || [, 'image/png'])[1]
-      : 'image/png';
-    return `<object class="nbd-logo-obj" type="${mime}" data="${src}" aria-label="No Big Deal Home Solutions">
-      <svg class="nbd-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="NBD">
-        <defs>
-          <linearGradient id="nbdRing" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#f59e0b"/>
-            <stop offset="100%" stop-color="#e8720c"/>
-          </linearGradient>
-        </defs>
-        <circle cx="32" cy="32" r="29" fill="none" stroke="url(#nbdRing)" stroke-width="3"/>
-        <path d="M14 36 L32 18 L50 36" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        <text x="32" y="48" font-family="Helvetica Neue,Arial,sans-serif" font-size="13" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="1.5">NBD</text>
-      </svg>
-    </object>`;
+    // INLINE SVG, not <object>. The doc viewer renders into an iframe
+    // srcdoc whose CSP (object-src 'none') blocks <object> from loading
+    // its data URI — that's why every previous attempt fell back to the
+    // orange-circle monogram. Inline SVG is unaffected by object-src.
+    //
+    // This is the brand mark: stylized house-roof silhouette above a
+    // bold "NO BIG / DEAL" wordmark (DEAL in orange), a thin "Home
+    // Solutions" subtitle, and the cursive "No Big Deal with Joe Deal"
+    // tagline. Colors locked to the brand palette so it stays on-brand
+    // regardless of the page theme.
+    return `<svg class="nbd-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet" role="img" aria-label="No Big Deal Home Solutions">
+      <!-- ROOF: silhouette + chimney accent (navy) -->
+      <g fill="#1e3a6e" stroke="none">
+        <path d="M 320 230 L 600 110 L 880 230 L 855 230 L 600 145 L 345 230 Z" />
+        <rect x="800" y="155" width="22" height="55" />
+      </g>
+      <!-- WORDMARK: navy "NO BIG " + orange "DEAL" -->
+      <text x="600" y="430" text-anchor="middle"
+            font-family="'Barlow Condensed Black','Barlow Condensed','Oswald','Impact','Arial Black',sans-serif"
+            font-size="180" font-weight="900" letter-spacing="2" fill="#1e3a6e">
+        NO BIG <tspan fill="#c8541a">DEAL</tspan>
+      </text>
+      <!-- Subtitle rules + text -->
+      <line x1="270" y1="500" x2="430" y2="500" stroke="#5f6671" stroke-width="3"/>
+      <line x1="770" y1="500" x2="930" y2="500" stroke="#5f6671" stroke-width="3"/>
+      <text x="600" y="515" text-anchor="middle"
+            font-family="'Georgia','Times New Roman',serif"
+            font-size="48" font-weight="600" letter-spacing="6" fill="#5f6671">Home Solutions</text>
+      <!-- Script tagline -->
+      <text x="600" y="640" text-anchor="middle"
+            font-family="'Brush Script MT','Apple Chancery','Snell Roundhand','Lucida Handwriting','Segoe Script',cursive"
+            font-style="italic" font-size="80" font-weight="600" fill="#1e3a6e">No Big Deal with Joe Deal</text>
+    </svg>`;
   },
 
   /**
