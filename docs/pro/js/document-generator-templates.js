@@ -10,7 +10,7 @@
 
   const C = DG.COMPANY || {
     name: 'No Big Deal Home Solutions', phone: '(859) 420-7382',
-    email: 'info@nobigdeal.pro', website: 'nobigdealwithjoedeal.com',
+    email: 'info@nobigdealwithjoedeal.com', website: 'nobigdealwithjoedeal.com',
     colors: { primary: '#1e3a6e', secondary: '#1a1a2e', accent: '#e8720c' }
   };
   const P = C.colors?.primary || '#1e3a6e';   // Navy — headers, borders, structure
@@ -93,9 +93,9 @@
        problem. White card + padding around the image gives the brand
        breathing room and makes the wordmark legible against any
        header treatment. */
-    .letterhead-logo-img { display:block; width:280px; height:88px;
-      object-fit:contain; object-position:left center; flex-shrink:0;
-      background:#fff; border-radius:8px; padding:6px 10px; box-sizing:border-box; }
+    .letterhead-logo-img { display:block; width:168px; height:112px;
+      object-fit:contain; object-position:center center; flex-shrink:0;
+      background:#fff; border-radius:8px; padding:8px 10px; box-sizing:border-box; }
     .letterhead-name { font-family:'Helvetica Neue',Arial,sans-serif; font-size:22px; font-weight:800;
       color:#fff; letter-spacing:.04em; text-transform:uppercase; line-height:1.1; }
     .letterhead-tagline { font-family:Georgia,serif; font-size:12px; color:${A}; font-style:italic; margin-top:4px; }
@@ -160,10 +160,25 @@
     ).join('') + `</div>`;
   }
 
-  function photoGrid(count, cols) {
+  function photoGrid(countOrPhotos, cols) {
     cols = cols || 3;
     let html = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:12px;margin:16px 0;">`;
-    for (let i = 0; i < count; i++) html += `<div class="photo-zone">Click to add photo</div>`;
+    // Real photo URLs: array of strings or array of {url, caption}.
+    if (Array.isArray(countOrPhotos)) {
+      countOrPhotos.forEach(p => {
+        const url = typeof p === 'string' ? p : (p && p.url);
+        const caption = (p && p.caption) ? `<div style="font-size:11px;color:#666;text-align:center;margin-top:4px;">${esc(p.caption)}</div>` : '';
+        if (url) {
+          html += `<div><img src="${url}" alt="" style="width:100%;height:140px;object-fit:cover;border-radius:8px;display:block;"/>${caption}</div>`;
+        } else {
+          html += `<div class="photo-zone">Click to add photo</div>`;
+        }
+      });
+    } else {
+      // Numeric count → render empty drop zones (legacy callers).
+      const n = Number(countOrPhotos) || 0;
+      for (let i = 0; i < n; i++) html += `<div class="photo-zone">Click to add photo</div>`;
+    }
     return html + '</div>';
   }
 
@@ -175,9 +190,11 @@
   // TEMPLATE 1: WARRANTY CERTIFICATE
   // ═══════════════════════════════════════════════════════════════
   DG.renderWarrantyCertificate = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      warrantyTier:'best', workPerformed:'Complete roof replacement including tear-off, underlayment, and installation of new roofing system.',
-      certificateNumber:'NBD-WC-'+(Date.now()%100000), issueDate:today(), expirationDate:'N/A — Lifetime' }, data);
+    const _certSeed = (data && (data.leadId || data.customerId || data.homeownerName)) || 'NEW';
+    const _certSlug = String(_certSeed).replace(/[^A-Za-z0-9]/g,'').slice(-6).toUpperCase() || 'NEW';
+    const d = Object.assign({ homeownerName:'', address:'',
+      warrantyTier:'best', workPerformed:'',
+      certificateNumber:'NBD-WC-'+_certSlug, issueDate:today(), expirationDate:'N/A — Lifetime' }, data);
 
     const tiers = { good:{label:'GOOD',color:'#cd7f32',bg:'#fdf4e8',years:'5-Year',exp:'5 years from issue date'},
       better:{label:'BETTER',color:'#808080',bg:'#f0f0f0',years:'10-Year',exp:'10 years from issue date'},
@@ -244,16 +261,11 @@
   // TEMPLATE 2: SUPPLEMENT REQUEST
   // ═══════════════════════════════════════════════════════════════
   DG.renderSupplementRequest = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      claimNumber:'[Claim #]', policyNumber:'[Policy #]', insuranceCompany:'[Insurance Company]',
-      dateOfLoss:'[Date of Loss]', originalApproved:'0.00',
-      supplementItems:[
-        {item:'Ridge cap — not included in original scope',code:'RSG-250',qty:120,unit:'LF',price:5.50},
-        {item:'Ice & water shield at eaves (code required)',code:'IWS-100',qty:8,unit:'SQ',price:65},
-        {item:'OSB decking replacement — hidden damage',code:'OSB-475',qty:4,unit:'SQ',price:125},
-        {item:'Additional flashing at wall tie-ins',code:'FLS-300',qty:32,unit:'LF',price:8.50}
-      ],
-      justification:'During the course of the approved roof replacement, additional damage was discovered that was not visible during the initial inspection. The following supplemental items are necessary to restore the roof system to its pre-loss condition and ensure compliance with local building codes.' }, data);
+    const d = Object.assign({ homeownerName:'', address:'',
+      claimNumber:'', policyNumber:'', insuranceCompany:'',
+      dateOfLoss:'', originalApproved:'0',
+      supplementItems:[],
+      justification:'' }, data);
 
     let suppTotal = 0;
     const rows = d.supplementItems.map(i => {
@@ -330,11 +342,11 @@
   // TEMPLATE 3: SCOPE OF WORK
   // ═══════════════════════════════════════════════════════════════
   DG.renderScopeOfWork = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      projectDescription:'Complete roof replacement — tear-off, underlayment, and installation of new architectural shingle roofing system.',
-      materials:'GAF Timberline HDZ Architectural Shingles, GAF FeltBuster Synthetic Underlayment, GAF Cobra Ridge Vent',
-      estimatedTimeline:'2-3 business days, weather permitting',
-      exclusions:'Interior repairs, landscaping restoration beyond reasonable care, code upgrades not related to roofing, structural framing repairs.' }, data);
+    const d = Object.assign({ homeownerName:'', address:'',
+      projectDescription:'',
+      materials:'',
+      estimatedTimeline:'',
+      exclusions:'' }, data);
 
     const sections = [
       { title:'1. Removal & Demolition', items:[
@@ -403,11 +415,13 @@
   // TEMPLATE 4: WORK AUTHORIZATION
   // ═══════════════════════════════════════════════════════════════
   DG.renderWorkAuthorization = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      scopeSummary:'Complete roof replacement including tear-off, installation of new roofing system, and cleanup.',
-      startDate:'[Start Date]', emergencyContact:'[Emergency Contact Name & Phone]',
-      accessInstructions:'Gate code: _____ | Dogs: Yes / No | Parking: _____',
+    const d = Object.assign({ homeownerName:'', address:'',
+      scopeSummary:'',
+      startDate:'', emergencyContact:'',
+      accessInstructions:'',
       isInsurance:false, claimNumber:'', insuranceCompany:'' }, data);
+    // Treat string 'true' / 'false' from form inputs the same as booleans.
+    d.isInsurance = (d.isInsurance === true) || (String(d.isInsurance).toLowerCase() === 'true');
 
     return page('Work Authorization', `
       ${letterhead()}
@@ -465,10 +479,10 @@
   // TEMPLATE 5: CERTIFICATE OF COMPLETION
   // ═══════════════════════════════════════════════════════════════
   DG.renderCertificateOfCompletion = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      scopeSummary:'Complete roof replacement', startDate:'[Start Date]',
+    const d = Object.assign({ homeownerName:'', address:'',
+      scopeSummary:'', startDate:'',
       completionDate:today(), warrantyTier:'best',
-      inspectorName:'[Inspector Name]' }, data);
+      inspectorName:'' }, data);
 
     const checklist = [
       {item:'All materials installed per manufacturer specifications',checked:true},
@@ -532,7 +546,7 @@
           </p>
         </div>
       </div>
-      ${sigBlock(['Homeowner','Authorized NBD Representative'])}
+      ${sigBlock(['Homeowner', d.inspectorName ? 'Inspector / Crew Lead — ' + esc(d.inspectorName) : 'Authorized NBD Representative'])}
       ${footer('Certificate of Completion')}
     `);
   };
@@ -541,20 +555,26 @@
   // TEMPLATE 6: CHANGE ORDER
   // ═══════════════════════════════════════════════════════════════
   DG.renderChangeOrder = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      originalContractNumber:'[Contract #]', originalContractDate:'[Original Date]',
-      changeOrderNumber:'CO-001', changesDescription:'Additional work identified during project execution.',
-      itemsAdded:[{item:'Replace damaged fascia board (north side)',qty:24,unit:'LF',price:14}],
+    const d = Object.assign({ homeownerName:'', address:'',
+      originalContractNumber:'', originalContractDate:'',
+      changeOrderNumber:'CO-001', changesDescription:'',
+      itemsAdded:[],
       itemsRemoved:[],
-      originalTotal:12500, scheduleImpact:'No change to estimated completion date.' }, data);
+      originalTotal:0, changeAmount:undefined, newTotal:undefined,
+      scheduleImpact:'' }, data);
 
     let addedTotal=0, removedTotal=0;
-    const addedRows = d.itemsAdded.map(i => { const t=(i.qty||0)*(i.price||0); addedTotal+=t;
+    const addedRows = d.itemsAdded.map(i => { const t=(Number(i.qty)||0)*(Number(i.price)||0); addedTotal+=t;
       return `<tr><td>${esc(i.item)}</td><td class="right">${i.qty}</td><td>${esc(i.unit)}</td><td class="right">${money(i.price)}</td><td class="right">${money(t)}</td></tr>`; }).join('');
-    const removedRows = d.itemsRemoved.map(i => { const t=(i.qty||0)*(i.price||0); removedTotal+=t;
+    const removedRows = d.itemsRemoved.map(i => { const t=(Number(i.qty)||0)*(Number(i.price)||0); removedTotal+=t;
       return `<tr><td>${esc(i.item)}</td><td class="right">${i.qty}</td><td>${esc(i.unit)}</td><td class="right">${money(i.price)}</td><td class="right" style="color:#dc2626;">-${money(t)}</td></tr>`; }).join('');
-    const netChange = addedTotal - removedTotal;
-    const newTotal = (d.originalTotal||0) + netChange;
+    // Prefer explicit changeAmount from the preflight schema; fall back to items math.
+    const itemsNet = addedTotal - removedTotal;
+    const explicitChange = (d.changeAmount === undefined || d.changeAmount === null || d.changeAmount === '') ? null : Number(d.changeAmount);
+    const netChange = (explicitChange !== null && !isNaN(explicitChange)) ? explicitChange : itemsNet;
+    const origTotalNum = Number(d.originalTotal) || 0;
+    const explicitNewTotal = (d.newTotal === undefined || d.newTotal === null || d.newTotal === '') ? null : Number(d.newTotal);
+    const newTotal = (explicitNewTotal !== null && !isNaN(explicitNewTotal)) ? explicitNewTotal : (origTotalNum + netChange);
 
     return page('Change Order', `
       ${letterhead()}
@@ -619,17 +639,23 @@
   // TEMPLATE 7: INVOICE
   // ═══════════════════════════════════════════════════════════════
   DG.renderInvoice = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
+    const d = Object.assign({ homeownerName:'', address:'',
       homeownerPhone:'', homeownerEmail:'',
       invoiceNumber:'INV-'+(Date.now()%100000), invoiceDate:today(), dueDate:'Due upon receipt',
-      lineItems:[
-        {description:'Complete Roof Replacement — Architectural Shingles',qty:1,unit:'JOB',rate:12500},
-        {description:'Ice & Water Shield Upgrade',qty:1,unit:'JOB',rate:850},
-        {description:'Additional OSB Decking Replacement (4 sheets)',qty:4,unit:'SQ',rate:125}
-      ],
-      taxRate:0, paymentsReceived:6250,
+      lineItems:[],
+      taxRate:0, paymentsReceived:0,
       claimNumber:'', insuranceCompany:'',
-      notes:'Thank you for choosing No Big Deal Home Solutions. We appreciate your business and trust in our team.' }, data);
+      notes:'' }, data);
+    // Preflight may pass items shaped {description, qty, unit, unitPrice, total}
+    // — normalize to the {qty, rate} shape this template expects.
+    if (Array.isArray(d.lineItems)) {
+      d.lineItems = d.lineItems.map(it => ({
+        description: it.description || it.name || '',
+        qty: Number(it.qty) || 0,
+        unit: it.unit || 'ea',
+        rate: Number(it.rate || it.unitPrice) || 0
+      }));
+    }
 
     let subtotal = 0;
     const rows = d.lineItems.map(i => {
@@ -834,11 +860,18 @@
   // TEMPLATE 9: BEFORE & AFTER PHOTO REPORT
   // ═══════════════════════════════════════════════════════════════
   DG.renderBeforeAfterReport = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      projectType:'Roof Replacement', startDate:'[Start Date]', completionDate:today(),
-      workDescription:'Complete tear-off and replacement of existing roofing system with new GAF Timberline HDZ architectural shingles, including new underlayment, flashing, ventilation, and gutters.',
-      highlights:['Full roof system replacement with premium materials','New ridge vent ventilation system installed',
-        'All flashing replaced at walls, pipes, and chimney','Seamless gutter system installed','Complete property cleanup with magnetic nail sweep'] }, data);
+    const d = Object.assign({ homeownerName:'', address:'',
+      projectType:'', startDate:'', completionDate:today(),
+      workDescription:'',
+      highlights:[],
+      beforePhotos:[], afterPhotos:[] }, data);
+    // Normalize string photo URLs and {url} objects into uniform shape.
+    function normPhotos(arr) {
+      if (!Array.isArray(arr)) return [];
+      return arr.map(p => typeof p === 'string' ? { url: p } : p).filter(p => p && p.url);
+    }
+    const beforePhotos = normPhotos(d.beforePhotos);
+    const afterPhotos = normPhotos(d.afterPhotos);
 
     return page('Before & After Report', `
       <style>
@@ -866,9 +899,8 @@
       <div class="section">
         <div class="ba-label ba-before">BEFORE</div>
         <div class="section-title">Pre-Project Condition</div>
-        ${photoGrid(6,3)}
-        <p style="font-size:12px;color:#666;text-align:center;margin-top:8px;">
-          Add captions describing damage or existing conditions below each photo.</p>
+        ${beforePhotos.length ? photoGrid(beforePhotos, 3) : photoGrid(6, 3)}
+        ${beforePhotos.length ? '' : `<p style="font-size:12px;color:#666;text-align:center;margin-top:8px;">Add captions describing damage or existing conditions below each photo.</p>`}
       </div>
 
       <div class="section">
@@ -879,9 +911,8 @@
       <div class="section">
         <div class="ba-label ba-after">AFTER</div>
         <div class="section-title">Completed Project</div>
-        ${photoGrid(6,3)}
-        <p style="font-size:12px;color:#666;text-align:center;margin-top:8px;">
-          Add captions highlighting improvements and quality of work.</p>
+        ${afterPhotos.length ? photoGrid(afterPhotos, 3) : photoGrid(6, 3)}
+        ${afterPhotos.length ? '' : `<p style="font-size:12px;color:#666;text-align:center;margin-top:8px;">Add captions highlighting improvements and quality of work.</p>`}
       </div>
 
       <div class="section">
@@ -1003,7 +1034,14 @@
   // TEMPLATE 11: REFERRAL CARD
   // ═══════════════════════════════════════════════════════════════
   DG.renderReferralCard = function(data) {
-    const d = Object.assign({}, data);
+    const d = Object.assign({
+      firstName:'', lastName:'',
+      bonusAmount:'', referralCode:'',
+      terms:'Referral reward is paid after referred project is completed. See us for full program details and terms.'
+    }, data);
+    const referredBy = ((d.firstName||'') + ' ' + (d.lastName||'')).trim() || d.homeownerName || '';
+    const bonusNum = parseFloat(d.bonusAmount);
+    const bonusLabel = !isNaN(bonusNum) && bonusNum > 0 ? money(bonusNum) : 'Ask Us For Details!';
 
     return page('Referral Card', `
       <style>
@@ -1012,6 +1050,8 @@
         .ref-top { background:linear-gradient(135deg,${S} 0%,#2a2a4e 100%); color:#fff;
           padding:28px 24px; text-align:center; }
         .ref-top h2 { margin:0; font-size:22px; color:#fff; line-height:1.3; }
+        .ref-logo { display:block; margin:0 auto 16px; width:140px; height:auto;
+          background:#fff; border-radius:8px; padding:6px 10px; box-sizing:border-box; }
         .ref-body { padding:24px; background:#fff; }
         .ref-reward { background:#fff8f5; border:2px dashed ${A}; border-radius:8px;
           padding:16px; text-align:center; margin:16px 0; }
@@ -1026,14 +1066,16 @@
 
       <div class="ref-card">
         <div class="ref-top">
+          <img class="ref-logo" src="${LOGO_URL}" alt="${C.name}"/>
           <h2>KNOW SOMEONE WHO<br>NEEDS A NEW ROOF?</h2>
           <p style="margin:8px 0 0;font-size:14px;color:${A};">Refer them to ${C.name}!</p>
         </div>
         <div class="ref-body">
           <div class="ref-reward">
             <div style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Referral Reward</div>
-            <div style="font-size:20px;font-weight:700;color:${A};">Ask Us For Details!</div>
+            <div style="font-size:20px;font-weight:700;color:${A};">${esc(bonusLabel)}</div>
             <div style="font-size:12px;color:#888;margin-top:4px;">Earn rewards for every referral that becomes a project</div>
+            ${d.referralCode ? `<div style="font-size:11px;color:#666;margin-top:8px;">Referral Code: <strong>${esc(d.referralCode)}</strong></div>` : ''}
           </div>
 
           <div class="ref-steps">
@@ -1045,7 +1087,9 @@
 
           <div class="ref-from">
             <div style="font-size:12px;color:#666;margin-bottom:8px;">Referred by:</div>
-            <div style="border-bottom:2px solid #333;height:28px;"></div>
+            ${referredBy
+              ? `<div style="font-size:15px;font-weight:600;color:${S};border-bottom:2px solid #333;padding-bottom:6px;">${esc(referredBy)}</div>`
+              : `<div style="border-bottom:2px solid #333;height:28px;"></div>`}
           </div>
         </div>
         <div class="ref-contact">
@@ -1055,8 +1099,7 @@
         </div>
       </div>
 
-      <p style="text-align:center;font-size:10px;color:#999;margin-top:20px;">
-        Referral reward is paid after referred project is completed. See us for full program details and terms.</p>
+      <p style="text-align:center;font-size:10px;color:#999;margin-top:20px;">${esc(d.terms)}</p>
     `);
   };
 
@@ -1064,9 +1107,9 @@
   // TEMPLATE 12: ASSIGNMENT OF BENEFITS (AOB)
   // ═══════════════════════════════════════════════════════════════
   DG.renderAssignmentOfBenefits = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      claimNumber:'[Claim #]', policyNumber:'[Policy #]', insuranceCompany:'[Insurance Company]',
-      dateOfLoss:'[Date of Loss]', scopeSummary:'Roof replacement and related repairs due to storm damage.' }, data);
+    const d = Object.assign({ homeownerName:'', address:'',
+      claimNumber:'', policyNumber:'', insuranceCompany:'',
+      dateOfLoss:'', scopeSummary:'' }, data);
 
     return page('Assignment of Benefits', `
       ${letterhead()}
@@ -1140,19 +1183,16 @@
   // TEMPLATE 13: MATERIAL DELIVERY NOTICE
   // ═══════════════════════════════════════════════════════════════
   DG.renderMaterialDelivery = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      deliveryDate:'[Delivery Date]', deliveryTime:'Between 7:00 AM and 12:00 PM',
-      startDate:'[Project Start Date]',
-      materials:[
-        {item:'GAF Timberline HDZ Architectural Shingles',qty:'30 bundles',notes:'Color: Charcoal'},
-        {item:'GAF FeltBuster Synthetic Underlayment',qty:'6 rolls',notes:''},
-        {item:'GAF Cobra Ridge Vent',qty:'4 pieces',notes:''},
-        {item:'Drip Edge Flashing (Aluminum)',qty:'120 LF',notes:'Color-matched'},
-        {item:'Ice & Water Shield',qty:'2 rolls',notes:'Eaves and valleys'},
-        {item:'Pipe Boot Flashings',qty:'4 units',notes:''},
-        {item:'Starter Strip Shingles',qty:'6 bundles',notes:''},
-        {item:'Roofing Nails (1.25")',qty:'4 boxes',notes:''}
-      ] }, data);
+    const d = Object.assign({ homeownerName:'', address:'',
+      deliveryDate:'', deliveryTime:'',
+      startDate:'',
+      materials:[] }, data);
+    // Accept materials as either array (preferred) or newline-separated string from textarea.
+    if (typeof d.materials === 'string') {
+      d.materials = d.materials.split(/\r?\n/).map(s => s.trim()).filter(Boolean)
+        .map(line => ({ item: line, qty: '', notes: '' }));
+    }
+    if (!Array.isArray(d.materials)) d.materials = [];
 
     return page('Material Delivery Notice', `
       ${letterhead()}
@@ -1423,6 +1463,7 @@
       <div class="hanger">
         <div class="hanger-top">
           <div class="hanger-hole"></div>
+          <img src="${LOGO_URL}" alt="${C.name}" style="display:block;width:140px;margin:0 auto 12px;background:#fff;border-radius:8px;padding:6px 10px;box-sizing:border-box;"/>
           <div style="font-size:12px;letter-spacing:0.15em;text-transform:uppercase;color:${A};margin-bottom:8px;">
             WE'RE IN YOUR NEIGHBORHOOD</div>
           <h2 style="margin:0;font-size:22px;color:#fff;line-height:1.3;">FREE ROOF<br>INSPECTION</h2>
@@ -1477,6 +1518,7 @@
 
       <div class="mailer">
         <div class="mailer-top">
+          <img src="${LOGO_URL}" alt="${C.name}" style="display:block;width:160px;margin:0 auto 16px;background:#fff;border-radius:8px;padding:8px 10px;box-sizing:border-box;"/>
           <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:${A};margin-bottom:12px;">
             ATTENTION: ${esc(d.neighborhoodName)} RESIDENTS</div>
           <h1 style="margin:0;color:#fff;font-size:26px;line-height:1.3;">
@@ -1523,12 +1565,31 @@
   DG.renderTestimonialSheet = function(data) {
     const d = Object.assign({}, data);
 
-    const testimonials = [
+    // Prefer testimonial1/2/3 entered via the preflight modal. Fall back to
+    // the canned defaults only when the user hasn't supplied anything.
+    function parseTestimonial(raw, ratingRaw) {
+      if (!raw || typeof raw !== 'string') return null;
+      const text = raw.trim();
+      if (!text) return null;
+      const r = parseInt(ratingRaw, 10);
+      return { text, name:'Satisfied Homeowner', location:'', project:'', rating: (r>=1 && r<=5) ? r : 5 };
+    }
+    const userTestimonials = [
+      parseTestimonial(d.testimonial1, d.rating1),
+      parseTestimonial(d.testimonial2, d.rating2),
+      parseTestimonial(d.testimonial3, d.rating3)
+    ].filter(Boolean);
+
+    const defaultTestimonials = [
       { text:'They made the whole process feel like no big deal. From filing the claim to the final cleanup, everything was handled professionally and on time.', name:'Satisfied Homeowner', location:'Lexington, KY', project:'Roof Replacement', rating:5 },
       { text:'The crew was on time, cleaned up everything, and the roof looks amazing. Best contractor experience I have ever had. Highly recommend.', name:'Satisfied Homeowner', location:'Georgetown, KY', project:'Roof & Gutters', rating:5 },
       { text:'Joe and his team walked us through the entire insurance claim process. We did not have to stress about a single thing. The new roof looks incredible.', name:'Satisfied Homeowner', location:'Nicholasville, KY', project:'Insurance Restoration', rating:5 },
       { text:'Professional from start to finish. They showed up when they said they would, did exactly what they said they would do, and left the property cleaner than they found it.', name:'Satisfied Homeowner', location:'Versailles, KY', project:'Siding Replacement', rating:5 }
     ];
+    const testimonials = userTestimonials.length ? userTestimonials : defaultTestimonials;
+    const avgRating = testimonials.length
+      ? (testimonials.reduce((s,t)=>s+(Number(t.rating)||0),0) / testimonials.length).toFixed(1)
+      : '5.0';
 
     return page('Customer Testimonials', `
       <style>
@@ -1548,7 +1609,7 @@
         <h1 style="margin:0;color:#fff;font-size:28px;">WHAT OUR CUSTOMERS SAY</h1>
         <p style="color:${A};margin:12px 0 0;font-size:16px;">Real Reviews From Real Homeowners</p>
         <div style="display:flex;justify-content:center;gap:24px;margin-top:20px;">
-          <div><div style="font-size:28px;font-weight:700;">5.0</div><div style="font-size:12px;opacity:0.8;">Average Rating</div></div>
+          <div><div style="font-size:28px;font-weight:700;">${avgRating}</div><div style="font-size:12px;opacity:0.8;">Average Rating</div></div>
           <div><div style="font-size:28px;font-weight:700;">100%</div><div style="font-size:12px;opacity:0.8;">Would Recommend</div></div>
         </div>
       </div>
@@ -1579,8 +1640,15 @@
   // TEMPLATE 19: THANK YOU LETTER
   // ═══════════════════════════════════════════════════════════════
   DG.renderThankYou = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      projectType:'roof replacement', completionDate:today() }, data);
+    const d = Object.assign({ homeownerName:'', address:'',
+      projectType:'roof replacement', completionDate:today(),
+      signedBy:'', signedTitle:'Owner' }, data);
+    // Letter is signed by the rep who generated it; fall back to a generic
+    // company sign-off only if nothing on the data/profile says otherwise.
+    if (!d.signedBy) {
+      d.signedBy = (window.auth && window.auth.currentUser && (window.auth.currentUser.displayName || window.auth.currentUser.email))
+        || data.userName || data.repName || 'The NBD Team';
+    }
 
     return page('Thank You Letter', `
       ${letterhead()}
@@ -1615,8 +1683,8 @@
 
         <p style="margin-top:32px;">
           With gratitude,<br><br>
-          <strong>Joe Deal</strong><br>
-          <span style="font-size:13px;color:#666;">Owner, ${C.name}</span><br>
+          <strong>${esc(d.signedBy)}</strong><br>
+          <span style="font-size:13px;color:#666;">${esc(d.signedTitle)}, ${C.name}</span><br>
           <span style="font-size:13px;color:#666;">${C.phone} | ${C.email}</span>
         </p>
       </div>
@@ -1628,11 +1696,11 @@
   // TEMPLATE 20: PAYMENT AGREEMENT
   // ═══════════════════════════════════════════════════════════════
   DG.renderPaymentAgreement = function(data) {
-    const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      totalAmount:'0.00', depositAmount:'0.00', depositDue:'Upon contract signing',
-      progressAmount:'0.00', progressDue:'Upon material delivery',
-      finalAmount:'0.00', finalDue:'Upon project completion',
-      projectDescription:'Complete roof replacement per attached scope of work and contract.' }, data);
+    const d = Object.assign({ homeownerName:'', address:'',
+      totalAmount:'0', depositAmount:'0', depositDue:'Upon contract signing',
+      progressAmount:'0', progressDue:'Upon material delivery',
+      finalAmount:'0', finalDue:'Upon project completion',
+      projectDescription:'' }, data);
 
     const total = parseFloat(d.totalAmount)||0;
     const deposit = parseFloat(d.depositAmount)||0;

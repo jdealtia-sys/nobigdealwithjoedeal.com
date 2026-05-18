@@ -22,7 +22,7 @@ window.NBDDocGen = {
   COMPANY: {
     name: 'No Big Deal Home Solutions',
     phone: '(859) 420-7382',
-    email: 'info@nobigdeal.pro',
+    email: 'info@nobigdealwithjoedeal.com',
     website: 'nobigdealwithjoedeal.com',
     tagline: 'No Big Deal — We\'ve Got You Covered',
     address: '', // Optional
@@ -614,15 +614,15 @@ window.NBDDocGen = {
            centered with breathing room in this header strip. */
         .nbd-logo-img {
           display: block;
-          width: 200px;
-          height: 72px;
+          width: 144px;
+          height: 96px;
           object-fit: contain;
-          object-position: left center;
+          object-position: center center;
           /* White card so the navy-on-white logo stays legible
              against the navy gradient header below. */
           background: #fff;
           border-radius: 8px;
-          padding: 6px 10px;
+          padding: 8px 10px;
           box-sizing: border-box;
         }
 
@@ -1193,8 +1193,11 @@ window.NBDDocGen = {
       }
     } else {
       photos.forEach(photo => {
-        if (photo) {
-          html += `<div class="photo-zone has-image"><img src="${photo}" alt="Photo" /></div>`;
+        // Accept either a string URL, or a photo object {url, caption?}.
+        const url = typeof photo === 'string' ? photo : (photo && (photo.url || photo.downloadUrl || photo.src));
+        const caption = (photo && typeof photo === 'object' && photo.caption) ? `<div style="font-size:9px;color:#666;text-align:center;margin-top:2px;">${String(photo.caption).replace(/</g,'&lt;')}</div>` : '';
+        if (url) {
+          html += `<div class="photo-zone has-image"><img src="${url}" alt="Photo" />${caption}</div>`;
         } else {
           html += '<div class="photo-zone">Photo</div>';
         }
@@ -1235,28 +1238,16 @@ window.NBDDocGen = {
    * @returns {string} Complete HTML document
    */
   renderProposal(data = {}) {
-    // Merge with defaults
+    // Merge with defaults. NOTE: scopeItems and lineItems must default to
+    // empty arrays so a proposal generated against a lead with no scope or
+    // estimate doesn't ship fabricated bullets and fake $11k of line items.
     const merged = {
       homeownerName: '',
       address: '',
       date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-      projectDescription: 'Complete roofing system replacement including removal of existing materials, installation of new premium asphalt shingles, underlayment, flashing, and gutters.',
-      scopeItems: [
-        'Remove existing roofing materials and debris',
-        'Install new architectural asphalt shingles',
-        'Install premium underlayment and ice/water shield',
-        'Install new flashing and ridge vents',
-        'Install seamless gutters and downspouts',
-        'Final cleanup and debris removal'
-      ],
-      lineItems: [
-        { description: 'Architectural Asphalt Shingles', qty: 25, unit: 'SQ', unitPrice: 165, total: 4125 },
-        { description: 'Underlayment & Ice/Water Shield', qty: 25, unit: 'SQ', unitPrice: 45, total: 1125 },
-        { description: 'Flashing & Ridge Vent Installation', qty: 1, unit: 'Job', unitPrice: 500, total: 500 },
-        { description: 'Seamless Gutter Installation', qty: 140, unit: 'LF', unitPrice: 15, total: 2100 },
-        { description: 'Labor & Installation', qty: 1, unit: 'Job', unitPrice: 3000, total: 3000 },
-        { description: 'Permits & Compliance', qty: 1, unit: 'Job', unitPrice: 200, total: 200 }
-      ],
+      projectDescription: '',
+      scopeItems: [],
+      lineItems: [],
       totalPrice: '',
       warrantyTier: 'better',
       photos: null,
@@ -1264,39 +1255,62 @@ window.NBDDocGen = {
     };
 
     // Build line items table
-    let lineItemsHTML = '<table><thead><tr><th>Item</th><th style="width: 8%;">Qty</th><th style="width: 10%;">Unit</th><th style="width: 12%;">Unit Price</th><th class="price-column" style="width: 12%;">Total</th></tr></thead><tbody>';
-
-    let total = 0;
     const _esc = (s) => String(s == null ? '' : s)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
       .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-    merged.lineItems.forEach(item => {
-      const totalAmount = item.total || (item.qty * item.unitPrice);
-      total += totalAmount;
+
+    let lineItemsHTML;
+    let total = 0;
+    if (Array.isArray(merged.lineItems) && merged.lineItems.length) {
+      lineItemsHTML = '<table><thead><tr><th>Item</th><th style="width: 8%;">Qty</th><th style="width: 10%;">Unit</th><th style="width: 12%;">Unit Price</th><th class="price-column" style="width: 12%;">Total</th></tr></thead><tbody>';
+      merged.lineItems.forEach(item => {
+        const qty = Number(item.qty) || 0;
+        const unitPrice = Number(item.unitPrice || item.rate) || 0;
+        const totalAmount = Number(item.total) || (qty * unitPrice);
+        total += totalAmount;
+        lineItemsHTML += `
+          <tr>
+            <td>${_esc(item.description)}</td>
+            <td style="text-align: center;">${_esc(item.qty)}</td>
+            <td style="text-align: center;">${_esc(item.unit)}</td>
+            <td class="price-column">$${Number(unitPrice).toFixed(2)}</td>
+            <td class="price-column">$${Number(totalAmount).toFixed(2)}</td>
+          </tr>
+        `;
+      });
+      // Display total: prefer the line-items sum (so the customer sees math
+      // that adds up). Fall back to merged.totalPrice only when items
+      // were provided but sum to 0.
+      const displayedTotal = total > 0
+        ? '$' + Number(total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : (merged.totalPrice || '');
       lineItemsHTML += `
-        <tr>
-          <td>${_esc(item.description)}</td>
-          <td style="text-align: center;">${_esc(item.qty)}</td>
-          <td style="text-align: center;">${_esc(item.unit)}</td>
-          <td class="price-column">$${Number(item.unitPrice||0).toFixed(2)}</td>
-          <td class="price-column">$${Number(totalAmount||0).toFixed(2)}</td>
+        <tr class="total-row">
+          <td colspan="4" style="text-align: right; padding-right: 0.1in;">TOTAL PROJECT COST</td>
+          <td class="price-column"><span class="total-price">${displayedTotal}</span></td>
         </tr>
-      `;
-    });
+      </tbody></table>`;
+    } else {
+      // No estimate / line items: render a clear empty-state instead of an
+      // empty table, so the rep notices the proposal isn't ready.
+      lineItemsHTML = `<div style="padding:14px;background:#fef9c3;border:1px solid #f59e0b;border-radius:6px;font-size:11px;color:#92400e;">
+        No pricing line items provided. Create an estimate for this customer before generating a proposal.
+      </div>`;
+    }
 
-    lineItemsHTML += `
-      <tr class="total-row">
-        <td colspan="4" style="text-align: right; padding-right: 0.1in;">TOTAL PROJECT COST</td>
-        <td class="price-column"><span class="total-price">${merged.totalPrice}</span></td>
-      </tr>
-    </tbody></table>`;
-
-    // Build scope list
-    let scopeHTML = '<ul class="scope-list">';
-    merged.scopeItems.forEach(item => {
-      scopeHTML += `<li>${_esc(item)}</li>`;
-    });
-    scopeHTML += '</ul>';
+    // Build scope list — empty-state aware.
+    let scopeHTML;
+    if (Array.isArray(merged.scopeItems) && merged.scopeItems.length) {
+      scopeHTML = '<ul class="scope-list">';
+      merged.scopeItems.forEach(item => {
+        scopeHTML += `<li>${_esc(item)}</li>`;
+      });
+      scopeHTML += '</ul>';
+    } else {
+      scopeHTML = `<div style="padding:14px;background:#fef9c3;border:1px solid #f59e0b;border-radius:6px;font-size:11px;color:#92400e;">
+        No scope bullets provided. Add a scope of work for this customer before generating a proposal.
+      </div>`;
+    }
 
     // Standard terms
     const termsHTML = `
@@ -1418,6 +1432,15 @@ window.NBDDocGen = {
       isInsuranceJob: false,
       ...data
     };
+    // Render the warranty tier into the body so {{warrantyTerms}} is not
+    // left as a literal placeholder in the contract.
+    const _warrantyTier = (this.WARRANTY_TIERS && this.WARRANTY_TIERS[merged.warrantyTier]) || (this.WARRANTY_TIERS && this.WARRANTY_TIERS.better) || null;
+    merged.warrantyTerms = _warrantyTier
+      ? `<div style="margin: 0.1in 0; font-size: 10px;">
+           <strong>${_warrantyTier.description}</strong><br/><br/>
+           ${_warrantyTier.details}
+         </div>`
+      : '<div style="margin: 0.1in 0; font-size: 10px;">Workmanship warranty per the attached Warranty Certificate.</div>';
 
     const contractHTML = `
       <!DOCTYPE html>
@@ -1577,6 +1600,22 @@ window.NBDDocGen = {
       photos: null,
       ...data
     };
+    // Expose flat <area>Grade / <area>Description merge fields so the
+    // template body can wire grade colors and notes to data instead of
+    // hardcoding 'C', 'D', 'B', 'A' regardless of the property.
+    ['roof','gutter','siding','window','other'].forEach(area => {
+      const k = area + 'Condition';
+      const v = merged[k];
+      if (v && typeof v === 'object') {
+        merged[area + 'Grade'] = v.grade || '';
+        merged[area + 'Description'] = v.description || '';
+      } else {
+        merged[area + 'Grade'] = '';
+        merged[area + 'Description'] = (typeof v === 'string') ? v : '';
+      }
+      // Keep <area>Condition usable as a plain string for any older callers.
+      merged[k] = merged[area + 'Description'];
+    });
 
     const gradeColor = (grade) => {
       const colors = { 'A': 'grade-a', 'B': 'grade-b', 'C': 'grade-c', 'D': 'grade-d', 'F': 'grade-f' };
@@ -1631,7 +1670,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Overall Condition</div>
               <div style="margin: 0.1in 0;">
-                <span class="condition-grade ${gradeColor('C')}">Grade C</span>
+                <span class="condition-grade ${gradeColor(merged.overallConditionGrade)}">Grade ${merged.overallConditionGrade}</span>
               </div>
               <div class="summary-text">
                 {{overallDescription}}
@@ -1642,34 +1681,34 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Roof Assessment</div>
               <div style="margin: 0.1in 0;">
-                <span class="condition-grade ${gradeColor('C')}">Grade C</span>
+                <span class="condition-grade ${gradeColor(merged.roofGrade)}">Grade ${merged.roofGrade}</span>
               </div>
               <div class="summary-text">
-                {{roofCondition}}
+                {{roofDescription}}
               </div>
-              ${this.renderPhotoGrid([null, null], 2)}
+              ${this.renderPhotoGrid(Array.isArray(merged.photos) ? merged.photos.slice(0, 2) : [null, null], 2)}
             </div>
 
             <!-- GUTTERS -->
             <div class="section">
               <div class="section-title">Gutters & Drainage</div>
               <div style="margin: 0.1in 0;">
-                <span class="condition-grade ${gradeColor('D')}">Grade D</span>
+                <span class="condition-grade ${gradeColor(merged.gutterGrade)}">Grade ${merged.gutterGrade}</span>
               </div>
               <div class="summary-text">
-                Gutters clogged and sagging in places. Potential water damage risk.
+                {{gutterDescription}}
               </div>
-              ${this.renderPhotoGrid([null, null], 2)}
+              ${this.renderPhotoGrid(Array.isArray(merged.photos) ? merged.photos.slice(0, 2) : [null, null], 2)}
             </div>
 
             <!-- SIDING -->
             <div class="section">
               <div class="section-title">Exterior Siding</div>
               <div style="margin: 0.1in 0;">
-                <span class="condition-grade ${gradeColor('B')}">Grade B</span>
+                <span class="condition-grade ${gradeColor(merged.sidingGrade)}">Grade ${merged.sidingGrade}</span>
               </div>
               <div class="summary-text">
-                Vinyl siding in fair condition with some areas needing repainting.
+                {{sidingDescription}}
               </div>
             </div>
 
@@ -1677,10 +1716,10 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Windows</div>
               <div style="margin: 0.1in 0;">
-                <span class="condition-grade ${gradeColor('A')}">Grade A</span>
+                <span class="condition-grade ${gradeColor(merged.windowGrade)}">Grade ${merged.windowGrade}</span>
               </div>
               <div class="summary-text">
-                Windows in good condition with no visible damage or leaks.
+                {{windowDescription}}
               </div>
             </div>
 
@@ -1704,7 +1743,7 @@ window.NBDDocGen = {
             <!-- INSPECTOR INFO -->
             <div class="section">
               <div class="section-title">Inspector Information</div>
-              ${this.renderSignatureBlock(['Certified NBD Inspector'])}
+              ${this.renderSignatureBlock([merged.inspectorName ? `Certified NBD Inspector — ${merged.inspectorName}` : 'Certified NBD Inspector'])}
             </div>
           </div>
 
@@ -1737,9 +1776,79 @@ window.NBDDocGen = {
       inspectorName: 'NBD Damage Assessor',
       damageType: 'Wind Damage',
       estimatedRepairCost: '',
+      insCarrier: '', policyNumber: '',
+      damageNotes: '',
       photos: null,
       ...data
     };
+    if (!merged.claimantName) merged.claimantName = merged.homeownerName || '';
+    if (!merged.totalPrice) merged.totalPrice = merged.estimatedRepairCost || '';
+    // Preflight uses 'insCarrier'; legacy form modal uses 'insuranceCompany'.
+    if (!merged.insCarrier) merged.insCarrier = merged.insuranceCompany || '';
+    // Default damage notes only if rep didn't provide their own assessment.
+    if (!merged.damageNotes) {
+      merged.damageNotes = 'Evidence of ' + (merged.damageType || 'storm').toLowerCase() +
+        ' damage to roof shingles including lifted edges, puncture marks, and missing shingles. ' +
+        'Structural integrity compromised requiring repair to prevent water infiltration and secondary damage.';
+    }
+
+    // Damage findings table: prefer rep-supplied data.damageFindings (array of
+    // { area, type, severity, measurement }). Otherwise render an empty-state
+    // row so the doc clearly shows "no findings recorded" instead of shipping
+    // fabricated "North Slope / South Slope / East Gable" rows on every claim.
+    const _findings = Array.isArray(data.damageFindings) ? data.damageFindings : [];
+    const damageRowsHTML = _findings.length
+      ? _findings.map(f => `<tr>
+          <td>${(f.area || '').toString().replace(/</g,'&lt;')}</td>
+          <td>${(f.type || f.damage || '').toString().replace(/</g,'&lt;')}</td>
+          <td>${(f.severity || '').toString().replace(/</g,'&lt;')}</td>
+          <td>${(f.measurement || f.size || '').toString().replace(/</g,'&lt;')}</td>
+        </tr>`).join('')
+      : `<tr><td colspan="4" style="text-align:center;color:#888;font-style:italic;padding:12px;">No damage findings recorded yet. Add findings on the customer page.</td></tr>`;
+
+    // Scope of restoration: prefer estimate line items, else the rep's
+    // scopeItems / scopeOfWork. Fall back to the generic 7-bullet list
+    // ONLY if nothing else is available.
+    let scopeBullets = [];
+    if (Array.isArray(data.scopeItems) && data.scopeItems.length) {
+      scopeBullets = data.scopeItems.filter(Boolean);
+    } else if (Array.isArray(data.lineItems) && data.lineItems.length) {
+      scopeBullets = data.lineItems.map(it => it.description || it.name).filter(Boolean);
+    } else if (typeof data.scopeOfWork === 'string' && data.scopeOfWork.trim()) {
+      scopeBullets = data.scopeOfWork.split(/\r?\n|•|;/).map(s => s.trim()).filter(Boolean);
+    }
+    if (!scopeBullets.length) {
+      scopeBullets = [
+        'Remove all damaged roofing materials',
+        'Inspect and repair/replace underlying decking',
+        'Install new underlayment per code',
+        'Install new architectural shingles matching existing',
+        'Repair/replace flashing',
+        'Replace damaged gutters and downspouts',
+        'Final inspection and cleanup'
+      ];
+    }
+    const scopeListHTML = scopeBullets.map(s => `<li>${String(s).replace(/</g,'&lt;')}</li>`).join('');
+
+    // Photographic evidence: render real photos when supplied, otherwise
+    // labelled "Photo 1..N" placeholders so the doc still has structure.
+    const _photos = Array.isArray(merged.photos) ? merged.photos : [];
+    const PHOTO_COUNT = Math.max(6, _photos.length);
+    let photosHTML = '';
+    for (let i = 0; i < PHOTO_COUNT; i++) {
+      const p = _photos[i];
+      const url = p && (typeof p === 'string' ? p : (p.url || p.downloadUrl || p.src));
+      if (url) {
+        photosHTML += `<div class="photo-zone has-image"><img src="${url}" alt="Photo ${i+1}" /></div>`;
+      } else {
+        photosHTML += `<div class="photo-zone">Photo ${i+1}</div>`;
+      }
+    }
+
+    // Code & jurisdiction: data-drivable; defaults to KY for the shop's
+    // home jurisdiction but a multi-state rep can override per-lead.
+    if (!merged.codeJurisdiction) merged.codeJurisdiction = data.codeJurisdiction || 'Kentucky Building Code (KBC)';
+    if (!merged.codeCycle) merged.codeCycle = data.codeCycle || '2021 International Building Code (IBC)';
 
     const insuranceHTML = `
       <!DOCTYPE html>
@@ -1772,7 +1881,10 @@ window.NBDDocGen = {
               <div style="margin: 0.1in 0;">
                 <strong>Claimant Name:</strong> {{claimantName}}<br/>
                 <strong>Property Address:</strong> {{address}}<br/>
+                <strong>Insurance Carrier:</strong> {{insCarrier}}<br/>
+                <strong>Policy Number:</strong> {{policyNumber}}<br/>
                 <strong>Claim Number:</strong> {{claimNumber}}<br/>
+                <strong>Date of Loss:</strong> {{dateOfLoss}}<br/>
                 <strong>Inspection Date:</strong> {{inspectionDate}}
               </div>
             </div>
@@ -1785,7 +1897,7 @@ window.NBDDocGen = {
                 <strong>Estimated Repair Cost:</strong> {{totalPrice}}
               </div>
               <div class="summary-text" style="margin-top: 0.1in;">
-                Evidence of wind/impact damage to roof shingles including lifted edges, puncture marks, and missing shingles. Structural integrity compromised requiring immediate repair to prevent water infiltration and secondary damage.
+                {{damageNotes}}
               </div>
             </div>
 
@@ -1802,24 +1914,7 @@ window.NBDDocGen = {
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>North Slope</td>
-                    <td>Missing shingles, lifted edges</td>
-                    <td>High</td>
-                    <td>~400 sq ft</td>
-                  </tr>
-                  <tr>
-                    <td>South Slope</td>
-                    <td>Puncture marks, granule loss</td>
-                    <td>Medium</td>
-                    <td>~250 sq ft</td>
-                  </tr>
-                  <tr>
-                    <td>East Gable</td>
-                    <td>Flashing damage</td>
-                    <td>Medium</td>
-                    <td>~60 sq ft</td>
-                  </tr>
+                  ${damageRowsHTML}
                 </tbody>
               </table>
             </div>
@@ -1828,12 +1923,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Photographic Evidence</div>
               <div class="photo-grid three-col">
-                <div class="photo-zone">Photo 1</div>
-                <div class="photo-zone">Photo 2</div>
-                <div class="photo-zone">Photo 3</div>
-                <div class="photo-zone">Photo 4</div>
-                <div class="photo-zone">Photo 5</div>
-                <div class="photo-zone">Photo 6</div>
+                ${photosHTML}
               </div>
             </div>
 
@@ -1841,13 +1931,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Recommended Restoration Scope</div>
               <ul class="scope-list">
-                <li>Remove all damaged roofing materials</li>
-                <li>Inspect and repair/replace underlying decking</li>
-                <li>Install new underlayment per code</li>
-                <li>Install new architectural shingles matching existing</li>
-                <li>Repair/replace flashing</li>
-                <li>Replace damaged gutters and downspouts</li>
-                <li>Final inspection and cleanup</li>
+                ${scopeListHTML}
               </ul>
             </div>
 
@@ -1855,7 +1939,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Code Compliance & Standards</div>
               <div style="font-size: 9px; line-height: 1.4;">
-                <strong>Current Code Requirements:</strong> All repairs performed in accordance with 2021 International Building Code (IBC) and Kentucky Building Code (KBC). Work complies with manufacturer specifications and NRCA guidelines.
+                <strong>Current Code Requirements:</strong> All repairs performed in accordance with {{codeCycle}} and {{codeJurisdiction}}. Work complies with manufacturer specifications and NRCA guidelines.
               </div>
             </div>
 
@@ -1865,7 +1949,7 @@ window.NBDDocGen = {
               <div style="font-size: 9px; margin: 0.1in 0;">
                 I certify that I have personally inspected the subject property and that the damages, measurements, and repair estimates contained in this report are accurate to the best of my knowledge and belief.
               </div>
-              ${this.renderSignatureBlock(['Certified NBD Damage Assessor'])}
+              ${this.renderSignatureBlock([merged.inspectorName ? `Certified NBD Damage Assessor — ${merged.inspectorName}` : 'Certified NBD Damage Assessor'])}
             </div>
           </div>
 

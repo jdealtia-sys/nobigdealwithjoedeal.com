@@ -261,8 +261,11 @@
   // Convert a lead record to the merge-data shape the NBDDocGen templates
   // expect. Different templates pull different fields out of the bag —
   // this helper populates the superset so any template gets what it needs.
-  // Missing values become empty strings; the templates already substitute
-  // their own placeholders ("[Homeowner Name]") for falsy values.
+  // Missing values become empty strings. Templates no longer substitute
+  // placeholder brackets (e.g. "[Homeowner Name]") for missing data —
+  // preflight gates the required fields, and the explicit blank-preview
+  // path (_blankifyDocData) adds bracket placeholders when the rep wants
+  // to QA the layout without real data.
   function _leadToDocData(lead) {
     if (!lead) return {};
     const fname = (lead.firstName || lead.fname || '').trim();
