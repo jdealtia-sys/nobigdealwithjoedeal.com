@@ -36,8 +36,10 @@
   const LOGO_URL = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
     ? window.NBD_LOGO_DATA_URI
     : ORIGIN + '/assets/images/nbd-logo.png';
+  // Derive the MIME from the data URI itself so a JPEG/PNG/SVG swap
+  // in nbd-logo-asset.js doesn't need a parallel edit here.
   const LOGO_TYPE = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
-    ? 'image/jpeg'
+    ? ((window.NBD_LOGO_DATA_URI.match(/^data:([^;,]+)/) || [, 'image/png'])[1])
     : 'image/png';
 
   // Register new document types

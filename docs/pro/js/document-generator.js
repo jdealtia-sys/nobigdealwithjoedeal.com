@@ -1092,7 +1092,12 @@ window.NBDDocGen = {
     const src = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
       ? window.NBD_LOGO_DATA_URI
       : this._assetOrigin() + '/assets/images/nbd-logo.png';
-    return `<object class="nbd-logo-obj" type="image/jpeg" data="${src}" aria-label="No Big Deal Home Solutions">
+    // Derive MIME from the data URI so a JPEG/PNG/SVG swap in
+    // nbd-logo-asset.js doesn't need a parallel edit here.
+    const mime = (typeof src === 'string' && src.startsWith('data:'))
+      ? (src.match(/^data:([^;,]+)/) || [, 'image/png'])[1]
+      : 'image/png';
+    return `<object class="nbd-logo-obj" type="${mime}" data="${src}" aria-label="No Big Deal Home Solutions">
       <svg class="nbd-logo-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="NBD">
         <defs>
           <linearGradient id="nbdRing" x1="0" y1="0" x2="1" y2="1">
