@@ -140,7 +140,7 @@
                text-decoration:none; font:inherit; font-size:12px; font-weight:700;
                cursor:${phone ? 'pointer' : 'not-allowed'}; opacity:${phone ? 1 : 0.4};
                -webkit-tap-highlight-color:transparent; transition:transform .12s;"
-        onclick="${phone ? '' : 'event.preventDefault();'}"
+        ${phone ? "" : "data-csfp-stop-self=\"1\""}
         onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform=''">📞 Call</a>`;
 
     const smsBtnHtml = `
@@ -290,3 +290,6 @@
     init();
   }
 })();
+
+
+(function(){if(window._NBD_CSFP_DELEGATE)return;window._NBD_CSFP_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-csfp-stop-self="1"]');if(t&&ev.target===t)ev.preventDefault();});})();

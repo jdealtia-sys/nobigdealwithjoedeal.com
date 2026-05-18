@@ -86,7 +86,7 @@
     wrap.onclick = (e) => { if (e.target === wrap) closeModal(); };
     wrap.innerHTML = `
       <div class="modal" style="max-width:460px;">
-        <button class="modal-close" onclick="window.NBDVoicemail.close()">✕</button>
+        <button class="modal-close" data-vm-action="close">✕</button>
         <div style="font-size:9px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);margin-bottom:4px;">Voicemail</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;margin-bottom:4px;">Capture &amp; Auto-task</div>
         <div style="font-size:11px;color:var(--m);margin-bottom:16px;">Record a quick voicemail or upload one forwarded from your phone. AI extracts action items and auto-creates follow-up tasks.</div>
@@ -416,7 +416,7 @@
         <div style="font-size:12px;color:var(--t);line-height:1.5;margin-top:8px;white-space:pre-wrap;">${esc(transcript)}</div>
       </details>
 
-      <button onclick="window.NBDVoicemail.close()" style="width:100%;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:8px;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;">Done</button>
+      <button data-vm-action="close" style="width:100%;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:8px;padding:12px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;">Done</button>
     `;
   }
 
@@ -450,3 +450,6 @@
     close
   };
 })();
+
+
+(function(){if(window._NBD_VM_DELEGATE)return;window._NBD_VM_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-vm-action]');if(!t)return;if(t.dataset.vmAction==='close'&&window.NBDVoicemail&&window.NBDVoicemail.close)window.NBDVoicemail.close();});})();

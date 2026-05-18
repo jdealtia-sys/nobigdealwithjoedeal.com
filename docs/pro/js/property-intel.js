@@ -461,7 +461,7 @@ function renderIntelCard(targetElId, intel, county, address) {
       </div>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
         ${intel.auditorUrl && /^https?:\/\//i.test(intel.auditorUrl) ? `<a class="pi-link" href="${_piEsc(intel.auditorUrl)}" target="_blank" rel="noopener" style="flex:1;">↗ View County Record</a>` : ''}
-        <button class="pi-lead-btn" onclick="createLeadFromProperty('${_piEsc(address)}', '${_piEsc(ownerName)}')" style="flex:1;padding:6px 12px;background:var(--orange);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;">+ Create Lead</button>
+        <button class="pi-lead-btn" data-pi-action="createLead" data-pi-address="${_piEsc(address)}" data-pi-owner="${_piEsc(ownerName)}" style="flex:1;padding:6px 12px;background:var(--orange);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.05em;">+ Create Lead</button>
       </div>
     </div>
   </div>`;
@@ -741,3 +741,6 @@ window.fetchPropertyIntel = fetchPropertyIntel;
 window.renderIntelCard = renderIntelCard;
 window.executePullPropertyIntel = executePullPropertyIntel;
 window.fetchPropertyIntelModal = fetchPropertyIntelModal;
+
+
+(function(){if(window._NBD_PI_DELEGATE)return;window._NBD_PI_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-pi-action]');if(!t)return;if(t.dataset.piAction==='createLead'&&typeof createLeadFromProperty==='function')createLeadFromProperty(t.dataset.piAddress,t.dataset.piOwner);});})();

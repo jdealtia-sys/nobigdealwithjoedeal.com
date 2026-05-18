@@ -266,7 +266,7 @@
               "
             ></textarea>
             <button
-              onclick="window.InsuranceClaim.advanceClaimStage('${leadId}', document.getElementById('claim-notes-${leadId}').value)"
+              data-ic-action="advance" data-ic-id="${leadId}"
               style="
                 background: #e8720c;
                 color: white;
@@ -426,3 +426,5 @@
   };
 
 })();
+
+(function(){if(window._NBD_IC_DELEGATE)return;window._NBD_IC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-ic-action]');if(!t)return;if(t.dataset.icAction==='advance'&&window.InsuranceClaim&&window.InsuranceClaim.advanceClaimStage){var leadId=t.dataset.icId;var notesEl=document.getElementById('claim-notes-'+leadId);var notes=notesEl?notesEl.value.trim():'';window.InsuranceClaim.advanceClaimStage(leadId,notes);}});})();

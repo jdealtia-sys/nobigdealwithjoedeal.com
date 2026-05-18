@@ -394,9 +394,9 @@ section('Phase D.2 — Cross-lead Recent Photo Feed');
   // 6. Tap on a tile pivots into by-property mode for that lead.
   //    The string in source is `setPhotoMode(\\'by-property\\')` (escaped
   //    quotes inside an HTML onclick attribute).
-  assert('Recent tiles wire onclick → setPhotoMode("by-property") for the lead',
-    /setPhotoMode\(\\'by-property\\'\)/.test(mainJs),
-    'expected the recent-tile onclick to switch back to by-property after picking a lead');
+  assert('Recent tiles wire data-dw-action=openPhotoTile (delegated → setPhotoMode by-property)',
+    /data-dw-action="openPhotoTile"/.test(mainJs) && /setPhotoMode\('by-property'\)/.test(mainJs),
+    'expected recent-tile data-dw-action + delegate that calls setPhotoMode("by-property")');
 }
 
 section('Phase C.1 + C.2 — view template-hydration sweep');

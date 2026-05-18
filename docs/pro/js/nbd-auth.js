@@ -661,7 +661,7 @@ export const NBDAuth = {
           ${features.map(f => `<li>${f}</li>`).join('')}
         </ul>
         <div class="nbd-wall-btns">
-          <button onclick="if(window.StripeBilling){window.StripeBilling.checkout('${requiredPlan}')}else{window.location.href='/pro/landing.html#pricing'}" class="nbd-wall-btn primary">Upgrade to ${planName} →</button>
+          <button data-na-action="upgradeCheckout" data-na-id="${requiredPlan}" class="nbd-wall-btn primary">Upgrade to ${planName} →</button>
           <a href="/pro/" class="nbd-wall-btn secondary">← Back to Home</a>
         </div>
         <div class="nbd-wall-current">
@@ -710,3 +710,6 @@ function _exposeGlobals() {
 function _showPage() {
   document.documentElement.style.visibility = 'visible';
 }
+
+
+(function(){if(window._NBD_NA_DELEGATE)return;window._NBD_NA_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-na-action]');if(!t)return;if(t.dataset.naAction==='upgradeCheckout'){var plan=t.dataset.naId;if(window.StripeBilling&&window.StripeBilling.checkout)window.StripeBilling.checkout(plan);else window.location.href='/pro/landing.html#pricing';}});})();

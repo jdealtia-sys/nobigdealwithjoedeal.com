@@ -251,8 +251,8 @@
         Upgrade to <strong style="color:#e8720c;">${nextInfo.label}</strong> for ${nextInfo[feature === 'aiCalls' ? 'aiCalls' : feature] === Infinity ? 'unlimited' : nextInfo[feature === 'aiCalls' ? 'aiCalls' : feature]} ${featureLabel}/mo — <strong>$${nextInfo.price}/mo</strong>
       </div>
       <div style="display:flex;gap:10px;justify-content:center;">
-        <button onclick="document.getElementById('nbd-upgrade-modal').remove()" style="background:var(--s2);border:1px solid var(--br);color:var(--m);padding:10px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;">Maybe Later</button>
-        <button onclick="document.getElementById('nbd-upgrade-modal').remove();if(typeof goTo==='function'){goTo('settings');setTimeout(function(){if(typeof switchSettingsTab==='function')switchSettingsTab('billing')},200)}else{window.location.href='/pro/pricing.html'}" style="background:#e8720c;border:none;color:#fff;padding:10px 24px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">View Plans</button>
+        <button data-bg-action="closeUpgrade" style="background:var(--s2);border:1px solid var(--br);color:var(--m);padding:10px 20px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;">Maybe Later</button>
+        <button data-bg-action="closeUpgradeAndGoBilling" style="background:#e8720c;border:none;color:#fff;padding:10px 24px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">View Plans</button>
       </div>
       <div style="font-size:10px;color:var(--m,#888);margin-top:14px;">You can still use this feature — we won't lock you out mid-cycle.</div>
     `;
@@ -291,3 +291,7 @@
 
   console.log('[NBDBilling] Module ready');
 })();
+
+
+// CSP-safe delegation (replaces 2 inline onclicks).
+(function(){if(window._NBD_BG_DELEGATE)return;window._NBD_BG_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-bg-action]');if(!t)return;var a=t.dataset.bgAction;try{var m=document.getElementById('nbd-upgrade-modal');if(m)m.remove();if(a==='closeUpgradeAndGoBilling'&&typeof goTo==='function')goTo('billing');}catch(e){console.error('[billing-gate]',e);}});})();

@@ -313,11 +313,11 @@ function nbdRenderCats() {
   if (TE) {
     // ThemeEngine categories
     const teCats = [{key:'all',label:'All',icon:''},...TE.getCategories()];
-    el.innerHTML = teCats.map(c => `<button class="npm-cat${_nbd_activeCat===c.key?' on':''}" onclick="nbdSetCat('${c.key}',this)">${c.icon?c.icon+' ':''}${c.label}</button>`).join('');
+    el.innerHTML = teCats.map(c => `<button class="npm-cat${_nbd_activeCat===c.key?' on':''}" data-mp-action="setCat" data-mp-id="${c.key}">${c.icon?c.icon+' ':''}${c.label}</button>`).join('');
   } else {
     const cats = ['all','standard','heroes','gaming','os','material','ambient','abstract','tactical','nature','music','region','seasonal','culture','custom'];
     const labels = {all:'All',standard:'Standard',heroes:'Heroes',gaming:'Gaming',os:'OS/Tech',material:'Material',ambient:'Ambient',abstract:'Abstract',tactical:'Tactical',nature:'Nature',music:'Music',region:'Region',seasonal:'Seasonal',culture:'Culture',custom:'⚡ Custom'};
-    el.innerHTML = cats.map(c => `<button class="npm-cat${_nbd_activeCat===c?' on':''}" onclick="nbdSetCat('${c}',this)">${labels[c]||c}</button>`).join('');
+    el.innerHTML = cats.map(c => `<button class="npm-cat${_nbd_activeCat===c?' on':''}" data-mp-action="setCat" data-mp-id="${c}">${labels[c]||c}</button>`).join('');
   }
 }
 
@@ -458,3 +458,6 @@ window.goToMyLocation = goToMyLocation;
 })();
 /* ── END NBD UNIFIED APPEARANCE ENGINE ── */
 
+
+
+(function(){if(window._NBD_MP_DELEGATE)return;window._NBD_MP_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-mp-action]');if(!t)return;if(t.dataset.mpAction==='setCat'&&typeof nbdSetCat==='function')nbdSetCat(t.dataset.mpId,t);});})();

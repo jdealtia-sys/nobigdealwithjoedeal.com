@@ -178,7 +178,7 @@
           '</div>' +
         '</div>' +
         (k.overdueFollowUps > 0
-          ? '<div class="kpi-card kpi-warning" onclick="scrollToFollowUps();" style="cursor:pointer;">' +
+          ? '<div class="kpi-card kpi-warning" data-ak-action="scrollToFollowUps" style="cursor:pointer;">' +
               '<div class="kpi-icon">⚠️</div>' +
               '<div class="kpi-data">' +
                 '<div class="kpi-value">' + k.overdueFollowUps + '</div>' +
@@ -671,3 +671,6 @@
   };
 
 })();
+
+
+(function(){if(window._NBD_AK_DELEGATE)return;window._NBD_AK_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-ak-action]');if(!t)return;if(t.dataset.akAction==='scrollToFollowUps'&&typeof scrollToFollowUps==='function')scrollToFollowUps();});})();

@@ -107,7 +107,7 @@
   function page(title, body) {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title} | ${C.name}</title>
     <style>${printCSS}</style></head><body><div class="doc-page">${body}</div>
-    <div class="no-print print-btn"><button onclick="window.print()">Print / Save as PDF</button></div>
+    <div class="no-print print-btn"><button data-dgt-action="print">Print / Save as PDF</button></div>
     </body></html>`;
   }
 
@@ -1761,3 +1761,6 @@
 
   console.log('NBDDocGen: 20 additional templates loaded');
 })();
+
+
+(function(){if(window._NBD_DGT_DELEGATE)return;window._NBD_DGT_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-dgt-action]');if(!t)return;if(t.dataset.dgtAction==='print')window.print();});})();
