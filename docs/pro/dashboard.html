@@ -2798,15 +2798,25 @@ input:focus, select:focus, textarea:focus {
   border-radius: 10px;
   padding: 14px 16px;
   cursor: grab;
-  transition: all .25s cubic-bezier(.4,0,.2,1);
+  /* Hover-jiggle final fix: was `transition: all .25s`, which animated
+     EVERY property change on hover (including subpixel anti-aliasing
+     shifts triggered by the z-index hover-bump below). The catchall
+     plus z-index change caused stacking-context re-paint flicker
+     anywhere near the card edge — most visible when the cursor sat on
+     the bottom-right `...` button. Narrowed to explicit properties +
+     dropped the z-index hover-bump (set globally) + promoted to a GPU
+     layer via will-change so the shadow growth is composited, not
+     re-painted per-frame. */
+  transition: box-shadow .15s ease, border-color .15s ease;
+  will-change: box-shadow;
   position: relative;
+  z-index: 1;
   color: var(--ink);
   box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
 }
 .k-card:hover {
   box-shadow: 0 10px 30px rgba(0,0,0,.18), 0 4px 8px rgba(0,0,0,.1);
   border-color: rgba(255,255,255,.12);
-  z-index: 2;
 }
 .k-card.dragging {
   opacity: .5;
@@ -4617,7 +4627,12 @@ body {
     padding: 4px 8px; min-width: 26px; min-height: 26px;
     color: var(--m); cursor: pointer;
     background: transparent; border: 1px solid var(--br);
-    border-radius: 4px; transition: all .15s;
+    border-radius: 4px;
+    /* Was `transition: all .15s` — animated EVERY property change
+       including any focus-recompute, which produced sub-pixel jiggle
+       when the cursor sat on the button edge. Pinned to paint-only
+       props so size/position never animate. */
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
   }
   .kc-overflow:hover{color: var(--orange); border-color: var(--orange); background: color-mix(in srgb, var(--orange) 8%, transparent);}
   @media (pointer: coarse) { .kc-overflow{ min-width: 32px; min-height: 32px; padding: 6px 10px; } }
@@ -4765,11 +4780,12 @@ body {
      today's DOM are snake_case stage keys; the capitalized legacy
      IDs (kbody-New, kbody-Estimate Sent, …) never exist anymore so
      these rules were dead. */
-  /* Hover lift removed — translateY(-2px) caused cards to jiggle when
-     the cursor sat near a card edge (hover ON → card moves up out of
-     cursor → hover OFF → card drops → hover ON …). The line 2788
-     rule already gives a box-shadow hover affordance. */
-  .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.18);}
+  /* Hover-jiggle final: removed the duplicate `.k-card:hover` rule
+     that lived here — it was setting a SECOND box-shadow value
+     (6px 20px) that cascaded on top of the canonical hover rule
+     above (10px 30px), making the shadow flicker between the two
+     during the transition. The canonical rule at ~line 2806 owns
+     the hover state now. Light-mode override still scoped below. */
   :root[data-mode="light"] .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.10);}
   .k-card.dragging{opacity:.45;cursor:grabbing;}
   /* Ink-soft = muted text on the card surface, derived from theme. */
