@@ -7989,7 +7989,7 @@ body.theme-frosted {
         <div class="slabel2">Roof Calculator</div>
         <div class="calc-selects">
           <div><div style="font-size:9px;color:var(--m);margin-bottom:4px;letter-spacing:.08em;text-transform:uppercase;">Pitch</div>
-            <select class="calc-select" id="pitchSel" onchange="recalc()">
+            <select class="calc-select" id="pitchSel" data-on-change="recalc">
               <option value="1.0">Flat 1.00×</option>
               <option value="1.054">4/12 1.054×</option>
               <option value="1.083">5/12 1.083×</option>
@@ -8003,7 +8003,7 @@ body.theme-frosted {
             </select>
           </div>
           <div><div style="font-size:9px;color:var(--m);margin-bottom:4px;letter-spacing:.08em;text-transform:uppercase;">Waste</div>
-            <select class="calc-select" id="wasteSel" onchange="recalc()">
+            <select class="calc-select" id="wasteSel" data-on-change="recalc">
               <option value="1.10">10%</option>
               <option value="1.15">15%</option>
               <option value="1.17" selected>17%</option>
@@ -8081,11 +8081,11 @@ body.theme-frosted {
           </div>
           <div style="margin-bottom:6px;">
             <label class="meta-10">Date: <span id="historyDateLabel">—</span></label>
-            <input type="range" min="0" max="7" value="7" class="w-full" oninput="setHistoricalLayer(parseInt(this.value))">
+            <input type="range" min="0" max="7" value="7" class="w-full" data-on-input="setHistoricalLayer" data-on-pass="int">
           </div>
           <div>
             <label class="meta-10">Opacity: <span id="historyOpacityLabel">100%</span></label>
-            <input type="range" min="0" max="1" step="0.05" value="1" class="w-full" oninput="updateHistoryOpacity(this.value)">
+            <input type="range" min="0" max="1" step="0.05" value="1" class="w-full" data-on-input="updateHistoryOpacity">
           </div>
         </div>
 
@@ -8112,7 +8112,7 @@ body.theme-frosted {
           <div style="border:2px dashed var(--br);border-radius:10px;padding:24px;text-align:center;cursor:pointer;margin-bottom:12px;" data-action="clickProxy" data-target="compFile">
             <div style="font-size:28px;margin-bottom:6px;">📄</div>
             <div style="font-weight:700;color:var(--t);font-size:12px;">Drop report here or click to browse</div>
-            <input type="file" id="compFile" accept=".pdf,.txt,.csv,.xml" class="dn" onchange="handleComparisonFile(this.files[0])">
+            <input type="file" id="compFile" accept=".pdf,.txt,.csv,.xml" class="dn" data-on-change="handleComparisonFile" data-on-pass="files0">
           </div>
           <button class="btn btn-ghost w-full" data-action="closeModal" data-target="comparisonModal">Cancel</button>
         </div>
@@ -8169,7 +8169,7 @@ body.theme-frosted {
       <div class="page-hdr">
         <div><div class="page-title" id="estBuilderTitle">New Estimate</div></div>
         <div style="display:flex;gap:8px;align-items:center;">
-          <select id="estPreset" onchange="applyEstimatePreset(this.value)" style="padding:6px 10px;font-size:11px;border-radius:4px;background:var(--s2);border:1px solid var(--br);color:var(--t);">
+          <select id="estPreset" data-on-change="applyEstimatePreset" style="padding:6px 10px;font-size:11px;border-radius:4px;background:var(--s2);border:1px solid var(--br);color:var(--t);">
             <option value="">Presets…</option>
             <option value="standard">Standard Reroof</option>
             <option value="storm">Storm Claim</option>
@@ -8203,11 +8203,11 @@ body.theme-frosted {
               <div class="meas-field"><label>Owner Name</label><input type="text" id="estOwner" placeholder="Homeowner name"></div>
               <div class="meas-field"><label>Parcel ID</label><input type="text" id="estParcel" placeholder="Parcel number"></div>
               <div class="meas-field"><label>Year Built</label><input type="text" id="estYear" placeholder="Year"></div>
-              <div class="meas-field"><label>Raw SqFt</label><input type="number" id="estRawSqft" placeholder="e.g. 2800" oninput="updateEstCalc()"></div>
-              <div class="meas-field"><label>Ridge LF</label><input type="number" id="estRidge" placeholder="0" oninput="updateEstCalc()"></div>
-              <div class="meas-field"><label>Eave LF</label><input type="number" id="estEave" placeholder="0" oninput="updateEstCalc()"></div>
-              <div class="meas-field"><label>Hip LF</label><input type="number" id="estHip" placeholder="0" oninput="updateEstCalc()"></div>
-              <div class="meas-field"><label>Pipe Boots (qty)</label><input type="number" id="estPipes" placeholder="4" value="4" oninput="updateEstCalc()"></div>
+              <div class="meas-field"><label>Raw SqFt</label><input type="number" id="estRawSqft" placeholder="e.g. 2800" data-on-input="updateEstCalc"></div>
+              <div class="meas-field"><label>Ridge LF</label><input type="number" id="estRidge" placeholder="0" data-on-input="updateEstCalc"></div>
+              <div class="meas-field"><label>Eave LF</label><input type="number" id="estEave" placeholder="0" data-on-input="updateEstCalc"></div>
+              <div class="meas-field"><label>Hip LF</label><input type="number" id="estHip" placeholder="0" data-on-input="updateEstCalc"></div>
+              <div class="meas-field"><label>Pipe Boots (qty)</label><input type="number" id="estPipes" placeholder="4" value="4" data-on-input="updateEstCalc"></div>
             </div>
           </div>
         </div>
@@ -8231,7 +8231,7 @@ body.theme-frosted {
                 </select>
               </div>
               <div class="meas-field"><label>Pitch</label>
-                <select id="estPitch" onchange="updateEstCalc()">
+                <select id="estPitch" data-on-change="updateEstCalc">
                   <option value="1.0|Flat">Flat (1.000×)</option>
                   <option value="1.054|4/12">4/12 (1.054×)</option>
                   <option value="1.083|5/12">5/12 (1.083×)</option>
@@ -8245,7 +8245,7 @@ body.theme-frosted {
                 </select>
               </div>
               <div class="meas-field"><label>Waste Factor <span style="color:var(--m);font-weight:400;">(auto from pitch)</span></label>
-                <select id="estWaste" onchange="updateEstCalc()">
+                <select id="estWaste" data-on-change="updateEstCalc">
                   <option value="" selected>Auto (recommended)</option>
                   <option value="1.10">10%</option>
                   <option value="1.12">12%</option>
@@ -8258,12 +8258,12 @@ body.theme-frosted {
             </div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;font-size:12px;">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                <input type="checkbox" id="estCutUp" onchange="updateEstCalc()" class="ac-orange">
+                <input type="checkbox" id="estCutUp" data-on-change="updateEstCalc" class="ac-orange">
                 <span>Cut-up roof (dormers / valleys / +3% waste)</span>
               </label>
               <label style="display:flex;align-items:center;gap:8px;">
                 <span>Tear-off layers:</span>
-                <select id="estTearOff" onchange="calcTierPrices()" style="padding:3px 8px;border-radius:4px;background:var(--s2);border:1px solid var(--br);color:var(--t);">
+                <select id="estTearOff" data-on-change="calcTierPrices" style="padding:3px 8px;border-radius:4px;background:var(--s2);border:1px solid var(--br);color:var(--t);">
                   <option value="1" selected>1 layer</option>
                   <option value="2">2 layers (+$50/SQ)</option>
                   <option value="3">3 layers (+$100/SQ)</option>
@@ -8274,13 +8274,13 @@ body.theme-frosted {
                  All feed calcTierPrices() so the tier cards reflect live math. -->
             <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--br);display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:12px;">
               <div class="meas-field"><label>Payment Mode</label>
-                <select id="estMode" onchange="calcTierPrices(); toggleInsuranceOverlay();">
+                <select id="estMode" data-on-change="calcTierPrices" data-on-after="toggleInsuranceOverlay">
                   <option value="cash" selected>Cash (tax shown)</option>
                   <option value="insurance">Insurance (no tax line)</option>
                 </select>
               </div>
               <div class="meas-field"><label>County (sales tax)</label>
-                <select id="estCounty" onchange="calcTierPrices()">
+                <select id="estCounty" data-on-change="calcTierPrices">
                   <option value="">Auto (7.00% fallback)</option>
                   <option value="Hamilton">Hamilton OH · 7.80%</option>
                   <option value="Butler">Butler OH · 7.25%</option>
@@ -8292,7 +8292,7 @@ body.theme-frosted {
                 </select>
               </div>
               <div class="meas-field"><label>City (permit)</label>
-                <select id="estCity" onchange="calcTierPrices()">
+                <select id="estCity" data-on-change="calcTierPrices">
                   <option value="">— Default $150 —</option>
                   <option value="Cincinnati">Cincinnati — $175</option>
                   <option value="Hamilton">Hamilton — $150</option>
@@ -8310,20 +8310,20 @@ body.theme-frosted {
             </div>
             <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--t);">
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                <input type="checkbox" id="estValley" onchange="calcTierPrices()" class="ac-orange">
+                <input type="checkbox" id="estValley" data-on-change="calcTierPrices" class="ac-orange">
                 <span>Valley metal flashing</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                <input type="checkbox" id="estChimney" onchange="calcTierPrices()" class="ac-orange">
+                <input type="checkbox" id="estChimney" data-on-change="calcTierPrices" class="ac-orange">
                 <span>Chimney flashing (+$425)</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
-                <input type="checkbox" id="estSkylight" onchange="calcTierPrices()" class="ac-orange">
+                <input type="checkbox" id="estSkylight" data-on-change="calcTierPrices" class="ac-orange">
                 <span>Skylight flashing (+$275)</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;">
                 <span>Gutter LF:</span>
-                <input type="number" id="estGutterLF" min="0" placeholder="0" oninput="calcTierPrices()" style="width:70px;padding:3px 6px;border-radius:4px;background:var(--s2);border:1px solid var(--br);color:var(--t);">
+                <input type="number" id="estGutterLF" min="0" placeholder="0" data-on-input="calcTierPrices" style="width:70px;padding:3px 6px;border-radius:4px;background:var(--s2);border:1px solid var(--br);color:var(--t);">
               </label>
             </div>
             <!-- EBv2 insurance overlay: hidden until Mode=Insurance.
@@ -8445,12 +8445,12 @@ body.theme-frosted {
         <div style="position:relative;flex:1;min-width:160px;max-width:280px;">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--m);z-index:1;pointer-events:none;"><circle cx="9" cy="9" r="5"/><path d="M13 13l4 4"/></svg>
           <input type="text" id="crmSearch" placeholder="Search leads…"
-            class="crm-hdr-input" oninput="kanbanFilterDebounced()"
+            class="crm-hdr-input" data-on-input="kanbanFilterDebounced"
             aria-label="Search leads in the pipeline by name, address, phone, or claim number">
           <button id="crmSearchClear" class="crm-hdr-search-clear" data-action="call" data-fn="clearCrmSearch" title="Clear search">✕</button>
         </div>
         <span id="crmSearchCount" style="font-size:11px;color:var(--m);white-space:nowrap;"></span>
-        <select id="crmDmgFilter" class="crm-hdr-select" onchange="kanbanFilter()">
+        <select id="crmDmgFilter" class="crm-hdr-select" data-on-change="kanbanFilter">
           <option value="">All Types</option>
           <option>Roof - Hail</option><option>Roof - Wind</option>
           <option>Roof - Hail &amp; Wind</option><option>Siding - Hail</option>
@@ -8811,13 +8811,13 @@ body.theme-frosted {
         </div>
         <div style="position:relative;flex:1;min-width:180px;max-width:320px;">
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--m);pointer-events:none;"><circle cx="9" cy="9" r="5"/><path d="M13 13l4 4"/></svg>
-          <input type="text" id="photoSearchInput" placeholder="Search jobs by name or address..." oninput="filterPhotoLeads(this.value)" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px 8px 30px;font-size:12px;color:var(--t);font-family:inherit;">
+          <input type="text" id="photoSearchInput" placeholder="Search jobs by name or address..." data-on-input="filterPhotoLeads" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px 8px 30px;font-size:12px;color:var(--t);font-family:inherit;">
         </div>
-        <select id="photoLeadSelect" onchange="window._currentPhotoLeadId=this.value;if(window.PhotoEngine)PhotoEngine.openGallery('photoGalleryContainer',this.value);" style="background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px;font-size:11px;color:var(--t);max-width:220px;">
+        <select id="photoLeadSelect" data-on-change="nbdSelectPhotoLead" style="background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px;font-size:11px;color:var(--t);max-width:220px;">
           <option value="">Select a property...</option>
         </select>
         <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;background:var(--s2);border:1px solid var(--br);border-radius:5px;cursor:pointer;white-space:nowrap;font-size:11px;color:var(--m);">
-          <input type="checkbox" id="photosOnlyWithPhotos" onchange="window._photosOnlyWithPhotos=this.checked;renderPhotoLeads();" class="ac-orange">
+          <input type="checkbox" id="photosOnlyWithPhotos" data-on-change="nbdTogglePhotosOnly" data-on-pass="checked" class="ac-orange">
           Only with photos
         </label>
         <button class="btn btn-ghost" data-action="call" data-fn="damageNearMePhotos" style="font-size:11px;padding:6px 12px;">📍 Near Me</button>
@@ -9270,7 +9270,7 @@ body.theme-frosted {
           <div class="upload-zone mb-12" data-action="clickProxy" data-target="docFileInput">
             <div class="upload-icon">📎</div>
             <div class="upload-text">Click to select file (PDF, DOC, JPG)</div>
-            <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange="handleDocUpload(this)">
+            <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" data-on-change="handleDocUpload" data-on-pass="element">
           </div>
           <button class="btn btn-orange" data-action="call" data-fn="saveDocUpload" id="docSaveBtn">Upload Document</button>
         </div>
@@ -9515,7 +9515,7 @@ body.theme-frosted {
               <div class="sf f1">
                 <label>Cal.com username <span style="font-size:10px;color:var(--m);font-weight:400;">· optional · homeowners book inspections at cal.com/&lt;username&gt;</span></label>
                 <input type="text" id="settingsCalcom" placeholder="joedeal" autocomplete="off" spellcheck="false"
-                  oninput="(function(el){var v=(el.value||'').trim().replace(/^@+/,'').replace(/\/+$/,'').toLowerCase();var p=document.getElementById('settingsCalcomPreview');if(p){p.textContent=v?('https://cal.com/'+v):'';p.style.display=v?'':'none';}})(this)">
+                  data-on-input="nbdSettingsUpdateCalcomPreview">
                 <a id="settingsCalcomPreview" target="_blank" rel="noopener"
                    style="display:none;font-size:11px;color:var(--orange);margin-top:4px;word-break:break-all;text-decoration:none;"></a>
               </div>
@@ -9601,7 +9601,7 @@ body.theme-frosted {
                 <div class="meta-11">Quick nav to Estimates, Photos, Docs, Map</div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="crmSecHeaderToggle" onchange="setCrmSecHeaderEnabled(this.checked)" checked>
+                <input type="checkbox" id="crmSecHeaderToggle" data-on-change="nbdSetCrmSecHeaderEnabledT" data-on-pass="checked" checked>
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -9628,7 +9628,7 @@ body.theme-frosted {
                 <div class="meta-11">Promotes the lead name and dollar amount; mutes everything else</div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="kanbanBoldToggle" onchange="setKanbanBoldHierarchy(this.checked)">
+                <input type="checkbox" id="kanbanBoldToggle" data-on-change="nbdSetKanbanBoldHierarchyT" data-on-pass="checked">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -9643,7 +9643,7 @@ body.theme-frosted {
                 <div class="meta-11">Tightens the header while you're actively scrolling or dragging cards. Off by default.</div>
               </div>
               <label class="toggle-switch">
-                <input type="checkbox" id="crmAutoCollapseToggle" onchange="setCrmAutoCollapse(this.checked)">
+                <input type="checkbox" id="crmAutoCollapseToggle" data-on-change="nbdSetCrmAutoCollapseT" data-on-pass="checked">
                 <span class="toggle-slider"></span>
               </label>
             </div>
@@ -9698,10 +9698,10 @@ body.theme-frosted {
           <div class="panel-hdr"><div><div class="panel-label">Effects</div><div class="panel-title">Overlays & Sound</div></div></div>
           <div class="panel-body" style="display:flex;gap:16px;flex-wrap:wrap;">
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--m);cursor:pointer;">
-              <input type="checkbox" id="te-overlays-toggle" onchange="if(window.ThemeOverlays)window.ThemeOverlays.setEnabled(this.checked)" checked> Visual Overlays
+              <input type="checkbox" id="te-overlays-toggle" data-on-change="nbdOverlaysSetEnabled" data-on-pass="checked" checked> Visual Overlays
             </label>
             <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--m);cursor:pointer;">
-              <input type="checkbox" id="te-sound-toggle" onchange="if(window.ThemeSounds)window.ThemeSounds.setEnabled(this.checked)"> Ambient Sound
+              <input type="checkbox" id="te-sound-toggle" data-on-change="nbdSoundsSetEnabled" data-on-pass="checked"> Ambient Sound
             </label>
           </div>
         </div>
@@ -9711,7 +9711,7 @@ body.theme-frosted {
           <div class="panel-hdr"><div><div class="panel-label">Display</div><div class="panel-title">Professional Mode</div></div></div>
           <div class="panel-body">
             <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0;">
-              <input type="checkbox" id="professionalModeToggle" style="accent-color:var(--orange);width:18px;height:18px;" onchange="toggleProfessionalMode(this.checked)">
+              <input type="checkbox" id="professionalModeToggle" style="accent-color:var(--orange);width:18px;height:18px;" data-on-change="toggleProfessionalMode" data-on-pass="checked">
               <div>
                 <div style="font-size:13px;font-weight:600;color:var(--t);">Hide decorative emojis</div>
                 <div style="font-size:11px;color:var(--m);margin-top:2px;">Strips emoji icons from the sidebar, kanban, widgets, and panels for a clean corporate look. Data and functionality are unchanged.</div>
@@ -9727,7 +9727,7 @@ body.theme-frosted {
             <div id="gx-settings-panel">
               <!-- Master toggle -->
               <label style="display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer;">
-                <input type="checkbox" id="gxMasterToggle" checked onchange="if(window.ThemeGX)ThemeGX.setEnabled(this.checked)" style="accent-color:var(--orange);width:18px;height:18px;">
+                <input type="checkbox" id="gxMasterToggle" checked data-on-change="nbdGxSetEnabled" data-on-pass="checked" style="accent-color:var(--orange);width:18px;height:18px;">
                 <div>
                   <div style="font-size:13px;font-weight:600;color:var(--t);">Enable GX Effects</div>
                   <div class="meta-11">Glow borders, animated backgrounds, and neon highlights</div>
@@ -9736,13 +9736,13 @@ body.theme-frosted {
 
               <!-- Glow toggle -->
               <label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;">
-                <input type="checkbox" id="gxGlowToggle" checked onchange="if(window.ThemeGX)ThemeGX.setGlow(this.checked)" style="accent-color:var(--orange);width:16px;height:16px;">
+                <input type="checkbox" id="gxGlowToggle" checked data-on-change="nbdGxSetGlow" data-on-pass="checked" style="accent-color:var(--orange);width:16px;height:16px;">
                 <span style="font-size:12px;color:var(--t);">Glow borders on cards & panels</span>
               </label>
 
               <!-- Animated background toggle -->
               <label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;cursor:pointer;">
-                <input type="checkbox" id="gxBgToggle" checked onchange="if(window.ThemeGX)ThemeGX.setAnimatedBg(this.checked)" style="accent-color:var(--orange);width:16px;height:16px;">
+                <input type="checkbox" id="gxBgToggle" checked data-on-change="nbdGxSetAnimatedBg" data-on-pass="checked" style="accent-color:var(--orange);width:16px;height:16px;">
                 <span style="font-size:12px;color:var(--t);">Animated gradient background</span>
               </label>
 
@@ -9751,7 +9751,7 @@ body.theme-frosted {
                 <label class="eyebrow">Glow Intensity</label>
                 <div style="display:flex;align-items:center;gap:10px;">
                   <span class="meta-10">Subtle</span>
-                  <input type="range" id="gxIntensitySlider" min="0" max="100" value="60" oninput="if(window.ThemeGX)ThemeGX.setIntensity(this.value/100);document.getElementById('gxIntensityVal').textContent=this.value+'%'" style="flex:1;accent-color:var(--orange);">
+                  <input type="range" id="gxIntensitySlider" min="0" max="100" value="60" data-on-input="nbdGxSetIntensityFromSlider" style="flex:1;accent-color:var(--orange);">
                   <span class="meta-10">Neon</span>
                   <span id="gxIntensityVal" style="font-size:11px;color:var(--orange);font-weight:700;min-width:35px;">60%</span>
                 </div>
@@ -9761,7 +9761,7 @@ body.theme-frosted {
               <div class="mb-12">
                 <label class="eyebrow">Custom Accent Color</label>
                 <div style="display:flex;gap:8px;align-items:center;">
-                  <input type="color" id="gxAccentPicker" value="#e8720c" onchange="if(window.ThemeGX)ThemeGX.setAccent(this.value)" style="width:40px;height:32px;border:1px solid var(--br);border-radius:4px;cursor:pointer;background:none;">
+                  <input type="color" id="gxAccentPicker" value="#e8720c" data-on-change="nbdGxSetAccent" style="width:40px;height:32px;border:1px solid var(--br);border-radius:4px;cursor:pointer;background:none;">
                   <button class="btn btn-ghost" style="font-size:10px;padding:6px 10px;" data-action="call" data-fn="clearAccentTheme">Reset to Default</button>
                 </div>
               </div>
@@ -9792,27 +9792,27 @@ body.theme-frosted {
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
                 <div>
                   <label class="eyebrow">Accent Color</label>
-                  <input type="color" id="tbAccent" value="#e8720c" onchange="applyCustomTheme()" class="btn-input-40">
+                  <input type="color" id="tbAccent" value="#e8720c" data-on-change="applyCustomTheme" class="btn-input-40">
                 </div>
                 <div>
                   <label class="eyebrow">Background</label>
-                  <input type="color" id="tbBg" value="#0A0C0F" onchange="applyCustomTheme()" class="btn-input-40">
+                  <input type="color" id="tbBg" value="#0A0C0F" data-on-change="applyCustomTheme" class="btn-input-40">
                 </div>
                 <div>
                   <label class="eyebrow">Surface (Cards)</label>
-                  <input type="color" id="tbSurface" value="#181C22" onchange="applyCustomTheme()" class="btn-input-40">
+                  <input type="color" id="tbSurface" value="#181C22" data-on-change="applyCustomTheme" class="btn-input-40">
                 </div>
                 <div>
                   <label class="eyebrow">Text Color</label>
-                  <input type="color" id="tbText" value="#E8EAF0" onchange="applyCustomTheme()" class="btn-input-40">
+                  <input type="color" id="tbText" value="#E8EAF0" data-on-change="applyCustomTheme" class="btn-input-40">
                 </div>
                 <div>
                   <label class="eyebrow">Muted Text</label>
-                  <input type="color" id="tbMuted" value="#6B7280" onchange="applyCustomTheme()" class="btn-input-40">
+                  <input type="color" id="tbMuted" value="#6B7280" data-on-change="applyCustomTheme" class="btn-input-40">
                 </div>
                 <div>
                   <label class="eyebrow">Border</label>
-                  <input type="color" id="tbBorder" value="#2a2d35" onchange="applyCustomTheme()" class="btn-input-40">
+                  <input type="color" id="tbBorder" value="#2a2d35" data-on-change="applyCustomTheme" class="btn-input-40">
                 </div>
               </div>
 
@@ -10870,11 +10870,11 @@ body.theme-frosted {
           <div class="sf-row">
             <div class="sf" style="flex:2;">
               <label class="eyebrow">Cal.com Username</label>
-              <input type="text" id="calUsername" placeholder="nobigdeal" value="nobigdeal" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" oninput="updateCalEmbed()">
+              <input type="text" id="calUsername" placeholder="nobigdeal" value="nobigdeal" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" data-on-input="updateCalEmbed">
             </div>
             <div class="sf" style="flex:2;">
               <label class="eyebrow">Event Type Slug</label>
-              <input type="text" id="calEventSlug" placeholder="roof-inspection" value="roof-inspection" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" oninput="updateCalEmbed()">
+              <input type="text" id="calEventSlug" placeholder="roof-inspection" value="roof-inspection" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 14px;font-family:inherit;font-size:13px;color:var(--t);" data-on-input="updateCalEmbed">
             </div>
             <div class="sf" style="flex:1;display:flex;align-items:flex-end;">
               <button class="btn btn-orange" style="width:100%;padding:10px;font-size:12px;" data-action="call" data-fn="saveCalSettings">Save</button>
@@ -11277,7 +11277,7 @@ body.theme-frosted {
       </div>
       <div class="mfield">
         <label>Guarantee Tier</label>
-        <select id="wcTier" class="w-full" onchange="updateCertPreview()">
+        <select id="wcTier" class="w-full" data-on-change="updateCertPreview">
           <option value="standard">Standard — NBD Lifetime Pledge</option>
           <option value="preferred">Preferred — Lifetime + Transferable to One Owner</option>
           <option value="elite">Elite — Lifetime + Fully Transferable + Annual Inspection</option>
@@ -11319,7 +11319,7 @@ body.theme-frosted {
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;" 
         onmouseenter="this.style.borderColor='var(--border2)'"
         onmouseleave="this.style.borderColor='transparent'">
-        <input type="checkbox" id="piOwnerContact" onchange="updatePropertyIntelCost()" 
+        <input type="checkbox" id="piOwnerContact" data-on-change="updatePropertyIntelCost" 
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
           <div class="fwt-14">Owner Name & Contact</div>
@@ -11331,7 +11331,7 @@ body.theme-frosted {
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
         onmouseenter="this.style.borderColor='var(--border2)'"
         onmouseleave="this.style.borderColor='transparent'">
-        <input type="checkbox" id="piPropertyDetails" onchange="updatePropertyIntelCost()"
+        <input type="checkbox" id="piPropertyDetails" data-on-change="updatePropertyIntelCost"
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
           <div class="fwt-14">Property Details</div>
@@ -11343,7 +11343,7 @@ body.theme-frosted {
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
         onmouseenter="this.style.borderColor='var(--border2)'"
         onmouseleave="this.style.borderColor='transparent'">
-        <input type="checkbox" id="piZestimate" onchange="updatePropertyIntelCost()"
+        <input type="checkbox" id="piZestimate" data-on-change="updatePropertyIntelCost"
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
           <div class="fwt-14">Zillow Zestimate</div>
@@ -11355,7 +11355,7 @@ body.theme-frosted {
       <label style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--lift);border-radius:var(--r);cursor:pointer;border:1px solid transparent;transition:all 0.2s;"
         onmouseenter="this.style.borderColor='var(--border2)'"
         onmouseleave="this.style.borderColor='transparent'">
-        <input type="checkbox" id="piTaxData" onchange="updatePropertyIntelCost()"
+        <input type="checkbox" id="piTaxData" data-on-change="updatePropertyIntelCost"
           style="width:18px;height:18px;cursor:pointer;">
         <div class="f1">
           <div class="fwt-14">Tax Assessor Data</div>
@@ -11486,7 +11486,7 @@ body.theme-frosted {
       <!-- No capture="environment" here: iOS treats it as a hard mandate
            and hides the photo library entirely. Multi-photo upload should
            keep the chooser (Take Photo / Photo Library / Choose File). -->
-      <input type="file" id="photoUploadInput" multiple accept="image/*,.heic,.heif,.avif" onchange="uploadPhotos(this)">
+      <input type="file" id="photoUploadInput" multiple accept="image/*,.heic,.heif,.avif" data-on-change="uploadPhotos" data-on-pass="element">
     </div>
     <div class="photo-grid" id="photoGridModal"></div>
   </div>
@@ -11632,7 +11632,7 @@ body.theme-frosted {
 <!-- Hidden file input used by the Photo create row to invoke the
      device camera. Kept at the bottom of the DOM so the popover can
      focus-trigger it without scroll jumps. -->
-<input type="file" id="mCreatePhotoInput" accept="image/*" capture="environment" class="dn" onchange="window._mCreatePhotoPicked && window._mCreatePhotoPicked(event)">
+<input type="file" id="mCreatePhotoInput" accept="image/*" capture="environment" class="dn" data-on-change="_mCreatePhotoPicked" data-on-pass="event">
 
 <!-- More menu overlay -->
 <div class="mm-overlay" id="mm-overlay" data-action="closeModal" data-target="mobileMore"></div>
@@ -11739,7 +11739,7 @@ body.theme-frosted {
     <div class="npm-body">
       <div class="npm-panel on" id="npm-panel-themes">
         <div class="npm-controls">
-          <input class="npm-search" id="npm-search" placeholder="Search themes…" oninput="nbdRenderThemes()">
+          <input class="npm-search" id="npm-search" placeholder="Search themes…" data-on-input="nbdRenderThemes">
           <button class="npm-rnd" data-action="call" data-fn="nbdRandom">⚄ Random</button>
         </div>
         <div class="npm-cats" id="npm-cats"></div>
@@ -11794,14 +11794,14 @@ body.theme-frosted {
                 <div class="fw-bold-t">Reduce motion</div>
                 <div class="meta-10-mt2">Disable pulse + slide animations.</div>
               </div>
-              <input type="checkbox" id="npm-reduce-motion" onchange="nbdComfortSet('motion', this.checked ? 'reduce' : 'normal')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
+              <input type="checkbox" id="npm-reduce-motion" data-on-change="nbdComfortSetMotion" data-on-pass="checked" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
             <label class="npm-comfort-row" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px; cursor:pointer; font-size:12px;">
               <div>
                 <div class="fw-bold-t">Professional mode</div>
                 <div class="meta-10-mt2">Hide decorative emojis. Clean text-only look.</div>
               </div>
-              <input type="checkbox" id="npm-pro-mode" onchange="nbdComfortSet('proMode', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
+              <input type="checkbox" id="npm-pro-mode" data-on-change="nbdComfortSetProMode" data-on-pass="checked" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
             <!-- Wave 106: color-blind-safe palette toggle. Swaps the
                  default red/green pair (most common color-blindness
@@ -11814,7 +11814,7 @@ body.theme-frosted {
                 <div class="fw-bold-t">Color-blind safe</div>
                 <div class="meta-10-mt2">Swap red/green to blue/orange for deuteranopia + protanopia.</div>
               </div>
-              <input type="checkbox" id="npm-cb-safe" onchange="nbdComfortSet('cbSafe', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
+              <input type="checkbox" id="npm-cb-safe" data-on-change="nbdComfortSetCbSafe" data-on-pass="checked" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
             <!-- Wave 107: auto-theme switching by time of day. When
                  enabled, switch to the rep's preferred dark theme
@@ -11827,7 +11827,7 @@ body.theme-frosted {
                 <div class="fw-bold-t">Auto theme by time</div>
                 <div class="meta-10-mt2">Light theme during the day, dark after 7 PM.</div>
               </div>
-              <input type="checkbox" id="npm-auto-theme" onchange="nbdComfortSet('autoTheme', this.checked ? '1' : '0')" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
+              <input type="checkbox" id="npm-auto-theme" data-on-change="nbdComfortSetAutoTheme" data-on-pass="checked" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
             <!-- Wave 131: Hold-to-talk hotkey toggle.
                  Defaults to F2. Customizable via the input below.
@@ -11839,11 +11839,11 @@ body.theme-frosted {
                 <div class="fw-bold-t">🎤 Hold-to-talk hotkey</div>
                 <div class="meta-10-mt2">Hold a key anywhere to dictate. Release to insert.</div>
               </div>
-              <input type="checkbox" id="npm-whisper-hotkey" onchange="nbdComfortSetWhisperHotkey(this.checked)" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
+              <input type="checkbox" id="npm-whisper-hotkey" data-on-change="nbdComfortSetWhisperHotkey" data-on-pass="checked" style="width:18px; height:18px; cursor:pointer; accent-color:var(--orange);">
             </label>
             <div id="npm-whisper-hotkey-config" style="display:none; padding:10px 12px; background:var(--s2); border:1px solid var(--br); border-radius:6px; margin-bottom:6px;">
               <div style="font-size:10px; color:var(--m); margin-bottom:6px;">Hotkey (function keys recommended):</div>
-              <select id="npm-whisper-hotkey-key" onchange="nbdComfortSetWhisperKey(this.value)" style="width:100%; padding:7px 10px; background:var(--bg); color:var(--t); border:1px solid var(--br); border-radius:5px; font-family:inherit; font-size:12px; cursor:pointer;">
+              <select id="npm-whisper-hotkey-key" data-on-change="nbdComfortSetWhisperKey" style="width:100%; padding:7px 10px; background:var(--bg); color:var(--t); border:1px solid var(--br); border-radius:5px; font-family:inherit; font-size:12px; cursor:pointer;">
                 <option value="F2">F2 (default)</option>
                 <option value="F3">F3</option>
                 <option value="F4">F4</option>
@@ -11861,11 +11861,11 @@ body.theme-frosted {
       <div class="npm-panel" id="npm-panel-custom">
         <div class="npm-custom">
           <div class="npm-custom-row">
-            <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="#0A0C0F" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Surface</label>    <input type="color" class="npm-cp" id="ncp-s"      value="#13171d" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="#e8720c" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="#E8EAF0" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Muted</label>      <input type="color" class="npm-cp" id="ncp-m"      value="#8a93a8" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="#0A0C0F" data-on-input="nbdLiveCustom"></div>
+            <div class="npm-custom-field"><label>Surface</label>    <input type="color" class="npm-cp" id="ncp-s"      value="#13171d" data-on-input="nbdLiveCustom"></div>
+            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="#e8720c" data-on-input="nbdLiveCustom"></div>
+            <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="#E8EAF0" data-on-input="nbdLiveCustom"></div>
+            <div class="npm-custom-field"><label>Muted</label>      <input type="color" class="npm-cp" id="ncp-m"      value="#8a93a8" data-on-input="nbdLiveCustom"></div>
           </div>
           <div class="npm-custom-btns">
             <button class="npm-btn-apply" data-action="call" data-fn="nbdApplyCustom">Apply Preview</button>

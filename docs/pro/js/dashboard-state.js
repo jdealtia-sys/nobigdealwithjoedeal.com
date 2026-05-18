@@ -214,6 +214,27 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'loadSmartCalendar',
   // step-4: voicemail open-for-lead wrapper
   'cdaOpenVoicemail',
+  // ── CSP onchange/oninput sweep (Phase C.6) ──
+  // Toggle wrappers in dashboard-ui-prefs-boot.js that replace inline
+  // `onchange="if(window.X)X.f(this.checked)"` with a single function
+  // call. Each shows a toast so the user sees the toggle reacting.
+  'toggleProfessionalMode',
+  'nbdGxSetEnabled', 'nbdGxSetGlow', 'nbdGxSetAnimatedBg', 'nbdGxSetAccent',
+  'nbdGxSetIntensityFromSlider',
+  'nbdOverlaysSetEnabled', 'nbdSoundsSetEnabled',
+  'nbdComfortSetMotion', 'nbdComfortSetProMode', 'nbdComfortSetCbSafe',
+  'nbdComfortSetAutoTheme',
+  'nbdSetCrmSecHeaderEnabledT', 'nbdSetKanbanBoldHierarchyT', 'nbdSetCrmAutoCollapseT',
+  'nbdSelectPhotoLead', 'nbdTogglePhotosOnly',
+  'nbdSettingsUpdateCalcomPreview',
+  // Pre-existing globals that also fire from inline onchange/oninput
+  'recalc', 'updateEstCalc', 'calcTierPrices', 'toggleInsuranceOverlay',
+  'applyEstimatePreset', 'applyCustomTheme', 'kanbanFilter', 'kanbanFilterDebounced',
+  'filterPhotoLeads', 'handleComparisonFile', 'handleDocUpload',
+  'setHistoricalLayer', 'updateHistoryOpacity', 'updateCalEmbed',
+  'updateCertPreview', 'updatePropertyIntelCost', 'uploadPhotos',
+  '_mCreatePhotoPicked', 'nbdRenderThemes', 'nbdLiveCustom',
+  'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey',
 ]);
 
 // ══════════════════════════════════════════════
