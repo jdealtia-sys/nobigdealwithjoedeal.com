@@ -1125,7 +1125,7 @@ const DOC_TEMPLATES = {
 <p><strong>Payment Terms:</strong> 50% due at material delivery. Balance due upon completion.</p>
 <p>By signing below, homeowner authorizes No Big Deal Home Solutions to perform the above work.</p>
 <p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
-<p><strong>Contractor Signature:</strong> Joe Deal <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
+<p><strong>Contractor Signature:</strong> {{REP_NAME}} <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
   },
   warranty: {
     title: 'NBD Warranty Certificate',
@@ -1157,7 +1157,7 @@ const DOC_TEMPLATES = {
 <div class="doc-sig-block">
   <div class="doc-sig-row">
     <div class="doc-sig-field"><div class="doc-field-line"></div><div class="doc-sig-label">Homeowner Signature &amp; Date</div></div>
-    <div class="doc-sig-field"><div class="doc-field-line"></div><div class="doc-sig-label">Joe Deal — No Big Deal Home Solutions</div></div>
+    <div class="doc-sig-field"><div class="doc-field-line"></div><div class="doc-sig-label">{{REP_NAME}} — No Big Deal Home Solutions</div></div>
   </div>
   <div style="text-align:center;font-size:10px;color:#aaa;margin-top:16px;">Certificate #: NBD-<span class="doc-field-line short" style="display:inline-block;width:80px;"></span> · Keep this document with your home records</div>
 </div>`
@@ -1228,7 +1228,7 @@ const DOC_TEMPLATES = {
 <p>☐ AC condenser top &nbsp; ☐ Window trim/capping &nbsp; ☐ Door trim &nbsp; ☐ Other: ______</p>
 <p><strong>Estimated Damage:</strong> ☐ Roof ☐ Siding ☐ Gutters ☐ Full Exterior</p>
 <p><strong>Claim Recommended:</strong> ☐ Yes &nbsp; ☐ No — Below deductible &nbsp; ☐ Repair only</p>
-<p><strong>Inspector:</strong> Joe Deal &nbsp;&nbsp; <strong>Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
+<p><strong>Inspector:</strong> {{REP_NAME}} &nbsp;&nbsp; <strong>Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
   },
   completion: {
     title: 'Certificate of Completion',
@@ -1241,7 +1241,7 @@ const DOC_TEMPLATES = {
 <p><strong>Warranty:</strong> NBD NBD Lifetime Pledge — effective date of installation. <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p>All work has been completed per the agreed scope of work and to the homeowner's satisfaction.</p>
 <p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
-<p><strong>Contractor:</strong> Joe Deal — No Big Deal Home Solutions — (859) 420-7382</p>`
+<p><strong>Contractor:</strong> {{REP_NAME}} — No Big Deal Home Solutions — (859) 420-7382</p>`
   }
 };
 
@@ -1270,11 +1270,25 @@ function tlFilterCat(catKey, btnEl){
   });
 }
 
+// Resolve the current logged-in rep's display name for printable templates.
+// Falls back to email, then a generic label, so the doc is still meaningful
+// if auth hasn't settled yet.
+function _nbdRepName(){
+  try {
+    const a = window.auth && window.auth.currentUser;
+    if (a && (a.displayName || a.email)) return a.displayName || a.email;
+    const u = window._user;
+    if (u && (u.displayName || u.email)) return u.displayName || u.email;
+  } catch(e){}
+  return 'Authorized NBD Representative';
+}
+
 function openDocTemplate(key){
   const t = DOC_TEMPLATES[key];
   if(!t) return;
+  const repName = _nbdRepName();
   document.getElementById('docViewerTitle').textContent = t.title;
-  document.getElementById('docViewerContent').innerHTML = t.content;
+  document.getElementById('docViewerContent').innerHTML = t.content.split('{{REP_NAME}}').join(repName);
   document.getElementById('docViewerModal').classList.add('open');
 }
 function closeDocViewer(){ document.getElementById('docViewerModal').classList.remove('open'); }

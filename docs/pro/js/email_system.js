@@ -23,7 +23,7 @@ Total: {total}
 We're committed to providing the highest quality work at fair prices. If you have any questions or would like to discuss the estimate, please don't hesitate to reach out.
 
 Best regards,
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382
 jd@nobigdealwithjoedeal.com`
@@ -43,7 +43,7 @@ This report includes:
 Please review and let me know if you need any additional documentation.
 
 Best regards,
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382
 jd@nobigdealwithjoedeal.com`
@@ -60,7 +60,7 @@ Do you have any questions about the scope of work or pricing? I'm happy to walk 
 Our schedule is filling up, so please let me know if you'd like to move forward.
 
 Best regards,
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382
 jd@nobigdealwithjoedeal.com`
@@ -80,28 +80,43 @@ I'll conduct a thorough assessment and provide recommendations. The inspection t
 
 See you then!
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382
 jd@nobigdealwithjoedeal.com`
     }
   },
   
+  // Resolve the logged-in rep's display name for the email signature.
+  // Auto-injected by populateTemplate so callers don't have to pass it.
+  _repName() {
+    try {
+      const a = window.auth && window.auth.currentUser;
+      if (a && (a.displayName || a.email)) return a.displayName || a.email;
+      const u = window._user;
+      if (u && (u.displayName || u.email)) return u.displayName || u.email;
+    } catch(e){}
+    return 'The NBD Team';
+  },
+
   // Populate template with customer data
   populateTemplate(templateKey, data) {
     const template = this.templates[templateKey];
     if (!template) return null;
-    
+
     let subject = template.subject;
     let body = template.body;
-    
+
+    // Auto-inject the current rep's name unless the caller supplied one.
+    const merged = Object.assign({ repName: this._repName() }, data || {});
+
     // Replace placeholders
-    Object.keys(data).forEach(key => {
-      const value = data[key] || '';
+    Object.keys(merged).forEach(key => {
+      const value = merged[key] || '';
       subject = subject.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
       body = body.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
     });
-    
+
     return { subject, body };
   }
 };
@@ -382,7 +397,7 @@ Here's what happens next:
 I'll be in touch shortly to set up a convenient time.
 
 Best regards,
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -402,7 +417,7 @@ Next steps:
 
 Please let me know if you'd like me to walk you through filing the claim, or if you've already started the process.
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -420,7 +435,7 @@ What happens next:
 
 I'll keep you updated as things move forward. Don't hesitate to reach out with questions.
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -440,7 +455,7 @@ Please make sure someone is home to provide access if needed. I'll arrive a few 
 
 If you need to reschedule, let me know ASAP so we can coordinate with the insurance company.
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -455,7 +470,7 @@ I'm reviewing the scope now to make sure everything is included. If I find anyth
 
 I'll be in touch soon with the details and next steps.
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -472,7 +487,7 @@ The insurance company will review this against their scope. I'm watching for app
 
 If a supplement is needed, I'll handle the documentation and negotiation.
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -485,7 +500,7 @@ After reviewing the insurance scope for {address}, I've identified additional it
 
 This is normal — supplements ensure all damage is covered and the job is done right. I'll follow up with the adjuster and keep you updated on the approval.
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -505,7 +520,7 @@ Estimated timeline: {scheduledDate}
 
 Thank you for trusting No Big Deal Home Solutions. We're going to do a great job for you.
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -526,7 +541,7 @@ What to expect on installation day:
 
 Please make sure vehicles are moved from the driveway. If you have any concerns, let me know before installation day.
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -544,7 +559,7 @@ Next steps:
 
 I'll swing by for a final walkthrough to make sure everything looks perfect. Please let me know if you notice anything.
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -562,7 +577,7 @@ If you know anyone who needs roofing or home exterior work, we'd appreciate the 
 It was a pleasure working with you. Don't hesitate to reach out if you need anything in the future.
 
 Best,
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -580,7 +595,7 @@ This includes all materials, labor, and our workmanship warranty. We offer Good,
 
 I'd love to walk you through the options. When's a good time to chat?
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   },
@@ -598,7 +613,7 @@ Multiple lenders compete for your approval, so you'll see the best rates availab
 
 Let me know if you have any questions about the financing options.
 
-Joe Deal
+{repName}
 No Big Deal Home Solutions
 (859) 420-7382`
   }
@@ -634,6 +649,7 @@ window.emailByStage = async function(leadId) {
     scheduledDate: lead.scheduledDate || '[to be confirmed]',
     crew: lead.crew || 'our installation team',
     preQualLink: lead.preQualLink || '[link will be sent separately]',
+    repName: window.emailSystem._repName(),
   };
 
   let subject = template.subject;
@@ -705,7 +721,7 @@ window.emailSystem.send = async function(to, subject, body, options = {}) {
         to_email: to,
         subject: subject,
         message: body,
-        from_name: 'Joe Deal — NBD Home Solutions',
+        from_name: `${window.emailSystem._repName()} — NBD Home Solutions`,
         reply_to: 'jd@nobigdealwithjoedeal.com',
       });
 
