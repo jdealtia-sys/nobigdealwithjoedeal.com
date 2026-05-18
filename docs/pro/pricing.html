@@ -114,7 +114,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
       <li>24 document templates</li>
       <li class="disabled">Team features</li>
     </ul>
-    <a href="#" onclick="subscribe('starter', event)" class="cta cta-primary">Subscribe — $99/mo</a>
+    <a href="#" data-pr-action="subscribe" data-plan="starter" class="cta cta-primary">Subscribe — $99/mo</a>
   </div>
 
   <!-- GROWTH -->
@@ -134,7 +134,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
       <li>Customer portals</li>
       <li>Priority support</li>
     </ul>
-    <a href="#" onclick="subscribe('growth', event)" class="cta cta-primary">Start 14-Day Free Trial</a>
+    <a href="#" data-pr-action="subscribe" data-plan="growth" class="cta cta-primary">Start 14-Day Free Trial</a>
   </div>
 
   <!-- ENTERPRISE -->
@@ -160,23 +160,23 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 
 <div class="faq">
   <div class="faq-title">Frequently Asked Questions</div>
-  <div class="faq-item" onclick="this.classList.toggle('open')">
+  <div class="faq-item" data-pr-action="faq-toggle">
     <div class="faq-q">Can I switch plans anytime?</div>
     <div class="faq-a">Yes. Upgrade or downgrade at any time. Changes take effect immediately and Stripe prorates the difference — you only pay for what you use.</div>
   </div>
-  <div class="faq-item" onclick="this.classList.toggle('open')">
+  <div class="faq-item" data-pr-action="faq-toggle">
     <div class="faq-q">What happens when I hit my lead limit?</div>
     <div class="faq-a">We warn you at 80% and show a friendly upgrade prompt at 100%. We never lock you out mid-cycle — you can finish the month and upgrade when ready.</div>
   </div>
-  <div class="faq-item" onclick="this.classList.toggle('open')">
+  <div class="faq-item" data-pr-action="faq-toggle">
     <div class="faq-q">Is there a contract or commitment?</div>
     <div class="faq-a">No contracts. Monthly billing, cancel anytime. Your data stays yours even if you cancel.</div>
   </div>
-  <div class="faq-item" onclick="this.classList.toggle('open')">
+  <div class="faq-item" data-pr-action="faq-toggle">
     <div class="faq-q">What's the 14-day free trial?</div>
     <div class="faq-a">New users get 14 days of Growth-tier access with no credit card required. After 14 days, you choose a plan or continue on Free.</div>
   </div>
-  <div class="faq-item" onclick="this.classList.toggle('open')">
+  <div class="faq-item" data-pr-action="faq-toggle">
     <div class="faq-q">Why are you 1/3 the price of competitors?</div>
     <div class="faq-a">Because I built this for myself first. No VC money to pay back. No sales team commissions to cover. No enterprise overhead. Every dollar goes into tools I actually use in the field — not features that look good in a demo.</div>
   </div>
@@ -189,75 +189,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
   No Big Deal Home Solutions · nobigdealwithjoedeal.com
 </div>
 
-<script type="module">
-  // Firebase auth for getting the ID token
-  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-  import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-
-  const app = initializeApp({
-    apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
-    authDomain: "nobigdeal-pro.firebaseapp.com",
-    projectId: "nobigdeal-pro"
-  });
-  const auth = getAuth(app);
-
-  window.subscribe = async function(plan, evt) {
-    // Resolve the button from the explicit event arg (preferred) with a fallback
-    // to window.event for legacy onclick calls. Never rely on the undeclared
-    // global `event` identifier — that silently fails under strict mode.
-    const btn = (evt && evt.target) || (typeof window !== 'undefined' && window.event && window.event.target) || null;
-    const originalLabel = btn ? btn.textContent : '';
-
-    // Check if user is signed in
-    const user = auth.currentUser;
-    if (!user) {
-      if (confirm('You need to sign in first. Go to login page?')) {
-        window.location.href = '/pro/login.html?redirect=pricing&plan=' + plan;
-      }
-      return;
-    }
-
-    // Get ID token
-    try {
-      if (btn) { btn.textContent = 'Loading...'; btn.disabled = true; }
-
-      const idToken = await user.getIdToken();
-      const response = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/createCheckoutSession', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + idToken
-        },
-        body: JSON.stringify({ plan: plan })
-      });
-
-      const data = await response.json();
-
-      if (data.url) {
-        // Redirect to Stripe Checkout
-        window.location.href = data.url;
-      } else {
-        alert('Error: ' + (data.error || 'Could not create checkout session. Try again.'));
-        if (btn) { btn.textContent = originalLabel || 'Subscribe'; btn.disabled = false; }
-      }
-    } catch (e) {
-      console.error('Checkout error:', e);
-      alert('Connection error. Please try again.');
-      if (btn) { btn.textContent = originalLabel || 'Subscribe'; btn.disabled = false; }
-    }
-  };
-
-  // Update buttons based on auth state
-  onAuthStateChanged(auth, function(user) {
-    document.querySelectorAll('.cta-primary').forEach(function(btn) {
-      if (user) {
-        btn.style.opacity = '1';
-      } else {
-        // Still allow clicking — subscribe() will redirect to login
-      }
-    });
-  });
-</script>
+<script type="module" src="js/pricing-page.module.js"></script>
 
 </body>
 </html>

@@ -19,17 +19,7 @@
   <meta property="og:title" content="NBD Pro — CRM & Business Platform Built by a Roofer, for Roofers">
   <meta property="og:description" content="All-in-one CRM, estimates, D2D tracking, and training. Close more deals. Run your business like Joe runs his.">
   <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/">
-  <script type="module">
-    // Non-blocking auth check: redirect only logged-in users to dashboard.
-    // Anonymous users see this landing page immediately — no blank flash.
-    try {
-      const { NBDAuth } = await import('/pro/js/nbd-auth.js');
-      NBDAuth.init({
-        requiredPlan: 'free',
-        onReady: (user) => { if (user) window.location.replace('/pro/dashboard.html'); }
-      });
-    } catch (e) { /* landing content is already visible; silent fail is correct */ }
-  </script>
+  <script type="module" src="js/pro-index-auth-redirect.module.js"></script>
   <meta property="og:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="NBD Pro — Roofing CRM & Business Platform">
@@ -1044,9 +1034,9 @@
         <li><a href="#academy">Academy</a></li>
         <li><a href="#pricing">Pricing</a></li>
         <li><a href="#faq">FAQ</a></li>
-        <li><a href="#" class="btn nav-cta" onclick="window.location.href='/pro/register.html'; return false;">Start Free Trial</a></li>
+        <li><a href="#" class="btn nav-cta" data-pi-action="goRegister">Start Free Trial</a></li>
       </ul>
-      <a href="#" class="btn nav-cta" style="display: none;" onclick="window.location.href='/pro/register.html'; return false;">Sign Up</a>
+      <a href="#" class="btn nav-cta" style="display: none;" data-pi-action="goRegister">Sign Up</a>
     </div>
   </nav>
 
@@ -1060,7 +1050,7 @@
       </p>
 
       <div class="hero-ctas">
-        <button class="btn btn-primary" onclick="window.location.href='/pro/register.html'; return false;">
+        <button class="btn btn-primary" data-pi-action="goRegister">
           Start Free Trial
         </button>
         <!-- Sweep Pass 1: was a blocking alert() ("Demo video coming soon!") —
@@ -1439,7 +1429,7 @@
             <li>1 user</li>
             <li>Community support</li>
           </ul>
-          <button class="btn btn-primary btn-block" onclick="window.location.href='/pro/register.html'; return false;" style="background:transparent;border:2px solid var(--orange);color:var(--orange);">
+          <button class="btn btn-primary btn-block" data-pi-action="goRegister" style="background:transparent;border:2px solid var(--orange);color:var(--orange);">
             Start Free — No Card Needed
           </button>
         </div>
@@ -1456,7 +1446,7 @@
             <li>Photo Library (5GB storage)</li>
             <li>Email support</li>
           </ul>
-          <button class="btn btn-primary btn-block" onclick="window.location.href='/pro/register.html?plan=foundation'; return false;">
+          <button class="btn btn-primary btn-block" data-pi-action="goRegister" data-plan="foundation">
             Start Free Trial
           </button>
         </div>
@@ -1476,7 +1466,7 @@
             <li>Team invites (up to 3)</li>
             <li>Priority support</li>
           </ul>
-          <button class="btn btn-primary btn-block" onclick="window.location.href='/pro/register.html?plan=blueprint'; return false;">
+          <button class="btn btn-primary btn-block" data-pi-action="goRegister" data-plan="blueprint">
             Start Free Trial
           </button>
         </div>
@@ -1495,7 +1485,7 @@
             <li>Dedicated onboarding</li>
             <li>Custom report branding</li>
           </ul>
-          <button class="btn btn-primary btn-block" onclick="window.location.href='/pro/register.html?plan=professional'; return false;">
+          <button class="btn btn-primary btn-block" data-pi-action="goRegister" data-plan="professional">
             Start Free Trial
           </button>
         </div>
@@ -1514,7 +1504,7 @@
 
       <div class="faq-container">
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFAQ(event)">
+          <div class="faq-question" data-pi-action="toggleFAQ">
             Is this built for insurance restoration or retail roofing?
             <span class="faq-toggle">+</span>
           </div>
@@ -1524,7 +1514,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFAQ(event)">
+          <div class="faq-question" data-pi-action="toggleFAQ">
             Can I use this on my phone in the field?
             <span class="faq-toggle">+</span>
           </div>
@@ -1534,7 +1524,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFAQ(event)">
+          <div class="faq-question" data-pi-action="toggleFAQ">
             How is this different from JobNimbus or AccuLynx?
             <span class="faq-toggle">+</span>
           </div>
@@ -1544,7 +1534,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFAQ(event)">
+          <div class="faq-question" data-pi-action="toggleFAQ">
             Can my whole team use it?
             <span class="faq-toggle">+</span>
           </div>
@@ -1554,7 +1544,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFAQ(event)">
+          <div class="faq-question" data-pi-action="toggleFAQ">
             Is my data secure?
             <span class="faq-toggle">+</span>
           </div>
@@ -1564,7 +1554,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" onclick="toggleFAQ(event)">
+          <div class="faq-question" data-pi-action="toggleFAQ">
             What if I need help getting started?
             <span class="faq-toggle">+</span>
           </div>
@@ -1581,7 +1571,7 @@
     <div class="container">
       <h2>I BUILT IT FOR ME.<br>I'M SHARING IT WITH YOU.</h2>
       <p>14 days free. No credit card. No BS. If it's not the best roofing software you've used, walk away — no harm done.</p>
-      <button class="btn btn-primary" style="font-size: 16px; padding: 14px 40px;" onclick="window.location.href='/pro/register.html'; return false;">
+      <button class="btn btn-primary" style="font-size: 16px; padding: 14px 40px;" data-pi-action="goRegister">
         Start Your Free Trial
       </button>
     </div>
@@ -1633,51 +1623,6 @@
     </div>
   </footer>
 
-  <script>
-    // FAQ Accordion
-    function toggleFAQ(event) {
-      const question = event.currentTarget;
-      const answer = question.nextElementSibling;
-      const toggle = question.querySelector('.faq-toggle');
-
-      document.querySelectorAll('.faq-answer').forEach(el => {
-        if (el !== answer) {
-          el.classList.remove('active');
-          el.previousElementSibling.querySelector('.faq-toggle').classList.remove('active');
-        }
-      });
-
-      answer.classList.toggle('active');
-      toggle.classList.toggle('active');
-    }
-
-    // Scroll Animation Observer
-    const observerOptions = {
-      threshold: 0.1,
-      rootMargin: '0px 0px -50px 0px'
-    };
-
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add('in-view');
-        }
-      });
-    }, observerOptions);
-
-    document.querySelectorAll('.animate').forEach(el => {
-      observer.observe(el);
-    });
-
-    // Mobile nav menu toggle
-    const navLinks = document.querySelector('.nav-links');
-    const navToggle = document.querySelector('.nav-toggle');
-
-    if (navToggle) {
-      navToggle.addEventListener('click', () => {
-        navLinks.style.display = navLinks.style.display === 'flex' ? 'none' : 'flex';
-      });
-    }
-  </script>
+  <script src="js/pro-index-page.js?v=1"></script>
 </body>
 </html>

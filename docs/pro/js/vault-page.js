@@ -1,0 +1,2311 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   ETERNAL VAULT V2 — CORE ENGINE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// V2 Data Model (matches Firestore schema)
+let CODEX = {
+  version: "2.0",
+  projectName: "NBD PRO BUILD",
+  githubRepo: "https://github.com/jdealtia-sys/nobigdealwithjoedeal.com",
+  
+  sessions: [],
+  tasks: [],
+  debt: [],
+  directives: [],
+  versions: [],
+  
+  // NEW in V2
+  blockers: [],
+  alerts: [],
+  sessionMissions: [],
+  architecturalDecisions: []
+};
+
+// Auto-save state
+let unsavedChanges = false;
+let autoSaveTimer = null;
+const AUTOSAVE_DELAY = 60000; // 60s debounce
+
+// Firebase references (set by module script)
+let db, firestore;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INITIALIZATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+window.addEventListener('firebase-ready', async () => {
+  console.log('🚀 firebase-ready event received');
+  
+  db = window._db;
+  firestore = window._firestore;
+  
+  console.log('📦 DB object:', db ? 'LOADED' : 'NULL');
+  console.log('📦 Firestore helpers:', firestore ? 'LOADED' : 'NULL');
+  
+  await loadFromFirestore();
+  renderOverview();
+  
+  // Calculate next session number dynamically
+  const latestSession = CODEX.sessions.length > 0 
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  toast(`Eternal Vault V2 loaded — Session ${nextSessionNum} ready`, 'success');
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   FIRESTORE OPERATIONS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function loadFromFirestore() {
+  console.log('📥 loadFromFirestore() called');
+  try {
+    const {doc, getDoc} = firestore;
+    const docRef = doc(db, 'codex', 'latest');
+    
+    console.log('🔍 Attempting to read: codex/latest');
+    const snapshot = await getDoc(docRef);
+    
+    if (snapshot.exists()) {
+      CODEX = snapshot.data();
+      console.log('✓ Loaded from Firestore:', CODEX.sessions.length, 'sessions');
+      updateSaveIndicator(true);
+      return true;
+    } else {
+      console.warn('⚠ No Firestore data found at codex/latest — using seed data');
+      await seedFirestore();
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Firestore load error:', error.code, error.message);
+    console.error('Full error object:', error);
+    toast('Failed to load from Firestore — using local data', 'error');
+    return false;
+  }
+}
+
+async function saveToFirestore() {
+  // Explicit precondition check. Before this, `const {doc, setDoc} =
+  // firestore` threw a generic "Cannot destructure property 'doc'" that
+  // the catch block surfaced as "Failed to save to Firestore" with no
+  // signal that the root cause was Firestore not loaded. Users clicked
+  // Save over and over with no way to know waiting would fix it.
+  if (!firestore || !db) {
+    console.warn('[vault] saveToFirestore skipped — Firestore not ready yet');
+    toast('Firestore still loading — please retry in a moment', 'info');
+    return false;
+  }
+  try {
+    const {doc, setDoc} = firestore;
+
+    // Save to codex/latest
+    const latestRef = doc(db, 'codex', 'latest');
+    await setDoc(latestRef, {
+      ...CODEX,
+      lastSaved: new Date().toISOString(),
+      savedBy: 'vault-v2'
+    });
+
+    console.log('✓ Saved to Firestore');
+    updateSaveIndicator(true);
+    unsavedChanges = false;
+    toast('Saved to Firestore', 'success');
+    return true;
+  } catch (error) {
+    console.error('❌ Firestore save error:', error);
+    toast('Failed to save to Firestore: ' + (error?.message || 'unknown error'), 'error');
+    return false;
+  }
+}
+
+async function seedFirestore() {
+  // Initial seed with 27 sessions from archaeology
+  CODEX.sessions = SEED_SESSIONS; // Defined below
+  CODEX.blockers = SEED_BLOCKERS;
+  CODEX.directives = SEED_DIRECTIVES;
+  CODEX.architecturalDecisions = SEED_DECISIONS;
+  
+  await saveToFirestore();
+  toast('Firestore seeded with 27 sessions', 'info');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AUTO-SAVE SYSTEM (60s Debounce)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function markUnsaved() {
+  unsavedChanges = true;
+  updateSaveIndicator(false);
+  
+  // Reset debounce timer
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(async () => {
+    if (unsavedChanges) {
+      await saveToFirestore();
+    }
+  }, AUTOSAVE_DELAY);
+}
+
+function updateSaveIndicator(saved) {
+  const indicator = document.getElementById('saveIndicator');
+  if (!indicator) return;
+  
+  if (saved) {
+    const now = new Date().toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'});
+    indicator.textContent = `✓ Auto-saved at ${now}`;
+    indicator.className = 'save-indicator saved';
+  } else {
+    indicator.textContent = '💾 Unsaved changes';
+    indicator.className = 'save-indicator unsaved';
+  }
+}
+
+function manualSave() {
+  clearTimeout(autoSaveTimer);
+  saveToFirestore();
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CSP-SAFE DELEGATE — replaces inline event-handler attrs that
+   `script-src-attr 'none'` blocks at firebase.json hosting headers.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+document.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-v-action]');
+  if (!t) return;
+  const action = t.getAttribute('data-v-action');
+  const arg = t.getAttribute('data-arg');
+  const arg2 = t.getAttribute('data-arg2');
+  // No-arg dispatch table for whitelisted globals.
+  const noArg = {
+    manualSave, manualSaveToFirestore, startNextSession, analyzeSessionsWithAI,
+    generateSessionStarter, copySessionStarter, importSessionPayload,
+    parseSessionTest, parseAllSessions, closeSessionDetail,
+  };
+  if (action === 'navTo') {
+    if (t.tagName === 'A') e.preventDefault();
+    navTo(arg);
+  } else if (action === 'viewSession') {
+    viewSession(Number(arg));
+  } else if (action === 'viewSessionDetail') {
+    viewSessionDetail(Number(arg));
+  } else if (action === 'handleDuplicateAction') {
+    if (typeof window.handleDuplicateAction === 'function') {
+      window.handleDuplicateAction(arg, arg2 != null ? Number(arg2) : undefined);
+    }
+  } else if (noArg[action]) {
+    noArg[action]();
+  }
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NAVIGATION
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function navTo(page) {
+  // Update nav items
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.remove('active');
+    if (item.getAttribute('data-page') === page) {
+      item.classList.add('active');
+    }
+  });
+  
+  // Update pages
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const targetPage = document.getElementById(`page-${page}`);
+  if (targetPage) {
+    targetPage.classList.add('active');
+    
+    // Render page content
+    switch(page) {
+      case 'overview': renderOverview(); break;
+      case 'sessions': renderSessions(); break;
+      case 'tasks': renderTasks(); break;
+      case 'debt': renderDebt(); break;
+      case 'blockers': renderBlockers(); break;
+      case 'directives': renderDirectives(); break;
+      case 'decisions': renderDecisions(); break;
+      case 'search': renderSearch(); break;
+      case 'admin': renderAdmin(); break;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   OVERVIEW PAGE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderOverview() {
+  // Calculate latest session and next session number (used throughout)
+  const latestSession = CODEX.sessions.length > 0 
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  // Update page header
+  document.getElementById('overviewTitle').textContent = `Session ${latestSession?.num || 0} Complete`;
+  document.getElementById('overviewSubtitle').textContent = `Last updated: ${latestSession?.meta?.date || latestSession?.date || 'Unknown'} | Next: Session ${nextSessionNum}`;
+  
+  // Update stat cards
+  const blockerCount = CODEX.blockers.filter(b => b.status === 'open' && b.severity === 'critical').length;
+  const debtCount = CODEX.debt.filter(d => d.status === 'open').length;
+  
+  document.getElementById('blockerCount').textContent = blockerCount;
+  document.getElementById('debtCount').textContent = debtCount;
+  document.getElementById('sessionCount').textContent = CODEX.sessions.length;
+  document.getElementById('taskBadge').textContent = CODEX.tasks.filter(t => t.status === 'open').length;
+  document.getElementById('debtBadge').textContent = debtCount;
+  document.getElementById('blockerBadge').textContent = blockerCount;
+  document.getElementById('sessionsBadge').textContent = CODEX.sessions.length;
+  
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+  // Render blockers — every CODEX.* field is authored data but render is still
+  // defence-in-depth escaped so the admin vault can never be self-XSS'd.
+  const blockersHTML = CODEX.blockers
+    .filter(b => b.status === 'open' && b.severity === 'critical')
+    .map(b => `
+      <div style="margin-bottom:12px; padding:12px; background:var(--red-dim); border:1px solid rgba(224,82,82,0.3); border-radius:var(--r)">
+        <strong style="color:var(--red)">${esc(b.title)}</strong><br>
+        <span style="font-size:13px; color:var(--text3)">Open for ${Number(b.sessionsOpen) || 0} sessions</span>
+      </div>
+    `).join('');
+
+  document.getElementById('blockersPreview').innerHTML = blockersHTML || '<em style="color:var(--text3)">No critical blockers 🎉</em>';
+
+  // Next session mission - update UI elements if they exist
+  const titleEl = document.getElementById('nextSessionTitle');
+  const btnEl = document.getElementById('startNextSessionBtn');
+  const missionEl = document.getElementById('nextSessionMission');
+
+  if (titleEl) titleEl.textContent = `🎯 Session ${nextSessionNum} Mission`;
+  if (btnEl) btnEl.textContent = `🚀 Start Session ${nextSessionNum}`;
+
+  if (missionEl) {
+    // Use textContent — mission text is free-form authored data and we don't
+    // need HTML formatting in this preview card.
+    missionEl.textContent = extractNextMission(latestSession, nextSessionNum);
+  }
+
+  // Recent sessions - with null-safe meta access
+  const recentHTML = CODEX.sessions
+    .slice(-5)
+    .reverse()
+    .map(s => {
+      const date = s.meta?.date || s.date || 'No date';
+      const title = s.meta?.title || s.title || 'Untitled';
+      const num = Number(s.num) || 0;
+      return `
+        <div class="nbd-recent-session" data-session-num="${num}" style="margin-bottom:10px; padding:10px; background:var(--lift); border-radius:var(--r); cursor:pointer">
+          <strong style="color:var(--text)">Session ${num}</strong> — ${esc(date)}<br>
+          <span style="font-size:13px; color:var(--text3)">${esc(title)}</span>
+        </div>
+      `;
+    }).join('');
+
+  const recentEl = document.getElementById('recentSessions');
+  recentEl.innerHTML = recentHTML;
+  recentEl.querySelectorAll('.nbd-recent-session').forEach(row => {
+    row.addEventListener('click', () => viewSession(Number(row.dataset.sessionNum)));
+  });
+}
+
+function extractNextMission(latestSession, nextSessionNum) {
+  if (!latestSession) return '<em style="color:var(--text3)">No sessions yet</em>';
+  
+  // Parse latest session content for next session mission
+  const content = latestSession.content || '';
+  
+  // Look for common mission patterns (e.g., "Session 31: Fix the thing")
+  const missionMatch = content.match(new RegExp(`Session ${nextSessionNum}[^:]*:([^\\n]+)`, 'i'));
+  if (missionMatch) {
+    return `<strong style="color:var(--gold)">Mission:</strong> ${missionMatch[1].trim()}`;
+  }
+  
+  // Fallback: extract from blockers
+  const openBlockers = CODEX.blockers.filter(b => b.status === 'open');
+  if (openBlockers.length > 0) {
+    return `<strong style="color:var(--gold)">Priority:</strong> Resolve ${openBlockers.length} standing blocker(s)<br><ul style="margin-top:8px; color:var(--text3)">${openBlockers.map(b => `<li>${b.title}</li>`).join('')}</ul>`;
+  }
+  
+  return '<em style="color:var(--text3)">Continue build momentum — no specific mission locked</em>';
+}
+
+function startNextSession() {
+  navTo('admin');
+  // Scroll to session starter prompt generator
+  setTimeout(() => {
+    const adminPage = document.getElementById('page-admin');
+    const starterSection = adminPage.querySelector('#sessionStarterSection');
+    if (starterSection) starterSection.scrollIntoView({behavior: 'smooth'});
+  }, 300);
+}
+
+function viewSession(num) {
+  // Sweep Pass 1: was a TODO that just navigated to the sessions list
+  // and stopped. viewSessionDetail (defined further down) does the
+  // actual detail render — populates #sessionDetail with title + content
+  // and scrolls it into view. Wire viewSession to navigate first, then
+  // delegate to viewSessionDetail so the row-click on the table at
+  // line 1167 ends up showing detail instead of just bouncing to the
+  // sessions page. The setTimeout gives navTo() one tick to settle so
+  // the target element is visible before scrollIntoView fires.
+  navTo('sessions');
+  setTimeout(() => {
+    if (typeof viewSessionDetail === 'function') viewSessionDetail(num);
+  }, 50);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOAST SYSTEM
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function toast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.textContent = message;
+  
+  container.appendChild(toast);
+  
+  setTimeout(() => {
+    toast.style.animation = 'toastSlideIn 0.3s var(--ease) reverse both';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PAGE RENDER FUNCTIONS (sessions / tasks / debt / blockers / directives / decisions / search / admin)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+function renderSessions() {
+  const page = document.getElementById('page-sessions');
+  
+  const sessionsHTML = CODEX.sessions
+    .sort((a, b) => b.num - a.num) // Newest first
+    .map(s => `
+      <div class="session-card" data-v-action="viewSessionDetail" data-arg="${s.num}">
+        <div class="session-num">S${s.num}</div>
+        <div class="session-info">
+          <div class="session-title">${s.meta?.title || s.title || 'Untitled'}</div>
+          <div class="session-meta">${s.meta?.date || s.date || 'No date'}</div>
+        </div>
+        <div class="session-arrow">→</div>
+      </div>
+    `).join('');
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Session History</div>
+      <div class="page-title">${CODEX.sessions.length} Sessions</div>
+      <div class="page-subtitle">Complete build timeline</div>
+    </div>
+    
+    <!-- AI Session Analyzer -->
+    <div class="card" style="background: linear-gradient(135deg, var(--card) 0%, var(--lift) 100%); border: 1px solid var(--gold); border-radius: var(--rlg); margin-bottom: 24px;">
+      <div class="card-header" style="border-bottom: 1px solid var(--border2);">
+        <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+          <div style="font-size: 24px;">🧠</div>
+          <div>
+            <div class="card-title" style="color: var(--gold); margin: 0;">AI Session Analyzer</div>
+            <div style="font-size: 12px; color: var(--text3); margin-top: 4px;">Auto-analyze sessions to update tasks, debt, and blockers</div>
+          </div>
+        </div>
+        <button 
+          class="btn-gold" 
+          id="aiAnalyzeBtn" 
+          data-v-action="analyzeSessionsWithAI"
+          style="white-space: nowrap;"
+        >
+          🔄 Analyze & Update Backlog
+        </button>
+      </div>
+      <div class="card-body" style="padding: 16px;">
+        <div id="aiAnalyzerStatus" style="font-size: 13px; color: var(--text3); font-family: 'DM Mono', monospace;">
+          <span style="color: var(--text2);">💡 Click "Analyze & Update Backlog" to scan all sessions and auto-update your work queue</span>
+        </div>
+        <div id="aiAnalyzerTimestamp" style="font-size: 11px; color: var(--text3); margin-top: 12px; font-family: 'DM Mono', monospace; display: none;">
+          Last refreshed: <span id="lastAnalyzedTime">Never</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="card-header">
+        <input 
+          type="text" 
+          id="sessionSearch" 
+          placeholder="Search sessions..." 
+          style="
+            width:100%;
+            background:var(--void);
+            border:1px solid var(--border);
+            border-radius:var(--r);
+            padding:10px 14px;
+            color:var(--text);
+            font-size:14px;
+          "
+          oninput="filterSessions(this.value)"
+        />
+      </div>
+      <div class="card-body" id="sessionsList" style="max-height:600px; overflow-y:auto;">
+        ${sessionsHTML}
+      </div>
+    </div>
+    
+    <div id="sessionDetail" style="display:none; margin-top:24px;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title" id="sessionDetailTitle">Session X</div>
+          <button class="btn-outline btn-sm" data-v-action="closeSessionDetail">Close</button>
+        </div>
+        <div class="card-body" id="sessionDetailContent" style="
+          white-space:pre-wrap;
+          font-family:monospace;
+          font-size:13px;
+          line-height:1.6;
+        "></div>
+      </div>
+    </div>
+  `;
+}
+
+function filterSessions(query) {
+  const cards = document.querySelectorAll('.session-card');
+  const q = query.toLowerCase();
+  
+  cards.forEach(card => {
+    const title = card.querySelector('.session-title').textContent.toLowerCase();
+    const date = card.querySelector('.session-meta').textContent.toLowerCase();
+    card.style.display = (title.includes(q) || date.includes(q)) ? 'flex' : 'none';
+  });
+}
+
+function viewSessionDetail(num) {
+  const session = CODEX.sessions.find(s => s.num === num);
+  if (!session) return;
+  
+  const detailDiv = document.getElementById('sessionDetail');
+  const titleDiv = document.getElementById('sessionDetailTitle');
+  const contentDiv = document.getElementById('sessionDetailContent');
+  
+  titleDiv.textContent = `Session ${num} — ${session.meta?.title || session.title || 'Untitled'}`;
+  contentDiv.textContent = session.content || 'No content available';
+  
+  detailDiv.style.display = 'block';
+  detailDiv.scrollIntoView({behavior: 'smooth'});
+}
+
+function closeSessionDetail() {
+  document.getElementById('sessionDetail').style.display = 'none';
+}
+
+function renderTasks() {
+  const page = document.getElementById('page-tasks');
+  
+  // Group tasks by status
+  const openTasks = CODEX.tasks.filter(t => t.status === 'open');
+  const inProgressTasks = CODEX.tasks.filter(t => t.status === 'in-progress');
+  const completedTasks = CODEX.tasks.filter(t => t.status === 'done');
+  
+  const renderTaskCard = (task) => `
+    <div class="card" style="margin-bottom:12px;">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${task.title}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${task.session} ${task.assignedTo ? `• Assigned: ${task.assignedTo}` : ''}
+          </div>
+        </div>
+        <span class="btn-xs ${task.priority === 'critical' ? 'btn-red' : task.priority === 'high' ? 'btn-outline' : 'btn-ghost'}">
+          ${task.priority || 'normal'}
+        </span>
+      </div>
+      ${task.description ? `<div class="card-body">${task.description}</div>` : ''}
+    </div>
+  `;
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Task Registry</div>
+      <div class="page-title">Master Task List</div>
+      <div class="page-subtitle">${CODEX.tasks.length} total tasks • ${openTasks.length} open</div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val critical">${openTasks.length}</div>
+        <div class="stat-lbl">Open</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val high">${inProgressTasks.length}</div>
+        <div class="stat-lbl">In Progress</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${completedTasks.length}</div>
+        <div class="stat-lbl">Completed</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${CODEX.tasks.length > 0 ? Math.round((completedTasks.length / CODEX.tasks.length) * 100) : 0}%</div>
+        <div class="stat-lbl">Completion Rate</div>
+      </div>
+    </div>
+    
+    <!-- Open Tasks -->
+    ${openTasks.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🔴 Open Tasks (${openTasks.length})
+        </h3>
+        ${openTasks.map(renderTaskCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- In Progress Tasks -->
+    ${inProgressTasks.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--orange); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🟡 In Progress (${inProgressTasks.length})
+        </h3>
+        ${inProgressTasks.map(renderTaskCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Completed Tasks -->
+    ${completedTasks.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--green); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ✅ Completed (${completedTasks.length})
+        </h3>
+        ${completedTasks.map(renderTaskCard).join('')}
+      </div>
+    ` : ''}
+    
+    ${CODEX.tasks.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">📋</div>
+          <div style="font-size:16px; color:var(--text3);">No tasks yet</div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderDebt() {
+  const page = document.getElementById('page-debt');
+  
+  // Group debt by status and severity
+  const openDebt = CODEX.debt.filter(d => d.status === 'open');
+  const resolvedDebt = CODEX.debt.filter(d => d.status === 'resolved');
+  const criticalDebt = openDebt.filter(d => d.severity === 'critical');
+  const highDebt = openDebt.filter(d => d.severity === 'high');
+  const mediumDebt = openDebt.filter(d => d.severity === 'medium');
+  
+  const renderDebtCard = (debt) => `
+    <div class="card" style="margin-bottom:12px; border-left:3px solid ${
+      debt.severity === 'critical' ? 'var(--red)' : 
+      debt.severity === 'high' ? 'var(--orange)' : 
+      'var(--blue)'
+    };">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${debt.title}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${debt.session} • Open ${debt.sessionsOpen || 1} sessions
+            ${debt.category ? ` • ${debt.category}` : ''}
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <span class="btn-xs ${
+            debt.severity === 'critical' ? 'btn-red' : 
+            debt.severity === 'high' ? 'btn-outline' : 
+            'btn-ghost'
+          }">
+            ${debt.severity}
+          </span>
+          <span class="btn-xs ${debt.status === 'open' ? 'btn-red' : 'btn-ghost'}">
+            ${debt.status}
+          </span>
+        </div>
+      </div>
+      ${debt.description ? `<div class="card-body">${debt.description}</div>` : ''}
+      ${debt.impact ? `
+        <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
+          <strong style="color:var(--text2);">Impact:</strong> ${debt.impact}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Execution Debt</div>
+      <div class="page-title">Debt Register</div>
+      <div class="page-subtitle">${CODEX.debt.length} total items • ${openDebt.length} open • ${criticalDebt.length} critical</div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val critical">${criticalDebt.length}</div>
+        <div class="stat-lbl">Critical</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val high">${highDebt.length}</div>
+        <div class="stat-lbl">High</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${mediumDebt.length}</div>
+        <div class="stat-lbl">Medium</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${resolvedDebt.length}</div>
+        <div class="stat-lbl">Resolved</div>
+      </div>
+    </div>
+    
+    <!-- Critical Debt -->
+    ${criticalDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--red); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🚨 CRITICAL DEBT (${criticalDebt.length})
+        </h3>
+        ${criticalDebt.map(renderDebtCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- High Priority Debt -->
+    ${highDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--orange); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚠️ HIGH PRIORITY (${highDebt.length})
+        </h3>
+        ${highDebt.map(renderDebtCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Medium Priority Debt -->
+    ${mediumDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--blue); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          📋 MEDIUM PRIORITY (${mediumDebt.length})
+        </h3>
+        ${mediumDebt.map(renderDebtCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Resolved Debt (Collapsed by default) -->
+    ${resolvedDebt.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <details>
+          <summary style="font-size:14px; font-weight:700; color:var(--green); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px; cursor:pointer;">
+            ✅ RESOLVED (${resolvedDebt.length})
+          </summary>
+          ${resolvedDebt.map(renderDebtCard).join('')}
+        </details>
+      </div>
+    ` : ''}
+    
+    ${CODEX.debt.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">⚠️</div>
+          <div style="font-size:16px; color:var(--text3);">No execution debt</div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderBlockers() {
+  const page = document.getElementById('page-blockers');
+  const blockersHTML = CODEX.blockers.map(b => `
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">${b.severity === 'critical' ? '🚫' : '⚠️'} ${b.title}</div>
+        <span class="btn-sm ${b.status === 'open' ? 'btn-red' : 'btn-ghost'}">${b.status.toUpperCase()}</span>
+      </div>
+      <div class="card-body">
+        <strong>Severity:</strong> ${b.severity}<br>
+        <strong>Open for:</strong> ${b.sessionsOpen} sessions<br>
+        <strong>First mentioned:</strong> Session ${b.firstMentioned || 'Unknown'}
+      </div>
+    </div>
+  `).join('');
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Critical Blockers</div>
+      <div class="page-title">Standing Blockers</div>
+    </div>
+    ${blockersHTML || '<div class="card"><div class="card-body"><em style="color:var(--text3)">No blockers</em></div></div>'}
+  `;
+}
+
+function renderDirectives() {
+  const page = document.getElementById('page-directives');
+  
+  // Sort directives by session number (most recent first)
+  const sortedDirectives = [...CODEX.directives].sort((a, b) => b.session - a.session);
+  
+  // Group by binding status
+  const bindingDirectives = sortedDirectives.filter(d => d.binding);
+  const advisoryDirectives = sortedDirectives.filter(d => !d.binding);
+  
+  const renderDirectiveCard = (directive) => `
+    <div class="card" style="margin-bottom:12px; ${directive.binding ? 'border-left:3px solid var(--gold);' : ''}">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${directive.binding ? '⚖️' : '💡'} ${directive.text}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${directive.session}
+            ${directive.binding ? ' • <strong style="color:var(--gold)">BINDING</strong>' : ' • Advisory'}
+          </div>
+        </div>
+      </div>
+      ${directive.rationale ? `
+        <div class="card-body">
+          <strong style="color:var(--text2);">Rationale:</strong> ${directive.rationale}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Immutable Laws</div>
+      <div class="page-title">Architectural Directives</div>
+      <div class="page-subtitle">${CODEX.directives.length} total directives • ${bindingDirectives.length} binding</div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val gold">${bindingDirectives.length}</div>
+        <div class="stat-lbl">Binding</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${advisoryDirectives.length}</div>
+        <div class="stat-lbl">Advisory</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${CODEX.directives.length}</div>
+        <div class="stat-lbl">Total</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${CODEX.directives.length > 0 ? Math.max(...CODEX.directives.map(d => d.session)) : 0}</div>
+        <div class="stat-lbl">Latest Session</div>
+      </div>
+    </div>
+    
+    <!-- Binding Directives -->
+    ${bindingDirectives.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚖️ BINDING DIRECTIVES (${bindingDirectives.length})
+        </h3>
+        <div style="background:var(--gold-dim); border:1px solid var(--gold); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-size:13px; color:var(--text2); line-height:1.6;">
+            <strong style="color:var(--gold);">⚠️ Warning:</strong> These directives are IMMUTABLE and must be followed in all sessions. Violation requires explicit architectural review.
+          </div>
+        </div>
+        ${bindingDirectives.map(renderDirectiveCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Advisory Directives -->
+    ${advisoryDirectives.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--blue); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          💡 ADVISORY DIRECTIVES (${advisoryDirectives.length})
+        </h3>
+        ${advisoryDirectives.map(renderDirectiveCard).join('')}
+      </div>
+    ` : ''}
+    
+    ${CODEX.directives.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">⚖️</div>
+          <div style="font-size:16px; color:var(--text3);">No directives established</div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderDecisions() {
+  const page = document.getElementById('page-decisions');
+  
+  // Sort decisions by session number (most recent first)
+  const sortedDecisions = [...CODEX.decisions].sort((a, b) => b.session - a.session);
+  
+  // Group by binding status
+  const bindingDecisions = sortedDecisions.filter(d => d.binding);
+  const advisoryDecisions = sortedDecisions.filter(d => !d.binding);
+  
+  const renderDecisionCard = (decision) => `
+    <div class="card" style="margin-bottom:12px; ${decision.binding ? 'border-left:3px solid var(--gold);' : ''}">
+      <div class="card-header">
+        <div style="flex:1;">
+          <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
+            ${decision.binding ? '🏛️' : '📋'} ${decision.decision}
+          </div>
+          <div style="font-size:12px; color:var(--text3);">
+            Session ${decision.session}
+            ${decision.binding ? ' • <strong style="color:var(--gold)">BINDING</strong>' : ' • Advisory'}
+            ${decision.category ? ` • ${decision.category}` : ''}
+          </div>
+        </div>
+      </div>
+      ${decision.rationale ? `
+        <div class="card-body">
+          <strong style="color:var(--text2);">Rationale:</strong> ${decision.rationale}
+        </div>
+      ` : ''}
+      ${decision.alternatives ? `
+        <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
+          <strong style="color:var(--text2);">Alternatives Considered:</strong> ${decision.alternatives}
+        </div>
+      ` : ''}
+      ${decision.implications ? `
+        <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
+          <strong style="color:var(--text2);">Implications:</strong> ${decision.implications}
+        </div>
+      ` : ''}
+    </div>
+  `;
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Architecture</div>
+      <div class="page-title">Binding Decisions</div>
+      <div class="page-subtitle">${CODEX.decisions.length} total decisions • ${bindingDecisions.length} binding</div>
+    </div>
+    
+    <!-- Stats -->
+    <div class="stat-row">
+      <div class="stat-chip">
+        <div class="stat-val gold">${bindingDecisions.length}</div>
+        <div class="stat-lbl">Binding</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${advisoryDecisions.length}</div>
+        <div class="stat-lbl">Advisory</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val ok">${CODEX.decisions.length}</div>
+        <div class="stat-lbl">Total</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${CODEX.decisions.length > 0 ? Math.max(...CODEX.decisions.map(d => d.session)) : 0}</div>
+        <div class="stat-lbl">Latest Session</div>
+      </div>
+    </div>
+    
+    <!-- Binding Decisions -->
+    ${bindingDecisions.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🏛️ BINDING DECISIONS (${bindingDecisions.length})
+        </h3>
+        <div style="background:var(--gold-dim); border:1px solid var(--gold); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-size:13px; color:var(--text2); line-height:1.6;">
+            <strong style="color:var(--gold);">⚠️ Architectural Lock:</strong> These decisions form the immutable foundation of NBD Pro. Changing them requires full architectural review and may cascade to multiple systems.
+          </div>
+        </div>
+        ${bindingDecisions.map(renderDecisionCard).join('')}
+      </div>
+    ` : ''}
+    
+    <!-- Advisory Decisions -->
+    ${advisoryDecisions.length > 0 ? `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--blue); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          📋 ADVISORY DECISIONS (${advisoryDecisions.length})
+        </h3>
+        ${advisoryDecisions.map(renderDecisionCard).join('')}
+      </div>
+    ` : ''}
+    
+    ${CODEX.decisions.length === 0 ? `
+      <div class="card">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">🏛️</div>
+          <div style="font-size:16px; color:var(--text3);">No architectural decisions logged</div>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
+
+function renderSearch() {
+  const page = document.getElementById('page-search');
+  
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">Full-Text Search</div>
+      <div class="page-title">Search Codex</div>
+      <div class="page-subtitle">Search across sessions, directives, decisions, tasks, and blockers</div>
+    </div>
+    
+    <!-- Search Input -->
+    <div class="card">
+      <div class="card-body">
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="Search sessions, directives, decisions, tasks..." 
+          style="width:100%; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; color:var(--text); font-size:15px; font-family:'Barlow Condensed', sans-serif;"
+          oninput="executeSearch()"
+        >
+      </div>
+    </div>
+    
+    <!-- Search Results -->
+    <div id="searchResults"></div>
+  `;
+}
+
+function executeSearch() {
+  const query = document.getElementById('searchInput').value.toLowerCase().trim();
+  const resultsDiv = document.getElementById('searchResults');
+  
+  if (!query || query.length < 2) {
+    resultsDiv.innerHTML = '';
+    return;
+  }
+  
+  const results = {
+    sessions: [],
+    directives: [],
+    decisions: [],
+    tasks: [],
+    debt: [],
+    blockers: []
+  };
+  
+  // Search sessions
+  CODEX.sessions.forEach(session => {
+    const searchableText = `
+      ${session.meta?.title || ''} 
+      ${session.content || ''} 
+      ${JSON.stringify(session.meta || {})}
+    `.toLowerCase();
+    
+    if (searchableText.includes(query)) {
+      results.sessions.push(session);
+    }
+  });
+  
+  // Search directives
+  CODEX.directives.forEach(directive => {
+    const searchableText = `${directive.text} ${directive.rationale || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.directives.push(directive);
+    }
+  });
+  
+  // Search decisions
+  CODEX.decisions.forEach(decision => {
+    const searchableText = `${decision.decision} ${decision.rationale || ''} ${decision.alternatives || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.decisions.push(decision);
+    }
+  });
+  
+  // Search tasks
+  CODEX.tasks.forEach(task => {
+    const searchableText = `${task.title} ${task.description || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.tasks.push(task);
+    }
+  });
+  
+  // Search debt
+  CODEX.debt.forEach(debt => {
+    const searchableText = `${debt.title} ${debt.description || ''} ${debt.impact || ''}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.debt.push(debt);
+    }
+  });
+  
+  // Search blockers
+  CODEX.blockers.forEach(blocker => {
+    const searchableText = `${blocker.title}`.toLowerCase();
+    if (searchableText.includes(query)) {
+      results.blockers.push(blocker);
+    }
+  });
+  
+  const totalResults = Object.values(results).reduce((sum, arr) => sum + arr.length, 0);
+  
+  if (totalResults === 0) {
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+    resultsDiv.innerHTML = `
+      <div class="card" style="margin-top:24px;">
+        <div class="card-body" style="text-align:center; padding:48px;">
+          <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">🔍</div>
+          <div style="font-size:16px; color:var(--text3);">No results found for "${esc(query)}"</div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  
+  let html = `
+    <div style="margin-top:24px;">
+      <div style="font-size:14px; color:var(--text2); margin-bottom:16px;">
+        Found <strong style="color:var(--gold)">${totalResults}</strong> results for "<strong>${query}</strong>"
+      </div>
+  `;
+  
+  // Sessions results
+  if (results.sessions.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          📝 SESSIONS (${results.sessions.length})
+        </h3>
+        ${results.sessions.map(s => `
+          <div class="card" style="margin-bottom:12px; cursor:pointer;" data-v-action="viewSession" data-arg="${s.num}">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  Session ${s.num} — ${s.meta?.title || 'Untitled'}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  ${s.meta?.date || 'Date unknown'}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Directives results
+  if (results.directives.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚖️ DIRECTIVES (${results.directives.length})
+        </h3>
+        ${results.directives.map(d => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${d.text}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${d.session} ${d.binding ? '• BINDING' : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Decisions results
+  if (results.decisions.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🏛️ DECISIONS (${results.decisions.length})
+        </h3>
+        ${results.decisions.map(d => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${d.decision}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${d.session} ${d.binding ? '• BINDING' : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Tasks results
+  if (results.tasks.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ✓ TASKS (${results.tasks.length})
+        </h3>
+        ${results.tasks.map(t => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${t.title}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${t.session} • ${t.status}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Debt results
+  if (results.debt.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          ⚠️ DEBT (${results.debt.length})
+        </h3>
+        ${results.debt.map(d => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${d.title}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  Session ${d.session} • ${d.severity} • ${d.status}
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  // Blockers results
+  if (results.blockers.length > 0) {
+    html += `
+      <div style="margin-bottom:24px;">
+        <h3 style="font-size:14px; font-weight:700; color:var(--gold); margin-bottom:12px; text-transform:uppercase; letter-spacing:1px;">
+          🚫 BLOCKERS (${results.blockers.length})
+        </h3>
+        ${results.blockers.map(b => `
+          <div class="card" style="margin-bottom:12px;">
+            <div class="card-header">
+              <div style="flex:1;">
+                <div style="font-size:15px; font-weight:600; color:var(--text);">
+                  ${b.title}
+                </div>
+                <div style="font-size:12px; color:var(--text3);">
+                  ${b.severity} • ${b.status} • ${b.sessionsOpen} sessions open
+                </div>
+              </div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  html += `</div>`;
+  resultsDiv.innerHTML = html;
+}
+
+function renderAdmin() {
+  // Calculate next session number
+  const latestSession = CODEX.sessions.length > 0
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  const page = document.getElementById('page-admin');
+  page.innerHTML = `
+    <div class="page-header">
+      <div class="page-eyebrow">System Admin</div>
+      <div class="page-title">Vault Administration</div>
+    </div>
+    
+    <!-- Session Starter Generator -->
+    <div class="card" id="sessionStarterSection">
+      <div class="card-header">
+        <div class="card-title">🚀 Session ${nextSessionNum} Starter Prompt</div>
+        <button class="btn-gold btn-sm" data-v-action="generateSessionStarter">Generate Prompt</button>
+      </div>
+      <div class="card-body">
+        <textarea id="sessionStarterOutput" style="width:100%; min-height:400px; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; color:var(--text); font-family:monospace; font-size:13px" placeholder="Click 'Generate Prompt' to create Session ${nextSessionNum} starter..."></textarea>
+        <button class="btn-outline btn-sm" style="margin-top:12px" data-v-action="copySessionStarter">📋 Copy to Clipboard</button>
+      </div>
+    </div>
+    
+    <!-- Import Session -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📥 Import Session from Claude</div>
+      </div>
+      <div class="card-body">
+        <p style="margin-bottom:12px; color:var(--text3)">Paste the JavaScript payload Claude gives you at session close:</p>
+        <textarea id="sessionImportPayload" style="width:100%; min-height:200px; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; color:var(--text); font-family:monospace; font-size:13px" placeholder="Paste anything: JavaScript payload, JSON, markdown, or plain text..."></textarea>
+        <div style="font-size:11px; color:var(--text3); margin-top:8px;">
+          ✓ Accepts: JavaScript code, JSON objects, markdown with Session #, or any text (auto-creates session)
+        </div>
+        <button class="btn-gold btn-sm" style="margin-top:12px" data-v-action="importSessionPayload">Import to Firestore</button>
+      </div>
+    </div>
+    
+    <!-- Export Codex -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">💾 Export Codex to Firestore</div>
+      </div>
+      <div class="card-body">
+        <p style="margin-bottom:12px; color:var(--text3)">Manually save current Codex state to Firestore (auto-saves every 5 minutes):</p>
+        <button class="btn-gold btn-sm" data-v-action="manualSaveToFirestore">💾 Save to Firestore Now</button>
+        <div id="manualSaveStatus" style="margin-top:12px; font-size:13px; color:var(--text3)"></div>
+      </div>
+    </div>
+    
+    <!-- AI Session Parser -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🤖 AI Session Parser</div>
+      </div>
+      <div class="card-body">
+        <p style="margin-bottom:16px; color:var(--text3);">
+          Use Gemini AI to automatically extract tasks, debt items, blockers, directives, and decisions from session content.
+        </p>
+        
+        <!-- Test Single Session -->
+        <div style="background:var(--lift); border:1px solid var(--border); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-weight:600; margin-bottom:12px; color:var(--text);">Test Parse Single Session</div>
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <input 
+              type="number" 
+              id="testSessionNum" 
+              placeholder="Session #" 
+              style="flex:1; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:8px; color:var(--text);"
+            >
+            <button class="btn-outline btn-sm" data-v-action="parseSessionTest">🔍 Test Parse</button>
+          </div>
+          <div id="testParseResult" style="font-size:13px;"></div>
+        </div>
+        
+        <!-- Parse All Sessions -->
+        <div style="background:var(--gold-dim); border:1px solid var(--gold); border-radius:var(--r); padding:16px; margin-bottom:16px;">
+          <div style="font-weight:600; margin-bottom:8px; color:var(--gold);">⚠️ Batch Parse All Sessions</div>
+          <div style="font-size:13px; color:var(--text2); margin-bottom:12px;">
+            This will parse ALL sessions with content and populate Tasks, Debt, Blockers, Directives, and Decisions.
+            Rate limited to 1 session/second. Cannot be undone (but data is saved to Firestore).
+          </div>
+          <button class="btn-gold btn-sm" id="parseAllBtn" data-v-action="parseAllSessions">🔄 Parse All Sessions</button>
+        </div>
+        
+        <!-- Progress Display -->
+        <div id="parseProgress" style="font-size:13px; min-height:40px;"></div>
+      </div>
+    </div>
+    
+    <!-- Firestore Stats -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📊 Vault Statistics</div>
+      </div>
+      <div class="card-body">
+        <div class="stat-row">
+          <div class="stat-chip">
+            <div class="stat-val gold">${CODEX.sessions.length}</div>
+            <div class="stat-lbl">Sessions</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-val info">${Math.round(JSON.stringify(CODEX).length / 1024)}KB</div>
+            <div class="stat-lbl">Total Size</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-val ok">Firestore</div>
+            <div class="stat-lbl">Storage Mode</div>
+          </div>
+          <div class="stat-chip">
+            <div class="stat-val gold">Live</div>
+            <div class="stat-lbl">Sync Status</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function generateSessionStarter() {
+  // Find latest session and calculate next
+  const latestSession = CODEX.sessions.length > 0
+    ? CODEX.sessions.reduce((max, s) => s.num > max.num ? s : max)
+    : null;
+  const nextSessionNum = latestSession ? latestSession.num + 1 : 1;
+  
+  const blockers = CODEX.blockers.filter(b => b.status === 'open');
+  const criticalDebt = CODEX.debt.filter(d => d.status === 'open' && d.severity === 'critical');
+  
+  const prompt = `# SESSION ${nextSessionNum} INITIALIZATION — NBD PRO BUILD
+
+**Last Session:** v${latestSession?.num || 0} (${latestSession?.meta?.title || latestSession?.title || 'Untitled'} — ${latestSession?.meta?.date || latestSession?.date || 'Unknown date'})
+
+**Mission Locked:** ${extractNextMission(latestSession)}
+
+## CRITICAL BLOCKERS (Verify Before New Work)
+
+${blockers.length ? blockers.map(b => `- [ ] **${b.title}** (${b.sessionsOpen} sessions open)`).join('\n') : '_No critical blockers_'}
+
+## PROTOCOL SEQUENCE
+
+1. Load Codex from Firestore (\`codex/snapshots/latest\`)
+2. Surface Execution Debt Register → prioritize critical items
+3. Verify standing blockers resolved or acknowledged
+4. Execute Session ${nextSessionNum} mission
+5. Log deltas in real-time (metadata + prose narrative)
+6. Generate session close payload for vault import
+7. Export CODEX v${nextSessionNum} to Firestore
+
+## IMMUTABLE DIRECTIVES (Top 10)
+
+- **S5:** "Never lose a job" — soft delete only in CRM
+- **S6:** \`crm-leads.js\` is single source of truth for lead/job Firestore ops
+- **S7:** \`nbdApplyTheme()\` is single point of theme write — never bypass
+- **S7:** Stripe is standing blocker until verified shipped
+- **S8:** Close before opening — 2+ session loops must close first
+- **S8:** Execution Debt Register updated every session
+- **S10:** CRM file path is \`pro/dashboard.html\` — not \`pro/crm/index.html\`
+- **S13:** Worker URL: \`nbd-ai-proxy.jonathandeal459.workers.dev\` (gemini-2.5-flash only)
+- **S13:** Create token → use → delete (never share in chat)
+- **S27:** Vault Firestore is long-term memory — always purge cache after vault.html changes
+- **S29:** vaultImportSession() always checks for duplicates and shows resolution modal — never silently overwrite
+
+## EXECUTION DEBT (Critical Only)
+
+${criticalDebt.length ? criticalDebt.map(d => `- ${d.title} (${d.sessionsOpen} sessions open)`).join('\n') : '_No critical debt_'}
+
+## READY STATE
+
+Codex loaded. Mission locked. Standing by for instructions.
+
+---
+
+**Note:** This is the **minimal starter**. For full GOD MODE context (all ${CODEX.directives.length} directives, complete debt register, architectural decisions), expand the Codex export at session start.`;
+
+  document.getElementById('sessionStarterOutput').value = prompt;
+  toast(`Session ${nextSessionNum} starter prompt generated`, 'success');
+}
+
+function copySessionStarter() {
+  const textarea = document.getElementById('sessionStarterOutput');
+  textarea.select();
+  document.execCommand('copy');
+  toast('Copied to clipboard', 'success');
+}
+
+function importSessionPayload() {
+  const payload = document.getElementById('sessionImportPayload').value.trim();
+  if (!payload) {
+    toast('Paste the payload first', 'error');
+    return;
+  }
+  
+  try {
+    // TRY FORMAT 1: JavaScript code that calls vaultImportSession()
+    if (payload.includes('vaultImportSession')) {
+      eval(payload);
+      toast('Session imported successfully', 'success');
+      return;
+    }
+    
+    // TRY FORMAT 2: Direct JSON object
+    let sessionData;
+    try {
+      sessionData = JSON.parse(payload);
+      if (sessionData.num && sessionData.meta) {
+        vaultImportSession(sessionData);
+        return;
+      }
+    } catch (e) {
+      // Not valid JSON, continue to text parsing
+    }
+    
+    // TRY FORMAT 3: Markdown/text format (parse session number and content)
+    const parsedSession = parseTextToSession(payload);
+    if (parsedSession) {
+      vaultImportSession(parsedSession);
+      return;
+    }
+    
+    // FALLBACK: Create generic session from any text
+    const fallbackSession = createGenericSession(payload);
+    vaultImportSession(fallbackSession);
+    
+  } catch (error) {
+    console.error('Import error:', error);
+    toast('Failed to import session — ' + error.message, 'error');
+  }
+}
+
+// Parse markdown/text into session format
+function parseTextToSession(text) {
+  // Extract session number from common patterns
+  const sessionMatch = text.match(/Session[:\s#]*(\d+)/i);
+  const dateMatch = text.match(/Date[:\s]*(\d{4}-\d{2}-\d{2}|\d{1,2}\/\d{1,2}\/\d{4}|[A-Z][a-z]{2,8}\s+\d{1,2},?\s+\d{4})/i);
+  const titleMatch = text.match(/Title[:\s]*(.+?)(?:\n|$)/i);
+  
+  if (!sessionMatch) {
+    return null; // Can't determine session number
+  }
+  
+  const sessionNum = parseInt(sessionMatch[1]);
+  const date = dateMatch ? parseDateString(dateMatch[1]) : new Date().toISOString().split('T')[0];
+  const title = titleMatch ? titleMatch[1].trim() : `Session ${sessionNum}`;
+  
+  // Extract summary/notes (everything after metadata)
+  let summary = text;
+  // Remove metadata lines
+  summary = summary.replace(/Session[:\s#]*\d+/gi, '');
+  summary = summary.replace(/Date[:\s]*[\d\-\/A-Za-z,\s]+/gi, '');
+  summary = summary.replace(/Title[:\s]*.+/gi, '');
+  summary = summary.trim();
+  
+  return {
+    num: sessionNum,
+    meta: {
+      date: date,
+      title: title,
+      status: 'imported'
+    },
+    summary: summary.substring(0, 500), // First 500 chars as summary
+    notes: summary, // Full text as notes
+    changes: [],
+    blockers: []
+  };
+}
+
+// Parse various date formats
+function parseDateString(dateStr) {
+  const date = new Date(dateStr);
+  if (isNaN(date)) {
+    return new Date().toISOString().split('T')[0];
+  }
+  return date.toISOString().split('T')[0];
+}
+
+// Create generic session from any pasted text
+function createGenericSession(text) {
+  const maxSessionNum = CODEX.sessions.reduce((max, s) => Math.max(max, s.num), 0);
+  const nextNum = maxSessionNum + 1;
+  
+  return {
+    num: nextNum,
+    meta: {
+      date: new Date().toISOString().split('T')[0],
+      title: `Imported Session ${nextNum}`,
+      status: 'imported'
+    },
+    summary: text.substring(0, 300).trim() + (text.length > 300 ? '...' : ''),
+    notes: text,
+    changes: [],
+    blockers: []
+  };
+}
+
+async function manualSaveToFirestore() {
+  const statusDiv = document.getElementById('manualSaveStatus');
+  statusDiv.innerHTML = '<span style="color:var(--blue)">⏳ Saving to Firestore...</span>';
+  
+  const success = await saveToFirestore();
+  
+  if (success) {
+    statusDiv.innerHTML = '<span style="color:var(--green)">✓ Saved successfully at ' + new Date().toLocaleTimeString() + '</span>';
+  } else {
+    statusDiv.innerHTML = '<span style="color:var(--red)">❌ Save failed — check console for errors</span>';
+  }
+}
+
+// This function is called by the payload Claude generates
+window.vaultImportSession = async function(sessionData) {
+  console.log('Importing session:', sessionData);
+  
+  // VALIDATION GATE - Check required fields before import
+  const requiredFields = ['num', 'meta'];
+  const missing = requiredFields.filter(f => !sessionData[f]);
+  
+  if (missing.length > 0) {
+    console.error('❌ Session validation failed. Missing fields:', missing);
+    toast(`Cannot import session: missing required fields (${missing.join(', ')})`, 'error');
+    return;
+  }
+  
+  // Ensure meta has minimum required structure
+  if (!sessionData.meta.date) {
+    console.warn('⚠️ Session missing meta.date - adding current date');
+    sessionData.meta.date = new Date().toISOString().split('T')[0];
+  }
+  if (!sessionData.meta.title) {
+    console.warn('⚠️ Session missing meta.title - adding default');
+    sessionData.meta.title = `Session ${sessionData.num}`;
+  }
+  
+  // SMART DUPLICATE DETECTION
+  const existingIndex = CODEX.sessions.findIndex(s => s.num === sessionData.num);
+  
+  if (existingIndex !== -1) {
+    // Duplicate detected - show resolution modal
+    console.warn(`⚠️ Session ${sessionData.num} already exists`);
+    
+    const maxSessionNum = CODEX.sessions.reduce((max, s) => Math.max(max, s.num), 0);
+    const suggestedNum = maxSessionNum + 1;
+    
+    // Count existing versions of this session
+    const versionCount = CODEX.sessions.filter(s => 
+      s.num === sessionData.num || 
+      (s.meta?.originalNum === sessionData.num)
+    ).length;
+    const versionSuffix = `-v${versionCount + 1}`;
+    
+    return new Promise((resolve) => {
+      showDuplicateModal(sessionData, suggestedNum, versionSuffix, async (action, newNum) => {
+        if (action === 'rename') {
+          sessionData.num = newNum;
+          console.log(`✓ Renamed to Session ${newNum}`);
+          await proceedWithImport(sessionData);
+          resolve();
+        } else if (action === 'version') {
+          // Keep original num but add version metadata
+          sessionData.meta = sessionData.meta || {};
+          sessionData.meta.originalNum = sessionData.num;
+          sessionData.meta.version = versionSuffix;
+          sessionData.meta.title = `${sessionData.meta.title || sessionData.title}${versionSuffix}`;
+          console.log(`✓ Versioned as Session ${sessionData.num}${versionSuffix}`);
+          CODEX.sessions.push(sessionData);
+          await saveSessionToFirestore(sessionData);
+          toast(`Session ${sessionData.num}${versionSuffix} imported`, 'success');
+          renderOverview();
+          renderSessions();
+          resolve();
+        } else {
+          console.log('Import cancelled by user');
+          toast('Import cancelled', 'info');
+          resolve();
+        }
+      });
+    });
+  } else {
+    // No duplicate - proceed normally
+    await proceedWithImport(sessionData);
+  }
+};
+
+async function proceedWithImport(sessionData) {
+  CODEX.sessions.push(sessionData);
+  
+  // Update blockers if provided
+  if (sessionData.blockers) {
+    sessionData.blockers.forEach(b => {
+      const existing = CODEX.blockers.find(x => x.id === b.id);
+      if (existing) {
+        Object.assign(existing, b);
+      }
+    });
+  }
+  
+  // Add new directives
+  if (sessionData.directivesAdded) {
+    sessionData.directivesAdded.forEach(d => {
+      CODEX.directives.push({
+        session: sessionData.num,
+        text: d,
+        binding: true
+      });
+    });
+  }
+  
+  await saveSessionToFirestore(sessionData);
+  toast(`Session ${sessionData.num} imported and saved`, 'success');
+  renderOverview();
+  renderSessions();
+}
+
+async function saveSessionToFirestore(sessionData) {
+  // Save full CODEX
+  await saveToFirestore();
+  
+  // Also save session delta
+  const {doc, setDoc} = firestore;
+  const deltaRef = doc(db, 'codex-sessions', `s${sessionData.num.toString().padStart(2, '0')}-delta`);
+  await setDoc(deltaRef, sessionData);
+}
+
+function showDuplicateModal(sessionData, suggestedNum, versionSuffix, callback) {
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.8); z-index: 9999;
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.2s var(--ease);
+  `;
+  
+  modal.innerHTML = `
+    <div style="
+      background: var(--surface); border: 1px solid var(--border2);
+      border-radius: var(--rlg); padding: 32px; max-width: 500px; width: 90%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    ">
+      <div style="font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 8px;">
+        ⚠️ Duplicate Session Detected
+      </div>
+      <div style="font-size: 14px; color: var(--text3); margin-bottom: 24px;">
+        Session ${sessionData.num} already exists in the vault.
+      </div>
+      
+      <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; margin-bottom: 24px;">
+        <div style="font-size: 13px; color: var(--text3); margin-bottom: 8px;">Existing Session:</div>
+        <div style="font-size: 15px; font-weight: 600; color: var(--text);">
+          Session ${sessionData.num} — ${CODEX.sessions.find(s => s.num === sessionData.num)?.meta?.title || 'Untitled'}
+        </div>
+      </div>
+      
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 12px;">
+          Choose an action:
+        </div>
+        
+        <button class="btn-gold" data-v-action="handleDuplicateAction" data-arg="rename" data-arg2="${suggestedNum}" style="width: 100%; margin-bottom: 12px; justify-content: flex-start;">
+          <span style="flex: 1; text-align: left;">
+            <strong>✓ Auto-rename to Session ${suggestedNum}</strong><br>
+            <span style="font-size: 12px; opacity: 0.7;">Recommended — continues session sequence</span>
+          </span>
+        </button>
+        
+        <button class="btn-outline" data-v-action="handleDuplicateAction" data-arg="version" style="width: 100%; margin-bottom: 12px; justify-content: flex-start;">
+          <span style="flex: 1; text-align: left;">
+            <strong>Keep as Session ${sessionData.num}${versionSuffix}</strong><br>
+            <span style="font-size: 12px; opacity: 0.7;">Adds version suffix, preserves original number</span>
+          </span>
+        </button>
+        
+        <button class="btn-ghost" data-v-action="handleDuplicateAction" data-arg="cancel" style="width: 100%;">
+          Cancel Import
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  window.handleDuplicateAction = (action, newNum) => {
+    document.body.removeChild(modal);
+    delete window.handleDuplicateAction;
+    callback(action, newNum);
+  };
+}
+
+// Bulk import function for importing multiple sessions at once
+window.vaultBulkImportSessions = async function(sessionsArray) {
+  console.log(`Bulk importing ${sessionsArray.length} sessions...`);
+  
+  // Remove existing sessions with same numbers to avoid duplicates
+  const nums = sessionsArray.map(s => s.num);
+  CODEX.sessions = CODEX.sessions.filter(s => !nums.includes(s.num));
+  
+  // Add all new sessions
+  CODEX.sessions.push(...sessionsArray);
+  
+  // Sort by session number
+  CODEX.sessions.sort((a, b) => a.num - b.num);
+  
+  // Save to Firestore
+  await saveToFirestore();
+  
+  // Update UI
+  renderOverview();
+  
+  toast(`Successfully imported ${sessionsArray.length} sessions`, 'success');
+  console.log(`✓ Bulk import complete. Total sessions: ${CODEX.sessions.length}`);
+};
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI SESSION PARSER — Gemini-Powered Content Extraction
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const GEMINI_WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+
+async function parseSessionWithGemini(session) {
+  const prompt = `Analyze this NBD Pro build session and extract structured data.
+
+SESSION ${session.num} (${session.meta?.date || 'unknown date'}):
+TITLE: ${session.meta?.title || 'Untitled'}
+CONTENT:
+${session.content || 'No content'}
+
+Extract and return ONLY valid JSON (no markdown, no explanation, no backticks):
+{
+  "tasks": [
+    {
+      "title": "string",
+      "description": "string",
+      "status": "open|in-progress|done",
+      "priority": "critical|high|normal",
+      "session": ${session.num},
+      "assignedTo": null
+    }
+  ],
+  "debt": [
+    {
+      "title": "string",
+      "description": "string",
+      "severity": "critical|high|medium",
+      "status": "open|resolved",
+      "category": "string",
+      "impact": "string",
+      "session": ${session.num},
+      "sessionsOpen": 1
+    }
+  ],
+  "blockers": [
+    {
+      "id": "kebab-case-id",
+      "title": "string",
+      "severity": "critical|high",
+      "status": "open|resolved",
+      "firstMentioned": ${session.num},
+      "sessionsOpen": 1
+    }
+  ],
+  "directives": [
+    {
+      "text": "string",
+      "binding": true|false,
+      "rationale": "string",
+      "session": ${session.num}
+    }
+  ],
+  "decisions": [
+    {
+      "decision": "string",
+      "rationale": "string",
+      "binding": true|false,
+      "category": "string",
+      "alternatives": "string",
+      "implications": "string",
+      "session": ${session.num}
+    }
+  ]
+}
+
+EXTRACTION RULES:
+- Only extract items EXPLICITLY mentioned in the session
+- Preserve original wording for titles and descriptions
+- Mark items as "open" unless explicitly resolved in the session
+- For blockers, use descriptive kebab-case IDs (e.g. "stripe-integration")
+- Binding directives/decisions are marked with phrases like "MUST", "ALWAYS", "NEVER", "IMMUTABLE"
+- Return empty arrays if no items found in that category
+- CRITICAL: Return ONLY the raw JSON object with no markdown formatting, no backticks, no explanatory text`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 2048, messages: [{role: 'user', content: prompt}]
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini error ${response.status}: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    const jsonText = data?.content?.[0]?.text || '';
+    
+    if (!jsonText) throw new Error('Gemini returned no content');
+    
+    // Strip markdown code fences if present
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    const parsed = JSON.parse(jsonText);
+    
+    console.log(`✓ Parsed Session ${session.num}:`, {
+      tasks: parsed.tasks?.length || 0,
+      debt: parsed.debt?.length || 0,
+      blockers: parsed.blockers?.length || 0,
+      directives: parsed.directives?.length || 0,
+      decisions: parsed.decisions?.length || 0
+    });
+    
+    return {
+      tasks: parsed.tasks || [],
+      debt: parsed.debt || [],
+      blockers: parsed.blockers || [],
+      directives: parsed.directives || [],
+      decisions: parsed.decisions || []
+    };
+    
+  } catch (error) {
+    console.error(`❌ Failed to parse Session ${session.num}:`, error);
+    return {
+      tasks: [],
+      debt: [],
+      blockers: [],
+      directives: [],
+      decisions: []
+    };
+  }
+}
+
+async function parseAllSessions() {
+  const progressDiv = document.getElementById('parseProgress');
+  const parseBtn = document.getElementById('parseAllBtn');
+  
+  if (!progressDiv || !parseBtn) return;
+  
+  parseBtn.disabled = true;
+  parseBtn.textContent = 'Parsing...';
+  
+  const sessionsWithContent = CODEX.sessions.filter(s => s.content && s.content.length > 50);
+  
+  if (sessionsWithContent.length === 0) {
+    progressDiv.innerHTML = '<span style="color:var(--red)">❌ No sessions with content found</span>';
+    parseBtn.disabled = false;
+    parseBtn.textContent = '🔄 Parse All Sessions';
+    return;
+  }
+  
+  progressDiv.innerHTML = `<span style="color:var(--blue)">⏳ Starting parse of ${sessionsWithContent.length} sessions...</span>`;
+  
+  let totalExtracted = {
+    tasks: 0,
+    debt: 0,
+    blockers: 0,
+    directives: 0,
+    decisions: 0
+  };
+  
+  for (let i = 0; i < sessionsWithContent.length; i++) {
+    const session = sessionsWithContent[i];
+    
+    progressDiv.innerHTML = `
+      <div style="color:var(--blue); margin-bottom:8px;">
+        ⏳ Processing Session ${session.num} (${i + 1}/${sessionsWithContent.length})
+      </div>
+      <div style="background:var(--void); border-radius:var(--r); height:8px; overflow:hidden;">
+        <div style="background:var(--gold); height:100%; width:${((i + 1) / sessionsWithContent.length * 100)}%; transition:width 0.3s;"></div>
+      </div>
+    `;
+    
+    const extracted = await parseSessionWithGemini(session);
+    
+    // Merge tasks (avoid duplicates by title)
+    extracted.tasks.forEach(task => {
+      const exists = CODEX.tasks.find(t => t.title === task.title && t.session === task.session);
+      if (!exists) {
+        CODEX.tasks.push(task);
+        totalExtracted.tasks++;
+      }
+    });
+    
+    // Merge debt (avoid duplicates by title)
+    extracted.debt.forEach(debt => {
+      const exists = CODEX.debt.find(d => d.title === debt.title && d.session === debt.session);
+      if (!exists) {
+        CODEX.debt.push(debt);
+        totalExtracted.debt++;
+      }
+    });
+    
+    // Merge blockers (by ID, update sessionsOpen if exists)
+    extracted.blockers.forEach(blocker => {
+      const existing = CODEX.blockers.find(b => b.id === blocker.id);
+      if (existing) {
+        existing.sessionsOpen++;
+      } else {
+        CODEX.blockers.push(blocker);
+        totalExtracted.blockers++;
+      }
+    });
+    
+    // Merge directives (avoid duplicates by text)
+    extracted.directives.forEach(directive => {
+      const exists = CODEX.directives.find(d => d.text === directive.text);
+      if (!exists) {
+        CODEX.directives.push(directive);
+        totalExtracted.directives++;
+      }
+    });
+    
+    // Merge decisions (avoid duplicates by decision text)
+    extracted.decisions.forEach(decision => {
+      const exists = CODEX.decisions.find(d => d.decision === decision.decision);
+      if (!exists) {
+        CODEX.decisions.push(decision);
+        totalExtracted.decisions++;
+      }
+    });
+    
+    // Rate limit: 1 request per second
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  
+  // Save to Firestore
+  progressDiv.innerHTML = '<span style="color:var(--blue)">💾 Saving to Firestore...</span>';
+  await saveToFirestore();
+  
+  // Update UI
+  renderOverview();
+  
+  // Show success
+  progressDiv.innerHTML = `
+    <div style="color:var(--green); font-weight:600; margin-bottom:12px;">
+      ✅ Parse Complete! Extracted:
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:12px;">
+      <div class="stat-chip">
+        <div class="stat-val ok">${totalExtracted.tasks}</div>
+        <div class="stat-lbl">Tasks</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val high">${totalExtracted.debt}</div>
+        <div class="stat-lbl">Debt</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val critical">${totalExtracted.blockers}</div>
+        <div class="stat-lbl">Blockers</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val gold">${totalExtracted.directives}</div>
+        <div class="stat-lbl">Directives</div>
+      </div>
+      <div class="stat-chip">
+        <div class="stat-val info">${totalExtracted.decisions}</div>
+        <div class="stat-lbl">Decisions</div>
+      </div>
+    </div>
+  `;
+  
+  parseBtn.disabled = false;
+  parseBtn.textContent = '🔄 Parse All Sessions';
+  
+  toast(`Extracted ${Object.values(totalExtracted).reduce((a,b) => a+b, 0)} items from ${sessionsWithContent.length} sessions`, 'success');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   AI SESSION ANALYZER — Consolidated Backlog Update
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+async function analyzeSessionsWithAI() {
+  const btn = document.getElementById('aiAnalyzeBtn');
+  const statusDiv = document.getElementById('aiAnalyzerStatus');
+  const timestampDiv = document.getElementById('aiAnalyzerTimestamp');
+  const timestampSpan = document.getElementById('lastAnalyzedTime');
+  
+  if (!btn || !statusDiv) return;
+  
+  // Disable button
+  btn.disabled = true;
+  btn.textContent = '🔄 Analyzing...';
+  statusDiv.innerHTML = '<span style="color:var(--blue)">⏳ Scanning all sessions and extracting work items...</span>';
+  
+  try {
+    // Collect all session data (last 20 sessions for token efficiency)
+    const recentSessions = CODEX.sessions
+      .sort((a, b) => b.num - a.num)
+      .slice(0, 20)
+      .reverse(); // Chronological order for AI
+    
+    if (recentSessions.length === 0) {
+      throw new Error('No sessions found to analyze');
+    }
+    
+    // Build comprehensive prompt
+    const sessionsText = recentSessions.map(s => `
+═══════════════════════════════════════════════════════════════
+SESSION ${s.num} — ${s.meta?.title || s.title || 'Untitled'}
+Date: ${s.meta?.date || s.date || 'Unknown'}
+Status: ${s.status || 'Unknown'}
+═══════════════════════════════════════════════════════════════
+
+${s.summary || s.content || 'No content'}
+
+${s.blockers ? '🚫 BLOCKERS:\n' + JSON.stringify(s.blockers, null, 2) : ''}
+${s.debt ? '⚠️ DEBT:\n' + JSON.stringify(s.debt, null, 2) : ''}
+${s.completed ? '✅ COMPLETED:\n' + JSON.stringify(s.completed, null, 2) : ''}
+${s.nextSession ? '🎯 NEXT:\n' + JSON.stringify(s.nextSession, null, 2) : ''}
+    `).join('\n\n');
+    
+    const prompt = `You are analyzing the NBD Pro build history to extract the current work backlog.
+
+INSTRUCTIONS:
+Read all ${recentSessions.length} sessions below and extract:
+1. **OPEN BLOCKERS** - Issues explicitly marked as blockers that are NOT resolved/closed
+2. **EXECUTION DEBT** - High/critical severity debt items still open
+3. **PRIORITY TASKS** - Next 5-10 most important tasks based on session missions and deferred work
+4. **INSIGHTS** - 2-3 key patterns (recurring issues, zombie debt, risk zones)
+
+CRITICAL RULES:
+- Only include items explicitly mentioned in sessions
+- Mark status as "open" UNLESS explicitly resolved/closed in content
+- For blockers: check latest session mentions to determine if still open
+- For debt: prioritize severity "critical" and "high" only
+- For tasks: focus on "next session" priorities and deferred work
+- Return ONLY valid JSON, no markdown formatting, no backticks, no explanatory text
+
+SESSIONS TO ANALYZE:
+${sessionsText}
+
+Return this exact JSON structure:
+{
+  "blockers": [
+    {
+      "id": "kebab-case-id",
+      "title": "Brief title",
+      "severity": "critical|high",
+      "status": "open",
+      "sessionsOpen": number,
+      "resolutionPath": "Brief next step"
+    }
+  ],
+  "debt": [
+    {
+      "title": "Brief title",
+      "severity": "critical|high",
+      "category": "infrastructure|ux-polish|error-handling|etc",
+      "session": number,
+      "estimatedTime": "X minutes|hours",
+      "impact": "Brief impact statement"
+    }
+  ],
+  "tasks": [
+    {
+      "title": "Brief title",
+      "priority": "critical|high|normal",
+      "session": number,
+      "estimatedTime": "X minutes|hours",
+      "dependencies": []
+    }
+  ],
+  "insights": [
+    "Pattern 1",
+    "Pattern 2",
+    "Pattern 3"
+  ]
+}`;
+
+    statusDiv.innerHTML = '<span style="color:var(--blue)">🧠 Sending to AI for analysis...</span>';
+    
+    // Call Gemini API
+    const currentUser = window._currentUser || window._auth?.currentUser;
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001', max_tokens: 2048, messages: [{role: 'user', content: prompt}]
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gemini error ${response.status}: ${errorText}`);
+    }
+    
+    const data = await response.json();
+    
+    // Extract response text (handle multiple possible formats)
+    let jsonText = '';
+    if (typeof data === 'string') {
+      jsonText = data;
+    } else if (data.response) {
+      jsonText = typeof data.response === 'string' ? data.response : JSON.stringify(data.response);
+    } else if (data.text) {
+      jsonText = data.text;
+    } else if (data.content?.[0]?.text) {
+      jsonText = data.content[0].text;
+    } else {
+      throw new Error('Cannot parse AI response format');
+    }
+    
+    // Clean markdown fences
+    jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    
+    statusDiv.innerHTML = '<span style="color:var(--blue)">📊 Processing results...</span>';
+    
+    const parsed = JSON.parse(jsonText);
+    
+    // OVERWRITE existing backlog with AI analysis
+    CODEX.blockers = parsed.blockers || [];
+    CODEX.debt = parsed.debt || [];
+    CODEX.tasks = parsed.tasks || [];
+    
+    // Store insights in CODEX
+    CODEX.aiInsights = {
+      lastAnalyzed: new Date().toISOString(),
+      patterns: parsed.insights || [],
+      sessionsAnalyzed: recentSessions.length,
+      itemsExtracted: {
+        blockers: CODEX.blockers.length,
+        debt: CODEX.debt.length,
+        tasks: CODEX.tasks.length
+      }
+    };
+    
+    // Save to Firestore
+    statusDiv.innerHTML = '<span style="color:var(--blue)">💾 Saving to Firestore...</span>';
+    await saveToFirestore();
+    
+    // Update UI
+    renderOverview();
+    renderTasks();
+    renderDebt();
+    renderBlockers();
+    
+    // Update timestamp
+    const now = new Date();
+    const timeStr = now.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+    timestampSpan.textContent = timeStr;
+    timestampDiv.style.display = 'block';
+    
+    // Show success
+    const total = CODEX.blockers.length + CODEX.debt.length + CODEX.tasks.length;
+    statusDiv.innerHTML = `
+      <div style="color:var(--green); font-weight:600; margin-bottom:8px;">
+        ✅ Analysis Complete! Updated from ${recentSessions.length} sessions
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:12px;">
+        <div style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; text-align:center;">
+          <div style="font-size:20px; font-weight:700; color:var(--red);">${CODEX.blockers.length}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Blockers</div>
+        </div>
+        <div style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; text-align:center;">
+          <div style="font-size:20px; font-weight:700; color:var(--orange);">${CODEX.debt.length}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Debt Items</div>
+        </div>
+        <div style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; text-align:center;">
+          <div style="font-size:20px; font-weight:700; color:var(--blue);">${CODEX.tasks.length}</div>
+          <div style="font-size:11px; color:var(--text3); margin-top:4px;">Priority Tasks</div>
+        </div>
+      </div>
+      ${parsed.insights && parsed.insights.length > 0 ? `
+        <div style="background:var(--void); border:1px solid var(--border2); border-radius:var(--r); padding:12px;">
+          <div style="font-size:12px; font-weight:600; color:var(--gold); margin-bottom:8px;">💡 AI Insights:</div>
+          ${parsed.insights.map(insight => `<div style="font-size:12px; color:var(--text2); margin-bottom:4px;">• ${insight}</div>`).join('')}
+        </div>
+      ` : ''}
+    `;
+    
+    toast(`Backlog updated: ${total} items extracted from ${recentSessions.length} sessions`, 'success');
+    
+  } catch (error) {
+    console.error('AI analysis error:', error);
+    statusDiv.innerHTML = `<span style="color:var(--red)">❌ Analysis failed: ${error.message}</span>`;
+    toast('AI analysis failed — check console', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 Analyze & Update Backlog';
+  }
+}
+
+async function parseSessionTest() {
+  const testSessionNum = parseInt(document.getElementById('testSessionNum').value);
+  const resultDiv = document.getElementById('testParseResult');
+  
+  if (!testSessionNum) {
+    resultDiv.innerHTML = '<span style="color:var(--red)">Enter a session number</span>';
+    return;
+  }
+  
+  const session = CODEX.sessions.find(s => s.num === testSessionNum);
+  
+  if (!session) {
+    resultDiv.innerHTML = `<span style="color:var(--red)">Session ${testSessionNum} not found</span>`;
+    return;
+  }
+  
+  if (!session.content || session.content.length < 50) {
+    resultDiv.innerHTML = `<span style="color:var(--red)">Session ${testSessionNum} has no content to parse</span>`;
+    return;
+  }
+  
+  resultDiv.innerHTML = '<span style="color:var(--blue)">⏳ Parsing...</span>';
+  
+  const extracted = await parseSessionWithGemini(session);
+  
+  resultDiv.innerHTML = `
+    <div style="color:var(--green); font-weight:600; margin-bottom:12px;">
+      ✅ Test Parse Complete
+    </div>
+    <pre style="background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:16px; overflow:auto; max-height:400px; font-size:12px; color:var(--text);">${JSON.stringify(extracted, null, 2)}</pre>
+  `;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SEED DATA (Sessions 1-27 from Codex Archaeology)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const SEED_SESSIONS = [
+  // Will be populated from codex-parser output
+  // For now, minimal stubs for testing
+  {num: 1, meta: {date: "2026-03-19", title: "Project DNA & Full Scope Drop"}, content: "Session 1 content..."},
+  {num: 27, meta: {date: "2026-03-25", title: "Vault Firestore Integration"}, content: "Session 27 content..."}
+];
+
+const SEED_BLOCKERS = [
+  {
+    id: "stripe-integration",
+    title: "Stripe Integration — Payment Links + .plan Firestore write",
+    severity: "critical",
+    status: "open",
+    sessionsOpen: 14,
+    firstMentioned: 6,
+    assignedTo: null
+  }
+];
+
+const SEED_DIRECTIVES = [
+  {session: 5, text: '"Never lose a job" — soft delete only in CRM', binding: true},
+  {session: 7, text: 'nbdApplyTheme() is single point of theme write', binding: true},
+  {session: 13, text: 'Worker URL: nbd-ai-proxy.jonathandeal459.workers.dev (gemini-2.5-flash only)', binding: true}
+];
+
+const SEED_DECISIONS = [
+  {session: 7, decision: 'nbdApplyTheme() is single source of truth for theme state', rationale: 'Unified theme system across all pages', binding: true}
+];
+
+
+// ── CSP-safe data-v-action input delegate ──
+// Strict CSP at firebase.json:44 blocks inline `oninput=` attributes.
+// The 2 search inputs use `data-v-action` instead and dispatch here.
+(function () {
+  if (window._NBD_V_INPUT_DELEGATE_BOUND) return;
+  window._NBD_V_INPUT_DELEGATE_BOUND = true;
+  document.addEventListener('input', function (ev) {
+    const t = ev.target && ev.target.closest && ev.target.closest('[data-v-action]');
+    if (!t) return;
+    const action = t.dataset.vAction;
+    const pass = t.dataset.vPass;
+    const arg = (pass === 'value') ? t.value : undefined;
+    const fn = window[action];
+    if (typeof fn !== 'function') { console.warn('[vault] no dispatch for', action); return; }
+    try { arg !== undefined ? fn(arg) : fn(); }
+    catch (e) { console.error('[vault] dispatch ' + action + ' failed:', e); }
+  });
+})();
