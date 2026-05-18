@@ -88,14 +88,14 @@
     .letterhead-brand { display:flex; align-items:center; gap:14px; min-width:0; position:relative; }
     /* The letterhead "brand" cell carries the full real logo (which is
        a horizontal banner — wordmark + roof + Home Solutions + script
-       tagline). Sized wide-rectangular so the wordmark stays legible at
-       header sizes. The image bytes ship as an inline data URI via
-       nbd-logo-asset.js (the source of truth lives at
-       docs/assets/images/nbd-logo.png). object-fit:contain keeps the
-       aspect ratio steady; no chrome around the image so the brand
-       stands on its own. */
+       tagline). The source image has navy text on white background;
+       on the navy gradient header that gives a navy-on-navy contrast
+       problem. White card + padding around the image gives the brand
+       breathing room and makes the wordmark legible against any
+       header treatment. */
     .letterhead-logo-img { display:block; width:280px; height:88px;
-      object-fit:contain; object-position:left center; flex-shrink:0; }
+      object-fit:contain; object-position:left center; flex-shrink:0;
+      background:#fff; border-radius:8px; padding:6px 10px; box-sizing:border-box; }
     .letterhead-name { font-family:'Helvetica Neue',Arial,sans-serif; font-size:22px; font-weight:800;
       color:#fff; letter-spacing:.04em; text-transform:uppercase; line-height:1.1; }
     .letterhead-tagline { font-family:Georgia,serif; font-size:12px; color:${A}; font-style:italic; margin-top:4px; }
@@ -763,7 +763,7 @@
       <div class="intro-hero">
         <!-- Real NBD logo (data URI from nbd-logo-asset.js). <img> not
              <object> — iframe CSP blocks <object>. -->
-        <img class="intro-hero-logo" src="${LOGO_URL}" alt="${C.name}" style="display:block;width:320px;max-width:90%;height:auto;margin:0 auto 14px;"/>
+        <img class="intro-hero-logo" src="${LOGO_URL}" alt="${C.name}" style="display:block;width:320px;max-width:90%;height:auto;margin:0 auto 14px;background:#fff;border-radius:10px;padding:10px 16px;box-sizing:border-box;"/>
         <h1>${C.name}</h1>
         <div class="tagline">No Big Deal — We've Got You Covered</div>
         <p style="margin-top:16px;font-size:14px;opacity:0.9;max-width:500px;margin-left:auto;margin-right:auto;">
