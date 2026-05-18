@@ -234,7 +234,7 @@ function _nbdUpdateLabels(t) {
 }
 
 /* ── PICKER MODAL ─────────────────────────────────────────────────── */
-function nbdPickerOpen()  { document.getElementById('nbd-picker-modal').classList.add('open'); nbdRenderThemes(); nbdRenderFonts(); }
+function nbdPickerOpen()  { document.getElementById('nbd-picker-modal').classList.add('open'); nbdRenderCats(); nbdRenderThemes(); nbdRenderFonts(); }
 function nbdPickerClose() { document.getElementById('nbd-picker-modal').classList.remove('open'); }
 
 // Add modal click handler after DOM loads
@@ -313,6 +313,10 @@ function nbdRenderCats() {
   if (TE) {
     // ThemeEngine categories
     const teCats = [{key:'all',label:'All',icon:''},...TE.getCategories()];
+    // Self-heal: if the active cat isn't in TE's list (e.g. left over
+    // from the legacy fallback that ran before TE loaded), snap back
+    // to 'all' so the grid actually shows themes.
+    if (!teCats.some(c => c.key === _nbd_activeCat)) _nbd_activeCat = 'all';
     el.innerHTML = teCats.map(c => `<button class="npm-cat${_nbd_activeCat===c.key?' on':''}" data-mp-action="setCat" data-mp-id="${c.key}">${c.icon?c.icon+' ':''}${c.label}</button>`).join('');
   } else {
     const cats = ['all','standard','heroes','gaming','os','material','ambient','abstract','tactical','nature','music','region','seasonal','culture','custom'];
