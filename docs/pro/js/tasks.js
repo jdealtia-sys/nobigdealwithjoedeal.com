@@ -150,7 +150,7 @@ function renderTodayTasks() {
   });
   if(!items.length){el.innerHTML='<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg></div><div class="empty-title">All Caught Up</div><div class="empty-sub">No tasks due today. Nice work.</div></div>';return;}
   items.sort((a,b)=>(b.isOverdue-a.isOverdue)||(a.due-b.due));
-  el.innerHTML=items.slice(0,8).map(({task,lead,leadName,isOverdue})=>`<div class="today-task-item"><input type="checkbox" class="today-task-cb" ${task.done?'checked':''} onchange="toggleTodayTask('${_escTask(lead.id)}','${_escTask(task.id)}',this.checked)"><span class="today-task-text ${task.done?'done':''}">${_escTask(task.text)}</span>${isOverdue?'<span class="today-task-overdue">OVERDUE</span>':''}<span class="today-task-lead" onclick="openTaskModal('${_escTask(lead.id)}',null)">${_escTask(leadName.split(' ')[0])}</span></div>`).join('')+(items.length>8?`<div style="text-align:center;padding:8px;font-size:11px;color:var(--m);">+${items.length-8} more — <span style="color:var(--orange);cursor:pointer;" onclick="goTo('crm')">view in CRM</span></div>`:'');
+  el.innerHTML=items.slice(0,8).map(({task,lead,leadName,isOverdue})=>`<div class="today-task-item"><input type="checkbox" class="today-task-cb" ${task.done?'checked':''} data-tk-action="toggleToday" data-tk-lead="${_escTask(lead.id)}" data-tk-id="${_escTask(task.id)}"><span class="today-task-text ${task.done?'done':''}">${_escTask(task.text)}</span>${isOverdue?'<span class="today-task-overdue">OVERDUE</span>':''}<span class="today-task-lead" data-tk-action="openModal" data-tk-id="${_escTask(lead.id)}">${_escTask(leadName.split(' ')[0])}</span></div>`).join('')+(items.length>8?`<div style="text-align:center;padding:8px;font-size:11px;color:var(--m);">+${items.length-8} more — <span style="color:var(--orange);cursor:pointer;" data-tk-action="goToCrm">view in CRM</span></div>`:'');
 }
 async function toggleTodayTask(leadId,taskId,done){const t=(window._taskCache[leadId]||[]).find(t=>t.id===taskId);if(t)t.done=done;await _toggleTask(leadId,taskId,done);renderTodayTasks();renderLeads(window._leads,window._filteredLeads);}
 async function openTaskModal(leadId,event){
@@ -174,7 +174,7 @@ function renderTaskList(tasks){
   el.innerHTML=[...undone,...tasks.filter(t=>t.done)].map(t=>{
     const due=t.dueDate?new Date(t.dueDate+'T23:59:59'):null;
     const ov=due&&due<now&&!t.done;
-    return `<div class="task-item ${t.done?'done':''} ${ov?'overdue':''}" id="titem-${_escTask(t.id)}"><input type="checkbox" class="task-cb" ${t.done?'checked':''} onchange="checkTask('${_escTask(t.id)}',this.checked)"><span class="task-text">${_escTask(t.text)}</span>${t.dueDate?`<span class="task-due ${ov?'overdue':''}">${_taskDueLabel(t.dueDate)}</span>`:''}<button class="task-del" onclick="removeTask('${_escTask(t.id)}')" title="Delete">×</button></div>`;
+    return `<div class="task-item ${t.done?'done':''} ${ov?'overdue':''}" id="titem-${_escTask(t.id)}"><input type="checkbox" class="task-cb" ${t.done?'checked':''} data-tk-action="checkTask" data-tk-id="${_escTask(t.id)}"><span class="task-text">${_escTask(t.text)}</span>${t.dueDate?`<span class="task-due ${ov?'overdue':''}">${_taskDueLabel(t.dueDate)}</span>`:''}<button class="task-del" data-tk-action="removeTask" data-tk-id="${_escTask(t.id)}" title="Delete">×</button></div>`;
   }).join('');
 }
 async function addTask(){const inp=document.getElementById('taskInput'),due=document.getElementById('taskDue'),text=inp.value.trim();if(!text||!_taskModalLeadId)return;inp.value='';await _saveTask(_taskModalLeadId,text,due.value||'');renderTaskList(await _loadTasks(_taskModalLeadId));}
@@ -197,3 +197,6 @@ window.addTask = addTask;
 window.checkTask = checkTask;
 window.removeTask = removeTask;
 window.createNotification = createNotification;
+
+
+(function(){if(window._NBD_TK_DELEGATE)return;window._NBD_TK_DELEGATE=true;function dispatch(ev){var t=ev.target.closest&&ev.target.closest('[data-tk-action]');if(!t)return;var a=t.dataset.tkAction;var id=t.dataset.tkId;var leadId=t.dataset.tkLead;try{if(a==='toggleToday'&&typeof toggleTodayTask==='function')toggleTodayTask(leadId,id,ev.target.checked);else if(a==='openModal'&&typeof openTaskModal==='function')openTaskModal(id,null);else if(a==='goToCrm'&&typeof goTo==='function')goTo('crm');else if(a==='checkTask'&&typeof checkTask==='function')checkTask(id,ev.target.checked);else if(a==='removeTask'&&typeof removeTask==='function')removeTask(id);}catch(e){console.error('[tasks]',e);}}document.addEventListener('click',dispatch);document.addEventListener('change',dispatch);})();

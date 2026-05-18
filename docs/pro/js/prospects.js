@@ -579,8 +579,8 @@
           You have <b>${n}</b> prospect${n===1?'':'s'} older than 60 days. Want to review and archive the dead ones?
         </span>
         <div class="prosp-stale-actions">
-          <button type="button" class="prosp-stale-btn primary" onclick="window.Prospects.reviewStale()">Review</button>
-          <button type="button" class="prosp-stale-btn" onclick="window.Prospects.dismissStale()">Not now</button>
+          <button type="button" class="prosp-stale-btn primary" data-pr-action="reviewStale">Review</button>
+          <button type="button" class="prosp-stale-btn" data-pr-action="dismissStale">Not now</button>
         </div>
       </div>
     `;
@@ -654,3 +654,6 @@
 
   window.Prospects = Prospects;
 })();
+
+
+(function(){if(window._NBD_PR_DELEGATE)return;window._NBD_PR_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-pr-action]');if(!t)return;var a=t.dataset.prAction;var P=window.Prospects;if(P&&typeof P[a]==='function'){try{P[a]();}catch(e){console.error('[prospects]',e);}}});})();

@@ -274,7 +274,7 @@
     modal.innerHTML = `
       <div class="d2d-modal-hdr">
         <div class="d2d-modal-title">Knock #${attemptNum}/${MAX_ATTEMPTS}${!state.isOnline ? ' <span style="color:var(--gold)">⚡ Offline</span>' : ''}</div>
-        <button class="d2d-modal-close" onclick="window.D2D.closeQuickKnock()">×</button>
+        <button class="d2d-modal-close" data-d2d-action="closeQuickKnock">×</button>
       </div>
       <div class="d2d-modal-body">
         <div class="d2d-field">
@@ -286,7 +286,7 @@
         <div class="d2d-dispo-grid">
           ${DISPO_ORDER.map(key => {
             const d = DISPOSITIONS[key];
-            return `<button class="d2d-dispo-btn" data-dispo="${key}" onclick="window.D2D.selectDispo('${key}',this)" style="--dc:${d.color};">
+            return `<button class="d2d-dispo-btn" data-dispo="${key}" data-d2d-action="selectDispo" data-d2d-id="${key}" style="--dc:${d.color};">
               <span class="d2d-dispo-icon">${d.icon}</span>
               <span class="d2d-dispo-label">${d.label}</span>
             </button>`;
@@ -333,15 +333,15 @@
               <textarea id="d2d-qk-notes" class="d2d-textarea" placeholder="Add any notes..."></textarea>
             </div>
             <div class="d2d-media-btns">
-              <button class="d2d-action-btn" style="flex:1;background:var(--orange);" onclick="window.D2D.capturePhoto()">📷 Photo</button>
-              <button class="d2d-action-btn" style="flex:1;background:var(--blue);" id="d2d-voice-btn" onclick="window.D2D.startVoice()">🎙️ Voice Memo</button>
+              <button class="d2d-action-btn" style="flex:1;background:var(--orange);" data-d2d-action="capturePhoto">📷 Photo</button>
+              <button class="d2d-action-btn" style="flex:1;background:var(--blue);" id="d2d-voice-btn" data-d2d-action="startVoice">🎙️ Voice Memo</button>
             </div>
             <div id="d2d-photo-preview" class="d2d-photo-grid"></div>
             <div id="d2d-voice-playback"></div>
           </div>
         </details>
 
-        <button id="d2d-qk-save" class="d2d-save-btn" onclick="window.D2D.submitKnock()" disabled>
+        <button id="d2d-qk-save" class="d2d-save-btn" data-d2d-action="submitKnock" disabled>
           Select Disposition
         </button>
       </div>
@@ -511,14 +511,14 @@
         <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:6px;">Hot Lead Detected</div>
         <div style="font-size:13px;color:var(--m);margin-bottom:20px;">"${esc(dispoLabel)}" — convert this knock into a CRM lead so it shows up in your pipeline?</div>
         <div style="display:flex;gap:10px;">
-          <button style="flex:1;padding:12px;border:none;border-radius:8px;background:#2ECC8A;color:white;font-weight:700;font-size:14px;cursor:pointer;" onclick="window.D2D.convertToLead('${knockId}');document.getElementById('d2d-convert-prompt')?.remove();">
+          <button style="flex:1;padding:12px;border:none;border-radius:8px;background:#2ECC8A;color:white;font-weight:700;font-size:14px;cursor:pointer;" data-d2d-action="convertToLeadAndDismissPrompt" data-d2d-id="${knockId}">
             ✅ Convert Now
           </button>
-          <button style="flex:1;padding:12px;border:none;border-radius:8px;background:var(--s2);color:var(--t);font-weight:600;font-size:14px;cursor:pointer;border:1px solid var(--br);" onclick="window.D2D.convertToLeadWithEdit('${knockId}');document.getElementById('d2d-convert-prompt')?.remove();">
+          <button style="flex:1;padding:12px;border:none;border-radius:8px;background:var(--s2);color:var(--t);font-weight:600;font-size:14px;cursor:pointer;border:1px solid var(--br);" data-d2d-action="convertToLeadWithEditAndDismissPrompt" data-d2d-id="${knockId}">
             ✏️ Edit First
           </button>
         </div>
-        <button style="margin-top:12px;background:none;border:none;color:var(--m);font-size:12px;cursor:pointer;text-decoration:underline;" onclick="document.getElementById('d2d-convert-prompt')?.remove();">Skip for now</button>
+        <button style="margin-top:12px;background:none;border:none;color:var(--m);font-size:12px;cursor:pointer;text-decoration:underline;" data-d2d-action="dismissConvertPrompt">Skip for now</button>
       </div>
     `;
 
@@ -565,7 +565,7 @@
     modal.innerHTML = `
       <div class="d2d-modal-hdr">
         <div class="d2d-modal-title">${esc(knock.address)}</div>
-        <button class="d2d-modal-close" onclick="window.D2D.closeKnockDetail()">×</button>
+        <button class="d2d-modal-close" data-d2d-action="closeKnockDetail">×</button>
       </div>
       <div class="d2d-modal-body">
         <div class="d2d-detail-badge" style="background:${dispo?.color};">
@@ -595,7 +595,7 @@
 
         ${knock.followUpDate ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Follow-up</label><div class="d2d-detail-value">${state.formatDate(knock.followUpDate)}</div></div>` : ''}
 
-        ${knock.photoUrls?.length ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Photos (${knock.photoUrls.length})</label><div class="d2d-photo-grid">${knock.photoUrls.map(url => `<img src="${esc(url)}" class="d2d-photo-thumb" loading="lazy" onclick="window.open('${esc(url)}','_blank')" onerror="this.parentNode.replaceChild(Object.assign(document.createElement('div'),{className:'d2d-photo-broken',textContent:'📷 Photo unavailable',style:'background:var(--s2);border:1px dashed var(--br);color:var(--m);padding:16px 12px;border-radius:6px;font-size:11px;text-align:center;'}),this);">`).join('')}</div></div>` : ''}
+        ${knock.photoUrls?.length ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Photos (${knock.photoUrls.length})</label><div class="d2d-photo-grid">${knock.photoUrls.map(url => `<img src="${esc(url)}" class="d2d-photo-thumb" loading="lazy" data-d2d-action="openImage" data-d2d-id="${esc(url)}" data-d2d-on-error="brokenPhoto">`).join('')}</div></div>` : ''}
 
         ${knock.voiceUrl ? `<div class="d2d-detail-section"><label class="d2d-detail-label">Voice Memo</label><audio controls src="${esc(knock.voiceUrl)}" class="d2d-audio-player"></audio></div>` : ''}
 
@@ -614,13 +614,13 @@
 
         <div class="d2d-detail-actions">
           ${!knock.convertedToLead ? `
-            <button class="d2d-action-btn" style="background:#2ECC8A;" onclick="window.D2D.convertToLead('${safeId}')" aria-label="Convert knock to lead">✓ Convert to Lead</button>
+            <button class="d2d-action-btn" style="background:#2ECC8A;" data-d2d-action="convertToLead" data-d2d-id="${safeId}" aria-label="Convert knock to lead">✓ Convert to Lead</button>
           ` : `
             <button class="d2d-action-btn" disabled style="background:var(--br);color:var(--m);" aria-label="Already converted to lead">✓ Lead Created</button>
           `}
-          <button class="d2d-action-btn" style="background:var(--orange);" onclick="window.D2D.openQuickKnock({address:'${esc(knock.address)}',lat:${Number(knock.lat) || 'null'},lng:${Number(knock.lng) || 'null'}})" aria-label="Re-knock this address">↻ Re-Knock</button>
-          ${knock.phone ? `<button class="d2d-action-btn" style="background:var(--blue);" onclick="window.D2D.openSMSChooser('${safeId}')" aria-label="Send SMS follow-up">📱 Follow Up</button>` : ''}
-          <button class="d2d-action-btn" style="background:#E05252;" onclick="window.D2D.deleteKnock('${safeId}')" aria-label="Delete this knock">🗑️ Delete</button>
+          <button class="d2d-action-btn" style="background:var(--orange);" data-d2d-action="openQuickKnock" data-d2d-args='{"address":"${esc(knock.address)}","lat":${Number(knock.lat) || 'null'},"lng":${Number(knock.lng) || 'null'}}' aria-label="Re-knock this address">↻ Re-Knock</button>
+          ${knock.phone ? `<button class="d2d-action-btn" style="background:var(--blue);" data-d2d-action="openSMSChooser" data-d2d-id="${safeId}" aria-label="Send SMS follow-up">📱 Follow Up</button>` : ''}
+          <button class="d2d-action-btn" style="background:#E05252;" data-d2d-action="deleteKnock" data-d2d-id="${safeId}" aria-label="Delete this knock">🗑️ Delete</button>
         </div>
       </div>
     `;
@@ -678,7 +678,7 @@
     let revenuePerDoorText = '$' + revenue.revenuePerDoor;
     if (revenue.totalClosed === 0) revenuePerDoorText = '~$12.50 (industry avg)';
 
-    const tabBtn = (id, label, icon) => `<button onclick="window.D2D.setTab('${id}')" style="flex:1;padding:12px 8px;border:none;border-bottom:3px solid ${currentTab === id ? 'var(--orange)' : 'transparent'};background:none;color:${currentTab === id ? 'var(--t)' : 'var(--m)'};cursor:pointer;font-size:13px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;min-height:44px;-webkit-tap-highlight-color:transparent;">${icon} ${label}</button>`;
+    const tabBtn = (id, label, icon) => `<button data-d2d-action="setTab" data-d2d-id="${id}" style="flex:1;padding:12px 8px;border:none;border-bottom:3px solid ${currentTab === id ? 'var(--orange)' : 'transparent'};background:none;color:${currentTab === id ? 'var(--t)' : 'var(--m)'};cursor:pointer;font-size:13px;font-weight:700;font-family:'Barlow Condensed',sans-serif;letter-spacing:.03em;min-height:44px;-webkit-tap-highlight-color:transparent;">${icon} ${label}</button>`;
 
     let html = `
       <div style="padding:12px 14px;">
@@ -707,11 +707,11 @@
 
         <!-- Action Bar -->
         <div class="d2d-action-bar">
-          <button onclick="window.D2D.openQuickKnock()" class="d2d-big-btn">🚪 Knock</button>
-          <button onclick="window.D2D.toggleHeatMap()" class="d2d-big-btn d2d-big-btn-sec">${state.showHeat ? '🔥' : '❄️'} Heat</button>
-          <button onclick="window._d2dHailLayer ? window.D2D.hideHail() : window.D2D.showHail({ radiusMi: 5, daysBack: 365 })" class="d2d-big-btn d2d-big-btn-sec" title="Recent hail reports">⛈ Hail</button>
-          <button onclick="window.D2D.centerOnMe()" class="d2d-big-btn d2d-big-btn-sec">📍 Me</button>
-          <button onclick="window.D2D.exportCSV()" class="d2d-big-btn d2d-big-btn-sec">📥 CSV</button>
+          <button data-d2d-action="openQuickKnock" class="d2d-big-btn">🚪 Knock</button>
+          <button data-d2d-action="toggleHeatMap" class="d2d-big-btn d2d-big-btn-sec">${state.showHeat ? '🔥' : '❄️'} Heat</button>
+          <button data-d2d-action="toggleHail" class="d2d-big-btn d2d-big-btn-sec" title="Recent hail reports">⛈ Hail</button>
+          <button data-d2d-action="centerOnMe" class="d2d-big-btn d2d-big-btn-sec">📍 Me</button>
+          <button data-d2d-action="exportCSV" class="d2d-big-btn d2d-big-btn-sec">📥 CSV</button>
         </div>
 
         <!-- Tab Bar -->
@@ -731,22 +731,22 @@
           <div class="d2d-followups-banner">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
               <div class="d2d-followups-title">📋 ${metrics.followUpsDue.length} Follow-up${metrics.followUpsDue.length !== 1 ? 's' : ''} Due</div>
-              <button style="background:none;border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;" onclick="this.closest('.d2d-followups-banner').style.display='none'">Dismiss</button>
+              <button style="background:none;border:1px solid var(--br);color:var(--m);padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer;" data-d2d-action="dismissFollowupsBanner">Dismiss</button>
             </div>
             <div class="d2d-followups-list" style="max-height:300px;overflow-y:auto;">
               ${metrics.followUpsDue.map(k => {
                 const dispo = DISPOSITIONS[k.disposition];
                 const fDate = k.followUpDate ? new Date(k.followUpDate instanceof Date ? k.followUpDate : (k.followUpDate.seconds ? k.followUpDate.seconds * 1000 : k.followUpDate)).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
                 return `
-                <div class="d2d-followup-item" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s);border:1px solid var(--br);border-radius:6px;margin-bottom:4px;cursor:pointer;" onclick="window.D2D.openKnockDetail('${esc(k.id)}')">
+                <div class="d2d-followup-item" style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--s);border:1px solid var(--br);border-radius:6px;margin-bottom:4px;cursor:pointer;" data-d2d-action="openKnockDetail" data-d2d-id="${esc(k.id)}">
                   <div style="font-size:18px;flex-shrink:0;">${dispo?.icon || '📋'}</div>
                   <div style="flex:1;min-width:0;">
                     <div style="font-size:12px;font-weight:600;color:var(--t);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(k.address?.substring(0, 50) || 'No address')}</div>
                     <div style="font-size:10px;color:var(--m);margin-top:2px;">${dispo?.label || ''} ${fDate ? '· Due ' + fDate : ''} ${k.homeowner ? '· ' + esc(k.homeowner) : ''}</div>
                   </div>
                   <div style="display:flex;gap:4px;flex-shrink:0;">
-                    ${k.phone ? `<button style="background:var(--blue);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;" onclick="event.stopPropagation();window.open('tel:'+encodeURIComponent('${esc(k.phone)}'))">📞</button>` : ''}
-                    <button style="background:var(--orange);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;" onclick="event.stopPropagation();window.D2D.openQuickKnock({address:'${esc(k.address || '')}',lat:${Number(k.lat) || 'null'},lng:${Number(k.lng) || 'null'}})">↻</button>
+                    ${k.phone ? `<button style="background:var(--blue);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;" data-d2d-action="callPhone" data-d2d-id="${esc(k.phone)}" data-d2d-stop="1">📞</button>` : ''}
+                    <button style="background:var(--orange);color:#fff;border:none;border-radius:4px;padding:4px 8px;font-size:10px;cursor:pointer;" data-d2d-action="openQuickKnock" data-d2d-args='{"address":"${esc(k.address || '')}","lat":${Number(k.lat) || 'null'},"lng":${Number(k.lng) || 'null'}}' data-d2d-stop="1">↻</button>
                   </div>
                 </div>`;
               }).join('')}
@@ -813,13 +813,13 @@
             ${DISPO_ORDER.filter(k => breakdown[k] > 0).map(key => {
               const d = DISPOSITIONS[key];
               const pct = filtered.length > 0 ? (breakdown[key] / filtered.length * 100) : 0;
-              return `<div style="flex:${pct};background:${d.color};" class="d2d-dispo-bar-segment" onclick="window.D2D.setDispoFilter('${key}')" title="${d.label}: ${breakdown[key]}">${breakdown[key]}</div>`;
+              return `<div style="flex:${pct};background:${d.color};" class="d2d-dispo-bar-segment" data-d2d-action="setDispoFilter" data-d2d-id="${key}" title="${d.label}: ${breakdown[key]}">${breakdown[key]}</div>`;
             }).join('')}
           </div>
           <div class="d2d-dispo-legend">
             ${DISPO_ORDER.filter(k => breakdown[k] > 0).slice(0, 6).map(key => {
               const d = DISPOSITIONS[key];
-              return `<span class="d2d-legend-item" onclick="window.D2D.setDispoFilter('${key}')"><span class="d2d-knock-dot" style="background:${d.color};"></span>${d.short}</span>`;
+              return `<span class="d2d-legend-item" data-d2d-action="setDispoFilter" data-d2d-id="${key}"><span class="d2d-knock-dot" style="background:${d.color};"></span>${d.short}</span>`;
             }).join('')}
           </div>
         </div>
@@ -828,7 +828,7 @@
         <div class="d2d-feed-header">
           <div class="d2d-date-pills">
             ${['today', 'week', 'month', 'all'].map(range => `
-              <button class="d2d-pill ${filterDateRange === range ? 'active' : ''}" onclick="window.D2D.setDateFilter('${range}')">
+              <button class="d2d-pill ${filterDateRange === range ? 'active' : ''}" data-d2d-action="setDateFilter" data-d2d-id="${range}">
                 ${range === 'today' ? 'Today' : range === 'week' ? 'Week' : range === 'month' ? 'Month' : 'All'}
               </button>
             `).join('')}
@@ -851,7 +851,7 @@
             const dispo = DISPOSITIONS[knock.disposition];
             const attempts = state.getAttemptCount(knock.address);
             return `
-              <div class="d2d-knock-card" onclick="window.D2D.openKnockDetail('${knock.id}')">
+              <div class="d2d-knock-card" data-d2d-action="openKnockDetail" data-d2d-id="${knock.id}">
                 <div class="d2d-knock-body">
                   <div>
                     <div class="d2d-knock-addr">${esc(knock.address)}</div>
@@ -873,9 +873,9 @@
                 </div>
                 ${knock.notes ? `<div style="font-size:12px;color:var(--m);margin-top:6px;padding-top:6px;border-top:1px solid var(--br);">${esc(knock.notes.substring(0, 80))}</div>` : ''}
                 ${!knock.convertedToLead && HOT_DISPOSITIONS.includes(knock.disposition) ? `
-                  <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--br);display:flex;gap:6px;" onclick="event.stopPropagation();">
-                    <button style="flex:1;padding:8px;border:none;border-radius:6px;background:#2ECC8A;color:white;font-size:12px;font-weight:700;cursor:pointer;" onclick="event.stopPropagation();window.D2D.convertToLead('${knock.id}')">✅ Convert to Lead</button>
-                    <button style="padding:8px 12px;border:none;border-radius:6px;background:var(--s2);color:var(--t);font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--br);" onclick="event.stopPropagation();window.D2D.convertToLeadWithEdit('${knock.id}')">✏️</button>
+                  <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--br);display:flex;gap:6px;" data-d2d-stop-self="1">
+                    <button style="flex:1;padding:8px;border:none;border-radius:6px;background:#2ECC8A;color:white;font-size:12px;font-weight:700;cursor:pointer;" data-d2d-action="convertToLead" data-d2d-id="${knock.id}" data-d2d-stop="1">✅ Convert to Lead</button>
+                    <button style="padding:8px 12px;border:none;border-radius:6px;background:var(--s2);color:var(--t);font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--br);" data-d2d-action="convertToLeadWithEdit" data-d2d-id="${knock.id}" data-d2d-stop="1">✏️</button>
                   </div>
                 ` : ''}
                 ${knock.convertedToLead ? `<div style="margin-top:6px;font-size:11px;color:#2ECC8A;font-weight:600;">✓ In CRM Pipeline</div>` : ''}
@@ -894,8 +894,8 @@
       html += `
         <div class="d2d-routes-section">
           <div class="d2d-route-actions">
-            <button class="d2d-action-btn" style="flex:1;background:var(--blue);" onclick="window.D2D.calcRoute()">🗺️ Calculate Walking Route</button>
-            ${route.length > 0 ? `<button class="d2d-action-btn" style="background:var(--s2);color:var(--t);border:1px solid var(--br);" onclick="window.D2D.clearRoute()">Clear</button>` : ''}
+            <button class="d2d-action-btn" style="flex:1;background:var(--blue);" data-d2d-action="calcRoute">🗺️ Calculate Walking Route</button>
+            ${route.length > 0 ? `<button class="d2d-action-btn" style="background:var(--s2);color:var(--t);border:1px solid var(--br);" data-d2d-action="clearRoute">Clear</button>` : ''}
           </div>
           ${route.length > 0 ? `
             <div class="d2d-section-title">Optimized Route (${route.length} stops)</div>
@@ -917,7 +917,7 @@
             ` : ''}
             <div class="d2d-route-list">
               ${route.map((p, i) => `
-                <div class="d2d-route-stop" onclick="window.D2D.openQuickKnock({address:'${esc(p.address)}',lat:${p.lat},lng:${p.lng}})">
+                <div class="d2d-route-stop" data-d2d-action="openQuickKnock" data-d2d-args='{"address":"${esc(p.address)}","lat":${p.lat},"lng":${p.lng}}'>
                   <div class="d2d-route-num">${i + 1}</div>
                   <div class="d2d-route-addr">${esc(p.address)}</div>
                   <span class="d2d-route-icon" style="color:${DISPOSITIONS[p.disposition]?.color || 'var(--m)'};">${DISPOSITIONS[p.disposition]?.icon || ''}</span>
@@ -942,7 +942,7 @@
                 <div class="d2d-street-doors">
                   ${doors.slice(0, 30).map(d => {
                     const col = d.knocked ? (DISPOSITIONS[d.disposition]?.color || '#6B7280') : 'var(--br)';
-                    return `<div class="d2d-door-chip" style="background:${col};" title="${d.address}" ${d.knockId ? `onclick="window.D2D.openKnockDetail('${d.knockId}')"` : `onclick="window.D2D.openQuickKnock({address:'${esc(d.address)}'})"` }>${d.houseNum || ''}</div>`;
+                    return `<div class="d2d-door-chip" style="background:${col};" title="${d.address}" ${d.knockId ? `data-d2d-action="openKnockDetail" data-d2d-id="${d.knockId}"` : `data-d2d-action="openQuickKnock" data-d2d-args='{"address":"${esc(d.address)}"}'` }>${d.houseNum || ''}</div>`;
                   }).join('')}
                 </div>
               </div>
@@ -1062,7 +1062,7 @@
     }
 
     html += '</div>';
-    html += `<button class="d2d-fab" onclick="window.D2D.openQuickKnock()" aria-label="Quick Knock">🚪</button>`;
+    html += `<button class="d2d-fab" data-d2d-action="openQuickKnock" aria-label="Quick Knock">🚪</button>`;
     container.innerHTML = html;
   }
 
@@ -1085,5 +1085,88 @@
   state.capturePhoto = capturePhoto;
   state.startVoiceRecording = startVoiceRecording;
   state.stopVoiceRecording = stopVoiceRecording;
+
+  // ============================================================================
+  // CSP-SAFE EVENT DELEGATION
+  // ============================================================================
+  // Prod CSP `script-src-attr 'none'` blocks every inline onclick=, even when
+  // injected via innerHTML. Instead, every UI element above carries
+  // `data-d2d-action="methodName"` (plus optional `data-d2d-id`/`data-d2d-args`/
+  // `data-d2d-stop`/`data-d2d-stop-self`). One document-level click listener
+  // dispatches to window.D2D[action] — addEventListener is NOT blocked by CSP.
+
+  // Helper wrappers for chained/composed actions that don't have a single
+  // function counterpart on window.D2D.
+  state.convertToLeadAndDismissPrompt = function (knockId) {
+    if (window.D2D && window.D2D.convertToLead) window.D2D.convertToLead(knockId);
+    const p = document.getElementById('d2d-convert-prompt');
+    if (p) p.remove();
+  };
+  state.convertToLeadWithEditAndDismissPrompt = function (knockId) {
+    if (window.D2D && window.D2D.convertToLeadWithEdit) window.D2D.convertToLeadWithEdit(knockId);
+    const p = document.getElementById('d2d-convert-prompt');
+    if (p) p.remove();
+  };
+  state.dismissConvertPrompt = function () {
+    const p = document.getElementById('d2d-convert-prompt');
+    if (p) p.remove();
+  };
+  state.dismissFollowupsBanner = function (target) {
+    const banner = target && target.closest && target.closest('.d2d-followups-banner');
+    if (banner) banner.style.display = 'none';
+  };
+  state.callPhone = function (phone) {
+    if (phone) window.open('tel:' + encodeURIComponent(phone));
+  };
+  state.toggleHail = function () {
+    if (window._d2dHailLayer) {
+      if (window.D2D && window.D2D.hideHail) window.D2D.hideHail();
+    } else {
+      if (window.D2D && window.D2D.showHail) window.D2D.showHail({ radiusMi: 5, daysBack: 365 });
+    }
+  };
+  state.openImage = function (url) { if (url) window.open(url, '_blank'); };
+
+  // One delegated listener; attached at document scope so it catches clicks
+  // inside any dynamically-appended modal/popover/list.
+  if (!window._D2D_DELEGATE_BOUND) {
+    window._D2D_DELEGATE_BOUND = true;
+    document.addEventListener('click', function (ev) {
+      const stopSelf = ev.target.closest && ev.target.closest('[data-d2d-stop-self="1"]');
+      if (stopSelf && ev.target === stopSelf) ev.stopPropagation();
+      const t = ev.target.closest && ev.target.closest('[data-d2d-action]');
+      if (!t) return;
+      if (t.dataset.d2dStop === '1') ev.stopPropagation();
+      const action = t.dataset.d2dAction;
+      const fn = window.D2D && window.D2D[action];
+      if (typeof fn !== 'function') {
+        console.warn('[d2d] no dispatch for', action);
+        return;
+      }
+      try {
+        if (t.dataset.d2dArgs) {
+          fn(JSON.parse(t.dataset.d2dArgs));
+        } else if (t.dataset.d2dId !== undefined) {
+          fn(t.dataset.d2dId, t);
+        } else {
+          fn(t);
+        }
+      } catch (e) {
+        console.error('[d2d] dispatch ' + action + ' failed:', e);
+      }
+    });
+    // Broken-image fallback (was inline onerror= on <img>, also CSP-killed).
+    document.addEventListener('error', function (ev) {
+      const img = ev.target;
+      if (!img || img.tagName !== 'IMG') return;
+      if (img.dataset.d2dOnError !== 'brokenPhoto') return;
+      const placeholder = Object.assign(document.createElement('div'), {
+        className: 'd2d-photo-broken',
+        textContent: '📷 Photo unavailable'
+      });
+      placeholder.style.cssText = 'background:var(--s2);border:1px dashed var(--br);color:var(--m);padding:16px 12px;border-radius:6px;font-size:11px;text-align:center;';
+      if (img.parentNode) img.parentNode.replaceChild(placeholder, img);
+    }, true); // capture phase to catch <img> error events
+  }
 
 })();

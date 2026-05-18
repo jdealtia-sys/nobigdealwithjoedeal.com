@@ -1010,7 +1010,7 @@ function initAllAutocomplete() {
           <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
           <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
         </div>
-        <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+        <button class="make-lead-btn" data-du-action="makeLeadFromSearch">＋ Make This a Lead</button>`;
       fetchPropertyIntel(r, 'propCardInner');
     }
   };
@@ -1808,7 +1808,7 @@ function dsBuildThemeGrid() {
   const grid = document.getElementById('ds-theme-grid');
   if (!grid) return;
   grid.innerHTML = DS_THEMES.map(t => `
-    <div onclick="dsPickTheme('${t.key}')" id="ds-tc-${t.key}" style="
+    <div data-du-action="dsPickTheme" data-du-id="${t.key}" id="ds-tc-${t.key}" style="
       cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;
       padding:10px 6px;border-radius:6px;border:2px solid ${t.key===dsSelectedTheme?'var(--orange)':'var(--br)'};
       background:${t.key===dsSelectedTheme?'color-mix(in srgb, var(--orange) 8%, transparent)':'var(--s2)'};
@@ -2011,7 +2011,7 @@ async function spyglassSearch() {
         <div class="pi-header"><span class="pi-title">🏠 Property Intel</span><span class="pi-county"></span></div>
         <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
       </div>
-      <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+      <button class="make-lead-btn" data-du-action="makeLeadFromSearch">＋ Make This a Lead</button>`;
     fetchPropertyIntel(data, 'propCardInner');
   }
   // Show sidebar if hidden
@@ -2103,7 +2103,7 @@ async function quickStormCheck() {
             <div class="pi-header"><span class="pi-title">🏠 Property Intel</span></div>
             <div class="pi-loading"><div class="pi-spinner"></div>Looking up county records...</div>
           </div>
-          <button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>`;
+          <button class="make-lead-btn" data-du-action="makeLeadFromSearch">＋ Make This a Lead</button>`;
         fetchPropertyIntel(r, 'propCardInner');
       }
     };
@@ -2126,4 +2126,26 @@ const _origInitMainMap = window.initMainMap;
   s.textContent = `.zone-tooltip{background:rgba(10,12,15,.85)!important;border:1px solid rgba(255,255,255,.1)!important;color:var(--t)!important;border-radius:4px!important;padding:2px 8px!important;font-size:11px!important;box-shadow:0 2px 8px rgba(0,0,0,.4)!important;}
   .zone-tooltip::before{display:none!important;}`;
   document.head.appendChild(s);
+})();
+
+
+// CSP-safe delegation for 2 data-du-action attrs (dashboard-ui residual).
+// (Other dashboard-ui buttons use the dashboard global action delegate via
+//  data-action="goTo" etc. — that delegate is in dashboard-actions.js.)
+(function () {
+  if (window._NBD_DU_DELEGATE_BOUND) return;
+  window._NBD_DU_DELEGATE_BOUND = true;
+  document.addEventListener('click', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-du-action]');
+    if (!t) return;
+    const action = t.dataset.duAction;
+    const id = t.dataset.duId;
+    try {
+      switch (action) {
+        case 'makeLeadFromSearch': if (typeof makeLeadFromSearch === 'function') makeLeadFromSearch(); break;
+        case 'dsPickTheme':        if (typeof dsPickTheme === 'function') dsPickTheme(id); break;
+        default: console.warn('[dashboard-ui] no dispatch for', action);
+      }
+    } catch (e) { console.error('[dashboard-ui] dispatch ' + action + ' failed:', e); }
+  });
 })();

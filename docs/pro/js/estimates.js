@@ -631,8 +631,8 @@ function buildReview() {
     <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-size:10px;color:var(--m);">Version v${d.version || 1}${d.revisedFrom ? ' · revised from prior estimate' : ''}</div>
       <div style="display:flex;gap:6px;">
-        <button type="button" class="btn btn-ghost" style="font-size:10px;padding:4px 10px;" onclick="createEstimateRevision()">↻ Create Revision</button>
-        <button type="button" class="btn btn-ghost" style="font-size:10px;padding:4px 10px;" onclick="toggleInternalView()">🔒 Internal View</button>
+        <button type="button" class="btn btn-ghost" style="font-size:10px;padding:4px 10px;" data-est-action="createEstimateRevision">↻ Create Revision</button>
+        <button type="button" class="btn btn-ghost" style="font-size:10px;padding:4px 10px;" data-est-action="toggleInternalView">🔒 Internal View</button>
       </div>
     </div>
     ${internalViewHtml}`;
@@ -1353,3 +1353,6 @@ window.createEstimateRevision = function createEstimateRevision() {
 window.collectInsuranceFields = collectInsuranceFields;
 window.calcDeposit            = calcDeposit;
 window.nextRevisionVersion    = nextRevisionVersion;
+
+
+(function(){if(window._NBD_EST_DELEGATE)return;window._NBD_EST_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-est-action]');if(!t)return;var a=t.dataset.estAction;try{if(a==='createNewEstimate'&&typeof createNewEstimate==='function')createNewEstimate();else if(a==='createEstimateRevision'&&typeof createEstimateRevision==='function')createEstimateRevision();else if(a.indexOf('toggle')===0){var fn=window[a];if(typeof fn==='function')fn();}}catch(e){console.error('[estimates]',e);}});})();

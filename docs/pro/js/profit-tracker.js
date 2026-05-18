@@ -221,7 +221,7 @@
           </div>
         </div>` : '<div style="color:var(--m,#9ca3af);font-size:12px;text-align:center;padding:12px;">Set a Job Value on this lead to see margin calculations</div>'}
 
-        <button onclick="window.ProfitTracker.save('${leadId}')"
+        <button data-pt-action="save" data-pt-id="${leadId}"
           style="width:100%;padding:10px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">
           Save Costs
         </button>
@@ -288,3 +288,6 @@
   };
 
 })();
+
+
+(function(){if(window._NBD_PT_DELEGATE)return;window._NBD_PT_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-pt-action]');if(!t)return;if(t.dataset.ptAction==='save'&&window.ProfitTracker&&window.ProfitTracker.save)window.ProfitTracker.save(t.dataset.ptId);});})();

@@ -591,7 +591,7 @@ function openLineTypePicker(lineId, latlng) {
       + 'padding:6px 10px;border-radius:5px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;'
       + 'font-size:11px;font-weight:700;letter-spacing:.03em;white-space:nowrap;'
       + 'transition:all .12s;min-height:32px;" '
-      + 'onclick="retypeLine(' + lineId + ',' + idx + ');drawMap.closePopup();" '
+      + 'data-mr-action="retypeLine" data-mr-id="' + lineId + '" data-mr-arg2="' + idx + '" '
       + 'onmouseenter="this.style.background=\'' + lt.color + '\';this.style.color=\'#fff\';" '
       + 'onmouseleave="this.style.background=\'' + lt.color + '20\';this.style.color=\'' + lt.color + '\';"'
       + '>' + lt.n + '</button>';
@@ -606,8 +606,8 @@ function openLineTypePicker(lineId, latlng) {
     + '<details style="margin-top:4px;"><summary style="font-size:10px;color:#888;cursor:pointer;user-select:none;">More types \u25bc</summary>'
     + '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;">' + extraBtns + '</div></details>'
     + '<div style="margin-top:8px;display:flex;gap:4px;">'
-    + '<button onclick="deleteLine(' + lineId + ');drawMap.closePopup();" style="flex:1;background:#E0525220;border:1px solid #E05252;color:#E05252;padding:5px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;">Delete</button>'
-    + '<button onclick="editLineLength(' + lineId + ');drawMap.closePopup();" style="flex:1;background:transparent;border:1px solid #888;color:#888;padding:5px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;">Edit Length</button>'
+    + '<button data-mr-action="deleteLine" data-mr-id="' + lineId + '" style="flex:1;background:#E0525220;border:1px solid #E05252;color:#E05252;padding:5px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;">Delete</button>'
+    + '<button data-mr-action="editLineLength" data-mr-id="' + lineId + '" style="flex:1;background:transparent;border:1px solid #888;color:#888;padding:5px;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;">Edit Length</button>'
     + '</div></div>';
 
   L.popup({ closeButton: true, className: 'nbd-line-picker-popup' })
@@ -1591,7 +1591,7 @@ function renderAccessoryPanel() {
     const isActive = accessoryMode === a.id;
     const count = counts[a.id] || 0;
     return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;">'
-      + '<button onclick="toggleAccessoryMode(\'' + a.id + '\')" style="background:' + (isActive ? a.color + '20' : 'transparent') + ';border:1px solid ' + (isActive ? a.color : 'var(--br,#2a2f35)') + ';color:' + (isActive ? a.color : 'var(--m,#888)') + ';padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;flex:1;text-align:left;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:.03em;transition:all .15s;">'
+      + '<button data-mr-action="toggleAccessoryMode" data-mr-id="' + a.id + '" style="background:' + (isActive ? a.color + '20' : 'transparent') + ';border:1px solid ' + (isActive ? a.color : 'var(--br,#2a2f35)') + ';color:' + (isActive ? a.color : 'var(--m,#888)') + ';padding:5px 10px;border-radius:5px;cursor:pointer;font-size:11px;font-weight:600;flex:1;text-align:left;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:.03em;transition:all .15s;">'
       + a.icon + ' ' + a.label + '</button>'
       + '<span style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:800;color:' + (count > 0 ? 'var(--t,#fff)' : 'var(--m,#888)') + ';min-width:24px;text-align:center;">' + count + '</span>'
       + '</div>';
@@ -2750,10 +2750,10 @@ function startPresentation() {
     <div class="present-bar">
       <div class="present-title" id="presentTitle">Your Roof Measurement</div>
       <div class="present-controls">
-        <button class="present-btn" onclick="presentPrev()">← Back</button>
+        <button class="present-btn" data-mr-action="presentPrev">← Back</button>
         <span class="present-step" id="presentStepLabel">1 / 5</span>
-        <button class="present-btn present-btn-next" onclick="presentNext()">Next →</button>
-        <button class="present-btn present-btn-close" onclick="endPresentation()">✕</button>
+        <button class="present-btn present-btn-next" data-mr-action="presentNext">Next →</button>
+        <button class="present-btn present-btn-close" data-mr-action="endPresentation">✕</button>
       </div>
     </div>
     <div class="present-info" id="presentInfo"></div>
@@ -2961,11 +2961,11 @@ function renderStructureList() {
     return;
   }
   el.innerHTML = structures.map((s, i) => `
-    <div class="structure-row ${i===activeStructureIdx?'structure-active':''}" onclick="switchStructure(${i})">
+    <div class="structure-row ${i===activeStructureIdx?'structure-active':''}" data-mr-action="switchStructure" data-mr-id="${i}">
       <span class="structure-icon">${i===0?'🏠':i===1?'🏗️':'🏚️'}</span>
       <span class="structure-name">${s.name}</span>
-      <button class="structure-rename" onclick="event.stopPropagation();renameStructure(${i})" title="Rename">✏️</button>
-      ${i>0?`<button class="structure-del" onclick="event.stopPropagation();removeStructure(${i})" title="Remove">✕</button>`:''}
+      <button class="structure-rename" data-mr-action="renameStructure" data-mr-id="${i}" data-mr-stop="1" title="Rename">✏️</button>
+      ${i>0?`<button class="structure-del" data-mr-action="removeStructure" data-mr-id="${i}" data-mr-stop="1" title="Remove">✕</button>`:''}
     </div>
   `).join('');
 }
@@ -3239,11 +3239,11 @@ function renderComparison() {
   // Supplement letter button (only show if differences > 5%)
   const bigDiffs = comparisons.filter(c => c.theirs !== undefined && c.ours > 0 && Math.abs((c.ours - c.theirs) / c.theirs * 100) > 5);
   if (bigDiffs.length > 0) {
-    el.innerHTML += `<button class="btn btn-orange" style="width:100%;margin-top:10px;justify-content:center;" onclick="generateSupplementFromComparison()">📝 Generate Supplement Letter</button>`;
+    el.innerHTML += `<button class="btn btn-orange" style="width:100%;margin-top:10px;justify-content:center;" data-mr-action="generateSupplementFromComparison">📝 Generate Supplement Letter</button>`;
   }
 
   // Manual entry link
-  el.innerHTML += `<button class="btn btn-ghost" style="width:100%;margin-top:6px;justify-content:center;font-size:10px;" onclick="openManualComparisonEntry()">✏️ Enter Report Values Manually</button>`;
+  el.innerHTML += `<button class="btn btn-ghost" style="width:100%;margin-top:6px;justify-content:center;font-size:10px;" data-mr-action="openManualComparisonEntry">✏️ Enter Report Values Manually</button>`;
 
   el.style.display = 'block';
   closeComparisonMode();
@@ -3267,8 +3267,8 @@ function openManualComparisonEntry() {
     + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;color:var(--t);margin-bottom:14px;">Enter Report Measurements</div>'
     + html
     + '<div style="display:flex;gap:8px;margin-top:14px;">'
-    + '<button class="btn btn-ghost" style="flex:1;justify-content:center;" onclick="this.closest(\'div[style*=fixed]\').remove()">Cancel</button>'
-    + '<button class="btn btn-orange" style="flex:1;justify-content:center;" onclick="applyManualComparison();this.closest(\'div[style*=fixed]\').remove();">Compare</button>'
+    + '<button class="btn btn-ghost" data-mr-action="closeManualOverlay" style="flex:1;justify-content:center;">Cancel</button>'
+    + '<button class="btn btn-orange" data-mr-action="applyManualComparisonAndClose" style="flex:1;justify-content:center;">Compare</button>'
     + '</div></div>';
   document.body.appendChild(modal);
 }
@@ -3355,3 +3355,59 @@ td{font-size:12px;}.note{background:#fff8f0;border-left:4px solid #e8720c;paddin
 // ╔═══════════════════════════════════════════════════════════════════╗
 // ║  END WOW FEATURES                                                ║
 // ╚═══════════════════════════════════════════════════════════════════╝
+
+// ── CSP-SAFE EVENT DELEGATION (data-mr-action) ──────────────────
+// Prod CSP `script-src-attr 'none'` kills inline onclicks injected via
+// innerHTML (line-popup buttons, accessory toggles, structure rows,
+// present-mode nav, supplement-comparison overlay). The line-list got
+// its own delegate in PR #453; this catches everything else.
+(function () {
+  if (window._NBD_MR_DELEGATE_BOUND) return;
+  window._NBD_MR_DELEGATE_BOUND = true;
+
+  function closeDrawMapPopup() {
+    if (typeof drawMap !== 'undefined' && drawMap && typeof drawMap.closePopup === 'function') {
+      drawMap.closePopup();
+    }
+  }
+
+  document.addEventListener('click', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-mr-action]');
+    if (!t) return;
+    if (t.dataset.mrStop === '1') ev.stopPropagation();
+    const action = t.dataset.mrAction;
+    const id = t.dataset.mrId;
+    const arg2 = t.dataset.mrArg2;
+    try {
+      switch (action) {
+        case 'retypeLine':       if (typeof retypeLine === 'function') retypeLine(parseInt(id, 10), parseInt(arg2, 10)); closeDrawMapPopup(); break;
+        case 'deleteLine':       if (typeof deleteLine === 'function') deleteLine(parseInt(id, 10)); closeDrawMapPopup(); break;
+        case 'editLineLength':   if (typeof editLineLength === 'function') editLineLength(parseInt(id, 10)); closeDrawMapPopup(); break;
+        case 'toggleAccessoryMode': if (typeof toggleAccessoryMode === 'function') toggleAccessoryMode(id); break;
+        case 'presentPrev':      if (typeof presentPrev === 'function') presentPrev(); break;
+        case 'presentNext':      if (typeof presentNext === 'function') presentNext(); break;
+        case 'endPresentation':  if (typeof endPresentation === 'function') endPresentation(); break;
+        case 'switchStructure':  if (typeof switchStructure === 'function') switchStructure(parseInt(id, 10)); break;
+        case 'renameStructure':  if (typeof renameStructure === 'function') renameStructure(parseInt(id, 10)); break;
+        case 'removeStructure':  if (typeof removeStructure === 'function') removeStructure(parseInt(id, 10)); break;
+        case 'generateSupplementFromComparison': if (typeof generateSupplementFromComparison === 'function') generateSupplementFromComparison(); break;
+        case 'openManualComparisonEntry': if (typeof openManualComparisonEntry === 'function') openManualComparisonEntry(); break;
+        case 'closeManualOverlay': {
+          const overlay = t.closest('div[style*=fixed]');
+          if (overlay) overlay.remove();
+          break;
+        }
+        case 'applyManualComparisonAndClose': {
+          if (typeof applyManualComparison === 'function') applyManualComparison();
+          const overlay = t.closest('div[style*=fixed]');
+          if (overlay) overlay.remove();
+          break;
+        }
+        default:
+          console.warn('[maps-routing] no dispatch for', action);
+      }
+    } catch (e) {
+      console.error('[maps-routing] dispatch ' + action + ' failed:', e);
+    }
+  });
+})();

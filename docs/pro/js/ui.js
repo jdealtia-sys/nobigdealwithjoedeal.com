@@ -150,7 +150,7 @@ function renderCmdResults(results) {
       const globalIdx = results.indexOf(item);
       const selected = globalIdx === cmdSelectedIndex ? 'selected' : '';
       html += `
-        <div class="cmd-item ${selected}" onclick="cmdExecuteItem(${globalIdx})" onmouseenter="cmdSelectedIndex=${globalIdx};renderCmdResults(cmdCurrentResults);">
+        <div class="cmd-item ${selected}" data-ui-action="cmdExecuteItem" data-ui-id="${globalIdx}" data-ui-hover-idx="${globalIdx}">
           <div class="cmd-item-icon">${item.icon}</div>
           <div class="cmd-item-content">
             <div class="cmd-item-title">${item.title}</div>
@@ -737,7 +737,7 @@ function showToast(msgOrOptions, typeArg) {
   if (undoAction) {
     actionsHTML = `
       <div class="toast-actions">
-        <button class="toast-btn toast-btn-primary" onclick="window._toastUndo('${toastId}')">
+        <button class="toast-btn toast-btn-primary" data-ui-action="toastUndo" data-ui-id="${toastId}">
           ${undoText}
         </button>
       </div>
@@ -750,7 +750,7 @@ function showToast(msgOrOptions, typeArg) {
       <div class="toast-message">${message}</div>
       ${actionsHTML}
     </div>
-    <button class="toast-close" onclick="window._closeToast('${toastId}')">✕</button>
+    <button class="toast-close" data-ui-action="closeToast" data-ui-id="${toastId}">✕</button>
   `;
   
   container.appendChild(toast);
@@ -851,7 +851,7 @@ function switchSettingsTab(tab) {
           const keys = typeof THEME_KEYS !== 'undefined' ? THEME_KEYS : [];
           teGrid.innerHTML = keys.map(k => {
             const isAct = k === current;
-            return `<div onclick="applyTheme('${k}')" style="background:var(--s2);border:2px solid ${isAct?'var(--orange)':'var(--br)'};border-radius:8px;padding:8px;cursor:pointer;transition:all .15s;">
+            return `<div data-ui-action="applyTheme" data-ui-id="${k}" style="background:var(--s2);border:2px solid ${isAct?'var(--orange)':'var(--br)'};border-radius:8px;padding:8px;cursor:pointer;transition:all .15s;">
               <div style="font-size:10px;font-weight:700;color:var(--t);font-family:'Barlow Condensed',sans-serif;text-transform:capitalize;">${k.replace(/-/g,' ')}${isAct?' ✓':''}</div></div>`;
           }).join('');
           return;
@@ -870,7 +870,7 @@ function switchSettingsTab(tab) {
           const surface = t.colors?.surface || '#16213e';
           const txt = t.colors?.text || '#e2e8f0';
           const muted = t.colors?.muted || '#6b7280';
-          return `<div onclick="${isLocked ? '' : `window._tePreviewTheme('${key}')`}" style="background:${bg};border:2px solid ${isActive ? accent : 'rgba(255,255,255,.06)'};border-radius:8px;padding:8px;cursor:${isLocked?'not-allowed':'pointer'};transition:all .15s;position:relative;opacity:${isLocked?'0.45':'1'};">
+          return `<div ${isLocked ? "" : `data-ui-action="previewTheme" data-ui-id="${key}"`} style="background:${bg};border:2px solid ${isActive ? accent : 'rgba(255,255,255,.06)'};border-radius:8px;padding:8px;cursor:${isLocked?'not-allowed':'pointer'};transition:all .15s;position:relative;opacity:${isLocked?'0.45':'1'};">
             <div style="display:flex;gap:3px;margin-bottom:4px;">
               <span style="width:10px;height:10px;border-radius:50%;background:${accent};"></span>
               <span style="width:10px;height:10px;border-radius:50%;background:${surface};"></span>
@@ -886,10 +886,10 @@ function switchSettingsTab(tab) {
       // Build filter buttons
       const TE = window.ThemeEngine;
       const btnStyle = 'padding:5px 10px;border-radius:14px;border:1px solid var(--br);font-size:10px;font-weight:700;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;letter-spacing:.04em;text-transform:uppercase;transition:all .15s;white-space:nowrap;';
-      let btns = `<button class="te-filter-btn" data-cat="all" onclick="window._teRenderSettingsGrid('all')" style="${btnStyle}background:var(--orange);color:#fff;">All</button>`;
+      let btns = `<button class="te-filter-btn" data-cat="all" data-ui-action="renderSettingsGrid" data-ui-id="all" style="${btnStyle}background:var(--orange);color:#fff;">All</button>`;
       if (TE) {
         TE.getCategories().forEach(c => {
-          btns += `<button class="te-filter-btn" data-cat="${c.key}" onclick="window._teRenderSettingsGrid('${c.key}')" style="${btnStyle}background:var(--s2);color:var(--m);">${c.icon} ${c.label}</button>`;
+          btns += `<button class="te-filter-btn" data-cat="${c.key}" data-ui-action="renderSettingsGrid" data-ui-id="${c.key}" style="${btnStyle}background:var(--s2);color:var(--m);">${c.icon} ${c.label}</button>`;
         });
       }
       teCatBar.innerHTML = btns;
@@ -977,8 +977,8 @@ window._tePreviewTheme = function(key) {
     bar.innerHTML = `
       <div style="font-size:13px;color:var(--t);font-family:'Barlow Condensed',sans-serif;font-weight:700;letter-spacing:.04em;">PREVIEWING THEME</div>
       <div style="display:flex;gap:8px;">
-        <button onclick="window._teRevertTheme()" style="padding:8px 16px;background:var(--s2);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:12px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;">✕ Revert</button>
-        <button onclick="window._teConfirmTheme()" style="padding:8px 20px;background:var(--orange);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;">✓ Apply Theme</button>
+        <button data-ui-action="revertTheme" style="padding:8px 16px;background:var(--s2);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:12px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;">✕ Revert</button>
+        <button data-ui-action="confirmTheme" style="padding:8px 20px;background:var(--orange);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:'Barlow Condensed',sans-serif;">✓ Apply Theme</button>
       </div>`;
     document.body.appendChild(bar);
   }
@@ -1071,3 +1071,42 @@ window.switchSettingsTab = switchSettingsTab;
 window.toggleSettingsSection = toggleSettingsSection;
 window.restoreSettingsSections = restoreSettingsSections;
 window.restoreNavSections = restoreNavSections;
+
+
+// ── CSP-safe delegation for 9 data-ui-action attrs (replaces inline onclick=
+//    that prod CSP `script-src-attr 'none'` was killing). Preserves
+//    cmd-palette hover-selection via mouseover bound to data-ui-hover-idx.
+(function () {
+  if (window._NBD_UI_DELEGATE_BOUND) return;
+  window._NBD_UI_DELEGATE_BOUND = true;
+  const UI_FN = {
+    cmdExecuteItem:     (id) => { if (typeof cmdExecuteItem === 'function') cmdExecuteItem(parseInt(id, 10)); },
+    toastUndo:          (id) => { if (typeof window._toastUndo === 'function') window._toastUndo(id); },
+    closeToast:         (id) => { if (typeof window._closeToast === 'function') window._closeToast(id); },
+    applyTheme:         (id) => { if (typeof applyTheme === 'function') applyTheme(id); },
+    previewTheme:       (id) => { if (typeof window._tePreviewTheme === 'function') window._tePreviewTheme(id); },
+    renderSettingsGrid: (id) => { if (typeof window._teRenderSettingsGrid === 'function') window._teRenderSettingsGrid(id); },
+    revertTheme:        ()   => { if (typeof window._teRevertTheme === 'function') window._teRevertTheme(); },
+    confirmTheme:       ()   => { if (typeof window._teConfirmTheme === 'function') window._teConfirmTheme(); },
+  };
+  document.addEventListener('click', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-ui-action]');
+    if (!t) return;
+    const fn = UI_FN[t.dataset.uiAction];
+    if (typeof fn !== 'function') return;
+    try { fn(t.dataset.uiId); }
+    catch (e) { console.error('[ui] dispatch ' + t.dataset.uiAction + ' failed:', e); }
+  });
+  document.addEventListener('mouseover', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-ui-hover-idx]');
+    if (!t) return;
+    const idx = parseInt(t.dataset.uiHoverIdx, 10);
+    if (!Number.isFinite(idx)) return;
+    if (typeof cmdSelectedIndex !== 'undefined') {
+      cmdSelectedIndex = idx;
+      if (typeof renderCmdResults === 'function' && typeof cmdCurrentResults !== 'undefined') {
+        renderCmdResults(cmdCurrentResults);
+      }
+    }
+  });
+})();

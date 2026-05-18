@@ -261,7 +261,7 @@
     const where = a.location || a._leadAddress || '';
     const valueBadge = _renderValueBadge(a._leadValue);
     const leadLink = a._leadId
-      ? `<button onclick="openCardDetailModal('${_esc(a._leadId)}')" style="background:none;border:none;color:var(--orange);font-size:11px;cursor:pointer;padding:0;text-decoration:underline;">Open lead →</button>`
+      ? `<button data-sc-action="openCardDetail" data-sc-id="${_esc(a._leadId)}" style="background:none;border:none;color:var(--orange);font-size:11px;cursor:pointer;padding:0;text-decoration:underline;">Open lead →</button>`
       : '';
     return `
       <div style="display:grid;grid-template-columns:88px 1fr auto;gap:10px;align-items:flex-start;padding:10px 12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
@@ -374,3 +374,6 @@
   window.loadSmartCalendar = loadSmartCalendar;
   _attachAutoLoad();
 })();
+
+
+(function(){if(window._NBD_SC_DELEGATE)return;window._NBD_SC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-sc-action]');if(!t)return;if(t.dataset.scAction==='openCardDetail'&&typeof openCardDetailModal==='function')openCardDetailModal(t.dataset.scId);});})();

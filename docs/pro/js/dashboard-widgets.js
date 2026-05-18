@@ -548,7 +548,7 @@ async function renderRecentPhotoFeed() {
       const url = p.thumbUrl || p.url || p.downloadUrl || p.src || '';
       if (!url) continue;
       const name = leadName(p.leadId);
-      html += '<div class="ph-recent-tile" onclick="window._currentPhotoLeadId=\'' + escAttr(p.leadId) + '\';if(window.PhotoEngine)PhotoEngine.openGallery(\'photoGalleryContainer\',\'' + escAttr(p.leadId) + '\');setPhotoMode(\'by-property\');">' +
+      html += '<div class="ph-recent-tile" data-dw-action="openPhotoTile" data-dw-id="' + escAttr(p.leadId) + '">' +
                 '<img loading="lazy" src="' + escAttr(url) + '" alt="">' +
                 (name ? '<div class="ph-recent-tile-label">' + escText(name) + '</div>' : '') +
               '</div>';
@@ -624,7 +624,7 @@ function renderIntelCard(targetElId, intel, county, address) {
   if(existingCard) {
     existingCard.outerHTML = card;
   } else {
-    targetEl.innerHTML = card + '<button class="make-lead-btn" onclick="makeLeadFromSearch()">＋ Make This a Lead</button>';
+    targetEl.innerHTML = card + '<button class="make-lead-btn" data-dw-action="makeLeadFromSearch">＋ Make This a Lead</button>';
   }
 }
 
@@ -1062,3 +1062,16 @@ function populateProspectQuickActions(lead) {
     danger: true, onClick: () => { window.absoluteDeleteProspect(lead.id); }
   }));
 }
+
+
+// CSP-safe delegation (2 inline onclicks).
+(function(){if(window._NBD_DW_DELEGATE)return;window._NBD_DW_DELEGATE=true;
+document.addEventListener('click',function(ev){
+  var t=ev.target.closest&&ev.target.closest('[data-dw-action]');
+  if(!t)return;
+  var a=t.dataset.dwAction;var id=t.dataset.dwId;
+  try{
+    if(a==='openPhotoTile'){window._currentPhotoLeadId=id;if(window.PhotoEngine&&typeof window.PhotoEngine.openGallery==='function')window.PhotoEngine.openGallery('photoGalleryContainer',id);if(typeof setPhotoMode==='function')setPhotoMode('by-property');}
+    else if(a==='makeLeadFromSearch'&&typeof makeLeadFromSearch==='function')makeLeadFromSearch();
+  }catch(e){console.error('[dashboard-widgets]',e);}
+});})();

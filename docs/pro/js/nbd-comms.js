@@ -232,11 +232,9 @@
         const safeName = escHtml(name);
         // If we're on the dashboard (no emailByStage available) deep-link
         // to the customer page where Joe can review + send.
-        const action = (typeof window.emailByStage === 'function')
-          ? `window.emailByStage('${safeId}')`
-          : `window.location.href='/pro/customer.html?id=${safeId}&action=email-stage'`;
+        const ncAction = (typeof window.emailByStage === 'function') ? 'emailByStage' : 'gotoCustomerEmail';
         const msg = `📧 Stage email ready for <strong>${safeName}</strong>`
-          + ` <button onclick="${action}" style="margin-left:8px;padding:3px 10px;`
+          + ` <button data-nc-action="${ncAction}" data-nc-id="${safeId}" style="margin-left:8px;padding:3px 10px;`
           + `border:1px solid var(--orange);background:var(--orange);color:#fff;`
           + `border-radius:4px;font-size:11px;font-weight:700;cursor:pointer;">`
           + `Review &amp; send</button>`;
@@ -249,3 +247,6 @@
     }
   };
 })();
+
+
+(function(){if(window._NBD_NC_DELEGATE)return;window._NBD_NC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-nc-action]');if(!t)return;var a=t.dataset.ncAction;var id=t.dataset.ncId;if(a==='emailByStage'&&typeof window.emailByStage==='function')window.emailByStage(id);else if(a==='gotoCustomerEmail')window.location.href='/pro/customer.html?id='+id+'&action=email-stage';});})();

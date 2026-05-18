@@ -234,11 +234,11 @@ window.NBDDocGen = {
     const actionBar = `
       <div class="doc-action-bar">
         <div class="doc-bar-left">
-          <button class="doc-bar-btn doc-bar-close" onclick="window.close()">&#x2190; Close</button>
+          <button class="doc-bar-btn doc-bar-close" data-dg-action="closeWindow">&#x2190; Close</button>
           <span class="doc-bar-title">${typeName}</span>
         </div>
         <div class="doc-bar-right">
-          <button class="doc-bar-btn doc-bar-print" onclick="window.print()">Print / Save PDF</button>
+          <button class="doc-bar-btn doc-bar-print" data-dg-action="print">Print / Save PDF</button>
         </div>
       </div>`;
     const injected = html.replace('</body>', actionBar + '</body>');
@@ -1334,7 +1334,7 @@ window.NBDDocGen = {
       </head>
       <body>
         <div class="print-button-container">
-          <button class="print-button" onclick="window.print()">Print / Save as PDF</button>
+          <button class="print-button" data-dg-action="print">Print / Save as PDF</button>
         </div>
 
         <div class="document-container">
@@ -1440,7 +1440,7 @@ window.NBDDocGen = {
       </head>
       <body>
         <div class="print-button-container">
-          <button class="print-button" onclick="window.print()">Print / Save as PDF</button>
+          <button class="print-button" data-dg-action="print">Print / Save as PDF</button>
         </div>
 
         <div class="document-container">
@@ -1622,7 +1622,7 @@ window.NBDDocGen = {
       </head>
       <body>
         <div class="print-button-container">
-          <button class="print-button" onclick="window.print()">Print / Save as PDF</button>
+          <button class="print-button" data-dg-action="print">Print / Save as PDF</button>
         </div>
 
         <div class="document-container">
@@ -1762,7 +1762,7 @@ window.NBDDocGen = {
       </head>
       <body>
         <div class="print-button-container">
-          <button class="print-button" onclick="window.print()">Print / Save as PDF</button>
+          <button class="print-button" data-dg-action="print">Print / Save as PDF</button>
         </div>
 
         <div class="document-container">
@@ -2005,7 +2005,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
         <div style="padding:20px 24px;border-bottom:2px solid #eee;display:flex;justify-content:space-between;align-items:center;">
           <div><div style="font-size:10px;color:#1e3a6e;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Generate Document</div>
           <div style="font-size:18px;font-weight:700;color:#1a1a2e;font-family:'Helvetica Neue',Arial,sans-serif;">${docName}</div></div>
-          <button onclick="document.getElementById('docgenFillModal').remove();" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">&times;</button>
+          <button data-dg-action="closeFillModal" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">&times;</button>
         </div>
         <div style="flex:1;overflow-y:auto;padding:20px 24px;">
           <div style="margin-bottom:16px;">
@@ -2015,8 +2015,8 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
           <div style="border-top:1px solid #eee;padding-top:16px;">${fieldsHTML}</div>
         </div>
         <div style="padding:16px 24px;border-top:2px solid #eee;display:flex;justify-content:flex-end;gap:10px;">
-          <button onclick="document.getElementById('docgenFillModal').remove();" style="background:#6c757d;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;">Cancel</button>
-          <button onclick="window._docgenSubmit('${documentType}')" style="background:#e8720c;color:#fff;border:none;padding:10px 24px;border-radius:6px;cursor:pointer;font-weight:600;">Generate Document</button>
+          <button data-dg-action="closeFillModal" style="background:#6c757d;color:#fff;border:none;padding:10px 20px;border-radius:6px;cursor:pointer;">Cancel</button>
+          <button data-dg-action="submit" data-dg-id="${documentType}" style="background:#e8720c;color:#fff;border:none;padding:10px 24px;border-radius:6px;cursor:pointer;font-weight:600;">Generate Document</button>
         </div>
       </div>`;
     document.body.appendChild(modal);
@@ -2241,3 +2241,26 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = window.NBDDocGen;
 }
+
+
+// ── CSP-safe delegation for 9 data-dg-action attrs in document-generator.js
+//    (close window, print, dismiss fill modal, submit doc gen).
+(function () {
+  if (window._NBD_DG_DELEGATE_BOUND) return;
+  window._NBD_DG_DELEGATE_BOUND = true;
+  document.addEventListener('click', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-dg-action]');
+    if (!t) return;
+    const action = t.dataset.dgAction;
+    const id = t.dataset.dgId;
+    try {
+      switch (action) {
+        case 'closeWindow':     window.close(); break;
+        case 'print':           window.print(); break;
+        case 'closeFillModal':  { const m = document.getElementById('docgenFillModal'); if (m) m.remove(); break; }
+        case 'submit':          if (typeof window._docgenSubmit === 'function') window._docgenSubmit(id); break;
+        default:                console.warn('[doc-generator] no dispatch for', action);
+      }
+    } catch (e) { console.error('[doc-generator] dispatch ' + action + ' failed:', e); }
+  });
+})();

@@ -301,14 +301,14 @@ function renderBottomNav() {
   tabIds.forEach(id => {
     const tab = TAB_REGISTRY.find(t => t.id === id);
     if (!tab) return;
-    html += `<div class="mn-item" id="mni-${tab.id}" onclick="mobileNav('${tab.action}')">
+    html += `<div class="mn-item" id="mni-${tab.id}" data-mnc-action="mobileNav" data-mnc-id="${tab.action}">
       <span class="mn-icon">${tab.icon}</span>
       <span class="mn-lbl">${tab.label}</span>
       ${tab.badge ? '<span class="mn-badge" id="mni-crm-badge" style="display:none;"></span>' : ''}
     </div>`;
   });
 
-  html += `<div class="mn-item" id="mni-more" onclick="toggleMobileMore()">
+  html += `<div class="mn-item" id="mni-more" data-mnc-action="toggleMore">
     <span class="mn-icon">⋯</span>
     <span class="mn-lbl">More</span>
   </div>`;
@@ -399,7 +399,7 @@ function renderModal(modal) {
     categories[cat].forEach(t => {
       const inBar = _pendingTabs.includes(t.id);
       poolHTML += `<div class="ncm-pool-item ${inBar ? 'in-bar' : ''}"
-        data-tab-id="${t.id}" onclick="window._ncmAddTab('${t.id}')">
+        data-tab-id="${t.id}" data-mnc-action="addTab" data-mnc-id="${t.id}">
         <span class="ncm-pool-icon">${t.icon}</span>
         <span class="ncm-pool-name">${t.label}</span>
       </div>`;
@@ -420,7 +420,7 @@ function renderModal(modal) {
       ondrop="window._ncmDrop(event, ${i})"
       ondragend="window._ncmDragEnd(event)">
       <span class="ncm-slot-num">${i+1}</span>
-      <span class="ncm-slot-remove" onclick="event.stopPropagation();window._ncmRemoveTab(${i})">✕</span>
+      <span class="ncm-slot-remove" data-mnc-action="removeTab" data-mnc-id="${i}" data-mnc-stop="1">✕</span>
       <span class="ncm-slot-icon">${tab.icon}</span>
       <span class="ncm-slot-label">${tab.label}</span>
     </div>`;
@@ -441,14 +441,14 @@ function renderModal(modal) {
     : _syncStatus === 'offline' ? 'Local only (not signed in)' : 'Sync error — saving locally';
 
   modal.innerHTML = `
-    <div class="ncm-sheet" onclick="event.stopPropagation()">
+    <div class="ncm-sheet" data-mnc-stop-self="1">
       <div class="ncm-handle"></div>
       <div class="ncm-head">
         <div>
           <div class="ncm-title">⚡ Customize Tab Bar</div>
           <div class="ncm-subtitle">Pick 4 tabs · drag to reorder</div>
         </div>
-        <button class="ncm-close" onclick="window._ncmClose()">✕</button>
+        <button class="ncm-close" data-mnc-action="close">✕</button>
       </div>
       <div class="ncm-sync">
         <span class="ncm-sync-dot ${syncDotClass}"></span>
@@ -458,8 +458,8 @@ function renderModal(modal) {
       <div class="ncm-current" id="ncm-slots">${slotsHTML}</div>
       <div class="ncm-pool" id="ncm-pool">${poolHTML}</div>
       <div class="ncm-actions">
-        <button class="ncm-btn ncm-btn-reset" onclick="window._ncmReset()">Reset</button>
-        <button class="ncm-btn ncm-btn-save" id="ncm-save-btn" onclick="window._ncmSave()">Save</button>
+        <button class="ncm-btn ncm-btn-reset" data-mnc-action="reset">Reset</button>
+        <button class="ncm-btn ncm-btn-save" id="ncm-save-btn" data-mnc-action="save">Save</button>
       </div>
     </div>
   `;
@@ -627,7 +627,7 @@ function addCustomizeToSettings() {
         <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:var(--m);font-weight:700;margin-bottom:6px;font-family:'Barlow Condensed',sans-serif;">Current Layout</div>
         ${tabLabels}
       </div>
-      <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;padding:10px 14px;" onclick="if(typeof openNavCustomizer==='function')openNavCustomizer()">
+      <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:12px;padding:10px 14px;" data-mnc-action="openCustomizer">
         ⚡ Customize Tab Bar
       </button>
     </div>
@@ -672,4 +672,31 @@ if (document.readyState === 'loading') {
   init();
 }
 
+})();
+
+
+// ── CSP-safe delegation for 9 data-mnc-action attrs (mobile nav customizer)
+(function () {
+  if (window._NBD_MNC_DELEGATE_BOUND) return;
+  window._NBD_MNC_DELEGATE_BOUND = true;
+  document.addEventListener('click', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-mnc-action]');
+    if (!t) return;
+    if (t.dataset.mncStop === '1') ev.stopPropagation();
+    const action = t.dataset.mncAction;
+    const id = t.dataset.mncId;
+    try {
+      switch (action) {
+        case 'mobileNav':     if (typeof mobileNav === 'function') mobileNav(id); break;
+        case 'toggleMore':    if (typeof toggleMobileMore === 'function') toggleMobileMore(); break;
+        case 'addTab':        if (typeof window._ncmAddTab === 'function') window._ncmAddTab(id); break;
+        case 'removeTab':     if (typeof window._ncmRemoveTab === 'function') window._ncmRemoveTab(parseInt(id, 10)); break;
+        case 'close':         if (typeof window._ncmClose === 'function') window._ncmClose(); break;
+        case 'reset':         if (typeof window._ncmReset === 'function') window._ncmReset(); break;
+        case 'save':          if (typeof window._ncmSave === 'function') window._ncmSave(); break;
+        case 'openCustomizer': if (typeof openNavCustomizer === 'function') openNavCustomizer(); break;
+        default: console.warn('[mobile-nav-customizer] no dispatch for', action);
+      }
+    } catch (e) { console.error('[mobile-nav-customizer] dispatch ' + action + ' failed:', e); }
+  });
 })();

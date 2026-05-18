@@ -437,12 +437,12 @@
 
             <!-- Quick range presets -->
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn btn-ghost" onclick="window.NBDReports.setQuickRange('today')" style="font-size:11px;padding:6px 12px;">Today</button>
-              <button class="btn btn-ghost" onclick="window.NBDReports.setQuickRange('week')" style="font-size:11px;padding:6px 12px;">Last 7 days</button>
-              <button class="btn btn-ghost" onclick="window.NBDReports.setQuickRange('month')" style="font-size:11px;padding:6px 12px;">Last 30 days</button>
-              <button class="btn btn-ghost" onclick="window.NBDReports.setQuickRange('quarter')" style="font-size:11px;padding:6px 12px;">Last 90 days</button>
-              <button class="btn btn-ghost" onclick="window.NBDReports.setQuickRange('year')" style="font-size:11px;padding:6px 12px;">Last 12 months</button>
-              <button class="btn btn-ghost" onclick="window.NBDReports.setQuickRange('all')" style="font-size:11px;padding:6px 12px;">All time</button>
+              <button class="btn btn-ghost" data-nr-action="setQuickRange" data-nr-id="today" style="font-size:11px;padding:6px 12px;">Today</button>
+              <button class="btn btn-ghost" data-nr-action="setQuickRange" data-nr-id="week" style="font-size:11px;padding:6px 12px;">Last 7 days</button>
+              <button class="btn btn-ghost" data-nr-action="setQuickRange" data-nr-id="month" style="font-size:11px;padding:6px 12px;">Last 30 days</button>
+              <button class="btn btn-ghost" data-nr-action="setQuickRange" data-nr-id="quarter" style="font-size:11px;padding:6px 12px;">Last 90 days</button>
+              <button class="btn btn-ghost" data-nr-action="setQuickRange" data-nr-id="year" style="font-size:11px;padding:6px 12px;">Last 12 months</button>
+              <button class="btn btn-ghost" data-nr-action="setQuickRange" data-nr-id="all" style="font-size:11px;padding:6px 12px;">All time</button>
             </div>
 
             <!-- Comparison + AI toggles -->
@@ -465,7 +465,7 @@
             </div>
 
             <!-- Generate button -->
-            <button class="btn btn-orange" onclick="window.NBDReports.generateSelected()" style="font-size:14px;padding:14px 20px;justify-content:center;">
+            <button class="btn btn-orange" data-nr-action="generateSelected" style="font-size:14px;padding:14px 20px;justify-content:center;">
               📈 Generate Report
             </button>
           </div>
@@ -478,7 +478,7 @@
     return `
       <div class="report-template-card ${available ? 'available' : 'disabled'}" data-template="${esc(id)}"
            style="background:var(--s2);border:2px solid ${available ? 'var(--br)' : 'var(--s3)'};border-radius:8px;padding:14px;cursor:${available ? 'pointer' : 'not-allowed'};opacity:${available ? '1' : '.45'};transition:all .15s;"
-           onclick="${available ? `window.NBDReports.selectTemplate('${esc(id)}')` : ''}">
+           ${available ? `data-nr-action="selectTemplate" data-nr-id="${esc(id)}"` : ""}>
         <div style="font-size:24px;margin-bottom:6px;">${icon}</div>
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;color:var(--t);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">${esc(name)}</div>
         <div style="font-size:11px;color:var(--m);line-height:1.4;">${esc(desc)}</div>
@@ -2103,8 +2103,8 @@
             </div>
           </div>
           <div style="display:flex;gap:6px;">
-            <button class="btn btn-ghost" style="font-size:10px;padding:5px 10px;" onclick="event.stopPropagation();window.NBDReports.openSavedReport('${esc(r.id)}')">Open</button>
-            <button class="btn btn-ghost" style="font-size:10px;padding:5px 10px;color:var(--red);" onclick="event.stopPropagation();window.NBDReports.deleteSavedReport('${esc(r.id)}')">🗑</button>
+            <button class="btn btn-ghost" style="font-size:10px;padding:5px 10px;" data-nr-action="openSavedReport" data-nr-id="${esc(r.id)}" data-nr-stop="1">Open</button>
+            <button class="btn btn-ghost" style="font-size:10px;padding:5px 10px;color:var(--red);" data-nr-action="deleteSavedReport" data-nr-id="${esc(r.id)}" data-nr-stop="1">🗑</button>
           </div>
         </div>
       `;
@@ -2251,4 +2251,22 @@
   };
 
   console.log('[NBDReports] Stage 1 ready. Open Reports tab to generate.');
+
+  // CSP-safe delegated click handler for 10 inline onclicks replaced with
+  // data-nr-action attrs. addEventListener is not blocked by
+  // `script-src-attr 'none'`.
+  if (!window._NBD_NR_DELEGATE_BOUND) {
+    window._NBD_NR_DELEGATE_BOUND = true;
+    document.addEventListener('click', function (ev) {
+      const t = ev.target.closest && ev.target.closest('[data-nr-action]');
+      if (!t) return;
+      if (t.dataset.nrStop === '1') ev.stopPropagation();
+      const action = t.dataset.nrAction;
+      const id = t.dataset.nrId;
+      const fn = window.NBDReports && window.NBDReports[action];
+      if (typeof fn !== 'function') { console.warn('[reports] no dispatch for', action); return; }
+      try { id !== undefined ? fn(id) : fn(); }
+      catch (e) { console.error('[reports] dispatch ' + action + ' failed:', e); }
+    });
+  }
 })();

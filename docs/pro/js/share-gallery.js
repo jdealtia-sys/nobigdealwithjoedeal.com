@@ -157,7 +157,7 @@
         }
 
         phaseSections += '<div style="background:#1e293b;border-radius:12px;overflow:hidden;border:1px solid #334155;">';
-        phaseSections += '<div style="position:relative;cursor:pointer;" onclick="openLightbox(\'' + (photo.url || '').replace(/'/g, "\\'") + '\', \'' + (photo.description || '').replace(/'/g, "\\'") + '\')">';
+        phaseSections += '<div style="position:relative;cursor:pointer;" data-sg-action="openLightbox" data-sg-url="' + esc(photo.url || '') + '" data-sg-desc="' + esc(photo.description || '') + '">';
         phaseSections += '<img src="' + photo.url + '" alt="' + (photo.description || 'Photo') + '" style="width:100%;height:200px;object-fit:cover;display:block;">';
         phaseSections += '</div>';
         phaseSections += '<div style="padding:12px;">';
@@ -205,11 +205,13 @@
       + '<div style="font-weight:700;color:#fff;margin-bottom:4px;">' + BRAND.name + '</div>'
       + '<div>' + BRAND.phone + ' &middot; <a href="mailto:' + BRAND.email + '">' + BRAND.email + '</a> &middot; <a href="https://' + BRAND.website + '">' + BRAND.website + '</a></div>'
       + '</div>'
-      + '<div id="lightbox" onclick="if(event.target===this)closeLightbox()"><button class="close" onclick="closeLightbox()">&times;</button><img id="lbImg" src="" alt=""><div class="caption" id="lbCaption"></div></div>'
+      + '<div id="lightbox" data-sg-action="closeLightboxIfSelf"><button class="close" data-sg-action="closeLightbox">&times;</button><img id="lbImg" src="" alt=""><div class="caption" id="lbCaption"></div></div>'
       + '<script>'
       + 'function openLightbox(url,desc){var lb=document.getElementById("lightbox");document.getElementById("lbImg").src=url;document.getElementById("lbCaption").textContent=desc||"";lb.style.display="flex";}'
       + 'function closeLightbox(){document.getElementById("lightbox").style.display="none";}'
       + 'document.addEventListener("keydown",function(e){if(e.key==="Escape")closeLightbox();});'
+      // CSP-safe delegate inside the standalone gallery page itself
+      + 'document.addEventListener("click",function(ev){var t=ev.target.closest&&ev.target.closest("[data-sg-action]");if(!t)return;var a=t.dataset.sgAction;if(a==="openLightbox")openLightbox(t.dataset.sgUrl,t.dataset.sgDesc||"");else if(a==="closeLightbox")closeLightbox();else if(a==="closeLightboxIfSelf"){var lb=document.getElementById("lightbox");if(lb&&ev.target===lb)closeLightbox();}});'
       + '<\/script>'
       + '</body></html>';
   }
@@ -231,19 +233,19 @@
 
     dialog.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">'
       + '<h3 style="margin:0;font-size:20px;font-weight:700;">Share Gallery</h3>'
-      + '<button onclick="this.closest(\'#nbd-share-dialog-overlay\').remove()" style="background:none;border:none;color:#999;font-size:24px;cursor:pointer;">&times;</button>'
+      + '<button data-sg-action="closeShareDialog" style="background:none;border:none;color:#999;font-size:24px;cursor:pointer;">&times;</button>'
       + '</div>'
       + '<div style="background:#16213e;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#94a3b8;word-break:break-all;">' + url + '</div>'
       + '<div style="text-align:center;margin-bottom:16px;font-size:13px;color:#64748b;">' + photoCount + ' photos shared with ' + esc(customerName) + '</div>'
       + '<div style="display:flex;gap:8px;margin-bottom:12px;">'
-      + '<button onclick="navigator.clipboard.writeText(\'' + url.replace(/'/g, "\\'") + '\');this.textContent=\'Copied!\';setTimeout(function(){this.textContent=\'Copy Link\';}.bind(this),2000);" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#e8720c;color:#fff;padding:12px;border-radius:10px;border:none;cursor:pointer;font-weight:600;font-size:14px;">Copy Link</button>'
+      + '<button data-sg-action="copyLink" data-sg-url="' + esc(url) + '" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#e8720c;color:#fff;padding:12px;border-radius:10px;border:none;cursor:pointer;font-weight:600;font-size:14px;">Copy Link</button>'
       + (phone ? '<a href="sms:' + phone + '?body=' + smsBody + '" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#22c55e;color:#fff;padding:12px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">Text</a>' : '')
       + '</div>'
       + '<div style="display:flex;gap:8px;">'
       + (email ? '<a href="mailto:' + email + '?subject=' + emailSubject + '&body=' + emailBody + '" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#3b82f6;color:#fff;padding:12px;border-radius:10px;text-decoration:none;font-weight:600;font-size:14px;">Email</a>' : '')
-      + '<button onclick="window.open(\'' + url.replace(/'/g, "\\'") + '\',\'_blank\')" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.1);color:#fff;padding:12px;border-radius:10px;border:none;cursor:pointer;font-weight:600;font-size:14px;">Preview</button>'
+      + '<button data-sg-action="openInNewTab" data-sg-url="' + esc(url) + '" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,.1);color:#fff;padding:12px;border-radius:10px;border:none;cursor:pointer;font-weight:600;font-size:14px;">Preview</button>'
       + '</div>'
-      + '<button onclick="this.closest(\'#nbd-share-dialog-overlay\').remove()" style="width:100%;margin-top:16px;padding:10px;background:none;border:1px solid #2a2a4e;border-radius:10px;color:#94a3b8;cursor:pointer;font-size:13px;">Close</button>';
+      + '<button data-sg-action="closeShareDialog" style="width:100%;margin-top:16px;padding:10px;background:none;border:1px solid #2a2a4e;border-radius:10px;color:#94a3b8;cursor:pointer;font-size:13px;">Close</button>';
 
     overlay.appendChild(dialog);
     overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
@@ -252,4 +254,42 @@
 
   window.ShareGallery = { generate: generate };
   console.log('Share Gallery module loaded. Use: ShareGallery.generate(leadId)');
+})();
+
+
+// CSP-safe delegation for 6 data-sg-action attrs (share gallery).
+(function () {
+  if (window._NBD_SG_DELEGATE_BOUND) return;
+  window._NBD_SG_DELEGATE_BOUND = true;
+  document.addEventListener('click', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-sg-action]');
+    if (!t) return;
+    const action = t.dataset.sgAction;
+    const url = t.dataset.sgUrl;
+    const desc = t.dataset.sgDesc;
+    try {
+      switch (action) {
+        case 'openLightbox': if (typeof openLightbox === 'function') openLightbox(url, desc || ''); break;
+        case 'closeLightboxIfSelf': {
+          const lb = document.getElementById('lightbox');
+          if (lb && ev.target === lb && typeof closeLightbox === 'function') closeLightbox();
+          break;
+        }
+        case 'closeLightbox': if (typeof closeLightbox === 'function') closeLightbox(); break;
+        case 'closeShareDialog': {
+          const dialog = t.closest('#nbd-share-dialog-overlay');
+          if (dialog) dialog.remove();
+          break;
+        }
+        case 'copyLink': {
+          if (url) navigator.clipboard.writeText(url);
+          t.textContent = 'Copied!';
+          setTimeout(() => { t.textContent = 'Copy Link'; }, 2000);
+          break;
+        }
+        case 'openInNewTab': if (url) window.open(url, '_blank'); break;
+        default: console.warn('[share-gallery] no dispatch for', action);
+      }
+    } catch (e) { console.error('[share-gallery] dispatch ' + action + ' failed:', e); }
+  });
 })();

@@ -328,7 +328,7 @@
               text-decoration:none; font-size:11px;
               -webkit-tap-highlight-color:transparent;
               transition:transform .12s;"
-            onclick="event.stopPropagation();"
+            data-gs-stop-self="1"
             onmouseover="this.style.transform='scale(1.10)'"
             onmouseout="this.style.transform=''"
           >📞</a>`);
@@ -716,3 +716,6 @@
     init();
   }
 })();
+
+
+(function(){if(window._NBD_GS_STOP_DELEGATE)return;window._NBD_GS_STOP_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-gs-stop-self="1"]');if(t&&ev.target===t)ev.stopPropagation();});})();

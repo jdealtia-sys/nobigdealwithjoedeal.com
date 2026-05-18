@@ -135,7 +135,7 @@ window.openEmailModal = function(options = {}) {
     <div class="modal-content" style="max-width:700px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;background:var(--s);border-radius:12px;">
       <div class="modal-header" style="padding:25px;background:linear-gradient(135deg, #e8720c 0%, #a64516 100%);color:white;">
         <h3 style="margin:0;font-size:22px;">📧 Send Email</h3>
-        <button onclick="closeEmailModal()" style="position:absolute;top:20px;right:20px;background:none;border:none;color:white;font-size:28px;cursor:pointer;line-height:1;">&times;</button>
+        <button data-es-action="closeEmailModal" style="position:absolute;top:20px;right:20px;background:none;border:none;color:white;font-size:28px;cursor:pointer;line-height:1;">&times;</button>
       </div>
       
       <div style="flex:1;overflow-y:auto;padding:25px;">
@@ -175,10 +175,10 @@ window.openEmailModal = function(options = {}) {
       </div>
       
       <div class="modal-footer" style="padding:20px;border-top:2px solid var(--br);background:var(--s2);display:flex;gap:10px;justify-content:flex-end;">
-        <button onclick="closeEmailModal()" class="btn" style="background:#6c757d;border-color:#6c757d;color:#fff;">
+        <button data-es-action="closeEmailModal" class="btn" style="background:#6c757d;border-color:#6c757d;color:#fff;">
           Cancel
         </button>
-        <button onclick="sendEmail()" class="btn btn-orange" style="display:flex;align-items:center;gap:8px;">
+        <button data-es-action="sendEmail" class="btn btn-orange" style="display:flex;align-items:center;gap:8px;">
           <span>📧 Send Email</span>
         </button>
       </div>
@@ -722,3 +722,7 @@ window.emailSystem.send = async function(to, subject, body, options = {}) {
 };
 
 console.log('✓ Email system loaded (with stage templates + EmailJS support)');
+
+
+// CSP-safe delegation (replaces 3 inline onclicks killed by script-src-attr 'none')
+(function(){if(window._NBD_ES_DELEGATE)return;window._NBD_ES_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-es-action]');if(!t)return;var a=t.dataset.esAction;try{if(a==='closeEmailModal'&&typeof closeEmailModal==='function')closeEmailModal();else if(a==='sendEmail'&&typeof sendEmail==='function')sendEmail();}catch(e){console.error('[email_system]',e);}});})();

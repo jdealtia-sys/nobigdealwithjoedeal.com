@@ -400,7 +400,7 @@
         <div class="invoice-panel" style="padding:16px;background:var(--s1);border-radius:8px;border:1px solid var(--br);">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
             <h3 style="margin:0;font-size:14px;font-weight:700;">Invoices</h3>
-            <button onclick="window.InvoicePipeline.createInvoiceUI('${leadId}')" style="padding:6px 12px;background:var(--orange);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">+ New Invoice</button>
+            <button data-ip-action="createInvoiceUI" data-ip-id="${leadId}" style="padding:6px 12px;background:var(--orange);color:#fff;border:none;border-radius:5px;font-size:11px;font-weight:700;cursor:pointer;">+ New Invoice</button>
           </div>
       `;
 
@@ -418,8 +418,8 @@
                 <div style="font-size:11px;color:var(--m);">${statusTxt}</div>
               </div>
               <div style="display:flex;gap:6px;">
-                <button onclick="window.InvoicePipeline.renderInvoiceDetail('inv-detail', '${inv.id}')" style="padding:4px 10px;font-size:10px;background:var(--blue);color:#fff;border:none;border-radius:3px;cursor:pointer;">View</button>
-                <button onclick="window.InvoicePipeline.sendInvoiceUI('${inv.id}')" style="padding:4px 10px;font-size:10px;background:var(--orange);color:#fff;border:none;border-radius:3px;cursor:pointer;">Send</button>
+                <button data-ip-action="renderDetail" data-ip-id="${inv.id}" data-ip-target="inv-detail" style="padding:4px 10px;font-size:10px;background:var(--blue);color:#fff;border:none;border-radius:3px;cursor:pointer;">View</button>
+                <button data-ip-action="sendInvoice" data-ip-id="${inv.id}" style="padding:4px 10px;font-size:10px;background:var(--orange);color:#fff;border:none;border-radius:3px;cursor:pointer;">Send</button>
               </div>
             </div>
           `;
@@ -531,9 +531,9 @@
           </div>
 
           <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
-            <button onclick="window.print()" style="padding:8px 16px;background:var(--s2);border:1px solid var(--br);border-radius:5px;cursor:pointer;font-weight:700;">Print Invoice</button>
-            <button onclick="window.InvoicePipeline.sendInvoiceUI('${_escJs(invoiceId)}')" style="padding:8px 16px;background:var(--orange);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Send to Customer</button>
-            ${inv.stripePaymentLink ? `<button onclick="navigator.clipboard.writeText('${_escJs(inv.stripePaymentLink)}'); if(typeof showToast==='function')showToast('Payment link copied!','ok');else alert('Payment link copied!')" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Copy Payment Link</button>` : ''}
+            <button data-ip-action="print" style="padding:8px 16px;background:var(--s2);border:1px solid var(--br);border-radius:5px;cursor:pointer;font-weight:700;">Print Invoice</button>
+            <button data-ip-action="sendInvoice" data-ip-id="${_escJs(invoiceId)}" style="padding:8px 16px;background:var(--orange);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Send to Customer</button>
+            ${inv.stripePaymentLink ? `<button data-ip-action="copyStripeLink" data-ip-id="${_escJs(inv.stripePaymentLink)}" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Copy Payment Link</button>` : ''}
           </div>
 
           <div style="background:var(--s2);padding:12px;border-radius:5px;font-size:11px;color:var(--m);">
@@ -614,7 +614,7 @@
               <span style="background:${statusBg};color:#fff;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase;">${inv.status}</span>
             </td>
             <td style="padding:10px;">
-              <button onclick="window.InvoicePipeline.renderInvoiceDetail('inv-detail-modal', '${inv.id}')" style="padding:4px 10px;font-size:10px;background:var(--blue);color:#fff;border:none;border-radius:3px;cursor:pointer;">View</button>
+              <button data-ip-action="renderDetail" data-ip-id="${inv.id}" data-ip-target="inv-detail-modal" style="padding:4px 10px;font-size:10px;background:var(--blue);color:#fff;border:none;border-radius:3px;cursor:pointer;">View</button>
             </td>
           </tr>
         `;
@@ -831,4 +831,33 @@
     sendInvoiceUI
   };
 
+})();
+
+
+// CSP-safe delegation for 7 data-ip-action attrs (invoice pipeline).
+(function () {
+  if (window._NBD_IP_DELEGATE_BOUND) return;
+  window._NBD_IP_DELEGATE_BOUND = true;
+  document.addEventListener('click', function (ev) {
+    const t = ev.target.closest && ev.target.closest('[data-ip-action]');
+    if (!t) return;
+    const action = t.dataset.ipAction;
+    const id = t.dataset.ipId;
+    const target = t.dataset.ipTarget;
+    const IP = window.InvoicePipeline || {};
+    try {
+      switch (action) {
+        case 'createInvoiceUI': if (typeof IP.createInvoiceUI === 'function') IP.createInvoiceUI(id); break;
+        case 'renderDetail':    if (typeof IP.renderInvoiceDetail === 'function') IP.renderInvoiceDetail(target, id); break;
+        case 'sendInvoice':     if (typeof IP.sendInvoiceUI === 'function') IP.sendInvoiceUI(id); break;
+        case 'print':           window.print(); break;
+        case 'copyStripeLink':  {
+          if (id) navigator.clipboard.writeText(id);
+          if (typeof showToast === 'function') showToast('Payment link copied!', 'ok');
+          break;
+        }
+        default: console.warn('[invoice-pipeline] no dispatch for', action);
+      }
+    } catch (e) { console.error('[invoice-pipeline] dispatch ' + action + ' failed:', e); }
+  });
 })();

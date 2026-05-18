@@ -526,7 +526,7 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
         <div style="border-radius:10px;overflow:hidden;aspect-ratio:4/3;background:#1a1a2e;">
           <img src="${esc(p.url)}" alt="${esc(p.name || 'Photo')}"
                style="width:100%;height:100%;object-fit:cover;cursor:pointer;transition:transform .2s;"
-               onclick="this.style.position=this.style.position==='fixed'?'':'fixed';this.style.inset='0';this.style.width=this.style.width==='100vw'?'100%':'100vw';this.style.height=this.style.height==='100vh'?'100%':'100vh';this.style.zIndex=this.style.zIndex==='9999'?'':'9999';this.style.objectFit='contain';this.style.background='rgba(0,0,0,0.95);'">
+               data-cp-action="toggleImgFullscreen">
         </div>
       `).join('') : '<div style="text-align:center;padding:60px 20px;color:#888;font-size:16px;">No photos uploaded yet.</div>';
 
@@ -600,3 +600,6 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
   };
 
 })();
+
+
+(function(){if(window._NBD_CP_DELEGATE)return;window._NBD_CP_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-cp-action]');if(!t)return;if(t.dataset.cpAction==='toggleImgFullscreen'){var s=t.style;s.position=s.position==='fixed'?'':'fixed';s.inset='0';s.width=s.width==='100vw'?'100%':'100vw';s.height=s.height==='100vh'?'100%':'100vh';s.zIndex=s.zIndex==='9999'?'':'9999';s.objectFit='contain';s.background='rgba(0,0,0,0.95)';}});})();
