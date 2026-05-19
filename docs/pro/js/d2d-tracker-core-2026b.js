@@ -157,9 +157,17 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  // Esri World Imagery (documented, stable). Was undocumented Google mt{s} endpoint.
-  // Const name kept for backwards compatibility with callers.
-  const GOOGLE_SAT_TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  // Google satellite primary (mt{s}.google.com — already on the CSP
+  // script-src/img-src allow-list). Esri/ArcGIS as a per-tile fallback
+  // via tileerror in initD2DMap. Esri was the previous primary, but
+  // Brave Shields (and several other tracker-blocker extensions) block
+  // server.arcgisonline.com at the network layer — the request fails
+  // before it ever hits the server, the SW falls through to a synthetic
+  // 503, and Leaflet renders a black void. Google's tile endpoint is on
+  // every blocker's allowlist, so it ships universally. We keep Esri
+  // around for the rare case Google rate-limits a specific tile.
+  const SAT_TILES_PRIMARY = 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
+  const SAT_TILES_FALLBACK = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
   const NOMINATIM_SEARCH = 'https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&limit=5&q=';
   const NOMINATIM_REVERSE = 'https://nominatim.openstreetmap.org/reverse?format=json&addressdetails=1';
   const WEATHER_KEY_STORE = 'nbd_weather_key';
@@ -1643,7 +1651,25 @@
       bounceAtZoomLimits: false     // smoother UX on iOS
     }).setView(CINCINNATI, 13);
 
-    L.tileLayer(GOOGLE_SAT_TILES, { subdomains: '0123', attribution: '© Google', maxNativeZoom: 22, maxZoom: 23 }).addTo(state.d2dMap);
+    const sat = L.tileLayer(SAT_TILES_PRIMARY, {
+      subdomains: '0123',
+      attribution: 'Imagery © Google',
+      maxNativeZoom: 22,
+      maxZoom: 23
+    });
+    // Per-tile fallback to Esri if Google returns an error for a given
+    // tile. Mirrors the Maps view pattern (maps-core.js initMainMap).
+    // The dataset guard ensures we only retry once — if the fallback
+    // ALSO fails, Leaflet renders nothing for that tile rather than
+    // looping forever.
+    sat.on('tileerror', function (ev) {
+      if (!ev.tile || !ev.coords || ev.tile.dataset.nbdFallbackTried === '1') return;
+      ev.tile.dataset.nbdFallbackTried = '1';
+      const c = ev.coords;
+      ev.tile.src = SAT_TILES_FALLBACK
+        .replace('{z}', c.z).replace('{x}', c.x).replace('{y}', c.y);
+    });
+    sat.addTo(state.d2dMap);
 
     // Force map to recalculate size after standalone viewport settles
     if (isStandalone) {
