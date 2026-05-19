@@ -3881,8 +3881,15 @@ body {
   .map-area{order:1;height:55vw;min-height:220px;}
   .map-area > div[id$="Map"]{height:100%!important;}
   .map-toggle-btn{display:flex!important;position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:500;background:var(--s);border:1px solid var(--br);border-radius:20px;padding:6px 16px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t);cursor:pointer;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);}
-  .crm-header{padding:12px 14px 8px;flex-wrap:wrap;gap:8px;}
-  .crm-header > div:first-child{flex:1;}
+  /* !important blanket on the mobile re-layout rules — desktop's
+     `.crm-header{ flex-wrap:nowrap; ... }` at the Pro-Chrome block
+     is declared AFTER this media query in source order, so without
+     !important the cascade lets the desktop rule win at 375px (this
+     was a pre-existing responsive bug — the original wrap behavior
+     never worked, it just looked-OK enough to ship). Same for
+     `.crm-hdr-views{ overflow:hidden; display:inline-flex }`. */
+  .crm-header{padding:12px 14px 8px!important;flex-wrap:wrap!important;gap:8px!important;}
+  .crm-header > div:first-child{flex:1 1 100%!important;}
   .crm-header > div:last-child{flex-wrap:wrap;gap:6px;width:100%;}
   .crm-header input[type=text]{width:100%!important;flex:1;}
   .crm-header select{flex:1;}
@@ -3900,16 +3907,31 @@ body {
        4. Orphan separator pips are dropped so we don't leave empty
           1px gaps where their neighbour buttons used to live. */
   .crm-tools-menu-mobile{ display:block; }
+  /* Search cluster: force its own row + let the input grow */
+  .crm-hdr-search{ flex-basis:100%!important; flex-wrap:wrap!important; gap:6px!important; min-width:0!important; }
+  /* View switcher: own full-width horizontal-scroll row */
   .crm-hdr-views{
-    flex-basis:100%;
-    overflow-x:auto;
-    overflow-y:hidden;
+    display:flex!important;
+    flex-basis:100%!important;
+    width:100%!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
     flex-wrap:nowrap!important;
     white-space:nowrap;
     -webkit-overflow-scrolling:touch;
     scrollbar-width:thin;
   }
-  .crm-hdr-views .kview-btn{ flex-shrink:0; }
+  .crm-hdr-views .kview-btn{ flex-shrink:0!important; }
+  /* Actions row: its own row, left-aligned (margin-left:auto unused
+     when row is full-width), buttons size to content */
+  .crm-hdr-actions{
+    flex-basis:100%!important;
+    width:100%!important;
+    margin-left:0!important;
+    overflow-x:visible!important;
+    mask-image:none!important;
+    -webkit-mask-image:none!important;
+  }
   #needsAttentionBtn,
   #staleSharesBtn,
   #prospectsToggleBtn,
