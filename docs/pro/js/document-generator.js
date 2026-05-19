@@ -1948,8 +1948,10 @@ window.NBDDocGen = {
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;color:#1a1a2e;}
 .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:3px solid #e8720c;margin-bottom:26px;}
-.brand{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;}
-.brand span{color:#e8720c;}
+.brand-row{display:flex;align-items:center;gap:12px;}
+/* Width-only; height derives from the 1.5:1 source so the white card hugs the artwork. */
+.brand-logo{display:block;width:140px;height:auto;background:#fff;border-radius:6px;padding:4px 8px;box-sizing:border-box;}
+.brand{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;text-transform:uppercase;color:#1a1a2e;line-height:1.1;}
 .badge{font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#e8720c;border:1px solid #e8720c;padding:2px 9px;border-radius:2px;display:inline-block;margin-top:5px;}
 .doc-type{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;color:#1e3a6e;text-align:right;}
 .doc-date{font-size:12px;color:#666;text-align:right;margin-top:4px;}
@@ -1962,7 +1964,10 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;}
 @media print{body{padding:20px;}@page{margin:1.5cm;size:letter;}}
 </style></head><body>
 <div class="hdr">
-  <div><div class="brand">No Big Deal <span>Home Solutions</span></div><div class="badge">${typeName}</div></div>
+  <div>
+    <div class="brand-row"><img class="brand-logo" src="${(typeof window!=='undefined'&&window.NBD_LOGO_DATA_URI)?window.NBD_LOGO_DATA_URI:(this._assetOrigin()+'/assets/images/nbd-logo.png')}" alt="${this.COMPANY.name}"/><div class="brand">${this.COMPANY.name}</div></div>
+    <div class="badge">${typeName}</div>
+  </div>
   <div><div class="doc-type">${typeName}</div><div class="doc-date">${date}</div></div>
 </div>
 ${name || addr ? `<h2>Customer Information</h2>
