@@ -116,41 +116,53 @@ function initDrawMap() {
   const container = document.getElementById('drawMap');
   if (!container) { console.error('drawMap container not found'); return; }
 
-  drawMap = L.map('drawMap',{preferCanvas:true}).setView([39.07,-84.17],20);
-  // Map layers — Esri World Imagery primary (documented, ToS-friendly).
-  // Esri caps at z=19 native — Leaflet upscales to z=22 for drawing precision.
-  //
-  // Esri free tier has been returning sporadic 503s in burst conditions
-  // (~20 tiles at once on initial map paint). Fallback chain on `tileerror`:
-  // for each failed Esri tile, swap the <img>.src to Google's mt{0-3}.google
-  // satellite endpoint. Google is undocumented and was the prior provider
-  // (commit d2e... — see git log) but tends to fail differently from Esri,
-  // so the two together cover each other's gaps. The SVG attribution
-  // still credits Esri since that's the primary.
+  // maxZoom set on the map itself enforces a HARD STOP — Leaflet refuses
+  // to zoom past this regardless of user input. Previously the user could
+  // zoom to 22 even though no provider had tiles at 20+, which surfaced
+  // Esri's "This map is not yet available at this zoom level" placeholder
+  // tile. With Google primary + maxZoom 21, every zoom level the user
+  // can reach has real imagery.
+  drawMap = L.map('drawMap',{preferCanvas:true, maxZoom: 21}).setView([39.07,-84.17],20);
+
+  // Google satellite primary — Brave Shields blocks `server.arcgisonline.com`
+  // at the network layer (instant onerror → SW returns synthetic 503 → black
+  // tiles). Google's `mt{s}.google.com` is on every tracker-blocker
+  // allowlist AND supports higher native zoom (21 universal vs Esri's 19),
+  // so the drawing tool gets crisp imagery at the deepest zoom rather than
+  // an upscaled blur. Esri stays as a per-tile fallback for the rare case
+  // Google rate-limits a tile, but only at z<=19 where Esri actually has
+  // imagery — beyond that the failed tile just stays blank rather than
+  // showing Esri's "not available" placeholder.
+  const GOOGLE_SAT_TILE = 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}';
   const ESRI_TILE = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-  const GOOGLE_SAT_FALLBACK = (z, x, y) =>
-    `https://mt${(x + y) % 4}.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${z}`;
-  const ESRI_ATTR = 'Tiles © Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community';
+  const ESRI_FALLBACK = (z, x, y) =>
+    `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+  const GOOGLE_ATTR = 'Imagery © Google';
 
   function attachFallback(layer) {
     layer.on('tileerror', function (ev) {
       if (!ev.tile || !ev.coords) return;
       if (ev.tile.dataset.nbdFallbackTried === '1') return; // give up after one retry
       ev.tile.dataset.nbdFallbackTried = '1';
-      ev.tile.src = GOOGLE_SAT_FALLBACK(ev.coords.z, ev.coords.x, ev.coords.y);
+      // Esri caps at z=19; beyond that the fallback would just surface the
+      // "not available" placeholder, so we leave the failed tile blank.
+      if (ev.coords.z > 19) return;
+      ev.tile.src = ESRI_FALLBACK(ev.coords.z, ev.coords.x, ev.coords.y);
     });
     return layer;
   }
 
-  drawMapLayers.satellite = attachFallback(L.tileLayer(ESRI_TILE, {
-    attribution: ESRI_ATTR, maxNativeZoom: 19, maxZoom: 22
+  drawMapLayers.satellite = attachFallback(L.tileLayer(GOOGLE_SAT_TILE, {
+    subdomains: '0123', attribution: GOOGLE_ATTR, maxNativeZoom: 21, maxZoom: 21
   }));
-  drawMapLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxNativeZoom:19,maxZoom:22});
+  drawMapLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxNativeZoom:19,maxZoom:21});
   drawMapLayers.hybrid = L.layerGroup([
-    attachFallback(L.tileLayer(ESRI_TILE, { maxNativeZoom: 19, maxZoom: 22 })),
+    attachFallback(L.tileLayer(GOOGLE_SAT_TILE, { subdomains: '0123', maxNativeZoom: 21, maxZoom: 21 })),
+    // Place labels overlay still uses Esri Reference; tops out at z=19 and is
+    // semi-transparent (opacity:0.75) so missing tiles at z>19 are unnoticeable.
     L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-      { maxNativeZoom: 19, maxZoom: 22, opacity: 0.75 }
+      { maxNativeZoom: 19, maxZoom: 21, opacity: 0.75 }
     )
   ]);
   drawMapLayers.satellite.addTo(drawMap);
