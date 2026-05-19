@@ -7250,6 +7250,7 @@ function _renderDocCreateGrid(filter) {
   grid.innerHTML = list.map(function(t) {
     return '<div class="doc-template-card" data-action="_pickCustomerDoc" data-doc-type="' + esc(t.type) + '" '
       + 'style="position:relative;padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;">'
+      + '<button type="button" class="dt-preview-btn" data-action="_previewBlankDoc" data-doc-type="' + esc(t.type) + '" aria-label="Preview blank template" title="Preview blank template">&#9432;</button>'
       + '<div style="font-size:22px;margin-bottom:6px;">' + t.icon + '</div>'
       + '<div style="font-size:13px;font-weight:700;color:var(--t);line-height:1.25;">' + esc(t.name) + '</div>'
       + '<div style="font-size:11px;color:var(--m);margin-top:3px;line-height:1.35;">' + esc(t.desc) + '</div>'
