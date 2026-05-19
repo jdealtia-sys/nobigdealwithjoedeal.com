@@ -1010,6 +1010,7 @@ function buildCard(l){
       const missing = window.missingRequiredFields(l) || [];
       if (missing.length > 0) {
         const FIELD_LABELS = {
+          jobType:              'Job Type',
           insCarrier:           'Carrier',
           claimNumber:          'Claim #',
           policyNumber:         'Policy #',
@@ -1274,6 +1275,124 @@ function promptLostReason(lead) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════
+// Required-field gate — modal banner + click-to-jump
+// When moveCard's gate blocks an advance, we open the lead modal
+// AND surface a sticky banner at the top listing exactly which
+// fields are missing for the target stage. Clicking a field name
+// scrolls + focuses + pulses that input so the rep knows where to
+// type. No toast — the banner is right there in the modal we just
+// opened, so a duplicate toast just means two things to dismiss.
+// ═══════════════════════════════════════════════════════════
+const _GATE_FIELD_META = {
+  jobType:              { label: 'Job Type',          inputId: 'lJobType' },
+  insCarrier:           { label: 'Insurance Carrier', inputId: 'lInsCarrier' },
+  claimNumber:          { label: 'Claim Number',      inputId: 'lClaimNumber' },
+  policyNumber:         { label: 'Policy Number',     inputId: 'lPolicyNumber' },
+  dateOfLoss:           { label: 'Date of Loss',      inputId: 'lDateOfLoss' },
+  estimateAmount:       { label: 'Estimate Amount',   inputId: 'lEstimateAmount' },
+  deductibleOrOwedByHO: { label: 'Deductible',        inputId: 'lDeductible' },
+  jobValue:             { label: 'Job Value',         inputId: 'lJobValue' },
+  financeCompany:       { label: 'Finance Company',   inputId: 'lFinanceCompany' },
+  loanAmount:           { label: 'Loan Amount',       inputId: 'lLoanAmount' },
+  scheduledDate:        { label: 'Scheduled Date',    inputId: 'lScheduledDate' },
+};
+
+function _openLeadModalWithMissingFieldsBanner(lead, targetStage, missingFields) {
+  const stageLabel = (window.STAGE_META && window.STAGE_META[targetStage] && window.STAGE_META[targetStage].label) || targetStage;
+  const items = (missingFields || []).map(f => _GATE_FIELD_META[f] || { label: f, inputId: null });
+
+  if (typeof window.editLead !== 'function') return;
+  try { window.editLead(lead.id); } catch (_) { return; }
+
+  // editLead is sync but lays out the modal across a tick (option
+  // groups, smart filter, intel hooks). Defer banner injection + focus
+  // until the next frame so the inputs are settled.
+  setTimeout(() => {
+    const modal = document.getElementById('leadModal');
+    if (!modal) return;
+    const modalBox = modal.querySelector('.modal');
+    if (!modalBox) return;
+
+    const existing = document.getElementById('mFieldGateBanner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'mFieldGateBanner';
+    banner.setAttribute('role', 'alert');
+    banner.style.cssText = 'background:rgba(234,88,12,.10);border:1px solid var(--orange,#ea580c);border-left:3px solid var(--orange,#ea580c);border-radius:6px;padding:10px 12px;margin:0 0 12px 0;font-size:13px;color:var(--t,#fff);line-height:1.4;';
+
+    const eyebrow = document.createElement('div');
+    eyebrow.style.cssText = 'font-weight:700;letter-spacing:.02em;text-transform:uppercase;font-size:11px;color:var(--orange,#ea580c);margin-bottom:4px;';
+    eyebrow.textContent = `⚠ Move to "${stageLabel}" blocked — fill these in to advance`;
+    banner.appendChild(eyebrow);
+
+    const list = document.createElement('div');
+    items.forEach((it, idx) => {
+      if (idx > 0) list.appendChild(document.createTextNode(', '));
+      if (it.inputId) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = it.label;
+        btn.dataset.gateJump = it.inputId;
+        btn.style.cssText = 'background:none;border:none;padding:0;color:var(--orange,#ea580c);text-decoration:underline;cursor:pointer;font:inherit;';
+        list.appendChild(btn);
+      } else {
+        list.appendChild(document.createTextNode(it.label));
+      }
+    });
+    banner.appendChild(list);
+
+    const bar = modalBox.querySelector('.m-modal-bar');
+    if (bar && bar.nextElementSibling) bar.parentNode.insertBefore(banner, bar.nextElementSibling);
+    else modalBox.prepend(banner);
+
+    // Jump to a missing field. When the input is hidden because its
+    // parent job-type block (insurance/finance/job) hasn't been
+    // unlocked yet, scrolling/focusing it no-ops silently — the rep
+    // sees nothing happen. Fall back to focusing the Job Type select
+    // so the rep knows the gate is "pick a job type first, then this
+    // field appears." (Job Type itself is now included in
+    // missingRequiredFields when unset on a stage that needs fields,
+    // so this fallback is rare — kept as belt-and-suspenders for the
+    // hidden-but-jobType-set case, e.g. finance fields on insurance.)
+    const _jumpTo = (inp) => {
+      if (!inp) return;
+      if (inp.offsetParent === null) {
+        const jt = document.getElementById('lJobType');
+        if (jt) {
+          try { jt.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+          try { jt.focus({ preventScroll: true }); } catch (_) { try { jt.focus(); } catch (__) {} }
+          try {
+            jt.style.transition = 'box-shadow .25s ease';
+            jt.style.boxShadow = '0 0 0 3px rgba(234,88,12,.55)';
+            setTimeout(() => { jt.style.boxShadow = ''; }, 1600);
+          } catch (_) {}
+        }
+        return;
+      }
+      try { inp.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {}
+      try { inp.focus({ preventScroll: true }); } catch (_) { try { inp.focus(); } catch (__) {} }
+      try {
+        inp.style.transition = 'box-shadow .25s ease';
+        inp.style.boxShadow = '0 0 0 3px rgba(234,88,12,.55)';
+        setTimeout(() => { inp.style.boxShadow = ''; }, 1600);
+      } catch (_) {}
+    };
+
+    banner.addEventListener('click', (ev) => {
+      const t = ev.target.closest('[data-gate-jump]');
+      if (!t) return;
+      _jumpTo(document.getElementById(t.dataset.gateJump));
+    });
+
+    // Auto-jump to the first missing field so the rep lands on the
+    // exact input they need to fill in, not on the modal header.
+    const firstId = items.find(i => i.inputId)?.inputId;
+    if (firstId) _jumpTo(document.getElementById(firstId));
+  }, 30);
+}
+
 async function moveCard(id, newStage){
   const lead = (window._leads||[]).find(l=>l.id===id);
   if(!lead) return;
@@ -1345,27 +1464,13 @@ async function moveCard(id, newStage){
   // Skip for moves to 'lost' — reps need to dispose of dead leads regardless.
   // The check uses missingRequiredFields against a hypothetical lead at the
   // new stage so we evaluate the destination's requirements, not the current.
+  // The helper opens the lead modal with an in-place banner listing what's
+  // missing + click-to-jump anchors; see _openLeadModalWithMissingFieldsBanner
+  // above for the UX rationale (banner-instead-of-flash-toast).
   if (!isLostMove && typeof window.missingRequiredFields === 'function') {
     const missing = window.missingRequiredFields({ ...lead, stage: newStage });
     if (missing.length > 0) {
-      const fieldLabels = {
-        insCarrier: 'Insurance Carrier',
-        claimNumber: 'Claim Number',
-        estimateAmount: 'Estimate Amount',
-        deductibleOrOwedByHO: 'Deductible',
-        jobValue: 'Job Value',
-        financeCompany: 'Finance Company',
-        loanAmount: 'Loan Amount',
-        scheduledDate: 'Scheduled Date',
-      };
-      const pretty = missing.map(f => fieldLabels[f] || f).join(', ');
-      if (typeof showToast === 'function') {
-        showToast(`Can't move to that stage yet — fill in: ${pretty}`, 'error');
-      }
-      // Open the lead modal so the user can fix the missing fields
-      if (typeof window.editLead === 'function') {
-        try { window.editLead(lead.id); } catch (_) {}
-      }
+      _openLeadModalWithMissingFieldsBanner(lead, newStage, missing);
       return;
     }
   }

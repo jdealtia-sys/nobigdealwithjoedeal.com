@@ -688,11 +688,22 @@ export function requiredFieldsFor(jobType, stage) {
 /**
  * Returns the list of required fields a lead is missing for its current stage.
  * Treats numeric 0 as a valid value (not missing).
+ *
+ * When jobType is unset AND the target stage requires any per-type fields,
+ * `jobType` itself is returned as a missing field — the rep has to pick a
+ * type before the per-type required fields are even visible in the modal,
+ * so listing the downstream fields first is misleading.
  */
 export function missingRequiredFields(lead) {
   if (!lead) return [];
   const jobType = lead.jobType || inferJobType(lead);
-  if (!jobType) return [];
+  if (!jobType) {
+    const normalized = normalizeStage(lead.stage);
+    const anyTypeRequires = Object.keys(REQUIRED_FIELDS_BY_TYPE).some(jt =>
+      (REQUIRED_FIELDS_BY_TYPE[jt]?.[normalized] || []).length > 0
+    );
+    return anyTypeRequires ? ['jobType'] : [];
+  }
   const required = requiredFieldsFor(jobType, lead.stage);
   return required.filter(f => {
     const v = lead[f];
