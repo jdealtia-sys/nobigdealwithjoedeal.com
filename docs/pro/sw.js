@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v27', // v27 — D2D tile URL fix. The var GOOGLE_SAT_TILES was misleadingly named — it actually pointed at server.arcgisonline.com (Esri). Brave Shields blocks ArcGIS at the network layer (instant onerror), the SW falls back to a synthetic 503, Leaflet paints a black void. Switched D2D to Google mt{s}.google.com primary (universally allowlisted) with Esri as a per-tile fallback on tileerror.
-  cdn: 'nbd-cdn-v27',     // v27 — paired bump.
+  shell: 'nbd-shell-v28', // v28 — Drawing tool tile fix. Same Brave/Esri issue as D2D plus a zoom-cap bug: maxZoom was 22 but Esri tops out at native 19, so zooming past z=19 surfaced Esri's "This map is not yet available at this zoom level" placeholder. Switched to Google primary (mt{s}.google.com, native z=21), set maxZoom = maxNativeZoom = 21 for a HARD STOP, Esri fallback only at z<=19.
+  cdn: 'nbd-cdn-v28',     // v28 — paired bump.
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
