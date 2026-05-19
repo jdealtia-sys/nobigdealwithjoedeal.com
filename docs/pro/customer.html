@@ -1250,16 +1250,26 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 
       <!-- DOCUMENTS -->
       <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
           <div class="panel-title" style="margin:0;">Documents</div>
-          <button class="btn btn-orange" data-action="openDocUploadModal" style="font-size:11px;padding:6px 12px;">
-            📤 Upload
-          </button>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:6px 12px;">
+              📝 Create
+            </button>
+            <button class="btn btn-orange" data-action="openDocUploadModal" style="font-size:11px;padding:6px 12px;">
+              📤 Upload
+            </button>
+          </div>
         </div>
         <div id="docList">
           <div class="empty">
             <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
             No documents yet
+            <div style="margin-top:14px;">
+              <button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:8px 16px;">
+                📝 Create your first document
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1719,14 +1729,22 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         <div>
           <!-- DOCUMENTS -->
           <div class="panel">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:8px;flex-wrap:wrap;">
               <div class="panel-title" style="margin:0;">Shared Documents</div>
-              <button class="btn btn-orange" data-action="openDocUploadModal" style="font-size:11px;padding:6px 12px;">Upload</button>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:6px 12px;">📝 Create</button>
+                <button class="btn btn-orange" data-action="openDocUploadModal" style="font-size:11px;padding:6px 12px;">📤 Upload</button>
+              </div>
             </div>
             <div id="sharedDocList">
               <div class="empty">
                 <div class="empty-icon">&#128196;</div>
                 No documents shared yet
+                <div style="margin-top:14px;">
+                  <button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:8px 16px;">
+                    📝 Create your first document
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1883,16 +1901,16 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     <h3 style="margin-bottom:20px;font-family:'Barlow Condensed',sans-serif;font-size:20px;">
       📄 Upload Documents
     </h3>
-    
+
     <div class="upload-zone" id="docDropZone" style="margin-bottom:16px;">
       <div class="upload-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:32px;height:32px;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
       <div class="upload-text">Click or drag documents here</div>
       <div class="upload-hint">Supported: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG</div>
       <input type="file" id="docFileInput" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" style="display:none;">
     </div>
-    
+
     <div id="docUploadPreview" class="upload-preview"></div>
-    
+
     <div style="display:flex;gap:8px;margin-top:16px;">
       <button class="btn btn-orange" id="uploadDocBtn" data-action="uploadDocuments" style="flex:1;display:none;">
         📤 Upload <span id="uploadDocCount">0</span> Document(s)
@@ -1900,6 +1918,23 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <button class="btn" data-action="closeDocUploadModal" style="flex:1;">
         Cancel
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE DOCUMENT MODAL — template picker with search + stage-aware ordering -->
+<div id="docCreateModal" class="modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="docCreateModalTitle" aria-hidden="true">
+  <div class="modal-content" style="max-width:760px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;gap:8px;flex-wrap:wrap;">
+      <h3 id="docCreateModalTitle" style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:20px;">📝 Create Document</h3>
+      <button type="button" class="btn" data-action="closeDocCreateModal" aria-label="Close" style="background:transparent;border:none;font-size:24px;line-height:1;padding:2px 10px;color:var(--m);cursor:pointer;">×</button>
+    </div>
+    <div style="font-size:12px;color:var(--m);margin-bottom:12px;">Auto-filled with this customer's data — pick a template to start.</div>
+    <input type="text" id="docCreateSearch" placeholder="Search templates (e.g. invoice, contract, warranty)…" autocomplete="off" style="width:100%;padding:10px 12px;background:var(--s2);border:1px solid var(--br);border-radius:8px;color:var(--t);font-size:14px;margin-bottom:14px;box-sizing:border-box;">
+    <div id="docCreateGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px;"></div>
+    <div id="docCreateEmpty" style="display:none;text-align:center;padding:24px;color:var(--m);font-size:13px;">No templates match.</div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--br);text-align:center;">
+      <button type="button" class="btn" data-action="_seeAllDocTemplates" style="background:transparent;border:none;color:var(--orange);font-size:13px;font-weight:600;cursor:pointer;padding:6px 12px;">See full document library →</button>
     </div>
   </div>
 </div>
@@ -2452,6 +2487,11 @@ async function loadDocuments(leadId) {
         <div class="empty">
           <div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M5 2h7l4 4v11a1 1 0 01-1 1H5a1 1 0 01-1-1V3a1 1 0 011-1z"/><path d="M12 2v4h4"/></svg></div>
           No documents yet
+          <div style="margin-top:14px;">
+            <button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:8px 16px;">
+              📝 Create your first document
+            </button>
+          </div>
         </div>`;
       return;
     }
@@ -6611,7 +6651,7 @@ window.loadSharedDocuments = async function(leadId) {
     const snap = await window.getDocs(q);
 
     if (snap.empty) {
-      document.getElementById('sharedDocList').innerHTML = '<div class="empty"><div class="empty-icon">📄</div>No shared documents</div>';
+      document.getElementById('sharedDocList').innerHTML = '<div class="empty"><div class="empty-icon">📄</div>No shared documents<div style="margin-top:14px;"><button class="btn btn-orange" data-action="openDocCreateModal" style="font-size:11px;padding:8px 16px;">📝 Create your first document</button></div></div>';
       return;
     }
 
@@ -7120,6 +7160,149 @@ window._previewBlankDoc = function (type) {
     showToast('Preview failed: ' + (err && err.message || err), 'error');
   }
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Create Document picker — searchable, stage-aware modal of the
+// generatable doc templates. Clicking a card closes the modal and
+// drops the rep into the existing generateCustomerDoc(type) flow
+// (preflight → render). "See full document library" scrolls to the
+// on-page Generate Documents grid, which exposes blank-template
+// previews per card.
+
+window._DOC_TEMPLATE_CATALOG = [
+  { type:'proposal',                  icon:'📄', name:'Proposal / Estimate',      desc:'Branded estimate with scope & pricing',     cats:['sales'],             kw:'estimate bid quote pricing offer' },
+  { type:'contract',                  icon:'📝', name:'Roofing Contract',         desc:'Full contract with terms & signatures',     cats:['sales'],             kw:'agreement sign signature legal' },
+  { type:'work_authorization',        icon:'✅', name:'Work Authorization',       desc:'Permission to proceed form',                cats:['sales','install'],   kw:'authorize permission proceed start go-ahead' },
+  { type:'scope_of_work',             icon:'📋', name:'Scope of Work',            desc:'Detailed project scope breakdown',          cats:['sales','claim'],     kw:'scope breakdown line-items work' },
+  { type:'inspectionHomeowner',       icon:'🔎', name:'Inspection Report',        desc:'Homeowner-friendly inspection report',      cats:['inspection'],        kw:'inspection damage assessment roof customer homeowner' },
+  { type:'inspectionInsurance',       icon:'🏢', name:'Insurance Report',         desc:'Adjuster-ready inspection report',          cats:['inspection','claim'],kw:'insurance adjuster carrier claim damage assessment' },
+  { type:'supplement_request',        icon:'📈', name:'Supplement Request',       desc:'Additional scope supplement for insurance', cats:['claim'],             kw:'supplement supp additional extra insurance adjuster' },
+  { type:'warranty_certificate',      icon:'🛡', name:'Warranty Certificate',     desc:'Branded warranty with tier details',        cats:['closeout'],          kw:'warranty guarantee coverage tier' },
+  { type:'certificate_of_completion', icon:'🏆', name:'Certificate of Completion',desc:'Final sign-off & completion record',        cats:['closeout'],          kw:'completion final sign-off coc finish done' },
+  { type:'invoice',                   icon:'💰', name:'Invoice',                  desc:'Professional payment invoice',              cats:['closeout'],          kw:'bill payment pay due balance receipt' },
+  { type:'change_order',              icon:'🔄', name:'Change Order',             desc:'Scope or price modification form',          cats:['install'],           kw:'change order co modify modification scope price' },
+  { type:'before_after_report',       icon:'📷', name:'Before & After Report',    desc:'Visual transformation with photos',         cats:['closeout','sales'],  kw:'before after photos comparison transformation review' },
+  { type:'financing_options',         icon:'💳', name:'Financing Options',        desc:'Payment plan options for customer',         cats:['sales'],             kw:'finance financing loan payment plan monthly' },
+  { type:'company_intro',             icon:'🏠', name:'Company Introduction',     desc:'About us packet for new prospects',         cats:['sales'],             kw:'about us intro company brochure packet new prospect' },
+  { type:'referral_card',             icon:'🎁', name:'Referral Card',            desc:'Shareable referral with incentives',        cats:['closeout'],          kw:'refer referral review incentive share' }
+];
+
+window._STAGE_TEMPLATE_PRIORITY = {
+  'new':                        ['sales','inspection'],
+  'contacted':                  ['sales','inspection'],
+  'inspected':                  ['inspection','sales'],
+  'claim_filed':                ['claim','inspection'],
+  'adjuster_meeting_scheduled': ['claim','inspection'],
+  'adjuster_inspection_done':   ['claim','inspection'],
+  'scope_received':             ['claim','sales'],
+  'estimate_submitted':         ['sales','claim'],
+  'supplement_requested':       ['claim','sales'],
+  'supplement_approved':        ['sales','install'],
+  'contract_signed':            ['sales','install'],
+  'job_created':                ['install'],
+  'permit_pulled':              ['install'],
+  'materials_ordered':          ['install'],
+  'materials_delivered':        ['install'],
+  'crew_scheduled':             ['install'],
+  'install_in_progress':        ['install','closeout'],
+  'install_complete':           ['closeout','install'],
+  'final_photos':               ['closeout'],
+  'deductible_collected':       ['closeout'],
+  'final_payment':              ['closeout'],
+  'closed':                     ['closeout']
+};
+
+function _orderedDocTemplates() {
+  var stage = window._currentStage || 'new';
+  var priority = window._STAGE_TEMPLATE_PRIORITY[stage] || ['sales','inspection'];
+  return window._DOC_TEMPLATE_CATALOG
+    .map(function(t, idx) {
+      var bestRank = priority.length;
+      t.cats.forEach(function(c) {
+        var r = priority.indexOf(c);
+        if (r !== -1 && r < bestRank) bestRank = r;
+      });
+      return { t: t, rank: bestRank, idx: idx };
+    })
+    .sort(function(a, b) { return (a.rank - b.rank) || (a.idx - b.idx); })
+    .map(function(s) { return s.t; });
+}
+
+function _renderDocCreateGrid(filter) {
+  var esc = window.nbdEsc || function(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]});};
+  var q = String(filter || '').trim().toLowerCase();
+  var list = _orderedDocTemplates().filter(function(t) {
+    if (!q) return true;
+    return t.name.toLowerCase().indexOf(q) !== -1
+        || t.desc.toLowerCase().indexOf(q) !== -1
+        || t.type.toLowerCase().indexOf(q) !== -1
+        || (t.kw && t.kw.toLowerCase().indexOf(q) !== -1);
+  });
+  var grid = document.getElementById('docCreateGrid');
+  var empty = document.getElementById('docCreateEmpty');
+  if (!grid) return;
+  if (list.length === 0) {
+    grid.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  grid.innerHTML = list.map(function(t) {
+    return '<div class="doc-template-card" data-action="_pickCustomerDoc" data-doc-type="' + esc(t.type) + '" '
+      + 'style="position:relative;padding:14px;background:var(--s2);border-radius:10px;border:1px solid var(--br);cursor:pointer;transition:all .2s;">'
+      + '<div style="font-size:22px;margin-bottom:6px;">' + t.icon + '</div>'
+      + '<div style="font-size:13px;font-weight:700;color:var(--t);line-height:1.25;">' + esc(t.name) + '</div>'
+      + '<div style="font-size:11px;color:var(--m);margin-top:3px;line-height:1.35;">' + esc(t.desc) + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+window.openDocCreateModal = function() {
+  var modal = document.getElementById('docCreateModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+  var search = document.getElementById('docCreateSearch');
+  if (search) search.value = '';
+  _renderDocCreateGrid('');
+  if (search) setTimeout(function() { try { search.focus(); } catch (_) {} }, 50);
+};
+
+window.closeDocCreateModal = function() {
+  var modal = document.getElementById('docCreateModal');
+  if (!modal) return;
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden', 'true');
+};
+
+window._pickCustomerDoc = function(type) {
+  window.closeDocCreateModal();
+  window.generateCustomerDoc(type);
+};
+
+window._seeAllDocTemplates = function() {
+  window.closeDocCreateModal();
+  var target = document.getElementById('documentsTab');
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
+// Live filter as the user types in the picker search box.
+document.addEventListener('input', function _docCreateSearchListener(e) {
+  if (e.target && e.target.id === 'docCreateSearch') {
+    _renderDocCreateGrid(e.target.value);
+  }
+});
+
+// Backdrop click + ESC dismiss for the picker modal.
+document.addEventListener('click', function _docCreateBackdropListener(e) {
+  var modal = document.getElementById('docCreateModal');
+  if (modal && e.target === modal) window.closeDocCreateModal();
+});
+document.addEventListener('keydown', function _docCreateEscListener(e) {
+  if (e.key !== 'Escape') return;
+  var modal = document.getElementById('docCreateModal');
+  if (modal && modal.style.display === 'flex') window.closeDocCreateModal();
+});
 
 window.generateCustomerDoc = function(type) {
   if (!window.NBDDocGen) {
