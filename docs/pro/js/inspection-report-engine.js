@@ -1975,6 +1975,19 @@
           border-radius: 4px;
           align-items: center;
         }
+        /* Wave 28: line-item collapses to 2-col on phones so the 6-col
+           grid (description / qty / unit / unit-price / total / delete)
+           doesn't blow out 375px viewports. Label spans full width. */
+        @media (max-width: 600px) {
+          .line-item {
+            grid-template-columns: 1fr 1fr 40px;
+            gap: 6px;
+            padding: 8px;
+          }
+          .line-item > :first-child {
+            grid-column: 1 / -1;
+          }
+        }
 
         .line-item input {
           padding: 8px;

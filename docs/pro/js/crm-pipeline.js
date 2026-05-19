@@ -859,6 +859,27 @@ function buildCard(l){
     leadScoreBadge = '';
   }
 
+  // ── Wave 28: jobType badge ──
+  // Icon-only pill tinted with the type's brand color from JOB_TYPE_META.
+  // Lets reps scan Insurance vs Cash vs Finance at a glance without
+  // opening the card. Falls back to inferJobType() for older records
+  // that predate the explicit field. Silently empty if unknowable.
+  let jobTypeBadge = '';
+  try {
+    const _jt = l.jobType ||
+      (typeof window.inferJobType === 'function' ? window.inferJobType(l) : null);
+    const _jtm = (window.JOB_TYPE_META && _jt) ? window.JOB_TYPE_META[_jt] : null;
+    if (_jtm) {
+      const _c = _jtm.color || '#888';
+      jobTypeBadge =
+        '<span class="kc-tag kct-jobtype" title="' + escHtml(_jtm.label) + '" ' +
+          'style="background:color-mix(in srgb,' + _c + ' 18%, var(--s3));color:' + _c + ';' +
+          'border-color:color-mix(in srgb,' + _c + ' 50%, var(--br));font-size:10px;padding:2px 6px;">' +
+          (_jtm.icon || '?') +
+        '</span>';
+    }
+  } catch (e) { jobTypeBadge = ''; }
+
   // ── Wave 75: snoozed-card pills ──
   // Only renders when this lead is snoozed AND the W37 show-snoozed
   // toggle is on (otherwise the lead is filtered out at line 267
@@ -1046,7 +1067,7 @@ function buildCard(l){
          glow now has 12px of empty space to fade into. Plus we
          tightened the glow itself in the CSS rule (8px not 20px). -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px;flex-wrap:wrap;">
-      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${leadScoreBadge}${stageAgeBadge}</div>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">${jobTypeBadge}${leadScoreBadge}${stageAgeBadge}</div>
       <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
         ${estCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--gold);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="4" y="3" width="12" height="14" rx="1.5"/><path d="M7 3V1.5h6V3"/><path d="M7 8h6M7 11h4"/></svg> ${estCount}</span>` : ''}
         ${photoCount > 0 ? `<span style="font-size:10px;background:var(--s3);border:1px solid var(--br);border-radius:10px;padding:2px 6px;color:var(--blue);"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><rect x="2" y="6" width="16" height="11" rx="1.5"/><circle cx="10" cy="11" r="3"/><path d="M7 6l1-3h4l1 3"/></svg> ${photoCount}</span>` : ''}
@@ -1385,6 +1406,13 @@ async function moveCard(id, newStage){
   // Render immediately with new stage
   renderLeads(window._leads, window._filteredLeads);
 
+  // If the card-detail modal is open on this lead, re-populate its chips
+  // so the rep sees the new stage reflected immediately (without this the
+  // chip in the header bar stays on the old value until they close + reopen).
+  if (typeof window.refreshCardDetailChips === 'function') {
+    try { window.refreshCardDetailChips(id); } catch (_) {}
+  }
+
   // Record stage change in history
   const historyEvent = {
     from: oldStage,
@@ -1543,6 +1571,97 @@ async function moveCard(id, newStage){
     }
     
     // Clear error flag
+    setTimeout(() => {
+      delete lead._syncError;
+      renderLeads(window._leads, window._filteredLeads);
+    }, 3000);
+  }
+}
+
+/**
+ * Change a lead's classification (jobType) — Insurance / Cash / Finance /
+ * Warranty / Service. Mirrors moveCard's optimistic-update + rollback
+ * pattern but leaves `stage` alone; resolveColumn() handles cross-track
+ * display in the kanban. We log a timeline note so the change is auditable.
+ */
+async function changeLeadType(id, newType){
+  const lead = (window._leads||[]).find(l=>l.id===id);
+  if(!lead) return;
+  if(lead._pending){ if(typeof showToast==='function') showToast('Change in progress...','info'); return; }
+
+  const oldType = lead.jobType || (typeof window.inferJobType==='function' ? window.inferJobType(lead) : null) || '';
+  if(oldType === newType){ return; }
+
+  // Validate against known types so a typo can't write garbage to Firestore.
+  const validTypes = Object.keys(window.JOB_TYPE_META || {});
+  if(validTypes.length && !validTypes.includes(newType)){
+    if(typeof showToast==='function') showToast(`Unknown classification: ${newType}`,'error');
+    return;
+  }
+
+  lead._pending = true;
+
+  lead.jobType = newType;
+  lead._syncing = true;
+  renderLeads(window._leads, window._filteredLeads);
+
+  // Mirror moveCard: refresh the open detail modal so the type chip
+  // reflects the new classification right away.
+  if (typeof window.refreshCardDetailChips === 'function') {
+    try { window.refreshCardDetailChips(id); } catch (_) {}
+  }
+
+  const oldLabel = (window.JOB_TYPE_META?.[oldType]?.label) || oldType || 'Unset';
+  const newLabel = (window.JOB_TYPE_META?.[newType]?.label) || newType;
+
+  try{
+    const leadRef = window.doc(window.db, 'leads', id);
+    await window.updateDoc(leadRef, {
+      jobType: newType,
+      updatedAt: window.serverTimestamp()
+    });
+
+    // Auto-log activity note for timeline (best-effort, matches moveCard).
+    try{
+      await window.addDoc(window.collection(window.db, 'notes'), {
+        leadId: id,
+        userId: window._user?.uid,
+        text: `Classification changed: ${oldLabel} → ${newLabel}`,
+        type: 'type_change',
+        createdAt: window.serverTimestamp(),
+        createdBy: window._user?.email || 'system'
+      });
+    } catch(e){ console.warn('Activity log write failed:', e.message); }
+
+    lead._syncing = false;
+    lead._syncSuccess = true;
+    delete lead._pending;
+    renderLeads(window._leads, window._filteredLeads);
+    setTimeout(() => {
+      delete lead._syncSuccess;
+      try{
+        const card = document.querySelector(`.k-card[data-id="${(window.CSS && CSS.escape) ? CSS.escape(id) : id}"]`);
+        if(card) card.classList.remove('k-card-sync-success');
+      } catch(_){}
+    }, 1000);
+
+    if(typeof showToast==='function') showToast(`Classification → ${newLabel}`, 'success');
+  } catch(e){
+    console.error('changeLeadType error', e);
+    lead.jobType = oldType || undefined;
+    lead._syncing = false;
+    lead._syncError = true;
+    delete lead._pending;
+    renderLeads(window._leads, window._filteredLeads);
+    if(typeof window.showToast==='function'){
+      window.showToast({
+        message: `Failed to change classification to ${newLabel}. Reverted.`,
+        type: 'error',
+        duration: 5000,
+        undoAction: () => { changeLeadType(id, newType); },
+        undoText: 'Retry'
+      });
+    }
     setTimeout(() => {
       delete lead._syncError;
       renderLeads(window._leads, window._filteredLeads);

@@ -251,6 +251,7 @@ body.has-banner .sdrop{top:148px;}
 
 /* SCORECARD */
 .scg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+@media(max-width:400px){ .scg{ grid-template-columns:repeat(2,1fr); } }
 .sci{border:1.5px solid var(--rule);border-radius:2px;padding:8px 4px;text-align:center;}
 .scm{font-family:'Barlow Condensed',sans-serif;font-size:8px;letter-spacing:.14em;color:var(--muted);display:block;margin-bottom:3px;text-transform:uppercase;}
 .scinp{font-family:'Barlow Condensed',sans-serif;font-size:22px;color:var(--rule);background:transparent;border:none;outline:none;width:100%;text-align:center;}
@@ -681,6 +682,7 @@ canvas{max-width:100%;display:block;}
 .npm-custom { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
 .npm-custom-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
 @media(max-width:520px) { .npm-custom-row { grid-template-columns: repeat(3,1fr); } }
+@media(max-width:380px) { .npm-custom-row { grid-template-columns: repeat(2,1fr); } }
 .npm-custom-field label { display: block; font-size: 9px; letter-spacing: .1em; color: #8a93a8; margin-bottom: 5px; text-transform: uppercase; }
 .npm-cp { width: 100%; height: 40px; border: 1px solid #2a3040; border-radius: 6px; cursor: pointer; background: none; padding: 2px; }
 .npm-custom-btns { display: flex; gap: 8px; flex-wrap: wrap; }

@@ -178,6 +178,18 @@ function renderTaskList(tasks){
   }).join('');
 }
 async function addTask(){const inp=document.getElementById('taskInput'),due=document.getElementById('taskDue'),text=inp.value.trim();if(!text||!_taskModalLeadId)return;inp.value='';await _saveTask(_taskModalLeadId,text,due.value||'');renderTaskList(await _loadTasks(_taskModalLeadId));}
+// Wave 28: Enter-key submit on the task input. Replaces the inline
+// onkeydown="" handler in dashboard.html for CSP cleanliness.
+(function(){
+  const bind = () => {
+    const inp = document.getElementById('taskInput');
+    if (!inp || inp.dataset.taskEnterBound) return;
+    inp.dataset.taskEnterBound = '1';
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
+  else bind();
+})();
 async function checkTask(taskId,done){if(!_taskModalLeadId)return;const t=(window._taskCache[_taskModalLeadId]||[]).find(t=>t.id===taskId);if(t)t.done=done;const item=document.getElementById('titem-'+taskId);if(item)item.classList.toggle('done',done);await _toggleTask(_taskModalLeadId,taskId,done);setTimeout(async()=>renderTaskList(await _loadTasks(_taskModalLeadId)),400);}
 async function removeTask(taskId){if(!_taskModalLeadId)return;await _deleteTask(_taskModalLeadId,taskId);renderTaskList(await _loadTasks(_taskModalLeadId));}
 window.addEventListener('load',()=>{setTimeout(loadAllTasks,1800);});

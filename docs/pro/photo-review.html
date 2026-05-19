@@ -297,7 +297,7 @@
   .pr-picker-sheet {
     background: var(--s); border: 1px solid var(--br);
     border-radius: 14px;
-    padding: 22px; min-width: 260px; max-width: 420px; width: 100%;
+    padding: 22px; min-width: 0; max-width: 420px; width: calc(100vw - 32px);
     box-shadow: 0 22px 60px rgba(0,0,0,.5);
   }
   .pr-picker-title {
@@ -332,7 +332,7 @@
 
   /* ── Bulk-select action bar (slides up from bottom) ───────────── */
   .pr-bulk-bar {
-    position: fixed; left: 12px; right: 12px; bottom: 12px;
+    position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     z-index: 80;
     background: var(--s);
     border: 1px solid var(--orange);

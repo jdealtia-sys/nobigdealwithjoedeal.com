@@ -53,6 +53,7 @@ window.saveLead = saveLead;
 window.deleteLead = deleteLead;
 window.editLead = editLead;
 window.moveCard = moveCard;
+window.changeLeadType = changeLeadType;
 
 // W93 — engagement-sort toggle. The sort logic was already wired into
 // renderLeads (gated by localStorage 'nbd_crm_sort_engagement'). The

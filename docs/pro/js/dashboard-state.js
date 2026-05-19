@@ -206,6 +206,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Card-detail share/revoke/promote/task wrappers
   'cdaSharePortalLink', 'cdaRevokePortalLink', 'cdaConfirmPromote',
   'cdaOpenTaskModal',
+  // Wave 28: card-detail chip pickers (stage + classification quick-change)
+  'cdPickStage', 'cdPickType',
   // Compound rewrites for ~15 remaining one-off handlers
   'openReportGenerator', 'enrichReportData', 'openPhotoEngineCurrentLead',
   'openInspectionBuilderCurrentLead', 'closeInspectionBuilder',

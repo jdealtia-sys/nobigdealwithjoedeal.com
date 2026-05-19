@@ -313,6 +313,13 @@
         display:inline-flex; align-items:center; justify-content:center;
         transition:color .15s, background .15s;
       }
+      /* Wave 28: bump touch targets to 40px on coarse pointers (touch
+         screens) so fat-fingering doesn't accidentally hit the wrong
+         scope-item action. Hover/desktop keeps the compact 28px size. */
+      @media (pointer:coarse) {
+        .v2-scope-item .rm,
+        .v2-scope-item .edit-qty { min-width:40px; min-height:40px; }
+      }
       .v2-scope-item .edit-qty { font-size:12px; }
       .v2-scope-item .edit-qty:hover { color:#22d3ee; background:rgba(34,211,238,.08); }
       .v2-scope-item .rm:hover { color:#c53030; background:rgba(197,48,48,.08); }
@@ -337,6 +344,11 @@
       .v2-export-btns {
         display:grid; grid-template-columns:1fr 1fr 1fr;
         gap:8px; margin-top:14px;
+      }
+      /* Wave 28: collapse to 1-col on phones so the three buttons get
+         full tap-width instead of three squished 60-70px chips. */
+      @media (max-width:430px) {
+        .v2-export-btns { grid-template-columns:1fr; }
       }
       .v2-export-btns button {
         background:#0a0c0f; border:1px solid #2a2f35; color:#e8eaf0;
