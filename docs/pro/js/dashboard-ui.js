@@ -1732,6 +1732,36 @@ function closeCrmToolsMenu() {
 window.toggleCrmToolsMenu = toggleCrmToolsMenu;
 window.closeCrmToolsMenu = closeCrmToolsMenu;
 
+// Global header mobile kebab — collapses theme/settings/guide buttons
+// into a single dropdown on ≤768px. Same shape as toggleCrmToolsMenu
+// (click-outside-to-close, aria-expanded sync), kept separate so the
+// two menus can be open independently if a user ever resizes mid-session.
+function toggleHdrMobileMenu(ev) {
+  const menu = document.getElementById('hdrMobileMenu');
+  const btn  = document.getElementById('hdrMobileBtn');
+  if (!menu) return;
+  const isOpen = menu.classList.toggle('open');
+  if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  if (isOpen) {
+    setTimeout(() => {
+      const onAway = (e) => {
+        if (!menu.contains(e.target) && e.target.id !== 'hdrMobileBtn' && !e.target.closest('#hdrMobileBtn')) {
+          closeHdrMobileMenu();
+          document.removeEventListener('click', onAway, true);
+        }
+      };
+      document.addEventListener('click', onAway, true);
+    }, 0);
+  }
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+}
+function closeHdrMobileMenu() {
+  document.getElementById('hdrMobileMenu')?.classList.remove('open');
+  document.getElementById('hdrMobileBtn')?.setAttribute('aria-expanded', 'false');
+}
+window.toggleHdrMobileMenu = toggleHdrMobileMenu;
+window.closeHdrMobileMenu = closeHdrMobileMenu;
+
 // FAB visibility — show only on the CRM view. Hooks goTo() so we don't
 // have to touch every nav site.
 (function setupAddLeadFab() {
