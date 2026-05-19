@@ -2146,9 +2146,85 @@
     // If the server returned an embed URL, open it so the rep can
     // hand the iPad over right now.
     if (send.embedUrl && window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
-      const iframeHtml = '<!doctype html><html><body style="margin:0;">'
-        + '<iframe src="' + send.embedUrl + '" style="width:100vw;height:100vh;border:0;"></iframe>'
-        + '</body></html>';
+      // BoldSign loads cross-origin in the inner iframe. Brave Shields
+      // (and Firefox ETP strict) block this kind of embed by swapping
+      // in a same-origin block page — the iframe fires `load`, not
+      // `error`, so an onerror handler never catches it and the rep
+      // sees a tiny "blocked" notice instead of the signing UI.
+      //
+      // Same probe pattern as the Customer Portal preview (#499): after
+      // `load`, try iframe.contentWindow.location.href — SecurityError
+      // = real cross-origin success (hide overlay), accessible value =
+      // browser injected a block page (switch overlay to blocked state
+      // and show an "Open in new tab" CTA). 3.5s timeout safety net
+      // for browsers that fully cancel the navigation.
+      //
+      // The detection script lives INSIDE this srcdoc because
+      // NBDDocViewer's outer iframe is sandboxed without
+      // allow-same-origin (H-2), so a parent reach-in would itself
+      // SecurityError. A small "Open ↗" pin in the corner is always
+      // visible as a universal escape hatch regardless of probe outcome.
+      const escAttr = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+      const safeUrl = escAttr(send.embedUrl);
+      const iframeHtml = `<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:-apple-system,system-ui,'Barlow',sans-serif;}
+.nbd-wrap{position:relative;width:100vw;height:100vh;}
+.nbd-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#fff;}
+.nbd-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;background:#f7f8fb;color:#1a1f2a;text-align:center;z-index:1;}
+.nbd-spin{width:36px;height:36px;border-radius:50%;border:3px solid #e1e5ec;border-top-color:#e8720c;animation:nbdEsignSpin .9s linear infinite;}
+@keyframes nbdEsignSpin{to{transform:rotate(360deg);}}
+.nbd-cta{display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border-radius:7px;background:#e8720c;color:#fff;text-decoration:none;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;}
+.nbd-pin{position:absolute;right:12px;bottom:12px;z-index:2;background:rgba(255,255,255,.92);color:#1a1f2a;border:1px solid #d8dde6;padding:6px 12px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;text-decoration:none;box-shadow:0 2px 6px rgba(0,0,0,.08);font-family:inherit;}
+</style></head><body>
+<div class="nbd-wrap">
+  <iframe class="nbd-frame" id="nbdEsignFrame" src="${safeUrl}"></iframe>
+  <div class="nbd-overlay" id="nbdEsignOverlay" data-state="loading">
+    <div data-loading style="display:flex;flex-direction:column;align-items:center;gap:14px;">
+      <div class="nbd-spin"></div>
+      <div style="font-size:13px;color:#5a6478;">Loading signature page…</div>
+    </div>
+    <div data-blocked style="display:none;flex-direction:column;align-items:center;gap:14px;">
+      <div style="font-size:32px;line-height:1;">🛡️</div>
+      <div style="font-size:14px;font-weight:700;max-width:340px;">Your browser blocked the embedded signature page</div>
+      <div style="font-size:12px;color:#5a6478;max-width:340px;line-height:1.45;">Privacy shields (Brave, Firefox strict mode) often block cross-origin embeds. Open the signing page in a new tab to finish.</div>
+      <a class="nbd-cta" href="${safeUrl}" target="_blank" rel="noopener">Open signing page ↗</a>
+    </div>
+  </div>
+  <a class="nbd-pin" href="${safeUrl}" target="_blank" rel="noopener" title="Open signing page in a new tab">Open ↗</a>
+</div>
+<script>(function(){
+  var iframe=document.getElementById('nbdEsignFrame');
+  var overlay=document.getElementById('nbdEsignOverlay');
+  var resolved=false;
+  function showBlocked(){
+    if(resolved)return; resolved=true;
+    if(!overlay)return;
+    overlay.setAttribute('data-state','blocked');
+    var l=overlay.querySelector('[data-loading]');
+    var b=overlay.querySelector('[data-blocked]');
+    if(l)l.style.display='none';
+    if(b)b.style.display='flex';
+  }
+  function hideOverlay(){
+    if(resolved)return; resolved=true;
+    if(overlay)overlay.style.display='none';
+  }
+  if(iframe){
+    iframe.addEventListener('load',function(){
+      try{
+        var _probe=iframe.contentWindow.location.href;
+        showBlocked();
+      }catch(_){
+        hideOverlay();
+      }
+    });
+    iframe.addEventListener('error',showBlocked);
+  }
+  setTimeout(showBlocked,3500);
+})();</script>
+</body></html>`;
       window.NBDDocViewer.open({
         html: iframeHtml,
         title: 'Sign Contract — ' + (customer.address || ''),
