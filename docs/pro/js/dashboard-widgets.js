@@ -185,6 +185,24 @@ function viewEstimate(id) {
   const titleEl = document.getElementById('estBuilderTitle');
   if (titleEl) titleEl.textContent = 'Edit Estimate';
 
+  // ── Reset Step 2 form to neutral defaults BEFORE restoring. Without
+  // this, leftover state from a previous builder session (presets,
+  // half-finished estimates) bleeds into the recomputed numbers and
+  // silently corrupts the saved doc on Save. Audit 2026-05-19.
+  const _setSel  = (elId, val)  => { const el = document.getElementById(elId); if (el) el.value = val; };
+  const _setChk  = (elId, val)  => { const el = document.getElementById(elId); if (el) el.checked = !!val; };
+  _setSel('estMode', 'cash');
+  _setSel('estCounty', '');
+  _setSel('estCity', '');
+  _setSel('estTearOff', '1');
+  _setChk('estCutUp', false);
+  _setChk('estValley', false);
+  _setChk('estChimney', false);
+  _setChk('estSkylight', false);
+  _setSel('estGutterLF', '');
+  ['insCarrier','insClaim','insDeductible','insDOL','insAdjuster','insPolicy',
+   'insRCV','insACV','insOP','insDep','insRecDep'].forEach(i => _setSel(i, ''));
+
   // Populate Step 1 — Measurements (handle null/0 gracefully)
   const setVal = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = (val != null && val !== '') ? val : ''; };
   setVal('estAddr', est.addr);
@@ -238,6 +256,40 @@ function viewEstimate(id) {
     }
   }
 
+  // ── Restore Step 2 EBv2 fields from the saved doc. These were added
+  // to the persistence layer 2026-05-19 — older docs won't have them,
+  // which is fine: they just stay at the neutral defaults set above.
+  if (est.mode)            _setSel('estMode', est.mode);
+  if (est.county)          _setSel('estCounty', est.county);
+  if (est.city)            _setSel('estCity', est.city);
+  if (est.tearOffLayers)   _setSel('estTearOff', String(est.tearOffLayers));
+  if (est.cutUp != null)   _setChk('estCutUp', est.cutUp);
+  if (est.hasValley != null)   _setChk('estValley', est.hasValley);
+  if (est.hasChimney != null)  _setChk('estChimney', est.hasChimney);
+  if (est.hasSkylight != null) _setChk('estSkylight', est.hasSkylight);
+  if (est.gutterLF != null && est.gutterLF !== '') _setSel('estGutterLF', est.gutterLF);
+
+  // Insurance overlay fields
+  if (est.insurance && typeof est.insurance === 'object') {
+    const ins = est.insurance;
+    _setSel('insCarrier',     ins.carrier      || '');
+    _setSel('insClaim',       ins.claimNumber  || '');
+    _setSel('insDeductible',  ins.deductible != null ? ins.deductible : '');
+    _setSel('insDOL',         ins.dateOfLoss   || '');
+    _setSel('insAdjuster',    ins.adjuster     || '');
+    _setSel('insPolicy',      ins.policyNumber || '');
+    _setSel('insRCV',         ins.rcv != null ? ins.rcv : '');
+    _setSel('insACV',         ins.acv != null ? ins.acv : '');
+    _setSel('insOP',          ins.op  != null ? ins.op  : '');
+    _setSel('insDep',         ins.depreciation    != null ? ins.depreciation    : '');
+    _setSel('insRecDep',      ins.recoverableDep  != null ? ins.recoverableDep  : '');
+  }
+
+  // Toggle insurance overlay block based on mode
+  if (typeof window.toggleInsuranceOverlay === 'function') {
+    window.toggleInsuranceOverlay();
+  }
+
   // Restore linked lead
   window._estLinkedLeadId = est.leadId || null;
 
@@ -249,27 +301,57 @@ function viewEstimate(id) {
 
   // Reset estData and run calculations (order matters: updateEstCalc reads DOM, calcTierPrices needs estData)
   estData = {};
+  // Restore deposit override + revision version onto estData before
+  // buildReview so the deposit math + version label honor the saved doc.
+  if (est.depositPctOverride != null) estData.depositPctOverride = est.depositPctOverride;
+  if (est.version != null) estData.version = est.version;
+  if (est.revisedFrom) estData.revisedFrom = est.revisedFrom;
   updateEstCalc();
   calcTierPrices();
 
-  // Select saved tier in the UI
-  document.querySelectorAll('.tier-card').forEach(c => {
-    c.classList.remove('selected');
-    const onclick = c.getAttribute('onclick') || '';
-    if (onclick.includes("'" + selectedTier + "'")) {
-      c.classList.add('selected');
-    }
-  });
+  // Select saved tier in the UI. The old `.tier-card[onclick*=tier]`
+  // selector matched zero cards after the CSP onclick sweep removed
+  // inline handlers — now we key off the data-fn / data-arg attributes
+  // the tier cards actually carry.
+  document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
+  const tierCard = document.querySelector(
+    '.tier-card[data-fn="selectTier"][data-arg="' + selectedTier + '"]'
+  );
+  if (tierCard) tierCard.classList.add('selected');
 
   // Enable the step 3 next button (since tier is pre-selected)
   const step3Btn = document.getElementById('estStep3Next');
   if (step3Btn) { step3Btn.disabled = false; step3Btn.style.opacity = '1'; }
 
+  // Legacy banner — older Classic docs (saved before 2026-05-19) lack
+  // the mode/county/add-on fields, so the recomputed grand total may
+  // differ from the saved value. Surface this clearly so the rep can
+  // decide whether to resave with the new fuller state.
+  const isLegacyClassic = (est.builder !== 'v2') && (est.mode == null);
+  const savedGrandTotal = Number(est.grandTotal || 0);
+
   // Build review and jump to Step 4 (use requestAnimationFrame to ensure DOM is painted)
   requestAnimationFrame(() => {
     buildReview();
     showEstStep(4);
-    showToast('Estimate loaded — review and save or edit any step', 'info');
+    if (isLegacyClassic && savedGrandTotal > 0) {
+      // estData.grandTotal is the recomputed value; if it shifted, warn.
+      const recomputed = Number(estData.grandTotal || 0);
+      const drift = Math.abs(recomputed - savedGrandTotal);
+      if (drift >= 1) {
+        showToast(
+          'Loaded older estimate — total recomputed from $'
+          + Math.round(savedGrandTotal).toLocaleString()
+          + ' to $' + Math.round(recomputed).toLocaleString()
+          + '. Review before saving.',
+          'warning'
+        );
+      } else {
+        showToast('Estimate loaded — review and save or edit any step', 'info');
+      }
+    } else {
+      showToast('Estimate loaded — review and save or edit any step', 'info');
+    }
   });
 }
 window.viewEstimate = viewEstimate;

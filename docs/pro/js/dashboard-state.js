@@ -82,6 +82,7 @@ const _NBD_TOGGLE_FNS = {
   debugConsole:            'toggleDebugConsole',
   dismissedNotifications:  'toggleDismissedNotifications',
   drawing:                 'toggleDraw',
+  hdrMobileMenu:           'toggleHdrMobileMenu',
   historicalImagery:       'toggleHistoricalImagery',
   kanbanFullscreen:        'toggleKanbanFullscreen',
   mapLayer:                'toggleMapLayer',
@@ -139,7 +140,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'clearAllPins', 'commitPin', 'cancelPinConfirm',
   // Estimate flow
   'estNext', 'estBack', 'saveEstimate', 'exportEstimate', 'cancelEstimate',
-  'importToEstimate', 'startNewEstimate', 'selectTier',
+  'importToEstimate', 'startNewEstimate', 'startNewEstimateOriginal', 'selectTier',
+  'setDepositOverride', 'toggleInternalView', 'createEstimateRevision',
   'exportXactimateESX', 'exportDrawReport',
   // Photos / damage / drawing
   'setPhotoMode', 'damagNearMe', 'damageNearMePhotos', 'acceptAutoDetect',

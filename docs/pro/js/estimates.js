@@ -212,6 +212,14 @@ function cancelEstimate() {
   if (list)    list.style.display='block';
   if (builder) builder.style.display='none';
   window._editingEstimateId = null;
+  window._estLinkedLeadId = null;
+  // Reset shared state so the next New Estimate / Edit starts clean.
+  // Without this, builder state (selected tier, estData) bleeds into
+  // the next session — the underlying mechanism behind the silent
+  // corruption bug fixed in viewEstimate (Audit 2026-05-19).
+  selectedTier = null;
+  estData = {};
+  estCurrentStep = 0;
 }
 
 function showEstStep(n) {
@@ -624,7 +632,7 @@ function buildReview() {
         <div><div style="color:var(--m);font-size:10px;">Balance at Completion</div><div style="font-weight:700;">${fmt(deposit.remainder)}</div></div>
         <div style="display:flex;align-items:center;gap:6px;">
           <label style="font-size:10px;color:var(--m);">Override %:</label>
-          <input type="number" min="0" max="100" value="${deposit.pct}" onchange="setDepositOverride(this.value)" style="width:56px;padding:2px 6px;border-radius:4px;background:var(--s);border:1px solid var(--br);color:var(--t);font-size:11px;">
+          <input type="number" min="0" max="100" value="${deposit.pct}" data-on-change="setDepositOverride" style="width:56px;padding:2px 6px;border-radius:4px;background:var(--s);border:1px solid var(--br);color:var(--t);font-size:11px;">
         </div>
       </div>
     </div>
@@ -704,8 +712,13 @@ window.applyEstimatePreset = function applyEstimatePreset(key) {
   check('estSkylight', p.addOns.skylight);
   set('estGutterLF', p.addOns.gutterLF || '');
   // Auto-select the tier card so the rep sees the price immediately.
+  // Pre-CSP-sweep this looked for inline `onclick=` — every tier card
+  // now uses `data-fn="selectTier" data-arg="…"` instead, so the old
+  // selector matched zero cards and the card never visually selected.
   if (typeof selectTier === 'function') {
-    const card = document.querySelector('.tier-card[onclick*="' + p.tier + '"]');
+    const card = document.querySelector(
+      '.tier-card[data-fn="selectTier"][data-arg="' + p.tier + '"]'
+    );
     selectTier(p.tier, card || null);
   }
   updateEstCalc();
@@ -746,9 +759,12 @@ async function saveEstimate() {
 
   _savingEstimate = true;
   const isUpdate = !!window._editingEstimateId;
-  const saveBtn = document.querySelector('#estStep4 .btn-primary, #estStep4 button[onclick*="saveEstimate"]');
-  const origText = saveBtn ? saveBtn.textContent : '';
-  if(saveBtn){ saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+  // Disable the Save buttons for the duration of the save round-trip
+  // so the rep can't double-click. Pre-CSP-sweep this used a stale
+  // .btn-primary / onclick* selector that matched no current button.
+  const saveBtns = document.querySelectorAll('#estStep4 [data-fn="saveEstimate"]');
+  const saveBtnOrigText = [];
+  saveBtns.forEach(b => { saveBtnOrigText.push(b.textContent); b.disabled = true; b.textContent = 'Saving...'; });
 
   // Estimate name: use whatever was typed, else fall back to the
   // address + tier so the list row is still recognizable. Never
@@ -761,15 +777,46 @@ async function saveEstimate() {
   const estName = existingName || fallbackName;
 
   try {
+    // ── Persist the FULL builder state. Previously the save only wrote
+    // ~22 fields and silently dropped every Step-2 EBv2 input — mode,
+    // county, city, tear-off layers, cut-up flag, every add-on
+    // checkbox, gutter LF, the insurance block, deposit, version. On
+    // Edit those would re-derive from leftover DOM state, producing
+    // silent data corruption (Audit 2026-05-19). The full state goes
+    // through now so round-trip Edit is faithful.
+    const addOns = estData.addOns || {};
     await window._saveEstimate({
       name: estName,
       builder: 'classic',
+      // Step 1 — property + measurements
       addr:estData.addr, owner:estData.owner, parcel:estData.parcel, yr:estData.yr,
-      roofType:estData.roofType, pitch:estData.pl, wf:estData.wf, sq:estData.sq, tier:selectedTier,
-      tierName:estData.tierName, grandTotal:estData.grandTotal,
-      raw:estData.raw, adj:Math.round(estData.adj),
+      raw:estData.raw, adj:Math.round(estData.adj || 0),
       ridge:estData.ridge ?? null, eave:estData.eave ?? null, hip:estData.hip ?? null,
-      pipes:estData.pipes ?? null, rows:estData.rows||[],
+      pipes:estData.pipes ?? null,
+      // Step 2 — roof + pitch + waste + EBv2 selectors + add-ons
+      roofType:estData.roofType, pitch:estData.pl, wf:estData.wf, sq:estData.sq,
+      cutUp: !!estData.cutUp,
+      tearOffLayers: addOns.tearOffLayers || 1,
+      mode: estData.mode || 'cash',
+      county: estData.county || '',
+      city: (document.getElementById('estCity')?.value) || '',
+      hasValley:   !!addOns.hasValley,
+      hasChimney:  !!addOns.hasChimney,
+      hasSkylight: !!addOns.hasSkylight,
+      gutterLF: addOns.gutterLF || 0,
+      // Step 3 — tier + computed totals
+      tier:selectedTier, tierName:estData.tierName, grandTotal:estData.grandTotal,
+      subtotal: estData.subtotal ?? null,
+      taxRate:  estData.taxRate  ?? 0,
+      taxAmount:estData.taxAmount?? 0,
+      rows:estData.rows||[],
+      // Step 4 — insurance overlay + deposit + revision tracking
+      insurance: estData.insurance || null,
+      deposit:   estData.deposit   || null,
+      depositPctOverride: estData.depositPctOverride ?? null,
+      version: estData.version || 1,
+      revisedFrom: estData.revisedFrom || null,
+      // Cross-cutting
       leadId: leadId,
       qmData: estData._qm || null
     });
@@ -793,7 +840,7 @@ async function saveEstimate() {
     showToast('Failed to save estimate — check connection and try again', 'error');
   } finally {
     _savingEstimate = false;
-    if(saveBtn){ saveBtn.disabled = false; saveBtn.textContent = origText; }
+    saveBtns.forEach((b, i) => { b.disabled = false; if (saveBtnOrigText[i]) b.textContent = saveBtnOrigText[i]; });
   }
 }
 
@@ -1355,4 +1402,26 @@ window.calcDeposit            = calcDeposit;
 window.nextRevisionVersion    = nextRevisionVersion;
 
 
-(function(){if(window._NBD_EST_DELEGATE)return;window._NBD_EST_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-est-action]');if(!t)return;var a=t.dataset.estAction;try{if(a==='createNewEstimate'&&typeof createNewEstimate==='function')createNewEstimate();else if(a==='createEstimateRevision'&&typeof createEstimateRevision==='function')createEstimateRevision();else if(a.indexOf('toggle')===0){var fn=window[a];if(typeof fn==='function')fn();}}catch(e){console.error('[estimates]',e);}});})();
+// Click delegate for `data-est-action` buttons inside the review pane
+// (Create Revision, Internal View toggle). Lives outside the main
+// data-action="call" delegate because these handlers fire on dynamic
+// HTML injected by buildReview() and need no allowlist gate.
+(function(){
+  if(window._NBD_EST_DELEGATE) return;
+  window._NBD_EST_DELEGATE = true;
+  document.addEventListener('click', function(ev){
+    const t = ev.target.closest && ev.target.closest('[data-est-action]');
+    if (!t) return;
+    const a = t.dataset.estAction;
+    try {
+      if (a === 'createEstimateRevision' && typeof createEstimateRevision === 'function') {
+        createEstimateRevision();
+      } else if (a.indexOf('toggle') === 0) {
+        const fn = window[a];
+        if (typeof fn === 'function') fn();
+      }
+    } catch(e) {
+      console.error('[estimates]', e);
+    }
+  });
+})();
