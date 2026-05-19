@@ -476,7 +476,16 @@ function goTo(name, params = {}) {
       // handles the case where a previous init() threw before completing:
       // window._d2dInited would be stale-true but d2dInited would be
       // false, so init() correctly re-runs the full sequence.
-      requestAnimationFrame(()=>{ window.D2D.init(); });
+      //
+      // Direct call (not requestAnimationFrame) — RAF is the only timing
+      // primitive Chrome FULLY PAUSES on hidden/occluded tabs. If the
+      // user's window briefly loses focus (alt-tab, another window covers
+      // it, multi-monitor switch), an RAF callback queued moments before
+      // never fires, leaving the map blank until the user does something
+      // that forces re-init. initD2D's own setTimeout(initD2DMap, 200)
+      // handles the "wait for paint before Leaflet measures" need
+      // without depending on tab visibility.
+      window.D2D.init();
 
       // Belt-and-suspenders watchdog: independent of d2d-tracker.js. If
       // #d2dContent still shows the static "Loading…" placeholder after

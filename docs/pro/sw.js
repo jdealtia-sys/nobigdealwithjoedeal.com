@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v25', // v25 — swap fake `info@nobigdeal.pro` for real `info@nobigdealwithjoedeal.com` across every doc-generator / customer-portal / photo-report / inspection / share-gallery / pricing path. Bump forces SW reinstall so the activate handler evicts v24 caches and broadcasts SW_UPDATE_AVAILABLE for auto-reload.
-  cdn: 'nbd-cdn-v25',     // v25 — paired bump.
+  shell: 'nbd-shell-v26', // v26 — D2D map render fix. goTo('d2d')'s `requestAnimationFrame(()=>{ window.D2D.init(); })` paused indefinitely whenever the tab was hidden/occluded (Chrome fully suspends RAF for backgrounded tabs); init never ran → spinner stuck. Direct call now, since initD2D has its own setTimeout for paint-wait.
+  cdn: 'nbd-cdn-v26',     // v26 — paired bump.
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
