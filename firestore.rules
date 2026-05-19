@@ -292,6 +292,16 @@ service cloud.firestore {
       allow read, write: if isOwner(uid) || isAdmin();
     }
 
+    // ── COMPANY PROFILE ──────────────────────────────────
+    // Shop-wide singleton at companyProfile/main — drives the editable
+    // legal text / financing tiers / marketing copy / code references
+    // for every generated doc. Any signed-in rep can read + write
+    // because this is a single-shop CRM; if the product ever goes
+    // multi-tenant, scope this by orgId.
+    match /companyProfile/{docId} {
+      allow read, write: if isAuth();
+    }
+
     // ── SUBSCRIPTIONS ─────────────────────────────────
     // READ-ONLY for the owner. All writes go through the Stripe webhook or
     // the hardened validateAccessCode Cloud Function (admin SDK).
