@@ -3865,6 +3865,13 @@ body {
   /* Mobile header tools — collapse preference buttons into kebab */
   .hdr-tools-desktop-only{ display:none!important; }
   .hdr-tools-mobile-only{ display:inline-flex!important; }
+  /* Touch-target bump for the global-header icon buttons on mobile.
+     Desktop sits at a comfortable 30×30 because the cursor is precise;
+     on phones the same 30×30 puts thumbs below iOS HIG's 44px floor.
+     40×40 (with `min-` so larger buttons aren't shrunk) is a balance —
+     thumb-reachable without forcing the header taller than 48px. */
+  header .hdr-tool{ min-width:40px!important; min-height:40px!important; }
+  .upill{ min-height:36px!important; }
   body{padding-bottom:62px;}
   .app-body{flex-direction:column;}
   .content{width:100%;}
@@ -3921,7 +3928,12 @@ body {
     -webkit-overflow-scrolling:touch;
     scrollbar-width:thin;
   }
-  .crm-hdr-views .kview-btn{ flex-shrink:0!important; }
+  .crm-hdr-views .kview-btn{
+    flex-shrink:0!important;
+    min-height:38px!important;
+    padding:8px 14px!important;
+    font-size:12px!important;
+  }
   /* Actions row: its own row, left-aligned (margin-left:auto unused
      when row is full-width), buttons size to content */
   .crm-hdr-actions{
@@ -3942,10 +3954,19 @@ body {
   #sidebarToggleBtn,
   #kanbanFullscreenBtn{ display:none!important; }
   .crm-hdr-sep{ display:none!important; }
+  /* Bump tap-target on every item inside the mobile Tools (⋯) dropdown
+     so the menu items themselves clear the 44px floor — the .crm-tools-
+     menu base is `padding:8px 12px` (~32px tall) which is fine on
+     desktop where the cursor is precise but cramped on a phone. */
+  .crm-tools-menu button{ min-height:44px!important; padding:10px 14px!important; font-size:13px!important; }
   /* Trash button is the only .btn left in the actions row on mobile;
      without this override, .crm-header .btn{flex:1} would stretch it
      to fill the entire row width. */
-  .crm-header .btn-trash-toggle{ flex:0 0 auto!important; }
+  .crm-header .btn-trash-toggle{ flex:0 0 auto!important; min-height:40px!important; min-width:40px!important; padding:8px 12px!important; }
+  /* Match icon-buttons (density, Tools⋯) to the trash button so the
+     three actions-row controls share one visual height and clear the
+     44px iOS thumb-zone with a couple px to spare. */
+  .crm-icon-btn{ min-width:40px!important; min-height:40px!important; }
   /* Hide secondary CRM header on mobile (use bottom nav instead) */
   .crm-secondary-header{display:none!important;}
   .crm-sec-restore{display:none!important;}
