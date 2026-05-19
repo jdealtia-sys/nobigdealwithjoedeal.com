@@ -599,6 +599,45 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
   }
 });
 
+// Wave 28: Enter-key delegates — replaces 4 inline onkeydown handlers in
+// dashboard.html (mapSearch/spyglassInput/drawSearch/joeInput) for CSP
+// cleanliness. Two flavors:
+//
+//   data-enter-action="fnName"          → on Enter, call window[fnName]()
+//   data-enter-hide-ac="elementId"      → also call hideAcDrop(id) first
+//
+//   data-joe-input                      → textarea: Enter sends, auto-resize
+(function(){
+  if (window._NBD_ENTER_DELEGATE) return;
+  window._NBD_ENTER_DELEGATE = true;
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    const t = e.target;
+    if (!t || !t.dataset) return;
+    if (t.dataset.enterAction) {
+      const fn = window[t.dataset.enterAction];
+      const acId = t.dataset.enterHideAc;
+      if (acId && typeof window.hideAcDrop === 'function') {
+        try { window.hideAcDrop(acId); } catch (_) {}
+      }
+      if (typeof fn === 'function') { try { fn(); } catch (_) {} }
+    } else if (t.hasAttribute && t.hasAttribute('data-joe-input') && !e.shiftKey) {
+      e.preventDefault();
+      if (typeof window.sendJoeMessage === 'function') {
+        try { window.sendJoeMessage(); } catch (_) {}
+      }
+    }
+  });
+  // Auto-grow the Joe textarea — mirrors the inline behavior that used
+  // to live in the same onkeydown handler.
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!t || !t.hasAttribute || !t.hasAttribute('data-joe-input')) return;
+    t.style.height = 'auto';
+    t.style.height = Math.min(t.scrollHeight, 120) + 'px';
+  });
+})();
+
 // ══════════════════════════════════════════════
 // CAL.COM SCHEDULING FUNCTIONS
 // ══════════════════════════════════════════════

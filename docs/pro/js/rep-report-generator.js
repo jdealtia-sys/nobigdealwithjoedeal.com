@@ -932,6 +932,16 @@
     background: #fff;
     padding: 0;
   }
+  /* Wave 28: rep-report renders inside the docViewer modal on mobile
+     (and inside the print viewport on desktop). The doc-viewer wraps
+     in overflow-x:auto so wide table content can scroll, but the
+     chart containers themselves shouldn't try to exceed the visible
+     content width — ApexCharts re-renders at the rendered size. */
+  .report-page > * { max-width:100%; }
+  .report-page canvas, .report-page svg, .report-page .apexcharts-canvas { max-width:100% !important; }
+  @media (max-width:600px) {
+    .report-page { font-size:13px; }
+  }
 
   /* ── HEADER ── */
   .report-hdr {

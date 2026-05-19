@@ -86,6 +86,7 @@ body::after{content:'';position:fixed;top:-300px;right:-200px;width:800px;height
 
 /* ── STAT CHIPS ── */
 .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+@media (max-width:600px){ .stat-row{ grid-template-columns:repeat(2,1fr); } }
 .stat-chip{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
 .stat-val{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--red);line-height:1}
 .stat-val.high{color:var(--orange)}

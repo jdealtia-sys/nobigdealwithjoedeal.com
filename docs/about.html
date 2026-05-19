@@ -345,6 +345,10 @@ footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 5
   .reviews-grid { grid-template-columns: 1fr; }
   .footer-grid { grid-template-columns: 1fr; }
   .trust-bar { gap: 20px; }
+  /* Wave 28: inline-style timeline grid stays 4-col at all widths without
+     this override (inline styles can't carry @media). Force 1-col at
+     phone widths so the four "how I work with you" steps stack readably. */
+  .timeline { grid-template-columns: 1fr !important; }
 }
 
 .about-hero { background:var(--navy-dark); padding:80px 5% 70px; position:relative; overflow:hidden; }

@@ -884,6 +884,23 @@ function openCardDetailModal(leadId) {
     stageEl.style.borderColor = `color-mix(in srgb, ${color} 50%, var(--br))`;
     stageEl.style.background = `color-mix(in srgb, ${color} 14%, var(--s2))`;
   }
+  // Wave 28: jobType chip. Sits beside the stage chip in the header bar
+  // and shares the same pill styling. Tinted with the type's brand color
+  // from JOB_TYPE_META so reps recognize Insurance vs Cash vs Finance at
+  // a glance. Reads lead.jobType; falls back to inferJobType() when
+  // unset (older records that predate the field).
+  const typeEl = document.getElementById('cardDetailJobType');
+  if (typeEl) {
+    const jt = lead.jobType ||
+      (typeof window.inferJobType === 'function' ? window.inferJobType(lead) : null);
+    const meta = (window.JOB_TYPE_META && jt) ? window.JOB_TYPE_META[jt] : null;
+    const labelTxt = meta ? `${meta.icon || ''} ${meta.label}`.trim() : 'Set type';
+    const tColor = meta?.color || 'var(--m)';
+    typeEl.textContent = labelTxt;
+    typeEl.style.color = tColor;
+    typeEl.style.borderColor = `color-mix(in srgb, ${tColor} 50%, var(--br))`;
+    typeEl.style.background = `color-mix(in srgb, ${tColor} 14%, var(--s2))`;
+  }
   document.getElementById('cardDetailAddress').textContent = lead.address || '—';
   document.getElementById('cardDetailPhone').textContent = lead.phone || '—';
   document.getElementById('cardDetailDamage').textContent = lead.damageType || '—';
@@ -913,6 +930,61 @@ function openCardDetailModal(leadId) {
   modal.classList.add('open');
 }
 window.openCardDetailModal = openCardDetailModal;
+
+// Wave 28: targeted chip-only refresh. Called from moveCard / changeLeadType
+// so the open detail modal's stage + classification chips reflect the new
+// state immediately — no need to re-run the full openCardDetailModal()
+// populate (which would also re-build prospect actions, etc.). No-op if
+// the modal isn't open on this lead.
+function refreshCardDetailChips(leadId) {
+  if (!leadId || window._cardDetailLeadId !== leadId) return;
+  const lead = (window._leads || []).find(l => l.id === leadId);
+  if (!lead) return;
+  const rawStage = lead._stageKey || lead.stage || 'new';
+  const stageLabel = (typeof window.stageLabel === 'function')
+    ? window.stageLabel(rawStage)
+    : String(rawStage).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const stageColor = (typeof window.stageColor === 'function')
+    ? window.stageColor(rawStage) : 'var(--m)';
+  const jt = lead.jobType ||
+    (typeof window.inferJobType === 'function' ? window.inferJobType(lead) : null);
+  const meta = (window.JOB_TYPE_META && jt) ? window.JOB_TYPE_META[jt] : null;
+  const typeLabel = meta ? `${meta.icon || ''} ${meta.label}`.trim() : 'Set type';
+  const tColor = meta?.color || 'var(--m)';
+
+  // Desktop / tablet — cardDetailModal chips.
+  const desktopStage = document.getElementById('cardDetailStage');
+  if (desktopStage) {
+    desktopStage.textContent = stageLabel;
+    desktopStage.style.color = stageColor;
+    desktopStage.style.borderColor = `color-mix(in srgb, ${stageColor} 50%, var(--br))`;
+    desktopStage.style.background = `color-mix(in srgb, ${stageColor} 14%, var(--s2))`;
+  }
+  const desktopType = document.getElementById('cardDetailJobType');
+  if (desktopType) {
+    desktopType.textContent = typeLabel;
+    desktopType.style.color = tColor;
+    desktopType.style.borderColor = `color-mix(in srgb, ${tColor} 50%, var(--br))`;
+    desktopType.style.background = `color-mix(in srgb, ${tColor} 14%, var(--s2))`;
+  }
+  // Mobile — m-jobdetail chips (different style: lighter background tint
+  // for the frosted top-bar context, but same coloring source).
+  const mobileStage = document.getElementById('mJdStatus');
+  if (mobileStage) {
+    mobileStage.textContent = stageLabel;
+    mobileStage.style.color = stageColor;
+    mobileStage.style.background = `color-mix(in srgb, ${stageColor} 14%, transparent)`;
+    mobileStage.style.borderColor = `color-mix(in srgb, ${stageColor} 30%, transparent)`;
+  }
+  const mobileType = document.getElementById('mJdJobType');
+  if (mobileType) {
+    mobileType.textContent = typeLabel;
+    mobileType.style.color = tColor;
+    mobileType.style.background = `color-mix(in srgb, ${tColor} 14%, transparent)`;
+    mobileType.style.borderColor = `color-mix(in srgb, ${tColor} 30%, transparent)`;
+  }
+}
+window.refreshCardDetailChips = refreshCardDetailChips;
 
 function closeCardDetailModal() {
   const modal = document.getElementById('cardDetailModal');
@@ -960,6 +1032,19 @@ function openMobileJobDetail(leadId) {
     stageEl.textContent = label;
     stageEl.style.color = color;
     stageEl.style.background = 'color-mix(in srgb, ' + color + ' 14%, transparent)';
+    stageEl.style.borderColor = 'color-mix(in srgb, ' + color + ' 30%, transparent)';
+  }
+  // ── Wave 28: classification chip (mobile parity with cardDetailModal) ──
+  const typeEl = $('mJdJobType');
+  if (typeEl) {
+    const jt = lead.jobType ||
+      (typeof window.inferJobType === 'function' ? window.inferJobType(lead) : null);
+    const meta = (window.JOB_TYPE_META && jt) ? window.JOB_TYPE_META[jt] : null;
+    typeEl.textContent = meta ? `${meta.icon || ''} ${meta.label}`.trim() : 'Set type';
+    const tColor = meta?.color || 'var(--m)';
+    typeEl.style.color = tColor;
+    typeEl.style.background = 'color-mix(in srgb, ' + tColor + ' 14%, transparent)';
+    typeEl.style.borderColor = 'color-mix(in srgb, ' + tColor + ' 30%, transparent)';
   }
 
   // ── Title block ──

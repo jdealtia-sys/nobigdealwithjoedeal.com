@@ -2327,7 +2327,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
         <div style="flex:1;overflow-y:auto;padding:20px 24px;">
           <div style="margin-bottom:16px;">
             <label style="display:block;font-weight:600;font-size:13px;margin-bottom:4px;">Auto-fill from Lead</label>
-            <select id="docgen_leadSelect" onchange="window._docgenAutoFill(this.value)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">${leadOptions}</select>
+            <select id="docgen_leadSelect" data-dg-leadselect style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;font-size:14px;">${leadOptions}</select>
           </div>
           <div style="border-top:1px solid #eee;padding-top:16px;">${fieldsHTML}</div>
         </div>
@@ -2337,6 +2337,12 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
         </div>
       </div>`;
     document.body.appendChild(modal);
+
+    // Wave 28: change-delegate for the lead-select (replaces inline onchange).
+    const _docgenLeadSelect = modal.querySelector('[data-dg-leadselect]');
+    if (_docgenLeadSelect) {
+      _docgenLeadSelect.addEventListener('change', (e) => window._docgenAutoFill(e.target.value));
+    }
 
     // Auto-fill handler
     window._docgenAutoFill = function(leadId) {

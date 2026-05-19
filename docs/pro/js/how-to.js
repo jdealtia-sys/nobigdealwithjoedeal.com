@@ -116,3 +116,12 @@ document.addEventListener('keydown', e => {
 const params = new URLSearchParams(window.location.search);
 const qParam = params.get('q');
 if (qParam) { searchInput.value = qParam; runSearch(qParam); }
+
+// Wave 28: TOC collapse toggle — replaces an inline onclick on the
+// Contents button for CSP cleanliness.
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest && e.target.closest('[data-toc-toggle]');
+  if (!btn) return;
+  const toc = document.getElementById('toc');
+  if (toc) toc.classList.toggle('collapsed');
+});

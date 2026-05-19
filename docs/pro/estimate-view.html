@@ -367,8 +367,8 @@
     html += '</div>';
 
     html += '<div class="ev-cta-row">';
-    html +=   '<a class="ghost" href="javascript:void(0)" onclick="window.print();return false;">Print / Save PDF</a>';
-    html +=   '<a href="javascript:history.back()">Back</a>';
+    html +=   '<button type="button" class="ghost" data-ev-action="print">Print / Save PDF</button>';
+    html +=   '<button type="button" class="ghost" data-ev-action="back">Back</button>';
     html += '</div>';
 
     html += '<div class="ev-foot">';
@@ -377,6 +377,15 @@
     html += '</div>';
 
     root.innerHTML = html;
+
+    // Wave 28: button delegates (replaces inline onclick="window.print()" etc.)
+    root.addEventListener('click', function(ev){
+      var t = ev.target && ev.target.closest && ev.target.closest('[data-ev-action]');
+      if (!t) return;
+      var act = t.getAttribute('data-ev-action');
+      if (act === 'print') { window.print(); }
+      else if (act === 'back') { history.back(); }
+    });
   }
 })();
 </script>

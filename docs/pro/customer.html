@@ -4251,6 +4251,8 @@ window.exportCustomerEstimate = function(estId) {
   .est-total-val{font-family:'Barlow Condensed',sans-serif;font-size:38px;font-weight:800;color:var(--orange);}
   h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.18em;color:#111;margin:22px 0 12px;padding-bottom:4px;border-bottom:2px solid var(--orange);}
   .meas-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:6px;}
+  @media (max-width:600px){ .meas-grid{ grid-template-columns:repeat(2,1fr); } }
+  @media (max-width:400px){ .meas-grid{ grid-template-columns:1fr; } }
   .mf label{font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#999;}
   .mf .v{font-size:18px;font-weight:700;color:#111;}
   table{width:100%;border-collapse:collapse;}thead tr{border-bottom:2px solid #111;}

@@ -37,6 +37,7 @@
 
   const LONG_PRESS_MS = 500;
   let menuEl = null;
+  let submenuEl = null;
   let touchTimer = null;
   let touchStart = null;
 
@@ -87,6 +88,50 @@
       : `https://www.google.com/maps/search/?api=1&query=${q}`;
   }
 
+  // ─── Submenu builders ───────────────────────────────────────────
+  // Stage list, scoped to the lead's current jobType track. The current
+  // stage gets a ✓ marker so the rep can see where the card is now.
+  function buildStageSubmenuItems(lead) {
+    const jobType = lead.jobType ||
+      (typeof window.inferJobType === 'function' ? window.inferJobType(lead) : null) ||
+      'insurance';
+    let options = [];
+    if (typeof window.stageOptionsForType === 'function') {
+      try { options = window.stageOptionsForType(jobType) || []; } catch (_) {}
+    }
+    const curKey = lead._stageKey ||
+      (typeof window.normalizeStage === 'function' ? window.normalizeStage(lead.stage || 'new') : lead.stage);
+    const items = options.map(opt => {
+      const isCurrent = opt.value === curKey;
+      const meta = window.STAGE_META?.[opt.value] || {};
+      return {
+        icon: isCurrent ? '✓' : (meta.icon || '•'),
+        label: opt.label + (isCurrent ? '  (current)' : ''),
+        disabled: isCurrent,
+        onSelect: isCurrent ? null : () => window.moveCard && window.moveCard(lead.id, opt.value),
+      };
+    });
+    return items;
+  }
+
+  // Classification list — Insurance / Cash / Finance / Warranty / Service.
+  // Current classification is marked with ✓.
+  function buildTypeSubmenuItems(lead) {
+    const meta = window.JOB_TYPE_META || {};
+    const curType = lead.jobType ||
+      (typeof window.inferJobType === 'function' ? window.inferJobType(lead) : null);
+    const types = Object.keys(meta);
+    return types.map(t => {
+      const isCurrent = t === curType;
+      return {
+        icon: isCurrent ? '✓' : (meta[t]?.icon || '•'),
+        label: (meta[t]?.label || t) + (isCurrent ? '  (current)' : ''),
+        disabled: isCurrent,
+        onSelect: isCurrent ? null : () => window.changeLeadType && window.changeLeadType(lead.id, t),
+      };
+    });
+  }
+
   // ─── Menu rendering ─────────────────────────────────────────────
   function buildMenu(lead, x, y) {
     const items = [];
@@ -104,6 +149,22 @@
       icon: '✓',
       label: 'Add task',
       onSelect: () => window.openTaskModal && window.openTaskModal(lead.id, null),
+    });
+    // Quick stage + classification changers. Each opens a second floating
+    // menu next to the parent so the rep never has to open the full edit
+    // form just to move a card or relabel its track.
+    items.push({ divider: true });
+    items.push({
+      icon: '🔀',
+      label: 'Move to stage…',
+      chevron: true,
+      onSelect: (anchor) => openSubmenu(buildStageSubmenuItems(lead), anchor, 'Move to stage'),
+    });
+    items.push({
+      icon: '🏷',
+      label: 'Change classification…',
+      chevron: true,
+      onSelect: (anchor) => openSubmenu(buildTypeSubmenuItems(lead), anchor, 'Change classification'),
     });
     if (lead.phone) {
       const phoneDigits = String(lead.phone).replace(/\D+/g, '');
@@ -214,33 +275,47 @@
     return renderMenu(items, x, y);
   }
 
-  function renderMenu(items, x, y) {
-    closeMenu();
+  function renderMenu(items, x, y, opts) {
+    const isSubmenu = !!(opts && opts.isSubmenu);
+    // Primary menu replaces any existing menu; submenu sits ON TOP of its
+    // parent and only replaces an existing submenu (so the parent stays
+    // visible while the rep scans the stage list).
+    if (isSubmenu) closeSubmenu();
+    else closeMenu();
     const menu = document.createElement('div');
-    menu.id = 'nbd-kanban-ctx-menu';
+    menu.id = isSubmenu ? 'nbd-kanban-ctx-submenu' : 'nbd-kanban-ctx-menu';
     menu.setAttribute('role', 'menu');
+    if (opts && opts.title) menu.setAttribute('aria-label', opts.title);
     menu.style.cssText = `
-      position:fixed; z-index:99997;
+      position:fixed; z-index:${isSubmenu ? 99998 : 99997};
       background:var(--s,#1a1f2a); color:var(--t,#e8eaf0);
       border:1px solid var(--br,#2a3344); border-radius:8px;
       box-shadow:0 8px 24px rgba(0,0,0,0.4);
-      padding:6px 0; min-width:200px;
+      padding:6px 0; min-width:${isSubmenu ? 220 : 200}px;
+      max-height:${isSubmenu ? '70vh' : 'none'}; overflow-y:auto;
       font-family:'Barlow',-apple-system,system-ui,sans-serif;
       font-size:13px; line-height:1.4;
       animation:nbd-ctx-fade .12s ease-out;`;
-    menu.innerHTML = items.map((it, i) => {
+    const header = (isSubmenu && opts.title)
+      ? `<div style="padding:6px 14px 8px;font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m,#9aa3b2);border-bottom:1px solid var(--br,#2a3344);margin-bottom:4px;">${escapeHtml(opts.title)}</div>`
+      : '';
+    menu.innerHTML = header + items.map((it, i) => {
       if (it.divider) return `<div style="height:1px; background:var(--br,#2a3344); margin:4px 0;"></div>`;
       const danger = it.danger ? 'color:#ef4444;' : '';
+      const dis = it.disabled ? 'opacity:.55;cursor:default;' : '';
+      const chev = it.chevron ? '<span style="margin-left:auto;opacity:.55;">▸</span>' : '';
       return `
         <button class="nbd-ctx-item" data-idx="${i}" type="button"
+          ${it.disabled ? 'aria-disabled="true"' : ''}
           style="
             display:flex; align-items:center; gap:10px;
             width:100%; padding:8px 14px; border:none; background:transparent;
-            color:inherit; ${danger}
+            color:inherit; ${danger}${dis}
             text-align:left; font: inherit; cursor:pointer;
             -webkit-tap-highlight-color:transparent;">
           <span style="width:18px; text-align:center;">${escapeHtml(it.icon || '')}</span>
-          <span>${escapeHtml(it.label)}</span>
+          <span style="flex:1;min-width:0;">${escapeHtml(it.label)}</span>
+          ${chev}
         </button>`;
     }).join('');
 
@@ -250,7 +325,8 @@
       style.id = 'nbd-ctx-style';
       style.textContent = `
         @keyframes nbd-ctx-fade { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
-        .nbd-ctx-item:hover, .nbd-ctx-item:focus { background:var(--s2,#0f1419); outline:none; }`;
+        .nbd-ctx-item:hover, .nbd-ctx-item:focus { background:var(--s2,#0f1419); outline:none; }
+        .nbd-ctx-item[aria-disabled="true"]:hover { background:transparent !important; }`;
       document.head.appendChild(style);
     }
 
@@ -267,16 +343,28 @@
 
     // Wire item clicks.
     menu.querySelectorAll('.nbd-ctx-item').forEach(btn => {
-      btn.addEventListener('click', () => {
+      btn.addEventListener('click', (ev) => {
         const i = parseInt(btn.getAttribute('data-idx'), 10);
         const it = items[i];
-        closeMenu();
-        if (it && typeof it.onSelect === 'function') {
-          try { it.onSelect(); } catch (e) { console.warn('[ctx-menu]', e); }
+        if (!it || it.disabled || typeof it.onSelect !== 'function') return;
+        // Submenu items: pass the button's rect as anchor so the next menu
+        // opens flush to the right. We DON'T close the parent until the
+        // user actually picks a leaf option.
+        if (it.chevron) {
+          const r = btn.getBoundingClientRect();
+          try { it.onSelect({ x: r.right + 2, y: r.top, parent: menu }); }
+          catch (e) { console.warn('[ctx-menu]', e); }
+          return;
         }
+        closeMenu();
+        try { it.onSelect(); } catch (e) { console.warn('[ctx-menu]', e); }
       });
     });
 
+    if (isSubmenu) {
+      submenuEl = menu;
+      return menu;
+    }
     menuEl = menu;
     setTimeout(() => {
       document.addEventListener('mousedown', _outsideClick, { once: true, capture: true });
@@ -290,13 +378,33 @@
     return menu;
   }
 
+  function closeSubmenu() {
+    if (submenuEl && submenuEl.parentNode) submenuEl.parentNode.removeChild(submenuEl);
+    submenuEl = null;
+  }
+
   function closeMenu() {
+    closeSubmenu();
     if (menuEl && menuEl.parentNode) menuEl.parentNode.removeChild(menuEl);
     menuEl = null;
   }
 
+  function openSubmenu(items, anchor, title) {
+    const x = anchor && typeof anchor.x === 'number' ? anchor.x : 100;
+    const y = anchor && typeof anchor.y === 'number' ? anchor.y : 100;
+    return renderMenu(items, x, y, { isSubmenu: true, title: title || '' });
+  }
+
   function _outsideClick(ev) {
-    if (menuEl && menuEl.contains(ev.target)) return;
+    // Click inside either menu? Keep them both open (item handlers will
+    // close us if they need to) — but re-arm the listener so the NEXT
+    // outside click still dismisses. The base listener is `once:true` so
+    // without this re-arm a single click anywhere consumes the guard.
+    if ((submenuEl && submenuEl.contains(ev.target)) ||
+        (menuEl && menuEl.contains(ev.target))) {
+      document.addEventListener('mousedown', _outsideClick, { once: true, capture: true });
+      return;
+    }
     closeMenu();
   }
   function _onEsc(ev) {
@@ -382,12 +490,34 @@
     document.addEventListener('touchcancel', onTouchEnd,  { passive: true });
   }
 
+  // Reusable picker — opens a single floating menu (no parent) at an
+  // anchor. Used by the card-detail modal's clickable stage / type chips,
+  // and any other surface that wants the same stage/classification UX
+  // without going through the right-click flow.
+  function openPicker(items, anchor, title) {
+    if (!items || !items.length) return;
+    closeMenu();
+    const x = anchor && typeof anchor.x === 'number' ? anchor.x : 100;
+    const y = anchor && typeof anchor.y === 'number' ? anchor.y : 100;
+    return renderMenu(items, x, y, { title: title || '' });
+  }
+
   window.KanbanContextMenu = {
     __sentinel: 'nbd-kanban-ctx-v1',
     open: (leadId, x, y) => {
       const lead = findLead(leadId);
       if (!lead) return;
       buildMenu(lead, x || 100, y || 100);
+    },
+    openStagePicker: (leadId, anchor) => {
+      const lead = findLead(leadId);
+      if (!lead) return;
+      openPicker(buildStageSubmenuItems(lead), anchor, 'Move to stage');
+    },
+    openTypePicker: (leadId, anchor) => {
+      const lead = findLead(leadId);
+      if (!lead) return;
+      openPicker(buildTypeSubmenuItems(lead), anchor, 'Change classification');
     },
     close: closeMenu,
   };

@@ -77,6 +77,26 @@ window.cdaInspection = function cdaInspection() {
     showToast('Inspection engine loading...', 'error');
   }
 };
+// Wave 28: card-detail chip pickers. Clicking either chip in the card-
+// detail modal opens the same floating menu the kanban right-click flow
+// uses — no full edit form needed to move a card or relabel its track.
+// Anchors below the chip so the menu drops down into view. The picker
+// implementation lives in kanban-context-menu.js (window.KanbanContextMenu).
+window.cdPickStage = function cdPickStage(el) {
+  const id = window._cardDetailLeadId;
+  if (!id || !window.KanbanContextMenu) return;
+  const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+  const anchor = r ? { x: r.left, y: r.bottom + 4 } : { x: 100, y: 100 };
+  window.KanbanContextMenu.openStagePicker(id, anchor);
+};
+window.cdPickType = function cdPickType(el) {
+  const id = window._cardDetailLeadId;
+  if (!id || !window.KanbanContextMenu) return;
+  const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+  const anchor = r ? { x: r.left, y: r.bottom + 4 } : { x: 100, y: 100 };
+  window.KanbanContextMenu.openTypePicker(id, anchor);
+};
+
 window.cdaInspectionDeep = function cdaInspectionDeep() {
   // The original onclick was: close the card-detail modal, then after 200ms
   // show the inspectionBuilderOverlay and call openBuilder. The setTimeout
