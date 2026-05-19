@@ -16,6 +16,7 @@
   // ============================================================================
 
   const STORAGE_KEY = 'nbd_pro_theme';
+  const MODE_STORAGE_KEY = 'nbd_pro_mode_pref';
   const FIRESTORE_PATH = 'user_settings/theme';
   const FONT_CACHE = new Set();
   const DEFAULT_THEME = 'nbd-original';
@@ -4438,12 +4439,44 @@
     return 0.2126 * norm(c.r) + 0.7152 * norm(c.g) + 0.0722 * norm(c.b);
   }
 
-  // Derive 'light' or 'dark' mode from background luminance.
-  // Themes can opt-in explicitly via theme.mode.
-  function getMode(theme) {
+  // The mode the theme's `colors` palette was authored for.
+  // Themes can opt-in explicitly via theme.mode; otherwise inferred from bg luminance.
+  function getNativeMode(theme) {
     if (theme.mode === 'light' || theme.mode === 'dark') return theme.mode;
     if (theme.specialClass === 'light-theme') return 'light';
     return luminance(theme.colors.bg) > 0.55 ? 'light' : 'dark';
+  }
+
+  // Backward-compat alias — older callers (picker swatches, etc.) used getMode
+  // to mean "what mode is this theme." That's now native mode.
+  function getMode(theme) { return getNativeMode(theme); }
+
+  // User mode preference: 'light' | 'dark' | 'auto'. Default 'auto' = follow OS.
+  function getStoredModePref() {
+    try {
+      const v = localStorage.getItem(MODE_STORAGE_KEY);
+      if (v === 'light' || v === 'dark' || v === 'auto') return v;
+    } catch (_) {}
+    return 'auto';
+  }
+
+  function setStoredModePref(pref) {
+    try { localStorage.setItem(MODE_STORAGE_KEY, pref); } catch (_) {}
+  }
+
+  function getOSMode() {
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+    } catch (_) {}
+    return 'dark';
+  }
+
+  // The mode we should actually render right now.
+  // pref === 'light' | 'dark' → that. pref === 'auto' → follow OS.
+  function getResolvedModeFromPref() {
+    const pref = getStoredModePref();
+    if (pref === 'light' || pref === 'dark') return pref;
+    return getOSMode();
   }
 
   // Lighten or darken a hex color by amount (0..1). Positive = lighter.
@@ -4464,35 +4497,141 @@
     return `rgba(${c.r},${c.g},${c.b},${alpha})`;
   }
 
+  // Linear-blend two hex colors. t=0 → a, t=1 → b. Returns hex.
+  function blendHex(a, b, t) {
+    const ca = parseHex(a);
+    const cb = parseHex(b);
+    if (!ca || !cb) return a;
+    const lerp = (x, y) => Math.max(0, Math.min(255, Math.round(x + (y - x) * t)));
+    const toHex = n => n.toString(16).padStart(2, '0');
+    return '#' + toHex(lerp(ca.r, cb.r)) + toHex(lerp(ca.g, cb.g)) + toHex(lerp(ca.b, cb.b));
+  }
+
+  // Contrast ratio per WCAG. Returns >= 1.
+  function contrastRatio(a, b) {
+    const la = luminance(a);
+    const lb = luminance(b);
+    return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+  }
+
+  // Walk the accent away from bg until it clears the target ratio.
+  // Used so derived palettes never produce invisible accent buttons.
+  function tuneAgainst(fg, bg, target) {
+    let cur = fg;
+    const bgIsLight = luminance(bg) > 0.5;
+    for (let i = 0; i < 8; i++) {
+      if (contrastRatio(cur, bg) >= target) return cur;
+      cur = adjustHex(cur, bgIsLight ? -0.14 : 0.16);
+    }
+    return cur;
+  }
+
+  // Algorithmic LIGHT palette derived from the theme's accent color.
+  // Preserves theme identity via hue-tinted backgrounds. Semantic colors
+  // fall back to readable defaults so green/red/etc. work on light bg.
+  function deriveLightPalette(colors) {
+    const accent = colors.accent;
+    const bg = blendHex(accent, '#ffffff', 0.96);
+    const surface = blendHex(accent, '#ffffff', 0.92);
+    const surface2 = blendHex(accent, '#ffffff', 0.86);
+    const text = '#0f172a';
+    const muted = '#64748b';
+    const border = 'rgba(15,23,42,0.10)';
+    const tunedAccent = tuneAgainst(accent, bg, 3.0);
+    return {
+      bg,
+      surface,
+      surface2,
+      text,
+      muted,
+      border,
+      accent: tunedAccent,
+      accentBg: hexToRgba(tunedAccent, 0.10),
+      green: '#16a34a',
+      red: '#dc2626',
+      gold: '#ca8a04',
+      blue: '#2563eb'
+    };
+  }
+
+  // Algorithmic DARK palette derived from the theme's accent color.
+  function deriveDarkPalette(colors) {
+    const accent = colors.accent;
+    const bg = blendHex(accent, '#000000', 0.88);
+    const surface = blendHex(accent, '#000000', 0.80);
+    const surface2 = blendHex(accent, '#000000', 0.70);
+    const text = '#e2e8f0';
+    const muted = '#94a3b8';
+    const border = 'rgba(226,232,240,0.12)';
+    const tunedAccent = tuneAgainst(accent, bg, 3.0);
+    return {
+      bg,
+      surface,
+      surface2,
+      text,
+      muted,
+      border,
+      accent: tunedAccent,
+      accentBg: hexToRgba(tunedAccent, 0.16),
+      green: '#34d399',
+      red: '#f87171',
+      gold: '#fbbf24',
+      blue: '#60a5fa'
+    };
+  }
+
+  // Pick the palette for the requested mode. Order:
+  //   1. Explicit theme.colorsLight / colorsDark (full or partial override)
+  //   2. theme.colors when its native mode matches the requested mode
+  //   3. Derived palette (algorithmic) when we need the opposite mode
+  // Partial overrides win key-by-key over the base they merge into.
+  function resolvePalette(theme, mode) {
+    const native = getNativeMode(theme);
+    const override = mode === 'light' ? theme.colorsLight : theme.colorsDark;
+
+    if (mode === native) {
+      return override ? Object.assign({}, theme.colors, override) : theme.colors;
+    }
+
+    const derived = mode === 'light'
+      ? deriveLightPalette(theme.colors)
+      : deriveDarkPalette(theme.colors);
+    return override ? Object.assign({}, derived, override) : derived;
+  }
+
   function generateCSSVariables(theme, themeKey) {
+    // Resolve the actual mode we should render in (user pref or OS), then
+    // pick the matching palette — explicit override, native, or derived.
+    const mode = getResolvedModeFromPref();
+    const colors = resolvePalette(theme, mode);
+
     const {
       bg, surface, surface2, text, muted, border, accent, accentBg,
       green, red, gold, blue
-    } = theme.colors;
+    } = colors;
 
-    const mode = getMode(theme);
     const isLight = mode === 'light';
 
     // Derived vars so kanban + tags + tag chips have proper foundations.
     // --bg: outermost page background — slightly darker than --s for dark themes,
     //       slightly lighter than --s for light themes (so layered surfaces step).
-    const bgDerived = theme.colors.outerBg
+    const bgDerived = colors.outerBg
       || (isLight ? adjustHex(bg, 0.02) : adjustHex(bg, -0.18));
 
     // --ob: accent hover state (slightly brighter)
-    const ob = theme.colors.accentHover || adjustHex(accent, isLight ? -0.12 : 0.15);
+    const ob = colors.accentHover || adjustHex(accent, isLight ? -0.12 : 0.15);
 
     // --rule: subtle divider line — derived from text color at low alpha
-    const rule = theme.colors.rule || hexToRgba(text, isLight ? 0.08 : 0.09);
+    const rule = colors.rule || hexToRgba(text, isLight ? 0.08 : 0.09);
 
     // --paper / --ink: card surface + card text. These DRIVE kanban cards.
     // Light themes: paper = surface, ink = text (dark on light card).
     // Dark themes: paper = surface2 (a step up), ink = text (light on dark card).
-    const paper = theme.colors.paper || (isLight ? surface : surface2);
-    const ink = theme.colors.ink || text;
+    const paper = colors.paper || (isLight ? surface : surface2);
+    const ink = colors.ink || text;
 
     // --purple: semantic purple — used by tag-ng and stage chips.
-    const purple = theme.colors.purple || (isLight ? '#7c3aed' : '#a78bfa');
+    const purple = colors.purple || (isLight ? '#7c3aed' : '#a78bfa');
 
     const fontHeading = theme.font.heading ? `'${theme.font.heading}'` : "'Barlow Condensed', sans-serif";
     const fontBody = theme.font.body ? `'${theme.font.body}'` : "'Inter', sans-serif";
@@ -4626,9 +4765,11 @@
       // Set data-theme attribute
       html.setAttribute('data-theme', themeKey);
 
-      // Determine and broadcast light/dark mode so component CSS
-      // (kanban cards, tag chips, etc.) can react via [data-mode="light"|"dark"].
-      const mode = getMode(theme);
+      // Resolve mode from user preference (or OS, when pref is 'auto'),
+      // NOT from the theme's native mode. This lets a user with light
+      // pref still pick the "Matrix" theme and see a readable light variant.
+      // CSS keys off [data-mode="light"|"dark"] for component-level adjustments.
+      const mode = getResolvedModeFromPref();
       html.setAttribute('data-mode', mode);
       if (mode === 'light') {
         html.setAttribute('data-light', 'true');
@@ -4753,12 +4894,56 @@
     },
 
     // Expose mode resolution for picker swatches + component logic.
+    // Returns the theme's NATIVE mode (what its `colors` palette was designed for).
+    // For "what is being rendered right now", use getResolvedMode().
     getMode(themeKey) {
       const theme = THEMES[themeKey];
       if (!theme) return 'dark';
-      return getMode(theme);
+      return getNativeMode(theme);
+    },
+
+    // User mode preference API: 'light' | 'dark' | 'auto'.
+    getModePref() {
+      return getStoredModePref();
+    },
+
+    setModePref(pref) {
+      if (pref !== 'light' && pref !== 'dark' && pref !== 'auto') return;
+      setStoredModePref(pref);
+      if (currentTheme) this.apply(currentTheme, false);
+      document.dispatchEvent(new CustomEvent('modechange', {
+        detail: { pref, resolved: getResolvedModeFromPref() },
+        bubbles: true,
+        cancelable: false
+      }));
+    },
+
+    // The mode actually being rendered right now (user pref or OS when 'auto').
+    getResolvedMode() {
+      return getResolvedModeFromPref();
     }
   };
+
+  // Re-apply the current theme when the OS color scheme flips, but only
+  // when the user's preference is 'auto' (otherwise the user has an explicit
+  // pref that should win regardless of OS).
+  try {
+    if (window.matchMedia) {
+      const mq = window.matchMedia('(prefers-color-scheme: light)');
+      const onOSChange = () => {
+        if (getStoredModePref() === 'auto' && currentTheme) {
+          ThemeEngine.apply(currentTheme, false);
+          document.dispatchEvent(new CustomEvent('modechange', {
+            detail: { pref: 'auto', resolved: getResolvedModeFromPref() },
+            bubbles: true,
+            cancelable: false
+          }));
+        }
+      };
+      if (mq.addEventListener) mq.addEventListener('change', onOSChange);
+      else if (mq.addListener) mq.addListener(onOSChange);
+    }
+  } catch (_) {}
 
   // ============================================================================
   // EXPOSURE

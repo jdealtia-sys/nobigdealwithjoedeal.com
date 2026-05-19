@@ -835,6 +835,7 @@ function switchSettingsTab(tab) {
     // stuck inside <template>. Calling them here is idempotent.
     if (typeof window.nbdRenderFontGrid === 'function') window.nbdRenderFontGrid();
     if (typeof window.nbdSyncSizeBtns === 'function') window.nbdSyncSizeBtns();
+    if (typeof window.nbdSyncModeToggle === 'function') window.nbdSyncModeToggle();
     // === ThemeEngine: filter buttons + flat grid ===
     const teGrid = document.getElementById('te-theme-grid');
     const teCatBar = document.getElementById('te-cat-bar');
@@ -971,6 +972,34 @@ function switchSettingsTab(tab) {
   }
 }
 window.switchSettingsTab = switchSettingsTab;
+
+// Mode toggle (Light / Dark / Auto) — applies to every theme.
+// Reads/writes ThemeEngine.setModePref; rerenders the active state on the
+// segmented control so user sees the selection persist.
+window.nbdSetModePref = function(pref) {
+  const TE = window.ThemeEngine;
+  if (!TE || typeof TE.setModePref !== 'function') return;
+  TE.setModePref(pref);
+  if (typeof window.nbdSyncModeToggle === 'function') window.nbdSyncModeToggle();
+  // Re-render the theme grid so the swatches reflect the new mode's palette.
+  if (typeof window._teRenderSettingsGrid === 'function') {
+    window._teRenderSettingsGrid(window._teActiveCat || 'all');
+  }
+  if (typeof window.showToast === 'function') {
+    const label = pref === 'auto' ? 'Auto (follows device)' : (pref === 'light' ? 'Light mode' : 'Dark mode');
+    window.showToast('Display: ' + label);
+  }
+};
+
+window.nbdSyncModeToggle = function() {
+  const TE = window.ThemeEngine;
+  const pref = (TE && typeof TE.getModePref === 'function') ? TE.getModePref() : 'auto';
+  document.querySelectorAll('.te-mode-btn').forEach(btn => {
+    const isSel = btn.getAttribute('data-mode-val') === pref;
+    btn.style.background = isSel ? 'var(--orange)' : 'transparent';
+    btn.style.color = isSel ? '#fff' : 'var(--m)';
+  });
+};
 
 // Theme preview system — click previews, confirm bar to apply or revert
 window._tePreviewTheme = function(key) {

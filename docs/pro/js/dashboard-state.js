@@ -165,6 +165,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'nbdSetSize', 'nbdPickerTab', 'nbdComfortSet', 'nbdHowtoOpen', 'nbdHowtoClose',
   'nbdSaveCustom', 'nbdRandom', 'nbdPickerClose', 'nbdNavToggle', 'nbdCopyFS',
   'nbdApplyFont', 'nbdApplyCustom', 'nbdPickerOpen',
+  // Display-mode segmented toggle (Light/Dark/Auto) above the theme grid
+  'nbdSetModePref',
   'resetCustomTheme', 'resetSidebarCustomizer',
   // FAB / scoreboard tabs
   'fabToggle', 'switchScTab',
