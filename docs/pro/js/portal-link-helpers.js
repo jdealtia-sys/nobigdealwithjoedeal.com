@@ -365,39 +365,49 @@ Bookmark it; the link stays live as we work through the project.
           </div>
         </div>
         <div style="position:relative; flex:1; min-height:0; background:#fff;">
-          <!-- Fallback panel sits behind the iframe. When a browser
-               (Brave shields, Firefox ETP strict, etc.) blocks the
-               cross-origin embed, the iframe overlay shows the
-               browser's block notice instead of the portal — the
-               fallback below it is invisible. Visible only when the
-               iframe explicitly fails to load (onerror). The footer
-               CTA below ALWAYS works and is the universal escape
-               hatch regardless of iframe status. -->
-          <div id="nbd-portal-preview-fallback"
-            style="
-              position:absolute; inset:0;
-              display:none;
-              flex-direction:column; align-items:center; justify-content:center;
-              gap:14px; padding:24px;
-              background:#f7f8fb; color:#1a1f2a; text-align:center;
-              font-family:'Barlow',-apple-system,system-ui,sans-serif;">
-            <div style="font-size:32px; line-height:1;">🛡️</div>
-            <div style="font-size:14px; font-weight:700; max-width:340px;">
-              Your browser blocked the embedded preview
-            </div>
-            <div style="font-size:12px; color:#5a6478; max-width:340px; line-height:1.45;">
-              Privacy shields (Brave, Firefox strict mode) often block
-              cross-origin embeds. Use <strong>Open in new tab</strong>
-              below to see exactly what the homeowner will see.
-            </div>
-          </div>
           <iframe id="nbd-portal-preview-iframe"
             src="${escapeAttr(url)}"
             style="position:absolute; inset:0; width:100%; height:100%; border:none; background:#fff;"
             loading="lazy"
             sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
-            onerror="var f=document.getElementById('nbd-portal-preview-fallback'); if(f){f.style.display='flex';} this.style.display='none';"
           ></iframe>
+          <!-- Overlay sits ON TOP of the iframe with two states.
+               "loading" shows while we wait for the iframe to load
+               and our cross-origin probe to confirm a real portal
+               loaded (vs Brave shields injecting a same-origin
+               block page). "blocked" replaces it when the probe
+               sees a non-cross-origin response OR the load times
+               out. On confirmed real load the overlay is hidden,
+               revealing the iframe underneath. -->
+          <div id="nbd-portal-preview-overlay-state"
+            data-state="loading"
+            style="
+              position:absolute; inset:0;
+              display:flex;
+              flex-direction:column; align-items:center; justify-content:center;
+              gap:14px; padding:24px;
+              background:#f7f8fb; color:#1a1f2a; text-align:center;
+              font-family:'Barlow',-apple-system,system-ui,sans-serif;">
+            <div data-state-loading style="display:flex; flex-direction:column; align-items:center; gap:14px;">
+              <div style="
+                width:36px; height:36px; border-radius:50%;
+                border:3px solid #e1e5ec; border-top-color:#e8720c;
+                animation:nbdPortalPreviewSpin 0.9s linear infinite;"></div>
+              <div style="font-size:13px; color:#5a6478;">Loading preview…</div>
+            </div>
+            <div data-state-blocked style="display:none; flex-direction:column; align-items:center; gap:14px;">
+              <div style="font-size:32px; line-height:1;">🛡️</div>
+              <div style="font-size:14px; font-weight:700; max-width:340px;">
+                Your browser blocked the embedded preview
+              </div>
+              <div style="font-size:12px; color:#5a6478; max-width:340px; line-height:1.45;">
+                Privacy shields (Brave, Firefox strict mode) often block
+                cross-origin embeds. Use <strong>Open in new tab</strong>
+                below to see exactly what the homeowner will see.
+              </div>
+            </div>
+          </div>
+          <style>@keyframes nbdPortalPreviewSpin { to { transform: rotate(360deg); } }</style>
         </div>
         <div style="
           display:flex; align-items:center; justify-content:space-between;
@@ -429,6 +439,55 @@ Bookmark it; the link stays live as we work through the project.
 
     // Esc key dismisses. Single-use listener removed on close.
     document.addEventListener('keydown', _onPreviewKeydown);
+
+    // ─── Cross-origin block detection ───────────────────────────
+    // The portal URL is a Firebase Storage getDownloadURL → it
+    // loads cross-origin from firebasestorage.googleapis.com.
+    // Brave Shields (and Firefox ETP strict) block this kind of
+    // cross-origin iframe by injecting a same-origin "blocked"
+    // page INTO the iframe. That fires `load` (so onerror is
+    // useless) but the result isn't the portal.
+    //
+    // Probe: after `load`, try to read iframe.contentWindow.location.href.
+    //   – Real cross-origin success → SecurityError thrown → hide overlay.
+    //   – Same-origin access succeeds → browser injected something
+    //     (about:blank, chrome-error, Brave's block page) → keep
+    //     the overlay and switch it to the "blocked" state.
+    // 3.5s timeout safety net for browsers that fully cancel the
+    // navigation (no load + no error events).
+    const iframe = overlay.querySelector('#nbd-portal-preview-iframe');
+    const stateEl = overlay.querySelector('#nbd-portal-preview-overlay-state');
+    let resolved = false;
+    function _showBlocked() {
+      if (resolved) return;
+      resolved = true;
+      if (!stateEl) return;
+      stateEl.setAttribute('data-state', 'blocked');
+      const loadingPanel = stateEl.querySelector('[data-state-loading]');
+      const blockedPanel = stateEl.querySelector('[data-state-blocked]');
+      if (loadingPanel) loadingPanel.style.display = 'none';
+      if (blockedPanel) blockedPanel.style.display = 'flex';
+    }
+    function _hideOverlay() {
+      if (resolved) return;
+      resolved = true;
+      if (stateEl) stateEl.style.display = 'none';
+    }
+    if (iframe) {
+      iframe.addEventListener('load', () => {
+        try {
+          // Cross-origin success throws here. Same-origin returns
+          // a URL — treat any same-origin response as "blocked"
+          // since the real portal can't be same-origin to us.
+          const _probe = iframe.contentWindow.location.href; // eslint-disable-line no-unused-vars
+          _showBlocked();
+        } catch (_) {
+          _hideOverlay();
+        }
+      });
+      iframe.addEventListener('error', _showBlocked);
+    }
+    setTimeout(_showBlocked, 3500);
   }
 
   function _onPreviewKeydown(ev) {
