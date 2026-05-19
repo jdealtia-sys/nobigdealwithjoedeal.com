@@ -2875,6 +2875,12 @@ onAuthStateChanged(auth, async (user) => {
 
   // CRITICAL: Set global _user for external modules (customer-portal, photo-report, review-engine, profit-tracker)
   window._user = user;
+  // Fetch the shop-wide Company Profile so generated docs use the rep's
+  // saved legal text / financing / marketing. Fire-and-forget — defaults
+  // are already in window._companyProfile.
+  if (typeof window._loadCompanyProfile === 'function') {
+    window._loadCompanyProfile().catch(() => {});
+  }
   // Partition the IDB cache by uid so two reps sharing a device
   // don't bleed cached lead/photo data across accounts.
   try { window.NBDIDBCache && window.NBDIDBCache.setActiveUid(user.uid); } catch (_) {}
@@ -7826,8 +7832,9 @@ document.addEventListener('DOMContentLoaded', function() {
 <script defer src="js/signed-image-url.js?v=1"></script>
 <script defer src="js/photo-editor.js?v=5"></script>
 <script defer src="js/nbd-logo-asset.js?v=2"></script>
-<script defer src="js/document-generator.js?v=5"></script>
-<script defer src="js/document-generator-templates.js?v=3"></script>
+<script defer src="js/company-profile.js?v=1"></script>
+<script defer src="js/document-generator.js?v=6"></script>
+<script defer src="js/document-generator-templates.js?v=4"></script>
 <script defer src="js/doc-preflight.js?v=1"></script>
 
 <!-- ──────────────────────────────────────────────────────────────

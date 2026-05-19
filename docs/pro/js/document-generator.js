@@ -111,6 +111,14 @@ window.NBDDocGen = {
     // use it for the title (the generic template handles 20+ types).
     data._documentType = type;
 
+    // Attach the merged shop-wide profile so every render function reads
+    // editable legal text / financing / marketing from one place. Lead-
+    // level overrides on `data` still win — render functions should look
+    // up `data.foo ?? data.companyProfile.foo`.
+    data.companyProfile = (window._companyProfile && typeof window._companyProfile === 'object')
+      ? window._companyProfile
+      : (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+
     // ─── D-5: try server-side Puppeteer render first ───
     // Supported types: contract / invoice / change_order. Receipt is
     // a future call site (no client surface yet). Falls through to
@@ -469,6 +477,11 @@ window.NBDDocGen = {
     if (!template) {
       console.error(`Unknown document type: ${type}`);
       return null;
+    }
+    if (!data.companyProfile) {
+      data.companyProfile = (window._companyProfile && typeof window._companyProfile === 'object')
+        ? window._companyProfile
+        : (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
     }
     return template.call(this, data);
   },
@@ -1235,6 +1248,7 @@ window.NBDDocGen = {
    * @returns {string} Complete HTML document
    */
   renderProposal(data = {}) {
+    const cp = data.companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
     // Merge with defaults
     const merged = {
       homeownerName: '',
@@ -1298,18 +1312,18 @@ window.NBDDocGen = {
     });
     scopeHTML += '</ul>';
 
-    // Standard terms
+    // Standard terms — all rep-editable via Settings → Company Profile.
     const termsHTML = `
       <div style="font-size: 10px; line-height: 1.4; color: #555;">
-        <strong>Payment Terms:</strong> 50% deposit due upon contract execution; balance due upon project completion. Insurance assignments accepted.
+        <strong>Payment Terms:</strong> ${cp.paymentTermsProposal}
         <br/><br/>
-        <strong>Change Orders:</strong> Any changes to the scope of work must be documented in writing and agreed upon before proceeding. Change orders will adjust pricing and timeline accordingly.
+        <strong>Change Orders:</strong> ${cp.changeOrderClauseShort}
         <br/><br/>
-        <strong>Cancellation Rights:</strong> You have the right to cancel this agreement within 3 days of signature without penalty (KY Residential Finance Law).
+        <strong>Cancellation Rights:</strong> ${cp.cancellationProposalShort}
         <br/><br/>
-        <strong>Warranty Disclaimer:</strong> Material warranties are provided by manufacturers and are separate from NBD workmanship warranty. See warranty section below.
+        <strong>Warranty Disclaimer:</strong> ${cp.materialsWarrantyDisclaimer}
         <br/><br/>
-        <strong>Limitation of Liability:</strong> NBD's total liability shall not exceed the contract price. This proposal is valid for 30 days from date of issue.
+        <strong>Limitation of Liability:</strong> ${cp.limitationOfLiability}
       </div>
     `;
 
@@ -1404,6 +1418,7 @@ window.NBDDocGen = {
    * @returns {string} Complete HTML document
    */
   renderContract(data = {}) {
+    const cp = data.companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
     const merged = {
       homeownerName: '',
       homeownerAddress: '',
@@ -1414,7 +1429,7 @@ window.NBDDocGen = {
       estimatedCompletion: '5-7 business days',
       projectDescription: 'Complete roofing system replacement including removal of existing materials, installation of new premium asphalt shingles, underlayment, flashing, and gutters.',
       warrantyTier: 'better',
-      paymentSchedule: 'Fifty percent (50%) due upon contract execution; remaining balance due upon substantial completion of work.',
+      paymentSchedule: cp.paymentTermsContract,
       isInsuranceJob: false,
       ...data
     };
@@ -1476,8 +1491,7 @@ window.NBDDocGen = {
                 {{paymentSchedule}}
               </div>
               <div style="margin: 0.1in 0; margin-top: 0.08in; font-size: 9px;">
-                All payments must be made by check, ACH transfer, or credit card. No cash payments accepted.
-                Insurance assignment accepted. Material delays may extend timeline.
+                ${cp.paymentMethodsNoCash}
               </div>
             </div>
 
@@ -1491,7 +1505,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Change Orders & Scope Modifications</div>
               <div style="margin: 0.1in 0; font-size: 9px;">
-                Any changes to the original scope of work must be documented in writing and signed by both parties before work proceeds. All change orders will specify: description of work, cost adjustments, and timeline impacts. NBD reserves the right to adjust pricing and completion dates based on scope changes.
+                ${cp.changeOrderClause}
               </div>
             </div>
 
@@ -1499,7 +1513,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Cancellation & Rescission Rights</div>
               <div style="margin: 0.1in 0; font-size: 9px;">
-                The Homeowner has the right to cancel this agreement within three (3) business days of signature without penalty, as permitted by Kentucky Revised Statutes § 367.390. Any deposit paid will be refunded within 10 days of cancellation notice.
+                ${cp.cancellationContractClause}
               </div>
             </div>
 
@@ -1507,7 +1521,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Dispute Resolution</div>
               <div style="margin: 0.1in 0; font-size: 9px;">
-                In the event of dispute, both parties agree to attempt resolution through good faith negotiation. If negotiation fails, disputes shall be resolved through mediation or binding arbitration under Kentucky law.
+                ${cp.disputeResolutionClause}
               </div>
             </div>
 
@@ -1515,7 +1529,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Insurance Assignment</div>
               <div style="margin: 0.1in 0; font-size: 9px;">
-                If this project is insurance-related, NBD is authorized to accept assignment of insurance proceeds as partial or full payment for work performed. Homeowner agrees to provide proof of insurance coverage and claim number.
+                ${cp.insuranceAssignmentClause}
               </div>
             </div>
 
@@ -1523,7 +1537,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Entire Agreement</div>
               <div style="margin: 0.1in 0; font-size: 9px;">
-                This contract constitutes the entire agreement between parties and supersedes all prior negotiations, representations, or agreements. Any modifications must be made in writing and signed by both parties.
+                ${cp.entireAgreementClause}
               </div>
             </div>
 
@@ -1728,6 +1742,7 @@ window.NBDDocGen = {
    * @returns {string} Complete HTML document
    */
   renderInspectionInsurance(data = {}) {
+    const cp = data.companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
     const merged = {
       claimantName: '',
       claimNumber: 'CLM-2026-0001',
@@ -1738,8 +1753,15 @@ window.NBDDocGen = {
       damageType: 'Wind Damage',
       estimatedRepairCost: '',
       photos: null,
+      // Lead-level override wins; otherwise fall back to the shop-wide
+      // company profile.
+      codeCycle: data.codeCycle || cp.codeCycle,
+      codeJurisdiction: data.codeJurisdiction || cp.codeJurisdiction,
       ...data
     };
+    // Re-resolve after spread, in case `data` carried explicit null/empty.
+    merged.codeCycle = data.codeCycle || cp.codeCycle;
+    merged.codeJurisdiction = data.codeJurisdiction || cp.codeJurisdiction;
 
     const insuranceHTML = `
       <!DOCTYPE html>
@@ -1855,7 +1877,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Code Compliance & Standards</div>
               <div style="font-size: 9px; line-height: 1.4;">
-                <strong>Current Code Requirements:</strong> All repairs performed in accordance with 2021 International Building Code (IBC) and Kentucky Building Code (KBC). Work complies with manufacturer specifications and NRCA guidelines.
+                <strong>Current Code Requirements:</strong> All repairs performed in accordance with ${merged.codeCycle} and ${merged.codeJurisdiction}. Work complies with manufacturer specifications and NRCA guidelines.
               </div>
             </div>
 

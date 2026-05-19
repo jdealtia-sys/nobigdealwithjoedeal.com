@@ -945,6 +945,12 @@ function switchSettingsTab(tab) {
       window._loadCompanySettings();
     }
   }
+  // Company Profile tab — pull from Firestore singleton + populate fields
+  if (tab === 'company-profile') {
+    if (typeof window._loadCompanyProfileSettings === 'function') {
+      window._loadCompanyProfileSettings();
+    }
+  }
   // Access tab — populate session info
   if (tab === 'access') {
     if (typeof window._loadAccessInfo === 'function') {

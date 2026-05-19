@@ -619,6 +619,9 @@
   // TEMPLATE 7: INVOICE
   // ═══════════════════════════════════════════════════════════════
   DG.renderInvoice = function(data) {
+    const _cpInv = (data && data.companyProfile) || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    const _invFinancePartner = _cpInv.financePartner || 'Improvifi';
+    const _invLateText = _cpInv.latePaymentChargeText || '1.5% monthly finance charge';
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
       homeownerPhone:'', homeownerEmail:'',
       invoiceNumber:'INV-'+(Date.now()%100000), invoiceDate:today(), dueDate:'Due upon receipt',
@@ -699,14 +702,14 @@
             Check — payable to <strong>${C.name}</strong><br>
             Zelle — ${C.email}<br>
             Credit Card — ask for secure link<br>
-            Financing — through Improvifi
+            Financing — through ${esc(_invFinancePartner)}
           </div>
         </div>
         <div style="background:#fff8f5;padding:16px;border-radius:8px;border:1px solid #f0d0c0;">
           <div style="font-size:11px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">Late Payment</div>
           <div style="font-size:13px;line-height:1.8;color:#555;">
             Payment is due upon receipt unless otherwise agreed in writing. Accounts past 30 days may be
-            subject to a 1.5% monthly finance charge.
+            subject to a ${esc(_invLateText)}.
           </div>
         </div>
       </div>
@@ -723,7 +726,8 @@
   // ═══════════════════════════════════════════════════════════════
   DG.renderCompanyIntro = function(data) {
     const d = Object.assign({}, data);
-    const services = [
+    const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    const services = Array.isArray(cp.services) && cp.services.length ? cp.services : [
       {icon:'🏠',name:'Roofing',desc:'Full replacements, repairs, and storm damage restoration'},
       {icon:'🧱',name:'Siding',desc:'Vinyl, fiber cement, LP SmartSide, and board & batten'},
       {icon:'🌧️',name:'Gutters',desc:'Seamless gutters, guards, downspouts, and drainage'},
@@ -731,6 +735,14 @@
       {icon:'🎨',name:'Interior',desc:'Water damage repair, paint, drywall, flooring'},
       {icon:'⛈️',name:'Storm Damage',desc:'Full insurance claim management from inspection to completion'}
     ];
+    const valueProps = Array.isArray(cp.valueProps) && cp.valueProps.length ? cp.valueProps : [
+      {icon:'🛡️',title:'Warranty Protection',desc:'Up to lifetime workmanship warranty plus full manufacturer coverage on all materials.'},
+      {icon:'📋',title:'Insurance Specialists',desc:'We handle the entire insurance claim process so you can focus on what matters.'},
+      {icon:'⭐',title:'5-Star Service',desc:'Exceptional service from first contact through final walkthrough and beyond.'},
+      {icon:'💰',title:'Flexible Financing',desc:'Affordable monthly payments through our partnership with Improvifi.'}
+    ];
+    const tagline = cp.tagline || "No Big Deal — We've Got You Covered";
+    const financePartner = cp.financePartner || 'Improvifi';
 
     return page('About No Big Deal Home Solutions', `
       <style>
@@ -765,7 +777,7 @@
              <object> — iframe CSP blocks <object>. -->
         <img class="intro-hero-logo" src="${LOGO_URL}" alt="${C.name}" style="display:block;width:320px;max-width:90%;height:auto;margin:0 auto 14px;background:#fff;border-radius:10px;padding:10px 16px;box-sizing:border-box;"/>
         <h1>${C.name}</h1>
-        <div class="tagline">No Big Deal — We've Got You Covered</div>
+        <div class="tagline">${tagline}</div>
         <p style="margin-top:16px;font-size:14px;opacity:0.9;max-width:500px;margin-left:auto;margin-right:auto;">
           Your trusted partner for roofing, exteriors, and storm damage restoration.
           We handle everything from the first inspection to the final nail — so you don't have to stress.</p>
@@ -780,20 +792,11 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Why Choose NBD?</div>
+        <div class="section-title">Why Choose ${C.name.split(' ')[0] === 'No' ? 'NBD' : C.name}?</div>
         <div class="value-grid">
-          <div class="value-card"><div class="value-icon">🛡️</div><div>
-            <div class="value-title">Warranty Protection</div>
-            <div class="value-desc">Up to lifetime workmanship warranty plus full manufacturer coverage on all materials.</div></div></div>
-          <div class="value-card"><div class="value-icon">📋</div><div>
-            <div class="value-title">Insurance Specialists</div>
-            <div class="value-desc">We handle the entire insurance claim process so you can focus on what matters.</div></div></div>
-          <div class="value-card"><div class="value-icon">⭐</div><div>
-            <div class="value-title">5-Star Service</div>
-            <div class="value-desc">Exceptional service from first contact through final walkthrough and beyond.</div></div></div>
-          <div class="value-card"><div class="value-icon">💰</div><div>
-            <div class="value-title">Flexible Financing</div>
-            <div class="value-desc">Affordable monthly payments through our partnership with Improvifi.</div></div></div>
+          ${valueProps.map(v => `<div class="value-card"><div class="value-icon">${v.icon}</div><div>
+            <div class="value-title">${esc(v.title)}</div>
+            <div class="value-desc">${esc(v.desc)}</div></div></div>`).join('')}
         </div>
       </div>
 
@@ -818,7 +821,7 @@
 
       <div class="finance-cta">
         <div style="font-size:20px;font-weight:700;">Flexible Financing Available</div>
-        <div style="font-size:14px;margin-top:8px;opacity:0.9;">Through our partnership with Improvifi — affordable monthly payments with quick approval.</div>
+        <div style="font-size:14px;margin-top:8px;opacity:0.9;">Through our partnership with ${esc(financePartner)} — affordable monthly payments with quick approval.</div>
       </div>
 
       <div style="text-align:center;padding:24px 0;border-top:2px solid ${A};">
@@ -901,15 +904,36 @@
   // ═══════════════════════════════════════════════════════════════
   DG.renderFinancingOptions = function(data) {
     const d = Object.assign({ homeownerName:'', totalPrice:10000 }, data);
+    const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
     const price = parseFloat(d.totalPrice) || 10000;
-    const plans = [
-      { months:12, apr:0, label:'12 Months', badge:'0% Intro APR', color:'#16a34a',
-        monthly: (price/12) },
-      { months:36, apr:6.99, label:'36 Months', badge:'Low Rate', color:'#0ea5e9',
-        monthly: (price * (6.99/100/12) * Math.pow(1+6.99/100/12,36)) / (Math.pow(1+6.99/100/12,36)-1) },
-      { months:60, apr:9.99, label:'60 Months', badge:'Extended', color:'#7c3aed',
-        monthly: (price * (9.99/100/12) * Math.pow(1+9.99/100/12,60)) / (Math.pow(1+9.99/100/12,60)-1) }
+    const financePartner = cp.financePartner || 'Improvifi';
+    const tierDefaults = [
+      { months:12, apr:0,    label:'12 Months', badge:'0% Intro APR', color:'#16a34a' },
+      { months:36, apr:6.99, label:'36 Months', badge:'Low Rate',     color:'#0ea5e9' },
+      { months:60, apr:9.99, label:'60 Months', badge:'Extended',     color:'#7c3aed' }
     ];
+    const tiers = Array.isArray(cp.financingTiers) && cp.financingTiers.length ? cp.financingTiers : tierDefaults;
+    // Compute monthly payment from APR + months. 0% APR is straight-line;
+    // non-zero is standard amortized fixed payment.
+    const plans = tiers.map(t => {
+      const months = Number(t.months) || 12;
+      const apr = Number(t.apr) || 0;
+      let monthly;
+      if (apr <= 0) {
+        monthly = price / months;
+      } else {
+        const r = apr / 100 / 12;
+        monthly = (price * r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
+      }
+      return {
+        months,
+        apr,
+        label: t.label || (months + ' Months'),
+        badge: t.badge || '',
+        color: t.color || '#0ea5e9',
+        monthly
+      };
+    });
 
     return page('Financing Options', `
       <style>
@@ -939,7 +963,7 @@
       </div>
 
       <div class="section" style="text-align:center;">
-        <p style="font-size:16px;color:#555;">We've partnered with <strong style="color:${A};">Improvifi</strong> to offer
+        <p style="font-size:16px;color:#555;">We've partnered with <strong style="color:${A};">${esc(financePartner)}</strong> to offer
         flexible financing solutions. Get approved in minutes with no impact to your credit score for pre-qualification.</p>
         ${price ? `<div style="margin:20px 0;"><div style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">
           Project Total</div><div style="font-size:32px;font-weight:700;color:${S};">${money(price)}</div></div>` : ''}
@@ -992,8 +1016,8 @@
 
       <p style="font-size:10px;color:#999;text-align:center;margin-top:24px;">
         Subject to credit approval. Interest rates and terms may vary based on creditworthiness. Financing provided by
-        Improvifi and its lending partners. ${C.name} is not a lender and does not make credit decisions.
-        See Improvifi for full terms, conditions, and disclosures.</p>
+        ${esc(financePartner)} and its lending partners. ${C.name} is not a lender and does not make credit decisions.
+        See ${esc(financePartner)} for full terms, conditions, and disclosures.</p>
 
       ${footer('Financing Options')}
     `);
@@ -1067,6 +1091,8 @@
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
       claimNumber:'[Claim #]', policyNumber:'[Policy #]', insuranceCompany:'[Insurance Company]',
       dateOfLoss:'[Date of Loss]', scopeSummary:'Roof replacement and related repairs due to storm damage.' }, data);
+    const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    const rescissionWindow = cp.cancellationWindowText || 'three (3) business days';
 
     return page('Assignment of Benefits', `
       ${letterhead()}
@@ -1125,7 +1151,7 @@
 
       <div class="section" style="background:#fff8f5;padding:20px;border-radius:8px;border:1px solid #f0d0c0;">
         <p style="font-size:13px;color:#555;margin:0;">
-          <strong>Right to Rescind:</strong> You may cancel this assignment within three (3) business days of signing
+          <strong>Right to Rescind:</strong> You may cancel this assignment within ${esc(rescissionWindow)} of signing
           by providing written notice to ${C.name}. After the rescission period, cancellation is subject to
           payment for all work completed to date.
         </p>
@@ -1404,6 +1430,18 @@
   // ═══════════════════════════════════════════════════════════════
   DG.renderDoorHanger = function(data) {
     const d = Object.assign({}, data);
+    const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    // Door-hanger services use a flatter "name — desc" format. Derive from
+    // the profile services list so edits in Settings propagate here.
+    const hangerServices = Array.isArray(cp.services) && cp.services.length
+      ? cp.services.map(s => `${s.name} — ${s.desc}`)
+      : [
+          'Roofing — replacements, repairs, storm damage',
+          'Siding — vinyl, fiber cement, LP SmartSide',
+          'Gutters — seamless systems and guards',
+          'Windows & Doors — energy-efficient upgrades',
+          'Insurance Claims — handled start to finish'
+        ];
 
     return page('Door Hanger', `
       <style>
@@ -1435,11 +1473,7 @@
 
           <div style="font-size:11px;font-weight:700;color:${S};text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;">
             Our Services</div>
-          <div class="hanger-service"><div class="hanger-dot"></div>Roofing — replacements, repairs, storm damage</div>
-          <div class="hanger-service"><div class="hanger-dot"></div>Siding — vinyl, fiber cement, LP SmartSide</div>
-          <div class="hanger-service"><div class="hanger-dot"></div>Gutters — seamless systems and guards</div>
-          <div class="hanger-service"><div class="hanger-dot"></div>Windows & Doors — energy-efficient upgrades</div>
-          <div class="hanger-service"><div class="hanger-dot"></div>Insurance Claims — handled start to finish</div>
+          ${hangerServices.map(s => `<div class="hanger-service"><div class="hanger-dot"></div>${esc(s)}</div>`).join('')}
 
           <div style="margin-top:16px;padding-top:12px;border-top:1px solid #eee;">
             <div style="font-size:12px;color:#666;">Licensed | Insured | Warranty-Backed</div>
@@ -1633,6 +1667,9 @@
       progressAmount:'0.00', progressDue:'Upon material delivery',
       finalAmount:'0.00', finalDue:'Upon project completion',
       projectDescription:'Complete roof replacement per attached scope of work and contract.' }, data);
+    const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    const latePaymentText = cp.latePaymentChargeText || '1.5% monthly finance charge';
+    const financePartner = cp.financePartner || 'Improvifi';
 
     const total = parseFloat(d.totalAmount)||0;
     const deposit = parseFloat(d.depositAmount)||0;
@@ -1690,11 +1727,11 @@
       <div class="section">
         <div class="section-title">Terms and Conditions</div>
         <ol style="font-size:13px;line-height:2;padding-left:24px;color:#444;">
-          <li>All payments are due as specified above. Late payments may be subject to a 1.5% monthly finance charge.</li>
+          <li>All payments are due as specified above. Late payments may be subject to a ${esc(latePaymentText)}.</li>
           <li>Checks should be made payable to <strong>${C.name}</strong>.</li>
           <li>For Zelle payments, send to <strong>${C.email}</strong>.</li>
           <li>Credit card payments are accepted via secure link provided by ${C.name}. A convenience fee may apply.</li>
-          <li>Financing is available through Improvifi, subject to credit approval and separate terms.</li>
+          <li>Financing is available through ${esc(financePartner)}, subject to credit approval and separate terms.</li>
           <li>Work will not commence until the deposit payment has been received and verified.</li>
           <li>Final payment is due upon completion of the project and successful final walkthrough.</li>
           <li>Any disputed amounts must be communicated in writing within 10 days of the payment due date.</li>

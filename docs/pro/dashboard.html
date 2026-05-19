@@ -9518,6 +9518,7 @@ body.theme-frosted {
         <button class="stab-btn" data-action="settingsTab" data-target="estimates" id="stab-estimates">📋 Estimates</button>
         <button class="stab-btn" data-action="settingsTab" data-target="daily" id="stab-daily">⚡ Daily OS</button>
         <button class="stab-btn" data-action="settingsTab" data-target="company" id="stab-company">🏢 Company</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="company-profile" id="stab-company-profile">📜 Company Profile</button>
         <button class="stab-btn" data-action="settingsTab" data-target="team" id="stab-team">👥 Team</button>
         <button class="stab-btn" data-action="settingsTab" data-target="billing" id="stab-billing">💳 Billing</button>
         <button class="stab-btn" data-action="settingsTab" data-target="notifications" id="stab-notifications">🔔 Notifications</button>
@@ -10176,6 +10177,182 @@ body.theme-frosted {
         </div>
         <div id="co-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Company info saved</div>
       </div><!-- /stab-panel-company -->
+
+      <!-- ══ TAB: COMPANY PROFILE (doc-constants editable from UI) ══ -->
+      <div class="stab-panel dn" id="stab-panel-company-profile">
+
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">Edit the boilerplate that ships on every contract, AOB, work-auth, and payment agreement.</div><div class="panel-title">Legal Text</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>Cancellation Window (short phrase used inline)</label>
+                <input type="text" id="cp_cancellationWindowText" placeholder="three (3) business days"></div>
+              <div class="sf"><label>State Statute Reference</label>
+                <input type="text" id="cp_cancellationStatute" placeholder="Kentucky Revised Statutes § 367.390"></div>
+            </div>
+            <div class="sf"><label>Cancellation / Rescission Rights — Contract clause</label>
+              <textarea id="cp_cancellationContractClause" rows="3"></textarea></div>
+            <div class="sf"><label>Cancellation Rights — Proposal short-form</label>
+              <textarea id="cp_cancellationProposalShort" rows="2"></textarea></div>
+
+            <div class="sf"><label>Change Order Clause — Contract</label>
+              <textarea id="cp_changeOrderClause" rows="3"></textarea></div>
+            <div class="sf"><label>Change Order Clause — Proposal short-form</label>
+              <textarea id="cp_changeOrderClauseShort" rows="2"></textarea></div>
+
+            <div class="sf"><label>Dispute Resolution Clause</label>
+              <textarea id="cp_disputeResolutionClause" rows="3"></textarea></div>
+
+            <div class="sf"><label>Insurance Assignment Clause</label>
+              <textarea id="cp_insuranceAssignmentClause" rows="3"></textarea></div>
+
+            <div class="sf"><label>Entire Agreement Clause</label>
+              <textarea id="cp_entireAgreementClause" rows="3"></textarea></div>
+
+            <div class="sf"><label>Payment Terms — Contract</label>
+              <textarea id="cp_paymentTermsContract" rows="2"></textarea></div>
+            <div class="sf"><label>Payment Terms — Proposal</label>
+              <textarea id="cp_paymentTermsProposal" rows="2"></textarea></div>
+            <div class="sf"><label>Payment Methods Note (no-cash policy, etc.)</label>
+              <textarea id="cp_paymentMethodsNoCash" rows="2"></textarea></div>
+
+            <div class="sf"><label>Materials Warranty Disclaimer</label>
+              <textarea id="cp_materialsWarrantyDisclaimer" rows="2"></textarea></div>
+
+            <div class="sf-row">
+              <div class="sf"><label>Proposal Validity Window (days)</label>
+                <input type="number" id="cp_proposalValidityDays" placeholder="30" min="1" max="365"></div>
+              <div class="sf"><label>Late Payment Charge (free text)</label>
+                <input type="text" id="cp_latePaymentChargeText" placeholder="1.5% monthly finance charge"></div>
+            </div>
+            <div class="sf"><label>Limitation of Liability</label>
+              <textarea id="cp_limitationOfLiability" rows="2"></textarea></div>
+          </div>
+        </div>
+
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">Three tiers shown on every Financing Options document.</div><div class="panel-title">Financing</div></div></div>
+          <div class="panel-body">
+            <div class="sf"><label>Financing Partner Name</label>
+              <input type="text" id="cp_financePartner" placeholder="Improvifi"></div>
+            <div class="sf-row" style="margin-top:8px;">
+              <div class="sf" style="flex:0 0 80px;"><label>APR % (Tier 1)</label>
+                <input type="number" id="cp_tier0_apr" placeholder="0" step="0.01" min="0" max="99"></div>
+              <div class="sf" style="flex:0 0 80px;"><label>Months</label>
+                <input type="number" id="cp_tier0_months" placeholder="12" min="1" max="120"></div>
+              <div class="sf"><label>Label</label>
+                <input type="text" id="cp_tier0_label" placeholder="12 Months"></div>
+              <div class="sf"><label>Badge</label>
+                <input type="text" id="cp_tier0_badge" placeholder="0% Intro APR"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 80px;"><label>APR % (Tier 2)</label>
+                <input type="number" id="cp_tier1_apr" placeholder="6.99" step="0.01" min="0" max="99"></div>
+              <div class="sf" style="flex:0 0 80px;"><label>Months</label>
+                <input type="number" id="cp_tier1_months" placeholder="36" min="1" max="120"></div>
+              <div class="sf"><label>Label</label>
+                <input type="text" id="cp_tier1_label" placeholder="36 Months"></div>
+              <div class="sf"><label>Badge</label>
+                <input type="text" id="cp_tier1_badge" placeholder="Low Rate"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 80px;"><label>APR % (Tier 3)</label>
+                <input type="number" id="cp_tier2_apr" placeholder="9.99" step="0.01" min="0" max="99"></div>
+              <div class="sf" style="flex:0 0 80px;"><label>Months</label>
+                <input type="number" id="cp_tier2_months" placeholder="60" min="1" max="120"></div>
+              <div class="sf"><label>Label</label>
+                <input type="text" id="cp_tier2_label" placeholder="60 Months"></div>
+              <div class="sf"><label>Badge</label>
+                <input type="text" id="cp_tier2_badge" placeholder="Extended"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">Services list and value props shown on Company Intro, Door Hanger, and other marketing docs.</div><div class="panel-title">Marketing</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>Tagline</label>
+                <input type="text" id="cp_tagline" placeholder="No Big Deal — We've Got You Covered"></div>
+              <div class="sf"><label>Service Area</label>
+                <input type="text" id="cp_serviceArea" placeholder="Greater Cincinnati & Northern Kentucky"></div>
+            </div>
+
+            <div style="margin:14px 0 6px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--m);">Services (6 slots)</div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 60px;"><label>Icon</label><input type="text" id="cp_svc0_icon" maxlength="4"></div>
+              <div class="sf" style="flex:0 0 180px;"><label>Name</label><input type="text" id="cp_svc0_name"></div>
+              <div class="sf"><label>Description</label><input type="text" id="cp_svc0_desc"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 60px;"><label>Icon</label><input type="text" id="cp_svc1_icon" maxlength="4"></div>
+              <div class="sf" style="flex:0 0 180px;"><label>Name</label><input type="text" id="cp_svc1_name"></div>
+              <div class="sf"><label>Description</label><input type="text" id="cp_svc1_desc"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 60px;"><label>Icon</label><input type="text" id="cp_svc2_icon" maxlength="4"></div>
+              <div class="sf" style="flex:0 0 180px;"><label>Name</label><input type="text" id="cp_svc2_name"></div>
+              <div class="sf"><label>Description</label><input type="text" id="cp_svc2_desc"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 60px;"><label>Icon</label><input type="text" id="cp_svc3_icon" maxlength="4"></div>
+              <div class="sf" style="flex:0 0 180px;"><label>Name</label><input type="text" id="cp_svc3_name"></div>
+              <div class="sf"><label>Description</label><input type="text" id="cp_svc3_desc"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 60px;"><label>Icon</label><input type="text" id="cp_svc4_icon" maxlength="4"></div>
+              <div class="sf" style="flex:0 0 180px;"><label>Name</label><input type="text" id="cp_svc4_name"></div>
+              <div class="sf"><label>Description</label><input type="text" id="cp_svc4_desc"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 60px;"><label>Icon</label><input type="text" id="cp_svc5_icon" maxlength="4"></div>
+              <div class="sf" style="flex:0 0 180px;"><label>Name</label><input type="text" id="cp_svc5_name"></div>
+              <div class="sf"><label>Description</label><input type="text" id="cp_svc5_desc"></div>
+            </div>
+
+            <div style="margin:14px 0 6px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--m);">Why Choose Us — Value Props (4 slots)</div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 60px;"><label>Icon</label><input type="text" id="cp_vp0_icon" maxlength="4"></div>
+              <div class="sf" style="flex:0 0 200px;"><label>Title</label><input type="text" id="cp_vp0_title"></div>
+              <div class="sf"><label>Description</label><input type="text" id="cp_vp0_desc"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 60px;"><label>Icon</label><input type="text" id="cp_vp1_icon" maxlength="4"></div>
+              <div class="sf" style="flex:0 0 200px;"><label>Title</label><input type="text" id="cp_vp1_title"></div>
+              <div class="sf"><label>Description</label><input type="text" id="cp_vp1_desc"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 60px;"><label>Icon</label><input type="text" id="cp_vp2_icon" maxlength="4"></div>
+              <div class="sf" style="flex:0 0 200px;"><label>Title</label><input type="text" id="cp_vp2_title"></div>
+              <div class="sf"><label>Description</label><input type="text" id="cp_vp2_desc"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf" style="flex:0 0 60px;"><label>Icon</label><input type="text" id="cp_vp3_icon" maxlength="4"></div>
+              <div class="sf" style="flex:0 0 200px;"><label>Title</label><input type="text" id="cp_vp3_title"></div>
+              <div class="sf"><label>Description</label><input type="text" id="cp_vp3_desc"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">Code references printed on Insurance Inspection reports. Lead-level overrides on the customer record still take precedence.</div><div class="panel-title">Code & Jurisdiction</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>Code Cycle</label>
+                <input type="text" id="cp_codeCycle" placeholder="2021 International Building Code (IBC)"></div>
+              <div class="sf"><label>Jurisdictional Code</label>
+                <input type="text" id="cp_codeJurisdiction" placeholder="Kentucky Building Code (KBC)"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn btn-orange" data-action="call" data-fn="_saveCompanyProfileSettings">💾 Save Company Profile</button>
+          <button class="btn btn-ghost fs-11" data-action="call" data-fn="_loadCompanyProfileSettings">↺ Reload</button>
+          <button class="btn btn-ghost fs-11" data-action="call" data-fn="_resetCompanyProfileSettings">↶ Reset to Defaults</button>
+        </div>
+        <div id="cp-save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Company profile saved — new documents will use these values</div>
+      </div><!-- /stab-panel-company-profile -->
 
       <!-- ══ TAB: TEAM ══ -->
       <div class="stab-panel dn" id="stab-panel-team">
@@ -12331,8 +12508,9 @@ body.theme-frosted {
 <script defer src="js/ai.js?v=4"></script>
 <script defer src="js/review-engine.js?v=2"></script>
 <script defer src="js/nbd-logo-asset.js?v=2"></script>
-<script defer src="js/document-generator.js?v=2"></script>
-<script defer src="js/document-generator-templates.js?v=2"></script>
+<script defer src="js/company-profile.js?v=1"></script>
+<script defer src="js/document-generator.js?v=3"></script>
+<script defer src="js/document-generator-templates.js?v=3"></script>
 <!-- Doc pre-flight: schema-driven modal that prompts for any missing
      merge fields before generating a doc. Reads window._leadDoc /
      _customerId / _customerEstimates / _allPhotos — the dashboard

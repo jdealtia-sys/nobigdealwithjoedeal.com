@@ -191,6 +191,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   '_nbdDismissTrial', '_loadCompanySettings', '_resetEstimateDefaultsV2',
   '_gdprRequestErasure', '_gdprExport', '_exportPhotos', '_exportEstimates',
   '_exportAllData',
+  // Company Profile tab (doc-constants editable from UI)
+  '_loadCompanyProfileSettings', '_saveCompanyProfileSettings',
+  '_resetCompanyProfileSettings',
   // Card-detail action wrappers (defined below)
   'cdaMjdAct', 'cdaEditLead', 'cdaOpenMobileInspection', 'cdaVoiceMemo',
   // Draw / misc
