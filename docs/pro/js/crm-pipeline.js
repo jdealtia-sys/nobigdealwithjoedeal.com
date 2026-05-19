@@ -190,7 +190,30 @@ function renderLeads(leads, filtered){
   setEl('crmPipeVal',    '$'+pipeVal.toLocaleString());
   setEl('crmApproved',  approvedCount);
   setEl('crmClosedRev', '$'+closedRev.toLocaleString());
-  setEl('crmSubLine',   _realCount + ' customers · $' + pipeVal.toLocaleString() + ' pipeline' + (_prospectCount > 0 ? ' · ' + _prospectCount + ' prospects' : ''));
+  // Stat line — span-wrapped so CSS can hide the wordy bits on mobile.
+  // Desktop reads:  "13 customers · $126,043 pipeline · 3 prospects"
+  // Mobile  reads:  "13 · $126K · 3"  (.crm-stat-word + .crm-stat-money-full
+  // hidden, .crm-stat-money-short shown via the responsive rule in
+  // dashboard.html).
+  const _fmtMoneyShort = pipeVal >= 1000000
+    ? '$' + (pipeVal/1000000).toFixed(pipeVal >= 10000000 ? 0 : 1) + 'M'
+    : pipeVal >= 1000
+      ? '$' + Math.round(pipeVal/1000) + 'K'
+      : '$' + pipeVal;
+  const _subLineEl = document.getElementById('crmSubLine');
+  if (_subLineEl) {
+    _subLineEl.innerHTML =
+      '<span class="crm-stat-num">' + _realCount + '</span>' +
+      '<span class="crm-stat-word"> customers</span>' +
+      ' · ' +
+      '<span class="crm-stat-money-full">$' + pipeVal.toLocaleString() + '</span>' +
+      '<span class="crm-stat-money-short">' + _fmtMoneyShort + '</span>' +
+      '<span class="crm-stat-word"> pipeline</span>' +
+      (_prospectCount > 0
+        ? ' · <span class="crm-stat-num">' + _prospectCount + '</span>' +
+          '<span class="crm-stat-word"> prospects</span>'
+        : '');
+  }
   // dashboard cards
   setEl('statLeads', all.length);
   setEl('statVal',   '$'+pipeVal.toLocaleString());

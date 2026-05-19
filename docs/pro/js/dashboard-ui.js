@@ -296,6 +296,23 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     e.preventDefault();
     const fn = window[fnName];
     if (typeof fn === 'function') fn();
+    // Keep the mobile Tools menu's active-state indicators in sync
+    // whenever any filter toggles (whether tapped from the menu, the
+    // inline button on desktop, or a keyboard shortcut). Cheap: a few
+    // querySelectors. setTimeout(0) lets fn() finish updating its
+    // source button's .active class before we mirror it.
+    if (typeof window.syncMobileToolsMenuActive === 'function') {
+      setTimeout(window.syncMobileToolsMenuActive, 0);
+    }
+    // If this toggle came from inside the mobile Tools (⋯) dropdown,
+    // close the menu so the user immediately sees the filter result on
+    // the kanban (saves one tap). The active-state mirror above
+    // briefly previews ON before the menu closes — confirms the action.
+    if (el.closest && el.closest('.crm-tools-menu-mobile')) {
+      setTimeout(() => {
+        if (typeof window.closeCrmToolsMenu === 'function') window.closeCrmToolsMenu();
+      }, 220);
+    }
     return;
   }
   // C.4 kanban-view cluster — Insurance/Cash/Finance/Warranty/Service/
@@ -1713,6 +1730,13 @@ function toggleCrmToolsMenu(ev) {
   if (!menu) return;
   const isOpen = menu.classList.toggle('open');
   if (isOpen) {
+    // Reflect current filter active-state into the mobile Tools menu
+    // items (Needs Attention / Stale Shares / etc.) before the user
+    // sees it. The action-delegate also re-syncs on every toggle so
+    // the indicator stays correct while the menu is open.
+    if (typeof window.syncMobileToolsMenuActive === 'function') {
+      window.syncMobileToolsMenuActive();
+    }
     // Close on next click outside
     setTimeout(() => {
       const onAway = (e) => {
@@ -1761,6 +1785,31 @@ function closeHdrMobileMenu() {
 }
 window.toggleHdrMobileMenu = toggleHdrMobileMenu;
 window.closeHdrMobileMenu = closeHdrMobileMenu;
+
+// Mobile Tools menu — mirror filter active-state from the (hidden-on-mobile)
+// inline source buttons into the dropdown menu items. PR #508 hid the inline
+// Needs Attention / Stale Shares / Snoozed / Hot first / Bulk buttons on
+// mobile and gave the user the same toggles inside the Tools (⋯) dropdown
+// — but the menu items themselves had no visual hint that a filter was ON,
+// so reps couldn't tell their state without scrolling the kanban to see the
+// filter effect. Each filter module sets .active on its source inline button;
+// we mirror that bit into the corresponding menu item.
+const _MOBILE_TOOLS_FILTER_MAP = {
+  needsAttention: 'needsAttentionBtn',
+  staleShares:    'staleSharesBtn',
+  showSnoozed:    'snoozedToggleBtn',
+  engagementSort: 'engagementSortBtn',
+  bulkMode:       'bulkModeBtn',
+};
+function syncMobileToolsMenuActive() {
+  Object.entries(_MOBILE_TOOLS_FILTER_MAP).forEach(([target, srcId]) => {
+    const src  = document.getElementById(srcId);
+    const item = document.querySelector('.crm-tools-menu-mobile [data-target="' + target + '"]');
+    if (!src || !item) return;
+    item.classList.toggle('active', src.classList.contains('active'));
+  });
+}
+window.syncMobileToolsMenuActive = syncMobileToolsMenuActive;
 
 // FAB visibility — show only on the CRM view. Hooks goTo() so we don't
 // have to touch every nav site.
