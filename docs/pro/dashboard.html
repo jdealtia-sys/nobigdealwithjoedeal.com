@@ -9723,6 +9723,19 @@ body.theme-frosted {
       <!-- ══ TAB: APPEARANCE ══ -->
       <div class="stab-panel dn" id="stab-panel-appearance">
 
+        <!-- Mode toggle: Light / Dark / Auto. Applies to every theme. -->
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">Display Mode</div><div class="panel-title">Light · Dark · Auto</div></div></div>
+          <div class="panel-body">
+            <div style="font-size:11px;color:var(--m);margin-bottom:10px;">Every theme renders in the mode you choose. Auto follows your device setting.</div>
+            <div id="te-mode-toggle" style="display:inline-flex;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:3px;gap:2px;">
+              <button class="te-mode-btn" data-action="call" data-fn="nbdSetModePref" data-arg="light" data-mode-val="light" style="padding:7px 14px;border-radius:6px;background:transparent;border:none;color:var(--m);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;">☀️ Light</button>
+              <button class="te-mode-btn" data-action="call" data-fn="nbdSetModePref" data-arg="dark" data-mode-val="dark" style="padding:7px 14px;border-radius:6px;background:transparent;border:none;color:var(--m);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;">🌙 Dark</button>
+              <button class="te-mode-btn" data-action="call" data-fn="nbdSetModePref" data-arg="auto" data-mode-val="auto" style="padding:7px 14px;border-radius:6px;background:transparent;border:none;color:var(--m);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;">⚙️ Auto</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Theme picker: filter buttons + flat grid -->
         <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Theme Engine</div><div class="panel-title">155 Themes</div></div></div>
