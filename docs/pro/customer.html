@@ -1105,8 +1105,8 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <button class="btn" data-action="copyBookingLink" id="copyBookingBtn" title="Copy booking link to clipboard" style="display:none;">
         📋 Copy Booking Link
       </button>
-      <button class="btn" data-action="exportCustomerPDF" title="Export customer report as PDF">
-        📄 Export PDF
+      <button class="btn" data-action="exportCustomerPDF" title="Export branded customer report as PDF">
+        📄 Customer Report
       </button>
       <button class="btn" data-action="openEditCustomerModal" title="Edit customer information" style="border-color:var(--orange);color:var(--orange);">
         ✏️ Edit Info
@@ -5347,161 +5347,218 @@ window.generateCertFromEstimate = async function(estimateId) {
 
 window.exportCustomerPDF = async function() {
   if (!window._customerId) {
-    alert('Customer data not loaded');
+    if (typeof showToast === 'function') showToast('Customer data not loaded', 'error');
+    else alert('Customer data not loaded');
     return;
   }
-  
+  if (!window.NBDDocGen || typeof window.NBDDocGen.generate !== 'function') {
+    if (typeof showToast === 'function') showToast('Document generator not loaded — refresh and try again', 'error');
+    else alert('Document generator not loaded — refresh and try again');
+    return;
+  }
+
   try {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    
-    // Get customer data from DOM
-    const customerName = document.getElementById('customerName')?.textContent || 'Customer';
-    const customerAddress = document.getElementById('customerAddress')?.textContent || '';
-    const customerPhone = document.getElementById('customerPhone')?.textContent || '';
-    const customerEmail = document.getElementById('customerEmail')?.textContent || '';
-    const customerStage = document.getElementById('customerStage')?.textContent || '';
-    
-    // Header
-    doc.setFontSize(20);
-    doc.setTextColor(232, 114, 12); // NBD orange
-    doc.text('Customer Report', 20, 20);
-    
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Generated ${new Date().toLocaleDateString()}`, 20, 27);
-    
-    // Customer Info Section
-    let y = 40;
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    doc.text(customerName, 20, y);
-    
-    y += 8;
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Stage: ${customerStage}`, 20, y);
-    
-    y += 6;
-    if (customerAddress && customerAddress !== '—') {
-      doc.text(`📍 ${customerAddress}`, 20, y);
-      y += 6;
+    if (typeof showToast === 'function') showToast('Generating customer report…', 'info');
+
+    // Pull the latest shop-wide profile so the letterhead reflects any
+    // recent Settings edits. Best-effort — cached/default profile is
+    // already in window._companyProfile if the network call fails.
+    if (typeof window._loadCompanyProfile === 'function') {
+      try { await window._loadCompanyProfile(); } catch (_) { /* ignore */ }
     }
-    if (customerPhone && customerPhone !== '—') {
-      doc.text(`📞 ${customerPhone}`, 20, y);
-      y += 6;
-    }
-    if (customerEmail && customerEmail !== '—') {
-      doc.text(`✉️ ${customerEmail}`, 20, y);
-      y += 6;
-    }
-    
-    // Timeline Section
-    y += 10;
-    doc.setFontSize(12);
-    doc.setTextColor(232, 114, 12);
-    doc.text('Timeline', 20, y);
-    
-    y += 8;
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    
-    const timelineItems = document.querySelectorAll('#timelineList .timeline-item');
-    let itemCount = 0;
-    timelineItems.forEach(item => {
-      if (itemCount >= 10) return; // Limit to 10 items
-      if (y > 270) return; // Page limit
-      
-      const title = item.querySelector('.timeline-title')?.textContent?.trim() || '';
-      const desc = item.querySelector('.timeline-desc')?.textContent?.trim() || '';
-      const time = item.querySelector('.timeline-time')?.textContent?.trim() || '';
-      
-      doc.setTextColor(0, 0, 0);
-      doc.text(`• ${title}`, 22, y);
-      y += 5;
-      
-      if (desc) {
-        doc.setTextColor(100, 100, 100);
-        doc.text(`  ${desc}`, 24, y);
-        y += 5;
-      }
-      
-      doc.setTextColor(150, 150, 150);
-      doc.setFontSize(8);
-      doc.text(`  ${time}`, 24, y);
-      y += 7;
-      doc.setFontSize(9);
-      
-      itemCount++;
+
+    const lead = window._currentLead || {};
+
+    const customer = {
+      id: window._customerId,
+      firstName: lead.firstName || '',
+      lastName: lead.lastName || '',
+      name: ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim() || lead.name || 'Customer',
+      address: lead.address || '',
+      phone: lead.phone || '',
+      email: lead.email || '',
+      stage: lead.stage || '',
+      createdAt: lead.createdAt || null
+    };
+
+    const project = {
+      jobType:       lead.jobType || '',
+      damageType:    lead.damageType || lead.serviceType || '',
+      insCarrier:    lead.insCarrier || lead.insuranceCarrier || '',
+      claimNumber:   lead.claimNumber || '',
+      claimStatus:   lead.claimStatus || '',
+      deductible:    lead.deductibleOrOwedByHO || lead.deductible || '',
+      jobValue:      lead.jobValue || '',
+      crew:          lead.crew || '',
+      scheduledDate: lead.scheduledDate || '',
+      scopeOfWork:   lead.scopeOfWork || ''
+    };
+
+    // Best-effort full-history gather. If any sub-query fails the section
+    // just renders with whatever events did come back; the report still
+    // ships rather than blocking on a partial Firestore outage.
+    const [timeline, notes] = await Promise.all([
+      _gatherTimelineForReport(window._customerId, lead).catch(() => []),
+      _gatherNotesForReport(window._customerId).catch(() => [])
+    ]);
+
+    const estimates = Array.isArray(window._customerEstimates) ? window._customerEstimates : [];
+
+    const slug = ((lead.lastName || '') + '-' + (lead.firstName || ''))
+      .replace(/^-+|-+$/g, '').replace(/[^A-Za-z0-9]+/g, '-') || 'Customer';
+    const filename = `${slug}-Report-${new Date().toISOString().slice(0,10)}.pdf`;
+
+    await window.NBDDocGen.generate('customer_report', {
+      leadId: window._customerId,
+      filename,
+      customer,
+      project,
+      timeline,
+      estimates,
+      notes
     });
-    
-    // Estimates Section (if space available)
-    if (y < 220 && window._customerEstimates && window._customerEstimates.length > 0) {
-      y += 5;
-      doc.setFontSize(12);
-      doc.setTextColor(232, 114, 12);
-      doc.text('Estimates', 20, y);
-      
-      y += 8;
-      doc.setFontSize(9);
-      
-      window._customerEstimates.forEach(est => {
-        if (y > 270) return;
-        
-        const title = est.title || 'Estimate';
-        const amount = est.amount ? `$${parseFloat(est.amount).toLocaleString()}` : 'Draft';
-        const date = est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—';
-        
-        doc.setTextColor(0, 0, 0);
-        doc.text(`• ${title}`, 22, y);
-        
-        doc.setTextColor(232, 114, 12);
-        doc.text(amount, 150, y);
-        
-        y += 5;
-        doc.setTextColor(150, 150, 150);
-        doc.setFontSize(8);
-        doc.text(`  ${date}`, 24, y);
-        y += 7;
-        doc.setFontSize(9);
-      });
-    }
-    
-    // Notes Section (if space available and notes exist)
-    const notes = document.getElementById('customerNotes')?.textContent?.trim();
-    if (y < 240 && notes && notes !== 'No notes') {
-      y += 5;
-      doc.setFontSize(12);
-      doc.setTextColor(232, 114, 12);
-      doc.text('Notes', 20, y);
-      
-      y += 8;
-      doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
-      
-      // Wrap text
-      const splitNotes = doc.splitTextToSize(notes, 170);
-      splitNotes.forEach(line => {
-        if (y > 280) return;
-        doc.text(line, 20, y);
-        y += 5;
-      });
-    }
-    
-    // Footer
-    doc.setFontSize(8);
-    doc.setTextColor(150, 150, 150);
-    doc.text('No Big Deal Home Solutions — Professional CRM', 20, 285);
-    
-    // Save PDF
-    const fileName = `${customerName.replace(/[^a-z0-9]/gi, '_')}_report_${new Date().toISOString().slice(0,10)}.pdf`;
-    doc.save(fileName);
-    
+
   } catch (error) {
-    console.error('PDF export error:', error);
-    alert('Failed to generate PDF. Please try again.');
+    console.error('Customer PDF export error:', error);
+    if (typeof showToast === 'function') showToast('Failed to generate report — see console', 'error');
+    else alert('Failed to generate PDF. Please try again.');
   }
 };
+
+// Rebuild the activity timeline from source collections so the exported
+// PDF isn't capped by what the on-screen timeline happened to render.
+// Mirrors loadTimeline() above but returns a plain array instead of HTML.
+async function _gatherTimelineForReport(leadId, lead) {
+  const timeline = [];
+
+  if (lead && Array.isArray(lead.stageHistory)) {
+    lead.stageHistory.forEach(h => {
+      timeline.push({
+        time: h.timestamp ? new Date(h.timestamp) : new Date(0),
+        title: `Stage: ${h.from || '?'} → ${h.to || '?'}`,
+        desc:  h.user || 'System',
+        type:  'stage'
+      });
+    });
+  }
+  if (lead && lead.createdAt) {
+    timeline.push({
+      time: lead.createdAt?.toDate ? lead.createdAt.toDate() : new Date(lead.createdAt),
+      title: 'Lead created',
+      desc:  `Source: ${lead.source || 'Unknown'}`,
+      type:  'stage'
+    });
+  }
+
+  const uid = window.auth?.currentUser?.uid || null;
+  const getDocs    = window.getDocs;
+  const query      = window.query;
+  const collection = window.collection;
+  const where      = window.where;
+  if (!window.db || !uid || typeof getDocs !== 'function' || typeof query !== 'function' || typeof collection !== 'function' || typeof where !== 'function') {
+    return timeline.sort((a, b) => b.time - a.time);
+  }
+
+  try {
+    const snap = await getDocs(query(collection(window.db, 'tasks'), where('leadId', '==', leadId), where('userId', '==', uid)));
+    snap.docs.forEach(d => {
+      const t = d.data();
+      const created = t.createdAt?.toDate ? t.createdAt.toDate() : (t.createdAt ? new Date(t.createdAt) : new Date());
+      timeline.push({
+        time:  created,
+        title: (t.done ? '✓ ' : '') + (t.title || 'Task'),
+        desc:  t.dueDate ? `Due ${t.dueDate}` : '',
+        type:  'task'
+      });
+    });
+  } catch (_) { /* ignore */ }
+
+  try {
+    const snap = await getDocs(query(collection(window.db, 'estimates'), where('leadId', '==', leadId), where('userId', '==', uid)));
+    snap.docs.forEach(d => {
+      const e = d.data();
+      if (!e.createdAt) return;
+      const created = e.createdAt?.toDate ? e.createdAt.toDate() : new Date(e.createdAt);
+      timeline.push({
+        time:  created,
+        title: 'Estimate created',
+        desc:  e.amount ? `$${parseFloat(e.amount).toLocaleString()}` : 'Draft',
+        type:  'document'
+      });
+    });
+  } catch (_) { /* ignore */ }
+
+  try {
+    const snap = await getDocs(query(collection(window.db, 'photos'), where('leadId', '==', leadId), where('userId', '==', uid)));
+    snap.docs.forEach(d => {
+      const p = d.data();
+      if (!p.uploadedAt) return;
+      const up = p.uploadedAt?.toDate ? p.uploadedAt.toDate() : new Date(p.uploadedAt);
+      timeline.push({
+        time:  up,
+        title: 'Photo uploaded',
+        desc:  p.category || 'Property photo',
+        type:  'photo'
+      });
+    });
+  } catch (_) { /* ignore */ }
+
+  try {
+    const snap = await getDocs(query(collection(window.db, 'communications'), where('leadId', '==', leadId), where('userId', '==', uid)));
+    const COMM_LABELS = { call: 'Called', email: 'Emailed', sms: 'Texted' };
+    snap.docs.forEach(d => {
+      const c = d.data();
+      const t = c.type || 'call';
+      const when = c.createdAt?.toDate ? c.createdAt.toDate() : (c.createdAt ? new Date(c.createdAt) : new Date());
+      timeline.push({
+        time:  when,
+        title: `${COMM_LABELS[t] || 'Contacted'} ${c.direction === 'inbound' ? 'from' : ''} customer`,
+        desc:  c.content || c.note || '',
+        type:  'communication'
+      });
+    });
+  } catch (_) { /* ignore */ }
+
+  try {
+    const snap = await getDocs(query(collection(window.db, 'notes'), where('leadId', '==', leadId), where('userId', '==', uid)));
+    snap.docs.forEach(d => {
+      const n = d.data();
+      const when = n.createdAt?.toDate ? n.createdAt.toDate() : (n.createdAt ? new Date(n.createdAt) : new Date());
+      timeline.push({
+        time:  when,
+        title: 'Note added',
+        desc:  (n.text || '').substring(0, 200),
+        type:  'note'
+      });
+    });
+  } catch (_) { /* ignore */ }
+
+  return timeline.sort((a, b) => b.time - a.time);
+}
+
+async function _gatherNotesForReport(leadId) {
+  if (!window.db) return [];
+  const uid = window.auth?.currentUser?.uid || null;
+  if (!uid) return [];
+  const getDocs    = window.getDocs;
+  const query      = window.query;
+  const collection = window.collection;
+  const where      = window.where;
+  const orderBy    = window.orderBy;
+  if ([getDocs, query, collection, where, orderBy].some(fn => typeof fn !== 'function')) return [];
+  try {
+    const snap = await getDocs(
+      query(collection(window.db, 'notes'), where('leadId', '==', leadId), where('userId', '==', uid), orderBy('createdAt', 'desc'))
+    );
+    return snap.docs.map(d => {
+      const n = d.data();
+      const when = n.createdAt?.toDate ? n.createdAt.toDate() : (n.createdAt ? new Date(n.createdAt) : null);
+      return { text: n.text || '', createdBy: n.createdBy || '', createdAt: when };
+    });
+  } catch (_) {
+    return [];
+  }
+}
 
 
 
