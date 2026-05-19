@@ -4526,6 +4526,20 @@
     return cur;
   }
 
+  // Two-sided tuning for foreground/background pairs that need a strict
+  // contrast ratio (e.g. card ink on card paper). Tries tuning fg first;
+  // if that can't reach the target (fg is already at the limit toward
+  // black/white), tunes bg in the opposite direction instead. Some hand-
+  // authored palettes pick a paper that's mid-luminance enough that no
+  // light text can clear 4.5 against it — SpongeBob's iconic yellow on
+  // blue, Avatar Earth's cream on olive — and only paper-tuning helps.
+  function pickContrastingPair(fg, bg, target) {
+    const tunedFg = tuneAgainst(fg, bg, target);
+    if (contrastRatio(tunedFg, bg) >= target) return { fg: tunedFg, bg: bg };
+    const tunedBg = tuneAgainst(bg, fg, target);
+    return { fg: fg, bg: tunedBg };
+  }
+
   // Algorithmic LIGHT palette derived from the theme's accent color.
   // Preserves theme identity via hue-tinted backgrounds. Semantic colors
   // fall back to readable defaults so green/red/etc. work on light bg.
@@ -4618,17 +4632,29 @@
     const bgDerived = colors.outerBg
       || (isLight ? adjustHex(bg, 0.02) : adjustHex(bg, -0.18));
 
-    // --ob: accent hover state (slightly brighter)
-    const ob = colors.accentHover || adjustHex(accent, isLight ? -0.12 : 0.15);
-
     // --rule: subtle divider line — derived from text color at low alpha
     const rule = colors.rule || hexToRgba(text, isLight ? 0.08 : 0.09);
 
     // --paper / --ink: card surface + card text. These DRIVE kanban cards.
     // Light themes: paper = surface, ink = text (dark on light card).
     // Dark themes: paper = surface2 (a step up), ink = text (light on dark card).
-    const paper = colors.paper || (isLight ? surface : surface2);
-    const ink = colors.ink || text;
+    const paperBase = colors.paper || (isLight ? surface : surface2);
+
+    // Post-tune the accent against the FINAL rendered --bg (bgDerived). The
+    // derived bg gets nudged a notch by adjustHex above, which can shave the
+    // accent's contrast below AA UI (3:1) — South Park hit 2.99 pre-tune.
+    const accentFinal = tuneAgainst(accent, bgDerived, 3.0);
+
+    // Tune the card ink/paper pair to clear 4.5:1 (AA normal). Tries ink
+    // first; falls back to tuning paper when ink is already at its limit
+    // (e.g. SpongeBob's iconic yellow on blue).
+    const inkPaper = pickContrastingPair(colors.ink || text, paperBase, 4.5);
+    const ink = inkPaper.fg;
+    const paper = inkPaper.bg;
+
+    // --ob: accent hover state (slightly brighter), derived AFTER tuning so
+    // the hover hue tracks the tuned accent, not the raw one.
+    const ob = colors.accentHover || adjustHex(accentFinal, isLight ? -0.12 : 0.15);
 
     // --purple: semantic purple — used by tag-ng and stage chips.
     const purple = colors.purple || (isLight ? '#7c3aed' : '#a78bfa');
@@ -4651,7 +4677,7 @@
   --m: ${muted};
   --br: ${border};
   --rule: ${rule};
-  --orange: ${accent};
+  --orange: ${accentFinal};
   --ob: ${ob};
   --og: ${accentBg};
   --green: ${green};
