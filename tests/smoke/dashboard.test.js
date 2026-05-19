@@ -1763,8 +1763,12 @@ section('Pro Chrome — icon system + header consolidation');
       'expected an inline SVG sprite symbol for ' + id);
   }
   // 2. The five .hdr-tool buttons are present and reference the sprite.
+  //    Word-boundary regex so additional classes (e.g. the mobile
+  //    .hdr-tools-desktop-only / .hdr-tools-mobile-only modifiers from
+  //    PR #508) still count — the original literal `class="hdr-tool"`
+  //    match missed any button that carried a sibling class.
   assert('global header uses .hdr-tool wrappers (≥5 instances)',
-    (dash.match(/class="hdr-tool"/g) || []).length >= 5,
+    (dash.match(/class="[^"]*\bhdr-tool\b[^"]*"/g) || []).length >= 5,
     'expected at least 5 .hdr-tool buttons in the global header');
   assert('header tools reference the sprite via <use href="#nbd-icon-*"/>',
     /<use href="#nbd-icon-(clock|bell|palette|gear|book)"\/>/.test(dash),
