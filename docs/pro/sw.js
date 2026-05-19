@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v24', // v24 — doc-gen audit pass: logos added to renderGenericDoc / renderDoorHanger / renderNeighborhoodMailer, hardcoded "No Big Deal" string in renderGenericDoc replaced with this.COMPANY.name. Bump forces SW reinstall so the activate handler evicts v23 caches and broadcasts SW_UPDATE_AVAILABLE for auto-reload.
-  cdn: 'nbd-cdn-v24',     // v24 — paired bump.
+  shell: 'nbd-shell-v25', // v25 — swap fake `info@nobigdeal.pro` for real `info@nobigdealwithjoedeal.com` across every doc-generator / customer-portal / photo-report / inspection / share-gallery / pricing path. Bump forces SW reinstall so the activate handler evicts v24 caches and broadcasts SW_UPDATE_AVAILABLE for auto-reload.
+  cdn: 'nbd-cdn-v25',     // v25 — paired bump.
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
