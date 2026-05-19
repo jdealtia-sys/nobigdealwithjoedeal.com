@@ -580,7 +580,7 @@ if(runD>maxD)maxD=runD;if(runW>maxW)maxW=runW;if(runWin>maxWin)maxWin=runWin;
 if(i===pages.length-2){prevD=k.doors||0;prevR=rev;}if(i===pages.length-1){lastD=k.doors||0;lastR=rev;}
 });
 const pc=pages.length,avgD=pc?Math.round(totD/pc):0;
-const gt=JSON.parse(localStorage.getItem(GT_KEY)||'{"d":0,"r":0,"c":0}');
+let gt;try{gt=JSON.parse(localStorage.getItem(GT_KEY)||'{"d":0,"r":0,"c":0}');}catch(e){gt={d:0,r:0,c:0};try{localStorage.removeItem(GT_KEY);}catch(_){}}
 const fDC=totD?Math.round(totCon/totD*100):0,fCA=totCon?Math.round(totA/totCon*100):0,fACl=totA?Math.round(totC/totA*100):0;
 function dbadge(c,p){if(pc<2)return'';const d=c-p;return d===0?'':(d>0?`<span class="delta up">▲${d}</span>`:`<span class="delta dn">▼${Math.abs(d)}</span>`);}
 const now=new Date(),dim=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(),dom=now.getDate(),dl=dim-dom;
@@ -1195,7 +1195,6 @@ function nbdApplyTheme(id) {
   // 4. Persist
   _nbd_activeTheme = id;
   localStorage.setItem('nbd-theme', id);
-  try { localStorage.setItem('nbd_gt', id); } catch(e){}
   // 5. Firestore sync (if auth available)
   try {
     if (typeof db !== 'undefined' && typeof currentUser !== 'undefined' && currentUser) {
@@ -1364,7 +1363,7 @@ window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full 
 
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {
-  const saved = localStorage.getItem('nbd-theme') || localStorage.getItem('nbd_gt') || localStorage.getItem('ds-theme') || 'default';
+  const saved = localStorage.getItem('nbd-theme') || localStorage.getItem('ds-theme') || 'default';
   const t = _nbdGetTheme(saved) || _nbdGetTheme('default');
   if (t) {
     document.body.className = t.id === 'default' ? '' : 'theme-' + t.id;
