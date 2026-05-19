@@ -93,7 +93,13 @@
        problem. White card + padding around the image gives the brand
        breathing room and makes the wordmark legible against any
        header treatment. */
-    .letterhead-logo-img { display:block; width:280px; height:88px;
+    /* Source logo is 1.5:1 (1536x1024) — declare width only and let the
+       browser derive height from the natural aspect ratio. The previous
+       280x88 forced 3.18:1, so the white card was hundreds of pixels
+       wider than the actual artwork (object-fit:contain centered the
+       image, leaving empty white bars on either side that read as
+       "stretched"). */
+    .letterhead-logo-img { display:block; width:160px; height:auto;
       object-fit:contain; object-position:left center; flex-shrink:0;
       background:#fff; border-radius:8px; padding:6px 10px; box-sizing:border-box; }
     .letterhead-name { font-family:'Helvetica Neue',Arial,sans-serif; font-size:22px; font-weight:800;
@@ -1036,6 +1042,10 @@
         .ref-top { background:linear-gradient(135deg,${S} 0%,#2a2a4e 100%); color:#fff;
           padding:28px 24px; text-align:center; }
         .ref-top h2 { margin:0; font-size:22px; color:#fff; line-height:1.3; }
+        /* Width-only sizing keeps the natural 1.5:1 aspect of the source
+           logo, so the white card hugs the artwork. */
+        .ref-logo { display:block; width:140px; height:auto; margin:0 auto 14px;
+          background:#fff; border-radius:10px; padding:8px 14px; box-sizing:border-box; }
         .ref-body { padding:24px; background:#fff; }
         .ref-reward { background:#fff8f5; border:2px dashed ${A}; border-radius:8px;
           padding:16px; text-align:center; margin:16px 0; }
@@ -1050,6 +1060,7 @@
 
       <div class="ref-card">
         <div class="ref-top">
+          <img class="ref-logo" src="${LOGO_URL}" alt="${C.name}"/>
           <h2>KNOW SOMEONE WHO<br>NEEDS A NEW ROOF?</h2>
           <p style="margin:8px 0 0;font-size:14px;color:${A};">Refer them to ${C.name}!</p>
         </div>

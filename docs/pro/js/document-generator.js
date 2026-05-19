@@ -627,8 +627,13 @@ window.NBDDocGen = {
            centered with breathing room in this header strip. */
         .nbd-logo-img {
           display: block;
+          /* Source logo is 1.5:1 (1536x1024). Width is fixed; height is
+             left to auto so the white card hugs the artwork. The
+             previous explicit height:72px forced a 2.78:1 box, leaving
+             wide empty white bars on either side of the centered
+             contain-fitted image — read as "logo stretched". */
           width: 200px;
-          height: 72px;
+          height: auto;
           object-fit: contain;
           object-position: left center;
           /* White card so the navy-on-white logo stays legible
