@@ -1462,6 +1462,9 @@
           padding:32px 24px 24px; text-align:center; position:relative; }
         .hanger-hole { width:36px; height:36px; border-radius:50%; border:3px solid ${A};
           background:#fff; margin:0 auto 16px; }
+        /* Width-only sizing — natural 1.5:1 aspect of the source logo. */
+        .hanger-logo { display:block; width:120px; height:auto; margin:0 auto 12px;
+          background:#fff; border-radius:8px; padding:6px 10px; box-sizing:border-box; }
         .hanger-body { padding:24px; background:#fff; }
         .hanger-cta { background:${A}; color:#fff; padding:16px; text-align:center;
           font-size:14px; font-weight:700; }
@@ -1472,6 +1475,7 @@
       <div class="hanger">
         <div class="hanger-top">
           <div class="hanger-hole"></div>
+          <img class="hanger-logo" src="${LOGO_URL}" alt="${C.name}"/>
           <div style="font-size:12px;letter-spacing:0.15em;text-transform:uppercase;color:${A};margin-bottom:8px;">
             WE'RE IN YOUR NEIGHBORHOOD</div>
           <h2 style="margin:0;font-size:22px;color:#fff;line-height:1.3;">FREE ROOF<br>INSPECTION</h2>
@@ -1513,6 +1517,9 @@
           overflow:hidden; box-shadow:0 2px 12px rgba(0,0,0,0.08); }
         .mailer-top { background:linear-gradient(135deg,${S} 0%,#2a2a4e 100%); color:#fff;
           padding:36px 32px; text-align:center; }
+        /* Width-only sizing — natural 1.5:1 aspect of the source logo. */
+        .mailer-logo { display:block; width:160px; height:auto; margin:0 auto 14px;
+          background:#fff; border-radius:8px; padding:6px 12px; box-sizing:border-box; }
         .mailer-body { padding:32px; background:#fff; }
         .mailer-stat { text-align:center; padding:16px; }
         .mailer-stat-num { font-size:28px; font-weight:700; color:${A}; font-family:'Helvetica Neue',Arial,sans-serif; }
@@ -1522,6 +1529,7 @@
 
       <div class="mailer">
         <div class="mailer-top">
+          <img class="mailer-logo" src="${LOGO_URL}" alt="${C.name}"/>
           <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:${A};margin-bottom:12px;">
             ATTENTION: ${esc(d.neighborhoodName)} RESIDENTS</div>
           <h1 style="margin:0;color:#fff;font-size:26px;line-height:1.3;">

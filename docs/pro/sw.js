@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v23', // v23 — paired with PR #476 (Company Profile) shipping new versioned JS bundles. v22 → v23 forces a full SW reinstall so the activate handler evicts the old caches and posts SW_UPDATE_AVAILABLE; offline-manager.js then auto-reloads on auth-gated pages, killing the "blank until hard refresh" symptom users reported right after that deploy.
-  cdn: 'nbd-cdn-v23',     // v23 — paired bump.
+  shell: 'nbd-shell-v24', // v24 — doc-gen audit pass: logos added to renderGenericDoc / renderDoorHanger / renderNeighborhoodMailer, hardcoded "No Big Deal" string in renderGenericDoc replaced with this.COMPANY.name. Bump forces SW reinstall so the activate handler evicts v23 caches and broadcasts SW_UPDATE_AVAILABLE for auto-reload.
+  cdn: 'nbd-cdn-v24',     // v24 — paired bump.
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
