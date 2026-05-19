@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v26', // v26 — D2D map render fix. goTo('d2d')'s `requestAnimationFrame(()=>{ window.D2D.init(); })` paused indefinitely whenever the tab was hidden/occluded (Chrome fully suspends RAF for backgrounded tabs); init never ran → spinner stuck. Direct call now, since initD2D has its own setTimeout for paint-wait.
-  cdn: 'nbd-cdn-v26',     // v26 — paired bump.
+  shell: 'nbd-shell-v27', // v27 — D2D tile URL fix. The var GOOGLE_SAT_TILES was misleadingly named — it actually pointed at server.arcgisonline.com (Esri). Brave Shields blocks ArcGIS at the network layer (instant onerror), the SW falls back to a synthetic 503, Leaflet paints a black void. Switched D2D to Google mt{s}.google.com primary (universally allowlisted) with Esri as a per-tile fallback on tileerror.
+  cdn: 'nbd-cdn-v27',     // v27 — paired bump.
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
