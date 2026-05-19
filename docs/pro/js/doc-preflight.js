@@ -266,7 +266,7 @@
   var COMPANY_SECTION_FIELDS = [
     { key: 'companyName',    label: 'Company Name',  type: 'text',  source: 'literal:No Big Deal Home Solutions', persist: PERSIST.DOCUMENT },
     { key: 'companyPhone',   label: 'Company Phone', type: 'tel',   source: 'literal:(859) 420-7382',            persist: PERSIST.DOCUMENT },
-    { key: 'companyEmail',   label: 'Company Email', type: 'email', source: 'literal:info@nobigdeal.pro',        persist: PERSIST.DOCUMENT }
+    { key: 'companyEmail',   label: 'Company Email', type: 'email', source: 'literal:info@nobigdealwithjoedeal.com', persist: PERSIST.DOCUMENT }
   ];
 
   var WARRANTY_TIER_OPTIONS = [
@@ -742,7 +742,7 @@
             { key: 'interestRate', label: 'Interest Rate', type: 'text',
               source: 'literal:0% APR (approved credit)', persist: PERSIST.DOCUMENT },
             { key: 'applicationLink', label: 'Application Link', type: 'text',
-              source: 'literal:nobigdeal.pro/financing', persist: PERSIST.DOCUMENT }
+              source: 'literal:nobigdealwithjoedeal.com/financing', persist: PERSIST.DOCUMENT }
           ]
         }
       ]

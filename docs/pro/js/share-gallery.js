@@ -21,7 +21,7 @@
   const BRAND = {
     name: 'No Big Deal Home Solutions',
     phone: '(859) 420-7382',
-    email: 'info@nobigdeal.pro',
+    email: 'info@nobigdealwithjoedeal.com',
     website: 'nobigdealwithjoedeal.com',
     navy: '#1e3a6e',
     orange: '#e8720c',

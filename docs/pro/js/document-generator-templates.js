@@ -10,7 +10,7 @@
 
   const C = DG.COMPANY || {
     name: 'No Big Deal Home Solutions', phone: '(859) 420-7382',
-    email: 'info@nobigdeal.pro', website: 'nobigdealwithjoedeal.com',
+    email: 'info@nobigdealwithjoedeal.com', website: 'nobigdealwithjoedeal.com',
     colors: { primary: '#1e3a6e', secondary: '#1a1a2e', accent: '#e8720c' }
   };
   const P = C.colors?.primary || '#1e3a6e';   // Navy — headers, borders, structure
