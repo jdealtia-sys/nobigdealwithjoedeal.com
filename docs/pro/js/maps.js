@@ -190,7 +190,6 @@ function nbdApplyTheme(id) {
   // 4. Persist
   _nbd_activeTheme = id;
   localStorage.setItem('nbd-theme', id);
-  try { localStorage.setItem('nbd_gt', id); } catch(e){}
   // 5. Firestore sync (if auth available)
   try {
     if (typeof db !== 'undefined' && typeof currentUser !== 'undefined' && currentUser) {
@@ -443,7 +442,7 @@ window.goToMyLocation = goToMyLocation;
 
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {
-  const saved = localStorage.getItem('nbd-theme') || localStorage.getItem('nbd_gt') || localStorage.getItem('ds-theme') || 'default';
+  const saved = localStorage.getItem('nbd-theme') || localStorage.getItem('ds-theme') || 'default';
   const t = _nbdGetTheme(saved) || _nbdGetTheme('default');
   if (t) {
     document.body.className = t.id === 'default' ? '' : 'theme-' + t.id;
