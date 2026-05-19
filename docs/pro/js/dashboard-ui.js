@@ -685,7 +685,83 @@ function updateCalEmbed() {
   if (placeholder) placeholder.style.display = 'none';
   if (embed) {
     const src = 'https://cal.com/' + username + '/' + eventSlug + '?embed=true&theme=dark';
-    embed.innerHTML = '<iframe src="' + src + '" style="width:100%;min-height:500px;border:none;border-radius:0 0 10px 10px;" loading="lazy"></iframe>';
+    // Brave Shields (and Firefox ETP strict) blocks cross-origin
+    // iframes by injecting a same-origin "blocked" page INTO the
+    // iframe. That fires `load` (not `error`), so onerror-based
+    // fallbacks never trigger. Probe iframe.contentWindow.location
+    // after load: SecurityError = real cross-origin success, any
+    // returned value = browser-injected block page. Same pattern
+    // as PR #499 for the portal preview modal.
+    embed.style.position = 'relative';
+    embed.innerHTML =
+      '<iframe id="calIframe" src="' + src + '"' +
+        ' style="position:absolute;inset:0;width:100%;height:100%;min-height:500px;border:none;border-radius:0 0 10px 10px;"' +
+        ' loading="lazy"></iframe>' +
+      '<div id="calEmbedOverlay" data-state="loading" style="' +
+        'position:absolute;inset:0;' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+        'gap:14px;padding:24px;' +
+        'background:var(--s2,#0f1419);color:var(--t,#e8eaf0);text-align:center;' +
+        'font-family:\'Barlow\',-apple-system,system-ui,sans-serif;' +
+        'border-radius:0 0 10px 10px;">' +
+        '<div data-state-loading style="display:flex;flex-direction:column;align-items:center;gap:14px;">' +
+          '<div style="width:36px;height:36px;border-radius:50%;' +
+            'border:3px solid #2a3344;border-top-color:#e8720c;' +
+            'animation:nbdCalEmbedSpin 0.9s linear infinite;"></div>' +
+          '<div style="font-size:13px;color:var(--m,#9aa3b2);">Loading calendar…</div>' +
+        '</div>' +
+        '<div data-state-blocked style="display:none;flex-direction:column;align-items:center;gap:14px;max-width:340px;">' +
+          '<div style="font-size:32px;line-height:1;">🛡️</div>' +
+          '<div style="font-size:14px;font-weight:700;">Your browser blocked the embedded calendar</div>' +
+          '<div style="font-size:12px;color:var(--m,#9aa3b2);line-height:1.45;">' +
+            'Privacy shields (Brave, Firefox strict mode) often block cross-origin embeds. ' +
+            'Open the booking page in a new tab to see availability.' +
+          '</div>' +
+          '<a href="' + src + '" target="_blank" rel="noopener" style="' +
+            'display:inline-flex;align-items:center;gap:6px;' +
+            'padding:8px 14px;border-radius:7px;' +
+            'background:var(--orange,#e8720c);color:#fff;' +
+            'text-decoration:none;font-size:12px;font-weight:700;' +
+            'letter-spacing:.04em;text-transform:uppercase;' +
+            '-webkit-tap-highlight-color:transparent;">Open in new tab ↗</a>' +
+        '</div>' +
+      '</div>' +
+      '<style>@keyframes nbdCalEmbedSpin { to { transform: rotate(360deg); } }</style>';
+
+    const iframe = document.getElementById('calIframe');
+    const stateEl = document.getElementById('calEmbedOverlay');
+    let resolved = false;
+    function _showBlocked() {
+      if (resolved) return;
+      resolved = true;
+      if (!stateEl) return;
+      stateEl.setAttribute('data-state', 'blocked');
+      const loadingPanel = stateEl.querySelector('[data-state-loading]');
+      const blockedPanel = stateEl.querySelector('[data-state-blocked]');
+      if (loadingPanel) loadingPanel.style.display = 'none';
+      if (blockedPanel) blockedPanel.style.display = 'flex';
+    }
+    function _hideOverlay() {
+      if (resolved) return;
+      resolved = true;
+      if (stateEl) stateEl.style.display = 'none';
+    }
+    if (iframe) {
+      iframe.addEventListener('load', () => {
+        try {
+          // Cross-origin success throws here. Same-origin return =
+          // browser injected a block page (Brave / Firefox ETP).
+          const _probe = iframe.contentWindow.location.href; // eslint-disable-line no-unused-vars
+          _showBlocked();
+        } catch (_) {
+          _hideOverlay();
+        }
+      });
+      iframe.addEventListener('error', _showBlocked);
+    }
+    // Safety net for browsers that fully cancel the navigation
+    // (no load + no error fired).
+    setTimeout(_showBlocked, 3500);
   }
   const urlEl = document.getElementById('calBookingUrl');
   if (urlEl) urlEl.value = 'https://cal.com/' + username + '/' + eventSlug;
