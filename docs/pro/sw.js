@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v28', // v28 — Drawing tool tile fix. Same Brave/Esri issue as D2D plus a zoom-cap bug: maxZoom was 22 but Esri tops out at native 19, so zooming past z=19 surfaced Esri's "This map is not yet available at this zoom level" placeholder. Switched to Google primary (mt{s}.google.com, native z=21), set maxZoom = maxNativeZoom = 21 for a HARD STOP, Esri fallback only at z<=19.
-  cdn: 'nbd-cdn-v28',     // v28 — paired bump.
+  shell: 'nbd-shell-v29', // v29 — daily-success CSP fix: extracted 3 inline <script> blocks (incl. the 102k-char main app) to external js/{auth-init,welcome-gate,app}.js so they pass `script-src 'self'`. Old cached shell still had the inline blocks and rendered as a header-only blue void in prod.
+  cdn: 'nbd-cdn-v29',     // v29 — paired bump.
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
