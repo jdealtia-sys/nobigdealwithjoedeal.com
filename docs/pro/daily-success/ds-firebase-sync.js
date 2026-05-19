@@ -1,4 +1,4 @@
-ds-firebase-sync.js// NBD Pro — Daily Success Firebase Sync v1.0
+// NBD Pro — Daily Success Firebase Sync v1.0
 // Add to bottom of pro/daily-success/index.html:
 // <script type="module" src="/pro/daily-success/ds-firebase-sync.js"></script>
 
