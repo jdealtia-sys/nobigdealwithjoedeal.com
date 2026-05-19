@@ -3104,11 +3104,12 @@
     'proposalValidityDays'
   ];
   const _CP_MARKETING_FIELDS = ['tagline','serviceArea','financePartner','codeCycle','codeJurisdiction'];
+  const _CP_LETTERHEAD_FIELDS = ['businessName','businessPhone','businessEmail','businessWebsite','businessAddress','businessLicense'];
 
   function _cpReadFormToProfile() {
     const defaults = window.NBD_COMPANY_PROFILE_DEFAULTS || {};
     const out = {};
-    _CP_LEGAL_FIELDS.concat(_CP_MARKETING_FIELDS).forEach(k => {
+    _CP_LEGAL_FIELDS.concat(_CP_MARKETING_FIELDS).concat(_CP_LETTERHEAD_FIELDS).forEach(k => {
       const el = document.getElementById('cp_' + k);
       if (!el) return;
       const v = el.value;
@@ -3156,7 +3157,7 @@
   function _cpPopulateFormFromProfile(profile) {
     const defaults = window.NBD_COMPANY_PROFILE_DEFAULTS || {};
     const p = profile || defaults;
-    _CP_LEGAL_FIELDS.concat(_CP_MARKETING_FIELDS).forEach(k => {
+    _CP_LEGAL_FIELDS.concat(_CP_MARKETING_FIELDS).concat(_CP_LETTERHEAD_FIELDS).forEach(k => {
       const el = document.getElementById('cp_' + k);
       if (el) el.value = p[k] != null ? p[k] : (defaults[k] != null ? defaults[k] : '');
     });

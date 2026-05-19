@@ -16,6 +16,19 @@
   'use strict';
 
   const NBD_COMPANY_PROFILE_DEFAULTS = {
+    /* ── LETTERHEAD ────────────────────────────────────────────
+       Identity fields that appear on every generated document.
+       Empty defaults so the rep's own info wins as soon as they
+       fill the Settings → Company Profile → Letterhead panel.
+       Render functions fall through to NBDDocGen.COMPANY if any
+       field is left blank, so docs are never broken. */
+    businessName:    '',
+    businessPhone:   '',
+    businessEmail:   '',
+    businessWebsite: '',
+    businessAddress: '',
+    businessLicense: '',
+
     /* ── LEGAL TEXT ────────────────────────────────────────────── */
     cancellationWindowText: 'three (3) business days',
     cancellationStatute: 'Kentucky Revised Statutes § 367.390',

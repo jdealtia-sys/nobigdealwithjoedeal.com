@@ -76,6 +76,7 @@ window.NBDDocGen = {
     // professional document specific to its purpose. Falls back to
     // renderGenericDoc if the template file isn't loaded yet.
     invoice:               { name: 'Invoice',                         template: 'renderInvoice' },
+    customer_report:       { name: 'Customer Report',                 template: 'renderCustomerReport' },
     warranty_certificate:  { name: 'Warranty Certificate',            template: 'renderWarrantyCertificate' },
     certificate_of_completion: { name: 'Certificate of Completion',   template: 'renderCertificateOfCompletion' },
     supplement_request:    { name: 'Supplement Request',              template: 'renderSupplementRequest' },
@@ -1095,6 +1096,38 @@ window.NBDDocGen = {
   },
 
   /**
+   * Resolve the active letterhead identity by merging
+   * NBD_COMPANY_PROFILE_DEFAULTS / window._companyProfile overrides
+   * on top of the hardcoded NBDDocGen.COMPANY constant. Render
+   * helpers (renderHeader, renderFooter, renderCustomerReport) call
+   * this so editing Settings → Company Profile → Letterhead updates
+   * every template at once. Empty profile fields fall through to the
+   * COMPANY defaults so the existing behavior is preserved for reps
+   * who never touch the Settings panel.
+   * @param {object} data - Merge field data (data.companyProfile preferred)
+   * @returns {{name:string,phone:string,email:string,website:string,address:string,license:string,tagline:string}}
+   */
+  _letterhead(data) {
+    const cp = (data && data.companyProfile)
+      || (typeof window !== 'undefined' && window._companyProfile)
+      || {};
+    const C = this.COMPANY;
+    const pick = (override, fallback) => {
+      const o = (override == null ? '' : String(override)).trim();
+      return o || fallback || '';
+    };
+    return {
+      name:    pick(cp.businessName,    C.name),
+      phone:   pick(cp.businessPhone,   C.phone),
+      email:   pick(cp.businessEmail,   C.email),
+      website: pick(cp.businessWebsite, C.website),
+      address: pick(cp.businessAddress, C.address),
+      license: pick(cp.businessLicense, ''),
+      tagline: pick(cp.tagline,         C.tagline)
+    };
+  },
+
+  /**
    * Render NBD logo + textual fallback. The text fallback ships
    * inside the same anchor so if the image fails (offline, CSP) the
    * customer still sees a readable brand mark — no JS error handler
@@ -1121,7 +1154,8 @@ window.NBDDocGen = {
    * @returns {string} HTML
    */
   renderHeader(data = {}) {
-    const address = data.address || this.COMPANY.address;
+    const L = this._letterhead(data);
+    const address = data.address || L.address;
     const showAddress = address ? ` &middot; ${address}` : '';
 
     return `
@@ -1131,15 +1165,15 @@ window.NBDDocGen = {
             ${this.renderNBDLogo()}
           </div>
           <div class="header-info">
-            <div>${this.COMPANY.phone}</div>
-            <div>${this.COMPANY.email}</div>
-            <div>${this.COMPANY.website}</div>
+            <div>${L.phone}</div>
+            <div>${L.email}</div>
+            <div>${L.website}</div>
           </div>
         </div>
-        <div class="header-company-name">${this.COMPANY.name}</div>
-        <div class="header-tagline">${this.COMPANY.tagline}</div>
+        <div class="header-company-name">${L.name}</div>
+        <div class="header-tagline">${L.tagline}</div>
         <div class="header-contact-row">
-          ${this.COMPANY.phone} &nbsp;|&nbsp; ${this.COMPANY.email} &nbsp;|&nbsp; ${this.COMPANY.website}${showAddress}
+          ${L.phone} &nbsp;|&nbsp; ${L.email} &nbsp;|&nbsp; ${L.website}${showAddress}
         </div>
       </div>
     `;
@@ -1151,15 +1185,18 @@ window.NBDDocGen = {
    * @returns {string} HTML
    */
   renderFooter(data = {}) {
+    const L = this._letterhead(data);
     const pageNum = data.pageNumber || '';
     const pageText = pageNum ? `<span class="footer-page-number">Page ${pageNum}</span>` : '';
+    const licenseLine = L.license ? `<div class="footer-license">License #${L.license}</div>` : '';
 
     return `
       <div class="document-footer">
-        <span class="footer-brand">${this.COMPANY.name}</span>
-        <div>${this.COMPANY.phone} &nbsp;|&nbsp; ${this.COMPANY.email} &nbsp;|&nbsp; ${this.COMPANY.website}</div>
+        <span class="footer-brand">${L.name}</span>
+        <div>${L.phone} &nbsp;|&nbsp; ${L.email} &nbsp;|&nbsp; ${L.website}</div>
+        ${licenseLine}
         ${pageText}
-        <span class="footer-credit">${this.COMPANY.tagline}</span>
+        <span class="footer-credit">${L.tagline}</span>
       </div>
     `;
   },
@@ -1985,6 +2022,264 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
   <div><div class="sig-line">Contractor Signature</div><div style="margin-top:16px;"><div class="sig-line">Date</div></div></div>
 </div>
 <div class="footer"><span>${this.COMPANY.name} · ${this.COMPANY.phone} · ${this.COMPANY.website}</span><span>Generated by NBD Pro</span></div>
+</body></html>`;
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // CUSTOMER REPORT TEMPLATE
+  // Multi-section, multi-page-friendly project summary for the
+  // "Export PDF" button on a customer's portal page. Unlike the
+  // single-page contract/invoice templates, this report grows
+  // vertically and paginates naturally on print — long activity
+  // histories no longer get truncated.
+  // ═══════════════════════════════════════════════════════════
+  renderCustomerReport(data = {}) {
+    const cp = data.companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    const C = this.COMPANY;
+    const L = this._letterhead(data);
+    const esc = (s) => String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    const toDate = (d) => {
+      if (!d) return null;
+      const dt = d.toDate ? d.toDate() : (d instanceof Date ? d : new Date(d));
+      return isNaN(dt.getTime()) ? null : dt;
+    };
+    const fmtDate = (d) => {
+      const dt = toDate(d);
+      return dt ? dt.toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }) : '—';
+    };
+    const fmtDateTime = (d) => {
+      const dt = toDate(d);
+      return dt ? dt.toLocaleString('en-US', { year:'numeric', month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }) : '—';
+    };
+    const fmtMoney = (v) => {
+      if (v == null || v === '') return null;
+      const n = parseFloat(String(v).replace(/[^0-9.\-]/g,''));
+      if (!isFinite(n)) return null;
+      return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    };
+
+    const customer = data.customer || {};
+    const project = data.project || {};
+    const timeline = Array.isArray(data.timeline) ? data.timeline : [];
+    const estimates = Array.isArray(data.estimates) ? data.estimates : [];
+    const notes = Array.isArray(data.notes) ? data.notes : [];
+
+    const fullName = customer.name
+      || ((customer.firstName || '') + ' ' + (customer.lastName || '')).trim()
+      || 'Customer';
+
+    const logoSrc = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
+      ? window.NBD_LOGO_DATA_URI
+      : this._assetOrigin() + '/assets/images/nbd-logo.png';
+
+    const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+    const STAGE_LABELS = {
+      new: 'New', contacted: 'Contacted', inspected: 'Inspected',
+      claim_filed: 'Claim Filed', adjuster_meeting_scheduled: 'Adjuster Meeting',
+      adjuster_inspection_done: 'Adjuster Done', scope_received: 'Scope Received',
+      estimate_submitted: 'Estimate Submitted', supplement_requested: 'Supplement Requested',
+      supplement_approved: 'Supplement Approved', contract_signed: 'Contract Signed',
+      job_created: 'Job Created', permit_pulled: 'Permit Pulled',
+      materials_ordered: 'Materials Ordered', materials_delivered: 'Materials Delivered',
+      crew_scheduled: 'Crew Scheduled', install_in_progress: 'Installing',
+      install_complete: 'Install Complete', final_photos: 'Final Photos',
+      deductible_collected: 'Deductible Collected', final_payment: 'Final Payment',
+      closed: 'Closed'
+    };
+    const JOB_TYPE_LABELS = { insurance: 'Insurance', cash: 'Cash', finance: 'Finance', warranty: 'Warranty', service: 'Service' };
+
+    const customerRowsHtml = [
+      ['Customer',    fullName],
+      ['Address',     customer.address],
+      ['Phone',       customer.phone],
+      ['Email',       customer.email],
+      ['Stage',       customer.stage ? (STAGE_LABELS[customer.stage] || customer.stage) : null],
+      ['Lead since',  customer.createdAt ? fmtDate(customer.createdAt) : null]
+    ].filter(([k, v]) => v && v !== '—').map(([k, v]) =>
+      `<tr><td class="kv-k">${esc(k)}</td><td class="kv-v">${esc(v)}</td></tr>`
+    ).join('');
+
+    const projectRowsHtml = [
+      ['Job type',          project.jobType ? (JOB_TYPE_LABELS[project.jobType] || project.jobType) : null],
+      ['Damage type',       project.damageType],
+      ['Insurance carrier', project.insCarrier],
+      ['Claim #',           project.claimNumber],
+      ['Claim status',      project.claimStatus],
+      ['Deductible',        fmtMoney(project.deductible)],
+      ['Job value',         fmtMoney(project.jobValue)],
+      ['Crew',              project.crew],
+      ['Scheduled',         project.scheduledDate ? fmtDate(project.scheduledDate) : null],
+      ['Scope of work',     project.scopeOfWork]
+    ].filter(([k, v]) => v && v !== '—').map(([k, v]) =>
+      `<tr><td class="kv-k">${esc(k)}</td><td class="kv-v">${esc(v)}</td></tr>`
+    ).join('');
+
+    const TYPE_BADGE = {
+      stage:         { label: 'Stage',    bg: '#dbeafe', fg: '#1e3a6e' },
+      task:          { label: 'Task',     bg: '#fef3c7', fg: '#92400e' },
+      document:      { label: 'Document', bg: '#e9d5ff', fg: '#6b21a8' },
+      photo:         { label: 'Photo',    bg: '#d1fae5', fg: '#065f46' },
+      communication: { label: 'Contact',  bg: '#fee2e2', fg: '#991b1b' },
+      note:          { label: 'Note',     bg: '#f3f4f6', fg: '#374151' }
+    };
+    const timelineRowsHtml = timeline.map(t => {
+      const badge = TYPE_BADGE[t.type] || TYPE_BADGE.note;
+      return `
+        <div class="tl-row">
+          <div class="tl-time">${esc(fmtDateTime(t.time))}</div>
+          <div class="tl-body">
+            <div class="tl-title">
+              <span class="tl-badge" style="background:${badge.bg};color:${badge.fg};">${esc(badge.label)}</span>
+              <span>${esc(t.title || '')}</span>
+            </div>
+            ${t.desc ? `<div class="tl-desc">${esc(t.desc)}</div>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    const estimateRowsHtml = estimates.map(e => {
+      const title = e.title || e.name || 'Estimate';
+      const amount = (e.amount != null && e.amount !== '') ? (fmtMoney(e.amount) || 'Draft') : 'Draft';
+      const created = e.createdAt ? fmtDate(e.createdAt) : '—';
+      const note = e.notes || e.description || '';
+      return `
+        <tr><td>${esc(title)}</td><td>${esc(created)}</td><td class="num">${esc(amount)}</td></tr>
+        ${note ? `<tr class="est-note"><td colspan="3">${esc(note)}</td></tr>` : ''}`;
+    }).join('');
+
+    const notesBlocksHtml = notes.map(n => `
+      <div class="note-card">
+        <div class="note-meta">${esc(n.createdBy || 'Note')} &middot; ${esc(n.createdAt ? fmtDateTime(n.createdAt) : '')}</div>
+        <div class="note-body">${esc(n.text || '').replace(/\n/g, '<br>')}</div>
+      </div>`).join('');
+
+    const serviceArea = esc(cp.serviceArea || '');
+    const tagline = esc(L.tagline);
+    const disclaimer = cp.cancellationProposalShort ? esc(cp.cancellationProposalShort) : '';
+    const customerRowsFinal = customerRowsHtml || `<tr><td class="kv-k">Customer</td><td class="kv-v">${esc(fullName)}</td></tr>`;
+
+    return `<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8">
+<title>Customer Report — ${esc(fullName)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{font-family:'Barlow',sans-serif;color:#1a1a2e;background:#f6f6f8;}
+  body{padding:24px;}
+  .page{max-width:8.5in;margin:0 auto;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);border-radius:6px;overflow:hidden;}
+
+  .doc-hdr{background:linear-gradient(180deg,${C.colors.primary} 0%,${C.colors.secondary} 100%);color:#fff;padding:24px 36px 18px 36px;border-bottom:6px solid ${C.colors.accent};}
+  .doc-hdr-top{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;}
+  .doc-hdr-logo{display:block;width:160px;height:auto;background:#fff;border-radius:8px;padding:6px 10px;box-sizing:border-box;}
+  .doc-hdr-contact{font:600 10.5px/1.5 Barlow,sans-serif;text-align:right;color:rgba(255,255,255,.92);letter-spacing:.02em;}
+  .doc-hdr-contact > div + div{margin-top:1px;}
+  .doc-hdr-co{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:20px;letter-spacing:.04em;text-transform:uppercase;margin-top:10px;}
+  .doc-hdr-tag{font:italic 400 12px/1.3 Georgia,serif;color:${C.colors.accent};margin-top:2px;}
+  .doc-hdr-row{margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.18);font:600 10.5px/1.4 Barlow,sans-serif;color:rgba(255,255,255,.86);letter-spacing:.02em;}
+
+  .doc-title{font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;letter-spacing:2px;font-size:26px;color:${C.colors.secondary};text-align:center;margin:18px 36px 4px 36px;padding-bottom:10px;border-bottom:3px solid ${C.colors.accent};}
+  .doc-sub{text-align:center;color:#666;font:600 11px/1.3 Barlow,sans-serif;letter-spacing:.04em;margin:6px 36px 18px 36px;}
+
+  .section{margin:18px 36px;}
+  h2{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.18em;color:${C.colors.accent};margin:0 0 10px 0;padding-bottom:4px;border-bottom:1px solid #eee;}
+
+  table.kv{width:100%;border-collapse:collapse;font-size:12px;}
+  table.kv td{padding:7px 10px;border-bottom:1px solid #f0f0f0;vertical-align:top;}
+  .kv-k{font-weight:600;color:${C.colors.primary};width:160px;white-space:nowrap;}
+  .kv-v{color:#1a1a2e;}
+
+  .tl-row{display:flex;gap:14px;padding:10px 12px;border-left:3px solid ${C.colors.accent};background:linear-gradient(90deg,rgba(232,114,12,.05) 0%,rgba(232,114,12,0) 60%);border-radius:0 6px 6px 0;margin-bottom:8px;page-break-inside:avoid;break-inside:avoid;}
+  .tl-time{font:600 10.5px/1.3 Barlow,sans-serif;color:#666;width:130px;flex:0 0 130px;}
+  .tl-body{flex:1;min-width:0;}
+  .tl-title{font:700 12px/1.3 Barlow,sans-serif;color:#1a1a2e;display:flex;align-items:center;gap:8px;}
+  .tl-badge{font:700 9px/1 Barlow,sans-serif;text-transform:uppercase;letter-spacing:.1em;padding:3px 7px;border-radius:3px;white-space:nowrap;}
+  .tl-desc{font:500 11px/1.4 Barlow,sans-serif;color:#555;margin-top:3px;word-wrap:break-word;}
+  .tl-empty{font:500 11px/1.4 Barlow,sans-serif;color:#999;font-style:italic;padding:8px 12px;}
+
+  table.est{width:100%;border-collapse:collapse;font-size:12px;}
+  table.est thead{background:${C.colors.primary};color:#fff;}
+  table.est th,table.est td{padding:8px 10px;text-align:left;border-bottom:1px solid #e5e7eb;}
+  table.est th{font:700 10.5px/1.2 Barlow,sans-serif;text-transform:uppercase;letter-spacing:.08em;}
+  table.est td.num{text-align:right;font-weight:700;color:${C.colors.accent};font-family:'Barlow Condensed',sans-serif;font-size:14px;}
+  table.est tr.est-note td{background:#fafafa;color:#666;font-size:11px;font-style:italic;padding-top:6px;padding-bottom:10px;}
+
+  .note-card{background:#fafbfc;border-left:3px solid ${C.colors.accent};border-radius:0 6px 6px 0;padding:10px 14px;margin-bottom:8px;page-break-inside:avoid;break-inside:avoid;}
+  .note-meta{font:600 10px/1.3 Barlow,sans-serif;color:#666;margin-bottom:4px;}
+  .note-body{font:500 12px/1.5 Barlow,sans-serif;color:#1a1a2e;word-wrap:break-word;}
+
+  .doc-ftr{margin-top:24px;padding:14px 36px 18px 36px;background:linear-gradient(180deg,${C.colors.secondary} 0%,${C.colors.primary} 100%);color:rgba(255,255,255,.92);border-top:4px solid ${C.colors.accent};text-align:center;font:600 10px/1.5 Barlow,sans-serif;letter-spacing:.04em;}
+  .doc-ftr .ftr-brand{display:block;font:800 11px/1.2 Barlow,sans-serif;color:#fff;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px;}
+  .doc-ftr .ftr-disc{display:block;font-size:9px;color:rgba(255,255,255,.7);margin-top:6px;line-height:1.4;font-style:italic;}
+
+  @media print{
+    html,body{background:#fff;}
+    body{padding:0;}
+    .page{max-width:none;margin:0;box-shadow:none;border-radius:0;}
+    h2{page-break-after:avoid;break-after:avoid;}
+    .tl-row,.note-card{page-break-inside:avoid;break-inside:avoid;}
+    @page{size:letter;margin:0.4in;}
+  }
+</style></head>
+<body>
+<div class="page">
+  <div class="doc-hdr">
+    <div class="doc-hdr-top">
+      <img class="doc-hdr-logo" src="${logoSrc}" alt="${esc(L.name)}"/>
+      <div class="doc-hdr-contact">
+        <div>${esc(L.phone)}</div>
+        <div>${esc(L.email)}</div>
+        <div>${esc(L.website)}</div>
+      </div>
+    </div>
+    <div class="doc-hdr-co">${esc(L.name)}</div>
+    <div class="doc-hdr-tag">${tagline}</div>
+    <div class="doc-hdr-row">${esc(L.phone)} &nbsp;|&nbsp; ${esc(L.email)} &nbsp;|&nbsp; ${esc(L.website)}${L.address ? ' &nbsp;|&nbsp; ' + esc(L.address) : ''}${serviceArea ? ' &nbsp;|&nbsp; ' + serviceArea : ''}</div>
+  </div>
+
+  <div class="doc-title">Customer Report</div>
+  <div class="doc-sub">Prepared by ${esc(L.name)} &middot; ${esc(today)}</div>
+
+  <div class="section">
+    <h2>Customer</h2>
+    <table class="kv"><tbody>${customerRowsFinal}</tbody></table>
+  </div>
+
+  ${projectRowsHtml ? `
+  <div class="section">
+    <h2>Project Details</h2>
+    <table class="kv"><tbody>${projectRowsHtml}</tbody></table>
+  </div>` : ''}
+
+  <div class="section">
+    <h2>Activity Timeline</h2>
+    ${timelineRowsHtml || '<div class="tl-empty">No activity recorded yet.</div>'}
+  </div>
+
+  ${estimates.length ? `
+  <div class="section">
+    <h2>Estimates</h2>
+    <table class="est">
+      <thead><tr><th>Title</th><th>Date</th><th style="text-align:right;">Amount</th></tr></thead>
+      <tbody>${estimateRowsHtml}</tbody>
+    </table>
+  </div>` : ''}
+
+  ${notes.length ? `
+  <div class="section">
+    <h2>Notes</h2>
+    ${notesBlocksHtml}
+  </div>` : ''}
+
+  <div class="doc-ftr">
+    <span class="ftr-brand">${esc(L.name)}</span>
+    <span>${esc(L.phone)} &nbsp;|&nbsp; ${esc(L.email)} &nbsp;|&nbsp; ${esc(L.website)}</span>
+    ${disclaimer ? `<span class="ftr-disc">${disclaimer}</span>` : ''}
+  </div>
+</div>
 </body></html>`;
   },
 
