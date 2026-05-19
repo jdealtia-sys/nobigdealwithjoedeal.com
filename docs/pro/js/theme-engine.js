@@ -4613,6 +4613,22 @@
     return override ? Object.assign({}, derived, override) : derived;
   }
 
+  // Swatch-friendly view of resolvePalette: returns just the four colors a
+  // picker card needs (bg/surface/accent/text) for the user's current mode.
+  // Returns null if the themeKey isn't registered.
+  function previewResolvedColors(themeKey) {
+    const theme = THEMES[themeKey];
+    if (!theme) return null;
+    const mode = getResolvedModeFromPref();
+    const colors = resolvePalette(theme, mode);
+    return {
+      bg: colors.bg,
+      surface: colors.surface,
+      accent: colors.accent,
+      text: colors.text
+    };
+  }
+
   function generateCSSVariables(theme, themeKey) {
     // Resolve the actual mode we should render in (user pref or OS), then
     // pick the matching palette — explicit override, native, or derived.
@@ -4917,6 +4933,14 @@
       const theme = THEMES[themeKey];
       if (!theme) return '';
       return generateCSSVariables(theme, themeKey);
+    },
+
+    // Mode-aware swatch colors for picker cards. Returns the four palette
+    // values (bg/surface/accent/text) that resolvePalette would produce for
+    // the user's current mode pref, so picker cards match what apply()
+    // would actually render. Returns null if themeKey is unregistered.
+    previewResolvedColors(themeKey) {
+      return previewResolvedColors(themeKey);
     },
 
     // Expose mode resolution for picker swatches + component logic.
