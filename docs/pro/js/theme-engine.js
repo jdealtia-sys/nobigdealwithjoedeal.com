@@ -44,7 +44,7 @@
   ];
 
   // ============================================================================
-  // THEME DEFINITIONS (155 themes)
+  // THEME DEFINITIONS (186 themes)
   // ============================================================================
 
   const THEMES = {
@@ -4397,6 +4397,513 @@
       transition: '0.25s ease',
       cardEffect: 'glow',
       specialClass: 'legend-theme'
+    },
+
+    // ════════════════════════════════════════════════════════════════════
+    // CSS-ORPHAN PORT (33 themes) — 2026-05-19
+    // Palettes lifted verbatim from theme-system.css [data-theme="X"] rules
+    // so users with stale `nbd-theme` localStorage IDs (e.g. "halloween"
+    // from the legacy era) honor the light/dark mode pref like every other
+    // theme, instead of falling into the CSS-only branch in apply().
+    // Only `presentation` remains CSS-only — it's a customer.html overlay,
+    // not a picker theme.
+    // ════════════════════════════════════════════════════════════════════
+    'android': {
+      name: 'Android',
+      category: 'scifi',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#0a0f0a', surface: '#141c14', surface2: '#1c2a1c',
+        text: '#e8f5e8', muted: '#78a878', border: 'rgba(76,175,80,.1)',
+        accent: '#4caf50', accentBg: 'rgba(76,175,80,.3)',
+        green: '#66bb6a', red: '#f44336', gold: '#ffd600', blue: '#4caf50'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'army': {
+      name: 'Army',
+      category: 'construction',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#060a02', surface: '#0e1808', surface2: '#182610',
+        text: '#e0f0c8', muted: '#789858', border: 'rgba(106,140,42,.1)',
+        accent: '#6a8c2a', accentBg: 'rgba(106,140,42,.28)',
+        green: '#8bc34a', red: '#c0392b', gold: '#c8a820', blue: '#6a8c2a'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'blood-moon': {
+      name: 'Blood Moon',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#080002', surface: '#140006', surface2: '#200008',
+        text: '#ffe8ec', muted: '#c06070', border: 'rgba(232,0,26,.12)',
+        accent: '#e8001a', accentBg: 'rgba(232,0,26,.38)',
+        green: '#4caf50', red: '#e8001a', gold: '#ffd600', blue: '#e8001a'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'blueprint-art': {
+      name: 'Blueprint Art',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#001428', surface: '#001e3c', surface2: '#002a52',
+        text: '#c8e0ff', muted: '#6088a8', border: 'rgba(255,255,255,.1)',
+        accent: '#ffffff', accentBg: 'rgba(255,255,255,.2)',
+        green: '#4db6ac', red: '#ef9a9a', gold: '#fff176', blue: '#4fc3f7'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'candlelit': {
+      name: 'Candlelit',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#0c0600', surface: '#180e00', surface2: '#241600',
+        text: '#fff4d8', muted: '#a07848', border: 'rgba(232,130,10,.14)',
+        accent: '#e8820a', accentBg: 'rgba(232,130,10,.45)',
+        green: '#8bc34a', red: '#e53935', gold: '#e8820a', blue: '#e8820a'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'christmas': {
+      name: 'Christmas',
+      category: 'seasonal',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#000e04', surface: '#001808', surface2: '#00220c',
+        text: '#f5fff8', muted: '#80b890', border: 'rgba(229,57,53,.1)',
+        accent: '#e53935', accentBg: 'rgba(229,57,53,.25)',
+        green: '#4caf50', red: '#e53935', gold: '#ffd600', blue: '#2196f3'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'cia': {
+      name: 'CIA',
+      category: 'construction',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#020202', surface: '#0c0c0c', surface2: '#161616',
+        text: '#f0f0e0', muted: '#888870', border: 'rgba(200,160,0,.08)',
+        accent: '#c8a000', accentBg: 'rgba(200,160,0,.22)',
+        green: '#4a7a4a', red: '#c02020', gold: '#c8a000', blue: '#c8a000'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'copper': {
+      name: 'Copper',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#0c0800', surface: '#1a1200', surface2: '#281e00',
+        text: '#f8ecd8', muted: '#a08058', border: 'rgba(184,115,51,.1)',
+        accent: '#b87333', accentBg: 'rgba(184,115,51,.28)',
+        green: '#8bc34a', red: '#c0392b', gold: '#b87333', blue: '#b87333'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'deep-focus': {
+      name: 'Deep Focus',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#020404', surface: '#060c0c', surface2: '#0c1414',
+        text: '#e0f8f4', muted: '#4a9088', border: 'rgba(13,148,136,.1)',
+        accent: '#0d9488', accentBg: 'rgba(13,148,136,.28)',
+        green: '#14b8a6', red: '#ef4444', gold: '#fbbf24', blue: '#0d9488'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'easter': {
+      name: 'Easter',
+      category: 'seasonal',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#f0e8f8', surface: '#ffe8f8', surface2: '#f8d8f0',
+        text: '#2a0838', muted: '#806888', border: 'rgba(156,39,176,.08)',
+        accent: '#9c27b0', accentBg: 'rgba(156,39,176,.2)',
+        green: '#4caf50', red: '#e91e63', gold: '#ffd600', blue: '#2196f3'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'ember': {
+      name: 'Ember',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#0a0300', surface: '#160800', surface2: '#220e00',
+        text: '#ffe8d8', muted: '#b06040', border: 'rgba(255,69,0,.12)',
+        accent: '#ff4500', accentBg: 'rgba(255,69,0,.42)',
+        green: '#8bc34a', red: '#ff4500', gold: '#ff9800', blue: '#ff4500'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'frosted': {
+      name: 'Frosted',
+      category: 'luxury',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#e8eaf2', surface: '#f0f2fa', surface2: '#e0e4f0',
+        text: '#1a1e3c', muted: '#6068a0', border: 'rgba(80,100,200,.08)',
+        accent: '#5064c8', accentBg: 'rgba(80,100,200,.18)',
+        green: '#388e3c', red: '#d32f2f', gold: '#f9a825', blue: '#5064c8'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'halloween': {
+      name: 'Halloween',
+      category: 'seasonal',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#080200', surface: '#100400', surface2: '#180800',
+        text: '#fff0d8', muted: '#907850', border: 'rgba(255,109,0,.1)',
+        accent: '#ff6d00', accentBg: 'rgba(255,109,0,.3)',
+        green: '#6a8c2a', red: '#ff3d00', gold: '#ff6d00', blue: '#ff6d00'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'ink': {
+      name: 'Ink',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#f5f0e8', surface: '#ece6d8', surface2: '#e2dac8',
+        text: '#0f0a04', muted: '#605840', border: 'rgba(0,0,0,.08)',
+        accent: '#0f0a04', accentBg: 'rgba(15,10,4,.12)',
+        green: '#1a4a1a', red: '#7a1a1a', gold: '#907020', blue: '#1a2060'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'ios': {
+      name: 'iOS',
+      category: 'scifi',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#000000', surface: '#1c1c1e', surface2: '#2c2c2e',
+        text: '#ffffff', muted: '#aeaeb2', border: 'rgba(255,255,255,.1)',
+        accent: '#0a84ff', accentBg: 'rgba(10,132,255,.32)',
+        green: '#30d158', red: '#ff453a', gold: '#ffd60a', blue: '#0a84ff'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'ios26': {
+      name: 'iOS 26',
+      category: 'scifi',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#050508', surface: '#0e0e14', surface2: '#181820',
+        text: '#f5f5f7', muted: '#8e8e93', border: 'rgba(255,255,255,.08)',
+        accent: '#30d158', accentBg: 'rgba(48,209,88,.28)',
+        green: '#30d158', red: '#ff453a', gold: '#ffd60a', blue: '#0a84ff'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'japan': {
+      name: 'Japan',
+      category: 'popculture',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#0a0608', surface: '#180e12', surface2: '#26161e',
+        text: '#fff8f8', muted: '#b88898', border: 'rgba(196,28,36,.1)',
+        accent: '#c41c24', accentBg: 'rgba(196,28,36,.28)',
+        green: '#4caf50', red: '#c41c24', gold: '#ffd600', blue: '#c41c24'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'liquid': {
+      name: 'Liquid',
+      category: 'luxury',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#080c12', surface: '#101820', surface2: '#18242e',
+        text: '#e8f4ff', muted: '#7098b8', border: 'rgba(120,200,232,.1)',
+        accent: '#78c8e8', accentBg: 'rgba(120,200,232,.3)',
+        green: '#4db6ac', red: '#ef9a9a', gold: '#fff176', blue: '#78c8e8'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'lofi': {
+      name: 'Lo-Fi Beige',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#f2ede4', surface: '#ebe4d8', surface2: '#e0d8c8',
+        text: '#2c2418', muted: '#786858', border: 'rgba(0,0,0,.08)',
+        accent: '#c8a878', accentBg: 'rgba(200,168,120,.2)',
+        green: '#6a9a6a', red: '#b06060', gold: '#c8a878', blue: '#8c7a6b'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'metal': {
+      name: 'Heavy Metal',
+      category: 'luxury',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#0e0e10', surface: '#1a1a1e', surface2: '#242428',
+        text: '#f0f0f4', muted: '#808090', border: 'rgba(255,255,255,.08)',
+        accent: '#c8ccd8', accentBg: 'rgba(200,204,216,.22)',
+        green: '#a5d6a7', red: '#ef9a9a', gold: '#fff176', blue: '#90caf9'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'midnight-oil': {
+      name: 'Midnight Oil',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#060402', surface: '#100c06', surface2: '#1a140c',
+        text: '#f0e8d0', muted: '#988060', border: 'rgba(212,144,10,.1)',
+        accent: '#d4900a', accentBg: 'rgba(212,144,10,.28)',
+        green: '#8bc34a', red: '#c0392b', gold: '#d4900a', blue: '#d4900a'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'neon-rain': {
+      name: 'Neon Rain',
+      category: 'scifi',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#06000e', surface: '#0e0018', surface2: '#180028',
+        text: '#ffe8f8', muted: '#c060a8', border: 'rgba(255,45,155,.12)',
+        accent: '#ff2d9b', accentBg: 'rgba(255,45,155,.44)',
+        green: '#00e676', red: '#ff1744', gold: '#ffff00', blue: '#00e5ff'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'ninja': {
+      name: 'Ninja',
+      category: 'construction',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#040400', surface: '#0c0c00', surface2: '#141400',
+        text: '#e8e8d0', muted: '#787858', border: 'rgba(204,0,0,.1)',
+        accent: '#cc0000', accentBg: 'rgba(204,0,0,.3)',
+        green: '#6a8a2a', red: '#cc0000', gold: '#c8a000', blue: '#cc0000'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'obsidian-v5': {
+      name: 'Obsidian Purple',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#06040a', surface: '#0e0c14', surface2: '#181620',
+        text: '#f0eeff', muted: '#8880c0', border: 'rgba(139,92,246,.1)',
+        accent: '#8b5cf6', accentBg: 'rgba(139,92,246,.32)',
+        green: '#4db6ac', red: '#f87171', gold: '#fbbf24', blue: '#8b5cf6'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'sakura': {
+      name: 'Sakura',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#fff0f4', surface: '#ffe8f0', surface2: '#ffd8e8',
+        text: '#2a0818', muted: '#a04868', border: 'rgba(232,52,108,.08)',
+        accent: '#e8346c', accentBg: 'rgba(232,52,108,.2)',
+        green: '#4caf50', red: '#e8346c', gold: '#ffd600', blue: '#e91e63'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'samurai': {
+      name: 'Samurai',
+      category: 'popculture',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#080208', surface: '#120810', surface2: '#1e1018',
+        text: '#f8f0e8', muted: '#987058', border: 'rgba(204,34,0,.1)',
+        accent: '#cc2200', accentBg: 'rgba(204,34,0,.32)',
+        green: '#4caf50', red: '#cc2200', gold: '#ffd600', blue: '#cc2200'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'terminal': {
+      name: 'Terminal',
+      category: 'scifi',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        // muted bumped from #005500 → #00aa00 so muted-on-bg clears AA 3:1
+        // (CSS-only original failed contrast; we don't re-introduce it here).
+        bg: '#000000', surface: '#0a0a0a', surface2: '#111111',
+        text: '#00ff00', muted: '#00aa00', border: 'rgba(0,255,0,.08)',
+        accent: '#00ff00', accentBg: 'rgba(0,255,0,.3)',
+        green: '#00ff00', red: '#ff4444', gold: '#ffff00', blue: '#00ff00'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'translucent': {
+      name: 'Translucent',
+      category: 'luxury',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#030408', surface: '#080c14', surface2: '#0e1420',
+        text: '#f8f9ff', muted: '#8890b8', border: 'rgba(255,255,255,.06)',
+        accent: '#e8eeff', accentBg: 'rgba(232,238,255,.18)',
+        green: '#a5d6a7', red: '#ef9a9a', gold: '#fff176', blue: '#e8eeff'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'typewriter': {
+      name: 'Typewriter',
+      category: 'mood',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#f0e8d4', surface: '#e8dfc8', surface2: '#ded4b8',
+        text: '#1a1208', muted: '#706040', border: 'rgba(0,0,0,.08)',
+        accent: '#1a1208', accentBg: 'rgba(26,18,8,.12)',
+        green: '#2a5a2a', red: '#8a2a2a', gold: '#a08020', blue: '#1a3060'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'underwater': {
+      name: 'Underwater',
+      category: 'nature',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#000c14', surface: '#001828', surface2: '#00223a',
+        text: '#d8fff8', muted: '#4898a0', border: 'rgba(0,229,204,.1)',
+        accent: '#00e5cc', accentBg: 'rgba(0,229,204,.34)',
+        green: '#69f0ae', red: '#ef9a9a', gold: '#fff176', blue: '#00e5cc'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'volcanic': {
+      name: 'Volcanic',
+      category: 'nature',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#120000', surface: '#220000', surface2: '#340000',
+        text: '#ffe8e0', muted: '#c06858', border: 'rgba(255,61,0,.12)',
+        accent: '#ff3d00', accentBg: 'rgba(255,61,0,.38)',
+        green: '#ffab40', red: '#ff3d00', gold: '#ff9800', blue: '#ff3d00'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'wildwest': {
+      name: 'Wild West',
+      category: 'popculture',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#120a00', surface: '#201400', surface2: '#302000',
+        text: '#fff4e0', muted: '#a08860', border: 'rgba(200,120,64,.1)',
+        accent: '#c87840', accentBg: 'rgba(200,120,64,.26)',
+        green: '#8bc34a', red: '#c0392b', gold: '#c87840', blue: '#c87840'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
+    },
+    'windows': {
+      name: 'Windows',
+      category: 'scifi',
+      locked: false,
+      unlockCondition: null,
+      colors: {
+        bg: '#001828', surface: '#002040', surface2: '#002c56',
+        text: '#e8f4ff', muted: '#6898c8', border: 'rgba(0,120,212,.1)',
+        accent: '#0078d4', accentBg: 'rgba(0,120,212,.32)',
+        green: '#107c10', red: '#d13438', gold: '#ffb900', blue: '#0078d4'
+      },
+      overlay: { type: 'none' }, font: { heading: null, body: null },
+      cursor: null, borderRadius: '12px', borderStyle: 'solid',
+      transition: '0.2s ease', cardEffect: null, specialClass: null
     }
   };
 
