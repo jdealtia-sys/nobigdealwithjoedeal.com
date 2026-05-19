@@ -18,6 +18,10 @@
   }
 })();
 </script>
+<!-- Stamp <html data-mode="light|dark"> from localStorage before the first
+     paint, so theme-system.css mode-keyed rules don't FOUC. Must run sync
+     in <head> before theme-system.css. ThemeEngine.init() takes over later. -->
+<script src="js/theme-mode-preboot.js?v=1"></script>
 <!-- Rock 4 Phase 2: theme system extracted to css/theme-system.css.
      Same content (80 themes + trial-banner CSS) the inline <style id="theme-system">
      used to carry. Customer/vault/login already loaded the file; dashboard now joins. -->
