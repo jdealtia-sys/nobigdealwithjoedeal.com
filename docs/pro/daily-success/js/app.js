@@ -168,14 +168,17 @@ function switchTo(idx){collectPage(true);cur=idx;renderTabs();killCharts();if(cu
 function renderTabs(){
 const w=document.getElementById('tabrow');w.innerHTML='';
 const d=document.createElement('div');d.className='tab dtab'+(cur===-1?' active':'');
-d.innerHTML='<span class="tlbl">📊 DASH</span>';d.onclick=()=>switchTo(-1);w.appendChild(d);
+d.dataset.action='switch-to';d.dataset.pageIdx='-1';
+d.innerHTML='<span class="tlbl">📊 DASH</span>';w.appendChild(d);
 pages.forEach((p,i)=>{
 const t=document.createElement('div');t.className='tab'+(i===cur?' active':'');
+t.dataset.action='switch-to';t.dataset.pageIdx=i;
 const td=isToday(p.dk)?'<span class="today-dot"></span>':'';
-t.innerHTML=`<span class="tlbl">${tlbl(p)}</span>${td}<button class="tx" onclick="event.stopPropagation();triggerDel(${i})">×</button>`;
-t.onclick=()=>switchTo(i);w.appendChild(t);
+t.innerHTML=`<span class="tlbl">${tlbl(p)}</span>${td}<button class="tx" data-action="trigger-del-tab" data-tab-idx="${i}">×</button>`;
+w.appendChild(t);
 });
-const plus=document.createElement('div');plus.className='tplus';plus.textContent='+';plus.title='New / jump to today';plus.onclick=()=>smartNewPage();w.appendChild(plus);
+const plus=document.createElement('div');plus.className='tplus';plus.textContent='+';plus.title='New / jump to today';
+plus.dataset.action='smart-new-page';w.appendChild(plus);
 setTimeout(()=>{const a=w.querySelector('.active');if(a)a.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'});},50);
 }
 
@@ -191,7 +194,7 @@ const floors=getFloors();
 const cfg=getUserConfig();
 const items=floors.map(f=>{
 const met=d['floormet-'+f.id]==='1';
-return `<div class="dsc-item" onclick="toggleFloor('${f.id}')"><div class="dsc-dot ${met?'hit':''}"></div><span class="dsc-lbl ${met?'hit':''}">${f.label}</span></div>`;
+return `<div class="dsc-item" data-action="toggle-floor" data-floor-id="${f.id}"><div class="dsc-dot ${met?'hit':''}"></div><span class="dsc-lbl ${met?'hit':''}">${f.label}</span></div>`;
 }).join('');
 const metCount=floors.filter(f=>d['floormet-'+f.id]==='1').length;
 const total=floors.length;
@@ -218,7 +221,7 @@ function buildMindsetSection(p){
 const d=p.data||{};
 const items=MINDSET_ITEMS.map(item=>{
 const on=d[item.id]==='1';
-return `<div class="mc-item" onclick="toggleMindset('${item.id}',this)"><div class="mc-check ${on?'on':''}" data-ms="${item.id}"></div><div class="mc-label"><div class="mc-title ${on?'done':''}">${item.title}</div><div class="mc-sub">${item.sub}</div></div><div class="mc-time">${item.time}</div></div>`;
+return `<div class="mc-item" data-action="toggle-mindset" data-mindset-id="${item.id}"><div class="mc-check ${on?'on':''}" data-ms="${item.id}"></div><div class="mc-label"><div class="mc-title ${on?'done':''}">${item.title}</div><div class="mc-sub">${item.sub}</div></div><div class="mc-time">${item.time}</div></div>`;
 }).join('');
 return `<div class="rl">Check off each item to build your morning momentum</div>${items} <div class="dv"><span class="dvt">Morning Intention</span></div> <div><div class="rl">Today's non-negotiable</div><div class="rln"><textarea class="ed" data-k="ms-nonneg" placeholder="The one thing that must get done today…" rows="2">${d['ms-nonneg']||''}</textarea></div></div> <div><div class="rl">Affirmation / personal mantra</div><div class="rln"><textarea class="ed" data-k="ms-mantra" placeholder="Write it like you mean it…" rows="1">${d['ms-mantra']||''}</textarea></div></div>`;
 }
@@ -239,7 +242,7 @@ return `<div class="rl">Your daily blueprint — the schedule that produces the 
 
 function buildDietSection(p){
 const d=p.data||{};
-const rows=MEALS.map((meal,i)=>`<tr><td><input data-k="diet-m${i}-name" placeholder="${meal}" value="${d['diet-m'+i+'-name']||''}" oninput="calcMacros();markDirty();"></td><td><input data-k="diet-m${i}-p" placeholder="—" value="${d['diet-m'+i+'-p']||''}" oninput="calcMacros();markDirty();"></td><td><input data-k="diet-m${i}-c" placeholder="—" value="${d['diet-m'+i+'-c']||''}" oninput="calcMacros();markDirty();"></td><td><input data-k="diet-m${i}-f" placeholder="—" value="${d['diet-m'+i+'-f']||''}" oninput="calcMacros();markDirty();"></td><td><input data-k="diet-m${i}-cal" placeholder="—" value="${d['diet-m'+i+'-cal']||''}" oninput="calcMacros();markDirty();"></td></tr>`).join('');
+const rows=MEALS.map((meal,i)=>`<tr><td><input data-k="diet-m${i}-name" placeholder="${meal}" value="${d['diet-m'+i+'-name']||''}" data-input-action="calc-macros"></td><td><input data-k="diet-m${i}-p" placeholder="—" value="${d['diet-m'+i+'-p']||''}" data-input-action="calc-macros"></td><td><input data-k="diet-m${i}-c" placeholder="—" value="${d['diet-m'+i+'-c']||''}" data-input-action="calc-macros"></td><td><input data-k="diet-m${i}-f" placeholder="—" value="${d['diet-m'+i+'-f']||''}" data-input-action="calc-macros"></td><td><input data-k="diet-m${i}-cal" placeholder="—" value="${d['diet-m'+i+'-cal']||''}" data-input-action="calc-macros"></td></tr>`).join('');
 return `<div class="tbl-wrap"><table class="dt"><thead><tr><th>Meal</th><th>Protein (g)</th><th>Carbs (g)</th><th>Fat (g)</th><th>Calories</th></tr></thead><tbody>${rows}<tr class="dt-total"><td><input readonly placeholder="DAILY TOTAL" style="font-weight:700;font-family:'Barlow Condensed',sans-serif;font-size:11px;width:100%;background:transparent;border:none;outline:none;padding:5px 7px;"></td><td><input id="dt-p" readonly placeholder="—" style="width:100%;background:transparent;border:none;outline:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--ac);padding:5px 7px;"></td><td><input id="dt-c" readonly placeholder="—" style="width:100%;background:transparent;border:none;outline:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--ac);padding:5px 7px;"></td><td><input id="dt-f" readonly placeholder="—" style="width:100%;background:transparent;border:none;outline:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--ac);padding:5px 7px;"></td><td><input id="dt-cal" readonly placeholder="—" style="width:100%;background:transparent;border:none;outline:none;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;color:var(--ac);padding:5px 7px;"></td></tr></tbody></table></div> <div class="macro-summary"><div class="mpill protein"><div class="mpill-val" id="ms-p">—</div><div class="mpill-lbl">Protein g</div></div><div class="mpill carbs"><div class="mpill-val" id="ms-c">—</div><div class="mpill-lbl">Carbs g</div></div><div class="mpill fat"><div class="mpill-val" id="ms-f">—</div><div class="mpill-lbl">Fat g</div></div><div class="mpill cals"><div class="mpill-val" id="ms-cal">—</div><div class="mpill-lbl">Calories</div></div></div> <div><div class="rl">Energy / hunger notes</div><div class="rln"><textarea class="ed" data-k="diet-notes" placeholder="Energy levels, cravings, anything to adjust…" rows="2">${d['diet-notes']||''}</textarea></div></div>`;
 }
 
@@ -256,21 +259,21 @@ if(t)t.value=any?val:'';if(p)p.textContent=val;
 function addExercise(data,isDynamic){
 data=data||{};const i=exCount++;const tb=document.getElementById('ex-tbody');if(!tb)return;
 const tr=document.createElement('tr');
-const mk=(f,ph,v)=>`<input data-k="ex-${i}-${f}" placeholder="${ph}" value="${(v||'').replace(/"/g,'&quot;')}" oninput="markDirty();">`;
-tr.innerHTML=`<td>${mk('name','Exercise name',data.name)}</td><td>${mk('sets','3',data.sets)}</td><td>${mk('reps','10',data.reps)}</td><td>${mk('weight','lbs',data.weight)}</td><td>${mk('notes','PR? notes',data.notes)}</td><td><button class="ex-del" onclick="this.closest('tr').remove();markDirty();">×</button></td>`;
+const mk=(f,ph,v)=>`<input data-k="ex-${i}-${f}" placeholder="${ph}" value="${(v||'').replace(/"/g,'&quot;')}" data-input-action="mark-dirty">`;
+tr.innerHTML=`<td>${mk('name','Exercise name',data.name)}</td><td>${mk('sets','3',data.sets)}</td><td>${mk('reps','10',data.reps)}</td><td>${mk('weight','lbs',data.weight)}</td><td>${mk('notes','PR? notes',data.notes)}</td><td><button class="ex-del" data-action="delete-exercise">×</button></td>`;
 tb.appendChild(tr);if(isDynamic)markDirty();
 }
 
 function buildFitnessSection(p){
 const d=p.data||{};
-return `<div class="g2"><div><div class="rl">Training Focus</div><div class="rln"><input class="ed" data-k="fit-focus" placeholder="Push / Pull / Legs / Full Body…" value="${d['fit-focus']||''}"></div></div><div><div class="rl">Pre-Workout Stack</div><div class="rln"><input class="ed" data-k="fit-pre" placeholder="HWMF / Intake / Hydraulic 2…" value="${d['fit-pre']||''}"></div></div></div> <div><div class="rl">Exercise Log</div><div class="tbl-wrap"><table class="dt"><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Weight</th><th>Notes</th><th></th></tr></thead><tbody id="ex-tbody"></tbody></table></div><button class="addbtn" onclick="addExercise({},true)">+ ADD EXERCISE</button></div> <div class="rating-row"><div class="rbox"><span class="rbox-lbl">Duration</span><input data-k="fit-dur" placeholder="45 min" value="${d['fit-dur']||''}"></div><div class="rbox"><span class="rbox-lbl">Intensity (1–10)</span><input data-k="fit-int" placeholder="8" value="${d['fit-int']||''}"></div><div class="rbox"><span class="rbox-lbl">Session Rating</span><input data-k="fit-rate" placeholder="_/10" value="${d['fit-rate']||''}"></div></div> <div><div class="rl">Session notes</div><div class="rln"><textarea class="ed" data-k="fit-notes" placeholder="What felt strong, what lagged, any PR…" rows="2">${d['fit-notes']||''}</textarea></div></div>`;
+return `<div class="g2"><div><div class="rl">Training Focus</div><div class="rln"><input class="ed" data-k="fit-focus" placeholder="Push / Pull / Legs / Full Body…" value="${d['fit-focus']||''}"></div></div><div><div class="rl">Pre-Workout Stack</div><div class="rln"><input class="ed" data-k="fit-pre" placeholder="HWMF / Intake / Hydraulic 2…" value="${d['fit-pre']||''}"></div></div></div> <div><div class="rl">Exercise Log</div><div class="tbl-wrap"><table class="dt"><thead><tr><th>Exercise</th><th>Sets</th><th>Reps</th><th>Weight</th><th>Notes</th><th></th></tr></thead><tbody id="ex-tbody"></tbody></table></div><button class="addbtn" data-action="add-exercise">+ ADD EXERCISE</button></div> <div class="rating-row"><div class="rbox"><span class="rbox-lbl">Duration</span><input data-k="fit-dur" placeholder="45 min" value="${d['fit-dur']||''}"></div><div class="rbox"><span class="rbox-lbl">Intensity (1–10)</span><input data-k="fit-int" placeholder="8" value="${d['fit-int']||''}"></div><div class="rbox"><span class="rbox-lbl">Session Rating</span><input data-k="fit-rate" placeholder="_/10" value="${d['fit-rate']||''}"></div></div> <div><div class="rl">Session notes</div><div class="rln"><textarea class="ed" data-k="fit-notes" placeholder="What felt strong, what lagged, any PR…" rows="2">${d['fit-notes']||''}</textarea></div></div>`;
 }
 
 function buildPRSection(p){
 const d=p.data||{};
-const cards=LIFTS.map(lift=>{const key='pr-'+lift.toLowerCase().replace(/[\s/]+/g,'-');const val=d[key]||'';const stamp=d[key+'-stamp']||'';return `<div class="pr-card"><div class="pr-lift">${lift}<button class="pr-hist-btn" onclick="openPRHistory('${lift}','${key}')">HISTORY</button></div><div class="pr-inp-row"><input class="pr-inp" data-k="${key}" placeholder="0" value="${val}" oninput="prStamp('${key}',this.value);markDirty();"><span class="pr-unit">lbs</span></div><div class="pr-stamp" id="${key}-stamp">${stamp?'Set: '+stamp:''}</div></div>`;}).join('');
+const cards=LIFTS.map(lift=>{const key='pr-'+lift.toLowerCase().replace(/[\s/]+/g,'-');const val=d[key]||'';const stamp=d[key+'-stamp']||'';return `<div class="pr-card"><div class="pr-lift">${lift}<button class="pr-hist-btn" data-action="open-pr-history" data-lift="${lift}" data-pr-key="${key}">HISTORY</button></div><div class="pr-inp-row"><input class="pr-inp" data-k="${key}" placeholder="0" value="${val}" data-input-action="pr-stamp" data-pr-key="${key}"><span class="pr-unit">lbs</span></div><div class="pr-stamp" id="${key}-stamp">${stamp?'Set: '+stamp:''}</div></div>`;}).join('');
 const bmFields=[['wt','Weight (lbs)'],['bf','Body Fat %'],['chest','Chest (in)'],['waist','Waist (in)'],['arms','Arms (in)'],['legs','Legs (in)']];
-const bmCells=bmFields.map(([k,l])=>`<div class="bm-cell"><span class="bm-lbl">${l}</span><input class="bm-inp" data-k="bm-${k}" placeholder="—" value="${d['bm-'+k]||''}" oninput="markDirty();"></div>`).join('');
+const bmCells=bmFields.map(([k,l])=>`<div class="bm-cell"><span class="bm-lbl">${l}</span><input class="bm-inp" data-k="bm-${k}" placeholder="—" value="${d['bm-'+k]||''}" data-input-action="mark-dirty"></div>`).join('');
 return `<div class="rl">Auto-timestamps when you update a lift PR</div><div class="pr-grid">${cards}</div><div class="dv"><span class="dvt">Weekly Body Metrics</span></div><div class="bm-grid">${bmCells}</div><div><div class="rl">Progress notes</div><div class="rln"><textarea class="ed" data-k="bm-notes" placeholder="Changes in how clothes fit, energy trends…" rows="2">${d['bm-notes']||''}</textarea></div></div>`;
 }
 
@@ -360,7 +363,7 @@ return `<div><div class="rl">This Month's Big 3</div><div class="rln"><span clas
 
 function buildHabitsTable(p){
 const d=p.data||{};
-const rows=HABITS.map((h,hi)=>{let score=0;const cells=Array.from({length:7},(_,di)=>{const k=`habit-${hi}-${di}`;const on=d[k]==='1';if(on)score++;return `<td><span class="hd ${on?'on':''}" onclick="toggleHabit(this,'${k}',${hi})"></span></td>`;}).join('');return `<tr><td>${h}</td>${cells}<td id="hs-${hi}">${score}/7</td></tr>`;}).join('');
+const rows=HABITS.map((h,hi)=>{let score=0;const cells=Array.from({length:7},(_,di)=>{const k=`habit-${hi}-${di}`;const on=d[k]==='1';if(on)score++;return `<td><span class="hd ${on?'on':''}" data-action="toggle-habit" data-habit-key="${k}" data-habit-row="${hi}"></span></td>`;}).join('');return `<tr><td>${h}</td>${cells}<td id="hs-${hi}">${score}/7</td></tr>`;}).join('');
 return `<table class="ht"><thead><tr><th>Habit</th><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th><th>Score</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
@@ -372,7 +375,7 @@ document.getElementById('hs-'+hi).textContent=c+'/7';markDirty();
 
 function buildScorecard(p){
 const d=p.data||{};
-return `<div class="scg">${MONTHS.map((m,i)=>`<div class="sci"><span class="scm">${m}</span><input class="scinp" data-k="score-${i}" placeholder="—" maxlength="5" value="${d['score-'+i]||''}" oninput="markDirty();"></div>`).join('')}</div>`;
+return `<div class="scg">${MONTHS.map((m,i)=>`<div class="sci"><span class="scm">${m}</span><input class="scinp" data-k="score-${i}" placeholder="—" maxlength="5" value="${d['score-'+i]||''}" data-input-action="mark-dirty"></div>`).join('')}</div>`;
 }
 
 function buildIntelligenceBrief(p){
@@ -518,7 +521,7 @@ const p=pages[cur];
 
 const wrap=document.createElement('div');
 wrap.style.cssText='width:100%;max-width:760px;display:flex;flex-direction:column;gap:18px;';
-wrap.innerHTML=` ${buildCover(p,cur%QUOTES.length)} <div id="week-glance-wrap" style="background:#0a1018;width:100%;max-width:760px;border-radius:8px;padding:12px 18px;border:1px solid #1e2d40;"><div style="font-family:'Barlow Condensed',sans-serif;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#445566;margin-bottom:8px;text-align:center;">THIS WEEK AT A GLANCE</div>${buildWeekGlance()}</div> <div id="day-score-wrap">${buildDayScore(p)}</div> <div id="comparison-wrap">${buildDailyComparison(p)}</div> <div class="pc" data-sec="intel"><div class="ph" onclick="toggleSection(this)"><span class="badge" style="background:linear-gradient(135deg,#1e3a6e,#5a2a7e);">INTEL</span><div class="pt">Intelligence Brief</div><span class="collapse-ico">▾</span></div><div class="pb" id="intel-pb"></div></div> <div class="pc" data-sec="pipeline"><div class="ph" onclick="toggleSection(this)"><span class="badge" style="background:linear-gradient(135deg,#0d4a3a,#1e6a4e);">PIPELINE</span><div class="pt">CRM Pipeline Snapshot</div><span class="collapse-ico">▾</span></div><div class="pb" id="pipeline-pb"></div></div> <div class="pc" data-sec="mindset"><div class="ph" onclick="toggleSection(this)"><span class="badge b-mindset">01 · MINDSET</span><div class="pt">Morning Mindset & Non-Negotiables</div><span class="collapse-ico">▾</span></div><div class="pb" id="mindset-pb"></div></div> <div class="pc" data-sec="regiment"><div class="ph" onclick="toggleSection(this)"><span class="badge b-daily">02 · REGIMENT</span><div class="pt">Optimal Daily Regiment</div><span class="collapse-ico">▾</span></div><div class="pb" id="regiment-pb"></div></div> <div class="pc" data-sec="diet"><div class="ph" onclick="toggleSection(this)"><span class="badge b-diet">03 · DIET</span><div class="pt">Diet Protocol & Macro Tracker</div><span class="collapse-ico">▾</span></div><div class="pb" id="diet-pb"></div></div> <div class="pc" data-sec="fitness"><div class="ph" onclick="toggleSection(this)"><span class="badge b-fitness">04 · FITNESS</span><div class="pt">Fitness Log</div><span class="collapse-ico">▾</span></div><div class="pb" id="fit-pb"></div></div> <div class="pc" data-sec="pr"><div class="ph" onclick="toggleSection(this)"><span class="badge b-pr">05 · PR TRACKER</span><div class="pt">Personal Records & Body Metrics</div><span class="collapse-ico">▾</span></div><div class="pb" id="pr-pb"></div></div> <div class="pc" data-sec="log"><div class="ph" onclick="toggleSection(this)"><span class="badge b-log">06 · LOG</span><div class="pt">Daily Log & Reflection</div><span class="collapse-ico">▾</span></div><div class="pb" id="log-pb"></div></div> <div class="pc" data-sec="goals"><div class="ph" onclick="toggleSection(this)"><span class="badge b-goals">07 · GOALS</span><div class="pt">Goals & Vision</div><span class="collapse-ico">▾</span></div><div class="pb" id="goals-pb"></div></div> <div class="pc" data-sec="habits"><div class="ph" onclick="toggleSection(this)"><span class="badge b-habits">08 · HABITS</span><div class="pt">Weekly Habit Tracker & Monthly Scorecard</div><span class="collapse-ico">▾</span></div><div class="pb"><div class="rl">Check each habit for each day of the week</div><div style="overflow-x:auto;" id="habits-table-wrap"></div><div class="dv"><span class="dvt">Monthly Scorecard</span></div><div class="rl">Rate each month 1–10 or log a key result</div><div id="scorecard-wrap"></div></div></div> <div class="footer">NO BIG DEAL WITH JOE DEAL · DAILY SUCCESS PROGRAM · ${p.dk}</div>`;
+wrap.innerHTML=` ${buildCover(p,cur%QUOTES.length)} <div id="week-glance-wrap" style="background:#0a1018;width:100%;max-width:760px;border-radius:8px;padding:12px 18px;border:1px solid #1e2d40;"><div style="font-family:'Barlow Condensed',sans-serif;font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:#445566;margin-bottom:8px;text-align:center;">THIS WEEK AT A GLANCE</div>${buildWeekGlance()}</div> <div id="day-score-wrap">${buildDayScore(p)}</div> <div id="comparison-wrap">${buildDailyComparison(p)}</div> <div class="pc" data-sec="intel"><div class="ph" data-action="toggle-section"><span class="badge" style="background:linear-gradient(135deg,#1e3a6e,#5a2a7e);">INTEL</span><div class="pt">Intelligence Brief</div><span class="collapse-ico">▾</span></div><div class="pb" id="intel-pb"></div></div> <div class="pc" data-sec="pipeline"><div class="ph" data-action="toggle-section"><span class="badge" style="background:linear-gradient(135deg,#0d4a3a,#1e6a4e);">PIPELINE</span><div class="pt">CRM Pipeline Snapshot</div><span class="collapse-ico">▾</span></div><div class="pb" id="pipeline-pb"></div></div> <div class="pc" data-sec="mindset"><div class="ph" data-action="toggle-section"><span class="badge b-mindset">01 · MINDSET</span><div class="pt">Morning Mindset & Non-Negotiables</div><span class="collapse-ico">▾</span></div><div class="pb" id="mindset-pb"></div></div> <div class="pc" data-sec="regiment"><div class="ph" data-action="toggle-section"><span class="badge b-daily">02 · REGIMENT</span><div class="pt">Optimal Daily Regiment</div><span class="collapse-ico">▾</span></div><div class="pb" id="regiment-pb"></div></div> <div class="pc" data-sec="diet"><div class="ph" data-action="toggle-section"><span class="badge b-diet">03 · DIET</span><div class="pt">Diet Protocol & Macro Tracker</div><span class="collapse-ico">▾</span></div><div class="pb" id="diet-pb"></div></div> <div class="pc" data-sec="fitness"><div class="ph" data-action="toggle-section"><span class="badge b-fitness">04 · FITNESS</span><div class="pt">Fitness Log</div><span class="collapse-ico">▾</span></div><div class="pb" id="fit-pb"></div></div> <div class="pc" data-sec="pr"><div class="ph" data-action="toggle-section"><span class="badge b-pr">05 · PR TRACKER</span><div class="pt">Personal Records & Body Metrics</div><span class="collapse-ico">▾</span></div><div class="pb" id="pr-pb"></div></div> <div class="pc" data-sec="log"><div class="ph" data-action="toggle-section"><span class="badge b-log">06 · LOG</span><div class="pt">Daily Log & Reflection</div><span class="collapse-ico">▾</span></div><div class="pb" id="log-pb"></div></div> <div class="pc" data-sec="goals"><div class="ph" data-action="toggle-section"><span class="badge b-goals">07 · GOALS</span><div class="pt">Goals & Vision</div><span class="collapse-ico">▾</span></div><div class="pb" id="goals-pb"></div></div> <div class="pc" data-sec="habits"><div class="ph" data-action="toggle-section"><span class="badge b-habits">08 · HABITS</span><div class="pt">Weekly Habit Tracker & Monthly Scorecard</div><span class="collapse-ico">▾</span></div><div class="pb"><div class="rl">Check each habit for each day of the week</div><div style="overflow-x:auto;" id="habits-table-wrap"></div><div class="dv"><span class="dvt">Monthly Scorecard</span></div><div class="rl">Rate each month 1–10 or log a key result</div><div id="scorecard-wrap"></div></div></div> <div class="footer">NO BIG DEAL WITH JOE DEAL · DAILY SUCCESS PROGRAM · ${p.dk}</div>`;
 
 main.appendChild(wrap);
 
@@ -614,11 +617,11 @@ const met=todayD['floormet-'+f.id]==='1';
 return `<div style="display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--rule);"> <div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;background:${met?'var(--grn)':'transparent'};border:1.5px solid ${met?'var(--grn)':'#445566'};"></div> <span style="flex:1;font-family:'Barlow Condensed',sans-serif;font-size:10px;color:${met?'#4caf82':'var(--muted)'};">${f.label}</span> <span style="font-family:'Barlow Condensed',sans-serif;font-size:9px;color:#334455;">≥${f.targetValue} ${f.unit}</span> </div>`;
 }).join('');
 const metToday=todayPage?floors.filter(f=>todayD['floormet-'+f.id]==='1').length:0;
-floorsStatusHtml=`<div class="dc"><div class="dct">Daily Floors <small>TODAY'S STATUS</small></div> ${todayPage?`<div style="font-family:'Barlow Condensed',sans-serif;font-size:9px;color:${metToday===floors.length?'#4caf82':'var(--gold)'};margin-bottom:8px;letter-spacing:.1em;">${metToday}/${floors.length} FLOORS MET</div>`:`<div class="de">No entry for today yet</div>`} ${floorRows} <button class="btn btn-ghost" style="margin-top:12px;width:100%;justify-content:center;font-size:9px;" onclick="quickStartDefaults()">↺ Reset to Quick Start Defaults</button> </div>`;
+floorsStatusHtml=`<div class="dc"><div class="dct">Daily Floors <small>TODAY'S STATUS</small></div> ${todayPage?`<div style="font-family:'Barlow Condensed',sans-serif;font-size:9px;color:${metToday===floors.length?'#4caf82':'var(--gold)'};margin-bottom:8px;letter-spacing:.1em;">${metToday}/${floors.length} FLOORS MET</div>`:`<div class="de">No entry for today yet</div>`} ${floorRows} <button class="btn btn-ghost" style="margin-top:12px;width:100%;justify-content:center;font-size:9px;" data-action="quick-start-defaults">↺ Reset to Quick Start Defaults</button> </div>`;
 }
 
 const wrap=document.createElement('div');wrap.className='dw';
-wrap.innerHTML=` <div class="dhero"><div><div class="dhero-t">Program Dashboard</div><div class="dhero-s">${pc} PAGE${pc!==1?'S':''} · ALL-TIME AGGREGATES</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-ghost" onclick="exportCSV()">CSV</button><button class="btn btn-gold" onclick="doPrint()">PDF</button><button class="btn btn-ghost" onclick="openOnboard()">⚙️ CUSTOMIZE</button></div></div> <div class="dgrid"> ${northStarHtml} <div class="dc"><div class="dct">Activity Totals <small>ALL PAGES</small></div><div class="srow2"><div class="sb"><div class="sv">${totD}${dbadge(lastD,prevD)}</div><div class="sl">Doors</div></div><div class="sb"><div class="sv">${avgD}</div><div class="sl">Avg/Day</div></div><div class="sb"><div class="sv">${totC}</div><div class="sl">Closes</div></div></div><div class="srow2"><div class="sb"><div class="sv">${totA}</div><div class="sl">Appts</div></div><div class="sb" style="flex:2"><div class="sv" style="font-size:22px">$${totR.toLocaleString()}${dbadge(lastR,prevR)}</div><div class="sl">Revenue</div></div></div></div> ${floorsStatusHtml} <div class="dc"><div class="dct">Streaks & Records</div>${bDI>=0?`<div class="best" onclick="switchTo(${bDI})"><div class="best-ico">🚪</div><div class="best-info"><div class="best-lbl">Best Door Day</div><div class="best-val">${tlbl(pages[bDI])} · ${bDV} doors</div></div></div>`:''} ${bRI>=0?`<div class="best" onclick="switchTo(${bRI})"><div class="best-ico">💰</div><div class="best-info"><div class="best-lbl">Best Revenue Day</div><div class="best-val">${tlbl(pages[bRI])} · $${bRV.toLocaleString()}</div></div></div>`:''}<div class="sk-row"><div class="sk ${runD>=3?'gold':''}"><div class="sk-icon">🚪</div><div class="sk-val">${runD}</div><div class="sk-lbl">Door Streak</div></div><div class="sk ${runW>=3?'gold':''}"><div class="sk-icon">💪</div><div class="sk-val">${runW}</div><div class="sk-lbl">Workout Streak</div></div><div class="sk ${runWin>=3?'gold':''}"><div class="sk-icon">⭐</div><div class="sk-val">${runWin}</div><div class="sk-lbl">Win Streak</div></div></div></div> <div class="dc"><div class="dct">Monthly Goals <small>SET TARGETS</small></div><div class="gpw">${gpRow('Doors',totD,gt.d,'d','var(--blu)')}${gpRow('Revenue ($)',totR,gt.r,'r','var(--grn)')}${gpRow('Closes',totC,gt.c,'c','var(--ac)')}</div></div> <div class="dc wide"><div class="dct">Revenue Pace <small>VS MONTHLY GOAL</small></div><div class="pace-wrap"><div class="pace-row"><span class="pace-lbl">Actual</span><div class="pace-bg"><div class="pace-bar" style="width:${gt.r?Math.min(totR/gt.r*100,100):0}%;background:var(--grn)"></div></div><span class="pace-stat">$${Math.round(totR).toLocaleString()}</span></div><div class="pace-row"><span class="pace-lbl">On Pace</span><div class="pace-bg"><div class="pace-bar" style="width:${gt.r?Math.min(paceTarget/gt.r*100,100):0}%;background:rgba(245,158,11,.5)"></div></div><span class="pace-stat">$${Math.round(paceTarget).toLocaleString()}</span></div><div class="pace-row"><span class="pace-lbl">Goal</span><div class="pace-bg"><div class="pace-bar" style="width:100%;background:rgba(0,0,0,.07)"></div></div><span class="pace-stat">$${Number(gt.r||0).toLocaleString()}</span></div><div class="pace-msg ${!gt.r?'none':isAhead?'ahead':'behind'}">${paceMsg}</div>${gt.r?`<div style="font-family:'Barlow Condensed',sans-serif;font-size:9px;color:var(--muted);margin-top:3px;">Day ${dom} of ${dim} · ${dl} days remaining</div>`:''}</div></div> <div class="dc wide"><div class="dct">Doors Knocked <small>PER PAGE</small></div><canvas id="c-doors" height="60"></canvas></div> <div class="dc"><div class="dct">Revenue <small>PER PAGE</small></div><canvas id="c-rev" height="100"></canvas></div> <div class="dc"><div class="dct">Closes <small>PER PAGE</small></div><canvas id="c-close" height="100"></canvas></div> <div class="dc wide"><div class="dct">Habit Compliance <small>CUMULATIVE</small></div>${HABITS.map((h,i)=>{const tot=habTot[i],max=pc*7,pct=max?Math.round(tot/max*100):0;return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--rule)"><span style="flex:1;font-size:12px;color:var(--ink)">${h}</span><div style="width:80px;height:5px;background:var(--rule);border-radius:3px;overflow:hidden;flex-shrink:0"><div style="height:100%;width:${pct}%;background:var(--grn);border-radius:3px"></div></div><span style="font-family:'Barlow Condensed',sans-serif;font-size:10px;color:var(--muted);min-width:24px;text-align:right">${tot}</span></div>`;}).join('')}</div> <div class="dc wide"><div class="dct">All Pages <small>CLICK TO NAVIGATE</small></div>${!pages.length?`<div class="de">No pages yet</div>`:pages.map((p,i)=>{const rev=parseFloat(p.data?.['s-revenue']||0)||0;const td=isToday(p.dk)?'<span class="today-dot" style="margin-left:4px"></span>':'';return `<div class="prd" onclick="switchTo(${i})"><div class="prd-l"><span class="prd-d">${tlbl(p)}${td} · ${dkFull(p.dk).split(',')[0]}</span><span class="prd-s">Doors: ${p.kpi?.doors||0} · Closes: ${p.kpi?.closes||0} · Rev: $${rev.toLocaleString()}${p.data?.['s-territory']?' · '+p.data['s-territory']:''}</span></div><span style="color:var(--rule);flex-shrink:0">→</span></div>`;}).join('')}</div> </div>`;
+wrap.innerHTML=` <div class="dhero"><div><div class="dhero-t">Program Dashboard</div><div class="dhero-s">${pc} PAGE${pc!==1?'S':''} · ALL-TIME AGGREGATES</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-ghost" data-action="export-csv">CSV</button><button class="btn btn-gold" data-action="do-print">PDF</button><button class="btn btn-ghost" data-action="open-onboard">⚙️ CUSTOMIZE</button></div></div> <div class="dgrid"> ${northStarHtml} <div class="dc"><div class="dct">Activity Totals <small>ALL PAGES</small></div><div class="srow2"><div class="sb"><div class="sv">${totD}${dbadge(lastD,prevD)}</div><div class="sl">Doors</div></div><div class="sb"><div class="sv">${avgD}</div><div class="sl">Avg/Day</div></div><div class="sb"><div class="sv">${totC}</div><div class="sl">Closes</div></div></div><div class="srow2"><div class="sb"><div class="sv">${totA}</div><div class="sl">Appts</div></div><div class="sb" style="flex:2"><div class="sv" style="font-size:22px">$${totR.toLocaleString()}${dbadge(lastR,prevR)}</div><div class="sl">Revenue</div></div></div></div> ${floorsStatusHtml} <div class="dc"><div class="dct">Streaks & Records</div>${bDI>=0?`<div class="best" data-action="switch-to" data-page-idx="${bDI}"><div class="best-ico">🚪</div><div class="best-info"><div class="best-lbl">Best Door Day</div><div class="best-val">${tlbl(pages[bDI])} · ${bDV} doors</div></div></div>`:''} ${bRI>=0?`<div class="best" data-action="switch-to" data-page-idx="${bRI}"><div class="best-ico">💰</div><div class="best-info"><div class="best-lbl">Best Revenue Day</div><div class="best-val">${tlbl(pages[bRI])} · $${bRV.toLocaleString()}</div></div></div>`:''}<div class="sk-row"><div class="sk ${runD>=3?'gold':''}"><div class="sk-icon">🚪</div><div class="sk-val">${runD}</div><div class="sk-lbl">Door Streak</div></div><div class="sk ${runW>=3?'gold':''}"><div class="sk-icon">💪</div><div class="sk-val">${runW}</div><div class="sk-lbl">Workout Streak</div></div><div class="sk ${runWin>=3?'gold':''}"><div class="sk-icon">⭐</div><div class="sk-val">${runWin}</div><div class="sk-lbl">Win Streak</div></div></div></div> <div class="dc"><div class="dct">Monthly Goals <small>SET TARGETS</small></div><div class="gpw">${gpRow('Doors',totD,gt.d,'d','var(--blu)')}${gpRow('Revenue ($)',totR,gt.r,'r','var(--grn)')}${gpRow('Closes',totC,gt.c,'c','var(--ac)')}</div></div> <div class="dc wide"><div class="dct">Revenue Pace <small>VS MONTHLY GOAL</small></div><div class="pace-wrap"><div class="pace-row"><span class="pace-lbl">Actual</span><div class="pace-bg"><div class="pace-bar" style="width:${gt.r?Math.min(totR/gt.r*100,100):0}%;background:var(--grn)"></div></div><span class="pace-stat">$${Math.round(totR).toLocaleString()}</span></div><div class="pace-row"><span class="pace-lbl">On Pace</span><div class="pace-bg"><div class="pace-bar" style="width:${gt.r?Math.min(paceTarget/gt.r*100,100):0}%;background:rgba(245,158,11,.5)"></div></div><span class="pace-stat">$${Math.round(paceTarget).toLocaleString()}</span></div><div class="pace-row"><span class="pace-lbl">Goal</span><div class="pace-bg"><div class="pace-bar" style="width:100%;background:rgba(0,0,0,.07)"></div></div><span class="pace-stat">$${Number(gt.r||0).toLocaleString()}</span></div><div class="pace-msg ${!gt.r?'none':isAhead?'ahead':'behind'}">${paceMsg}</div>${gt.r?`<div style="font-family:'Barlow Condensed',sans-serif;font-size:9px;color:var(--muted);margin-top:3px;">Day ${dom} of ${dim} · ${dl} days remaining</div>`:''}</div></div> <div class="dc wide"><div class="dct">Doors Knocked <small>PER PAGE</small></div><canvas id="c-doors" height="60"></canvas></div> <div class="dc"><div class="dct">Revenue <small>PER PAGE</small></div><canvas id="c-rev" height="100"></canvas></div> <div class="dc"><div class="dct">Closes <small>PER PAGE</small></div><canvas id="c-close" height="100"></canvas></div> <div class="dc wide"><div class="dct">Habit Compliance <small>CUMULATIVE</small></div>${HABITS.map((h,i)=>{const tot=habTot[i],max=pc*7,pct=max?Math.round(tot/max*100):0;return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid var(--rule)"><span style="flex:1;font-size:12px;color:var(--ink)">${h}</span><div style="width:80px;height:5px;background:var(--rule);border-radius:3px;overflow:hidden;flex-shrink:0"><div style="height:100%;width:${pct}%;background:var(--grn);border-radius:3px"></div></div><span style="font-family:'Barlow Condensed',sans-serif;font-size:10px;color:var(--muted);min-width:24px;text-align:right">${tot}</span></div>`;}).join('')}</div> <div class="dc wide"><div class="dct">All Pages <small>CLICK TO NAVIGATE</small></div>${!pages.length?`<div class="de">No pages yet</div>`:pages.map((p,i)=>{const rev=parseFloat(p.data?.['s-revenue']||0)||0;const td=isToday(p.dk)?'<span class="today-dot" style="margin-left:4px"></span>':'';return `<div class="prd" data-action="switch-to" data-page-idx="${i}"><div class="prd-l"><span class="prd-d">${tlbl(p)}${td} · ${dkFull(p.dk).split(',')[0]}</span><span class="prd-s">Doors: ${p.kpi?.doors||0} · Closes: ${p.kpi?.closes||0} · Rev: $${rev.toLocaleString()}${p.data?.['s-territory']?' · '+p.data['s-territory']:''}</span></div><span style="color:var(--rule);flex-shrink:0">→</span></div>`;}).join('')}</div> </div>`;
 main.appendChild(wrap);
 // Debounce localStorage writes on goal-target keystrokes — one write per
 // 250ms idle beats one write per keystroke (the old behavior burned CPU
@@ -644,7 +647,7 @@ const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encode
 }
 
 function toggleSearch(){searchOpen=!searchOpen;document.getElementById('sbar').classList.toggle('open',searchOpen);document.getElementById('tabrow').classList.toggle('sp',searchOpen);document.getElementById('main').classList.toggle('sp',searchOpen);if(searchOpen)setTimeout(()=>document.getElementById('sinp').focus(),80);else{document.getElementById('sdrop').classList.remove('open');document.getElementById('sinp').value='';}}
-function doSearch(q){const drop=document.getElementById('sdrop');if(!q.trim()){drop.classList.remove('open');return;}const ql=q.toLowerCase(),hits=[];pages.forEach((p,pi)=>{const fields=Object.values(p.data||{}).join(' ').toLowerCase();if(fields.includes(ql)){const preview=Object.values(p.data||{}).find(v=>v.toLowerCase().includes(ql))||'';hits.push({pi,label:tlbl(p),preview});}});if(!hits.length){drop.innerHTML=`<div class="sr0">No results for "${q}"</div>`;drop.classList.add('open');return;}const re=new RegExp(q.replace(/[.*+?^${}()|[]\]/g,'\$&'),'gi');drop.innerHTML=hits.map(h=>`<div class="sri" onclick="switchTo(${h.pi});toggleSearch();"><div class="srd">${h.label}</div><div class="srt">${h.preview.replace(/</g,'&lt;').replace(re,m=>`<mark>${m}</mark>`)}</div></div>`).join('');drop.classList.add('open');}
+function doSearch(q){const drop=document.getElementById('sdrop');if(!q.trim()){drop.classList.remove('open');return;}const ql=q.toLowerCase(),hits=[];pages.forEach((p,pi)=>{const fields=Object.values(p.data||{}).join(' ').toLowerCase();if(fields.includes(ql)){const preview=Object.values(p.data||{}).find(v=>v.toLowerCase().includes(ql))||'';hits.push({pi,label:tlbl(p),preview});}});if(!hits.length){drop.innerHTML=`<div class="sr0">No results for "${q}"</div>`;drop.classList.add('open');return;}const re=new RegExp(q.replace(/[.*+?^${}()|[]\]/g,'\$&'),'gi');drop.innerHTML=hits.map(h=>`<div class="sri" data-action="search-jump" data-page-idx="${h.pi}"><div class="srd">${h.label}</div><div class="srt">${h.preview.replace(/</g,'&lt;').replace(re,m=>`<mark>${m}</mark>`)}</div></div>`).join('');drop.classList.add('open');}
 
 function doPrint(){if(cur<0){toast('Open a page first');return;}saveNow();window.print();}
 function openM(id){document.getElementById(id).classList.add('open');}
@@ -791,7 +794,7 @@ else if(pct>=.5){bg='var(--gold)';border='var(--gold)';color='#fff';}
 else if(pct>0){bg='rgba(249,115,22,.3)';border='var(--ac)';color='var(--ac)';}
 }
 const ring=isToday?'box-shadow:0 0 0 2px var(--ac);':'';
-html+=`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;" ${pg?`onclick="switchTo(${pages.indexOf(pg)})"`:''}><div style="font-family:'Barlow Condensed',sans-serif;font-size:8px;color:${isToday?'var(--ac)':'#445566'};letter-spacing:.1em;font-weight:${isToday?'700':'400'}">${days[i]}</div><div style="width:28px;height:28px;border-radius:50%;background:${bg};border:1.5px solid ${border};display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;color:${color};${ring}">${pg&&total>0?metCount:d.getDate()}</div></div>`;
+html+=`<div style="display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;" ${pg?`data-action="switch-to" data-page-idx="${pages.indexOf(pg)}"`:''}><div style="font-family:'Barlow Condensed',sans-serif;font-size:8px;color:${isToday?'var(--ac)':'#445566'};letter-spacing:.1em;font-weight:${isToday?'700':'400'}">${days[i]}</div><div style="width:28px;height:28px;border-radius:50%;background:${bg};border:1.5px solid ${border};display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-size:10px;color:${color};${ring}">${pg&&total>0?metCount:d.getDate()}</div></div>`;
 }
 html+='</div>';
 return html;
@@ -961,7 +964,7 @@ wrap.innerHTML='';
 obFloors.forEach((f,i)=>{
 const row=document.createElement('div');
 row.className='floor-row';
-row.innerHTML=`<input class="floor-inp" placeholder="Floor label" value="${(f.label||'').replace(/"/g,'&quot;')}" oninput="obFloors[${i}].label=this.value"><input class="floor-inp num" placeholder="Tgt" type="number" value="${f.targetValue||1}" oninput="obFloors[${i}].targetValue=+this.value"><input class="floor-inp num" placeholder="Unit" value="${(f.unit||'done').replace(/"/g,'&quot;')}" oninput="obFloors[${i}].unit=this.value"><button onclick="removeFloorRow(${i})" style="background:transparent;border:none;cursor:pointer;color:#c04040;font-size:17px;line-height:1;padding:0;">×</button>`;
+row.innerHTML=`<input class="floor-inp" placeholder="Floor label" value="${(f.label||'').replace(/"/g,'&quot;')}" data-input-action="ob-floor-label" data-floor-idx="${i}"><input class="floor-inp num" placeholder="Tgt" type="number" value="${f.targetValue||1}" data-input-action="ob-floor-target" data-floor-idx="${i}"><input class="floor-inp num" placeholder="Unit" value="${(f.unit||'done').replace(/"/g,'&quot;')}" data-input-action="ob-floor-unit" data-floor-idx="${i}"><button data-action="remove-floor-row" data-floor-idx="${i}" style="background:transparent;border:none;cursor:pointer;color:#c04040;font-size:17px;line-height:1;padding:0;">×</button>`;
 wrap.appendChild(row);
 });
 }
@@ -1239,9 +1242,12 @@ function _nbdUpdateLabels(t) {
 }
 
 /* ── PICKER MODAL ─────────────────────────────────────────────────── */
-function nbdPickerOpen()  { document.getElementById('nbd-picker-modal').classList.add('open'); nbdRenderThemes(); nbdRenderFonts(); }
+function nbdPickerOpen()  { document.getElementById('nbd-picker-modal').classList.add('open'); nbdRenderCats(); nbdRenderThemes(); nbdRenderFonts(); }
 function nbdPickerClose() { document.getElementById('nbd-picker-modal').classList.remove('open'); }
-document.getElementById('nbd-picker-modal').addEventListener('click', function(e) { if (e.target === this) nbdPickerClose(); });
+document.addEventListener('DOMContentLoaded', () => {
+  const pm = document.getElementById('nbd-picker-modal');
+  if (pm) pm.addEventListener('click', function(e) { if (e.target === this) nbdPickerClose(); });
+});
 
 function nbdPickerTab(tab, el) {
   document.querySelectorAll('.npm-tab').forEach(t => t.classList.remove('on'));
@@ -1280,7 +1286,7 @@ function nbdRenderCats() {
   if (!el) return;
   const cats = ['all','standard','heroes','gaming','os','material','ambient','abstract','tactical','nature','music','region','seasonal','culture','custom'];
   const labels = {all:'All',standard:'Standard',heroes:'Heroes',gaming:'Gaming',os:'OS/Tech',material:'Material',ambient:'Ambient',abstract:'Abstract',tactical:'Tactical',nature:'Nature',music:'Music',region:'Region',seasonal:'Seasonal',culture:'Culture',custom:'⚡ Custom'};
-  el.innerHTML = cats.map(c => `<button class="npm-cat${_nbd_activeCat===c?' on':''}" onclick="nbdSetCat('${c}',this)">${labels[c]||c}</button>`).join('');
+  el.innerHTML = cats.map(c => `<button class="npm-cat${_nbd_activeCat===c?' on':''}" data-action="nbd-set-cat" data-cat="${c}">${labels[c]||c}</button>`).join('');
 }
 
 function nbdSetCat(cat, el) {
@@ -1346,7 +1352,10 @@ function nbdCopyFS()    { const c=`await db.collection('users').doc(uid).update(
 /* ── HOW-TO MODAL ─────────────────────────────────────────────────── */
 function nbdHowtoOpen()  { document.getElementById('nbd-howto-modal').classList.add('open'); }
 function nbdHowtoClose() { document.getElementById('nbd-howto-modal').classList.remove('open'); }
-document.getElementById('nbd-howto-modal').addEventListener('click', function(e) { if (e.target === this) nbdHowtoClose(); });
+document.addEventListener('DOMContentLoaded', () => {
+  const hm = document.getElementById('nbd-howto-modal');
+  if (hm) hm.addEventListener('click', function(e) { if (e.target === this) nbdHowtoClose(); });
+});
 
 /* ── TOAST ────────────────────────────────────────────────────────── */
 function nbdToast(msg) {
@@ -1385,4 +1394,91 @@ window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full 
 // Welcome modal gating now handled by the inline script directly
 // after the modal's HTML block. The modal is hidden by default,
 // so no late-hide check is needed here.
+
+// ─────────────────────────────────────────────────
+// CSP-safe event delegation. Every inline onclick/oninput/onmouseover/
+// onmouseout the page used to carry is now expressed as data-action /
+// data-input-action / data-hover-opacity, dispatched here. Keeps the
+// strict ** CSP (script-src-attr 'none') applicable to this page.
+// ─────────────────────────────────────────────────
+(function nbdWireDelegates() {
+  const clickHandlers = {
+    'close-welcome':       () => closeWelcome(),
+    'toggle-search':       () => toggleSearch(),
+    'nbd-picker-open':     () => nbdPickerOpen(),
+    'nbd-picker-close':    () => nbdPickerClose(),
+    'nbd-picker-tab':      (el) => nbdPickerTab(el.dataset.arg, el),
+    'open-onboard':        () => openOnboard(),
+    'open-welcome-guide':  () => openWelcomeGuide(),
+    'smart-new-page':      () => smartNewPage(),
+    'open-rename':         () => openRename(),
+    'trigger-del':         () => triggerDel(),
+    'trigger-del-tab':     (el, ev) => { ev.stopPropagation(); triggerDel(+el.dataset.tabIdx); },
+    'export-csv':          () => exportCSV(),
+    'do-print':            () => doPrint(),
+    'save-now':            () => saveNow(),
+    'quick-start-defaults':() => quickStartDefaults(),
+    'hide-banner':         () => hideBanner(),
+    'close-m':             (el) => closeM(el.dataset.arg),
+    'do-delete':           () => doDelete(),
+    'apply-ren':           () => applyRen(),
+    'add-floor-row':       () => addFloorRow(),
+    'remove-floor-row':    (el) => removeFloorRow(+el.dataset.floorIdx),
+    'onboard-prev':        () => onboardPrev(),
+    'onboard-next':        () => onboardNext(),
+    'nbd-random':          () => nbdRandom(),
+    'nbd-apply-custom':    () => nbdApplyCustom(),
+    'nbd-save-custom':     () => nbdSaveCustom(),
+    'nbd-howto-open':      () => nbdHowtoOpen(),
+    'nbd-howto-close':     () => nbdHowtoClose(),
+    'nbd-copy-fs':         () => nbdCopyFS(),
+    'nbd-set-cat':         (el) => nbdSetCat(el.dataset.cat, el),
+    'switch-to':           (el) => switchTo(+el.dataset.pageIdx),
+    'search-jump':         (el) => { switchTo(+el.dataset.pageIdx); toggleSearch(); },
+    'toggle-floor':        (el) => toggleFloor(el.dataset.floorId),
+    'toggle-mindset':      (el) => toggleMindset(el.dataset.mindsetId, el),
+    'toggle-habit':        (el) => toggleHabit(el, el.dataset.habitKey, +el.dataset.habitRow),
+    'toggle-section':      (el) => toggleSection(el),
+    'add-exercise':        () => addExercise({}, true),
+    'delete-exercise':     (el) => { el.closest('tr').remove(); markDirty(); },
+    'open-pr-history':     (el) => openPRHistory(el.dataset.lift, el.dataset.prKey),
+  };
+
+  const inputHandlers = {
+    'do-search':         (el) => doSearch(el.value),
+    'nbd-render-themes': () => nbdRenderThemes(),
+    'nbd-live-custom':   () => nbdLiveCustom(),
+    'mark-dirty':        () => markDirty(),
+    'calc-macros':       () => { calcMacros(); markDirty(); },
+    'pr-stamp':          (el) => { prStamp(el.dataset.prKey, el.value); markDirty(); },
+    'ob-floor-label':    (el) => { obFloors[+el.dataset.floorIdx].label = el.value; },
+    'ob-floor-target':   (el) => { obFloors[+el.dataset.floorIdx].targetValue = +el.value; },
+    'ob-floor-unit':     (el) => { obFloors[+el.dataset.floorIdx].unit = el.value; },
+  };
+
+  document.addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-action]');
+    if (!el) return;
+    const fn = clickHandlers[el.dataset.action];
+    if (fn) fn(el, ev);
+  });
+
+  document.addEventListener('input', (ev) => {
+    const el = ev.target.closest('[data-input-action]');
+    if (!el) return;
+    const fn = inputHandlers[el.dataset.inputAction];
+    if (fn) fn(el, ev);
+  });
+
+  document.addEventListener('mouseover', (ev) => {
+    const el = ev.target.closest('[data-hover-opacity]');
+    if (!el) return;
+    el.style.opacity = el.dataset.hoverOpacity;
+  });
+  document.addEventListener('mouseout', (ev) => {
+    const el = ev.target.closest('[data-hover-opacity]');
+    if (!el) return;
+    el.style.opacity = '1';
+  });
+})();
 
