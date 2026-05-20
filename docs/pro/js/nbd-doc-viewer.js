@@ -41,6 +41,11 @@
   let currentContext = null;
   let dirty = true;   // true if the user hasn't saved yet — triggers close warning
   let escHandler = null;
+  // Set when finalizeSignaturesIfPresent() is awaiting a reply from
+  // the widget inside the iframe. The window-level message listener
+  // (installed once) calls this with the parsed reply payload.
+  let pendingFinalizeResolver = null;
+  let messageListenerInstalled = false;
 
   // ─── HTML escape helper ──────────────────────────────────
   const esc = (s) => String(s == null ? '' : s)
@@ -321,11 +326,94 @@
     setTimeout(() => el.classList.remove('show'), 2500);
   }
 
+  // ─── Signature finalize bridge ───────────────────────────
+  //
+  // The signature widget (signature-widget.js) runs inside the
+  // sandboxed iframe. We cannot read its canvases directly (no
+  // allow-same-origin), so we postMessage `{ __nbd_sig: 'finalize' }`
+  // and the widget replies with the signed HTML. Cheap source-string
+  // check on currentContext.html short-circuits when no sigs exist.
+
+  function ensureMessageListener() {
+    if (messageListenerInstalled) return;
+    messageListenerInstalled = true;
+    window.addEventListener('message', function (e) {
+      if (!e.data || typeof e.data !== 'object') return;
+      if (e.data.__nbd_sig !== 'finalized') return;
+      if (!pendingFinalizeResolver) return;
+      const resolve = pendingFinalizeResolver;
+      pendingFinalizeResolver = null;
+      resolve(e.data);
+    });
+  }
+
+  async function finalizeSignaturesIfPresent() {
+    if (!currentContext) return { ok: true, skipped: true };
+    const src = typeof currentContext.html === 'string' ? currentContext.html : '';
+    if (!src || src.indexOf('data-nbd-sig=') === -1) {
+      return { ok: true, skipped: true };
+    }
+    const iframe = document.getElementById('nbdv-iframe');
+    if (!iframe || !iframe.contentWindow) return { ok: true, skipped: true };
+
+    return new Promise(function (resolve) {
+      pendingFinalizeResolver = resolve;
+      // Safety timeout — if widget never replies (script load failed,
+      // for example) don't hang Save forever. Treat as skipped.
+      const t = setTimeout(function () {
+        if (pendingFinalizeResolver === resolve) {
+          pendingFinalizeResolver = null;
+          resolve({ ok: true, skipped: true, timedOut: true });
+        }
+      }, 3000);
+      // Wrap resolver so timer is cleared on real reply
+      const realResolver = resolve;
+      pendingFinalizeResolver = function (payload) {
+        clearTimeout(t);
+        realResolver(payload);
+      };
+      try {
+        iframe.contentWindow.postMessage({ __nbd_sig: 'finalize' }, '*');
+      } catch (err) {
+        clearTimeout(t);
+        pendingFinalizeResolver = null;
+        resolve({ ok: true, skipped: true, error: err });
+      }
+    }).then(function (reply) {
+      if (reply && reply.ok && typeof reply.html === 'string') {
+        currentContext.html = reply.html;
+        currentContext.signedSigners = Array.isArray(reply.signers) ? reply.signers : [];
+        if (typeof currentContext.onPersistFinalized === 'function') {
+          try {
+            const r = currentContext.onPersistFinalized(reply.html, reply.signers || []);
+            if (r && typeof r.then === 'function') {
+              r.catch(function (e) { console.warn('[NBDDocViewer] onPersistFinalized rejected:', e); });
+            }
+          } catch (e) {
+            console.warn('[NBDDocViewer] onPersistFinalized threw:', e);
+          }
+        }
+      }
+      return reply;
+    });
+  }
+
   // ─── Action handlers ─────────────────────────────────────
 
   async function handleSave() {
     if (!currentContext) return;
     flashStatus('Saving...');
+    // Finalize signatures first if any are present and required ones
+    // are still unsigned. The widget reply tells us what's missing.
+    const fin = await finalizeSignaturesIfPresent();
+    if (fin && fin.ok === false) {
+      const missing = (fin.missing || []).join(', ');
+      flashStatus('Sign required: ' + missing);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Required signatures missing: ' + missing, 'error');
+      }
+      return;
+    }
     try {
       if (typeof currentContext.onSave === 'function') {
         // Custom save callback (e.g. V2 Builder wires this to Firestore)
@@ -362,9 +450,20 @@
     window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
   }
 
-  function handlePrint() {
+  async function handlePrint() {
     const iframe = document.getElementById('nbdv-iframe');
     if (!iframe) return;
+    // Finalize signatures first — unsigned canvases would otherwise
+    // print as empty boxes, and the print dialog can't roll back.
+    const fin = await finalizeSignaturesIfPresent();
+    if (fin && fin.ok === false) {
+      const missing = (fin.missing || []).join(', ');
+      flashStatus('Sign required: ' + missing);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Required signatures missing: ' + missing, 'error');
+      }
+      return;
+    }
     // H-2: sandbox no longer grants same-origin, so we can't reach
     // iframe.contentWindow.print() directly. Instead post a message
     // to the listener we injected into the iframe HTML, which calls
@@ -400,6 +499,17 @@
       flashStatus('PDF engine loading...');
       if (typeof window.showToast === 'function') {
         window.showToast('PDF engine not loaded yet. Try again in a second.', 'error');
+      }
+      return;
+    }
+    // Finalize signatures first so the PDF embeds the signed PNGs.
+    // handlePdf reads from currentContext.html, which finalize updates.
+    const fin = await finalizeSignaturesIfPresent();
+    if (fin && fin.ok === false) {
+      const missing = (fin.missing || []).join(', ');
+      flashStatus('Sign required: ' + missing);
+      if (typeof window.showToast === 'function') {
+        window.showToast('Required signatures missing: ' + missing, 'error');
       }
       return;
     }
@@ -527,9 +637,12 @@
       filename: opts.filename || 'NBD-Document.pdf',
       leadId: opts.leadId || null,
       onSave: opts.onSave || null,
-      meta: opts.meta || {}
+      onPersistFinalized: opts.onPersistFinalized || null,
+      meta: opts.meta || {},
+      signedSigners: null
     };
     dirty = true;
+    ensureMessageListener();
 
     // Escape title + filename before display
     const titleEl = document.getElementById('nbdv-title');
