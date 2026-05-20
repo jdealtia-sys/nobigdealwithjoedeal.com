@@ -68,7 +68,11 @@ window.NBDDocGen = {
   DOCUMENT_TYPES: {
     // 4 dedicated templates with custom render functions
     proposal:              { name: 'Proposal / Estimate',             template: 'renderProposal' },
-    contract:              { name: 'Roofing Contract',                template: 'renderContract' },
+    contract:              { name: 'Roofing Contract',                template: 'renderContract',
+                             defaultSigners: [
+                               { role: 'homeowner', label: 'Homeowner',                       required: true },
+                               { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
+                             ] },
     inspectionHomeowner:   { name: 'Inspection Report (Homeowner)',   template: 'renderInspectionHomeowner' },
     inspectionInsurance:   { name: 'Inspection Report (Insurance)',   template: 'renderInspectionInsurance' },
     // 20 document types with dedicated render functions in
@@ -130,7 +134,13 @@ window.NBDDocGen = {
       change_order: 'changeOrder',
       receipt:      'receipt',
     };
-    if (SERVER_TYPE_MAP[type]) {
+    // Server-render bypass when signers are configured. The Puppeteer
+    // templates don't know about signers yet, so server-rendered docs
+    // would skip the interactive canvas blocks entirely. Force client
+    // render so renderSignatureBlock can emit them and
+    // _injectSignatureAssets can wire the widget.
+    const hasSigners = Array.isArray(data.signers) && data.signers.length > 0;
+    if (SERVER_TYPE_MAP[type] && !hasSigners) {
       try {
         const ok = await this._tryServerRender(SERVER_TYPE_MAP[type], type, data);
         if (ok) return;
@@ -140,6 +150,9 @@ window.NBDDocGen = {
     }
 
     let html = this.getHTML(type, data);
+    if (html && hasSigners) {
+      html = this._injectSignatureAssets(html);
+    }
     if (!html) {
       if(typeof showToast==='function') showToast('Document type not found','error'); else console.error('Document type not found:', type);
       return;
@@ -172,10 +185,14 @@ window.NBDDocGen = {
       // document later — previously only PDF + memory existed.
       const _leadIdEarly = data.leadId || (data.customer && data.customer.id) || window._customerId || null;
       const _filename = 'NBD-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+      // Hoisted so onPersistFinalized (called after the user signs in
+      // the viewer) can re-upload to the same Storage path and update
+      // the same Firestore doc with a signedAt stamp.
+      let _htmlPath = null;
+      let _docMetaRef = null;
       let _persistPromise = null;
       if (_leadIdEarly && window.db && window.addDoc && window.collection) {
         _persistPromise = (async () => {
-          let htmlPath = null;
           let htmlUrl = null;
           // Upload the rendered HTML to Storage so we can re-open it
           // from the documents tab later. Best-effort — if Storage
@@ -183,8 +200,8 @@ window.NBDDocGen = {
           try {
             if (window.storage && window.ref && window.uploadBytes && window.getDownloadURL && window._user?.uid) {
               const docId = 'd-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
-              htmlPath = `documents/${window._user.uid}/${_leadIdEarly}/${docId}.html`;
-              const sRef = window.ref(window.storage, htmlPath);
+              _htmlPath = `documents/${window._user.uid}/${_leadIdEarly}/${docId}.html`;
+              const sRef = window.ref(window.storage, _htmlPath);
               const blob = new Blob([html], { type: 'text/html' });
               await window.uploadBytes(sRef, blob, { contentType: 'text/html' });
               htmlUrl = await window.getDownloadURL(sRef);
@@ -193,18 +210,21 @@ window.NBDDocGen = {
             console.warn('Document HTML upload failed:', e && e.message);
           }
           try {
-            await window.addDoc(
+            _docMetaRef = await window.addDoc(
               window.collection(window.db, 'leads', _leadIdEarly, 'documents'),
               {
                 type: type,
                 typeName: typeName,
                 customerName: customerName || null,
                 filename: _filename,
-                htmlPath: htmlPath,
+                htmlPath: _htmlPath,
                 htmlUrl: htmlUrl,
                 createdAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
                 createdBy: window.auth?.currentUser?.email || window._user?.email || 'unknown',
                 userId: window.auth?.currentUser?.uid || window._user?.uid || null,
+                signers: Array.isArray(data.signers)
+                  ? data.signers.map(s => ({ role: s.role, label: s.label, required: !!s.required }))
+                  : null,
                 snapshot: {
                   total: (data.estimate && data.estimate.grandTotal) || data.total || null,
                   address: (data.customer && data.customer.address) || null
@@ -227,6 +247,32 @@ window.NBDDocGen = {
           if (_persistPromise) { try { await _persistPromise; } catch (_) {} }
           if (typeof showToast === 'function') {
             showToast('\u2713 Document generated \u2014 use Print or Download PDF to save a copy', 'success');
+          }
+        },
+        // Called by NBDDocViewer after the user finalizes signatures
+        // inside the iframe. Re-uploads the signed HTML to the same
+        // Storage path so reopening the doc shows the embedded sigs,
+        // and stamps signedAt + signedSigners on the Firestore doc.
+        onPersistFinalized: async (signedHtml, signedSigners) => {
+          if (_persistPromise) { try { await _persistPromise; } catch (_) {} }
+          try {
+            if (_htmlPath && window.storage && window.ref && window.uploadBytes) {
+              const sRef = window.ref(window.storage, _htmlPath);
+              const blob = new Blob([signedHtml], { type: 'text/html' });
+              await window.uploadBytes(sRef, blob, { contentType: 'text/html' });
+            }
+          } catch (e) {
+            console.warn('Signed HTML upload failed:', e && e.message);
+          }
+          try {
+            if (_docMetaRef && window.updateDoc) {
+              await window.updateDoc(_docMetaRef, {
+                signedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
+                signedSigners: Array.isArray(signedSigners) ? signedSigners : null,
+              });
+            }
+          } catch (e) {
+            console.warn('Signed metadata update failed:', e && e.message);
           }
         }
       });
@@ -1096,6 +1142,49 @@ window.NBDDocGen = {
   },
 
   /**
+   * Inject the signature widget script + supporting CSS into a
+   * rendered document HTML. Called by generate() only when
+   * data.signers is populated, so templates that never opt in pay
+   * zero overhead. The widget script lives at /pro/js/signature-widget.js
+   * and is loaded via absolute URL so it works inside the srcdoc
+   * iframe (null origin) used by NBDDocViewer.
+   * @private
+   */
+  _injectSignatureAssets(html) {
+    if (typeof html !== 'string' || !html.length) return html;
+    const scriptSrc = this._assetOrigin() + '/pro/js/signature-widget.js';
+    const css =
+      '<style id="nbd-sig-styles">' +
+      '.nbd-sig-block{margin:0.2in 0 0.4in;padding:0;page-break-inside:avoid;}' +
+      '.nbd-sig-label{font-size:11px;font-weight:700;color:#1a1a2e;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em;}' +
+      '.nbd-sig-canvas{display:block;width:100%;height:120px;border:1px dashed #999;border-radius:6px;background:#fafafa;cursor:crosshair;box-sizing:border-box;touch-action:none;}' +
+      '.nbd-sig-img{display:block;max-width:100%;height:auto;background:#fff;border-bottom:1px solid #1a1a2e;padding-bottom:4px;}' +
+      '.nbd-sig-controls{margin-top:6px;display:flex;gap:8px;align-items:center;}' +
+      '.nbd-sig-controls button{font-size:11px;padding:4px 10px;background:#fff;border:1px solid #ccc;border-radius:4px;cursor:pointer;font-family:inherit;}' +
+      '.nbd-sig-controls button:hover{background:#f5f5f5;}' +
+      '.nbd-sig-state{font-size:10px;color:#2d7a2d;font-weight:600;margin-left:auto;}' +
+      '.nbd-sig-date{margin-top:4px;font-size:10px;color:#666;font-style:italic;}' +
+      '.nbd-sig-print-name{margin-top:8px;font-size:10px;color:#666;}' +
+      '@media print{.nbd-sig-controls,.nbd-sig-state{display:none!important;}.nbd-sig-canvas{border:1px solid #333;background:#fff;}}' +
+      '</style>';
+    const scriptTag = '<script src="' + scriptSrc + '" defer></' + 'script>';
+    let out = html;
+    if (/<\/head>/i.test(out)) {
+      out = out.replace(/<\/head>/i, css + '</head>');
+    } else if (/<body[^>]*>/i.test(out)) {
+      out = out.replace(/<body[^>]*>/i, function (m) { return m + css; });
+    } else {
+      out = css + out;
+    }
+    if (/<\/body>/i.test(out)) {
+      out = out.replace(/<\/body>/i, scriptTag + '</body>');
+    } else {
+      out += scriptTag;
+    }
+    return out;
+  },
+
+  /**
    * Resolve the active letterhead identity by merging
    * NBD_COMPANY_PROFILE_DEFAULTS / window._companyProfile overrides
    * on top of the hardcoded NBDDocGen.COMPANY constant. Render
@@ -1207,25 +1296,57 @@ window.NBDDocGen = {
    * @returns {string} HTML
    */
   renderSignatureBlock(signers = ['Homeowner', 'Contractor']) {
+    // Signers may be strings (legacy: static sig-line + printed label)
+    // or config objects (new: interactive canvas widget). Object shape:
+    //   { role: 'homeowner', label: 'Homeowner', required: true }
+    // When ANY entry is an object we render interactive blocks for the
+    // whole set — signature-widget.js (loaded by _injectSignatureAssets)
+    // wires up draw/clear/undo and the Finalize postMessage handler.
+    const isInteractive = signers.some(s => s && typeof s === 'object');
     let html = '<div class="signature-block">';
 
-    signers.forEach(signer => {
-      html += `
-        <div class="signature-line">
-          <div class="sig-field">
-            <div class="sig-underline"></div>
-            <div class="sig-label">Signature</div>
+    if (isInteractive) {
+      const escAttr = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => (
+        { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+      ));
+      const escRole = v => String(v == null ? '' : v).replace(/[^A-Za-z0-9_\-]/g, '');
+      signers.forEach(signer => {
+        const isObj = signer && typeof signer === 'object';
+        const role = escRole(isObj ? signer.role : String(signer).toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+        const label = escAttr(isObj ? (signer.label || signer.role) : signer);
+        const required = isObj ? signer.required !== false : true;
+        html += `
+          <div class="nbd-sig-block" data-nbd-sig="${role}" data-label="${label}" data-required="${required ? 'true' : 'false'}">
+            <div class="nbd-sig-label">${label}${required ? '' : ' <span style="font-weight:400;color:#888;text-transform:none;letter-spacing:0;">(optional)</span>'}</div>
+            <canvas class="nbd-sig-canvas"></canvas>
+            <div class="nbd-sig-controls">
+              <button type="button" data-nbd-sig-action="clear">Clear</button>
+              <button type="button" data-nbd-sig-action="undo">Undo last stroke</button>
+              <span class="nbd-sig-state"></span>
+            </div>
+            <div class="nbd-sig-print-name">Print Name &amp; Date</div>
           </div>
-          <div class="sig-field">
-            <div class="sig-underline"></div>
-            <div class="sig-label">Date</div>
+        `;
+      });
+    } else {
+      signers.forEach(signer => {
+        html += `
+          <div class="signature-line">
+            <div class="sig-field">
+              <div class="sig-underline"></div>
+              <div class="sig-label">Signature</div>
+            </div>
+            <div class="sig-field">
+              <div class="sig-underline"></div>
+              <div class="sig-label">Date</div>
+            </div>
           </div>
-        </div>
-        <div style="font-size: 10px; margin-bottom: 0.15in; color: #666;">
-          <strong>${signer}</strong>
-        </div>
-      `;
-    });
+          <div style="font-size: 10px; margin-bottom: 0.15in; color: #666;">
+            <strong>${signer}</strong>
+          </div>
+        `;
+      });
+    }
 
     html += '</div>';
     return html;
@@ -1587,7 +1708,11 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Contract Execution</div>
               <div style="margin-top: 0.15in;">
-                ${this.renderSignatureBlock(['Homeowner', 'Contractor - NBD Home Solutions'])}
+                ${this.renderSignatureBlock(
+                  (Array.isArray(data.signers) && data.signers.length)
+                    ? data.signers
+                    : ['Homeowner', 'Contractor - NBD Home Solutions']
+                )}
               </div>
             </div>
           </div>

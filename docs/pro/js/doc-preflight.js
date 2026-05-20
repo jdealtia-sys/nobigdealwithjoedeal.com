@@ -52,6 +52,19 @@
    */
   var PERSIST = { LEAD: 'lead', DOCUMENT: 'document', EPHEMERAL: 'ephemeral' };
 
+  /**
+   * Role options shown in the "Add signer" dropdown. The first three
+   * use canonical roles so saved-signature lookup (PR 3) can share
+   * data across docs (e.g. homeowner signs contract, sig auto-fills
+   * on the next change order). 'other' triggers a label prompt.
+   */
+  var SIGNER_ROLE_OPTIONS = [
+    { role: 'homeowner', label: 'Homeowner' },
+    { role: 'rep',       label: 'Rep' },
+    { role: 'witness',   label: 'Witness' },
+    { role: 'other',     label: 'Other' },
+  ];
+
   /** Tiny utility: escape HTML so user text can't break the modal. */
   function esc(v) {
     if (v === null || v === undefined) return '';
@@ -995,10 +1008,11 @@
     type: null,
     customerId: null,
     schema: null,
-    values: {},       // { fieldKey: currentValue }
-    fieldIndex: {},   // { fieldKey: fieldDefinition }
+    values: {},        // { fieldKey: currentValue }
+    fieldIndex: {},    // { fieldKey: fieldDefinition }
     showAll: false,
-    lineItemsMode: {} // { fieldKey: 'locked' | 'override' }
+    lineItemsMode: {}, // { fieldKey: 'locked' | 'override' }
+    signers: []        // [{ role, label, required, enabled, removable }]
   };
 
   // ═══════════════════════════════════════════════════════════════
@@ -1105,6 +1119,25 @@
       '.dpf-btn-submit{background:var(--orange,#e8720c);border:none;color:#fff;padding:12px 22px;border-radius:8px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;cursor:pointer;transition:all .15s;flex:1;font-family:inherit;box-shadow:0 4px 12px color-mix(in srgb, var(--orange) 25%, transparent);}',
       '.dpf-btn-submit:hover{background:var(--ob,#f08030);transform:translateY(-1px);box-shadow:0 6px 16px color-mix(in srgb, var(--orange) 35%, transparent);}',
       '.dpf-btn-submit:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none;}',
+      // Signers section
+      '.dpf-signers{margin-bottom:16px;border:1px solid var(--br,rgba(255,255,255,.09));border-radius:10px;background:var(--s2,#181C22);overflow:hidden;}',
+      '.dpf-signers-head{padding:12px 16px;border-bottom:1px solid var(--br,rgba(255,255,255,.09));background:var(--s3,#1E2229);}',
+      '.dpf-signers-title{font-family:"Barlow Condensed",sans-serif;font-size:14px;font-weight:700;color:var(--t,#E8EAF0);text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid var(--orange,#e8720c);padding-bottom:3px;display:inline-block;margin:0;}',
+      '.dpf-signers-help{font-size:11px;color:var(--m,#6B7280);margin-top:6px;line-height:1.4;}',
+      '.dpf-signers-body{padding:6px 16px 12px;}',
+      '.dpf-signer-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--br,rgba(255,255,255,.06));}',
+      '.dpf-signer-row:last-child{border-bottom:none;}',
+      '.dpf-signer-row input[type="checkbox"]{width:18px;height:18px;accent-color:var(--orange,#e8720c);cursor:pointer;flex-shrink:0;}',
+      '.dpf-signer-label-input{flex:1;background:transparent;border:1px solid transparent;color:var(--t,#E8EAF0);padding:6px 8px;font-size:13px;border-radius:6px;font-family:inherit;min-width:0;}',
+      '.dpf-signer-label-input:focus{outline:none;border-color:var(--orange,#e8720c);background:var(--s,#111418);}',
+      '.dpf-signer-required-tag{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:2px 6px;border-radius:3px;background:rgba(224,82,82,.12);color:var(--red,#E05252);border:1px solid rgba(224,82,82,.3);flex-shrink:0;}',
+      '.dpf-signer-remove{background:transparent;border:none;color:var(--m,#6B7280);font-size:18px;cursor:pointer;padding:4px 8px;line-height:1;flex-shrink:0;}',
+      '.dpf-signer-remove:hover{color:var(--red,#E05252);}',
+      '.dpf-signer-add{display:flex;gap:8px;align-items:center;margin-top:10px;padding-top:10px;border-top:1px dashed var(--br,rgba(255,255,255,.09));}',
+      '.dpf-signer-add label{font-size:11px;color:var(--m,#6B7280);text-transform:uppercase;letter-spacing:.05em;font-weight:600;}',
+      '.dpf-signer-add select{background:var(--s,#111418);border:1px solid var(--br,rgba(255,255,255,.09));color:var(--t,#E8EAF0);padding:6px 10px;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer;}',
+      '.dpf-signer-add select:focus{outline:none;border-color:var(--orange,#e8720c);}',
+      '.dpf-signers-empty{font-size:12px;color:var(--m,#6B7280);font-style:italic;padding:8px 0;}',
       '@media (max-width:640px){',
       '  .dpf-overlay{padding:0;}',
       '  .dpf-card{max-width:100vw;max-height:100vh;border-radius:0;}',
@@ -1332,6 +1365,56 @@
   // SECTION 7: MODAL ASSEMBLY
   // ═══════════════════════════════════════════════════════════════
 
+  /**
+   * Render the Signers section: one checkbox row per signer in
+   * state.signers (template defaults + any ad-hoc additions) plus an
+   * "Add signer" dropdown. The selected signers flow into
+   * mergedData.signers at submit() and become canvas blocks in the
+   * generated doc. Returns '' if no signers (UI hidden entirely).
+   */
+  function renderSignersSection() {
+    if (!Array.isArray(state.signers)) return '';
+    var rowsHTML;
+    if (state.signers.length === 0) {
+      rowsHTML = '<div class="dpf-signers-empty">No signers configured. Use the picker below to add one if this document needs a signature.</div>';
+    } else {
+      rowsHTML = state.signers.map(function (s, idx) {
+        var safeLabel = esc(s.label);
+        var requiredTag = s.required ? '<span class="dpf-signer-required-tag">Required</span>' : '';
+        var removeBtn = s.removable
+          ? '<button type="button" class="dpf-signer-remove" data-dpf-signer-remove="' + idx + '" title="Remove signer">&times;</button>'
+          : '<span style="display:inline-block;width:28px;flex-shrink:0;"></span>';
+        return '<div class="dpf-signer-row" data-signer-idx="' + idx + '">' +
+          '<input type="checkbox" data-dpf-signer-toggle="' + idx + '"' + (s.enabled ? ' checked' : '') + ' />' +
+          '<input type="text" class="dpf-signer-label-input" data-dpf-signer-label="' + idx + '" value="' + safeLabel + '" />' +
+          requiredTag +
+          removeBtn +
+        '</div>';
+      }).join('');
+    }
+
+    var addOptionsHTML = SIGNER_ROLE_OPTIONS.map(function (o) {
+      return '<option value="' + esc(o.role) + '">' + esc(o.label) + '</option>';
+    }).join('');
+
+    return '<div class="dpf-signers">' +
+      '<div class="dpf-signers-head">' +
+        '<h3 class="dpf-signers-title">Signers</h3>' +
+        '<div class="dpf-signers-help">Each enabled signer becomes a sign-here box in the generated document. Uncheck to skip, edit labels inline, or add another with the picker below.</div>' +
+      '</div>' +
+      '<div class="dpf-signers-body">' +
+        rowsHTML +
+        '<div class="dpf-signer-add">' +
+          '<label for="dpf-add-signer">Add signer:</label>' +
+          '<select id="dpf-add-signer" data-dpf-signer-add>' +
+            '<option value="">&mdash; pick role &mdash;</option>' +
+            addOptionsHTML +
+          '</select>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+  }
+
   function renderModal() {
     var schema = state.schema;
     var sectionsHTML = schema.sections.map(function (sec) {
@@ -1369,6 +1452,7 @@
           '<div class="dpf-body">' +
             bannerHTML +
             sectionsHTML +
+            renderSignersSection() +
           '</div>' +
           '<div class="dpf-footer">' +
             '<button type="button" class="dpf-btn-cancel" data-dpf-close>Cancel</button>' +
@@ -1437,6 +1521,17 @@
       if (secHead) {
         var sec = secHead.closest('.dpf-section');
         if (sec) sec.classList.toggle('collapsed');
+        return;
+      }
+
+      // Signer remove
+      var sigRemove = t.closest ? t.closest('[data-dpf-signer-remove]') : null;
+      if (sigRemove) {
+        var rmIdx = parseInt(sigRemove.getAttribute('data-dpf-signer-remove'), 10);
+        if (!isNaN(rmIdx) && state.signers[rmIdx] && state.signers[rmIdx].removable) {
+          state.signers.splice(rmIdx, 1);
+          renderModal();
+        }
         return;
       }
 
@@ -1547,6 +1642,42 @@
     var inputHandler = function (e) {
       var el = e.target;
       if (!el) return;
+
+      // Signer checkbox toggle
+      if (el.hasAttribute && el.hasAttribute('data-dpf-signer-toggle')) {
+        var sIdx = parseInt(el.getAttribute('data-dpf-signer-toggle'), 10);
+        if (!isNaN(sIdx) && state.signers[sIdx]) state.signers[sIdx].enabled = !!el.checked;
+        return;
+      }
+
+      // Signer label text change
+      if (el.hasAttribute && el.hasAttribute('data-dpf-signer-label')) {
+        var lIdx = parseInt(el.getAttribute('data-dpf-signer-label'), 10);
+        if (!isNaN(lIdx) && state.signers[lIdx]) state.signers[lIdx].label = el.value;
+        return;
+      }
+
+      // Add signer dropdown
+      if (el.hasAttribute && el.hasAttribute('data-dpf-signer-add')) {
+        var role = el.value;
+        if (!role) return;
+        el.value = ''; // reset so the same role can be added again
+        var defaultLabel = (SIGNER_ROLE_OPTIONS.find(function (o) { return o.role === role; }) || {}).label || role;
+        if (role === 'other') {
+          var custom = window.prompt('Label for this signer (e.g. "Project Manager"):', '');
+          if (custom === null) return; // cancelled
+          defaultLabel = custom.trim() || 'Signer';
+        }
+        state.signers.push({
+          role: role,
+          label: defaultLabel,
+          required: false,
+          enabled: true,
+          removable: true,
+        });
+        renderModal();
+        return;
+      }
 
       // Simple field
       if (el.hasAttribute && el.hasAttribute('data-field')) {
@@ -1782,6 +1913,21 @@
     state.lineItemsMode = lineItemsMode;
     state.showAll = false;
 
+    // Seed signers from the template's defaultSigners (declared on the
+    // NBDDocGen.DOCUMENT_TYPES entry). Each becomes a toggleable row;
+    // the rep can uncheck, rename inline, or add ad-hoc signers.
+    var docTypeEntry = (window.NBDDocGen && window.NBDDocGen.DOCUMENT_TYPES && window.NBDDocGen.DOCUMENT_TYPES[type]) || {};
+    var defaults = Array.isArray(docTypeEntry.defaultSigners) ? docTypeEntry.defaultSigners : [];
+    state.signers = defaults.map(function (s) {
+      return {
+        role: s.role || 'signer',
+        label: s.label || s.role || 'Signer',
+        required: s.required !== false,
+        enabled: true,
+        removable: false,
+      };
+    });
+
     renderModal();
   }
 
@@ -1831,6 +1977,23 @@
 
     // Derive extra fields the templates expect
     hydrateDerivedFields(mergedData);
+
+    // Attach signers chosen in the modal. The document generator
+    // checks for data.signers and emits interactive canvas blocks
+    // when present (bypassing the server-render path so the canvases
+    // make it into the rendered HTML).
+    if (Array.isArray(state.signers) && state.signers.length) {
+      var activeSigners = state.signers
+        .filter(function (s) { return s.enabled !== false; })
+        .map(function (s) {
+          return {
+            role: s.role,
+            label: (s.label || '').trim() || s.role,
+            required: !!s.required,
+          };
+        });
+      if (activeSigners.length) mergedData.signers = activeSigners;
+    }
 
     // Persist
     var submitBtn = document.querySelector('[data-dpf-submit]');
