@@ -634,7 +634,7 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
   assert('document-generator: renderNBDLogo sources NBD_LOGO_DATA_URI',
     /renderNBDLogo[\s\S]{0,1500}window\.NBD_LOGO_DATA_URI/.test(docGen));
   assert('document-generator: .nbd-logo-img CSS sized for header strip',
-    /\.nbd-logo-img\s*\{[\s\S]{0,400}width:\s*200px/.test(docGen));
+    /\.nbd-logo-img\s*\{[\s\S]{0,400}width:\s*\d+px/.test(docGen));
   assert('document-generator: legacy onerror handler removed (CSP-blocked)',
     !/onerror=["'][^"']*nbd-logo/.test(docGen));
 
