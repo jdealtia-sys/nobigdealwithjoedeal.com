@@ -1055,13 +1055,13 @@ canvas{max-width:100%;display:block;}
     </div>
 
     <!-- CTA -->
-    <button onclick="closeWelcome()" style="
+    <button data-action="close-welcome" data-hover-opacity=".88" style="
       width:100%;background:var(--ac,#e8720c);color:#fff;
       border:none;border-radius:10px;padding:16px;
       font-family:inherit;font-size:.95rem;font-weight:800;
       letter-spacing:.06em;text-transform:uppercase;cursor:pointer;
       transition:opacity .2s;
-    " onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+    ">
       Let's Get After It →
     </button>
     <div style="text-align:center;margin-top:10px;font-size:.72rem;color:rgba(255,255,255,.3);">This intro only appears once. Access it again via Settings → Welcome Guide.</div>
@@ -1081,16 +1081,16 @@ canvas{max-width:100%;display:block;}
     <span id="autosave-badge" style="font-family:'Barlow Condensed',sans-serif;font-size:9px;color:var(--grn);letter-spacing:.08em;opacity:0;transition:opacity .4s;margin-left:4px;"></span>
   </div>
   <div class="tbr">
-    <button class="btn-ico" onclick="toggleSearch()" title="Search (Ctrl+F)">🔍</button>
-          <button class="btn-ico" id="themeBtn" onclick="nbdPickerOpen()" title="Appearance — Themes, Fonts, Custom">🎨</button>
-    <button class="btn-ico" onclick="openOnboard()" title="Customize Your Daily OS">⚙️</button>
-    <button class="btn-ico" onclick="openWelcomeGuide()" title="Welcome Guide &amp; Install">📖</button>
-    <button class="btn btn-ghost" onclick="smartNewPage()">+ NEW</button>
-    <button class="btn btn-ghost" onclick="openRename()">RENAME</button>
-    <button class="btn btn-ghost" onclick="triggerDel()">DELETE</button>
-    <button class="btn btn-ghost" onclick="exportCSV()">CSV</button>
-    <button class="btn btn-gold" onclick="doPrint()">PDF</button>
-    <button class="btn btn-red" onclick="saveNow()">SAVE</button>
+    <button class="btn-ico" data-action="toggle-search" title="Search (Ctrl+F)">🔍</button>
+          <button class="btn-ico" id="themeBtn" data-action="nbd-picker-open" title="Appearance — Themes, Fonts, Custom">🎨</button>
+    <button class="btn-ico" data-action="open-onboard" title="Customize Your Daily OS">⚙️</button>
+    <button class="btn-ico" data-action="open-welcome-guide" title="Welcome Guide &amp; Install">📖</button>
+    <button class="btn btn-ghost" data-action="smart-new-page">+ NEW</button>
+    <button class="btn btn-ghost" data-action="open-rename">RENAME</button>
+    <button class="btn btn-ghost" data-action="trigger-del">DELETE</button>
+    <button class="btn btn-ghost" data-action="export-csv">CSV</button>
+    <button class="btn btn-gold" data-action="do-print">PDF</button>
+    <button class="btn btn-red" data-action="save-now">SAVE</button>
   </div>
 </div>
 
@@ -1099,15 +1099,15 @@ canvas{max-width:100%;display:block;}
 <div class="onboard-banner" id="onboard-banner">
   <div class="ob-msg">This tool becomes <span>10× more powerful</span> when it reflects YOUR goals.</div>
   <div class="ob-btns">
-    <button class="btn btn-red" onclick="openOnboard()">Customize Now</button>
-    <button class="btn btn-ghost" onclick="quickStartDefaults()">Quick Start with Defaults</button>
-    <button class="ob-dismiss" onclick="hideBanner()" title="Dismiss">×</button>
+    <button class="btn btn-red" data-action="open-onboard">Customize Now</button>
+    <button class="btn btn-ghost" data-action="quick-start-defaults">Quick Start with Defaults</button>
+    <button class="ob-dismiss" data-action="hide-banner" title="Dismiss">×</button>
   </div>
 </div>
 
 <div class="sbar" id="sbar">
-  <input class="sinp" id="sinp" placeholder="Search across all pages…" oninput="doSearch(this.value)">
-  <button class="btn btn-ghost" onclick="toggleSearch()">CLOSE</button>
+  <input class="sinp" id="sinp" placeholder="Search across all pages…" data-input-action="do-search">
+  <button class="btn btn-ghost" data-action="toggle-search">CLOSE</button>
 </div>
 <div class="sdrop" id="sdrop"></div>
 <div class="tabrow" id="tabrow"></div>
@@ -1115,9 +1115,9 @@ canvas{max-width:100%;display:block;}
 
 <!-- MODALS -->
 
-<div class="mbg" id="mDel"><div class="mbox"><h3>Delete Page?</h3><p id="mDelMsg"></p><div class="mbtns"><button class="btn btn-ghost" onclick="closeM('mDel')">Cancel</button><button class="btn" style="background:#c04040;color:#fff;border-radius:3px;" onclick="doDelete()">Delete</button></div></div></div>
-<div class="mbg" id="mRen"><div class="mbox"><h3>Rename Tab</h3><p>Custom name up to 22 chars.</p><input class="minp" id="renInp" maxlength="22" placeholder="e.g. Blitz Day, Week 1…"><div class="mbtns"><button class="btn btn-ghost" onclick="closeM('mRen')">Cancel</button><button class="btn btn-red" onclick="applyRen()">Save</button></div></div></div>
-<div class="mbg" id="mPRH"><div class="mbox"><h3 id="prh-title">Lift History</h3><p id="prh-sub"></p><div id="prh-list"></div><div class="mbtns"><button class="btn btn-ghost" onclick="closeM('mPRH')">Close</button></div></div></div>
+<div class="mbg" id="mDel"><div class="mbox"><h3>Delete Page?</h3><p id="mDelMsg"></p><div class="mbtns"><button class="btn btn-ghost" data-action="close-m" data-arg="mDel">Cancel</button><button class="btn" style="background:#c04040;color:#fff;border-radius:3px;" data-action="do-delete">Delete</button></div></div></div>
+<div class="mbg" id="mRen"><div class="mbox"><h3>Rename Tab</h3><p>Custom name up to 22 chars.</p><input class="minp" id="renInp" maxlength="22" placeholder="e.g. Blitz Day, Week 1…"><div class="mbtns"><button class="btn btn-ghost" data-action="close-m" data-arg="mRen">Cancel</button><button class="btn btn-red" data-action="apply-ren">Save</button></div></div></div>
+<div class="mbg" id="mPRH"><div class="mbox"><h3 id="prh-title">Lift History</h3><p id="prh-sub"></p><div id="prh-list"></div><div class="mbtns"><button class="btn btn-ghost" data-action="close-m" data-arg="mPRH">Close</button></div></div></div>
 
 <!-- ONBOARD MODAL -->
 
@@ -1174,7 +1174,7 @@ canvas{max-width:100%;display:block;}
     <span>Floor</span><span style="text-align:center;">Target</span><span style="text-align:center;">Unit</span><span></span>
   </div>
   <div id="floor-editor"></div>
-  <button class="addbtn" onclick="addFloorRow()" style="margin-top:10px;">+ ADD FLOOR</button>
+  <button class="addbtn" data-action="add-floor-row" style="margin-top:10px;">+ ADD FLOOR</button>
 </div>
 
 <!-- Step 4: Earned Reward -->
@@ -1190,9 +1190,9 @@ canvas{max-width:100%;display:block;}
 </div>
 
 <div class="mbtns">
-  <button class="btn btn-ghost" id="ob-prev" onclick="onboardPrev()" style="display:none;">← Back</button>
-  <button class="btn btn-ghost" onclick="closeM('mOnboard')">Cancel</button>
-  <button class="btn btn-red" id="ob-next" onclick="onboardNext()">Next →</button>
+  <button class="btn btn-ghost" id="ob-prev" data-action="onboard-prev" style="display:none;">← Back</button>
+  <button class="btn btn-ghost" data-action="close-m" data-arg="mOnboard">Cancel</button>
+  <button class="btn btn-red" id="ob-next" data-action="onboard-next">Next →</button>
 </div>
 ```
 
@@ -1211,18 +1211,18 @@ canvas{max-width:100%;display:block;}
         <div class="npm-title">🎨 Appearance</div>
         <div class="npm-subtitle" id="npm-active-sub">NBD Default · NBD Default font</div>
       </div>
-      <button class="npm-close" onclick="nbdPickerClose()">✕</button>
+      <button class="npm-close" data-action="nbd-picker-close">✕</button>
     </div>
     <div class="npm-tabs">
-      <button class="npm-tab on" onclick="nbdPickerTab('themes',this)">Themes</button>
-      <button class="npm-tab" onclick="nbdPickerTab('fonts',this)">Fonts</button>
-      <button class="npm-tab" onclick="nbdPickerTab('custom',this)">Custom Builder</button>
+      <button class="npm-tab on" data-action="nbd-picker-tab" data-arg="themes">Themes</button>
+      <button class="npm-tab" data-action="nbd-picker-tab" data-arg="fonts">Fonts</button>
+      <button class="npm-tab" data-action="nbd-picker-tab" data-arg="custom">Custom Builder</button>
     </div>
     <div class="npm-body">
       <div class="npm-panel on" id="npm-panel-themes">
         <div class="npm-controls">
-          <input class="npm-search" id="npm-search" placeholder="Search themes…" oninput="nbdRenderThemes()">
-          <button class="npm-rnd" onclick="nbdRandom()">⚄ Random</button>
+          <input class="npm-search" id="npm-search" placeholder="Search themes…" data-input-action="nbd-render-themes">
+          <button class="npm-rnd" data-action="nbd-random">⚄ Random</button>
         </div>
         <div class="npm-cats" id="npm-cats"></div>
         <div class="npm-grid" id="npm-grid"></div>
@@ -1233,15 +1233,15 @@ canvas{max-width:100%;display:block;}
       <div class="npm-panel" id="npm-panel-custom">
         <div class="npm-custom">
           <div class="npm-custom-row">
-            <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="#0A0C0F" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Surface</label>    <input type="color" class="npm-cp" id="ncp-s"      value="#13171d" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="#e8720c" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="#e8eaf0" oninput="nbdLiveCustom()"></div>
-            <div class="npm-custom-field"><label>Muted</label>      <input type="color" class="npm-cp" id="ncp-m"      value="#8a93a8" oninput="nbdLiveCustom()"></div>
+            <div class="npm-custom-field"><label>Background</label><input type="color" class="npm-cp" id="ncp-bg"     value="#0A0C0F" data-input-action="nbd-live-custom"></div>
+            <div class="npm-custom-field"><label>Surface</label>    <input type="color" class="npm-cp" id="ncp-s"      value="#13171d" data-input-action="nbd-live-custom"></div>
+            <div class="npm-custom-field"><label>Accent</label>     <input type="color" class="npm-cp" id="ncp-accent" value="#e8720c" data-input-action="nbd-live-custom"></div>
+            <div class="npm-custom-field"><label>Text</label>       <input type="color" class="npm-cp" id="ncp-t"      value="#e8eaf0" data-input-action="nbd-live-custom"></div>
+            <div class="npm-custom-field"><label>Muted</label>      <input type="color" class="npm-cp" id="ncp-m"      value="#8a93a8" data-input-action="nbd-live-custom"></div>
           </div>
           <div class="npm-custom-btns">
-            <button class="npm-btn-apply" onclick="nbdApplyCustom()">Apply Preview</button>
-            <button class="npm-btn-save"  onclick="nbdSaveCustom()">Save as Custom Theme</button>
+            <button class="npm-btn-apply" data-action="nbd-apply-custom">Apply Preview</button>
+            <button class="npm-btn-save"  data-action="nbd-save-custom">Save as Custom Theme</button>
           </div>
           <div style="font-size:9px;color:#5a6478;line-height:1.7;margin-top:4px;">
             Custom themes saved to your device.<br>
@@ -1253,8 +1253,8 @@ canvas{max-width:100%;display:block;}
     <div class="npm-foot">
       <div class="npm-active-lbl">Active: <strong id="npm-active-name">NBD Default</strong></div>
       <div style="display:flex;gap:6px;">
-        <button class="npm-copy-btn" onclick="nbdHowtoOpen()">📖 Guide</button>
-        <button class="npm-copy-btn" onclick="nbdCopyFS()">Copy Firestore Write</button>
+        <button class="npm-copy-btn" data-action="nbd-howto-open">📖 Guide</button>
+        <button class="npm-copy-btn" data-action="nbd-copy-fs">Copy Firestore Write</button>
       </div>
     </div>
   </div>
@@ -1264,7 +1264,7 @@ canvas{max-width:100%;display:block;}
   <div class="nhm-inner">
     <div class="nhm-head">
       <div><div class="nhm-title">📖 Theme Guide</div><div class="nhm-sub">NBD PRO — APPEARANCE SYSTEM</div></div>
-      <button class="nhm-close" onclick="nbdHowtoClose()">✕</button>
+      <button class="nhm-close" data-action="nbd-howto-close">✕</button>
     </div>
     <div class="nhm-section">
       <div class="nhm-section-title">Changing Your Theme</div>
