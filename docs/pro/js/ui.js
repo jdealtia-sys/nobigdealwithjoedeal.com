@@ -872,10 +872,16 @@ function switchSettingsTab(tab) {
         teGrid.innerHTML = entries.map(([key, t]) => {
           const isActive = key === current;
           const isLocked = t.locked && !(TE.isUnlocked && TE.isUnlocked(key));
-          const bg = t.colors?.bg || '#1a1a2e';
-          const accent = t.colors?.accent || '#e8720c';
-          const surface = t.colors?.surface || '#16213e';
-          const txt = t.colors?.text || '#e2e8f0';
+          // Swatch palette must track the user's mode pref, not the theme's
+          // native palette — otherwise a Light-mode user sees a dark Matrix
+          // swatch but clicking it applies the light derivation.
+          const resolved = (typeof TE.previewResolvedColors === 'function')
+            ? TE.previewResolvedColors(key)
+            : null;
+          const bg = resolved?.bg || t.colors?.bg || '#1a1a2e';
+          const accent = resolved?.accent || t.colors?.accent || '#e8720c';
+          const surface = resolved?.surface || t.colors?.surface || '#16213e';
+          const txt = resolved?.text || t.colors?.text || '#e2e8f0';
           const muted = t.colors?.muted || '#6b7280';
           return `<div ${isLocked ? "" : `data-ui-action="previewTheme" data-ui-id="${key}"`} style="background:${bg};border:2px solid ${isActive ? accent : 'rgba(255,255,255,.06)'};border-radius:8px;padding:8px;cursor:${isLocked?'not-allowed':'pointer'};transition:all .15s;position:relative;opacity:${isLocked?'0.45':'1'};">
             <div style="display:flex;gap:3px;margin-bottom:4px;">
