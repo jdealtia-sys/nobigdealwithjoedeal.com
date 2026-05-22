@@ -10,9 +10,18 @@ python scripts/generate_qrs.py
 
 All 7 QRs are 1200×1200 PNG, pure black on pure white, error
 correction **H** (~30% — survives dirt, scuffs, and sun fade).
-Modules are rendered at 18 px each (no resize — every module is a
-crisp integer pixel block), then centered in the 1200 canvas with
-white padding that doubles as extra quiet zone.
+Modules are rendered at 16 px each (crisp integer pixel blocks, no
+resize). The QR sits in the upper portion of the canvas with a
+labeled identifier strip beneath it:
+
+- **Line 1 (navy bold):** human-readable piece name (e.g., "DOOR HANGER")
+- **Line 2 (orange):** scan destination summary (e.g., "Scan → /inspect (lead form)")
+- **Line 3 (gray):** campaign code + `utm_source` for printer/analytics traceability
+
+The label is what keeps the files from getting mixed up — every PNG is
+self-identifying when opened in a folder or email. A print designer
+who wants only the QR can crop the bottom strip; the QR's quiet zone
+sits entirely above the divider line.
 
 ## QR catalog
 
