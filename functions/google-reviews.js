@@ -143,7 +143,22 @@ exports.getGoogleReviews = onRequest(
           fetchedAt: cached.fetchedAt || 0,
         });
       }
-      return res.status(503).json({ error: 'reviews_unavailable' });
+      // Cold-cache fallback: return an empty-but-valid payload so the
+      // /review page renders its hardcoded testimonials instead of
+      // throwing on a 503. The error is still logged above so we can
+      // see the missing-secret or quota condition in Cloud Logs.
+      res.set('Cache-Control', 'public, max-age=60');
+      return res.status(200).json({
+        name: 'No Big Deal Home Solutions',
+        rating: 0,
+        total: 0,
+        profileUrl: '',
+        reviews: [],
+        cached: false,
+        stale: false,
+        empty: true,
+        fetchedAt: now,
+      });
     }
   }
 );
