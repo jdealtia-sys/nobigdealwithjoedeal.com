@@ -283,22 +283,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </a>
   </div>
   <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav"><span></span><span></span><span></span></button>
-  <script>
-  (function(){
-    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
-    if(!hb||!mn)return;
-    hb.addEventListener('click',function(){
-      var open=mn.classList.toggle('open');
-      hb.setAttribute('aria-expanded',open?'true':'false');
-      var b=hb.querySelectorAll('span');
-      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
-      else{b.forEach(function(s){s.style.cssText=''});}
-    });
-    mn.addEventListener('click',function(e){
-      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
-    });
-  })();
-  </script>
+  <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -378,7 +363,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
     <div style="position:absolute;left:-9999px;"><input type="text" id="alertHoneypot" tabindex="-1" autocomplete="off"></div>
     <button class="signup-btn" id="alertSignupBtn">🔔 Sign Me Up — Free</button>
-    <script>document.getElementById('alertSignupBtn').addEventListener('click',function(){submitAlert();});</script>
+    <script defer  src="/assets/js/inline/ba974607f0.js"></script>
     <div class="signup-note">We'll only text you when severe weather actually hits your zip code. Usually 2-4 times per season. Reply STOP to unsubscribe anytime.</div>
   </div>
 
@@ -421,58 +406,10 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 
 <!-- Public lead gateway — storm_alert_subscribers is locked at the
      rules layer (C-3). Submissions go through submitPublicLead. -->
-<script>window.__NBD_TURNSTILE_SITEKEY = "";</script>
+<script defer  src="/assets/js/inline/7cd8e505ab.js"></script>
 <script src="/assets/js/public-lead-submit.js"></script>
-<script>
-window._saveStormAlert = async (data) => {
-  const res = await window.submitPublicLead('storm', Object.assign({
-    source: 'storm-alerts-page',
-    active: 'true'
-  }, data || {}));
-  if (!res.ok) console.warn('Storm alert signup failed:', res.reason);
-  return !!res.ok;
-};
-</script>
+<script defer  src="/assets/js/inline/e9b498fbd3.js"></script>
 
-<script>
-async function submitAlert() {
-  const name = document.getElementById('alertName').value.trim();
-  const phone = document.getElementById('alertPhone').value.trim();
-  const zip = document.getElementById('alertZip').value.trim();
-  const concern = document.getElementById('alertConcern').value;
-  const hp = document.getElementById('alertHoneypot').value;
-
-  if (hp) return; // Bot
-  if (!name || !phone || !zip) {
-    alert('Please fill in your name, phone, and zip code.');
-    return;
-  }
-  // Clean and validate phone
-  const cleanPhone = phone.replace(/[^0-9]/g, '');
-  if (cleanPhone.length < 10) {
-    alert('Please enter a valid 10-digit phone number with area code.');
-    return;
-  }
-  if (!/^\d{5}$/.test(zip)) {
-    alert('Please enter a valid 5-digit zip code.');
-    return;
-  }
-
-  const btn = document.querySelector('.signup-btn');
-  btn.disabled = true;
-  btn.textContent = 'Signing you up...';
-
-  const saved = await window._saveStormAlert?.({ name, phone: cleanPhone, zip, concern });
-
-  if (saved) {
-    document.getElementById('formState').style.display = 'none';
-    document.getElementById('successState').style.display = 'block';
-  } else {
-    btn.disabled = false;
-    btn.textContent = '🔔 Sign Me Up — Free';
-    alert("Sorry — we couldn't sign you up just now. Please try again, or text Joe at (859) 420-7382.");
-  }
-}
-</script>
+<script defer  src="/assets/js/inline/c5a2295382.js"></script>
 </body>
 </html>

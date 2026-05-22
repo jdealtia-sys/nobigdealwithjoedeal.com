@@ -429,22 +429,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
-  <script>
-  (function(){
-    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
-    if(!hb||!mn)return;
-    hb.addEventListener('click',function(){
-      var open=mn.classList.toggle('open');
-      hb.setAttribute('aria-expanded',open?'true':'false');
-      var b=hb.querySelectorAll('span');
-      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
-      else{b.forEach(function(s){s.style.cssText=''});}
-    });
-    mn.addEventListener('click',function(e){
-      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
-    });
-  })();
-  </script>
+  <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -559,20 +544,5 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   </div>
   <p style="margin-top:12px;font-size:.7rem;color:rgba(255,255,255,.4)">GAF Application In Progress &#8226; Licensed &amp; Insured &#8226; 5-Star Rated</p>
 </div>
-<script>
-(function(){
-  const slides = document.querySelectorAll('.ann-slide');
-  let current = 0;
-  if(slides.length < 2) return;
-  setInterval(()=>{
-    slides[current].classList.remove('active');
-    slides[current].classList.add('exit');
-    const prev = current;
-    current = (current + 1) % slides.length;
-    slides[current].classList.add('active');
-    slides[current].classList.remove('exit');
-    setTimeout(()=> slides[prev].classList.remove('exit'), 600);
-  }, 4000);
-})();
-</script>
+<script defer  src="/assets/js/inline/b1d1695580.js"></script>
 </body></html>

@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://js.stripe.com https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.workers.dev https://nominatim.openstreetmap.org https://www.google-analytics.com https://api.resend.com https://api.stripe.com; frame-src https://js.stripe.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self';"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <!-- Google Analytics — uncomment and replace GA_MEASUREMENT_ID -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","G-8PG7N9Q3DL");</script>
+<script defer  src="/assets/js/inline/2a90205f1b.js"></script>
 <title>Our Work | Cincinnati Roof, Storm & Siding Projects | NBD</title>
 <meta name="description" content="Real roof replacements, storm damage repairs, siding installs, and gutter work across Greater Cincinnati. Before and after photos from Joe Deal.">
 <link rel="canonical" href="https://nobigdealwithjoedeal.com/our-work">
@@ -361,22 +361,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
-  <script>
-  (function(){
-    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
-    if(!hb||!mn)return;
-    hb.addEventListener('click',function(){
-      var open=mn.classList.toggle('open');
-      hb.setAttribute('aria-expanded',open?'true':'false');
-      var b=hb.querySelectorAll('span');
-      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
-      else{b.forEach(function(s){s.style.cssText=''});}
-    });
-    mn.addEventListener('click',function(e){
-      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
-    });
-  })();
-  </script>
+  <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
@@ -650,33 +635,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <a href="tel:8594207382">(859) 420-7382</a> · <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a> · <a href="/">nobigdealwithjoedeal.com</a></p>
 </footer>
 
-<script>
-document.querySelectorAll('.filter-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const cat = btn.dataset.cat;
-    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.querySelectorAll('.project').forEach(p => {
-      p.classList.toggle('hidden', !(cat === 'all' || p.dataset.cat === cat));
-    });
-  });
-});
-</script>
-<script>
-(function(){
-  const slides = document.querySelectorAll('.ann-slide');
-  let current = 0;
-  if(slides.length < 2) return;
-  setInterval(()=>{
-    slides[current].classList.remove('active');
-    slides[current].classList.add('exit');
-    const prev = current;
-    current = (current + 1) % slides.length;
-    slides[current].classList.add('active');
-    slides[current].classList.remove('exit');
-    setTimeout(()=> slides[prev].classList.remove('exit'), 600);
-  }, 4000);
-})();
-</script>
+<script defer  src="/assets/js/inline/bc549adb9a.js"></script>
+<script defer  src="/assets/js/inline/b1d1695580.js"></script>
 </body>
 </html>

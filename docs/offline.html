@@ -124,29 +124,6 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 
 <div class="status" id="netStatus">Network: checking…</div>
 
-<script>
-  // Try-again button — hard reload so the new SW can claim the page if it
-  // was waiting. Using location.reload(true) is deprecated in modern
-  // browsers; use location.href reassignment which bypasses bfcache.
-  document.getElementById('tryAgain').addEventListener('click', function () {
-    window.location.href = window.location.href;
-  });
-
-  // Show live online/offline state so users know to retry when it flips.
-  function updateStatus() {
-    var el = document.getElementById('netStatus');
-    if (!el) return;
-    el.textContent = 'Network: ' + (navigator.onLine ? 'online — tap Try Again' : 'offline');
-    el.style.color = navigator.onLine ? 'rgba(255,255,255,.7)' : 'rgba(255,255,255,.35)';
-  }
-  window.addEventListener('online', updateStatus);
-  window.addEventListener('offline', updateStatus);
-  updateStatus();
-
-  // Auto-refresh the moment the device comes back online.
-  window.addEventListener('online', function () {
-    setTimeout(function () { window.location.href = window.location.href; }, 500);
-  });
-</script>
+<script defer  src="/assets/js/inline/7bd16e1384.js"></script>
 </body>
 </html>
