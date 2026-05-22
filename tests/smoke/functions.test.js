@@ -248,8 +248,24 @@ section('Wave A2: Turnstile widgets');
   assert('nbdTurnstileExecute exposed on window', /window\.nbdTurnstileExecute/.test(helper));
   const pages = ['docs/index.html','docs/estimate.html','docs/storm-alerts.html','docs/free-guide/index.html'];
   for (const p of pages) {
-    assert(p + ' exposes __NBD_TURNSTILE_SITEKEY slot',
-      /window\.__NBD_TURNSTILE_SITEKEY/.test(read(path.join(ROOT, p))));
+    const html = read(path.join(ROOT, p));
+    // After the 2026-05-22 CSP inline-script sweep, the slot may be inline OR
+    // extracted to docs/assets/js/inline/<hash>.js (referenced via <script src>).
+    // Accept both: scan the HTML, and if absent, follow any inline-extracted
+    // script refs and scan those bodies too.
+    let exposed = /window\.__NBD_TURNSTILE_SITEKEY/.test(html);
+    if (!exposed) {
+      const inlineRefs = [...html.matchAll(/<script[^>]*src="\/assets\/js\/inline\/([a-z0-9.]+\.js)"/gi)].map(m => m[1]);
+      for (const f of inlineRefs) {
+        try {
+          if (/window\.__NBD_TURNSTILE_SITEKEY/.test(read(path.join(ROOT, 'docs/assets/js/inline', f)))) {
+            exposed = true;
+            break;
+          }
+        } catch {}
+      }
+    }
+    assert(p + ' exposes __NBD_TURNSTILE_SITEKEY slot (inline or in extracted /assets/js/inline/)', exposed);
   }
 }
 
