@@ -295,22 +295,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
   <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
-  <script>
-  (function(){
-    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
-    if(!hb||!mn)return;
-    hb.addEventListener('click',function(){
-      var open=mn.classList.toggle('open');
-      hb.setAttribute('aria-expanded',open?'true':'false');
-      var b=hb.querySelectorAll('span');
-      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
-      else{b.forEach(function(s){s.style.cssText=''});}
-    });
-    mn.addEventListener('click',function(e){
-      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
-    });
-  })();
-  </script>
+  <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">The Promise</div>
@@ -583,8 +568,6 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
   <a href="sms:8594207382" class="sb-text">Text</a>
 </div>
 
-<script>
-(function(){const slides=document.querySelectorAll('.ann-slide');let current=0;if(slides.length<2)return;setInterval(()=>{slides[current].classList.remove('active');slides[current].classList.add('exit');const prev=current;current=(current+1)%slides.length;slides[current].classList.add('active');slides[current].classList.remove('exit');setTimeout(()=>slides[prev].classList.remove('exit'),600)},4000)})();
-</script>
+<script defer  src="/assets/js/inline/b833f00105.js"></script>
 </body>
 </html>

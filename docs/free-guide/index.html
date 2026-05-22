@@ -874,22 +874,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             <span></span>
             <span></span>
         </button>
-        <script>
-        (function(){
-          var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
-          if(!hb||!mn)return;
-          hb.addEventListener('click',function(){
-            var open=mn.classList.toggle('open');
-            hb.setAttribute('aria-expanded',open?'true':'false');
-            var b=hb.querySelectorAll('span');
-            if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
-            else{b.forEach(function(s){s.style.cssText=''});}
-          });
-          mn.addEventListener('click',function(e){
-            if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
-          });
-        })();
-        </script>
+        <script defer  src="/assets/js/inline/479bd49556.js"></script>
     </nav>
 
     <!-- Mobile Navigation -->
@@ -1092,97 +1077,10 @@ footer.foot a,.review-footer a{color:#e8720c!important}
          submitPublicLead Cloud Function.
          Turnstile site key goes in the slot below; widget is invisible
          so there's no checkbox UX for the homeowner. -->
-    <script>window.__NBD_TURNSTILE_SITEKEY = "";</script>
+    <script defer  src="/assets/js/inline/7cd8e505ab.js"></script>
     <script src="/assets/js/public-lead-submit.js"></script>
-    <script>
-      window._captureGuideLeads = async (name, email) => {
-        const res = await window.submitPublicLead('guide', {
-          name, email, source: 'free-guide'
-        });
-        if (!res.ok) console.warn('Lead capture failed:', res.reason);
-        return res;
-      };
-    </script>
+    <script defer  src="/assets/js/inline/0a1da782e5.js"></script>
 
-    <script>
-        // Optional: Add MailerLite endpoint for email marketing (leads already save to Firestore)
-        // Replace with your MailerLite form URL to also add leads to your email list
-        const FORM_ACTION_URL = 'FORM_ACTION_URL';
-
-        // Mobile menu toggle
-        function toggleMobileNav() {
-            const mobileNav = document.getElementById('mobileNav');
-            mobileNav.classList.toggle('open');
-        }
-
-        // Close mobile nav when a link is clicked
-        document.querySelectorAll('.mobile-nav a').forEach(link => {
-            link.addEventListener('click', () => {
-                document.getElementById('mobileNav').classList.remove('open');
-            });
-        });
-
-        // Form submission handler
-        function setupFormHandler(formId, successStateId) {
-            const form = document.getElementById(formId);
-            const successState = document.getElementById(successStateId);
-
-            if (!form) return;
-
-            form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-
-                // Honeypot check
-                const hp = form.querySelector('input[name="website"]');
-                if (hp && hp.value) { console.warn('Bot detected'); return; }
-
-                // Get form data
-                const nameInput = form.querySelector('input[name="name"]');
-                const emailInput = form.querySelector('input[name="email"]');
-
-                const formData = {
-                    name: nameInput.value.trim(),
-                    email: emailInput.value.trim()
-                };
-
-                try {
-                    // Always capture to Firestore (even if email service is configured)
-                    if (window._captureGuideLeads) {
-                        await window._captureGuideLeads(formData.name, formData.email);
-                    }
-
-                    // Send to form endpoint if configured
-                    if (FORM_ACTION_URL !== 'FORM_ACTION_URL') {
-                        const response = await fetch(FORM_ACTION_URL, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify(formData)
-                        });
-                    }
-
-                    // Show success state
-                    form.style.display = 'none';
-                    successState.classList.add('active');
-
-                    // Reset form after 2 seconds
-                    setTimeout(() => {
-                        form.reset();
-                    }, 2000);
-
-                } catch (error) {
-                    // Handle network errors gracefully
-                    console.error('Form submission error:', error);
-                    form.style.display = 'none';
-                    successState.classList.add('active');
-                }
-            });
-        }
-
-        // Setup both forms
-        setupFormHandler('optinForm', 'successState');
-        setupFormHandler('optinForm2', 'successState2');
-    </script>
+    <script defer  src="/assets/js/inline/3117b8ac17.js"></script>
 </body>
 </html>

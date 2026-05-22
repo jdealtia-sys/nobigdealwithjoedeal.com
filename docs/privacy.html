@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://js.stripe.com https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.workers.dev https://nominatim.openstreetmap.org https://www.google-analytics.com https://api.resend.com https://api.stripe.com; frame-src https://js.stripe.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self';">
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","G-8PG7N9Q3DL");</script>
+<script defer  src="/assets/js/inline/2a90205f1b.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Privacy Policy | No Big Deal Home Solutions</title>
 <meta name="description" content="Privacy policy for No Big Deal Home Solutions. Learn how we collect, use, and protect your personal information.">
@@ -309,22 +309,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav">
     <span></span><span></span><span></span>
   </button>
-  <script>
-  (function(){
-    var hb=document.getElementById('hamburger'),mn=document.getElementById('mobileNav');
-    if(!hb||!mn)return;
-    hb.addEventListener('click',function(){
-      var open=mn.classList.toggle('open');
-      hb.setAttribute('aria-expanded',open?'true':'false');
-      var b=hb.querySelectorAll('span');
-      if(open){b[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';b[1].style.cssText='opacity:0';b[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';}
-      else{b.forEach(function(s){s.style.cssText=''});}
-    });
-    mn.addEventListener('click',function(e){
-      if(e.target.tagName==='A'){mn.classList.remove('open');hb.setAttribute('aria-expanded','false');hb.querySelectorAll('span').forEach(function(s){s.style.cssText=''});}
-    });
-  })();
-  </script>
+  <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
 
 <!-- MOBILE NAV -->
@@ -665,50 +650,9 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 
 <!-- BACK TO TOP -->
 <button class="back-to-top" id="backTop">↑</button>
-<script>document.getElementById('backTop').addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});</script>
+<script defer  src="/assets/js/inline/f222a147d2.js"></script>
 
-<script>
-// ── MOBILE NAV ──
-function toggleMobileNav(){
-  const nav = document.getElementById('mobileNav');
-  const hb = document.getElementById('hamburger');
-  const open = nav.classList.toggle('open');
-  const bars = hb.querySelectorAll('span');
-  if(open){
-    bars[0].style.cssText='transform:rotate(45deg) translate(5px,5px)';
-    bars[1].style.cssText='opacity:0';
-    bars[2].style.cssText='transform:rotate(-45deg) translate(5px,-5px)';
-  } else {
-    bars.forEach(b=>b.style.cssText='');
-  }
-}
-function closeMobileNav(){
-  document.getElementById('mobileNav').classList.remove('open');
-  document.getElementById('hamburger').querySelectorAll('span').forEach(b=>b.style.cssText='');
-}
-
-// ── SMOOTH SCROLL ──
-document.querySelectorAll('a[href^="#"]').forEach(link=>{
-  link.addEventListener('click',e=>{
-    const href = link.getAttribute('href');
-    if(href==='#') return;
-    const target = document.querySelector(href);
-    if(target){
-      e.preventDefault();
-      const navH = document.getElementById('mainNav')?.offsetHeight || 70;
-      const y = target.getBoundingClientRect().top + window.scrollY - navH - 12;
-      window.scrollTo({top:y, behavior:'smooth'});
-      closeMobileNav();
-    }
-  });
-});
-
-// ── BACK TO TOP ──
-window.addEventListener('scroll',()=>{
-  const btn = document.getElementById('backTop');
-  if(btn) btn.classList.toggle('visible', window.scrollY > 400);
-});
-</script>
+<script defer  src="/assets/js/inline/307ae4e90e.js"></script>
 
 </body>
 </html>
