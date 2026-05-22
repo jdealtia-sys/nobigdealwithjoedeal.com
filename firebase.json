@@ -13,7 +13,10 @@
       { "_comment": "QR-stable yard sign link. /yardsign is printed on physical yard signs with a QR code; this redirect points scanners to the current GBP listing. 302 (not 301) on purpose: the destination is meant to be swappable without re-printing signs, and 301 would let browsers cache an old target. To repoint: change `destination` below and redeploy.",
         "source": "/yardsign", "destination": "https://g.page/r/CXzIjLwvtRPdEBM", "type": 302 },
       { "_comment": "QR-stable 'leave a review' link for print tracking pieces (card-back, sticker). Lands directly on the Google review form so scanners can rate without an extra tap. Same 302-not-301 rationale as /yardsign: destination must stay swappable. UTM query strings (utm_source/medium/campaign) pass through to the destination automatically, so we can see in Google's referrer + any downstream tooling which printed piece drove the scan. We deliberately use /r (not /review) because /review is the canonical reviews landing page (live Google Reviews widget + schema.org aggregateRating). Don't merge them.",
-        "source": "/r", "destination": "https://g.page/r/CXzIjLwvtRPdEBM/review", "type": 302 }
+        "source": "/r", "destination": "https://g.page/r/CXzIjLwvtRPdEBM/review", "type": 302 },
+      { "_comment": "Missing hub pages. 16 location-variant hail-damage pages and 16 storm-damage pages link to /services/hail-damage and /services/storm-damage-insurance-claim respectively (parent breadcrumbs). Neither URL has a backing HTML file; both 404'd. The canonical insurance-claim landing is /services/hail-damage-insurance-claim (exists). The canonical storm-damage landing is /services/storm-damage (exists). Use 301 because these URLs are semantically permanent aliases — search engines should fold the link equity into the canonical URLs.",
+        "source": "/services/hail-damage", "destination": "/services/hail-damage-insurance-claim", "type": 301 },
+      { "source": "/services/storm-damage-insurance-claim", "destination": "/services/storm-damage", "type": 301 }
     ],
     "rewrites": [
       { "source": "/sites/oaks", "destination": "/sites/oaks/index.html" },
