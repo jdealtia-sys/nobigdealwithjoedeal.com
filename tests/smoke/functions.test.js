@@ -565,6 +565,18 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
   assert('incomingSMS 403s on signature failure',
     /signature verification failed[\s\S]{0,200}res\.status\(403\)/.test(sms));
 
+  // T-1 step 2: AI-texting draft generation is wired into incomingSMS.
+  // Regression guard so future edits to the webhook don't accidentally
+  // drop the call. The module's own internals are exercised when T-2
+  // ships the rep UI; this only asserts wiring is in place.
+  assert('incomingSMS imports generateAIDraft from handlers/ai-texting',
+    /require\(['"]\.\/handlers\/ai-texting['"]\)/.test(sms) &&
+    /generateAIDraft/.test(sms));
+  assert('incomingSMS declares ANTHROPIC_API_KEY in secrets array',
+    /secrets:\s*\[[^\]]*AI_ANTHROPIC_KEY[^\]]*\]/.test(sms));
+  assert('incomingSMS calls generateAIDraft after lead match',
+    /await\s+generateAIDraft\(\{[\s\S]{0,300}leadId[\s\S]{0,300}incomingNoteId/.test(sms));
+
   // M3: measurementWebhook completed the sweep — ensure the fix sticks.
   const m = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
   assert('measurementWebhook verifies HMAC (F-02 + M3 regression guard)',
