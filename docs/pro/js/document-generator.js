@@ -66,14 +66,26 @@ window.NBDDocGen = {
    * Registry of available document types
    */
   DOCUMENT_TYPES: {
-    // 4 dedicated templates with custom render functions
-    proposal:              { name: 'Proposal / Estimate',             template: 'renderProposal' },
+    // Default signer set for contract-class docs. Homeowner is always
+    // required; NBD rep prechecked-required but can be unchecked per-
+    // gen via the modal's Signers section (PR #511 design). Per
+    // [[signature-integration-v1]] PR 2 = roll this set out to the 8
+    // other templates that the locked design lists as opt-in.
+    proposal:              { name: 'Proposal / Estimate',             template: 'renderProposal',
+                             defaultSigners: [
+                               { role: 'homeowner', label: 'Homeowner',                       required: true },
+                               { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
+                             ] },
     contract:              { name: 'Roofing Contract',                template: 'renderContract',
                              defaultSigners: [
                                { role: 'homeowner', label: 'Homeowner',                       required: true },
                                { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
                              ] },
-    inspectionHomeowner:   { name: 'Inspection Report (Homeowner)',   template: 'renderInspectionHomeowner' },
+    inspectionHomeowner:   { name: 'Inspection Report (Homeowner)',   template: 'renderInspectionHomeowner',
+                             defaultSigners: [
+                               { role: 'homeowner', label: 'Homeowner',                       required: true },
+                               { role: 'rep',       label: 'NBD Inspector',                   required: true },
+                             ] },
     inspectionInsurance:   { name: 'Inspection Report (Insurance)',   template: 'renderInspectionInsurance' },
     // 20 document types with dedicated render functions in
     // document-generator-templates.js. Each produces a fully branded,
@@ -82,13 +94,37 @@ window.NBDDocGen = {
     invoice:               { name: 'Invoice',                         template: 'renderInvoice' },
     customer_report:       { name: 'Customer Report',                 template: 'renderCustomerReport' },
     warranty_certificate:  { name: 'Warranty Certificate',            template: 'renderWarrantyCertificate' },
-    certificate_of_completion: { name: 'Certificate of Completion',   template: 'renderCertificateOfCompletion' },
+    certificate_of_completion: { name: 'Certificate of Completion',   template: 'renderCertificateOfCompletion',
+                             defaultSigners: [
+                               { role: 'homeowner', label: 'Homeowner',                       required: true },
+                               { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
+                             ] },
     supplement_request:    { name: 'Supplement Request',              template: 'renderSupplementRequest' },
-    scope_of_work:         { name: 'Scope of Work',                   template: 'renderScopeOfWork' },
-    assignment_of_benefits:{ name: 'Assignment of Benefits',          template: 'renderAssignmentOfBenefits' },
-    change_order:          { name: 'Change Order',                    template: 'renderChangeOrder' },
-    work_authorization:    { name: 'Work Authorization',              template: 'renderWorkAuthorization' },
-    payment_agreement:     { name: 'Payment Agreement',               template: 'renderPaymentAgreement' },
+    scope_of_work:         { name: 'Scope of Work',                   template: 'renderScopeOfWork',
+                             defaultSigners: [
+                               { role: 'homeowner', label: 'Homeowner',                       required: true },
+                               { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
+                             ] },
+    assignment_of_benefits:{ name: 'Assignment of Benefits',          template: 'renderAssignmentOfBenefits',
+                             defaultSigners: [
+                               { role: 'homeowner', label: 'Homeowner / Insured',             required: true },
+                               { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
+                             ] },
+    change_order:          { name: 'Change Order',                    template: 'renderChangeOrder',
+                             defaultSigners: [
+                               { role: 'homeowner', label: 'Homeowner',                       required: true },
+                               { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
+                             ] },
+    work_authorization:    { name: 'Work Authorization',              template: 'renderWorkAuthorization',
+                             defaultSigners: [
+                               { role: 'homeowner', label: 'Homeowner',                       required: true },
+                               { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
+                             ] },
+    payment_agreement:     { name: 'Payment Agreement',               template: 'renderPaymentAgreement',
+                             defaultSigners: [
+                               { role: 'homeowner', label: 'Homeowner',                       required: true },
+                               { role: 'rep',       label: 'Authorized NBD Representative',   required: true },
+                             ] },
     material_delivery:     { name: 'Material Delivery Receipt',       template: 'renderMaterialDelivery' },
     thank_you:             { name: 'Thank You Letter',                template: 'renderThankYou' },
     company_intro:         { name: 'Company Introduction',            template: 'renderCompanyIntro' },
