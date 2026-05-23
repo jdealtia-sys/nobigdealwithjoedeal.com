@@ -77,6 +77,32 @@ img, video {
   }
 }
 
+/* ─── .include-list: link-friendly bullet rows ───────────────────────────── */
+/*
+  11 service pages render a checklist with <ul class="include-list">; some
+  items contain an inline <a> (e.g. "The Pledge — NBD backed, no expiration").
+  The original rule was display:flex with a generated ::before checkmark,
+  so the flex container made the <a> its OWN flex item — splitting the
+  sentence into three columns ("✓" | "The Pledge" | "— NBD backed, no
+  expiration"). Cramped at 360px (the <a> got squeezed into a 84px
+  vertical box), and looked weird at desktop too (just less obviously).
+
+  Fix: block flow with absolute-positioned checkmark so the row is a
+  single inline text run with the link inline inside it.
+*/
+.include-list li {
+  display: block !important;
+  position: relative;
+  padding-left: 26px;
+  gap: 0 !important;
+}
+.include-list li::before {
+  position: absolute !important;
+  left: 0;
+  top: 1px;
+  margin: 0 !important;
+}
+
 /* ─── PHONE BREAKPOINT (≤ 480px) ─────────────────────────────────────────── */
 /*  Targets common Android viewports: 360, 375, 390, 412, 414, 428, 480     */
 
