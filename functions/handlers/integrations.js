@@ -165,6 +165,19 @@ const PUBLIC_LEAD_KINDS = {
       category: 50
     },
     optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'email', 'nominatorName', 'nominatorRelation', 'category']
+  },
+  // /inspect public form (printed QR pieces → free inspection request).
+  // Photos themselves aren't uploaded through this gateway — the form
+  // submits photo metadata (count + filenames) so Joe knows to ask the
+  // homeowner for them at the call.
+  inspect: {
+    collection: 'inspect_leads',
+    required: ['name', 'phone', 'address', 'source'],
+    maxLen:   {
+      name: 200, phone: 30, address: 500, email: 200,
+      story: 1500, source: 200, photoNames: 2000
+    },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'email', 'story', 'photoCount', 'photoNames']
   }
 };
 
