@@ -181,9 +181,17 @@
   // TEMPLATE 1: WARRANTY CERTIFICATE
   // ═══════════════════════════════════════════════════════════════
   DG.renderWarrantyCertificate = function(data) {
+    // Seed the cert number on stable lead context so the same lead +
+    // same tier + same issue date always renders the same NBD-WC- ref
+    // (was Date.now()%100000 — fresh number on every re-render).
+    const _certSeed = (window.NBDDocGen && window.NBDDocGen._seededDocNumber)
+      ? window.NBDDocGen._seededDocNumber('NBD-WC',
+          [data && data.leadId, data && data.homeownerName, data && data.address,
+           data && data.warrantyTier, data && (data.issueDate || data.completionDate)], 5)
+      : 'NBD-WC-' + (Date.now() % 100000);
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
       warrantyTier:'best', workPerformed:'Complete roof replacement including tear-off, underlayment, and installation of new roofing system.',
-      certificateNumber:'NBD-WC-'+(Date.now()%100000), issueDate:today(), expirationDate:'N/A — Lifetime' }, data);
+      certificateNumber: _certSeed, issueDate:today(), expirationDate:'N/A — Lifetime' }, data);
 
     const tiers = { good:{label:'GOOD',color:'#cd7f32',bg:'#fdf4e8',years:'5-Year',exp:'5 years from issue date'},
       better:{label:'BETTER',color:'#808080',bg:'#f0f0f0',years:'10-Year',exp:'10 years from issue date'},

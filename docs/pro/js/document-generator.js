@@ -344,6 +344,30 @@ window.NBDDocGen = {
   },
 
   /**
+   * Deterministic document number helper. Was Date.now()-based, which
+   * made every re-render of the same doc produce a fresh number — bad
+   * for paperwork that's expected to keep the same INV/CT/CO/RCT
+   * reference across regenerations. Seeded on stable lead context so
+   * the same lead + same doc date always yields the same number.
+   *
+   * Falls through to Date.now()-based output only when no seed parts
+   * are usable (very early renders before a lead is bound).
+   */
+  _seededDocNumber(prefix, seedParts, len) {
+    const n = Math.max(4, Math.min(10, len || 6));
+    const s = (seedParts || []).filter(Boolean).map(String).join('|');
+    if (!s) return prefix + '-' + Date.now().toString().slice(-n);
+    // FNV-1a 32-bit — small, deterministic, no deps. Collisions are
+    // fine here; this is a display reference, not an idempotency key.
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return prefix + '-' + h.toString().padStart(n, '0').slice(-n);
+  },
+
+  /**
    * D-5: Map NBDDocGen legacy data to the new template payload shape.
    * Centralizes the conversion so the templates stay the only place
    * that knows the doc structure.
@@ -395,7 +419,7 @@ window.NBDDocGen = {
         preparedFor, preparedBy,
         projectMeta: [
           { label: 'Invoice Date', value: data.invoiceDate || todayStr },
-          { label: 'Invoice No.',  value: data.invoiceNumber || ('INV-' + Date.now().toString().slice(-6)) },
+          { label: 'Invoice No.',  value: data.invoiceNumber || this._seededDocNumber('INV', [data.leadId, fullName, data.invoiceDate || todayStr]) },
           { label: 'Due',          value: data.dueDate || 'Upon receipt' },
         ],
         summary: {
@@ -418,7 +442,7 @@ window.NBDDocGen = {
         preparedFor, preparedBy,
         projectMeta: [
           { label: 'Contract Date', value: data.contractDate || todayStr },
-          { label: 'Contract No.',  value: data.contractNumber || ('CT-' + Date.now().toString().slice(-6)) },
+          { label: 'Contract No.',  value: data.contractNumber || this._seededDocNumber('CT', [data.leadId, fullName, data.contractDate || todayStr]) },
           { label: 'Start',         value: data.startDate || 'Upon execution' },
         ],
         contract: { number: data.contractNumber, date: data.contractDate || todayStr, startDate: data.startDate, completionDate: data.completionDate },
@@ -463,7 +487,7 @@ window.NBDDocGen = {
         preparedFor, preparedBy,
         projectMeta: [
           { label: 'CO Date',         value: data.changeOrderDate || todayStr },
-          { label: 'CO No.',          value: data.changeOrderNumber || ('CO-' + Date.now().toString().slice(-6)) },
+          { label: 'CO No.',          value: data.changeOrderNumber || this._seededDocNumber('CO', [data.leadId, fullName, data.changeOrderDate || todayStr, data.originalContractNumber]) },
           { label: 'Original Contract', value: data.originalContractNumber || '—' },
         ],
         changeOrder: {
@@ -488,7 +512,7 @@ window.NBDDocGen = {
         preparedFor, preparedBy,
         projectMeta: [
           { label: 'Receipt Date', value: data.paymentDate || todayStr },
-          { label: 'Receipt No.',  value: data.receiptNumber || ('RCT-' + Date.now().toString().slice(-6)) },
+          { label: 'Receipt No.',  value: data.receiptNumber || this._seededDocNumber('RCT', [data.leadId, fullName, data.paymentDate || todayStr, data.amount]) },
           { label: 'Amount',       value: '$' + amount.toLocaleString('en-US', { maximumFractionDigits: 0 }) },
         ],
         payment: {
