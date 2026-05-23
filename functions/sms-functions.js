@@ -33,6 +33,13 @@ const TWILIO_ACCOUNT_SID = defineSecret('TWILIO_ACCOUNT_SID');
 const TWILIO_AUTH_TOKEN = defineSecret('TWILIO_AUTH_TOKEN');
 const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
 
+// T-1 step 2: pull in the AI-texting draft generator + its secret
+// declaration so we can register the same ANTHROPIC_API_KEY secret on
+// incomingSMS without redeclaring it (defineSecret is idempotent by
+// name, but using the re-export keeps the source-of-truth in
+// handlers/ai-texting.js).
+const { generateAIDraft, ANTHROPIC_API_KEY: AI_ANTHROPIC_KEY } = require('./handlers/ai-texting');
+
 // CORS origins
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -488,7 +495,11 @@ exports.sendD2DSMS = onRequest(
 exports.incomingSMS = onRequest(
   {
     cors: false, // Webhooks don't use CORS
-    secrets: [TWILIO_AUTH_TOKEN],
+    // ANTHROPIC_API_KEY is for T-1 AI-texting draft generation; if the
+    // secret isn't set the generateAIDraft() call no-ops cleanly per
+    // its own contract, so listing it here is safe even before the
+    // secret is configured in Firebase.
+    secrets: [TWILIO_AUTH_TOKEN, AI_ANTHROPIC_KEY],
     maxInstances: 10,
     timeoutSeconds: 30,
     memory: '256MiB'
@@ -592,8 +603,11 @@ exports.incomingSMS = onRequest(
       if (!leadsSnap.empty) {
         leadId = leadsSnap.docs[0].id;
 
-        // Create a note on the lead with the incoming SMS
-        await db.collection('leads').doc(leadId).collection('notes').add({
+        // Create a note on the lead with the incoming SMS. Capture the
+        // ref so T-1 can link the generated draft back to the source
+        // incoming note via `incomingMsgId` (lets the rep UI later show
+        // "draft for: <quoted incoming message>").
+        const incomingNoteRef = await db.collection('leads').doc(leadId).collection('notes').add({
           type: 'sms',
           direction: 'incoming',
           from: fromPhone,
@@ -609,6 +623,29 @@ exports.incomingSMS = onRequest(
 
         // Send push notification to the assigned rep
         const lead = leadsSnap.docs[0].data();
+
+        // T-1 step 2: generate an AI-suggested reply draft. Best-effort:
+        // generateAIDraft() handles its own errors and returns null on
+        // missing secret / Claude timeout / write failure. Awaited so the
+        // draft lands in Firestore before the TwiML 200 returns. The
+        // module's internal 10s Claude timeout keeps total webhook time
+        // under Twilio's 15s ceiling. T-2 will ship the rep UI to view +
+        // approve/edit/send these drafts; for now they accumulate at
+        // /leads/{leadId}/ai_drafts/{draftId} with status:'pending'.
+        try {
+          await generateAIDraft({
+            db, leadId, lead,
+            incomingBody:   messageBody,
+            incomingNoteId: incomingNoteRef.id,
+            incomingPhone:  fromPhone
+          });
+        } catch (e) {
+          // Defensive belt-and-suspenders; the module already swallows
+          // its own errors but a missing import or a thrown sync error
+          // shouldn't take down the webhook.
+          logger.warn('[incomingSMS] generateAIDraft threw unexpectedly', { err: e && e.message });
+        }
+
         if (lead.assignedTo) {
           // Get rep's FCM token
           const repTokensSnap = await db
