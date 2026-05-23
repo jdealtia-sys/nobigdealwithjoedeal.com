@@ -702,8 +702,9 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 /* Announcement bar legibility floor */
 .ann-bar{font-size:.8rem!important;letter-spacing:.04em!important}
 @media(max-width:640px){.ann-bar{font-size:.72rem!important;padding:10px 14px!important;min-height:40px!important}}
-.ann-short{display:none}
-@media(max-width:600px){.ann-long{display:none}.ann-short{display:inline}}
+/* .ann-text content swap handled by JS via data-long/data-short — avoids
+   duplicate text in DOM (was producing "personallyNBD Lifetime Pledge"
+   in SEO snippets and AI summaries). */
 @media(max-width:480px){.trim-mobile{display:none}}
 
 /* Nav breathing room at TRULY wide desktop (>=1441). v3 nav-responsive-fix
@@ -727,10 +728,10 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 
 <!-- ANNOUNCEMENT BAR -->
 <div class="ann-bar" id="annBar">
-  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg><span class="ann-long">NBD Lifetime Pledge — Joe stands behind every install personally</span><span class="ann-short">NBD Lifetime Pledge — Backed by Joe</span></div>
-  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg><span class="ann-long">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span><span class="ann-short">Free Inspections — (859) 420-7382</span></div>
-  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg><span class="ann-long">Storm Damage? We Handle the Insurance Claim for You — No Big Deal</span><span class="ann-short">Storm Damage? We Handle the Claim</span></div>
-  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-long">One free roof a year — nominate a Cincinnati neighbor &rarr;</span><span class="ann-short">One free roof a year &rarr;</span></a></div>
+  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg><span class="ann-text" data-long="NBD Lifetime Pledge — Joe stands behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — Joe stands behind every install personally</span></div>
+  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg><span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></div>
+  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg><span class="ann-text" data-long="Storm Damage? I Handle the Insurance Claim for You — No Big Deal" data-short="Storm Damage? I Handle the Claim">Storm Damage? I Handle the Insurance Claim for You — No Big Deal</span></div>
+  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor &rarr;" data-short="One free roof a year &rarr;">One free roof a year &rarr;</span></a></div>
 </div>
 
 <!-- Storm messages now in unified ann-bar -->
@@ -845,7 +846,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="hero-right">
       <div class="warranty-card">
         <div class="wc-ribbon">The NBD Guarantee</div>
-        <div class="wc-title">We Put Our Name On It</div>
+        <div class="wc-title">I Put My Name On It</div>
         <div style="display:flex;align-items:center;gap:12px;margin-top:10px;padding:8px 12px;background:#f8f9fb;border:1px solid #e5e7eb;border-radius:8px;">
           <img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified™ Residential Roofing Contractor badge" width="56" height="56" loading="lazy" style="display:block;flex-shrink:0;">
           <div style="line-height:1.25;">
@@ -903,19 +904,19 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <div class="trust-bar-inner">
     <div class="trust-item">
       <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
-      <div class="trust-text"><strong>Licensed &amp; Insured</strong><span>Every job, fully covered</span></div>
+      <div class="trust-text"><strong>Licensed &amp; Insured</strong> <span>Every job, fully covered</span></div>
     </div>
     <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" class="trust-item">
       <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div>
-      <div class="trust-text"><strong>GAF Certified&trade;</strong><span>Verify on GAF.com</span></div>
+      <div class="trust-text"><strong>GAF Certified&trade;</strong> <span>Verify on GAF.com</span></div>
     </a>
     <div class="trust-item">
       <div class="trust-icon"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg></div>
-      <div class="trust-text"><strong>Locally Owned</strong><span>Goshen, OH &mdash; your neighbor</span></div>
+      <div class="trust-text"><strong>Locally Owned</strong> <span>Goshen, OH &mdash; your neighbor</span></div>
     </div>
     <a href="/review" class="trust-item">
       <div class="trust-icon"><svg class="ico ico-fill" viewBox="0 0 24 24"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg></div>
-      <div class="trust-text"><strong>5-Star Rated</strong><span>Verified Google reviews</span></div>
+      <div class="trust-text"><strong>5-Star Rated</strong> <span>Verified Google reviews</span></div>
     </a>
   </div>
 </div>
@@ -1012,7 +1013,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <section class="services-section" id="services">
   <div class="section-inner">
     <div class="section-header">
-      <div class="eyebrow reveal">What We Do</div>
+      <div class="eyebrow reveal">What I Do</div>
       <h2 class="sec-title reveal">Roofing, Siding, Gutters, <span>and Storm Claims</span></h2>
       <p class="sec-desc reveal">No layers. No handoffs. One person who knows the work, knows insurance restoration, and picks up when you call.</p>
     </div>
@@ -1168,7 +1169,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 
       <div class="compare-cell them">❌ Subcontractors you've never met</div>
       <div class="compare-cell divider">vs</div>
-      <div class="compare-cell us">✅ Our own crews — same faces start to finish</div>
+      <div class="compare-cell us">✅ My own crews — same faces start to finish</div>
 
       <div class="compare-cell them">❌ Hard to reach after contract is signed</div>
       <div class="compare-cell divider">vs</div>
@@ -1235,7 +1236,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <section class="areas-section" id="areas">
   <div class="section-inner">
     <div class="section-header">
-      <div class="eyebrow reveal">Where We Work</div>
+      <div class="eyebrow reveal">Where I Work</div>
       <h2 class="sec-title reveal">Serving Greater <span>Cincinnati &amp; Beyond</span></h2>
       <p class="sec-desc reveal">Quality roofing and exterior services across Southwest Ohio and Northern Kentucky.</p>
     </div>
@@ -1512,7 +1513,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
               </select>
             </div>
             <div class="form-group">
-              <label>Tell Us About Your Project</label>
+              <label>Tell Me About Your Project</label>
               <textarea id="fieldMessage" placeholder="Describe what's going on — we'll get back to you with honest answers and a fair quote."></textarea>
             </div>
             <div style="position:absolute;left:-9999px;"><label>Leave blank</label><input type="text" id="fieldWebsite" tabindex="-1" autocomplete="off"></div>
@@ -1605,7 +1606,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <!-- BRANDS WE INSTALL -->
 <section class="brands-strip" aria-label="Brands we install" style="background:var(--off-white);padding:44px 40px;border-top:1px solid var(--light-gray);border-bottom:1px solid var(--light-gray)">
   <div style="max-width:1200px;margin:0 auto;text-align:center">
-    <div class="eyebrow" style="margin-bottom:18px">Brands We Install</div>
+    <div class="eyebrow" style="margin-bottom:18px">Brands I Install</div>
     <p style="color:var(--gray);max-width:640px;margin:0 auto 24px;font-size:.95rem;line-height:1.6">We install premium materials from manufacturers that stand behind their products. If a shingle, siding panel, or trim piece fails — I want the same people backing us up as I count on.</p>
     <div class="brands-row" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:24px 40px;margin-top:12px">
       <div class="brand-mark" aria-label="GAF" style="display:inline-flex;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px">
