@@ -1004,6 +1004,44 @@ section('Phase C.4 settings-tab — switchSettingsTab via settingsTab action');
     'expected 0 inline switchSettingsTab onclicks; got ' + remaining);
 }
 
+section('Signature integration PR 2 — defaultSigners opt-in across contract-class templates');
+{
+  // Per [[signature-integration-v1]] design: nine templates declare
+  // defaultSigners so the modal's Signers section auto-prechecks the
+  // expected sign-set. This guards against future edits that silently
+  // drop the field — losing a defaultSigners entry would mean the rep
+  // has to re-add signers manually every time.
+  const docGenSrc = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+  const TEMPLATES_WITH_SIGNERS = [
+    'proposal', 'contract', 'inspectionHomeowner',
+    'certificate_of_completion', 'scope_of_work', 'assignment_of_benefits',
+    'change_order', 'work_authorization', 'payment_agreement'
+  ];
+  for (const tpl of TEMPLATES_WITH_SIGNERS) {
+    // Match the template key followed (allow trailing chars/spaces) by an
+    // object literal that contains defaultSigners. The trailing colon on
+    // the literal key plus the rendered defaultSigners token is enough
+    // to confirm the opt-in didn't get dropped by mistake.
+    const re = new RegExp('^\\s*' + tpl + '\\s*:[\\s\\S]{0,500}defaultSigners:', 'm');
+    assert("DOCUMENT_TYPES." + tpl + " declares defaultSigners",
+      re.test(docGenSrc),
+      'expected defaultSigners on ' + tpl + ' entry');
+  }
+  // Negative guard: a few templates intentionally stay off (per memory).
+  // Templates without signers are single-line entries — match the ENTIRE
+  // line and assert defaultSigners is absent from that line. (A greedier
+  // regex would incorrectly catch defaultSigners from a neighboring
+  // multi-line entry.)
+  const SIGNER_OFF = ['invoice', 'customer_report', 'thank_you', 'door_hanger'];
+  for (const tpl of SIGNER_OFF) {
+    const lineRe = new RegExp('^\\s*' + tpl + '\\s*:.*$', 'm');
+    const m = docGenSrc.match(lineRe);
+    assert("DOCUMENT_TYPES." + tpl + " stays OFF (no defaultSigners)",
+      m && !/defaultSigners/.test(m[0]),
+      m ? ('found defaultSigners on ' + tpl + ' line: ' + m[0].slice(0, 120)) : (tpl + ' entry not found'));
+  }
+}
+
 section('Phase C.4 docgen — NBDDocGen.fillAndGenerate via docgen action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
