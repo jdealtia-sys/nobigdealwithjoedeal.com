@@ -101,6 +101,13 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .step-tab .step-label { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
 .step-tab.active .step-label { color: var(--orange); }
 .step-tab.done .step-label { color: rgba(255,255,255,0.7); }
+@media (max-width: 480px) {
+  .step-tab { padding: 14px 6px; }
+  /* "UPLOAD PHOTO" / "CHOOSE OPTIONS" / "SEE THE RESULT" were word-stacking
+     in the ~110px-wide cells at 360. Drop the font + letter-spacing so each
+     label fits on one line. */
+  .step-tab .step-label { font-size: 0.6rem; letter-spacing: 0.02em; }
+}
 
 /* PANELS */
 .viz-panel { display: none; padding: 40px; }
@@ -353,7 +360,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 </head>
 <body>
 
-<div class="ann-bar">⭐ See Your New Exterior Before You Spend a Dollar — Free AI Visualizer</div>
+<div class="ann-bar">⭐ <span class="ann-text" data-long="See Your New Exterior Before You Spend a Dollar — Free AI Visualizer" data-short="Free AI Exterior Visualizer">See Your New Exterior Before You Spend a Dollar — Free AI Visualizer</span></div>
 
 <nav id="mainNav" class="nav tool-nav">
   <a href="/" class="nav-logo">
