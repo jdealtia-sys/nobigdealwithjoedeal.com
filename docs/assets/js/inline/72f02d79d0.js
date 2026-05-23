@@ -1,5 +1,21 @@
 /* @generated — extracted from inline <script> by audit-homeowner-2026-05-22.
    Hash: 72f02d79d0.  Do not edit by hand. */
+// ── ANNOUNCEMENT BAR: long/short text swap ──
+// Single span with data-long/data-short — avoids duplicate text in DOM
+// that previously leaked "personallyNBD Lifetime Pledge" into SEO snippets.
+(function(){
+  const mq = window.matchMedia('(max-width:600px)');
+  const sync = () => {
+    document.querySelectorAll('.ann-text').forEach(el => {
+      const want = mq.matches ? (el.dataset.short || el.dataset.long) : el.dataset.long;
+      if (want && el.textContent !== want) el.textContent = want;
+    });
+  };
+  sync();
+  if (mq.addEventListener) mq.addEventListener('change', sync);
+  else if (mq.addListener) mq.addListener(sync);
+})();
+
 // ── ANNOUNCEMENT BAR ROTATION ──
 (function(){
   const slides = document.querySelectorAll('.ann-slide');

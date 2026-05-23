@@ -45,7 +45,7 @@ document.querySelectorAll('.faq-q').forEach(q => {
     });
   });
 })();
-// Annoucement bar rotator
+// Announcement bar rotator
 (function(){
   const slides = document.querySelectorAll('.ann-slide');
   let current = 0;
