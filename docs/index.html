@@ -396,6 +396,27 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 @media(max-width:480px){
   .hiw-grid{grid-template-columns:1fr;gap:24px}
   .areas-contact{grid-template-columns:1fr;gap:14px}
+
+  /* Trust bar: 4-up flex was wrapping to 2x2 at ~140px each, forcing
+     "Goshen, / OH — / your / neighbor" word-stacking. Stack one-per-row. */
+  .trust-bar-inner{flex-direction:column;padding:0 16px}
+  .trust-item{flex:0 0 auto;width:100%;justify-content:flex-start;padding:14px 4px;gap:12px}
+  .trust-item:not(:last-child){border-bottom:1px solid rgba(255,255,255,.08)}
+
+  /* Compare table: 1fr/auto/1fr grid was leaking desktop pixel widths to
+     mobile (~148/42/134), forcing every cell to vertical word-stack.
+     Collapse to a single column; hide the "vs" dividers; rely on the
+     existing them/us background contrast to pair rows visually. */
+  .compare-table{grid-template-columns:1fr}
+  .compare-divider-hdr,.compare-cell.divider{display:none}
+  .compare-col-header{padding:14px 16px;font-size:1rem;text-align:center}
+  .compare-cell{padding:12px 16px;font-size:.85rem;line-height:1.45}
+
+  /* Reviews rating header: 3-child flex (stars / score / CTA) at nowrap
+     was crushing "5.0 / 5.0" to one-number-per-line. Stack vertically;
+     neutralize the inline margin-left:auto on the CTA. */
+  .reviews-rating{flex-direction:column;gap:16px;padding:20px 18px;align-items:center;text-align:center}
+  .reviews-rating > a.btn-primary{margin-left:0!important;width:100%;justify-content:center}
 }
 
 /* ── HOMEPAGE SIDEBAR ───────────────────────────── */

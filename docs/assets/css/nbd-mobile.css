@@ -249,20 +249,22 @@ img, video {
     line-height: 1.4 !important;
   }
 
-  /* Tier matrix on the Build page — fit width, allow tag pills to wrap */
+  /* Tier matrix on the Build page — fit width, allow tag pills to wrap.
+     NOTE: do NOT add .compare-table here. The home-page .compare-table is
+     a <div class="compare-table"> using display:grid, not an HTML <table>,
+     so the th/td/small selectors below never matched it — and the shared
+     font-size:.66rem !important was leaking through and stomping the
+     proper @media(max-width:480px) collapse defined in docs/index.html. */
   .build-matrix {
     border-radius: 10px !important;
   }
-  .build-matrix table,
-  .compare-table {
+  .build-matrix table {
     font-size: .66rem !important;
     table-layout: fixed !important;
     width: 100% !important;
   }
   .build-matrix th,
-  .build-matrix td,
-  .compare-table th,
-  .compare-table td {
+  .build-matrix td {
     padding: 8px 4px !important;
     overflow-wrap: anywhere !important;
     text-align: center;
@@ -273,16 +275,14 @@ img, video {
     white-space: normal !important;
     word-break: keep-all !important;
   }
-  .build-matrix tbody td:first-child,
-  .compare-table tbody td:first-child {
+  .build-matrix tbody td:first-child {
     text-align: left !important;
     font-size: .68rem !important;
     line-height: 1.25 !important;
     padding-left: 8px !important;
     padding-right: 6px !important;
   }
-  .build-matrix tbody td:first-child small,
-  .compare-table tbody td:first-child small {
+  .build-matrix tbody td:first-child small {
     font-size: .56rem !important;
     line-height: 1.25 !important;
   }
