@@ -137,6 +137,10 @@ Object.assign(exports, pushFunctions);
 const emailFunctions = require('./email-functions');
 Object.assign(exports, emailFunctions);
 
+// Public storm-history proxy for the /storm-report page (additive; no CRM coupling).
+const stormReportFn = require('./storm-report');
+Object.assign(exports, stormReportFn);
+
 // ═══════════════════════════════════════════════════════════════
 // SMS FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
