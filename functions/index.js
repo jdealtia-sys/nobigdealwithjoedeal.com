@@ -141,6 +141,10 @@ Object.assign(exports, emailFunctions);
 const stormReportFn = require('./storm-report');
 Object.assign(exports, stormReportFn);
 
+// Homeowner follow-up email when a /storm-report lead is captured (additive trigger).
+const stormReportEmailFn = require('./storm-report-email');
+Object.assign(exports, stormReportEmailFn);
+
 // ═══════════════════════════════════════════════════════════════
 // SMS FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
