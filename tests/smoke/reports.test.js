@@ -21,7 +21,7 @@ section('Push-1: public lead forms use submitPublicLead');
     'docs/index.html',
     'docs/estimate.html',
     'docs/storm-alerts.html',
-    'docs/free-guide/index.html'
+    'docs/sites/free-guide/index.html'
   ];
   for (const p of pages) {
     const src = read(path.join(ROOT, p));

@@ -246,7 +246,7 @@ section('Wave A2: Turnstile widgets');
   assert('helper attaches turnstileToken to payload',
     /turnstileToken/.test(helper));
   assert('nbdTurnstileExecute exposed on window', /window\.nbdTurnstileExecute/.test(helper));
-  const pages = ['docs/index.html','docs/estimate.html','docs/storm-alerts.html','docs/free-guide/index.html'];
+  const pages = ['docs/index.html','docs/estimate.html','docs/storm-alerts.html','docs/sites/free-guide/index.html'];
   for (const p of pages) {
     const html = read(path.join(ROOT, p));
     // After the 2026-05-22 CSP inline-script sweep, the slot may be inline OR

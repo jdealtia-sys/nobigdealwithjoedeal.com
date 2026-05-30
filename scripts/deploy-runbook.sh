@@ -192,7 +192,7 @@ if [ -f docs/pro/dashboard.html ]; then
   check_browser_key "__NBD_APP_CHECK_KEY"     docs/pro/dashboard.html
   check_browser_key "__NBD_SENTRY_DSN"        docs/pro/dashboard.html
 fi
-for page in docs/index.html docs/estimate.html docs/storm-alerts.html docs/free-guide/index.html; do
+for page in docs/index.html docs/estimate.html docs/storm-alerts.html; do
   if [ -f "$page" ]; then
     check_browser_key "__NBD_TURNSTILE_SITEKEY" "$page"
   fi
