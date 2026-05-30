@@ -18,7 +18,9 @@
         "source": "/services/hail-damage", "destination": "/services/hail-damage-insurance-claim", "type": 301 },
       { "source": "/services/storm-damage-insurance-claim", "destination": "/services/storm-damage", "type": 301 },
       { "_comment": "/free-guide is a CONTRACTOR lead magnet (not homeowner-facing). Relocated to the SaaS/contractor surface at /sites/free-guide. 301 so any printed/ad/QR links to the old /free-guide fold their equity into the new location.",
-        "source": "/free-guide", "destination": "/sites/free-guide", "type": 301 }
+        "source": "/free-guide", "destination": "/sites/free-guide", "type": 301 },
+      { "_comment": "/financing (root) was a client-side meta-refresh stub to the canonical /services/financing. Replaced with a proper server 301 (better SEO, no redirect flash); the stub file was removed.",
+        "source": "/financing", "destination": "/services/financing", "type": 301 }
     ],
     "rewrites": [
       { "_comment": "Bots, link previewers, and old browsers probe /favicon.ico by reflex. We don't ship a .ico file (favicon.svg covers modern browsers via <link rel=icon>). Rewriting the .ico URL to favicon.svg returns the SVG bytes with Content-Type image/svg+xml — modern browsers accept that fine. The alternative was a 404 every time a crawler hits the URL.",
