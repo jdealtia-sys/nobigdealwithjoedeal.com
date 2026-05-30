@@ -5,17 +5,15 @@
  * The public marketing forms (contact / instant-estimate / inspect+storm-tools
  * / free-roof) write straight to Firestore and nothing surfaced them — leads
  * could sit unseen. These onCreate triggers fire the moment a lead lands and
- * **text + email Joe** the details so he can call back fast.
+ * alert Joe by **text (Twilio SMS) + email (Resend)**.
  *
- * Design:
- *   - One trigger per public lead collection (Firestore triggers bind to a
- *     single collection path). Shared `alertJoe()` does the formatting + send.
- *   - Runs AFTER the write, on its own lifecycle → zero latency added to the
- *     homeowner's submit request (unlike notifying inside submitPublicLead).
- *   - Text (Twilio) + email (Resend) are independent best-effort sends; a
- *     failure in one (or both) is logged and never throws — the lead is
- *     already safely captured regardless.
- *   - Additive. Does not touch submitPublicLead or the lead pipeline.
+ * SMS status: the Twilio number must complete A2P 10DLC registration before US
+ * carriers will deliver (otherwise carrier error 30034 — message accepted but
+ * dropped). Once the campaign is approved, texts start flowing automatically —
+ * no code change needed. Email works regardless and is the reliable backstop.
+ *
+ * Both sends are independent try/catch so a failure never blocks lead capture.
+ * Additive — does not touch submitPublicLead or the lead pipeline.
  */
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
@@ -29,13 +27,10 @@ const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const TWILIO_ACCOUNT_SID = defineSecret('TWILIO_ACCOUNT_SID');
 const TWILIO_AUTH_TOKEN = defineSecret('TWILIO_AUTH_TOKEN');
 const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
-
 const SECRETS = [RESEND_API_KEY, EMAIL_FROM, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER];
 
-// Where the alert goes — Joe directly. Email to both the business inbox and
-// the personal one for reliability; text to the "Call Joe" cell.
 const ALERT_EMAILS = ['jd@nobigdealwithjoedeal.com', 'jonathandeal459@gmail.com'];
-const ALERT_SMS = '+18594207382';
+const ALERT_SMS = '+18594207382'; // Joe's cell
 
 const KIND_LABEL = {
   contact_leads: 'Contact form',
@@ -88,8 +83,8 @@ function emailHtml(label, source, s, leadId) {
 function smsBody(label, source, s) {
   const lines = [`🔔 NBD lead — ${label}${source ? ` (${source})` : ''}`, `${s.name} · ${s.phone}`];
   if (s.address) lines.push(s.address);
-  if (s.story) lines.push(String(s.story).slice(0, 240));
-  return lines.join('\n').slice(0, 600);
+  if (s.story) lines.push(String(s.story).slice(0, 200));
+  return lines.join('\n').slice(0, 480);
 }
 
 async function alertJoe(collection, d, leadId) {
@@ -97,7 +92,7 @@ async function alertJoe(collection, d, leadId) {
   const source = d.source || '';
   const s = summarize(d);
 
-  // Text (best-effort)
+  // Text via Twilio (works once the number is A2P 10DLC approved).
   try {
     const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
     const msg = await client.messages.create({
@@ -105,12 +100,12 @@ async function alertJoe(collection, d, leadId) {
       from: TWILIO_PHONE_NUMBER.value(),
       body: smsBody(label, source, s),
     });
-    logger.info('leadAlert: sms sent', { collection, leadId, sid: msg.sid });
+    logger.info('leadAlert: sms queued', { collection, leadId, sid: msg.sid });
   } catch (e) {
     logger.error('leadAlert: sms failed', { collection, leadId, err: e.message });
   }
 
-  // Email (best-effort)
+  // Detailed email → Joe's inboxes.
   try {
     const resend = new Resend(RESEND_API_KEY.value());
     const from = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
