@@ -145,6 +145,10 @@ Object.assign(exports, stormReportFn);
 const stormReportEmailFn = require('./storm-report-email');
 Object.assign(exports, stormReportEmailFn);
 
+// Text + email Joe the moment any public marketing lead lands (additive triggers).
+const leadAlertFns = require('./lead-alert');
+Object.assign(exports, leadAlertFns);
+
 // ═══════════════════════════════════════════════════════════════
 // SMS FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
