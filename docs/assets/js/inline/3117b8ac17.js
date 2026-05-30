@@ -17,6 +17,20 @@
             });
         });
 
+        // Inline error — never leave the user thinking it worked when the lead
+        // didn't actually save (server rejected it, or the network failed).
+        function showFormError(form) {
+            let p = form.querySelector('.nbd-form-error');
+            if (!p) {
+                p = document.createElement('p');
+                p.className = 'nbd-form-error';
+                p.setAttribute('role', 'alert');
+                p.style.cssText = 'margin-top:12px;padding:12px 14px;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.35);border-radius:8px;color:#7f1d1d;font-size:.9rem;line-height:1.4';
+                form.appendChild(p);
+            }
+            p.textContent = "Hmm — that didn't save. Please call or text Joe at (859) 420-7382 and he'll get your guide right to you.";
+        }
+
         // Form submission handler
         function setupFormHandler(formId, successStateId) {
             const form = document.getElementById(formId);
@@ -41,10 +55,15 @@
                 };
 
                 try {
-                    // Always capture to Firestore (even if email service is configured)
+                    // Capture via the hardened submitPublicLead pipeline.
+                    // _captureGuideLeads returns the result object; a non-ok
+                    // result (rate limit, validation, Turnstile/App Check) must
+                    // NOT be reported to the user as success.
+                    let res = { ok: true };
                     if (window._captureGuideLeads) {
-                        await window._captureGuideLeads(formData.name, formData.email);
+                        res = await window._captureGuideLeads(formData.name, formData.email);
                     }
+                    if (!res || !res.ok) { showFormError(form); return; }
 
                     // Send to form endpoint if configured
                     if (FORM_ACTION_URL !== 'FORM_ACTION_URL') {
@@ -67,10 +86,9 @@
                     }, 2000);
 
                 } catch (error) {
-                    // Handle network errors gracefully
+                    // Network/JS error — surface it instead of faking success.
                     console.error('Form submission error:', error);
-                    form.style.display = 'none';
-                    successState.classList.add('active');
+                    showFormError(form);
                 }
             });
         }
