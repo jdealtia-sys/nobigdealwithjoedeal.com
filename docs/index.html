@@ -392,6 +392,12 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
 /* Wave 28: collapse 2-col grids to 1-col on smallest phones so each
    item gets full width and the page doesn't feel squashed. */
 @media(max-width:480px){
+  /* Hero trust row: base flex (no wrap) crammed 3 uppercase items + 2 dots
+     into 375px, word-wrapping the labels and misaligning icons/dots. Wrap as
+     whole nowrap items and drop the now-orphaned dot separators. */
+  .hero-trust{flex-wrap:wrap;gap:9px 16px}
+  .hero-trust-item{white-space:nowrap}
+  .hero-trust-dot{display:none}
   .hiw-grid{grid-template-columns:1fr;gap:24px}
   .areas-contact{grid-template-columns:1fr;gap:14px}
 
@@ -866,7 +872,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         <div style="display:flex;align-items:center;gap:12px;margin-top:10px;padding:8px 12px;background:#f8f9fb;border:1px solid #e5e7eb;border-radius:8px;">
           <img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified™ Residential Roofing Contractor badge" width="56" height="56" loading="lazy" style="display:block;flex-shrink:0;">
           <div style="line-height:1.25;">
-            <div style="font-size:.78rem;font-weight:800;color:#1a2b5e;letter-spacing:.02em;">GAF Certified™ Contractor</div>
+            <div style="font-size:.78rem;font-weight:800;color:#1e3a6e;letter-spacing:.02em;">GAF Certified™ Contractor</div>
             <div style="font-size:.66rem;color:#6b7280;margin-top:2px;">System Plus Limited Warranty available · <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="color:#c45e08;font-weight:700;text-decoration:none;">Verify on GAF.com →</a></div>
           </div>
         </div>
@@ -874,28 +880,28 @@ footer.foot a,.review-footer a{color:#e8720c!important}
           <div style="flex-shrink:0;color:#e8720c"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
           <div style="flex:1;line-height:1.35">
             <div style="font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#c45e08;">On every NBD roof</div>
-            <div style="font-size:.78rem;color:#1a2b5e;font-weight:600">The Pledge: <span style="font-weight:400;color:#4a4a4a">you call about anything I worked on, I come look. Free. Forever.</span> <strong style="color:#c45e08">Read &rarr;</strong></div>
+            <div style="font-size:.78rem;color:#1e3a6e;font-weight:600">The Pledge: <span style="font-weight:400;color:#4a4a4a">you call about anything I worked on, I come look. Free. Forever.</span> <strong style="color:#c45e08">Read &rarr;</strong></div>
           </div>
         </a>
         <div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;">
           <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#f8f9fb;border-radius:6px;border-left:3px solid #c8a87a;">
-            <div style="flex-shrink:0;margin-top:1px;color:#1a2b5e;"><svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg></div>
+            <div style="flex-shrink:0;margin-top:1px;color:#1e3a6e;"><svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg></div>
             <div>
-              <div style="font-weight:700;font-size:.82rem;color:#1a2b5e;margin-bottom:2px;">Standard — GAF Timberline NS</div>
+              <div style="font-weight:700;font-size:.82rem;color:#1e3a6e;margin-bottom:2px;">Standard — GAF Timberline NS</div>
               <div style="font-size:.72rem;color:#6b7280;line-height:1.4;">Architectural shingles · Manufacturer warranty · Roofivent Pipe Flashing</div>
             </div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#f8f9fb;border-radius:6px;border-left:3px solid #e8720c;">
             <div style="flex-shrink:0;margin-top:1px;color:#e8720c;"><svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
             <div>
-              <div style="font-weight:700;font-size:.82rem;color:#1a2b5e;margin-bottom:2px;">Preferred — GAF Timberline HDZ <span style="font-size:.6rem;background:#e8720c;color:#fff;padding:1px 5px;border-radius:3px;font-weight:800;letter-spacing:.04em;vertical-align:1px;">MOST CHOSEN</span></div>
+              <div style="font-weight:700;font-size:.82rem;color:#1e3a6e;margin-bottom:2px;">Preferred — GAF Timberline HDZ <span style="font-size:.6rem;background:#e8720c;color:#fff;padding:1px 5px;border-radius:3px;font-weight:800;letter-spacing:.04em;vertical-align:1px;">MOST CHOSEN</span></div>
               <div style="font-size:.72rem;color:#6b7280;line-height:1.4;">Full GAF system · GAF Pivot Boot · Roofivent iVent ECO · transferable warranty</div>
             </div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#fff4ee;border-radius:6px;border-left:3px solid #e8720c;">
             <div style="flex-shrink:0;margin-top:1px;color:#e8720c;"><svg class="ico ico-fill" viewBox="0 0 24 24" style="width:22px;height:22px"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg></div>
             <div>
-              <div style="font-weight:700;font-size:.82rem;color:#1a2b5e;margin-bottom:2px;">Elite — UHDZ + The NBD Build bundle</div>
+              <div style="font-weight:700;font-size:.82rem;color:#1e3a6e;margin-bottom:2px;">Elite — UHDZ + The NBD Build bundle</div>
               <div style="font-size:.72rem;color:#6b7280;line-height:1.4;">LumaNail™ + Pivot Boot + Roofivent · proactive annual outreach (I call you) · signed certificate</div>
             </div>
           </div>
@@ -1483,7 +1489,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             <p>Your request is in. I will reach out personally within a few hours — usually same day.</p>
           </div>
 
-          <div id="formFields">
+          <form id="formFields" novalidate>
             <p class="form-required-note"><span style="color:#e8720c;">*</span> = required</p>
             <div class="form-row">
               <div class="form-group">
@@ -1530,7 +1536,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             <button class="form-submit" id="leadFormSubmit">Get My Free Estimate →</button>
             <script defer  src="/assets/js/inline/72fb917108.js"></script>
             <p class="form-note">🔒 No spam, no pressure. I will reach out personally — usually same day.</p>
-          </div>
+          </form>
         </div>
       </div>
 

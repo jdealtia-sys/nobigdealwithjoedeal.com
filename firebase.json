@@ -16,7 +16,9 @@
         "source": "/r", "destination": "https://g.page/r/CXzIjLwvtRPdEBM/review", "type": 302 },
       { "_comment": "Missing hub pages. 16 location-variant hail-damage pages and 16 storm-damage pages link to /services/hail-damage and /services/storm-damage-insurance-claim respectively (parent breadcrumbs). Neither URL has a backing HTML file; both 404'd. The canonical insurance-claim landing is /services/hail-damage-insurance-claim (exists). The canonical storm-damage landing is /services/storm-damage (exists). Use 301 because these URLs are semantically permanent aliases — search engines should fold the link equity into the canonical URLs.",
         "source": "/services/hail-damage", "destination": "/services/hail-damage-insurance-claim", "type": 301 },
-      { "source": "/services/storm-damage-insurance-claim", "destination": "/services/storm-damage", "type": 301 }
+      { "source": "/services/storm-damage-insurance-claim", "destination": "/services/storm-damage", "type": 301 },
+      { "_comment": "/free-guide is a CONTRACTOR lead magnet (not homeowner-facing). Relocated to the SaaS/contractor surface at /sites/free-guide. 301 so any printed/ad/QR links to the old /free-guide fold their equity into the new location.",
+        "source": "/free-guide", "destination": "/sites/free-guide", "type": 301 }
     ],
     "rewrites": [
       { "_comment": "Bots, link previewers, and old browsers probe /favicon.ico by reflex. We don't ship a .ico file (favicon.svg covers modern browsers via <link rel=icon>). Rewriting the .ico URL to favicon.svg returns the SVG bytes with Content-Type image/svg+xml — modern browsers accept that fine. The alternative was a 404 every time a crawler hits the URL.",
