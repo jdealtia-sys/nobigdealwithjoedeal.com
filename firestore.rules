@@ -71,7 +71,14 @@ service cloud.firestore {
     // intentionally NOT enforced yet — that's a follow-up after
     // verifying every active user's custom claims include companyId.
     match /leads/{leadId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      // Audit #3 F-1: writes require a non-viewer role. A 'viewer' who happens
+      // to own a lead can still READ it but can no longer mutate it at the rules
+      // layer (read-only was previously UI-enforced only). Users with no role
+      // claim (solo operators) keep write access — token.role is undefined,
+      // which is != 'viewer'.
+      allow update, delete: if (isOwner(resource.data.userId)
+            && request.auth.token.role != 'viewer') || isAdmin();
       allow create: if isAuth()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string

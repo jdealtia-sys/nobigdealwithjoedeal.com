@@ -21,6 +21,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, initializeFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
+// Audit #3: localhost-only emulator wiring. No-op in production.
+import { connectEmulatorsIfLocal } from "./nbd-emulator-connect.js";
 
 // ── Firebase Config (single source of truth) ─────────────
 const FIREBASE_CONFIG = {
@@ -239,6 +241,13 @@ export const NBDAuth = {
         console.warn('[nbd-auth] initializeFirestore failed, using existing:', e && e.message);
         _db = getFirestore(_app);
       }
+
+      // Audit #3: when served from localhost, point auth+firestore at the
+      // local emulators BEFORE the first read (which only happens inside the
+      // async onAuthStateChanged callback below — strictly later than this
+      // microtask). No-op on any non-localhost host. Promise is parked on
+      // window so other modules can await emulator-readiness if they need to.
+      window.__NBD_EMU_READY = connectEmulatorsIfLocal({ auth: _auth, db: _db });
 
       // ── App Check (reCAPTCHA v3) ────────────────────────
       // The site key is set by the host page via a top-of-<head>

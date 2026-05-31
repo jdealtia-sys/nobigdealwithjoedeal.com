@@ -7,6 +7,7 @@
 
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { connectEmulatorsIfLocal } from './nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
 
 const app = initializeApp({
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -14,6 +15,7 @@ const app = initializeApp({
   projectId: "nobigdeal-pro"
 });
 const auth = getAuth(app);
+await connectEmulatorsIfLocal({ auth }); // Audit #3: localhost-only, no-op in prod
 
 window.subscribe = async function(plan, evt) {
   // Resolve the button from the explicit event arg (preferred) with a fallback

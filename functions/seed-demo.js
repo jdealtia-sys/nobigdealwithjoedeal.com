@@ -394,6 +394,7 @@ async function seed() {
 
     const doc = {
       userId: uid,
+      companyId: 'default',  // Audit #3 F-2: hardened rules require companyId on every tenant doc; matches the knocks seed below.
       firstName: lead.firstName,
       lastName: lead.lastName,
       name: `${lead.firstName} ${lead.lastName}`,
@@ -443,6 +444,7 @@ async function seed() {
     const ref = db.collection('estimates').doc();
     estBatch.set(ref, {
       userId: uid,
+      companyId: 'default',  // Audit #3 F-2: hardened rules require companyId on every tenant doc; matches the knocks seed.
       leadId: leadId,
       addr: lead.address,
       owner: `${lead.firstName} ${lead.lastName}`,

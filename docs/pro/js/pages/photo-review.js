@@ -13,6 +13,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, onSnapshot, query, where, orderBy, updateDoc, deleteDoc, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { connectEmulatorsIfLocal } from "../nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
 
 const firebaseConfig = {
   apiKey: "AIzaSyAGl-VyzpL3F8Mq8GwYjL8Y3KEcRz23YxA",
@@ -34,6 +35,7 @@ try {
 
 const auth = getAuth(app);
 const db = getFirestore(app);
+await connectEmulatorsIfLocal({ auth, db }); // Audit #3: localhost-only, no-op in prod
 window.db = db;
 
 // ── State ──

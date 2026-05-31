@@ -1,0 +1,147 @@
+/**
+ * tests/lead-pipeline-logic.test.js — Phase 2 pure-logic behavioral tests for
+ * the lead pipeline: dedup matching (lead-dedup.js) and lead scoring
+ * (lead-scoring.js). Both are browser IIFEs with pure helpers; we load each in
+ * a vm sandbox with a stubbed window/document and exercise the real functions.
+ *
+ * Zero deps. Run: node tests/lead-pipeline-logic.test.js
+ */
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const JS = path.join(__dirname, '..', 'docs/pro/js');
+let passed = 0, failed = 0; const fails = [];
+function ok(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name); } else { failed++; fails.push(name); console.log('  ✗ ' + name); } }
+
+function loadIIFE(file) {
+  const src = fs.readFileSync(path.join(JS, file), 'utf8');
+  const noop = () => ({ style: {}, appendChild() {}, addEventListener() {}, remove() {}, classList: { add() {}, remove() {} }, dataset: {} });
+  const win = { addEventListener() {}, removeEventListener() {}, dispatchEvent() {}, localStorage: { getItem() { return null; }, setItem() {}, removeItem() {} } };
+  win.window = win;
+  const sandbox = {
+    window: win,
+    document: { addEventListener() {}, getElementById() { return null; }, createElement() { return noop(); }, body: noop() },
+    console: { log() {}, warn() {}, error() {} },
+    setTimeout, clearTimeout, Date, Math, JSON,
+  };
+  vm.runInNewContext(src, sandbox, { filename: file });
+  return win;
+}
+
+// ── lead-dedup.js ────────────────────────────────────────────
+{
+  console.log('LEAD DEDUP — findDuplicates / normalization');
+  const D = loadIIFE('lead-dedup.js').LeadDedup;
+  ok('exposes LeadDedup.findDuplicates', D && typeof D.findDuplicates === 'function');
+  ok('_normPhone keeps last 10 digits', D._normPhone('(512) 555-0142') === '5125550142');
+  ok('_normPhone handles +1 country code', D._normPhone('+1 512-555-0142') === '5125550142');
+
+  const existing = [
+    { id: 'a', firstName: 'Maria', lastName: 'Lopez', phone: '512-555-0142', address: '100 Maple St, Austin TX', deleted: false },
+    { id: 'b', firstName: 'Bob',   lastName: 'Stone', phone: '512-555-9999', address: '200 Oak Dr, Austin TX',  deleted: false },
+    { id: 'c', firstName: 'Gone',  lastName: 'Deleted', phone: '512-555-0142', address: 'x', deleted: true },
+  ];
+  const phoneDup = D.findDuplicates({ firstName: 'M', lastName: 'L', phone: '(512) 555-0142', address: 'somewhere else' }, existing);
+  ok('same phone → HIGH-confidence match', phoneDup.length >= 1 && phoneDup[0].confidence === 'high' && phoneDup[0].lead.id === 'a');
+  ok('deleted leads are skipped (not matched on phone)', !phoneDup.some(m => m.lead.id === 'c'));
+
+  const addrDup = D.findDuplicates({ firstName: 'Z', lastName: 'Q', phone: '', address: '100 maple st, austin tx' }, existing);
+  ok('same address → HIGH-confidence match', addrDup.length === 1 && addrDup[0].confidence === 'high' && addrDup[0].lead.id === 'a');
+
+  // streetPrefix = first two tokens (number + street root); same prefix but a
+  // different full address (Court vs Street) → not a HIGH address dup, but a
+  // MEDIUM name-on-street match.
+  const nameStreet = D.findDuplicates({ firstName: 'maria', lastName: 'lopez', phone: '', address: '100 Maple Court, Austin TX' }, existing);
+  ok('same name on same street → MEDIUM match', nameStreet.length === 1 && nameStreet[0].confidence === 'medium');
+
+  const none = D.findDuplicates({ firstName: 'New', lastName: 'Person', phone: '512-555-7777', address: '999 Pine Ln' }, existing);
+  ok('no overlap → no matches', none.length === 0);
+
+  const self = D.findDuplicates({ id: 'a', firstName: 'Maria', lastName: 'Lopez', phone: '512-555-0142', address: '100 Maple St, Austin TX' }, existing);
+  ok('editing a lead does not match itself (id skip)', self.length === 0);
+}
+
+// ── lead-scoring.js ──────────────────────────────────────────
+{
+  console.log('\nLEAD SCORING — score + grade/label mapping');
+  const S = loadIIFE('lead-scoring.js').LeadScoring;
+  ok('exposes LeadScoring.score/getGrade/getLabel', S && typeof S.score === 'function' && typeof S.getGrade === 'function');
+
+  // grade thresholds (pure)
+  ok('getGrade 90 → A', S.getGrade(90) === 'A');
+  ok('getGrade 75 → B', S.getGrade(75) === 'B');
+  ok('getGrade 55 → C', S.getGrade(55) === 'C');
+  ok('getGrade 35 → D', S.getGrade(35) === 'D');
+  ok('getGrade 10 → F', S.getGrade(10) === 'F');
+  ok('getLabel 90 → Hot', /Hot/.test(S.getLabel(90)));
+  ok('getLabel 10 → Cold', /Cold/.test(S.getLabel(10)));
+
+  const now = Date.now();
+  const hot = { jobValue: 25000, value: 25000, claimStatus: 'approved', insCarrier: 'State Farm', source: 'referral', stage: 'inspected', email: 'h@x.com', phone: '5551234567', createdAt: new Date(now - 12 * 3600e3).toISOString() };
+  const cold = { jobValue: 0, claimStatus: 'denied', source: 'unknown', stage: 'new', createdAt: new Date(now - 60 * 86400e3).toISOString() };
+  // scoreLead returns { score, grade, color, label, breakdown }.
+  const rHot = S.score(hot), rCold = S.score(cold);
+  ok('score(hot) returns { score, grade, breakdown }', rHot && typeof rHot.score === 'number' && rHot.breakdown && rHot.grade);
+  ok('score(hot).score in [0,100]', rHot.score >= 0 && rHot.score <= 100);
+  ok('score(cold).score in [0,100]', rCold.score >= 0 && rCold.score <= 100);
+  ok(`hot lead outscores cold lead (${rHot.score} > ${rCold.score})`, rHot.score > rCold.score);
+  ok('hot lead grades A or B', ['A', 'B'].includes(rHot.grade));
+  ok('hot lead grade matches getGrade(score)', rHot.grade === S.getGrade(rHot.score));
+
+  // value monotonicity: higher job value never scores lower, all else equal
+  const base = { claimStatus: 'filed', source: 'website', stage: 'new', createdAt: new Date(now - 2 * 86400e3).toISOString() };
+  const lo = S.score({ ...base, jobValue: 3000 }).score, hi = S.score({ ...base, jobValue: 22000 }).score;
+  ok(`higher job value scores >= lower (${hi} >= ${lo})`, hi >= lo);
+}
+
+// ── lead-snooze.js ───────────────────────────────────────────
+{
+  console.log('\nLEAD SNOOZE — isSnoozed / snoozedUntilDate / stale');
+  const Z = loadIIFE('lead-snooze.js').LeadSnooze;
+  ok('exposes LeadSnooze.isSnoozed/snoozedUntilDate', Z && typeof Z.isSnoozed === 'function' && typeof Z.snoozedUntilDate === 'function');
+  const future = new Date(Date.now() + 3 * 86400e3).toISOString();
+  const past = new Date(Date.now() - 2 * 86400e3).toISOString();
+  ok('future snoozedUntil → isSnoozed true', Z.isSnoozed({ snoozedUntil: future }) === true);
+  ok('past snoozedUntil → isSnoozed false', Z.isSnoozed({ snoozedUntil: past }) === false);
+  ok('no snoozedUntil → isSnoozed false', Z.isSnoozed({}) === false);
+  ok('snoozedUntilDate returns a Date for future', Z.snoozedUntilDate({ snoozedUntil: future }) instanceof Date);
+  ok('snoozedUntilDate null when no snooze set', Z.snoozedUntilDate({}) === null);
+  ok('snoozedUntilDate returns the stored date even if past (isSnoozed gates future)', Z.snoozedUntilDate({ snoozedUntil: past }) instanceof Date);
+  ok('isStaleSnooze true at snoozeCount >= 3', Z.isStaleSnooze({ snoozeCount: 3 }) === true);
+  ok('isStaleSnooze false below threshold', Z.isStaleSnooze({ snoozeCount: 1 }) === false);
+}
+
+// ── lead-source-roi.js ───────────────────────────────────────
+{
+  console.log('\nLEAD SOURCE ROI — computeMetrics aggregation');
+  const roiWin = loadIIFE('lead-source-roi.js');
+  const R = roiWin.LeadSourceROI;
+  ok('exposes LeadSourceROI.compute', R && typeof R.compute === 'function');
+  const leads = [
+    { source: 'referral',   stage: 'closed', jobValue: 20000 },
+    { source: 'referral',   stage: 'closed', jobValue: 30000 },
+    { source: 'referral',   stage: 'new',    jobValue: 10000 },
+    { source: 'Door Knock', stage: 'lost',   jobValue: 5000 },
+    { source: 'referral',   isProspect: true,  jobValue: 99999 }, // skipped (prospect)
+    { source: 'referral',   deleted: true,     jobValue: 88888 }, // skipped (deleted)
+  ];
+  roiWin._leads = leads;           // compute() reads window._leads
+  const m = R.compute();
+  const ref = m.rows.find(r => r.source === 'Referral');
+  const d2d = m.rows.find(r => r.source === 'Door-to-Door');
+  ok('prospects + deleted excluded (totals.total === 4)', m.totals.total === 4);
+  ok('Referral total === 3 (2 closed + 1 open)', ref && ref.total === 3);
+  ok('Referral closed === 2, closedRev === 50000', ref.closed === 2 && ref.closedRev === 50000);
+  ok('Referral conversionRate === 67 (2/3)', ref.conversionRate === 67);
+  ok('Referral avgDealSize === 25000', ref.avgDealSize === 25000);
+  ok("source alias 'Door Knock' → 'Door-to-Door'", !!d2d);
+  ok('Door-to-Door lost === 1, closed === 0', d2d.lost === 1 && d2d.closed === 0);
+  ok('rows sorted by closedRev desc (Referral first)', m.rows[0].source === 'Referral');
+}
+
+console.log('\n──────────────────────────────────────────────────');
+console.log(`${passed} passed, ${failed} failed`);
+if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }

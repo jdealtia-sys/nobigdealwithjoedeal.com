@@ -7,30 +7,47 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "npm run test:smoke && npm run test:pricing && npm run test:address && npm run test:state && npm run test:rules && npm run test:rules:xtenant && npm run test:storage && npm run test:ratelimit",
+    "test": "npm run test:smoke && npm run test:pricing && npm run test:estimateprofit && npm run test:billing && npm run test:leadlogic && npm run test:customerlogic && npm run test:scheduling && npm run test:teamroles && npm run test:stormgeo && npm run test:dashboardkpi && npm run test:themecontrast && npm run test:pwa && npm run test:webhooks && npm run test:security && npm run test:address && npm run test:state && npm run test:rules && npm run test:rules:xtenant && npm run test:authaccess && npm run test:leadlifecycle && npm run test:portal && npm run test:publicintake && npm run test:storage && npm run test:ratelimit",
     "test:smoke": "node ./smoke.test.js",
     "test:pricing": "node ./estimate-pricing.test.js",
+    "test:estimateprofit": "node ./estimate-profit.test.js",
+    "test:billing": "node ./billing-gate.test.js",
+    "test:leadlogic": "node ./lead-pipeline-logic.test.js",
+    "test:customerlogic": "node ./customer-portal-logic.test.js",
+    "test:scheduling": "node ./scheduling-logic.test.js",
+    "test:teamroles": "node ./team-roles.test.js",
+    "test:stormgeo": "node ./storm-geo.test.js",
+    "test:dashboardkpi": "node ./dashboard-kpi.test.js",
     "test:address": "node ./address-match.test.js",
     "test:state": "node ./state-store.test.js",
     "test:rules": "firebase emulators:exec --only firestore,storage --project nbd-test 'node ./firestore-rules.test.js'",
     "test:rules:xtenant": "firebase emulators:exec --only firestore --project nbd-xtenant-test 'node ./firestore-rules.cross-tenant.test.js'",
     "test:storage": "firebase emulators:exec --only storage --project nbd-storage-test 'node ./storage-rules.test.js'",
     "test:ratelimit": "firebase emulators:exec --only firestore --project nbd-test-ratelimit 'node ./rate-limit.test.js'",
+    "test:authaccess": "firebase emulators:exec --only auth,firestore --project nbd-test-authaccess 'node ./auth-access.test.js'",
+    "test:leadlifecycle": "firebase emulators:exec --only auth,firestore --project nbd-test-leadlifecycle 'node ./lead-lifecycle.test.js'",
+    "test:portal": "firebase emulators:exec --only functions,firestore --project demo-nbd-portal 'node ./portal-token.test.js'",
+    "test:publicintake": "firebase emulators:exec --only functions,firestore --project demo-nbd-pl 'node ./public-intake.test.js'",
     "test:e2e": "playwright test --config=playwright.config.js",
     "test:e2e:headed": "playwright test --config=playwright.config.js --headed",
     "test:e2e:install": "playwright install chromium",
     "test:e2e:public": "playwright test --config=playwright.config.js pro-public.spec.js marketing.spec.js",
     "test:e2e:authed": "playwright test --config=playwright.config.js pro-authed.spec.js",
-    "test:e2e:visual":        "playwright test --config=playwright.config.js visual-regression.spec.js",
-    "test:e2e:visual:update": "playwright test --config=playwright.config.js visual-regression.spec.js --update-snapshots"
+    "test:e2e:visual": "playwright test --config=playwright.config.js visual-regression.spec.js",
+    "test:e2e:visual:update": "playwright test --config=playwright.config.js visual-regression.spec.js --update-snapshots",
+    "test:themecontrast": "node ./theme-contrast.test.js",
+    "test:pwa": "node ./pwa-manifest.test.js",
+    "test:webhooks": "node ./webhook-signatures.test.js",
+    "test:security": "node ./security-headers-gdpr.test.js"
   },
   "dependencies": {
-    "firebase": "^10.12.2",
     "firebase-admin": "^12.0.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",
     "@playwright/test": "^1.48.0",
-    "firebase-tools": "^13.0.0"
+    "firebase": "^10.12.2",
+    "firebase-tools": "^13.0.0",
+    "puppeteer-core": "^23.11.1"
   }
 }

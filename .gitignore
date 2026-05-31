@@ -8,6 +8,12 @@ tests/visual/playwright-report/
 
 
 # Emulator runtime artifacts
+firestore-debug.log
+database-debug.log
+ui-debug.log
+pubsub-debug.log
+storage-debug.log
+auth-debug.log
 tests/firestore-debug.log
 tests/database-debug.log
 tests/ui-debug.log
