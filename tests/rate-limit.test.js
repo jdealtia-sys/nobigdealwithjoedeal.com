@@ -18,7 +18,17 @@
  */
 
 const assert = require('assert');
-const admin = require('firebase-admin');
+// Resolve the SAME firebase-admin instance that functions/rate-limit.js
+// lazy-loads. When functions/node_modules is installed (required for the
+// functions to load at all), `require('firebase-admin')` from this tests/
+// directory resolves a *different* module copy than the one rate-limit.js
+// picks up under functions/node_modules. initializeApp() would then target
+// the wrong instance and admin.firestore() throws "The default Firebase app
+// does not exist". Requiring it via the functions path guarantees one shared
+// instance. Falls back to the local copy if functions deps aren't present.
+let admin;
+try { admin = require('../functions/node_modules/firebase-admin'); }
+catch { admin = require('firebase-admin'); }
 
 // Point the admin SDK at the local emulator.
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';

@@ -280,5 +280,15 @@
         "SEED_COMPANIES_README.md"
       ]
     }
-  ]
+  ],
+  "_comment_emulators": "Local QA / test-only emulator suite (Audit #3). Read ONLY by `firebase emulators:*`; zero effect on production hosting or deploys. Hosts pinned to 127.0.0.1 because this container's IPv6 loopback (::1) is unsupported (EAFNOSUPPORT) and otherwise spams port-check warnings. singleProjectMode keeps every emulated service under one project id so seed scripts and the client SDK agree on tenancy.",
+  "emulators": {
+    "auth":      { "host": "127.0.0.1", "port": 9099 },
+    "firestore": { "host": "127.0.0.1", "port": 8080 },
+    "functions": { "host": "127.0.0.1", "port": 5001 },
+    "storage":   { "host": "127.0.0.1", "port": 9199 },
+    "hosting":   { "host": "127.0.0.1", "port": 5000 },
+    "ui":        { "enabled": true, "host": "127.0.0.1", "port": 4000 },
+    "singleProjectMode": true
+  }
 }
