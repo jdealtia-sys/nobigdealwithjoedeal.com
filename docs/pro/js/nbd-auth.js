@@ -556,8 +556,26 @@ export const NBDAuth = {
    * Sign out and redirect
    */
   async logout(redirect = '/pro/login.html') {
+    // Phase-2.5: clear NBD app/account data from localStorage on logout so a
+    // shared device doesn't leave the previous rep's cached config, filters,
+    // company profile, or usage tallies for the next user. Device-level UI
+    // prefs (theme/font/motion/onboarding/kanban) are deliberately preserved.
     try {
-      localStorage.removeItem('nbd_user_plan');
+      const KEEP = new Set([
+        'nbd-theme', 'nbd_theme', 'nbd_custom_theme', 'nbd-theme-sound',
+        'nbd-font', 'nbd_font', 'nbd_motion', 'nbd_auto_theme', 'ds-theme',
+        'nbd_ds_config', 'nbd-crm-autocollapse', 'nbd_kanban_view',
+        'nbd-onboarding-complete', 'nbd_maps_redirect_seen',
+        'nbd_draw_hint_shown', 'nbd_notif_settings', 'cmd-recents',
+      ]);
+      const drop = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && !KEEP.has(k) && /^(nbd[_-]|nav-)/.test(k)) drop.push(k);
+      }
+      drop.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+    } catch (_) { /* best-effort; never block logout on a storage error */ }
+    try {
       await signOut(_auth);
     } catch(e) { console.warn('Logout error:', e.message); }
     window.location.replace(redirect);
