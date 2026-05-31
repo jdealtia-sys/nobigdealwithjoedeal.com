@@ -46,6 +46,7 @@ const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const crypto = require('crypto');
+const { withSentry } = require('./integrations/sentry');
 
 const { callableRateLimit } = require('./shared');
 
@@ -140,7 +141,7 @@ exports.analyzePhotoVision = onCall({
   memory: '512MiB',
   maxInstances: 50,
   concurrency: 80
-}, async (request) => {
+}, withSentry('analyzePhotoVision', async (request) => {
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
 
@@ -325,7 +326,7 @@ exports.analyzePhotoVision = onCall({
   });
 
   return { suggestion, cached: false, costUsd: callCostUsd };
-});
+}));
 
 // Export the sanitizer for unit testing.
 exports._test = { sanitizeSuggestion };

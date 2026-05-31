@@ -48,6 +48,11 @@ gcloud alpha monitoring policies create \
 gcloud alpha monitoring policies create \
   --policy-from-file=monitoring/alert-migrations-tick-stale.json \
   --project=nobigdeal-pro
+
+# User-facing function latency p95 high (slow/timeout, not caught by error-rate)
+gcloud alpha monitoring policies create \
+  --policy-from-file=monitoring/alert-function-latency.json \
+  --project=nobigdeal-pro
 ```
 
 > **Scheduled-job staleness (Audit #4):** the `*-stale` policies use
@@ -110,6 +115,20 @@ emails have silently stopped sending.
 Fires when `migrationsTick` misses its heartbeat for **> 26h**. Pending
 schema migrations would no longer apply (and a half-applied migration would
 never get its retry).
+
+### 10. `alert-function-latency.json`
+Fires when **p95 request latency > 30s** on a user-facing callable
+(claudeProxy, renderPdf, analyzeRoofPhoto, analyzePhotoVision, etc).
+Complements the error-rate policy, which only catches *thrown* errors —
+this catches *slow / timing-out* requests before they 504.
+
+### Stripe webhook delivery (Stripe dashboard, not here)
+Stripe webhook **non-delivery** (bad signature, endpoint down) produces no
+GCP logs, so a Cloud Monitoring alert can't see it and a staleness alert
+would false-positive on a low-volume account. Configure alerting in
+**Stripe Dashboard → Developers → Webhooks** (Stripe emails on repeated
+delivery failures). Webhook handlers that *throw* are still caught by the
+functions-error-rate policy.
 
 ## Ongoing monitoring
 

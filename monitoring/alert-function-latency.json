@@ -1,0 +1,34 @@
+{
+  "displayName": "NBD Pro — user-facing function latency p95 high",
+  "documentation": {
+    "content": "p95 request latency on a user-facing callable is elevated — users are seeing spinners/timeouts. The functions-error-rate policy only catches THROWN errors, not slow/timed-out calls, so this is the complementary signal.\n\nCommon causes:\n  - renderPdf: Chromium cold start or a large multi-page/photo doc near the 60s timeout.\n  - claudeProxy / analyzePhotoVision: Anthropic API latency or a large prompt/image.\n  - cold starts after a deploy (consider minInstances on the hot paths).\n  - an upstream (Stripe/Twilio/Groq) slow-down.\n\nInvestigate:\n  1. Cloud Monitoring → Metrics Explorer → run.googleapis.com/request_latencies, group by service_name, to see which function.\n  2. Cloud Logging for that service — correlate slow requests to payload size / upstream calls.\n  3. If it started right after a deploy, consider rolling back (see the rollback runbook).\n\nThreshold is intentionally below each function's hard timeout so you hear about it BEFORE requests start 504-ing.",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "p95 latency > 30s over 5 min (user-facing functions)",
+      "conditionThreshold": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=monitoring.regex.full_match(\"claudeproxy|renderpdf|analyzeroofphoto|analyzephotovision|validateaccesscode|createcheckoutsession|gethomeownerportalview|publicvisualizerai\") AND metric.type=\"run.googleapis.com/request_latencies\"",
+        "comparison": "COMPARISON_GT",
+        "thresholdValue": 30000,
+        "duration": "300s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "60s",
+            "perSeriesAligner": "ALIGN_PERCENTILE_95",
+            "crossSeriesReducer": "REDUCE_MAX",
+            "groupByFields": ["resource.labels.service_name"]
+          }
+        ]
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "1800s"
+  },
+  "notificationChannels": [
+    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+  ]
+}

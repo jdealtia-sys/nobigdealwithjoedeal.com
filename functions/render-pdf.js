@@ -37,6 +37,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const { callableRateLimit } = require('./shared');
+const { withSentry } = require('./integrations/sentry');
 const fs = require('fs');
 const path = require('path');
 const Handlebars = require('handlebars');
@@ -191,7 +192,7 @@ exports.renderPdf = onCall(
     minInstances: 1,
     maxInstances: 10,
   },
-  async (request) => {
+  withSentry('renderPdf', async (request) => {
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
 
@@ -290,5 +291,5 @@ exports.renderPdf = onCall(
       bytes: pdfBuffer.length,
       timing: { buildMs, renderMs, totalMs },
     };
-  }
+  })
 );

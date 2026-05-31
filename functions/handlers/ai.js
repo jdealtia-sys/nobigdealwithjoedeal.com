@@ -256,6 +256,9 @@ exports.claudeProxy = onRequest(
       res.json(data);
     } catch (e) {
       logger.error('claudeProxy error', { uid: decoded?.uid, err: e.message });
+      // claudeProxy swallows its own errors (responds 500, no rethrow), so
+      // withSentry can't see them — tee the genuine crash to Sentry here.
+      try { require('../integrations/sentry').captureException(e, { op: 'claudeProxy', uid: decoded?.uid }); } catch (_) {}
       res.status(500).json({ error: 'Internal server error' });
     }
   }
