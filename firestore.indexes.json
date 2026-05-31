@@ -522,6 +522,21 @@
       ]
     },
     {
+      "_comment": "Audit #4 / 2.2: emailQueueWorker stale-claim reaper — where('status','==','sending').where('claimedAt','<',cutoff). Without this the reaper query throws 'requires an index' and stuck rows are never reclaimed.",
+      "collectionGroup": "email_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "claimedAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "members",
       "queryScope": "COLLECTION_GROUP",
       "fields": [

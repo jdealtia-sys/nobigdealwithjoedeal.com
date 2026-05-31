@@ -811,7 +811,15 @@ exports.checkStormAlerts = onSchedule(
 
       const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
       const fromPhone = TWILIO_PHONE_NUMBER.value();
+      // 2.3: hard ceiling on SMS per run. A large multi-county Severe/
+      // Extreme event × many subscribers could otherwise blast thousands of
+      // Twilio messages (and dollars) from a single tick. When the cap
+      // trips we stop and log loudly; remaining subscribers are picked up
+      // on the next 30-min tick (the (alertId,subscriberId) dedup prevents
+      // anyone being messaged twice for the same alert). Override via env.
+      const MAX_SMS_PER_RUN = Number(process.env.STORM_MAX_SMS_PER_RUN) || 250;
       let totalSent = 0;
+      let capHit = false;
 
       // Helper: does subscriber's zip fall inside this alert's areaDesc?
       function zipMatchesArea(zip, areaDescLower) {
@@ -823,6 +831,7 @@ exports.checkStormAlerts = onSchedule(
       // Respect Twilio 1-per-second per-number pacing.
       async function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+      fanout:
       for (const alert of relevantAlerts) {
         const alertId = alert.properties?.id || alert.id;
         if (!alertId) continue;
@@ -835,6 +844,7 @@ exports.checkStormAlerts = onSchedule(
         for (const zip of uniqueZips) {
           if (!zipMatchesArea(zip, areasLower)) continue; // <-- the real fix
           for (const sub of byZip[zip]) {
+            if (totalSent >= MAX_SMS_PER_RUN) { capHit = true; break fanout; }
             const dedupKey = `${alertId}::${sub.id}`;
             if (alreadySent.has(dedupKey)) continue;
 
@@ -874,7 +884,10 @@ exports.checkStormAlerts = onSchedule(
         }
       }
 
-      logger.info('storm_alerts_complete', { totalSent });
+      if (capHit) {
+        logger.warn('storm_alerts_cap_hit', { totalSent, cap: MAX_SMS_PER_RUN });
+      }
+      logger.info('storm_alerts_complete', { totalSent, capHit });
 
     } catch (e) {
       logger.error('checkStormAlerts error', { err: e.message });

@@ -64,6 +64,35 @@ if (!admin.apps.length) admin.initializeApp();
 
 const STATE_DOC_PATH = 'system/migrations';
 const HISTORY_COLLECTION = 'system/migrations/history';
+const LOCK_DOC_PATH = 'system/migrations_lock';
+const LEASE_MS = 15 * 60_000;  // >> a normal run; stale leases self-expire.
+
+// 2.4: serialize the scheduled tick and the manual runMigrations callable
+// so the same migration can't be run twice concurrently. Best-effort —
+// a crashed holder's lease simply expires after LEASE_MS.
+async function acquireMigrationLease(db) {
+  const ref = db.doc(LOCK_DOC_PATH);
+  const now = Date.now();
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const d = snap.exists ? snap.data() : null;
+    if (d && d.expiresAt && d.expiresAt.toMillis() > now) return false;
+    tx.set(ref, {
+      lockedAt: admin.firestore.FieldValue.serverTimestamp(),
+      expiresAt: admin.firestore.Timestamp.fromMillis(now + LEASE_MS),
+    });
+    return true;
+  });
+}
+
+async function releaseMigrationLease(db) {
+  try {
+    await db.doc(LOCK_DOC_PATH).set(
+      { expiresAt: admin.firestore.Timestamp.fromMillis(0) },
+      { merge: true }
+    );
+  } catch (e) { /* lease will expire on its own */ }
+}
 
 // Resolve all migration scripts from the scripts/ subdirectory at
 // require-time. Each script is a module exporting { version, name,
@@ -160,6 +189,19 @@ async function backfillField(db, collectionPath, fieldName, computeValue, log) {
 async function runPending() {
   const db = admin.firestore();
   const migrations = loadMigrations();
+
+  // 2.4: single-runner lease. The scheduled tick and the manual
+  // runMigrations callable (or a scheduler double-fire) can otherwise run
+  // concurrently — both read the same appliedVersion and run the same
+  // migration twice. A 15-min lease serializes them; a stale lease from a
+  // crashed run self-expires.
+  const gotLease = await acquireMigrationLease(db);
+  if (!gotLease) {
+    console.log('[runPending] another runner holds the lease — skipping this run');
+    return { ranCount: 0, appliedVersion: 0, results: [], skipped: 'locked' };
+  }
+
+  try {
   const stateRef = db.doc(STATE_DOC_PATH);
   const stateSnap = await stateRef.get();
   const state = stateSnap.exists ? stateSnap.data() : { appliedVersion: 0 };
@@ -230,6 +272,9 @@ async function runPending() {
     results,
     lastError,
   };
+  } finally {
+    await releaseMigrationLease(db);
+  }
 }
 
 // HTTPS callable — manual trigger, admin-only. Use this when you
@@ -250,9 +295,14 @@ exports.migrationsTick = onSchedule(
   { schedule: 'every 24 hours', region: 'us-central1' },
   async () => {
     const res = await runPending();
-    if (res.ranCount > 0) {
-      console.log('[migrationsTick] ran ' + res.ranCount + ' migrations, now at v' + res.appliedVersion);
-    }
+    // Always log a heartbeat (Audit #4 / 2.1) so a "no run in 26h" absence
+    // alert can tell the difference between "nothing to do" and "the tick
+    // silently stopped firing".
+    console.log('[migrationsTick] heartbeat', JSON.stringify({
+      ranCount: res.ranCount,
+      appliedVersion: res.appliedVersion,
+      skipped: res.skipped || null,
+    }));
   }
 );
 

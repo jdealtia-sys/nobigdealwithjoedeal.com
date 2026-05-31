@@ -41,6 +41,9 @@ const { Storage } = require('@google-cloud/storage');
 const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'nobigdeal-pro';
 const BUCKET = `${PROJECT_ID}-firestore-backups`;
 const RETENTION_DAYS = 30;
+// Never prune below this many daily snapshots, even if all have aged past
+// RETENTION_DAYS — see the safety-floor comment in firestoreBackupRetention.
+const MIN_BACKUPS_FLOOR = 7;
 
 function todayStamp() {
   // YYYY-MM-DD in UTC so the path is sortable regardless of where the
@@ -121,6 +124,24 @@ exports.firestoreBackupRetention = onSchedule(
 
     try {
       const [files] = await bucket.getFiles();
+
+      // Distinct date-stamped top-level folders, newest first.
+      const dateDirs = [...new Set(
+        files.map(f => f.name.split('/')[0])
+             .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+      )].sort().reverse();
+
+      // SAFETY FLOOR: unconditionally protect the newest N snapshots —
+      // even if every folder has aged past the cutoff. This is the guard
+      // against silent death: if dailyFirestoreBackup stops emitting,
+      // every folder eventually ages past RETENTION_DAYS and the naive
+      // logic would delete ALL of them, leaving zero backups with no
+      // error. Keeping the newest MIN_BACKUPS_FLOOR degrades a broken
+      // backup cron to "stale backups" (caught by the backup-stale alert)
+      // instead of "no backups". This can only ever KEEP more, never
+      // delete more — worst case is a few extra dollars of GCS storage.
+      const protectedDirs = new Set(dateDirs.slice(0, MIN_BACKUPS_FLOOR));
+
       let deleted = 0;
       let kept = 0;
       for (const file of files) {
@@ -129,6 +150,7 @@ exports.firestoreBackupRetention = onSchedule(
         // Only touch objects whose top dir looks like YYYY-MM-DD.
         if (!/^\d{4}-\d{2}-\d{2}$/.test(topDir)) { kept++; continue; }
         if (topDir === today) { kept++; continue; }
+        if (protectedDirs.has(topDir)) { kept++; continue; }
         if (topDir >= cutoffStamp) { kept++; continue; }
         await file.delete({ ignoreNotFound: true });
         deleted++;
@@ -137,6 +159,8 @@ exports.firestoreBackupRetention = onSchedule(
         cutoffStamp,
         deleted,
         kept,
+        floor: MIN_BACKUPS_FLOOR,
+        snapshots: dateDirs.length,
       });
     } catch (err) {
       // Bucket may not exist yet on first deploy — log and swallow so

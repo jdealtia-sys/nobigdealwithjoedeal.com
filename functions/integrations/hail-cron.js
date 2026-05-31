@@ -98,7 +98,7 @@ async function postSlackSummary(summary) {
 exports.hailMatchCron = onSchedule(
   {
     region: 'us-central1',
-    schedule: 'every day 09:00',          // 3am US Central / 9am UTC
+    schedule: 'every day 09:00',          // 9am America/Chicago (Central)
     timeZone: 'America/Chicago',
     timeoutSeconds: 540,                   // 9 min
     memory: '512MiB',

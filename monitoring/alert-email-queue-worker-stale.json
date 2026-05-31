@@ -1,0 +1,30 @@
+{
+  "displayName": "NBD Pro — emailQueueWorker stale > 30m",
+  "documentation": {
+    "content": "The emailQueueWorker scheduled function hasn't emitted its per-tick heartbeat in over 30 minutes. It runs every 1 minute and now logs a heartbeat on EVERY tick (even when the queue is empty), so a 30-minute gap means the worker has silently stopped — which stops delivery of GDPR-erasure confirmation emails and Stripe dunning emails with no other signal.\n\nInvestigation:\n  1. gcloud functions logs read emailQueueWorker --project nobigdeal-pro --gen2 --limit 50\n  2. gcloud scheduler jobs list --project nobigdeal-pro | grep emailQueueWorker\n  3. Check the RESEND_API_KEY / EMAIL_FROM secrets are still set (the worker no-ops + logs 'Resend not configured' if not — that still heartbeats, so a true gap is a crash/deploy/scheduler problem).\n  4. Inspect email_queue for a pile-up of status='pending' or status='sending' rows.\n\nSee documentation/runbooks/ for the email-pipeline runbook (Audit #4 Phase 3).",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "No emailQueueWorker heartbeat in 30m",
+      "conditionAbsent": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"emailQueueWorker\" AND jsonPayload.message=\"emailQueueWorker\" AND severity=\"INFO\"",
+        "duration": "1800s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "300s",
+            "perSeriesAligner": "ALIGN_COUNT"
+          }
+        ]
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "3600s"
+  },
+  "notificationChannels": [
+    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+  ]
+}

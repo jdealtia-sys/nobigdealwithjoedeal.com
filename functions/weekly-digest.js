@@ -231,12 +231,6 @@ exports.weeklyDigest = onSchedule(
     const enabled = process.env.WEEKLY_DIGEST_ENABLED === 'true';
     const db = admin.firestore();
 
-    const usersSnap = await db.collection('users').limit(500).get();
-    if (usersSnap.empty) {
-      logger.info('weekly_digest_no_users');
-      return;
-    }
-
     const resend = enabled && process.env.RESEND_API_KEY
       ? new Resend(process.env.RESEND_API_KEY)
       : null;
@@ -250,7 +244,21 @@ exports.weeklyDigest = onSchedule(
     const fmt = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     const weekLabel = `${fmt(weekStart)} — ${fmt(now)}`;
 
-    for (const userDoc of usersSnap.docs) {
+    // 2.6: paginate ALL users. The previous single .limit(500).get() meant
+    // user #501+ was silently never processed once team/tenant count grew
+    // past 500. Page by document id so every user is covered.
+    let totalUsers = 0;
+    let userCursor = null;
+    while (true) {
+      let uq = db.collection('users')
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .limit(500);
+      if (userCursor) uq = uq.startAfter(userCursor);
+      const usersSnap = await uq.get();
+      if (usersSnap.empty) break;
+      totalUsers += usersSnap.size;
+
+      for (const userDoc of usersSnap.docs) {
       const user = userDoc.data() || {};
       const uid = userDoc.id;
 
@@ -299,12 +307,16 @@ exports.weeklyDigest = onSchedule(
         logger.warn('weekly_digest_user_error', { uid, err: e.message });
         failed++;
       }
+      }
+
+      if (usersSnap.size < 500) break;
+      userCursor = usersSnap.docs[usersSnap.docs.length - 1];
     }
 
     logger.info('weekly_digest_complete', {
       mode: enabled ? 'live' : 'dry-run',
       sent, skipped, failed, noActivity,
-      total: usersSnap.size,
+      total: totalUsers,
     });
   }
 );
