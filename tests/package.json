@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "npm run test:smoke && npm run test:pricing && npm run test:estimateprofit && npm run test:billing && npm run test:leadlogic && npm run test:customerlogic && npm run test:scheduling && npm run test:teamroles && npm run test:stormgeo && npm run test:dashboardkpi && npm run test:address && npm run test:state && npm run test:rules && npm run test:rules:xtenant && npm run test:authaccess && npm run test:leadlifecycle && npm run test:portal && npm run test:publicintake && npm run test:storage && npm run test:ratelimit",
+    "test": "npm run test:smoke && npm run test:pricing && npm run test:estimateprofit && npm run test:billing && npm run test:leadlogic && npm run test:customerlogic && npm run test:scheduling && npm run test:teamroles && npm run test:stormgeo && npm run test:dashboardkpi && npm run test:themecontrast && npm run test:address && npm run test:state && npm run test:rules && npm run test:rules:xtenant && npm run test:authaccess && npm run test:leadlifecycle && npm run test:portal && npm run test:publicintake && npm run test:storage && npm run test:ratelimit",
     "test:smoke": "node ./smoke.test.js",
     "test:pricing": "node ./estimate-pricing.test.js",
     "test:estimateprofit": "node ./estimate-profit.test.js",
@@ -34,7 +34,8 @@
     "test:e2e:public": "playwright test --config=playwright.config.js pro-public.spec.js marketing.spec.js",
     "test:e2e:authed": "playwright test --config=playwright.config.js pro-authed.spec.js",
     "test:e2e:visual": "playwright test --config=playwright.config.js visual-regression.spec.js",
-    "test:e2e:visual:update": "playwright test --config=playwright.config.js visual-regression.spec.js --update-snapshots"
+    "test:e2e:visual:update": "playwright test --config=playwright.config.js visual-regression.spec.js --update-snapshots",
+    "test:themecontrast": "node ./theme-contrast.test.js"
   },
   "dependencies": {
     "firebase-admin": "^12.0.0"
