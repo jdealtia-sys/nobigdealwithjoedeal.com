@@ -129,14 +129,15 @@ async function run() {
       addDoc(collection(db, 'leads'), { userId: 'not-me', companyId: COMPANY_ID, name: 'X', stage: 'new', deleted: false }));
     await signOut(auth);
   }
-  // KNOWN GAP (documented, not a bug here): the leads rule gates writes on
-  // ownership only, NOT role — so a 'viewer' who owns a lead CAN update it at
-  // the rules layer. Read-only-for-viewer is enforced in the UI only.
+  // F-1 (fixed): the leads write rule now requires a non-viewer role. A 'viewer'
+  // who owns a lead can still READ it but can NOT mutate it at the rules layer.
   {
     const { auth, db } = clientFor();
     const cred = await signInWithEmailAndPassword(auth, 'viewer@demo.test', PASSWORD);
     await adbSeedViewerLead(cred.user.uid);
-    await allowed("viewer CAN update a lead they OWN (rules are ownership-scoped, not role) — UI-only read-lock",
+    await allowed('viewer CAN still read a lead they own',
+      getDoc(doc(db, 'leads/lead_viewer')).then(s => { if (!s.exists()) throw new Error('missing'); }));
+    await denied('viewer CANNOT update a lead they own (F-1: role-gated writes)',
       setDoc(doc(db, 'leads/lead_viewer'), { stage: 'contacted' }, { merge: true }));
     await signOut(auth);
   }
