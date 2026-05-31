@@ -36,6 +36,10 @@ if (!process.env.FIRESTORE_EMULATOR_HOST || !process.env.FIREBASE_AUTH_EMULATOR_
 
 let passed = 0, failed = 0; const fails = [];
 function ok(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name); } else { failed++; fails.push(name); console.log('  ✗ ' + name); } }
+async function denied(name, p) {
+  try { await p; ok(name + ' (expected DENY)', false); }
+  catch (e) { ok(name, e && (e.code === 'permission-denied' || /PERMISSION_DENIED|insufficient/i.test(e.message))); }
+}
 
 admin.initializeApp({ projectId: PROJECT });
 
@@ -98,6 +102,23 @@ async function run() {
   await deleteDoc(doc(db, 'leads', ref.id));
   const adminSnap = await admin.firestore().doc(`leads/${ref.id}`).get();
   ok('hard delete removes the doc (admin-confirmed)', !adminSnap.exists);
+
+  // ── TASK lifecycle (Phase 5) — tasks/{id}, owner-scoped by userId ──
+  console.log('\nTASK LIFECYCLE (same signed-in rep)');
+  const tRef = await addDoc(collection(db, 'tasks'), {
+    userId: uid, leadId: 'lead_x', title: 'Call homeowner', dueDate: '2026-06-05', done: false,
+  });
+  ok('create task → returns id', !!tRef.id);
+  let tSnap = await getDoc(doc(db, 'tasks', tRef.id));
+  ok('task persists + reads back (done:false)', tSnap.exists() && tSnap.get('done') === false);
+  await updateDoc(doc(db, 'tasks', tRef.id), { done: true, completedAt: new Date().toISOString() });
+  tSnap = await getDoc(doc(db, 'tasks', tRef.id));
+  ok('complete task persists (done:true)', tSnap.get('done') === true);
+  await denied('cannot create a task owned by another uid', // create rule: userId == auth.uid
+    addDoc(collection(db, 'tasks'), { userId: 'not-me', leadId: 'lead_x', title: 'x', done: false }));
+  await deleteDoc(doc(db, 'tasks', tRef.id));
+  const tGone = await admin.firestore().doc(`tasks/${tRef.id}`).get();
+  ok('delete task removes the doc (admin-confirmed)', !tGone.exists);
 
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);
