@@ -632,18 +632,38 @@ exports.incomingSMS = onRequest(
         // under Twilio's 15s ceiling. T-2 will ship the rep UI to view +
         // approve/edit/send these drafts; for now they accumulate at
         // /leads/{leadId}/ai_drafts/{draftId} with status:'pending'.
+        // Phase-4.1: per-number cap on AI draft generation. incomingSMS
+        // has no other rate limit, and generateAIDraft calls Anthropic
+        // directly (outside the claudeProxy token budget), so a chatty or
+        // abusive number could otherwise drive unbounded Claude cost +
+        // Firestore writes. 12 drafts/number/hour is generous for a real
+        // back-and-forth, tight against a flood. On overflow we skip ONLY
+        // the draft — the inbound SMS is still saved + the rep notified.
+        let aiDraftAllowed = true;
         try {
-          await generateAIDraft({
-            db, leadId, lead,
-            incomingBody:   messageBody,
-            incomingNoteId: incomingNoteRef.id,
-            incomingPhone:  fromPhone
-          });
+          await enforceRateLimit('aiDraft:phone', phoneDigits || fromPhone, 12, 60 * 60_000);
         } catch (e) {
-          // Defensive belt-and-suspenders; the module already swallows
-          // its own errors but a missing import or a thrown sync error
-          // shouldn't take down the webhook.
-          logger.warn('[incomingSMS] generateAIDraft threw unexpectedly', { err: e && e.message });
+          if (e.rateLimited) {
+            aiDraftAllowed = false;
+            logger.info('[incomingSMS] AI draft skipped — per-number hourly cap', { leadId });
+          }
+          // Non-rate-limit error (limiter unavailable): fall through and
+          // attempt the draft rather than dropping a legit reply.
+        }
+        if (aiDraftAllowed) {
+          try {
+            await generateAIDraft({
+              db, leadId, lead,
+              incomingBody:   messageBody,
+              incomingNoteId: incomingNoteRef.id,
+              incomingPhone:  fromPhone
+            });
+          } catch (e) {
+            // Defensive belt-and-suspenders; the module already swallows
+            // its own errors but a missing import or a thrown sync error
+            // shouldn't take down the webhook.
+            logger.warn('[incomingSMS] generateAIDraft threw unexpectedly', { err: e && e.message });
+          }
         }
 
         if (lead.assignedTo) {

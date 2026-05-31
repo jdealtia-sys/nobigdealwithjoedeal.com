@@ -75,7 +75,13 @@ service cloud.firestore {
       allow create: if isAuth()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string
-        && request.resource.data.companyId.size() > 0;
+        && request.resource.data.companyId.size() > 0
+        // Phase-1.5: pin companyId to the caller's own tenant (claim or, for
+        // solo operators, their uid). Stops a rep stamping a foreign tenant's
+        // companyId onto a lead and polluting that tenant's company-scoped
+        // rollups. Client always stamps `claims.companyId || uid`.
+        && (request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
 
       // D3: flat-path subcollections — the measurementWebhook +
       // esignWebhook auto-append activity here via admin SDK. Rules
@@ -293,13 +299,25 @@ service cloud.firestore {
     }
 
     // ── COMPANY PROFILE ──────────────────────────────────
-    // Shop-wide singleton at companyProfile/main — drives the editable
-    // legal text / financing tiers / marketing copy / code references
-    // for every generated doc. Any signed-in rep can read + write
-    // because this is a single-shop CRM; if the product ever goes
-    // multi-tenant, scope this by orgId.
-    match /companyProfile/{docId} {
-      allow read, write: if isAuth();
+    // Per-tenant config that drives the editable legal text / financing
+    // tiers / marketing copy / code references baked into EVERY generated
+    // document (contracts, estimates, invoices). Phase-1 audit fix: the
+    // old `companyProfile/main` singleton with `allow read, write: if
+    // isAuth()` let any authenticated user of ANY tenant read a tenant's
+    // legal/financing config and OVERWRITE it — corrupting the terms in
+    // every doc that tenant generates. Now keyed per tenant:
+    //   - team members key by their companyId claim
+    //   - solo operators key by uid (companyId == uid convention, same as
+    //     requireTeamAdmin in functions/handlers/_shared.js). An owner's
+    //     uid equals the companyId their invited members carry, so the
+    //     whole tenant resolves to one doc while staying isolated from
+    //     other tenants.
+    // The legacy `companyProfile/main` doc is migrated to the per-tenant
+    // key by functions/migrate-companyprofile-per-tenant.js and is no
+    // longer client-reachable (its id matches neither branch below).
+    match /companyProfile/{companyId} {
+      allow read, write: if isAuth()
+        && (companyId == myCompanyId() || companyId == request.auth.uid);
     }
 
     // ── SUBSCRIPTIONS ─────────────────────────────────
@@ -411,7 +429,14 @@ service cloud.firestore {
       allow read: if isAdmin()
         || isOwner(resource.data.userId)
         || (isManager() && sameCompanyAsResource());
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // Phase-1.5: companyId, if present, must be the caller's own tenant —
+      // a rep can't tag a knock with another company's id (which would make
+      // it readable by that company's managers). Presence not required so a
+      // missed client path degrades to owner-only, never cross-tenant.
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+        && (!('companyId' in request.resource.data)
+            || request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
@@ -422,7 +447,11 @@ service cloud.firestore {
         || isOwner(repId)
         || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
       allow create: if isOwner(repId)
-        && !request.resource.data.keys().hasAny(['role','isAdmin']);
+        && !request.resource.data.keys().hasAny(['role','isAdmin'])
+        // Phase-1.5: companyId, if present, must be the caller's own tenant.
+        && (!('companyId' in request.resource.data)
+            || request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
       allow update: if (isOwner(repId) && didNotChange(['role','isAdmin','companyId']))
         || isAdmin();
       allow delete: if isAdmin();
@@ -433,7 +462,11 @@ service cloud.firestore {
       allow read: if isAdmin()
         || isOwner(resource.data.userId)
         || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // Phase-1.5: companyId, if present, must be the caller's own tenant.
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+        && (!('companyId' in request.resource.data)
+            || request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
@@ -487,7 +520,11 @@ service cloud.firestore {
       allow read: if isAdmin()
         || isOwner(resource.data.userId)
         || (isManager() && sameCompanyAsResource());
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // Phase-1.5: companyId, if present, must be the caller's own tenant.
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+        && (!('companyId' in request.resource.data)
+            || request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 

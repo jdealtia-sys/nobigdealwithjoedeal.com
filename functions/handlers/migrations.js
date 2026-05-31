@@ -262,7 +262,10 @@ exports.migratePinsToKnocks = onCall(
       const knockDoc = {
         userId: uid,
         repId: uid,
-        companyId: pin.companyId || 'default',
+        // Phase-5.1: use the caller's own tenant key (uid == companyId for
+        // solo ops, matching Phase-1.5) — never the literal 'default', which
+        // re-creates the cross-tenant bucket the tenancy fix removed.
+        companyId: pin.companyId || uid,
         address: pin.notes || pin.address || '',
         lat: pin.lat || null,
         lng: pin.lng || null,

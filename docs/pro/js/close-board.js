@@ -98,7 +98,7 @@
       await setDoc(doc(window._db, DEAL_COLLECTION, deal.id), {
         ...deal,
         userId: window._user.uid,
-        companyId: window._user.companyId || null,
+        companyId: window._userClaims?.companyId || window._user.uid,
         updatedAt: new Date().toISOString()
       }, { merge: true });
     } catch (e) { console.error('Deal Firestore sync error:', e); }

@@ -67,6 +67,10 @@ jobs:
         run: |
           cd tests
           firebase emulators:exec --only firestore --project nbd-rules-test 'node firestore-rules.test.js'
+      - name: Run cross-tenant isolation rules tests under emulator
+        run: |
+          cd tests
+          firebase emulators:exec --only firestore --project nbd-xtenant-test 'node firestore-rules.cross-tenant.test.js'
       - name: Run Storage rules tests under emulator
         run: |
           cd tests

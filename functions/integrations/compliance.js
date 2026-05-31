@@ -223,6 +223,30 @@ exports.exportMyData = onCall(
       out.collections.nested_leads = { error: e.message };
     }
 
+    // ── (3b) flat-lead subcollections ──
+    // Phase-2.1: leads/{leadId}/{tasks,notes,documents,drawings,
+    // portal_messages} hold homeowner project detail but don't all stamp
+    // userId, so the collectionGroup sweep above misses them. Walk each
+    // owned lead's subcollections so the export matches what erasure now
+    // removes. Bounded to the user's own leads (rate-limited 2/24h path).
+    try {
+      const ownedLeads = Array.isArray(out.collections.leads) ? out.collections.leads : [];
+      const leadSubs = {};
+      for (const lead of ownedLeads.slice(0, 2000)) {
+        if (!lead || !lead.id) continue;
+        const subCols = await db.doc('leads/' + lead.id).listCollections();
+        for (const sc of subCols) {
+          const s = await sc.limit(2000).get();
+          if (s.empty) continue;
+          leadSubs[lead.id] = leadSubs[lead.id] || {};
+          leadSubs[lead.id][sc.id] = s.docs.map(d => ({ id: d.id, ...d.data() }));
+        }
+      }
+      if (Object.keys(leadSubs).length) out.collections.lead_subcollections = leadSubs;
+    } catch (e) {
+      out.collections.lead_subcollections = { error: e.message };
+    }
+
     // ── (4) Storage prefix listing ──
     // Include object metadata + a 24h signed download URL per file so
     // the user can actually retrieve their binary payload. Caps at
@@ -564,9 +588,18 @@ exports.confirmAccountErasure = onRequest(
             .limit(500)
             .get();
           if (snap.empty) break;
-          const batch = db.batch();
-          snap.docs.forEach(d => batch.delete(d.ref));
-          await batch.commit();
+          if (spec.recursive) {
+            // Phase-2.1: recursiveDelete walks each doc + ALL its
+            // subcollections. leads/{id}/{tasks,notes,documents,drawings,
+            // portal_messages} don't all stamp userId, so a plain doc
+            // delete (or the collectionGroup sweep below) would orphan
+            // them — leaving homeowner project detail behind on erasure.
+            for (const d of snap.docs) await db.recursiveDelete(d.ref);
+          } else {
+            const batch = db.batch();
+            snap.docs.forEach(d => batch.delete(d.ref));
+            await batch.commit();
+          }
           if (snap.size < 500) break;
         }
       } catch (e) {
@@ -604,6 +637,15 @@ exports.confirmAccountErasure = onRequest(
     } catch (e) {
       logger.warn('erasure: nested-leads recursiveDelete failed',
         { uid, err: e.message });
+    }
+
+    // Phase-2.1: daily-success entries live at daily_entries/{uid}/entries/*
+    // — a uid-keyed subtree the registry didn't cover. recursiveDelete
+    // wipes the parent doc + the entries subcollection.
+    try {
+      await db.recursiveDelete(db.doc('daily_entries/' + uid));
+    } catch (e) {
+      logger.warn('erasure: daily_entries recursiveDelete failed', { uid, err: e.message });
     }
 
     // ── (4) Storage prefix sweeps ──

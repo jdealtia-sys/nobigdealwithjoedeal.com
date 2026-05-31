@@ -235,8 +235,14 @@ section('Share SSR — server-rendered /share/:token preview');
   assert('escHtml escapes &<>"\\\' ',
     /escHtml\(s\)[\s\S]{0,400}\.replace\(\/&\/g[\s\S]{0,200}\.replace\(\/'\/g/.test(ssr));
   assert('every interpolation goes through escHtml',
-    /\$\{safeTitle\}/.test(ssr) && /\$\{safeAddr\}/.test(ssr)
+    /\$\{safeTitle\}/.test(ssr) && /\$\{safeCompany\}/.test(ssr)
     && /\$\{safeRepName\}/.test(ssr));
+  // Phase-2.2 (Audit #2) privacy: link-preview crawlers cache og: meta and
+  // a forwarded/group-thread link renders with NO click, so the share
+  // preview must NOT expose the homeowner's full name or street address —
+  // those stay behind the token-gated portal. First-name greeting only.
+  assert('share preview omits full street address + full name',
+    !/\$\{safeAddr\}/.test(ssr) && !/\$\{safeFullName\}/.test(ssr));
 
   // Token usage counter MUST NOT increment on preview crawls —
   // otherwise iMessage previewing the link would count as 4-5

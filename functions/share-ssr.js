@@ -200,22 +200,22 @@ function invalidTokenPage() {
 }
 
 function projectPage({ lead, rep, token }) {
-  const firstName = lead.firstName || '';
-  const lastName  = lead.lastName  || '';
-  const fullName  = (firstName + ' ' + lastName).trim() || 'Your home';
-  const addr      = lead.address || '';
+  // Phase-2.2 PII minimization: link-preview crawlers (iMessage / Meta /
+  // WhatsApp) cache og:/twitter: meta server-side, and a forwarded or
+  // group-thread link renders the card with NO click. So the meta +
+  // the rendered card must NOT expose the homeowner's full name or
+  // street address — those stay behind the token-gated portal. We keep
+  // only a first-name greeting (low sensitivity) and the rep/company.
+  const firstName = (lead.firstName || '').trim();
   const repName   = rep.displayName || rep.firstName || 'Your rep';
   const company   = rep.companyName || 'No Big Deal Home Solutions';
-  const title     = `${fullName} — ${company}`;
-  const desc      = addr
-    ? `${repName} at ${company} prepared your roofing project at ${addr}. View your estimate and project details.`
-    : `${repName} at ${company} prepared your project. View your estimate and project details.`;
+  const title     = `Your roofing project — ${company}`;
+  const desc      = `${repName} at ${company} put together your project details. Tap to view your estimate and photos.`;
 
-  const safeFullName = escHtml(fullName);
-  const safeAddr     = escHtml(addr);
-  const safeRepName  = escHtml(repName);
-  const safeCompany  = escHtml(company);
-  const safeToken    = escHtml(token);
+  const safeFirst   = escHtml(firstName);
+  const safeRepName = escHtml(repName);
+  const safeCompany = escHtml(company);
+  const safeToken   = escHtml(token);
 
   return renderPage({
     title,
@@ -225,8 +225,7 @@ function projectPage({ lead, rep, token }) {
     body: `
       <div class="card">
         <div class="brand">${safeCompany}</div>
-        <h1>Your roofing project${safeFullName !== 'Your home' ? ', ' + safeFullName : ''}</h1>
-        ${safeAddr ? `<p class="addr">${safeAddr}</p>` : ''}
+        <h1>Your roofing project${safeFirst ? ', ' + safeFirst : ''}</h1>
         <div class="rep">
           <div>
             <div class="rep-name">${safeRepName}</div>

@@ -1976,6 +1976,7 @@
         const docRef = await addDoc(collection(db, 'leads'), {
           ...lead,
           userId: window._user.uid,
+          companyId: window._userClaims?.companyId || window._user.uid,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           deleted: false
@@ -2085,6 +2086,7 @@
       results.push('Testing: Write to leads collection...');
       const testDoc = await addDoc(collection(db, 'leads'), {
         userId: uid,
+        companyId: window._userClaims?.companyId || uid,
         firstName: 'Test',
         lastName: 'Rule Check',
         address: 'Rule Validator',

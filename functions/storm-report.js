@@ -17,6 +17,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;     // storm history changes slowly
 const YEARS = 5;
@@ -96,6 +97,11 @@ async function buildReport(lat, lon) {
 exports.stormReport = onRequest(
   { region: 'us-central1', cors: CORS_ORIGINS, maxInstances: 5, timeoutSeconds: 120, memory: '256MiB' },
   async (req, res) => {
+    // Phase-5.2: per-IP rate limit. Results are cached per location, but
+    // a distinct-location flood would otherwise tie up the (maxInstances:5)
+    // pool with slow uncached IEM fetches + pollute public_cache. 30/min/IP
+    // is ample for a homeowner checking storm history.
+    if (!(await httpRateLimit(req, res, 'stormReport:ip', 30, 60_000))) return;
     const lat = parseFloat(req.query.lat), lon = parseFloat(req.query.lon);
     if (!isFinite(lat) || !isFinite(lon) || lat < 24 || lat > 50 || lon < -130 || lon > -60) {
       return res.status(400).json({ error: 'Valid US lat/lon required' });

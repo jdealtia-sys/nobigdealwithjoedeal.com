@@ -1455,6 +1455,14 @@ exports.getPortalMessages = onRequest(
       res.status(410).json({ error: 'This link has expired.' });
       return;
     }
+    // Phase-2.3: enforce the replay cap on reads too. getHomeownerPortalView
+    // checks maxUses but the read endpoints didn't — a leaked-but-unexpired
+    // token could otherwise re-read the thread until expiry. (The write
+    // endpoints are already bounded by per-day quotas / write-once.)
+    if (typeof tok.maxUses === 'number' && (tok.uses || 0) >= tok.maxUses) {
+      res.status(429).json({ error: 'This link has been opened too many times.' });
+      return;
+    }
 
     try {
       const snap = await db.collection(`leads/${tok.leadId}/portal_messages`)
@@ -1549,6 +1557,12 @@ exports.getEstimateForView = onRequest(
     const tok = tokSnap.data();
     if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
       res.status(410).json({ error: 'This link has expired.' });
+      return;
+    }
+    // Phase-2.3: enforce the replay cap on reads too (match
+    // getHomeownerPortalView) — bounds a leaked-but-unexpired token.
+    if (typeof tok.maxUses === 'number' && (tok.uses || 0) >= tok.maxUses) {
+      res.status(429).json({ error: 'This link has been opened too many times.' });
       return;
     }
 

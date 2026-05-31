@@ -36,7 +36,10 @@
 // Source: firestore.rules + grep for `collection(...).add({ userId }`
 // across functions/ and docs/pro/js/ (see agent audit 2026-04-15).
 const FLAT_USER_COLLECTIONS = [
-  { name: 'leads' },
+  // recursive: erasure must recursiveDelete each lead so its
+  // subcollections (tasks/notes/documents/drawings/portal_messages,
+  // plus activity/recordings) go too — a plain doc delete orphans them.
+  { name: 'leads', recursive: true },
   { name: 'estimates' },
   // Wave 144: insurance supplements ride on the same owner-scope
   // rule shape as estimates. Each supplement carries
@@ -88,6 +91,13 @@ const FLAT_USER_COLLECTIONS = [
   // Customer-side audit events (audit batch 7) — homeowner activity log.
   // Carries ownerUid so erasure reaches it; rep-readable via that field.
   { name: 'customerAuditEvents', ownerField: 'ownerUid' },
+  // Phase-2.1 (registry-drift fix): these are keyed by uid/ownerId but were
+  // missing from the registry, so erasure + export silently skipped them —
+  // leaving homeowner-linked data behind on right-to-be-forgotten.
+  { name: 'measurements', ownerField: 'ownerId' }, // HOVER roof measurements (address/geometry)
+  { name: 'email_log',    ownerField: 'uid' },     // sent-email log (homeowner addresses)
+  { name: 'sms_log',      ownerField: 'uid' },     // sent-SMS log (homeowner phone numbers)
+  { name: 'api_usage',    ownerField: 'uid' },     // AI token-usage history
 ];
 
 // ─── COLLECTION-GROUPS WITH userId STAMPS ───────────────────

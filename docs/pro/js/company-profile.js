@@ -1,10 +1,15 @@
 /**
  * NBD Company Profile - shop-wide doc constants the rep can edit from Settings.
  *
- * Singleton stored at Firestore `companyProfile/main`. The defaults below
- * match the values that used to be hardcoded inside the doc generator
- * templates, so a rep who never touches Settings gets the same documents
- * they did before this module existed.
+ * Stored per tenant at Firestore `companyProfile/{companyId}` (Phase-1 audit
+ * fix — was a single global `companyProfile/main` readable+writable by any
+ * authenticated user of any tenant). The doc key is the signed-in user's
+ * companyId claim, falling back to their uid for solo operators (an owner's
+ * uid equals the companyId their invited members carry, so the whole tenant
+ * resolves to the same doc). The defaults below match the values that used
+ * to be hardcoded inside the doc generator templates, so a rep who never
+ * touches Settings gets the same documents they did before this module
+ * existed.
  *
  * Exposes:
  *   window.NBD_COMPANY_PROFILE_DEFAULTS — canonical defaults
@@ -121,12 +126,46 @@
 
   const CACHE_KEY = 'nbd_company_profile_v1';
 
+  // Resolve the per-tenant document key for `companyProfile/{key}`.
+  //
+  // Priority:
+  //   1. window._userClaims.companyId — populated by dashboard-bootstrap
+  //      (instant, no network).
+  //   2. Live ID-token claims via getIdTokenResult() — works on customer.html
+  //      and any page that exposes window.auth / window._user.
+  //   3. uid — solo-operator convention (companyId == uid). An owner's uid is
+  //      the companyId their invited members carry, so the tenant shares one
+  //      doc. Matches `claims.companyId || uid` used across the backend.
+  //
+  // Returns null when no user is resolvable yet (not signed in / auth not
+  // ready). Callers MUST treat null as "skip Firestore, keep defaults/cache"
+  // so we never issue a guaranteed-denied read against a bad key.
+  async function _resolveCompanyKey() {
+    try {
+      const cid = window._userClaims && window._userClaims.companyId;
+      if (cid) return String(cid);
+    } catch (_) { /* ignore */ }
+    try {
+      const u = (window.auth && window.auth.currentUser) || window._user || null;
+      if (u && typeof u.getIdTokenResult === 'function') {
+        const tr = await u.getIdTokenResult();
+        const claimCid = tr && tr.claims && tr.claims.companyId;
+        if (claimCid) return String(claimCid);
+        if (u.uid) return u.uid;
+      }
+      if (u && u.uid) return u.uid;
+    } catch (_) { /* ignore */ }
+    return null;
+  }
+
   window.NBD_COMPANY_PROFILE_DEFAULTS = NBD_COMPANY_PROFILE_DEFAULTS;
   window._companyProfile = deepMerge({}, NBD_COMPANY_PROFILE_DEFAULTS);
 
   // Hydrate from localStorage cache for instant render before Firestore
   // round-trips. The cache stores only the rep's overrides, not the full
   // profile, so old cached values survive default tweaks gracefully.
+  // The cache is a render optimization only — Firestore rules are the
+  // security boundary; the keyed load below overwrites this on auth-ready.
   try {
     const raw = localStorage.getItem(CACHE_KEY);
     if (raw) {
@@ -138,8 +177,10 @@
   window._loadCompanyProfile = async function () {
     try {
       if (!window.db) return window._companyProfile;
+      const key = await _resolveCompanyKey();
+      if (!key) return window._companyProfile; // not signed in yet — defaults/cache stand
       const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-      const snap = await getDoc(doc(window.db, 'companyProfile', 'main'));
+      const snap = await getDoc(doc(window.db, 'companyProfile', key));
       if (snap && snap.exists()) {
         const remote = snap.data() || {};
         window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, remote);
@@ -156,8 +197,16 @@
     window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, overridesObj);
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(overridesObj)); } catch (_) {}
     if (!window.db) return window._companyProfile;
+    const key = await _resolveCompanyKey();
+    if (!key) {
+      // No resolvable tenant key — keep the local cache but don't write a
+      // mis-keyed (and rules-denied) doc. The next save after auth is ready
+      // persists it.
+      console.warn('[company-profile] save skipped: no tenant key (auth not ready)');
+      return window._companyProfile;
+    }
     const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    await setDoc(doc(window.db, 'companyProfile', 'main'), overridesObj, { merge: true });
+    await setDoc(doc(window.db, 'companyProfile', key), overridesObj, { merge: true });
     return window._companyProfile;
   };
 })();
