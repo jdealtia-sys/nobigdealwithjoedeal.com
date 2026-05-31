@@ -348,15 +348,22 @@ service cloud.firestore {
     }
 
     // ── COUNTERS (atomic ID sequences) ────────────────
-    // Used by dashboard.html + customer.html runTransaction calls to
-    // mint sequential customer IDs (NBD-####). Without this rule the
-    // default-deny at the bottom rejected every transaction and the
-    // catches silently console.warn'd, so no lead ever got an ID.
-    // Auth-only — the counter doc holds an integer; tampering at worst
-    // skips numbers, never escalates privilege. Worth a lock-down to a
-    // Cloud Function someday but the current shape is safe to expose.
+    // Used by dashboard.html + customer.html runTransaction calls to mint
+    // sequential customer IDs (NBD-####). `customerIds` is the only counter.
+    // Phase-1.5 audit (#1.2): writes are now MONOTONIC — create at 1, update
+    // by exactly +1 — so a tenant can no longer overwrite/garble another
+    // tenant's ID sequence (e.g. set it to 999999). Read stays open because
+    // the client mint transaction must read the current value to compute
+    // next+1. Residual (accepted P3): the read still leaks the count, and an
+    // authed user could advance the counter via repeated +1s — true
+    // per-tenant isolation = a per-company ID scheme + server-side
+    // allocation, a separate product decision.
     match /counters/{counterId} {
-      allow read, write: if isAuth();
+      allow read:   if isAuth();
+      allow create: if isAuth() && request.resource.data.next == 1;
+      allow update: if isAuth()
+        && request.resource.data.next is int
+        && request.resource.data.next == resource.data.next + 1;
     }
 
     // ── API USAGE LOGGING ─────────────────────────────
