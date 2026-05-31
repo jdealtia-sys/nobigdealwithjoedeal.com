@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "npm run test:smoke && npm run test:pricing && npm run test:estimateprofit && npm run test:billing && npm run test:leadlogic && npm run test:customerlogic && npm run test:scheduling && npm run test:teamroles && npm run test:address && npm run test:state && npm run test:rules && npm run test:rules:xtenant && npm run test:authaccess && npm run test:leadlifecycle && npm run test:portal && npm run test:storage && npm run test:ratelimit",
+    "test": "npm run test:smoke && npm run test:pricing && npm run test:estimateprofit && npm run test:billing && npm run test:leadlogic && npm run test:customerlogic && npm run test:scheduling && npm run test:teamroles && npm run test:address && npm run test:state && npm run test:rules && npm run test:rules:xtenant && npm run test:authaccess && npm run test:leadlifecycle && npm run test:portal && npm run test:publicintake && npm run test:storage && npm run test:ratelimit",
     "test:smoke": "node ./smoke.test.js",
     "test:pricing": "node ./estimate-pricing.test.js",
     "test:estimateprofit": "node ./estimate-profit.test.js",
@@ -25,6 +25,7 @@
     "test:authaccess": "firebase emulators:exec --only auth,firestore --project nbd-test-authaccess 'node ./auth-access.test.js'",
     "test:leadlifecycle": "firebase emulators:exec --only auth,firestore --project nbd-test-leadlifecycle 'node ./lead-lifecycle.test.js'",
     "test:portal": "firebase emulators:exec --only functions,firestore --project demo-nbd-portal 'node ./portal-token.test.js'",
+    "test:publicintake": "firebase emulators:exec --only functions,firestore --project demo-nbd-pl 'node ./public-intake.test.js'",
     "test:e2e": "playwright test --config=playwright.config.js",
     "test:e2e:headed": "playwright test --config=playwright.config.js --headed",
     "test:e2e:install": "playwright install chromium",
