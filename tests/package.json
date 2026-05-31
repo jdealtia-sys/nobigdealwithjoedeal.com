@@ -21,16 +21,17 @@
     "test:e2e:install": "playwright install chromium",
     "test:e2e:public": "playwright test --config=playwright.config.js pro-public.spec.js marketing.spec.js",
     "test:e2e:authed": "playwright test --config=playwright.config.js pro-authed.spec.js",
-    "test:e2e:visual":        "playwright test --config=playwright.config.js visual-regression.spec.js",
+    "test:e2e:visual": "playwright test --config=playwright.config.js visual-regression.spec.js",
     "test:e2e:visual:update": "playwright test --config=playwright.config.js visual-regression.spec.js --update-snapshots"
   },
   "dependencies": {
-    "firebase": "^10.12.2",
     "firebase-admin": "^12.0.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^3.0.4",
     "@playwright/test": "^1.48.0",
-    "firebase-tools": "^13.0.0"
+    "firebase": "^10.12.2",
+    "firebase-tools": "^13.0.0",
+    "puppeteer-core": "^23.11.1"
   }
 }
