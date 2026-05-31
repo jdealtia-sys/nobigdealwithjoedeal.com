@@ -131,12 +131,21 @@ function loadIIFE(file) {
   const id = await IP.createInvoiceFromEstimate('est1');
   ok('returns new invoice id', id === 'inv_1');
   ok('subtotal = sum of row totals (500)', near(captured.subtotal, 500));
-  ok('tax = 7.5% of subtotal (37.5)', near(captured.tax, 37.5));
+  ok('tax = 7.5% of subtotal (37.5) — fallback when estimate has no rate', near(captured.tax, 37.5));
   ok('total = subtotal + tax (537.5)', near(captured.total, 537.5));
   ok('deposit = 50% of total (268.75)', near(captured.depositAmount, 268.75));
   ok('balanceDue = total - deposit (268.75)', near(captured.balanceDue, 268.75));
   ok('new invoice starts in draft, unpaid', captured.status === 'draft' && captured.depositPaid === false);
   ok('carries leadId + estimateId linkage', captured.leadId === 'L1' && captured.estimateId === 'est1');
+
+  // F-3: invoice inherits the estimate's tax rate (e.g. Texas 8.25%) instead of
+  // a hardcoded 7.5%, and honors a 0 rate (insurance scope skips tax).
+  EST.taxRate = 0.0825;
+  await IP.createInvoiceFromEstimate('est1');
+  ok('inherits estimate taxRate 8.25% (tax 41.25, not 37.5)', near(captured.tax, 41.25) && near(captured.taxRate, 0.0825));
+  EST.taxRate = 0;
+  await IP.createInvoiceFromEstimate('est1');
+  ok('honors 0 tax rate from insurance-scope estimate (tax 0)', captured.tax === 0 && captured.total === 500);
 
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);

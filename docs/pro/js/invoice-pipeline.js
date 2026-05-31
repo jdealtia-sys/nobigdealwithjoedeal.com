@@ -109,7 +109,12 @@
       }));
 
       const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-      const taxRate = 0.075; // 7.5% Ohio sales tax
+      // Audit #3 F-3: inherit the tax rate the estimate was priced at (set by
+      // the estimate builder from company settings / insurance mode) so the
+      // invoice matches the quote and is correct outside Ohio. A 0 rate
+      // (insurance scope skips tax) is honored; fall back to 7.5% only when the
+      // estimate carries no rate.
+      const taxRate = (typeof est.taxRate === 'number') ? est.taxRate : 0.075;
       const tax = subtotal * taxRate;
       const total = subtotal + tax;
       const depositAmount = total * 0.5; // Default 50% deposit
