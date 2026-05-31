@@ -58,6 +58,13 @@ exports.claudeProxy = onRequest(
   async (req, res) => {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
+    // Global AI kill-switch (Audit #4). One write to feature_flags/global
+    // .aiDisabled halts all billable AI without a deploy or secret rotation.
+    if (await require('../integrations/killswitch').isAiDisabled()) {
+      res.status(503).json({ error: 'AI temporarily disabled' });
+      return;
+    }
+
     const authResult = await requireAuth(req);
     if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
     const { decoded } = authResult;

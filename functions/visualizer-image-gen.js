@@ -400,6 +400,12 @@ exports.visualizerImageGen = onRequest(
       return;
     }
 
+    // Global AI kill-switch (Audit #4) — emergency halt without a deploy.
+    if (await require('./integrations/killswitch').isAiDisabled()) {
+      res.status(503).json({ error: 'ai_disabled' });
+      return;
+    }
+
     // Rate limit per IP: 5 calls per hour. Image gen via FLUX Kontext Pro
     // is ~$0.04/call, so a pegged attacker caps at ~$0.20/hour per IP.
     // Tuning mode (15/hr) was used during launch; safe to tighten now

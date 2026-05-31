@@ -804,9 +804,15 @@ exports.checkStormAlerts = onSchedule(
       const recentSent = await db.collection('storm_alerts_sent')
         .where('sentAt', '>', new Date(Date.now() - 48 * 60 * 60 * 1000))
         .get();
+      // Count how many SMS already went out today (UTC) so a multi-day storm
+      // can't blow past the daily budget across many 30-min runs.
+      const startOfTodayMs = new Date().setUTCHours(0, 0, 0, 0);
+      let sentToday = 0;
       recentSent.docs.forEach(d => {
         const r = d.data();
         if (r.alertId && r.subscriberId) alreadySent.add(`${r.alertId}::${r.subscriberId}`);
+        const ms = r.sentAt && typeof r.sentAt.toMillis === 'function' ? r.sentAt.toMillis() : 0;
+        if (ms >= startOfTodayMs) sentToday++;
       });
 
       const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
@@ -818,8 +824,12 @@ exports.checkStormAlerts = onSchedule(
       // on the next 30-min tick (the (alertId,subscriberId) dedup prevents
       // anyone being messaged twice for the same alert). Override via env.
       const MAX_SMS_PER_RUN = Number(process.env.STORM_MAX_SMS_PER_RUN) || 250;
+      // Daily ceiling across all runs (defends a multi-day storm event). Set
+      // STORM_MAX_SMS_PER_DAY=0 to halt storm SMS entirely (kill-switch).
+      const MAX_SMS_PER_DAY = Number(process.env.STORM_MAX_SMS_PER_DAY) || 2000;
       let totalSent = 0;
       let capHit = false;
+      let capScope = null;
 
       // Helper: does subscriber's zip fall inside this alert's areaDesc?
       function zipMatchesArea(zip, areaDescLower) {
@@ -844,7 +854,8 @@ exports.checkStormAlerts = onSchedule(
         for (const zip of uniqueZips) {
           if (!zipMatchesArea(zip, areasLower)) continue; // <-- the real fix
           for (const sub of byZip[zip]) {
-            if (totalSent >= MAX_SMS_PER_RUN) { capHit = true; break fanout; }
+            if (totalSent >= MAX_SMS_PER_RUN) { capHit = true; capScope = 'run'; break fanout; }
+            if (sentToday + totalSent >= MAX_SMS_PER_DAY) { capHit = true; capScope = 'day'; break fanout; }
             const dedupKey = `${alertId}::${sub.id}`;
             if (alreadySent.has(dedupKey)) continue;
 
@@ -885,9 +896,12 @@ exports.checkStormAlerts = onSchedule(
       }
 
       if (capHit) {
-        logger.warn('storm_alerts_cap_hit', { totalSent, cap: MAX_SMS_PER_RUN });
+        logger.warn('storm_alerts_cap_hit', {
+          scope: capScope, totalSent, sentToday,
+          cap: capScope === 'day' ? MAX_SMS_PER_DAY : MAX_SMS_PER_RUN,
+        });
       }
-      logger.info('storm_alerts_complete', { totalSent, capHit });
+      logger.info('storm_alerts_complete', { totalSent, sentToday, capHit, capScope });
 
     } catch (e) {
       logger.error('checkStormAlerts error', { err: e.message });

@@ -69,7 +69,19 @@ const COST_OUTPUT_PER_TOKEN = 4.00 / 1_000_000;
 
 // Hard caps from user product decision.
 const PER_LEAD_USD_CAP         = 10.00;
+// Per-user monthly vision spend cap. Plan-aware (Audit #4): a flat $50/uid
+// could exceed a multi-rep Starter tenant's $99/mo revenue. Resolve the
+// plan the same way claudeProxy does (subscriptions/{uid}.plan, default
+// 'lite'); fall back to PER_USER_MONTHLY_USD_CAP for any unmapped plan.
 const PER_USER_MONTHLY_USD_CAP = 50.00;
+const PER_USER_MONTHLY_USD_CAP_BY_PLAN = {
+  lite:          25.00,
+  foundation:    25.00,
+  starter:       25.00,
+  blueprint:     40.00,
+  growth:        75.00,
+  professional: 150.00,
+};
 
 // Defense allowlists (Claude can free-form; we re-clamp to these).
 const ALLOWED_PHASES   = new Set(['Before', 'During', 'After']);
@@ -145,6 +157,11 @@ exports.analyzePhotoVision = onCall({
   const uid = request.auth && request.auth.uid;
   if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
 
+  // Global AI kill-switch (Audit #4) — emergency halt without a deploy.
+  if (await require('./integrations/killswitch').isAiDisabled()) {
+    throw new HttpsError('unavailable', 'AI temporarily disabled');
+  }
+
   // 100/min/uid — handles a 100-photo batch in ~1 minute with parallel
   // client throttling at 5 concurrent. Generous enough that legitimate
   // workflow never hits it.
@@ -173,20 +190,23 @@ exports.analyzePhotoVision = onCall({
   const leadMeterRef = db.doc(`leadCostMeter/${leadId}`);
   const userMeterRef = db.doc(`userCostMeter/${uid}__${monthKey}`);
 
-  const [leadMeterSnap, userMeterSnap] = await Promise.all([
+  const [leadMeterSnap, userMeterSnap, subSnap] = await Promise.all([
     leadMeterRef.get(),
     userMeterRef.get(),
+    db.doc(`subscriptions/${uid}`).get(),
   ]);
   const leadUsd = (leadMeterSnap.exists && leadMeterSnap.data().visionUsd) || 0;
   const userUsd = (userMeterSnap.exists && userMeterSnap.data().visionUsd) || 0;
+  const plan = (subSnap.exists && subSnap.data().plan) || 'lite';
+  const userMonthlyCap = PER_USER_MONTHLY_USD_CAP_BY_PLAN[plan] ?? PER_USER_MONTHLY_USD_CAP;
 
   if (leadUsd >= PER_LEAD_USD_CAP) {
     logger.info('photo-vision.cap.lead', { leadId, leadUsd });
     return { skipped: true, reason: 'lead-cap', leadUsd };
   }
-  if (userUsd >= PER_USER_MONTHLY_USD_CAP) {
-    logger.info('photo-vision.cap.user', { uid, monthKey, userUsd });
-    return { skipped: true, reason: 'user-cap', userUsd };
+  if (userUsd >= userMonthlyCap) {
+    logger.info('photo-vision.cap.user', { uid, monthKey, userUsd, plan, cap: userMonthlyCap });
+    return { skipped: true, reason: 'user-cap', userUsd, cap: userMonthlyCap };
   }
 
   // ── Cache check ──

@@ -6,8 +6,22 @@ infra spend and need to **stop the bleeding now**.
 > ⚠️ The Cloud **Billing budget alerts — it does NOT stop spend.** And
 > `docs/pro/README-killswitch.md` is the *service-worker* kill-switch (disables
 > the PWA), **not** a spend control. This page is the actual spend kill-switch.
-> There is no single global button yet (see "Proposed" below) — you pull the
-> lever for whichever cost driver is running hot.
+
+## 🔴 ONE-BUTTON: halt all billable AI instantly (no deploy)
+
+Set a single Firestore flag — `claudeProxy`, `analyzePhotoVision`, and
+`visualizerImageGen` all check it (60s cached), so it takes effect within a
+minute and reverses just as fast:
+
+```
+feature_flags/global   →   { aiDisabled: true }
+```
+
+In the Firebase console: Firestore → `feature_flags` → `global` → set
+`aiDisabled` = `true` (create the doc/field if absent). To restore, set it
+back to `false`. While set, AI endpoints return 503 / `unavailable`; SMS and
+email are unaffected (use their levers below). This is the fastest, least
+destructive AI stop — prefer it over pulling the Anthropic key.
 
 First: **identify the driver** (1 minute) — GCP Billing → Reports (group by
 service/SKU), Anthropic console, Twilio console. Then pull the matching lever.
@@ -65,11 +79,8 @@ hard-stop *individual* abusers. Use these only for a *platform-wide* event
 - **Anthropic:** workspace spend limit.
 - **Resend / Groq / vendors:** plan caps where offered.
 
----
+## SMS daily ceiling
 
-## Proposed (not yet built) — a real one-button switch
-
-Add a single `feature_flags/global` Firestore doc (or `AI_GLOBAL_DISABLE`
-env) checked at the top of `claudeProxy` / `analyzePhotoVision` /
-`visualizerImageGen` so you can halt *all* billable AI in one write without a
-deploy or secret rotation. Tracked as a P1 in the Audit #4 punch list.
+Storm SMS is now bounded by both `STORM_MAX_SMS_PER_RUN` (default 250) and
+`STORM_MAX_SMS_PER_DAY` (default 2000). Set either to `0` on the
+`checkStormAlerts` revision to halt storm fan-out without a deploy.
