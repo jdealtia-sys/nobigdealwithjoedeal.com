@@ -165,6 +165,7 @@
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+  import { connectEmulatorsIfLocal } from "./js/nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
   // Per S27 architectural rule: All CRM global state declared before any function definitions
@@ -944,6 +945,7 @@
   const auth    = getAuth(app);
   const db      = getFirestore(app);
   const storage = getStorage(app);
+  connectEmulatorsIfLocal({ auth, db, storage }); // Audit #3: localhost-only, no-op in prod
 
   // CRITICAL: Expose Firebase functions to window for drag & drop and other global handlers
   window.db = db;

@@ -10,6 +10,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { getFirestore, collection, getDocs, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { connectEmulatorsIfLocal } from '../nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
 
 const results = document.getElementById('results');
 
@@ -41,6 +42,7 @@ try {
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getFirestore(app);
+  await connectEmulatorsIfLocal({ auth, db }); // Audit #3: localhost-only, no-op in prod
   log('Firebase Init', true, 'Connected successfully');
 
   onAuthStateChanged(auth, async (user) => {

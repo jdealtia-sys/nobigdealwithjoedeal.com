@@ -11,6 +11,7 @@
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+  import { connectEmulatorsIfLocal } from "./nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
   // Per S27 architectural rule: All CRM global state declared before any function definitions
@@ -790,6 +791,11 @@
   const auth    = getAuth(app);
   const db      = getFirestore(app);
   const storage = getStorage(app);
+  // Audit #3: localhost-only emulator wiring. On dashboard.html, auth+db were
+  // already wired by nbd-auth (reused instances → deduped); this connects the
+  // fresh storage instance (uploads happen far later, so no await needed) and
+  // covers the no-nbd-auth fallback path. Hard no-op in production.
+  connectEmulatorsIfLocal({ auth, db, storage });
 
   // CRITICAL: Expose Firebase functions to window for drag & drop and other global handlers
   window.db = db;

@@ -11,6 +11,7 @@ import { getAuth, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvi
                                                                 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp }   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable }                           from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
+import { connectEmulatorsIfLocal }                               from "../nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
 
 const firebaseConfig = {
   apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -25,6 +26,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app);
+await connectEmulatorsIfLocal({ auth, db, functions }); // Audit #3: localhost-only, no-op in prod
 const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
 
 // ─────────────────────────────────────────────────
