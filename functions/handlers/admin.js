@@ -589,6 +589,19 @@ exports.updateUserRole = onCall(
       role
     });
 
+    // Phase-2.4: force re-auth so a role change (esp. a downgrade) takes
+    // effect promptly. Without this the target keeps their old claims on
+    // the current ID token until it refreshes (~1h). Mirrors
+    // deactivateUser's revoke. (The in-flight token's ~1h lifetime is a
+    // Firebase trait; revoking blocks refreshing into a fresh token that
+    // still carries stale claims, and forces a re-login that picks up the
+    // new role.)
+    try {
+      await admin.auth().revokeRefreshTokens(userRecord.uid);
+    } catch (e) {
+      logger.warn('updateUserRole: token revoke failed', { uid: userRecord.uid, err: e.message });
+    }
+
     const emailKey = (userRecord.email || targetEmail || '').toLowerCase();
     if (emailKey) {
       await admin.firestore().doc(`companies/${companyId}/members/${emailKey}`).set({
