@@ -148,6 +148,23 @@ async function run() {
   await check('subscriptions: rep self-upgrades plan',       'deny', setDoc(doc(bob, 'subscriptions/bob'), { plan: 'professional', status: 'active' }));
   await check('company_admin(co-b) reads co-a leaderboard',  'deny', getDoc(doc(bobCA, 'leaderboard/alice')));
 
+  // ═══════════════════════════════════════════════════════════
+  // E. CREATE-PIN ENFORCEMENT (Phase-1.5) — companyId pinned to the
+  //    caller's own tenant on create. Foreign id rejected; own claim/uid OK.
+  //    leads REQUIRE companyId; the company-scoped collections pin-if-present.
+  // ═══════════════════════════════════════════════════════════
+  await check('leads create: foreign companyId (co-a)',       'deny',  setDoc(doc(bob, 'leads/x-foreign'),       { userId: 'bob', companyId: 'co-a', name: 'x' }));
+  await check('leads create: own claim companyId (co-b)',     'allow', setDoc(doc(bob, 'leads/x-own'),           { userId: 'bob', companyId: 'co-b', name: 'x' }));
+  await check('leads create: own uid as companyId',           'allow', setDoc(doc(bob, 'leads/x-uid'),           { userId: 'bob', companyId: 'bob',  name: 'x' }));
+  await check('leads create: missing companyId (required)',   'deny',  setDoc(doc(bob, 'leads/x-none'),          { userId: 'bob', name: 'x' }));
+  await check('knocks create: foreign companyId (co-a)',      'deny',  setDoc(doc(bob, 'knocks/k-foreign'),      { userId: 'bob', companyId: 'co-a' }));
+  await check('knocks create: own companyId (co-b)',          'allow', setDoc(doc(bob, 'knocks/k-own'),          { userId: 'bob', companyId: 'co-b' }));
+  await check('knocks create: companyId omitted (degrades)',  'allow', setDoc(doc(bob, 'knocks/k-none'),         { userId: 'bob' }));
+  await check('territories create: foreign companyId',        'deny',  setDoc(doc(bob, 'territories/t-foreign'), { userId: 'bob', companyId: 'co-a' }));
+  await check('training_sessions create: foreign companyId',  'deny',  setDoc(doc(bob, 'training_sessions/ts-f'),{ userId: 'bob', companyId: 'co-a' }));
+  await check('reps create: foreign companyId',               'deny',  setDoc(doc(bob, 'reps/bob'),              { userId: 'bob', companyId: 'co-a' }));
+  await check('reps create: own companyId (co-b)',            'allow', setDoc(doc(bob, 'reps/bob'),              { userId: 'bob', companyId: 'co-b' }));
+
   // ── Summary ────────────────────────────────────────────────
   const pass = results.filter(r => r.outcome === 'PASS').length;
   const fail = results.filter(r => r.outcome === 'FAIL').length;

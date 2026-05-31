@@ -943,14 +943,14 @@
           name: window._user.displayName || 'Rep',
           initials: initials,
           role: 'rep',
-          companyId: 'default',
+          companyId: window._userClaims?.companyId || window._user.uid,
           createdAt: window.serverTimestamp()
         });
-        state.currentRep = { userId: window._user.uid, name: window._user.displayName || 'Rep', initials, role: 'rep', companyId: 'default' };
+        state.currentRep = { userId: window._user.uid, name: window._user.displayName || 'Rep', initials, role: 'rep', companyId: window._userClaims?.companyId || window._user.uid };
       }
     } catch (e) {
       console.error('loadRepProfile failed:', e);
-      state.currentRep = { userId: window._user.uid, name: window._user.displayName || 'Rep', companyId: 'default' };
+      state.currentRep = { userId: window._user.uid, name: window._user.displayName || 'Rep', companyId: window._userClaims?.companyId || window._user.uid };
     }
   }
 
@@ -1074,7 +1074,7 @@
       const knockDoc = {
         userId: window._user.uid,
         repId: window._user.uid,
-        companyId: state.currentRep?.companyId || 'default',
+        companyId: state.currentRep?.companyId || window._userClaims?.companyId || window._user.uid,
         address: data.address,
         lat: data.lat || null,
         lng: data.lng || null,
@@ -1298,6 +1298,7 @@
         await window.addDoc(window.collection(window._db, 'leads'), {
           ...leadData,
           userId: window._user.uid,
+          companyId: window._userClaims?.companyId || window._user.uid,
           createdAt: window.serverTimestamp(),
           stageStartedAt: window.serverTimestamp()
         });
@@ -1391,7 +1392,7 @@
 
   async function saveTerritory(data) {
     try {
-      const territoryData = { ...data, companyId: state.currentRep?.companyId || 'default', userId: window._user.uid, updatedAt: window.serverTimestamp() };
+      const territoryData = { ...data, companyId: state.currentRep?.companyId || window._userClaims?.companyId || window._user.uid, userId: window._user.uid, updatedAt: window.serverTimestamp() };
       let id = data.id;
       if (id) {
         await window.updateDoc(window.doc(window._db, 'territories', id), territoryData);

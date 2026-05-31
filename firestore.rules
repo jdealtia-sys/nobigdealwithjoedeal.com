@@ -75,7 +75,13 @@ service cloud.firestore {
       allow create: if isAuth()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string
-        && request.resource.data.companyId.size() > 0;
+        && request.resource.data.companyId.size() > 0
+        // Phase-1.5: pin companyId to the caller's own tenant (claim or, for
+        // solo operators, their uid). Stops a rep stamping a foreign tenant's
+        // companyId onto a lead and polluting that tenant's company-scoped
+        // rollups. Client always stamps `claims.companyId || uid`.
+        && (request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
 
       // D3: flat-path subcollections — the measurementWebhook +
       // esignWebhook auto-append activity here via admin SDK. Rules
@@ -423,7 +429,14 @@ service cloud.firestore {
       allow read: if isAdmin()
         || isOwner(resource.data.userId)
         || (isManager() && sameCompanyAsResource());
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // Phase-1.5: companyId, if present, must be the caller's own tenant —
+      // a rep can't tag a knock with another company's id (which would make
+      // it readable by that company's managers). Presence not required so a
+      // missed client path degrades to owner-only, never cross-tenant.
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+        && (!('companyId' in request.resource.data)
+            || request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
@@ -434,7 +447,11 @@ service cloud.firestore {
         || isOwner(repId)
         || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
       allow create: if isOwner(repId)
-        && !request.resource.data.keys().hasAny(['role','isAdmin']);
+        && !request.resource.data.keys().hasAny(['role','isAdmin'])
+        // Phase-1.5: companyId, if present, must be the caller's own tenant.
+        && (!('companyId' in request.resource.data)
+            || request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
       allow update: if (isOwner(repId) && didNotChange(['role','isAdmin','companyId']))
         || isAdmin();
       allow delete: if isAdmin();
@@ -445,7 +462,11 @@ service cloud.firestore {
       allow read: if isAdmin()
         || isOwner(resource.data.userId)
         || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // Phase-1.5: companyId, if present, must be the caller's own tenant.
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+        && (!('companyId' in request.resource.data)
+            || request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
@@ -499,7 +520,11 @@ service cloud.firestore {
       allow read: if isAdmin()
         || isOwner(resource.data.userId)
         || (isManager() && sameCompanyAsResource());
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // Phase-1.5: companyId, if present, must be the caller's own tenant.
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+        && (!('companyId' in request.resource.data)
+            || request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
     }
 

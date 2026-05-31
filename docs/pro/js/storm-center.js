@@ -542,7 +542,7 @@
           addDoc(collection(window._db, 'territories'), {
             ...territory,
             userId: window._user.uid,
-            companyId: window._user.companyId || null,
+            companyId: window._userClaims?.companyId || window._user.uid,
             createdAt: serverTimestamp()
           }).then(() => {
             if (window.showToast) window.showToast('Territory pushed to D2D Tracker', 'success');

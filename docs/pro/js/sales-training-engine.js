@@ -1707,6 +1707,7 @@
       if (!window._db || !window._user) return;
       const payload = {
         userId: window._user.uid,
+        companyId: window._userClaims?.companyId || window._user.uid,
         type, // 'scenario' or 'rapid'
         ...data,
         completedAt: window.serverTimestamp ? window.serverTimestamp() : new Date()

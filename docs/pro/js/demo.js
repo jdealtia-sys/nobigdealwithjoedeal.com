@@ -61,6 +61,7 @@ async function seedDemoLeads(uid) {
       const ref = await addDoc(collection(db,'leads'), {
         ...rest,
         userId: uid,
+        companyId: window._userClaims?.companyId || uid,
         createdAt: createdAt,
         updatedAt: createdAt,
       });
