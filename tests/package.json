@@ -7,10 +7,11 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "npm run test:smoke && npm run test:pricing && npm run test:billing && npm run test:address && npm run test:state && npm run test:rules && npm run test:rules:xtenant && npm run test:authaccess && npm run test:storage && npm run test:ratelimit",
+    "test": "npm run test:smoke && npm run test:pricing && npm run test:billing && npm run test:leadlogic && npm run test:address && npm run test:state && npm run test:rules && npm run test:rules:xtenant && npm run test:authaccess && npm run test:leadlifecycle && npm run test:storage && npm run test:ratelimit",
     "test:smoke": "node ./smoke.test.js",
     "test:pricing": "node ./estimate-pricing.test.js",
     "test:billing": "node ./billing-gate.test.js",
+    "test:leadlogic": "node ./lead-pipeline-logic.test.js",
     "test:address": "node ./address-match.test.js",
     "test:state": "node ./state-store.test.js",
     "test:rules": "firebase emulators:exec --only firestore,storage --project nbd-test 'node ./firestore-rules.test.js'",
@@ -18,6 +19,7 @@
     "test:storage": "firebase emulators:exec --only storage --project nbd-storage-test 'node ./storage-rules.test.js'",
     "test:ratelimit": "firebase emulators:exec --only firestore --project nbd-test-ratelimit 'node ./rate-limit.test.js'",
     "test:authaccess": "firebase emulators:exec --only auth,firestore --project nbd-test-authaccess 'node ./auth-access.test.js'",
+    "test:leadlifecycle": "firebase emulators:exec --only auth,firestore --project nbd-test-leadlifecycle 'node ./lead-lifecycle.test.js'",
     "test:e2e": "playwright test --config=playwright.config.js",
     "test:e2e:headed": "playwright test --config=playwright.config.js --headed",
     "test:e2e:install": "playwright install chromium",

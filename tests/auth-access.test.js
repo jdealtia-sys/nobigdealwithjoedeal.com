@@ -170,4 +170,6 @@ async function adbSeedViewerLead(uid) {
   await adb.doc('leads/lead_viewer').set({ userId: uid, companyId: COMPANY_ID, name: 'Viewer Lead', stage: 'new', deleted: false });
 }
 
-run().catch(e => { console.error('auth-access test crashed:', e && (e.stack || e.message)); process.exit(1); });
+// Explicit exit: admin + client Firestore gRPC channels keep the event loop
+// alive; without this the process hangs and emulators:exec never returns.
+run().then(() => process.exit(0)).catch(e => { console.error('auth-access test crashed:', e && (e.stack || e.message)); process.exit(1); });
