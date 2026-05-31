@@ -369,11 +369,19 @@ jobs:
           NBD_DEPLOY_SKIP_LIST: "onRepSignup"
         run: |
           set -e
-          # Enumerate every function export across functions/*.js +
-          # functions/integrations/*.js. Grep for exports of the
+          # Enumerate every function export across functions/*.js,
+          # functions/integrations/*.js, functions/handlers/*.js, and
+          # functions/migrations/runner.js. Grep for exports of the
           # Cloud Functions factory functions so we match both 2nd-gen
           # HTTP/callable and Firestore/Auth triggers.
-          ALL=$(grep -rhE "^exports\.[a-zA-Z_][a-zA-Z0-9_]* *= *(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted|functions\.https\.onRequest|functions\.https\.onCall|functions\.firestore|functions\.auth|functions\.pubsub)" functions/*.js functions/integrations/*.js 2>/dev/null \
+          # AUDIT #2 FIX: handlers/ + migrations/runner.js were previously
+          # omitted, so 26 functions — incl. the admin team-mgmt callables
+          # (createTeamMember/updateUserRole/deactivateUser…), claudeProxy,
+          # analyzeRoofPhoto, submitPublicLead, validateAccessCode,
+          # cspReport, runMigrations — were silently NEVER auto-deployed
+          # (a fix pushed to main looked shipped but the old revision stayed
+          # live). index.js re-exports them, so deploy-by-name works.
+          ALL=$(grep -rhE "^exports\.[a-zA-Z_][a-zA-Z0-9_]* *= *(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted|functions\.https\.onRequest|functions\.https\.onCall|functions\.firestore|functions\.auth|functions\.pubsub)" functions/*.js functions/integrations/*.js functions/handlers/*.js functions/migrations/runner.js 2>/dev/null \
                 | sed -E 's/^exports\.([a-zA-Z_][a-zA-Z0-9_]*) *=.*/\1/' \
                 | sort -u)
           # Build an include list = ALL minus skip-list.
