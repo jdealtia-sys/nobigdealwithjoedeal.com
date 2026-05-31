@@ -274,6 +274,7 @@
         "seed-companies.js",
         "seed-demo.js",
         "find-secrets.js",
+        "migrate-companyprofile-per-tenant.js",
         "verify-functions-company-enhancement.js",
         "SEED_COMPANIES_README.md"
       ]
