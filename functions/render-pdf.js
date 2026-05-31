@@ -36,6 +36,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { callableRateLimit } = require('./shared');
 const fs = require('fs');
 const path = require('path');
 const Handlebars = require('handlebars');
@@ -193,6 +194,14 @@ exports.renderPdf = onCall(
   async (request) => {
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
+
+    // Phase-3.2: rate-limit the expensive Puppeteer render (2GiB,
+    // minInstances:1). Auth + App Check gate WHO can call it, but nothing
+    // capped HOW OFTEN — a loop could rack up Chromium compute cost.
+    // 30/min/uid is generous for a rep generating end-of-job docs
+    // (contract + warranty + invoice + photo report in a burst), tight
+    // against an abuse loop.
+    await callableRateLimit(request, 'renderPdf', 30, 60_000);
 
     // ── input validation ──
     const data = request.data || {};

@@ -136,9 +136,13 @@ async function run() {
   await check('companyProfile: solo op WRITES own (uid key)',  'allow', setDoc(doc(solo, 'companyProfile/solo1'), { tagline: 'solo edit' }, { merge: true }));
   await check('companyProfile: B reads solo op config',        'deny',  getDoc(doc(bob, 'companyProfile/solo1')));
 
-  // counters — KNOWN P3 (finding #1.2), not part of this fix. Tracked as WARN.
-  await check('counters: B(co-b) READS customerIds counter', 'deny', getDoc(doc(bob, 'counters/customerIds')), { knownGap: true });
-  await check('counters: B(co-b) OVERWRITES counter',        'deny', setDoc(doc(bob, 'counters/customerIds'), { next: 999999 }), { knownGap: true });
+  // counters #1.2 — writes are now monotonic (+1 only). Overwrite/garble
+  // DENIED; the legit +1 increment ALLOWED; read intentionally open (the
+  // client mint transaction must read to compute next+1 — accepted P3).
+  // Seeded at next:42. Order: overwrite-deny (stays 42) → +1 (42→43).
+  await check('counters: overwrite to garbage DENIED',        'deny',  setDoc(doc(bob, 'counters/customerIds'), { next: 999999 }));
+  await check('counters: legit +1 increment ALLOWED',         'allow', setDoc(doc(bob, 'counters/customerIds'), { next: 43 }));
+  await check('counters: read intentionally open (mint txn)', 'allow', getDoc(doc(bob, 'counters/customerIds')));
 
   // ═══════════════════════════════════════════════════════════
   // D. PRIVILEGE / ESCALATION — must DENY
