@@ -35,6 +35,7 @@ const DOMAINS = [
   './smoke/photo-report-pairs.test.js',      // §3.2 _buildPairs fixture tests
   './smoke/maps.test.js',
   './smoke/reports.test.js',
+  './smoke/security-guards.test.js',  // Audit #2: webhook-sig / billing-gate / SMS opt-out regression guards
 ];
 
 for (const mod of DOMAINS) {

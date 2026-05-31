@@ -266,6 +266,21 @@ jobs:
             fi
           done
 
+      # AUDIT #2 (Phase 8.4): gate the rules deploy on the rules tests.
+      # A regression that reopens a cross-tenant hole or flips an
+      # allow/deny must NOT ship. Runs the same emulator suite as CI;
+      # a non-zero exit stops the job HERE — before any rules (or the
+      # functions/hosting steps below) deploy. Same `if:` condition as
+      # the rules-deploy step so it only runs when we're deploying rules.
+      - name: Gate — Firestore rules tests must pass before deploy
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
+        run: |
+          set -e
+          cd tests
+          npm ci --silent || npm install --silent --no-audit --no-fund
+          npx firebase-tools emulators:exec --only firestore --project nbd-rules-test 'node firestore-rules.test.js'
+          npx firebase-tools emulators:exec --only firestore --project nbd-xtenant-test 'node firestore-rules.cross-tenant.test.js'
+
       - name: Deploy Firestore rules (pro)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
         env:
