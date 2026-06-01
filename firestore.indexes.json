@@ -201,6 +201,21 @@
       ]
     },
     {
+      "_comment": "Audit #4 / 5.2: anniversaryAutoTouch query where('userId','==').where('stage','in',COMPLETE_STAGES) — read only completed leads instead of scanning the whole pipeline per user.",
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "estimates",
       "queryScope": "COLLECTION",
       "fields": [

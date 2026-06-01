@@ -69,6 +69,11 @@ const COMPLETE_STAGES = new Set([
   'deductible_collected',
   'final_payment',
 ]);
+// 5.2: server-side filter list for the leads query. Lets Firestore return
+// only completed leads instead of scanning every lead per user (the bulk of
+// an active rep's pipeline is NOT complete). Result set is identical to the
+// old full-scan + in-memory COMPLETE_STAGES.has() filter. ≤30 values for `in`.
+const COMPLETE_STAGE_LIST = Array.from(COMPLETE_STAGES);
 
 // ─── Branded email template ──────────────────────────────────────
 const TEMPLATE_STYLES = `
@@ -210,7 +215,16 @@ async function findAnniversaryLeads(db, uid) {
   const maxCompletionMs = now - ANNIVERSARY_MIN_DAYS * DAY_MS;
   const reSkipCutoff    = now - RESKIP_WINDOW_DAYS    * DAY_MS;
 
-  const snap = await db.collection('leads').where('userId', '==', uid).limit(5000).get();
+  // 5.2: filter to completed stages server-side (composite index
+  // leads(userId, stage)). Reads only completed leads, not the whole
+  // pipeline. With this filter the 5000 limit is effectively unreachable
+  // (a rep would need 5000 *closed* jobs), so truncation is no longer a
+  // real concern here.
+  const snap = await db.collection('leads')
+    .where('userId', '==', uid)
+    .where('stage', 'in', COMPLETE_STAGE_LIST)
+    .limit(5000)
+    .get();
   const out = [];
   for (const doc of snap.docs) {
     const lead = { id: doc.id, ...doc.data() };

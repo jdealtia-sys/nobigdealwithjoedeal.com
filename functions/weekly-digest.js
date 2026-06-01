@@ -177,6 +177,10 @@ async function aggregateUserMetrics(db, uid) {
   const now = Date.now();
   const cutoff = now - ONE_WEEK_MS;
   const snap = await db.collection('leads').where('userId', '==', uid).limit(2000).get();
+  // 5.2: surface silent truncation — a rep with >2000 leads gets metrics
+  // computed over a truncated set (weekly digest genuinely needs a broad
+  // read; the real fix is a date-windowed query, see Audit #4 Phase 5).
+  if (snap.size >= 2000) logger.warn('weekly_digest_truncated', { uid, limit: 2000 });
   const allLeads = snap.docs
     .map(d => ({ id: d.id, ...d.data() }))
     .filter(l => !l.deleted);

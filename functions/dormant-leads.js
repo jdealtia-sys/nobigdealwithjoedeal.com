@@ -183,6 +183,10 @@ function buildEmailHtml({ firstName, dormantLeads, total }) {
 async function findDormantLeads(db, uid) {
   const cutoff = Date.now() - DORMANT_DAYS * DAY_MS;
   const snap = await db.collection('leads').where('userId', '==', uid).limit(2000).get();
+  // 5.2: surface silent truncation. A rep with >2000 leads gets an incomplete
+  // dormant scan (the broad query can't be cheaply narrowed without a
+  // lastActivityAt convention — see Audit #4 Phase 5). Make it visible.
+  if (snap.size >= 2000) logger.warn('dormant_nudge_truncated', { uid, limit: 2000 });
   const out = [];
   for (const doc of snap.docs) {
     const lead = { id: doc.id, ...doc.data() };
