@@ -9,7 +9,7 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+  import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, startAfter, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
   import { connectEmulatorsIfLocal } from "./nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
 
@@ -821,6 +821,7 @@
   window.where = where;
   window.orderBy = orderBy;
   window.limit = limit;
+  window.startAfter = startAfter;  // Audit #4 / 5.1: enables cursor pagination
   window.serverTimestamp = serverTimestamp;
   window.arrayUnion = arrayUnion;
   window.ref = ref;
@@ -1661,10 +1662,39 @@
       // the common reload-stale case; this reactive cycle remains the
       // belt-and-suspenders fallback for transient iOS background-tab
       // throttling and other in-session connection deaths.
-      const _runQuery = () => Promise.race([
-        getDocs(query(collection(db,'leads'), where('userId','==',finalUid))),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('getDocs(leads) timeout after 10000ms')), 10000))
-      ]);
+      // Audit #4 / 5.1 — Stage A: paginate the FETCH instead of pulling
+      // every lead in one unbounded getDocs. A rep with thousands of leads
+      // used to load them all in a single query that (a) risked the 10s
+      // timeout on a big book and (b) spiked memory. We now page by
+      // document id (limit + startAfter) and concatenate. The RESULT is
+      // identical — same docs, just assembled from N round-trips — so the
+      // `snap.docs` consumer below and all 68 window._leads readers are
+      // unchanged. Each page keeps the original 10s timeout. Stage B
+      // (later) moves KPI counts/search server-side to actually bound reads.
+      //
+      // Page by __name__ (documentId) ordering, which is implicit and
+      // needs no composite index for a single equality filter. Verified in
+      // the emulator: identical set, no dupes/gaps across pages.
+      const _PAGE = 500;
+      const _runQuery = async () => {
+        const allDocs = [];
+        let cursor = null;
+        // Hard ceiling so a pathological/corrupt cursor can't loop forever:
+        // 200 pages × 500 = 100k leads, far beyond any real rep.
+        for (let page = 0; page < 200; page++) {
+          let q = query(collection(db,'leads'), where('userId','==',finalUid), limit(_PAGE));
+          if (cursor) q = query(collection(db,'leads'), where('userId','==',finalUid), startAfter(cursor), limit(_PAGE));
+          const pageSnap = await Promise.race([
+            getDocs(q),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('getDocs(leads) timeout after 10000ms')), 10000))
+          ]);
+          for (const d of pageSnap.docs) allDocs.push(d);
+          if (pageSnap.size < _PAGE) break;   // last (partial) page
+          cursor = pageSnap.docs[pageSnap.docs.length - 1];
+        }
+        // Return a snapshot-shaped object so downstream code is untouched.
+        return { docs: allDocs, size: allDocs.length };
+      };
 
       let snap;
       try {
