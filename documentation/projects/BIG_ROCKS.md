@@ -15,6 +15,13 @@ Run tests with `cd tests && npm install && npm test`. Smoke + pricing + address
 
 ## ROCK 1 — Hosting cutover to Firebase (mostly DNS)
 
+> ✅ **DONE — verified Audit #4 (2026-06).** The apex `nobigdealwithjoedeal.com`
+> is live on Firebase Hosting and serves the full CSP / Permissions-Policy /
+> Referrer-Policy from `firebase.json` (identical to `nobigdeal-pro.web.app`).
+> The "What's left" DNS/console steps below are **historical** — do not redo
+> them. Small remaining header gaps to track separately: no `Strict-Transport-
+> Security` (HSTS) and no `X-Content-Type-Options: nosniff`.
+
 ### Goal
 Swap public `nobigdealwithjoedeal.com` from GitHub Pages → Firebase Hosting so
 the security headers in `firebase.json` (Referrer-Policy, dev/** ignore,
