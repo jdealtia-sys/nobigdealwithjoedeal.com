@@ -69,6 +69,11 @@ const COMPLETE_STAGES = new Set([
   'deductible_collected',
   'final_payment',
 ]);
+// 5.2: server-side filter list for the leads query. Lets Firestore return
+// only completed leads instead of scanning every lead per user (the bulk of
+// an active rep's pipeline is NOT complete). Result set is identical to the
+// old full-scan + in-memory COMPLETE_STAGES.has() filter. ≤30 values for `in`.
+const COMPLETE_STAGE_LIST = Array.from(COMPLETE_STAGES);
 
 // ─── Branded email template ──────────────────────────────────────
 const TEMPLATE_STYLES = `
@@ -210,7 +215,16 @@ async function findAnniversaryLeads(db, uid) {
   const maxCompletionMs = now - ANNIVERSARY_MIN_DAYS * DAY_MS;
   const reSkipCutoff    = now - RESKIP_WINDOW_DAYS    * DAY_MS;
 
-  const snap = await db.collection('leads').where('userId', '==', uid).limit(5000).get();
+  // 5.2: filter to completed stages server-side (composite index
+  // leads(userId, stage)). Reads only completed leads, not the whole
+  // pipeline. With this filter the 5000 limit is effectively unreachable
+  // (a rep would need 5000 *closed* jobs), so truncation is no longer a
+  // real concern here.
+  const snap = await db.collection('leads')
+    .where('userId', '==', uid)
+    .where('stage', 'in', COMPLETE_STAGE_LIST)
+    .limit(5000)
+    .get();
   const out = [];
   for (const doc of snap.docs) {
     const lead = { id: doc.id, ...doc.data() };
@@ -283,12 +297,6 @@ exports.anniversaryAutoTouch = onSchedule(
     const enabled = process.env.ANNIVERSARY_TOUCH_ENABLED === 'true';
     const db = admin.firestore();
 
-    const usersSnap = await db.collection('users').limit(500).get();
-    if (usersSnap.empty) {
-      logger.info('anniversary_no_users');
-      return;
-    }
-
     const resend = enabled && process.env.RESEND_API_KEY
       ? new Resend(process.env.RESEND_API_KEY)
       : null;
@@ -297,7 +305,21 @@ exports.anniversaryAutoTouch = onSchedule(
     let emailed = 0, skippedOptOut = 0, skippedNothing = 0, failed = 0;
     let activityWritten = 0;
 
-    for (const userDoc of usersSnap.docs) {
+    // 2.6: paginate ALL users. The previous single .limit(500).get() meant
+    // user #501+ was silently never processed once team/tenant count grew
+    // past 500. Page by document id so every user is covered.
+    let totalUsers = 0;
+    let userCursor = null;
+    while (true) {
+      let uq = db.collection('users')
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .limit(500);
+      if (userCursor) uq = uq.startAfter(userCursor);
+      const usersSnap = await uq.get();
+      if (usersSnap.empty) break;
+      totalUsers += usersSnap.size;
+
+      for (const userDoc of usersSnap.docs) {
       const user = userDoc.data() || {};
       const uid  = userDoc.id;
 
@@ -313,8 +335,18 @@ exports.anniversaryAutoTouch = onSchedule(
         // CRM bell catches the anniversary regardless of email mode.
         // This is the more important channel anyway; email is just a
         // morning nudge.
+        //
+        // We also mark the lead touched HERE (not only after a live email
+        // send) so the job is idempotent in BOTH modes. Previously the
+        // mark happened only after a successful send, so in the default
+        // dry-run the lead was never marked and findAnniversaryLeads kept
+        // returning it — re-writing the `anniversary_due` activity row
+        // every single day for the whole 360-380 day window. The CRM bell
+        // (activity) is the canonical "handled" signal; if a later live
+        // email fails the rep is still notified via the bell.
         for (const lead of anniversaries) {
           await writeAnniversaryActivity(db, lead.id, uid);
+          await markAnniversaryTouched(db, lead.id);
           activityWritten++;
         }
 
@@ -337,24 +369,24 @@ exports.anniversaryAutoTouch = onSchedule(
           html,
         });
 
-        // Mark each lead touched only after the email lands. Activity
-        // entries already exist regardless — that's the audit trail.
-        for (const lead of anniversaries) {
-          await markAnniversaryTouched(db, lead.id);
-        }
-
+        // Leads were already marked touched above (idempotent in all
+        // modes); the email is the secondary nudge channel.
         emailed++;
       } catch (e) {
         logger.warn('anniversary_user_error', { uid, err: e.message });
         failed++;
       }
+      }
+
+      if (usersSnap.size < 500) break;
+      userCursor = usersSnap.docs[usersSnap.docs.length - 1];
     }
 
     logger.info('anniversary_touch_complete', {
       mode: enabled ? 'live' : 'dry-run',
       emailed, skippedOptOut, skippedNothing, failed,
       activityWritten,
-      total: usersSnap.size,
+      total: totalUsers,
     });
   }
 );

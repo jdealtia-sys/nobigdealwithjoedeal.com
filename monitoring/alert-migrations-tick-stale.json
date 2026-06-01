@@ -1,0 +1,30 @@
+{
+  "displayName": "NBD Pro — migrationsTick stale > 26h",
+  "documentation": {
+    "content": "The migrationsTick scheduled function hasn't emitted its heartbeat in over 26 hours. It runs every 24h and now logs '[migrationsTick] heartbeat' on EVERY run (including no-op runs and runs skipped because another runner held the lease), so a >26h gap means the daily migration tick has silently stopped firing. Pending schema migrations would then never apply, and a half-applied migration would never get its retry.\n\nInvestigation:\n  1. gcloud functions logs read migrationsTick --project nobigdeal-pro --gen2 --limit 50\n  2. gcloud scheduler jobs list --project nobigdeal-pro | grep migrationsTick\n  3. Read system/migrations (appliedVersion, lastError, lastFailedVersion) and system/migrations_lock (a stuck lease self-expires after 15m; if expiresAt is far in the future something is wrong).\n  4. If a migration is failing, fix the script and let the next tick retry, or call runMigrations manually (admin only).",
+    "mimeType": "text/markdown"
+  },
+  "combiner": "OR",
+  "enabled": true,
+  "conditions": [
+    {
+      "displayName": "No migrationsTick heartbeat in 26h",
+      "conditionAbsent": {
+        "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"migrationstick\" AND textPayload:\"[migrationsTick] heartbeat\"",
+        "duration": "93600s",
+        "aggregations": [
+          {
+            "alignmentPeriod": "3600s",
+            "perSeriesAligner": "ALIGN_COUNT"
+          }
+        ]
+      }
+    }
+  ],
+  "alertStrategy": {
+    "autoClose": "86400s"
+  },
+  "notificationChannels": [
+    "projects/nobigdeal-pro/notificationChannels/NOTIFICATION_CHANNEL_ID"
+  ]
+}

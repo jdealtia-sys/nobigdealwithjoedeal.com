@@ -56,6 +56,37 @@ exports.emailQueueWorker = onSchedule(
     const resend = new Resend(resendKey);
     const db = admin.firestore();
 
+    // Reaper (Audit #4 / 2.2): re-queue rows stuck in 'sending'. A tick
+    // that crashed or timed out after claiming a row but before writing
+    // 'sent'/'pending' leaves it in 'sending' forever — never re-picked
+    // (the queue query below is pending-only), silently dropping GDPR-
+    // erasure confirmations and Stripe dunning emails. Reclaiming after a
+    // 10-min lease (>> the 240s timeout) restores at-least-once delivery.
+    // Tradeoff: if the crash happened in the sub-second AFTER a successful
+    // Resend send but BEFORE the 'sent' write, the reclaim re-sends a
+    // duplicate — acceptable for these transactional emails vs. a silent
+    // drop, and bounded by MAX_ATTEMPTS.
+    let requeued = 0;
+    try {
+      const staleCutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 10 * 60_000);
+      const stuck = await db.collection('email_queue')
+        .where('status', '==', 'sending')
+        .where('claimedAt', '<', staleCutoff)
+        .limit(25)
+        .get();
+      for (const d of stuck.docs) {
+        await d.ref.update({
+          status: 'pending',
+          attempts: (d.data().attempts || 0) + 1,
+          lastError: 'reclaimed: stale sending lease',
+          reclaimedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        requeued++;
+      }
+    } catch (e) {
+      logger.warn('emailQueueWorker reaper error', { err: e.message });
+    }
+
     // Claim up to 25 pending rows per tick. Anything that needs
     // faster delivery should go through the direct-send functions.
     // Writers MUST set `status: 'pending'` explicitly (enforced by
@@ -124,7 +155,10 @@ exports.emailQueueWorker = onSchedule(
       }
     }
 
-    if (snap.size) logger.info('emailQueueWorker', { picked: snap.size, sent, failed });
+    // Always emit a heartbeat (Audit #4 / 2.1) so a "no success log in N
+    // minutes" absence alert can detect the worker silently dying — not
+    // just when the queue happened to be non-empty.
+    logger.info('emailQueueWorker', { picked: snap.size, sent, failed, requeued });
   }
 );
 

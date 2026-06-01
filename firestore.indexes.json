@@ -201,6 +201,21 @@
       ]
     },
     {
+      "_comment": "Audit #4 / 5.2: anniversaryAutoTouch query where('userId','==').where('stage','in',COMPLETE_STAGES) — read only completed leads instead of scanning the whole pipeline per user.",
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stage",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "estimates",
       "queryScope": "COLLECTION",
       "fields": [
@@ -517,6 +532,21 @@
         },
         {
           "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "_comment": "Audit #4 / 2.2: emailQueueWorker stale-claim reaper — where('status','==','sending').where('claimedAt','<',cutoff). Without this the reaper query throws 'requires an index' and stuck rows are never reclaimed.",
+      "collectionGroup": "email_queue",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "claimedAt",
           "order": "ASCENDING"
         }
       ]

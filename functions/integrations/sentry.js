@@ -86,6 +86,19 @@ function captureException(err, context) {
   } catch (e) { /* swallow — Sentry failure must not break the app */ }
 }
 
+// Expected, client-fault callable errors that are normal control flow —
+// reporting these would flood Sentry with permission-denied / bad-input
+// noise and bury the real crashes. Genuine exceptions (anything that is
+// NOT one of these HttpsError codes) are still reported.
+const EXPECTED_HTTPS_CODES = new Set([
+  'invalid-argument', 'permission-denied', 'unauthenticated', 'not-found',
+  'already-exists', 'failed-precondition', 'resource-exhausted',
+  'out-of-range', 'cancelled', 'aborted'
+]);
+function isExpectedHttpsError(err) {
+  return !!err && typeof err.code === 'string' && EXPECTED_HTTPS_CODES.has(err.code);
+}
+
 /**
  * Wrap an onCall or onRequest handler with error reporting. The
  * original handler's return value / response is untouched; we just
@@ -96,15 +109,19 @@ function withSentry(opName, handler) {
     try {
       return await handler(...args);
     } catch (err) {
-      // Pull the callable request shape if it looks like one.
-      const req = args[0] || {};
-      const ctx = {
-        op: opName,
-        uid: req.auth && req.auth.uid,
-        companyId: req.auth && req.auth.token && req.auth.token.companyId,
-        plan: req.auth && req.auth.token && req.auth.token.plan
-      };
-      captureException(err, ctx);
+      // Don't report expected client-fault HttpsErrors (permission-denied,
+      // bad input, etc.) — only genuine crashes.
+      if (!isExpectedHttpsError(err)) {
+        // Pull the callable request shape if it looks like one.
+        const req = args[0] || {};
+        const ctx = {
+          op: opName,
+          uid: req.auth && req.auth.uid,
+          companyId: req.auth && req.auth.token && req.auth.token.companyId,
+          plan: req.auth && req.auth.token && req.auth.token.plan
+        };
+        captureException(err, ctx);
+      }
       throw err;
     }
   };

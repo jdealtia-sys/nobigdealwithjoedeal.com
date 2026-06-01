@@ -58,6 +58,13 @@ exports.claudeProxy = onRequest(
   async (req, res) => {
     if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
 
+    // Global AI kill-switch (Audit #4). One write to feature_flags/global
+    // .aiDisabled halts all billable AI without a deploy or secret rotation.
+    if (await require('../integrations/killswitch').isAiDisabled()) {
+      res.status(503).json({ error: 'AI temporarily disabled' });
+      return;
+    }
+
     const authResult = await requireAuth(req);
     if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
     const { decoded } = authResult;
@@ -256,6 +263,9 @@ exports.claudeProxy = onRequest(
       res.json(data);
     } catch (e) {
       logger.error('claudeProxy error', { uid: decoded?.uid, err: e.message });
+      // claudeProxy swallows its own errors (responds 500, no rethrow), so
+      // withSentry can't see them — tee the genuine crash to Sentry here.
+      try { require('../integrations/sentry').captureException(e, { op: 'claudeProxy', uid: decoded?.uid }); } catch (_) {}
       res.status(500).json({ error: 'Internal server error' });
     }
   }

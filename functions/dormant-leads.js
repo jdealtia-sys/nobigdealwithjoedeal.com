@@ -183,6 +183,10 @@ function buildEmailHtml({ firstName, dormantLeads, total }) {
 async function findDormantLeads(db, uid) {
   const cutoff = Date.now() - DORMANT_DAYS * DAY_MS;
   const snap = await db.collection('leads').where('userId', '==', uid).limit(2000).get();
+  // 5.2: surface silent truncation. A rep with >2000 leads gets an incomplete
+  // dormant scan (the broad query can't be cheaply narrowed without a
+  // lastActivityAt convention — see Audit #4 Phase 5). Make it visible.
+  if (snap.size >= 2000) logger.warn('dormant_nudge_truncated', { uid, limit: 2000 });
   const out = [];
   for (const doc of snap.docs) {
     const lead = { id: doc.id, ...doc.data() };
@@ -219,12 +223,6 @@ exports.dormantLeadNudge = onSchedule(
     const enabled = process.env.DORMANT_NUDGE_ENABLED === 'true';
     const db = admin.firestore();
 
-    const usersSnap = await db.collection('users').limit(500).get();
-    if (usersSnap.empty) {
-      logger.info('dormant_nudge_no_users');
-      return;
-    }
-
     const resend = enabled && process.env.RESEND_API_KEY
       ? new Resend(process.env.RESEND_API_KEY)
       : null;
@@ -232,7 +230,21 @@ exports.dormantLeadNudge = onSchedule(
 
     let sent = 0, skippedOptOut = 0, skippedNothing = 0, failed = 0;
 
-    for (const userDoc of usersSnap.docs) {
+    // 2.6: paginate ALL users. The previous single .limit(500).get() meant
+    // user #501+ was silently never processed once team/tenant count grew
+    // past 500. Page by document id so every user is covered.
+    let totalUsers = 0;
+    let userCursor = null;
+    while (true) {
+      let uq = db.collection('users')
+        .orderBy(admin.firestore.FieldPath.documentId())
+        .limit(500);
+      if (userCursor) uq = uq.startAfter(userCursor);
+      const usersSnap = await uq.get();
+      if (usersSnap.empty) break;
+      totalUsers += usersSnap.size;
+
+      for (const userDoc of usersSnap.docs) {
       const user = userDoc.data() || {};
       const uid  = userDoc.id;
 
@@ -273,12 +285,16 @@ exports.dormantLeadNudge = onSchedule(
         logger.warn('dormant_nudge_user_error', { uid, err: e.message });
         failed++;
       }
+      }
+
+      if (usersSnap.size < 500) break;
+      userCursor = usersSnap.docs[usersSnap.docs.length - 1];
     }
 
     logger.info('dormant_nudge_complete', {
       mode: enabled ? 'live' : 'dry-run',
       sent, skippedOptOut, skippedNothing, failed,
-      total: usersSnap.size,
+      total: totalUsers,
     });
   }
 );
