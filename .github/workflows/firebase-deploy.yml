@@ -372,6 +372,15 @@ jobs:
       # removed now that the split-deploy strategy works cleanly. If
       # a future deploy goes opaque again, add --debug back as the
       # first investigation step.
+      # AUDIT #4 (6.1): gate the functions deploy on the smoke suite, mirroring
+      # ci.yml's smoke-tests job. functions/ deps are already installed above
+      # (Install Cloud Functions dependencies), so the photo-vision sanitizer
+      # test's require() resolves. A red suite blocks the deploy instead of
+      # shipping a regression the suite would have caught.
+      - name: Gate — function smoke suite must pass before deploy
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
+        run: node tests/smoke.test.js
+
       - name: Deploy Cloud Functions (strict — skips IAM-blocked 9)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
         env:
