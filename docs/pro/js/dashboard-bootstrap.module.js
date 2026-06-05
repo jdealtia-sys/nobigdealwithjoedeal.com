@@ -11,6 +11,7 @@
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+  import { connectNbdEmulators } from "/pro/js/firebase-emulator-connect.js";
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
   // Per S27 architectural rule: All CRM global state declared before any function definitions
@@ -757,6 +758,12 @@
   // transport, which is the very thing PR #289 was trying to avoid.
   const app     = window._firebaseApp || initializeApp(firebaseConfig);
   window.__nbdMark && window.__nbdMark(window._firebaseApp ? 'm2:app:reused' : 'm2:app:fresh');
+
+  // DEV-ONLY: route to the local Emulator Suite when served from localhost
+  // (hard no-op in prod). Idempotent — on dashboard.html nbd-auth.js already
+  // connected; this covers pages that load bootstrap without nbd-auth first.
+  // Also pre-empts the App Check block below on localhost.
+  connectNbdEmulators();
 
   // ─── App Check (C-4) ──────────────────────────────────────
   // Functions declare `enforceAppCheck: true` but previously nothing

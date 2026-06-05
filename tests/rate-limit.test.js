@@ -18,7 +18,20 @@
  */
 
 const assert = require('assert');
-const admin = require('firebase-admin');
+const path = require('path');
+// Pin to the SAME firebase-admin instance that functions/rate-limit.js loads.
+// With functions/node_modules installed (local dev) the module-under-test gets
+// its own admin copy; initializing only the tests/ copy leaves that one
+// uninitialized → "default app does not exist" (FirebaseAppError app/no-app).
+// Resolving from the functions dir keeps both on one instance; the catch falls
+// back to the shared/hoisted copy when functions deps aren't separately
+// installed (e.g. CI runs only `cd tests && npm install`).
+let admin;
+try {
+  admin = require(require.resolve('firebase-admin', { paths: [path.join(__dirname, '..', 'functions')] }));
+} catch (_) {
+  admin = require('firebase-admin');
+}
 
 // Point the admin SDK at the local emulator.
 process.env.FIRESTORE_EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';

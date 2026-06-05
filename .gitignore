@@ -15,6 +15,9 @@ tests/pubsub-debug.log
 tests/storage-debug.log
 *.firebase-debug.log
 firebase-debug.log
+# repo-root emulator debug logs (emulators run from repo root, not tests/)
+*-debug.log
+.emulator-data/
 
 # Playwright artifacts (traces, screenshots, videos from local runs)
 tests/test-results/

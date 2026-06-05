@@ -2847,6 +2847,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, deleteDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit, runTransaction, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+import { connectNbdEmulators } from "/pro/js/firebase-emulator-connect.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -2861,6 +2862,9 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
+// DEV-ONLY: route Auth/Firestore/Functions/Storage to the local Emulator
+// Suite when served from localhost (hard no-op in production).
+connectNbdEmulators();
 
 // Make them globally accessible
 // Expose Firebase to window scope for cross-boundary access

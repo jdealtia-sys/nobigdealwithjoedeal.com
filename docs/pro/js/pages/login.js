@@ -11,6 +11,7 @@ import {
   setPersistence, browserLocalPersistence, browserSessionPersistence
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
+import { connectNbdEmulators } from '/pro/js/firebase-emulator-connect.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -25,6 +26,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const functions = getFunctions(app);
+// DEV-ONLY: route to the local Emulator Suite when served from localhost (no-op in prod).
+connectNbdEmulators();
 
 const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
 
