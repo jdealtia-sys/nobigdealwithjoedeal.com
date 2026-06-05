@@ -64,6 +64,33 @@ section('QA sweep fixes (F1/F4/F5)');
   }
 }
 
+// ── QA sweep behavior guards (F2/F3/F6/F8: verified working-as-intended) ──
+// These four were flagged during functional QA but proved to be NON-bugs on
+// code review — headless/eval-timing artifacts (F2 screenshot-never-idles,
+// F6 checked before the 1200ms redirect) and intentional design (F3 fail-open,
+// F8 create-opener clears the edit-id). Guard the intended behavior so a
+// future refactor can't silently regress it into the bug it merely resembled.
+section('QA sweep behaviors (F2/F3/F6/F8)');
+{
+  const gx = read(path.join(PRO_JS, 'theme-gx.js'));
+  assert('F2: theme-gx pauses the animated bg when the tab is hidden',
+    /visibilitychange/.test(gx) && /document\.hidden/.test(gx) && /cancelAnimationFrame/.test(gx));
+
+  // F3: softGate must NOT enforce limits before the plan loads — eager gating
+  // would falsely nag paying users whose subscription doc hasn't synced yet.
+  const bill = read(path.join(PRO_JS, 'billing-gate.js'));
+  assert('F3: billing softGate fails open before the plan loads',
+    /if\s*\(\s*!_loaded\s*\)\s*return true/.test(bill));
+
+  const reg = read(path.join(PRO_JS, 'pages', 'register.js'));
+  assert('F6: register signs in + redirects to the dashboard after account creation',
+    /signInWithCustomToken/.test(reg) && /\/pro\/dashboard\.html/.test(reg));
+
+  const leads = read(path.join(PRO_JS, 'crm-leads.js'));
+  assert('F8: openLeadModal clears the lead edit-id on open (no create/edit state-bleed)',
+    /function openLeadModal/.test(leads) && /lEditId/.test(leads) && /editId\.value\s*=\s*['"]{2}/.test(leads));
+}
+
 // ── ScriptLoader public API ──────────────────────────────────
 section('ScriptLoader contract');
 {
