@@ -56,13 +56,18 @@ const NBDTemplateSuite = (() => {
 
   function syncToFirestore() {
     if (!window._db || !window._user?.uid) return;
+    // F1 fix: window._db is the modular Firestore v10 instance, which has no
+    // db.batch()/db.collection() (those are the compat/admin API) — the old
+    // code threw "db.batch is not a function" and template→Firestore sync
+    // never ran. Use the modular writeBatch(db) + doc(db, ...path) exposed on
+    // window by the dashboard bootstrap; guard if they aren't ready yet.
+    if (typeof window.writeBatch !== 'function' || typeof window.doc !== 'function') return;
     const db = window._db;
     const userId = window._user.uid;
-    const batch = db.batch();
+    const batch = window.writeBatch(db);
 
     templates.forEach(tpl => {
-      const ref = db.collection('users').doc(userId)
-        .collection('templates').doc(tpl.id);
+      const ref = window.doc(db, 'users', userId, 'templates', tpl.id);
       batch.set(ref, tpl, { merge: true });
     });
 

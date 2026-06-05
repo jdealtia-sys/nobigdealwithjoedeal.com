@@ -21,6 +21,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, initializeFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
+import { connectNbdEmulators } from "/pro/js/firebase-emulator-connect.js";
 
 // ── Firebase Config (single source of truth) ─────────────
 const FIREBASE_CONFIG = {
@@ -240,6 +241,13 @@ export const NBDAuth = {
         _db = getFirestore(_app);
       }
 
+      // ── Local Emulator wiring (DEV-ONLY; no-op off localhost) ──
+      // Route Auth/Firestore/Functions/Storage to the Emulator Suite when the
+      // page is served from localhost. Must run before the first Firestore use
+      // and before App Check below (it also suppresses App Check locally, whose
+      // reCAPTCHA Enterprise key is bound to prod domains).
+      connectNbdEmulators();
+
       // ── App Check (reCAPTCHA v3) ────────────────────────
       // The site key is set by the host page via a top-of-<head>
       // <script> that assigns window.__NBD_APP_CHECK_KEY. The key is
@@ -361,6 +369,7 @@ export const NBDAuth = {
         //     visited directly
         //   - provisioning is one-off via scripts/grant-demo-claim.js
         let demoClaim = false;
+        let _claimRole = null; // F4: team-role from custom claim (fallback for client _role)
         try {
           // 4-second timeout: getIdTokenResult() makes a network round-trip
           // to refresh the ID token. On iOS Safari with poor connectivity
@@ -374,6 +383,7 @@ export const NBDAuth = {
             new Promise(resolve => setTimeout(resolve, 4000))
           ]);
           demoClaim = !!(tokenResult && tokenResult.claims && tokenResult.claims.demo === true);
+          _claimRole = (tokenResult && tokenResult.claims && tokenResult.claims.role) || null;
         } catch (e) {
           console.warn('Could not read ID token claims:', e.message);
         }
@@ -398,7 +408,12 @@ export const NBDAuth = {
           ]);
           if (userSnap.exists()) {
             const userData = userSnap.data();
-            _role = userData.role || 'member';
+            _role = userData.role || _claimRole || 'member';
+          } else if (_claimRole) {
+            // F4: team members provisioned via createTeamMember get a custom-claim
+            // role but no users/{uid}.role doc; fall back to the claim so window._role
+            // reflects company_admin/manager/sales_rep/viewer for client UI gates.
+            _role = _claimRole;
           }
         } catch (e) {
           console.warn('Could not fetch user doc:', e.message);

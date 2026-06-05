@@ -33,7 +33,11 @@
  *   BETA_COUNT=10 DEMO_COUNT=3 node scripts/seed-access-codes.js
  */
 
-const admin = require('firebase-admin');
+// F5: resolve firebase-admin from functions/ (no node_modules in scripts/ or repo
+// root); fall back to a normally-resolvable copy if present.
+let admin;
+try { admin = require(require.resolve('firebase-admin', { paths: [require('path').join(__dirname, '..', 'functions')] })); }
+catch (_) { admin = require('firebase-admin'); }
 const crypto = require('crypto');
 
 const BETA_COUNT = Number(process.env.BETA_COUNT || 0);
