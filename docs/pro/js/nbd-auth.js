@@ -370,6 +370,7 @@ export const NBDAuth = {
         //     visited directly
         //   - provisioning is one-off via scripts/grant-demo-claim.js
         let demoClaim = false;
+        let _claimRole = null; // F4: team-role from custom claim (fallback for client _role)
         try {
           // 4-second timeout: getIdTokenResult() makes a network round-trip
           // to refresh the ID token. On iOS Safari with poor connectivity
@@ -383,6 +384,7 @@ export const NBDAuth = {
             new Promise(resolve => setTimeout(resolve, 4000))
           ]);
           demoClaim = !!(tokenResult && tokenResult.claims && tokenResult.claims.demo === true);
+          _claimRole = (tokenResult && tokenResult.claims && tokenResult.claims.role) || null;
         } catch (e) {
           console.warn('Could not read ID token claims:', e.message);
         }
@@ -407,7 +409,12 @@ export const NBDAuth = {
           ]);
           if (userSnap.exists()) {
             const userData = userSnap.data();
-            _role = userData.role || 'member';
+            _role = userData.role || _claimRole || 'member';
+          } else if (_claimRole) {
+            // F4: team members provisioned via createTeamMember get a custom-claim
+            // role but no users/{uid}.role doc; fall back to the claim so window._role
+            // reflects company_admin/manager/sales_rep/viewer for client UI gates.
+            _role = _claimRole;
           }
         } catch (e) {
           console.warn('Could not fetch user doc:', e.message);
