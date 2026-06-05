@@ -24,7 +24,11 @@
  * sign out and sign in again.
  */
 
-const admin = require('firebase-admin');
+// F5: resolve firebase-admin from functions/ (no node_modules in scripts/ or repo
+// root); fall back to a normally-resolvable copy if present.
+let admin;
+try { admin = require(require.resolve('firebase-admin', { paths: [require('path').join(__dirname, '..', 'functions')] })); }
+catch (_) { admin = require('firebase-admin'); }
 
 const JOE_EMAIL = 'jd@nobigdealwithjoedeal.com';
 

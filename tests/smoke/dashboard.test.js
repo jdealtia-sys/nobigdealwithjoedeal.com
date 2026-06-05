@@ -43,11 +43,25 @@ const syntaxFiles = [
   path.join(PRO_JS, 'estimate-v2-ui.js'),
   path.join(PRO_JS, 'estimate-finalization.js'),
   path.join(PRO_JS, 'nbd-doc-viewer.js'),
+  path.join(PRO_JS, 'template-suite.js'),
   path.join(FUNCTIONS, 'index.js')
 ];
 for (const f of syntaxFiles) {
   const result = syntaxCheck(f);
   assert('parses ' + path.relative(ROOT, f), result.ok, result.err && result.err.split('\n')[0]);
+}
+
+// ── QA sweep regression guards (Audit #4: F1/F4/F5) ──────────
+section('QA sweep fixes (F1/F4/F5)');
+{
+  const ts = read(path.join(PRO_JS, 'template-suite.js'));
+  assert('F1: template-suite uses modular writeBatch (not db.batch)', /window\.writeBatch\(/.test(ts) && !/=\s*db\.batch\(/.test(ts));
+  const auth = read(path.join(PRO_JS, 'nbd-auth.js'));
+  assert('F4: nbd-auth falls back client role to the custom claim', /_claimRole/.test(auth) && /userData\.role\s*\|\|\s*_claimRole/.test(auth));
+  for (const s of ['seed-access-codes.js', 'grant-admin-claim.js', 'grant-demo-claim.js']) {
+    const src = read(path.join(ROOT, 'scripts', s));
+    assert('F5: ' + s + ' resolves firebase-admin from functions/', /require\.resolve\(['"]firebase-admin['"]/.test(src));
+  }
 }
 
 // ── ScriptLoader public API ──────────────────────────────────
