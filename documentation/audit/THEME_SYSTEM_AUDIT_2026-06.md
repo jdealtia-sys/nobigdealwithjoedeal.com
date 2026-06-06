@@ -157,4 +157,37 @@ Severity = user impact × likelihood. Each carries **failure-mode-if-wrong** for
 | Legacy keys to retire | none yet — `ds-theme` live, `nbd_gt` unrelated | confirmed |
 | Tenant-brand model | keep `companies/{companyId}.colors` authoritative for public surfaces; cosmetic themes stay operator-chrome-only (already true) | proposed |
 
-**STOP — awaiting review of these findings before any Phase 2 fix lands (Rule 5).**
+---
+
+## PHASE 2 — Fixes Landed (approved 2026-06-06)
+
+All findings addressed. Smallest-safe-wins first; each verified by syntax check +
+the contrast sweep + node test suite (theme-contrast 17/17, inline-html-scripts
+6/6, smoke theme assertions green). Decision log above is now **decided**:
+canonical vocab = modern/CRM; mechanism = `data-theme` + engine `<style>`;
+canonical key = `nbd_pro_theme` (dual-read migrate from `nbd-theme`, write-through);
+no legacy keys retired (`ds-theme` live, `nbd_gt` unrelated); tenant brand unchanged.
+
+| Fix | Commit | Before → After | Failure-mode-if-wrong (mitigation) |
+|---|---|---|---|
+| **F-7** dead `applyTheme()` | `384886b` | achievement "try theme" buttons silently no-op'd → now `apply()` + `unlock()` first | none material; trivial |
+| **F-4** plan-gate | `c611455` | `apply()` ignored `locked` → gates on `save=true` (picker/direct/URL); falls back to default, never half-applies | over-strict gate locks earned theme → scoped to `save=true` so boot/restore (`save=false`) never bounces; `hydrateUnlocks()` runs first |
+| **F-8** cleanups | `c611455` | dead `FIRESTORE_PATH` removed; unlock sync `_db`→`db`; `isUnlocked` no longer throws on unknown keys | both globals were equal on dashboard; no behavior change |
+| **F-5** muted contrast (engine) | `c611455` | 36/186 themes' `--m` < AA → `generateCSSVariables` tunes `--m` vs card surface to 4.5:1, hue-preserved; passing themes untouched | over-lifting flattens hierarchy → `tuneAgainst` stops at 4.5 floor |
+| **F-1** key/engine convergence | `c611455`,`edb0a6c` | dual engines fought via split keys + inline vars → `nbd_pro_theme` canonical w/ dual-read+write-through; `maps.js` defers to engine on dashboard (`NBD_THEME_ENGINE`); `loadSavedTheme` engine-aware | bad key change logs users out of theme → dual-read (never rename) + CSS floor if engine absent |
+| **F-2** FOUC | `ce9472b` | no pre-paint `data-theme` → `theme-init.js` (canonical-key) loaded sync in dashboard `<head>` before CSS | wrong key → second flash; canonical-first matches engine |
+| **F-3** `nbd-original` dup | `c9c3b48` | near-black (CSS) vs navy (engine) → unified to brand **navy #1E3A6E**, CSS mirrors engine output exactly | changes default look on login/customer → brand-approved navy; reversible (one rule) |
+| **F-5** muted contrast (static) | `c9c3b48` | 19 static themes' `--m` < AA → appended override block (card-surface tuned, 0 regressions). **All 66 CSS themes now pass.** | covered by 0-regression verification |
+| **F-6** isolated dialects | `fecd5c1` | 6 dialects non-switchable → semantic compat-alias bridge (zero visual change; enables Phase 3 removal of hardcoded `:root`s); fixes latent `--text` ref | none today (plain `:root`, overridden by locals); full per-page convergence deferred to Phase 3 |
+
+### Residual / deferred to Phase 3
+- Full per-page dialect convergence (vault, understand, project-codex, ai-tree, daily-success palette) — needs per-page visual QA; alias bridge is in place.
+- A handful of extreme-novelty themes (`spongebob`, `avatar-*`) have mixed-luminance body text on some panels; engine tunes muted + ink/paper but `--t` identity is preserved. Candidate for the Phase 3 QA allowlist.
+- `dashboard.legacy.html` (emergency `?legacy=1` rollback snapshot) intentionally left on legacy behavior.
+
+### Console verification still required (can't be seen from repo)
+1. Real browser: `localStorage` should now hold matching `nbd_pro_theme` + `nbd-theme`; cold-load a non-default theme and confirm **no flash** and no near-black→navy flip on `nbd-original`.
+2. Firestore `userSettings/{uid}.theme` populating; legacy `users/{uid}.theme` no longer diverging.
+3. Try applying a locked theme via console `ThemeEngine.apply('diamond')` → should bounce to default with a warn (gate working).
+
+**Phase 2 complete. Proceeding to Phase 3 (token architecture, theme-authoring, automated theme-QA test wired into CI, tenant-brand onboarding sketch).**
