@@ -226,6 +226,23 @@ section('ScriptLoader contract');
   assert('PR 2e: maps.js stays eager (it is also the theme engine)',
     /<script[^>]+src="js\/maps\.js\?/.test(dashRaw),
     'maps.js must remain an eager <script> in dashboard.html (applies the theme at boot)');
+
+  // PR 2b2 (perf): jsPDF + html2pdf (~1.1 MB) moved off the eager boot path into
+  // the lazy `pdfexport` bundle, loaded on demand by the doc-viewer's PDF
+  // download handler (nbd-doc-viewer.js handlePdf).
+  assert('PR 2b2: html2pdf is NOT eager in dashboard.html',
+    !/cdnjs\.cloudflare\.com\/ajax\/libs\/html2pdf/.test(dashRaw),
+    'html2pdf must not be an eager <script> in dashboard.html — it belongs in the pdfexport bundle');
+  assert('PR 2b2: jsPDF is NOT eager in dashboard.html',
+    !/cdnjs\.cloudflare\.com\/ajax\/libs\/jspdf/.test(dashRaw),
+    'standalone jsPDF must not be an eager <script> in dashboard.html — it belongs in the pdfexport bundle');
+  const pdfBundleSrc = (src.match(/pdfexport:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  assert('PR 2b2: pdfexport bundle contains jsPDF + html2pdf',
+    /jspdf/i.test(pdfBundleSrc) && /html2pdf/i.test(pdfBundleSrc),
+    'the pdfexport bundle must list jsPDF + html2pdf');
+  assert('PR 2b2: doc-viewer handlePdf load-then-runs the pdfexport bundle',
+    /loadBundle\(['"]pdfexport['"]\)/.test(read(path.join(PRO_JS, 'nbd-doc-viewer.js'))),
+    'nbd-doc-viewer.js must ScriptLoader.loadBundle("pdfexport") before using html2pdf');
 }
 
 // ── AdminManager public API ──────────────────────────────────

@@ -12716,11 +12716,10 @@ body.theme-frosted {
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!-- ADVANCED ESTIMATE BUILDER - 7-Phase System -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- jsPDF for advanced PDF export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-<!-- html2pdf.js — powers NBDDocViewer's in-app PDF generation.
-     Bundled html2canvas + jsPDF. ~800 KB but loaded on-demand. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+<!-- LAZY: jsPDF + html2pdf (~1.1 MB) load via ScriptLoader's `pdfexport`
+     bundle (PR 2b2), on demand from the doc-viewer's Download-PDF handler
+     (nbd-doc-viewer.js handlePdf). html2pdf was the only dashboard consumer and
+     was eager despite the old "loaded on-demand" comment — now it really is. -->
 <!-- LAZY: ApexCharts (Rep Report charts) loaded via ScriptLoader's
      `reports` bundle, ahead of rep-report-generator.js. Was eager here;
      PR 2a moved it off the boot path — only the Rep Report view uses it,
