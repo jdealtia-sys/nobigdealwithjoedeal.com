@@ -191,3 +191,24 @@ no legacy keys retired (`ds-theme` live, `nbd_gt` unrelated); tenant brand uncha
 3. Try applying a locked theme via console `ThemeEngine.apply('diamond')` → should bounce to default with a warn (gate working).
 
 **Phase 2 complete. Proceeding to Phase 3 (token architecture, theme-authoring, automated theme-QA test wired into CI, tenant-brand onboarding sketch).**
+
+---
+
+## Browser-compatibility sweep (2026-06-06, triggered by a live Android/Brave screenshot)
+
+Static scan of the theme/CSS/JS for features with known support gaps. **None of
+the Phase 2 theme changes introduce a compat risk** — they use only hex, `rgba()`,
+and `var()` fallback chains (universal since ~2017).
+
+| Feature | Usage | Risk window | Status |
+|---|---|---|---|
+| `dvh` viewport units | many pages | iOS Safari < 15.4 | ✅ guarded — always `height:100vh; height:100dvh;` (vh fallback) |
+| `--og` glow token | theme-system.css | iOS < 16.2 | ✅ guarded — `rgba()` base; `color-mix` only overrides where supported |
+| `color-mix()` | 164× (dashboard, customer, login) — cosmetic tints/glows/hover bg only | iOS Safari < 16.2 / Chrome < 111 (~6% globally, pre‑Dec 2022) | 🟡 **accepted** — degrades gracefully (tint simply doesn't paint; text stays legible). DECISION: leave as-is; harden per-page only if real users on old devices surface. |
+| `backdrop-filter` (2 admin modals) | dashboard.html | Safari needs `-webkit-` | ✅ **fixed** — added `-webkit-backdrop-filter` |
+| `:has()` | 6× | Safari < 15.4 | 🟢 fine (supported Mar 2022+) |
+| native CSS nesting / `oklch` / `@container` / `aspect-ratio` | — | — | ✅ none found in theme CSS |
+
+The live screenshot (Android/Brave, prod `main`) showed a near-black page bg under
+navy cards — this is the **F-1 bug in production** (maps.js inline `--bg` beating
+the engine). Resolves to uniform navy once this branch deploys.
