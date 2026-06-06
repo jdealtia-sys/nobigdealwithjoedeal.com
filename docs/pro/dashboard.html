@@ -12802,10 +12802,10 @@ body.theme-frosted {
 <script defer src="js/icons.js?v=3"></script>
 <script defer src="js/nbd-comms.js?v=1"></script>
 <script defer src="js/nbd-input-guards.js?v=1"></script>
-<script defer src="js/photo-engine.js?v=6"></script>
+<!-- LAZY: photo-engine loads via ScriptLoader's `photos` bundle (PR 2d). -->
 <script defer src="js/photo-ai.js?v=2"></script>
 <script defer src="js/invoice-pipeline.js?v=3"></script>
-<script defer src="js/inspection-report-engine.js?v=4"></script>
+<!-- LAZY: inspection-report-engine loads via the `photos` bundle (PR 2d). -->
 <!-- Step 4d (2026-05-16): maps.js split into three sibling modules
      loaded in order before the thin maps.js shim. See maps.js
      header for the full split rationale. Each module is a classic
@@ -12926,11 +12926,11 @@ body.theme-frosted {
 <!-- Help-icon helper: window.HelpIcon.attach(el, anchor) drops a "?"
      next to any element that opens how-to.html at the right section. -->
 <script defer src="js/help-icon.js?v=1"></script>
-<!-- Photo report generator — exposes window.generatePhotoReport(leadId).
-     Previously only loaded on customer.html, which made the dashboard's
-     Next Actions "📸 Photo Report" chip fall through to the generic
-     activity-log fallback. Loading here so the chip actually generates. -->
-<script defer src="js/photo-report.js?v=3"></script>
+<!-- LAZY: photo-report (window.generatePhotoReport) loads via ScriptLoader's
+     `photos` bundle (PR 2d). The Next Actions "📸 Photo Report" chip calls
+     generatePhotoReport through a load-then-run stub (dashboard-actions.js)
+     that loads the bundle on first use, so the chip still generates the
+     report instead of falling through to the activity-log fallback. -->
 
 <!-- W159 P1: on-page mobile diagnostic banner.
      User reports yellow health badge + 0 leads on every mobile device,

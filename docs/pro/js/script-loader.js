@@ -115,6 +115,18 @@
       'js/estimate-supplement.js?v=1',
       'js/supplement-ui.js?v=1'
     ],
+    // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
+    // bulk-analyze (photo-engine), the photo-report doc (photo-report), and the
+    // inspection report builder (inspection-report-engine). ~200 KB off boot.
+    // Only needed on the Photos view or the card-detail photo/camera/inspection
+    // buttons. Every consumer guards on the global, and the entry points have
+    // load-then-run stubs in dashboard-actions.js, so a click before the bundle
+    // loads still works.
+    photos: [
+      'js/photo-engine.js?v=6',
+      'js/inspection-report-engine.js?v=4',
+      'js/photo-report.js?v=3'
+    ],
     // Warranty cert wizard — opened from the Docs view only.
     warranty: [
       'js/warranty-cert.js?v=4'
@@ -127,6 +139,7 @@
     documents:   ['warranty', 'docgen'],
     est:         ['estimates'],
     products:    ['estimates'],
+    photos:      ['photos'],
     academy:     ['academy'],
     training:    ['training'],
     storm:       ['storm'],

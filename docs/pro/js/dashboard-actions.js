@@ -770,6 +770,56 @@ if (typeof startNewEstimate === 'function') {
 if(typeof saveEstimate==='function'){window.saveEstimate=saveEstimate;}
 if(typeof cancelEstimate==='function'){window.cancelEstimate=cancelEstimate;}
 if(typeof viewEstimate==='function'){window.viewEstimate=viewEstimate;}
+
+// PR 2d: the photo + inspection engine is lazy (ScriptLoader 'photos' bundle).
+// Install load-then-run stubs for the entry points (camera, gallery, upload,
+// inspection builder, photo report) so a click before the bundle loads still
+// works. photo-engine.js / inspection-report-engine.js / photo-report.js
+// overwrite these globals (unconditionally) when the bundle finishes loading.
+if (typeof window.PhotoEngine === 'undefined' || typeof window.InspectionReportEngine === 'undefined' || typeof window.generatePhotoReport !== 'function') {
+  const _lazyPhotos = function (run) {
+    if (!(window.ScriptLoader && window.ScriptLoader.loadBundle)) {
+      if (typeof showToast === 'function') showToast('Photos are still loading — try again in a moment', 'warning');
+      return;
+    }
+    window.ScriptLoader.loadBundle('photos').then(run);
+  };
+  if (typeof window.PhotoEngine === 'undefined') {
+    const _peStub = { __nbdLazyPhotosStub: true };
+    ['openCamera', 'openGallery', 'uploadOne', 'uploadFromFile', 'renderGallery', 'openLightbox'].forEach(function (m) {
+      _peStub[m] = function () {
+        const a = arguments;
+        _lazyPhotos(function () {
+          if (window.PhotoEngine && window.PhotoEngine !== _peStub && typeof window.PhotoEngine[m] === 'function') window.PhotoEngine[m].apply(window.PhotoEngine, a);
+          else if (typeof showToast === 'function') showToast('Photos are still loading — try again in a moment', 'warning');
+        });
+      };
+    });
+    window.PhotoEngine = _peStub;
+  }
+  if (typeof window.InspectionReportEngine === 'undefined') {
+    window.InspectionReportEngine = {
+      __nbdLazyPhotosStub: true,
+      openBuilder: function () {
+        const a = arguments;
+        _lazyPhotos(function () {
+          if (window.InspectionReportEngine && !window.InspectionReportEngine.__nbdLazyPhotosStub && typeof window.InspectionReportEngine.openBuilder === 'function') window.InspectionReportEngine.openBuilder.apply(window.InspectionReportEngine, a);
+          else if (typeof showToast === 'function') showToast('Photos are still loading — try again in a moment', 'warning');
+        });
+      }
+    };
+  }
+  if (typeof window.generatePhotoReport !== 'function') {
+    window.generatePhotoReport = function () {
+      const a = arguments;
+      _lazyPhotos(function () {
+        if (typeof window.generatePhotoReport === 'function' && !window.generatePhotoReport.__nbdLazyPhotosStub) window.generatePhotoReport.apply(null, a);
+        else if (typeof showToast === 'function') showToast('Photos are still loading — try again in a moment', 'warning');
+      });
+    };
+    window.generatePhotoReport.__nbdLazyPhotosStub = true;
+  }
+}
 if(typeof exportEstimate==='function'){window.exportEstimate=exportEstimate;}
 if(typeof estNext==='function'){window.estNext=estNext;}
 if(typeof estBack==='function'){window.estBack=estBack;}
