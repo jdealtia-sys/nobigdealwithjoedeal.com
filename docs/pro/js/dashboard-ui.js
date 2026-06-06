@@ -1500,9 +1500,15 @@ function applyTheme(key, save=true) {
 }
 
 function loadSavedTheme() {
-  // Try localStorage first (instant)
+  // Canonical key first (nbd_pro_theme), then the legacy mirror (nbd-theme) — audit F-1.
   let saved = null;
-  try { saved = localStorage.getItem('nbd-theme'); } catch(e){}
+  try { saved = localStorage.getItem('nbd_pro_theme') || localStorage.getItem('nbd-theme'); } catch(e){}
+  // When the modern engine is present it validates ids against its 186-theme
+  // registry and self-heals from Firestore in init(); hand it the saved id
+  // directly rather than rejecting engine-only ids via the CSS-only THEME_KEYS
+  // list (which would bounce them to default and cause a flash). save=false so
+  // a restored locked theme is never gated on the boot path.
+  if (window.ThemeEngine) { applyTheme(saved || DEFAULT_THEME, false); return; }
   if(saved && THEME_KEYS.includes(saved)) { applyTheme(saved, false); return; }
   // Fallback to Firebase pref (async)
   applyTheme(DEFAULT_THEME, false);

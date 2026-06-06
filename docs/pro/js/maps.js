@@ -169,6 +169,19 @@ const _nbdGetTheme  = id => [...NBD_THEMES, ..._nbd_customs].find(t => t.id === 
 
 /* ── APPLY THEME ──────────────────────────────────────────────────── */
 function nbdApplyTheme(id) {
+  // Single-authority convergence (audit F-1): on surfaces that load the modern
+  // ThemeEngine (the dashboard sets window.NBD_THEME_ENGINE), delegate to it so
+  // the two engines don't both write data-theme + inline vars and fight. The
+  // legacy 'default' id maps to the engine's 'nbd-original'. daily-success and
+  // the standalone maps surface don't set the flag, so they keep legacy behavior.
+  if (window.NBD_THEME_ENGINE && window.ThemeEngine) {
+    try { window.ThemeEngine.apply(id === 'default' ? 'nbd-original' : id, true); } catch (e) {}
+    _nbd_activeTheme = id;
+    const lt = _nbdGetTheme(id);
+    if (lt) _nbdUpdateLabels(lt);
+    if (typeof nbdRenderThemes === 'function') nbdRenderThemes();
+    return;
+  }
   const t = _nbdGetTheme(id);
   if (!t) return;
   if (!_nbdUnlocked(t.plan) && t.cat !== 'custom') {
@@ -442,19 +455,26 @@ window.goToMyLocation = goToMyLocation;
 
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {
-  const saved = localStorage.getItem('nbd-theme') || localStorage.getItem('ds-theme') || 'default';
-  const t = _nbdGetTheme(saved) || _nbdGetTheme('default');
-  if (t) {
-    document.body.className = t.id === 'default' ? '' : 'theme-' + t.id;
-    document.documentElement.setAttribute('data-theme', t.id);
-    const R = document.documentElement.style;
-    R.setProperty('--ac',     t.accent);
-    R.setProperty('--orange', t.accent);
-    R.setProperty('--gold',   t.accent);
-    R.setProperty('--bg',     t.bg  || '#0A0C0F');
-    R.setProperty('--bar',    t.s   || '#13171d');
-    _nbd_activeTheme = t.id;
-    _nbdUpdateLabels(t);
+  // On surfaces with the modern ThemeEngine (dashboard sets window.NBD_THEME_ENGINE),
+  // the engine owns appearance (data-theme + injected vars). Skip the legacy
+  // body-class + inline-var forcing here — it ran on EVERY load and overrode the
+  // engine, since inline documentElement styles outrank the engine's injected
+  // <style> (audit F-1). Fonts + category rendering are independent and always run.
+  if (!window.NBD_THEME_ENGINE) {
+    const saved = localStorage.getItem('nbd-theme') || localStorage.getItem('ds-theme') || 'default';
+    const t = _nbdGetTheme(saved) || _nbdGetTheme('default');
+    if (t) {
+      document.body.className = t.id === 'default' ? '' : 'theme-' + t.id;
+      document.documentElement.setAttribute('data-theme', t.id);
+      const R = document.documentElement.style;
+      R.setProperty('--ac',     t.accent);
+      R.setProperty('--orange', t.accent);
+      R.setProperty('--gold',   t.accent);
+      R.setProperty('--bg',     t.bg  || '#0A0C0F');
+      R.setProperty('--bar',    t.s   || '#13171d');
+      _nbd_activeTheme = t.id;
+      _nbdUpdateLabels(t);
+    }
   }
   nbdApplyFont(localStorage.getItem('nbd-font') || 'nbd-default');
   nbdRenderCats();
