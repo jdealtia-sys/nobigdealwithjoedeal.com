@@ -112,10 +112,11 @@ change, smoke-green + emulator-verified.
 | 2b3 | customer.html doc-gen parity (load-then-run) | ~419 KB on that page | planned (review-flagged) |
 | **2c** | estimate engine (12 modules) | ~530 KB | **shipped** (harness-verified) |
 | **2d** | photo + inspection cluster (3 modules) | ~200 KB | **shipped** |
-| 2e | Leaflet + maps | ~250 KB CDN + ~250 KB | planned |
+| **2e** | D2D tracker (3 modules) | ~180 KB | **shipped** (runtime-verified) |
+| 2e-maps | maps engine (core/overlays/routing/maps.js) | ~300 KB | **blocked** — `maps.js` is also the theme engine (needs untangling) |
 
-**Cumulative shipped (2a + 2b + 2c + 2d): ~1.67 MB decoded off every dashboard
-load; dashboard `<script src>` 151 → 131.**
+**Cumulative shipped (2a + 2b + 2c + 2d + 2e): ~1.85 MB decoded off every
+dashboard load; dashboard `<script src>` 151 → 128.**
 
 ### PR 2a — ApexCharts → lazy `reports` bundle
 
@@ -228,4 +229,29 @@ the rest stay eager.
 - **Verification:** smoke **1735/0** (+7 guards); 4-lens adversarial review all
   pass (coverage / stub mechanics / load-independence / completeness).
 - **Out of scope:** `customer.html` keeps its own eager photo copies.
+- **Rollback:** `git revert` of the code/test files.
+
+### PR 2e — D2D tracker → lazy `d2d` bundle (maps engine deferred to a follow-up)
+
+Deferred the 3 D2D-tracker modules (`d2d-tracker-core/ui/2026b`, ~180 KB) into
+a lazy `d2d` bundle. No new stubs needed: `goTo('d2d')` preloads the bundle
+(VIEW_BUNDLES.d2d) and the existing `waitForD2D()` poller catches `window.D2D`
+when it lands; the one other consumer (`crm-pipeline.js`) is guarded.
+
+- **Delta (measured):** −~180 KB decoded per dashboard load; dashboard
+  `<script src>` 131 → 128. Cumulative 2a–2e: ~1.85 MB off boot.
+- **Verification:** smoke **1743/0** (+8 guards, incl. a "maps.js stays eager"
+  guard); **runtime-proven** by `tests/e2e/d2d-engine.spec.js` (`window.D2D`
+  is `undefined` at boot, becomes a real object after opening the D2D view);
+  4-lens adversarial review.
+- **The maps engine stays eager (2e-maps, blocked):** `maps.js` is not just a
+  map shim — its `nbdBoot()` ([maps.js:444](../pro/js/maps.js)) **applies the
+  saved theme + font at page load**, and it powers the Settings theme picker
+  (`window.toggleThemeMenu = nbdPickerOpen`). The 4 map modules also share
+  global scope (sibling pattern), so they can't be split. Deferring them would
+  defer app-wide theming. **Follow-up:** untangle the theme/font appearance
+  engine out of `maps.js` into its own eager module (or prove `theme-engine.js`
+  makes `nbdBoot` redundant), then the map engine (~300 KB) can defer behind the
+  map/draw views via the existing `waitForMapFn()`. Leaflet itself stays eager
+  too (home dashboard widgets render raw Leaflet maps).
 - **Rollback:** `git revert` of the code/test files.

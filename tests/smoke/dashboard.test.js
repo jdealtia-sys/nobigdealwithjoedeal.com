@@ -202,6 +202,30 @@ section('ScriptLoader contract');
   assert('PR 2d: photos view preloads the photos bundle',
     /photos:\s*\['photos'\]/.test(src),
     "VIEW_BUNDLES must map photos to the photos bundle");
+
+  // PR 2e (perf): the D2D tracker (~180 KB) moved off the eager boot path into
+  // the lazy `d2d` bundle, preloaded on the D2D view (goTo's waitForD2D poller
+  // handles the late load). The maps engine intentionally stays eager because
+  // maps.js doubles as the theme/font appearance engine (applies the theme at
+  // boot + powers the Settings theme picker).
+  const D2DMODS = ['d2d-tracker-core-2026b.js', 'd2d-tracker-ui-2026b.js', 'd2d-tracker-2026b.js'];
+  const d2dBundleSrc = (src.match(/d2d:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of D2DMODS) {
+    assert('PR 2e: ' + m + ' is NOT eager in dashboard.html',
+      !new RegExp('<script[^>]+src="js/' + m.replace(/\./g, '\\.') + '\\?').test(dashRaw),
+      m + ' must be lazy-loaded via the d2d bundle, not an eager <script> in dashboard.html');
+    assert('PR 2e: ' + m + ' IS in the d2d bundle',
+      d2dBundleSrc.includes(m),
+      m + ' must be listed in the d2d bundle in script-loader.js');
+  }
+  assert('PR 2e: d2d view preloads the d2d bundle',
+    /d2d:\s*\['d2d'\]/.test(src),
+    "VIEW_BUNDLES must map d2d to the d2d bundle");
+  // The maps engine MUST stay eager — maps.js applies the saved theme/font at
+  // boot (nbdBoot) and powers the theme picker; deferring it would break theming.
+  assert('PR 2e: maps.js stays eager (it is also the theme engine)',
+    /<script[^>]+src="js\/maps\.js\?/.test(dashRaw),
+    'maps.js must remain an eager <script> in dashboard.html (applies the theme at boot)');
 }
 
 // ── AdminManager public API ──────────────────────────────────
