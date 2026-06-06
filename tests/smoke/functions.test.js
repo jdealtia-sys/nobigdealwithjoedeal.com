@@ -324,6 +324,47 @@ section('Wave C4: SMS rate limits');
     /sendD2DSMS[\s\S]{0,2500}sendSMS:to/.test(src));
 }
 
+section('T-2: AI draft send-on-approve');
+{
+  const src = read(path.join(FUNCTIONS, 'sms-functions.js'));
+  assert('exports onAiDraftApproved trigger',
+    /exports\.onAiDraftApproved\s*=\s*onDocumentUpdated/.test(src));
+  assert('trigger bound to ai_drafts doc path',
+    /document:\s*['"]leads\/\{leadId\}\/ai_drafts\/\{draftId\}['"]/.test(src));
+  assert('trigger fires only on pending->approved (idempotent)',
+    /before\.status === 'approved'[\s\S]{0,120}after\.status !== 'approved'/.test(src));
+  assert('trigger honors STOP opt-out before sending',
+    /sms_opt_outs[\s\S]{0,200}fail\('opted_out'\)/.test(src));
+  assert('trigger logs outbound note as direction:outgoing for thread+AI coherence',
+    /direction:\s*'outgoing'[\s\S]{0,200}source:\s*'ai_draft'/.test(src));
+  assert('trigger flips draft to sent with twilioSid',
+    /status:\s*'sent'[\s\S]{0,120}twilioSid:\s*message\.sid/.test(src));
+  assert('trigger uses modular FieldValue (emulator-safe)',
+    /const \{ FieldValue \} = require\(['"]firebase-admin\/firestore['"]\)/.test(src));
+
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('rules expose ai_drafts subcollection',
+    /match \/ai_drafts\/\{draftId\}/.test(rules));
+  assert('rules: rep update constrained to approve/dismiss only',
+    /ai_drafts\/\{draftId\}[\s\S]{0,400}status in \['approved', 'dismissed'\]/.test(rules));
+  assert('rules: ai_drafts create/delete admin-SDK only',
+    /ai_drafts\/\{draftId\}[\s\S]{0,500}allow create, delete: if false/.test(rules));
+
+  const panel = read(path.join(PRO_JS, 'customer-ai-drafts-panel.js'));
+  assert('panel path-gated to /pro/customer.html',
+    /\/\\\/pro\\\/customer\\\.html\$\//.test(panel) || /customer\\\.html\$/.test(panel));
+  assert('panel reads pending drafts',
+    /where\(['"]status['"],\s*['"]==['"],\s*['"]pending['"]\)/.test(panel));
+  assert('panel approve writes status:approved via updateDoc',
+    /updateDoc[\s\S]{0,200}status:\s*'approved'/.test(panel));
+  assert('panel uses delegated data-aidp-action (no inline onclick)',
+    /data-aidp-action/.test(panel) && !/onclick=/.test(panel));
+
+  const customerHtml = read(path.join(ROOT, 'docs/pro/customer.html'));
+  assert('customer.html loads the AI drafts panel',
+    /customer-ai-drafts-panel\.js/.test(customerHtml));
+}
+
 section('Wave C5: Stripe invoice auto-generation');
 {
   const src = read(path.join(FUNCTIONS, 'integrations/esign.js'));

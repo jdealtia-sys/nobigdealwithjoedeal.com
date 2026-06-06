@@ -12,9 +12,16 @@
  */
 
 const { onRequest } = require('firebase-functions/v2/https');
+const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+// Modular FieldValue: admin.firestore.FieldValue is undefined inside the
+// Functions emulator runtime (see PR #556 / emulator-compat). The modular
+// import works in BOTH prod and the emulator, so T-2's send trigger can be
+// exercised against the emulator. Existing prod code in this file still uses
+// the namespaced form; new code uses this.
+const { FieldValue } = require('firebase-admin/firestore');
 const twilio = require('twilio');
 // C4: use the Upstash-first rate-limit adapter so busy SMS windows
 // don't hammer the shared Firestore rate_limits doc. Falls back to
@@ -905,6 +912,121 @@ exports.checkStormAlerts = onSchedule(
 
     } catch (e) {
       logger.error('checkStormAlerts error', { err: e.message });
+    }
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// T-2: AI DRAFT SEND-ON-APPROVE — Firestore trigger
+// ═══════════════════════════════════════════════════════════════
+//
+// Closes the AI-texting loop. The incomingSMS webhook writes an AI
+// reply draft to /leads/{leadId}/ai_drafts/{draftId} with
+// status:'pending' (see generateAIDraft in handlers/ai-texting.js).
+// The rep reviews it in the customer-page panel
+// (docs/pro/js/customer-ai-drafts-panel.js) and either:
+//   - edits the text + taps "Approve & Send" → rules-constrained
+//     client update sets status:'approved' (+ optional edited
+//     draftText). THIS trigger then sends it through the Twilio
+//     business line — the SAME number the homeowner texted — so the
+//     thread stays coherent on the customer's phone.
+//   - taps "Dismiss" → status:'dismissed' (this trigger ignores it).
+//
+// Why a server trigger instead of a client → sendSMS call: the
+// outbound MUST originate from the Twilio number, not the rep's
+// personal handset, and the rep's browser has no Twilio creds / can't
+// satisfy sendSMS's App Check. The trigger runs with admin privileges
+// and the Twilio secrets already in this module. The client only
+// touches Firestore (rules-governed), never Twilio.
+//
+// Idempotency: keyed on the pending→approved transition. A re-fire
+// (or a later status edit) is ignored because `before.status` is no
+// longer pending. Terminal states are 'sent' / 'failed'.
+exports.onAiDraftApproved = onDocumentUpdated(
+  {
+    document: 'leads/{leadId}/ai_drafts/{draftId}',
+    secrets: [TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER],
+    maxInstances: 10,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after  = event.data?.after?.data();
+    if (!before || !after) return;
+
+    // Only act on the first pending→approved flip. Any other write
+    // (dismiss, the trigger's own status:'sent' update, an edit after
+    // send) is a no-op so we never double-send.
+    if (before.status === 'approved') return;
+    if (after.status !== 'approved') return;
+
+    const { leadId, draftId } = event.params;
+    const db = admin.firestore();
+    const draftRef = db.doc(`leads/${leadId}/ai_drafts/${draftId}`);
+
+    const fail = (reason, detail) => draftRef.update({
+      status: 'failed',
+      failureReason: reason,
+      ...(detail ? { failureDetail: String(detail).slice(0, 200) } : {}),
+      sentAt: FieldValue.serverTimestamp(),
+    }).catch((e) => logger.warn('[ai-draft-send] fail-mark write failed', { leadId, draftId, err: e.message }));
+
+    const to   = after.customerPhone || after.incomingPhone || null;
+    const body = String(after.draftText || '').trim();
+
+    if (!body) { await fail('empty_body'); return; }
+    if (body.length > 1600) { await fail('too_long'); return; }
+    if (!to || !isValidPhoneNumber(to)) { await fail('invalid_phone'); return; }
+
+    // TCPA: never message a number that replied STOP. incomingSMS
+    // records opt-outs at sms_opt_outs/{digits}; honor them here too.
+    const toDigits = String(to).replace(/\D/g, '');
+    try {
+      const optOut = await db.doc('sms_opt_outs/' + toDigits).get();
+      if (optOut.exists) { await fail('opted_out'); return; }
+    } catch (_) { /* lookup failure shouldn't block a legit send */ }
+
+    try {
+      const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
+      const formattedTo = formatPhoneNumber(to);
+      const fromPhone = TWILIO_PHONE_NUMBER.value();
+      if (!formattedTo) { await fail('unformattable_phone'); return; }
+
+      const message = await client.messages.create({ body, from: fromPhone, to: formattedTo });
+
+      // Mirror the incomingSMS inbound-note shape so the rep's thread
+      // view AND the next AI draft's context (buildLeadContext reads
+      // notes where type=='sms') see this outbound reply.
+      await db.collection('leads').doc(leadId).collection('notes').add({
+        type: 'sms',
+        direction: 'outgoing',
+        to,
+        body,
+        twilioSid: message.sid,
+        source: 'ai_draft',
+        draftId,
+        sentBy: after.approvedBy || after.userId || null,
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      await logSMSToFirestore(db, to, body, after.approvedBy || after.userId || null, leadId, 'sent', message.sid);
+
+      await draftRef.update({
+        status: 'sent',
+        twilioSid: message.sid,
+        sentAt: FieldValue.serverTimestamp(),
+      });
+
+      // Keep the lead's recency signal fresh, same as incomingSMS.
+      await db.doc(`leads/${leadId}`).update({
+        lastContactedAt: FieldValue.serverTimestamp(),
+      }).catch(() => {});
+
+      logger.info('[ai-draft-send] sent', { leadId, draftId, sid: message.sid });
+    } catch (e) {
+      logger.error('[ai-draft-send] twilio send failed', { leadId, draftId, err: e.message });
+      await fail('twilio_error', e.message);
     }
   }
 );

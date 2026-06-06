@@ -203,6 +203,31 @@ service cloud.firestore {
         allow write: if isAuth()
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
       }
+
+      // ── AI TEXTING DRAFTS (T-2) ───────────────────────
+      // generateAIDraft (incomingSMS webhook, admin SDK) writes a
+      // suggested SMS reply here with status:'pending'. The rep's
+      // customer-page panel reads them and flips status to 'approved'
+      // (the onAiDraftApproved trigger then sends via Twilio) or
+      // 'dismissed'. Owner-scoped via the draft's own stamped userId
+      // (set from lead.userId at creation) — cheaper than a get() and
+      // matches the recordings block's pattern.
+      //
+      // Rep updates are tightly constrained: they may only touch the
+      // approve/dismiss/edit fields and may only move status to
+      // 'approved' or 'dismissed'. They can NOT forge 'sent'/'failed'
+      // (the trigger owns terminal states) nor mutate leadId/userId/
+      // companyId/draftText-provenance/Twilio fields. create+delete are
+      // admin-SDK only so a rep can't fabricate or destroy drafts.
+      match /ai_drafts/{draftId} {
+        allow read: if isAuth() && (isAdmin() || isOwner(resource.data.userId));
+        allow update: if isAuth()
+          && isOwner(resource.data.userId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['status', 'draftText', 'approvedAt', 'approvedBy', 'editedByRep', 'dismissedAt'])
+          && request.resource.data.status in ['approved', 'dismissed'];
+        allow create, delete: if false; // admin SDK only
+      }
     }
 
     // Audit #23: the nested /leads/{uid}/leads/{leadId} rule was a leftover
