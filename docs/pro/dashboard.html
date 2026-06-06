@@ -12721,9 +12721,11 @@ body.theme-frosted {
 <!-- html2pdf.js — powers NBDDocViewer's in-app PDF generation.
      Bundled html2canvas + jsPDF. ~800 KB but loaded on-demand. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
-<!-- ApexCharts — powers the Rep Report Generator's visual charts
-     (donuts, bars, heatmaps, funnels). ~150 KB gzipped, pro-grade. -->
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js" defer></script>
+<!-- LAZY: ApexCharts (Rep Report charts) loaded via ScriptLoader's
+     `reports` bundle, ahead of rep-report-generator.js. Was eager here;
+     PR 2a moved it off the boot path — only the Rep Report view uses it,
+     so ~150 KB gzipped no longer downloads/executes on every load. -->
+
 <!-- Universal in-app document viewer — routes every generator's
      HTML through one modal so we never launch a blank popup again. -->
 <script defer src="js/nbd-doc-viewer.js?v=2"></script>

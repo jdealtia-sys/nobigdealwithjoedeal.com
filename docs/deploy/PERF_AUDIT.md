@@ -51,3 +51,89 @@ Would need a headless Lighthouse run (or Sentry Browser Performance) for:
 - Long tasks during initial render of dashboard.html
 
 **Suggested next step:** add a Lighthouse CI job that runs against the live URL post-deploy and tracks the metrics over time. Out of scope for this audit pass.
+
+---
+
+# Measured baseline + remediation log (2026-06-06)
+
+Re-grounded the audit with real numbers and began the lazy-load remediation
+ladder. This section supersedes the 2026-04-23 estimates where they conflict.
+
+## Method
+
+- **Static analysis** of `docs/pro/dashboard.html` + the eager `<script src>`
+  graph (PowerShell byte sums of the resolved files).
+- **Live asset waterfall** via the Firebase **hosting emulator on a demo
+  project** — `firebase emulators:start --only hosting --project demo-nbd`
+  (Rule-0 safe; production project never touched) — captured with `curl.exe`
+  conditional requests.
+- **Firestore read count** derived from the boot code path
+  (`docs/pro/js/dashboard-bootstrap.module.js`), not a live authenticated run.
+- **Caveat:** the hosting emulator (superstatic) does **not** apply
+  `firebase.json`'s `headers` block — `Cache-Control` comes back empty and
+  `If-None-Match` returns `200`, not `304`. The revalidation tax is therefore
+  **config-confirmed** (`firebase.json` `**/*.@(js|css)` →
+  `max-age=0, must-revalidate`), not emulator-measured. Authenticated
+  INP/LCP/long-tasks still require the full emulator + seed + login stand-up.
+
+## Baseline (dashboard, pre-remediation)
+
+| Metric | Value |
+|---|---|
+| `/pro/dashboard` HTML | 740 KB raw / 151 KB gzip; route is `no-store` (re-sent every load) |
+| `<script src>` tags | 151 (144 local + 7 CDN) |
+| Eager JS/CSS over the wire | ~4.09 MB decoded / ~1.13 MB compressed (147 requests) |
+| Inline `<style>` in the HTML | ~340 KB (uncacheable on the `no-store` route) |
+| Revalidation tax | ~147 conditional (304) requests per warm load (config-confirmed) |
+| Dashboard Firestore reads (cold) | ~7–9 (leads pages + photos + estimates + pins + subscription + user) |
+| Lead-list render | one DOM node per card, no windowing (`crm-pipeline.js`) |
+
+## Corrections to the 2026-04-23 findings (the repo wins)
+
+- **Oversized images — DONE.** `ivent-roto.png` is now **109 KB** (was
+  10.8 MB) and `ivent-eco.png` is **81 KB** (was 1.3 MB); the whole
+  compression queue ran. Largest remaining image is a 553 KB JPEG; total
+  `docs/assets` is 7.3 MB. The "98% / 10.8 MB" win no longer exists.
+- **Fonts — already FOUT.** Barlow + Barlow Condensed load with
+  `display=swap` (FOUT, not FOIT), `preconnect` present, and 14 theme fonts
+  deferred via the media-swap trick. Font work is a minor residual, not a
+  headline.
+
+## Remediation ladder (defer view-only JS into ScriptLoader)
+
+Ordered smallest-blast-radius first. Each rung = one reviewable, revertable
+change, smoke-green + emulator-verified.
+
+| PR | Slice | Eager bytes removed | Status |
+|---|---|---|---|
+| **2a** | ApexCharts → `reports` bundle | ~524 KB raw / 137 KB gz | **shipped (working tree)** |
+| 2b | doc-gen cluster (+ jsPDF/html2pdf) | ~420 KB + 2 CDN libs | planned |
+| 2c | estimate v2 cluster | ~390 KB | planned |
+| 2d | photo + inspection cluster | ~200 KB | planned |
+| 2e | Leaflet + maps | ~250 KB CDN + ~250 KB | planned |
+
+### PR 2a — ApexCharts → lazy `reports` bundle
+
+Moved `apexcharts@3.54.0` from an eager `<script defer>` in `dashboard.html`
+into the `reports` ScriptLoader bundle, ahead of `rep-report-generator.js`
+(the only dashboard consumer of the `ApexCharts` global; `loadBundle()` runs
+entries sequentially, so the global is defined before the generator runs).
+
+- **Before:** ApexCharts downloaded + executed on **every** dashboard load.
+- **After:** loads only when the Rep Report view opens (`goTo('reports')` →
+  `ScriptLoader.preloadForView('reports')`).
+- **Delta (measured):** −524 KB raw / −137 KB gzipped per dashboard load;
+  dashboard `<script src>` 151 → 150; zero `apexcharts` refs in the served
+  HTML.
+- **Files:** `docs/pro/js/script-loader.js`, `docs/pro/dashboard.html`,
+  `tests/smoke/dashboard.test.js` (added 2 regression guards: ApexCharts is
+  not eager in `dashboard.html` and *is* in the `reports` bundle).
+- **Verification:** smoke suite **1704 passed / 0 failed**; 4-lens adversarial
+  review (reachability / CSP+load-order / degradation / completeness) → all
+  clear. Degradation is strictly *better* than before — a CDN failure now
+  shows a graceful "chart library loading" fallback instead of needing a
+  refresh. Not runtime-verified in a live authenticated reports view (needs
+  the seed + login stand-up); covered instead by the load-order proof, the
+  `typeof ApexCharts === 'undefined'` guards, and the adversarial review.
+- **Rollback:** `git revert` of the three files. The `?legacy=1` snapshot
+  (`dashboard.legacy.html`) is intentionally left at its pre-2a state.
