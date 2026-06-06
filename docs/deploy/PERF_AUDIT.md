@@ -111,11 +111,11 @@ change, smoke-green + emulator-verified.
 | 2b2 | jsPDF + html2pdf (doc-viewer PDF export) | 2 CDN libs | planned |
 | 2b3 | customer.html doc-gen parity (load-then-run) | ~419 KB on that page | planned (review-flagged) |
 | **2c** | estimate engine (12 modules) | ~530 KB | **shipped** (harness-verified) |
-| 2d | photo + inspection cluster | ~200 KB | planned |
+| **2d** | photo + inspection cluster (3 modules) | ~200 KB | **shipped** |
 | 2e | Leaflet + maps | ~250 KB CDN + ~250 KB | planned |
 
-**Cumulative shipped (2a + 2b + 2c): ~1.47 MB decoded off every dashboard
-load; dashboard `<script src>` 151 → 134.**
+**Cumulative shipped (2a + 2b + 2c + 2d): ~1.67 MB decoded off every dashboard
+load; dashboard `<script src>` 151 → 131.**
 
 ### PR 2a — ApexCharts → lazy `reports` bundle
 
@@ -204,4 +204,28 @@ modules (`product-data`, `roofivent-catalog`, `product-library`,
   incl. a builder-v2-before-xactimate order check).
 - **Out of scope:** `customer.html` keeps its own eager estimate copies
   (separate page). `property-intel` left eager (distinct feature).
+- **Rollback:** `git revert` of the code/test files.
+
+### PR 2d — photo + inspection engine → lazy `photos` bundle
+
+Deferred 3 leaf modules (`photo-engine`, `inspection-report-engine`,
+`photo-report`) into a lazy `photos` ScriptLoader bundle. `photo-ai.js` and
+the rest stay eager.
+
+- **Self-loading object stubs** (dashboard-actions.js): at boot, install stub
+  `window.PhotoEngine` (method-stubs for openCamera/openGallery/uploadOne/
+  uploadFromFile/renderGallery/openLightbox), `window.InspectionReportEngine`
+  (openBuilder), and `window.generatePhotoReport`. Each entry method
+  load-then-runs the bundle and re-dispatches to the real global (which the 3
+  modules overwrite unconditionally on load); downstream methods
+  (`_openLightbox`, `_bulkAnalyze`, …) only fire after an entry opened the
+  bundle, and are guarded. On load failure each stub shows a "still loading"
+  toast instead of a silent no-op. The `photos` view also preloads the bundle.
+- **Delta (measured):** −~200 KB decoded per dashboard load; dashboard
+  `<script src>` 134 → 131. Cumulative 2a–2d: ~1.67 MB off boot.
+- **Files:** `script-loader.js`, `dashboard.html`, `dashboard-actions.js`,
+  `tests/smoke/dashboard.test.js`.
+- **Verification:** smoke **1735/0** (+7 guards); 4-lens adversarial review all
+  pass (coverage / stub mechanics / load-independence / completeness).
+- **Out of scope:** `customer.html` keeps its own eager photo copies.
 - **Rollback:** `git revert` of the code/test files.

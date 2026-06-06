@@ -185,6 +185,23 @@ section('ScriptLoader contract');
   assert('PR 2c: est + products views preload the estimates bundle',
     /est:\s*\['estimates'\]/.test(src) && /products:\s*\['estimates'\]/.test(src),
     "VIEW_BUNDLES must map est + products to the estimates bundle");
+
+  // PR 2d (perf): the photo + inspection engine (~200 KB) moved off the eager
+  // boot path into the lazy `photos` bundle, with load-then-run stubs at the
+  // entry points (camera / gallery / inspection builder / photo report).
+  const PHOTOMODS = ['photo-engine.js', 'inspection-report-engine.js', 'photo-report.js'];
+  const photosBundleSrc = (src.match(/photos:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of PHOTOMODS) {
+    assert('PR 2d: ' + m + ' is NOT eager in dashboard.html',
+      !new RegExp('<script[^>]+src="js/' + m.replace(/\./g, '\\.') + '\\?').test(dashRaw),
+      m + ' must be lazy-loaded via the photos bundle, not an eager <script> in dashboard.html');
+    assert('PR 2d: ' + m + ' IS in the photos bundle',
+      photosBundleSrc.includes(m),
+      m + ' must be listed in the photos bundle in script-loader.js');
+  }
+  assert('PR 2d: photos view preloads the photos bundle',
+    /photos:\s*\['photos'\]/.test(src),
+    "VIEW_BUNDLES must map photos to the photos bundle");
 }
 
 // ── AdminManager public API ──────────────────────────────────
