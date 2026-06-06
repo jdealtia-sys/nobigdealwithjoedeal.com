@@ -12716,14 +12716,15 @@ body.theme-frosted {
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!-- ADVANCED ESTIMATE BUILDER - 7-Phase System -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
-<!-- jsPDF for advanced PDF export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
-<!-- html2pdf.js — powers NBDDocViewer's in-app PDF generation.
-     Bundled html2canvas + jsPDF. ~800 KB but loaded on-demand. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
-<!-- ApexCharts — powers the Rep Report Generator's visual charts
-     (donuts, bars, heatmaps, funnels). ~150 KB gzipped, pro-grade. -->
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js" defer></script>
+<!-- LAZY: jsPDF + html2pdf (~1.1 MB) load via ScriptLoader's `pdfexport`
+     bundle (PR 2b2), on demand from the doc-viewer's Download-PDF handler
+     (nbd-doc-viewer.js handlePdf). html2pdf was the only dashboard consumer and
+     was eager despite the old "loaded on-demand" comment — now it really is. -->
+<!-- LAZY: ApexCharts (Rep Report charts) loaded via ScriptLoader's
+     `reports` bundle, ahead of rep-report-generator.js. Was eager here;
+     PR 2a moved it off the boot path — only the Rep Report view uses it,
+     so ~150 KB gzipped no longer downloads/executes on every load. -->
+
 <!-- Universal in-app document viewer — routes every generator's
      HTML through one modal so we never launch a blank popup again. -->
 <script defer src="js/nbd-doc-viewer.js?v=2"></script>
@@ -12800,10 +12801,10 @@ body.theme-frosted {
 <script defer src="js/icons.js?v=3"></script>
 <script defer src="js/nbd-comms.js?v=1"></script>
 <script defer src="js/nbd-input-guards.js?v=1"></script>
-<script defer src="js/photo-engine.js?v=6"></script>
+<!-- LAZY: photo-engine loads via ScriptLoader's `photos` bundle (PR 2d). -->
 <script defer src="js/photo-ai.js?v=2"></script>
 <script defer src="js/invoice-pipeline.js?v=3"></script>
-<script defer src="js/inspection-report-engine.js?v=4"></script>
+<!-- LAZY: inspection-report-engine loads via the `photos` bundle (PR 2d). -->
 <!-- Step 4d (2026-05-16): maps.js split into three sibling modules
      loaded in order before the thin maps.js shim. See maps.js
      header for the full split rationale. Each module is a classic
@@ -12827,41 +12828,43 @@ body.theme-frosted {
 <!-- estimate-config.js MUST load before estimates.js + estimate-builder-v2.js;
      it exposes window.NBD_ESTIMATE_CONFIG which both engines read. -->
 <script defer src="js/estimate-config.js?v=2"></script>
-<script defer src="js/estimates.js?v=6"></script>
+<!-- LAZY: estimates.js + the rest of the estimate engine load via ScriptLoader's
+     `estimates` bundle (PR 2c). estimate-config stays eager (prerequisite read
+     at load by the builder). -->
+
 <script defer src="js/ai.js?v=4"></script>
 <script defer src="js/review-engine.js?v=2"></script>
-<script defer src="js/nbd-logo-asset.js?v=2"></script>
 <script defer src="js/company-profile.js?v=1"></script>
-<script defer src="js/document-generator.js?v=6"></script>
-<script defer src="js/document-generator-templates.js?v=6"></script>
-<!-- Doc pre-flight: schema-driven modal that prompts for any missing
-     merge fields before generating a doc. Reads window._leadDoc /
-     _customerId / _customerEstimates / _allPhotos — the dashboard
-     stages those just-in-time in _stageWindowStateForLead. -->
-<script defer src="js/doc-preflight.js?v=1"></script>
+<!-- LAZY: doc-generation cluster (nbd-logo-asset, document-generator,
+     document-generator-templates, doc-preflight) loaded via ScriptLoader's
+     `docgen` bundle. Was eager here (~420 KB on every load); PR 2b moved it
+     off the boot path. Loaded load-then-run from the lead-card doc chips
+     (_generateDocWithPreflight) and the Docs view (data-action="docgen" +
+     Blank buttons), and preloaded when the Docs view opens. Pre-flight reads
+     window._leadDoc / _customerId / _customerEstimates / _allPhotos, which
+     the dashboard stages just-in-time in _stageWindowStateForLead. -->
 <script defer src="js/share-gallery.js?v=2"></script>
 <script defer src="js/analytics-kpi.js?v=2"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
 <!-- LAZY: sales-training, academy/*, real-deal-academy/*, storm-*, decision-engine,
      close-board, rep-os loaded via ScriptLoader when the user enters those views. -->
-<!-- Step 4f (2026-05-17): split into core + ui modules + thin shim.
-     Load order matters: core publishes state, ui reads/extends it, shim
-     composes window.D2D from both. -->
-<script defer src="js/d2d-tracker-core-2026b.js?v=3"></script>
-<script defer src="js/d2d-tracker-ui-2026b.js?v=2"></script>
-<script defer src="js/d2d-tracker-2026b.js?v=2"></script>
+<!-- LAZY: D2D tracker (d2d-tracker core + ui + shim) loads via ScriptLoader's
+     `d2d` bundle (PR 2e), preloaded when the D2D view opens (VIEW_BUNDLES.d2d).
+     Load order locked: core publishes window._D2DState, ui extends it, the shim
+     composes window.D2D; goTo('d2d')'s existing waitForD2D() poller handles the
+     late load. The maps engine stays eager (maps.js doubles as the theme
+     engine — deferring it would defer theme application + the picker). -->
 <script defer src="js/ask-joe-proactive.js?v=2"></script>
-<script defer src="js/product-data.js?v=1"></script>
-<script defer src="js/roofivent-catalog.js?v=1"></script>
-<script defer src="js/estimate-builder-v2.js?v=2"></script>
-<script defer src="js/estimate-labor-catalog.js?v=1"></script>
-<script defer src="js/estimate-catalog-xactimate.js?v=1"></script>
-<script defer src="js/estimate-logic-engine.js?v=4"></script>
-<script defer src="js/estimate-finalization.js?v=2"></script>
-<script defer src="js/estimate-supplement.js?v=1"></script>
-<!-- W144: Supplement UI entry point — wires the engine to a + Supplement
-     button on every customer-page estimate row. -->
-<script defer src="js/supplement-ui.js?v=1"></script>
+<!-- LAZY: estimate engine (PR 2c) — product-data, roofivent-catalog,
+     product-library, estimate-labor-catalog, estimate-builder-v2,
+     estimate-catalog-xactimate, estimate-logic-engine, estimates,
+     estimate-finalization, estimate-v2-ui, estimate-supplement, supplement-ui
+     all load via ScriptLoader's `estimates` bundle (~530 KB off boot), in a
+     verified order (builder-v2 before the xactimate CATALOG merge). Triggered
+     load-then-run from the startNewEstimate / openEstimateV2Builder stubs
+     (dashboard-actions.js) and preloaded on the est / products views.
+     estimate-config, review-engine, property-intel stay eager. Engine assembly
+     is gated by tests/e2e/estimate-engine.spec.js. -->
 <!-- W147: Estimate analytics summary band on the Estimates view. -->
 <script defer src="js/estimate-analytics.js?v=1"></script>
 <!-- W153: Reports view performance dashboard — KPI tiles +
@@ -12869,8 +12872,7 @@ body.theme-frosted {
 <script defer src="js/reports-dashboard.js?v=1"></script>
 <!-- W154: revenue trend sparkline + top customers/sources/engaged. -->
 <script defer src="js/reports-trends.js?v=1"></script>
-<script defer src="js/estimate-v2-ui.js?v=11"></script>
-<script defer src="js/product-library.js?v=2"></script>
+<!-- LAZY: estimate-v2-ui + product-library load via the `estimates` bundle (PR 2c). -->
 <script defer src="js/theme-engine.js?v=2"></script>
 <script defer src="js/prospects.js?v=4"></script>
 <script defer src="js/lead-source-roi.js?v=1"></script>
@@ -12923,11 +12925,11 @@ body.theme-frosted {
 <!-- Help-icon helper: window.HelpIcon.attach(el, anchor) drops a "?"
      next to any element that opens how-to.html at the right section. -->
 <script defer src="js/help-icon.js?v=1"></script>
-<!-- Photo report generator — exposes window.generatePhotoReport(leadId).
-     Previously only loaded on customer.html, which made the dashboard's
-     Next Actions "📸 Photo Report" chip fall through to the generic
-     activity-log fallback. Loading here so the chip actually generates. -->
-<script defer src="js/photo-report.js?v=3"></script>
+<!-- LAZY: photo-report (window.generatePhotoReport) loads via ScriptLoader's
+     `photos` bundle (PR 2d). The Next Actions "📸 Photo Report" chip calls
+     generatePhotoReport through a load-then-run stub (dashboard-actions.js)
+     that loads the bundle on first use, so the chip still generates the
+     report instead of falling through to the activity-log fallback. -->
 
 <!-- W159 P1: on-page mobile diagnostic banner.
      User reports yellow health badge + 0 leads on every mobile device,
