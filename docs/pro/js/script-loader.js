@@ -127,6 +127,17 @@
       'js/inspection-report-engine.js?v=4',
       'js/photo-report.js?v=3'
     ],
+    // D2D tracker (PR 2e). The door-to-door knock tracker — only the D2D
+    // view uses it. ~180 KB off boot. Load order locked: core publishes
+    // window._D2DState, ui extends it, the shim composes window.D2D from both.
+    // goTo('d2d')'s existing waitForD2D() poller handles the late load; the one
+    // other consumer (crm-pipeline.js) guards on window.D2D. The maps engine
+    // stays eager — maps.js doubles as the theme/font appearance engine.
+    d2d: [
+      'js/d2d-tracker-core-2026b.js?v=3',
+      'js/d2d-tracker-ui-2026b.js?v=2',
+      'js/d2d-tracker-2026b.js?v=2'
+    ],
     // Warranty cert wizard — opened from the Docs view only.
     warranty: [
       'js/warranty-cert.js?v=4'
@@ -140,6 +151,7 @@
     est:         ['estimates'],
     products:    ['estimates'],
     photos:      ['photos'],
+    d2d:         ['d2d'],
     academy:     ['academy'],
     training:    ['training'],
     storm:       ['storm'],
