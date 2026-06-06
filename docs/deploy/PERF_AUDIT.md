@@ -71,10 +71,10 @@ ladder. This section supersedes the 2026-04-23 estimates where they conflict.
   (`docs/pro/js/dashboard-bootstrap.module.js`), not a live authenticated run.
 - **Caveat:** the hosting emulator (superstatic) does **not** apply
   `firebase.json`'s `headers` block — `Cache-Control` comes back empty and
-  `If-None-Match` returns `200`, not `304`. The revalidation tax is therefore
-  **config-confirmed** (`firebase.json` `**/*.@(js|css)` →
-  `max-age=0, must-revalidate`), not emulator-measured. Authenticated
-  INP/LCP/long-tasks still require the full emulator + seed + login stand-up.
+  `If-None-Match` returns `200`, not `304`. So JS/CSS cache behavior was read
+  from **live prod headers** instead (see the baseline row + correction below).
+  Authenticated INP/LCP/long-tasks still require the full emulator + seed +
+  login stand-up.
 
 ## Baseline (dashboard, pre-remediation)
 
@@ -84,7 +84,7 @@ ladder. This section supersedes the 2026-04-23 estimates where they conflict.
 | `<script src>` tags | 151 (144 local + 7 CDN) |
 | Eager JS/CSS over the wire | ~4.09 MB decoded / ~1.13 MB compressed (147 requests) |
 | Inline `<style>` in the HTML | ~340 KB (uncacheable on the `no-store` route) |
-| Revalidation tax | ~147 conditional (304) requests per warm load (config-confirmed) |
+| JS/CSS cache (live-measured 2026-06-06) | `public, max-age=300` — **not** the `max-age=0, must-revalidate` that `firebase.json` sets for `**/*.@(js\|css)`. The later `**` rule overrides it (last-match-wins, confirmed on prod). So there is **no** per-load 304 tax today; files cache for 5 min. The original "kill the revalidation tax" item (#1) is really 5 min → 1 yr `immutable`, and the `**/*.@(js\|css)` rule must be moved **after** `**` in `firebase.json` to win. |
 | Dashboard Firestore reads (cold) | ~7–9 (leads pages + photos + estimates + pins + subscription + user) |
 | Lead-list render | one DOM node per card, no windowing (`crm-pipeline.js`) |
 
