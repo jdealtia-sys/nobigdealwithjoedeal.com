@@ -108,15 +108,15 @@ change, smoke-green + emulator-verified.
 |---|---|---|---|
 | **2a** | ApexCharts → `reports` bundle | ~524 KB raw / 137 KB gz | **shipped** (`perf/2a-apexcharts-defer`) |
 | **2b** | doc-gen cluster (4 modules) | ~419 KB | **shipped** |
-| 2b2 | jsPDF + html2pdf (doc-viewer PDF export) | 2 CDN libs | planned |
+| **2b2** | jsPDF + html2pdf (doc-viewer PDF export) | ~1.1 MB | **shipped** |
 | 2b3 | customer.html doc-gen parity (load-then-run) | ~419 KB on that page | planned (review-flagged) |
 | **2c** | estimate engine (12 modules) | ~530 KB | **shipped** (harness-verified) |
 | **2d** | photo + inspection cluster (3 modules) | ~200 KB | **shipped** |
 | **2e** | D2D tracker (3 modules) | ~180 KB | **shipped** (runtime-verified) |
 | 2e-maps | maps engine (core/overlays/routing/maps.js) | ~300 KB | **blocked** — `maps.js` is also the theme engine (needs untangling) |
 
-**Cumulative shipped (2a + 2b + 2c + 2d + 2e): ~1.85 MB decoded off every
-dashboard load; dashboard `<script src>` 151 → 128.**
+**Cumulative shipped (2a + 2b + 2b2 + 2c + 2d + 2e): ~2.95 MB decoded off
+every dashboard load; dashboard `<script src>` 151 → 126.**
 
 ### PR 2a — ApexCharts → lazy `reports` bundle
 
@@ -255,3 +255,32 @@ when it lands; the one other consumer (`crm-pipeline.js`) is guarded.
   map/draw views via the existing `waitForMapFn()`. Leaflet itself stays eager
   too (home dashboard widgets render raw Leaflet maps).
 - **Rollback:** `git revert` of the code/test files.
+
+### PR 2b2 — jsPDF + html2pdf → lazy `pdfexport` bundle
+
+The two PDF-export CDN libs were eager `<script defer>` (html2pdf alone is
+~800 KB; jsPDF ~350 KB) despite a comment claiming they were "loaded on
+demand." The **only** dashboard consumer is the doc-viewer's Download-PDF
+handler (`nbd-doc-viewer.js` `handlePdf`, already `async`), so they move into a
+lazy `pdfexport` bundle that `handlePdf` `await`s on first export. (Standalone
+jsPDF turned out to be **unused on the dashboard** — only `customer.html`
+instantiates `jsPDF` — but it's kept in the bundle for safety.)
+
+- **Delta (measured):** −~1.1 MB decoded off the boot path — the single
+  biggest rung; dashboard `<script src>` 128 → 126. Cumulative 2a–2e + 2b2:
+  ~2.95 MB off boot.
+- **Files:** `script-loader.js`, `dashboard.html`, `nbd-doc-viewer.js`,
+  `tests/smoke/dashboard.test.js`. Smoke **1747/0** (+4 guards).
+- **Also (cleanup):** guarded the 4 pre-existing unguarded `window.D2D` button
+  refs in `d2d-tracker-core-2026b.js` (surfaced by the 2e review; safe but the
+  only unguarded refs in the file) and bumped that module to `?v=4` in the
+  `d2d` bundle.
+- **Rollback:** `git revert` of the code/test files.
+
+## Still open (documented follow-ups)
+
+- **2e-maps** (~300 KB) — blocked on untangling the theme/font engine out of
+  `maps.js` (see PR 2e above).
+- **2b3** — defer `customer.html`'s own eager doc-gen + PDF libs. Bigger than a
+  cleanup: `customer.html` does **not** load `script-loader.js` today, so it
+  needs the ScriptLoader infra added before its doc-gen/PDF can defer.

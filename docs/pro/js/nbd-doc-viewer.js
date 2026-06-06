@@ -495,12 +495,20 @@
 
   async function handlePdf() {
     if (!currentContext) return;
+    // PR 2b2: html2pdf is lazy (ScriptLoader 'pdfexport' bundle, ~1.1 MB).
+    // Load it on the first PDF export, then continue. handlePdf is async.
     if (typeof window.html2pdf !== 'function') {
-      flashStatus('PDF engine loading...');
-      if (typeof window.showToast === 'function') {
-        window.showToast('PDF engine not loaded yet. Try again in a second.', 'error');
+      flashStatus('Loading PDF engine…');
+      if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+        await window.ScriptLoader.loadBundle('pdfexport');
       }
-      return;
+      if (typeof window.html2pdf !== 'function') {
+        flashStatus('PDF engine unavailable');
+        if (typeof window.showToast === 'function') {
+          window.showToast('PDF engine failed to load — check your connection and try again.', 'error');
+        }
+        return;
+      }
     }
     // Finalize signatures first so the PDF embeds the signed PNGs.
     // handlePdf reads from currentContext.html, which finalize updates.

@@ -134,9 +134,18 @@
     // other consumer (crm-pipeline.js) guards on window.D2D. The maps engine
     // stays eager — maps.js doubles as the theme/font appearance engine.
     d2d: [
-      'js/d2d-tracker-core-2026b.js?v=3',
+      'js/d2d-tracker-core-2026b.js?v=4',
       'js/d2d-tracker-ui-2026b.js?v=2',
       'js/d2d-tracker-2026b.js?v=2'
+    ],
+    // PDF export libs (PR 2b2). jsPDF + html2pdf — ~1.1 MB combined (html2pdf
+    // bundles html2canvas + its own jsPDF). The ONLY dashboard consumer is the
+    // doc-viewer's "Download PDF" handler (nbd-doc-viewer.js handlePdf), which
+    // load-then-runs this bundle on demand. Standalone jsPDF is unused on the
+    // dashboard (only customer.html instantiates it) but kept here for safety.
+    pdfexport: [
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
     ],
     // Warranty cert wizard — opened from the Docs view only.
     warranty: [
