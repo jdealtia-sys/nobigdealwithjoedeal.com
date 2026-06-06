@@ -76,13 +76,20 @@ test.describe('Estimate engine — assembles identically (PR 2c)', () => {
       try { window.startNewEstimate && window.startNewEstimate(); } catch (e) {}
     });
 
-    // Wait until the engine has fully assembled (handles the lazy load).
+    // Wait until the engine has FULLY assembled — the bundle loads its 12
+    // modules sequentially, so require the LAST-stage globals (xactimate merge
+    // done + logic/finalization/v2-ui all present), not just builder-v2's base
+    // CATALOG. Waiting only on builder-v2 races the still-loading tail.
     await page.waitForFunction(
       () => !!(window.EstimateBuilderV2 && window.EstimateBuilderV2.CATALOG &&
-               Object.keys(window.EstimateBuilderV2.CATALOG).length > 0 &&
+               window.NBD_XACT_CATALOG && window.NBD_XACT_CATALOG.count > 0 &&
+               window.EstimateLogic && window.EstimateFinalization && window.EstimateV2UI &&
                Array.isArray(window.NBD_PRODUCTS) && window.NBD_PRODUCTS.length > 0),
       null, { timeout: 25_000 }
     );
+    // The stub re-dispatches startNewEstimate after the bundle loads, which
+    // opens the V2 modal — give that a beat to land.
+    await page.waitForFunction(() => !!document.getElementById('estV2Modal'), null, { timeout: 10_000 }).catch(() => {});
 
     const snap = await page.evaluate(() => {
       const B = window.EstimateBuilderV2 || {};

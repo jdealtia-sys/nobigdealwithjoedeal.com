@@ -89,6 +89,32 @@
       'js/document-generator-templates.js?v=6',
       'js/doc-preflight.js?v=1'
     ],
+    // Estimate engine (PR 2c). The revenue-critical builder + its product/
+    // catalog data. Only needed when the rep builds an estimate, opens the
+    // Estimates/Products view, or the estimate-defaults settings tab. ~530 KB
+    // off the boot path. ORDER IS load-bearing and verified by
+    // tests/e2e/estimate-engine.spec.js (snapshot: 222 products / 298 merged
+    // catalog keys / 270 xactimate):
+    //   product-data → roofivent-catalog (merges into NBD_PRODUCTS) →
+    //   product-library (reads NBD_* + defines _productLib, before estimates.js) →
+    //   estimate-builder-v2 (defines EstimateBuilderV2.CATALOG) BEFORE
+    //   estimate-catalog-xactimate (merges 270 items into that CATALOG at load) →
+    //   estimates (window.R, startNewEstimate) → finalization → v2-ui (last).
+    // estimate-config, review-engine, property-intel stay EAGER.
+    estimates: [
+      'js/product-data.js?v=1',
+      'js/roofivent-catalog.js?v=1',
+      'js/product-library.js?v=2',
+      'js/estimate-labor-catalog.js?v=1',
+      'js/estimate-builder-v2.js?v=2',
+      'js/estimate-catalog-xactimate.js?v=1',
+      'js/estimate-logic-engine.js?v=4',
+      'js/estimates.js?v=6',
+      'js/estimate-finalization.js?v=2',
+      'js/estimate-v2-ui.js?v=11',
+      'js/estimate-supplement.js?v=1',
+      'js/supplement-ui.js?v=1'
+    ],
     // Warranty cert wizard — opened from the Docs view only.
     warranty: [
       'js/warranty-cert.js?v=4'
@@ -99,6 +125,8 @@
   const VIEW_BUNDLES = {
     docs:        ['warranty', 'docgen'],
     documents:   ['warranty', 'docgen'],
+    est:         ['estimates'],
+    products:    ['estimates'],
     academy:     ['academy'],
     training:    ['training'],
     storm:       ['storm'],

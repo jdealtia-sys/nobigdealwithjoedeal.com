@@ -531,9 +531,14 @@ function goTo(name, params = {}) {
     });
   }
   if(name==='products') {
-    const pc = document.getElementById('productLibraryContainer');
-    if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
-    else if (pc && typeof window.renderProductLibrary === 'function') { pc.innerHTML = window.renderProductLibrary(); }
+    // PR 2c: product-library ships in the lazy 'estimates' bundle, which the
+    // products view preloads (VIEW_BUNDLES). Chain the render on that preload
+    // so window._productLib exists when we read it.
+    _lazyPreload.then(function () {
+      const pc = document.getElementById('productLibraryContainer');
+      if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
+      else if (pc && typeof window.renderProductLibrary === 'function') { pc.innerHTML = window.renderProductLibrary(); }
+    });
   }
   if(name==='docs') {
     // Upgrade docs view with template suite if available
@@ -736,7 +741,32 @@ if (typeof removeTask === 'function') window.removeTask = removeTask;
 // spotlight tour that auto-fires for users with zero leads.
 // ════════════════════════════════════════════════════════════════════════
 
-if(typeof startNewEstimate==='function'){window.startNewEstimate=startNewEstimate;}else{window.startNewEstimate=function(){console.warn('Estimate module loading...');}}
+// PR 2c: the estimate engine is lazy (ScriptLoader 'estimates' bundle).
+// startNewEstimate / openEstimateV2Builder can be invoked (lead-card chips,
+// command palette, 'E' shortcut, maps) before the bundle loads, so install
+// load-then-run stubs. estimates.js / estimate-v2-ui.js overwrite these with
+// the real functions when the bundle finishes loading.
+if (typeof startNewEstimate === 'function') {
+  window.startNewEstimate = startNewEstimate;
+} else {
+  const _lazyEstimate = function (fnName, args) {
+    if (!(window.ScriptLoader && window.ScriptLoader.loadBundle)) {
+      if (typeof showToast === 'function') showToast('Estimate builder is still loading — try again in a moment', 'warning');
+      return;
+    }
+    window.ScriptLoader.loadBundle('estimates').then(function () {
+      const fn = window[fnName];
+      if (typeof fn === 'function' && !fn.__nbdLazyEstimateStub) { fn.apply(null, args); }
+      else if (typeof showToast === 'function') { showToast('Estimate builder is still loading — try again in a moment', 'warning'); }
+    });
+  };
+  window.startNewEstimate = function () { _lazyEstimate('startNewEstimate', arguments); };
+  window.startNewEstimate.__nbdLazyEstimateStub = true;
+  if (typeof window.openEstimateV2Builder !== 'function') {
+    window.openEstimateV2Builder = function () { _lazyEstimate('openEstimateV2Builder', arguments); };
+    window.openEstimateV2Builder.__nbdLazyEstimateStub = true;
+  }
+}
 if(typeof saveEstimate==='function'){window.saveEstimate=saveEstimate;}
 if(typeof cancelEstimate==='function'){window.cancelEstimate=cancelEstimate;}
 if(typeof viewEstimate==='function'){window.viewEstimate=viewEstimate;}
