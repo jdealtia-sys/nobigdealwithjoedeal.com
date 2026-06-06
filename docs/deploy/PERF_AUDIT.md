@@ -106,11 +106,16 @@ change, smoke-green + emulator-verified.
 
 | PR | Slice | Eager bytes removed | Status |
 |---|---|---|---|
-| **2a** | ApexCharts → `reports` bundle | ~524 KB raw / 137 KB gz | **shipped (working tree)** |
-| 2b | doc-gen cluster (+ jsPDF/html2pdf) | ~420 KB + 2 CDN libs | planned |
+| **2a** | ApexCharts → `reports` bundle | ~524 KB raw / 137 KB gz | **shipped** (`perf/2a-apexcharts-defer`) |
+| **2b** | doc-gen cluster (4 modules) | ~419 KB | **shipped** |
+| 2b2 | jsPDF + html2pdf (doc-viewer PDF export) | 2 CDN libs | planned |
+| 2b3 | customer.html doc-gen parity (load-then-run) | ~419 KB on that page | planned (review-flagged) |
 | 2c | estimate v2 cluster | ~390 KB | planned |
 | 2d | photo + inspection cluster | ~200 KB | planned |
 | 2e | Leaflet + maps | ~250 KB CDN + ~250 KB | planned |
+
+**Cumulative shipped (2a + 2b): ~943 KB decoded off every dashboard load;
+dashboard `<script src>` 151 → 146.**
 
 ### PR 2a — ApexCharts → lazy `reports` bundle
 
@@ -137,3 +142,36 @@ entries sequentially, so the global is defined before the generator runs).
   `typeof ApexCharts === 'undefined'` guards, and the adversarial review.
 - **Rollback:** `git revert` of the three files. The `?legacy=1` snapshot
   (`dashboard.legacy.html`) is intentionally left at its pre-2a state.
+
+### PR 2b — doc-generation cluster → lazy `docgen` bundle
+
+Moved 4 modules (`nbd-logo-asset`, `document-generator`,
+`document-generator-templates`, `doc-preflight`) from eager `<script defer>`
+in `dashboard.html` into a lazy `docgen` ScriptLoader bundle.
+`company-profile.js` and `nbd-doc-viewer.js` stay eager (the latter is the
+shared doc renderer; the former supplies `data.companyProfile` at generate
+time).
+
+- **Triggers wired load-then-run** (so a click before the bundle loads still
+  works on slow LTE in the field): the lead-card doc chips
+  (`_generateDocWithPreflight` in `dashboard-bootstrap.module.js`) and the two
+  Docs-view triggers (the `data-action="docgen"` delegate + the injected
+  "Blank" buttons in `dashboard-ui.js`). The `docs`/`documents` views also
+  preload the bundle.
+- **Delta (measured):** −419 KB decoded per dashboard load; dashboard
+  `<script src>` 150 → 146. Cumulative with 2a: ~943 KB off the boot path.
+- **Files:** `docs/pro/js/script-loader.js`, `docs/pro/dashboard.html`,
+  `docs/pro/js/dashboard-bootstrap.module.js`, `docs/pro/js/dashboard-ui.js`,
+  `tests/smoke/dashboard.test.js` (+9 regression guards).
+- **Verification:** smoke **1713 passed / 0 failed**; 4-lens adversarial review
+  (coverage / load-order / wrapper-correctness / completeness) → all pass.
+  Coverage found no uncovered dashboard trigger; load order confirmed
+  (`document-generator-templates.js` reads `window.NBDDocGen` at load, and
+  `document-generator.js` precedes it in the bundle); degradation is
+  equal-or-better (graceful "still loading" toast on the rare race). Not
+  runtime-verified in a live authenticated Docs view (needs seed + login).
+- **Out of scope / follow-ups:** `customer.html` keeps its own eager copies
+  (separate page, on its own module versions — review flagged a parity PR,
+  2b3). `jsPDF`/`html2pdf` stay eager (the doc-viewer PDF export is a different
+  trigger surface — 2b2).
+- **Rollback:** `git revert` of the five code/test files.

@@ -78,6 +78,17 @@
       'https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js',
       'js/rep-report-generator.js?v=4'
     ],
+    // Doc-generation cluster (PR 2b). Only needed when the rep generates a
+    // document — from a lead-card doc chip (_generateDocWithPreflight) or
+    // inside the Docs view. ~420 KB off the boot path. Order matters:
+    // nbd-logo-asset + document-generator define the globals that
+    // document-generator-templates augments and doc-preflight consumes.
+    docgen: [
+      'js/nbd-logo-asset.js?v=2',
+      'js/document-generator.js?v=6',
+      'js/document-generator-templates.js?v=6',
+      'js/doc-preflight.js?v=1'
+    ],
     // Warranty cert wizard — opened from the Docs view only.
     warranty: [
       'js/warranty-cert.js?v=4'
@@ -86,8 +97,8 @@
 
   // View → bundle mapping. Routes hit by goTo(name) trigger these.
   const VIEW_BUNDLES = {
-    docs:        ['warranty'],
-    documents:   ['warranty'],
+    docs:        ['warranty', 'docgen'],
+    documents:   ['warranty', 'docgen'],
     academy:     ['academy'],
     training:    ['training'],
     storm:       ['storm'],

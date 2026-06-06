@@ -133,6 +133,27 @@ section('ScriptLoader contract');
   assert('PR 2a: ApexCharts IS lazy-loaded via the reports bundle',
     /apexcharts/i.test(reportsBundleSrc),
     'ApexCharts CDN URL must be in the reports bundle in script-loader.js so the Rep Report view still loads it');
+
+  // PR 2b (perf): the doc-generation cluster (~419 KB) moved off the eager
+  // boot path into the lazy `docgen` bundle, triggered load-then-run from the
+  // lead-card doc chips (_generateDocWithPreflight) and the Docs view. Guard
+  // that none of the four modules is eager in dashboard.html and that all
+  // four are registered in the bundle.
+  const DOCGEN = ['nbd-logo-asset.js', 'document-generator.js', 'document-generator-templates.js', 'doc-preflight.js'];
+  const docgenBundleSrc = (src.match(/docgen:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of DOCGEN) {
+    assert('PR 2b: ' + m + ' is NOT eager in dashboard.html',
+      !new RegExp('<script[^>]+src="js/' + m.replace(/\./g, '\\.') + '\\?').test(dashRaw),
+      m + ' must be lazy-loaded via the docgen bundle, not an eager <script> in dashboard.html');
+    assert('PR 2b: ' + m + ' IS in the docgen bundle',
+      docgenBundleSrc.includes(m),
+      m + ' must be listed in the docgen bundle in script-loader.js');
+  }
+  // The Docs view must preload the docgen bundle (the click handlers also
+  // load-then-run as a backstop, but preloading avoids the first-click wait).
+  assert("PR 2b: docs view preloads the docgen bundle",
+    /docs:\s*\[[^\]]*'docgen'/.test(src),
+    "VIEW_BUNDLES['docs'] must include 'docgen' so opening the Docs view preloads it");
 }
 
 // ── AdminManager public API ──────────────────────────────────
