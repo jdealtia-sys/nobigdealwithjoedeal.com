@@ -1,5 +1,10 @@
 # Estimate-engine lazy-deferral plan (PR 2c) + verification harness
 
+> **STATUS: SHIPPED 2026-06-06.** The full 12-module `estimates` bundle was
+> deferred per this plan and proven by the harness below (engine assembles to
+> 222 products / 298 merged catalog keys / 270 xactimate, builder modal opens).
+> Kept eager: `estimate-config`, `review-engine`, `property-intel`.
+
 The estimate engine is the **revenue-critical** core (how every job is quoted),
 so unlike the clean leaf-defers (2a ApexCharts, 2b doc-gen) it gets a full
 14-module dependency trace **and** a real login+seed Playwright harness that

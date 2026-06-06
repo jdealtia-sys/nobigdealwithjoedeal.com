@@ -110,12 +110,12 @@ change, smoke-green + emulator-verified.
 | **2b** | doc-gen cluster (4 modules) | ~419 KB | **shipped** |
 | 2b2 | jsPDF + html2pdf (doc-viewer PDF export) | 2 CDN libs | planned |
 | 2b3 | customer.html doc-gen parity (load-then-run) | ~419 KB on that page | planned (review-flagged) |
-| 2c | estimate v2 cluster | ~390 KB | planned |
+| **2c** | estimate engine (12 modules) | ~530 KB | **shipped** (harness-verified) |
 | 2d | photo + inspection cluster | ~200 KB | planned |
 | 2e | Leaflet + maps | ~250 KB CDN + ~250 KB | planned |
 
-**Cumulative shipped (2a + 2b): ~943 KB decoded off every dashboard load;
-dashboard `<script src>` 151 → 146.**
+**Cumulative shipped (2a + 2b + 2c): ~1.47 MB decoded off every dashboard
+load; dashboard `<script src>` 151 → 134.**
 
 ### PR 2a — ApexCharts → lazy `reports` bundle
 
@@ -175,3 +175,33 @@ time).
   2b3). `jsPDF`/`html2pdf` stay eager (the doc-viewer PDF export is a different
   trigger surface — 2b2).
 - **Rollback:** `git revert` of the five code/test files.
+
+### PR 2c — estimate engine → lazy `estimates` bundle
+
+The revenue-critical estimate builder + its product/catalog data. Deferred 12
+modules (`product-data`, `roofivent-catalog`, `product-library`,
+`estimate-labor-catalog`, `estimate-builder-v2`, `estimate-catalog-xactimate`,
+`estimate-logic-engine`, `estimates`, `estimate-finalization`,
+`estimate-v2-ui`, `estimate-supplement`, `supplement-ui`) into a lazy
+`estimates` ScriptLoader bundle. `estimate-config` (prerequisite),
+`review-engine` (boot-called), and `property-intel` stay eager. Full
+14-module trace + the bundle/load-order rationale are in
+[ESTIMATE_DEFER_PLAN.md](ESTIMATE_DEFER_PLAN.md).
+
+- **Self-loading stubs** (transparent to all call sites): `startNewEstimate` +
+  `openEstimateV2Builder` (`dashboard-actions.js`) load-then-run the bundle and
+  re-dispatch; the `est`/`products` views preload it; the Settings →
+  Estimate-defaults tab (`ui.js`) loads it before reading config/counts.
+- **Delta (measured):** −~530 KB decoded per dashboard load; dashboard
+  `<script src>` 146 → 134. Cumulative 2a+2b+2c: ~1.47 MB off the boot path.
+- **Files:** `script-loader.js`, `dashboard.html`, `dashboard-actions.js`,
+  `ui.js`, `tests/smoke/dashboard.test.js` (+ the e2e harness/spec).
+- **Verification (the strong part):** the **login+seed Playwright harness**
+  (`tests/e2e/estimate-engine.spec.js`) proves the engine assembles
+  **identically** after deferral — 222 products / 298 merged catalog keys
+  (the xactimate→builder merge ran) / 270 xactimate / rates 545·595·660 — and
+  the V2 builder modal opens via the lazy stub. Smoke **1728/0** (+15 guards,
+  incl. a builder-v2-before-xactimate order check).
+- **Out of scope:** `customer.html` keeps its own eager estimate copies
+  (separate page). `property-intel` left eager (distinct feature).
+- **Rollback:** `git revert` of the code/test files.

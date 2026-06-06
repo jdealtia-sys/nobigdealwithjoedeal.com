@@ -942,9 +942,15 @@ function switchSettingsTab(tab) {
   }
   // Load v2 estimate settings when switching to estimates tab
   if (tab === 'estimates') {
-    if (typeof window._loadEstimateDefaultsV2 === 'function') {
-      window._loadEstimateDefaultsV2();
-    }
+    // PR 2c: EstimateBuilderV2 ships in the lazy 'estimates' bundle. Load it
+    // before reading its settings + the product/xactimate counts, so the tab
+    // shows real values (not zeros) and saves against the real config.
+    var _runEstDefaults = function () {
+      if (typeof window._loadEstimateDefaultsV2 === 'function') window._loadEstimateDefaultsV2();
+    };
+    if (window.EstimateBuilderV2) { _runEstDefaults(); }
+    else if (window.ScriptLoader && window.ScriptLoader.loadBundle) { window.ScriptLoader.loadBundle('estimates').then(_runEstDefaults); }
+    else { _runEstDefaults(); }
   }
   // Lazy-load Company tab settings from localStorage + Firestore
   if (tab === 'company') {

@@ -154,6 +154,37 @@ section('ScriptLoader contract');
   assert("PR 2b: docs view preloads the docgen bundle",
     /docs:\s*\[[^\]]*'docgen'/.test(src),
     "VIEW_BUNDLES['docs'] must include 'docgen' so opening the Docs view preloads it");
+
+  // PR 2c (perf): the estimate engine (~530 KB, 12 modules) moved off the eager
+  // boot path into the lazy `estimates` bundle, triggered load-then-run from the
+  // startNewEstimate / openEstimateV2Builder stubs and preloaded on the est /
+  // products views. estimate-config / review-engine / property-intel stay eager.
+  // Verified end-to-end by tests/e2e/estimate-engine.spec.js (engine assembles
+  // to 222 products / 298 merged catalog keys / 270 xactimate).
+  const ESTMODS = ['estimates.js', 'product-data.js', 'product-library.js',
+    'estimate-builder-v2.js', 'estimate-catalog-xactimate.js', 'estimate-v2-ui.js'];
+  const estBundleSrc = (src.match(/estimates:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of ESTMODS) {
+    assert('PR 2c: ' + m + ' is NOT eager in dashboard.html',
+      !new RegExp('<script[^>]+src="js/' + m.replace(/\./g, '\\.') + '\\?').test(dashRaw),
+      m + ' must be lazy-loaded via the estimates bundle, not an eager <script> in dashboard.html');
+    assert('PR 2c: ' + m + ' IS in the estimates bundle',
+      estBundleSrc.includes(m),
+      m + ' must be listed in the estimates bundle in script-loader.js');
+  }
+  // estimate-builder-v2 MUST precede estimate-catalog-xactimate (load-time
+  // CATALOG merge); the xactimate merge produced the 298-key baseline.
+  assert('PR 2c: builder-v2 loads before xactimate in the bundle (merge order)',
+    estBundleSrc.indexOf('estimate-builder-v2.js') > -1 &&
+    estBundleSrc.indexOf('estimate-builder-v2.js') < estBundleSrc.indexOf('estimate-catalog-xactimate.js'),
+    'estimate-builder-v2.js must come before estimate-catalog-xactimate.js in the estimates bundle');
+  // estimate-config stays eager (prerequisite read at load by the builder).
+  assert('PR 2c: estimate-config stays eager',
+    /<script[^>]+src="js\/estimate-config\.js\?/.test(dashRaw),
+    'estimate-config.js must remain an eager <script> in dashboard.html');
+  assert('PR 2c: est + products views preload the estimates bundle',
+    /est:\s*\['estimates'\]/.test(src) && /products:\s*\['estimates'\]/.test(src),
+    "VIEW_BUNDLES must map est + products to the estimates bundle");
 }
 
 // ── AdminManager public API ──────────────────────────────────
