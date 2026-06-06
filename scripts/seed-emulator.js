@@ -42,7 +42,7 @@ if (!FS_HOST || !AUTH_HOST) {
 console.log(`[seed-emulator] Firestore emulator: ${FS_HOST}`);
 console.log(`[seed-emulator] Auth emulator:      ${AUTH_HOST}`);
 
-admin.initializeApp({ projectId: 'nobigdeal-pro' });
+admin.initializeApp({ projectId: process.env.GCLOUD_PROJECT || 'nobigdeal-pro' });
 const db = admin.firestore();
 const auth = admin.auth();
 const TS = admin.firestore.Timestamp;

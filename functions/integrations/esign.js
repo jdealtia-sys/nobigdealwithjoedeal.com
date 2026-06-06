@@ -29,6 +29,11 @@
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+// Modular FieldValue import: the namespaced admin.firestore.FieldValue is
+// undefined inside the Functions emulator runtime (firebase-admin v12 +
+// emulator instrumentation drops the static). The modular import works in
+// BOTH prod and the emulator.
+const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
 
@@ -151,7 +156,7 @@ exports.sendEstimateForSignature = onCall(
         signatureDocumentId: documentId,
         signerName,
         signerEmail,
-        signatureSentAt: admin.firestore.FieldValue.serverTimestamp()
+        signatureSentAt: FieldValue.serverTimestamp()
       });
 
       // Request an embedded signing URL so the rep can complete on the
@@ -241,13 +246,13 @@ exports.esignWebhook = onRequest(
       }
       if (!ref) { res.status(200).json({ ok: true, matched: false }); return; }
 
-      const update = { signatureUpdatedAt: admin.firestore.FieldValue.serverTimestamp() };
+      const update = { signatureUpdatedAt: FieldValue.serverTimestamp() };
 
       const normalized = String(eventType || '').toLowerCase();
       let justSigned = false;
       if (normalized.includes('complet')) {
         update.signatureStatus = 'signed';
-        update.signedAt = admin.firestore.FieldValue.serverTimestamp();
+        update.signedAt = FieldValue.serverTimestamp();
         justSigned = true;
         // Pull the signed PDF URL if available.
         if (body.documentUrl || (body.data && body.data.documentUrl)) {
@@ -394,7 +399,7 @@ async function createStripeInvoiceForEstimate(estRef) {
     stripeCustomerId:  customerId,
     stripeInvoiceUrl:  inv.hosted_invoice_url || null,
     stripeInvoiceStatus: inv.status,
-    stripeInvoiceCreatedAt: admin.firestore.FieldValue.serverTimestamp()
+    stripeInvoiceCreatedAt: FieldValue.serverTimestamp()
   });
 
   // Activity log entry on the lead, if linked.
@@ -409,7 +414,7 @@ async function createStripeInvoiceForEstimate(estRef) {
         amountCents: lines
           ? lines.reduce((s, l) => s + Math.round((Number(l.lineTotal) || 0) * 100), 0)
           : Math.round((Number(est.grandTotal) || 0) * 100),
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: FieldValue.serverTimestamp()
       });
     } catch (e) {}
   }
