@@ -118,6 +118,21 @@ section('ScriptLoader contract');
     for (const r of refs) if (!bundleNames.includes(r)) orphans.push(r);
   }
   assert('all view bundles reference real bundles', orphans.length === 0, orphans.join(', '));
+
+  // PR 2a (perf): ApexCharts moved off the eager boot path into the lazy
+  // `reports` bundle (~524 KB raw / ~137 KB gzipped saved per dashboard
+  // load). Guard BOTH halves so a future merge can't silently re-add the
+  // eager <script> tag or drop it from the bundle — the latter would break
+  // the Rep Report view's charts. The CDN URL (not the word "ApexCharts",
+  // which survives in a breadcrumb comment) is the precise signal here.
+  const dashRaw = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('PR 2a: ApexCharts is NOT eager-loaded in dashboard.html',
+    !/cdn\.jsdelivr\.net\/npm\/apexcharts/.test(dashRaw),
+    'ApexCharts CDN must not be an eager <script src> in dashboard.html — it belongs in the ScriptLoader reports bundle');
+  const reportsBundleSrc = (src.match(/reports:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  assert('PR 2a: ApexCharts IS lazy-loaded via the reports bundle',
+    /apexcharts/i.test(reportsBundleSrc),
+    'ApexCharts CDN URL must be in the reports bundle in script-loader.js so the Rep Report view still loads it');
 }
 
 // ── AdminManager public API ──────────────────────────────────

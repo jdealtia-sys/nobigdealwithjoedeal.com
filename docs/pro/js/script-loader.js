@@ -67,6 +67,15 @@
       'js/decision-engine.js?v=1'
     ],
     reports: [
+      // ApexCharts must load BEFORE rep-report-generator.js, which calls
+      // `new ApexCharts(...)` when the Rep Report view renders its charts.
+      // It was eager in dashboard.html (~150 KB gzipped on every boot);
+      // PR 2a moved it here so it loads only when the reports view opens.
+      // loadBundle() runs entries sequentially (async=false), so the
+      // ApexCharts global is defined before the generator executes. If the
+      // CDN fetch fails, load() resolves anyway and the generator's existing
+      // `typeof ApexCharts === 'undefined'` guard degrades gracefully.
+      'https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js',
       'js/rep-report-generator.js?v=4'
     ],
     // Warranty cert wizard — opened from the Docs view only.
