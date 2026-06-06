@@ -12832,15 +12832,15 @@ body.theme-frosted {
 <script defer src="js/estimates.js?v=6"></script>
 <script defer src="js/ai.js?v=4"></script>
 <script defer src="js/review-engine.js?v=2"></script>
-<script defer src="js/nbd-logo-asset.js?v=2"></script>
 <script defer src="js/company-profile.js?v=1"></script>
-<script defer src="js/document-generator.js?v=6"></script>
-<script defer src="js/document-generator-templates.js?v=6"></script>
-<!-- Doc pre-flight: schema-driven modal that prompts for any missing
-     merge fields before generating a doc. Reads window._leadDoc /
-     _customerId / _customerEstimates / _allPhotos — the dashboard
-     stages those just-in-time in _stageWindowStateForLead. -->
-<script defer src="js/doc-preflight.js?v=1"></script>
+<!-- LAZY: doc-generation cluster (nbd-logo-asset, document-generator,
+     document-generator-templates, doc-preflight) loaded via ScriptLoader's
+     `docgen` bundle. Was eager here (~420 KB on every load); PR 2b moved it
+     off the boot path. Loaded load-then-run from the lead-card doc chips
+     (_generateDocWithPreflight) and the Docs view (data-action="docgen" +
+     Blank buttons), and preloaded when the Docs view opens. Pre-flight reads
+     window._leadDoc / _customerId / _customerEstimates / _allPhotos, which
+     the dashboard stages just-in-time in _stageWindowStateForLead. -->
 <script defer src="js/share-gallery.js?v=2"></script>
 <script defer src="js/analytics-kpi.js?v=2"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
