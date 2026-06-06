@@ -278,3 +278,43 @@
 :root[data-theme="slate"]{ --m:#7d8a9e; }
 :root[data-theme="terminal"]{ --m:#689a68; }
 :root[data-theme="typewriter"]{ --m:#605337; }
+
+/* ══ Audit 2026-06 (F-6) — semantic compat-alias bridge ═════════════════════
+   The app still carries several isolated CSS-variable dialects (codex/vault
+   --void/--surface/--card, understand/project-codex --s1/--or/--tx/--bdr, the
+   palette --ac/--bar/--muted set). Those pages hardcode their own :root, so the
+   theme switcher can't restyle them. Converging them fully is the Phase 3
+   token-architecture job (it needs per-page visual QA). This bridge is the safe
+   first step: it maps each legacy dialect name to the canonical token via a
+   var() reference, so the legacy name dynamically resolves to the ACTIVE theme's
+   value. It's a plain :root (specificity 0,1,0), so any page's own :root or the
+   per-theme :root[data-theme] rules still win — i.e. ZERO visual change today.
+   What it enables: in Phase 3, deleting a page's hardcoded :root dialect block
+   makes that page inherit themed values automatically (no per-var rewrite). It
+   also fixes the latent .fwt-14 rule above, which reads var(--text) that the
+   canonical set never defined. Only DISTINCT legacy names are aliased — names
+   shared with the canonical set (--gold/--paper/--ink/--bg/--s2/--s3) are left
+   to their real per-theme definitions. */
+:root {
+  /* codex / vault dialect */
+  --void: var(--bg);
+  --surface: var(--s);
+  --card: var(--s2);
+  --lift: var(--s3);
+  --border: var(--br);
+  --text: var(--t);
+  /* understand / project-codex dialect */
+  --s1: var(--s);
+  --or: var(--orange);
+  --grn: var(--green);
+  --tx: var(--t);
+  --bdr: var(--br);
+  /* palette dialect */
+  --ac: var(--orange);
+  --bar: var(--s);
+  --muted: var(--m);
+  --blu: var(--blue);
+  --pur: var(--purple);
+  /* admin project-codex (cyan) */
+  --cyan: var(--blue);
+}
