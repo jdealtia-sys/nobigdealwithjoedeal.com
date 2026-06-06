@@ -148,7 +148,14 @@ window.cdaMjdAct = function cdaMjdAct(actionType) {
 };
 window.cdaEditLead = function cdaEditLead() {
   if (window._cardDetailLeadId && typeof window.editLead === 'function') {
-    window.editLead(window._cardDetailLeadId);
+    const id = window._cardDetailLeadId;
+    // Close the mobile job-detail overlay first. It sits at z-index 2100,
+    // above the lead-edit modal's .modal-bg (z-index 2000), so without this
+    // the edit modal opens *behind* the still-visible panel and the Edit
+    // button appears to do nothing on mobile. (Matches cdaInspectionDeep,
+    // which also closes the detail surface before opening its sub-flow.)
+    if (typeof window.closeMobileJobDetail === 'function') window.closeMobileJobDetail();
+    window.editLead(id);
   }
 };
 window.cdaOpenMobileInspection = function cdaOpenMobileInspection() {
