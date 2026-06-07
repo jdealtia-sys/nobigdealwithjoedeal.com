@@ -243,6 +243,24 @@ section('ScriptLoader contract');
   assert('PR 2b2: doc-viewer handlePdf load-then-runs the pdfexport bundle',
     /loadBundle\(['"]pdfexport['"]\)/.test(read(path.join(PRO_JS, 'nbd-doc-viewer.js'))),
     'nbd-doc-viewer.js must ScriptLoader.loadBundle("pdfexport") before using html2pdf');
+
+  // PR 2b3 (perf): same pdfexport deferral applied to customer.html. jsPDF +
+  // html2pdf (~1.1 MB) no longer eager — the two inline export handlers
+  // load-then-run the bundle, and NBDDocViewer.handlePdf (already lazy) covers
+  // the html2pdf path.
+  const custRaw = read(path.join(PRO_JS, '..', 'customer.html'));
+  assert('PR 2b3: jsPDF is NOT eager in customer.html',
+    !/cdnjs\.cloudflare\.com\/ajax\/libs\/jspdf/.test(custRaw),
+    'jsPDF must not be an eager <script> in customer.html — load via the pdfexport bundle');
+  assert('PR 2b3: html2pdf is NOT eager in customer.html',
+    !/cdnjs\.cloudflare\.com\/ajax\/libs\/html2pdf/.test(custRaw),
+    'html2pdf must not be an eager <script> in customer.html — load via the pdfexport bundle');
+  assert('PR 2b3: customer.html loads ScriptLoader',
+    /<script[^>]+src="js\/script-loader\.js/.test(custRaw),
+    'customer.html must load script-loader.js to lazy-load the pdfexport bundle');
+  assert('PR 2b3: customer.html PDF handlers load-then-run pdfexport',
+    (custRaw.match(/loadBundle\(['"]pdfexport['"]\)/g) || []).length >= 2,
+    'both inline jsPDF export handlers must ScriptLoader.loadBundle("pdfexport") before window.jspdf');
 }
 
 // ── AdminManager public API ──────────────────────────────────
