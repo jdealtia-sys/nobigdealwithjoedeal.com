@@ -117,6 +117,7 @@
       seal:        'NBD',
       docPrefix:   'NBD',   // customer IDs / doc numbers: NBD-0001, NBD-WC-…
       tagline:     "No Big Deal with Joe Deal — seriously, it's in the name.",
+      smsSignOff:  'Joe from No Big Deal Roofing',
       logoUrl:     'https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png',
       colors: {
         primary:   '#1E3A6E',  // navy

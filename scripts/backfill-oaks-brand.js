@@ -32,6 +32,7 @@ const OAKS_BRAND = {
     seal:        'ORC',
     docPrefix:   'OAK',   // customer IDs / doc numbers: OAK-0001, OAK-WC-…
     tagline:     'Roofing, Siding, Gutters — 5-Year Labor Warranty on All Installs',
+    smsSignOff:  'Scott from Oaks Roofing',
     logoUrl:     'https://nobigdealwithjoedeal.com/sites/oaks/logo-orange.svg',
     colors: {
       primary:   '#333333',  // charcoal (Oaks)

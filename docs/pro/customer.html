@@ -3387,7 +3387,8 @@ async function loadCustomerData(id) {
         // Audit CC: same defense as the call link above — phone may
         // arrive as a number from a CSV import.
         const cleanPhone = String(lead.phone).replace(/\D/g, '');
-        const smsBody = encodeURIComponent(`Hey${custName ? ' ' + custName : ''}, this is Joe from No Big Deal Roofing! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
+        const _signOff = (window._brand && window._brand().smsSignOff) || 'Joe from No Big Deal Roofing';
+        const smsBody = encodeURIComponent(`Hey${custName ? ' ' + custName : ''}, this is ${_signOff}! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
         smsBtn.href = `sms:${cleanPhone}?body=${smsBody}`;
         smsBtn.style.display = '';
       }
@@ -4245,7 +4246,7 @@ window.shareEstimateViewLink = async function(estId) {
   if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) {
     try {
       await navigator.share({
-        title: 'Your estimate from No Big Deal',
+        title: 'Your estimate from ' + ((window._brand && window._brand().displayName) || 'No Big Deal'),
         text: 'Here’s your estimate. Tap the link to review:',
         url,
       });
@@ -4294,6 +4295,14 @@ window.exportCustomerEstimate = function(estId) {
   if (!est) { alert('Estimate not found'); return; }
   const fmt = n => '$' + parseFloat(n).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
   const tierNames = { good:'Standard Reroof', better:'Reroof Plus', best:'Full Redeck' };
+  const _b = (window._brand && window._brand()) || {};
+  const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+  const _esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const _logo = _isNbd ? '/assets/images/nbd-logo.png' : (_b.logoUrl || '/assets/images/nbd-logo.png');
+  const _nameHtml = _isNbd ? 'No Big <span>Deal</span> Home Solutions' : _esc(_b.legalName);
+  const _legalName = _isNbd ? 'No Big Deal Home Solutions' : _b.legalName;
+  const _site = _isNbd ? 'nobigdealwithjoedeal.com' : ((_b.contact && _b.contact.website) || '');
+  const _tag = _isNbd ? 'Insurance Restoration Specialists' : (_b.tagline || '');
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>NBD Estimate — ${est.addr||est.address||''}</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'Barlow',sans-serif;padding:36px;max-width:860px;margin:0 auto;}
@@ -4322,8 +4331,8 @@ window.exportCustomerEstimate = function(estId) {
 </head><body>
   <div class="hdr">
     <div style="display:flex;align-items:center;gap:14px;">
-      <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:54px;width:auto;display:block;flex-shrink:0;" loading="lazy" decoding="async" />
-      <div><div class="brand">No Big <span>Deal</span> Home Solutions</div><div style="font-size:13px;color:#666;margin-top:2px;">nobigdealwithjoedeal.com</div><div class="badge">Insurance Restoration Specialists</div></div>
+      <img src="${_logo}" alt="${_esc(_legalName)}" style="height:54px;width:auto;display:block;flex-shrink:0;" loading="lazy" decoding="async" />
+      <div><div class="brand">${_nameHtml}</div><div style="font-size:13px;color:#666;margin-top:2px;">${_site}</div><div class="badge">${_tag}</div></div>
     </div>
     <div class="est-hdr">
       <div class="est-type">Roofing Estimate</div>
@@ -4349,7 +4358,7 @@ window.exportCustomerEstimate = function(estId) {
     <tr class="grand-row"><td colspan="4">ESTIMATE TOTAL — ${est.tierName||tierNames[est.tier]||''}</td><td>${fmt(est.grandTotal||est.amount||0)}</td></tr>
   </tbody></table>
   <div class="footer">
-    <div>No Big Deal Home Solutions · nobigdealwithjoedeal.com</div>
+    <div>${_legalName} · ${_site}</div>
     <div>This estimate is valid for 30 days. Measurements verified on-site prior to work.</div>
   </div>
   <script>window.print();<\/script></body></html>`;

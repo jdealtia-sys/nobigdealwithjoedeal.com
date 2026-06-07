@@ -59,6 +59,7 @@ function loadCompanyProfile() {
   ok('NBD contact phone', b.contact.phone === '(859) 420-7382');
   ok('NBD alert SMS hook', b.contact.alertSms === '+18594207382');
   ok('NBD doc fonts (Barlow)', b.fonts.docDisplay === 'Barlow Condensed' && b.fonts.docBody === 'Barlow');
+  ok('NBD smsSignOff', b.smsSignOff === 'Joe from No Big Deal Roofing');
 
   console.log('\nTENANTCONTEXT — _tenant() shape');
   const t = win._tenant();
