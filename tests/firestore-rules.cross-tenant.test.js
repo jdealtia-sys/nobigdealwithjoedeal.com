@@ -91,6 +91,7 @@ async function run() {
     await setDoc(doc(db, 'training_sessions/tsA'),     { userId: 'alice', companyId: 'co-a' });
     await setDoc(doc(db, 'leads/leadA/recordings/recA'),{ userId: 'alice', companyId: 'co-a', transcript: 'confidential call notes' });
     await setDoc(doc(db, 'leads/leadA/documents/docA'), { userId: 'alice', name: 'Signed Contract.pdf' });
+    await setDoc(doc(db, 'leads/leadA/ai_drafts/draftA'),{ userId: 'alice', companyId: 'co-a', status: 'pending', draftText: 'Joe handles pricing personally — want a free inspection?', customerPhone: '+15555550100' });
     await setDoc(doc(db, 'measurements/measA'),        { ownerId: 'alice', leadId: 'leadA', status: 'ready' });
   });
 
@@ -108,6 +109,13 @@ async function run() {
   await check('recordings: B reads A call transcript','deny',  getDoc(doc(bob, 'leads/leadA/recordings/recA')));
   await check('lead documents: B reads A contract',   'deny',  getDoc(doc(bob, 'leads/leadA/documents/docA')));
   await check('measurements: B reads A measurement',  'deny',  getDoc(doc(bob, 'measurements/measA')));
+  // T-2 AI texting drafts — owner-scoped (isOwner(resource.data.userId)).
+  await check('ai_drafts: B reads A draft',            'deny',  getDoc(doc(bob,    'leads/leadA/ai_drafts/draftA')));
+  await check('ai_drafts: B approves A draft',         'deny',  updateDoc(doc(bob, 'leads/leadA/ai_drafts/draftA'), { status: 'approved' }));
+  await check('ai_drafts: A owner reads own draft',    'allow', getDoc(doc(alice,  'leads/leadA/ai_drafts/draftA')));
+  await check('ai_drafts: rep cannot forge sent',      'deny',  updateDoc(doc(alice, 'leads/leadA/ai_drafts/draftA'), { status: 'sent' }));
+  await check('ai_drafts: rep cannot create a draft',  'deny',  setDoc(doc(alice,  'leads/leadA/ai_drafts/forged'), { userId: 'alice', status: 'pending' }));
+  await check('ai_drafts: A owner approves own draft', 'allow', updateDoc(doc(alice, 'leads/leadA/ai_drafts/draftA'), { status: 'approved', draftText: 'edited reply', approvedBy: 'alice' }));
 
   // ═══════════════════════════════════════════════════════════
   // B. COMPANY-SCOPED COLLECTIONS — cross-tenant DENY, same-tenant ALLOW
