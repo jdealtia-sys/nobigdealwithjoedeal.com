@@ -1803,10 +1803,25 @@
       console.warn('[DocPreflight] Firestore helpers missing; skipping persistence.');
       return;
     }
+    // Firestore rejects `undefined` field values outright. A single undefined
+    // edit (e.g. an emptied/optional inspection-report input) previously failed
+    // the ENTIRE save with "Unsupported field value: undefined". Strip undefined
+    // recursively so the valid edits still persist. (QA 2026-06-07, finding M-4.)
+    function _stripUndefined(v) {
+      if (Array.isArray(v)) return v.map(_stripUndefined);
+      if (v && typeof v === 'object' && v.constructor === Object) {
+        var o = {};
+        Object.keys(v).forEach(function (k) { if (v[k] !== undefined) o[k] = _stripUndefined(v[k]); });
+        return o;
+      }
+      return v;
+    }
     var updates = {};
-    Object.keys(leadUpdates || {}).forEach(function (k) { updates[k] = leadUpdates[k]; });
+    Object.keys(leadUpdates || {}).forEach(function (k) {
+      if (leadUpdates[k] !== undefined) updates[k] = _stripUndefined(leadUpdates[k]);
+    });
     if (docOverrides && Object.keys(docOverrides).length) {
-      updates['docOverrides.' + docType] = docOverrides;
+      updates['docOverrides.' + docType] = _stripUndefined(docOverrides);
     }
     if (!Object.keys(updates).length) return;
     updates.updatedAt = window.serverTimestamp();
