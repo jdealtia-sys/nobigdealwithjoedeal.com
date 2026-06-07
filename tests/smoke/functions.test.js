@@ -365,6 +365,42 @@ section('T-2: AI draft send-on-approve');
     /customer-ai-drafts-panel\.js/.test(customerHtml));
 }
 
+section('T-3: AI texting analytics (getAiTextingStats)');
+{
+  const fn = read(path.join(FUNCTIONS, 'handlers/ai-texting-stats.js'));
+  assert('getAiTextingStats is an onCall callable',
+    /exports\.getAiTextingStats\s*=\s*onCall/.test(fn));
+  assert('requires auth (uid)',
+    /request\.auth[\s\S]{0,80}unauthenticated/.test(fn));
+  assert('rate-limited',
+    /callableRateLimit\(request,\s*'getAiTextingStats'/.test(fn));
+  assert('aggregates via collectionGroup ai_drafts scoped to caller uid',
+    /collectionGroup\('ai_drafts'\)[\s\S]{0,120}where\('userId',\s*'==',\s*uid\)/.test(fn));
+  assert('enforces App Check',
+    /enforceAppCheck:\s*true/.test(fn));
+
+  const idx = readFunctionsIndex();
+  assert('index.js exports getAiTextingStats',
+    /exports\.getAiTextingStats\s*=/.test(idx));
+
+  const indexes = read(path.join(ROOT, 'firestore.indexes.json'));
+  assert('ai_drafts collectionGroup index present (userId + generatedAt)',
+    /"collectionGroup":\s*"ai_drafts"[\s\S]{0,200}"userId"[\s\S]{0,120}"generatedAt"/.test(indexes));
+
+  const card = read(path.join(PRO_JS, 'ai-texting-stats-card.js'));
+  assert('card calls the getAiTextingStats callable',
+    /callable\('getAiTextingStats'\)/.test(card));
+  assert('card renders into #analyticsContainer',
+    /getElementById\('analyticsContainer'\)/.test(card));
+
+  const dash = read(path.join(PRO_JS, '..', 'dashboard.html'));
+  assert('dashboard.html loads the AI texting stats card',
+    /ai-texting-stats-card\.js/.test(dash));
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  assert('board view triggers the card render',
+    /name==='board'[\s\S]{0,160}AiTextingStatsCard\.render\(\)/.test(actions));
+}
+
 section('Wave C5: Stripe invoice auto-generation');
 {
   const src = read(path.join(FUNCTIONS, 'integrations/esign.js'));

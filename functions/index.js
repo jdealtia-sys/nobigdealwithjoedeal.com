@@ -94,6 +94,10 @@ exports.updateUserRole             = adminHandlers.updateUserRole;
 exports.deactivateUser             = adminHandlers.deactivateUser;
 exports.listTeamMembers            = adminHandlers.listTeamMembers;
 
+// T-3: per-rep AI texting analytics (collectionGroup scan over ai_drafts).
+const aiTextingStatsHandlers = require('./handlers/ai-texting-stats');
+exports.getAiTextingStats          = aiTextingStatsHandlers.getAiTextingStats;
+
 // Auth / identity triggers + callables
 // NOTE: onRepSignup is in NBD_DEPLOY_SKIP_LIST per
 // .github/workflows/firebase-deploy.yml — DO NOT remove its export.
