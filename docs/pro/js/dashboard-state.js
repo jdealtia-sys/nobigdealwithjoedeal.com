@@ -147,6 +147,12 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'setPhotoMode', 'damagNearMe', 'damageNearMePhotos', 'acceptAutoDetect',
   'cancelAutoDetect', 'generateScopeFromDrawing', 'loadDrawingFromCustomer',
   // Customer / lead modals
+  // QA 2026-06-07 (C-1 fix): saveLead was dropped from the allowlist during the
+  // CSP onclick→data-action sweep, so the Add/Edit Lead modal's Save buttons
+  // (data-action="call" data-fn="saveLead") silently no-op'd — no lead could be
+  // created or edited via the UI. window._saveLead works directly; only the
+  // delegate gate was missing this entry.
+  'saveLead',
   'openLeadModal', 'openTaskModal', 'openShortcutsPanel', 'openQMImportModal',
   'openPhotosForLead', 'openFullCustomerDetails', 'openDocsForLead',
   'openDeletedDrawer', 'openComparisonMode', 'openUploadDoc', 'openEstimateV2Builder',
