@@ -36,6 +36,42 @@ window.NBDDocGen = {
   },
 
   /**
+   * Resolve the active tenant's branding into the COMPANY shape this
+   * generator renders from (Phase B — TenantContext). NBD, and any tenant
+   * whose brand still matches the NBD default, renders from the unchanged
+   * COMPANY literal above — byte-identical. A tenant with its own
+   * companyProfile.brand (a different legalName) renders from that brand.
+   * Reads window._brand() (docs/pro/js/company-profile.js); falls back to
+   * the NBD base whenever the resolver isn't loaded or errors.
+   */
+  _resolveCompany() {
+    const base = this.COMPANY;
+    try {
+      const b = (typeof window !== 'undefined' && window._brand) ? window._brand() : null;
+      if (b && b.legalName && b.legalName !== base.name) {
+        const c = b.colors || {};
+        return {
+          name:    b.legalName,
+          phone:   (b.contact && b.contact.phone)   || base.phone,
+          email:   (b.contact && b.contact.email)   || base.email,
+          website: (b.contact && b.contact.website) || base.website,
+          tagline: b.tagline || base.tagline,
+          address: (b.contact && b.contact.address) || base.address,
+          logoUrl: b.logoUrl || null,
+          colors: {
+            primary:    c.primary    || base.colors.primary,
+            secondary:  c.secondary  || base.colors.secondary,
+            accent:     c.accent     || base.colors.accent,
+            lightGray:  base.colors.lightGray,
+            borderGray: base.colors.borderGray
+          }
+        };
+      }
+    } catch (_) { /* fall back to NBD base */ }
+    return base;
+  },
+
+  /**
    * Warranty tier definitions with descriptions
    */
   WARRANTY_TIERS: {
@@ -679,11 +715,11 @@ window.NBDDocGen = {
       signature: '________________________________',
       date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       // Keep company info filled since that's the contractor's data
-      companyName: this.COMPANY.name,
-      companyPhone: this.COMPANY.phone,
-      companyEmail: this.COMPANY.email,
-      companyWebsite: this.COMPANY.website,
-      companyTagline: this.COMPANY.tagline
+      companyName: this._resolveCompany().name,
+      companyPhone: this._resolveCompany().phone,
+      companyEmail: this._resolveCompany().email,
+      companyWebsite: this._resolveCompany().website,
+      companyTagline: this._resolveCompany().tagline
     };
     this.generate(type, blankData);
   },
@@ -700,17 +736,17 @@ window.NBDDocGen = {
       date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       homeownerName: '',
       address: '',
-      phone: this.COMPANY.phone,
-      email: this.COMPANY.email,
+      phone: this._resolveCompany().phone,
+      email: this._resolveCompany().email,
       projectDescription: '',
       totalPrice: '$0.00',
       warrantyTier: 'better',
       warrantyTerms: '',
-      companyName: this.COMPANY.name,
-      companyPhone: this.COMPANY.phone,
-      companyEmail: this.COMPANY.email,
-      companyWebsite: this.COMPANY.website,
-      companyTagline: this.COMPANY.tagline,
+      companyName: this._resolveCompany().name,
+      companyPhone: this._resolveCompany().phone,
+      companyEmail: this._resolveCompany().email,
+      companyWebsite: this._resolveCompany().website,
+      companyTagline: this._resolveCompany().tagline,
       ...data
     };
 
@@ -762,11 +798,11 @@ window.NBDDocGen = {
 
         .document-header {
           position: relative;
-          background: linear-gradient(180deg, ${this.COMPANY.colors.primary} 0%, ${this.COMPANY.colors.secondary} 100%);
+          background: linear-gradient(180deg, ${this._resolveCompany().colors.primary} 0%, ${this._resolveCompany().colors.secondary} 100%);
           color: #fff;
           margin: -0.5in -0.5in 0.3in -0.5in;
           padding: 0.35in 0.5in 0.25in 0.5in;
-          border-bottom: 6px solid ${this.COMPANY.colors.accent};
+          border-bottom: 6px solid ${this._resolveCompany().colors.accent};
         }
 
         .header-top {
@@ -825,7 +861,7 @@ window.NBDDocGen = {
         }
         .header-tagline {
           font: italic 400 11px/1.3 Georgia, serif;
-          color: ${this.COMPANY.colors.accent};
+          color: ${this._resolveCompany().colors.accent};
           margin-top: 2px;
         }
 
@@ -840,7 +876,7 @@ window.NBDDocGen = {
 
         .document-title {
           font: 800 26px/1.1 'Helvetica Neue', Arial, sans-serif;
-          color: ${this.COMPANY.colors.secondary};
+          color: ${this._resolveCompany().colors.secondary};
           text-align: center;
           margin: 0.25in 0 0.08in 0;
           text-transform: uppercase;
@@ -853,7 +889,7 @@ window.NBDDocGen = {
           display: block;
           width: 64px;
           height: 4px;
-          background: ${this.COMPANY.colors.accent};
+          background: ${this._resolveCompany().colors.accent};
           margin: 0.1in auto 0 auto;
           border-radius: 2px;
         }
@@ -861,7 +897,7 @@ window.NBDDocGen = {
         .document-subtitle {
           font: 600 12px/1.4 'Helvetica Neue', Arial, sans-serif;
           text-align: center;
-          color: ${this.COMPANY.colors.primary};
+          color: ${this._resolveCompany().colors.primary};
           margin-bottom: 0.22in;
           letter-spacing: .04em;
         }
@@ -875,14 +911,14 @@ window.NBDDocGen = {
         .section {
           margin-bottom: 0.22in;
           padding: 0.12in 0.18in;
-          border-left: 4px solid ${this.COMPANY.colors.accent};
+          border-left: 4px solid ${this._resolveCompany().colors.accent};
           background: linear-gradient(90deg, rgba(232,114,12,.04) 0%, rgba(232,114,12,0) 60%);
           border-radius: 0 6px 6px 0;
         }
 
         .section-title {
           font: 800 13px/1.1 'Helvetica Neue', Arial, sans-serif;
-          color: ${this.COMPANY.colors.primary};
+          color: ${this._resolveCompany().colors.primary};
           margin-bottom: 0.12in;
           text-transform: uppercase;
           letter-spacing: 1.2px;
@@ -896,7 +932,7 @@ window.NBDDocGen = {
           position: absolute;
           left: 0; bottom: 0;
           width: 28px; height: 3px;
-          background: ${this.COMPANY.colors.accent};
+          background: ${this._resolveCompany().colors.accent};
           border-radius: 2px;
         }
 
@@ -919,7 +955,7 @@ window.NBDDocGen = {
 
         .scope-list li:before {
           content: "•";
-          color: ${this.COMPANY.colors.accent};
+          color: ${this._resolveCompany().colors.accent};
           font-weight: bold;
           margin-right: 0.1in;
           margin-left: -0.25in;
@@ -934,7 +970,7 @@ window.NBDDocGen = {
         }
 
         table thead {
-          background-color: ${this.COMPANY.colors.primary};
+          background-color: ${this._resolveCompany().colors.primary};
           color: white;
         }
 
@@ -942,22 +978,22 @@ window.NBDDocGen = {
           padding: 0.1in;
           text-align: left;
           font-weight: bold;
-          border: 1px solid ${this.COMPANY.colors.primary};
+          border: 1px solid ${this._resolveCompany().colors.primary};
         }
 
         table td {
           padding: 0.08in 0.1in;
-          border: 1px solid ${this.COMPANY.colors.borderGray};
+          border: 1px solid ${this._resolveCompany().colors.borderGray};
         }
 
         table tr:nth-child(even) {
-          background-color: ${this.COMPANY.colors.lightGray};
+          background-color: ${this._resolveCompany().colors.lightGray};
         }
 
         .total-row {
           background-color: #fff;
           font-weight: bold;
-          border-top: 2px solid ${this.COMPANY.colors.primary};
+          border-top: 2px solid ${this._resolveCompany().colors.primary};
         }
 
         .price-column {
@@ -966,7 +1002,7 @@ window.NBDDocGen = {
 
         .total-price {
           font-size: 14px;
-          color: ${this.COMPANY.colors.accent};
+          color: ${this._resolveCompany().colors.accent};
           font-weight: bold;
         }
 
@@ -974,7 +1010,7 @@ window.NBDDocGen = {
         .warranty-badge {
           display: inline-block;
           padding: 0.15in 0.25in;
-          background-color: ${this.COMPANY.colors.accent};
+          background-color: ${this._resolveCompany().colors.accent};
           color: white;
           border-radius: 4px;
           font-weight: bold;
@@ -983,8 +1019,8 @@ window.NBDDocGen = {
         }
 
         .warranty-details {
-          background-color: ${this.COMPANY.colors.lightGray};
-          border-left: 3px solid ${this.COMPANY.colors.primary};
+          background-color: ${this._resolveCompany().colors.lightGray};
+          border-left: 3px solid ${this._resolveCompany().colors.primary};
           padding: 0.15in;
           margin: 0.1in 0;
           font-size: 10px;
@@ -993,8 +1029,8 @@ window.NBDDocGen = {
 
         /* PHOTO ZONES */
         .photo-zone {
-          border: 2px dashed ${this.COMPANY.colors.borderGray};
-          background-color: ${this.COMPANY.colors.lightGray};
+          border: 2px dashed ${this._resolveCompany().colors.borderGray};
+          background-color: ${this._resolveCompany().colors.lightGray};
           padding: 0.2in;
           text-align: center;
           min-height: 1.5in;
@@ -1007,7 +1043,7 @@ window.NBDDocGen = {
         }
 
         .photo-zone.has-image {
-          border: 1px solid ${this.COMPANY.colors.borderGray};
+          border: 1px solid ${this._resolveCompany().colors.borderGray};
           background: white;
         }
 
@@ -1068,8 +1104,8 @@ window.NBDDocGen = {
           text-align: center;
           font: 600 10px/1.4 'Helvetica Neue', Arial, sans-serif;
           color: rgba(255,255,255,.92);
-          background: linear-gradient(180deg, ${this.COMPANY.colors.secondary} 0%, ${this.COMPANY.colors.primary} 100%);
-          border-top: 4px solid ${this.COMPANY.colors.accent};
+          background: linear-gradient(180deg, ${this._resolveCompany().colors.secondary} 0%, ${this._resolveCompany().colors.primary} 100%);
+          border-top: 4px solid ${this._resolveCompany().colors.accent};
           letter-spacing: .04em;
         }
         .document-footer .footer-brand {
@@ -1100,7 +1136,7 @@ window.NBDDocGen = {
           position: fixed;
           top: 0; left: 0; right: 0;
           height: 56px;
-          background: ${this.COMPANY.colors.primary};
+          background: ${this._resolveCompany().colors.primary};
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1129,7 +1165,7 @@ window.NBDDocGen = {
         }
         .doc-bar-close:hover { background: rgba(255,255,255,0.25); }
         .doc-bar-print {
-          background: ${this.COMPANY.colors.accent};
+          background: ${this._resolveCompany().colors.accent};
           color: white;
         }
         .doc-bar-print:hover { opacity: 0.9; }
@@ -1230,7 +1266,7 @@ window.NBDDocGen = {
         /* HORIZONTAL RULE */
         hr {
           border: none;
-          border-top: 1px solid ${this.COMPANY.colors.borderGray};
+          border-top: 1px solid ${this._resolveCompany().colors.borderGray};
           margin: 0.15in 0;
         }
       </style>
@@ -1317,7 +1353,7 @@ window.NBDDocGen = {
     const cp = (data && data.companyProfile)
       || (typeof window !== 'undefined' && window._companyProfile)
       || {};
-    const C = this.COMPANY;
+    const C = this._resolveCompany();
     const pick = (override, fallback) => {
       const o = (override == null ? '' : String(override)).trim();
       return o || fallback || '';
@@ -1723,8 +1759,8 @@ window.NBDDocGen = {
     const merged = {
       homeownerName: '',
       homeownerAddress: '',
-      contractorName: this.COMPANY.name,
-      contractorPhone: this.COMPANY.phone,
+      contractorName: this._resolveCompany().name,
+      contractorPhone: this._resolveCompany().phone,
       contractPrice: '',
       startDate: 'Upon contract execution',
       estimatedCompletion: '5-7 business days',
@@ -1761,7 +1797,7 @@ window.NBDDocGen = {
               <div style="margin: 0.1in 0;">
                 <strong>Contractor:</strong> ${merged.contractorName}<br/>
                 <strong>Phone:</strong> ${merged.contractorPhone}<br/>
-                <strong>Email:</strong> ${this.COMPANY.email}
+                <strong>Email:</strong> ${this._resolveCompany().email}
               </div>
               <div style="margin: 0.1in 0; margin-top: 0.15in;">
                 <strong>Homeowner:</strong> {{homeownerName}}<br/>
@@ -2010,13 +2046,13 @@ window.NBDDocGen = {
             </div>
 
             <!-- NEXT STEPS -->
-            <div class="section" style="background-color: ${this.COMPANY.colors.lightGray}; border-left: 3px solid ${this.COMPANY.colors.primary}; padding: 0.15in;">
+            <div class="section" style="background-color: ${this._resolveCompany().colors.lightGray}; border-left: 3px solid ${this._resolveCompany().colors.primary}; padding: 0.15in;">
               <div class="section-title">Next Steps</div>
               <div class="summary-text">
                 Based on this assessment, we recommend immediate attention to the roof and gutters to prevent further water damage. Contact us to schedule a free estimate and discuss financing options for recommended repairs.
               </div>
-              <div style="margin-top: 0.1in; font-weight: bold; color: ${this.COMPANY.colors.primary};">
-                ${this.COMPANY.phone} | ${this.COMPANY.email}
+              <div style="margin-top: 0.1in; font-weight: bold; color: ${this._resolveCompany().colors.primary};">
+                ${this._resolveCompany().phone} | ${this._resolveCompany().email}
               </div>
             </div>
 
@@ -2265,7 +2301,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;}
 </style></head><body>
 <div class="hdr">
   <div>
-    <div class="brand-row"><img class="brand-logo" src="${(typeof window!=='undefined'&&window.NBD_LOGO_DATA_URI)?window.NBD_LOGO_DATA_URI:(this._assetOrigin()+'/assets/images/nbd-logo.png')}" alt="${this.COMPANY.name}"/><div class="brand">${this.COMPANY.name}</div></div>
+    <div class="brand-row"><img class="brand-logo" src="${(typeof window!=='undefined'&&window.NBD_LOGO_DATA_URI)?window.NBD_LOGO_DATA_URI:(this._assetOrigin()+'/assets/images/nbd-logo.png')}" alt="${this._resolveCompany().name}"/><div class="brand">${this._resolveCompany().name}</div></div>
     <div class="badge">${typeName}</div>
   </div>
   <div><div class="doc-type">${typeName}</div><div class="doc-date">${date}</div></div>
@@ -2284,7 +2320,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
   <div><div class="sig-line">Homeowner Signature</div><div style="margin-top:16px;"><div class="sig-line">Date</div></div></div>
   <div><div class="sig-line">Contractor Signature</div><div style="margin-top:16px;"><div class="sig-line">Date</div></div></div>
 </div>
-<div class="footer"><span>${this.COMPANY.name} · ${this.COMPANY.phone} · ${this.COMPANY.website}</span><span>Generated by NBD Pro</span></div>
+<div class="footer"><span>${this._resolveCompany().name} · ${this._resolveCompany().phone} · ${this._resolveCompany().website}</span><span>Generated by NBD Pro</span></div>
 </body></html>`;
   },
 
@@ -2298,7 +2334,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
   // ═══════════════════════════════════════════════════════════
   renderCustomerReport(data = {}) {
     const cp = data.companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
-    const C = this.COMPANY;
+    const C = this._resolveCompany();
     const L = this._letterhead(data);
     const esc = (s) => String(s == null ? '' : s)
       .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')

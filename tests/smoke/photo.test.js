@@ -657,15 +657,15 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
 
   // Branded header — strong navy gradient + orange accent stripe.
   assert('document-generator: header uses navy gradient',
-    /\.document-header\s*\{[\s\S]{0,400}linear-gradient\([^)]*\$\{this\.COMPANY\.colors\.primary\}/.test(docGen));
+    /\.document-header\s*\{[\s\S]{0,400}linear-gradient\([^)]*\$\{this\._resolveCompany\(\)\.colors\.primary\}/.test(docGen));
   assert('document-generator: header has orange accent stripe (border-bottom)',
-    /\.document-header\s*\{[\s\S]{0,500}border-bottom:\s*6px solid\s*\$\{this\.COMPANY\.colors\.accent\}/.test(docGen));
+    /\.document-header\s*\{[\s\S]{0,500}border-bottom:\s*6px solid\s*\$\{this\._resolveCompany\(\)\.colors\.accent\}/.test(docGen));
   assert('document-generator: section-title carries orange underline accent',
-    /\.section-title:after\s*\{[\s\S]{0,300}background:\s*\$\{this\.COMPANY\.colors\.accent\}/.test(docGen));
+    /\.section-title:after\s*\{[\s\S]{0,300}background:\s*\$\{this\._resolveCompany\(\)\.colors\.accent\}/.test(docGen));
   assert('document-generator: document-title has orange underline accent',
-    /\.document-title:after\s*\{[\s\S]{0,300}background:\s*\$\{this\.COMPANY\.colors\.accent\}/.test(docGen));
+    /\.document-title:after\s*\{[\s\S]{0,300}background:\s*\$\{this\._resolveCompany\(\)\.colors\.accent\}/.test(docGen));
   assert('document-generator: branded footer (navy bg + orange border-top)',
-    /\.document-footer\s*\{[\s\S]{0,500}border-top:\s*4px solid\s*\$\{this\.COMPANY\.colors\.accent\}/.test(docGen));
+    /\.document-footer\s*\{[\s\S]{0,500}border-top:\s*4px solid\s*\$\{this\._resolveCompany\(\)\.colors\.accent\}/.test(docGen));
 
   // templates.js: matching branded letterhead/footer.
   assert('templates.js: letterhead has navy gradient bg',
