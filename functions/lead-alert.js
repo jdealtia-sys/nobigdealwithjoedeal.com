@@ -21,6 +21,7 @@ const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { Resend } = require('resend');
 const twilio = require('twilio');
+const admin = require('firebase-admin');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
@@ -30,7 +31,34 @@ const TWILIO_PHONE_NUMBER = defineSecret('TWILIO_PHONE_NUMBER');
 const SECRETS = [RESEND_API_KEY, EMAIL_FROM, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER];
 
 const ALERT_EMAILS = ['jd@nobigdealwithjoedeal.com', 'jonathandeal459@gmail.com'];
-const ALERT_SMS = '+18594207382'; // Joe's cell
+const ALERT_SMS = '+18594207382'; // Joe's cell — default when a lead has no tenant contact
+
+// Resolve who gets the alert for a lead's tenant (Phase C, TenantContext).
+// NBD — and any lead without a configured tenant alert contact — falls back to
+// Joe, so this is byte-identical until a tenant sets companyProfile.brand.contact
+// .alertEmail / .alertSms. A configured tenant gets its leads routed to itself.
+async function resolveAlertTarget(companyId) {
+  const fallback = { emails: ALERT_EMAILS, sms: ALERT_SMS, name: 'No Big Deal Home Solutions', seal: 'NBD' };
+  if (!companyId) return fallback;
+  try {
+    const snap = await admin.firestore().collection('companyProfile').doc(String(companyId)).get();
+    if (snap.exists) {
+      const b = (snap.data() || {}).brand || {};
+      const c = b.contact || {};
+      if (c.alertEmail || c.alertSms) {
+        return {
+          emails: c.alertEmail ? [c.alertEmail] : ALERT_EMAILS,
+          sms: c.alertSms || ALERT_SMS,
+          name: b.legalName || fallback.name,
+          seal: b.seal || b.displayName || fallback.seal,
+        };
+      }
+    }
+  } catch (e) {
+    logger.error('leadAlert: tenant resolve failed', { companyId, err: e && e.message });
+  }
+  return fallback;
+}
 
 const KIND_LABEL = {
   contact_leads: 'Contact form',
@@ -54,7 +82,7 @@ function summarize(d) {
   return { name, phone, address, email, story };
 }
 
-function emailHtml(label, source, s, leadId) {
+function emailHtml(label, source, s, leadId, name) {
   const telDigits = String(s.phone).replace(/[^\d]/g, '');
   const row = (k, v) => v ? `<tr><td style="padding:6px 12px;color:#6b7280;font-weight:600;white-space:nowrap;vertical-align:top">${esc(k)}</td><td style="padding:6px 12px;color:#111">${esc(v)}</td></tr>` : '';
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
@@ -74,14 +102,14 @@ function emailHtml(label, source, s, leadId) {
         ${row('Message', s.story)}
       </table>
       ${telDigits ? `<p style="text-align:center;margin:22px 0 6px"><a href="tel:${telDigits}" style="display:inline-block;background:#C8541A;color:#fff;padding:13px 30px;border-radius:6px;text-decoration:none;font-weight:700;font-size:16px">Call ${esc(s.phone)}</a></p>` : ''}
-      <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px">Lead ID: ${esc(leadId)} · No Big Deal Home Solutions</p>
+      <p style="color:#9ca3af;font-size:12px;text-align:center;margin-top:16px">Lead ID: ${esc(leadId)} · ${esc(name)}</p>
     </div>
   </div>
 </body></html>`;
 }
 
-function smsBody(label, source, s) {
-  const lines = [`🔔 NBD lead — ${label}${source ? ` (${source})` : ''}`, `${s.name} · ${s.phone}`];
+function smsBody(label, source, s, seal) {
+  const lines = [`🔔 ${seal} lead — ${label}${source ? ` (${source})` : ''}`, `${s.name} · ${s.phone}`];
   if (s.address) lines.push(s.address);
   if (s.story) lines.push(String(s.story).slice(0, 200));
   return lines.join('\n').slice(0, 480);
@@ -91,29 +119,31 @@ async function alertJoe(collection, d, leadId) {
   const label = KIND_LABEL[collection] || collection;
   const source = d.source || '';
   const s = summarize(d);
+  // Route to the lead's tenant (Oaks → Scott); NBD / unset → Joe (default).
+  const target = await resolveAlertTarget(d.companyId);
 
   // Text via Twilio (works once the number is A2P 10DLC approved).
   try {
     const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
     const msg = await client.messages.create({
-      to: ALERT_SMS,
+      to: target.sms,
       from: TWILIO_PHONE_NUMBER.value(),
-      body: smsBody(label, source, s),
+      body: smsBody(label, source, s, target.seal),
     });
     logger.info('leadAlert: sms queued', { collection, leadId, sid: msg.sid });
   } catch (e) {
     logger.error('leadAlert: sms failed', { collection, leadId, err: e.message });
   }
 
-  // Detailed email → Joe's inboxes.
+  // Detailed email → the tenant's alert inbox(es).
   try {
     const resend = new Resend(RESEND_API_KEY.value());
     const from = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
     const resp = await resend.emails.send({
       from,
-      to: ALERT_EMAILS,
+      to: target.emails,
       subject: `🔔 New lead — ${label}${s.name && s.name[0] !== '(' ? `: ${s.name}` : ''}`,
-      html: emailHtml(label, source, s, leadId),
+      html: emailHtml(label, source, s, leadId, target.name),
       reply_to: s.email || undefined,
     });
     logger.info('leadAlert: email sent', { collection, leadId, id: (resp && resp.data && resp.data.id) || null });
