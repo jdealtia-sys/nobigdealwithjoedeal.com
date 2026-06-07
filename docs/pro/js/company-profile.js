@@ -100,7 +100,47 @@
 
     /* ── CODE & JURISDICTION ───────────────────────────────────── */
     codeCycle: '2021 International Building Code (IBC)',
-    codeJurisdiction: 'Kentucky Building Code (KBC)'
+    codeJurisdiction: 'Kentucky Building Code (KBC)',
+
+    /* ── BRAND — TenantContext backbone (Phase A, 2026-06-07) ───────
+       The single per-tenant brand source of truth. Every brand-bearing
+       surface (doc generators, customer portal, SMS/email copy, doc-number
+       prefixes) should resolve from window._brand() / window._tenant().brand
+       instead of a hardcoded NBD literal. These are the canonical NBD
+       defaults; a tenant's companyProfile.brand override deep-merges on top,
+       so NBD stays byte-identical until a tenant sets its own values.
+       Fields not yet consumed by any surface are wired in later phases
+       (B = brand into the renderers, C = contact.alert* into lead routing). */
+    brand: {
+      displayName: 'No Big Deal',
+      legalName:   'No Big Deal Home Solutions',
+      seal:        'NBD',
+      docPrefix:   'NBD',   // customer IDs / doc numbers: NBD-0001, NBD-WC-…
+      tagline:     "No Big Deal with Joe Deal — seriously, it's in the name.",
+      logoUrl:     'https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png',
+      colors: {
+        primary:   '#1E3A6E',  // navy
+        secondary: '#142A52',  // navy-dark
+        accent:    '#E8720C',  // orange (canonical)
+        ink:       '#14181F',  // body text
+        charcoal:  '#14181F',
+        cream:     '#FAF7F2'
+      },
+      fonts: {
+        display:    'Bebas Neue',       // marketing display
+        body:       'Montserrat',       // marketing body
+        docDisplay: 'Barlow Condensed', // PDF display
+        docBody:    'Barlow'            // PDF body
+      },
+      contact: {
+        phone:      '(859) 420-7382',
+        email:      'jd@nobigdealwithjoedeal.com',
+        website:    'nobigdealwithjoedeal.com',
+        address:    'Greater Cincinnati, OH',
+        alertEmail: 'jd@nobigdealwithjoedeal.com', // Phase C: public-lead alert recipient
+        alertSms:   '+18594207382'                 // Phase C: per-tenant alert SMS
+      }
+    }
   };
 
   // Deep merge — arrays are replaced wholesale, objects merged key by key.
@@ -209,4 +249,26 @@
     await setDoc(doc(window.db, 'companyProfile', key), overridesObj, { merge: true });
     return window._companyProfile;
   };
+
+  // ── TenantContext backbone (Phase A, 2026-06-07) ─────────────────
+  // The one resolver every brand-bearing surface reads from, so brand is
+  // resolved from the ACTIVE TENANT instead of a hardcoded NBD literal.
+  //   window._brand()  → the merged brand (NBD defaults + this tenant's
+  //                       companyProfile.brand overrides).
+  //   window._tenant() → the fuller context later pillars hang off the same
+  //                       resolution (lead routing, billing, domains).
+  // Both are sync and read window._companyProfile (already merged by the
+  // load path). Before auth/load they return NBD defaults — never null —
+  // so a consumer can always render a brand.
+  window._tenant = function () {
+    const profile = window._companyProfile || NBD_COMPANY_PROFILE_DEFAULTS;
+    let companyId = null;
+    try { companyId = (window._userClaims && window._userClaims.companyId) || null; } catch (_) { /* ignore */ }
+    return {
+      companyId: companyId,
+      brand: profile.brand || NBD_COMPANY_PROFILE_DEFAULTS.brand,
+      profile: profile
+    };
+  };
+  window._brand = function () { return window._tenant().brand; };
 })();
