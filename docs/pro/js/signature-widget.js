@@ -31,6 +31,11 @@
   window.__NBDSig__sentinel = 'v1';
 
   var pads = []; // [{block, canvas, pad, role, required}]
+  // PR3b: role -> saved PNG dataURL, pushed in by the parent viewer via
+  // postMessage({__nbd_sig:'savedSigs'}). When a block's role has a saved
+  // sig, the widget offers a "Use saved" button that stamps it onto the
+  // pad so the rep/customer can skip re-drawing.
+  var savedSigs = {};
 
   function NBDSignaturePad(canvas) {
     this.canvas = canvas;
@@ -182,6 +187,47 @@
     var scope = root || document;
     var blocks = scope.querySelectorAll('[data-nbd-sig]');
     for (var i = 0; i < blocks.length; i++) initBlock(blocks[i]);
+    renderSavedButtons();
+  }
+
+  // PR3b: draw a saved signature PNG onto a pad's canvas so it behaves
+  // exactly like a freshly-drawn sig — getStatus() sees it as signed and
+  // finalize() re-exports it through the normal path. Re-rasterization is
+  // 1:1 (same canvas box) so there's no visible quality loss.
+  function applySavedToPad(entry, dataURL) {
+    var img = new Image();
+    img.onload = function () {
+      entry.pad.clear(); // reset strokes + canvas first
+      try { entry.pad.ctx.drawImage(img, 0, 0, entry.pad._w, entry.pad._h); } catch (_) { return; }
+      entry.pad.isEmpty = false;
+      entry.pad._notify();
+      var ind = entry.block.querySelector('.nbd-sig-state');
+      if (ind) ind.textContent = '✓ saved signature';
+    };
+    img.src = dataURL;
+  }
+
+  // Inject a "Use saved" button into each block whose role has a saved
+  // signature (and isn't already finalized). Idempotent per block.
+  function renderSavedButtons() {
+    for (var i = 0; i < pads.length; i++) {
+      var e = pads[i];
+      if (e.__savedBtnDone) continue;
+      if (e.block.getAttribute('data-nbd-sig-finalized') === '1') continue;
+      var saved = savedSigs[e.role];
+      if (!saved) continue;
+      var controls = e.block.querySelector('.nbd-sig-controls');
+      if (!controls) continue;
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.setAttribute('data-nbd-sig-action', 'use-saved');
+      btn.textContent = 'Use saved';
+      controls.insertBefore(btn, controls.firstChild);
+      e.__savedBtnDone = true;
+      (function (entry, dataURL) {
+        btn.addEventListener('click', function (ev) { ev.preventDefault(); applySavedToPad(entry, dataURL); });
+      })(e, saved);
+    }
   }
 
   function getStatus() {
@@ -264,6 +310,15 @@
       var r = finalize();
       r.__nbd_sig = 'finalized';
       try { (ev.source || window.parent).postMessage(r, '*'); } catch (_) {}
+    } else if (d.__nbd_sig === 'savedSigs') {
+      // Parent handed us this lead's previously-captured signatures
+      // (role -> PNG dataURL). Offer a "Use saved" button per matching
+      // block. May arrive before or after blocks init — both are handled
+      // (initAll re-runs renderSavedButtons).
+      if (d.sigs && typeof d.sigs === 'object') {
+        savedSigs = d.sigs;
+        renderSavedButtons();
+      }
     }
   });
 

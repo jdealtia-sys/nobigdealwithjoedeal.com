@@ -647,6 +647,7 @@
       onSave: opts.onSave || null,
       onPersistFinalized: opts.onPersistFinalized || null,
       meta: opts.meta || {},
+      savedSigs: opts.savedSigs || null,
       signedSigners: null
     };
     dirty = true;
@@ -669,6 +670,18 @@
         // Legacy HTML path — wrap with the print listener and inject.
         iframe.removeAttribute('src');
         iframe.srcdoc = wrapWithPrintListener(opts.html);
+        // PR3b: once the sandboxed doc + signature widget have loaded,
+        // hand this lead's previously-saved signatures across the
+        // boundary so the widget can offer "Use saved". Skipped when
+        // there are none, so non-signature docs pay zero cost.
+        const _savedSigs = currentContext.savedSigs;
+        if (_savedSigs && typeof _savedSigs === 'object' && Object.keys(_savedSigs).length) {
+          iframe.addEventListener('load', () => {
+            try {
+              iframe.contentWindow.postMessage({ __nbd_sig: 'savedSigs', sigs: _savedSigs }, '*');
+            } catch (_) { /* cross-origin / not ready — non-fatal */ }
+          }, { once: true });
+        }
       }
     }
 
