@@ -84,6 +84,23 @@ service firebase.storage {
       allow delete: if isOwner(uid) || isAdmin();
     }
 
+    // ── GENERATED DOCUMENTS (rep-owned HTML) ──────────
+    // Path: documents/{uid}/{leadId}/{docId}.html
+    // The doc generator (document-generator.js onPersistFinalized) uploads
+    // each rendered doc's HTML here so it can be re-opened from the customer
+    // page documents tab AND served to a remote signer via getSignDocument
+    // (Signatures PR4). This path was previously default-DENIED — every
+    // upload silently failed (the generator swallows the storage error) so
+    // htmlPath pointed at a nonexistent object, breaking both re-open and
+    // remote signing. Owner-only HTML, same shape as portals/.
+    match /documents/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
+        && request.resource.size < 5 * 1024 * 1024
+        && isHtmlOnly();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
     // ── DEAL ROOMS ─────────────────────────────────────
     match /deal_rooms/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
