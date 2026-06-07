@@ -58,6 +58,10 @@ async function run() {
     await setDoc(doc(db, 'portal_tokens/TOKEN123'), {
       leadId: 'leadA', ownerUid: 'alice', uses: 0, maxUses: 100
     });
+    // Remote-signing tokens (Signatures PR4) — admin-SDK only, same as portal_tokens.
+    await setDoc(doc(db, 'doc_sign_tokens/SIGNTOK1'), {
+      leadId: 'leadA', ownerUid: 'alice', docId: 'docA', status: 'pending'
+    });
     await setDoc(doc(db, 'parcel_cache/abc'), { parcel: { owner: 'Smith' } });
     // Measurements — owner read tests
     await setDoc(doc(db, 'measurements/job-alice'), {
@@ -137,6 +141,14 @@ async function run() {
   await assertFails(getDoc(doc(admin,   'portal_tokens/TOKEN123')));
   await assertFails(setDoc(doc(alice,   'portal_tokens/NEW'), { leadId: 'x' }));
   await assertFails(setDoc(doc(coAdmin, 'portal_tokens/NEW'), { leadId: 'x' }));
+
+  // 14b. doc_sign_tokens (Signatures PR4) — admin-SDK only. No client may
+  // read a token (would leak the doc) or forge one (would mint a sign link).
+  await assertFails(getDoc(doc(anon,    'doc_sign_tokens/SIGNTOK1')));
+  await assertFails(getDoc(doc(alice,   'doc_sign_tokens/SIGNTOK1')));
+  await assertFails(getDoc(doc(admin,   'doc_sign_tokens/SIGNTOK1')));
+  await assertFails(setDoc(doc(alice,   'doc_sign_tokens/FORGED'), { leadId: 'x', status: 'pending' }));
+  await assertFails(setDoc(doc(alice,   'doc_sign_tokens/SIGNTOK1'), { status: 'signed' }, { merge: true }));
 
   // 15. parcel_cache — admin-SDK only (fixture seeded above).
   await assertFails(getDoc(doc(alice, 'parcel_cache/abc')));

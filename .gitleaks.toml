@@ -39,4 +39,5 @@ regexes = [
     '''sk_live_\.{3,}''',           # sk_live_... placeholder
     '''paste your sk[_-]''',        # "paste your sk_..." instructions
     '''6L[0-9A-Za-z_-]{38}''',      # reCAPTCHA v3 site key (origin-bound, public — see docs/deploy/03-app-check.md)
+    '''ABCDEFGHJKLMNPQRSTUVWXYZ23456789''', # no-confusable token alphabet (portal.js / remote-signing.js) — a fixed public charset, NOT a key. generic-api-key flags its entropy.
 ]

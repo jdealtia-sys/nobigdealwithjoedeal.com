@@ -311,6 +311,11 @@
     addBtn('✉ Email', '', handleEmail);
     addBtn('🖨 Print', '', handlePrint);
     addBtn('📄 Download PDF', '', handlePdf);
+    // Signatures PR4: remote signing. Hidden by default; open() shows it
+    // for signable docs (when the generator passes onSendForSignature).
+    const _signBtn = addBtn('✍️ Send for Signature', '', handleSendForSignature);
+    _signBtn.id = 'nbdv-sign-btn';
+    _signBtn.style.display = 'none';
 
     overlay.appendChild(footer);
     document.body.appendChild(overlay);
@@ -324,6 +329,30 @@
     el.textContent = msg;
     el.classList.add('show');
     setTimeout(() => el.classList.remove('show'), 2500);
+  }
+
+  // Signatures PR4: email the homeowner a remote-signing link. Delegates
+  // to the generator's onSendForSignature closure (which awaits the doc's
+  // persist, then calls the createSignRequest callable).
+  async function handleSendForSignature() {
+    if (!currentContext || typeof currentContext.onSendForSignature !== 'function') return;
+    const def = currentContext.signerEmailDefault || '';
+    const email = (window.prompt('Email the signing link to which address?', def) || '').trim();
+    if (!email) return;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      if (window.showToast) window.showToast("That doesn't look like a valid email.", 'error');
+      return;
+    }
+    flashStatus('Sending signing link…');
+    try {
+      const r = await currentContext.onSendForSignature(email);
+      if (r && r.emailed) flashStatus('✓ Signing link emailed');
+      else if (r && r.signLink) flashStatus('Link created — email is still sending');
+      else flashStatus('Could not send — try again');
+    } catch (e) {
+      if (window.showToast) window.showToast('Send for signature failed: ' + (e && e.message || 'error'), 'error');
+      else flashStatus('Send failed');
+    }
   }
 
   // ─── Signature finalize bridge ───────────────────────────
@@ -648,8 +677,15 @@
       onPersistFinalized: opts.onPersistFinalized || null,
       meta: opts.meta || {},
       savedSigs: opts.savedSigs || null,
+      // Signatures PR4: present only for signable docs — the generator
+      // passes a closure that mints a doc_sign_tokens link + emails it.
+      onSendForSignature: opts.onSendForSignature || null,
+      signerEmailDefault: opts.signerEmailDefault || '',
       signedSigners: null
     };
+    // Toggle the remote-signature button per doc (signable docs only).
+    const _signBtnEl = document.getElementById('nbdv-sign-btn');
+    if (_signBtnEl) _signBtnEl.style.display = (typeof currentContext.onSendForSignature === 'function') ? '' : 'none';
     dirty = true;
     ensureMessageListener();
 

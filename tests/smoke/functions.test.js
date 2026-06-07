@@ -401,6 +401,52 @@ section('T-3: AI texting analytics (getAiTextingStats)');
     /name==='board'[\s\S]{0,160}AiTextingStatsCard\.render\(\)/.test(actions));
 }
 
+section('Signatures PR4/5: remote canvas signing');
+{
+  const rs = read(path.join(FUNCTIONS, 'remote-signing.js'));
+  assert('createSignRequest is an authed onCall (App Check)',
+    /exports\.createSignRequest\s*=\s*onCall/.test(rs) && /enforceAppCheck:\s*true/.test(rs));
+  assert('createSignRequest owner-scopes the lead',
+    /lead\.userId !== uid && !isAdmin/.test(rs));
+  assert('createSignRequest is rate-limited + emails via Resend',
+    /callableRateLimit\(request,\s*'createSignRequest'/.test(rs) && /new Resend\(/.test(rs));
+  assert('getSignDocument + submitSignature are public onRequest (POST-only, IP-limited)',
+    /exports\.getSignDocument\s*=\s*onRequest/.test(rs) && /exports\.submitSignature\s*=\s*onRequest/.test(rs)
+      && /docsign-get:ip/.test(rs) && /docsign-submit:ip/.test(rs));
+  assert('ONLY the rep callable enforces App Check (homeowner endpoints open by design)',
+    (rs.match(/enforceAppCheck:\s*true/g) || []).length === 1);
+  assert('getSignDocument refuses expired / already-signed tokens',
+    /getSignDocument[\s\S]*?expiresAt[\s\S]{0,200}status !== 'pending'/.test(rs));
+  assert('submitSignature burns the token atomically (pending->signed in a txn)',
+    /exports\.submitSignature[\s\S]*?runTransaction[\s\S]*?tx\.update\([\s\S]{0,40}status:\s*'signed'/.test(rs));
+  assert('submitSignature caps signed-HTML size',
+    /signedHtml\.length > 6 \* 1024 \* 1024/.test(rs));
+  assert('token minted from crypto.randomBytes (no-confusable alphabet)',
+    /crypto'\)\.randomBytes\(24\)/.test(rs));
+
+  assert('index.js exports the remote-signing functions',
+    /require\('\.\/remote-signing'\)/.test(readFunctionsIndex()));
+
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('doc_sign_tokens is admin-SDK only',
+    /match \/doc_sign_tokens\/\{token\}[\s\S]{0,90}allow read, write: if false/.test(rules));
+
+  const signHtml = read(path.join(PRO_JS, '..', 'sign.html'));
+  assert('sign.html loads sign-page.js + has the signing iframe',
+    /sign-page\.js/.test(signHtml) && /id="spFrame"/.test(signHtml));
+  const sp = read(path.join(PRO_JS, 'sign-page.js'));
+  assert('sign-page.js posts to getSignDocument + submitSignature',
+    /getSignDocument/.test(sp) && /submitSignature/.test(sp));
+  assert('sign-page.js drives the widget finalize bridge',
+    /__nbd_sig:\s*'finalize'/.test(sp) && /'finalized'/.test(sp));
+
+  const viewer = read(path.join(PRO_JS, 'nbd-doc-viewer.js'));
+  assert('doc viewer has the Send-for-Signature button + handler',
+    /nbdv-sign-btn/.test(viewer) && /function handleSendForSignature/.test(viewer));
+  assert('generator passes onSendForSignature for signable docs',
+    /onSendForSignature:[\s\S]{0,120}hasSigners && _leadIdEarly/.test(read(path.join(PRO_JS, 'document-generator.js'))));
+}
+
 section('Wave C5: Stripe invoice auto-generation');
 {
   const src = read(path.join(FUNCTIONS, 'integrations/esign.js'));
