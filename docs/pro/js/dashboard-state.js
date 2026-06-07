@@ -153,6 +153,20 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // created or edited via the UI. window._saveLead works directly; only the
   // delegate gate was missing this entry.
   'saveLead',
+  // QA 2026-06-07 (H-4): the SAME CSP onclick→data-action sweep dropped 21 more
+  // functions from this allowlist — every data-action="call" button wired to them
+  // silently no-op'd (delegate gate at dashboard-ui.js:492). All exist on window.
+  // Restores: Maps search/zone/spyglass/draw-search/save-drawing/material-takeoff/
+  // solar/screenshot/angles, photo auto-detect, bulk select-all, lead retry-load,
+  // doc upload, Ask Joe key+send+settings-key, cal-link share (SMS/email)+settings,
+  // and Quick-Add (use-location + add-lead). (saveCustomTheme intentionally NOT
+  // added — its function does not exist on window; that button needs a separate fix.)
+  'searchMap', 'saveZone', 'spyglassSearch', 'searchDraw', 'saveDrawingToCustomer',
+  'showMaterialTakeoff', 'runSolarAnalysis', 'screenshotMap', 'showAngles',
+  'startAutoDetect', 'selectAllVisibleLeads', 'retryLoadLeads', 'saveDocUpload',
+  'saveJoeKey', 'sendJoeMessage', 'saveJoeKeyFromSettings',
+  'shareCalViaSMS', 'shareCalViaEmail', 'saveCalSettings',
+  'qaUseMyLocation', 'saveQuickLead',
   'openLeadModal', 'openTaskModal', 'openShortcutsPanel', 'openQMImportModal',
   'openPhotosForLead', 'openFullCustomerDetails', 'openDocsForLead',
   'openDeletedDrawer', 'openComparisonMode', 'openUploadDoc', 'openEstimateV2Builder',
