@@ -106,6 +106,20 @@ async function run() {
     { contentType: 'image/jpeg' }
   ));
 
+  // 9b. alice CAN upload generated-doc HTML to documents/alice/ (Signatures
+  //     PR4 / doc-generator persist — this path was previously default-denied).
+  await assertSucceeds(uploadBytes(
+    ref(alice, 'documents/alice/lead42/docABC.html'),
+    buf(1024),
+    { contentType: 'text/html' }
+  ));
+  // 9c. bob CANNOT upload to alice's documents/ (cross-user)
+  await assertFails(uploadBytes(
+    ref(bob, 'documents/alice/lead42/docABC.html'),
+    buf(1024),
+    { contentType: 'text/html' }
+  ));
+
   // 10. bob CANNOT read alice's photos
   await assertFails(getBytes(ref(bob, 'photos/alice/roof.jpg')));
 
