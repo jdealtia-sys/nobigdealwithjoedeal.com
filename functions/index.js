@@ -215,6 +215,11 @@ Object.assign(exports, stormBriefingIntegration);
 const portalFunctions = require('./portal');
 Object.assign(exports, portalFunctions);
 
+// Signatures PR4/5: canvas remote signing (doc_sign_tokens + public
+// homeowner endpoints). Same token-auth model as portal.js.
+const remoteSigningFunctions = require('./remote-signing');
+Object.assign(exports, remoteSigningFunctions);
+
 // L-03 cont.: Stripe handlers (createCheckoutSession, stripeWebhook,
 // createCustomerPortalSession, getSubscriptionStatus,
 // createStripePaymentLink, invoiceWebhook) live in functions/stripe.js.

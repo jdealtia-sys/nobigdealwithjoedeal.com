@@ -691,6 +691,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── REMOTE-SIGNING TOKENS (admin-SDK only) ─────────
+    // Signatures PR4/5. createSignRequest mints these; the homeowner
+    // signs via the public getSignDocument / submitSignature endpoints
+    // (token-authed, admin SDK). No Firebase-auth client ever touches
+    // this collection — same lockdown as portal_tokens.
+    match /doc_sign_tokens/{token} {
+      allow read, write: if false;
+    }
+
     // ── PARCEL CACHE (admin-SDK only) ──────────────────
     // Regrid lookup cache — reads are a privacy issue (address →
     // owner name). Only the Cloud Function accesses via admin SDK.

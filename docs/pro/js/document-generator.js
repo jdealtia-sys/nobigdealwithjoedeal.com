@@ -281,6 +281,23 @@ window.NBDDocGen = {
         title: typeName + (customerName ? ' — ' + customerName : ''),
         filename: _filename,
         savedSigs: _savedSigs,
+        // Signatures PR4: remote signing. Only for signable docs tied to a
+        // lead. Awaits the doc's persist (so it has a real docId/htmlPath),
+        // then mints + emails a doc_sign_tokens link via createSignRequest.
+        onSendForSignature: (hasSigners && _leadIdEarly) ? (async (signerEmail) => {
+          if (_persistPromise) { try { await _persistPromise; } catch (_) {} }
+          const docId = _docMetaRef && _docMetaRef.id;
+          if (!docId) throw new Error('Document is still saving — try again in a moment.');
+          if (!window._functions || !window._httpsCallable) {
+            const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+            window._functions = window._functions || mod.getFunctions();
+            window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+          }
+          const fn = window._httpsCallable(window._functions, 'createSignRequest');
+          const res = await fn({ leadId: _leadIdEarly, docId, signerEmail, signerName: (data.customer && data.customer.name) || '' });
+          return res && res.data;
+        }) : null,
+        signerEmailDefault: (data.customer && data.customer.email) || '',
         onSave: async () => {
           // Persistence already kicked off in the background via
           // _persistPromise above \u2014 wait for it (no-op if already
