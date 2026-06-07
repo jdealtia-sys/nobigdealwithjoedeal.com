@@ -1232,6 +1232,29 @@ section('Signature integration PR 3a — saved-signature reuse store');
     /signatures\/\{sigRole\}[\s\S]{0,260}allow write: if isAuth\(\)[\s\S]{0,160}isOwner\(get\(\/databases/.test(rules));
 }
 
+section('Signature integration PR 3b — "Use saved" reuse UI');
+{
+  const widget = read(path.join(ROOT, 'docs/pro/js/signature-widget.js'));
+  assert('widget accepts a savedSigs postMessage',
+    /__nbd_sig === 'savedSigs'/.test(widget));
+  assert('widget injects a "Use saved" button',
+    /data-nbd-sig-action', 'use-saved'/.test(widget));
+  assert('widget applies the saved PNG onto the pad',
+    /function applySavedToPad/.test(widget) && /drawImage\(img/.test(widget));
+
+  const viewer = read(path.join(ROOT, 'docs/pro/js/nbd-doc-viewer.js'));
+  assert('viewer carries savedSigs on context',
+    /savedSigs:\s*opts\.savedSigs/.test(viewer));
+  assert('viewer posts savedSigs into the iframe on load',
+    /addEventListener\('load'[\s\S]{0,160}__nbd_sig:\s*'savedSigs'/.test(viewer));
+
+  const docGen = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+  assert('docgen fetches saved sigs from leads/{id}/signatures',
+    /_fetchSavedSignatures[\s\S]{0,300}window\.collection\(window\.db,\s*'leads',\s*leadId,\s*'signatures'\)/.test(docGen));
+  assert('docgen passes savedSigs to the viewer (only when signers present)',
+    /hasSigners \? await this\._fetchSavedSignatures[\s\S]{0,200}savedSigs:\s*_savedSigs/.test(docGen));
+}
+
 section('Phase C.4 docgen — NBDDocGen.fillAndGenerate via docgen action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

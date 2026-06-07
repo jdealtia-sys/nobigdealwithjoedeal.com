@@ -272,10 +272,15 @@ window.NBDDocGen = {
           }
         })();
       }
+      // PR3b: load this lead's saved signatures (if any) so the viewer
+      // can hand them to the widget for one-tap "Use saved" reuse. Only
+      // fetched when the doc actually has signers — zero cost otherwise.
+      const _savedSigs = hasSigners ? await this._fetchSavedSignatures(_leadIdEarly) : null;
       window.NBDDocViewer.open({
         html: html,
         title: typeName + (customerName ? ' — ' + customerName : ''),
         filename: _filename,
+        savedSigs: _savedSigs,
         onSave: async () => {
           // Persistence already kicked off in the background via
           // _persistPromise above \u2014 wait for it (no-op if already
@@ -1383,6 +1388,27 @@ window.NBDDocGen = {
         <span class="footer-credit">${L.tagline}</span>
       </div>
     `;
+  },
+
+  /**
+   * PR3b: fetch this lead's previously-saved signatures (written by
+   * onPersistFinalized to leads/{leadId}/signatures/{role}). Returns a
+   * { role: pngDataURL } map, or {} on any miss. Best-effort — a fetch
+   * failure must never block doc generation.
+   */
+  async _fetchSavedSignatures(leadId) {
+    const out = {};
+    try {
+      if (!leadId || !window.db || !window.collection || !window.getDocs) return out;
+      const snap = await window.getDocs(window.collection(window.db, 'leads', leadId, 'signatures'));
+      snap.forEach(d => {
+        const v = d.data();
+        if (v && v.png) out[d.id] = v.png;
+      });
+    } catch (e) {
+      console.warn('[NBDDocGen] saved-signature fetch failed:', e && e.message);
+    }
+    return out;
   },
 
   /**
