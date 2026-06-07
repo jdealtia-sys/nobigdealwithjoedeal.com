@@ -67,7 +67,85 @@
       'js/decision-engine.js?v=1'
     ],
     reports: [
+      // ApexCharts must load BEFORE rep-report-generator.js, which calls
+      // `new ApexCharts(...)` when the Rep Report view renders its charts.
+      // It was eager in dashboard.html (~150 KB gzipped on every boot);
+      // PR 2a moved it here so it loads only when the reports view opens.
+      // loadBundle() runs entries sequentially (async=false), so the
+      // ApexCharts global is defined before the generator executes. If the
+      // CDN fetch fails, load() resolves anyway and the generator's existing
+      // `typeof ApexCharts === 'undefined'` guard degrades gracefully.
+      'https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js',
       'js/rep-report-generator.js?v=4'
+    ],
+    // Doc-generation cluster (PR 2b). Only needed when the rep generates a
+    // document — from a lead-card doc chip (_generateDocWithPreflight) or
+    // inside the Docs view. ~420 KB off the boot path. Order matters:
+    // nbd-logo-asset + document-generator define the globals that
+    // document-generator-templates augments and doc-preflight consumes.
+    docgen: [
+      'js/nbd-logo-asset.js?v=2',
+      'js/document-generator.js?v=6',
+      'js/document-generator-templates.js?v=6',
+      'js/doc-preflight.js?v=1'
+    ],
+    // Estimate engine (PR 2c). The revenue-critical builder + its product/
+    // catalog data. Only needed when the rep builds an estimate, opens the
+    // Estimates/Products view, or the estimate-defaults settings tab. ~530 KB
+    // off the boot path. ORDER IS load-bearing and verified by
+    // tests/e2e/estimate-engine.spec.js (snapshot: 222 products / 298 merged
+    // catalog keys / 270 xactimate):
+    //   product-data → roofivent-catalog (merges into NBD_PRODUCTS) →
+    //   product-library (reads NBD_* + defines _productLib, before estimates.js) →
+    //   estimate-builder-v2 (defines EstimateBuilderV2.CATALOG) BEFORE
+    //   estimate-catalog-xactimate (merges 270 items into that CATALOG at load) →
+    //   estimates (window.R, startNewEstimate) → finalization → v2-ui (last).
+    // estimate-config, review-engine, property-intel stay EAGER.
+    estimates: [
+      'js/product-data.js?v=1',
+      'js/roofivent-catalog.js?v=1',
+      'js/product-library.js?v=2',
+      'js/estimate-labor-catalog.js?v=1',
+      'js/estimate-builder-v2.js?v=2',
+      'js/estimate-catalog-xactimate.js?v=1',
+      'js/estimate-logic-engine.js?v=4',
+      'js/estimates.js?v=6',
+      'js/estimate-finalization.js?v=2',
+      'js/estimate-v2-ui.js?v=11',
+      'js/estimate-supplement.js?v=1',
+      'js/supplement-ui.js?v=1'
+    ],
+    // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
+    // bulk-analyze (photo-engine), the photo-report doc (photo-report), and the
+    // inspection report builder (inspection-report-engine). ~200 KB off boot.
+    // Only needed on the Photos view or the card-detail photo/camera/inspection
+    // buttons. Every consumer guards on the global, and the entry points have
+    // load-then-run stubs in dashboard-actions.js, so a click before the bundle
+    // loads still works.
+    photos: [
+      'js/photo-engine.js?v=6',
+      'js/inspection-report-engine.js?v=4',
+      'js/photo-report.js?v=3'
+    ],
+    // D2D tracker (PR 2e). The door-to-door knock tracker — only the D2D
+    // view uses it. ~180 KB off boot. Load order locked: core publishes
+    // window._D2DState, ui extends it, the shim composes window.D2D from both.
+    // goTo('d2d')'s existing waitForD2D() poller handles the late load; the one
+    // other consumer (crm-pipeline.js) guards on window.D2D. The maps engine
+    // stays eager — maps.js doubles as the theme/font appearance engine.
+    d2d: [
+      'js/d2d-tracker-core-2026b.js?v=4',
+      'js/d2d-tracker-ui-2026b.js?v=2',
+      'js/d2d-tracker-2026b.js?v=2'
+    ],
+    // PDF export libs (PR 2b2). jsPDF + html2pdf — ~1.1 MB combined (html2pdf
+    // bundles html2canvas + its own jsPDF). The ONLY dashboard consumer is the
+    // doc-viewer's "Download PDF" handler (nbd-doc-viewer.js handlePdf), which
+    // load-then-runs this bundle on demand. Standalone jsPDF is unused on the
+    // dashboard (only customer.html instantiates it) but kept here for safety.
+    pdfexport: [
+      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
     ],
     // Warranty cert wizard — opened from the Docs view only.
     warranty: [
@@ -77,8 +155,12 @@
 
   // View → bundle mapping. Routes hit by goTo(name) trigger these.
   const VIEW_BUNDLES = {
-    docs:        ['warranty'],
-    documents:   ['warranty'],
+    docs:        ['warranty', 'docgen'],
+    documents:   ['warranty', 'docgen'],
+    est:         ['estimates'],
+    products:    ['estimates'],
+    photos:      ['photos'],
+    d2d:         ['d2d'],
     academy:     ['academy'],
     training:    ['training'],
     storm:       ['storm'],

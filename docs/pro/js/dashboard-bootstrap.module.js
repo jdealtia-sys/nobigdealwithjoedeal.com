@@ -524,17 +524,28 @@
       _showPrereqModal(check);
       return;
     }
-    if (window.DocPreflight && typeof window.DocPreflight.open === 'function') {
-      window.DocPreflight.open(docType, leadId);
+    // PR 2b: the doc-generation cluster (DocPreflight + NBDDocGen) is now
+    // lazy. If the rep hit a doc chip before the `docgen` bundle loaded
+    // (e.g. before ever opening the Docs view), load it on demand, then run.
+    // DocPreflight is preferred; NBDDocGen.generate is the fall-through so
+    // the rep isn't blocked.
+    const _run = () => {
+      if (window.DocPreflight && typeof window.DocPreflight.open === 'function') {
+        window.DocPreflight.open(docType, leadId);
+        return;
+      }
+      if (window.NBDDocGen && typeof window.NBDDocGen.generate === 'function') {
+        window.NBDDocGen.generate(docType, data);
+      } else if (typeof showToast === 'function') {
+        showToast('Document generator is still loading — try again in a moment', 'warning');
+      }
+    };
+    if (window.DocPreflight || window.NBDDocGen) { _run(); return; }
+    if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+      window.ScriptLoader.loadBundle('docgen').then(_run);
       return;
     }
-    // DocPreflight not loaded yet — fall back to direct generate with
-    // the bridge data so the rep isn't blocked.
-    if (window.NBDDocGen && typeof window.NBDDocGen.generate === 'function') {
-      window.NBDDocGen.generate(docType, data);
-    } else if (typeof showToast === 'function') {
-      showToast('Document generator is still loading — try again in a moment', 'warning');
-    }
+    _run();
   }
 
   window.runLeadAction = function(actionId, kind) {

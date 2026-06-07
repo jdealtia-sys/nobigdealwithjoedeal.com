@@ -118,6 +118,131 @@ section('ScriptLoader contract');
     for (const r of refs) if (!bundleNames.includes(r)) orphans.push(r);
   }
   assert('all view bundles reference real bundles', orphans.length === 0, orphans.join(', '));
+
+  // PR 2a (perf): ApexCharts moved off the eager boot path into the lazy
+  // `reports` bundle (~524 KB raw / ~137 KB gzipped saved per dashboard
+  // load). Guard BOTH halves so a future merge can't silently re-add the
+  // eager <script> tag or drop it from the bundle — the latter would break
+  // the Rep Report view's charts. The CDN URL (not the word "ApexCharts",
+  // which survives in a breadcrumb comment) is the precise signal here.
+  const dashRaw = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('PR 2a: ApexCharts is NOT eager-loaded in dashboard.html',
+    !/cdn\.jsdelivr\.net\/npm\/apexcharts/.test(dashRaw),
+    'ApexCharts CDN must not be an eager <script src> in dashboard.html — it belongs in the ScriptLoader reports bundle');
+  const reportsBundleSrc = (src.match(/reports:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  assert('PR 2a: ApexCharts IS lazy-loaded via the reports bundle',
+    /apexcharts/i.test(reportsBundleSrc),
+    'ApexCharts CDN URL must be in the reports bundle in script-loader.js so the Rep Report view still loads it');
+
+  // PR 2b (perf): the doc-generation cluster (~419 KB) moved off the eager
+  // boot path into the lazy `docgen` bundle, triggered load-then-run from the
+  // lead-card doc chips (_generateDocWithPreflight) and the Docs view. Guard
+  // that none of the four modules is eager in dashboard.html and that all
+  // four are registered in the bundle.
+  const DOCGEN = ['nbd-logo-asset.js', 'document-generator.js', 'document-generator-templates.js', 'doc-preflight.js'];
+  const docgenBundleSrc = (src.match(/docgen:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of DOCGEN) {
+    assert('PR 2b: ' + m + ' is NOT eager in dashboard.html',
+      !new RegExp('<script[^>]+src="js/' + m.replace(/\./g, '\\.') + '\\?').test(dashRaw),
+      m + ' must be lazy-loaded via the docgen bundle, not an eager <script> in dashboard.html');
+    assert('PR 2b: ' + m + ' IS in the docgen bundle',
+      docgenBundleSrc.includes(m),
+      m + ' must be listed in the docgen bundle in script-loader.js');
+  }
+  // The Docs view must preload the docgen bundle (the click handlers also
+  // load-then-run as a backstop, but preloading avoids the first-click wait).
+  assert("PR 2b: docs view preloads the docgen bundle",
+    /docs:\s*\[[^\]]*'docgen'/.test(src),
+    "VIEW_BUNDLES['docs'] must include 'docgen' so opening the Docs view preloads it");
+
+  // PR 2c (perf): the estimate engine (~530 KB, 12 modules) moved off the eager
+  // boot path into the lazy `estimates` bundle, triggered load-then-run from the
+  // startNewEstimate / openEstimateV2Builder stubs and preloaded on the est /
+  // products views. estimate-config / review-engine / property-intel stay eager.
+  // Verified end-to-end by tests/e2e/estimate-engine.spec.js (engine assembles
+  // to 222 products / 298 merged catalog keys / 270 xactimate).
+  const ESTMODS = ['estimates.js', 'product-data.js', 'product-library.js',
+    'estimate-builder-v2.js', 'estimate-catalog-xactimate.js', 'estimate-v2-ui.js'];
+  const estBundleSrc = (src.match(/estimates:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of ESTMODS) {
+    assert('PR 2c: ' + m + ' is NOT eager in dashboard.html',
+      !new RegExp('<script[^>]+src="js/' + m.replace(/\./g, '\\.') + '\\?').test(dashRaw),
+      m + ' must be lazy-loaded via the estimates bundle, not an eager <script> in dashboard.html');
+    assert('PR 2c: ' + m + ' IS in the estimates bundle',
+      estBundleSrc.includes(m),
+      m + ' must be listed in the estimates bundle in script-loader.js');
+  }
+  // estimate-builder-v2 MUST precede estimate-catalog-xactimate (load-time
+  // CATALOG merge); the xactimate merge produced the 298-key baseline.
+  assert('PR 2c: builder-v2 loads before xactimate in the bundle (merge order)',
+    estBundleSrc.indexOf('estimate-builder-v2.js') > -1 &&
+    estBundleSrc.indexOf('estimate-builder-v2.js') < estBundleSrc.indexOf('estimate-catalog-xactimate.js'),
+    'estimate-builder-v2.js must come before estimate-catalog-xactimate.js in the estimates bundle');
+  // estimate-config stays eager (prerequisite read at load by the builder).
+  assert('PR 2c: estimate-config stays eager',
+    /<script[^>]+src="js\/estimate-config\.js\?/.test(dashRaw),
+    'estimate-config.js must remain an eager <script> in dashboard.html');
+  assert('PR 2c: est + products views preload the estimates bundle',
+    /est:\s*\['estimates'\]/.test(src) && /products:\s*\['estimates'\]/.test(src),
+    "VIEW_BUNDLES must map est + products to the estimates bundle");
+
+  // PR 2d (perf): the photo + inspection engine (~200 KB) moved off the eager
+  // boot path into the lazy `photos` bundle, with load-then-run stubs at the
+  // entry points (camera / gallery / inspection builder / photo report).
+  const PHOTOMODS = ['photo-engine.js', 'inspection-report-engine.js', 'photo-report.js'];
+  const photosBundleSrc = (src.match(/photos:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of PHOTOMODS) {
+    assert('PR 2d: ' + m + ' is NOT eager in dashboard.html',
+      !new RegExp('<script[^>]+src="js/' + m.replace(/\./g, '\\.') + '\\?').test(dashRaw),
+      m + ' must be lazy-loaded via the photos bundle, not an eager <script> in dashboard.html');
+    assert('PR 2d: ' + m + ' IS in the photos bundle',
+      photosBundleSrc.includes(m),
+      m + ' must be listed in the photos bundle in script-loader.js');
+  }
+  assert('PR 2d: photos view preloads the photos bundle',
+    /photos:\s*\['photos'\]/.test(src),
+    "VIEW_BUNDLES must map photos to the photos bundle");
+
+  // PR 2e (perf): the D2D tracker (~180 KB) moved off the eager boot path into
+  // the lazy `d2d` bundle, preloaded on the D2D view (goTo's waitForD2D poller
+  // handles the late load). The maps engine intentionally stays eager because
+  // maps.js doubles as the theme/font appearance engine (applies the theme at
+  // boot + powers the Settings theme picker).
+  const D2DMODS = ['d2d-tracker-core-2026b.js', 'd2d-tracker-ui-2026b.js', 'd2d-tracker-2026b.js'];
+  const d2dBundleSrc = (src.match(/d2d:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of D2DMODS) {
+    assert('PR 2e: ' + m + ' is NOT eager in dashboard.html',
+      !new RegExp('<script[^>]+src="js/' + m.replace(/\./g, '\\.') + '\\?').test(dashRaw),
+      m + ' must be lazy-loaded via the d2d bundle, not an eager <script> in dashboard.html');
+    assert('PR 2e: ' + m + ' IS in the d2d bundle',
+      d2dBundleSrc.includes(m),
+      m + ' must be listed in the d2d bundle in script-loader.js');
+  }
+  assert('PR 2e: d2d view preloads the d2d bundle',
+    /d2d:\s*\['d2d'\]/.test(src),
+    "VIEW_BUNDLES must map d2d to the d2d bundle");
+  // The maps engine MUST stay eager — maps.js applies the saved theme/font at
+  // boot (nbdBoot) and powers the theme picker; deferring it would break theming.
+  assert('PR 2e: maps.js stays eager (it is also the theme engine)',
+    /<script[^>]+src="js\/maps\.js\?/.test(dashRaw),
+    'maps.js must remain an eager <script> in dashboard.html (applies the theme at boot)');
+
+  // PR 2b2 (perf): jsPDF + html2pdf (~1.1 MB) moved off the eager boot path into
+  // the lazy `pdfexport` bundle, loaded on demand by the doc-viewer's PDF
+  // download handler (nbd-doc-viewer.js handlePdf).
+  assert('PR 2b2: html2pdf is NOT eager in dashboard.html',
+    !/cdnjs\.cloudflare\.com\/ajax\/libs\/html2pdf/.test(dashRaw),
+    'html2pdf must not be an eager <script> in dashboard.html — it belongs in the pdfexport bundle');
+  assert('PR 2b2: jsPDF is NOT eager in dashboard.html',
+    !/cdnjs\.cloudflare\.com\/ajax\/libs\/jspdf/.test(dashRaw),
+    'standalone jsPDF must not be an eager <script> in dashboard.html — it belongs in the pdfexport bundle');
+  const pdfBundleSrc = (src.match(/pdfexport:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  assert('PR 2b2: pdfexport bundle contains jsPDF + html2pdf',
+    /jspdf/i.test(pdfBundleSrc) && /html2pdf/i.test(pdfBundleSrc),
+    'the pdfexport bundle must list jsPDF + html2pdf');
+  assert('PR 2b2: doc-viewer handlePdf load-then-runs the pdfexport bundle',
+    /loadBundle\(['"]pdfexport['"]\)/.test(read(path.join(PRO_JS, 'nbd-doc-viewer.js'))),
+    'nbd-doc-viewer.js must ScriptLoader.loadBundle("pdfexport") before using html2pdf');
 }
 
 // ── AdminManager public API ──────────────────────────────────
@@ -1081,6 +1206,53 @@ section('Signature integration PR 2 — defaultSigners opt-in across contract-cl
       m && !/defaultSigners/.test(m[0]),
       m ? ('found defaultSigners on ' + tpl + ' line: ' + m[0].slice(0, 120)) : (tpl + ' entry not found'));
   }
+}
+
+section('Signature integration PR 3a — saved-signature reuse store');
+{
+  // Per [[signature-integration-v1]] PR3 design: each captured signature
+  // is persisted to leads/{leadId}/signatures/{role} so a future doc for
+  // the same lead can offer "Use saved" (PR3b). PR3a builds the store.
+  const widget = read(path.join(ROOT, 'docs/pro/js/signature-widget.js'));
+  assert('widget finalize() surfaces the PNG per signer',
+    /signedSigners\.push\(\{[^}]*png:\s*png/.test(widget));
+
+  const docGen = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+  assert('onPersistFinalized writes leads/{id}/signatures/{role}',
+    /setDoc\([\s\S]{0,120}window\.doc\(window\.db,\s*'leads',\s*_leadIdEarly,\s*'signatures'/.test(docGen));
+  assert('saved sig write keyed by role with png',
+    /'signatures',\s*String\(s\.role\)\)[\s\S]{0,200}png:\s*s\.png/.test(docGen));
+  assert('doc metadata signedSigners stays lean (no png dataURLs)',
+    /signedSigners:\s*Array\.isArray\(signedSigners\)[\s\S]{0,160}\.map\(s => \(\{ role: s\.role/.test(docGen));
+
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('rules expose signatures subcollection (owner-scoped)',
+    /match \/signatures\/\{sigRole\}/.test(rules));
+  assert('signatures write requires lead ownership',
+    /signatures\/\{sigRole\}[\s\S]{0,260}allow write: if isAuth\(\)[\s\S]{0,160}isOwner\(get\(\/databases/.test(rules));
+}
+
+section('Signature integration PR 3b — "Use saved" reuse UI');
+{
+  const widget = read(path.join(ROOT, 'docs/pro/js/signature-widget.js'));
+  assert('widget accepts a savedSigs postMessage',
+    /__nbd_sig === 'savedSigs'/.test(widget));
+  assert('widget injects a "Use saved" button',
+    /data-nbd-sig-action', 'use-saved'/.test(widget));
+  assert('widget applies the saved PNG onto the pad',
+    /function applySavedToPad/.test(widget) && /drawImage\(img/.test(widget));
+
+  const viewer = read(path.join(ROOT, 'docs/pro/js/nbd-doc-viewer.js'));
+  assert('viewer carries savedSigs on context',
+    /savedSigs:\s*opts\.savedSigs/.test(viewer));
+  assert('viewer posts savedSigs into the iframe on load',
+    /addEventListener\('load'[\s\S]{0,160}__nbd_sig:\s*'savedSigs'/.test(viewer));
+
+  const docGen = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+  assert('docgen fetches saved sigs from leads/{id}/signatures',
+    /_fetchSavedSignatures[\s\S]{0,300}window\.collection\(window\.db,\s*'leads',\s*leadId,\s*'signatures'\)/.test(docGen));
+  assert('docgen passes savedSigs to the viewer (only when signers present)',
+    /hasSigners \? await this\._fetchSavedSignatures[\s\S]{0,200}savedSigs:\s*_savedSigs/.test(docGen));
 }
 
 section('Phase C.4 docgen — NBDDocGen.fillAndGenerate via docgen action');

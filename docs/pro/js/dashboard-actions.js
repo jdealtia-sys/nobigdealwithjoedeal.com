@@ -538,9 +538,14 @@ function goTo(name, params = {}) {
     });
   }
   if(name==='products') {
-    const pc = document.getElementById('productLibraryContainer');
-    if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
-    else if (pc && typeof window.renderProductLibrary === 'function') { pc.innerHTML = window.renderProductLibrary(); }
+    // PR 2c: product-library ships in the lazy 'estimates' bundle, which the
+    // products view preloads (VIEW_BUNDLES). Chain the render on that preload
+    // so window._productLib exists when we read it.
+    _lazyPreload.then(function () {
+      const pc = document.getElementById('productLibraryContainer');
+      if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
+      else if (pc && typeof window.renderProductLibrary === 'function') { pc.innerHTML = window.renderProductLibrary(); }
+    });
   }
   if(name==='docs') {
     // Upgrade docs view with template suite if available
@@ -743,10 +748,85 @@ if (typeof removeTask === 'function') window.removeTask = removeTask;
 // spotlight tour that auto-fires for users with zero leads.
 // ════════════════════════════════════════════════════════════════════════
 
-if(typeof startNewEstimate==='function'){window.startNewEstimate=startNewEstimate;}else{window.startNewEstimate=function(){console.warn('Estimate module loading...');}}
+// PR 2c: the estimate engine is lazy (ScriptLoader 'estimates' bundle).
+// startNewEstimate / openEstimateV2Builder can be invoked (lead-card chips,
+// command palette, 'E' shortcut, maps) before the bundle loads, so install
+// load-then-run stubs. estimates.js / estimate-v2-ui.js overwrite these with
+// the real functions when the bundle finishes loading.
+if (typeof startNewEstimate === 'function') {
+  window.startNewEstimate = startNewEstimate;
+} else {
+  const _lazyEstimate = function (fnName, args) {
+    if (!(window.ScriptLoader && window.ScriptLoader.loadBundle)) {
+      if (typeof showToast === 'function') showToast('Estimate builder is still loading — try again in a moment', 'warning');
+      return;
+    }
+    window.ScriptLoader.loadBundle('estimates').then(function () {
+      const fn = window[fnName];
+      if (typeof fn === 'function' && !fn.__nbdLazyEstimateStub) { fn.apply(null, args); }
+      else if (typeof showToast === 'function') { showToast('Estimate builder is still loading — try again in a moment', 'warning'); }
+    });
+  };
+  window.startNewEstimate = function () { _lazyEstimate('startNewEstimate', arguments); };
+  window.startNewEstimate.__nbdLazyEstimateStub = true;
+  if (typeof window.openEstimateV2Builder !== 'function') {
+    window.openEstimateV2Builder = function () { _lazyEstimate('openEstimateV2Builder', arguments); };
+    window.openEstimateV2Builder.__nbdLazyEstimateStub = true;
+  }
+}
 if(typeof saveEstimate==='function'){window.saveEstimate=saveEstimate;}
 if(typeof cancelEstimate==='function'){window.cancelEstimate=cancelEstimate;}
 if(typeof viewEstimate==='function'){window.viewEstimate=viewEstimate;}
+
+// PR 2d: the photo + inspection engine is lazy (ScriptLoader 'photos' bundle).
+// Install load-then-run stubs for the entry points (camera, gallery, upload,
+// inspection builder, photo report) so a click before the bundle loads still
+// works. photo-engine.js / inspection-report-engine.js / photo-report.js
+// overwrite these globals (unconditionally) when the bundle finishes loading.
+if (typeof window.PhotoEngine === 'undefined' || typeof window.InspectionReportEngine === 'undefined' || typeof window.generatePhotoReport !== 'function') {
+  const _lazyPhotos = function (run) {
+    if (!(window.ScriptLoader && window.ScriptLoader.loadBundle)) {
+      if (typeof showToast === 'function') showToast('Photos are still loading — try again in a moment', 'warning');
+      return;
+    }
+    window.ScriptLoader.loadBundle('photos').then(run);
+  };
+  if (typeof window.PhotoEngine === 'undefined') {
+    const _peStub = { __nbdLazyPhotosStub: true };
+    ['openCamera', 'openGallery', 'uploadOne', 'uploadFromFile', 'renderGallery', 'openLightbox'].forEach(function (m) {
+      _peStub[m] = function () {
+        const a = arguments;
+        _lazyPhotos(function () {
+          if (window.PhotoEngine && window.PhotoEngine !== _peStub && typeof window.PhotoEngine[m] === 'function') window.PhotoEngine[m].apply(window.PhotoEngine, a);
+          else if (typeof showToast === 'function') showToast('Photos are still loading — try again in a moment', 'warning');
+        });
+      };
+    });
+    window.PhotoEngine = _peStub;
+  }
+  if (typeof window.InspectionReportEngine === 'undefined') {
+    window.InspectionReportEngine = {
+      __nbdLazyPhotosStub: true,
+      openBuilder: function () {
+        const a = arguments;
+        _lazyPhotos(function () {
+          if (window.InspectionReportEngine && !window.InspectionReportEngine.__nbdLazyPhotosStub && typeof window.InspectionReportEngine.openBuilder === 'function') window.InspectionReportEngine.openBuilder.apply(window.InspectionReportEngine, a);
+          else if (typeof showToast === 'function') showToast('Photos are still loading — try again in a moment', 'warning');
+        });
+      }
+    };
+  }
+  if (typeof window.generatePhotoReport !== 'function') {
+    window.generatePhotoReport = function () {
+      const a = arguments;
+      _lazyPhotos(function () {
+        if (typeof window.generatePhotoReport === 'function' && !window.generatePhotoReport.__nbdLazyPhotosStub) window.generatePhotoReport.apply(null, a);
+        else if (typeof showToast === 'function') showToast('Photos are still loading — try again in a moment', 'warning');
+      });
+    };
+    window.generatePhotoReport.__nbdLazyPhotosStub = true;
+  }
+}
 if(typeof exportEstimate==='function'){window.exportEstimate=exportEstimate;}
 if(typeof estNext==='function'){window.estNext=estNext;}
 if(typeof estBack==='function'){window.estBack=estBack;}

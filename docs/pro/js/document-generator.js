@@ -272,10 +272,15 @@ window.NBDDocGen = {
           }
         })();
       }
+      // PR3b: load this lead's saved signatures (if any) so the viewer
+      // can hand them to the widget for one-tap "Use saved" reuse. Only
+      // fetched when the doc actually has signers — zero cost otherwise.
+      const _savedSigs = hasSigners ? await this._fetchSavedSignatures(_leadIdEarly) : null;
       window.NBDDocViewer.open({
         html: html,
         title: typeName + (customerName ? ' — ' + customerName : ''),
         filename: _filename,
+        savedSigs: _savedSigs,
         onSave: async () => {
           // Persistence already kicked off in the background via
           // _persistPromise above \u2014 wait for it (no-op if already
@@ -304,11 +309,46 @@ window.NBDDocGen = {
             if (_docMetaRef && window.updateDoc) {
               await window.updateDoc(_docMetaRef, {
                 signedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
-                signedSigners: Array.isArray(signedSigners) ? signedSigners : null,
+                // Keep the doc metadata lean: strip the PNG dataURLs (they
+                // live in the signed HTML in Storage and in the per-role
+                // signatures store written below — no need to duplicate
+                // tens of KB of base64 onto every documents/{id} doc).
+                signedSigners: Array.isArray(signedSigners)
+                  ? signedSigners.map(s => ({ role: s.role, label: s.label || null, signedAt: s.signedAt || null }))
+                  : null,
               });
             }
           } catch (e) {
             console.warn('Signed metadata update failed:', e && e.message);
+          }
+
+          // PR3a — saved-signature reuse store. Persist each captured
+          // signature to leads/{leadId}/signatures/{role} keyed by role so
+          // a future doc for the same lead can offer "Use saved" (PR3b)
+          // instead of re-drawing. Best-effort; merge so re-signing
+          // refreshes the stored image. PNGs are small (white-bg canvas)
+          // and well under Firestore's 1MB doc ceiling.
+          try {
+            if (_leadIdEarly && window.db && window.setDoc && window.doc
+                && Array.isArray(signedSigners)) {
+              const _sigUid = window.auth?.currentUser?.uid || window._user?.uid || null;
+              for (const s of signedSigners) {
+                if (!s || !s.role || !s.png) continue;
+                await window.setDoc(
+                  window.doc(window.db, 'leads', _leadIdEarly, 'signatures', String(s.role)),
+                  {
+                    role: s.role,
+                    label: s.label || null,
+                    png: s.png,
+                    userId: _sigUid,
+                    updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
+                  },
+                  { merge: true }
+                );
+              }
+            }
+          } catch (e) {
+            console.warn('Signature reuse-store save failed:', e && e.message);
           }
         }
       });
@@ -1348,6 +1388,27 @@ window.NBDDocGen = {
         <span class="footer-credit">${L.tagline}</span>
       </div>
     `;
+  },
+
+  /**
+   * PR3b: fetch this lead's previously-saved signatures (written by
+   * onPersistFinalized to leads/{leadId}/signatures/{role}). Returns a
+   * { role: pngDataURL } map, or {} on any miss. Best-effort — a fetch
+   * failure must never block doc generation.
+   */
+  async _fetchSavedSignatures(leadId) {
+    const out = {};
+    try {
+      if (!leadId || !window.db || !window.collection || !window.getDocs) return out;
+      const snap = await window.getDocs(window.collection(window.db, 'leads', leadId, 'signatures'));
+      snap.forEach(d => {
+        const v = d.data();
+        if (v && v.png) out[d.id] = v.png;
+      });
+    } catch (e) {
+      console.warn('[NBDDocGen] saved-signature fetch failed:', e && e.message);
+    }
+    return out;
   },
 
   /**

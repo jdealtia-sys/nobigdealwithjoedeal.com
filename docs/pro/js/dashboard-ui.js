@@ -380,9 +380,19 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     const target = el.dataset.target;
     if (!target) return;
     e.preventDefault();
-    if (window.NBDDocGen && typeof window.NBDDocGen.fillAndGenerate === 'function') {
-      window.NBDDocGen.fillAndGenerate(target);
-    }
+    // PR 2b: the docgen cluster is lazy. Load-then-run so a click inside the
+    // Docs view works even if the rep clicked before the bundle finished
+    // preloading (slow LTE in the field).
+    const _fill = () => {
+      if (window.NBDDocGen && typeof window.NBDDocGen.fillAndGenerate === 'function') {
+        window.NBDDocGen.fillAndGenerate(target);
+      } else if (typeof showToast === 'function') {
+        showToast('Document generator is still loading — try again in a moment', 'warning');
+      }
+    };
+    if (window.NBDDocGen && window.NBDDocGen.fillAndGenerate) { _fill(); }
+    else if (window.ScriptLoader && window.ScriptLoader.loadBundle) { window.ScriptLoader.loadBundle('docgen').then(_fill); }
+    else { _fill(); }
     return;
   }
   // C.4 mobile-nav cluster — bottom-nav items and the More-drawer
@@ -1451,11 +1461,17 @@ function openUploadDoc(){
     btn.addEventListener('mouseleave', function() { btn.style.borderColor = 'var(--br)'; btn.style.color = 'var(--m)'; });
     btn.addEventListener('click', function(e) {
       e.stopPropagation();
-      if (window.NBDDocGen && typeof window.NBDDocGen.generateBlank === 'function') {
-        window.NBDDocGen.generateBlank(type);
-      } else {
-        if (typeof showToast === 'function') showToast('Doc generator not loaded', 'error');
-      }
+      // PR 2b: the docgen cluster is lazy — load-then-run on first use.
+      var _blank = function() {
+        if (window.NBDDocGen && typeof window.NBDDocGen.generateBlank === 'function') {
+          window.NBDDocGen.generateBlank(type);
+        } else if (typeof showToast === 'function') {
+          showToast('Doc generator is still loading — try again in a moment', 'warning');
+        }
+      };
+      if (window.NBDDocGen && window.NBDDocGen.generateBlank) { _blank(); }
+      else if (window.ScriptLoader && window.ScriptLoader.loadBundle) { window.ScriptLoader.loadBundle('docgen').then(_blank); }
+      else { _blank(); }
     });
     // Insert before the arrow
     var arrow = row.querySelector('.tl-doc-arrow');

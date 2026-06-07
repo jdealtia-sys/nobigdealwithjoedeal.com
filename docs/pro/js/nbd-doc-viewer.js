@@ -495,12 +495,20 @@
 
   async function handlePdf() {
     if (!currentContext) return;
+    // PR 2b2: html2pdf is lazy (ScriptLoader 'pdfexport' bundle, ~1.1 MB).
+    // Load it on the first PDF export, then continue. handlePdf is async.
     if (typeof window.html2pdf !== 'function') {
-      flashStatus('PDF engine loading...');
-      if (typeof window.showToast === 'function') {
-        window.showToast('PDF engine not loaded yet. Try again in a second.', 'error');
+      flashStatus('Loading PDF engine…');
+      if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+        await window.ScriptLoader.loadBundle('pdfexport');
       }
-      return;
+      if (typeof window.html2pdf !== 'function') {
+        flashStatus('PDF engine unavailable');
+        if (typeof window.showToast === 'function') {
+          window.showToast('PDF engine failed to load — check your connection and try again.', 'error');
+        }
+        return;
+      }
     }
     // Finalize signatures first so the PDF embeds the signed PNGs.
     // handlePdf reads from currentContext.html, which finalize updates.
@@ -639,6 +647,7 @@
       onSave: opts.onSave || null,
       onPersistFinalized: opts.onPersistFinalized || null,
       meta: opts.meta || {},
+      savedSigs: opts.savedSigs || null,
       signedSigners: null
     };
     dirty = true;
@@ -661,6 +670,18 @@
         // Legacy HTML path — wrap with the print listener and inject.
         iframe.removeAttribute('src');
         iframe.srcdoc = wrapWithPrintListener(opts.html);
+        // PR3b: once the sandboxed doc + signature widget have loaded,
+        // hand this lead's previously-saved signatures across the
+        // boundary so the widget can offer "Use saved". Skipped when
+        // there are none, so non-signature docs pay zero cost.
+        const _savedSigs = currentContext.savedSigs;
+        if (_savedSigs && typeof _savedSigs === 'object' && Object.keys(_savedSigs).length) {
+          iframe.addEventListener('load', () => {
+            try {
+              iframe.contentWindow.postMessage({ __nbd_sig: 'savedSigs', sigs: _savedSigs }, '*');
+            } catch (_) { /* cross-origin / not ready — non-fatal */ }
+          }, { once: true });
+        }
       }
     }
 
