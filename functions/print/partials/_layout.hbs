@@ -24,10 +24,10 @@
      buyers, and adjusters can one-tap to our Google reviews, site,
      and social presence — same affordance every doc, every page. --}}
 <div class="doc-band-bottom">
-  <div class="seal">NBD<br>{{seal}}</div>
+  <div class="seal">{{company.seal}}<br>{{seal}}</div>
   <div class="footer-body">
-    <div class="footer-name">No Big Deal Home Solutions</div>
-    <div>(859) 420-7382 · jd@nobigdealwithjoedeal.com · Greater Cincinnati, OH</div>
+    <div class="footer-name">{{company.footerName}}</div>
+    <div>{{company.footerContact}}</div>
     {{#if docNumber}}<div>{{docType}} · {{docNumber}}</div>{{/if}}
   </div>
   {{> socialRail}}

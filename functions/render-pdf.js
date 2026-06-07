@@ -177,6 +177,48 @@ async function getBrowser() {
   return _browser;
 }
 
+// ─── Tenant brand for document chrome (Phase B-4) ──────────────
+// Resolve the caller's tenant brand server-side from their companyId claim.
+// NBD — and any tenant without a distinct companyProfile.brand — renders the
+// canonical NBD chrome, byte-identical. The .hbs partials consume these fields.
+const NBD_DOC_COMPANY = {
+  logoUrl: 'https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png',
+  nameHtml: 'No Big <span class="accent">Deal</span> Home Solutions',
+  footerName: 'No Big Deal Home Solutions',
+  brandTag: 'Insurance Restoration Specialists · Greater Cincinnati',
+  brandContact: '(859) 420-7382 · jd@nobigdealwithjoedeal.com',
+  footerContact: '(859) 420-7382 · jd@nobigdealwithjoedeal.com · Greater Cincinnati, OH',
+  seal: 'NBD',
+};
+function hbsEsc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+async function resolveDocCompany(companyId) {
+  if (!companyId) return NBD_DOC_COMPANY;
+  try {
+    const snap = await admin.firestore().collection('companyProfile').doc(String(companyId)).get();
+    if (snap.exists) {
+      const b = (snap.data() || {}).brand || {};
+      if (b.legalName && b.legalName !== NBD_DOC_COMPANY.footerName) {
+        const c = b.contact || {};
+        return {
+          logoUrl: b.logoUrl || NBD_DOC_COMPANY.logoUrl,
+          nameHtml: hbsEsc(b.legalName),
+          footerName: b.legalName,
+          brandTag: b.tagline || '',
+          brandContact: [c.phone, c.email].filter(Boolean).join(' · '),
+          footerContact: [c.phone, c.email, c.address].filter(Boolean).join(' · '),
+          seal: b.seal || NBD_DOC_COMPANY.seal,
+        };
+      }
+    }
+  } catch (e) {
+    logger.error('[renderPdf] tenant resolve failed', { companyId, err: e && e.message });
+  }
+  return NBD_DOC_COMPANY;
+}
+
 // ─── Main callable ─────────────────────────────────────────────
 exports.renderPdf = onCall(
   {
@@ -225,7 +267,12 @@ exports.renderPdf = onCall(
     const bodyCompiled = loadTemplate(tmplCfg.file);
     const layoutCompiled = loadLayout();
 
-    const bodyHtml = bodyCompiled(payload);
+    // Resolve the active tenant's brand from the caller's companyId claim
+    // (solo-op convention: companyId == uid). NBD → byte-identical chrome.
+    const companyId = (request.auth.token && request.auth.token.companyId) || uid;
+    const company = await resolveDocCompany(companyId);
+
+    const bodyHtml = bodyCompiled(Object.assign({}, payload, { company }));
     const html = layoutCompiled({
       title:           tmplCfg.docType,
       docType:         tmplCfg.docType,
@@ -233,6 +280,7 @@ exports.renderPdf = onCall(
       docNumber:       payload.certNumber || payload.docNumber || '',
       designSystemCss: loadDesignSystemCss(),
       templateCss:     '', // reserved for per-template overrides in later D-PRs
+      company:         company,
       body:            bodyHtml,
     });
     const buildMs = Date.now() - t0;

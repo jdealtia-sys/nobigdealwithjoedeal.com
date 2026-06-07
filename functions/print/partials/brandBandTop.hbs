@@ -4,11 +4,11 @@
        brand mark without us redeploying a CSS asset. Puppeteer
        waits for the image to load (networkidle0) before capturing. --}}
   <div class="brand-row">
-    <img class="brand-mark" src="https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions">
+    <img class="brand-mark" src="{{company.logoUrl}}" alt="{{company.footerName}}">
     <div class="brand-lockup">
-      <div class="brand-name">No Big <span class="accent">Deal</span> Home Solutions</div>
-      <div class="brand-tag">Insurance Restoration Specialists · Greater Cincinnati</div>
-      <div class="brand-contact">(859) 420-7382 · jd@nobigdealwithjoedeal.com</div>
+      <div class="brand-name">{{{company.nameHtml}}}</div>
+      <div class="brand-tag">{{company.brandTag}}</div>
+      <div class="brand-contact">{{company.brandContact}}</div>
     </div>
   </div>
   {{#if docType}}
