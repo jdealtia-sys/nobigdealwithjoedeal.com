@@ -304,11 +304,46 @@ window.NBDDocGen = {
             if (_docMetaRef && window.updateDoc) {
               await window.updateDoc(_docMetaRef, {
                 signedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
-                signedSigners: Array.isArray(signedSigners) ? signedSigners : null,
+                // Keep the doc metadata lean: strip the PNG dataURLs (they
+                // live in the signed HTML in Storage and in the per-role
+                // signatures store written below — no need to duplicate
+                // tens of KB of base64 onto every documents/{id} doc).
+                signedSigners: Array.isArray(signedSigners)
+                  ? signedSigners.map(s => ({ role: s.role, label: s.label || null, signedAt: s.signedAt || null }))
+                  : null,
               });
             }
           } catch (e) {
             console.warn('Signed metadata update failed:', e && e.message);
+          }
+
+          // PR3a — saved-signature reuse store. Persist each captured
+          // signature to leads/{leadId}/signatures/{role} keyed by role so
+          // a future doc for the same lead can offer "Use saved" (PR3b)
+          // instead of re-drawing. Best-effort; merge so re-signing
+          // refreshes the stored image. PNGs are small (white-bg canvas)
+          // and well under Firestore's 1MB doc ceiling.
+          try {
+            if (_leadIdEarly && window.db && window.setDoc && window.doc
+                && Array.isArray(signedSigners)) {
+              const _sigUid = window.auth?.currentUser?.uid || window._user?.uid || null;
+              for (const s of signedSigners) {
+                if (!s || !s.role || !s.png) continue;
+                await window.setDoc(
+                  window.doc(window.db, 'leads', _leadIdEarly, 'signatures', String(s.role)),
+                  {
+                    role: s.role,
+                    label: s.label || null,
+                    png: s.png,
+                    userId: _sigUid,
+                    updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
+                  },
+                  { merge: true }
+                );
+              }
+            }
+          } catch (e) {
+            console.warn('Signature reuse-store save failed:', e && e.message);
           }
         }
       });

@@ -236,7 +236,12 @@
       }
       e.block.setAttribute('data-nbd-sig-finalized', '1');
       e.block.setAttribute('data-nbd-sig-signed-at', new Date().toISOString());
-      signedSigners.push({ role: e.role, signedAt: new Date().toISOString() });
+      // PR3a: include the captured PNG so the parent can persist it to
+      // leads/{leadId}/signatures/{role} for reuse on future docs. The
+      // dataURL is already baked into the finalized HTML <img> too; this
+      // just hands it back out-of-band so the parent doesn't have to
+      // re-parse the serialized HTML to recover each role's signature.
+      signedSigners.push({ role: e.role, label: e.label || null, signedAt: new Date().toISOString(), png: png });
     }
 
     // Serialize the full document so the parent can re-upload to
