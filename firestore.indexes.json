@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "ai_drafts",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "userId",      "order": "ASCENDING"  },
+        { "fieldPath": "generatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "recordings",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
