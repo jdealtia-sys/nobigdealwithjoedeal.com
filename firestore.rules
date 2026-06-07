@@ -228,6 +228,19 @@ service cloud.firestore {
           && request.resource.data.status in ['approved', 'dismissed'];
         allow create, delete: if false; // admin SDK only
       }
+
+      // ── SAVED SIGNATURES (PR3a — reuse store) ─────────
+      // The doc generator writes each captured signature PNG here keyed
+      // by role (Homeowner/Rep/Witness/…) after the customer signs, so a
+      // future doc for the same lead can offer "Use saved" (PR3b). Same
+      // owner-or-admin auth as documents/drawings — the rep owns their
+      // lead's signature store; nobody else can read or write it.
+      match /signatures/{sigRole} {
+        allow read:  if isAuth() && (isAdmin()
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+        allow write: if isAuth()
+          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+      }
     }
 
     // Audit #23: the nested /leads/{uid}/leads/{leadId} rule was a leftover

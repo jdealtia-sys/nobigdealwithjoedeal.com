@@ -92,6 +92,7 @@ async function run() {
     await setDoc(doc(db, 'leads/leadA/recordings/recA'),{ userId: 'alice', companyId: 'co-a', transcript: 'confidential call notes' });
     await setDoc(doc(db, 'leads/leadA/documents/docA'), { userId: 'alice', name: 'Signed Contract.pdf' });
     await setDoc(doc(db, 'leads/leadA/ai_drafts/draftA'),{ userId: 'alice', companyId: 'co-a', status: 'pending', draftText: 'Joe handles pricing personally — want a free inspection?', customerPhone: '+15555550100' });
+    await setDoc(doc(db, 'leads/leadA/signatures/Homeowner'),{ userId: 'alice', role: 'Homeowner', png: 'data:image/png;base64,iVBORw0KGgo=' });
     await setDoc(doc(db, 'measurements/measA'),        { ownerId: 'alice', leadId: 'leadA', status: 'ready' });
   });
 
@@ -116,6 +117,11 @@ async function run() {
   await check('ai_drafts: rep cannot forge sent',      'deny',  updateDoc(doc(alice, 'leads/leadA/ai_drafts/draftA'), { status: 'sent' }));
   await check('ai_drafts: rep cannot create a draft',  'deny',  setDoc(doc(alice,  'leads/leadA/ai_drafts/forged'), { userId: 'alice', status: 'pending' }));
   await check('ai_drafts: A owner approves own draft', 'allow', updateDoc(doc(alice, 'leads/leadA/ai_drafts/draftA'), { status: 'approved', draftText: 'edited reply', approvedBy: 'alice' }));
+  // PR3a saved-signature reuse store — owner-scoped (get(lead).userId).
+  await check('signatures: B reads A saved sig',       'deny',  getDoc(doc(bob,   'leads/leadA/signatures/Homeowner')));
+  await check('signatures: B writes A saved sig',      'deny',  setDoc(doc(bob,   'leads/leadA/signatures/Homeowner'), { png: 'x' }));
+  await check('signatures: A owner reads own sig',     'allow', getDoc(doc(alice, 'leads/leadA/signatures/Homeowner')));
+  await check('signatures: A owner writes own sig',    'allow', setDoc(doc(alice, 'leads/leadA/signatures/Rep'), { userId: 'alice', role: 'Rep', png: 'data:image/png;base64,iVBORw0KGgo=' }));
 
   // ═══════════════════════════════════════════════════════════
   // B. COMPANY-SCOPED COLLECTIONS — cross-tenant DENY, same-tenant ALLOW

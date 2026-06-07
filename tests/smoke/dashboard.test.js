@@ -1208,6 +1208,30 @@ section('Signature integration PR 2 — defaultSigners opt-in across contract-cl
   }
 }
 
+section('Signature integration PR 3a — saved-signature reuse store');
+{
+  // Per [[signature-integration-v1]] PR3 design: each captured signature
+  // is persisted to leads/{leadId}/signatures/{role} so a future doc for
+  // the same lead can offer "Use saved" (PR3b). PR3a builds the store.
+  const widget = read(path.join(ROOT, 'docs/pro/js/signature-widget.js'));
+  assert('widget finalize() surfaces the PNG per signer',
+    /signedSigners\.push\(\{[^}]*png:\s*png/.test(widget));
+
+  const docGen = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+  assert('onPersistFinalized writes leads/{id}/signatures/{role}',
+    /setDoc\([\s\S]{0,120}window\.doc\(window\.db,\s*'leads',\s*_leadIdEarly,\s*'signatures'/.test(docGen));
+  assert('saved sig write keyed by role with png',
+    /'signatures',\s*String\(s\.role\)\)[\s\S]{0,200}png:\s*s\.png/.test(docGen));
+  assert('doc metadata signedSigners stays lean (no png dataURLs)',
+    /signedSigners:\s*Array\.isArray\(signedSigners\)[\s\S]{0,160}\.map\(s => \(\{ role: s\.role/.test(docGen));
+
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('rules expose signatures subcollection (owner-scoped)',
+    /match \/signatures\/\{sigRole\}/.test(rules));
+  assert('signatures write requires lead ownership',
+    /signatures\/\{sigRole\}[\s\S]{0,260}allow write: if isAuth\(\)[\s\S]{0,160}isOwner\(get\(\/databases/.test(rules));
+}
+
 section('Phase C.4 docgen — NBDDocGen.fillAndGenerate via docgen action');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
