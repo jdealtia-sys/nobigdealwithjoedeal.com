@@ -52,6 +52,7 @@ ok('NBD: getSharedCSS renders orange accent', /#e8720c/i.test(dgNBD.getSharedCSS
 // ── Oaks brand → remapped ──
 const OAKS_BRAND = {
   legalName: 'Oaks Roofing & Construction',
+  docPrefix: 'OAK',
   tagline: 'Roofing, Siding, Gutters',
   logoUrl: 'https://nobigdealwithjoedeal.com/sites/oaks/logo-orange.svg',
   colors: { primary: '#333333', secondary: '#1A1A1A', accent: '#E8720C' },
@@ -69,6 +70,12 @@ ok('Oaks: logoUrl set', /logo-orange\.svg$/.test(cOAK.logoUrl || ''));
 ok('Oaks: neutral lightGray preserved from base', cOAK.colors.lightGray === '#f5f5f5');
 ok('Oaks: getSharedCSS renders Oaks charcoal #333333', /#333333/i.test(dgOAK.getSharedCSS()));
 ok('Oaks: getSharedCSS does NOT render NBD navy', !/#1e3a6e/i.test(dgOAK.getSharedCSS()));
+
+console.log('\nDOCGEN BRAND — _logoSrc() + _docPrefix() (Phase B-2)');
+ok('NBD: logo falls back to nbd-logo.png', /nbd-logo\.png$/.test(dgNBD._logoSrc()));
+ok('NBD: docPrefix = NBD (byte-identical)', dgNBD._docPrefix() === 'NBD');
+ok('Oaks: logo = tenant logoUrl', dgOAK._logoSrc() === 'https://nobigdealwithjoedeal.com/sites/oaks/logo-orange.svg');
+ok('Oaks: docPrefix = OAK', dgOAK._docPrefix() === 'OAK');
 
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');

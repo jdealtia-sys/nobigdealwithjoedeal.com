@@ -184,11 +184,13 @@
     // Seed the cert number on stable lead context so the same lead +
     // same tier + same issue date always renders the same NBD-WC- ref
     // (was Date.now()%100000 — fresh number on every re-render).
+    const _wcPrefix = (window.NBDDocGen && window.NBDDocGen._docPrefix)
+      ? window.NBDDocGen._docPrefix() + '-WC' : 'NBD-WC';
     const _certSeed = (window.NBDDocGen && window.NBDDocGen._seededDocNumber)
-      ? window.NBDDocGen._seededDocNumber('NBD-WC',
+      ? window.NBDDocGen._seededDocNumber(_wcPrefix,
           [data && data.leadId, data && data.homeownerName, data && data.address,
            data && data.warrantyTier, data && (data.issueDate || data.completionDate)], 5)
-      : 'NBD-WC-' + (Date.now() % 100000);
+      : _wcPrefix + '-' + (Date.now() % 100000);
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
       warrantyTier:'best', workPerformed:'Complete roof replacement including tear-off, underlayment, and installation of new roofing system.',
       certificateNumber: _certSeed, issueDate:today(), expirationDate:'N/A — Lifetime' }, data);

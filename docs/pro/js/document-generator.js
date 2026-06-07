@@ -72,6 +72,30 @@ window.NBDDocGen = {
   },
 
   /**
+   * Logo src for the active tenant — their brand.logoUrl when set, otherwise
+   * the NBD inline data URI / asset path (byte-identical for NBD). Phase B-2.
+   */
+  _logoSrc() {
+    const c = this._resolveCompany();
+    if (c.logoUrl) return c.logoUrl;
+    return (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
+      ? window.NBD_LOGO_DATA_URI
+      : this._assetOrigin() + '/assets/images/nbd-logo.png';
+  },
+
+  /**
+   * Doc-number / filename prefix for the active tenant (brand.docPrefix).
+   * 'NBD' for NBD — byte-identical. Phase B-2.
+   */
+  _docPrefix() {
+    try {
+      const b = (typeof window !== 'undefined' && window._brand) ? window._brand() : null;
+      if (b && b.docPrefix) return b.docPrefix;
+    } catch (_) { /* ignore */ }
+    return 'NBD';
+  },
+
+  /**
    * Warranty tier definitions with descriptions
    */
   WARRANTY_TIERS: {
@@ -256,7 +280,7 @@ window.NBDDocGen = {
       // Storage so the customer page can re-open the rendered
       // document later — previously only PDF + memory existed.
       const _leadIdEarly = data.leadId || (data.customer && data.customer.id) || window._customerId || null;
-      const _filename = 'NBD-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+      const _filename = this._docPrefix() + '-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
       // Hoisted so onPersistFinalized (called after the user signs in
       // the viewer) can re-upload to the same Storage path and update
       // the same Firestore doc with a signedAt stamp.
@@ -449,7 +473,7 @@ window.NBDDocGen = {
 
     const customerName = (payload.preparedFor && payload.preparedFor.name) || 'NBD-Doc';
     const slug = customerName.replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
-    const filename = 'NBD-' + (this.DOCUMENT_TYPES[type]?.name || type).replace(/\s+/g, '-') + '-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
+    const filename = this._docPrefix() + '-' + (this.DOCUMENT_TYPES[type]?.name || type).replace(/\s+/g, '-') + '-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf';
 
     const fn = window._httpsCallable(window._functions, 'renderPdf');
     const r = await fn({ template, payload, filename });
@@ -1384,10 +1408,8 @@ window.NBDDocGen = {
     // img-src directive allows `data:`, so inline data URIs through <img>
     // work. The actual logo bytes live in nbd-logo-asset.js, which is loaded
     // before any document render and exposes window.NBD_LOGO_DATA_URI.
-    const src = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
-      ? window.NBD_LOGO_DATA_URI
-      : this._assetOrigin() + '/assets/images/nbd-logo.png';
-    return `<img class="nbd-logo-img" src="${src}" alt="No Big Deal Home Solutions" />`;
+    const src = this._logoSrc();
+    return `<img class="nbd-logo-img" src="${src}" alt="${this._resolveCompany().name}" />`;
   },
 
   /**
@@ -2301,7 +2323,7 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;}
 </style></head><body>
 <div class="hdr">
   <div>
-    <div class="brand-row"><img class="brand-logo" src="${(typeof window!=='undefined'&&window.NBD_LOGO_DATA_URI)?window.NBD_LOGO_DATA_URI:(this._assetOrigin()+'/assets/images/nbd-logo.png')}" alt="${this._resolveCompany().name}"/><div class="brand">${this._resolveCompany().name}</div></div>
+    <div class="brand-row"><img class="brand-logo" src="${this._logoSrc()}" alt="${this._resolveCompany().name}"/><div class="brand">${this._resolveCompany().name}</div></div>
     <div class="badge">${typeName}</div>
   </div>
   <div><div class="doc-type">${typeName}</div><div class="doc-date">${date}</div></div>
@@ -2369,9 +2391,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
       || ((customer.firstName || '') + ' ' + (customer.lastName || '')).trim()
       || 'Customer';
 
-    const logoSrc = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
-      ? window.NBD_LOGO_DATA_URI
-      : this._assetOrigin() + '/assets/images/nbd-logo.png';
+    const logoSrc = this._logoSrc();
 
     const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 
