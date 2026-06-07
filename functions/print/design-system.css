@@ -42,11 +42,14 @@
 
 /* ── Design tokens (CSS custom props — do not hardcode hex elsewhere) ── */
 :root {
-  /* Brand */
-  --nbd-orange:        #C8541A;
-  --nbd-orange-dark:   #A64516;
-  --nbd-orange-soft:   rgba(200, 84, 26, 0.08);
-  --nbd-orange-line:   rgba(200, 84, 26, 0.35);
+  /* Brand — canonical NBD orange (matches marketing site --orange #E8720C).
+     Was #C8541A, a warmer print-only orange that drifted from the canonical
+     brand; unified to #E8720C in the 2026-06-07 brand sweep. Derived dark/
+     soft/line tokens recomputed from the canonical rgb (232,114,12). */
+  --nbd-orange:        #E8720C;
+  --nbd-orange-dark:   #C45E08;
+  --nbd-orange-soft:   rgba(232, 114, 12, 0.08);
+  --nbd-orange-line:   rgba(232, 114, 12, 0.35);
   --nbd-charcoal:      #14181F;
   --nbd-charcoal-2:    #2A2F39;
 
