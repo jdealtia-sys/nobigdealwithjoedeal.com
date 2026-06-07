@@ -102,6 +102,14 @@ for (const id of Object.keys(THEMES)) {
     if (parseHex(v.m) && parseHex(v.s2)) ok(`[${tag}] muted --m AA on card`, contrastRatio(v.m, v.s2) >= AA_BODY - 0.01);
     // accent (--orange) at UI 3:1 on bg
     if (parseHex(v.orange) && parseHex(v.bg)) ok(`[${tag}] accent --orange UI on bg`, contrastRatio(v.orange, v.bg) >= AA_UI - 0.01);
+    // accent-fg (label painted ON the --orange fill) MUST be present and clear
+    // UI 3:1 — the B-1/P-2 fix: pale/desaturated-light accents must flip the fg
+    // to dark ink so the quick-add ADD button / CTA labels never render
+    // light-on-light. Engine emits --accent-fg computed from the SAME
+    // accentFinal as --orange. Presence is required (not guarded) so dropping
+    // the emission trips this, and contrast is checked in both modes.
+    ok(`[${tag}] accent-fg present & UI on accent`,
+      parseHex(v['accent-fg']) && parseHex(v.orange) && contrastRatio(v['accent-fg'], v.orange) >= AA_UI - 0.01);
     // card ink on card paper
     if (parseHex(v.ink) && parseHex(v.paper)) ok(`[${tag}] card ink AA on paper`, contrastRatio(v.ink, v.paper) >= AA_BODY - 0.01);
   }
