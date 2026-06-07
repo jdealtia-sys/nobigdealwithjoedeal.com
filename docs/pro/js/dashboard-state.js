@@ -382,11 +382,18 @@ const THEME_KEYS = [
 ];
 const DEFAULT_THEME = 'nbd-original';
 
-// Boot the theme immediately on page load — before any UI render
-// happens so the first paint is themed.
+// Declare that this surface (the dashboard) owns theming via the modern
+// ThemeEngine. Set before maps.js executes (defer order: dashboard-state.js
+// loads before maps.js) so maps.js's legacy boot defers to the engine instead
+// of force-applying inline vars that fight it (audit F-1).
+window.NBD_THEME_ENGINE = true;
+
+// Boot the theme immediately on page load — before any UI render happens so the
+// first paint is themed. Canonical key first (nbd_pro_theme), then the legacy
+// mirror (nbd-theme), matching the <head> preboot + ThemeEngine (audit F-1/F-2).
 (function() {
   try {
-    const saved = localStorage.getItem('nbd-theme');
+    const saved = localStorage.getItem('nbd_pro_theme') || localStorage.getItem('nbd-theme');
     if(saved && saved !== '') document.documentElement.setAttribute('data-theme', saved);
     else document.documentElement.setAttribute('data-theme', DEFAULT_THEME);
   } catch(e) {

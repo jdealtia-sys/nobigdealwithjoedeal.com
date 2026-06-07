@@ -1,4 +1,10 @@
-:root[data-theme="nbd-original"] { --orange:#e8720c;--ob:#f08030;--og:rgba(232,114,12,.22);--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--br:rgba(255,255,255,.07);--t:#E8EAF0;--m:#6B7280;--blue:#4A9EFF;--green:#2ECC8A;--purple:#9B6DFF;--red:#E05252;--gold:#D4A017;--paper:var(--s3);--ink:var(--t);--rule:rgba(255,255,255,.09); }
+/* nbd-original = the brand navy (#1E3A6E), unified with theme-engine.js's
+   generated nbd-original so the default theme renders identically whether or
+   not the engine has booted — previously this was near-black here and navy in
+   the engine, so the dashboard flipped color after init (audit F-3). Values
+   mirror generateCSSVariables('nbd-original'): --bg = bg darkened 18%, muted
+   tuned to clear AA (audit F-5). */
+:root[data-theme="nbd-original"] { --orange:#e8720c;--ob:#eb8730;--og:rgba(232,114,12,.12);--bg:#19305a;--s:#1e3a6e;--s2:#0f2847;--s3:#1a3d5e;--br:rgba(255,255,255,.08);--t:#e2e8f0;--m:#acb2bc;--blue:#3b82f6;--green:#16a34a;--purple:#a78bfa;--red:#ef4444;--gold:#eab308;--paper:#1a3d5e;--ink:#e2e8f0;--rule:rgba(226,232,240,.09); }
 :root[data-theme="midnight"] { --orange:#6366F1;--ob:#818CF8;--og:rgba(99,102,241,.16);--bg:#070b1a;--s:#0b1024;--s2:#141a36;--s3:#1d2548;--br:rgba(99,102,241,.14);--t:#e2e8f0;--m:#7e88a8;--blue:#60A5FA;--green:#34D399;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#141a36;--ink:#e2e8f0;--rule:rgba(255,255,255,.09); }
 :root[data-theme="cobalt"] { --orange:#0047ab;--ob:#1d5dc8;--og:rgba(0,71,171,.18);--bg:#04081f;--s:#061230;--s2:#0a1d4d;--s3:#0f2a6e;--br:rgba(0,71,171,.18);--t:#eaf2ff;--m:#90b3e8;--blue:#3b82f6;--green:#34D399;--purple:#818CF8;--red:#F87171;--gold:#fcd34d;--paper:#0a1d4d;--ink:#eaf2ff;--rule:rgba(255,255,255,.08); }
 :root[data-theme="forest"] { --orange:#16A34A;--ob:#22C55E;--og:rgba(22,163,74,.2);--bg:#0A1A0F;--s:#0F2218;--s2:#142B20;--s3:#1A3428;--br:rgba(255,255,255,.08);--t:#ECFDF5;--m:#6EE7B7;--blue:#38BDF8;--green:#4ADE80;--purple:#A78BFA;--red:#F87171;--gold:#FBBF24;--paper:#142B20;--ink:#ECFDF5;--rule:rgba(255,255,255,.1); }
@@ -242,3 +248,73 @@
 .ac-orange{accent-color:var(--orange);}
 .chip-green{background:rgba(46,204,138,.1);color:var(--green);}
 .chip-blue{background:rgba(74,158,255,.1);color:var(--blue);}
+
+/* ══ Audit 2026-06 (F-5) — muted-text contrast floor ════════════════════════
+   Programmatic WCAG sweep found --m (muted/secondary text) below AA normal
+   (4.5:1) on these static themes — muted is the one token hand-authored
+   palettes routinely leave too low, and it carries .meta-*/.eyebrow/.cell-m
+   etc. on cards (--s2). Each --m below is its own hue, lightness-lifted only
+   until it clears 4.5:1 against the card surface (and, being a smaller move,
+   clears the darker page bg too). Hue is preserved so theme identity holds.
+   On the dashboard ThemeEngine.generateCSSVariables tunes --m the same way at
+   runtime; this block covers the engine-less pages (login/customer/codex/demo).
+   nbd-original's own --m is set in its theme rule above. */
+:root[data-theme="batman"]{ --m:#94949d; }
+:root[data-theme="blueprint-art"]{ --m:#799bb6; }
+:root[data-theme="candlelit"]{ --m:#af8e65; }
+:root[data-theme="copper"]{ --m:#af9473; }
+:root[data-theme="darth-vader"]{ --m:#7e7e7e; }
+:root[data-theme="easter"]{ --m:#6e5975; }
+:root[data-theme="ember"]{ --m:#bd795f; }
+:root[data-theme="frosted"]{ --m:#53598a; }
+:root[data-theme="ghost"]{ --m:#676d78; }
+:root[data-theme="lofi"]{ --m:#67594c; }
+:root[data-theme="metal"]{ --m:#9494a2; }
+:root[data-theme="ninja"]{ --m:#8e8e73; }
+:root[data-theme="pokemon"]{ --m:#a2a2d1; }
+:root[data-theme="retro"]{ --m:#af945f; }
+:root[data-theme="sakura"]{ --m:#8a3e59; }
+:root[data-theme="samurai"]{ --m:#a88773; }
+:root[data-theme="slate"]{ --m:#7d8a9e; }
+:root[data-theme="terminal"]{ --m:#689a68; }
+:root[data-theme="typewriter"]{ --m:#605337; }
+
+/* ══ Audit 2026-06 (F-6) — semantic compat-alias bridge ═════════════════════
+   The app still carries several isolated CSS-variable dialects (codex/vault
+   --void/--surface/--card, understand/project-codex --s1/--or/--tx/--bdr, the
+   palette --ac/--bar/--muted set). Those pages hardcode their own :root, so the
+   theme switcher can't restyle them. Converging them fully is the Phase 3
+   token-architecture job (it needs per-page visual QA). This bridge is the safe
+   first step: it maps each legacy dialect name to the canonical token via a
+   var() reference, so the legacy name dynamically resolves to the ACTIVE theme's
+   value. It's a plain :root (specificity 0,1,0), so any page's own :root or the
+   per-theme :root[data-theme] rules still win — i.e. ZERO visual change today.
+   What it enables: in Phase 3, deleting a page's hardcoded :root dialect block
+   makes that page inherit themed values automatically (no per-var rewrite). It
+   also fixes the latent .fwt-14 rule above, which reads var(--text) that the
+   canonical set never defined. Only DISTINCT legacy names are aliased — names
+   shared with the canonical set (--gold/--paper/--ink/--bg/--s2/--s3) are left
+   to their real per-theme definitions. */
+:root {
+  /* codex / vault dialect */
+  --void: var(--bg);
+  --surface: var(--s);
+  --card: var(--s2);
+  --lift: var(--s3);
+  --border: var(--br);
+  --text: var(--t);
+  /* understand / project-codex dialect */
+  --s1: var(--s);
+  --or: var(--orange);
+  --grn: var(--green);
+  --tx: var(--t);
+  --bdr: var(--br);
+  /* palette dialect */
+  --ac: var(--orange);
+  --bar: var(--s);
+  --muted: var(--m);
+  --blu: var(--blue);
+  --pur: var(--purple);
+  /* admin project-codex (cyan) */
+  --cyan: var(--blue);
+}

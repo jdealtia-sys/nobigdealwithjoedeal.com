@@ -15,6 +15,11 @@
      paint, so theme-system.css mode-keyed rules don't FOUC. Must run sync
      in <head> before theme-system.css. ThemeEngine.init() takes over later. -->
 <script src="js/theme-mode-preboot.js?v=1"></script>
+<!-- Stamp <html data-theme="..."> from the saved theme (canonical nbd_pro_theme,
+     legacy nbd-theme fallback) BEFORE first paint, so the dashboard doesn't flash
+     the hardcoded default before the deferred ThemeEngine boots (audit F-2). Must
+     run sync in <head> before theme-system.css. -->
+<script src="js/pages/theme-init.js?v=2"></script>
 <!-- Rock 4 Phase 2: theme system extracted to css/theme-system.css.
      Same content (80 themes + trial-banner CSS) the inline <style id="theme-system">
      used to carry. Customer/vault/login already loaded the file; dashboard now joins. -->
@@ -11207,7 +11212,7 @@ body.theme-frosted {
   </template>
 
   <!-- ══ ADMIN — Create User Modal ══ -->
-  <div id="adminCreateModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+  <div id="adminCreateModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
     <div style="background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:24px;width:min(480px,92vw);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div>
@@ -11247,7 +11252,7 @@ body.theme-frosted {
   </div>
 
   <!-- ══ ADMIN — Edit User Modal ══ -->
-  <div id="adminEditModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
+  <div id="adminEditModal" class="modal-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);z-index:9999;align-items:center;justify-content:center;">
     <div style="background:var(--s1);border:1px solid var(--br);border-radius:10px;padding:24px;width:min(520px,92vw);">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
         <div>

@@ -33,6 +33,11 @@ jobs:
           fi
       - name: Run smoke tests
         run: node tests/smoke.test.js
+      # Theme legibility + completeness gate (audit Phase 3): every theme in both
+      # registries must define the required vars and clear the WCAG contrast floor
+      # as rendered. Dependency-free; extracts the real engine colour helpers.
+      - name: Run theme QA
+        run: node tests/theme-qa.test.js
 
   syntax-check:
     name: Node syntax check

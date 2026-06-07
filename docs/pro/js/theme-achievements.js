@@ -500,8 +500,11 @@
 
       // Attach listener
       toast.querySelector('.toast-action-btn').addEventListener('click', () => {
-        if (window.ThemeEngine && typeof window.ThemeEngine.applyTheme === 'function') {
-          window.ThemeEngine.applyTheme(achievement.themeKey);
+        if (window.ThemeEngine && typeof window.ThemeEngine.apply === 'function') {
+          // Earned achievement → unlock then apply (engine method is apply(),
+          // not applyTheme; unlock first so the plan-gate in apply() lets it through).
+          if (typeof window.ThemeEngine.unlock === 'function') window.ThemeEngine.unlock(achievement.themeKey);
+          window.ThemeEngine.apply(achievement.themeKey);
         }
         this._removeToast(toast);
       });
@@ -521,8 +524,11 @@
       container.querySelectorAll('.try-theme-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const themeKey = e.target.dataset.theme;
-          if (window.ThemeEngine && typeof window.ThemeEngine.applyTheme === 'function') {
-            window.ThemeEngine.applyTheme(themeKey);
+          if (window.ThemeEngine && typeof window.ThemeEngine.apply === 'function') {
+            // Engine method is apply(), not applyTheme. Unlock first so a
+            // just-earned achievement theme clears the plan-gate in apply().
+            if (typeof window.ThemeEngine.unlock === 'function') window.ThemeEngine.unlock(themeKey);
+            window.ThemeEngine.apply(themeKey);
           }
         });
       });

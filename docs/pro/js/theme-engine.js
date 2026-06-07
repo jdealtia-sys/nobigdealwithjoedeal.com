@@ -16,8 +16,13 @@
   // ============================================================================
 
   const STORAGE_KEY = 'nbd_pro_theme';
+  // Legacy mirror key shared with maps.js / daily-success / dashboard-ui.js so
+  // the two theme paths converge on one value (audit F-1). STORAGE_KEY is
+  // canonical; LEGACY_KEY is written-through and read as a migration fallback.
+  const LEGACY_KEY = 'nbd-theme';
   const MODE_STORAGE_KEY = 'nbd_pro_mode_pref';
-  const FIRESTORE_PATH = 'user_settings/theme';
+  // Actual Firestore path is userSettings/{uid} (see apply/init). The old
+  // FIRESTORE_PATH = 'user_settings/theme' constant was dead and was removed.
   const FONT_CACHE = new Set();
   const DEFAULT_THEME = 'nbd-original';
 
@@ -5182,6 +5187,18 @@
     // --purple: semantic purple — used by tag-ng and stage chips.
     const purple = colors.purple || (isLight ? '#7c3aed' : '#a78bfa');
 
+    // --m: muted/secondary text. This is the ONE token hand-authored palettes
+    // routinely leave below AA — it's deliberately low-contrast, and unlike
+    // ink/paper it was emitted raw. Audit (2026-06) found 36/186 themes' muted
+    // failed AA. Muted reads predominantly on cards/panels (--s2 = surface), so
+    // tune it against THAT surface — keeping its hue, only lifting lightness
+    // until it clears AA normal (4.5:1). Tuning against the page bg instead
+    // would break mixed-luminance themes whose card and bg differ sharply
+    // (brutalist, spongebob, avatar-*) where no single muted satisfies both.
+    // tuneAgainst returns immediately for themes already passing, so legible
+    // themes are untouched. Mirrors the ink/paper treatment above.
+    const mutedFinal = tuneAgainst(muted, surface || surface2 || bg, 4.5);
+
     const fontHeading = theme.font.heading ? `'${theme.font.heading}'` : "'Barlow Condensed', sans-serif";
     const fontBody = theme.font.body ? `'${theme.font.body}'` : "'Inter', sans-serif";
 
@@ -5197,7 +5214,7 @@
   --s2: ${surface};
   --s3: ${surface2};
   --t: ${text};
-  --m: ${muted};
+  --m: ${mutedFinal};
   --br: ${border};
   --rule: ${rule};
   --orange: ${accentFinal};
@@ -5249,7 +5266,19 @@
       // a previous session sees them immediately (Firestore hydration runs
       // async when auth resolves; localStorage covers the gap).
       this.hydrateUnlocks();
-      const saved = localStorage.getItem(STORAGE_KEY) || DEFAULT_THEME;
+      // Key convergence (audit F-1): STORAGE_KEY (nbd_pro_theme) is canonical.
+      // One-time migrate users who only carry the legacy maps.js/daily-success
+      // key (nbd-theme): adopt it and write it through to the canonical key.
+      // The legacy 'default' id maps to this engine's 'nbd-original'.
+      let saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) {
+        const legacy = localStorage.getItem(LEGACY_KEY);
+        if (legacy) {
+          saved = (legacy === 'default') ? 'nbd-original' : legacy;
+          try { localStorage.setItem(STORAGE_KEY, saved); } catch (_) {}
+        }
+      }
+      if (!saved) saved = DEFAULT_THEME;
       this.apply(saved, false);
 
       // Audit batch 1 (2026-05-13): once Firebase auth + Firestore are
@@ -5303,9 +5332,32 @@
           if (lum > 0.55) html.setAttribute('data-light', 'true');
           else html.removeAttribute('data-light');
         } catch (e) {}
-        if (save) localStorage.setItem(STORAGE_KEY, themeKey);
+        if (save) {
+          localStorage.setItem(STORAGE_KEY, themeKey);
+          try { localStorage.setItem(LEGACY_KEY, themeKey); } catch (_) {} // write-through (F-1)
+        }
         currentTheme = themeKey;
         dispatchThemeChange(themeKey);
+        return;
+      }
+
+      // Plan-gate (audit F-4): a locked theme must never be APPLIED ANEW
+      // unless the user has unlocked it. apply() previously ignored `locked`,
+      // so a locked achievement theme could be applied via a picker click,
+      // a direct ThemeEngine.apply('diamond') call, or a URL param. We gate
+      // only on save===true (deliberate new applications); save===false is the
+      // boot/cross-device restore path, which must not bounce a theme the user
+      // legitimately earned before the unlock set has hydrated from Firestore
+      // (theme-achievements.js hydrates themeUnlocks async after boot). The
+      // fallback re-applies the default rather than half-applying the locked one.
+      if (save && theme.locked && !this.isUnlocked(themeKey)) {
+        console.warn('[theme-engine] theme "' + themeKey + '" is locked — applying default instead');
+        // Visual fallback ONLY — pass save=false so a rejected locked-theme
+        // attempt (e.g. a ?theme=<locked> URL param or a stray apply(locked,
+        // true) call) does NOT overwrite the rep's real saved theme in
+        // localStorage + Firestore. Persisting here would silently wipe their
+        // earned preference cross-device.
+        if (themeKey !== DEFAULT_THEME) this.apply(DEFAULT_THEME, false);
         return;
       }
 
@@ -5348,6 +5400,7 @@
       // Save to localStorage
       if (save) {
         localStorage.setItem(STORAGE_KEY, themeKey);
+        try { localStorage.setItem(LEGACY_KEY, themeKey); } catch (_) {} // write-through to nbd-theme so legacy readers stay in sync (F-1)
         // Audit batch 1 (2026-05-13): also sync the chosen theme to
         // Firestore so reps see the same theme across devices instead
         // of getting reset to default every time they open NBD on a
@@ -5394,6 +5447,7 @@
 
     isUnlocked(themeKey) {
       const theme = THEMES[themeKey];
+      if (!theme) return false; // unknown/CSS-only key — never throw on .locked
       if (!theme.locked) return true;
       if (!window._themeUnlocks) return false;
       return window._themeUnlocks.has(themeKey);
@@ -5413,9 +5467,9 @@
       } catch (e) {}
       try {
         const uid = window._user?.uid;
-        if (uid && window._db && typeof window.setDoc === 'function' && typeof window.doc === 'function') {
+        if (uid && window.db && typeof window.setDoc === 'function' && typeof window.doc === 'function') {
           window.setDoc(
-            window.doc(window._db, 'userSettings', uid),
+            window.doc(window.db, 'userSettings', uid),
             { themeUnlocks: [...window._themeUnlocks] },
             { merge: true }
           ).catch(err => console.warn('Theme unlock Firestore sync failed:', err.message));
