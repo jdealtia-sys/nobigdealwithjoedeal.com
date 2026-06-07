@@ -1195,9 +1195,13 @@ function nbdApplyTheme(id) {
   // bg/surface for DS pages that use --bg/--bar
   R.setProperty('--bg',  t.bg  || '#0A0C0F');
   R.setProperty('--bar', t.s   || '#13171d');
-  // 4. Persist
+  // 4. Persist — write the legacy key AND the canonical engine key (PR #557 F-1
+  //    cross-surface convergence) so a theme picked on this standalone page
+  //    survives the dashboard's canonical-key read instead of being silently
+  //    reverted. The engine calls the legacy 'default' id 'nbd-original'.
   _nbd_activeTheme = id;
   localStorage.setItem('nbd-theme', id);
+  try { localStorage.setItem('nbd_pro_theme', id === 'default' ? 'nbd-original' : id); } catch (e) {}
   // 5. Firestore sync (if auth available)
   try {
     if (typeof db !== 'undefined' && typeof currentUser !== 'undefined' && currentUser) {
@@ -1372,7 +1376,12 @@ window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full 
 
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {
-  const saved = localStorage.getItem('nbd-theme') || localStorage.getItem('ds-theme') || 'default';
+  // Prefer the canonical engine key (nbd_pro_theme) so a theme picked on the
+  // dashboard carries to this page; fall back to the legacy keys. Map the
+  // engine's 'nbd-original' back to this surface's legacy 'default' (PR #557 F-1).
+  let saved = localStorage.getItem('nbd_pro_theme');
+  if (saved === 'nbd-original') saved = 'default';
+  if (!saved) saved = localStorage.getItem('nbd-theme') || localStorage.getItem('ds-theme') || 'default';
   const t = _nbdGetTheme(saved) || _nbdGetTheme('default');
   if (t) {
     document.body.className = t.id === 'default' ? '' : 'theme-' + t.id;

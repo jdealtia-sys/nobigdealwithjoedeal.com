@@ -1505,7 +1505,10 @@ function applyTheme(key, save=true) {
   document.querySelectorAll('.theme-card').forEach(c => {
     c.classList.toggle('active', c.dataset.key === key);
   });
-  try { localStorage.setItem('nbd-theme', key); } catch(e){}
+  // Write-through to the canonical key too (PR #557 F-1) so that when the modern
+  // engine later loads (here or on another surface) it reads this choice instead
+  // of a stale nbd_pro_theme and silently reverting it.
+  try { localStorage.setItem('nbd-theme', key); localStorage.setItem('nbd_pro_theme', key); } catch(e){}
   if(save && window._user && window._db) {
     try {
       const { doc, setDoc } = window._firestoreOps || {};
