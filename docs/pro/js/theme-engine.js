@@ -5352,7 +5352,12 @@
       // fallback re-applies the default rather than half-applying the locked one.
       if (save && theme.locked && !this.isUnlocked(themeKey)) {
         console.warn('[theme-engine] theme "' + themeKey + '" is locked — applying default instead');
-        if (themeKey !== DEFAULT_THEME) this.apply(DEFAULT_THEME, save);
+        // Visual fallback ONLY — pass save=false so a rejected locked-theme
+        // attempt (e.g. a ?theme=<locked> URL param or a stray apply(locked,
+        // true) call) does NOT overwrite the rep's real saved theme in
+        // localStorage + Firestore. Persisting here would silently wipe their
+        // earned preference cross-device.
+        if (themeKey !== DEFAULT_THEME) this.apply(DEFAULT_THEME, false);
         return;
       }
 
