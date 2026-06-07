@@ -5187,6 +5187,25 @@
     // the hover hue tracks the tuned accent, not the raw one.
     const ob = colors.accentHover || adjustHex(accentFinal, isLight ? -0.12 : 0.15);
 
+    // --accent-fg: the text/icon color painted ON TOP of an --orange (accent)
+    // fill — the quick-add "ADD" button, kanban active-filter tab, primary
+    // CTAs (background:var(--orange); color:var(--accent-fg)). White by
+    // default, but it MUST flip to a dark ink when the final accent is too
+    // light/desaturated to carry white text, or pale accents render
+    // white-on-white (theme sweep 2026-06-07 B-1/P-2: stadium-lights #f8fafc,
+    // snowfall, avatar-water, marble, tundra, spongebob's pale yellow, …).
+    // theme-system.css carries a static per-theme flip-list, but it only
+    // covers some themes and can't track the per-MODE accent (a theme's
+    // derived light/dark accent differs from its authored one). Emitting it
+    // HERE — in the high-specificity per-theme te-vars block, alongside
+    // --orange — makes the engine own the token: always present, mode-correct
+    // (computed from accentFinal), and it wins the cascade over the static
+    // list. Gate strictly on MEASURED contrast against the FINAL accent so a
+    // dark-accent mode keeps white text and never under-contrasts.
+    const accentFg = (contrastRatio('#ffffff', accentFinal) < 3 || luminance(accentFinal) > 0.7)
+      ? '#0a0a0a'
+      : '#ffffff';
+
     // --purple: semantic purple — used by tag-ng and stage chips.
     const purple = colors.purple || (isLight ? '#7c3aed' : '#a78bfa');
 
@@ -5223,6 +5242,7 @@
   --orange: ${accentFinal};
   --ob: ${ob};
   --og: ${accentBg};
+  --accent-fg: ${accentFg};
   --green: ${green};
   --red: ${red};
   --gold: ${gold};
