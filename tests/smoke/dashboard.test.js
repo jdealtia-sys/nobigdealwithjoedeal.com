@@ -598,6 +598,20 @@ section('Sentry — DSN config wired across high-value pages');
     !/window\.__NBD_SENTRY_DSN\s*=\s*"[^"]*";/.test(dash));
 }
 
+section('Hotkey scope fix — isHotkeyEnabled defined in the module');
+{
+  // Regression guard: isHotkeyEnabled is defined inside an IIFE in
+  // dashboard-hotkey-toggles.js, invisible to this ES module. The keydown
+  // handler must define its own (reading the same localStorage flag) or it
+  // throws ReferenceError on every keypress and all shortcuts break.
+  const boot = read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'));
+  assert('dashboard-bootstrap.module.js defines isHotkeyEnabled in module scope',
+    /const isHotkeyEnabled\s*=\s*\(id\)\s*=>/.test(boot),
+    'the keydown handler references isHotkeyEnabled; it must be defined in this module (the hotkey-toggles copy is IIFE-scoped and invisible)');
+  assert('the keydown handler still gates the N shortcut on isHotkeyEnabled',
+    /addEventListener\('keydown'[\s\S]*?isHotkeyEnabled\('hk_n'\)/.test(boot));
+}
+
 section('Audit batch 6 — repos.js wired into dashboard write path');
 {
   // CSP hotfix: lead-create write path is in dashboard-bootstrap.module.js

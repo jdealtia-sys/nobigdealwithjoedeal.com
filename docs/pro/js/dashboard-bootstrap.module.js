@@ -1317,6 +1317,17 @@
   };
 
   // ── GLOBAL KEYBOARD SHORTCUTS ──
+  // isHotkeyEnabled is defined inside an IIFE in dashboard-hotkey-toggles.js
+  // (a classic script), so this ES module can't see it — a bare reference
+  // threw `ReferenceError: isHotkeyEnabled is not defined` on EVERY keydown,
+  // which both spammed the console and broke all the shortcuts below. Mirror
+  // the same localStorage flag here so the module is self-sufficient and
+  // stays in sync with the toggle settings.
+  const isHotkeyEnabled = (id) => {
+    try { return localStorage.getItem('nbd_hk_disabled_' + id) !== '1'; }
+    catch (_) { return true; }
+  };
+
   document.addEventListener('keydown', (e) => {
     // Don't trigger if user is typing in input/textarea
     if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
