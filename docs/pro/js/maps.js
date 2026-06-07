@@ -175,9 +175,15 @@ function nbdApplyTheme(id) {
   // legacy 'default' id maps to the engine's 'nbd-original'. daily-success and
   // the standalone maps surface don't set the flag, so they keep legacy behavior.
   if (window.NBD_THEME_ENGINE && window.ThemeEngine) {
-    try { window.ThemeEngine.apply(id === 'default' ? 'nbd-original' : id, true); } catch (e) {}
-    _nbd_activeTheme = id;
-    const lt = _nbdGetTheme(id);
+    // Trust the key the engine ACTUALLY applied, not the one we requested: a
+    // locked theme bounces to the default, so syncing on the requested id would
+    // leave the picker highlighting a theme that isn't showing (PR #557 F-3).
+    let applied = id === 'default' ? 'nbd-original' : id;
+    try { const r = window.ThemeEngine.apply(applied, true); if (r) applied = r; } catch (e) {}
+    // Map the engine's canonical default back to this surface's legacy id.
+    const legacyId = applied === 'nbd-original' ? 'default' : applied;
+    _nbd_activeTheme = legacyId;
+    const lt = _nbdGetTheme(legacyId);
     if (lt) _nbdUpdateLabels(lt);
     if (typeof nbdRenderThemes === 'function') nbdRenderThemes();
     return;

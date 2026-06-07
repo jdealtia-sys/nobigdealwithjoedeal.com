@@ -3510,8 +3510,11 @@
       unlockCondition: null,
       colors: {
         bg: '#0a2040',
-        surface: '#0277bd',
-        surface2: '#0288d1',
+        // Surfaces deepened one notch (was #0277bd/#0288d1) so the iconic yellow
+        // body text (--t #fff176, emitted raw) clears AA 4.5 on the card surface
+        // — 4.14 → 4.91 (PR #557 F-2). Keeps the SpongeBob blue+yellow identity.
+        surface: '#026baa',
+        surface2: '#0277bd',
         text: '#fff176',
         muted: '#fff59d',
         border: 'rgba(255,241,118,.12)',
@@ -5338,7 +5341,7 @@
         }
         currentTheme = themeKey;
         dispatchThemeChange(themeKey);
-        return;
+        return themeKey;
       }
 
       // Plan-gate (audit F-4): a locked theme must never be APPLIED ANEW
@@ -5358,7 +5361,9 @@
         // localStorage + Firestore. Persisting here would silently wipe their
         // earned preference cross-device.
         if (themeKey !== DEFAULT_THEME) this.apply(DEFAULT_THEME, false);
-        return;
+        // Report the key we ACTUALLY applied (the default), not the rejected
+        // locked one, so callers (maps.js picker) can stay in sync — PR #557 F-3.
+        return DEFAULT_THEME;
       }
 
       const html = document.documentElement;
@@ -5421,6 +5426,7 @@
 
       currentTheme = themeKey;
       dispatchThemeChange(themeKey);
+      return themeKey;
     },
 
     get(themeKey) {
