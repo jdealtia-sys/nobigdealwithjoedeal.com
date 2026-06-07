@@ -266,6 +266,19 @@ jobs:
             fi
           done
 
+      # firebase-tools >= 15 (bumped in #551) dropped support for Java < 21.
+      # The Firestore emulator the rules gate below spins up needs a JDK 21+
+      # on JAVA_HOME, or `firebase-tools emulators:exec` aborts with
+      # "no longer supports Java version before 21". The runner's default
+      # JDK (and/or the gcloud steps above) leaves JAVA_HOME < 21, which
+      # silently broke EVERY deploy after #551 merged. Pin Temurin 21 here.
+      - name: Set up JDK 21 (firebase-tools 15 emulator requirement)
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       # AUDIT #2 (Phase 8.4): gate the rules deploy on the rules tests.
       # A regression that reopens a cross-tenant hole or flips an
       # allow/deny must NOT ship. Runs the same emulator suite as CI;
