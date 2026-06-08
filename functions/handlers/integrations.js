@@ -259,6 +259,25 @@ exports.submitPublicLead = onRequest(
     data.userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
     data.createdAt = admin.firestore.FieldValue.serverTimestamp();
 
+    // Multi-tenant tag (Phase C support): a tenant microsite declares which
+    // tenant a public lead belongs to via `companyId`. lead-alert.js routes
+    // the alert to that tenant. NBD's main forms pass none → undefined →
+    // lead-alert falls back to Joe (byte-identical to today). The id is
+    // sanitised AND validated against the companies registry, so a lead can
+    // only be tagged to a REAL tenant (the registry read runs only when a
+    // companyId was supplied — NBD's path is unchanged, no extra read).
+    // Follow-on: migrate the Oaks microsite off the separate marketing
+    // project so its leads flow through here too.
+    let _cid = String((body.companyId != null ? body.companyId : '') || '')
+      .trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 64);
+    if (_cid) {
+      try {
+        const known = await admin.firestore().collection('companies').doc(_cid).get();
+        if (!known.exists) _cid = '';
+      } catch (_) { _cid = ''; }
+    }
+    if (_cid) data.companyId = _cid;
+
     try {
       const ref = await admin.firestore().collection(spec.collection).add(data);
       logger.info('submitPublicLead', { kind, id: ref.id });
