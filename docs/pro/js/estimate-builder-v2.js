@@ -390,7 +390,10 @@
   // SECTION 5 — Settings (localStorage, immutable updates)
   // ═════════════════════════════════════════════════════════
 
-  const SETTINGS_KEY = 'nbd_est_settings_v2';
+  // v3 (estimate-qa-2026-06-08): bumped so legacy v2 snapshots — which carried
+  // stale pricing (the L-1 chimney-$285 bug) — are dropped. Pricing now resolves
+  // from estimate-config.js + companyProfile, never from a saved snapshot.
+  const SETTINGS_KEY = 'nbd_est_settings_v3';
 
   function getDefaultSettings() {
     return {
@@ -427,14 +430,21 @@
       const saved = JSON.parse(raw);
       const defaults = getDefaultSettings();
       // Merge conservatively so any new fields always exist
-      return Object.assign({}, defaults, saved, {
+      const merged = Object.assign({}, defaults, saved, {
         tierRates:   Object.assign({}, defaults.tierRates, saved.tierRates || {}),
         costBasis:   Object.assign({}, defaults.costBasis, saved.costBasis || {}),
         permits:     Object.assign({}, defaults.permits, saved.permits || {}),
         countyTax:   Object.assign({}, defaults.countyTax, saved.countyTax || {}),
-        addonPrices: Object.assign({}, defaults.addonPrices, saved.addonPrices || {}),
         catalog:     Object.assign({}, defaults.catalog, saved.catalog || {})
       });
+      // L-1 kill (estimate-qa-2026-06-08): ADD-ON PRICES (the chimney-$285 bug)
+      // come from estimate-config.js + the shop-wide companyProfile override only,
+      // NEVER from a saved localStorage snapshot. Forcing them is non-breaking
+      // because add-on prices have no localStorage editor (tier rates / dump fee
+      // keep their existing Settings editor; companyProfile still overrides ALL of
+      // them at calc time via applyCompanyPricing).
+      merged.addonPrices = Object.assign({}, defaults.addonPrices);
+      return merged;
     } catch (e) {
       console.warn('Failed to load estimate settings, using defaults:', e);
       return getDefaultSettings();
@@ -457,6 +467,34 @@
     const next = Object.assign({}, current, patch);
     saveSettings(next);
     return next;
+  }
+
+  // Shop-wide pricing override (estimate-qa-2026-06-08). companyProfile.pricing
+  // (Firestore, per-tenant) wins over the config-default settings, resolved AT
+  // CALC TIME so a post-boot _loadCompanyProfile arrival is honored. Inverse of the
+  // L-1 trap: config default < shop override, never < a stale localStorage snapshot.
+  // In Node (no window) there's no companyProfile → settings (= config) stand.
+  function applyCompanyPricing(s) {
+    const cp = (typeof window !== 'undefined' && window._companyProfile && window._companyProfile.pricing) || null;
+    if (!cp) return s;
+    // Only overlay FINITE-NUMBER overrides. A blank/garbage editor field ('' / null
+    // / NaN) must NOT silently zero a charge (the L-1 under-pricing class) — it's
+    // dropped so the config rate stands. A literal numeric 0 IS honored (a shop
+    // intentionally making an add-on free).
+    const sane = (obj) => {
+      const o = {};
+      Object.keys(obj || {}).forEach(k => {
+        const n = Number(obj[k]);
+        if (obj[k] !== '' && obj[k] != null && Number.isFinite(n)) o[k] = n;
+      });
+      return o;
+    };
+    const out = Object.assign({}, s);
+    if (cp.tierRates   && typeof cp.tierRates   === 'object') out.tierRates   = Object.assign({}, s.tierRates,   sane(cp.tierRates));
+    if (cp.addonPrices && typeof cp.addonPrices === 'object') out.addonPrices = Object.assign({}, s.addonPrices, sane(cp.addonPrices));
+    if (cp.dumpFee != null && cp.dumpFee !== '' && Number.isFinite(Number(cp.dumpFee)))                         out.dumpFee = Number(cp.dumpFee);
+    if (cp.tearOffExtraPerSq != null && cp.tearOffExtraPerSq !== '' && Number.isFinite(Number(cp.tearOffExtraPerSq))) out.tearOffExtraPerSq = Number(cp.tearOffExtraPerSq);
+    return out;
   }
 
   // ═════════════════════════════════════════════════════════
@@ -483,7 +521,7 @@
   // ═════════════════════════════════════════════════════════
 
   function calculatePerSq(input) {
-    const s = input.settingsOverride || loadSettings();
+    const s = applyCompanyPricing(input.settingsOverride || loadSettings());
     const tier = input.tier || 'better';
     const mode = input.mode || 'cash';
     const g = prepGeometry(input, s);
@@ -751,6 +789,8 @@
    * will auto-generate them).
    */
   function calculateLineItem(input) {
+    // Line-item mode prices off the catalog (material+labor) + OH&P, not the per-SQ
+    // tierRates/addonPrices, so applyCompanyPricing is intentionally NOT applied here.
     const s = input.settingsOverride || loadSettings();
     const tier = input.tier || 'better';
     const mode = input.mode || 'cash';

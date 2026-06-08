@@ -290,6 +290,60 @@ test('adder: per-SQ adder rates are config-backed (match estimate-config)', () =
   eq(EBv2.ADDON_PRICES.accessDifficultPerSq, cfg.ADDON_ACCESS_DIFFICULT_PER_SQ, 'access-difficult');
 });
 
+// ── Shop-wide rate architecture (Phase 2a, estimate-qa-2026-06-08) ──
+// config = default · companyProfile.pricing = shop override · localStorage ≠ pricing.
+test('rates: config defaults win when no companyProfile (Node path)', () => {
+  const r = EBv2.calculatePerSq({ tier:'better', mode:'insurance', rawSqft:2000, pitch:'8/12', wasteFactorOverride:1.0 });
+  near(r.rate, 595, 0.5, 'tier rate from config');
+  near(r.addOns.steep, 20*25, 0.5, 'steep from config $25');
+});
+test('rates: companyProfile.pricing OVERRIDES config (shop-wide)', () => {
+  global.window = { _companyProfile: { pricing: { addonPrices: { steepPerSq: 40 }, tierRates: { better: 700 } } } };
+  try {
+    const r = EBv2.calculatePerSq({ tier:'better', mode:'insurance', rawSqft:2000, pitch:'8/12', wasteFactorOverride:1.0 });
+    near(r.rate, 700, 0.5, 'tier rate from companyProfile $700');
+    near(r.baseTotal, 20*700, 0.5, 'base uses overridden tier rate');
+    near(r.addOns.steep, 20*40, 0.5, 'steep from companyProfile $40');
+  } finally { delete global.window; }
+});
+test('rates: companyProfile PARTIAL override leaves other rates on config', () => {
+  global.window = { _companyProfile: { pricing: { addonPrices: { steepPerSq: 40 } } } };
+  try {
+    const r = EBv2.calculatePerSq({ tier:'better', mode:'insurance', rawSqft:2000, pitch:'12/12', wasteFactorOverride:1.0 });
+    near(r.addOns.steep, 20*40, 0.5, 'steep overridden $40');
+    near(r.addOns.verySteep, 20*45, 0.5, 'very-steep stays config $45');
+    near(r.rate, 595, 0.5, 'tier rate stays config $595');
+  } finally { delete global.window; }
+});
+test('rates: stale localStorage snapshot CANNOT override ADD-ON prices (L-1 kill)', () => {
+  // The chimney-$285 bug: a saved snapshot must no longer override add-on prices.
+  global.localStorage = {
+    _d: { 'nbd_est_settings_v3': JSON.stringify({ addonPrices: { steepPerSq: 999, chimneyFlash: 285 } }) },
+    getItem(k) { return this._d[k] || null; }, setItem() {}, removeItem() {}
+  };
+  try {
+    const s = EBv2.loadSettings();
+    eq(s.addonPrices.steepPerSq,  EBv2.ADDON_PRICES.steepPerSq,  'steep stays config, not stale 999');
+    eq(s.addonPrices.chimneyFlash, EBv2.ADDON_PRICES.chimneyFlash, 'chimney stays config 425, not the stale $285 (L-1)');
+  } finally { delete global.localStorage; }
+});
+test('rates: blank/garbage companyProfile value is IGNORED, not a silent $0', () => {
+  global.window = { _companyProfile: { pricing: { addonPrices: { steepPerSq: '', verySteepPerSq: null }, tierRates: { better: 'abc' } } } };
+  try {
+    const r = EBv2.calculatePerSq({ tier:'better', mode:'insurance', rawSqft:2000, pitch:'12/12', wasteFactorOverride:1.0 });
+    near(r.addOns.steep,     20*25, 0.5, "blank steep '' ignored → config $25");
+    near(r.addOns.verySteep, 20*45, 0.5, 'null very-steep ignored → config $45');
+    near(r.rate,             595,   0.5, "garbage tier rate 'abc' ignored → config $595");
+  } finally { delete global.window; }
+});
+test('rates: explicit companyProfile 0 IS honored (free add-on)', () => {
+  global.window = { _companyProfile: { pricing: { addonPrices: { steepPerSq: 0 } } } };
+  try {
+    const r = EBv2.calculatePerSq({ tier:'better', mode:'insurance', rawSqft:2000, pitch:'8/12', wasteFactorOverride:1.0 });
+    eq(r.addOns.steep, 0, 'steepPerSq:0 → intentional free add-on');
+  } finally { delete global.window; }
+});
+
 console.log('──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 process.exit(failed > 0 ? 1 : 0);
