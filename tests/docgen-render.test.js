@@ -96,20 +96,45 @@ ok('Oaks: charcoal #333333 (tenant primary)', /#333333/i.test(oak));
 ok('Oaks: burnt-orange #C2410C (tenant accent)', /#c2410c/i.test(oak));
 ok('Oaks: does NOT show NBD navy #1e3a6e', !/#1e3a6e/i.test(oak));
 ok('Oaks: does NOT show "No Big Deal"', !/No Big Deal/.test(oak));
+ok('Oaks: does NOT leak "NBD" signature seal', !/Authorized NBD Representative/.test(oak));
 
 // ════════════════════════════════════════════════════════════════════
-// EXTENDED COVERAGE — render a spread of doc types for BOTH tenants and
-// assert the same brand contract on each. Each entry: a friendly label,
-// the render* method, and the minimal data that method needs.
+// EXTENDED COVERAGE — render EVERY extended doc type in
+// document-generator-templates.js for BOTH tenants and assert the same
+// brand contract on each. Each entry: a friendly label, the render*
+// method, and the minimal data that method needs (each render* uses
+// Object.assign defaults, so BASE is enough for the brand-leak check;
+// the FORM_FIELDS map near the end of -templates.js lists the real
+// editable fields per type if richer fixtures are ever needed).
+//
+// Each render is wrapped in try/catch (see renderType) so a render that
+// throws in the vm surfaces as a readable assertion failure, never a
+// crash. None of these templates need real DOM/canvas — they are pure
+// string builders — so none are skipped here.
 // ════════════════════════════════════════════════════════════════════
 const BASE = { homeownerName: 'Jane Smith', address: '123 Main St', leadId: 'L1' };
 const DOC_TYPES = [
-  { label: 'invoice',                   method: 'renderInvoice',                data: BASE },
-  { label: 'change_order',              method: 'renderChangeOrder',            data: BASE },
-  { label: 'work_authorization',        method: 'renderWorkAuthorization',      data: BASE },
-  { label: 'certificate_of_completion', method: 'renderCertificateOfCompletion',data: BASE },
-  { label: 'scope_of_work',             method: 'renderScopeOfWork',            data: BASE },
-  { label: 'company_intro',             method: 'renderCompanyIntro',           data: BASE },
+  // ── already covered before this sweep ──
+  { label: 'invoice',                   method: 'renderInvoice',                 data: BASE },
+  { label: 'change_order',              method: 'renderChangeOrder',             data: BASE },
+  { label: 'work_authorization',        method: 'renderWorkAuthorization',       data: BASE },
+  { label: 'certificate_of_completion', method: 'renderCertificateOfCompletion', data: BASE },
+  { label: 'scope_of_work',             method: 'renderScopeOfWork',             data: BASE },
+  { label: 'company_intro',             method: 'renderCompanyIntro',            data: BASE },
+  // ── added in tenant-render-coverage-2 (the rest of -templates.js) ──
+  { label: 'supplement_request',        method: 'renderSupplementRequest',       data: BASE },
+  { label: 'before_after_report',       method: 'renderBeforeAfterReport',       data: BASE },
+  { label: 'financing_options',         method: 'renderFinancingOptions',        data: Object.assign({ totalPrice: 18500 }, BASE) },
+  { label: 'referral_card',             method: 'renderReferralCard',            data: BASE },
+  { label: 'assignment_of_benefits',    method: 'renderAssignmentOfBenefits',    data: BASE },
+  { label: 'material_delivery',         method: 'renderMaterialDelivery',        data: BASE },
+  { label: 'storm_checklist',           method: 'renderStormChecklist',          data: BASE },
+  { label: 'claim_guide',               method: 'renderClaimGuide',              data: BASE },
+  { label: 'door_hanger',               method: 'renderDoorHanger',              data: BASE },
+  { label: 'neighborhood_mailer',       method: 'renderNeighborhoodMailer',      data: Object.assign({ neighborhoodName: 'Maple Grove', projectAddress: '456 Oak Ave' }, BASE) },
+  { label: 'testimonial_sheet',         method: 'renderTestimonialSheet',        data: BASE },
+  { label: 'thank_you',                 method: 'renderThankYou',                data: BASE },
+  { label: 'payment_agreement',         method: 'renderPaymentAgreement',        data: Object.assign({ totalAmount: 12500, depositAmount: 4000, progressAmount: 4500, finalAmount: 4000 }, BASE) },
 ];
 
 for (const t of DOC_TYPES) {
@@ -122,7 +147,8 @@ for (const t of DOC_TYPES) {
   ok(t.label + ' / NBD: shows "No Big Deal"', /No Big Deal/.test(n));
   ok(t.label + ' / NBD: navy #1e3a6e present', /#1e3a6e/i.test(n));
 
-  // Oaks: tenant name + charcoal + accent present; NBD navy + NBD name absent.
+  // Oaks: tenant name + charcoal + accent present; NBD navy + NBD name +
+  // NBD signature seal ("Authorized NBD Representative") all absent.
   const o = renderType(OAKS_BRAND, t.method, t.data);
   const oOk = typeof o === 'string' && o.indexOf('RENDER_ERROR') !== 0 && o.length > 500;
   ok(t.label + ' / Oaks: renders HTML (no error)', oOk);
@@ -131,6 +157,7 @@ for (const t of DOC_TYPES) {
   ok(t.label + ' / Oaks: accent #C2410C (tenant accent)', /#c2410c/i.test(o));
   ok(t.label + ' / Oaks: does NOT leak NBD navy #1e3a6e', !/#1e3a6e/i.test(o));
   ok(t.label + ' / Oaks: does NOT leak "No Big Deal"', !/No Big Deal/.test(o));
+  ok(t.label + ' / Oaks: does NOT leak "NBD" signature seal', !/Authorized NBD Representative/.test(o));
 }
 
 console.log('\n──────────────────────────────────────────────────');
