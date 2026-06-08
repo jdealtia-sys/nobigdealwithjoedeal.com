@@ -129,7 +129,23 @@ A parallel session already built **Phase D billing AND a canonical /pro storefro
 
 **My session's unique, branch-independent keepers:** the **Privacy Policy** (exists nowhere else), **Terms** (here only), the **early-access CTA honesty** + the self-serve-signup-is-broken insight (phase-d-build still over-promises), the **demo.html stale-pricing fix**, SOC2 removal.
 
-### → STOPPED. Surfaced to Jo for branch-strategy direction (see decision below). The "5-seat" I floated in my earlier question was MY error vs the locked 3-seat canonical — pricing needs correcting to PRICING.md on whichever branch becomes the trunk.
+### → RESOLVED (Jo, 2026-06-08): **phase-d-build is the trunk** + **canonical pricing per PRICING.md** (Crew 3 seats/$599 Scale/~30% annual).
+
+## SUB-MISSION 1b — UNIFIED ONTO phase-d-build (COMPLETE, awaiting checkpoint sign-off)
+
+Isolated worktree `C:/Users/jonat/nbd-storefront-on-phased`, branch **`storefront-legal-on-phased`** (off `phase-d-build`), commit **219f1706**. NOT pushed/merged (checkpoint + auto-deploy gate). **Smoke 1856/0 green.**
+
+- **Legal pages ported** (phase-d-build had neither): `docs/pro/privacy.html` (my SaaS policy) + `docs/pro/terms.html`. phase-d-build's index footer Terms link was a dead `href="#"` → now `/pro/terms.html`. All Pro footers Privacy → `/pro/privacy.html`.
+- **pricing.html reconciled to canonical** (was 5-seat/no-annual/Scale "Custom"): Crew **3 seats** +$39/extra, Solo **$69**/Crew **$209** annual (~30% off), Scale **from $599**. Replaced "2 reports / 20 AI calls" (map to nothing) with real per-tier features + metered aerial-measurements matrix row.
+- **index.html (phase-d-build's canonical landing) reframed**: 7 CTAs → "Get Early Access", founding-member microcopy, nav dead `href="#"` → `/pro/register.html`, both legal footer links wired. (Its pricing was already canonical: 3 seats/$599/annual.)
+- **register.html / demo.html**: early-access framing; demo's stale "$79/mo / $59 annual / 25 leads / beta / plan=pro" removed; register "25→10 leads".
+- **Smoke +section** guards Pro Terms/Privacy existence+wiring, canonical pricing (3 seats/$599/annual), no SOC2/$249 in visible copy, Get-Early-Access CTAs.
+- **Residual flags for Jo** (judgment calls, NOT changed): (1) `docs/pro/landing.html` masterclass page still stale ($29/$49/$79 + foundation/blueprint/professional + $2.4M/$10M stats + Start-Free-Trial) — reconcile or retire-via-redirect; (2) index.html hero mockup uses **$2.4M pipeline / 247 leads** sample data inside labeled product mockups — legit UI demo IMO (like demo.html), but feat's adversarial review had been stricter; confirm OK or soften.
+
+## → HARD CHECKPOINT (NOW): Jo reviews the finalized unified storefront (branch `storefront-legal-on-phased`) + confirms pricing. After sign-off: merge into phase-d-build, then SUB-MISSION 2.
+
+## SUB-MISSION 2 (after sign-off) — REVIEW/VALIDATE existing Phase D (NOT rebuild)
+Phase D is already BUILT on phase-d-build (D-1 read-path + D-3 seats/gate/rules done+tested; D-2 money-path authored; migration script dry-run-validated; adversarial-review passed — see memory `phase-d-billing-decisions.md` + `documentation/qa/phase-d-build-2026-06-08/STATUS.md`). This session's Sub-mission 2 = review it against the brief's RULE 0 (Stripe test-mode, backups, propose migration), reconcile entitlements ↔ the now-canonical pricing page, and validate vs the Oaks test tenant in Stripe TEST mode. **Gated on Jo's Stripe test-mode + the $249→$299 Stripe Price re-point + fresh `subscriptions` backup.**
 
 ## BLOCKED / NEEDS JO (for Sub-mission 2 / Phase D)
 - [ ] **Sign off on the finalized storefront pages + pricing** (the checkpoint).
