@@ -22,9 +22,11 @@ if (!admin.apps.length) admin.initializeApp();
 const OAKS_KEY = 'oaks';
 
 // Oaks's real brand, extracted from the live microsite (docs/sites/oaks/).
-// NOTE: accent is currently #E8720C — identical to NBD's. Jo flagged this as
-// "should be distinct" in the 2026-06-07 brand sweep. Pick an Oaks-specific
-// accent before/with this backfill if you want them visually separable.
+// NOTE: accent is #C2410C (burnt orange) — deliberately distinct from NBD's
+// #E8720C per the 2026-06-07 brand-sweep decision. Swap if you/Scott prefer a
+// different Oaks accent. The Oaks PUBLIC microsite (docs/sites/oaks/style.css)
+// still uses #E8720C — changing the live partner site's color needs Scott's
+// OK, so that's left for a separate call (this only affects generated docs).
 const OAKS_BRAND = {
   brand: {
     displayName: 'Oaks Roofing & Construction',
@@ -37,7 +39,7 @@ const OAKS_BRAND = {
     colors: {
       primary:   '#333333',  // charcoal (Oaks)
       secondary: '#1A1A1A',  // near-black (nav/hero)
-      accent:    '#E8720C',  // ⚠ same as NBD — make distinct per sweep decision
+      accent:    '#C2410C',  // Oaks burnt-orange — distinct from NBD's #E8720C (sweep decision)
       ink:       '#222222',
       charcoal:  '#1A1A1A',
       cream:     '#F5F5F5'

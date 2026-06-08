@@ -189,10 +189,37 @@ const NBD_DOC_COMPANY = {
   brandContact: '(859) 420-7382 · jd@nobigdealwithjoedeal.com',
   footerContact: '(859) 420-7382 · jd@nobigdealwithjoedeal.com · Greater Cincinnati, OH',
   seal: 'NBD',
+  colors: null,
 };
 function hbsEsc(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+// Phase B-4b: inject the tenant's brand colours as a :root override appended
+// AFTER the static design-system :root (equal specificity → later rule wins).
+// NBD → '' (byte-identical render). Only the dominant brand tokens are mapped.
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
+  return m ? parseInt(m[1], 16) + ', ' + parseInt(m[2], 16) + ', ' + parseInt(m[3], 16) : null;
+}
+function buildBrandVars(colors) {
+  if (!colors) return '';
+  const v = [];
+  if (colors.accent) {
+    v.push('--nbd-orange:' + colors.accent);
+    v.push('--nbd-orange-dark:' + colors.accent);
+    const rgb = hexToRgb(colors.accent);
+    if (rgb) {
+      v.push('--nbd-orange-soft:rgba(' + rgb + ',0.08)');
+      v.push('--nbd-orange-line:rgba(' + rgb + ',0.35)');
+    }
+  }
+  const charcoal = colors.charcoal || colors.primary;
+  if (charcoal) {
+    v.push('--nbd-charcoal:' + charcoal);
+    v.push('--nbd-ink:' + (colors.ink || charcoal));
+  }
+  return v.length ? ':root{' + v.join(';') + ';}' : '';
 }
 async function resolveDocCompany(companyId) {
   if (!companyId) return NBD_DOC_COMPANY;
@@ -210,6 +237,7 @@ async function resolveDocCompany(companyId) {
           brandContact: [c.phone, c.email].filter(Boolean).join(' · '),
           footerContact: [c.phone, c.email, c.address].filter(Boolean).join(' · '),
           seal: b.seal || NBD_DOC_COMPANY.seal,
+          colors: b.colors || null,
         };
       }
     }
@@ -271,6 +299,7 @@ exports.renderPdf = onCall(
     // (solo-op convention: companyId == uid). NBD → byte-identical chrome.
     const companyId = (request.auth.token && request.auth.token.companyId) || uid;
     const company = await resolveDocCompany(companyId);
+    const brandVars = buildBrandVars(company.colors);
 
     const bodyHtml = bodyCompiled(Object.assign({}, payload, { company }));
     const html = layoutCompiled({
@@ -279,6 +308,7 @@ exports.renderPdf = onCall(
       seal:            tmplCfg.seal,
       docNumber:       payload.certNumber || payload.docNumber || '',
       designSystemCss: loadDesignSystemCss(),
+      brandVars:       brandVars,
       templateCss:     '', // reserved for per-template overrides in later D-PRs
       company:         company,
       body:            bodyHtml,
