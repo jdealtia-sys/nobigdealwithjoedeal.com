@@ -27,6 +27,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
@@ -79,7 +80,7 @@ exports.emailQueueWorker = onSchedule(
           status: 'pending',
           attempts: (d.data().attempts || 0) + 1,
           lastError: 'reclaimed: stale sending lease',
-          reclaimedAt: admin.firestore.FieldValue.serverTimestamp(),
+          reclaimedAt: FieldValue.serverTimestamp(),
         });
         requeued++;
       }
@@ -108,7 +109,7 @@ exports.emailQueueWorker = onSchedule(
           if (d.status && d.status !== 'pending') throw new Error('not-pending');
           tx.update(doc.ref, {
             status: 'sending',
-            claimedAt: admin.firestore.FieldValue.serverTimestamp()
+            claimedAt: FieldValue.serverTimestamp()
           });
         });
       } catch (e) {
@@ -121,7 +122,7 @@ exports.emailQueueWorker = onSchedule(
         await doc.ref.update({
           status: 'failed',
           failedReason: 'bad recipient',
-          failedAt: admin.firestore.FieldValue.serverTimestamp()
+          failedAt: FieldValue.serverTimestamp()
         });
         failed++;
         continue;
@@ -138,7 +139,7 @@ exports.emailQueueWorker = onSchedule(
         });
         await doc.ref.update({
           status: 'sent',
-          sentAt: admin.firestore.FieldValue.serverTimestamp()
+          sentAt: FieldValue.serverTimestamp()
         });
         sent++;
       } catch (e) {
@@ -148,7 +149,7 @@ exports.emailQueueWorker = onSchedule(
           status: shouldRetry ? 'pending' : 'failed',
           attempts,
           lastError: (e && e.message || 'unknown').slice(0, 400),
-          lastAttemptAt: admin.firestore.FieldValue.serverTimestamp()
+          lastAttemptAt: FieldValue.serverTimestamp()
         });
         if (!shouldRetry) failed++;
         logger.warn('emailQueueWorker send error', { docId: doc.id, attempts, err: e.message });

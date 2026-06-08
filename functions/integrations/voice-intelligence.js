@@ -30,6 +30,7 @@ const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { logger } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { getSecret, hasSecret, PROVIDERS, SECRETS } = require('./_shared');
 const prompts = require('../voice-prompts');
 
@@ -124,10 +125,10 @@ async function incrementVoiceUsage(db, {
   uid, companyId, audioSec, analysisTokens, costCents
 }) {
   const dayKey = new Date().toISOString().slice(0, 10);
-  const srv = admin.firestore.FieldValue.serverTimestamp();
-  const incSec    = admin.firestore.FieldValue.increment(Math.max(0, audioSec|0));
-  const incTok    = admin.firestore.FieldValue.increment(Math.max(0, analysisTokens|0));
-  const incCost   = admin.firestore.FieldValue.increment(Math.max(0, costCents|0));
+  const srv = FieldValue.serverTimestamp();
+  const incSec    = FieldValue.increment(Math.max(0, audioSec|0));
+  const incTok    = FieldValue.increment(Math.max(0, analysisTokens|0));
+  const incCost   = FieldValue.increment(Math.max(0, costCents|0));
   await Promise.all([
     db.doc('api_usage_daily/' + dayKey + '__uid__' + uid).set({
       uid, dayKey, scope: 'uid', updatedAt: srv,
@@ -473,14 +474,14 @@ async function processRecording({
       status: 'failed',
       statusError: 'voice budget exhausted for company this cycle (' +
         budget.consumed + 's / ' + budget.cap + 's cap on plan=' + ctx.plan + ')',
-      recordedAt: existing?.recordedAt || admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      recordedAt: existing?.recordedAt || FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
     return { ok: true, skipped: 'over_budget' };
   }
 
   // ── Doc init (or reuse existing row for reprocess) ──
-  const now = admin.firestore.FieldValue.serverTimestamp();
+  const now = FieldValue.serverTimestamp();
   const baseDoc = {
     userId: uid,
     companyId: ctx.companyId,
@@ -528,7 +529,7 @@ async function processRecording({
         segments: transcriptResult.segments,
         audioDurationSec: Math.round(transcriptResult.durationSec),
         status: 'analyzing',
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        updatedAt: FieldValue.serverTimestamp()
       }, { merge: true });
     }
 
@@ -555,7 +556,7 @@ async function processRecording({
           status: 'quarantined_consent',
           statusError: 'consent check failed: ' + e.message,
           consent: { ...baseDoc.consent, verbalPhrase: null, checkFailed: true },
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          updatedAt: FieldValue.serverTimestamp()
         }, { merge: true });
         return { ok: true, quarantined: true };
       }
@@ -568,7 +569,7 @@ async function processRecording({
             verbalPhrase: consentResult.evidence || null,
             consented: false
           },
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          updatedAt: FieldValue.serverTimestamp()
         }, { merge: true });
         return { ok: true, quarantined: true };
       }
@@ -619,7 +620,7 @@ async function processRecording({
       costCents,
       status: 'complete',
       statusError: null,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
     // Stamp usage counters AFTER the doc lands — better to have
@@ -649,7 +650,7 @@ async function processRecording({
       await recordingRef.set({
         status: 'failed',
         statusError: '[' + code + '] ' + msg.slice(0, 400),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        updatedAt: FieldValue.serverTimestamp()
       }, { merge: true });
     } catch (_) {}
     return { ok: false, code, error: msg };

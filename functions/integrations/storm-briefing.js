@@ -36,6 +36,7 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
 
 const BRIEFING_LEAD_LIMIT = 10;       // top N in the Slack message
@@ -139,7 +140,7 @@ async function _reserveSentinel(db, alertId) {
       }
       tx.set(ref, {
         alertId,
-        reservedAt: admin.firestore.FieldValue.serverTimestamp(),
+        reservedAt: FieldValue.serverTimestamp(),
         status: 'reserved',
       });
     });
@@ -269,7 +270,7 @@ exports.stormBriefing_onAlertSent = onDocumentCreated(
       // Mark the sentinel as completed + capture metadata for Viktor.
       await db.doc(`storm_briefings_sent/${alertId}`).set({
         status: 'sent',
-        sentAt: admin.firestore.FieldValue.serverTimestamp(),
+        sentAt: FieldValue.serverTimestamp(),
         alertId,
         zip: data.zip || null,
         area: data.area || null,
@@ -284,7 +285,7 @@ exports.stormBriefing_onAlertSent = onDocumentCreated(
       await db.doc(`storm_briefings_sent/${alertId}`).set({
         status: 'failed',
         error: e.message,
-        failedAt: admin.firestore.FieldValue.serverTimestamp(),
+        failedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     }
   }

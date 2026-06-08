@@ -22,6 +22,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { SECRETS, hasSecret, getSecret } = require('./_shared');
 
@@ -86,9 +87,9 @@ exports.registerDeviceFingerprint = onCall(
 
     await ref.set({
       fingerprint: fp,
-      lastSeenAt: admin.firestore.FieldValue.serverTimestamp(),
-      firstSeenAt: seen ? (snap.data().firstSeenAt || admin.firestore.FieldValue.serverTimestamp())
-                        : admin.firestore.FieldValue.serverTimestamp(),
+      lastSeenAt: FieldValue.serverTimestamp(),
+      firstSeenAt: seen ? (snap.data().firstSeenAt || FieldValue.serverTimestamp())
+                        : FieldValue.serverTimestamp(),
       // Non-PII summary for debugging — actual IP/UA are already
       // baked into the hash, never stored cleartext.
       uaBrowserFamily: extractBrowserFamily(userAgent)
@@ -100,7 +101,7 @@ exports.registerDeviceFingerprint = onCall(
         type: 'new_device_sign_in',
         op: 'create',
         ids: { uidHash: hashFingerprint('global', uid).slice(0, 16), fpHash: fp.slice(0, 16) },
-        ts: admin.firestore.FieldValue.serverTimestamp()
+        ts: FieldValue.serverTimestamp()
       });
       await postSlack({
         text: '🔐 New device sign-in',

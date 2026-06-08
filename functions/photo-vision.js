@@ -45,6 +45,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { withSentry } = require('./integrations/sentry');
 
@@ -225,7 +226,7 @@ exports.analyzePhotoVision = onCall({
     const cached = cacheSnap.data();
     await photoRef.update({
       aiSuggestion: cached.suggestion,
-      aiSuggestionAt: admin.firestore.FieldValue.serverTimestamp(),
+      aiSuggestionAt: FieldValue.serverTimestamp(),
       aiSuggestionCached: true,
     });
     return { suggestion: cached.suggestion, cached: true, costUsd: 0 };
@@ -314,17 +315,17 @@ exports.analyzePhotoVision = onCall({
     tx.set(leadMeterRef, {
       leadId,
       ownerUid: uid,
-      visionUsd:   admin.firestore.FieldValue.increment(callCostUsd),
-      visionCount: admin.firestore.FieldValue.increment(1),
-      updatedAt:   admin.firestore.FieldValue.serverTimestamp(),
+      visionUsd:   FieldValue.increment(callCostUsd),
+      visionCount: FieldValue.increment(1),
+      updatedAt:   FieldValue.serverTimestamp(),
     }, { merge: true });
 
     tx.set(userMeterRef, {
       uid,
       monthKey,
-      visionUsd:   admin.firestore.FieldValue.increment(callCostUsd),
-      visionCount: admin.firestore.FieldValue.increment(1),
-      updatedAt:   admin.firestore.FieldValue.serverTimestamp(),
+      visionUsd:   FieldValue.increment(callCostUsd),
+      visionCount: FieldValue.increment(1),
+      updatedAt:   FieldValue.serverTimestamp(),
     }, { merge: true });
 
     tx.set(cacheRef, {
@@ -334,12 +335,12 @@ exports.analyzePhotoVision = onCall({
       tokensIn:    inputTokens,
       tokensOut:   outputTokens,
       costUsd:     callCostUsd,
-      createdAt:   admin.firestore.FieldValue.serverTimestamp(),
+      createdAt:   FieldValue.serverTimestamp(),
     });
 
     tx.update(photoRef, {
       aiSuggestion:        suggestion,
-      aiSuggestionAt:      admin.firestore.FieldValue.serverTimestamp(),
+      aiSuggestionAt:      FieldValue.serverTimestamp(),
       aiSuggestionCostUsd: callCostUsd,
       aiSuggestionCached:  false,
     });

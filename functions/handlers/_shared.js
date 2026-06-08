@@ -18,6 +18,7 @@
 'use strict';
 
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { HttpsError } = require('firebase-functions/v2/https');
 
 // ── CORS origins — exact match, no startsWith, no wildcards. ─────────
@@ -68,8 +69,8 @@ async function reserveClaudeBudget(db, uidRef, coRef, reservation, caps) {
     if (!caps.isAdmin && cConsumed + reservation > caps.coCap) {
       return { ok: false, scope: 'company', consumed: cConsumed, cap: caps.coCap };
     }
-    const srv = admin.firestore.FieldValue.serverTimestamp();
-    const inc = admin.firestore.FieldValue.increment(reservation);
+    const srv = FieldValue.serverTimestamp();
+    const inc = FieldValue.increment(reservation);
     tx.set(uidRef, {
       tokens: inc, updatedAt: srv,
       uid: caps.uid, dayKey: caps.dayKey, scope: 'uid'
@@ -84,7 +85,7 @@ async function reserveClaudeBudget(db, uidRef, coRef, reservation, caps) {
 
 async function adjustClaudeBudget(uidRef, coRef, delta) {
   if (!delta) return;
-  const inc = admin.firestore.FieldValue.increment(delta);
+  const inc = FieldValue.increment(delta);
   await Promise.all([
     uidRef.set({ tokens: inc }, { merge: true }),
     coRef.set({ tokens: inc }, { merge: true })

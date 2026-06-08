@@ -21,6 +21,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
 
@@ -132,7 +133,7 @@ exports.lookupParcel = onCall(
     // Cache even nulls so repeat misses don't re-bill Regrid.
     await cacheRef.set({
       parcel,
-      cachedAt: admin.firestore.FieldValue.serverTimestamp()
+      cachedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
     return { success: true, cached: false, parcel };

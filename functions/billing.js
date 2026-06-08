@@ -23,6 +23,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const { callableRateLimit } = require('./shared');
 
@@ -104,7 +105,7 @@ exports.trackUsage = onCall({
         ...(data.usage || {}),
         [feature]: nextUsage,
       },
-      lastUsageAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastUsageAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
     return {

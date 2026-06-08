@@ -24,6 +24,7 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { SECRETS, PROVIDERS, hasSecret, getSecret } = require('./_shared');
 
 // Re-use the hail fetch helpers from the hail.js module via a
@@ -146,7 +147,7 @@ exports.hailMatchCron = onSchedule(
         }, { sizeInches: 0 });
 
         const update = {
-          lastHailCheck: admin.firestore.FieldValue.serverTimestamp()
+          lastHailCheck: FieldValue.serverTimestamp()
         };
         if ((best.sizeInches || 0) >= SIZE_THRESHOLD) {
           update.hailHit = {
@@ -154,7 +155,7 @@ exports.hailMatchCron = onSchedule(
             at:         best.at || null,
             source:     best.source || 'unknown',
             radiusMi:   RADIUS_MI,
-            foundAt:    admin.firestore.FieldValue.serverTimestamp()
+            foundAt:    FieldValue.serverTimestamp()
           };
           // Only mark as "new" if we didn't already have a match of
           // equal-or-greater size on this lead.

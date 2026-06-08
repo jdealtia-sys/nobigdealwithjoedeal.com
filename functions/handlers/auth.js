@@ -20,6 +20,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { beforeUserCreated, beforeUserSignedIn } = require('firebase-functions/v2/identity');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const {
   CORS_ORIGINS,
@@ -105,7 +106,7 @@ exports.provisionE2ETestUser = onCall(
       companyId: userRecord.uid,                  // solo-op convention
       plan: 'free',                                // lowest tier; tests should run on the cheapest path
       provisionedBy: uid,
-      provisionedAt: admin.firestore.FieldValue.serverTimestamp(),
+      provisionedAt: FieldValue.serverTimestamp(),
       provisionAction: action
     }, { merge: true });
 
@@ -466,7 +467,7 @@ exports.activateInvitedRep = onCall(
         await memberRef.update({
           status: 'active',
           uid: uid,
-          activatedAt: admin.firestore.FieldValue.serverTimestamp()
+          activatedAt: FieldValue.serverTimestamp()
         });
       }
 
@@ -475,7 +476,7 @@ exports.activateInvitedRep = onCall(
         email: email,
         role: role,
         companyId: companyId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         displayName: request.auth.token.name || email.split('@')[0]
       }, { merge: true });
 

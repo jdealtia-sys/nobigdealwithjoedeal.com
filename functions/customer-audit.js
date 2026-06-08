@@ -30,6 +30,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 
@@ -101,7 +102,7 @@ exports.recordCustomerEvent = onRequest({
       resourceId: resourceId,
       ip:         ip.slice(0, 64),
       userAgent:  ua,
-      createdAt:  admin.firestore.FieldValue.serverTimestamp(),
+      createdAt:  FieldValue.serverTimestamp(),
     });
   } catch (e) {
     logger.warn('customerAudit.write_failed', { err: e.message, type });

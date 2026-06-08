@@ -16,6 +16,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const { enforceRateLimit, httpRateLimit } = require('../integrations/upstash-ratelimit');
 const { requireAuth } = require('../shared');
@@ -447,7 +448,7 @@ exports.analyzeRoofPhoto = onRequest(
         recommendations: Array.isArray(analysis.recommendations) ? analysis.recommendations.slice(0, 5).map(String) : [],
         confidence: validConfidence.includes(analysis.confidence) ? analysis.confidence : 'low',
         notRoof: !!analysis.notRoof,
-        analyzedAt: admin.firestore.FieldValue.serverTimestamp(),
+        analyzedAt: FieldValue.serverTimestamp(),
         modelVersion: anthropicBody.model,
       };
 

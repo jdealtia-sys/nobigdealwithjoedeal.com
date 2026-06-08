@@ -33,6 +33,7 @@
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const {
   SECRETS: INT_SECRETS,
@@ -164,7 +165,7 @@ exports.createPortalToken = onCall(
       leadId,
       ownerUid: lead.userId,
       mintedBy: uid,
-      mintedAt: admin.firestore.FieldValue.serverTimestamp(),
+      mintedAt: FieldValue.serverTimestamp(),
       expiresAt,
       uses: 0,
       maxUses: 100  // generous — homeowner may reload across days
@@ -209,7 +210,7 @@ exports.revokePortalToken = onCall(
       }
       await ref.update({
         expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
-        revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+        revokedAt: FieldValue.serverTimestamp(),
         revokedBy: uid
       });
       revoked = [tokenId];
@@ -224,7 +225,7 @@ exports.revokePortalToken = onCall(
         if (!isAdmin && data.ownerUid !== uid) return;
         batch.update(d.ref, {
           expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
-          revokedAt: admin.firestore.FieldValue.serverTimestamp(),
+          revokedAt: FieldValue.serverTimestamp(),
           revokedBy: uid
         });
         revoked.push(d.id);
@@ -534,8 +535,8 @@ exports.getHomeownerPortalView = onRequest(
 
     // Bump use counter (fire-and-forget; don't fail the response).
     tokRef.update({
-      uses: admin.firestore.FieldValue.increment(1),
-      lastSeenAt: admin.firestore.FieldValue.serverTimestamp()
+      uses: FieldValue.increment(1),
+      lastSeenAt: FieldValue.serverTimestamp()
     }).catch(() => {});
 
     res.status(200).json(view);
@@ -648,8 +649,8 @@ exports.uploadHomeownerPhoto = onRequest(
           const e = new Error('quota'); e._http = 429; e._msg = 'Daily upload limit reached (10). Try again tomorrow.'; throw e;
         }
         tx.update(tokRef, {
-          [uploadsField]: admin.firestore.FieldValue.increment(1),
-          lastUploadAt: admin.firestore.FieldValue.serverTimestamp(),
+          [uploadsField]: FieldValue.increment(1),
+          lastUploadAt: FieldValue.serverTimestamp(),
         });
         return { ownerUid: data.ownerUid, leadId: data.leadId, todayCount: cur };
       });
@@ -700,7 +701,7 @@ exports.uploadHomeownerPhoto = onRequest(
         mimeType,
         caption: safeCaption,
         phase: 'During', // homeowner uploads typically mid-project
-        uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+        uploadedAt: FieldValue.serverTimestamp(),
         sharedWithHomeowner: true, // visible back to them in the gallery
       });
 
@@ -718,9 +719,9 @@ exports.uploadHomeownerPhoto = onRequest(
       // pattern as W123's lead.lastHomeownerMessageAt write.
       try {
         await db.doc(`leads/${tok.leadId}`).set({
-          lastUploadAt: admin.firestore.FieldValue.serverTimestamp(),
-          unreadHomeownerUploads: admin.firestore.FieldValue.increment(1),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastUploadAt: FieldValue.serverTimestamp(),
+          unreadHomeownerUploads: FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
         }, { merge: true });
       } catch (leadErr) {
         logger.warn('[uploadHomeownerPhoto] lead doc bump failed', { msg: leadErr.message });
@@ -738,7 +739,7 @@ exports.uploadHomeownerPhoto = onRequest(
           message: safeCaption ? `"${safeCaption.slice(0, 60)}"` : 'New photo from the homeowner — review on the customer page.',
           priority: 'high',
           read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
       } catch (notifErr) {
         logger.warn('[uploadHomeownerPhoto] notification create failed', { msg: notifErr.message });
@@ -836,8 +837,8 @@ exports.requestCallback = onRequest(
           const e = new Error('quota'); e._http = 429; e._msg = 'You\'ve sent a few requests already today — your rep will be in touch.'; throw e;
         }
         tx.update(tokRef, {
-          [callbacksField]: admin.firestore.FieldValue.increment(1),
-          lastCallbackAt: admin.firestore.FieldValue.serverTimestamp(),
+          [callbacksField]: FieldValue.increment(1),
+          lastCallbackAt: FieldValue.serverTimestamp(),
         });
         return { ownerUid: data.ownerUid, leadId: data.leadId, todayCount: cur };
       });
@@ -921,7 +922,7 @@ exports.requestCallback = onRequest(
         slot,
         slotLabel: label,
         homeownerNote: safeNote || null,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
 
       // Activity log entry — surfaces on the customer page timeline.
@@ -934,7 +935,7 @@ exports.requestCallback = onRequest(
           slotLabel: label,
           note: safeNote || null,
           dueDate,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
       } catch (actErr) {
         logger.warn('[requestCallback] activity create failed', { msg: actErr.message });
@@ -951,9 +952,9 @@ exports.requestCallback = onRequest(
       // lastUploadAt above.
       try {
         await db.doc(`leads/${tok.leadId}`).set({
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          lastCallbackAt: admin.firestore.FieldValue.serverTimestamp(),
-          unreadHomeownerCallbacks: admin.firestore.FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
+          lastCallbackAt: FieldValue.serverTimestamp(),
+          unreadHomeownerCallbacks: FieldValue.increment(1),
         }, { merge: true });
       } catch (_) { /* non-critical */ }
 
@@ -971,7 +972,7 @@ exports.requestCallback = onRequest(
           message: 'Best time: ' + label + (safeNote ? ' — "' + safeNote.slice(0, 60) + '"' : ''),
           priority: 'high',
           read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
       } catch (notifErr) {
         logger.warn('[requestCallback] notification create failed', { msg: notifErr.message });
@@ -1078,8 +1079,8 @@ exports.submitCustomerRating = onRequest(
         tx.update(leadRef, {
           customerRating: starsNum,
           customerRatingComment: safeComment || null,
-          customerRatingAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          customerRatingAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
         });
       });
     } catch (err) {
@@ -1102,7 +1103,7 @@ exports.submitCustomerRating = onRequest(
           label: starsNum + '-star rating from homeowner',
           stars: starsNum,
           comment: safeComment || null,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
       } catch (actErr) {
         logger.warn('[submitCustomerRating] activity create failed', { msg: actErr.message });
@@ -1123,7 +1124,7 @@ exports.submitCustomerRating = onRequest(
             dueDate: today, // today in Eastern → bell shows it RIGHT NOW
             source: 'rating_recovery',
             stars: starsNum,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
           });
         } catch (taskErr) {
           logger.warn('[submitCustomerRating] recovery task failed', { msg: taskErr.message });
@@ -1144,7 +1145,7 @@ exports.submitCustomerRating = onRequest(
           priority: starsNum <= 3 ? 'high' : 'medium',
           stars: starsNum,
           read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
       } catch (notifErr) {
         logger.warn('[submitCustomerRating] notification create failed', { msg: notifErr.message });
@@ -1254,8 +1255,8 @@ exports.sendPortalMessage = onRequest(
           const e = new Error('quota'); e._http = 429; e._msg = 'Daily message limit reached (30). Try again tomorrow or call your rep directly.'; throw e;
         }
         tx.update(tokRef, {
-          [msgsField]: admin.firestore.FieldValue.increment(1),
-          lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+          [msgsField]: FieldValue.increment(1),
+          lastMessageAt: FieldValue.serverTimestamp(),
         });
         return { ownerUid: data.ownerUid, leadId: data.leadId, todayCount: cur };
       });
@@ -1275,7 +1276,7 @@ exports.sendPortalMessage = onRequest(
         ownerUid: tok.ownerUid,
         source: 'homeowner',
         text: safeText,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         readBySender: true,
         readByRecipient: false,
       });
@@ -1288,7 +1289,7 @@ exports.sendPortalMessage = onRequest(
           label: 'Message from homeowner',
           messageId: msgRef.id,
           textPreview: safeText.slice(0, 120),
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
       } catch (actErr) {
         logger.warn('[sendPortalMessage] activity create failed', { msg: actErr.message });
@@ -1299,9 +1300,9 @@ exports.sendPortalMessage = onRequest(
       // and stale-lead bell signals don't fire on a fresh signal.
       try {
         await db.doc(`leads/${tok.leadId}`).set({
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          lastHomeownerMessageAt: admin.firestore.FieldValue.serverTimestamp(),
-          unreadHomeownerMessages: admin.firestore.FieldValue.increment(1),
+          updatedAt: FieldValue.serverTimestamp(),
+          lastHomeownerMessageAt: FieldValue.serverTimestamp(),
+          unreadHomeownerMessages: FieldValue.increment(1),
         }, { merge: true });
       } catch (_) { /* non-critical */ }
 
@@ -1319,7 +1320,7 @@ exports.sendPortalMessage = onRequest(
           message: safeText.slice(0, 100),
           priority: 'high',
           read: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
       } catch (_) { /* non-critical */ }
 
@@ -1374,7 +1375,7 @@ exports.replyToPortalMessage = onCall(
       ownerUid: lead.userId,
       source: 'rep',
       text: safeText,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       readBySender: true,
       readByRecipient: false,
     });
@@ -1399,8 +1400,8 @@ exports.replyToPortalMessage = onCall(
     // Bump lead.updatedAt + clear unread counter.
     try {
       await leadRef.set({
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        lastRepMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        lastRepMessageAt: FieldValue.serverTimestamp(),
         unreadHomeownerMessages: 0,
       }, { merge: true });
     } catch (_) { /* non-critical */ }
@@ -1413,7 +1414,7 @@ exports.replyToPortalMessage = onCall(
         label: 'Reply to homeowner',
         messageId: msgRef.id,
         textPreview: safeText.slice(0, 120),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     } catch (e) {
       logger.warn('[replyToPortalMessage] activity create failed', { msg: e.message });
@@ -1591,12 +1592,12 @@ exports.getEstimateForView = onRequest(
     // W57 almost-there-widget's "viewed 3x today" multi-view signal.
     try {
       const update = {
-        lastViewedAt: admin.firestore.FieldValue.serverTimestamp(),
-        viewCount: admin.firestore.FieldValue.increment(1),
+        lastViewedAt: FieldValue.serverTimestamp(),
+        viewCount: FieldValue.increment(1),
         lastViewedVia: 'token-link',
       };
       if (!est.viewedAt) {
-        update.viewedAt = admin.firestore.FieldValue.serverTimestamp();
+        update.viewedAt = FieldValue.serverTimestamp();
       }
       await estRef.update(update);
     } catch (e) {
@@ -1612,8 +1613,8 @@ exports.getEstimateForView = onRequest(
         type: 'estimate_viewed',
         label: 'Homeowner viewed estimate',
         estimateId,
-        viewedAt: admin.firestore.FieldValue.serverTimestamp(),
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        viewedAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     } catch (e) {
       logger.warn('[getEstimateForView] activity log failed', { msg: e.message });

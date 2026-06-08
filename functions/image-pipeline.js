@@ -61,6 +61,7 @@
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const path = require('path');
 const os = require('os');
 const fs = require('fs');
@@ -228,8 +229,8 @@ exports.onPhotoUploaded = onObjectFinalized(
         // trigger, so this is fire-and-forget with a swallowed catch.
         try {
           await db.doc('metrics/imagePipeline').set({
-            noDocMatched:    admin.firestore.FieldValue.increment(1),
-            lastNoMatchAt:   admin.firestore.FieldValue.serverTimestamp(),
+            noDocMatched:    FieldValue.increment(1),
+            lastNoMatchAt:   FieldValue.serverTimestamp(),
             lastNoMatchPath: objectName,
             lastNoMatchUid:  uid,
           }, { merge: true });
@@ -242,7 +243,7 @@ exports.onPhotoUploaded = onObjectFinalized(
         writes.push(
           doc.ref.update({
             urls: generated,
-            variantsGeneratedAt: admin.firestore.FieldValue.serverTimestamp(),
+            variantsGeneratedAt: FieldValue.serverTimestamp(),
           })
         );
       });

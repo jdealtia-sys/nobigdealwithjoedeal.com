@@ -29,6 +29,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const DEEPGRAM_API_KEY = defineSecret('DEEPGRAM_API_KEY');
 
@@ -124,7 +125,7 @@ exports.transcribeVoiceMemo = onCall(
             transcript,
             confidence,
             durationSec: Math.round(audioBuf.length / (128 * 1024 / 8)),
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+            createdAt: FieldValue.serverTimestamp()
           });
         } catch (e) { logger.warn('voice-memo activity write failed', { err: e.message }); }
       }

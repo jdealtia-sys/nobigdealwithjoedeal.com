@@ -15,6 +15,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const { enforceRateLimit, clientIp } = require('../integrations/upstash-ratelimit');
 
@@ -115,7 +116,7 @@ exports.validateAccessCode = onCall(
         status: 'active',
         source: 'access_code',
         accessCode: normalized,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       };
       if (typeof code.trialDays === 'number' && code.trialDays > 0) {
         const trialEnd = new Date(Date.now() + code.trialDays * 86_400_000);
@@ -123,7 +124,7 @@ exports.validateAccessCode = onCall(
       }
       const subRef = db.doc(`subscriptions/${userRecord.uid}`);
       if (!(await subRef.get()).exists) {
-        subData.createdAt = admin.firestore.FieldValue.serverTimestamp();
+        subData.createdAt = FieldValue.serverTimestamp();
       }
       await subRef.set(subData, { merge: true });
 
@@ -135,14 +136,14 @@ exports.validateAccessCode = onCall(
         await userDocRef.set({
           email,
           displayName: userRecord.displayName || 'NBD Member',
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
         });
       }
 
       // Increment usage counter.
       await codeRef.update({
-        useCount: admin.firestore.FieldValue.increment(1),
-        lastUsedAt: admin.firestore.FieldValue.serverTimestamp(),
+        useCount: FieldValue.increment(1),
+        lastUsedAt: FieldValue.serverTimestamp(),
       });
 
       // Mint a short-lived custom token. Client exchanges via signInWithCustomToken.

@@ -27,6 +27,11 @@
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+// Modular FieldValue import — admin.firestore.FieldValue is undefined under the
+// emulator runtime, so every audit_log write threw and was swallowed by the
+// try/catch below ("audit_log write failed"). The modular path works in both
+// prod and emulator. Same pattern as lead-bridge.js / sms-functions.js.
+const { FieldValue } = require('firebase-admin/firestore');
 
 // Best-effort PII redactor — never log the email or phone verbatim,
 // only a stable hash so analysts can correlate without PII leakage.
@@ -72,7 +77,7 @@ async function writeAuditEntry(entry) {
   try {
     await admin.firestore().collection('audit_log').add({
       ...entry,
-      ts: admin.firestore.FieldValue.serverTimestamp()
+      ts: FieldValue.serverTimestamp()
     });
   } catch (e) {
     // Never throw — failing an audit write must NOT break the

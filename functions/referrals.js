@@ -40,6 +40,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 
 const CORS_ORIGINS = [
@@ -174,12 +175,12 @@ exports.submitReferral = onRequest(
       referredByLeadId: sourceLead.id,
       referredByCustomerId: sourceLead.customerId || null,
       referredByName: `${sourceLead.firstName || ''} ${sourceLead.lastName || ''}`.trim() || null,
-      referredAt: admin.firestore.FieldValue.serverTimestamp(),
+      referredAt: FieldValue.serverTimestamp(),
       userId: ownerUid,
       companyId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      stageStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      stageStartedAt: FieldValue.serverTimestamp(),
     };
 
     let newLeadId;
@@ -202,7 +203,7 @@ exports.submitReferral = onRequest(
         label: 'Referral sent your way',
         message: `${firstName} ${lastName}`.trim() + ' was referred via your share link.',
         newLeadId,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     } catch (e) {
       logger.warn('[submitReferral] activity write failed', { err: e.message });
@@ -210,10 +211,10 @@ exports.submitReferral = onRequest(
     try {
       await db.doc(`leads/${sourceLead.id}`).set({
         referralStats: {
-          sent: admin.firestore.FieldValue.increment(1),
-          lastSentAt: admin.firestore.FieldValue.serverTimestamp(),
+          sent: FieldValue.increment(1),
+          lastSentAt: FieldValue.serverTimestamp(),
         },
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
       }, { merge: true });
     } catch (e) {
       logger.warn('[submitReferral] stats update failed', { err: e.message });
@@ -229,7 +230,7 @@ exports.submitReferral = onRequest(
         title: 'New referral!',
         message: `${firstName} ${lastName}`.trim() + ` referred by ${leadData.referredByName || 'a past customer'}`,
         read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
       });
     } catch (e) {
       logger.warn('[submitReferral] notification write failed', { err: e.message });

@@ -42,6 +42,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -263,7 +264,7 @@ async function writeAnniversaryActivity(db, leadId, uid) {
       type: 'anniversary_due',
       label: '1-year anniversary check-in due',
       message: 'Reach out today — a 1-year touch is the single most reliable referral driver in roofing.',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
   } catch (e) {
     logger.warn('anniversary_activity_write_failed', { leadId, err: e.message });
@@ -273,7 +274,7 @@ async function writeAnniversaryActivity(db, leadId, uid) {
 async function markAnniversaryTouched(db, leadId) {
   try {
     await db.doc(`leads/${leadId}`).update({
-      anniversaryTouchedAt: admin.firestore.FieldValue.serverTimestamp(),
+      anniversaryTouchedAt: FieldValue.serverTimestamp(),
     });
   } catch (e) {
     logger.warn('anniversary_mark_failed', { leadId, err: e.message });

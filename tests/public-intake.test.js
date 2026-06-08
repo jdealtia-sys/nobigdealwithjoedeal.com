@@ -71,8 +71,8 @@ async function run() {
   }
 
   // a fully valid submission passes every validation guard and reaches the write
-  // (which 500s here on the documented emulator FieldValue gap; the signal is
-  // that it is NOT rejected by validation).
+  // (now 200 — the write uses the modular FieldValue import so it succeeds under
+  // the emulator; the signal here is that it is NOT rejected by validation).
   {
     const r = await post({ kind: 'guide', name: 'Jane Real', email: 'jane@example.com', source: 'website' });
     ok(`valid submission passes validation (not 4xx; got ${r.status})`, ![400, 405].includes(r.status));

@@ -20,6 +20,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const Stripe = require('stripe');
 
 // Shared helpers (B2).
@@ -210,7 +211,7 @@ exports.stripeWebhook = onRequest(
       try {
         await eventRef.create({
           type: event.type,
-          processedAt: admin.firestore.FieldValue.serverTimestamp()
+          processedAt: FieldValue.serverTimestamp()
         });
       } catch (e) {
         // code 6 = ALREADY_EXISTS. Duplicate delivery — ack Stripe so
@@ -296,8 +297,8 @@ exports.stripeWebhook = onRequest(
             stripeCustomerId: customerId,
             stripeSubscriptionId: session.subscription || null,
             source: 'checkout',
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
             // Usage counters — reset on subscription start
             usage: { leads: 0, reports: 0, aiCalls: 0, cycleStart: new Date().toISOString() }
           };
@@ -359,7 +360,7 @@ exports.stripeWebhook = onRequest(
               ? new Date(subscription.current_period_end * 1000).toISOString()
               : null,
             cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           });
 
           // Sync custom claims
@@ -396,7 +397,7 @@ exports.stripeWebhook = onRequest(
           await subDoc.ref.update({
             plan: 'free',
             status: 'cancelled',
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           });
 
           // Downgrade custom claims to free
@@ -432,7 +433,7 @@ exports.stripeWebhook = onRequest(
 
           await subDoc.ref.update({
             status: 'past_due',
-            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedAt: FieldValue.serverTimestamp(),
           });
 
           // Update claims to past_due so client can show warning
@@ -467,7 +468,7 @@ exports.stripeWebhook = onRequest(
                     : '') +
                   '\nReach out to the customer to update their card. Stripe will auto-retry 3 more times.',
                 status: 'pending',   // F-wave fix: worker filters on this field
-                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                createdAt: FieldValue.serverTimestamp(),
                 source: 'stripe_dunning'
               });
             }
@@ -481,7 +482,7 @@ exports.stripeWebhook = onRequest(
                 stripeCustomerId: customerId,
                 amountCents: invoice.amount_due || 0,
                 hostedInvoiceUrl: invoice.hosted_invoice_url || null,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
+                createdAt: FieldValue.serverTimestamp()
               });
             }
 
@@ -531,7 +532,7 @@ exports.stripeWebhook = onRequest(
               'usage.reports': 0,
               'usage.aiCalls': 0,
               'usage.cycleStart': new Date().toISOString(),
-              updatedAt: admin.firestore.FieldValue.serverTimestamp()
+              updatedAt: FieldValue.serverTimestamp()
             });
             logger.info('usage_counters_reset', { uid: subDoc.id });
           }
@@ -846,7 +847,7 @@ exports.invoiceWebhook = onRequest(
         await eventRef.create({
           type: event.type,
           source: 'invoiceWebhook',
-          processedAt: admin.firestore.FieldValue.serverTimestamp()
+          processedAt: FieldValue.serverTimestamp()
         });
       } catch (e) {
         if (e.code === 6 || /already exists/i.test(String(e.message))) {
@@ -880,9 +881,9 @@ exports.invoiceWebhook = onRequest(
             const inv = invSnap.data();
             await invRef.update({
               status: 'paid',
-              paidAt: admin.firestore.FieldValue.serverTimestamp(),
+              paidAt: FieldValue.serverTimestamp(),
               stripePaymentIntentId: paymentIntent.id,
-              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+              updatedAt: FieldValue.serverTimestamp(),
             });
             logger.info('invoice_paid', { invoiceId });
 
@@ -908,10 +909,10 @@ exports.invoiceWebhook = onRequest(
                     await leadRef.update({
                       stage: 'final_payment',
                       _stageKey: 'final_payment',
-                      stageStartedAt: admin.firestore.FieldValue.serverTimestamp(),
+                      stageStartedAt: FieldValue.serverTimestamp(),
                       autoAdvancedFromInvoiceId: invoiceId,
-                      autoAdvancedAt: admin.firestore.FieldValue.serverTimestamp(),
-                      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                      autoAdvancedAt: FieldValue.serverTimestamp(),
+                      updatedAt: FieldValue.serverTimestamp(),
                     });
                     logger.info('lead_auto_advanced_on_payment', {
                       invoiceId, leadId: inv.leadId, fromStage: curStage

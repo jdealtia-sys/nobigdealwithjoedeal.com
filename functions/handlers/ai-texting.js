@@ -51,6 +51,7 @@
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 
@@ -251,7 +252,7 @@ async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId,
       status:       'pending',
       customerName,
       customerPhone: lead.phone || incomingPhone || null,
-      generatedAt:  admin.firestore.FieldValue.serverTimestamp(),
+      generatedAt:  FieldValue.serverTimestamp(),
       generationMs: Date.now() - t0,
       promptTokens:     result.usage?.input_tokens || null,
       completionTokens: result.usage?.output_tokens || null,

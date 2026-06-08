@@ -31,6 +31,7 @@
 'use strict';
 
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 // Collections that carry companyId and back a company-scoped read rule.
 const COLLECTIONS = ['leads', 'knocks', 'territories', 'reps', 'training_sessions'];
@@ -87,7 +88,7 @@ async function main() {
       if (!args.dryRun) {
         batch.update(docSnap.ref, {
           companyId: key,
-          companyIdBackfilledAt: admin.firestore.FieldValue.serverTimestamp(),
+          companyIdBackfilledAt: FieldValue.serverTimestamp(),
         });
         batchCount++;
         if (batchCount >= 400) { await batch.commit(); batch = db.batch(); batchCount = 0; }

@@ -25,6 +25,7 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 // Destination — single recipient, the platform owner. Could become a
 // multi-recipient allowlist if we ever onboard ops staff.
@@ -233,7 +234,7 @@ exports.healthDigestCron = onSchedule(
       bodyHtml,
       bodyPlain: 'Health digest for ' + periodLabel + ' — Vision ' + fmtUsd(vision.userTotal) + ', ' + fmtNum(activity.photos) + ' photo uploads, ' + fmtNum(stripe.total) + ' Stripe events.',
       kind: 'health_digest',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
     logger.info('health_digest.queued', {

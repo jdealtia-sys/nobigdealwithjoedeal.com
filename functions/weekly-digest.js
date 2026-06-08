@@ -24,6 +24,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -303,7 +304,7 @@ exports.weeklyDigest = onSchedule(
         });
 
         await userDoc.ref.update({
-          lastDigestSentAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastDigestSentAt: FieldValue.serverTimestamp(),
         });
 
         sent++;

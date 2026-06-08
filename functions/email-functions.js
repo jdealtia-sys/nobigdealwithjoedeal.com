@@ -14,6 +14,7 @@ const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https')
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 const { enforceRateLimit, httpRateLimit } = require('./rate-limit');
 
@@ -270,7 +271,7 @@ async function logEmailToFirestore(db, to, subject, uid, status = 'sent') {
       to,
       subject,
       uid,
-      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      sentAt: FieldValue.serverTimestamp(),
       status
     });
   } catch (e) {
@@ -488,7 +489,7 @@ exports.sendEstimateEmail = onRequest(
 
       // Update lead with lastEmailSent
       await db.doc(`leads/${leadId}`).update({
-        lastEmailSent: admin.firestore.FieldValue.serverTimestamp()
+        lastEmailSent: FieldValue.serverTimestamp()
       });
 
       // Log to Firestore
@@ -657,7 +658,7 @@ exports.sendTeamInviteEmail = onRequest(
         inviterUid: decoded.uid,
         inviterRole: callerRole,
         inviterName,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
         expiresAt: admin.firestore.Timestamp.fromDate(
           new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
         ),

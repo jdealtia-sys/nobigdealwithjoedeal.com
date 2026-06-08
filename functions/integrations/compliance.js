@@ -23,6 +23,7 @@ const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https')
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 
 // M-01/M-02: single source of truth for what "user-owned" means.
@@ -376,7 +377,7 @@ exports.requestAccountErasure = onCall(
     const db = admin.firestore();
     await db.doc('account_erasures/' + uid).set({
       tokenHash: hash,
-      requestedAt: admin.firestore.FieldValue.serverTimestamp(),
+      requestedAt: FieldValue.serverTimestamp(),
       expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 24 * 3_600_000),
       confirmed: false
     });
@@ -399,7 +400,7 @@ exports.requestAccountErasure = onCall(
             confirmUrl + '\n\n' +
             'If you did not make this request, you can ignore this email — your account will remain active.',
           status: 'pending',   // F-wave fix: worker query filters by status
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           source: 'requestAccountErasure'
         });
       }
@@ -558,7 +559,7 @@ exports.confirmAccountErasure = onRequest(
     // can't double-run.
     await reqRef.update({
       confirmed: true,
-      confirmedAt: admin.firestore.FieldValue.serverTimestamp()
+      confirmedAt: FieldValue.serverTimestamp()
     });
 
     // M-01: cascade uses the canonical user-owned registry so the
@@ -681,7 +682,7 @@ exports.confirmAccountErasure = onRequest(
       type: 'gdpr_erasure_confirmed',
       op: 'delete',
       ids: { uid },
-      ts: admin.firestore.FieldValue.serverTimestamp()
+      ts: FieldValue.serverTimestamp()
     });
 
     // POST response: JSON. The GET landing page's inline JS uses this

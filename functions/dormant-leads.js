@@ -26,6 +26,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -277,7 +278,7 @@ exports.dormantLeadNudge = onSchedule(
         });
 
         await userDoc.ref.update({
-          lastDormantNudgeSentAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastDormantNudgeSentAt: FieldValue.serverTimestamp(),
         });
 
         sent++;

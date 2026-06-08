@@ -23,6 +23,7 @@ const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const db = admin.firestore();
 const messaging = admin.messaging();
@@ -170,7 +171,7 @@ async function logNotificationSent(uid, notificationType, details = {}) {
     const logsRef = db.collection('users').doc(uid).collection('notificationLogs');
     await logsRef.add({
       type: notificationType,
-      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      sentAt: FieldValue.serverTimestamp(),
       details: details,
       timestamp: new Date().toISOString()
     });

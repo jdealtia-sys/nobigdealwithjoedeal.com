@@ -30,6 +30,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const twilio = require('twilio');
 const { enforceRateLimit, clientIp } = require('./rate-limit');
 
@@ -122,7 +123,7 @@ exports.sendVerificationCode = onCall(
       // Log the OTP request
       await db.collection('otp_requests').add({
         phone: formatted,
-        requestedAt: admin.firestore.FieldValue.serverTimestamp(),
+        requestedAt: FieldValue.serverTimestamp(),
         ip,
       });
 
@@ -211,7 +212,7 @@ exports.verifyCode = onCall(
         // Log successful verification
         const db = admin.firestore();
         await db.collection('verified_phones').doc(formatted).set({
-          verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+          verifiedAt: FieldValue.serverTimestamp(),
           phone: formatted
         }, { merge: true });
 

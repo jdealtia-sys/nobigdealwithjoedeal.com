@@ -18,6 +18,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const { enforceRateLimit } = require('../integrations/upstash-ratelimit');
 const {
@@ -174,7 +175,7 @@ exports.backfillAnalytics = onCall(
       // use updatedAt as a proxy so velocity calcs have a signal.
       const stage = (data.stage || '').toString().toLowerCase();
       if (['closed','install_complete','final_payment','complete','lost'].includes(stage) && !data.closedAt) {
-        updates.closedAt = data.updatedAt || data.createdAt || admin.firestore.FieldValue.serverTimestamp();
+        updates.closedAt = data.updatedAt || data.createdAt || FieldValue.serverTimestamp();
       }
 
       if (Object.keys(updates).length > 0) {
@@ -276,8 +277,8 @@ exports.migratePinsToKnocks = onCall(
         notes: 'Migrated from Maps pin: ' + (pin.status || 'unknown'),
         stage: disposition === 'appointment' ? 'appointment' : 'knock',
         attemptNumber: 1,
-        createdAt: pin.createdAt || admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        createdAt: pin.createdAt || FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
         convertedToLead: false,
         estimateValue: 0,
         closedDealValue: 0,
@@ -294,7 +295,7 @@ exports.migratePinsToKnocks = onCall(
       batch.set(knockRef, knockDoc);
 
       // Mark pin as migrated (don't delete — keep for audit)
-      batch.update(pinDoc.ref, { migrated: true, migratedAt: admin.firestore.FieldValue.serverTimestamp() });
+      batch.update(pinDoc.ref, { migrated: true, migratedAt: FieldValue.serverTimestamp() });
 
       batchCount += 2;
       migrated++;

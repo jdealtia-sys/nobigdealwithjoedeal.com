@@ -25,6 +25,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
 
@@ -113,8 +114,8 @@ exports.calcomWebhook = onRequest(
           endTime:        endTime   ? admin.firestore.Timestamp.fromDate(endTime)   : null,
           status:         trigger === 'BOOKING_RESCHEDULED' ? 'rescheduled' : 'booked',
           source:         'calcom',
-          createdAt:      admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt:      admin.firestore.FieldValue.serverTimestamp()
+          createdAt:      FieldValue.serverTimestamp(),
+          updatedAt:      FieldValue.serverTimestamp()
         }, { merge: true });
 
         // Create a reminder task 1hr before.
@@ -125,7 +126,7 @@ exports.calcomWebhook = onRequest(
             title: 'Inspection: ' + (attendee && attendee.name || 'Homeowner'),
             description: (payload.location || 'Cal.com booking') + ' — ' + (payload.title || ''),
             dueAt: admin.firestore.Timestamp.fromDate(remindAt),
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             source: 'calcom',
             bookingId,
             done: false
@@ -134,8 +135,8 @@ exports.calcomWebhook = onRequest(
       } else if (trigger === 'BOOKING_CANCELLED') {
         await apptRef.set({
           status: 'cancelled',
-          cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          cancelledAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
           userId: repUid
         }, { merge: true });
       }

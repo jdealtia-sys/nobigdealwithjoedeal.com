@@ -57,6 +57,7 @@
 'use strict';
 
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
@@ -78,7 +79,7 @@ async function acquireMigrationLease(db) {
     const d = snap.exists ? snap.data() : null;
     if (d && d.expiresAt && d.expiresAt.toMillis() > now) return false;
     tx.set(ref, {
-      lockedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lockedAt: FieldValue.serverTimestamp(),
       expiresAt: admin.firestore.Timestamp.fromMillis(now + LEASE_MS),
     });
     return true;
@@ -237,7 +238,7 @@ async function runPending() {
         version: m.version,
         name: m.name,
         startedAt: admin.firestore.Timestamp.fromMillis(start),
-        finishedAt: admin.firestore.FieldValue.serverTimestamp(),
+        finishedAt: FieldValue.serverTimestamp(),
         durationMs: duration,
         docsRead: result.docsRead,
         docsWritten: result.docsWritten,
@@ -245,7 +246,7 @@ async function runPending() {
       });
       await stateRef.set({
         appliedVersion: m.version,
-        lastRunAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastRunAt: FieldValue.serverTimestamp(),
         lastError: null,
       }, { merge: true });
 
@@ -256,7 +257,7 @@ async function runPending() {
       console.error('[migration ' + m.version + '/' + m.name + '] FAILED', err);
       await stateRef.set({
         appliedVersion: lastApplied,
-        lastRunAt: admin.firestore.FieldValue.serverTimestamp(),
+        lastRunAt: FieldValue.serverTimestamp(),
         lastError: lastError,
         lastFailedVersion: m.version,
       }, { merge: true });

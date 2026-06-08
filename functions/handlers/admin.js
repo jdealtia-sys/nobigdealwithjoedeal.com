@@ -19,6 +19,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const { callableRateLimit } = require('../shared');
 const {
@@ -326,7 +327,7 @@ exports.backfillCustomerData = onCall(
       }
 
       if (Object.keys(updates).length > 0) {
-        updates.backfilledAt = admin.firestore.FieldValue.serverTimestamp();
+        updates.backfilledAt = FieldValue.serverTimestamp();
         batch.update(doc.ref, updates);
         batchCount++;
 
@@ -391,7 +392,7 @@ exports.rotateAccessCodes = onCall(
       if (cur.active === false) continue;
       await ref.update({
         active: false,
-        rotatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        rotatedAt: FieldValue.serverTimestamp(),
         rotatedBy: uid,
         rotatedReason: 'legacy hardcoded code auto-disabled'
       });
@@ -404,7 +405,7 @@ exports.rotateAccessCodes = onCall(
       type: 'rotate_access_codes',
       actorUid: uid,
       deactivated,
-      ts: admin.firestore.FieldValue.serverTimestamp()
+      ts: FieldValue.serverTimestamp()
     });
     return { success: true, deactivated };
   }
@@ -458,7 +459,7 @@ exports.createTeamMember = onCall(
       await companyRef.set({
         ownerId: callerUid,
         name: (request.auth.token.name || 'My Company'),
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: FieldValue.serverTimestamp()
       }, { merge: true });
     }
 
@@ -502,7 +503,7 @@ exports.createTeamMember = onCall(
       displayName: displayName || userRecord.displayName || email.split('@')[0],
       uid: userRecord.uid,
       status: created ? 'invited' : 'active',
-      invitedAt: admin.firestore.FieldValue.serverTimestamp(),
+      invitedAt: FieldValue.serverTimestamp(),
       invitedBy: callerUid,
       active: true
     }, { merge: true });
@@ -512,7 +513,7 @@ exports.createTeamMember = onCall(
       email,
       displayName: displayName || userRecord.displayName || email.split('@')[0],
       companyId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
+      createdAt: FieldValue.serverTimestamp()
     }, { merge: true });
 
     // M-5: hash email before logging so Cloud Logging retention can't
@@ -606,7 +607,7 @@ exports.updateUserRole = onCall(
     if (emailKey) {
       await admin.firestore().doc(`companies/${companyId}/members/${emailKey}`).set({
         role,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
         updatedBy: callerUid
       }, { merge: true });
     }
@@ -676,7 +677,7 @@ exports.deactivateUser = onCall(
       await admin.firestore().doc(`companies/${companyId}/members/${emailKey}`).set({
         status: reactivate ? 'active' : 'deactivated',
         active: !!reactivate,
-        deactivatedAt: reactivate ? null : admin.firestore.FieldValue.serverTimestamp(),
+        deactivatedAt: reactivate ? null : FieldValue.serverTimestamp(),
         deactivatedBy: reactivate ? null : callerUid
       }, { merge: true });
     }

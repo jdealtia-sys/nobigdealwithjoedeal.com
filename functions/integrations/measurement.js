@@ -31,6 +31,7 @@
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { getSecret, hasSecret, PROVIDERS, notConfigured, SECRETS } = require('./_shared');
 
@@ -199,7 +200,7 @@ exports.requestMeasurement = onCall(
       externalJobId: result.jobId,
       status: result.synchronousData ? 'ready' : 'pending',
       estimatedMinutes: result.estimatedMinutes,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       ...(result.synchronousData ? parseSync(result.synchronousData) : {})
     };
     const ref = await db.collection('measurements').add(doc);
@@ -359,7 +360,7 @@ exports.measurementWebhook = onRequest(
       await measurementDoc.ref.update({
         status,
         ...(measurements ? { measurements } : {}),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        updatedAt: FieldValue.serverTimestamp()
       });
 
       // ─── Auto-attach to lead on ready ────────────────────
@@ -388,7 +389,7 @@ exports.measurementWebhook = onRequest(
           provider,
           measurementJobId: measurementDoc.id,
           dueAt: admin.firestore.Timestamp.now(),
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           done: false
         });
 
@@ -406,7 +407,7 @@ exports.measurementWebhook = onRequest(
               + (measurements.pitch ? 'pitch ' + measurements.pitch + ', ' : '')
               + (measurements.ridge ? measurements.ridge + ' LF ridge' : '')
             : null,
-          createdAt: admin.firestore.FieldValue.serverTimestamp()
+          createdAt: FieldValue.serverTimestamp()
         });
 
         // Also bump a lead field so the kanban card can show
@@ -415,7 +416,7 @@ exports.measurementWebhook = onRequest(
           measurementReady: true,
           measurementJobId: measurementDoc.id,
           measurementProvider: provider,
-          measurementReadyAt: admin.firestore.FieldValue.serverTimestamp()
+          measurementReadyAt: FieldValue.serverTimestamp()
         }, { merge: true });
 
         logger.info('measurementWebhook: attached to lead', {

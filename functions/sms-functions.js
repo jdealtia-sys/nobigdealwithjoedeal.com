@@ -119,7 +119,7 @@ async function logSMSToFirestore(db, to, body, uid, leadId = null, status = 'sen
       body,
       uid,
       leadId: leadId || null,
-      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      sentAt: FieldValue.serverTimestamp(),
       status,
       twilioSid: twilioSid || null
     });
@@ -473,7 +473,7 @@ exports.sendD2DSMS = onRequest(
 
       // Update knock with lastSmsSent
       await db.doc(`knocks/${knockId}`).update({
-        lastSmsSent: admin.firestore.FieldValue.serverTimestamp()
+        lastSmsSent: FieldValue.serverTimestamp()
       });
 
       // Log to Firestore
@@ -565,7 +565,7 @@ exports.incomingSMS = onRequest(
       if (phoneDigits && STOP_WORDS.has(opt)) {
         await db.doc('sms_opt_outs/' + phoneDigits).set({
           phone: fromPhone,
-          optedOutAt: admin.firestore.FieldValue.serverTimestamp(),
+          optedOutAt: FieldValue.serverTimestamp(),
           keyword: opt,
           twilioSid: messageSid
         });
@@ -620,12 +620,12 @@ exports.incomingSMS = onRequest(
           from: fromPhone,
           body: messageBody,
           twilioSid: messageSid,
-          createdAt: admin.firestore.FieldValue.serverTimestamp()
+          createdAt: FieldValue.serverTimestamp()
         });
 
         // Update lead's lastContactedAt
         await db.doc(`leads/${leadId}`).update({
-          lastContactedAt: admin.firestore.FieldValue.serverTimestamp()
+          lastContactedAt: FieldValue.serverTimestamp()
         });
 
         // Send push notification to the assigned rep
@@ -710,7 +710,7 @@ exports.incomingSMS = onRequest(
           from: fromPhone,
           body: messageBody,
           twilioSid: messageSid,
-          receivedAt: admin.firestore.FieldValue.serverTimestamp()
+          receivedAt: FieldValue.serverTimestamp()
         });
       }
 
@@ -887,7 +887,7 @@ exports.checkStormAlerts = onSchedule(
                 headline,
                 areas: areasLower,
                 zip,
-                sentAt: admin.firestore.FieldValue.serverTimestamp(),
+                sentAt: FieldValue.serverTimestamp(),
               });
             } catch (e) {
               logger.warn('storm_alert_sms_failed', { sub: sub.id, err: e.message });

@@ -10,6 +10,7 @@
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 function auditEntry(kind, ref, before, after) {
   return {
@@ -18,7 +19,7 @@ function auditEntry(kind, ref, before, after) {
     docId: ref.id,
     before: before || null,
     after: after || null,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    createdAt: FieldValue.serverTimestamp(),
   };
 }
 

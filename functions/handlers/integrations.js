@@ -15,6 +15,11 @@
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+// Modular FieldValue import — admin.firestore.FieldValue is undefined under the
+// emulator runtime, so submitPublicLead 500'd on a valid write (see
+// tests/public-intake.test.js). The modular path works in both prod and
+// emulator. Same pattern as lead-bridge.js.
+const { FieldValue } = require('firebase-admin/firestore');
 
 const { httpRateLimit, clientIp } = require('../integrations/upstash-ratelimit');
 const { CORS_ORIGINS } = require('./_shared');
@@ -257,7 +262,7 @@ exports.submitPublicLead = onRequest(
     // Trust-but-tag: server-only fields the client can't spoof.
     data.ip = clientIp(req);
     data.userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
-    data.createdAt = admin.firestore.FieldValue.serverTimestamp();
+    data.createdAt = FieldValue.serverTimestamp();
 
     // Multi-tenant tag (Phase C support): a tenant microsite declares which
     // tenant a public lead belongs to via `companyId`. lead-alert.js routes

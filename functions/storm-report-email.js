@@ -24,6 +24,7 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
 // Reuse the same secrets the other email functions bind.
@@ -147,7 +148,7 @@ exports.stormReportEmail = onDocumentCreated(
         const fresh = await tx.get(ref);
         if (!fresh.exists) return false;
         if (fresh.get('reportEmailedAt')) return false; // already handled
-        tx.update(ref, { reportEmailedAt: admin.firestore.FieldValue.serverTimestamp() });
+        tx.update(ref, { reportEmailedAt: FieldValue.serverTimestamp() });
         return true;
       });
     } catch (e) {

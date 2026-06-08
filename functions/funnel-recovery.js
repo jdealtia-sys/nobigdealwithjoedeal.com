@@ -37,6 +37,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
 // ───────────────────────────────────────────────────────────────
@@ -188,7 +189,7 @@ exports.saveFunnelProgress = onRequest(
 
       const db = admin.firestore();
       const docRef = db.collection('funnel_abandoned').doc(funnelId);
-      const now = admin.firestore.FieldValue.serverTimestamp();
+      const now = FieldValue.serverTimestamp();
 
       const existing = await docRef.get();
       const isNew = !existing.exists;
@@ -322,7 +323,7 @@ exports.runAbandonRecovery = onSchedule(
         });
 
         await doc.ref.update({
-          recoveryEmailSentAt: admin.firestore.FieldValue.serverTimestamp(),
+          recoveryEmailSentAt: FieldValue.serverTimestamp(),
           recoveryEmailStatus: 'sent',
         });
         sent++;

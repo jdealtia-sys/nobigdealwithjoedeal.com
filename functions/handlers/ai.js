@@ -15,6 +15,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldValue } = require('firebase-admin/firestore');
 
 const { enforceRateLimit, httpRateLimit } = require('../integrations/upstash-ratelimit');
 const { requireAuth } = require('../shared');
@@ -240,7 +241,7 @@ exports.claudeProxy = onRequest(
         // on true usage while the transactional reservation kept
         // concurrent callers honest.
         const delta  = total - reservation;
-        const srv = admin.firestore.FieldValue.serverTimestamp();
+        const srv = FieldValue.serverTimestamp();
         await Promise.all([
           admin.firestore().collection('api_usage').add({
             uid: decoded.uid,
