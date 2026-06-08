@@ -164,9 +164,19 @@ module-resolution bug, see below — so `companyProfile/oaks` may also be absent
 4. **Then push `main`** (C-1 + OAKS-1 fixes) → bridge activates: NBD public leads → pipeline (H-1 live);
    Oaks form leads → Oaks owner. Order: provision Oaks FIRST (so the bridge's Oaks path is correct), then push.
 
+## OUTCOME — Phase C COMPLETE + LIVE-VERIFIED (2026-06-08)
+- **Oaks provisioned as a real 2nd tenant** (prod): test owner `zz-qa-oaks-owner@…` uid `VuXj6x…`, claims
+  `{companyId:'oaks', role:'company_admin'}`, `companies/oaks.ownerId`, active subscription, brand present.
+  (SA key minted to do it was revoked; provisioning via `scripts/provision-tenant.js`.)
+- **Bridge fixes deployed** — pushed to main (`74fdf932`); firebase-deploy run `27146493376` = SUCCESS; all 4
+  `leadBridge*` triggers confirmed `ACTIVE` in prod (the C-1 fix worked).
+- **LIVE prod end-to-end verification (both paths, then purged):** NBD public lead → CRM pipeline owned by Joe
+  (stage New, webLead); Oaks public lead (companyId:'oaks') → CRM pipeline owned by the Oaks owner (VuXj6x),
+  companyId='oaks'. H-1 fixed in prod; 2-tenant routing proven.
+
 ## NEXT
-**Oaks PROVISIONED in prod 2026-06-08** (Claude drove via Jo's ADC + a short-lived adminsdk SA key, since revoked):
-test owner `zz-qa-oaks-owner@…` uid `VuXj6x…`, claims `{companyId:'oaks', role:'company_admin'}`, `companies/oaks.ownerId`
-set, active subscription, brand present — `--check` confirms. The 2-tenant structure is REAL.
-Remaining: (a) Jo verifies the Oaks owner login (separate browser → Oaks brand, empty pipeline, claim companyId='oaks');
-(b) push the 4 fix commits → bridge activates (NBD H-1 live; Oaks form leads → Oaks owner) → Phase C checkpoint → Phase D.
+- Optional: Jo's own real-form sanity check (submit `/inspect` → see it in the pipeline; Oaks form → joe@oaksrfc.com).
+- **Phase D (billing & seats):** opens with 3 decisions (subscription key / pricing model / trial tier) + backups
+  (`leads`, `subscriptions`) + Stripe TEST-mode confirmation. Say "Phase D" to start.
+- Loose ends (non-blocking): re-point Oaks `--owner` to Scott's real account when ready (purge the test owner per
+  CLEANUP.md); per-tenant `OAK-####` customer-ID prefix; retire the old marketing-project Oaks lead path.
