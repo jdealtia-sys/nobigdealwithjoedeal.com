@@ -23,6 +23,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 
 const { callableRateLimit } = require('../shared');
 const { PLAN_LIMITS } = require('../plan-limits');
+const { applySeatOverage } = require('../seat-overage');
 const {
   CORS_ORIGINS,
   LEGACY_ACCESS_CODES,
@@ -721,6 +722,14 @@ exports.deactivateUser = onCall(
         deactivatedBy: reactivate ? null : callerUid
       }, { merge: true });
     }
+
+    // D-3: removing (or reactivating) a member changes the active-seat count —
+    // recompute the seat-overage flag so the dashboard banner clears once the
+    // team is back within the plan limit. No email here (notify only fires on
+    // the Stripe downgrade event, not on owner-driven team changes).
+    try {
+      await applySeatOverage({ db: admin.firestore(), admin, logger }, companyId, { ownerId, notify: false });
+    } catch (e) { logger.warn('seat_overage_recompute_failed', { companyId, err: e.message }); }
 
     logger.info(reactivate ? 'reactivateUser' : 'deactivateUser', {
       companyId, targetUid: userRecord.uid

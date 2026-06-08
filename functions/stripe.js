@@ -26,6 +26,7 @@ const Stripe = require('stripe');
 // Shared helpers (B2).
 const { requireAuth } = require('./shared');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
+const { applySeatOverage } = require('./seat-overage');
 
 // Stripe secrets. Redeclared here because defineSecret scope is
 // per-module. index.js still declares them too for claudeProxy +
@@ -436,6 +437,12 @@ exports.stripeWebhook = onRequest(
             });
           } catch (e) { logger.warn('claims_update_failed', { companyId, err: e.message }); }
 
+          // D-3: a downgrade to a lower tier can leave the team over the new
+          // seat limit. Flag it + email the owner (never remove members).
+          // Solo/NBD has no members → no-op.
+          try { await applySeatOverage({ db, admin, logger }, companyId, { plan, notify: true }); }
+          catch (e) { logger.warn('seat_overage_failed', { companyId, err: e.message }); }
+
           logger.info('subscription_updated', { companyId, plan, status: subscription.status });
           break;
         }
@@ -472,6 +479,11 @@ exports.stripeWebhook = onRequest(
               stripeCustomerId: customerId
             });
           } catch (e) { logger.warn('claims_downgrade_failed', { companyId, err: e.message }); }
+
+          // D-3: cancelling to Free (1 seat) can leave the team over the limit.
+          // Flag it + email the owner; nobody is removed. Solo/NBD → no-op.
+          try { await applySeatOverage({ db, admin, logger }, companyId, { plan: 'free', notify: true }); }
+          catch (e) { logger.warn('seat_overage_failed', { companyId, err: e.message }); }
 
           logger.info('subscription_cancelled', { companyId });
           break;

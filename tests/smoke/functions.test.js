@@ -357,6 +357,30 @@ section('Storefront: Pro legal pages + canonical pricing (storefront-on-phased 2
     !/>\s*Start (Free|Your Free)/.test(idx));
 }
 
+section('D-3: seat-overage flag + notify (keep members active)');
+{
+  const so = read(path.join(FUNCTIONS, 'seat-overage.js'));
+  assert('seat-overage.js exports applySeatOverage', /module\.exports\s*=\s*\{[^}]*applySeatOverage/.test(so));
+  assert('seat-overage.js never deactivates members (flag-only, soft)', !/\bdisabled\s*:|\bactive\s*:\s*false/.test(so));
+  assert('seat-overage.js enqueues an owner email on overage', /email_queue/.test(so) && /stripe_seat_overage/.test(so));
+  assert('seat-overage.js counts active members', /where\(['"]active['"],\s*['"]==['"]\s*,\s*true\)/.test(so));
+
+  const st = read(path.join(FUNCTIONS, 'stripe.js'));
+  assert('stripe.js requires seat-overage', /require\(['"]\.\/seat-overage['"]\)/.test(st));
+  assert('stripe.js flags+notifies on both downgrade paths (deleted + updated)',
+    (st.match(/applySeatOverage\(/g) || []).length >= 2 && /notify:\s*true/.test(st));
+
+  const adm = read(path.join(FUNCTIONS, 'handlers', 'admin.js'));
+  assert('admin.js recomputes seat-overage on member change without emailing',
+    /applySeatOverage\(/.test(adm) && /notify:\s*false/.test(adm));
+
+  const bg = read(path.join(PRO_JS, 'billing-gate.js'));
+  assert('billing-gate.js reads the seatOverage flag', /data\.seatOverage/.test(bg));
+  assert('billing-gate.js renders a seat-overage banner', /nbd-seat-overage-banner/.test(bg) && /_renderSeatOverageBanner/.test(bg));
+  assert('billing-gate.js banner is CSP-safe (data-bg-action, no inline onclick)',
+    /data-bg-action="dismissSeatBanner"/.test(bg) && !/onclick=/i.test(bg));
+}
+
 section('Wave A5: firestore rules tests cover new collections');
 {
   const t = read(path.join(ROOT, 'tests/firestore-rules.test.js'));

@@ -49,6 +49,7 @@
   let _usage = { leads: 0, reports: 0, aiCalls: 0, cycleStart: null };
   let _trialEndsAt = null;
   let _loaded = false;
+  let _seatOverage = null;  // {over, activeSeats, seatLimit, plan} when the company is over its seat limit (D-3)
 
   // Owner bypass — mirrors nbd-auth.js OWNER_EMAILS. The two modules
   // stay independent so a single import change doesn't pull in the
@@ -96,6 +97,7 @@
         _status = 'active';
         _usage = { leads: 0, reports: 0, aiCalls: 0, cycleStart: null };
         _trialEndsAt = null;
+        _seatOverage = null;
         _loaded = true;
         return;
       }
@@ -123,11 +125,14 @@
         _status = data.status || 'none';
         _usage = data.usage || { leads: 0, reports: 0, aiCalls: 0 };
         _trialEndsAt = data.trialEndsAt || null;
+        _seatOverage = (data.seatOverage && data.seatOverage.over) ? data.seatOverage : null;
       } else {
         _plan = 'free';
         _status = 'none';
+        _seatOverage = null;
       }
       _loaded = true;
+      _renderSeatOverageBanner();
     } catch (e) {
       console.warn('[Billing] loadSubscription failed:', e.message);
       _plan = 'free';
@@ -275,6 +280,34 @@
     document.body.appendChild(overlay);
   }
 
+  // ── Seat-overage banner (D-3) ──
+  // When the company has more active members than its plan's seat limit
+  // (e.g. a Crew downgraded to Free keeps everyone), show a non-blocking
+  // banner. Nobody is removed — the owner removes members or upgrades. The
+  // flag is cleared server-side once back within limit; dismissible for the
+  // session. CSP-safe (no inline handlers — buttons use data-bg-action).
+  function _renderSeatOverageBanner() {
+    try {
+      const existing = document.getElementById('nbd-seat-overage-banner');
+      if (!_seatOverage || !_seatOverage.over) { if (existing) existing.remove(); return; }
+      if (existing) return;
+      try { if (sessionStorage.getItem('nbd_seat_banner_dismissed') === '1') return; } catch (_) {}
+      const limit = _seatOverage.seatLimit;
+      const active = _seatOverage.activeSeats;
+      const planLabel = (PLANS[_seatOverage.plan] || PLANS.free).label;
+      const bar = document.createElement('div');
+      bar.id = 'nbd-seat-overage-banner';
+      bar.style.cssText = 'position:relative;z-index:9000;background:#7a2e0c;border-bottom:2px solid #e8720c;color:#fff;padding:10px 16px;font-size:13px;line-height:1.5;display:flex;align-items:center;gap:12px;justify-content:center;flex-wrap:wrap;';
+      bar.innerHTML =
+        '<span>⚠️ Your <strong>' + planLabel + '</strong> plan includes <strong>' + limit + ' seat' + (limit === 1 ? '' : 's') +
+        '</strong>, but your team has <strong>' + active + ' active member' + (active === 1 ? '' : 's') +
+        '</strong>. Nobody’s been removed — remove members or upgrade to get back within your plan.</span>' +
+        '<button data-bg-action="closeUpgradeAndGoBilling" style="background:#e8720c;border:none;color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:700;">View Plans</button>' +
+        '<button data-bg-action="dismissSeatBanner" aria-label="Dismiss" style="background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;padding:6px 10px;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;">Dismiss</button>';
+      document.body.insertBefore(bar, document.body.firstChild);
+    } catch (e) { console.warn('[Billing] seat banner render failed:', e.message); }
+  }
+
   // ── Get current plan info ──
   function getPlan() {
     return {
@@ -287,7 +320,8 @@
       isTrialing: _status === 'trialing',
       isPastDue: _status === 'past_due',
       isCancelled: _status === 'cancelled',
-      isActive: _status === 'active' || _status === 'trialing'
+      isActive: _status === 'active' || _status === 'trialing',
+      seatOverage: _seatOverage
     };
   }
 
@@ -308,4 +342,4 @@
 
 
 // CSP-safe delegation (replaces 2 inline onclicks).
-(function(){if(window._NBD_BG_DELEGATE)return;window._NBD_BG_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-bg-action]');if(!t)return;var a=t.dataset.bgAction;try{var m=document.getElementById('nbd-upgrade-modal');if(m)m.remove();if(a==='closeUpgradeAndGoBilling'&&typeof goTo==='function')goTo('billing');}catch(e){console.error('[billing-gate]',e);}});})();
+(function(){if(window._NBD_BG_DELEGATE)return;window._NBD_BG_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-bg-action]');if(!t)return;var a=t.dataset.bgAction;try{var m=document.getElementById('nbd-upgrade-modal');if(m)m.remove();if(a==='dismissSeatBanner'){var b=document.getElementById('nbd-seat-overage-banner');if(b)b.remove();try{sessionStorage.setItem('nbd_seat_banner_dismissed','1');}catch(_){}}if(a==='closeUpgradeAndGoBilling'&&typeof goTo==='function')goTo('billing');}catch(e){console.error('[billing-gate]',e);}});})();
