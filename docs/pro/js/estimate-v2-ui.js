@@ -1254,6 +1254,35 @@
   // Rendering
   // ═════════════════════════════════════════════════════════
 
+  // Shared per-SQ engine input. Used both for the retail-quote tier
+  // cards (finalize) and for the canonical customer total in
+  // getCurrentEstimate (V2-2/V2-pkb fix). Single source so the headline,
+  // the highlighted card, and the saved grandTotal can never disagree.
+  // NOTE: state.measurements.pitch is the RISE integer (e.g. 8 for 8/12);
+  // parsePitch reads a bare number as the rise/run RATIO, so we pass
+  // "<rise>/12" (see V2-1 fix).
+  function buildPerSqInput() {
+    const m = state.measurements || {};
+    return {
+      rawSqft:          m.rawSqft,
+      pitch:            (Number(m.pitch) || 8) + '/12',
+      cutUpRoof:        m.cutUpRoof,
+      ridgeLf:          m.ridgeLf,
+      eaveLf:           m.eaveLf,
+      hipLf:            m.hipLf,
+      pipes:            m.pipes,
+      tearOffLayers:    m.tearOffLayers,
+      hasChimneyFlash:  m.hasChimneyFlash,
+      hasSkylightFlash: m.hasSkylightFlash,
+      valleyMetalLf:    m.valleyMetalLf,
+      guttersLf:        m.guttersLf,
+      county:           state.county,
+      city:             state.county,   // permit lookup uses city or county
+      mode:             state.jobMode,
+      tier:             state.tier
+    };
+  }
+
   function getCurrentEstimate() {
     const cat = window.NBD_XACT_CATALOG;
     if (!cat) return null;
@@ -1313,6 +1342,60 @@
       estimate.subtotal = (estimate.subtotal || 0) + amt;
       estimate.total    = (estimate.total    || 0) + amt;
       estimate.materialRetail = estimate.materialRetail || 0;
+    }
+
+    // ── V2-2 / V2-pkb (estimate-qa-2026-06-08): canonical customer total ──
+    // For PER-SQ CASH (retail Good-Better-Best) estimates, the customer total is
+    // the SELECTED tier's per-SQ price (locked spec; matches classic estimates.js
+    // :522-528). The line-item resolveEstimate sum is the INTERNAL cost basis
+    // (kept as internalLineItemTotal). LINE-ITEM and INSURANCE estimates keep the
+    // scope total — insurance prices off the approved scope, never a retail tier,
+    // so we gate on jobMode too. priceMode reflects what actually set grandTotal.
+    const passThruSum = (state.passThru || [])
+      .reduce((s, p) => s + (Number(p.amount) || 0), 0);
+    estimate.priceMode = 'line-item';   // flipped to 'per-sq' only when the overlay applies
+    if (state.mode === 'per-sq'
+        && state.jobMode !== 'insurance'
+        && window.EstimateBuilderV2
+        && typeof window.EstimateBuilderV2.calculateAllTiers === 'function'
+        && state.measurements && Number(state.measurements.rawSqft) > 0) {
+      const tiers = window.EstimateBuilderV2.calculateAllTiers(buildPerSqInput());
+      // Fold flat pass-through fees (e.g. the $75 aerial-measurement report that
+      // applyMeasurementResult auto-adds) into EACH tier's customer total, so the
+      // tier cards, the "Your Investment" headline, prices{}, and the saved
+      // grandTotal all show the SAME number — else they disagree by passThruSum
+      // (a smaller resurrection of the V2-2 bug this fix exists to kill).
+      if (passThruSum) {
+        ['good', 'better', 'best'].forEach(k => {
+          if (tiers[k]) tiers[k].total = (Number(tiers[k].total) || 0) + passThruSum;
+        });
+      }
+      const chosen = tiers[state.tier] || tiers.better;
+      if (chosen) {
+        estimate.internalLineItemTotal = estimate.total;   // cost basis (Internal View)
+        estimate.total    = chosen.total;                  // tier price + passThru (all-in)
+        estimate.subtotal = (Number(chosen.subtotal) || 0) + passThruSum;
+        estimate.taxRate  = chosen.taxRate;
+        estimate.tax      = chosen.tax;
+        // Deposit on the ALL-IN customer total (cash 50% / insurance 0%, $25 round),
+        // so the doc's "(50%)" label and deposit/balance foot to the shown total.
+        estimate.deposit  = (state.jobMode === 'insurance')
+          ? 0
+          : Math.round((estimate.total * 0.5) / 25) * 25;
+        estimate.tier     = (tiers[state.tier] ? state.tier : 'better');
+        estimate.prices   = { good: tiers.good.total, better: tiers.better.total, best: tiers.best.total };
+        estimate.perSqTiers = tiers;        // .total now passThru-inclusive; reused in finalize
+        estimate.priceMode  = 'per-sq';
+        // Reconcile the Internal View margin to the per-SQ customer total (it was
+        // computed against the line-item cost basis → understated true margin).
+        const hardCost = (estimate.hardCost != null)
+          ? estimate.hardCost
+          : ((estimate.internal && estimate.internal.hardCost) || 0);
+        estimate.internal = Object.assign({}, estimate.internal, {
+          margin: estimate.total - hardCost,
+          marginPct: estimate.total > 0 ? ((estimate.total - hardCost) / estimate.total) * 100 : 0
+        });
+      }
     }
     return estimate;
   }
@@ -1752,7 +1835,7 @@
     const stats = [
       { label: 'Line Items',  value: String(lines.length),  sub: 'in scope' },
       { label: 'Material',    value: estimate.materialType || meta.materialType || 'GAF Timberline', sub: '' },
-      { label: 'Estimate',    value: '$' + (Number(estimate.total || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })), sub: 'before tax' },
+      { label: 'Estimate',    value: '$' + (Number(estimate.total || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })), sub: 'incl. tax' },
     ];
 
     const summary = {
@@ -1837,37 +1920,16 @@
     // we use the EstimateBuilderV2 per-SQ calculator which applies
     // the flat $545/$595/$660 rates from locked spec — giving the
     // customer a meaningful good/better/best choice on the quote.
-    if (format === 'retail-quote') {
-      const perSqInput = {
-        rawSqft:          state.measurements.rawSqft,
-        // QA-fix (V2-1, estimate-qa-2026-06-08): state.measurements.pitch is the
-        // RISE integer (e.g. 8 for 8/12). EstimateBuilderV2.parsePitch() reads a
-        // bare number as the rise/run RATIO, so any rise (4-14) > 1.0 fell into the
-        // steepest waste bucket (1.25) regardless of the actual pitch — over-quoting
-        // the customer 4-8%. Pass "<rise>/12" so parsePitch yields the correct ratio.
-        pitch:            (Number(state.measurements.pitch) || 8) + '/12',
-        cutUpRoof:        state.measurements.cutUpRoof,
-        ridgeLf:          state.measurements.ridgeLf,
-        eaveLf:           state.measurements.eaveLf,
-        hipLf:            state.measurements.hipLf,
-        pipes:            state.measurements.pipes,
-        tearOffLayers:    state.measurements.tearOffLayers,
-        // W143: pass-through the four per-SQ add-on fields the
-        // engine has supported all along but the UI never exposed.
-        // Without these, retail-quote tier comparison silently
-        // omitted chimney/skylight flashing and valley/gutter
-        // line items even when the rep entered them. Now they
-        // flow into all three Good/Better/Best tier calcs.
-        hasChimneyFlash:  state.measurements.hasChimneyFlash,
-        hasSkylightFlash: state.measurements.hasSkylightFlash,
-        valleyMetalLf:    state.measurements.valleyMetalLf,
-        guttersLf:        state.measurements.guttersLf,
-        county:           state.county,
-        city:             state.county,  // permit lookup uses city or county
-        mode:             state.jobMode
-      };
-      if (window.EstimateBuilderV2 && typeof window.EstimateBuilderV2.calculateAllTiers === 'function') {
-        meta.tiers = window.EstimateBuilderV2.calculateAllTiers(perSqInput);
+    // Per-SQ Good/Better/Best tier cards are shown ONLY for per-SQ
+    // (cash / retail) estimates. Line-item / insurance estimates price off
+    // the scope total, so showing per-SQ tier cards there would contradict
+    // the headline (the V2-2 bug). Reuse the tiers getCurrentEstimate already
+    // computed so the highlighted card == headline == saved grandTotal.
+    if (format === 'retail-quote' && state.mode === 'per-sq' && state.jobMode !== 'insurance') {
+      if (estimate.perSqTiers) {
+        meta.tiers = estimate.perSqTiers;
+      } else if (window.EstimateBuilderV2 && typeof window.EstimateBuilderV2.calculateAllTiers === 'function') {
+        meta.tiers = window.EstimateBuilderV2.calculateAllTiers(buildPerSqInput());
       } else {
         // Fallback to the (identical-per-tier) line-item calc if
         // the per-SQ engine is unavailable for some reason
@@ -1879,6 +1941,9 @@
           best:   window.EstimateLogic.resolveEstimate(items, state.measurements, { tier: 'best',   mode: state.jobMode, county: state.county })
         };
       }
+      // Mark the rep's selected tier so the formatter highlights the matching
+      // card by KEY (not float-equality on totals — see estimate-finalization.js).
+      if (meta.tiers) meta.tiers.recommended = state.tier;
     }
     // formatEstimate can throw if a required field in the catalog item
     // is malformed. Wrap so the user gets a real error instead of a
@@ -2024,8 +2089,14 @@
           rate:   '$' + ((line.materialCostPerUnit || 0) + (line.laborCostPerUnit || 0)).toFixed(2),
           total:  line.lineTotal || 0
         })),
-        // Totals
+        // Totals — grandTotal is the canonical customer total: the selected
+        // per-SQ tier price for per-SQ estimates, the scope total for line-item.
         grandTotal:       estimate.total,
+        prices:           estimate.prices || null,            // {good,better,best} per-SQ tier prices (classic shape, close-board.js reads this)
+        selectedTier:     estimate.tier || state.tier,
+        priceMode:        estimate.priceMode || state.mode,   // 'per-sq' | 'line-item' — tells consumers which model set grandTotal
+        internalLineItemTotal: (estimate.internalLineItemTotal != null ? estimate.internalLineItemTotal : null), // cost basis for per-SQ estimates
+        deposit:          (estimate.deposit != null ? Number(estimate.deposit) : null), // numeric; insurance 0%, so invoicing honors it (V2-pkb)
         materialCost:     estimate.materialCost,
         laborCost:        estimate.laborCost,
         subtotal:         estimate.subtotal,

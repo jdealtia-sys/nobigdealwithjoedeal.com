@@ -1861,16 +1861,24 @@
         amount: amount
       };
     });
-    var grandTotal = mapped.reduce(function (s, i) { return s + (parseFloat(i.amount) || 0); }, 0);
+    var lineItemsTotal = mapped.reduce(function (s, i) { return s + (parseFloat(i.amount) || 0); }, 0);
+    // V2-pkb (estimate-qa-2026-06-08): for PER-SQ estimates the grandTotal is
+    // locked to the selected tier price — editing the internal line items here
+    // must NOT overwrite it. Only line-item / legacy estimates derive grandTotal
+    // from the line-item sum. (Detected via the saved priceMode/prices fields.)
+    var perSqLocked = (est.priceMode === 'per-sq') || (est.prices != null);
+    var estUpdate = {
+      lineItems: mapped,
+      lineItemsTotal: lineItemsTotal,
+      updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date()
+    };
+    if (!perSqLocked) { estUpdate.grandTotal = lineItemsTotal; }
     try {
-      await window.updateDoc(window.doc(window.db, 'estimates', est.id), {
-        lineItems: mapped,
-        grandTotal: grandTotal,
-        updatedAt: window.serverTimestamp ? window.serverTimestamp() : new Date()
-      });
+      await window.updateDoc(window.doc(window.db, 'estimates', est.id), estUpdate);
       // Mutate cached copy so subsequent fields see it
       est.lineItems = mapped;
-      est.grandTotal = grandTotal;
+      est.lineItemsTotal = lineItemsTotal;
+      if (!perSqLocked) { est.grandTotal = lineItemsTotal; }
       toast('Line items saved to estimate.', 'success');
     } catch (err) {
       console.error('[DocPreflight] Save to estimate failed', err);
