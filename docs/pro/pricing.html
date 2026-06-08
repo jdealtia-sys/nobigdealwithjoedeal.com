@@ -4,14 +4,45 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#e8720c">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NBD Pro">
+<meta name="theme-color" content="#0A0C0F">
 <title>NBD Pro Pricing — Contractor-Built, Contractor-Priced</title>
+<meta name="description" content="NBD Pro pricing: a free-forever plan plus Solo ($99/mo), Crew ($299/mo), and Scale (custom) for roofing contractors. 14-day free trial, no credit card, no contract, cancel anytime.">
+<link rel="canonical" href="https://nobigdealwithjoedeal.com/pro/pricing">
+<meta property="og:type" content="website">
+<meta property="og:title" content="NBD Pro Pricing — Contractor-Built, Contractor-Priced">
+<meta property="og:description" content="Free-forever plan plus Solo $99, Crew $299, and Scale (custom). 14-day free trial, no card, no contract, cancel anytime. Built by a roofer, for roofers.">
+<meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/pricing">
+<meta property="og:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
+<meta property="og:image:alt" content="Joe Deal, founder of NBD Pro">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="NBD Pro Pricing — Contractor-Built, Contractor-Priced">
+<meta name="twitter:description" content="Free-forever plan plus Solo $99, Crew $299, and Scale (custom). 14-day free trial, no card. Built by a roofer, for roofers.">
+<meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
+<meta name="twitter:image:alt" content="Joe Deal, founder of NBD Pro">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <!-- Audit #30: pricing page now joins the shared theme system. Hex values are
      still hardcoded throughout this file — switching themes won't repaint until
      those are migrated to var(--bg)/var(--orange)/etc. (tracked as follow-up). -->
 <link rel="stylesheet" href="css/theme-system.css">
+<!--
+  PRICING SOURCE-OF-TRUTH NOTE (keep in sync — repo has a history of 3 diverging price lists):
+    • This page = the canonical marketing pricing: Free $0 / Solo $99 ($69 annual) / Crew $299 (3 seats +$39/extra; $209 annual) / Scale from $599 custom.
+      LOCKED by Jo 2026-06-08 + documentation/PRICING.md: per-seat model, Crew $299 / 3 seats, ~30% annual, Free tier + 14-day trial.
+    • docs/pro/index.html shows a teaser that must match these figures and link here.
+    • functions/billing.js PLAN_LIMITS is the authoritative usage-cap source the matrix below is derived from
+      (free/starter/growth/enterprise → Free/Solo/Crew/Scale).
+  ⚠ PRE-LAUNCH (Phase D, Joe gated on Stripe TEST mode): before any paid CTA charges money,
+    (1) re-point STRIPE_PRICE_PROFESSIONAL $249 → $299 for Crew (canonical = $299);
+    (2) build the +$39/mo per-additional-seat line item (stripe.js hardcodes quantity:1; billing.js caps reps at 5).
+  Self-serve signup is NOT live yet (Phase E). Until it is, CTAs read "Get Early Access" and route to the
+  signup/onboarding form (register.html) — no Stripe checkout, so nobody is charged.
+-->
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"NBD Pro","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"All-in-one roofing CRM, estimate builder, door-to-door tracker, inspection reports, and sales training built by a roofer for roofers.","author":{"@type":"Person","name":"Joe Deal","url":"https://nobigdealwithjoedeal.com/about"},"offers":[{"@type":"Offer","name":"Free","price":"0","priceCurrency":"USD","description":"Free forever. No credit card. Up to 10 leads/month, basic CRM, D2D tracker."},{"@type":"Offer","name":"Solo","price":"99","priceCurrency":"USD","description":"$99/mo. 50 leads/month, full CRM, estimates, photo engine, inspection reports."},{"@type":"Offer","name":"Crew","price":"299","priceCurrency":"USD","description":"$299/mo plus $39/mo per additional seat. 500 leads/month, unlimited reports + AI, team features."}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I switch plans anytime?","acceptedAnswer":{"@type":"Answer","text":"Yes. Upgrade or downgrade at any time. Changes take effect immediately and Stripe prorates the difference — you only pay for what you use."}},{"@type":"Question","name":"What happens when I hit my lead limit?","acceptedAnswer":{"@type":"Answer","text":"We warn you at 80% and show a friendly upgrade prompt at 100%. We never lock you out mid-cycle — you can finish the month and upgrade when ready."}},{"@type":"Question","name":"Is there a contract or commitment?","acceptedAnswer":{"@type":"Answer","text":"No contracts. Monthly billing, cancel anytime. Your data stays yours even if you cancel."}},{"@type":"Question","name":"What's the 14-day free trial?","acceptedAnswer":{"@type":"Answer","text":"New users get 14 days of Crew-tier access with no credit card required. After 14 days, you choose a paid plan or keep using the free-forever plan."}},{"@type":"Question","name":"What if my crew grows past 3 people?","acceptedAnswer":{"@type":"Answer","text":"Crew includes 3 team seats at $299/mo. Need more? Additional seats are $39/mo each — reach out and we'll add them to your plan. Bigger operation? That's what Scale is for."}},{"@type":"Question","name":"Why are you cheaper than the big platforms?","acceptedAnswer":{"@type":"Answer","text":"Because I built this for myself first. No VC money to pay back, no sales team commissions, no enterprise overhead. Every dollar goes into tools I actually use in the field — not features that look good in a demo."}}]}</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t, #f0f0f0);min-height:100vh;}
@@ -20,8 +51,12 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 .brand{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.2em;color:#e8720c;text-transform:uppercase;margin-bottom:12px;}
 .headline{font-family:'Barlow Condensed',sans-serif;font-size:clamp(36px,6vw,56px);font-weight:800;text-transform:uppercase;line-height:1;margin-bottom:16px;}
 .headline span{color:#e8720c;}
-.subhead{font-size:16px;color:#8b9bb4;max-width:520px;margin:0 auto;line-height:1.5;}
+.subhead{font-size:16px;color:#8b9bb4;max-width:560px;margin:0 auto;line-height:1.5;}
 .north-star{font-size:12px;color:#e8720c;font-weight:700;letter-spacing:.08em;margin-top:16px;text-transform:uppercase;}
+
+/* Trial clarity callout */
+.trial-callout{max-width:760px;margin:28px auto 0;padding:16px 22px;background:rgba(232,114,12,.08);border:1px solid rgba(232,114,12,.28);border-radius:10px;font-size:13px;color:#c7cad1;line-height:1.55;text-align:center;}
+.trial-callout strong{color:#f0f0f0;}
 
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:1100px;margin:40px auto 0;padding:0 20px;}
 @media(max-width:900px){.grid{grid-template-columns:1fr 1fr;}}
@@ -36,6 +71,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 .tier-name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
 .tier-price{font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:#e8720c;line-height:1;margin-bottom:4px;}
 .tier-price .mo{font-size:14px;color:#8b9bb4;font-weight:600;}
+.tier-seat{font-size:11px;color:#8b9bb4;margin-bottom:8px;line-height:1.4;}
 .tier-desc{font-size:12px;color:#8b9bb4;margin-bottom:20px;line-height:1.4;}
 
 .features{list-style:none;flex:1;margin-bottom:24px;}
@@ -50,10 +86,34 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 .cta-ghost{background:transparent;border:2px solid #2a2f35;color:#8b9bb4;}
 .cta-ghost:hover{border-color:#e8720c;color:#e8720c;}
 
+/* Feature-comparison matrix */
+.matrix-wrap{max-width:1000px;margin:64px auto 0;padding:0 20px;}
+.matrix-title{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;text-align:center;margin-bottom:8px;}
+.matrix-sub{font-size:13px;color:#8b9bb4;text-align:center;margin-bottom:28px;}
+.matrix-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+table.matrix{width:100%;border-collapse:collapse;min-width:640px;font-size:13px;}
+table.matrix th,table.matrix td{padding:12px 14px;text-align:center;border-bottom:1px solid #1e2228;}
+table.matrix thead th{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#f0f0f0;}
+table.matrix thead th.pop{color:#e8720c;}
+table.matrix tbody th{text-align:left;font-weight:600;color:#c7cad1;font-size:13px;}
+table.matrix td{color:#c7cad1;}
+table.matrix .yes{color:#e8720c;font-weight:800;}
+table.matrix .no{color:#555;}
+table.matrix tbody tr:hover{background:rgba(255,255,255,.02);}
+
+/* Risk-reversal / trust cluster */
+.trust-cluster{max-width:1000px;margin:40px auto 0;padding:0 20px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
+@media(max-width:760px){.trust-cluster{grid-template-columns:1fr 1fr;}}
+.trust-item{background:#111418;border:1px solid #1e2228;border-radius:10px;padding:18px 16px;text-align:center;}
+.trust-item .ti-ico{font-size:22px;margin-bottom:8px;}
+.trust-item .ti-head{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:800;text-transform:uppercase;letter-spacing:.03em;color:#f0f0f0;margin-bottom:4px;}
+.trust-item .ti-sub{font-size:11px;color:#8b9bb4;line-height:1.45;}
+
 .faq{max-width:700px;margin:60px auto;padding:0 20px 60px;}
 .faq-title{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;text-align:center;margin-bottom:24px;}
 .faq-item{border-bottom:1px solid #1e2228;padding:16px 0;}
 .faq-q{font-size:14px;font-weight:700;color:#f0f0f0;cursor:pointer;}
+.faq-q:focus-visible{outline:2px solid #e8720c;outline-offset:3px;border-radius:2px;}
 .faq-a{font-size:13px;color:#8b9bb4;margin-top:8px;line-height:1.5;display:none;}
 .faq-item.open .faq-a{display:block;}
 
@@ -72,121 +132,188 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 
 <div class="header">
   <div class="brand">NBD PRO</div>
-  <div class="headline">Contractor-Built.<br><span>Contractor-Priced.</span></div>
-  <div class="subhead">I built this because I couldn't justify paying $400–$500 a month for software designed by people who've never worked a roof. NBD Pro is one-third the price of JobNimbus or AccuLynx — and every feature exists because I needed it in the field first.</div>
-  <div class="north-star">ALWAYS 1/3 OF WHAT THE BIG GUYS CHARGE</div>
+  <h1 class="headline">Contractor-Built.<br><span>Contractor-Priced.</span></h1>
+  <p class="subhead">I built this because I couldn't justify paying $400–$500 a month for software designed by people who've never worked a roof. NBD Pro is a fraction of that — and every feature exists because I needed it in the field first.</p>
+  <div class="north-star">A fraction of what the big platforms charge</div>
+  <div class="trial-callout">
+    <strong>Free is free forever</strong> — no credit card, no timer. Paid plans include a <strong>14-day Crew-tier trial</strong>, no card required. We're onboarding founding members now — grab early access below and we'll get you set up.
+  </div>
 </div>
 
 <div class="grid">
   <!-- FREE -->
   <div class="card">
     <div class="tier-icon">🆓</div>
-    <div class="tier-name">Free</div>
+    <h2 class="tier-name">Free</h2>
     <div class="tier-price">$0 <span class="mo">forever</span></div>
+    <div class="tier-seat">1 user · no card</div>
     <div class="tier-desc">Kick the tires. No credit card, no pressure, no timer.</div>
     <ul class="features">
       <li>10 leads per month</li>
       <li>Basic CRM pipeline</li>
-      <li>D2D door knock tracker</li>
+      <li>D2D door-knock tracker</li>
       <li>Drawing tool</li>
       <li>1 theme</li>
-      <li class="disabled">Reports</li>
+      <li class="disabled">Inspection reports</li>
       <li class="disabled">AI tools</li>
       <li class="disabled">Team features</li>
     </ul>
-    <a href="/pro/register.html" class="cta cta-ghost">Get Started Free</a>
+    <a href="/pro/register.html?plan=free" class="cta cta-ghost">Get Early Access</a>
   </div>
 
-  <!-- STARTER -->
+  <!-- SOLO -->
   <div class="card">
     <div class="tier-icon">🚀</div>
-    <div class="tier-name">Starter</div>
+    <h2 class="tier-name">Solo</h2>
     <div class="tier-price">$99 <span class="mo">/mo</span></div>
-    <div class="tier-desc">Solo operator. The exact setup I run my business on every day.</div>
+    <div class="tier-seat">or $69/mo billed annually (~30% off) · 1 user · 14-day trial, no card</div>
+    <div class="tier-desc">Solo operator. The exact setup I run my own business on every day.</div>
     <ul class="features">
+      <li>Everything in Free, plus:</li>
       <li>50 leads per month</li>
-      <li>Full CRM + pipeline views</li>
-      <li>D2D tracker + territories</li>
-      <li>Drawing tool + estimates</li>
-      <li>2 reports per month</li>
-      <li>20 AI calls per month</li>
-      <li>155 themes + Professional Mode</li>
-      <li>24 document templates</li>
-      <li class="disabled">Team features</li>
+      <li>AI roof-photo analysis + auto-tagging</li>
+      <li>E-signature + shareable homeowner portal</li>
+      <li>Estimate builder (Good/Better/Best)</li>
+      <li>All 24 document templates + 186 themes</li>
+      <li>AI-drafted text replies <em>(coming soon)</em></li>
+      <li class="disabled">Team seats</li>
     </ul>
-    <a href="#" data-pr-action="subscribe" data-plan="starter" class="cta cta-primary">Subscribe — $99/mo</a>
+    <a href="/pro/register.html?plan=solo" data-plan="solo" class="cta cta-primary">Get Early Access</a>
   </div>
 
-  <!-- GROWTH -->
+  <!-- CREW -->
   <div class="card popular">
     <div class="tier-icon">📈</div>
-    <div class="tier-name">Growth</div>
-    <div class="tier-price">$249 <span class="mo">/mo</span></div>
-    <div class="tier-desc">Growing a crew. Real visibility into who's closing, who's burning gas, and where your pipeline actually stands.</div>
+    <h2 class="tier-name">Crew</h2>
+    <div class="tier-price">$299 <span class="mo">/mo</span></div>
+    <div class="tier-seat">3 seats included · +$39/mo per extra seat · or $209/mo billed annually</div>
+    <div class="tier-desc">Growing a crew. Real visibility into who's closing, who's burning gas, and where your pipeline stands.</div>
     <ul class="features">
+      <li>Everything in Solo, plus:</li>
       <li>500 leads per month</li>
-      <li>Full CRM + all pipeline views</li>
-      <li>Unlimited reports</li>
-      <li>Unlimited AI tools</li>
-      <li>Up to 5 team reps</li>
-      <li>Rep leaderboard + coaching</li>
-      <li>Territory management</li>
-      <li>Customer portals</li>
+      <li>3 seats included, then $39/mo per rep</li>
+      <li>Order aerial measurements (HOVER / EagleView)</li>
+      <li>Storm Center + hail-history lead-gen</li>
+      <li>Rep OS, Close Board, Leaderboard, Sales Training</li>
+      <li>Forecasting, profit-margin &amp; lead-source ROI</li>
+      <li>Customer portals + Real Deal Academy (team)</li>
       <li>Priority support</li>
     </ul>
-    <a href="#" data-pr-action="subscribe" data-plan="growth" class="cta cta-primary">Start 14-Day Free Trial</a>
+    <a href="/pro/register.html?plan=crew" data-plan="crew" class="cta cta-primary">Get Early Access</a>
   </div>
 
-  <!-- ENTERPRISE -->
+  <!-- SCALE -->
   <div class="card">
     <div class="tier-icon">🏢</div>
-    <div class="tier-name">Enterprise</div>
-    <div class="tier-price">Custom</div>
-    <div class="tier-desc">Multi-location, white-label, or enterprise rollout. Call me directly — we'll figure out what you need.</div>
+    <h2 class="tier-name">Scale</h2>
+    <div class="tier-price">$599<span class="mo">+ custom</span></div>
+    <div class="tier-seat">Unlimited seats · let's talk</div>
+    <div class="tier-desc">Multi-location, white-label, or a bigger rollout. Reach out directly and we'll figure out what you need.</div>
     <ul class="features">
-      <li>Unlimited leads</li>
-      <li>Unlimited reports + AI</li>
-      <li>Unlimited reps</li>
-      <li>Multi-tenant architecture</li>
-      <li>Custom branding / white-label</li>
-      <li>Dedicated support</li>
+      <li>Everything in Crew, plus:</li>
+      <li>Unlimited leads + unlimited reps</li>
+      <li>White-label / custom domain</li>
+      <li>Multi-location rollup</li>
       <li>Custom integrations</li>
-      <li>SLA guarantee</li>
-      <li>On-site training</li>
+      <li>Dedicated support &amp; SLA</li>
+      <li>Custom onboarding</li>
     </ul>
-    <a href="mailto:info@nobigdealwithjoedeal.com?subject=Enterprise%20Inquiry" class="cta cta-ghost">Contact Sales</a>
+    <a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD%20Pro%20Scale%20Inquiry" class="cta cta-ghost">Talk to Joe</a>
+  </div>
+</div>
+
+<!-- FEATURE-COMPARISON MATRIX -->
+<div class="matrix-wrap">
+  <h2 class="matrix-title">Compare Every Plan</h2>
+  <p class="matrix-sub">Lead caps and seat counts below are what the app enforces. AI and aerial-measurement features are metered by tier.</p>
+  <div class="matrix-scroll">
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th scope="col">Feature</th>
+          <th scope="col">Free</th>
+          <th scope="col">Solo</th>
+          <th scope="col" class="pop">Crew</th>
+          <th scope="col">Scale</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><th scope="row">Leads / month</th><td>10</td><td>50</td><td>500</td><td>Unlimited</td></tr>
+        <tr><th scope="row">Team seats</th><td>1</td><td>1</td><td>3 (+$39 each)</td><td>Unlimited</td></tr>
+        <tr><th scope="row">CRM pipeline + kanban</th><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><th scope="row">D2D tracker + territories</th><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><th scope="row">Estimate builder</th><td>Basic</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><th scope="row">Photo engine + inspection reports</th><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><th scope="row">AI roof-photo analysis</th><td class="no">—</td><td class="yes">✓</td><td class="yes">✓ (higher volume)</td><td class="yes">✓</td></tr>
+        <tr><th scope="row">Aerial measurements (HOVER / EagleView)</th><td class="no">—</td><td class="no">—</td><td class="yes">Metered</td><td class="yes">Volume</td></tr>
+        <tr><th scope="row">E-sign + customer portals</th><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><th scope="row">Real Deal Academy</th><td class="no">—</td><td class="no">—</td><td class="yes">Team</td><td class="yes">Team</td></tr>
+        <tr><th scope="row">Rep OS / leaderboard / coaching</th><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><th scope="row">Forecasting + lead-source ROI</th><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><th scope="row">White-label / multi-tenant</th><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+        <tr><th scope="row">Support</th><td>Community</td><td>Email</td><td>Priority</td><td>Dedicated</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- RISK-REVERSAL / TRUST CLUSTER -->
+<div class="trust-cluster">
+  <div class="trust-item">
+    <div class="ti-ico">📝</div>
+    <div class="ti-head">No Contract</div>
+    <div class="ti-sub">Month-to-month. Cancel anytime, right from your settings.</div>
+  </div>
+  <div class="trust-item">
+    <div class="ti-ico">🔄</div>
+    <div class="ti-head">Fair Proration</div>
+    <div class="ti-sub">Upgrade or downgrade whenever — Stripe prorates the difference.</div>
+  </div>
+  <div class="trust-item">
+    <div class="ti-ico">🔒</div>
+    <div class="ti-head">Your Data Is Yours</div>
+    <div class="ti-sub">Built on Google's Firebase (Google Cloud) infrastructure. We never sell your data.</div>
+  </div>
+  <div class="trust-item">
+    <div class="ti-ico">💳</div>
+    <div class="ti-head">No Card to Start</div>
+    <div class="ti-sub">Free forever with no card, and a 14-day trial with no card.</div>
   </div>
 </div>
 
 <div class="faq">
   <div class="faq-title">Frequently Asked Questions</div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">Can I switch plans anytime?</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">Can I switch plans anytime?</div>
     <div class="faq-a">Yes. Upgrade or downgrade at any time. Changes take effect immediately and Stripe prorates the difference — you only pay for what you use.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">What happens when I hit my lead limit?</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">What happens when I hit my lead limit?</div>
     <div class="faq-a">We warn you at 80% and show a friendly upgrade prompt at 100%. We never lock you out mid-cycle — you can finish the month and upgrade when ready.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">Is there a contract or commitment?</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">Is there a contract or commitment?</div>
     <div class="faq-a">No contracts. Monthly billing, cancel anytime. Your data stays yours even if you cancel.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">What's the 14-day free trial?</div>
-    <div class="faq-a">New users get 14 days of Growth-tier access with no credit card required. After 14 days, you choose a plan or continue on Free.</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">What's the 14-day free trial?</div>
+    <div class="faq-a">New users get 14 days of Crew-tier access with no credit card required. After 14 days, you choose a paid plan or keep using the free-forever plan.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">Why are you 1/3 the price of competitors?</div>
-    <div class="faq-a">Because I built this for myself first. No VC money to pay back. No sales team commissions to cover. No enterprise overhead. Every dollar goes into tools I actually use in the field — not features that look good in a demo.</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">What if my crew grows past 3 people?</div>
+    <div class="faq-a">Crew includes 3 team seats at $299/mo. Need more? Additional seats are $39/mo each — reach out and we'll add them to your plan. Bigger operation? That's what Scale is for.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">Why are you cheaper than the big platforms?</div>
+    <div class="faq-a">Because I built this for myself first. No VC money to pay back, no sales team commissions, no enterprise overhead. Every dollar goes into tools I actually use in the field — not features that look good in a demo.</div>
   </div>
 </div>
 
 </main>
 
 <div class="footer">
-  <a href="/pro/dashboard.html">Back to Dashboard</a> · <a href="/pro/">NBD Pro Home</a><br>
-  No Big Deal Home Solutions · nobigdealwithjoedeal.com
+  <a href="/pro/dashboard.html">Back to Dashboard</a> · <a href="/pro/">NBD Pro Home</a> · <a href="/pro/terms.html">Terms</a> · <a href="/pro/privacy.html">Privacy</a><br>
+  No Big Deal Home Solutions · Cincinnati, OH · nobigdealwithjoedeal.com
 </div>
 
 <script type="module" src="js/pricing-page.module.js"></script>

@@ -307,6 +307,56 @@ section('Wave A3: privacy sub-processor disclosure');
   }
 }
 
+section('Storefront: Pro legal pages + canonical pricing (storefront-on-phased 2026-06-08)');
+{
+  // ── NBD Pro Terms of Service ──
+  const tos = read(path.join(ROOT, 'docs/pro/terms.html'));
+  assert('pro/terms.html exists and titled Terms of Service', /<title>Terms of Service/.test(tos));
+  for (const needle of ['Solo', 'Crew', '$99', '$299', '$39', 'Scale',
+                        '14-day free trial', 'Acceptable Use',
+                        'Limitation of Liability', 'State of Ohio']) {
+    assert('terms.html covers ' + needle, new RegExp(needle.replace(/[$]/g, '\\$&')).test(tos));
+  }
+
+  // ── NBD Pro Privacy Policy (SaaS — controller vs processor + subprocessors) ──
+  const pp = read(path.join(ROOT, 'docs/pro/privacy.html'));
+  assert('pro/privacy.html exists and titled Privacy Policy', /<title>[^<]*Privacy Policy/.test(pp));
+  for (const vendor of ['Stripe', 'Firebase', 'Anthropic', 'Twilio', 'Resend', 'BoldSign', 'Sentry']) {
+    assert('pro/privacy.html lists ' + vendor, new RegExp(vendor, 'i').test(pp));
+  }
+  assert('pro/privacy.html covers controller + processor roles',
+    /processor/i.test(pp) && /controller/i.test(pp));
+
+  // ── Footer wiring: Pro pages link the Pro legal pages, not homeowner /privacy, no dead href=# ──
+  const idx = read(path.join(ROOT, 'docs/pro/index.html'));
+  assert('pro/index.html footer links Privacy to /pro/privacy.html',
+    /href="\/pro\/privacy\.html"[^>]*>Privacy Policy</.test(idx));
+  assert('pro/index.html footer links Terms to /pro/terms.html (no dead # link)',
+    /href="\/pro\/terms\.html"[^>]*>Terms of Service</.test(idx));
+
+  // ── Canonical pricing (documentation/PRICING.md) on pricing.html ──
+  const pr = read(path.join(ROOT, 'docs/pro/pricing.html'));
+  for (const needle of ['Solo', 'Crew', 'Scale', '$99', '$299', '$39', '$599']) {
+    assert('pricing.html shows ' + needle, new RegExp(needle.replace(/[$]/g, '\\$&')).test(pr));
+  }
+  assert('pricing.html: Crew is 3 seats, not 5',
+    /3 seats/.test(pr) && !/up to 5|Up to 5|5 team seats|5 seats/.test(pr));
+  assert('pricing.html shows ~30% annual pricing', /annually/i.test(pr));
+
+  // ── Truthful copy: no SOC2 compliance claim, no stale $249 price (visible copy only — dev
+  //    comments legitimately reference the $249→$299 Stripe re-point, so strip comments first) ──
+  const stripComments = s => s.replace(/<!--[\s\S]*?-->/g, '');
+  for (const page of [['index.html', stripComments(idx)], ['pricing.html', stripComments(pr)]]) {
+    assert(page[0] + ' has no "SOC 2" compliance claim', !page[1].includes('SOC 2'));
+    assert(page[0] + ' has no stale $249 price', !page[1].includes('$249'));
+  }
+
+  // ── Honest CTAs: early-access (self-serve signup is Phase E), not an instant-trial over-promise ──
+  assert('index.html uses Get Early Access CTAs', idx.includes('Get Early Access'));
+  assert('index.html has no "Start Free Trial" button label',
+    !/>\s*Start (Free|Your Free)/.test(idx));
+}
+
 section('Wave A5: firestore rules tests cover new collections');
 {
   const t = read(path.join(ROOT, 'tests/firestore-rules.test.js'));
