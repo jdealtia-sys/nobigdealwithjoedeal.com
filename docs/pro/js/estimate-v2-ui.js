@@ -733,7 +733,7 @@
                 id === ('v2tier' + arg.charAt(0).toUpperCase() + arg.slice(1)));
             });
             render();
-            scheduleDraftSave();
+            saveDraftDebounced();
           }
           break;
         case 'load-preset':
@@ -802,7 +802,7 @@
           const measureAddr = document.getElementById('v2measureAddr');
           if (measureAddr && !measureAddr.value) measureAddr.value = el.value;
         }
-        scheduleDraftSave();
+        saveDraftDebounced();
         return;
       }
       if (el.dataset.claim) {
@@ -812,7 +812,7 @@
         state.claim[key] = (key === 'deductible')
           ? (Number(el.value) || 0)
           : el.value;
-        scheduleDraftSave();
+        saveDraftDebounced();
         return;
       }
       if (el.dataset.state) {
@@ -822,7 +822,7 @@
         if (key === 'county') {
           state.county = el.value;
           render();
-          scheduleDraftSave();
+          saveDraftDebounced();
         }
         return;
       }
@@ -867,6 +867,19 @@
       state.measurements[key] = !!value;
     } else {
       state.measurements[key] = Number(value) || 0;
+    }
+    // QA-fix (V2-7, estimate-qa-2026-06-08): keep the stored waste factor in sync
+    // with the selected pitch so the line-item / persisted path uses the same
+    // (correct) waste the per-SQ engine derives. measurements.pitch is the RISE
+    // integer, so the rise/run ratio is pitch/12. Without this, waste stayed stuck
+    // at the initial default (1.17) regardless of the chosen pitch.
+    if (key === 'pitch' || key === 'cutUpRoof') {
+      const ratio = (Number(state.measurements.pitch) || 8) / 12;
+      if (window.EstimateBuilderV2 && typeof EstimateBuilderV2.wasteFactorForPitch === 'function') {
+        let w = EstimateBuilderV2.wasteFactorForPitch(ratio);
+        if (state.measurements.cutUpRoof) w += 0.03;
+        state.measurements.waste = w;
+      }
     }
     render();
   }
@@ -1827,7 +1840,12 @@
     if (format === 'retail-quote') {
       const perSqInput = {
         rawSqft:          state.measurements.rawSqft,
-        pitch:            state.measurements.pitch,
+        // QA-fix (V2-1, estimate-qa-2026-06-08): state.measurements.pitch is the
+        // RISE integer (e.g. 8 for 8/12). EstimateBuilderV2.parsePitch() reads a
+        // bare number as the rise/run RATIO, so any rise (4-14) > 1.0 fell into the
+        // steepest waste bucket (1.25) regardless of the actual pitch — over-quoting
+        // the customer 4-8%. Pass "<rise>/12" so parsePitch yields the correct ratio.
+        pitch:            (Number(state.measurements.pitch) || 8) + '/12',
         cutUpRoof:        state.measurements.cutUpRoof,
         ridgeLf:          state.measurements.ridgeLf,
         eaveLf:           state.measurements.eaveLf,
