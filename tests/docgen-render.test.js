@@ -2,13 +2,21 @@
  * tests/docgen-render.test.js — full client doc-render integration test.
  *
  * Loads BOTH document-generator.js + document-generator-templates.js into one
- * NBDDocGen (as the browser does), stubs window._brand(), and renders a real
- * document (warranty certificate) for NBD and for a tenant (Oaks). Asserts the
- * brand actually lands in the output HTML — the closest thing to a render-verify
- * we can do without a browser.
+ * NBDDocGen (as the browser does), stubs window._brand(), and renders real
+ * documents for NBD and for a tenant (Oaks). Asserts the brand actually lands
+ * in the output HTML — the closest thing to a render-verify we can do without
+ * a browser.
  *
- * This is the test that proves the EXTENDED doc types (the 11 in templates.js)
- * are tenant-aware, not just the core ones. Run: node tests/docgen-render.test.js
+ * This is the test that proves the EXTENDED doc types (the ones in templates.js)
+ * are tenant-aware, not just the core ones. It renders a spread of doc types for
+ * BOTH tenants and asserts:
+ *   - NBD shows 'No Big Deal' + navy #1e3a6e + orange #e8720c.
+ *   - Oaks shows 'Oaks Roofing & Construction' + charcoal #333333 + accent
+ *     #C2410C, and does NOT leak NBD navy #1e3a6e or the 'No Big Deal' name.
+ * A failure on the Oaks side is a real tenant-brand leak — a render method
+ * hardcoding an NBD value instead of resolving it from C/P/S/A/LOGO.
+ *
+ * Run: node tests/docgen-render.test.js
  */
 'use strict';
 
@@ -38,13 +46,23 @@ function loadFullDocGen(brand) {
   return win.NBDDocGen;
 }
 
-function render(brand) {
+// Render a single doc type for a brand. `method` is the NBDDocGen render*
+// method name (from DOCUMENT_TYPES[..].template in -templates.js); `data` is
+// the minimal merge data that method needs. Wrapped in try/catch so a render
+// throwing in the vm surfaces as a readable assertion failure, not a crash.
+function renderType(brand, method, data) {
   const dg = loadFullDocGen(brand);
   try {
-    return dg.renderWarrantyCertificate({ homeownerName: 'Jane Smith', address: '123 Main St', warrantyTier: 'best', leadId: 'L1' });
+    return dg[method](Object.assign({}, data));
   } catch (e) {
     return 'RENDER_ERROR: ' + (e && e.message);
   }
+}
+
+// Back-compat shim for the original warranty-certificate render.
+function render(brand) {
+  return renderType(brand, 'renderWarrantyCertificate',
+    { homeownerName: 'Jane Smith', address: '123 Main St', warrantyTier: 'best', leadId: 'L1' });
 }
 
 const NBD_BRAND = { legalName: 'No Big Deal Home Solutions', colors: {}, contact: {} };
@@ -78,6 +96,42 @@ ok('Oaks: charcoal #333333 (tenant primary)', /#333333/i.test(oak));
 ok('Oaks: burnt-orange #C2410C (tenant accent)', /#c2410c/i.test(oak));
 ok('Oaks: does NOT show NBD navy #1e3a6e', !/#1e3a6e/i.test(oak));
 ok('Oaks: does NOT show "No Big Deal"', !/No Big Deal/.test(oak));
+
+// ════════════════════════════════════════════════════════════════════
+// EXTENDED COVERAGE — render a spread of doc types for BOTH tenants and
+// assert the same brand contract on each. Each entry: a friendly label,
+// the render* method, and the minimal data that method needs.
+// ════════════════════════════════════════════════════════════════════
+const BASE = { homeownerName: 'Jane Smith', address: '123 Main St', leadId: 'L1' };
+const DOC_TYPES = [
+  { label: 'invoice',                   method: 'renderInvoice',                data: BASE },
+  { label: 'change_order',              method: 'renderChangeOrder',            data: BASE },
+  { label: 'work_authorization',        method: 'renderWorkAuthorization',      data: BASE },
+  { label: 'certificate_of_completion', method: 'renderCertificateOfCompletion',data: BASE },
+  { label: 'scope_of_work',             method: 'renderScopeOfWork',            data: BASE },
+  { label: 'company_intro',             method: 'renderCompanyIntro',           data: BASE },
+];
+
+for (const t of DOC_TYPES) {
+  console.log('\nDOCGEN RENDER — ' + t.label + ' (full render, both tenants)');
+
+  // NBD: navy + orange + the NBD name all present, no error.
+  const n = renderType(NBD_BRAND, t.method, t.data);
+  const nOk = typeof n === 'string' && n.indexOf('RENDER_ERROR') !== 0 && n.length > 500;
+  ok(t.label + ' / NBD: renders HTML (no error)', nOk);
+  ok(t.label + ' / NBD: shows "No Big Deal"', /No Big Deal/.test(n));
+  ok(t.label + ' / NBD: navy #1e3a6e present', /#1e3a6e/i.test(n));
+
+  // Oaks: tenant name + charcoal + accent present; NBD navy + NBD name absent.
+  const o = renderType(OAKS_BRAND, t.method, t.data);
+  const oOk = typeof o === 'string' && o.indexOf('RENDER_ERROR') !== 0 && o.length > 500;
+  ok(t.label + ' / Oaks: renders HTML (no error)', oOk);
+  ok(t.label + ' / Oaks: shows "Oaks Roofing & Construction"', /Oaks Roofing & Construction/.test(o));
+  ok(t.label + ' / Oaks: charcoal #333333 (tenant primary)', /#333333/i.test(o));
+  ok(t.label + ' / Oaks: accent #C2410C (tenant accent)', /#c2410c/i.test(o));
+  ok(t.label + ' / Oaks: does NOT leak NBD navy #1e3a6e', !/#1e3a6e/i.test(o));
+  ok(t.label + ' / Oaks: does NOT leak "No Big Deal"', !/No Big Deal/.test(o));
+}
 
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
