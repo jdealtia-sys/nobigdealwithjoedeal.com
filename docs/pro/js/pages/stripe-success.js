@@ -42,28 +42,32 @@ const hide = id => { const el = document.getElementById(id); if (el) el.style.di
 const err  = msg => { const e = document.getElementById('errorBox');  if (e) { e.textContent = msg; e.style.display = 'block'; } };
 const err2 = msg => { const e = document.getElementById('errorBox2'); if (e) { e.textContent = msg; e.style.display = 'block'; } };
 
-// Subscribe to subscriptions/{uid} and resolve once status === 'active'.
+// Subscribe to the subscription doc and resolve once status === 'active'.
 // The Stripe webhook writes this doc server-side via admin SDK. We time out
 // after ~60 seconds so a user sitting on a stuck webhook doesn't spin forever.
-function waitForSubscriptionActive(user, timeoutMs = 60_000) {
+//
+// Phase D: the webhook writes subscriptions/{companyId}. Resolve companyId from
+// a FRESH token (the webhook just minted the companyId/plan claim, so the cached
+// token is stale) and watch BOTH the company doc and the legacy {uid} doc,
+// resolving on whichever flips active. For solo/NBD companyId === uid → one watch.
+async function waitForSubscriptionActive(user, timeoutMs = 60_000) {
+  let companyId = user.uid;
+  try {
+    const tok = await user.getIdTokenResult(true);
+    companyId = (tok.claims && tok.claims.companyId) || user.uid;
+  } catch (_) { /* stale-token refresh failed — fall back to uid */ }
+
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      unsub();
-      reject(new Error('timeout'));
-    }, timeoutMs);
-    const unsub = onSnapshot(doc(db, 'subscriptions', user.uid), snap => {
+    const unsubs = [];
+    const stopAll = () => { unsubs.forEach(u => { try { u(); } catch (_) {} }); };
+    const timer = setTimeout(() => { stopAll(); reject(new Error('timeout')); }, timeoutMs);
+    const watch = (id) => onSnapshot(doc(db, 'subscriptions', id), snap => {
       if (!snap.exists()) return;
       const data = snap.data();
-      if (data.status === 'active') {
-        clearTimeout(timer);
-        unsub();
-        resolve(data);
-      }
-    }, e => {
-      clearTimeout(timer);
-      unsub();
-      reject(e);
-    });
+      if (data.status === 'active') { clearTimeout(timer); stopAll(); resolve(data); }
+    }, e => { clearTimeout(timer); stopAll(); reject(e); });
+    unsubs.push(watch(user.uid));
+    if (companyId !== user.uid) unsubs.push(watch(companyId));
   });
 }
 

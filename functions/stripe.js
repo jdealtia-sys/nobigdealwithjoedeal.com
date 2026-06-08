@@ -104,11 +104,23 @@ exports.createCheckoutSession = onRequest(
       // Initialize Stripe
       const stripe = new Stripe(STRIPE_SECRET_KEY.value());
 
+      // Phase D: bill per-COMPANY. client_reference_id carries the companyId so
+      // the webhook writes subscriptions/{companyId}. For NBD/solo there is no
+      // companyId claim → companyId === uid → byte-identical to pre-Phase-D.
+      const companyId = decoded.companyId || decoded.uid;
+
       // Create Checkout Session
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
         payment_method_types: ['card'],
         line_items: [
+          // Base plan. quantity STAYS 1 — the Crew plan already includes its
+          // seats, so multiplying this line would over-charge. Per-seat add-on
+          // (the $39/extra-seat Crew SKU) is a SEPARATE subscription item billed
+          // by quantity; it needs Jo's STRIPE_PRICE_SEAT price id + the
+          // included-vs-extra seat math before it can be wired (Phase D money
+          // step — see PILLAR4-BILLING-PLAN). Intentionally NOT added here so
+          // checkout cannot mis-charge until that price exists.
           {
             price: priceId,
             quantity: 1,
@@ -116,10 +128,11 @@ exports.createCheckoutSession = onRequest(
         ],
         success_url: `https://nobigdealwithjoedeal.com/pro/stripe-success.html?session_id={CHECKOUT_SESSION_ID}&plan=${normalizedPlan}`,
         cancel_url: 'https://nobigdealwithjoedeal.com/pro/pricing.html?cancelled=true',
-        client_reference_id: decoded.uid,
+        client_reference_id: companyId,
         customer_email: decoded.email,
         metadata: {
           firebaseUid: decoded.uid,
+          companyId,
           plan: normalizedPlan,
         },
         // 14-day trial on Growth tier — no card required upfront
@@ -128,7 +141,7 @@ exports.createCheckoutSession = onRequest(
         } : {}),
       });
 
-      logger.info('checkout_session_created', { sessionId: session.id, uid: decoded.uid, plan });
+      logger.info('checkout_session_created', { sessionId: session.id, uid: decoded.uid, companyId, plan });
 
       res.json({ url: session.url });
 
@@ -240,14 +253,44 @@ exports.stripeWebhook = onRequest(
         [STRIPE_PRICE_PROFESSIONAL.value()]: 'growth'
       };
 
+      // Phase D: the subscription doc key is now a companyId (a slug like
+      // 'oaks' for a real tenant, or a uid for solo/NBD). Firestore writes use
+      // that key directly, but admin.auth().setCustomUserClaims / getUser need a
+      // REAL Auth uid — a slug throws. Resolve the owner uid via
+      // companies/{companyId}.ownerId, falling back to the id itself when it
+      // already looks like a uid (solo/NBD). Return null if unresolvable so the
+      // caller logs + skips the claim rather than guessing.
+      const looksLikeUid = (s) => typeof s === 'string' && /^[A-Za-z0-9]{20,}$/.test(s);
+      const resolveOwnerUid = async (companyId) => {
+        try {
+          const c = await db.doc(`companies/${companyId}`).get();
+          if (c.exists && c.data() && c.data().ownerId) return c.data().ownerId;
+        } catch (_) { /* fall through to uid heuristic */ }
+        return looksLikeUid(companyId) ? companyId : null;
+      };
+      // Set billing claims on the OWNER uid, MERGING existing claims so a
+      // tenant owner's companyId/role survive (setCustomUserClaims replaces).
+      // Returns the owner uid, or null if it can't be resolved (logged, skipped).
+      const setOwnerClaims = async (companyId, patch) => {
+        const ownerUid = await resolveOwnerUid(companyId);
+        if (!ownerUid) { logger.warn('stripeWebhook.no_ownerUid', { companyId }); return null; }
+        const existing = (await admin.auth().getUser(ownerUid)).customClaims || {};
+        await admin.auth().setCustomUserClaims(ownerUid, {
+          ...existing,
+          ...patch,
+          companyId: existing.companyId || companyId,
+        });
+        return ownerUid;
+      };
+
       switch (event.type) {
 
         case 'checkout.session.completed': {
           const session = event.data.object;
-          const uid = session.client_reference_id;
+          const companyId = session.client_reference_id; // Phase D: companyId (uid for solo/NBD)
           const customerId = session.customer;
 
-          if (!uid) {
+          if (!companyId) {
             logger.warn('stripeWebhook.checkout_session_completed missing client_reference_id');
             break;
           }
@@ -276,13 +319,13 @@ exports.stripeWebhook = onRequest(
                 plan = PRICE_TO_PLAN[priceId];
               } else {
                 logger.warn('stripeWebhook.checkout_session_completed unknown_price', {
-                  uid, priceId, sessionId: session.id
+                  companyId, priceId, sessionId: session.id
                 });
               }
             }
           } catch (e) {
             logger.warn('stripeWebhook.checkout_session_completed sub_lookup_failed', {
-              uid, sessionId: session.id, err: e.message
+              companyId, sessionId: session.id, err: e.message
             });
             // Fall back to metadata ONLY for the small allowlist we mint.
             const ALLOWED_FROM_METADATA = new Set(['starter', 'growth']);
@@ -303,24 +346,45 @@ exports.stripeWebhook = onRequest(
             usage: { leads: 0, reports: 0, aiCalls: 0, cycleStart: new Date().toISOString() }
           };
 
-          await db.doc(`subscriptions/${uid}`).set(subData, { merge: true });
+          await db.doc(`subscriptions/${companyId}`).set(subData, { merge: true });
 
-          // ── Set Firebase Auth custom claims ──
-          // These claims are available in Firestore security rules
-          // via request.auth.token.plan and in client JS via
-          // user.getIdTokenResult().claims.plan
+          // Reverse map customerId → companyId on the company doc (used by the
+          // by-customer webhook lookups + portal). Solo/NBD has no company doc;
+          // skip silently if absent (merge would create a stray doc otherwise).
           try {
-            await admin.auth().setCustomUserClaims(uid, {
-              plan,
-              subscriptionStatus: 'active',
-              stripeCustomerId: customerId
-            });
-            logger.info('custom_claims_set', { uid, plan });
-          } catch (claimErr) {
-            logger.error('custom_claims_failed', { uid, err: claimErr.message });
+            const companyDocRef = db.doc(`companies/${companyId}`);
+            if ((await companyDocRef.get()).exists) {
+              await companyDocRef.set({ stripeCustomerId: customerId }, { merge: true });
+            }
+          } catch (mapErr) {
+            logger.warn('stripeWebhook.customer_map_failed', { companyId, err: mapErr.message });
           }
 
-          logger.info('subscription_activated', { uid, plan, sessionId: session.id });
+          // ── Set Firebase Auth custom claims on the OWNER uid ──
+          // The doc key may be a slug companyId; claims must target a real Auth
+          // uid (resolveOwnerUid). For solo/NBD ownerUid === companyId === uid.
+          const ownerUid = await resolveOwnerUid(companyId);
+          if (!ownerUid) {
+            logger.warn('stripeWebhook.checkout no ownerUid for companyId', { companyId });
+          } else {
+            try {
+              // setCustomUserClaims REPLACES all claims — merge existing so a
+              // tenant owner's companyId/role survive the billing update.
+              const existing = (await admin.auth().getUser(ownerUid)).customClaims || {};
+              await admin.auth().setCustomUserClaims(ownerUid, {
+                ...existing,
+                plan,
+                subscriptionStatus: 'active',
+                companyId: existing.companyId || companyId,
+                stripeCustomerId: customerId
+              });
+              logger.info('custom_claims_set', { companyId, ownerUid, plan });
+            } catch (claimErr) {
+              logger.error('custom_claims_failed', { companyId, ownerUid, err: claimErr.message });
+            }
+          }
+
+          logger.info('subscription_activated', { companyId, plan, sessionId: session.id });
           break;
         }
 
@@ -340,7 +404,7 @@ exports.stripeWebhook = onRequest(
           }
 
           const subDoc = snapshot.docs[0];
-          const uid = subDoc.id;
+          const companyId = subDoc.id; // Phase D: doc key is companyId (uid for solo)
 
           // F-08: derive plan from Stripe Price ID via the hoisted
           // PRICE_TO_PLAN map at the top of the switch (Audit G
@@ -363,16 +427,16 @@ exports.stripeWebhook = onRequest(
             updatedAt: FieldValue.serverTimestamp(),
           });
 
-          // Sync custom claims
+          // Sync custom claims on the owner uid (merges existing companyId/role)
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await setOwnerClaims(companyId, {
               plan,
               subscriptionStatus: subscription.status,
               stripeCustomerId: customerId
             });
-          } catch (e) { logger.warn('claims_update_failed', { uid, err: e.message }); }
+          } catch (e) { logger.warn('claims_update_failed', { companyId, err: e.message }); }
 
-          logger.info('subscription_updated', { uid, plan, status: subscription.status });
+          logger.info('subscription_updated', { companyId, plan, status: subscription.status });
           break;
         }
 
@@ -392,7 +456,7 @@ exports.stripeWebhook = onRequest(
           }
 
           const subDoc = snapshot.docs[0];
-          const uid = subDoc.id;
+          const companyId = subDoc.id; // Phase D: doc key is companyId (uid for solo)
 
           await subDoc.ref.update({
             plan: 'free',
@@ -400,16 +464,16 @@ exports.stripeWebhook = onRequest(
             updatedAt: FieldValue.serverTimestamp(),
           });
 
-          // Downgrade custom claims to free
+          // Downgrade custom claims to free (merges existing companyId/role)
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await setOwnerClaims(companyId, {
               plan: 'free',
               subscriptionStatus: 'cancelled',
               stripeCustomerId: customerId
             });
-          } catch (e) { logger.warn('claims_downgrade_failed', { uid, err: e.message }); }
+          } catch (e) { logger.warn('claims_downgrade_failed', { companyId, err: e.message }); }
 
-          logger.info('subscription_cancelled', { uid });
+          logger.info('subscription_cancelled', { companyId });
           break;
         }
 
@@ -429,7 +493,7 @@ exports.stripeWebhook = onRequest(
           }
 
           const subDoc = snapshot.docs[0];
-          const uid = subDoc.id;
+          const companyId = subDoc.id; // Phase D: doc key is companyId (uid for solo)
 
           await subDoc.ref.update({
             status: 'past_due',
@@ -438,19 +502,20 @@ exports.stripeWebhook = onRequest(
 
           // Update claims to past_due so client can show warning
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await setOwnerClaims(companyId, {
               plan: subDoc.data().plan || 'free',
               subscriptionStatus: 'past_due',
               stripeCustomerId: customerId
             });
-          } catch (e) { logger.warn('claims_pastdue_failed', { uid, err: e.message }); }
+          } catch (e) { logger.warn('claims_pastdue_failed', { companyId, err: e.message }); }
 
           // E1: dunning. Enqueue an email to the rep, Slack the ops
           // channel, and stamp a lead activity row if the invoice
           // has a leadId on its metadata (auto-invoice C5 sets it).
+          const ownerUid = await resolveOwnerUid(companyId);
           try {
-            const userRecord = await admin.auth().getUser(uid);
-            const email = userRecord.email;
+            const userRecord = ownerUid ? await admin.auth().getUser(ownerUid) : null;
+            const email = userRecord && userRecord.email;
             const leadId = (invoice.metadata && invoice.metadata.leadId) || null;
             const estimateId = (invoice.metadata && invoice.metadata.estimateId) || null;
             const amount = ((invoice.amount_due || 0) / 100).toFixed(2);
@@ -475,7 +540,7 @@ exports.stripeWebhook = onRequest(
 
             if (leadId) {
               await db.collection('leads/' + leadId + '/activity').add({
-                userId: uid,
+                userId: ownerUid || companyId,
                 type: 'stripe_payment_failed',
                 label: 'Payment failed ($' + amount + ')',
                 stripeInvoiceId: invoice.id,
@@ -510,7 +575,7 @@ exports.stripeWebhook = onRequest(
             logger.warn('dunning: enqueue failed', { err: e.message });
           }
 
-          logger.warn('invoice_payment_failed', { uid, invoiceId: invoice.id });
+          logger.warn('invoice_payment_failed', { companyId, invoiceId: invoice.id });
           break;
         }
 
@@ -534,7 +599,7 @@ exports.stripeWebhook = onRequest(
               'usage.cycleStart': new Date().toISOString(),
               updatedAt: FieldValue.serverTimestamp()
             });
-            logger.info('usage_counters_reset', { uid: subDoc.id });
+            logger.info('usage_counters_reset', { companyId: subDoc.id });
           }
           break;
         }
@@ -575,7 +640,12 @@ exports.createCustomerPortalSession = onRequest(
 
     try {
       const db = admin.firestore();
-      const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
+      // Phase D: company-first read with uid fallback (solo/NBD → same doc).
+      const companyId = decoded.companyId || decoded.uid;
+      let subscriptionSnap = await db.doc(`subscriptions/${companyId}`).get();
+      if (!subscriptionSnap.exists && companyId !== decoded.uid) {
+        subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
+      }
 
       if (!subscriptionSnap.exists) {
         res.status(404).json({ error: 'No subscription found for this user' });
@@ -642,7 +712,12 @@ exports.getSubscriptionStatus = onRequest(
 
     try {
       const db = admin.firestore();
-      const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
+      // Phase D: company-first read with uid fallback (solo/NBD → same doc).
+      const companyId = decoded.companyId || decoded.uid;
+      let subscriptionSnap = await db.doc(`subscriptions/${companyId}`).get();
+      if (!subscriptionSnap.exists && companyId !== decoded.uid) {
+        subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
+      }
 
       if (!subscriptionSnap.exists) {
         res.json({ status: 'none', plan: null });

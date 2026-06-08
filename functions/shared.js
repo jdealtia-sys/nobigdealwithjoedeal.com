@@ -119,7 +119,14 @@ async function requirePaidSubscription(db, decoded) {
   }
   const uid = decoded.uid;
   if (!uid) return { ok: false, status: 401, error: 'Sign in required.' };
-  const snap = await db.doc('subscriptions/' + uid).get();
+  // Phase D: bill per-company. Read subscriptions/{companyId} first, fall back
+  // to subscriptions/{uid} so paid team members (no per-uid doc) pass billable
+  // gates. For solo/NBD companyId === uid → identical single read.
+  const companyId = decoded.companyId || uid;
+  let snap = await db.doc('subscriptions/' + companyId).get();
+  if (!snap.exists && companyId !== uid) {
+    snap = await db.doc('subscriptions/' + uid).get();
+  }
   const sub = snap.exists ? snap.data() : null;
   const active = sub
     && sub.status === 'active'
