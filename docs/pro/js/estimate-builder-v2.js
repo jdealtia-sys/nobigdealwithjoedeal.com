@@ -92,7 +92,18 @@
     skylightFlash:  (_NBD_CFG && _NBD_CFG.ADDON_SKYLIGHT_FLASH) || 350,
     valleyMetalLf:  8.50,
     guttersLf:      8.50,
-    extraPipeBoot:  85      // When pipe count > 4
+    extraPipeBoot:  85,     // When pipe count > 4
+    // Per-SQ complexity adders (Phase 1, Joe-confirmed 2026-06-08; config-backed
+    // so they don't drift via stale localStorage). Pitch tiers STACK; story +
+    // access tiers REPLACE; cut-up labor is on top of the +3% material waste.
+    steepPerSq:            (_NBD_CFG && _NBD_CFG.ADDON_STEEP_PER_SQ)            || 25,   // 8/12+
+    verySteepPerSq:        (_NBD_CFG && _NBD_CFG.ADDON_VERY_STEEP_PER_SQ)       || 45,   // 12/12+
+    extremeSteepPerSq:     (_NBD_CFG && _NBD_CFG.ADDON_EXTREME_STEEP_PER_SQ)    || 75,   // 16/12+
+    twoStoryPerSq:         (_NBD_CFG && _NBD_CFG.ADDON_TWO_STORY_PER_SQ)        || 15,
+    threeStoryPerSq:       (_NBD_CFG && _NBD_CFG.ADDON_THREE_STORY_PER_SQ)      || 30,
+    cutUpPerSq:            (_NBD_CFG && _NBD_CFG.ADDON_CUTUP_PER_SQ)            || 15,
+    accessModeratePerSq:   (_NBD_CFG && _NBD_CFG.ADDON_ACCESS_MODERATE_PER_SQ)  || 15,
+    accessDifficultPerSq:  (_NBD_CFG && _NBD_CFG.ADDON_ACCESS_DIFFICULT_PER_SQ) || 35
   };
 
   // ═════════════════════════════════════════════════════════
@@ -485,7 +496,9 @@
     // Add-ons
     const addOns = {
       permit: 0, dumpFee: 0, tearOffExtra: 0, extraPipeBoots: 0,
-      valleyMetal: 0, chimneyFlash: 0, skylightFlash: 0, gutters: 0
+      valleyMetal: 0, chimneyFlash: 0, skylightFlash: 0, gutters: 0,
+      // Phase 1 per-SQ complexity adders (estimate-qa-2026-06-08)
+      steep: 0, verySteep: 0, extremeSteep: 0, story: 0, cutUpLabor: 0, access: 0
     };
 
     const permitKey = input.city || input.county || '';
@@ -516,6 +529,27 @@
         : Number(s.addonPrices.guttersLf);
       addOns.gutters = Number(input.guttersLf) * gRate;
     }
+
+    // ── Phase 1 complexity adders (estimate-qa-2026-06-08, Joe-confirmed) ──
+    // Roof PITCH adders STACK (mirror the line-item LAB ADR-SS/VS gates).
+    // g.pitchRatio = rise/12, so 8/12=0.667, 12/12=1.0, 16/12=1.333.
+    if (g.pitchRatio >= (8 / 12))  addOns.steep        = sq * Number(s.addonPrices.steepPerSq);
+    if (g.pitchRatio >= (12 / 12)) addOns.verySteep    = sq * Number(s.addonPrices.verySteepPerSq);
+    if (g.pitchRatio >= (16 / 12)) addOns.extremeSteep = sq * Number(s.addonPrices.extremeSteepPerSq);
+
+    // STORIES — tiered (a 3-story job pays the 3-story rate, NOT 2-story + 3-story).
+    const stories = Number(input.stories) || 1;
+    if (stories >= 3)       addOns.story = sq * Number(s.addonPrices.threeStoryPerSq);
+    else if (stories === 2) addOns.story = sq * Number(s.addonPrices.twoStoryPerSq);
+
+    // CUT-UP cutting labor — on TOP of the +3% material waste already applied in
+    // prepGeometry (waste = material, this = labor). Mirrors line-item LAB ADR-CU.
+    if (input.cutUpRoof) addOns.cutUpLabor = sq * Number(s.addonPrices.cutUpPerSq);
+
+    // ACCESS — tiered (standard $0 / moderate / difficult). Crane/boom jobs use
+    // real equipment line items, never a per-SQ guess.
+    if (input.accessLevel === 'difficult')     addOns.access = sq * Number(s.addonPrices.accessDifficultPerSq);
+    else if (input.accessLevel === 'moderate') addOns.access = sq * Number(s.addonPrices.accessModeratePerSq);
 
     const addOnsTotal = Object.keys(addOns).reduce((sum, k) => sum + (Number(addOns[k]) || 0), 0);
 

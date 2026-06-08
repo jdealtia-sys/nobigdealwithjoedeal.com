@@ -26,7 +26,7 @@
     jobMode: 'insurance',     // 'insurance' | 'cash'
     county: 'hamilton-oh',
     measurements: {
-      rawSqft: 0, pitch: 8, waste: 1.17,
+      rawSqft: 0, pitch: 6, waste: 1.15,   // default 6/12 (non-steep) so the steep adder is opt-in, not auto-applied
       ridgeLf: 0, eaveLf: 0, rakeLf: 0, hipLf: 0, valleyLf: 0, wallLf: 0,
       pipes: 0, chimneys: 0, skylights: 0, stories: 1,
       tearOffLayers: 1, deckReplacePct: 0.15, cutUpRoof: false,
@@ -39,7 +39,8 @@
       hasChimneyFlash: false,
       hasSkylightFlash: false,
       valleyMetalLf: 0,
-      guttersLf: 0
+      guttersLf: 0,
+      accessLevel: 'standard'   // 'standard' | 'moderate' | 'difficult' (per-SQ access tier)
     },
     scope: [],                // Array of { code, overrides } entries
     customer: { name: '', address: '', phone: '', email: '' },
@@ -453,12 +454,21 @@
           <div class="v2-field">
             <label>Pitch (rise/12)</label>
             <select id="v2pitch" data-field="pitch">
+              <option value="3">3/12</option>
               <option value="4">4/12</option>
-              <option value="6">6/12</option>
-              <option value="8" selected>8/12</option>
+              <option value="5">5/12</option>
+              <option value="6" selected>6/12</option>
+              <option value="7">7/12</option>
+              <option value="8">8/12 (steep)</option>
+              <option value="9">9/12</option>
               <option value="10">10/12</option>
-              <option value="12">12/12</option>
+              <option value="11">11/12</option>
+              <option value="12">12/12 (very steep)</option>
+              <option value="13">13/12</option>
               <option value="14">14/12</option>
+              <option value="15">15/12</option>
+              <option value="16">16/12 (extreme)</option>
+              <option value="18">18/12 (extreme)</option>
             </select>
           </div>
           <div class="v2-field">
@@ -505,12 +515,20 @@
             <label>Stories</label>
             <select id="v2stories" data-field="stories">
               <option value="1">1 Story</option>
-              <option value="2">2 Story</option>
-              <option value="3">3 Story</option>
+              <option value="2">2 Story (+$15/SQ)</option>
+              <option value="3">3+ Story (+$30/SQ)</option>
+            </select>
+          </div>
+          <div class="v2-field">
+            <label>Access</label>
+            <select id="v2access" data-field="accessLevel">
+              <option value="standard">Standard</option>
+              <option value="moderate">Moderate (+$15/SQ)</option>
+              <option value="difficult">Difficult (+$35/SQ)</option>
             </select>
           </div>
           <div class="v2-field inline">
-            <label>Cut-up Roof (+3% waste)</label>
+            <label>Cut-up Roof (+3% waste + $15/SQ)</label>
             <input type="checkbox" id="v2cutup" data-field="cutUpRoof">
           </div>
 
@@ -863,8 +881,11 @@
     // === 'checkbox' — unifying the cast point here means the engine
     // never sees a stringly-typed bool from a third-party caller.
     const BOOL_FIELDS = new Set(['cutUpRoof', 'hasChimneyFlash', 'hasSkylightFlash']);
+    const STRING_FIELDS = new Set(['accessLevel']);   // tier <select> values are strings, not numbers
     if (BOOL_FIELDS.has(key)) {
       state.measurements[key] = !!value;
+    } else if (STRING_FIELDS.has(key)) {
+      state.measurements[key] = String(value || 'standard');
     } else {
       state.measurements[key] = Number(value) || 0;
     }
@@ -1087,11 +1108,16 @@
   }
 
   function syncMeasurementInputs() {
+    // Legacy drafts (saved before the access tier existed) lack accessLevel;
+    // normalize to 'standard' so the select renders correctly (pricing is already
+    // safe — undefined matches neither tier → $0 access).
+    if (!state.measurements.accessLevel) state.measurements.accessLevel = 'standard';
     const map = {
       rawSqft: 'v2rawSqft', pitch: 'v2pitch', eaveLf: 'v2eaveLf',
       rakeLf: 'v2rakeLf', ridgeLf: 'v2ridgeLf', hipLf: 'v2hipLf',
       valleyLf: 'v2valleyLf', pipes: 'v2pipes', chimneys: 'v2chimneys',
-      skylights: 'v2skylights', tearOffLayers: 'v2layers', stories: 'v2stories'
+      skylights: 'v2skylights', tearOffLayers: 'v2layers', stories: 'v2stories',
+      accessLevel: 'v2access'
     };
     Object.keys(map).forEach(key => {
       const el = document.getElementById(map[key]);
@@ -1265,7 +1291,7 @@
     const m = state.measurements || {};
     return {
       rawSqft:          m.rawSqft,
-      pitch:            (Number(m.pitch) || 8) + '/12',
+      pitch:            (Number(m.pitch) || 6) + '/12',   // unknown pitch → 6/12 (non-steep), never auto-charge steep
       cutUpRoof:        m.cutUpRoof,
       ridgeLf:          m.ridgeLf,
       eaveLf:           m.eaveLf,
@@ -1276,6 +1302,8 @@
       hasSkylightFlash: m.hasSkylightFlash,
       valleyMetalLf:    m.valleyMetalLf,
       guttersLf:        m.guttersLf,
+      stories:          m.stories,        // Phase 1: two-story / three-story+ adders
+      accessLevel:      m.accessLevel,    // Phase 1: moderate / difficult access tier
       county:           state.county,
       city:             state.county,   // permit lookup uses city or county
       mode:             state.jobMode,

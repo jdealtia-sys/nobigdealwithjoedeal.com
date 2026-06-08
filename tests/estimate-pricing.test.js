@@ -108,7 +108,7 @@ test('extraPipeBootCharge: 7 pipes → $255 (3 extra)', () => {
 test('39 SQ Better tier ≈ $23,755 (rawSqft pre-baked, waste=1)', () => {
   const r = EBv2.calculateEstimate({
     method: 'per-sq', tier: 'better', mode: 'insurance',
-    rawSqft: 3900, pitch: 6, wasteFactorOverride: 1.0
+    rawSqft: 3900, pitch: '6/12', wasteFactorOverride: 1.0
   });
   // 39 × $595 = $23,205. Insurance hides tax. Add-ons default 0.
   // Base + dumpFee default ($550) = $23,755 → rounds to $23,750
@@ -117,24 +117,24 @@ test('39 SQ Better tier ≈ $23,755 (rawSqft pre-baked, waste=1)', () => {
 test('Cash mode applies county tax; insurance mode hides it', () => {
   const cash = EBv2.calculateEstimate({
     method: 'per-sq', tier: 'better', mode: 'cash',
-    rawSqft: 3900, pitch: 6, county: 'hamilton-oh'
+    rawSqft: 3900, pitch: '6/12', county: 'hamilton-oh'
   });
   const ins = EBv2.calculateEstimate({
     method: 'per-sq', tier: 'better', mode: 'insurance',
-    rawSqft: 3900, pitch: 6, county: 'hamilton-oh'
+    rawSqft: 3900, pitch: '6/12', county: 'hamilton-oh'
   });
   if (cash.total <= ins.total) throw new Error('cash total should exceed insurance total when tax applies; cash=' + cash.total + ' ins=' + ins.total);
 });
 test('Below 4.5 SQ enforces $2,500 minimum', () => {
   const r = EBv2.calculateEstimate({
     method: 'per-sq', tier: 'good', mode: 'insurance',
-    rawSqft: 200, pitch: 4 // 2 SQ × $545 = $1,090 → bumps to $2,500
+    rawSqft: 200, pitch: '4/12' // 2 SQ × $545 = $1,090 → bumps to $2,500
   });
   if (r.total < 2500) throw new Error('expected ≥2500, got ' + r.total);
 });
 test('Tear-off layers: 3 layers adds (3-1)*sq*$50', () => {
   const common = { method:'per-sq', tier:'good', mode:'insurance',
-                   rawSqft: 1000, pitch: 6, wasteFactorOverride: 1.0 };
+                   rawSqft: 1000, pitch: '6/12', wasteFactorOverride: 1.0 };
   const oneLayer = EBv2.calculateEstimate(Object.assign({}, common, { tearOffLayers: 1 }));
   const threeLayer = EBv2.calculateEstimate(Object.assign({}, common, { tearOffLayers: 3 }));
   // 10 SQ × 2 extra layers × $50 = $1,000 extra
@@ -203,7 +203,7 @@ test('calcDeposit: amount + remainder === total (always)', () => {
 test('calculateEstimate: cash mode includes 50% deposit + remainder', () => {
   const r = EBv2.calculateEstimate({
     method: 'per-sq', tier: 'better', mode: 'cash',
-    rawSqft: 3000, pitch: 6, wasteFactorOverride: 1.0
+    rawSqft: 3000, pitch: '6/12', wasteFactorOverride: 1.0
   });
   // 30 SQ × $595 = $17,850 base + tax + minor add-ons
   eq(r.depositPct, 50, 'depositPct');
@@ -212,7 +212,7 @@ test('calculateEstimate: cash mode includes 50% deposit + remainder', () => {
 test('calculateEstimate: insurance mode → 0 deposit, full remainder', () => {
   const r = EBv2.calculateEstimate({
     method: 'per-sq', tier: 'better', mode: 'insurance',
-    rawSqft: 3000, pitch: 6, wasteFactorOverride: 1.0
+    rawSqft: 3000, pitch: '6/12', wasteFactorOverride: 1.0
   });
   eq(r.deposit, 0, 'deposit');
   eq(r.depositPct, 0, 'depositPct');
@@ -234,17 +234,60 @@ test('ADDON_PRICES: chimney+skylight match estimate-config source of truth', () 
 });
 test('calculateEstimate: chimney add-on adds $425 to subtotal', () => {
   const common = { method:'per-sq', tier:'better', mode:'insurance',
-                   rawSqft: 2000, pitch: 6, wasteFactorOverride: 1.0 };
+                   rawSqft: 2000, pitch: '6/12', wasteFactorOverride: 1.0 };
   const a = EBv2.calculateEstimate(Object.assign({}, common, { hasChimneyFlash: false }));
   const b = EBv2.calculateEstimate(Object.assign({}, common, { hasChimneyFlash: true }));
   near(b.addOnsTotal - a.addOnsTotal, 425, 0.5, 'chimney add-on premium');
 });
 test('calculateEstimate: skylight add-on adds $350 to subtotal', () => {
   const common = { method:'per-sq', tier:'better', mode:'insurance',
-                   rawSqft: 2000, pitch: 6, wasteFactorOverride: 1.0 };
+                   rawSqft: 2000, pitch: '6/12', wasteFactorOverride: 1.0 };
   const a = EBv2.calculateEstimate(Object.assign({}, common, { hasSkylightFlash: false }));
   const b = EBv2.calculateEstimate(Object.assign({}, common, { hasSkylightFlash: true }));
   near(b.addOnsTotal - a.addOnsTotal, 350, 0.5, 'skylight add-on premium');
+});
+
+// ── Phase 1 per-SQ complexity adders (estimate-qa-2026-06-08, Joe-confirmed) ──
+// wasteFactorOverride:1.0 pins sq=20 (2000 sqft) so the adder $ are exact.
+test('adder: steep 8/12 = $25/SQ; nothing below 8/12', () => {
+  const c = { tier:'better', mode:'insurance', rawSqft:2000, wasteFactorOverride:1.0 };
+  eq(EBv2.calculatePerSq(Object.assign({}, c, { pitch:'6/12' })).addOns.steep, 0, '6/12 no steep');
+  near(EBv2.calculatePerSq(Object.assign({}, c, { pitch:'8/12' })).addOns.steep, 20*25, 0.5, '8/12 steep $25/SQ');
+});
+test('adder: pitch tiers STACK — 12/12 = $70/SQ, 16/12 = $145/SQ', () => {
+  const c = { tier:'better', mode:'insurance', rawSqft:2000, wasteFactorOverride:1.0 };
+  const v = EBv2.calculatePerSq(Object.assign({}, c, { pitch:'12/12' }));
+  near(v.addOns.steep + v.addOns.verySteep + v.addOns.extremeSteep, 20*70, 0.5, '12/12 stacks to $70/SQ');
+  const x = EBv2.calculatePerSq(Object.assign({}, c, { pitch:'16/12' }));
+  near(x.addOns.steep + x.addOns.verySteep + x.addOns.extremeSteep, 20*145, 0.5, '16/12 stacks to $145/SQ');
+});
+test('adder: stories TIERED — 2-story $15/SQ, 3-story $30/SQ (NOT additive)', () => {
+  const c = { tier:'better', mode:'insurance', rawSqft:2000, pitch:'6/12', wasteFactorOverride:1.0 };
+  eq(EBv2.calculatePerSq(Object.assign({}, c, { stories:1 })).addOns.story, 0, '1 story = 0');
+  near(EBv2.calculatePerSq(Object.assign({}, c, { stories:2 })).addOns.story, 20*15, 0.5, '2-story $15/SQ');
+  near(EBv2.calculatePerSq(Object.assign({}, c, { stories:3 })).addOns.story, 20*30, 0.5, '3-story $30/SQ (tiered, not $45)');
+});
+test('adder: cut-up = +3% material waste AND $15/SQ cutting labor', () => {
+  const r = EBv2.calculatePerSq({ tier:'better', mode:'insurance', rawSqft:2000, pitch:'6/12', cutUpRoof:true });
+  near(r.waste, 1.18, 0.001, '6/12 waste 1.15 + 3% = 1.18');
+  near(r.addOns.cutUpLabor, r.sq * 15, 0.5, 'cut-up labor = sq × $15');
+});
+test('adder: access TIERED — standard $0, moderate $15/SQ, difficult $35/SQ', () => {
+  const c = { tier:'better', mode:'insurance', rawSqft:2000, pitch:'6/12', wasteFactorOverride:1.0 };
+  eq(EBv2.calculatePerSq(Object.assign({}, c, { accessLevel:'standard' })).addOns.access, 0, 'standard $0');
+  near(EBv2.calculatePerSq(Object.assign({}, c, { accessLevel:'moderate' })).addOns.access, 20*15, 0.5, 'moderate $15/SQ');
+  near(EBv2.calculatePerSq(Object.assign({}, c, { accessLevel:'difficult' })).addOns.access, 20*35, 0.5, 'difficult $35/SQ');
+});
+test('adder: per-SQ adder rates are config-backed (match estimate-config)', () => {
+  const cfg = require(path.join('..', 'docs', 'pro', 'js', 'estimate-config.js'));
+  eq(EBv2.ADDON_PRICES.steepPerSq,           cfg.ADDON_STEEP_PER_SQ,            'steep');
+  eq(EBv2.ADDON_PRICES.verySteepPerSq,       cfg.ADDON_VERY_STEEP_PER_SQ,       'very-steep');
+  eq(EBv2.ADDON_PRICES.extremeSteepPerSq,    cfg.ADDON_EXTREME_STEEP_PER_SQ,    'extreme-steep');
+  eq(EBv2.ADDON_PRICES.twoStoryPerSq,        cfg.ADDON_TWO_STORY_PER_SQ,        'two-story');
+  eq(EBv2.ADDON_PRICES.threeStoryPerSq,      cfg.ADDON_THREE_STORY_PER_SQ,      'three-story');
+  eq(EBv2.ADDON_PRICES.cutUpPerSq,           cfg.ADDON_CUTUP_PER_SQ,            'cut-up');
+  eq(EBv2.ADDON_PRICES.accessModeratePerSq,  cfg.ADDON_ACCESS_MODERATE_PER_SQ,  'access-moderate');
+  eq(EBv2.ADDON_PRICES.accessDifficultPerSq, cfg.ADDON_ACCESS_DIFFICULT_PER_SQ, 'access-difficult');
 });
 
 console.log('──────────────────────────────────────────────────');
