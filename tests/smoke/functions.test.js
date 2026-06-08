@@ -324,6 +324,28 @@ section('Legal: NBD Pro Terms of Service page + footer wiring');
     /href="\/pro\/terms\.html"[^>]*>Terms of Service</.test(proIndex));
 }
 
+section('Marketing: canonical pricing + no fabricated proof');
+{
+  const idx = read(path.join(ROOT, 'docs/pro/index.html'));
+  const pr = read(path.join(ROOT, 'docs/pro/pricing.html'));
+  // Canonical tiers + figures present on the pricing page.
+  for (const needle of ['Solo', 'Crew', 'Scale', '$99', '$299', '$39']) {
+    assert('pricing.html shows ' + needle, new RegExp(needle.replace(/[$]/g, '\\$&')).test(pr));
+  }
+  // The stale divergent index.html price grid ($29/$49/$79) is gone.
+  for (const gone of ['$29<span>/mo', '$49<span>/mo', '$79<span>/mo']) {
+    assert('index.html no longer shows stale price ' + gone, !idx.includes(gone));
+  }
+  // Fabricated social proof (FTC risk on a brand-new product) stays removed.
+  for (const fake of ['247', '$2.4M', '89%', '50+', '$10M+', '25K+', '4.9★', 'Mike R', 'Sarah K', 'Carlos M']) {
+    assert('index.html has no fabricated proof "' + fake + '"', !idx.includes(fake));
+  }
+  // No dead anchors; pricing teaser points at the single canonical page.
+  assert('index.html has zero dead href="#" anchors', !/href="#"/.test(idx));
+  assert('index.html pricing teaser links to /pro/pricing', /href="\/pro\/pricing"/.test(idx));
+  assert('index.html JSON-LD uses an offers array (not a single $0 offer)', /"offers":\[/.test(idx));
+}
+
 section('Wave A5: firestore rules tests cover new collections');
 {
   const t = read(path.join(ROOT, 'tests/firestore-rules.test.js'));
