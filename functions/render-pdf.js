@@ -199,15 +199,33 @@ function hbsEsc(s) {
 // AFTER the static design-system :root (equal specificity → later rule wins).
 // NBD → '' (byte-identical render). Only the dominant brand tokens are mapped.
 function hexToRgb(hex) {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ''));
-  return m ? parseInt(m[1], 16) + ', ' + parseInt(m[2], 16) + ', ' + parseInt(m[3], 16) : null;
+  const s = String(hex || '');
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(s);
+  if (m) return parseInt(m[1], 16) + ', ' + parseInt(m[2], 16) + ', ' + parseInt(m[3], 16);
+  // 3-digit shorthand (#fc0) — a tenant accent written short would otherwise
+  // fail to parse and the soft/line tints would fall back to NBD orange (L5).
+  const s3 = /^#?([a-f\d])([a-f\d])([a-f\d])$/i.exec(s);
+  if (s3) return parseInt(s3[1] + s3[1], 16) + ', ' + parseInt(s3[2] + s3[2], 16) + ', ' + parseInt(s3[3] + s3[3], 16);
+  return null;
+}
+// Darken a hex by `f` (0..1) for the *-dark accent token, so the tenant gets a
+// real darker shade instead of the accent repeated (L4). Falls back to the
+// input if it can't be parsed.
+function darken(hex, f) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const parts = rgb.split(',').map(function (n) {
+    const v = Math.max(0, Math.min(255, Math.round(parseInt(n, 10) * (1 - f))));
+    return ('0' + v.toString(16)).slice(-2);
+  });
+  return '#' + parts.join('');
 }
 function buildBrandVars(colors) {
   if (!colors) return '';
   const v = [];
   if (colors.accent) {
     v.push('--nbd-orange:' + colors.accent);
-    v.push('--nbd-orange-dark:' + colors.accent);
+    v.push('--nbd-orange-dark:' + darken(colors.accent, 0.15));
     const rgb = hexToRgb(colors.accent);
     if (rgb) {
       v.push('--nbd-orange-soft:rgba(' + rgb + ',0.08)');
@@ -229,14 +247,18 @@ async function resolveDocCompany(companyId) {
       const b = (snap.data() || {}).brand || {};
       if (b.legalName && b.legalName !== NBD_DOC_COMPANY.footerName) {
         const c = b.contact || {};
+        // logo/seal fall back to BLANK, never NBD's — a non-NBD tenant that
+        // didn't set its own must not stamp NBD's logo or 'NBD' seal on its
+        // PDF (review M1). `b` is the raw, un-merged override, so c.* is already
+        // the tenant's own value or undefined.
         return {
-          logoUrl: b.logoUrl || NBD_DOC_COMPANY.logoUrl,
+          logoUrl: b.logoUrl || '',
           nameHtml: hbsEsc(b.legalName),
           footerName: b.legalName,
           brandTag: b.tagline || '',
           brandContact: [c.phone, c.email].filter(Boolean).join(' · '),
           footerContact: [c.phone, c.email, c.address].filter(Boolean).join(' · '),
-          seal: b.seal || NBD_DOC_COMPANY.seal,
+          seal: b.seal || '',
           colors: b.colors || null,
         };
       }

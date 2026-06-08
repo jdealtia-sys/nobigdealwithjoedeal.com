@@ -4302,7 +4302,7 @@ window.exportCustomerEstimate = function(estId) {
   const _b = (window._brand && window._brand()) || {};
   const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
   const _esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const _logo = _isNbd ? '/assets/images/nbd-logo.png' : (_b.logoUrl || '/assets/images/nbd-logo.png');
+  const _logo = _isNbd ? '/assets/images/nbd-logo.png' : (_b.logoUrl || '');
   const _nameHtml = _isNbd ? 'No Big <span>Deal</span> Home Solutions' : _esc(_b.legalName);
   const _legalName = _isNbd ? 'No Big Deal Home Solutions' : _b.legalName;
   const _site = _isNbd ? 'nobigdealwithjoedeal.com' : ((_b.contact && _b.contact.website) || '');
@@ -7659,15 +7659,18 @@ window.setupContactTab = function(customerData) {
   // NBD (default brand) keeps the exact hardcoded values — byte-identical.
   const _b = (window._brand && window._brand()) || {};
   const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
-  const phone = _isNbd ? '(859) 420-7382' : ((_b.contact && _b.contact.phone) || '(859) 420-7382');
-  const email = _isNbd ? 'info@nobigdealwithjoedeal.com' : ((_b.contact && _b.contact.email) || 'info@nobigdealwithjoedeal.com');
+  // M1: a non-NBD tenant that didn't set its own phone/email shows BLANK, never
+  // NBD's number/address — window._brand() already blanks fields the tenant
+  // didn't set, and these fallbacks no longer reach back to the NBD literals.
+  const phone = _isNbd ? '(859) 420-7382' : ((_b.contact && _b.contact.phone) || '');
+  const email = _isNbd ? 'info@nobigdealwithjoedeal.com' : ((_b.contact && _b.contact.email) || '');
 
   document.getElementById('contractorPhone').textContent = phone;
   document.getElementById('contactCallBtn').href = `tel:${phone.replace(/\D/g, '')}`;
   document.getElementById('contactTextBtn').href = `sms:${phone.replace(/\D/g, '')}`;
   document.getElementById('contactEmailBtn').href = `mailto:${email}`;
   if (!_isNbd) {
-    const elS = document.getElementById('contractorSeal'); if (elS) elS.textContent = _b.seal || 'NBD';
+    const elS = document.getElementById('contractorSeal'); if (elS) elS.textContent = _b.seal || '';
     const elN = document.getElementById('contractorName'); if (elN) elN.textContent = _b.legalName || '';
   }
 };

@@ -167,6 +167,14 @@
 
   const CACHE_KEY = 'nbd_company_profile_v1';
 
+  // The tenant's RAW (un-merged) brand override, as written to
+  // companyProfile/{key}.brand — NOT deep-merged onto the NBD defaults.
+  // _brand() uses this to tell "the tenant set this field" from "the field
+  // is just NBD's default showing through the merge", so a partially-
+  // configured tenant never inherits NBD's phone/email/logo/seal (review M1).
+  // null until a keyed load/cache/save populates it (i.e. NBD or pre-auth).
+  let _brandOverrideRaw = null;
+
   // Resolve the per-tenant document key for `companyProfile/{key}`.
   //
   // Priority:
@@ -212,6 +220,7 @@
     if (raw) {
       const cached = JSON.parse(raw);
       window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, cached || {});
+      _brandOverrideRaw = (cached && cached.brand) || null;
     }
   } catch (_) { /* ignore */ }
 
@@ -225,6 +234,7 @@
       if (snap && snap.exists()) {
         const remote = snap.data() || {};
         window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, remote);
+        _brandOverrideRaw = (remote && remote.brand) || null;
         try { localStorage.setItem(CACHE_KEY, JSON.stringify(remote)); } catch (_) {}
       }
     } catch (e) {
@@ -236,6 +246,7 @@
   window._saveCompanyProfile = async function (overrides) {
     const overridesObj = overrides || {};
     window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, overridesObj);
+    if ('brand' in overridesObj) _brandOverrideRaw = overridesObj.brand || null;
     try { localStorage.setItem(CACHE_KEY, JSON.stringify(overridesObj)); } catch (_) {}
     if (!window.db) return window._companyProfile;
     const key = await _resolveCompanyKey();
@@ -261,15 +272,53 @@
   // Both are sync and read window._companyProfile (already merged by the
   // load path). Before auth/load they return NBD defaults — never null —
   // so a consumer can always render a brand.
+  // A brand is "NBD" (and renders byte-identical) when it carries no legalName
+  // or the canonical NBD legalName. Same gate the doc/PDF/portal consumers use.
+  function _isNbdBrand(b) {
+    const NBD = NBD_COMPANY_PROFILE_DEFAULTS.brand.legalName;
+    return !b || !b.legalName || b.legalName === NBD;
+  }
+
+  // Top-level + contact identity fields a tenant must set for itself. For a
+  // non-NBD tenant, any of these that the tenant did NOT explicitly provide is
+  // blanked rather than left showing NBD's deep-merged default — so NBD's
+  // phone/email/logo/seal/tagline can never bleed onto another company's docs,
+  // portal, or alerts (review M1). displayName is special-cased to the tenant's
+  // own legalName (never blank, never 'No Big Deal'). colors/fonts are cosmetic
+  // and may inherit. NBD itself is returned untouched (byte-identical).
+  const _IDENTITY_TOP     = ['seal', 'docPrefix', 'tagline', 'smsSignOff', 'logoUrl'];
+  const _IDENTITY_CONTACT = ['phone', 'email', 'website', 'address', 'alertEmail', 'alertSms'];
+
+  function _resolveBrand() {
+    const profile = window._companyProfile || NBD_COMPANY_PROFILE_DEFAULTS;
+    const merged = profile.brand || NBD_COMPANY_PROFILE_DEFAULTS.brand;
+    if (_isNbdBrand(merged)) return merged; // NBD / unconfigured → full defaults
+    // Non-NBD tenant: keep only what the tenant set itself (raw override),
+    // blank the rest of the identity surface.
+    const raw = _brandOverrideRaw || {};
+    const rawContact = raw.contact || {};
+    const out = Object.assign({}, merged);
+    out.displayName = ('displayName' in raw) ? merged.displayName : (merged.legalName || '');
+    _IDENTITY_TOP.forEach(function (k) { if (!(k in raw)) out[k] = ''; });
+    out.contact = Object.assign({}, merged.contact);
+    _IDENTITY_CONTACT.forEach(function (k) { if (!(k in rawContact)) out.contact[k] = ''; });
+    return out;
+  }
+
   window._tenant = function () {
     const profile = window._companyProfile || NBD_COMPANY_PROFILE_DEFAULTS;
     let companyId = null;
     try { companyId = (window._userClaims && window._userClaims.companyId) || null; } catch (_) { /* ignore */ }
     return {
       companyId: companyId,
-      brand: profile.brand || NBD_COMPANY_PROFILE_DEFAULTS.brand,
+      brand: _resolveBrand(),
       profile: profile
     };
   };
-  window._brand = function () { return window._tenant().brand; };
+  window._brand = function () { return _resolveBrand(); };
+
+  // The RAW, un-merged tenant brand override (null for NBD / pre-auth). Lets a
+  // consumer or a provisioning check see exactly which brand fields the tenant
+  // has actually set, with no NBD defaults mixed in (review M1).
+  window._brandOverride = function () { return _brandOverrideRaw; };
 })();

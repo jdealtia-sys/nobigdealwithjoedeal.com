@@ -4,9 +4,11 @@
  * Verifies the per-tenant brand resolver added to company-profile.js:
  *   - NBD canonical brand ships as the defaults (window._brand()).
  *   - window._tenant() returns the fuller context ({companyId, brand, profile}).
- *   - A tenant's companyProfile.brand override deep-merges on top while NBD
- *     defaults survive for fields the tenant didn't set (so NBD stays
- *     byte-identical and tenants only change what they set).
+ *   - A tenant's companyProfile.brand override deep-merges on top: COSMETIC
+ *     fields the tenant didn't set inherit NBD defaults, but IDENTITY fields
+ *     (name/contact/logo/seal/prefix) blank out instead of inheriting NBD's —
+ *     so NBD stays byte-identical yet NBD's identity never bleeds onto another
+ *     tenant (review M1). _brandOverride() exposes the raw un-merged override.
  *
  * Zero deps. Evals the browser IIFE in a vm sandbox (same pattern as
  * customer-portal-logic.test.js). Run: node tests/tenant-brand.test.js
@@ -67,7 +69,7 @@ function loadCompanyProfile() {
   ok('_tenant.brand === _brand()', t.brand === win._brand());
   ok('_tenant.companyId null before auth', t.companyId === null);
 
-  console.log('\nTENANTCONTEXT — tenant override deep-merge (NBD defaults survive)');
+  console.log('\nTENANTCONTEXT — tenant override (cosmetic inherits, identity does NOT — M1)');
   await win._saveCompanyProfile({
     brand: {
       legalName: 'Oaks Roofing & Construction',
@@ -79,9 +81,14 @@ function loadCompanyProfile() {
   ok('override: legalName replaced', ob.legalName === 'Oaks Roofing & Construction');
   ok('override: docPrefix replaced', ob.docPrefix === 'OAK');
   ok('override: primary replaced (charcoal)', ob.colors.primary === '#333333');
-  ok('override: ink preserved from NBD default', ob.colors.ink === '#14181F');
-  ok('override: displayName preserved from NBD default', ob.displayName === 'No Big Deal');
-  ok('override: contact preserved from NBD default', ob.contact.phone === '(859) 420-7382');
+  ok('override: ink (cosmetic) still inherits NBD default', ob.colors.ink === '#14181F');
+  // Identity fields the tenant did NOT set must NOT inherit NBD's — they blank
+  // out so NBD's name/phone never bleed onto another company (review M1).
+  ok('override: displayName derives from legalName (NOT "No Big Deal")', ob.displayName === 'Oaks Roofing & Construction');
+  ok('override: phone blanked (NOT NBD\'s number)', ob.contact.phone === '');
+  ok('override: logoUrl blanked (NOT NBD\'s logo)', ob.logoUrl === '');
+  ok('override: seal blanked (NOT "NBD")', ob.seal === '');
+  ok('override: _brandOverride() returns the raw un-merged override', win._brandOverride() && win._brandOverride().legalName === 'Oaks Roofing & Construction' && !win._brandOverride().contact);
 
   console.log('\n──────────────────────────────────────────────────');
   console.log(passed + ' passed, ' + failed + ' failed');

@@ -50,13 +50,20 @@ window.NBDDocGen = {
       const b = (typeof window !== 'undefined' && window._brand) ? window._brand() : null;
       if (b && b.legalName && b.legalName !== base.name) {
         const c = b.colors || {};
+        // Identity fields fall back to BLANK, never to NBD's (base.*) — a
+        // partially-configured tenant must not inherit NBD's phone/email/
+        // website/logo onto its documents (review M1). window._brand() has
+        // already blanked anything this tenant didn't set; the '' fallbacks
+        // here just make sure a missing field never reaches back to base.
+        // tagline/colors are cosmetic and may still inherit. NBD takes the
+        // early `return base` below, so this branch never runs for NBD.
         return {
           name:    b.legalName,
-          phone:   (b.contact && b.contact.phone)   || base.phone,
-          email:   (b.contact && b.contact.email)   || base.email,
-          website: (b.contact && b.contact.website) || base.website,
+          phone:   (b.contact && b.contact.phone)   || '',
+          email:   (b.contact && b.contact.email)   || '',
+          website: (b.contact && b.contact.website) || '',
           tagline: b.tagline || base.tagline,
-          address: (b.contact && b.contact.address) || base.address,
+          address: (b.contact && b.contact.address) || '',
           logoUrl: b.logoUrl || null,
           colors: {
             primary:    c.primary    || base.colors.primary,
@@ -78,9 +85,33 @@ window.NBDDocGen = {
   _logoSrc() {
     const c = this._resolveCompany();
     if (c.logoUrl) return c.logoUrl;
+    // A non-NBD tenant with no logo of its own gets NO logo — never NBD's
+    // (cross-tenant leak, M1). _resolveCompany returns the COMPANY literal
+    // itself only for NBD, so c !== COMPANY means an active tenant.
+    if (c !== this.COMPANY) return '';
     return (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
       ? window.NBD_LOGO_DATA_URI
       : this._assetOrigin() + '/assets/images/nbd-logo.png';
+  },
+
+  /**
+   * rgba() string from a hex color with the alpha written exactly as it should
+   * appear in CSS (e.g. '.04', '0'). Lets section-tint gradients track the
+   * active tenant's accent instead of a hardcoded NBD orange (review L4).
+   * For NBD's #e8720c this returns 'rgba(232,114,12,<alpha>)' — byte-identical
+   * to the literal it replaced. Handles 3- and 6-digit hex; unparseable input
+   * falls back to NBD orange's channels.
+   */
+  _rgba(hex, alpha) {
+    const s = String(hex || '');
+    let m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(s);
+    let r = 232, g = 114, b = 12;
+    if (m) {
+      r = parseInt(m[1], 16); g = parseInt(m[2], 16); b = parseInt(m[3], 16);
+    } else if ((m = /^#?([a-f\d])([a-f\d])([a-f\d])$/i.exec(s))) {
+      r = parseInt(m[1] + m[1], 16); g = parseInt(m[2] + m[2], 16); b = parseInt(m[3] + m[3], 16);
+    }
+    return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
   },
 
   /**
@@ -91,6 +122,10 @@ window.NBDDocGen = {
     try {
       const b = (typeof window !== 'undefined' && window._brand) ? window._brand() : null;
       if (b && b.docPrefix) return b.docPrefix;
+      // A non-NBD tenant that didn't set a docPrefix gets NO prefix — never
+      // 'NBD' on another company's doc numbers (M1). Empty prefix yields
+      // '-0001'; provisioning should require docPrefix before a tenant launches.
+      if (b && b.legalName && b.legalName !== this.COMPANY.name) return '';
     } catch (_) { /* ignore */ }
     return 'NBD';
   },
@@ -936,7 +971,7 @@ window.NBDDocGen = {
           margin-bottom: 0.22in;
           padding: 0.12in 0.18in;
           border-left: 4px solid ${this._resolveCompany().colors.accent};
-          background: linear-gradient(90deg, rgba(232,114,12,.04) 0%, rgba(232,114,12,0) 60%);
+          background: linear-gradient(90deg, ${this._rgba(this._resolveCompany().colors.accent, '.04')} 0%, ${this._rgba(this._resolveCompany().colors.accent, '0')} 60%);
           border-radius: 0 6px 6px 0;
         }
 
@@ -2511,7 +2546,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
   .kv-k{font-weight:600;color:${C.colors.primary};width:160px;white-space:nowrap;}
   .kv-v{color:#1a1a2e;}
 
-  .tl-row{display:flex;gap:14px;padding:10px 12px;border-left:3px solid ${C.colors.accent};background:linear-gradient(90deg,rgba(232,114,12,.05) 0%,rgba(232,114,12,0) 60%);border-radius:0 6px 6px 0;margin-bottom:8px;page-break-inside:avoid;break-inside:avoid;}
+  .tl-row{display:flex;gap:14px;padding:10px 12px;border-left:3px solid ${C.colors.accent};background:linear-gradient(90deg,${this._rgba(C.colors.accent, '.05')} 0%,${this._rgba(C.colors.accent, '0')} 60%);border-radius:0 6px 6px 0;margin-bottom:8px;page-break-inside:avoid;break-inside:avoid;}
   .tl-time{font:600 10.5px/1.3 Barlow,sans-serif;color:#666;width:130px;flex:0 0 130px;}
   .tl-body{flex:1;min-width:0;}
   .tl-title{font:700 12px/1.3 Barlow,sans-serif;color:#1a1a2e;display:flex;align-items:center;gap:8px;}
