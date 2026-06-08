@@ -37,8 +37,14 @@ section('Cloud Functions exports');
 section('Phase C: lead-bridge (H-1 intake → CRM)');
 {
   const bridge = read(path.join(FUNCTIONS, 'lead-bridge.js'));
+  // C-1: the triggers MUST assign onDocumentCreated DIRECTLY (not via a
+  // makeTrigger wrapper), or the CI deploy enumeration omits them and the
+  // bridge never reaches prod. This guard replicates the exact factory regex
+  // from .github/workflows/firebase-deploy.yml so the gap can't recur.
+  const CI_FACTORY = '(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted)';
   for (const fn of ['leadBridgeContact', 'leadBridgeEstimate', 'leadBridgeInspect', 'leadBridgeFreeRoof']) {
-    assert('lead-bridge exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=\\s*makeTrigger').test(bridge));
+    assert('lead-bridge exports ' + fn + ' as a direct factory call (CI-deployable)',
+      new RegExp('^exports\\.' + fn + ' *= *' + CI_FACTORY, 'm').test(bridge));
   }
   assert('lead-bridge fires onDocumentCreated', /onDocumentCreated/.test(bridge));
   assert('lead-bridge mirrors into the leads collection', /collection\('leads'\)\.doc\(/.test(bridge));

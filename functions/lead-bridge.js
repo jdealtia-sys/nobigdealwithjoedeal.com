@@ -94,27 +94,33 @@ async function bridgeToCrm(collection, data, sourceId) {
   }
 }
 
-function makeTrigger(collection) {
-  return onDocumentCreated(
-    {
-      region: 'us-central1',
-      document: `${collection}/{leadId}`,
-      maxInstances: 10,
-      memory: '256MiB',
-      timeoutSeconds: 30,
-    },
-    async (event) => {
-      const snap = event.data;
-      if (!snap) return;
-      await bridgeToCrm(collection, snap.data() || {}, event.params && event.params.leadId);
-    }
-  );
+const TRIGGER_OPTS = {
+  region: 'us-central1',
+  maxInstances: 10,
+  memory: '256MiB',
+  timeoutSeconds: 30,
+};
+
+function onLeadCreated(collection) {
+  return async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    await bridgeToCrm(collection, snap.data() || {}, event.params && event.params.leadId);
+  };
 }
 
-exports.leadBridgeContact  = makeTrigger('contact_leads');
-exports.leadBridgeEstimate = makeTrigger('estimate_leads');
-exports.leadBridgeInspect  = makeTrigger('inspect_leads');
-exports.leadBridgeFreeRoof = makeTrigger('free_roof_entries');
+// IMPORTANT: each export assigns onDocumentCreated(...) DIRECTLY (not via a
+// makeTrigger() wrapper). The CI auto-deploy builds its --only allowlist by
+// grepping `^exports.<name> = (onRequest|onCall|onDocumentCreated|...)` in
+// .github/workflows/firebase-deploy.yml. A `= makeTrigger(...)` RHS does NOT
+// match, so a wrapper-exported trigger is silently dropped from the deploy
+// (the same latent gap that quietly keeps lead-alert.js's makeTrigger exports
+// off the CI auto-deploy — they only ship via a manual full `firebase deploy`).
+// Keep the RHS a literal factory call so a push to main actually deploys these.
+exports.leadBridgeContact  = onDocumentCreated({ ...TRIGGER_OPTS, document: 'contact_leads/{leadId}' },     onLeadCreated('contact_leads'));
+exports.leadBridgeEstimate = onDocumentCreated({ ...TRIGGER_OPTS, document: 'estimate_leads/{leadId}' },    onLeadCreated('estimate_leads'));
+exports.leadBridgeInspect  = onDocumentCreated({ ...TRIGGER_OPTS, document: 'inspect_leads/{leadId}' },      onLeadCreated('inspect_leads'));
+exports.leadBridgeFreeRoof = onDocumentCreated({ ...TRIGGER_OPTS, document: 'free_roof_entries/{leadId}' }, onLeadCreated('free_roof_entries'));
 
 // Exposed for tests / wiring sanity.
 exports._bridgeCollections = BRIDGE_COLLECTIONS;
