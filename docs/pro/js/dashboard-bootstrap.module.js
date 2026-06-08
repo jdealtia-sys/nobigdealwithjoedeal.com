@@ -2455,12 +2455,15 @@
 
               // Auto-assign customer ID (NBD-0001 format)
               try {
-                const counterRef = doc(db, 'counters', 'customerIds');
+                const _cid = window._userClaims?.companyId || window._user?.uid;
+                const _ctrId = (typeof window._custCounterId === 'function') ? window._custCounterId(_cid) : 'customerIds';
+                const _pfx = (typeof window._custIdPrefix === 'function') ? window._custIdPrefix() : 'NBD';
+                const counterRef = doc(db, 'counters', _ctrId);
                 const custId = await runTransaction(db, async (tx) => {
                   const snap = await tx.get(counterRef);
                   let nextNum = snap.exists() ? (snap.data().next || 0) + 1 : 1;
                   tx.set(counterRef, { next: nextNum }, { merge: true });
-                  return 'NBD-' + String(nextNum).padStart(4, '0');
+                  return _pfx + '-' + String(nextNum).padStart(4, '0');
                 });
                 await updateDoc(doc(db, 'leads', leadRef.id), { customerId: custId });
                 console.log('✓ Assigned customer ID:', custId);
@@ -2515,12 +2518,15 @@
         _optimisticInsertLead(fallbackRef.id, data);
         // Auto-assign customer ID
         try {
-          const counterRef = doc(db, 'counters', 'customerIds');
+          const _cid = window._userClaims?.companyId || window._user?.uid;
+          const _ctrId = (typeof window._custCounterId === 'function') ? window._custCounterId(_cid) : 'customerIds';
+          const _pfx = (typeof window._custIdPrefix === 'function') ? window._custIdPrefix() : 'NBD';
+          const counterRef = doc(db, 'counters', _ctrId);
           const custId = await runTransaction(db, async (tx) => {
             const snap = await tx.get(counterRef);
             let nextNum = snap.exists() ? (snap.data().next || 0) + 1 : 1;
             tx.set(counterRef, { next: nextNum }, { merge: true });
-            return 'NBD-' + String(nextNum).padStart(4, '0');
+            return _pfx + '-' + String(nextNum).padStart(4, '0');
           });
           await updateDoc(doc(db, 'leads', fallbackRef.id), { customerId: custId });
           console.log('✓ Assigned customer ID:', custId);

@@ -296,7 +296,16 @@ exports.backfillCustomerData = onCall(
     let batch = db.batch();
     let batchCount = 0;
 
-    const counterRef = db.collection('counters').doc('customerIds');
+    // Per-tenant prefix + counter (loose-end fix): NBD (docPrefix 'NBD' or
+    // unset) keeps the legacy shared counter + 'NBD-'; a configured tenant
+    // mints from its own counter + prefix. Mirrors the client _custCounterId gate.
+    let _dp = 'NBD';
+    try {
+      const _ps = await db.collection('companyProfile').doc(String(callerCompanyId)).get();
+      _dp = (_ps.exists && _ps.data().brand && _ps.data().brand.docPrefix) || 'NBD';
+    } catch (_) { /* default NBD */ }
+    const _isNbd = !_dp || _dp === 'NBD';
+    const counterRef = db.collection('counters').doc(_isNbd ? 'customerIds' : ('customerIds_' + String(callerCompanyId).toLowerCase()));
 
     for (const doc of snap.docs) {
       const d = doc.data();
@@ -316,7 +325,7 @@ exports.backfillCustomerData = onCall(
             const cs = await tx.get(counterRef);
             const next = cs.exists ? (cs.data().next || 0) + 1 : 1;
             tx.set(counterRef, { next }, { merge: true });
-            return 'NBD-' + String(next).padStart(4, '0');
+            return _dp + '-' + String(next).padStart(4, '0');
           });
           updates.customerId = newCid;
           fixedCustomerId++;

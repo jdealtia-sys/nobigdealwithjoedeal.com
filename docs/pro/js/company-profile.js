@@ -329,6 +329,25 @@
   };
   window._brand = function () { return _resolveBrand(); };
 
+  // ── Per-tenant customer-ID minting (loose-end fix) ───────────────
+  // Customer IDs were hardcoded 'NBD-####' from a single global
+  // counters/customerIds doc. These helpers let each tenant mint its own
+  // prefix + sequence WITHOUT changing NBD. The gate is the resolved
+  // docPrefix: NBD (and any tenant that hasn't set a docPrefix) → the
+  // original shared 'customerIds' doc + 'NBD' prefix, byte-identical and
+  // never reset. A configured tenant (e.g. Oaks docPrefix 'OAK') →
+  // counters/customerIds_<companyId> + its own prefix, so tenants never
+  // share or collide a sequence.
+  window._custIdPrefix = function () {
+    const b = _resolveBrand();
+    return (b && b.docPrefix) ? b.docPrefix : 'NBD';
+  };
+  window._custCounterId = function (companyId) {
+    const p = window._custIdPrefix();
+    if (!p || p === 'NBD') return 'customerIds';            // NBD / unconfigured → legacy shared counter
+    return 'customerIds_' + String(companyId || p).toLowerCase();
+  };
+
   // The RAW, un-merged tenant brand override (null for NBD / pre-auth). Lets a
   // consumer or a provisioning check see exactly which brand fields the tenant
   // has actually set, with no NBD defaults mixed in (review M1).

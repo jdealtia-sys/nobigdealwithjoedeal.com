@@ -3196,7 +3196,10 @@ async function loadCustomerData(id) {
     // ── Auto-assign Customer ID (NBD-0001 format) if missing ──
     if (!lead.customerId) {
       try {
-        const counterRef = doc(db, 'counters', 'customerIds');
+        const _cid = (lead && lead.companyId) || (window._user && window._user.uid);
+        const _ctrId = (typeof window._custCounterId === 'function') ? window._custCounterId(_cid) : 'customerIds';
+        const _pfx = (typeof window._custIdPrefix === 'function') ? window._custIdPrefix() : 'NBD';
+        const counterRef = doc(db, 'counters', _ctrId);
         const newId = await runTransaction(db, async (transaction) => {
           const counterSnap = await transaction.get(counterRef);
           let nextNum = 1;
@@ -3204,7 +3207,7 @@ async function loadCustomerData(id) {
             nextNum = (counterSnap.data().next || 0) + 1;
           }
           transaction.set(counterRef, { next: nextNum }, { merge: true });
-          return 'NBD-' + String(nextNum).padStart(4, '0');
+          return _pfx + '-' + String(nextNum).padStart(4, '0');
         });
         await updateDoc(doc(db, 'leads', id), { customerId: newId });
         lead.customerId = newId;
