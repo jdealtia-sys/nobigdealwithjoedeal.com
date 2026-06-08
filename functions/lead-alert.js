@@ -47,8 +47,8 @@ async function resolveAlertTarget(companyId) {
       const c = b.contact || {};
       if (c.alertEmail || c.alertSms) {
         return {
-          emails: c.alertEmail ? [c.alertEmail] : ALERT_EMAILS,
-          sms: c.alertSms || ALERT_SMS,
+          emails: c.alertEmail ? [c.alertEmail] : null,
+          sms: c.alertSms || null,
           name: b.legalName || fallback.name,
           seal: b.seal || b.displayName || fallback.seal,
         };
@@ -122,8 +122,9 @@ async function alertJoe(collection, d, leadId) {
   // Route to the lead's tenant (Oaks → Scott); NBD / unset → Joe (default).
   const target = await resolveAlertTarget(d.companyId);
 
-  // Text via Twilio (works once the number is A2P 10DLC approved).
-  try {
+  // Text via Twilio (works once the number is A2P 10DLC approved). Skip when
+  // the tenant configured no alert SMS — never fall back to Joe's cell.
+  if (target.sms) try {
     const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
     const msg = await client.messages.create({
       to: target.sms,
@@ -135,8 +136,8 @@ async function alertJoe(collection, d, leadId) {
     logger.error('leadAlert: sms failed', { collection, leadId, err: e.message });
   }
 
-  // Detailed email → the tenant's alert inbox(es).
-  try {
+  // Detailed email → the tenant's alert inbox(es). Skip when none configured.
+  if (target.emails && target.emails.length) try {
     const resend = new Resend(RESEND_API_KEY.value());
     const from = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
     const resp = await resend.emails.send({

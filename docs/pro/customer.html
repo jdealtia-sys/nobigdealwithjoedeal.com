@@ -1809,9 +1809,9 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
           <!-- CONTRACTOR INFO & QUICK CONTACT -->
           <div class="panel">
             <div class="company-banner">
-              <div class="company-logo">NBD</div>
+              <div class="company-logo" id="contractorSeal">NBD</div>
               <div class="company-info">
-                <div class="company-name">No Big Deal Home Solutions</div>
+                <div class="company-name" id="contractorName">No Big Deal Home Solutions</div>
                 <div class="company-contact" id="contractorPhone">(859) 420-7382</div>
               </div>
             </div>
@@ -4336,7 +4336,7 @@ window.exportCustomerEstimate = function(estId) {
   <div class="hdr">
     <div style="display:flex;align-items:center;gap:14px;">
       <img src="${_logo}" alt="${_esc(_legalName)}" style="height:54px;width:auto;display:block;flex-shrink:0;" loading="lazy" decoding="async" />
-      <div><div class="brand">${_nameHtml}</div><div style="font-size:13px;color:#666;margin-top:2px;">${_site}</div><div class="badge">${_tag}</div></div>
+      <div><div class="brand">${_nameHtml}</div><div style="font-size:13px;color:#666;margin-top:2px;">${_esc(_site)}</div><div class="badge">${_esc(_tag)}</div></div>
     </div>
     <div class="est-hdr">
       <div class="est-type">Roofing Estimate</div>
@@ -4362,7 +4362,7 @@ window.exportCustomerEstimate = function(estId) {
     <tr class="grand-row"><td colspan="4">ESTIMATE TOTAL — ${est.tierName||tierNames[est.tier]||''}</td><td>${fmt(est.grandTotal||est.amount||0)}</td></tr>
   </tbody></table>
   <div class="footer">
-    <div>${_legalName} · ${_site}</div>
+    <div>${_esc(_legalName)} · ${_esc(_site)}</div>
     <div>This estimate is valid for 30 days. Measurements verified on-site prior to work.</div>
   </div>
   <script>window.print();<\/script></body></html>`;
@@ -7655,13 +7655,21 @@ window.loadNewPortalSections = async function(leadId) {
 
 // ── Setup contact tab links ────────────────────
 window.setupContactTab = function(customerData) {
-  const phone = '(859) 420-7382';
-  const email = 'info@nobigdealwithjoedeal.com';
+  // B-3c: contractor banner + contact links resolve from the active tenant.
+  // NBD (default brand) keeps the exact hardcoded values — byte-identical.
+  const _b = (window._brand && window._brand()) || {};
+  const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+  const phone = _isNbd ? '(859) 420-7382' : ((_b.contact && _b.contact.phone) || '(859) 420-7382');
+  const email = _isNbd ? 'info@nobigdealwithjoedeal.com' : ((_b.contact && _b.contact.email) || 'info@nobigdealwithjoedeal.com');
 
   document.getElementById('contractorPhone').textContent = phone;
   document.getElementById('contactCallBtn').href = `tel:${phone.replace(/\D/g, '')}`;
   document.getElementById('contactTextBtn').href = `sms:${phone.replace(/\D/g, '')}`;
   document.getElementById('contactEmailBtn').href = `mailto:${email}`;
+  if (!_isNbd) {
+    const elS = document.getElementById('contractorSeal'); if (elS) elS.textContent = _b.seal || 'NBD';
+    const elN = document.getElementById('contractorName'); if (elN) elN.textContent = _b.legalName || '';
+  }
 };
 
 // ── Open Photo in Lightbox ─────────────────────
