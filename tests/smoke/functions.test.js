@@ -307,6 +307,23 @@ section('Wave A3: privacy sub-processor disclosure');
   }
 }
 
+section('Legal: NBD Pro Terms of Service page + footer wiring');
+{
+  const tos = read(path.join(ROOT, 'docs/pro/terms.html'));
+  assert('terms.html exists and titled Terms of Service',
+    /<title>Terms of Service/.test(tos));
+  // Required substance — these are the topics the page must keep covering.
+  for (const needle of ['Solo', 'Crew', '$99', '$299', '$39', 'Scale',
+                        '14-day free trial', 'Acceptable Use',
+                        'Limitation of Liability', 'State of Ohio']) {
+    assert('terms.html covers ' + needle, new RegExp(needle.replace(/[$]/g, '\\$&')).test(tos));
+  }
+  // The pro landing footer link must be wired, not a dead href="#".
+  const proIndex = read(path.join(ROOT, 'docs/pro/index.html'));
+  assert('pro/index.html footer links Terms of Service to /pro/terms.html',
+    /href="\/pro\/terms\.html"[^>]*>Terms of Service</.test(proIndex));
+}
+
 section('Wave A5: firestore rules tests cover new collections');
 {
   const t = read(path.join(ROOT, 'tests/firestore-rules.test.js'));
