@@ -1,4 +1,5 @@
-    // FAQ Accordion
+    // FAQ Accordion. Toggles the .active answer + keeps aria-expanded in
+    // sync on the role="button" question for screen readers.
     function toggleFAQ(question) {
       const answer = question.nextElementSibling;
       const toggle = question.querySelector('.faq-toggle');
@@ -6,12 +7,15 @@
       document.querySelectorAll('.faq-answer').forEach(el => {
         if (el !== answer) {
           el.classList.remove('active');
-          el.previousElementSibling.querySelector('.faq-toggle').classList.remove('active');
+          const q = el.previousElementSibling;
+          q.querySelector('.faq-toggle').classList.remove('active');
+          q.setAttribute('aria-expanded', 'false');
         }
       });
 
-      answer.classList.toggle('active');
+      const open = answer.classList.toggle('active');
       toggle.classList.toggle('active');
+      question.setAttribute('aria-expanded', open ? 'true' : 'false');
     }
 
     // CSP-safe data-pi-action delegate (replaces inline handlers).
@@ -26,6 +30,15 @@
       } else if (action === 'toggleFAQ') {
         toggleFAQ(t);
       }
+    });
+
+    // Keyboard activation for the role="button" FAQ questions (Enter/Space).
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      const t = e.target.closest('[data-pi-action="toggleFAQ"]');
+      if (!t) return;
+      e.preventDefault();
+      toggleFAQ(t);
     });
 
     // Scroll Animation Observer

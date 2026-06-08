@@ -63,6 +63,15 @@ window.subscribe = async function(plan, evt) {
   }
 };
 
+// FAQ toggle — flips the .open class on the parent .faq-item and keeps
+// aria-expanded in sync on the role="button" toggle for screen readers.
+function toggleFaq(t) {
+  const item = t.closest('.faq-item');
+  if (!item) return;
+  const open = item.classList.toggle('open');
+  t.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+
 // CSP-safe data-pr-action delegate. Prod `script-src-attr 'none'` blocks
 // inline event-handler attributes silently; addEventListener is unaffected.
 document.addEventListener('click', function(e) {
@@ -73,8 +82,17 @@ document.addEventListener('click', function(e) {
     e.preventDefault();
     window.subscribe(t.getAttribute('data-plan'), { target: t });
   } else if (action === 'faq-toggle') {
-    t.classList.toggle('open');
+    toggleFaq(t);
   }
+});
+
+// Keyboard activation for the role="button" FAQ toggles (Enter/Space).
+document.addEventListener('keydown', function(e) {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  const t = e.target.closest('[data-pr-action="faq-toggle"]');
+  if (!t) return;
+  e.preventDefault();
+  toggleFaq(t);
 });
 
 // Update buttons based on auth state

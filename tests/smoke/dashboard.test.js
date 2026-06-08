@@ -425,7 +425,7 @@ section('CSP: strict-CSP pages have zero inline event handlers');
 // the app can happen incrementally without breaking CI.
 section('A11y: main landmark + skip-link on public pages');
 {
-  const PAGES = ['docs/pro/login.html', 'docs/pro/register.html', 'docs/pro/pricing.html'];
+  const PAGES = ['docs/pro/login.html', 'docs/pro/register.html', 'docs/pro/pricing.html', 'docs/pro/index.html'];
   for (const p of PAGES) {
     const html = fs.readFileSync(path.join(ROOT, p), 'utf8');
     assert(p + ' has <main id="main">',  /<main[^>]*id=["']main["']/.test(html));
