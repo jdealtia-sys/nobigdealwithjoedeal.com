@@ -142,12 +142,14 @@ const PUBLIC_LEAD_KINDS = {
   contact: {
     collection: 'contact_leads',
     required: ['firstName', 'phone', 'source'],
-    // Tenant microsite quote forms (e.g. Oaks /sites/oaks) post lastName/email/
-    // zip/service/message alongside the required fields. They're optional (NBD's
-    // homepage contact form omits them) and allowlisted below so they persist
-    // and flow into the CRM lead via lead-bridge. (M-04: deliberate expansion.)
-    maxLen:   { firstName: 200, lastName: 200, phone: 30, email: 200, zip: 10, service: 200, message: 1500, source: 200 },
-    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'lastName', 'email', 'zip', 'service', 'message']
+    // The NBD homepage contact form AND tenant microsite quote forms (e.g. Oaks
+    // /sites/oaks) post lastName/email/address/zip/service/message alongside the
+    // required fields. They're optional (older callers may omit them) and
+    // allowlisted below so they persist and flow into the CRM lead via
+    // lead-bridge — incl. `address`, so a bridged contact lead isn't blank in
+    // the pipeline. (M-04: deliberate, bounded expansion.)
+    maxLen:   { firstName: 200, lastName: 200, phone: 30, email: 200, address: 500, zip: 10, service: 200, message: 1500, source: 200 },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'lastName', 'email', 'address', 'zip', 'service', 'message']
   },
   estimate: {
     collection: 'estimate_leads',
