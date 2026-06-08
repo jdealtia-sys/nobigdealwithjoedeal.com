@@ -104,34 +104,92 @@
     { key: 'other',        label: 'Other' }
   ];
 
-  // Shared CSS for all outputs
-  const BASE_CSS = `
+  // ═════════════════════════════════════════════════════════
+  // Per-tenant brand resolution (TenantContext — see company-profile.js)
+  //
+  // resolveBrand() returns { isNbd, accent, name, displayName, tagline,
+  // phone, email, website, address, docPrefix, seal } for the active
+  // tenant. For NBD (or no tenant loaded) every field resolves to the
+  // EXACT literal this file shipped with, so NBD output stays
+  // byte-identical. A non-NBD tenant gets its own brand values.
+  //
+  // The accent (#e8720c for NBD) is the single color this file themes;
+  // it is threaded into buildBaseCss() so the inline <style> picks up the
+  // tenant's accent. NBD → '#e8720c' (byte-identical CSS text).
+  // ═════════════════════════════════════════════════════════
+  const NBD_ACCENT = '#e8720c';
+
+  function resolveBrand() {
+    let b = {};
+    try {
+      b = (typeof window !== 'undefined' && window._brand) ? (window._brand() || {}) : {};
+    } catch (_) { b = {}; }
+    const isNbd = !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+    const colors  = b.colors  || {};
+    const contact = b.contact || {};
+    return {
+      isNbd,
+      // Accent: NBD keeps its exact lowercase literal; tenant uses its accent.
+      accent:      isNbd ? NBD_ACCENT : (colors.accent || NBD_ACCENT),
+      // Legal / display names (callers gate the NBD-specific header literal).
+      name:        isNbd ? 'No Big Deal Home Solutions' : (b.legalName),
+      displayName: isNbd ? 'No Big Deal' : (b.displayName || b.legalName || 'No Big Deal'),
+      tagline:     b.tagline || '',
+      // Contact — only used when a caller falls back to brand contact.
+      phone:       contact.phone   || '',
+      email:       contact.email   || '',
+      website:     contact.website || '',
+      address:     contact.address || '',
+      // Doc-number prefix + signature seal.
+      docPrefix:   isNbd ? 'NBD' : (b.docPrefix || 'NBD'),
+      seal:        isNbd ? 'NBD' : (b.seal || 'NBD'),
+      // Pass the raw brand through for any caller that needs more.
+      _raw: b
+    };
+  }
+
+  // Render the brand header block (`No Big Deal PRO` for NBD). For a tenant
+  // the `.pro` accent span is dropped and the tenant display name is used —
+  // NBD renders the EXACT original markup, byte-identical.
+  function brandHeaderHtml(brand) {
+    if (brand.isNbd) {
+      return 'No Big Deal<span class="pro"> PRO</span>';
+    }
+    return escapeHtml(brand.displayName) + '<span class="pro"> PRO</span>';
+  }
+
+  // Shared CSS for all outputs. `acc` is the brand accent color; for NBD
+  // it is '#e8720c', so buildBaseCss('#e8720c') returns the EXACT string
+  // this file shipped with (byte-identical). A tenant passes its accent.
+  function buildBaseCss(acc) {
+    acc = acc || NBD_ACCENT;
+    return `
     * { margin:0; padding:0; box-sizing:border-box; }
     body { font-family: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
            color:#111; background:#fff; padding:36px;
            max-width:880px; margin:0 auto; line-height:1.4; }
     .hdr { display:flex; justify-content:space-between; align-items:flex-start;
-           padding-bottom:22px; border-bottom:3px solid #e8720c; margin-bottom:28px; }
+           padding-bottom:22px; border-bottom:3px solid ${acc}; margin-bottom:28px; }
     .brand { font-family:'Barlow Condensed','Helvetica Neue',sans-serif;
              font-size:28px; font-weight:800; text-transform:uppercase;
              letter-spacing:.04em; }
-    .brand .pro { color:#e8720c; }
+    .brand .pro { color:${acc}; }
     .sub { font-size:13px; color:#666; margin-top:2px; }
     .badge { display:inline-block; font-size:9px; font-weight:700;
-             letter-spacing:.18em; text-transform:uppercase; color:#e8720c;
-             border:1px solid #e8720c; padding:3px 10px; border-radius:2px;
+             letter-spacing:.18em; text-transform:uppercase; color:${acc};
+             border:1px solid ${acc}; padding:3px 10px; border-radius:2px;
              margin-top:6px; }
     .doc-hdr { text-align:right; }
     .doc-title { font-family:'Barlow Condensed',sans-serif; font-size:28px;
                  font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
     .doc-date { font-size:12px; color:#666; }
     .doc-total-lbl { font-size:9px; font-weight:700; letter-spacing:.15em;
-                     text-transform:uppercase; color:#e8720c; margin-top:12px; }
+                     text-transform:uppercase; color:${acc}; margin-top:12px; }
     .doc-total-val { font-family:'Barlow Condensed',sans-serif; font-size:38px;
-                     font-weight:800; color:#e8720c; line-height:1; }
+                     font-weight:800; color:${acc}; line-height:1; }
     h2 { font-family:'Barlow Condensed',sans-serif; font-size:13px;
          font-weight:700; text-transform:uppercase; letter-spacing:.18em;
-         margin:26px 0 12px; padding-bottom:4px; border-bottom:2px solid #e8720c; }
+         margin:26px 0 12px; padding-bottom:4px; border-bottom:2px solid ${acc}; }
     h3 { font-family:'Barlow Condensed',sans-serif; font-size:11px;
          font-weight:700; text-transform:uppercase; letter-spacing:.12em;
          color:#555; margin:18px 0 8px; }
@@ -149,10 +207,10 @@
     td { padding:8px 10px; border-bottom:1px solid #eee; font-size:12px;
          vertical-align:top; }
     td.num { text-align:right; font-variant-numeric:tabular-nums; }
-    td.code { color:#e8720c; font-weight:700; font-family:'Barlow Condensed',sans-serif;
+    td.code { color:${acc}; font-weight:700; font-family:'Barlow Condensed',sans-serif;
               font-size:12px; }
     .reason { font-size:10px; color:#666; font-style:italic; margin-top:4px;
-              padding-left:4px; border-left:2px solid #e8720c; }
+              padding-left:4px; border-left:2px solid ${acc}; }
     .code-refs { font-size:9px; color:#a0601f; font-weight:600; margin-top:3px;
                  letter-spacing:.04em; text-transform:uppercase; }
     .photo-req { display:inline-block; font-size:8px; font-weight:700;
@@ -161,15 +219,15 @@
     .code-req { display:inline-block; font-size:8px; font-weight:700;
                 color:#065f46; background:#ecfdf5; padding:2px 6px;
                 border-radius:2px; letter-spacing:.08em; margin-left:6px; }
-    .cat-hdr { background:#f8f4ef; padding:10px; border-left:4px solid #e8720c;
+    .cat-hdr { background:#f8f4ef; padding:10px; border-left:4px solid ${acc};
                font-family:'Barlow Condensed',sans-serif; font-weight:700;
                font-size:13px; text-transform:uppercase; letter-spacing:.1em;
                margin-top:20px; margin-bottom:0; }
     .cat-subtotal { background:#faf7f3; font-weight:700; }
     .grand-row td { font-family:'Barlow Condensed',sans-serif; font-size:16px;
-                    font-weight:700; color:#e8720c; border-top:3px solid #111;
+                    font-weight:700; color:${acc}; border-top:3px solid #111;
                     background:#fff8f5; padding:12px 10px; }
-    .footer { margin-top:40px; padding-top:16px; border-top:2px solid #e8720c;
+    .footer { margin-top:40px; padding-top:16px; border-top:2px solid ${acc};
               font-size:10px; color:#555; }
     .terms { font-size:10px; color:#666; margin-top:16px; line-height:1.5; }
     .sig-block { display:grid; grid-template-columns:1fr 1fr; gap:30px;
@@ -179,6 +237,11 @@
     @page { margin:1.5cm; size:letter; }
     @media print { body { padding:20px; } }
   `;
+  }
+
+  // Back-compat: the public API still exposes BASE_CSS as the NBD string
+  // (byte-identical to the original module const).
+  const BASE_CSS = buildBaseCss(NBD_ACCENT);
 
   // ═════════════════════════════════════════════════════════
   // 1. INSURANCE SCOPE FORMATTER
@@ -189,14 +252,23 @@
     const customer = meta.customer || {};
     const claim    = meta.claim || {};
     const est      = meta.estimate || {};
-    const company  = meta.company || {
+    const _b   = resolveBrand();
+    const _acc = _b.accent;
+    const company  = meta.company || (_b.isNbd ? {
       name: 'No Big Deal Home Solutions',
       tagline: 'Roofing · Siding · Storm Restoration',
       phone: '(859) 420-7382',
       email: 'JD@nobigdealwithjoedeal.com',
       address: '6563 Manila Rd · Goshen, OH',
       license: 'OH / KY licensed'
-    };
+    } : {
+      name: _b.name,
+      tagline: _b.tagline || 'Roofing · Siding · Storm Restoration',
+      phone: _b.phone,
+      email: _b.email,
+      address: _b.address,
+      license: 'Licensed & insured'
+    });
 
     const groups = groupByCategory(estimate.lines || []);
 
@@ -204,14 +276,14 @@
     const header = `
       <div class="hdr">
         <div>
-          <div class="brand">No Big Deal<span class="pro"> PRO</span></div>
+          <div class="brand">${brandHeaderHtml(_b)}</div>
           <div class="sub">${escapeHtml(company.tagline)}</div>
           <div class="badge">Insurance Restoration Scope</div>
         </div>
         <div class="doc-hdr">
           <div class="doc-title">Insurance Scope</div>
           <div class="doc-date">${fmtDate(est.date)}</div>
-          <div class="doc-date">Estimate #${escapeHtml(est.number || 'NBD-' + Date.now())}</div>
+          <div class="doc-date">Estimate #${escapeHtml(est.number || _b.docPrefix + '-' + Date.now())}</div>
           ${est.revision ? `<div class="doc-date">Revision ${escapeHtml(est.revision)}</div>` : ''}
           <div class="doc-total-lbl">Scope Total (RCV)</div>
           <div class="doc-total-val">${fmtMoneyBig(estimate.total)}</div>
@@ -230,7 +302,7 @@
         <div class="field"><label>Adjuster</label><div class="v">${escapeHtml(claim.adjuster || '—')}</div></div>
         <div class="field"><label>Date of Loss</label><div class="v">${escapeHtml(claim.dateOfLoss || '—')}</div></div>
         <div class="field"><label>Deductible</label><div class="v">${claim.deductible ? fmtMoneyBig(claim.deductible) : '—'}</div></div>
-        <div class="field"><label>Scope Prepared By</label><div class="v">${escapeHtml(est.preparedBy || 'Joe Deal — NBD')}</div></div>
+        <div class="field"><label>Scope Prepared By</label><div class="v">${escapeHtml(est.preparedBy || (_b.isNbd ? 'Joe Deal — NBD' : _b.seal))}</div></div>
       </div>
     `;
 
@@ -372,7 +444,7 @@
       <div class="sig-block">
         <div>
           <div style="height:40px;"></div>
-          <div class="sig-line">Contractor — ${escapeHtml(est.preparedBy || 'Joe Deal')}<br>
+          <div class="sig-line">Contractor — ${escapeHtml(est.preparedBy || (_b.isNbd ? 'Joe Deal' : _b.seal))}<br>
                ${escapeHtml(company.name)}<br>
                Date: ${fmtDate(est.date)}</div>
         </div>
@@ -405,9 +477,9 @@
 
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
-<title>Insurance Scope — ${escapeHtml(customer.name || 'NBD')} — ${fmtDate(est.date)}</title>
+<title>Insurance Scope — ${escapeHtml(customer.name || _b.seal)} — ${fmtDate(est.date)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>${BASE_CSS}</style>
+<style>${buildBaseCss(_acc)}</style>
 </head><body>
 ${header}
 ${claimBlock}
@@ -441,13 +513,21 @@ ${footer}
     meta = meta || {};
     const customer = meta.customer || {};
     const est      = meta.estimate || {};
-    const company  = meta.company || {
+    const _b   = resolveBrand();
+    const _acc = _b.accent;
+    const company  = meta.company || (_b.isNbd ? {
       name: 'No Big Deal Home Solutions',
       tagline: 'Contractor-Built · Contractor-Priced',
       phone: '(859) 420-7382',
       email: 'JD@nobigdealwithjoedeal.com',
       address: '6563 Manila Rd · Goshen, OH'
-    };
+    } : {
+      name: _b.name,
+      tagline: _b.tagline || 'Contractor-Built · Contractor-Priced',
+      phone: _b.phone,
+      email: _b.email,
+      address: _b.address
+    });
     const tiers = meta.tiers || null;  // Optional: { good, better, best } per-tier totals
 
     // Bullet-style scope summary (by category, no prices)
@@ -476,7 +556,7 @@ ${footer}
       const tierDefs = [
         { key: 'good',   label: 'GOOD',   sub: 'Standard System', color: '#6b7280' },
         { key: 'better', label: 'BETTER', sub: 'System Warranty', color: '#3b82f6' },
-        { key: 'best',   label: 'BEST',   sub: 'Impact + 50yr Warranty', color: '#e8720c' }
+        { key: 'best',   label: 'BEST',   sub: 'Impact + 50yr Warranty', color: _acc }
       ];
       tierCards = `
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0;">
@@ -536,7 +616,7 @@ ${footer}
       <h2>Warranty</h2>
       <p style="font-size:12px;color:#444;">
         <strong>Materials:</strong> Manufacturer warranty per product (see scope details).<br>
-        <strong>Workmanship:</strong> 10-year NBD labor warranty on all installation.<br>
+        <strong>Workmanship:</strong> 10-year ${escapeHtml(_b.isNbd ? 'NBD' : _b.seal)} labor warranty on all installation.<br>
         <strong>System Warranty:</strong> Available with ${escapeHtml(((estimate.lines || []).find(l => /warranty/i.test(l.name)) || {}).name || 'Better/Best tier upgrades')}.
       </p>
     `;
@@ -544,14 +624,14 @@ ${footer}
     const header = `
       <div class="hdr">
         <div>
-          <div class="brand">No Big Deal<span class="pro"> PRO</span></div>
+          <div class="brand">${brandHeaderHtml(_b)}</div>
           <div class="sub">${escapeHtml(company.tagline)}</div>
           <div class="badge">Project Estimate</div>
         </div>
         <div class="doc-hdr">
           <div class="doc-title">Estimate</div>
           <div class="doc-date">${fmtDate(est.date)}</div>
-          <div class="doc-date">Estimate #${escapeHtml(est.number || 'NBD-' + Date.now())}</div>
+          <div class="doc-date">Estimate #${escapeHtml(est.number || _b.docPrefix + '-' + Date.now())}</div>
           <div class="doc-total-lbl">Your Investment</div>
           <div class="doc-total-val">${fmtMoneyBig(estimate.total)}</div>
         </div>
@@ -590,7 +670,7 @@ ${footer}
         </div>
         <div>
           <div style="height:40px;"></div>
-          <div class="sig-line">Contractor — ${escapeHtml(est.preparedBy || 'Joe Deal')}<br>
+          <div class="sig-line">Contractor — ${escapeHtml(est.preparedBy || (_b.isNbd ? 'Joe Deal' : _b.seal))}<br>
                ${escapeHtml(company.name)}<br>
                Date: ${fmtDate(est.date)}</div>
         </div>
@@ -613,9 +693,9 @@ ${footer}
 
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
-<title>Estimate — ${escapeHtml(customer.name || 'NBD')} — ${fmtDate(est.date)}</title>
+<title>Estimate — ${escapeHtml(customer.name || _b.seal)} — ${fmtDate(est.date)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>${BASE_CSS}</style>
+<style>${buildBaseCss(_acc)}</style>
 </head><body>
 ${header}
 ${propertyBlock}
@@ -645,6 +725,8 @@ ${footer}
     meta = meta || {};
     const customer = meta.customer || {};
     const est      = meta.estimate || {};
+    const _b   = resolveBrand();
+    const _acc = _b.accent;
 
     // Order quantities (if LumaNails or other packaging)
     let orderLines = '';
@@ -691,9 +773,9 @@ ${footer}
 
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
-<title>Internal Estimate View — ${escapeHtml(customer.name || 'NBD')}</title>
+<title>Internal Estimate View — ${escapeHtml(customer.name || _b.seal)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>${BASE_CSS}
+<style>${buildBaseCss(_acc)}
 .internal-banner { background:#c53030; color:#fff; padding:10px 16px; font-size:11px;
                     font-weight:700; letter-spacing:.15em; text-transform:uppercase;
                     text-align:center; margin-bottom:20px; border-radius:4px; }
@@ -707,11 +789,11 @@ ${footer}
 .cost-card .val { font-size:18px; font-weight:700; color:#111; margin-top:4px; }
 </style>
 </head><body>
-<div class="internal-banner">🔒 INTERNAL VIEW — NOT FOR CUSTOMER — Joe's Eyes Only</div>
+<div class="internal-banner">🔒 INTERNAL VIEW — NOT FOR CUSTOMER — ${_b.isNbd ? "Joe's Eyes Only" : 'Internal Use Only'}</div>
 
 <div class="hdr">
   <div>
-    <div class="brand">No Big Deal<span class="pro"> PRO</span></div>
+    <div class="brand">${brandHeaderHtml(_b)}</div>
     <div class="sub">Internal Cost / Margin Breakdown</div>
   </div>
   <div class="doc-hdr">
