@@ -83,6 +83,8 @@ async function run() {
     await setDoc(doc(db, 'estimates/estA'),            { userId: 'alice', companyId: 'co-a', total: 28500 });
     await setDoc(doc(db, 'photos/photoA'),             { userId: 'alice', url: 'photos/alice/roof.jpg' });
     await setDoc(doc(db, 'subscriptions/alice'),       { plan: 'professional', status: 'active' });
+    await setDoc(doc(db, 'subscriptions/co-a'),        { plan: 'professional', status: 'active', seats: 3 }); // Phase D company-keyed
+    await setDoc(doc(db, 'subscriptions/solo1'),       { plan: 'starter', status: 'active' });                // solo: uid == companyId
     await setDoc(doc(db, 'users/alice'),               { firstName: 'Alice', companyId: 'co-a' });
     await setDoc(doc(db, 'leaderboard/alice'),         { companyId: 'co-a', closedDeals: 12, revenue: 480000 });
     await setDoc(doc(db, 'knocks/knockA'),             { userId: 'alice', companyId: 'co-a', address: '1 Secret St' });
@@ -136,6 +138,20 @@ async function run() {
   await check('recordings: A-mgr eve(co-a) reads A',  'allow', getDoc(doc(eveMgr, 'leads/leadA/recordings/recA')));
   await check('training_sessions: B(co-b) reads A',   'deny',  getDoc(doc(bobMgr, 'training_sessions/tsA')));
 
+  // subscriptions — Phase D: re-keyed per-USER → per-COMPANY (doc id = uid OR
+  // companyId). Same-tenant members ALLOW on the company key; cross-tenant +
+  // claimless + anon DENY; uid-keyed owner/solo reads still ALLOW. Isolation is
+  // on the DOC ID vs the caller's own companyId claim, never resource.data.
+  await check('subs(company key): peer dave(co-a) reads co-a', 'allow', getDoc(doc(dave,   'subscriptions/co-a')));
+  await check('subs(company key): mgr eve(co-a) reads co-a',   'allow', getDoc(doc(eveMgr, 'subscriptions/co-a')));
+  await check('subs(company key): B(co-b) reads co-a',         'deny',  getDoc(doc(bob,    'subscriptions/co-a')));
+  await check('subs(company key): B-mgr reads co-a',           'deny',  getDoc(doc(bobMgr, 'subscriptions/co-a')));
+  await check('subs(company key): B-co_admin reads co-a',      'deny',  getDoc(doc(bobCA,  'subscriptions/co-a')));
+  await check('subs(company key): claimless reads co-a',       'deny',  getDoc(doc(noClaim,'subscriptions/co-a')));
+  await check('subs(company key): anon reads co-a',            'deny',  getDoc(doc(anon,   'subscriptions/co-a')));
+  await check('subs(uid key): owner alice reads own',          'allow', getDoc(doc(alice,  'subscriptions/alice')));
+  await check('subs(uid key): solo reads own (uid==companyId)','allow', getDoc(doc(solo,   'subscriptions/solo1')));
+
   // ═══════════════════════════════════════════════════════════
   // C. companyProfile — Phase-1 fix: per-tenant key companyProfile/{companyId}.
   //    Same-tenant ALLOW, cross-tenant + claimless + anon DENY.
@@ -164,6 +180,8 @@ async function run() {
   await check('leaderboard: rep self-writes own stats',      'deny', setDoc(doc(alice, 'leaderboard/alice'), { closedDeals: 9999 }, { merge: true }));
   await check('users: rep changes own companyId claim-doc',  'deny', updateDoc(doc(bob, 'users/alice'), { companyId: 'co-b' })); // also cross-tenant
   await check('subscriptions: rep self-upgrades plan',       'deny', setDoc(doc(bob, 'subscriptions/bob'), { plan: 'professional', status: 'active' }));
+  await check('subscriptions: member self-writes company key','deny', setDoc(doc(dave, 'subscriptions/co-a'), { plan: 'enterprise' }, { merge: true })); // read widened, write still false
+  await check('subscriptions: foreign writes co-a company key','deny',setDoc(doc(bob,  'subscriptions/co-a'), { plan: 'enterprise' }, { merge: true }));
   await check('company_admin(co-b) reads co-a leaderboard',  'deny', getDoc(doc(bobCA, 'leaderboard/alice')));
 
   // ═══════════════════════════════════════════════════════════

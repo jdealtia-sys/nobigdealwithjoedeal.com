@@ -371,6 +371,7 @@ export const NBDAuth = {
         //   - provisioning is one-off via scripts/grant-demo-claim.js
         let demoClaim = false;
         let _claimRole = null; // F4: team-role from custom claim (fallback for client _role)
+        let _companyId = null; // Phase D: company billing key from custom claim (falls back to uid)
         try {
           // 4-second timeout: getIdTokenResult() makes a network round-trip
           // to refresh the ID token. On iOS Safari with poor connectivity
@@ -385,6 +386,7 @@ export const NBDAuth = {
           ]);
           demoClaim = !!(tokenResult && tokenResult.claims && tokenResult.claims.demo === true);
           _claimRole = (tokenResult && tokenResult.claims && tokenResult.claims.role) || null;
+          _companyId = (tokenResult && tokenResult.claims && tokenResult.claims.companyId) || null;
         } catch (e) {
           console.warn('Could not read ID token claims:', e.message);
         }
@@ -428,10 +430,18 @@ export const NBDAuth = {
 
         // Fetch subscription — 5s timeout (same rationale as user doc above).
         try {
-          const subSnap = await Promise.race([
-            getDoc(doc(_db, 'subscriptions', user.uid)),
+          // Phase D: bill per-company. Read subscriptions/{companyId} first,
+          // fall back to the legacy subscriptions/{uid}. For NBD/solo there is
+          // no companyId claim → billingId === uid → identical single read.
+          const billingId = _companyId || user.uid;
+          const _readSub = (id) => Promise.race([
+            getDoc(doc(_db, 'subscriptions', id)),
             new Promise(resolve => setTimeout(resolve, 5000))
           ]);
+          let subSnap = await _readSub(billingId);
+          if (billingId !== user.uid && !(subSnap && typeof subSnap.exists === 'function' && subSnap.exists())) {
+            subSnap = await _readSub(user.uid);
+          }
           if (subSnap.exists()) {
             _subscription = subSnap.data();
             // Stripe's standard "active" states are 'active' AND 'trialing'.

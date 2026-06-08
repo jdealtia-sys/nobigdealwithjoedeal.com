@@ -33,18 +33,10 @@ const CORS_ORIGINS = [
   'https://nbd-pro.web.app',
 ];
 
-// Mirrors PLANS in docs/pro/js/billing-gate.js. Server is the source
-// of truth for caps. Update both when adding a new tier.
-// `seats` = included-seat count for the per-seat model (the invite-time
-// seat-count gate reads this); supersedes the legacy `reps`. See PRICING.md.
-const PLAN_LIMITS = {
-  free:         { leads: 10,        reports: 0,        aiCalls: 0,        reps: 1,        seats: 1 },
-  starter:      { leads: 50,        reports: 2,        aiCalls: 20,       reps: 1,        seats: 1 },
-  foundation:   { leads: 50,        reports: 2,        aiCalls: 20,       reps: 1,        seats: 1 },
-  growth:       { leads: 500,       reports: Infinity, aiCalls: Infinity, reps: 5,        seats: 3 },
-  professional: { leads: 500,       reports: Infinity, aiCalls: Infinity, reps: 5,        seats: 3 },
-  enterprise:   { leads: Infinity,  reports: Infinity, aiCalls: Infinity, reps: Infinity, seats: Infinity },
-};
+// PLAN_LIMITS is the single server-side source of truth for caps, shared with
+// handlers/admin.js (the invite-time seat gate) so meter and gate read the same
+// seat numbers. Mirrors PLANS in docs/pro/js/billing-gate.js (client display).
+const { PLAN_LIMITS } = require('./plan-limits');
 
 const ALLOWED_FEATURES = new Set(['leads', 'reports', 'aiCalls']);
 
@@ -76,12 +68,29 @@ exports.trackUsage = onCall({
   }
 
   const db = admin.firestore();
-  const subRef = db.doc(`subscriptions/${uid}`);
+  // Phase D: bill per-COMPANY. Resolve companyId from the VERIFIED token only
+  // (never request.data) and fall back to the legacy {uid} doc for solo/legacy.
+  // NBD is solo (no companyId claim) → companyId === uid → legacyRef is null and
+  // this is byte-identical to the pre-Phase-D path.
+  const companyId = (request.auth.token && request.auth.token.companyId) || uid;
+  const subRef = db.doc(`subscriptions/${companyId}`);
+  const legacyRef = (companyId !== uid) ? db.doc(`subscriptions/${uid}`) : null;
 
   // Atomically increment + read back. Transaction so concurrent
   // increments (e.g. bulk-import 50 leads in parallel) tally correctly.
   const result = await db.runTransaction(async (tx) => {
-    const snap = await tx.get(subRef);
+    let snap = await tx.get(subRef);
+    let writeRef = subRef;
+    if (!snap.exists && legacyRef) {
+      // Company billing doc not created yet (pre re-key migration). The
+      // authoritative doc is still the legacy {uid} doc — read AND write it so
+      // the meter stays consistent with the gate (billing-gate.js also reads
+      // company-first, uid-fallback). The migration moves usage to the company
+      // doc at cutover, so usage is never lost or reset. All reads happen
+      // before the write (Firestore transaction rule).
+      const legacySnap = await tx.get(legacyRef);
+      if (legacySnap.exists) { snap = legacySnap; writeRef = legacyRef; }
+    }
     const data = snap.exists ? snap.data() : {};
     const plan = data.plan || 'free';
     const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
@@ -102,7 +111,7 @@ exports.trackUsage = onCall({
     // the UI shows an upgrade modal but the action still proceeds. We
     // still want the meter to read accurately so dunning / nudges can
     // fire on real usage.
-    tx.set(subRef, {
+    tx.set(writeRef, {
       usage: {
         ...(data.usage || {}),
         [feature]: nextUsage,
@@ -119,7 +128,7 @@ exports.trackUsage = onCall({
     };
   });
 
-  logger.info('trackUsage.ok', { uid, feature: result.feature, usage: result.usage, plan: result.plan, overage: result.overage });
+  logger.info('trackUsage.ok', { uid, companyId, feature: result.feature, usage: result.usage, plan: result.plan, overage: result.overage });
   return result;
 });
 

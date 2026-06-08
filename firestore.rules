@@ -366,10 +366,19 @@ service cloud.firestore {
     }
 
     // ── SUBSCRIPTIONS ─────────────────────────────────
-    // READ-ONLY for the owner. All writes go through the Stripe webhook or
-    // the hardened validateAccessCode Cloud Function (admin SDK).
-    match /subscriptions/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
+    // Phase D: re-keyed per-USER → per-COMPANY (subscriptions/{companyId}) with
+    // a {uid} fallback, so the doc id is a uid (solo/legacy) OR a companyId.
+    // READ is widened so same-tenant members can see the company plan; tenant
+    // isolation is preserved by matching the DOC ID against the caller's OWN
+    // identity (uid or companyId claim) — NEVER resource.data — so a foreign
+    // tenant can never name another tenant's key. The myCompanyId() != null
+    // guard blocks a claimless token from matching a doc id by accident.
+    // Writes stay admin-SDK / webhook only (a writable sub doc = a free
+    // paid-tier grant).
+    match /subscriptions/{subId} {
+      allow read: if isAdmin()
+        || isOwner(subId)
+        || (isAuth() && myCompanyId() != null && subId == myCompanyId());
       allow write: if false;
     }
 

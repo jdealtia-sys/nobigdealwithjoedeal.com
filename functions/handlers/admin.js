@@ -22,6 +22,7 @@ const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { callableRateLimit } = require('../shared');
+const { PLAN_LIMITS } = require('../plan-limits');
 const {
   CORS_ORIGINS,
   LEGACY_ACCESS_CODES,
@@ -446,7 +447,7 @@ exports.createTeamMember = onCall(
     memory: '256MiB'
   },
   async (request) => {
-    const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+    const { uid: callerUid, companyId, companyRef, isGlobalAdmin } = await requireTeamAdmin(request);
     await callableRateLimit(request, 'createTeamMember', 20, 60_000);
 
     const email = normalizeEmail(request.data && request.data.email);
@@ -470,6 +471,37 @@ exports.createTeamMember = onCall(
         name: (request.auth.token.name || 'My Company'),
         createdAt: FieldValue.serverTimestamp()
       }, { merge: true });
+    }
+
+    const memberRef = db.doc(`companies/${companyId}/members/${email}`);
+
+    // ── Per-company seat gate (Phase D) ──
+    // Block a NEW invite that would exceed the plan's included seats. Seats =
+    // owner + active member docs. Re-inviting an existing member is seat-neutral.
+    // Platform admins bypass; the company OWNER is intentionally gated (they are
+    // the payer the per-seat model enforces). Runs BEFORE Auth-user creation so
+    // a rejected invite leaves no orphaned Auth account. Hard-block model — see
+    // PILLAR4-BILLING-PLAN (hard-vs-soft is an owner decision).
+    if (!isGlobalAdmin) {
+      const ownerId = (companySnap.exists && companySnap.data().ownerId) || callerUid;
+      // Resolve the company plan with the D-1 company-first / uid fallback.
+      let planSnap = await db.doc(`subscriptions/${companyId}`).get();
+      if (!planSnap.exists && companyId !== callerUid) {
+        planSnap = await db.doc(`subscriptions/${callerUid}`).get();
+      }
+      const plan = (planSnap.exists && planSnap.data().plan) || 'free';
+      const seatLimit = (PLAN_LIMITS[plan] || PLAN_LIMITS.free).seats;
+      const alreadyHasSeat = (await memberRef.get()).exists;
+      if (seatLimit !== Infinity && !alreadyHasSeat) {
+        const activeSnap = await db.collection(`companies/${companyId}/members`)
+          .where('active', '==', true).get();
+        let currentSeats = 1; // the owner occupies a seat (not a members doc)
+        activeSnap.forEach((d) => { if ((d.data() || {}).uid !== ownerId) currentSeats += 1; });
+        if (currentSeats >= seatLimit) {
+          throw new HttpsError('resource-exhausted',
+            `Seat limit reached for the ${plan} plan (${seatLimit} seats). Remove a member or upgrade to add more.`);
+        }
+      }
     }
 
     let userRecord;
@@ -505,7 +537,6 @@ exports.createTeamMember = onCall(
     };
     await admin.auth().setCustomUserClaims(userRecord.uid, newClaims);
 
-    const memberRef = db.doc(`companies/${companyId}/members/${email}`);
     await memberRef.set({
       email,
       role,

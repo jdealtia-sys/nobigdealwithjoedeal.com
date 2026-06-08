@@ -109,7 +109,14 @@
         return;
       }
 
-      const snap = await window.getDoc(window.doc(window.db, 'subscriptions', uid));
+      // Phase D: read the per-company billing doc first, fall back to the
+      // legacy per-uid doc. companyId defaults to uid for solo/NBD (no claim),
+      // so for tenant zero this collapses to a single identical read.
+      const companyId = window._userClaims?.companyId || uid;
+      let snap = await window.getDoc(window.doc(window.db, 'subscriptions', companyId));
+      if (!snap.exists() && companyId !== uid) {
+        snap = await window.getDoc(window.doc(window.db, 'subscriptions', uid));
+      }
       if (snap.exists()) {
         const data = snap.data();
         _plan = data.plan || 'free';

@@ -44,6 +44,7 @@ async function run() {
     // Original fixture
     await setDoc(doc(db, 'users/alice'), { firstName: 'Alice', role: 'member' });
     await setDoc(doc(db, 'subscriptions/alice'), { plan: 'free', status: 'inactive' });
+    await setDoc(doc(db, 'subscriptions/co-a'), { plan: 'professional', status: 'active', seats: 3 }); // Phase D company-keyed
     await setDoc(doc(db, 'leads/leadA'), { userId: 'alice', name: 'Alice Lead' });
     await setDoc(doc(db, 'leads/leadB'), { userId: 'bob',   name: 'Bob Lead' });
     await setDoc(doc(db, 'access_codes/NBD-ADMIN'), { code: 'NBD-ADMIN', active: true, email: 'admin@nobigdeal.pro' });
@@ -87,6 +88,13 @@ async function run() {
 
   // 2. user cannot self-write subscriptions/<uid>
   await assertFails(setDoc(doc(alice, 'subscriptions/alice'), { plan: 'professional', status: 'active' }));
+
+  // 2b. Phase D: company-keyed subscriptions read — same-tenant ALLOW,
+  //     cross-tenant DENY, write still DENY for everyone.
+  await assertSucceeds(getDoc(doc(alice,   'subscriptions/alice')));   // owner reads own (uid key)
+  await assertSucceeds(getDoc(doc(coAdmin, 'subscriptions/co-a')));    // co-a member reads company plan
+  await assertFails(getDoc(doc(bob,        'subscriptions/co-a')));    // co-b cannot read co-a
+  await assertFails(setDoc(doc(coAdmin,    'subscriptions/co-a'), { plan: 'enterprise' }, { merge: true })); // write still false
 
   // 3. user cannot read access_codes
   await assertFails(getDoc(doc(alice, 'access_codes/NBD-ADMIN')));
