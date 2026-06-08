@@ -8,14 +8,17 @@
   const DG = window.NBDDocGen;
   if (!DG) { console.warn('NBDDocGen: document-generator.js must load first'); return; }
 
-  const C = DG.COMPANY || {
+  // Phase B (tenant brand): refreshed per-render by _refreshBrand() (wrapped
+  // onto every render* method below) from DG._resolveCompany()/_logoSrc().
+  // NBD resolves to these same values → byte-identical.
+  let C = DG.COMPANY || {
     name: 'No Big Deal Home Solutions', phone: '(859) 420-7382',
     email: 'info@nobigdealwithjoedeal.com', website: 'nobigdealwithjoedeal.com',
     colors: { primary: '#1e3a6e', secondary: '#1a1a2e', accent: '#e8720c' }
   };
-  const P = C.colors?.primary || '#1e3a6e';   // Navy — headers, borders, structure
-  const S = C.colors?.secondary || '#1a1a2e'; // Dark navy — body text headings
-  const A = C.colors?.accent || '#e8720c';    // Orange — CTAs, totals, highlights
+  let P = C.colors?.primary || '#1e3a6e';   // Navy — headers, borders, structure
+  let S = C.colors?.secondary || '#1a1a2e'; // Dark navy — body text headings
+  let A = C.colors?.accent || '#e8720c';    // Orange — CTAs, totals, highlights
 
   // Origin for absolute asset URLs. Generated docs render inside the
   // Universal Doc Viewer (popup/about:blank/srcdoc), where root-
@@ -33,12 +36,12 @@
   // Prefer the inlined data URI from nbd-logo-asset.js — bypasses CORP/cache
   // issues in iframe-srcdoc. Fall back to absolute URL if the asset script
   // failed to load. The SVG monogram inside each <object> is the final fallback.
-  const LOGO_URL = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
+  let LOGO_URL = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
     ? window.NBD_LOGO_DATA_URI
     : ORIGIN + '/assets/images/nbd-logo.png';
   // Derive the MIME from the data URI itself so a JPEG/PNG/SVG swap
   // in nbd-logo-asset.js doesn't need a parallel edit here.
-  const LOGO_TYPE = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
+  let LOGO_TYPE = (typeof window !== 'undefined' && window.NBD_LOGO_DATA_URI)
     ? ((window.NBD_LOGO_DATA_URI.match(/^data:([^;,]+)/) || [, 'image/png'])[1])
     : 'image/png';
 
@@ -57,8 +60,9 @@
     referral_card: { name: 'Referral Card', template: 'renderReferralCard' }
   });
 
-  // Shared print styles for all templates
-  const printCSS = `
+  // Shared print styles for all templates. A FUNCTION (not a baked const) so it
+  // picks up the active tenant's refreshed P/S/A colours on each render — Phase B.
+  function printCSS() { return `
     @media print { .no-print { display:none!important; } body { margin:0; } @page { margin:0.5in; } }
     * { box-sizing:border-box; }
     body { font-family:Georgia,'Times New Roman',serif; color:#222; line-height:1.6; margin:0; padding:0; background:#fff; }
@@ -116,11 +120,11 @@
     .print-btn button { background:${A}; color:#fff; border:none; padding:14px 36px; border-radius:8px;
       font-size:16px; cursor:pointer; font-weight:600; font-family:'Helvetica Neue',Arial,sans-serif; }
     .print-btn button:hover { opacity:0.9; }
-  `;
+  `; }
 
   function page(title, body) {
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title} | ${C.name}</title>
-    <style>${printCSS}</style></head><body><div class="doc-page">${body}</div>
+    <style>${printCSS()}</style></head><body><div class="doc-page">${body}</div>
     <div class="no-print print-btn"><button data-dgt-action="print">Print / Save as PDF</button></div>
     </body></html>`;
   }
@@ -1823,6 +1827,29 @@
   }
 
   console.log('NBDDocGen: 20 additional templates loaded');
+
+  // Phase B: refresh the brand vars (C/P/S/A/LOGO) from the active tenant's
+  // resolved brand before EVERY render, so the extended doc types above are
+  // tenant-aware too (they captured the static NBD COMPANY at load otherwise).
+  // NBD resolves to the same values → byte-identical.
+  function _refreshBrand() {
+    C = (DG._resolveCompany ? DG._resolveCompany() : DG.COMPANY) || C;
+    P = (C.colors && C.colors.primary) || P;
+    S = (C.colors && C.colors.secondary) || S;
+    A = (C.colors && C.colors.accent) || A;
+    LOGO_URL = DG._logoSrc ? DG._logoSrc() : LOGO_URL;
+    const _m = String(LOGO_URL).match(/^data:([^;,]+)/);
+    LOGO_TYPE = _m ? _m[1]
+      : /\.svg(\?|$)/i.test(LOGO_URL) ? 'image/svg+xml'
+      : /\.jpe?g(\?|$)/i.test(LOGO_URL) ? 'image/jpeg'
+      : 'image/png';
+  }
+  Object.keys(DG).forEach(function (k) {
+    if (typeof DG[k] === 'function' && /^render[A-Z]/.test(k)) {
+      const _orig = DG[k];
+      DG[k] = function () { _refreshBrand(); return _orig.apply(this, arguments); };
+    }
+  });
 })();
 
 
