@@ -101,6 +101,41 @@ Open design calls (see chat / AskUserQuestion):
 - Confirm **Stripe TEST-mode** access (Phase D).
 - Set **`companies/oaks.ownerId`** = Scott's uid once Scott has an account (bridge prerequisite for Oaks).
 
+---
+
+## PRE-DEPLOY ADVERSARIAL REVIEW + DEPLOY (2026-06-08)
+Phase C merged to `main` (cherry-picked onto the parallel session's FieldValue migration + brand
+hardening). Before the irreversible prod deploy, ran a multi-lens adversarial review (18 agents, 13
+findings, **2 confirmed blockers**, 11 verified non-blockers, 0 dismissed). Both blockers FIXED:
+
+- **C-1 (FIXED, commit `400432fd`):** the bridge triggers were exported via `= makeTrigger(...)`, which the
+  CI deploy enumeration (`firebase-deploy.yml` greps `^exports.X = (onRequest|onDocumentCreated|…)`) does
+  NOT match → a push would have silently NOT deployed them (H-1 inert; same latent gap as lead-alert.js's
+  makeTrigger exports, which only ship via a manual full deploy). Fix: assign `onDocumentCreated(...)`
+  directly per export; smoke guard now replicates the CI regex. Verified: CI enumeration lists all 4
+  `leadBridge*`.
+- **OAKS-1 (HARDENED, commit `46ad55fb`):** if `companies/oaks` is ABSENT in prod, `submitPublicLead` strips
+  `companyId:'oaks'` → the Oaks lead becomes untagged → alert goes to Joe (Scott loses it) AND the bridge
+  mirrors Oaks PII into Joe's NBD pipeline (cross-tenant misroute). Safe only if `companies/oaks` EXISTS
+  (then graceful: alert→Scott, pipeline-mirror no-ops until ownerId set). Mitigations: `scripts/
+  provision-oaks-company.js` (verify/ensure the doc) + `address` added to the contact allowlist (so NBD
+  contact leads aren't blank in the pipeline).
+
+Non-blockers (verified safe): NBD byte-identical holds; relaxed contact schema = no injection/XSS/DoS;
+forged companyId can't exfiltrate cross-tenant; Oaks graceful-skip until ownerId; sourceId-undefined not
+triggerable; pre-existing inspect-form.js `res.error` vs `res.reason` mismatch (untouched code, FYI).
+
+**Verified green on merged main:** smoke 1819/0 · tenant-brand 30/0 · tenant-hardening 51/0 · bridge unit
+43/43 · emulator integration 20/20 · CI enumeration includes leadBridge* · syntax clean.
+
+### DEPLOY GATE (chosen: ensure companies/oaks, then push all)
+1. **Jo runs** (prod creds): `node scripts/provision-oaks-company.js --ensure` → guarantees `companies/oaks`
+   exists (eliminates OAKS-1). (Add `--owner <Scott uid>` later to light up Oaks pipeline mirroring.)
+2. **Then push `main`** → Firebase auto-deploy (~9 min). NBD H-1 fix live; Oaks alerts route to Scott;
+   Oaks pipeline mirror deferred until Scott has an account.
+3. **Post-deploy checkpoint (Jo verifies):** submit an NBD public form → lead appears in the CRM pipeline;
+   an Oaks-tagged lead alerts the Oaks contact (joe@oaksrfc.com), not jd@. → then Phase D.
+
 ## NEXT
 Awaiting Jo: confirm bridge design defaults + provisioning/backup handoff → then build bridge + tests on an isolated
 branch/worktree, run emulator suite, deliver for the **HARD CHECKPOINT** (Jo verifies leads land in CRM + Oaks alerts Scott).
