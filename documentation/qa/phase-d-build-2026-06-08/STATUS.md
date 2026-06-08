@@ -52,6 +52,18 @@ will disagree with the actual charge.
   bypass is **kept** (removing it would cap NBD at 500 leads = not byte-identical).
 - Backups of subscriptions/leads/companies/companyProfile → `C:/Users/jonat/nbd-backups` (outside repo).
 
+## Adversarial review outcome (multi-lens + verify, 2026-06-08)
+Cross-tenant isolation **sound** (no cross-tenant read/write, no companyId-from-request.data hole).
+Money path **sound** (owner-uid resolved before every claim/getUser, claims merged, price-ID-trust
+preserved, base quantity 1, no double-charge, migration Firestore-only). **3 confirmed issues fixed:**
+- Webhook stamped `companyId` onto a *solo* owner's token (NBD had none) → would trip `activateInvitedRep`.
+  Fixed: `companyId` is only stamped for genuine slug tenants (`companyId !== ownerUid`).
+- Migration `_stripeGuard` was a misleading no-op → removed; replaced with an honest invariant comment.
+- Migration left source+target sharing one `stripeCustomerId` (ambiguous by-customer webhook lookup during
+  soak) → on `--apply` the source's `stripeCustomerId` is now cleared (plan/status retained for the fallback).
+
+**Three tier-gating mismatches the review flagged are PRODUCT DECISIONS, not code defects (see Jo item 7).**
+
 ## What needs Jo (the ONLY blockers — never via chat)
 1. **Stripe TEST-mode key** in `functions/.env.local` + create products/prices incl. the **$39/seat**
    add-on price, and confirm exact $ amounts (reconcile the `$249` Stripe comment vs `$299` display).
@@ -62,7 +74,24 @@ will disagree with the actual charge.
 5. **Deploy go-ahead** for D-2 (webhook/checkout) after Stripe test-mode validation.
 6. **Migration go-ahead** — fresh backup, then `node scripts/migrate-subscription-keys.js --apply
    --i-have-a-fresh-backup` (only `oaks`, zero charge). NBD solo = no-op.
+7. **Tier-gating decisions (gate vs copy)** — three features are advertised on `/pro` as paid-tier
+   boundaries the code does NOT enforce. For each, decide *build the gate* or *soften the copy*:
+   (a) **AI photo analysis** — free users currently get a $25/mo vision cap (photo-vision.js defaults to
+   'lite'); page sells it as Solo+. (b) **Aerial measurements** — `requestMeasurement` has no plan check
+   at all; page sells it as Crew+. (c) **Monthly lead caps** (10/50/500) — `trackUsage('leads')` is never
+   called at lead creation, so the caps are cosmetic. (Also: the Scale `enterprise` photo/token caps are
+   keyed on `professional`, so a real Scale tenant falls back to defaults until the `enterprise` key is populated.)
 
-## Recommended sequence
-Ship **D-1 + D-3 together** first (money-free, byte-identical, fully tested). Hold **D-2 + /pro**
-until the Stripe step, then deploy them in one coherent change so displayed prices always match charges.
+## Recommended deploy sequence
+**Ship all of Phase D as ONE coherent release, AFTER Jo sets the Stripe $99/$299 prices.** Rationale:
+the price is a *display* value in two places (the `/pro` page AND billing-gate.js `PLANS.price`, shown in
+the in-app billing tab); deploying `$299` while Stripe still charges `$249` is a public + in-app price/charge
+contradiction. D-1+D-3 have **no functional payoff yet** (no multi-member tenants exist), so they lose nothing
+by waiting for the Stripe step. This also avoids auto-deploying the (untested-against-live-Stripe) webhook
+changes ahead of validation.
+
+Commit map on the branch (oldest→newest): `127f8af5` foundation(seats+price+PRICING) · `03b57a53` backup util ·
+`82cb96c0` migration · `c7bdc9ba` D-1+D-3 (money-free; touches NO stripe.js/index.html) · `065164c0` /pro rework ·
+`06587193` D-2 money-path · `ac51c67c` status doc · (+ review-fix commit). If Jo insists on shipping the
+money-free core early, deploy through `c7bdc9ba` BUT first revert the billing-gate `PLANS.price` display back to
+the live Stripe amount to avoid the in-app mismatch — more fiddly, little benefit; one coherent release is preferred.

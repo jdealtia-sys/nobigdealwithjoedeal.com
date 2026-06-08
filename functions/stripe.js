@@ -275,11 +275,13 @@ exports.stripeWebhook = onRequest(
         const ownerUid = await resolveOwnerUid(companyId);
         if (!ownerUid) { logger.warn('stripeWebhook.no_ownerUid', { companyId }); return null; }
         const existing = (await admin.auth().getUser(ownerUid)).customClaims || {};
-        await admin.auth().setCustomUserClaims(ownerUid, {
-          ...existing,
-          ...patch,
-          companyId: existing.companyId || companyId,
-        });
+        const claims = { ...existing, ...patch };
+        // Only stamp companyId for a genuine SLUG tenant. For solo/NBD
+        // (companyId === ownerUid) leave the token claimless — minting
+        // companyId===uid would flip NBD from "no companyId claim" to claimed
+        // and trip the activateInvitedRep path in dashboard-bootstrap.
+        if (companyId !== ownerUid) claims.companyId = existing.companyId || companyId;
+        await admin.auth().setCustomUserClaims(ownerUid, claims);
         return ownerUid;
       };
 
@@ -371,13 +373,11 @@ exports.stripeWebhook = onRequest(
               // setCustomUserClaims REPLACES all claims — merge existing so a
               // tenant owner's companyId/role survive the billing update.
               const existing = (await admin.auth().getUser(ownerUid)).customClaims || {};
-              await admin.auth().setCustomUserClaims(ownerUid, {
-                ...existing,
-                plan,
-                subscriptionStatus: 'active',
-                companyId: existing.companyId || companyId,
-                stripeCustomerId: customerId
-              });
+              const claims = { ...existing, plan, subscriptionStatus: 'active', stripeCustomerId: customerId };
+              // Only stamp companyId for a genuine slug tenant; leave solo/NBD
+              // claimless (companyId===uid would trip activateInvitedRep).
+              if (companyId !== ownerUid) claims.companyId = existing.companyId || companyId;
+              await admin.auth().setCustomUserClaims(ownerUid, claims);
               logger.info('custom_claims_set', { companyId, ownerUid, plan });
             } catch (claimErr) {
               logger.error('custom_claims_failed', { companyId, ownerUid, err: claimErr.message });

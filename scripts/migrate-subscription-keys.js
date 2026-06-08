@@ -24,10 +24,12 @@
 
 const path = require('path');
 
-// HARD GUARD: this script must never import the Stripe SDK. If a future edit
-// adds a stripe require, fail loudly — the whole point is zero Stripe contact.
-const _stripeGuard = () => { try { require.resolve('stripe'); } catch (_) {} };
-_stripeGuard();
+// INVARIANT: this script must never touch Stripe — it ONLY re-keys Firestore
+// docs (reusing the existing Stripe customer/subscription verbatim). There is
+// deliberately no `require('stripe')` and no stripe.* call anywhere below; the
+// re-key cannot create/modify a subscription, so it cannot cause a charge.
+// (Enforced by code review, not a runtime guard — a runtime check can't prove
+// a negative about its own imports.)
 
 let admin, FieldValue;
 const { createRequire } = require('module');
@@ -114,9 +116,20 @@ async function main() {
   for (const p of toCopy) {
     const out = { ...p.srcData, reKeyedFrom: p.ownerId, reKeyedAt: FieldValue.serverTimestamp() };
     await db.doc(`subscriptions/${p.companyId}`).create(out); // .create = fail if it raced into existence
-    console.log(`  ✓ wrote subscriptions/${p.companyId} (source left in place for soak)`);
+    // Neutralize the SOURCE doc so two live subscriptions never share one
+    // stripeCustomerId. The by-customer webhook branches use an UNORDERED
+    // where('stripeCustomerId','==',customerId).limit(1) and would otherwise
+    // match an arbitrary one of the two during the soak window. We clear only
+    // the customer id (+ tombstone marker); plan/status stay so the D-1 {uid}
+    // fallback keeps resolving until the source is deleted post-soak.
+    await db.doc(`subscriptions/${p.ownerId}`).set({
+      stripeCustomerId: FieldValue.delete(),
+      reKeyedTo: p.companyId,
+      reKeyedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+    console.log(`  ✓ wrote subscriptions/${p.companyId}; neutralized source subscriptions/${p.ownerId} (customerId cleared, plan retained)`);
   }
-  console.log(`\nAPPLIED: ${toCopy.length} copied. Source docs retained — tombstone/delete in a later pass after soak.`);
+  console.log(`\nAPPLIED: ${toCopy.length} copied; source customerId cleared. Delete source docs in a later pass after soak.`);
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error('FATAL', e); process.exit(1); });
