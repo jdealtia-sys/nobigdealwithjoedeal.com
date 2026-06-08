@@ -128,14 +128,42 @@ triggerable; pre-existing inspect-form.js `res.error` vs `res.reason` mismatch (
 **Verified green on merged main:** smoke 1819/0 · tenant-brand 30/0 · tenant-hardening 51/0 · bridge unit
 43/43 · emulator integration 20/20 · CI enumeration includes leadBridge* · syntax clean.
 
-### DEPLOY GATE (chosen: ensure companies/oaks, then push all)
-1. **Jo runs** (prod creds): `node scripts/provision-oaks-company.js --ensure` → guarantees `companies/oaks`
-   exists (eliminates OAKS-1). (Add `--owner <Scott uid>` later to light up Oaks pipeline mirroring.)
-2. **Then push `main`** → Firebase auto-deploy (~9 min). NBD H-1 fix live; Oaks alerts route to Scott;
-   Oaks pipeline mirror deferred until Scott has an account.
-3. **Post-deploy checkpoint (Jo verifies):** submit an NBD public form → lead appears in the CRM pipeline;
-   an Oaks-tagged lead alerts the Oaks contact (joe@oaksrfc.com), not jd@. → then Phase D.
+---
+
+## REALIZATION (2026-06-08): Oaks was never actually a tenant
+Jo: "we never made it — we only made my company; we've been building the true multi-tenant structure."
+There is **no `companies/oaks`, no Oaks owner account, no Oaks `companyId` claim** in prod. Only NBD (solo,
+companyId == Joe's uid) is a real tenant. The multi-tenant *machinery* (brand, routing, bridge) was built but
+never had a genuine second tenant to run on. (And `backfill-oaks-brand.js` likely never ran either — it had a
+module-resolution bug, see below — so `companyProfile/oaks` may also be absent.) This is the root of OAKS-1.
+
+### Tenant-provisioning map (multi-agent, 4 facets) — key facts
+- **Login is viable WITHOUT GCIP:** the /pro Member tab is plain `signInWithEmailAndPassword`; independent of the
+  broken access-code/`createCustomToken` IAM path. A script-created email/password owner with claims CAN log in.
+- **Minimal tenant = 4 admin-SDK writes** (all Jo-run): (1) owner Auth account; (2) claims
+  `{companyId:'<slug>', role:'company_admin'}` — the LITERAL slug, NOT the uid (the "slug-vs-solo" trap that
+  fractures a tenant); (3) `companies/<slug>.ownerId = ownerUid`; (4) `companyProfile/<slug>` brand.
+- **Dashboard plan-gate:** a fresh owner with no subscription doc hits the NBDAuth upgrade wall → seed
+  `subscriptions/{ownerUid} = {plan, status:'active'}` (admin-SDK only).
+- Leads isolate by `userId` → a fresh owner sees an empty, clean pipeline. Cosmetic: global `NBD-####` customerId
+  counter (fine for a test tenant).
+
+### TENANT TOOLKIT (built + emulator-proven this session)
+- `scripts/provision-tenant.js` — reusable: owner Auth account + slug claims + `companies/<slug>.ownerId` +
+  subscription, with `--check`. Resolves firebase-admin from `functions/`. (Supersedes `provision-oaks-company.js`,
+  removed.)
+- `scripts/backfill-oaks-brand.js` — module-resolution FIXED so it actually runs (writes `companyProfile/oaks`).
+- Emulator-proven end-to-end: brand backfill → provision → `--check` shows companies/oaks + companyProfile/oaks +
+  claims {companyId:'oaks',role:'company_admin'} + active subscription, all correct.
+
+### RUNBOOK — stand up the test Oaks tenant (Jo, prod creds: GOOGLE_APPLICATION_CREDENTIALS → nobigdeal-pro SA)
+1. `node scripts/backfill-oaks-brand.js`  → creates `companyProfile/oaks` (brand).
+2. `node scripts/provision-tenant.js --company oaks --owner-email zz-qa-oaks-owner@nobigdealwithjoedeal.com --name "Oaks Roofing & Construction"`  → owner + claims + companies/oaks + subscription. **Save the printed password.**
+3. Log in as that owner at `/pro/login.html` (Member tab) → verify Oaks branding, empty pipeline, claim
+   `companyId==='oaks'`, create a `ZZ_QA` lead (tagged companyId='oaks').
+4. **Then push `main`** (C-1 + OAKS-1 fixes) → bridge activates: NBD public leads → pipeline (H-1 live);
+   Oaks form leads → Oaks owner. Order: provision Oaks FIRST (so the bridge's Oaks path is correct), then push.
 
 ## NEXT
-Awaiting Jo: confirm bridge design defaults + provisioning/backup handoff → then build bridge + tests on an isolated
-branch/worktree, run emulator suite, deliver for the **HARD CHECKPOINT** (Jo verifies leads land in CRM + Oaks alerts Scott).
+Jo runs the runbook (steps 1-3) to stand up + verify the test Oaks tenant → then push the bridge fixes (step 4)
+→ Phase C checkpoint complete with a REAL second tenant → Phase D.

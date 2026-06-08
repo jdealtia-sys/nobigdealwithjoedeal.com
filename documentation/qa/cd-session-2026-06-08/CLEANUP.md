@@ -5,9 +5,12 @@
 > never a real customer.
 
 ## Test tenants
-| companyId | companyProfile key | companies/{id}.ownerId (uid) | alertEmail / alertSms | created by | purge |
-|-----------|--------------------|------------------------------|------------------------|------------|-------|
-| _(none yet — Jo to provision)_ | | | | | |
+| companyId | owner account | companies/{id}.ownerId | subscription | created by | purge |
+|-----------|---------------|------------------------|--------------|------------|-------|
+| `oaks` (test) | `zz-qa-oaks-owner@nobigdealwithjoedeal.com` (uid printed by the script) | = test owner uid | `subscriptions/{uid}` plan professional (seeded) | `scripts/provision-tenant.js` (Jo runs) — PLANNED | when re-pointing Oaks to a real owner: delete the test auth user + its `subscriptions/{uid}`; re-`--owner` companies/oaks to the real uid |
+
+> NOTE: `companyProfile/oaks` (brand) is intentionally KEPT (it's real Oaks brand, reused when a real owner takes over).
+> Only the throwaway OWNER account + its subscription are test artifacts to purge.
 
 ## Test leads (public submits + bridged CRM leads)
 | ZZ_QA id / name | source collection | bridged leads/{id} | tenant | created | purge |

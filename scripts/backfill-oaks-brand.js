@@ -16,7 +16,12 @@
  */
 'use strict';
 
-const admin = require('firebase-admin');
+const path = require('path');
+// firebase-admin lives in functions/node_modules (scripts/ has none), so a bare
+// require fails when run from the repo root. Resolve it from functions/.
+let admin;
+try { admin = require('firebase-admin'); }
+catch (_) { admin = require('module').createRequire(path.join(__dirname, '..', 'functions', 'package.json'))('firebase-admin'); }
 if (!admin.apps.length) admin.initializeApp();
 
 const OAKS_KEY = 'oaks';
