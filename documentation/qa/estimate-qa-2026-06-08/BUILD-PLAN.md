@@ -36,7 +36,15 @@ So most building blocks exist — the work is **surfacing + wiring + a format pi
 | | Aerial measurement report | flat $ (pass-through) | ✅ ~$75 | $75 |
 
 ## Phases
-**Phase 1 — Surface existing complexity adders into the per-SQ flow.** Wire steep / very-steep / two-story / cut-up (already in the catalog as labor adders) as toggle/checkbox add-ons in the per-SQ builder UI, flowing into `calculatePerSq` add-ons. Low risk (engine already supports add-ons). Ship.
+**Phase 1 — Surface existing complexity adders into the per-SQ flow. ✅ SHIPPED 2026-06-08 (branch `feat/persq-complexity-addons`).**
+Locked, config-backed rates (`estimate-config.js`), wired into `calculatePerSq` + the per-SQ builder UI:
+- Pitch (STACK): steep 8/12+ **$25/SQ**, very-steep 12/12+ **+$45** ($70), extreme 16/12+ **+$75** ($145).
+- Stories (TIERED): 2-story **$15/SQ**, 3-story **$30/SQ** (not additive).
+- Cut-up: **+3% waste AND +$15/SQ** cutting labor.
+- Access (TIERED): standard $0 / moderate **$15** / difficult **$35**; crane/boom = real equipment line items.
+- Defaults to 6/12 (non-steep) so steep is opt-in; pitch dropdown now 3/12–18/12 (extreme reachable, odd imports land).
+- 6 new pricing tests; adversarially reviewed (blocker fixed: extreme tier had been UI-unreachable).
+Open follow-ups: dynamic $ labels (currently hardcoded, match config); maps-import pitch snap for >18/12; line-item LAB ADR-* rates intentionally left per-mode (insurance scope) vs the new per-SQ cash rates.
 
 **Phase 2 — Add the missing add-ons + a settings editor.** Crickets ($/each), re-deck ($/sheet), framing, specialty — with mix pricing. Add a Settings → Estimate Add-ons editor so Jo sets the $ defaults (this also fixes the L-1 class of problem: defaults live in config, not stale localStorage). Wire into per-SQ + carry into the GBB tiers.
 

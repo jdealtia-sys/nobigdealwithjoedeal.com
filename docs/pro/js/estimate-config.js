@@ -85,10 +85,26 @@
     ADDON_CHIMNEY_FLASH:  425,
     ADDON_SKYLIGHT_FLASH: 350,
 
+    // Per-SQ complexity add-ons (Phase 1, Joe-confirmed 2026-06-08).
+    // Surfaced into the per-SQ engine (calculatePerSq) so cash/retail
+    // Good-Better-Best pricing reflects the same complexity the line-item
+    // labor adders (LAB ADR-SS/VS/2S/CU) already catch.
+    //   PITCH tiers STACK: 8/12 → +steep, 12/12 → +very-steep, 16/12 → +extreme.
+    //   STORY + ACCESS tiers REPLACE (a 3-story job pays the 3-story rate only).
+    //   Cut-up adds cutting LABOR on top of the +3% material waste (separate).
+    ADDON_STEEP_PER_SQ:            25,   // pitch 8/12+
+    ADDON_VERY_STEEP_PER_SQ:       45,   // pitch 12/12+ (stacks → $70/SQ at 12/12)
+    ADDON_EXTREME_STEEP_PER_SQ:    75,   // pitch 16/12+ (stacks → $145/SQ at 16/12)
+    ADDON_TWO_STORY_PER_SQ:        15,   // exactly 2 stories
+    ADDON_THREE_STORY_PER_SQ:      30,   // 3+ stories (replaces 2-story rate)
+    ADDON_CUTUP_PER_SQ:            15,   // cutting labor (material waste +3% is separate)
+    ADDON_ACCESS_MODERATE_PER_SQ:  15,   // tight lot / longer carry / protect landscaping
+    ADDON_ACCESS_DIFFICULT_PER_SQ: 35,   // no driveway / hillside (crane/boom = equipment lines)
+
     // Source-of-truth marker — engines log this to Sentry on
     // load so we can correlate "classic engine ran but V2 config
     // didn't load" cases if they ever happen.
-    _version: '2026-04-25',
+    _version: '2026-06-08',
     _loadedFrom: 'estimate-config.js'
   });
 
