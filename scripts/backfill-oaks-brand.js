@@ -56,7 +56,16 @@ const OAKS_BRAND = {
       website:    'oaksroofingandconstruction.com',
       address:    'Goshen, OH',
       alertEmail: 'joe@oaksrfc.com',  // Phase C: route Oaks public leads to Scott, not Joe
-      alertSms:   '+15138275297'      // Phase C: Oaks alert SMS (verify Scott's number)
+      alertSms:   '+15138275297',     // Phase C: Oaks alert SMS (verify Scott's number)
+      slackWebhook: ''                // Phase C: optional Oaks Slack lead alert
+    },
+    // Phase C: Oaks integration endpoints. TODO values are placeholders until
+    // Oaks provisions its own. Empty/absent = fall through to the platform default.
+    integrations: {
+      twilioNumber: '',               // TODO: Oaks's own A2P-approved SMS number
+      resendDomain: 'oaksrfc.com',    // Oaks sender domain (verify in Resend before relying on it)
+      reviewUrl:    '',               // TODO: Oaks Google review link
+      calLink:      ''                // TODO: Oaks Cal.com booking link
     }
   }
 };

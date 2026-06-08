@@ -142,8 +142,12 @@ const PUBLIC_LEAD_KINDS = {
   contact: {
     collection: 'contact_leads',
     required: ['firstName', 'phone', 'source'],
-    maxLen:   { firstName: 200, phone: 30, source: 200 },
-    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
+    // Tenant microsite quote forms (e.g. Oaks /sites/oaks) post lastName/email/
+    // zip/service/message alongside the required fields. They're optional (NBD's
+    // homepage contact form omits them) and allowlisted below so they persist
+    // and flow into the CRM lead via lead-bridge. (M-04: deliberate expansion.)
+    maxLen:   { firstName: 200, lastName: 200, phone: 30, email: 200, zip: 10, service: 200, message: 1500, source: 200 },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'lastName', 'email', 'zip', 'service', 'message']
   },
   estimate: {
     collection: 'estimate_leads',
@@ -255,7 +259,11 @@ exports.submitPublicLead = onRequest(
     for (const key of (spec.optional || [])) {
       const v = body[key];
       if (typeof v !== 'string') continue;
-      if (v.length === 0 || v.length > 500) continue;
+      // Per-field cap when the kind declares one (e.g. a 1500-char message),
+      // else a conservative 500-char default. Over-cap → drop (not 400):
+      // an optional field should never fail an otherwise-valid submission.
+      const max = (spec.maxLen && spec.maxLen[key]) || 500;
+      if (v.length === 0 || v.length > max) continue;
       data[key] = v;
     }
 

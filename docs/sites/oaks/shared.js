@@ -179,13 +179,13 @@ function renderQuoteForm(containerId, heading, desc) {
     <div class="quote-form">
       <h3>${heading || 'Request a Quote Today'}</h3>
       <p class="form-desc">${desc || 'Fill out the form below and we\'ll get back to you within 24 hours.'}</p>
-      <form id="leadForm-${containerId}" onsubmit="return submitLead(event, '${containerId}')">
+      <form id="leadForm-${containerId}">
         <div class="form-row">
           <div class="form-group"><label>First Name</label><input type="text" name="firstName" placeholder="John" required></div>
           <div class="form-group"><label>Last Name</label><input type="text" name="lastName" placeholder="Smith"></div>
         </div>
         <div class="form-group"><label>Email</label><input type="email" name="email" placeholder="john@smith.com" required></div>
-        <div class="form-group"><label>Phone Number</label><input type="tel" name="phone" placeholder="(123) 456-7890"></div>
+        <div class="form-group"><label>Phone Number</label><input type="tel" name="phone" placeholder="(123) 456-7890" required></div>
         <div class="form-group"><label>Zip Code</label><input type="text" name="zip" placeholder="12345"></div>
         <div class="form-group">
           <label>Service</label>
@@ -209,6 +209,10 @@ function renderQuoteForm(containerId, heading, desc) {
         Thank you! We'll be in touch soon.
       </div>
     </div>`;
+  // CSP-safe binding: the global ** CSP sets script-src-attr 'none', which
+  // blocks an inline onsubmit= handler. Bind the submit listener here instead.
+  const _qf = el.querySelector('form');
+  if (_qf) _qf.addEventListener('submit', (e) => submitLead(e, containerId));
 }
 
 // ═══ CTA BANNER (reusable) ═══
@@ -229,33 +233,48 @@ function renderCTA(containerId, heading, text) {
 }
 
 // ═══ FORM SUBMISSION ═══
-// Uses the shared modular Firebase helper instead of the compat global.
-// The marketing-firebase.js module is loaded via <script type="module"> on
-// every host page before this file runs; it exposes window._nbdSubmitLead.
+// Phase C: Oaks public leads now flow through the nobigdeal-pro
+// `submitPublicLead` gateway tagged companyId:'oaks' — so they land in the
+// Oaks CRM pipeline (via lead-bridge) AND alert Scott (via lead-alert's
+// per-tenant routing), instead of the separate marketing Firebase project.
+// The gateway enforces App Check + Turnstile + per-IP rate limit + honeypot
+// server-side. Served same-origin (nobigdealwithjoedeal.com/sites/oaks), so
+// no CORS/CSP change is needed — the gateway URL is on *.cloudfunctions.net,
+// already in the global CSP connect-src.
+function ensurePublicLeadSubmitter() {
+  if (typeof window.submitPublicLead === 'function') return Promise.resolve(window.submitPublicLead);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = '/assets/js/public-lead-submit.js';  // same-origin; script-src 'self'
+    s.onload = () => (typeof window.submitPublicLead === 'function'
+      ? resolve(window.submitPublicLead)
+      : reject(new Error('submitPublicLead unavailable after load')));
+    s.onerror = () => reject(new Error('failed to load public-lead-submit.js'));
+    document.head.appendChild(s);
+  });
+}
+
 async function submitLead(e, containerId) {
   e.preventDefault();
   const form = e.target;
   const data = {
     firstName: form.firstName.value,
-    lastName: form.lastName.value,
-    email: form.email.value,
-    phone: form.phone.value,
-    zip: form.zip.value,
-    service: form.service.value,
-    message: form.message.value,
-    companyId: 'oaks',
-    companyName: 'Oaks Roofing & Construction',
-    source: 'website',
-    page: window.location.pathname
-    // `status` and `createdAt` are added by submitMarketingLead().
+    lastName:  form.lastName.value,
+    email:     form.email.value,
+    phone:     form.phone.value,
+    zip:       form.zip.value,
+    service:   form.service.value,
+    message:   form.message.value,
+    companyId: 'oaks',            // validated against companies/oaks by the gateway
+    source:    'website',
+    referrer:  window.location.pathname
   };
   const btn = form.querySelector('.form-submit');
   try {
     if (btn) { btn.textContent = 'Sending...'; btn.disabled = true; }
-    if (typeof window._nbdSubmitLead !== 'function') {
-      throw new Error('marketing Firebase helper not loaded');
-    }
-    await window._nbdSubmitLead(data);
+    const submit = await ensurePublicLeadSubmitter();
+    const out = await submit('contact', data);
+    if (!out || !out.ok) throw new Error((out && out.reason) || 'submission failed');
     form.style.display = 'none';
     const successEl = document.getElementById('formSuccess-' + containerId);
     if (successEl) successEl.style.display = 'block';

@@ -153,6 +153,11 @@ Object.assign(exports, stormReportEmailFn);
 const leadAlertFns = require('./lead-alert');
 Object.assign(exports, leadAlertFns);
 
+// Mirror each high-intent public lead into the tenant's CRM `leads` pipeline
+// (Phase C, H-1 fix). Additive triggers; tenant-aware routing; idempotent.
+const leadBridgeFns = require('./lead-bridge');
+Object.assign(exports, leadBridgeFns);
+
 // ═══════════════════════════════════════════════════════════════
 // SMS FUNCTIONS
 // ═══════════════════════════════════════════════════════════════

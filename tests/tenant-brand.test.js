@@ -63,6 +63,13 @@ function loadCompanyProfile() {
   ok('NBD doc fonts (Barlow)', b.fonts.docDisplay === 'Barlow Condensed' && b.fonts.docBody === 'Barlow');
   ok('NBD smsSignOff', b.smsSignOff === 'Joe from No Big Deal Roofing');
 
+  // Phase C step 1 — contact.slackWebhook + integrations{} schema on the tenant doc.
+  ok('NBD contact.slackWebhook field present', 'slackWebhook' in b.contact);
+  ok('NBD integrations block present', !!b.integrations);
+  ok('NBD integrations.resendDomain', b.integrations.resendDomain === 'nobigdealwithjoedeal.com');
+  ok('NBD integrations has twilioNumber/reviewUrl/calLink keys',
+    ['twilioNumber','reviewUrl','calLink'].every(k => k in b.integrations));
+
   console.log('\nTENANTCONTEXT — _tenant() shape');
   const t = win._tenant();
   ok('_tenant returns brand + profile', !!(t.brand && t.profile));

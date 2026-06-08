@@ -139,7 +139,19 @@
         website:    'nobigdealwithjoedeal.com',
         address:    'Greater Cincinnati, OH',
         alertEmail: 'jd@nobigdealwithjoedeal.com', // Phase C: public-lead alert recipient
-        alertSms:   '+18594207382'                 // Phase C: per-tenant alert SMS
+        alertSms:   '+18594207382',                // Phase C: per-tenant alert SMS
+        slackWebhook: ''                           // Phase C: optional per-tenant Slack lead alert (empty = none)
+      },
+      // Phase C: per-tenant integration endpoints. Empty string = "fall through
+      // to the platform/global default" (NBD's global function secrets), so NBD
+      // stays byte-identical; a tenant overrides any of these in its
+      // companyProfile.brand.integrations. Not yet consumed by a surface beyond
+      // documentation — lead routing reads brand.contact.* today.
+      integrations: {
+        twilioNumber: '',                                   // tenant's own A2P-approved SMS number (else global TWILIO_PHONE_NUMBER)
+        resendDomain: 'nobigdealwithjoedeal.com',           // verified sender domain for outbound email
+        reviewUrl:    'https://nobigdealwithjoedeal.com/r', // Google review redirect (/r 302)
+        calLink:      ''                                    // tenant's Cal.com booking link
       }
     }
   };

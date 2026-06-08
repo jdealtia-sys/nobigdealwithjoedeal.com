@@ -33,6 +33,30 @@ section('Cloud Functions exports');
     /TEAM_ROLES = \['company_admin'[^\]]*\]/.test(src));
 }
 
+// ── Phase C: public-lead → CRM pipeline bridge (H-1) ─────────
+section('Phase C: lead-bridge (H-1 intake → CRM)');
+{
+  const bridge = read(path.join(FUNCTIONS, 'lead-bridge.js'));
+  for (const fn of ['leadBridgeContact', 'leadBridgeEstimate', 'leadBridgeInspect', 'leadBridgeFreeRoof']) {
+    assert('lead-bridge exports ' + fn, new RegExp('exports\\.' + fn + '\\s*=\\s*makeTrigger').test(bridge));
+  }
+  assert('lead-bridge fires onDocumentCreated', /onDocumentCreated/.test(bridge));
+  assert('lead-bridge mirrors into the leads collection', /collection\('leads'\)\.doc\(/.test(bridge));
+  assert('lead-bridge idempotent via create() (not set)', /\.create\(leadDoc\)/.test(bridge));
+  assert('lead-bridge uses modular FieldValue (emulator-safe)',
+    /require\('firebase-admin\/firestore'\)/.test(bridge) && /FieldValue\.serverTimestamp/.test(bridge));
+
+  const logic = read(path.join(FUNCTIONS, 'lead-bridge-logic.js'));
+  assert('lead-bridge-logic exports the pure helpers',
+    /resolveBridgeTarget/.test(logic) && /mapPublicLeadToLead/.test(logic) && /bridgeDocId/.test(logic));
+  assert('lead-bridge bridges only the 4 high-intent kinds (not guide/storm)',
+    /contact_leads:/.test(logic) && /inspect_leads:/.test(logic) &&
+    !/guide_leads:/.test(logic) && !/storm_alert_subscribers:/.test(logic));
+
+  const idx = readFunctionsIndex();
+  assert('index.js wires lead-bridge', /require\('\.\/lead-bridge'\)/.test(idx));
+}
+
 // ── H-6: Stripe webhook hardening ───────────────────────────
 section('H-6: Stripe webhook raw body + replay');
 {
