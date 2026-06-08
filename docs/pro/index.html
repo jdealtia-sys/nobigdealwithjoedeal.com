@@ -261,12 +261,48 @@
       font-size: 12px;
     }
 
+    /* Secondary "Log In" action — bordered ghost so it reads as clickable
+       but stays subordinate to the orange Start Free Trial CTA. */
+    .nav-login {
+      text-decoration: none;
+      color: #E8EAF0 !important;
+      border: 1px solid #2A3447;
+      padding: 9px 22px !important;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      font-family: 'Barlow Condensed', sans-serif;
+      transition: border-color 0.3s ease, color 0.3s ease;
+    }
+
+    .nav-login:hover {
+      border-color: var(--orange);
+      color: var(--orange) !important;
+    }
+
+    /* Shown only on mobile, where .nav-links is hidden. */
+    .nav-mobile-actions {
+      display: none;
+      align-items: center;
+      gap: 10px;
+    }
+
     @media (max-width: 768px) {
       .nav-links {
         display: none;
       }
+      .nav-mobile-actions {
+        display: flex;
+      }
       .nav-cta {
         padding: 8px 16px !important;
+        font-size: 11px;
+      }
+      .nav-login {
+        padding: 7px 16px !important;
         font-size: 11px;
       }
     }
@@ -1034,9 +1070,15 @@
         <li><a href="#academy">Academy</a></li>
         <li><a href="#pricing">Pricing</a></li>
         <li><a href="#faq">FAQ</a></li>
+        <li><a href="/pro/login.html" class="nav-login">Log In</a></li>
         <li><a href="#" class="btn nav-cta" data-pi-action="goRegister">Start Free Trial</a></li>
       </ul>
-      <a href="#" class="btn nav-cta" style="display: none;" data-pi-action="goRegister">Sign Up</a>
+      <!-- Mobile-only actions: .nav-links is display:none under 768px, so the
+           login + signup live here for small screens. -->
+      <div class="nav-mobile-actions">
+        <a href="/pro/login.html" class="nav-login">Log In</a>
+        <a href="#" class="btn nav-cta" data-pi-action="goRegister">Sign Up</a>
+      </div>
     </div>
   </nav>
 
