@@ -55,14 +55,16 @@ window.NBDDocGen = {
         // website/logo onto its documents (review M1). window._brand() has
         // already blanked anything this tenant didn't set; the '' fallbacks
         // here just make sure a missing field never reaches back to base.
-        // tagline/colors are cosmetic and may still inherit. NBD takes the
-        // early `return base` below, so this branch never runs for NBD.
+        // colors are cosmetic and may still inherit. tagline must NOT — NBD's
+        // tagline ("No Big Deal — We've Got You Covered") carries the NBD name,
+        // so an unset tenant tagline would leak it (review M1, adversarial pass).
+        // NBD takes the early `return base` below, so this branch never runs for NBD.
         return {
           name:    b.legalName,
           phone:   (b.contact && b.contact.phone)   || '',
           email:   (b.contact && b.contact.email)   || '',
           website: (b.contact && b.contact.website) || '',
-          tagline: b.tagline || base.tagline,
+          tagline: b.tagline || '',
           address: (b.contact && b.contact.address) || '',
           logoUrl: b.logoUrl || null,
           colors: {
@@ -578,11 +580,16 @@ window.NBDDocGen = {
       customerId: (lead && lead.customerId) || customer.customerId || null,
       projectLine: data.projectLine || null,
     };
+    // preparedBy identity is tenant-aware; NBD keeps the exact literals
+    // (byte-identical), a tenant gets its own name/role/phone/email, never
+    // NBD's (review M1). _resolveCompany returns the NBD base for NBD.
+    const _pbCo = this._resolveCompany();
+    const _pbNbd = _pbCo.name === 'No Big Deal Home Solutions';
     const preparedBy = {
-      name:  (window._user && window._user.displayName) || 'Joe Deal',
-      role:  'Project Owner · No Big Deal Home Solutions',
-      phone: '(859) 420-7382',
-      email: 'jd@nobigdealwithjoedeal.com',
+      name:  (window._user && window._user.displayName) || (_pbNbd ? 'Joe Deal' : _pbCo.name),
+      role:  _pbNbd ? 'Project Owner · No Big Deal Home Solutions' : ('Project Owner · ' + _pbCo.name),
+      phone: _pbNbd ? '(859) 420-7382' : (_pbCo.phone || ''),
+      email: _pbNbd ? 'jd@nobigdealwithjoedeal.com' : (_pbCo.email || ''),
     };
     const todayStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 

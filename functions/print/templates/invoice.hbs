@@ -79,5 +79,5 @@
 {{/if}}
 
 <div class="sig-block">
-  <p class="meta" style="text-align:center; margin: 0;">Thank you for your business — questions on this invoice can go directly to <strong style="color: var(--nbd-orange);">jd@nobigdealwithjoedeal.com</strong> or <strong style="color: var(--nbd-orange);">(859) 420-7382</strong>.</p>
+  {{#if company.email}}<p class="meta" style="text-align:center; margin: 0;">Thank you for your business — questions on this invoice can go directly to <strong style="color: var(--nbd-orange);">{{company.email}}</strong>{{#if company.phone}} or <strong style="color: var(--nbd-orange);">{{company.phone}}</strong>{{/if}}.</p>{{/if}}
 </div>

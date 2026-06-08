@@ -188,6 +188,11 @@ const NBD_DOC_COMPANY = {
   brandTag: 'Insurance Restoration Specialists · Greater Cincinnati',
   brandContact: '(859) 420-7382 · jd@nobigdealwithjoedeal.com',
   footerContact: '(859) 420-7382 · jd@nobigdealwithjoedeal.com · Greater Cincinnati, OH',
+  // Individual contact pieces the invoice/receipt body templates reference
+  // (they used to hardcode these). NBD keeps the exact literals → byte-identical.
+  email: 'jd@nobigdealwithjoedeal.com',
+  phone: '(859) 420-7382',
+  contactName: 'Joe',
   seal: 'NBD',
   colors: null,
 };
@@ -258,6 +263,9 @@ async function resolveDocCompany(companyId) {
           brandTag: b.tagline || '',
           brandContact: [c.phone, c.email].filter(Boolean).join(' · '),
           footerContact: [c.phone, c.email, c.address].filter(Boolean).join(' · '),
+          email: c.email || '',
+          phone: c.phone || '',
+          contactName: '', // tenants have no per-person first name; never 'Joe'
           seal: b.seal || '',
           colors: b.colors || null,
         };

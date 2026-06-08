@@ -49,8 +49,12 @@ async function resolveAlertTarget(companyId) {
         return {
           emails: c.alertEmail ? [c.alertEmail] : null,
           sms: c.alertSms || null,
-          name: b.legalName || fallback.name,
-          seal: b.seal || b.displayName || fallback.seal,
+          // Configured tenant → its own name/seal, never NBD's. (b is the RAW
+          // companyProfile.brand: b.displayName is undefined here, so the old
+          // `b.seal || b.displayName || fallback.seal` fell through to 'NBD' for
+          // a tenant that set alert routing but no seal — an NBD bleed. M1.)
+          name: b.legalName || '',
+          seal: b.seal || '',
         };
       }
     }

@@ -27,7 +27,9 @@ function eq(name, got, want) { ok(name + ' (= ' + JSON.stringify(want) + ', got 
 const PRO_JS = path.join(__dirname, '..', 'docs/pro/js');
 const SRC_PROFILE  = fs.readFileSync(path.join(PRO_JS, 'company-profile.js'), 'utf8');
 const SRC_DOCGEN   = fs.readFileSync(path.join(PRO_JS, 'document-generator.js'), 'utf8');
+const SRC_TEMPLATES = fs.readFileSync(path.join(PRO_JS, 'document-generator-templates.js'), 'utf8');
 const SRC_RENDER   = fs.readFileSync(path.join(__dirname, '..', 'functions/render-pdf.js'), 'utf8');
+const HBS_DIR      = path.join(__dirname, '..', 'functions/print/templates');
 
 // ════════════════════════════════════════════════════════════════════
 // 1. company-profile.js — window._brand() does not inherit NBD identity
@@ -142,6 +144,55 @@ eq('hexToRgb 6-digit', sb.hexToRgb('#C2410C'), '194, 65, 12');
 eq('hexToRgb 3-digit (L5)', sb.hexToRgb('#fc0'), '255, 204, 0');
 eq('hexToRgb bad input → null', sb.hexToRgb('nope'), null);
 ok('darken returns a darker hex (L4)', /^#[0-9a-f]{6}$/i.test(sb.darken('#C2410C', 0.15)) && sb.darken('#C2410C', 0.15) !== '#C2410C');
+
+// ════════════════════════════════════════════════════════════════════
+// 4. EXTENDED doc render (document-generator-templates.js) — the SEAL leak
+//    the adversarial review caught: _refreshBrand resolved the signature seal
+//    with `(_b && _b.seal) || 'NBD'`, so an under-configured tenant (seal '')
+//    rendered "Authorized NBD Representative" on its signed docs. Guard it by
+//    rendering a warranty certificate through the FULL docgen for an under-
+//    configured tenant and asserting the NBD seal does NOT appear.
+// ════════════════════════════════════════════════════════════════════
+function loadFullDocGen(brand) {
+  const win = { _brand: () => brand };
+  win.window = win;
+  const noop = () => ({ style: {}, appendChild() {}, setAttribute() {}, addEventListener() {} });
+  const sandbox = {
+    window: win,
+    document: { addEventListener() {}, getElementById() { return null; }, querySelector() { return null; }, createElement: noop, body: noop() },
+    console: { log() {}, warn() {}, error() {} },
+    setTimeout, clearTimeout, Date, Math, JSON,
+  };
+  vm.runInNewContext(SRC_DOCGEN, sandbox, { filename: 'document-generator.js' });
+  vm.runInNewContext(SRC_TEMPLATES, sandbox, { filename: 'document-generator-templates.js' });
+  return win.NBDDocGen;
+}
+const WARRANTY = { homeownerName: 'Jane Smith', address: '123 Main St', warrantyTier: 'best', leadId: 'L1' };
+
+console.log('\nM1 — extended-doc SEAL (under-configured tenant must not show "Authorized NBD Representative")');
+const dgu = loadFullDocGen(UNDER);
+const underDoc = dgu.renderWarrantyCertificate(Object.assign({}, WARRANTY));
+ok('under tenant warranty: NOT "Authorized NBD Representative"', !/Authorized NBD Representative/.test(underDoc));
+ok('under tenant warranty: NOT "No Big Deal"', !/No Big Deal/.test(underDoc));
+const dgnb = loadFullDocGen({ legalName: 'No Big Deal Home Solutions', seal: 'NBD' });
+const nbdDoc = dgnb.renderWarrantyCertificate(Object.assign({}, WARRANTY));
+ok('NBD warranty: SHOWS "Authorized NBD Representative" (byte-identical)', /Authorized NBD Representative/.test(nbdDoc));
+
+// ════════════════════════════════════════════════════════════════════
+// 5. Server .hbs source guards — the two contact templates must not hardcode
+//    NBD's email/phone, and the sig-caption/prose templates must not hardcode
+//    "No Big Deal Home Solutions" (use {{company.*}} so tenants don't leak NBD).
+// ════════════════════════════════════════════════════════════════════
+console.log('\nM1 — server .hbs templates carry no hardcoded NBD identity');
+function hbs(name) { return fs.readFileSync(path.join(HBS_DIR, name), 'utf8'); }
+for (const f of ['invoice.hbs', 'receipt.hbs']) {
+  const s = hbs(f);
+  ok(f + ': no hardcoded NBD email', !/jd@nobigdealwithjoedeal\.com/.test(s));
+  ok(f + ': no hardcoded NBD phone', !/\(859\) 420-7382/.test(s));
+}
+for (const f of ['invoice.hbs', 'receipt.hbs', 'inspection.hbs', 'changeOrder.hbs', 'estimate.hbs', 'photoReport.hbs', 'contract.hbs']) {
+  ok(f + ': no hardcoded "No Big Deal Home Solutions"', !/No Big Deal Home Solutions/.test(hbs(f)));
+}
 
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');

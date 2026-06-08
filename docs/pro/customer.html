@@ -3391,7 +3391,10 @@ async function loadCustomerData(id) {
         // Audit CC: same defense as the call link above — phone may
         // arrive as a number from a CSV import.
         const cleanPhone = String(lead.phone).replace(/\D/g, '');
-        const _signOff = (window._brand && window._brand().smsSignOff) || 'Joe from No Big Deal Roofing';
+        // M1: NBD keeps 'Joe from No Big Deal Roofing'; a non-NBD tenant uses its
+        // own smsSignOff, or its legalName if unset — never NBD's sign-off.
+        const _bSms = (window._brand && window._brand()) || {};
+        const _signOff = _bSms.smsSignOff || ((!_bSms.legalName || _bSms.legalName === 'No Big Deal Home Solutions') ? 'Joe from No Big Deal Roofing' : _bSms.legalName);
         const smsBody = encodeURIComponent(`Hey${custName ? ' ' + custName : ''}, this is ${_signOff}! I'd love to set up a free roof inspection at your convenience. Pick a time that works for you here: ${bookingUrl}`);
         smsBtn.href = `sms:${cleanPhone}?body=${smsBody}`;
         smsBtn.style.display = '';

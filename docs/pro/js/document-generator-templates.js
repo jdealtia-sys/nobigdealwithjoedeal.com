@@ -151,7 +151,7 @@
              image instead of a hand-drawn SVG approximation. -->
         <img class="letterhead-logo-img" src="${LOGO_URL}" alt="${C.name}"/>
         <div><div class="letterhead-name">${C.name}</div>
-        <div class="letterhead-tagline">${C.tagline || 'No Big Deal — We\'ve Got You Covered'}</div></div>
+        <div class="letterhead-tagline">${C.tagline || ''}</div></div>
       </div>
       <div class="letterhead-contact">${C.phone}<br>${C.email}<br>${C.website}</div></div>`;
   }
@@ -765,11 +765,14 @@
       {icon:'⭐',title:'5-Star Service',desc:'Exceptional service from first contact through final walkthrough and beyond.'},
       {icon:'💰',title:'Flexible Financing',desc:'Affordable monthly payments through our partnership with Improvifi.'}
     ];
-    // cp.tagline (the shop-wide marketing tagline) wins for NBD — byte-identical,
-    // since the NBD profile always sets it. A non-NBD tenant without its own
-    // cp.tagline falls through to the resolved brand tagline (C.tagline) instead
-    // of the hardcoded NBD marketing default. Phase B tenant-awareness.
-    const tagline = cp.tagline || C.tagline || "No Big Deal — We've Got You Covered";
+    // NBD keeps the original resolution (cp.tagline, the editable shop-wide
+    // marketing tagline, wins) → byte-identical. A non-NBD tenant uses ONLY its
+    // brand-resolved tagline (C.tagline) and never cp.tagline / the hardcoded NBD
+    // default — for a tenant that set brand.* but not the top-level cp.tagline,
+    // cp.tagline is still NBD's default and would otherwise leak (M1, adversarial pass).
+    const tagline = (C.name === 'No Big Deal Home Solutions')
+      ? (cp.tagline || C.tagline || "No Big Deal — We've Got You Covered")
+      : (C.tagline || '');
     const financePartner = cp.financePartner || 'Improvifi';
 
     return page('About ' + C.name, `
@@ -1690,7 +1693,7 @@
 
         <p style="margin-top:32px;">
           With gratitude,<br><br>
-          <strong>Joe Deal</strong><br>
+          <strong>${C.name === 'No Big Deal Home Solutions' ? 'Joe Deal' : ((typeof window !== 'undefined' && window._user && window._user.displayName) || C.name)}</strong><br>
           <span style="font-size:13px;color:#666;">Owner, ${C.name}</span><br>
           <span style="font-size:13px;color:#666;">${C.phone} | ${C.email}</span>
         </p>
@@ -1849,7 +1852,13 @@
     // NBD → 'NBD' (byte-identical); a tenant → its own seal (e.g. Oaks → 'ORC').
     try {
       const _b = (typeof window !== 'undefined' && window._brand) ? window._brand() : null;
-      SEAL = (_b && _b.seal) || 'NBD';
+      // Only NBD (or no brand) falls back to 'NBD'. A non-NBD tenant whose seal
+      // is unset (blanked to '' by _resolveBrand) must render a BLANK seal, not
+      // 'Authorized NBD Representative' (review M1 — '' is falsy, so a plain
+      // `|| 'NBD'` would re-leak NBD onto the tenant's signed docs).
+      SEAL = (_b && _b.seal) ? _b.seal
+           : (_b && _b.legalName && _b.legalName !== 'No Big Deal Home Solutions') ? ''
+           : 'NBD';
     } catch (_) { SEAL = 'NBD'; }
     LOGO_URL = DG._logoSrc ? DG._logoSrc() : LOGO_URL;
     const _m = String(LOGO_URL).match(/^data:([^;,]+)/);
