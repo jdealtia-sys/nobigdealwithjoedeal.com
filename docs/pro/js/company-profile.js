@@ -275,9 +275,16 @@
 
   window._saveCompanyProfile = async function (overrides) {
     const overridesObj = overrides || {};
-    window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, overridesObj);
+    // Merge onto the EXISTING remote overrides (not bare defaults) so a PARTIAL
+    // save — e.g. just { pricing } from the Add-on Rates editor — can't clobber
+    // unrelated in-memory/cache fields (brand / legal / letterhead). This mirrors
+    // the Firestore { merge:true } write below so in-memory matches the server.
+    let prevRemote = {};
+    try { prevRemote = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}') || {}; } catch (_) {}
+    const mergedRemote = deepMerge(prevRemote, overridesObj);
+    window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, mergedRemote);
     if ('brand' in overridesObj) _brandOverrideRaw = overridesObj.brand || null;
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(overridesObj)); } catch (_) {}
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(mergedRemote)); } catch (_) {}
     if (!window.db) return window._companyProfile;
     const key = await _resolveCompanyKey();
     if (!key) {

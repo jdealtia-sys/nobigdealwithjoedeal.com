@@ -8603,7 +8603,7 @@ body.theme-frosted {
               </label>
               <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
                 <input type="checkbox" id="estSkylight" data-on-change="calcTierPrices" class="ac-orange">
-                <span>Skylight flashing (+$275)</span>
+                <span>Skylight flashing (+$350)</span>
               </label>
               <label style="display:flex;align-items:center;gap:6px;">
                 <span>Gutter LF:</span>
@@ -10205,6 +10205,39 @@ body.theme-frosted {
             <div class="sf-row">
               <div class="sf"><label>Minimum Job Charge</label><input type="number" id="v2minJob" value="2500" step="50"></div>
               <div class="sf"><label>Round To Nearest ($)</label><input type="number" id="v2roundTo" value="25" step="5"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ▸ Add-on Rates (shop-wide → companyProfile.pricing) -->
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">V2 Engine · Per-SQ Mode</div><div class="panel-title">Add-on Rates</div></div></div>
+          <div class="panel-body">
+            <p class="meta-12-mb16">Complexity adders + flat add-ons for cash / retail quotes. Shop-wide — saved to your company profile so every rep estimates the same. Leave a field blank to use the default.</p>
+            <h4 style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--m);margin:4px 0 6px;">Roof Complexity · per SQ (pitch tiers stack)</h4>
+            <div class="sf-row">
+              <div class="sf"><label>Steep 8/12+ ($/SQ)</label><input type="number" id="v2addonSteep" value="25" step="5"></div>
+              <div class="sf"><label>Very-Steep 12/12+ ($/SQ)</label><input type="number" id="v2addonVerySteep" value="45" step="5"></div>
+              <div class="sf"><label>Extreme 16/12+ ($/SQ)</label><input type="number" id="v2addonExtremeSteep" value="75" step="5"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>2-Story ($/SQ)</label><input type="number" id="v2addonTwoStory" value="15" step="5"></div>
+              <div class="sf"><label>3-Story+ ($/SQ)</label><input type="number" id="v2addonThreeStory" value="30" step="5"></div>
+              <div class="sf"><label>Cut-up Labor ($/SQ)</label><input type="number" id="v2addonCutUp" value="15" step="5"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Access · Moderate ($/SQ)</label><input type="number" id="v2addonAccessModerate" value="15" step="5"></div>
+              <div class="sf"><label>Access · Difficult ($/SQ)</label><input type="number" id="v2addonAccessDifficult" value="35" step="5"></div>
+            </div>
+            <h4 style="font-family:'Barlow Condensed',sans-serif;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--m);margin:14px 0 6px;">Flat Add-ons</h4>
+            <div class="sf-row">
+              <div class="sf"><label>Chimney Flashing ($)</label><input type="number" id="v2addonChimney" value="425" step="5"></div>
+              <div class="sf"><label>Skylight Flashing ($)</label><input type="number" id="v2addonSkylight" value="350" step="5"></div>
+              <div class="sf"><label>Extra Pipe Boot ($/ea &gt;4)</label><input type="number" id="v2addonPipeBoot" value="85" step="5"></div>
+            </div>
+            <div class="sf-row">
+              <div class="sf"><label>Valley Metal ($/LF)</label><input type="number" id="v2addonValleyLf" value="8.50" step="0.25"></div>
+              <div class="sf"><label>Gutters ($/LF)</label><input type="number" id="v2addonGuttersLf" value="8.50" step="0.25"></div>
             </div>
           </div>
         </div>

@@ -2994,6 +2994,30 @@
     if (byId('v2matCount'))  byId('v2matCount').textContent  = (window.NBD_PRODUCTS || []).length;
     if (byId('v2labCount'))  byId('v2labCount').textContent  = (window.NBD_LABOR?.count) || 0;
     if (byId('v2xactCount')) byId('v2xactCount').textContent = (window.NBD_XACT_CATALOG?.count) || 0;
+
+    // Add-on rates from the shop profile (companyProfile.pricing.addonPrices),
+    // falling back to the estimate-config.js defaults. Shop-wide; written back by
+    // _saveEstimateDefaultsV2 via _saveCompanyProfile.
+    const cfg = window.NBD_ESTIMATE_CONFIG || {};
+    const cpAddon = (window._companyProfile && window._companyProfile.pricing && window._companyProfile.pricing.addonPrices) || {};
+    const addonField = (id, key, cfgKey, fb) => {
+      const el = byId(id); if (!el) return;
+      const cp = cpAddon[key];
+      el.value = (cp != null && cp !== '') ? cp : (cfgKey && cfg[cfgKey] != null ? cfg[cfgKey] : fb);
+    };
+    addonField('v2addonSteep',           'steepPerSq',           'ADDON_STEEP_PER_SQ',            25);
+    addonField('v2addonVerySteep',       'verySteepPerSq',       'ADDON_VERY_STEEP_PER_SQ',       45);
+    addonField('v2addonExtremeSteep',    'extremeSteepPerSq',    'ADDON_EXTREME_STEEP_PER_SQ',    75);
+    addonField('v2addonTwoStory',        'twoStoryPerSq',        'ADDON_TWO_STORY_PER_SQ',        15);
+    addonField('v2addonThreeStory',      'threeStoryPerSq',      'ADDON_THREE_STORY_PER_SQ',      30);
+    addonField('v2addonCutUp',           'cutUpPerSq',           'ADDON_CUTUP_PER_SQ',            15);
+    addonField('v2addonAccessModerate',  'accessModeratePerSq',  'ADDON_ACCESS_MODERATE_PER_SQ',  15);
+    addonField('v2addonAccessDifficult', 'accessDifficultPerSq', 'ADDON_ACCESS_DIFFICULT_PER_SQ', 35);
+    addonField('v2addonChimney',         'chimneyFlash',         'ADDON_CHIMNEY_FLASH',           425);
+    addonField('v2addonSkylight',        'skylightFlash',        'ADDON_SKYLIGHT_FLASH',          350);
+    addonField('v2addonPipeBoot',        'extraPipeBoot',        null,                            85);
+    addonField('v2addonValleyLf',        'valleyMetalLf',        null,                            8.5);
+    addonField('v2addonGuttersLf',       'guttersLf',            null,                            8.5);
   };
 
   // Save every v2 engine setting from the Estimates tab form
@@ -3069,6 +3093,30 @@
         );
       }
     } catch (e) { console.warn('Firestore sync failed:', e); }
+
+    // Add-on rates → shop-wide companyProfile.pricing.addonPrices (estimate-qa-2026-06-08).
+    // num() returns the config fallback for a blank field; applyCompanyPricing also
+    // sanitizes non-numbers, so a blank never silently zeroes a charge.
+    try {
+      if (typeof window._saveCompanyProfile === 'function') {
+        const addonPrices = {
+          steepPerSq:           num('v2addonSteep', 25),
+          verySteepPerSq:       num('v2addonVerySteep', 45),
+          extremeSteepPerSq:    num('v2addonExtremeSteep', 75),
+          twoStoryPerSq:        num('v2addonTwoStory', 15),
+          threeStoryPerSq:      num('v2addonThreeStory', 30),
+          cutUpPerSq:           num('v2addonCutUp', 15),
+          accessModeratePerSq:  num('v2addonAccessModerate', 15),
+          accessDifficultPerSq: num('v2addonAccessDifficult', 35),
+          chimneyFlash:         num('v2addonChimney', 425),
+          skylightFlash:        num('v2addonSkylight', 350),
+          extraPipeBoot:        num('v2addonPipeBoot', 85),
+          valleyMetalLf:        num('v2addonValleyLf', 8.5),
+          guttersLf:            num('v2addonGuttersLf', 8.5)
+        };
+        await window._saveCompanyProfile({ pricing: { addonPrices } });
+      }
+    } catch (e) { console.warn('Add-on rates save failed:', e); }
 
     const msg = document.getElementById('v2save-msg');
     if (msg) {
