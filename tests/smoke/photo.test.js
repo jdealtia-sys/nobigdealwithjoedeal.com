@@ -485,7 +485,7 @@ section('Photos §2.2: image-pipeline no_doc_matched bumps a metrics counter');
     /db\.doc\(\s*['"]metrics\/imagePipeline['"]\s*\)\.set\(/.test(pipeline),
     'expected db.doc("metrics/imagePipeline").set(...) write');
   assert('counter uses FieldValue.increment(1) on noDocMatched',
-    /noDocMatched:\s*admin\.firestore\.FieldValue\.increment\(1\)/.test(pipeline));
+    /noDocMatched:\s*(?:admin\.firestore\.)?FieldValue\.increment\(1\)/.test(pipeline));
   assert('counter write uses merge:true (no clobber)',
     /metrics\/imagePipeline[\s\S]{0,400}\{\s*merge:\s*true\s*\}/.test(pipeline));
   // Diagnostic context for triage when the counter does climb.
