@@ -19,6 +19,10 @@
   let P = C.colors?.primary || '#1e3a6e';   // Navy — headers, borders, structure
   let S = C.colors?.secondary || '#1a1a2e'; // Dark navy — body text headings
   let A = C.colors?.accent || '#e8720c';    // Orange — CTAs, totals, highlights
+  // Short brand seal used in signature labels ("Authorized <SEAL> Representative").
+  // 'NBD' for NBD → byte-identical; a tenant resolves to its own brand.seal
+  // (e.g. Oaks → 'ORC') via _refreshBrand() below. Phase B tenant-awareness.
+  let SEAL = 'NBD';
 
   // Origin for absolute asset URLs. Generated docs render inside the
   // Universal Doc Viewer (popup/about:blank/srcdoc), where root-
@@ -255,7 +259,7 @@
         </dl>
         <div class="cert-seal">&#10003;</div>
       </div>
-      ${sigBlock(['Homeowner Acknowledgment','Authorized NBD Representative'])}
+      ${sigBlock(['Homeowner Acknowledgment','Authorized ' + SEAL + ' Representative'])}
       ${footer('Certificate #' + d.certificateNumber)}
     `);
   };
@@ -476,7 +480,7 @@
         </p>
       </div>
 
-      ${sigBlock(['Property Owner','Witness (Optional)','Authorized NBD Representative'])}
+      ${sigBlock(['Property Owner','Witness (Optional)','Authorized ' + SEAL + ' Representative'])}
       ${footer('Work Authorization')}
     `);
   };
@@ -552,7 +556,7 @@
           </p>
         </div>
       </div>
-      ${sigBlock(['Homeowner','Authorized NBD Representative'])}
+      ${sigBlock(['Homeowner','Authorized ' + SEAL + ' Representative'])}
       ${footer('Certificate of Completion')}
     `);
   };
@@ -1186,7 +1190,7 @@
         </p>
       </div>
 
-      ${sigBlock(['Property Owner / Policyholder','Witness','Authorized NBD Representative'])}
+      ${sigBlock(['Property Owner / Policyholder','Witness','Authorized ' + SEAL + ' Representative'])}
       ${footer('Assignment of Benefits — Claim #' + d.claimNumber)}
     `);
   };
@@ -1782,7 +1786,7 @@
         </p>
       </div>
 
-      ${sigBlock(['Property Owner','Authorized NBD Representative'])}
+      ${sigBlock(['Property Owner','Authorized ' + SEAL + ' Representative'])}
       ${footer('Payment Agreement')}
     `);
   };
@@ -1841,6 +1845,12 @@
     P = (C.colors && C.colors.primary) || P;
     S = (C.colors && C.colors.secondary) || S;
     A = (C.colors && C.colors.accent) || A;
+    // Resolve the signature seal from the active tenant's brand (brand.seal).
+    // NBD → 'NBD' (byte-identical); a tenant → its own seal (e.g. Oaks → 'ORC').
+    try {
+      const _b = (typeof window !== 'undefined' && window._brand) ? window._brand() : null;
+      SEAL = (_b && _b.seal) || 'NBD';
+    } catch (_) { SEAL = 'NBD'; }
     LOGO_URL = DG._logoSrc ? DG._logoSrc() : LOGO_URL;
     const _m = String(LOGO_URL).match(/^data:([^;,]+)/);
     LOGO_TYPE = _m ? _m[1]
