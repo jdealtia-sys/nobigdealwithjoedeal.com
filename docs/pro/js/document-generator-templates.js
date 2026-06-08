@@ -652,7 +652,7 @@
       ],
       taxRate:0, paymentsReceived:6250,
       claimNumber:'', insuranceCompany:'',
-      notes:'Thank you for choosing No Big Deal Home Solutions. We appreciate your business and trust in our team.' }, data);
+      notes:'Thank you for choosing ' + C.name + '. We appreciate your business and trust in our team.' }, data);
 
     let subtotal = 0;
     const rows = d.lineItems.map(i => {
@@ -761,10 +761,14 @@
       {icon:'⭐',title:'5-Star Service',desc:'Exceptional service from first contact through final walkthrough and beyond.'},
       {icon:'💰',title:'Flexible Financing',desc:'Affordable monthly payments through our partnership with Improvifi.'}
     ];
-    const tagline = cp.tagline || "No Big Deal — We've Got You Covered";
+    // cp.tagline (the shop-wide marketing tagline) wins for NBD — byte-identical,
+    // since the NBD profile always sets it. A non-NBD tenant without its own
+    // cp.tagline falls through to the resolved brand tagline (C.tagline) instead
+    // of the hardcoded NBD marketing default. Phase B tenant-awareness.
+    const tagline = cp.tagline || C.tagline || "No Big Deal — We've Got You Covered";
     const financePartner = cp.financePartner || 'Improvifi';
 
-    return page('About No Big Deal Home Solutions', `
+    return page('About ' + C.name, `
       <style>
         .intro-hero { background:linear-gradient(135deg,${S} 0%,#2a2a4e 100%); color:#fff;
           padding:48px 40px; border-radius:12px; text-align:center; margin-bottom:32px; }
