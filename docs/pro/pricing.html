@@ -40,7 +40,7 @@
     Until then, all paid CTAs route to the no-card 14-day trial (register.html), so nobody is charged a wrong amount.
 -->
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"NBD Pro","applicationCategory":"BusinessApplication","operatingSystem":"Web","description":"All-in-one roofing CRM, estimate builder, door-to-door tracker, inspection reports, and sales training built by a roofer for roofers.","author":{"@type":"Person","name":"Joe Deal","url":"https://nobigdealwithjoedeal.com/about"},"offers":[{"@type":"Offer","name":"Free","price":"0","priceCurrency":"USD","description":"Free forever. No credit card. Up to 10 leads/month, basic CRM, D2D tracker."},{"@type":"Offer","name":"Solo","price":"99","priceCurrency":"USD","description":"$99/mo. 50 leads/month, full CRM, estimates, photo engine, inspection reports."},{"@type":"Offer","name":"Crew","price":"299","priceCurrency":"USD","description":"$299/mo plus $39/mo per additional seat. 500 leads/month, unlimited reports + AI, team features."}]}</script>
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I switch plans anytime?","acceptedAnswer":{"@type":"Answer","text":"Yes. Upgrade or downgrade at any time. Changes take effect immediately and Stripe prorates the difference, so you only pay for what you use."}},{"@type":"Question","name":"What happens when I hit my lead limit?","acceptedAnswer":{"@type":"Answer","text":"We warn you at 80% and show a friendly upgrade prompt at 100%. We never lock you out mid-cycle — you can finish the month and upgrade when ready."}},{"@type":"Question","name":"Is there a contract or commitment?","acceptedAnswer":{"@type":"Answer","text":"No contracts. Monthly billing, cancel anytime. Your data stays yours even if you cancel."}},{"@type":"Question","name":"What is the 14-day free trial?","acceptedAnswer":{"@type":"Answer","text":"New users get 14 days of Crew-tier access with no credit card required. After 14 days you choose a paid plan or keep using the free-forever plan."}},{"@type":"Question","name":"How much does Crew cost with a bigger team?","acceptedAnswer":{"@type":"Answer","text":"Crew is $299/mo and includes up to 5 team seats. Need more? Additional seats are $39/mo each — contact us to add them."}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I switch plans anytime?","acceptedAnswer":{"@type":"Answer","text":"Yes. Upgrade or downgrade at any time. Changes take effect immediately and Stripe prorates the difference — you only pay for what you use."}},{"@type":"Question","name":"What happens when I hit my lead limit?","acceptedAnswer":{"@type":"Answer","text":"We warn you at 80% and show a friendly upgrade prompt at 100%. We never lock you out mid-cycle — you can finish the month and upgrade when ready."}},{"@type":"Question","name":"Is there a contract or commitment?","acceptedAnswer":{"@type":"Answer","text":"No contracts. Monthly billing, cancel anytime. Your data stays yours even if you cancel."}},{"@type":"Question","name":"What's the 14-day free trial?","acceptedAnswer":{"@type":"Answer","text":"New users get 14 days of Crew-tier access with no credit card required. After 14 days, you choose a paid plan or keep using the free-forever plan."}},{"@type":"Question","name":"What if my crew grows past 5 people?","acceptedAnswer":{"@type":"Answer","text":"Crew includes up to 5 team seats at $299/mo. Need more? Additional seats are $39/mo each — reach out and we'll add them to your plan. Bigger operation? That's what Scale is for."}},{"@type":"Question","name":"Why are you cheaper than the big platforms?","acceptedAnswer":{"@type":"Answer","text":"Because I built this for myself first. No VC money to pay back, no sales team commissions, no enterprise overhead. Every dollar goes into tools I actually use in the field — not features that look good in a demo."}}]}</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t, #f0f0f0);min-height:100vh;}
@@ -111,6 +111,7 @@ table.matrix tbody tr:hover{background:rgba(255,255,255,.02);}
 .faq-title{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;text-align:center;margin-bottom:24px;}
 .faq-item{border-bottom:1px solid #1e2228;padding:16px 0;}
 .faq-q{font-size:14px;font-weight:700;color:#f0f0f0;cursor:pointer;}
+.faq-q:focus-visible{outline:2px solid #e8720c;outline-offset:3px;border-radius:2px;}
 .faq-a{font-size:13px;color:#8b9bb4;margin-top:8px;line-height:1.5;display:none;}
 .faq-item.open .faq-a{display:block;}
 
@@ -130,7 +131,7 @@ table.matrix tbody tr:hover{background:rgba(255,255,255,.02);}
 <div class="header">
   <div class="brand">NBD PRO</div>
   <h1 class="headline">Contractor-Built.<br><span>Contractor-Priced.</span></h1>
-  <p class="subhead">I built this because I couldn't justify paying $400–$500 a month for software designed by people who've never worked a roof. NBD Pro is a fraction of what platforms like JobNimbus and AccuLynx charge — and every feature exists because I needed it in the field first.</p>
+  <p class="subhead">I built this because I couldn't justify paying $400–$500 a month for software designed by people who've never worked a roof. NBD Pro is a fraction of that — and every feature exists because I needed it in the field first.</p>
   <div class="north-star">A fraction of what the big platforms charge</div>
   <div class="trial-callout">
     <strong>Free is free forever</strong> — no credit card, no timer. Want the full toolkit? <strong>Try Crew free for 14 days</strong>, no card required. After 14 days, pick a paid plan or keep rolling on Free.
@@ -173,7 +174,7 @@ table.matrix tbody tr:hover{background:rgba(255,255,255,.02);}
       <li>Photo engine + inspection reports</li>
       <li>2 reports per month</li>
       <li>20 AI tool calls per month</li>
-      <li>155 themes + Professional Mode</li>
+      <li>186 themes + Professional Mode</li>
       <li>24 document templates</li>
       <li class="disabled">Team features</li>
     </ul>
@@ -227,7 +228,7 @@ table.matrix tbody tr:hover{background:rgba(255,255,255,.02);}
 <!-- FEATURE-COMPARISON MATRIX -->
 <div class="matrix-wrap">
   <h2 class="matrix-title">Compare Every Plan</h2>
-  <p class="matrix-sub">Usage limits below are the real caps the app enforces — no fine print.</p>
+  <p class="matrix-sub">Lead, report, AI-call, and seat limits below are the caps the app actually enforces.</p>
   <div class="matrix-scroll">
     <table class="matrix">
       <thead>
@@ -248,7 +249,7 @@ table.matrix tbody tr:hover{background:rgba(255,255,255,.02);}
         <tr><th scope="row">D2D tracker + territories</th><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
         <tr><th scope="row">Estimate builder</th><td>Basic</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
         <tr><th scope="row">Photo engine + inspection reports</th><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
-        <tr><th scope="row">Real Deal Academy</th><td class="no">—</td><td class="yes">✓</td><td class="yes">Team</td><td class="yes">Team</td></tr>
+        <tr><th scope="row">Real Deal Academy</th><td class="no">—</td><td class="no">—</td><td class="yes">Team</td><td class="yes">Team</td></tr>
         <tr><th scope="row">Invoice pipeline</th><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
         <tr><th scope="row">Customer portals</th><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
         <tr><th scope="row">Rep leaderboard + coaching</th><td class="no">—</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
@@ -285,28 +286,28 @@ table.matrix tbody tr:hover{background:rgba(255,255,255,.02);}
 
 <div class="faq">
   <div class="faq-title">Frequently Asked Questions</div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">Can I switch plans anytime?</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">Can I switch plans anytime?</div>
     <div class="faq-a">Yes. Upgrade or downgrade at any time. Changes take effect immediately and Stripe prorates the difference — you only pay for what you use.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">What happens when I hit my lead limit?</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">What happens when I hit my lead limit?</div>
     <div class="faq-a">We warn you at 80% and show a friendly upgrade prompt at 100%. We never lock you out mid-cycle — you can finish the month and upgrade when ready.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">Is there a contract or commitment?</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">Is there a contract or commitment?</div>
     <div class="faq-a">No contracts. Monthly billing, cancel anytime. Your data stays yours even if you cancel.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">What's the 14-day free trial?</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">What's the 14-day free trial?</div>
     <div class="faq-a">New users get 14 days of Crew-tier access with no credit card required. After 14 days, you choose a paid plan or keep using the free-forever plan.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">What if my crew grows past 5 people?</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">What if my crew grows past 5 people?</div>
     <div class="faq-a">Crew includes up to 5 team seats at $299/mo. Need more? Additional seats are $39/mo each — reach out and we'll add them to your plan. Bigger operation? That's what Scale is for.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">Why are you cheaper than the big platforms?</div>
+  <div class="faq-item">
+    <div class="faq-q" role="button" tabindex="0" aria-expanded="false" data-pr-action="faq-toggle">Why are you cheaper than the big platforms?</div>
     <div class="faq-a">Because I built this for myself first. No VC money to pay back, no sales team commissions, no enterprise overhead. Every dollar goes into tools I actually use in the field — not features that look good in a demo.</div>
   </div>
 </div>

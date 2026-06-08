@@ -28,6 +28,7 @@
   <meta property="og:image:alt" content="Joe Deal, founder of NBD Pro">
   <meta name="twitter:image:alt" content="Joe Deal, founder of NBD Pro">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"NBD Pro","applicationCategory":"BusinessApplication","description":"All-in-one roofing CRM, estimate builder, D2D tracking, and sales training platform built by a roofer for roofers.","operatingSystem":"Web","offers":[{"@type":"Offer","name":"Free","price":"0","priceCurrency":"USD","description":"Free forever. No credit card."},{"@type":"Offer","name":"Solo","price":"99","priceCurrency":"USD","description":"$99/mo. Solo operator plan."},{"@type":"Offer","name":"Crew","price":"299","priceCurrency":"USD","description":"$299/mo plus $39/mo per additional seat. Team plan."}],"author":{"@type":"Person","name":"Joe Deal","url":"https://nobigdealwithjoedeal.com/about"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is this built for insurance restoration or retail roofing?","acceptedAnswer":{"@type":"Answer","text":"Both. NBD Pro supports full workflows for insurance restoration (claims management, adjuster coordination, damage documentation) and retail roofing (estimates, service plans, preventative maintenance). You can toggle between insurance and cash modes in the CRM pipeline, and the Academy covers processes for both."}},{"@type":"Question","name":"Can I use this on my phone in the field?","acceptedAnswer":{"@type":"Answer","text":"Yes. NBD Pro is a progressive web app (PWA) built for mobile-first workflows. It runs right in your browser, works great one-handed on a phone, and uses your phone's camera directly for photos. No app store download — just visit the URL and add it to your home screen."}},{"@type":"Question","name":"How is this different from JobNimbus or AccuLynx?","acceptedAnswer":{"@type":"Answer","text":"It's built by a working roofer, not a software company that decided roofing looked profitable. It's a fraction of the price of the big platforms. Training (the Real Deal Academy) is built in. And D2D tracking, estimates, and CRM are unified in one tool — not bolted onto generic project-management software."}},{"@type":"Question","name":"Can my whole team use it?","acceptedAnswer":{"@type":"Answer","text":"Yes. Free and Solo are single-user. Crew includes up to 5 team seats (additional seats are $39/mo each), and Scale is unlimited. You can assign Academy courses to team members and track their progress, and everyone sees the same pipeline, leads, and projects."}},{"@type":"Question","name":"Is my data secure?","acceptedAnswer":{"@type":"Answer","text":"I take it seriously. NBD Pro is built on Google Firebase — SOC 2-compliant infrastructure with encryption in transit and at rest. I never share or sell your data, and you can request a copy of your data anytime. Your data stays yours, even if you cancel."}},{"@type":"Question","name":"What if I need help getting started?","acceptedAnswer":{"@type":"Answer","text":"I've got you covered. Every plan includes the interactive onboarding wizard that walks you through setup step-by-step, plus the Real Deal Academy walkthroughs. Crew and Scale get priority support, and you can email jd@nobigdealwithjoedeal.com anytime — I'm here to help you succeed."}}]}</script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -384,10 +385,16 @@
       padding-bottom: 16px;
     }
 
-    .mockup-header h3 {
+    .mockup-header h3,
+    .mockup-header .mockup-title-h {
       color: var(--orange);
       font-size: 14px;
     }
+
+    /* a11y: skip-to-main link — pure CSS for strict-CSP compatibility. */
+    .nbd-skip-link { position:absolute; left:-9999px; top:8px; background:var(--orange); color:#000; padding:8px 14px; font-weight:700; z-index:99999; text-decoration:none; border-radius:4px; }
+    .nbd-skip-link:focus { left:8px; outline:2px solid #000; }
+    .faq-question:focus-visible { outline:2px solid var(--orange); outline-offset:2px; }
 
     .mockup-dots {
       display: flex;
@@ -1056,6 +1063,7 @@
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head>
 <body>
+<a href="#main" class="nbd-skip-link">Skip to main content</a>
   <script src="/pro/js/standalone-compat.js"></script>
 
   <!-- ANNOUNCEMENT BAR -->
@@ -1084,22 +1092,23 @@
     </div>
   </nav>
 
+  <main id="main">
+
   <!-- HERO SECTION -->
   <section class="hero">
     <div class="hero-content">
       <h1>THE CRM I COULDN'T FIND.<br>SO I BUILT IT.</h1>
 
       <p class="hero-subheadline">
-        I'm Joe Deal — solo operator, 7 years in insurance restoration. I needed a CRM, estimate builder, D2D tracker, and inspection reporter that didn't cost me a grand a month and didn't feel like it was designed by someone who's never knocked a door. So I built one. Now it's yours too — at one-third what the big guys charge.
+        I'm Joe Deal — solo operator, 7 years in insurance restoration. I needed a CRM, estimate builder, D2D tracker, and inspection reporter that didn't cost me a grand a month and didn't feel like it was designed by someone who's never knocked a door. So I built one. Now it's yours too — at a fraction of what the big platforms charge.
       </p>
 
       <div class="hero-ctas">
         <a class="btn btn-primary" href="/pro/register.html" data-pi-action="goRegister">
           Start Free Trial
         </a>
-        <!-- Anchor (not button) so a JS-load failure still navigates. The
-             delegate in pro-index-page.js preventDefaults + routes to
-             /pro/register.html when JS is healthy. -->
+        <!-- Ghost CTA is an in-page scroll to the #see-it-live sample mockup
+             below — intentionally NOT a register CTA (no data-pi-action). -->
         <a class="btn btn-ghost" href="#see-it-live">
           See a Sample
         </a>
@@ -1109,7 +1118,7 @@
 
       <div class="hero-mockup" id="see-it-live">
         <div class="mockup-header">
-          <h3>Sample Pipeline View</h3>
+          <div class="mockup-title-h">Sample Pipeline View</div>
           <div class="mockup-dots">
             <span class="mockup-dot"></span>
             <span class="mockup-dot"></span>
@@ -1326,7 +1335,7 @@
         <div class="feature-content">
           <h3>AI Assistant ("Ask Joe")</h3>
           <ul>
-            <li>AI trained on Joe's sales scripts and field experience</li>
+            <li>AI guided by Joe's sales scripts and field playbook</li>
             <li>Property intelligence with roof scoring (0-100)</li>
             <li>Damage analysis from photos</li>
             <li>Smart recommendations for every lead</li>
@@ -1351,13 +1360,13 @@
           <h3>Invoice Pipeline</h3>
           <ul>
             <li>Convert estimates to invoices in one click</li>
-            <li>Stripe payment links for online collection</li>
+            <li>Attach a Stripe payment link for online collection</li>
             <li>Send via email or customer portal</li>
-            <li>See which invoices are paid</li>
+            <li>Keep every invoice in one place</li>
           </ul>
         </div>
         <div class="feature-mockup">
-          <div class="feature-mockup-title">Payment Tracking</div>
+          <div class="feature-mockup-title">Invoices</div>
           <div class="feature-mockup-content">
             <div class="mockup-items" style="gap: 14px;">
               <div style="background: rgba(232, 114, 12, 0.15); padding: 10px 12px; border-radius: 4px; display: flex; justify-content: space-between; font-size: 12px;">
@@ -1392,7 +1401,7 @@
           </ul>
         </div>
         <div class="feature-mockup">
-          <div class="feature-mockup-title">Live Storm Alerts</div>
+          <div class="feature-mockup-title">Storm Center (sample)</div>
           <div class="feature-mockup-content">
             <div style="background: rgba(232, 114, 12, 0.25); border: 1px solid rgba(232, 114, 12, 0.5); padding: 14px; border-radius: 4px; margin-bottom: 12px;">
               <div style="color: var(--orange); font-weight: 600; font-size: 12px; margin-bottom: 6px;">⚡ HAIL ALERT — SAMPLE</div>
@@ -1522,7 +1531,7 @@
       </div>
 
       <div class="pricing-footer">
-        <strong>Free is free forever</strong> (no card) · paid plans include a 14-day free trial, no card · cancel anytime · <a href="/pro/pricing" style="color:var(--orange);text-decoration:none;">full comparison &rarr;</a>
+        <strong>Free is free forever</strong> (no card) · paid plans include a 14-day Crew-tier free trial, no card · cancel anytime · <a href="/pro/pricing" style="color:var(--orange);text-decoration:none;">full comparison &rarr;</a>
       </div>
     </div>
   </section>
@@ -1534,7 +1543,7 @@
 
       <div class="faq-container">
         <div class="faq-item">
-          <div class="faq-question" data-pi-action="toggleFAQ">
+          <div class="faq-question" data-pi-action="toggleFAQ" role="button" tabindex="0" aria-expanded="false">
             Is this built for insurance restoration or retail roofing?
             <span class="faq-toggle">+</span>
           </div>
@@ -1544,7 +1553,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" data-pi-action="toggleFAQ">
+          <div class="faq-question" data-pi-action="toggleFAQ" role="button" tabindex="0" aria-expanded="false">
             Can I use this on my phone in the field?
             <span class="faq-toggle">+</span>
           </div>
@@ -1554,7 +1563,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" data-pi-action="toggleFAQ">
+          <div class="faq-question" data-pi-action="toggleFAQ" role="button" tabindex="0" aria-expanded="false">
             How is this different from JobNimbus or AccuLynx?
             <span class="faq-toggle">+</span>
           </div>
@@ -1564,7 +1573,7 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" data-pi-action="toggleFAQ">
+          <div class="faq-question" data-pi-action="toggleFAQ" role="button" tabindex="0" aria-expanded="false">
             Can my whole team use it?
             <span class="faq-toggle">+</span>
           </div>
@@ -1574,22 +1583,22 @@
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" data-pi-action="toggleFAQ">
+          <div class="faq-question" data-pi-action="toggleFAQ" role="button" tabindex="0" aria-expanded="false">
             Is my data secure?
             <span class="faq-toggle">+</span>
           </div>
           <div class="faq-answer">
-            We take it seriously. NBD Pro is built on Google Firebase — SOC 2-compliant infrastructure with encryption in transit and at rest. We never share or sell your data, and you can request a copy of your data anytime. Your data stays yours, even if you cancel.
+            I take it seriously. NBD Pro is built on Google Firebase — SOC 2-compliant infrastructure with encryption in transit and at rest. I never share or sell your data, and you can request a copy of your data anytime. Your data stays yours, even if you cancel.
           </div>
         </div>
 
         <div class="faq-item">
-          <div class="faq-question" data-pi-action="toggleFAQ">
+          <div class="faq-question" data-pi-action="toggleFAQ" role="button" tabindex="0" aria-expanded="false">
             What if I need help getting started?
             <span class="faq-toggle">+</span>
           </div>
           <div class="faq-answer">
-            We've got you covered. Every plan includes access to an interactive onboarding wizard that walks you through setup step-by-step. Blueprint and Professional plans get priority email/chat support. The Real Deal Academy has video walkthroughs for every feature. And you can reach out anytime — we're here to help you succeed.
+            I've got you covered. Every plan includes the interactive onboarding wizard that walks you through setup step-by-step, plus the Real Deal Academy walkthroughs. Crew and Scale get priority support, and you can email jd@nobigdealwithjoedeal.com anytime — I'm here to help you succeed.
           </div>
         </div>
       </div>
@@ -1601,11 +1610,13 @@
     <div class="container">
       <h2>I BUILT IT FOR ME.<br>I'M SHARING IT WITH YOU.</h2>
       <p>14 days free. No credit card. No contract. No BS. Try it on your next job — if it's not for you, walk away. Your data is yours either way.</p>
-      <button class="btn btn-primary" style="font-size: 16px; padding: 14px 40px;" data-pi-action="goRegister">
+      <a class="btn btn-primary" href="/pro/register.html" data-pi-action="goRegister" style="font-size: 16px; padding: 14px 40px;">
         Start Your Free Trial
-      </button>
+      </a>
     </div>
   </section>
+
+  </main>
 
   <!-- FOOTER -->
   <footer>
