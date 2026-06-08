@@ -165,5 +165,8 @@ module-resolution bug, see below — so `companyProfile/oaks` may also be absent
    Oaks form leads → Oaks owner. Order: provision Oaks FIRST (so the bridge's Oaks path is correct), then push.
 
 ## NEXT
-Jo runs the runbook (steps 1-3) to stand up + verify the test Oaks tenant → then push the bridge fixes (step 4)
-→ Phase C checkpoint complete with a REAL second tenant → Phase D.
+**Oaks PROVISIONED in prod 2026-06-08** (Claude drove via Jo's ADC + a short-lived adminsdk SA key, since revoked):
+test owner `zz-qa-oaks-owner@…` uid `VuXj6x…`, claims `{companyId:'oaks', role:'company_admin'}`, `companies/oaks.ownerId`
+set, active subscription, brand present — `--check` confirms. The 2-tenant structure is REAL.
+Remaining: (a) Jo verifies the Oaks owner login (separate browser → Oaks brand, empty pipeline, claim companyId='oaks');
+(b) push the 4 fix commits → bridge activates (NBD H-1 live; Oaks form leads → Oaks owner) → Phase C checkpoint → Phase D.

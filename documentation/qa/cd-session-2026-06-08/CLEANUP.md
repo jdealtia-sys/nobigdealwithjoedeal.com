@@ -7,10 +7,13 @@
 ## Test tenants
 | companyId | owner account | companies/{id}.ownerId | subscription | created by | purge |
 |-----------|---------------|------------------------|--------------|------------|-------|
-| `oaks` (test) | `zz-qa-oaks-owner@nobigdealwithjoedeal.com` (uid printed by the script) | = test owner uid | `subscriptions/{uid}` plan professional (seeded) | `scripts/provision-tenant.js` (Jo runs) — PLANNED | when re-pointing Oaks to a real owner: delete the test auth user + its `subscriptions/{uid}`; re-`--owner` companies/oaks to the real uid |
+| `oaks` (test) | `zz-qa-oaks-owner@nobigdealwithjoedeal.com` uid `VuXj6xUYoEVYwL7mhl1hFSN1XRx1` | `VuXj6xUYoEVYwL7mhl1hFSN1XRx1` | `subscriptions/VuXj6x…` plan professional (seeded) | `scripts/provision-tenant.js` — **PROVISIONED in prod 2026-06-08** | when re-pointing Oaks to a real owner: delete auth user `VuXj6x…` + `subscriptions/VuXj6x…`; re-`--owner` companies/oaks to the real uid |
 
-> NOTE: `companyProfile/oaks` (brand) is intentionally KEPT (it's real Oaks brand, reused when a real owner takes over).
-> Only the throwaway OWNER account + its subscription are test artifacts to purge.
+> NOTE: `companyProfile/oaks` (brand) + `companies/oaks` doc are intentionally KEPT (real Oaks tenant config, reused
+> when a real owner takes over — only `--owner` is re-pointed). Only the throwaway OWNER account + its subscription
+> are test artifacts to purge.
+> SA-KEY HYGIENE: a short-lived `firebase-adminsdk-fbsvc` key (id `024…`) was minted to run the provisioning and
+> **deleted + revoked immediately after** (file removed + `gcloud iam service-accounts keys delete`). No lingering key.
 
 ## Test leads (public submits + bridged CRM leads)
 | ZZ_QA id / name | source collection | bridged leads/{id} | tenant | created | purge |
