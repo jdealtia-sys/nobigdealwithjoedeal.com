@@ -2112,19 +2112,23 @@ window.generatePhotoReport = async function() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     
-    // NBD Branding Header
-    doc.setFillColor(232, 114, 12); // NBD orange var(--orange)
+    // Branding Header — tenant-aware (Phase B-3b). NBD renders byte-identical.
+    const _b = (window._brand && window._brand()) || {};
+    const _isNbd = !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+    const _hx = (h) => { const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(h || '')); return m ? [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)] : [232,114,12]; };
+    const _acc = _isNbd ? [232,114,12] : _hx((_b.colors && _b.colors.accent) || '#e8720c');
+    doc.setFillColor(_acc[0], _acc[1], _acc[2]);
     doc.rect(0, 0, 210, 35, 'F');
-    
+
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
-    doc.text('NO BIG DEAL', 15, 15);
-    
+    doc.text(_isNbd ? 'NO BIG DEAL' : String(_b.displayName || _b.legalName || '').toUpperCase(), 15, 15);
+
     doc.setFontSize(11);
     doc.setFont('helvetica', 'normal');
-    doc.text('HOME SOLUTIONS', 15, 22);
-    doc.text('Insurance Restoration Specialists', 15, 28);
+    doc.text(_isNbd ? 'HOME SOLUTIONS' : '', 15, 22);
+    doc.text(_isNbd ? 'Insurance Restoration Specialists' : String(_b.tagline || ''), 15, 28);
     
     // Report title
     doc.setFontSize(18);
@@ -2228,12 +2232,12 @@ window.generatePhotoReport = async function() {
     // Footer on last page
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
-    doc.text('No Big Deal Home Solutions | Greater Cincinnati Area', 105, 285, { align: 'center' });
-    doc.text('nobigdealwithjoedeal.com', 105, 290, { align: 'center' });
+    doc.text(_isNbd ? 'No Big Deal Home Solutions | Greater Cincinnati Area' : (String(_b.legalName || '') + ((_b.contact && _b.contact.address) ? (' | ' + _b.contact.address) : '')), 105, 285, { align: 'center' });
+    doc.text(_isNbd ? 'nobigdealwithjoedeal.com' : String((_b.contact && _b.contact.website) || ''), 105, 290, { align: 'center' });
     
     // Generate filename
     const safeCustomerName = customerName.replace(/[^a-zA-Z0-9]/g, '_');
-    const filename = `NBD_Photo_Report_${safeCustomerName}_${Date.now()}.pdf`;
+    const filename = `${(_b.docPrefix) || 'NBD'}_Photo_Report_${safeCustomerName}_${Date.now()}.pdf`;
     
     // Get PDF as blob for potential email attachment
     const pdfBlob = doc.output('blob');
