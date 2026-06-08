@@ -34,6 +34,24 @@
     businessAddress: '',
     businessLicense: '',
 
+    /* ── ESTIMATE PRICING (shop-wide overrides) ────────────────────
+       Per-tenant overrides for the per-SQ estimate rates. EMPTY by
+       default so estimate-config.js (window.NBD_ESTIMATE_CONFIG) supplies
+       the numbers; a forthcoming Settings → Estimates → Add-on Rates editor
+       (Phase 2b) will write overrides here. The engine resolves
+       companyProfile.pricing → config → inline fallback AT CALC TIME
+       (estimate-builder-v2.js applyCompanyPricing). This is the INVERSE of the
+       L-1 stale-localStorage trap: config is the default, the shop doc is the
+       override, a saved localStorage snapshot never touches add-on pricing.
+       NOTE: pricing.tierRates, when present, OVERRIDES the tier rate the existing
+       Estimates editor writes to localStorage — the two must not both be live for
+       the same field without a clear precedence story (resolved in Phase 2b). */
+    pricing: {
+      addonPrices: {},   // { steepPerSq, verySteepPerSq, ..., chimneyFlash, ... }
+      tierRates:   {}     // { good, better, best }
+      // dumpFee / tearOffExtraPerSq may also be set here (optional)
+    },
+
     /* ── LEGAL TEXT ────────────────────────────────────────────── */
     cancellationWindowText: 'three (3) business days',
     cancellationStatute: 'Kentucky Revised Statutes § 367.390',
