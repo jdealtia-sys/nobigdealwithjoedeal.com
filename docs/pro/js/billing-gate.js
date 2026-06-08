@@ -28,13 +28,20 @@
   // are alias entries so billing-gate stays in sync with nbd-auth.js when
   // a user doc happens to carry those names (the two modules developed
   // independently and diverged — see _normalizePlan in nbd-auth.js).
+  // Canonical plan config — see documentation/PRICING.md. `label` is the public
+  // display name (Solo/Crew/Scale); `seats` is the included-seat count for the
+  // per-seat model + `perSeat` the $/extra-seat add-on; `price` is the MONTHLY
+  // DISPLAY price only (the actual charge is the Stripe price id in stripe.js).
+  // Internal keys are UNCHANGED (starter/growth/enterprise + foundation/
+  // professional aliases) so no subscription-doc migration is needed. `seats`
+  // supersedes the legacy `reps` field for gating.
   const PLANS = {
-    free:         { label: 'Free',         leads: 10,  reports: 0,        aiCalls: 0,        reps: 1,        price: 0 },
-    starter:      { label: 'Starter',      leads: 50,  reports: 2,        aiCalls: 20,       reps: 1,        price: 99 },
-    foundation:   { label: 'Foundation',   leads: 50,  reports: 2,        aiCalls: 20,       reps: 1,        price: 99 },
-    growth:       { label: 'Growth',       leads: 500, reports: Infinity, aiCalls: Infinity, reps: 5,        price: 249 },
-    professional: { label: 'Professional', leads: 500, reports: Infinity, aiCalls: Infinity, reps: 5,        price: 249 },
-    enterprise:   { label: 'Enterprise',   leads: Infinity, reports: Infinity, aiCalls: Infinity, reps: Infinity, price: null }
+    free:         { label: 'Free',  leads: 10,       reports: 0,        aiCalls: 0,        reps: 1,        seats: 1,        perSeat: 0,  price: 0 },
+    starter:      { label: 'Solo',  leads: 50,       reports: 2,        aiCalls: 20,       reps: 1,        seats: 1,        perSeat: 0,  price: 99 },
+    foundation:   { label: 'Solo',  leads: 50,       reports: 2,        aiCalls: 20,       reps: 1,        seats: 1,        perSeat: 0,  price: 99 },
+    growth:       { label: 'Crew',  leads: 500,      reports: Infinity, aiCalls: Infinity, reps: 5,        seats: 3,        perSeat: 39, price: 299 },
+    professional: { label: 'Crew',  leads: 500,      reports: Infinity, aiCalls: Infinity, reps: 5,        seats: 3,        perSeat: 39, price: 299 },
+    enterprise:   { label: 'Scale', leads: Infinity, reports: Infinity, aiCalls: Infinity, reps: Infinity, seats: Infinity, perSeat: 0,  price: null }
   };
 
   let _plan = 'free';

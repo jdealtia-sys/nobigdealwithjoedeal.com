@@ -35,13 +35,15 @@ const CORS_ORIGINS = [
 
 // Mirrors PLANS in docs/pro/js/billing-gate.js. Server is the source
 // of truth for caps. Update both when adding a new tier.
+// `seats` = included-seat count for the per-seat model (the invite-time
+// seat-count gate reads this); supersedes the legacy `reps`. See PRICING.md.
 const PLAN_LIMITS = {
-  free:         { leads: 10,        reports: 0,        aiCalls: 0,        reps: 1 },
-  starter:      { leads: 50,        reports: 2,        aiCalls: 20,       reps: 1 },
-  foundation:   { leads: 50,        reports: 2,        aiCalls: 20,       reps: 1 },
-  growth:       { leads: 500,       reports: Infinity, aiCalls: Infinity, reps: 5 },
-  professional: { leads: 500,       reports: Infinity, aiCalls: Infinity, reps: 5 },
-  enterprise:   { leads: Infinity,  reports: Infinity, aiCalls: Infinity, reps: Infinity },
+  free:         { leads: 10,        reports: 0,        aiCalls: 0,        reps: 1,        seats: 1 },
+  starter:      { leads: 50,        reports: 2,        aiCalls: 20,       reps: 1,        seats: 1 },
+  foundation:   { leads: 50,        reports: 2,        aiCalls: 20,       reps: 1,        seats: 1 },
+  growth:       { leads: 500,       reports: Infinity, aiCalls: Infinity, reps: 5,        seats: 3 },
+  professional: { leads: 500,       reports: Infinity, aiCalls: Infinity, reps: 5,        seats: 3 },
+  enterprise:   { leads: Infinity,  reports: Infinity, aiCalls: Infinity, reps: Infinity, seats: Infinity },
 };
 
 const ALLOWED_FEATURES = new Set(['leads', 'reports', 'aiCalls']);
