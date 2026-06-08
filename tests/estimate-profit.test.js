@@ -147,6 +147,28 @@ function loadIIFE(file) {
   await IP.createInvoiceFromEstimate('est1');
   ok('honors 0 tax rate from insurance-scope estimate (tax 0)', captured.tax === 0 && captured.total === 500);
 
+  // V2-pkb regression (estimate-qa-2026-06-08): the CLASSIC builder persists
+  // deposit as an OBJECT {pct,amount,remainder}; the invoice must coerce it to a
+  // number, not Number({...}) === NaN (which broke deposit/balanceDue on the
+  // dominant classic path). The V2 builder persists deposit as a plain number.
+  delete EST.taxRate; delete EST.priceMode; delete EST.prices; delete EST.grandTotal;
+  EST.deposit = { pct: 50, amount: 250, remainder: 287.5 };
+  await IP.createInvoiceFromEstimate('est1');
+  ok('classic deposit OBJECT → numeric depositAmount (250, not NaN)', Number.isFinite(captured.depositAmount) && near(captured.depositAmount, 250));
+  ok('classic deposit OBJECT → balanceDue finite (287.5)', Number.isFinite(captured.balanceDue) && near(captured.balanceDue, 287.5));
+  delete EST.deposit;
+
+  // V2-pkb: PER-SQ estimates invoice the LOCKED selected-tier grandTotal as a
+  // single summary line (not the internal cost-basis rows), and honor the saved
+  // numeric deposit. subtotal+tax must still foot to the grandTotal.
+  EST.priceMode = 'per-sq'; EST.prices = { good: 20000, better: 21500, best: 24000 };
+  EST.grandTotal = 21500; EST.selectedTier = 'better'; EST.taxRate = 0.075; EST.deposit = 10750;
+  await IP.createInvoiceFromEstimate('est1');
+  ok('per-SQ invoice total = locked grandTotal (21500, not the $500 rows sum)', near(captured.total, 21500));
+  ok('per-SQ invoice is a single summary line naming the tier', captured.items.length === 1 && /Better tier/.test(captured.items[0].description));
+  ok('per-SQ invoice subtotal+tax foots to grandTotal (21500)', near(captured.subtotal + captured.tax, 21500));
+  ok('per-SQ invoice honors saved numeric deposit (10750)', near(captured.depositAmount, 10750));
+
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);
   if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }

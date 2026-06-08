@@ -563,7 +563,11 @@ ${footer}
           ${tierDefs.map(t => {
             const tierEst = tiers[t.key];
             if (!tierEst) return '';
-            const selected = tierEst.total === estimate.total;
+            // Highlight by tier KEY when the builder marked the selected tier
+            // (per-SQ estimates set tiers.recommended = the rep's chosen tier).
+            // V2-2 fix: float-equality of a per-SQ tier total against the
+            // line-item estimate.total could never match, so the badge never fired.
+            const selected = tiers.recommended ? (t.key === tiers.recommended) : (tierEst.total === estimate.total);
             return `
               <div style="border:${selected ? '3' : '1'}px solid ${t.color};
                           border-radius:8px; padding:20px; text-align:center;

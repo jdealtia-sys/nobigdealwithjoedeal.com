@@ -101,23 +101,46 @@
       const est = estSnap.exists() ? estSnap.data() : window._estimates?.find(e => e.id === estimateId);
 
       // Build invoice from estimate
-      const items = (est.rows || []).map(row => ({
-        description: row.desc || row.description || '',
-        quantity: parseFloat(row.qty) || 1,
-        unitPrice: parseFloat(row.rate) || 0,
-        total: parseFloat(row.total) || 0
-      }));
-
-      const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-      // Audit #3 F-3: inherit the tax rate the estimate was priced at (set by
-      // the estimate builder from company settings / insurance mode) so the
-      // invoice matches the quote and is correct outside Ohio. A 0 rate
-      // (insurance scope skips tax) is honored; fall back to 7.5% only when the
-      // estimate carries no rate.
+      // Audit #3 F-3: inherit the tax rate the estimate was priced at (insurance
+      // scope skips tax → 0 honored; fall back to 7.5% only when no rate saved).
       const taxRate = (typeof est.taxRate === 'number') ? est.taxRate : 0.075;
-      const tax = subtotal * taxRate;
-      const total = subtotal + tax;
-      const depositAmount = total * 0.5; // Default 50% deposit
+
+      // V2-pkb (estimate-qa-2026-06-08): for PER-SQ estimates the customer price
+      // is the LOCKED selected-tier grandTotal, not the internal cost-basis rows.
+      // Invoice it as a single summary line so the invoice total == the signed quote.
+      const isPerSqLocked = ((est.priceMode === 'per-sq') || (est.prices != null)) && Number(est.grandTotal) > 0;
+      let items, subtotal, tax, total;
+      if (isPerSqLocked) {
+        total = Number(est.grandTotal);
+        subtotal = taxRate > 0 ? (total / (1 + taxRate)) : total;
+        tax = total - subtotal;
+        subtotal = Math.round(subtotal * 100) / 100;
+        tax = Math.round(tax * 100) / 100;
+        const tierLabel = String(est.selectedTier || est.tier || '').replace(/^./, c => c.toUpperCase());
+        items = [{
+          description: 'Roofing system' + (tierLabel ? ' — ' + tierLabel + ' tier' : ''),
+          quantity: 1,
+          unitPrice: subtotal,
+          total: subtotal
+        }];
+      } else {
+        items = (est.rows || []).map(row => ({
+          description: row.desc || row.description || '',
+          quantity: parseFloat(row.qty) || 1,
+          unitPrice: parseFloat(row.rate) || 0,
+          total: parseFloat(row.total) || 0
+        }));
+        subtotal = items.reduce((sum, item) => sum + item.total, 0);
+        tax = subtotal * taxRate;
+        total = subtotal + tax;
+      }
+      // Honor the estimate's saved deposit (insurance 0% or rep override); else 50%.
+      // CLASSIC builder saves deposit as an object {pct,amount,remainder}; V2 saves
+      // a number. Coerce both, and fall back to 50% if neither yields a finite value
+      // (avoids NaN deposit/balanceDue on classic estimates — review blocker).
+      const depRaw = est.deposit;
+      const depNum = (depRaw && typeof depRaw === 'object') ? Number(depRaw.amount) : Number(depRaw);
+      const depositAmount = Number.isFinite(depNum) ? depNum : total * 0.5;
 
       // Create invoice doc
       const invoiceData = {
