@@ -30,7 +30,7 @@ Core subscription path is solid: checkout `client_reference_id=companyId`; webho
 - **Seats = 3 for Crew** (matches page). `createTeamMember` seat-gate is load-bearing: runs BEFORE the member write (no orphan Auth accounts), hard-blocks at limit, owner-gated, platform-admin bypass, **seat-neutral re-invite** (re-inviting an existing member costs 0 seats).
 - Rules widening safe: subscriptions READ → same-company members via caller's claim; WRITE stays false; **11 new cross-tenant test cases green (67/0)**.
 - **Gap A — per-seat Stripe quantity NOT wired** (quantity hardcoded to 1, documented TODO; needs `STRIPE_PRICE_SEAT` + Jo's Stripe setup). Intentional so checkout can't mis-charge.
-- **Gap B — silent downgrade-below-members:** on `customer.subscription.deleted`, the webhook downgrades to `free` even with >1 active member, with NO flag/notify. Spec said "flag + notify, don't auto-remove." → **Jo decision: implement the guard now, or accept as a post-launch refinement.**
+- **Gap B — silent downgrade-below-members:** ✅ **ADDRESSED (2026-06-08, Jo chose flag + notify, keep active).** Built `functions/seat-overage.js` (`applySeatOverage`): on `customer.subscription.deleted`/`.updated` downgrade, if the team exceeds the new plan's seats, flag `subscriptions/{companyId}.seatOverage` + email the owner (via email_queue) — **nobody is removed**. `deactivateUser` recomputes/clears the flag on member removal. Dashboard banner in `billing-gate.js` (CSP-safe). Solo/NBD = no-op (byte-identical). Tests: `tests/seat-overage.test.js` 13/0 + smoke wiring guard.
 
 ## 5. Migration (`scripts/migrate-subscription-keys.js`) — ✅ REVERSIBLE + NO-CHARGE
 - **Firestore-only** — zero `stripe.*` calls, no `require('stripe')`; reuses the existing Stripe customer/subscription verbatim. **A charge is impossible.**
@@ -40,7 +40,7 @@ Core subscription path is solid: checkout `client_reference_id=companyId`; webho
 ---
 
 ## DECISIONS FOR JO
-1. **Silent downgrade-below-members (Gap B):** implement "flag + notify" now, or accept silent → free as post-launch? (Propose-and-approve.)
+1. ~~Silent downgrade-below-members (Gap B)~~ → ✅ DONE (flag + notify; seat-overage feature, commit 859b089c).
 2. (trivial, low-risk) approve the `stripe.js` `$249`→`$299` comment fix + the vocab-unify cleanup (future).
 3. (optional hardening) the invoice `companyId` belt-and-suspenders + tenant-aware success URLs.
 

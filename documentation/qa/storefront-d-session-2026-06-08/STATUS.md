@@ -149,6 +149,9 @@ Phase D is already BUILT on phase-d-build (D-1 read-path + D-3 seats/gate/rules 
 
 **✅ REVIEW COMPLETE (2026-06-08) — see `REVIEW-PHASE-D.md`.** Verdict: build is SOUND. Entitlements MATCH the canonical page (Crew 3 seats/$299 — memory's $249/5 was stale). NBD byte-identical ✅. Money-path sound (the one invoice "downgrade" concern is moot — invoices aren't homeowner-editable). Migration reversible + no-charge. **Open: Jo decision on silent downgrade-below-members; per-seat add-on needs `STRIPE_PRICE_SEAT`.** **Money-validation + migration run GATED on Jo's Stripe test-mode + $249→$299 Price + `STRIPE_PRICE_SEAT` + fresh backup** (full prereqs + test plan in REVIEW-PHASE-D.md). Handoff: `HANDOFF.md`.
 
+## SUB-MISSION 2b — Seat-overage (D-3 Gap B) SHIPPED on the branch (2026-06-08)
+Jo chose **flag + notify, keep members active** (banner + owner email). Built `functions/seat-overage.js` + wired into the Stripe downgrade webhooks (`subscription.deleted`/`.updated`) + `deactivateUser` (recompute/clear) + a CSP-safe dashboard banner in `billing-gate.js`. Solo/NBD = no-op (byte-identical). Tests: `tests/seat-overage.test.js` 13/0 + smoke wiring guard. **Smoke 1866/0.** Commit `859b089c`, merged into `phase-d-build`. Stripe/per-seat/migration still gated on Jo's prereqs.
+
 ## BLOCKED / NEEDS JO (for Sub-mission 2 / Phase D)
 - [ ] **Sign off on the finalized storefront pages + pricing** (the checkpoint).
 - [ ] Decide landing.html treatment (reconcile vs retire).
