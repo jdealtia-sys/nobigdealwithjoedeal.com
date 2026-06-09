@@ -105,15 +105,17 @@
   //
   // Layer 1: Strict character/token whitelist. The formula
   //   source is validated against a regex of allowed tokens
-  //   BEFORE being passed to new Function(). Anything the
-  //   whitelist doesn't recognize is rejected up-front. This
-  //   blocks 'process.exit', 'window.x', 'require("fs")',
-  //   'document.cookie', 'fetch(...)', 'eval()', etc.
+  //   BEFORE being evaluated. Anything the whitelist doesn't
+  //   recognize is rejected up-front. This blocks 'process.exit',
+  //   'window.x', 'require("fs")', 'document.cookie',
+  //   'fetch(...)', 'eval()', etc.
   //
-  // Layer 2: new Function() creates the function in a
-  //   restricted parameter scope with Math + math helpers +
-  //   the whitelisted measurement vars. Any runtime error is
-  //   caught and returns 0.
+  // Layer 2: safeEvalFormula() — a CSP-safe recursive-descent
+  //   evaluator over the SAME bounded grammar, exposing only
+  //   Math + math helpers + the whitelisted measurement vars,
+  //   purely over numbers/booleans. Any runtime error is caught
+  //   and returns 0. (Replaces new Function(), which prod CSP
+  //   without 'unsafe-eval' makes throw.)
   //
   // Formulas come from the NBD_XACT_CATALOG data file. This
   // is the same trust boundary as any other code Joe ships,
@@ -174,8 +176,125 @@
     return null;  // safe
   }
 
-  const FORMULA_CACHE = {};
   const FORMULA_BLOCKED = new Set();
+
+  // ─── CSP-safe arithmetic evaluator (V2-5 fix, estimate-qa-2026-06-08) ───
+  // Replaces new Function(): prod CSP (script-src without 'unsafe-eval') makes
+  // new Function THROW, which silently zeroed every formula-based line-item
+  // quantity (drip-edge, ventilation, decking, dumpster sizing, …) — understating
+  // the line-item total that is also the persisted CRM grandTotal. This evaluates
+  // the SAME bounded grammar validateFormula already enforces, with identical JS
+  // semantics, purely over numbers/booleans — no object/string/property access.
+  // Grammar: numeric literals · whitelisted measurement vars · the 8 Math helpers
+  // (bare `ceil(...)` or `Math.ceil(...)`) · + - * / % · unary + - ! · comparisons
+  // < > <= >= == != === !== · && || · ternary ?: · parentheses.
+  const FORMULA_HELPERS = {
+    max: Math.max, min: Math.min, ceil: Math.ceil, floor: Math.floor,
+    round: Math.round, abs: Math.abs, pow: Math.pow, sqrt: Math.sqrt
+  };
+  function safeEvalFormula(src, vars) {
+    let i = 0;
+    const ws = () => { while (i < src.length && (src[i] === ' ' || src[i] === '\t' || src[i] === '\n')) i++; };
+    const at = (str) => { ws(); return src.startsWith(str, i); };
+    function expr() { return ternary(); }
+    function ternary() {
+      const c = logicOr(); ws();
+      if (src[i] === '?') {
+        i++; const a = ternary(); ws();
+        if (src[i] !== ':') throw new Error('expected :');
+        i++; const b = ternary();
+        return c ? a : b;
+      }
+      return c;
+    }
+    function logicOr() { let l = logicAnd(); while (at('||')) { i += 2; const r = logicAnd(); l = l || r; } return l; }
+    function logicAnd() { let l = equality(); while (at('&&')) { i += 2; const r = equality(); l = l && r; } return l; }
+    function equality() {
+      let l = relational();
+      while (true) { ws();
+        if (src.startsWith('===', i)) { i += 3; l = (l === relational()); }
+        else if (src.startsWith('!==', i)) { i += 3; l = (l !== relational()); }
+        else if (src.startsWith('==', i)) { i += 2; l = (l == relational()); }   // intentional ==
+        else if (src.startsWith('!=', i)) { i += 2; l = (l != relational()); }   // intentional !=
+        else break;
+      }
+      return l;
+    }
+    function relational() {
+      let l = additive();
+      while (true) { ws();
+        if (src.startsWith('<=', i)) { i += 2; l = (l <= additive()); }
+        else if (src.startsWith('>=', i)) { i += 2; l = (l >= additive()); }
+        else if (src[i] === '<') { i++; l = (l < additive()); }
+        else if (src[i] === '>') { i++; l = (l > additive()); }
+        else break;
+      }
+      return l;
+    }
+    function additive() {
+      let l = multiplicative();
+      while (true) { ws();
+        if (src[i] === '+') { i++; l = l + multiplicative(); }
+        else if (src[i] === '-') { i++; l = l - multiplicative(); }
+        else break;
+      }
+      return l;
+    }
+    function multiplicative() {
+      let l = unary();
+      while (true) { ws();
+        if (src[i] === '*') { i++; l = l * unary(); }
+        else if (src[i] === '/') { i++; l = l / unary(); }
+        else if (src[i] === '%') { i++; l = l % unary(); }
+        else break;
+      }
+      return l;
+    }
+    function unary() {
+      ws();
+      if (src[i] === '-') { i++; return -unary(); }
+      if (src[i] === '+') { i++; return +unary(); }
+      if (src[i] === '!') { i++; return !unary(); }
+      return primary();
+    }
+    function primary() {
+      ws();
+      if (src[i] === '(') { i++; const v = expr(); ws(); if (src[i] !== ')') throw new Error('expected )'); i++; return v; }
+      // JS strict-mode decimal literals only: 0 · 0.5 · 5 · 5. · 5.5 · .5.
+      // A leading 0 followed by a digit (legacy octal `010`) is a SyntaxError
+      // in strict mode — the old new Function('"use strict";…') path threw and
+      // returned 0, so we must NOT read `010` as decimal 10. The leading 0 here
+      // matches as a lone `0`, leaving `10` to fail the trailing-input check.
+      const num = /^(?:0(?:\.\d*)?|[1-9]\d*(?:\.\d*)?|\.\d+)/.exec(src.slice(i));
+      if (num) { i += num[0].length; return parseFloat(num[0]); }
+      const id = /^[a-zA-Z_$][a-zA-Z0-9_$]*/.exec(src.slice(i));
+      if (id) {
+        let name = id[0]; i += name.length;
+        if (name === 'Math') {
+          ws(); if (src[i] !== '.') throw new Error('expected . after Math'); i++;
+          const m = /^[a-zA-Z]+/.exec(src.slice(i));
+          if (!m) throw new Error('expected Math member'); name = m[0]; i += name.length;
+        }
+        ws();
+        if (src[i] === '(') {
+          i++; const args = []; ws();
+          if (src[i] !== ')') { args.push(expr()); ws(); while (src[i] === ',') { i++; args.push(expr()); ws(); } }
+          if (src[i] !== ')') throw new Error('expected )'); i++;
+          const fn = FORMULA_HELPERS[name];
+          if (typeof fn !== 'function') throw new Error('unknown function ' + name);
+          return fn.apply(null, args);
+        }
+        if (name === 'true') return true;
+        if (name === 'false') return false;
+        if (Object.prototype.hasOwnProperty.call(vars, name)) return vars[name];
+        throw new Error('unknown identifier ' + name);
+      }
+      throw new Error('unexpected token');
+    }
+    const out = expr(); ws();
+    if (i < src.length) throw new Error('trailing input');
+    return out;
+  }
 
   function calcQuantity(formula, context) {
     if (formula == null) return 0;
@@ -202,33 +321,18 @@
       return 0;
     }
 
-    // Layer 2: compile once, cache
-    if (!FORMULA_CACHE[trimmed]) {
-      try {
-        // Expose whitelisted vars + Math + math helpers
-        FORMULA_CACHE[trimmed] = new Function(
-          'Math', 'max', 'min', 'ceil', 'floor', 'round', 'abs', 'pow', 'sqrt',
-          ...MEASUREMENT_VARS,
-          `"use strict"; return (${trimmed});`
-        );
-      } catch (e) {
-        console.warn('[EstimateLogic] Formula compile error:', trimmed, e.message);
-        FORMULA_CACHE[trimmed] = null;
-      }
-    }
-    const fn = FORMULA_CACHE[trimmed];
-    if (!fn) return 0;
-
+    // Layer 2: CSP-safe evaluation (V2-5 — see safeEvalFormula above).
+    // Replaces new Function(), which prod CSP (no 'unsafe-eval') makes throw —
+    // silently zeroing every formula-based line quantity. Same bounded grammar,
+    // identical JS numeric/boolean semantics, no eval.
     try {
-      const args = MEASUREMENT_VARS.map(v => Number(context[v]) || 0);
-      const result = fn(
-        Math,
-        Math.max, Math.min, Math.ceil, Math.floor, Math.round, Math.abs, Math.pow, Math.sqrt,
-        ...args
-      );
+      const vars = {};
+      MEASUREMENT_VARS.forEach(v => { vars[v] = Number(context[v]) || 0; });
+      const result = safeEvalFormula(trimmed, vars);
       return Number(result) || 0;
     } catch (e) {
-      console.warn('[EstimateLogic] Formula runtime error:', trimmed, e.message);
+      console.warn('[EstimateLogic] Formula eval error:', trimmed, e.message);
+      FORMULA_BLOCKED.add(trimmed);
       return 0;
     }
   }

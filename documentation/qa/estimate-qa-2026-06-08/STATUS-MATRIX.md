@@ -23,7 +23,7 @@ Legend: PASS · MATH-FAIL · DRIFT · FUNCTION-FAIL · GUARDRAIL-MISSING · DOC-
 | Save → reopen (persistence) | **PASS** | `EstimateV2UI.save()` → ✓ Firestore; count 5→6; survived full reload |
 | Generate estimate (retail quote) | **PASS (renders)** | doc generated client-side; server render FAIL (V2-4) |
 | Generate work order/receipt/warranty | **NOT TESTED** | builder modal froze renderer twice; retail-quote covers fidelity |
-| Docs match estimate | **DOC-MISMATCH** | V2-2 ($17k headline vs $22.8–27.5k tiers); V2-5 line-item $0 formula items |
+| Docs match estimate | **DOC-MISMATCH** | V2-2 ($17k headline vs $22.8–27.5k tiers); ~~V2-5 line-item $0 formula items~~ → **V2-5 FIXED** (CSP-safe evaluator, `feat/estimate-csp-formula-eval`) |
 
 ## Phase 2 — Logic reconciliation (Axis A) ✅ (engine leg)
 | Check | Status | Evidence |
