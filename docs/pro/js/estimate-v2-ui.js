@@ -44,7 +44,7 @@
     },
     scope: [],                // Array of { code, overrides } entries
     customer: { name: '', address: '', phone: '', email: '' },
-    claim: { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: 2500, acv: null },
+    claim: { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: 2500, acv: null, recoverableDepreciation: null, policyNumber: '' },
     searchFilter: '',
     categoryFilter: 'all',
     // Per-job minimum-charge floor. null means "use engine default"
@@ -1970,6 +1970,22 @@
       leadId:           state.leadId || null,
       addr:             state.customer.address || '',
       owner:            state.customer.name || '',
+      // FU-1: persist insurance claim info (carrier/deductible/adjuster/…) so a
+      // reopened insurance estimate restores its claim header instead of "—".
+      // Sanitized to plain values; undefined → null (Firestore-safe).
+      claim: (state.claim && (state.claim.carrier || state.claim.number || state.claim.adjuster
+        || state.claim.dateOfLoss || state.claim.deductible != null || state.claim.acv != null))
+        ? {
+            carrier:             state.claim.carrier || '',
+            number:              state.claim.number || '',
+            adjuster:            state.claim.adjuster || '',
+            dateOfLoss:          state.claim.dateOfLoss || '',
+            deductible:          num(state.claim.deductible),   // num() → null on non-finite (never NaN)
+            acv:                 num(state.claim.acv),
+            recoverableDepreciation: num(state.claim.recoverableDepreciation),
+            policyNumber:        state.claim.policyNumber || '',
+          }
+        : null,
       // Measurements (echoed so the estimate list can show them)
       raw:              Math.round(ctx.rawSqft || 0),
       adj:              Math.round(ctx.adjustedSqft || 0),
@@ -2105,6 +2121,18 @@
       return false;
     }
     state.customer = { name: doc.owner || '', address: doc.addr || '', phone: '', email: '' };
+    // FU-1: restore the persisted insurance claim (else the reopened scope's
+    // claim header shows "—"). Fall back to the neutral default for old docs.
+    state.claim = doc.claim
+      ? {
+          carrier: doc.claim.carrier || '', number: doc.claim.number || '',
+          adjuster: doc.claim.adjuster || '', dateOfLoss: doc.claim.dateOfLoss || '',
+          deductible: (doc.claim.deductible != null ? Number(doc.claim.deductible) : 2500),
+          acv: (doc.claim.acv != null ? Number(doc.claim.acv) : null),
+          recoverableDepreciation: (doc.claim.recoverableDepreciation != null ? Number(doc.claim.recoverableDepreciation) : null),
+          policyNumber: doc.claim.policyNumber || '',
+        }
+      : { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: 2500, acv: null, recoverableDepreciation: null, policyNumber: '' };
     state.estimateName = doc.name || '';
     state.leadId = doc.leadId || null;
     state.jobMode = doc.mode || 'insurance';
