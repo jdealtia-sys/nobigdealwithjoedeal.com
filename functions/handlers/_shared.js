@@ -191,7 +191,7 @@ async function requireTeamAdmin(request, targetCompanyId = null) {
   // updateUserRole / deactivateUser — provisioning team members and
   // self-escalating to company_admin. Legitimate solo owners carry NO role
   // claim; company_admins always carry a companyId. Reject before any
-  // Firestore read. Mirrors the client-side isSoloOwner gate in
+  // Firestore read. Mirrors the client-side solo-owner gate in
   // docs/pro/js/admin-manager.js.
   const callerRole = typeof claims.role === 'string' ? claims.role.trim().toLowerCase() : '';
   if (!isGlobalAdmin && !claims.companyId && SUBORDINATE_ROLES.has(callerRole)) {
