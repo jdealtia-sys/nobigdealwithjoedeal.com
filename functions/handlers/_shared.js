@@ -156,6 +156,17 @@ const INVITE_ALLOWED_ROLES = new Set(['company_admin', 'manager', 'sales_rep', '
 // cannot read other tenants' data.
 const TEAM_ROLES = ['company_admin', 'manager', 'sales_rep', 'viewer'];
 
+// Roles that sit BELOW owner/company-admin. A caller bearing one of these
+// is, by definition, a subordinate member of someone else's company — never
+// a company owner. Legitimate team members always carry a `companyId` claim
+// (createTeamMember / updateUserRole stamp it); access-code logins
+// (handlers/portal.js validateAccessCode) mint a bare { role } claim with NO
+// companyId. requireTeamAdmin uses this set to reject the latter before its
+// solo-owner fallback can mistake them for the owner of companies/{uid}.
+// `member` is the access-code-only role (not in TEAM_ROLES) and is included
+// here explicitly. `company_admin`/`admin` are deliberately absent.
+const SUBORDINATE_ROLES = new Set(['member', 'manager', 'sales_rep', 'viewer']);
+
 // Legacy access codes (handlers/admin.js → rotateAccessCodes)
 const LEGACY_ACCESS_CODES = [
   'NBD-2026', 'NBD-DEMO', 'DEMO', 'TRYIT',
@@ -171,6 +182,22 @@ async function requireTeamAdmin(request, targetCompanyId = null) {
 
   const claims = request.auth.token || {};
   const isGlobalAdmin = claims.role === 'admin';
+
+  // SECURITY: a caller carrying a subordinate role (member/manager/sales_rep/
+  // viewer) WITHOUT a companyId claim is an access-code / invited user, never
+  // a company owner. Without this guard the solo-owner fallback below keys a
+  // phantom company on their uid (companies/{uid} doesn't exist → isOwner
+  // true), letting them pass requireTeamAdmin and drive createTeamMember /
+  // updateUserRole / deactivateUser — provisioning team members and
+  // self-escalating to company_admin. Legitimate solo owners carry NO role
+  // claim; company_admins always carry a companyId. Reject before any
+  // Firestore read. Mirrors the client-side isSoloOwner gate in
+  // docs/pro/js/admin-manager.js.
+  const callerRole = typeof claims.role === 'string' ? claims.role.trim().toLowerCase() : '';
+  if (!isGlobalAdmin && !claims.companyId && SUBORDINATE_ROLES.has(callerRole)) {
+    throw new HttpsError('permission-denied', 'Owner or admin access required');
+  }
+
   // Solo operators own a company keyed by their uid. Team members carry a
   // companyId claim set by onRepSignup. Fall back to uid for solo owners.
   const callerCompanyId = claims.companyId || uid;
@@ -194,6 +221,22 @@ async function requireTeamAdmin(request, targetCompanyId = null) {
   }
 
   return { uid, companyId, isOwner, isGlobalAdmin, companyRef };
+}
+
+// Decide whether a team-admin caller may MUTATE a given target user (set role,
+// disable, adopt). The cross-company guards in createTeamMember / updateUserRole
+// / deactivateUser used to gate on `targetClaims.companyId && targetClaims.companyId
+// !== companyId`, which FAILS OPEN when the target has no companyId — letting a
+// legitimate company_admin of company A re-role / disable / adopt ANY no-companyId
+// account (self-signup solo owners, access-code members) across tenant boundaries.
+// Fail CLOSED instead: a target is mutable only if the caller is a global admin,
+// OR the target was just created in this call (a brand-new invitee with no prior
+// tenant), OR the target's own companyId claim already equals the caller's company.
+// An absent/null target companyId is treated as "not mine" → not mutable.
+function callerMayManageTarget(targetClaims, companyId, isGlobalAdmin, justCreated = false) {
+  if (isGlobalAdmin) return true;
+  if (justCreated) return true;
+  return !!companyId && (targetClaims && targetClaims.companyId) === companyId;
 }
 
 // Platform admin role is NEVER grantable through this function — not
@@ -242,8 +285,10 @@ module.exports = {
   // Invite/Team
   INVITE_ALLOWED_ROLES,
   TEAM_ROLES,
+  SUBORDINATE_ROLES,
   LEGACY_ACCESS_CODES,
   requireTeamAdmin,
+  callerMayManageTarget,
   normalizeRole,
   normalizeEmail,
 };
