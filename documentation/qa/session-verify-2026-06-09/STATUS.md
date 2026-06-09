@@ -95,4 +95,18 @@ loose end is #593 (C-1 permit fail-safe), open and out of this session's scope.
 Per the brief: verification of that work is the whole job — done; no estimate code
 touched.
 
+## Follow-up landed (Jo approved 2026-06-09): Team-tab innerHTML escaping
+
+The #597 watch item ("HTML-escape member fields in the newly-live Team-tab renderer
++ sibling #597 renderers") is closed in this branch:
+- `dashboard-team-tab.js` — added the in-tree `escapeHtml` idiom; `m.email`, `m.role`,
+  `m.status` (and the avatar initial) now escape before `innerHTML` interpolation.
+  `roleColors[m.role]` is a lookup with CSS-var fallback — safe, unchanged.
+- Sibling #597 renderers audited: billing-tab + hotkey-toggles interpolate static
+  config only (`NBDBilling.PLANS`, `_HOTKEYS`); close-board already escapes via its
+  own `esc()`; admin-manager/maps #597 changes render no user data. No changes needed.
+- Smoke guard added (`tests/smoke/dashboard.test.js`): asserts the helper exists, all
+  three member-field interpolations are escaped, and no bare interpolation remains —
+  negative-tested (guard fails on a sabotaged copy). Smoke: **1822/0**.
+
 ## No ZZ_QA_ records created by this session. No prod writes of any kind (read-only + tests).

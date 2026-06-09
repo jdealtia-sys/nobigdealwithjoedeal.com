@@ -1648,6 +1648,24 @@ section('Phase C.3 wave 2 — draw + dash + reports + settings');
       scriptCount === 5,
       'expected 5 scripts inside the settings template, got ' + scriptCount);
   }
+
+  // #597 watch item: loadTeamMembers renders Firestore member docs into
+  // innerHTML — email/role/status must round-trip through escapeHtml so a
+  // hostile member doc can never inject markup into the owner's Settings.
+  {
+    const teamTab = read(path.join(PRO_JS, 'dashboard-team-tab.js'));
+    assert('dashboard-team-tab.js defines an escapeHtml helper',
+      /function escapeHtml\(/.test(teamTab),
+      'expected the in-tree escapeHtml idiom in dashboard-team-tab.js');
+    assert('team member email/role/status interpolations are escaped',
+      /escapeHtml\(m\.email\s*\|\|\s*''\)/.test(teamTab) &&
+      /escapeHtml\(\(m\.role\s*\|\|\s*'rep'\)/.test(teamTab) &&
+      /escapeHtml\(m\.status\s*\|\|\s*'invited'\)/.test(teamTab),
+      'expected every m.email/m.role/m.status innerHTML interpolation to go through escapeHtml');
+    assert('no unescaped member-field interpolation remains in the row template',
+      !/\+\s*\(m\.(email|role|status)/.test(teamTab.replace(/escapeHtml\(\(?m\.(email|role|status)[^)]*\)?\)/g, '')),
+      'found a bare + (m.email/role/status interpolation outside escapeHtml');
+  }
 }
 
 section('Wave 5e (A.5) — second-pass theme contrast audit');

@@ -1,4 +1,9 @@
       // ── Team management functions ──
+      function escapeHtml(s) {
+        return String(s == null ? '' : s)
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+      }
       async function inviteTeamMember() {
         var email = (document.getElementById('inviteRepEmail')?.value || '').trim();
         var role = document.getElementById('inviteRepRole')?.value || 'sales_rep';
@@ -52,10 +57,10 @@
             var m = d.data();
             var roleColors = { sales_rep:'var(--green)', manager:'var(--blue)', viewer:'var(--m)' };
             return '<div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:6px;display:flex;align-items:center;gap:12px;">'
-              + '<div style="width:36px;height:36px;border-radius:18px;background:var(--s3);color:var(--m);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">' + (m.email||'?')[0].toUpperCase() + '</div>'
-              + '<div class="f1"><div style="font-size:13px;font-weight:600;color:var(--t);">' + (m.email||'') + '</div>'
-              + '<div class="meta-10">' + (m.role||'rep').replace(/_/g,' ') + ' · ' + (m.status||'invited') + '</div></div>'
-              + '<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:10px;border:1px solid ' + (roleColors[m.role]||'var(--br)') + ';color:' + (roleColors[m.role]||'var(--m)') + ';text-transform:uppercase;letter-spacing:.06em;">' + (m.role||'rep').replace(/_/g,' ') + '</span>'
+              + '<div style="width:36px;height:36px;border-radius:18px;background:var(--s3);color:var(--m);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">' + escapeHtml((m.email||'?')[0].toUpperCase()) + '</div>'
+              + '<div class="f1"><div style="font-size:13px;font-weight:600;color:var(--t);">' + escapeHtml(m.email||'') + '</div>'
+              + '<div class="meta-10">' + escapeHtml((m.role||'rep').replace(/_/g,' ')) + ' · ' + escapeHtml(m.status||'invited') + '</div></div>'
+              + '<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:10px;border:1px solid ' + (roleColors[m.role]||'var(--br)') + ';color:' + (roleColors[m.role]||'var(--m)') + ';text-transform:uppercase;letter-spacing:.06em;">' + escapeHtml((m.role||'rep').replace(/_/g,' ')) + '</span>'
               + '</div>';
           }).join('');
         } catch(e) { console.warn('loadTeamMembers:', e.message); }
