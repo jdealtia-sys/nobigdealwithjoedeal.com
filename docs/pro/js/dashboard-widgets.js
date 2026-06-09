@@ -173,6 +173,23 @@ function viewEstimate(id) {
   const est = (window._estimates || []).find(e => e.id === id);
   if (!est) { showToast('Estimate not found — it may still be loading', 'error'); console.error('viewEstimate: not found in _estimates, id=', id, 'available:', (window._estimates||[]).map(e=>e.id)); return; }
 
+  // 3B: V2 estimates reopen into the V2 builder (their own engine + the B-8
+  // retail/Xactimate doc formats), not the Classic builder. The Classic path
+  // below would recompute a V2 estimate with the wrong engine and can't reach
+  // formatInsuranceScope. A known-V2 doc must NEVER fall through to Classic —
+  // Classic would stamp builder:'classic' onto the V2 id on Save and
+  // permanently mis-convert it (the estimates-corruption class, PR #507). If
+  // the V2 builder isn't loaded yet (SW cache miss mid-deploy), bail with a
+  // toast instead of corrupting the doc.
+  if (est.builder === 'v2' || est.estimateVersion === 'v2') {
+    if (typeof window.openEstimateV2Builder === 'function') {
+      window.openEstimateV2Builder({ estimateId: id });
+      return;
+    }
+    showToast('Estimate builder still loading — try again in a moment', 'error');
+    return;
+  }
+
   // Show builder, hide list
   const listEl = document.getElementById('est-list');
   const builderEl = document.getElementById('est-builder');
