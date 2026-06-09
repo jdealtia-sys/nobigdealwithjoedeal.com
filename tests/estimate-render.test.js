@@ -177,6 +177,40 @@ const intOak  = renderFmt(OAKS_BRAND, 'internal-view');
 ok('internal-view / NBD: banner shows "Joe\'s Eyes Only"', /Joe's Eyes Only/.test(intNbd));
 ok('internal-view / Oaks: banner shows "Internal Use Only" (no Joe)', /Internal Use Only/.test(intOak) && !/Joe's Eyes Only/.test(intOak));
 
+// ════════════════════════════════════════════════════════════════════
+// Never-drop-a-line (2e): a line whose category isn't in CAT_ORDER (custom
+// or future-catalog) must still render — both the Xactimate scope table and
+// the retail-quote bullet list — so the visible scope always reconciles to the
+// rolled-up total instead of silently dropping a billed line.
+// ════════════════════════════════════════════════════════════════════
+console.log('\nESTIMATE RENDER — never-drop off-CAT_ORDER line (2e)');
+function fixtureWithCustomCat() {
+  const f = fixture();
+  f.estimate.lines.push({
+    code: 'CUSTOM-1', name: 'Cricket Framing (custom)', category: 'structural',
+    quantity: 1, unit: 'EA', materialCostPerUnit: 200, laborCostPerUnit: 300,
+    lineTotal: 500, reason: 'Diverter cricket behind chimney', codeRefs: {}
+  });
+  return f;
+}
+function renderCustom(brand, fmt) {
+  const fin = loadFin(brand);
+  try {
+    const f = fixtureWithCustomCat();
+    const res = fin.formatEstimate(f.estimate, fmt, f.meta);
+    return (res && res.html) || 'RENDER_ERROR: no html';
+  } catch (e) { return 'RENDER_ERROR: ' + (e && e.message); }
+}
+const insCustom = renderCustom(NBD_BRAND, 'insurance-scope');
+ok('insurance-scope: custom-category line still appears in scope table', /Cricket Framing \(custom\)/.test(insCustom));
+ok('insurance-scope: off-list category gets a titleized section header (Structural)', /Structural/.test(insCustom));
+const retCustom = renderCustom(NBD_BRAND, 'retail-quote');
+ok('retail-quote: custom-category line still appears in bullet list', /Cricket Framing \(custom\)/.test(retCustom));
+// Sanity: a normal estimate (all CAT_ORDER categories) is unchanged by the
+// catch-all — no spurious "Other"/titleized section leaks in.
+const insNormal = renderFmt(NBD_BRAND, 'insurance-scope');
+ok('insurance-scope: normal estimate has no stray Structural section', !/Structural/.test(insNormal));
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILED: ' + fails.join(', ')); process.exit(1); }
