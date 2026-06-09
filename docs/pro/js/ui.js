@@ -982,6 +982,18 @@ function switchSettingsTab(tab) {
       window._loadNotifSettings();
     }
   }
+  // Profile tab — repopulate fields from the saved user doc. The
+  // boot-time priming in onAuthStateChanged ran while these inputs were
+  // still inside the lazy-hydrated <template id="tpl-view-settings">,
+  // so it no-oped; this runs after _hydrateViewTemplate has mounted the
+  // template, so Display Name / Cal.com / the digest + dormant-nudge
+  // checkboxes reflect what was actually saved (not the hardcoded
+  // `checked` defaults in the markup).
+  if (tab === 'profile') {
+    if (typeof window._loadProfileSettings === 'function') {
+      window._loadProfileSettings();
+    }
+  }
 }
 window.switchSettingsTab = switchSettingsTab;
 

@@ -386,6 +386,7 @@ function renderLeads(leads, filtered){
       }
       if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="k-empty-line">Drop leads here</div></div>'; return; }
       body.innerHTML = cards.map(l=>buildCard(l)).join('');
+      _highlightCardMatches(body); // CO-M-1: highlight after parse, text nodes only
       wireKanbanCardListeners(body);
       // attach drag events to cards
       body.querySelectorAll('.k-card').forEach(card=>{
@@ -454,6 +455,7 @@ function renderLeads(leads, filtered){
       if(count) count.textContent = cards.length;
       if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="k-empty-line">Drop leads here</div></div>'; return; }
       body.innerHTML = cards.map(l=>buildCard(l)).join('');
+      _highlightCardMatches(body); // CO-M-1: highlight after parse, text nodes only
       body.querySelectorAll('.k-card').forEach(card=>{
         card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
         card.addEventListener('dragend',   e=>{ card.classList.remove('dragging'); });
@@ -1151,21 +1153,65 @@ function buildCard(l){
     </div>
   </div>`;
 
-  // Apply search highlighting to the card HTML.
-  // SECURITY: running a naive regex.replace across already-rendered HTML can
-  // corrupt tags/attributes (e.g. searching for `class` or `"` matches inside
-  // `class="kc-card"` and injects <mark> into the opening tag). Refuse any
-  // query containing characters that appear in HTML structure so the regex
-  // can only hit user-visible text. This is a self-XSS guard; real fix is
-  // text-node based highlighting — tracked separately.
-  if(window._searchQuery && window._searchQuery.length >= 2){
-    const sq = window._searchQuery;
-    if(/[<>"'&=\/]/.test(sq)) return html;
-    const escaped = sq.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp('(' + escaped + ')', 'gi');
-    return html.replace(regex, '<mark style="background:var(--orange);color:var(--accent-fg);padding:0 2px;border-radius:2px;font-weight:600;">$1</mark>');
-  }
+  // CO-M-1 fix: search highlighting is NO LONGER done here by string-
+  // replacing across the serialized card HTML — that injected <mark> into
+  // the middle of tags/attributes/styles and leaked raw markup as text
+  // (e.g. 'content:space-between;...">', 'data-action="card" data-id="...').
+  // Highlighting now runs AFTER the card is parsed into the DOM, walking
+  // text nodes only via _highlightCardMatches() (called from renderLeads).
   return html;
+}
+
+// CO-M-1: TreeWalker-based search highlighter. Walks only TEXT nodes of
+// the freshly-rendered column, so existing tag/attribute/style/badge markup
+// is never touched. Wraps each case-insensitive match in a <mark> via DOM
+// node splitting (no innerHTML reassignment of any element that holds
+// markup). Skips text inside <mark>/<script>/<style> and inside elements
+// whose text is structural (svg). Reversible by construction: clearing the
+// search sets window._searchQuery = null and renderLeads() rebuilds the
+// columns from clean buildCard() output, so no un-highlight pass is needed.
+function _highlightCardMatches(rootEl){
+  const q = window._searchQuery;
+  if(!rootEl || !q || q.length < 2) return;
+  // Case-insensitive literal match — escape regex metachars in the query.
+  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let regex;
+  try { regex = new RegExp(escaped, 'gi'); } catch(_){ return; }
+  const SKIP_TAGS = { MARK:1, SCRIPT:1, STYLE:1, SVG:1, PATH:1, RECT:1, CIRCLE:1 };
+  const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+    acceptNode(node){
+      if(!node.nodeValue || !node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+      // Skip text already inside a <mark> or inside non-text containers.
+      let p = node.parentNode;
+      while(p && p !== rootEl){
+        if(p.nodeType === 1 && SKIP_TAGS[p.nodeName]) return NodeFilter.FILTER_REJECT;
+        p = p.parentNode;
+      }
+      regex.lastIndex = 0;
+      return regex.test(node.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }
+  });
+  // Collect first (mutating during walk invalidates the walker).
+  const targets = [];
+  let n;
+  while((n = walker.nextNode())) targets.push(n);
+  targets.forEach(textNode => {
+    const text = textNode.nodeValue;
+    regex.lastIndex = 0;
+    const frag = document.createDocumentFragment();
+    let last = 0, m;
+    while((m = regex.exec(text))){
+      if(m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const mark = document.createElement('mark');
+      mark.style.cssText = 'background:var(--orange);color:var(--accent-fg);padding:0 2px;border-radius:2px;font-weight:600;';
+      mark.textContent = m[0];
+      frag.appendChild(mark);
+      last = m.index + m[0].length;
+      if(m[0].length === 0){ regex.lastIndex++; } // guard against zero-width loops
+    }
+    if(last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+    if(frag.childNodes.length) textNode.parentNode.replaceChild(frag, textNode);
+  });
 }
 
 function handleCardClick(id, event) {

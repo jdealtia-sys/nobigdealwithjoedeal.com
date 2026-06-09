@@ -1036,6 +1036,21 @@ function dsSaveConfig() {
     showGoose: document.getElementById('ds-showgoose')?.checked !== false,
   };
   localStorage.setItem(DS_NBD_CFG, JSON.stringify(config));
+  // NEW-4: mirror into the derived 'nbd_ds_config' key that the Home widgets
+  // read (north-star / daily-floors / golden-goose in js/widgets.js). Without
+  // this, a North Star set here saves to nbd_user_config but the Home widget
+  // (which reads nbd_ds_config) never sees it and stays on the placeholder.
+  // Uses the EXACT shape transform as daily-success/js/app.js syncToWidgetKeys()
+  // so the two save paths stay byte-consistent.
+  try {
+    const widgetCfg = {
+      northStar: config.northStar.target || config.northStar.category || '',
+      northStarDeadline: config.northStar.deadline || '',
+      floors: config.floors.map(f => ({ label: f.label, target: parseFloat(f.targetValue) || 1, unit: f.unit || '' })),
+      goldenGoose: config.goose || '',
+    };
+    localStorage.setItem('nbd_ds_config', JSON.stringify(widgetCfg));
+  } catch {}
   try { localStorage.setItem(DS_THEME_KEY, dsSelectedTheme); } catch {}
   const msg = document.getElementById('ds-save-msg');
   if (msg) { msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 3000); }
