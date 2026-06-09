@@ -42,7 +42,7 @@ function loadV2UI() {
     Date, Math, JSON, Set, setTimeout, navigator: {}, localStorage: { getItem: () => null, setItem() {} },
   };
   vm.runInNewContext(SRC, sandbox, { filename: 'estimate-v2-ui.js' });
-  return win.EstimateV2UI._test;
+  return { test: win.EstimateV2UI._test, win: win };
 }
 
 // ── Load estimate-finalization.js for the round-trip render. ──
@@ -53,7 +53,7 @@ function loadFin() {
   return win.EstimateFinalization;
 }
 
-const T = loadV2UI();
+const { test: T, win: V2WIN } = loadV2UI();
 
 // A representative resolved estimate, self-consistent at a NON-default 40%
 // material markup so the round-trip can prove the persisted markup is honored
@@ -134,30 +134,66 @@ ok('save: rows keep classic shape (code/desc/qty/rate/total)', saved.rows[0].cod
 ok('save: grandTotal = canonical total', saved.grandTotal === 2820);
 
 // ════════════════════════════════════════════════════════════════════
-// Round-trip — reconstruct from SAVED fields, render, assert reconcile +
-// that the 40% markup is honored (not the 0.25 fallback).
+// 3B — _reconstructEstimateFromSaved: faithful for a 3A doc, null for pre-3A.
+// ════════════════════════════════════════════════════════════════════
+console.log('\nV2 PAYLOAD — 3B reconstruct from saved doc');
+const reFrom3A = T.reconstructEstimateFromSaved(saved);
+ok('3B: reconstructs a non-null estimate from a 3A doc', reFrom3A && Array.isArray(reFrom3A.lines));
+ok('3B: markup preserved (0.40)', reFrom3A && reFrom3A.materialMarkupPct === 0.40);
+ok('3B: per-line splits carried', reFrom3A && reFrom3A.lines[0].materialTotal === 1000 && reFrom3A.lines[0].laborTotal === 500);
+ok('3B: total = saved grandTotal (2820)', reFrom3A && reFrom3A.total === 2820);
+ok('3B: context echoes saved measurements (for re-save)', reFrom3A && reFrom3A.context && reFrom3A.context.eaveLf === 100);
+// BLK-2: internal-view reads top-level hardCost (= materialCost + laborCost).
+ok('3B: hardCost present for internal-view (1950)', reFrom3A && reFrom3A.hardCost === 1950);
+// N1: internal block normalized so marginPct.toFixed() can't throw.
+ok('3B: internal.marginPct normalized to a number', reFrom3A && typeof reFrom3A.internal.marginPct === 'number');
+// A pre-3A doc (old shape: rows have only code/desc/qty/rate/total, no markup)
+// must return null so the caller falls back to a live re-resolve.
+const preDoc = { id: 'old1', builder: 'v2', mode: 'insurance', tier: 'better', grandTotal: 5000,
+  rows: [{ code: 'A', desc: 'X', qty: '10.00SQ', rate: '$150.00', total: 1500 }] };
+ok('3B: pre-3A doc (no materialMarkupPct) → null (fall back to re-resolve)', T.reconstructEstimateFromSaved(preDoc) === null);
+
+// ════════════════════════════════════════════════════════════════════
+// 3B — rehydrateFromSaved populates state from a saved doc.
+// ════════════════════════════════════════════════════════════════════
+console.log('\nV2 PAYLOAD — 3B rehydrateFromSaved');
+// Start from the real 3A save payload, then override the fields the rehydrate
+// test pins (explicit values must WIN over `saved`).
+const savedDoc = Object.assign({}, saved, { id: 'est_abc', builder: 'v2',
+  raw: 2000, adj: 2300, sq: 23, wf: 1.15, pl: '8/12', ridge: 50, eave: 100, hip: 0, pipes: 2,
+  mode: 'insurance', tier: 'better',
+  owner: 'Jane Homeowner', addr: '1 Main St', leadId: 'lead_9', name: 'Jane estimate',
+  rows: [{ code: 'RFG 240-GAF-HDZ', desc: 'GAF', total: 1500 }, { code: 'SVC RPT', desc: 'Report', total: 75, source: 'passthru' }] });
+V2WIN._estimates = [savedDoc];
+const okRehydrate = T.rehydrateFromSaved('est_abc');
+const st = T.getState();
+ok('3B rehydrate: returns true for a known id', okRehydrate === true);
+ok('3B rehydrate: customer name from owner', st.customer.name === 'Jane Homeowner');
+ok('3B rehydrate: address from addr', st.customer.address === '1 Main St');
+ok('3B rehydrate: pitch parsed from "8/12" → 8', st.measurements.pitch === 8);
+ok('3B rehydrate: rawSqft from raw', st.measurements.rawSqft === 2000);
+ok('3B rehydrate: scope rebuilt from catalog rows (passthru/SVC excluded)', st.scope.length === 1 && st.scope[0].code === 'RFG 240-GAF-HDZ');
+// BLK-1: pass-through fees must be repopulated (not zeroed) so an edit-after-
+// reopen doesn't silently drop the $75 service line on the next save.
+ok('3B rehydrate: passThru repopulated from SVC row ($75)', st.passThru.length === 1 && st.passThru[0].amount === 75 && st.passThru[0].code === 'SVC RPT');
+ok('3B rehydrate: jobMode from mode (insurance)', st.jobMode === 'insurance');
+ok('3B rehydrate: _reopenedClean=true', st._reopenedClean === true);
+ok('3B rehydrate: _editingEstimateId set (re-save updates same doc)', V2WIN._editingEstimateId === 'est_abc');
+// effectiveEstimate: clean reopen → faithful replay; simulate an edit → falls
+// back to live re-resolve (getCurrentEstimate → null here, no catalog stubbed).
+const effClean = T.effectiveEstimate();
+ok('3B effectiveEstimate: clean reopen replays saved (markup 0.40)', effClean && effClean.materialMarkupPct === 0.40);
+st._reopenedClean = false;  // simulate an edit
+ok('3B effectiveEstimate: after edit → re-resolve (no replay)', T.effectiveEstimate() === null);
+st._reopenedClean = true;   // restore for later assertions
+ok('3B rehydrate: unknown id → false', T.rehydrateFromSaved('nope') === false);
+
+// ════════════════════════════════════════════════════════════════════
+// Round-trip — production reconstruct → render → reconcile + markup honored.
 // ════════════════════════════════════════════════════════════════════
 console.log('\nV2 PAYLOAD — persistence round-trip reconciles formatInsuranceScope');
-// This reconstructor mirrors what the (future) V2 reopen path (3B) will do:
-// rebuild a resolveEstimate-shaped object from the persisted doc.
-function reconstruct(s) {
-  return {
-    materialMarkupPct: s.materialMarkupPct,
-    overhead: s.overhead, overheadPct: s.overheadPct,
-    profit: s.profit, profitPct: s.profitPct,
-    subtotal: s.subtotal, tax: s.tax, taxRate: s.taxRate, total: s.grandTotal,
-    minJobApplied: false,
-    lines: (s.rows || []).map((r) => ({
-      code: r.code, name: r.desc, category: r.category,
-      quantity: r.quantity, unit: r.unit,
-      materialCostPerUnit: r.materialCostPerUnit, laborCostPerUnit: r.laborCostPerUnit,
-      materialTotal: r.materialTotal, laborTotal: r.laborTotal,
-      lineTotal: r.total, codeRefs: {},
-    })),
-  };
-}
 const fin = loadFin();
-const reEst = reconstruct(saved);
+const reEst = T.reconstructEstimateFromSaved(saved);
 const reMeta = { customer: { name: 'Jane', address: '1 Main St' }, claim: {}, estimate: { date: '2026-06-08', number: null } };
 let html = '';
 try { html = fin.formatEstimate(reEst, 'insurance-scope', reMeta).html || ''; } catch (e) { html = 'ERR:' + e.message; }

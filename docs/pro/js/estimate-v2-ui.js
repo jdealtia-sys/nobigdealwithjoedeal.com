@@ -56,7 +56,14 @@
     // aerial measurement reports, e-sign fees, etc. Each entry is
     // { code, desc, amount, source }. Rendered as a removable chip
     // in the scope pane and included verbatim in the retail quote.
-    passThru: []
+    passThru: [],
+    // 3B — reopen: when a saved V2 estimate is reopened, the raw doc is
+    // stashed here so doc regeneration can faithfully REPLAY the saved
+    // numbers (honoring the persisted materialMarkupPct → B-8 retail) instead
+    // of re-resolving. _reopenedClean flips false on the first edit, after
+    // which we fall back to a live re-resolve.
+    _reopenedDoc: null,
+    _reopenedClean: false
   };
 
   // ═════════════════════════════════════════════════════════
@@ -746,6 +753,7 @@
           // estimate-config.js TIER_RATES.
           if (arg && (arg === 'good' || arg === 'better' || arg === 'best')) {
             state.tier = arg;
+            state._reopenedClean = false;   // 3B: tier change → re-resolve
             ['v2tierGood', 'v2tierBetter', 'v2tierBest'].forEach(id => {
               const b = document.getElementById(id);
               if (b) b.classList.toggle('active',
@@ -840,6 +848,7 @@
         // future field that accidentally writes to e.g. state.scope.
         if (key === 'county') {
           state.county = el.value;
+          state._reopenedClean = false;   // 3B: county (tax) change → re-resolve
           render();
           saveDraftDebounced();
         }
@@ -862,6 +871,7 @@
 
   function setMode(mode) {
     state.mode = mode;
+    state._reopenedClean = false;   // 3B: mode change → re-resolve
     document.getElementById('v2modePerSq').classList.toggle('active', mode === 'per-sq');
     document.getElementById('v2modeLine').classList.toggle('active', mode === 'line-item');
     render();
@@ -869,6 +879,7 @@
 
   function setJobMode(jobMode) {
     state.jobMode = jobMode;
+    state._reopenedClean = false;   // 3B: job-mode change → re-resolve
     document.getElementById('v2jobInsurance').classList.toggle('active', jobMode === 'insurance');
     document.getElementById('v2jobCash').classList.toggle('active', jobMode === 'cash');
     render();
@@ -903,6 +914,7 @@
         state.measurements.waste = w;
       }
     }
+    state._reopenedClean = false;   // 3B: a measurement change → re-resolve live
     render();
   }
 
@@ -919,6 +931,7 @@
   function addToScope(code) {
     if (state.scope.find(s => s.code === code)) return;  // Already in scope
     state.scope.push({ code });
+    state._reopenedClean = false;   // 3B: edit → re-resolve live, stop replaying
     render();
   }
 
@@ -930,6 +943,7 @@
     if (state.passThru.length === beforePT) {
       state.scope = state.scope.filter(s => s.code !== code);
     }
+    state._reopenedClean = false;   // 3B
     render();
   }
 
@@ -970,11 +984,13 @@
       }
       scopeEntry.overrides.qty = n;
     }
+    state._reopenedClean = false;   // 3B
     render();
   }
 
   function clearScope() {
     state.scope = [];
+    state._reopenedClean = false;   // 3B
     render();
   }
 
@@ -1274,6 +1290,7 @@
     // full-job crew-rollout minimum.
     state.minJobCharge = (preset.minJobCharge != null) ? preset.minJobCharge : null;
     (preset.codes || []).forEach(c => state.scope.push({ code: c, overrides: {} }));
+    state._reopenedClean = false;   // 3B: loading a preset is an edit
     render();
   }
 
@@ -1647,6 +1664,10 @@
   let _draftRemoteErrorNotified = false;
 
   function saveDraftDebounced() {
+    // 3B: a freshly-reopened (unedited) estimate must not overwrite the rep's
+    // in-progress new-estimate draft. Once they actually edit (_reopenedClean
+    // flips false) autosave resumes normally.
+    if (state._reopenedClean) return;
     clearTimeout(_draftLocalTimer);
     _draftLocalTimer = setTimeout(() => {
       try {
@@ -2007,6 +2028,139 @@
     };
   }
 
+  // ─── 3B: reopen a saved V2 estimate ───────────────────────────────
+  // Reconstruct a resolveEstimate-shaped object from a SAVED estimate doc, so
+  // doc regeneration replays the exact saved numbers (B-8 retail honored).
+  // Returns null for a pre-3A doc that lacks materialMarkupPct + per-line splits
+  // — the caller then falls back to a live re-resolve from the rehydrated scope.
+  function _reconstructEstimateFromSaved(doc) {
+    if (!doc || !Array.isArray(doc.rows) || doc.materialMarkupPct == null) return null;
+    const n = (v) => (v != null && isFinite(Number(v)) ? Number(v) : null);
+    const lines = doc.rows.filter((r) => r && r.code).map((r) => ({
+      code: r.code, name: r.desc, category: r.category || '',
+      quantity: n(r.quantity), unit: r.unit || '',
+      materialCostPerUnit: Number(r.materialCostPerUnit) || 0,
+      laborCostPerUnit: Number(r.laborCostPerUnit) || 0,
+      materialTotal: n(r.materialTotal), laborTotal: n(r.laborTotal),
+      unitPrice: n(r.unitPrice),
+      lineTotal: Number(r.total) || 0,
+      codeRefs: {},
+    }));
+    return {
+      method: doc.method || 'line-item',
+      mode: doc.mode || 'insurance',
+      tier: doc.tier || 'better',
+      // Echo the saved measurements so a re-save (_buildSavePayload reads
+      // estimate.context) doesn't zero them out.
+      context: {
+        rawSqft: n(doc.raw), adjustedSqft: n(doc.adj), sq: n(doc.sq), waste: n(doc.wf),
+        ridgeLf: n(doc.ridge), eaveLf: n(doc.eave), hipLf: n(doc.hip), pipes: n(doc.pipes),
+      },
+      lines,
+      materialCost: n(doc.materialCost), laborCost: n(doc.laborCost),
+      // hardCost = material + labor (cost basis). The internal-view format reads
+      // estimate.hardCost directly; without it the reopened doc shows $0 there.
+      hardCost: (doc.internal && doc.internal.hardCost != null)
+        ? Number(doc.internal.hardCost)
+        : ((doc.materialCost != null && doc.laborCost != null)
+            ? Number(doc.materialCost) + Number(doc.laborCost) : null),
+      // materialRetail = materialCost × (1+markup); the internal-view format
+      // reads it. Prefer deriving from retailBeforeOHP − laborCost when present.
+      materialRetail: (doc.retailBeforeOHP != null && doc.laborCost != null)
+        ? (Number(doc.retailBeforeOHP) - Number(doc.laborCost))
+        : (doc.materialCost != null ? Number(doc.materialCost) * (1 + Number(doc.materialMarkupPct)) : null),
+      materialMarkupPct: Number(doc.materialMarkupPct),
+      retailBeforeOHP: n(doc.retailBeforeOHP),
+      overhead: n(doc.overhead), overheadPct: n(doc.overheadPct),
+      profit: n(doc.profit), profitPct: n(doc.profitPct),
+      subtotal: n(doc.subtotal), tax: n(doc.tax), taxRate: n(doc.taxRate),
+      total: n(doc.grandTotal), minJobApplied: false,
+      prices: doc.prices || null, selectedTier: doc.selectedTier || doc.tier,
+      priceMode: doc.priceMode || 'line-item',
+      deposit: n(doc.deposit),
+      // Normalize the internal block so the formatter's marginPct.toFixed(1)
+      // can't throw on a partial/legacy block (live 3A docs always carry it).
+      internal: doc.internal
+        ? Object.assign({ margin: null, marginPct: 0 }, doc.internal,
+            { marginPct: Number((doc.internal || {}).marginPct) || 0 })
+        : null,
+    };
+  }
+
+  // Parse a saved pitch label ("8/12") back to the numeric rise (8).
+  function _parsePitchRise(pl) {
+    const m = /^(\d+(?:\.\d+)?)/.exec(String(pl || ''));
+    return m ? Number(m[1]) : 6;
+  }
+
+  // Rehydrate the builder `state` from a saved V2 estimate doc (already loaded
+  // into window._estimates by the list). Repopulates customer + measurements +
+  // scope (catalog codes from rows) + mode/tier/county, and stashes the doc for
+  // faithful replay. window._editingEstimateId is set so a re-save UPDATES the
+  // same doc (via _saveEstimate) instead of creating a duplicate.
+  function rehydrateFromSaved(estimateId) {
+    const doc = (window._estimates || []).find((e) => e.id === estimateId);
+    if (!doc) {
+      if (typeof window.showToast === 'function') window.showToast('Estimate not found', 'error');
+      return false;
+    }
+    state.customer = { name: doc.owner || '', address: doc.addr || '', phone: '', email: '' };
+    state.estimateName = doc.name || '';
+    state.leadId = doc.leadId || null;
+    state.jobMode = doc.mode || 'insurance';
+    state.mode = (doc.priceMode === 'per-sq') ? 'per-sq' : 'line-item';
+    state.tier = doc.tier || doc.selectedTier || 'better';
+    if (doc.county) state.county = doc.county;
+    // Fully reset measurements to defaults + the doc's saved values, so a field
+    // a PREVIOUS reopen/session set (stories, accessLevel, chimney flags, …)
+    // that this doc doesn't carry can't bleed into the reopened estimate.
+    state.measurements = {
+      rawSqft: Number(doc.raw) || 0,
+      pitch: _parsePitchRise(doc.pl),
+      waste: Number(doc.wf) || 1.15,
+      ridgeLf: Number(doc.ridge) || 0,
+      eaveLf: Number(doc.eave) || 0,
+      rakeLf: 0, hipLf: Number(doc.hip) || 0, valleyLf: 0, wallLf: 0,
+      pipes: Number(doc.pipes) || 0, chimneys: 0, skylights: 0, stories: 1,
+      tearOffLayers: 1, deckReplacePct: 0.15, cutUpRoof: false,
+      hasChimneyFlash: false, hasSkylightFlash: false, valleyMetalLf: 0, guttersLf: 0,
+      accessLevel: 'standard',
+    };
+    // Rebuild the scope from the saved catalog codes (skip pass-through/service
+    // rows, which aren't catalog items). Quantities re-resolve from measurements.
+    state.scope = (doc.rows || [])
+      .filter((r) => r && r.code && !/^SVC /.test(r.code) && r.source !== 'passthru')
+      .map((r) => ({ code: r.code, overrides: {} }));
+    // Repopulate pass-through fees (measurement report, e-sign, permit upcharge)
+    // from the saved SVC/passthru rows — else the FIRST edit after reopen drops
+    // them from the live re-resolve (getCurrentEstimate reads state.passThru)
+    // and the next save loses the fee + understates grandTotal/deposit.
+    state.passThru = (doc.rows || [])
+      .filter((r) => r && r.code && (/^SVC /.test(r.code) || r.source === 'passthru'))
+      .map((r) => ({ code: r.code, desc: r.desc,
+        amount: Number(r.total) || Number(r.unitPrice) || 0, source: r.source || 'passthru' }));
+    state._reopenedDoc = doc;
+    state._reopenedClean = true;
+    window._editingEstimateId = estimateId;   // _saveEstimate updates this doc
+    window._v2SavedEstimateId = estimateId;    // sendForSignature scopes to it
+    if (typeof syncCustomerInputs === 'function') syncCustomerInputs();
+    // Push the rehydrated measurements into their DOM inputs too — otherwise the
+    // left pane shows the PRIOR session's values and the rep's first edit writes
+    // one key over a stale-DOM baseline (the rest stays wrong).
+    if (typeof syncMeasurementInputs === 'function') syncMeasurementInputs();
+    return true;
+  }
+
+  // The estimate to render/save RIGHT NOW: on a clean reopen of a 3A-capable
+  // doc, replay the saved numbers faithfully; otherwise re-resolve live.
+  function effectiveEstimate() {
+    if (state._reopenedClean && state._reopenedDoc) {
+      const replay = _reconstructEstimateFromSaved(state._reopenedDoc);
+      if (replay) return replay;
+    }
+    return getCurrentEstimate();
+  }
+
   // ═════════════════════════════════════════════════════════
   // Finalization — opens formatted estimate in new window
   // ═════════════════════════════════════════════════════════
@@ -2023,7 +2177,9 @@
       ? window.showToast(msg, kind || 'error')
       : console.warn('[V2 preview]', kind || 'info', msg);
 
-    const estimate = getCurrentEstimate();
+    // 3B: on a clean reopen of a 3A-capable doc this replays the saved numbers
+    // (B-8 retail honored); otherwise it re-resolves live.
+    const estimate = effectiveEstimate();
     if (!estimate) {
       toast('Add line items to the scope before generating a preview.', 'error');
       return;
@@ -2154,8 +2310,9 @@
       if (statusEl) { statusEl.textContent = msg; statusEl.style.color = color || '#888'; }
     };
 
-    // Guard: no scope
-    const estimate = getCurrentEstimate();
+    // Guard: no scope. 3B: a clean reopen re-saves the faithful replay so the
+    // persisted numbers (and markup) survive a reopen→save round-trip.
+    const estimate = effectiveEstimate();
     if (!estimate) {
       setStatus('Add line items to the scope first.', '#c53030');
       return;
@@ -2476,6 +2633,21 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     opts = opts || {};
     ensureModal();
     document.getElementById('estV2Modal').classList.add('open');
+    // 3B: reopen a saved V2 estimate (routed here from the estimates list).
+    // Rehydrate its state and render — takes precedence over draft restore.
+    if (opts.estimateId) {
+      if (rehydrateFromSaved(opts.estimateId)) {
+        if (typeof window.showToast === 'function') window.showToast('Estimate loaded — review, regenerate docs, or edit', 'info');
+        render();
+        return;
+      }
+      // Fall through to a normal open if the doc wasn't found.
+    } else {
+      // Fresh open (from a lead or a draft) — NOT a reopen. Clear any stale
+      // replay state so we don't render a previous reopen's saved numbers.
+      state._reopenedDoc = null;
+      state._reopenedClean = false;
+    }
     // F7: if there's a draft AND the caller didn't pass a leadId
     // (i.e. fresh "start new estimate" click), offer to restore it.
     // Prefilling from a lead overrides any stale draft since the
@@ -2506,6 +2678,14 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
   function close() {
     const m = document.getElementById('estV2Modal');
     if (m) m.classList.remove('open');
+    // 3B: closing a reopened estimate clears the replay + editing state so a
+    // stale window._editingEstimateId can't bleed into the Classic builder's
+    // next save (the two builders share that global).
+    if (state._reopenedDoc) {
+      if (window._editingEstimateId === state._reopenedDoc.id) window._editingEstimateId = null;
+      state._reopenedDoc = null;
+      state._reopenedClean = false;
+    }
   }
 
   window.EstimateV2UI = {
@@ -2523,10 +2703,15 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     finalize,
     save,
     getState: () => state,
-    // Test seam — pure payload builders, exercised by tests/estimate-v2-payload.test.js.
+    // Test seam — pure builders + reopen helpers, exercised by
+    // tests/estimate-v2-payload.test.js.
     _test: {
       buildEstimatePayload: _buildEstimatePayload,
       buildSavePayload: _buildSavePayload,
+      reconstructEstimateFromSaved: _reconstructEstimateFromSaved,
+      rehydrateFromSaved: rehydrateFromSaved,
+      effectiveEstimate: effectiveEstimate,
+      getState: () => state,
     },
   };
 
