@@ -26,6 +26,8 @@
 const path = require('path');
 const shared = require(path.join(__dirname, '..', 'functions', 'handlers', '_shared.js'));
 const { normalizeRole, requireTeamAdmin, callerMayManageTarget, INVITE_ALLOWED_ROLES, TEAM_ROLES, SUBORDINATE_ROLES } = shared;
+// Remediation script's pure triage logic (import-safe — main() is require.main-guarded).
+const { classifyClaims } = require(path.join(__dirname, '..', 'scripts', 'audit-claim-escalation.js'));
 
 let passed = 0, failed = 0; const fails = [];
 function ok(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name); } else { failed++; fails.push(name); console.log('  ✗ ' + name); } }
@@ -148,6 +150,28 @@ async function passesPreReadGuard(name, p) {
   ok("global admin → manageable regardless of target companyId",
     callerMayManageTarget({ companyId: 'co-B' }, 'co-A', true, false) === true
     && callerMayManageTarget({}, 'co-A', true, false) === true);
+
+  // ── Remediation triage: classifyClaims (scripts/audit-claim-escalation.js) ──
+  // Drives the dry-run report + which access-code accounts --apply resets.
+  console.log('\nclassifyClaims — post-incident remediation triage');
+  ok("self-keyed company_admin (companyId===uid) → critical (exploit signature)",
+    classifyClaims({ uid: 'u1', role: 'company_admin', companyId: 'u1', isAccessCode: true, expectedRole: 'member' }) === 'critical');
+  ok("self-keyed subordinate (member, companyId===uid) → critical",
+    classifyClaims({ uid: 'u1', role: 'member', companyId: 'u1', isAccessCode: true, expectedRole: 'member' }) === 'critical');
+  ok("self-keyed but NON-access-code → still critical (flag for manual review)",
+    classifyClaims({ uid: 'u1', role: 'company_admin', companyId: 'u1', isAccessCode: false, expectedRole: null }) === 'critical');
+  ok("legit solo owner {} (no role, no companyId) → ok",
+    classifyClaims({ uid: 'u1', role: undefined, companyId: undefined, isAccessCode: false, expectedRole: null }) === 'ok');
+  ok("clean access-code member (bare role, no companyId) → ok",
+    classifyClaims({ uid: 'u1', role: 'member', companyId: undefined, isAccessCode: true, expectedRole: 'member' }) === 'ok');
+  ok("access-code member drifted to company_admin (no companyId) → review",
+    classifyClaims({ uid: 'u1', role: 'company_admin', companyId: undefined, isAccessCode: true, expectedRole: 'member' }) === 'review');
+  ok("access-code member adopted into a foreign company → review",
+    classifyClaims({ uid: 'u1', role: 'member', companyId: 'co-B', isAccessCode: true, expectedRole: 'member' }) === 'review');
+  ok("platform admin self-keyed (role 'admin') → ok (admin excluded from critical)",
+    classifyClaims({ uid: 'u1', role: 'admin', companyId: 'u1', isAccessCode: false, expectedRole: null }) === 'ok');
+  ok("legit team member in another company (not access-code) → ok",
+    classifyClaims({ uid: 'u1', role: 'sales_rep', companyId: 'co-B', isAccessCode: false, expectedRole: null }) === 'ok');
 
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);

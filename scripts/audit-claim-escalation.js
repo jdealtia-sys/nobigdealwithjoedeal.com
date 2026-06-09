@@ -115,6 +115,20 @@ async function findPhantomCompanies(db, accessCodeUids) {
   return phantoms;
 }
 
+// Pure classification of a user's custom claims. Exported for unit tests.
+//   'critical' — role-bearing AND companyId === uid (self-keyed phantom company,
+//                the escalation signature; platform 'admin' is excluded).
+//   'review'   — access-code-sourced AND drifted off the expected bare { role }
+//                (has any companyId, or a role other than the intended one).
+//   'ok'       — bare access-code { role }, a normal owner, or a platform admin.
+function classifyClaims({ uid, role, companyId, isAccessCode, expectedRole }) {
+  const r = typeof role === 'string' ? role.trim().toLowerCase() : null;
+  const cid = companyId || null;
+  if (r && r !== 'admin' && cid && cid === uid) return 'critical';
+  if (isAccessCode && (cid || (r && r !== expectedRole))) return 'review';
+  return 'ok';
+}
+
 async function main() {
   init();
   const db = admin.firestore();
@@ -142,17 +156,15 @@ async function main() {
       const role = typeof claims.role === 'string' ? claims.role.trim().toLowerCase() : null;
       const cid = claims.companyId || null;
       const isAccessCode = acUsers.has(u.uid);
+      const expected = isAccessCode ? acUsers.get(u.uid).intendedRole : null;
 
-      // CRITICAL — self-keyed phantom company (the exploit signature).
-      if (role && role !== 'admin' && cid && cid === u.uid) {
+      const tier = classifyClaims({ uid: u.uid, role: claims.role, companyId: claims.companyId, isAccessCode, expectedRole: expected });
+      if (tier === 'critical') {
+        // CRITICAL — self-keyed phantom company (the exploit signature).
         critical.push({ uid: u.uid, email: u.email || null, role, companyId: cid, isAccessCode });
-        continue;
-      }
-      // REVIEW — access-code user that drifted off the expected bare {role}.
-      if (isAccessCode) {
-        const expected = acUsers.get(u.uid).intendedRole;
-        const drifted = cid || (role && role !== expected);
-        if (drifted) review.push({ uid: u.uid, email: u.email || null, role, companyId: cid, expectedRole: expected });
+      } else if (tier === 'review') {
+        // REVIEW — access-code user that drifted off the expected bare {role}.
+        review.push({ uid: u.uid, email: u.email || null, role, companyId: cid, expectedRole: expected });
       }
     }
     pageToken = page.pageToken;
@@ -211,8 +223,15 @@ async function main() {
   process.exit(failed ? 1 : 0);
 }
 
-main().catch(e => {
-  console.error('FAILED:', e.message || e);
-  console.error(e.stack);
-  process.exit(1);
-});
+// Only execute when run directly (`node scripts/audit-claim-escalation.js`).
+// Guarded so tests can require() this module for classifyClaims without
+// initializing the Admin SDK or touching any project.
+if (require.main === module) {
+  main().catch(e => {
+    console.error('FAILED:', e.message || e);
+    console.error(e.stack);
+    process.exit(1);
+  });
+}
+
+module.exports = { classifyClaims };

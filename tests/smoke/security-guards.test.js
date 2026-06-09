@@ -70,6 +70,26 @@ function run(ctx) {
   assert('outbound senders gate on sms_opt_outs before sending',
     // sendSMS / sendD2DSMS live in the same module and must consult the list.
     (sms.match(/sms_opt_outs/g) || []).length >= 2);
+
+  // ── Claim-escalation remediation script: safety invariants ──
+  // scripts/audit-claim-escalation.js mutates prod Auth claims under --apply.
+  // These guards ensure it can't regress to auto-applying or running on import.
+  section('SECURITY GUARDS — claim-escalation audit script');
+  const audit = read(path.join(FUNCTIONS, '..', 'scripts', 'audit-claim-escalation.js'));
+  assert('audit script defaults to DRY RUN (report only)',
+    /DRY RUN \(report only\)/.test(audit));
+  assert('audit script mutates only with BOTH --apply and --yes',
+    /const APPLY = process\.argv\.includes\('--apply'\)/.test(audit)
+    && /const CONFIRMED = process\.argv\.includes\('--yes'\)/.test(audit)
+    && /if \(!APPLY \|\| !CONFIRMED\)/.test(audit));
+  assert('audit script is import-safe (guards main on require.main)',
+    /require\.main === module/.test(audit));
+  assert('audit remediation is scoped to access-code CRITICAL only',
+    /critical\.filter\(c => c\.isAccessCode\)/.test(audit));
+  assert('audit script revokes sessions after a claim reset',
+    /revokeRefreshTokens/.test(audit));
+  assert('audit script exports classifyClaims (unit-tested)',
+    /module\.exports = \{ classifyClaims \}/.test(audit));
 }
 
 module.exports = { run };
