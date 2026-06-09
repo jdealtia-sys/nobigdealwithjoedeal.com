@@ -211,6 +211,98 @@ ok('retail-quote: custom-category line still appears in bullet list', /Cricket F
 const insNormal = renderFmt(NBD_BRAND, 'insurance-scope');
 ok('insurance-scope: normal estimate has no stray Structural section', !/Structural/.test(insNormal));
 
+// ════════════════════════════════════════════════════════════════════
+// B-8 (Jo-approved): line items priced at RETAIL so the scope reconciles.
+// A consistent mini-estimate (markup 25%) — assert the visible line totals are
+// retail, the category subtotals + grand "Line Item Total" reconcile, the O&P
+// ladder lands on Subtotal, and the OLD cost-basis line total is gone.
+//   Line A (roofing): 10 SQ × $100 mat + $50 lab → retail = 1000×1.25 + 500 = 1,750
+//   Line B (labor):   10 SQ × $0 mat  + $45 lab → retail = 0 + 450 = 450
+//   Line Item Total = 2,200 ; +Overhead 220 +Profit 220 = Subtotal 2,640
+// ════════════════════════════════════════════════════════════════════
+console.log('\nESTIMATE RENDER — line items at retail, scope reconciles (B-8)');
+function reconFixture() {
+  return {
+    estimate: {
+      materialMarkupPct: 0.25,
+      materialCost: 1000, materialRetail: 1250, laborCost: 950,
+      retailBeforeOHP: 2200, overhead: 220, profit: 220,
+      overheadPct: 0.10, profitPct: 0.10, subtotal: 2640,
+      taxRate: 0, tax: 0, total: 2650, tier: 'better', mode: 'retail',
+      lines: [
+        { code: 'A', name: 'Architectural Shingles', category: 'roofing', quantity: 10, unit: 'SQ',
+          materialCostPerUnit: 100, laborCostPerUnit: 50, materialTotal: 1000, laborTotal: 500, lineTotal: 1500, codeRefs: {} },
+        { code: 'B', name: 'Tear-off', category: 'labor', quantity: 10, unit: 'SQ',
+          materialCostPerUnit: 0, laborCostPerUnit: 45, materialTotal: 0, laborTotal: 450, lineTotal: 450, codeRefs: {} }
+      ]
+    },
+    meta: { customer: { name: 'Jane', address: '1 St' }, claim: {}, estimate: { date: FIXED, number: null } }
+  };
+}
+function renderRecon() {
+  const fin = loadFin(NBD_BRAND);
+  try {
+    const f = reconFixture();
+    const res = fin.formatEstimate(f.estimate, 'insurance-scope', f.meta);
+    return (res && res.html) || 'RENDER_ERROR: no html';
+  } catch (e) { return 'RENDER_ERROR: ' + (e && e.message); }
+}
+const recon = renderRecon();
+ok('B-8: line A shows RETAIL total $1,750.00 (not cost $1,500.00)', /1,750\.00/.test(recon));
+ok('B-8: cost-basis line total $1,500.00 is gone', !/1,500\.00/.test(recon));
+ok('B-8: grand "Line Item Total" row present', /Line Item Total/.test(recon));
+ok('B-8: Line Item Total = $2,200.00 (= 1,750 + 450 category subtotals)', /2,200\.00/.test(recon));
+ok('B-8: Overhead $220.00 + Profit $220.00 on the ladder', (recon.match(/220\.00/g) || []).length >= 2);
+ok('B-8: Subtotal $2,640.00 = Line Item Total + O&P', /2,640\.00/.test(recon));
+ok('B-8: RCV $2,650 present (fmtMoneyBig)', /\$2,650/.test(recon));
+ok('B-8: stale "Material Cost"/"Labor Cost" aggregate rows removed', !/>Material Cost</.test(recon) && !/>Labor Cost</.test(recon));
+
+// Pass-through line (e.g. $75 measurement report): carries only lineTotal/
+// unitPrice + category 'Services', no material/labor basis. It must render at
+// FACE ($75) — not $0 — and stay in the Line Item Total so the scope still sums
+// to RCV. (Regression guard for the B-8 helper fallback.)
+function reconWithPassThru() {
+  const f = reconFixture();
+  f.estimate.lines.push({
+    code: 'SVC RPT', name: 'Aerial Measurement Report', quantity: 1, unit: 'ea',
+    unitPrice: 75, lineTotal: 75, category: 'Services', source: 'passthru'
+  });
+  // getCurrentEstimate adds the face amount onto subtotal+total:
+  f.estimate.subtotal = 2640 + 75;   // 2,715
+  f.estimate.total = 2650 + 75;      // 2,725
+  return f;
+}
+function renderReconPT() {
+  const fin = loadFin(NBD_BRAND);
+  try { const f = reconWithPassThru(); return (fin.formatEstimate(f.estimate, 'insurance-scope', f.meta).html) || ''; }
+  catch (e) { return 'RENDER_ERROR: ' + (e && e.message); }
+}
+const reconPT = renderReconPT();
+ok('B-8 passthru: $75 service line renders at FACE (not $0)', /75\.00/.test(reconPT));
+ok('B-8 passthru: Services section present', /Services/.test(reconPT));
+ok('B-8 passthru: Line Item Total = $2,275.00 (2,200 + 75)', /2,275\.00/.test(reconPT));
+ok('B-8 passthru: Subtotal $2,715.00 = Line Item Total + O&P', /2,715\.00/.test(reconPT));
+
+// Min-job floor: when RCV is raised to the shop minimum, show the adjustment so
+// Subtotal → RCV stays an honest ladder (no unexplained jump).
+function reconMinJob() {
+  return {
+    estimate: {
+      materialMarkupPct: 0.25, materialCost: 80, materialRetail: 100, laborCost: 0,
+      retailBeforeOHP: 100, overhead: 10, profit: 10, overheadPct: 0.10, profitPct: 0.10,
+      subtotal: 120, taxRate: 0, tax: 0, total: 2500, minJobApplied: true, tier: 'better', mode: 'retail',
+      lines: [{ code: 'A', name: 'Patch', category: 'roofing', quantity: 1, unit: 'SQ',
+        materialCostPerUnit: 80, laborCostPerUnit: 0, materialTotal: 80, laborTotal: 0, lineTotal: 80, codeRefs: {} }]
+    },
+    meta: { customer: { name: 'Jane', address: '1 St' }, claim: {}, estimate: { date: FIXED, number: null } }
+  };
+}
+const reconMin = (function () { const fin = loadFin(NBD_BRAND); const f = reconMinJob(); try { return fin.formatEstimate(f.estimate, 'insurance-scope', f.meta).html || ''; } catch (e) { return 'RENDER_ERROR: ' + e.message; } })();
+ok('B-8 min-job: "Minimum Job Charge Adjustment" row present', /Minimum Job Charge Adjustment/.test(reconMin));
+ok('B-8 min-job: adjustment $2,380.00 (2,500 − 120) shown', /2,380\.00/.test(reconMin));
+ok('B-8 min-job: RCV $2,500', /\$2,500/.test(reconMin));
+ok('B-8 normal: no spurious min-job row', !/Minimum Job Charge Adjustment/.test(recon));
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILED: ' + fails.join(', ')); process.exit(1); }

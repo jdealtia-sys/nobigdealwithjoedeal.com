@@ -131,6 +131,39 @@
     return sections;
   }
 
+  // ── Per-line RETAIL pricing for the Xactimate scope (B-8 / V2-6, Jo-approved
+  //    2026-06-08). The line-item scope must show each line at its RETAIL price
+  //    so the line totals sum to the pre-O&P retail and reconcile with the
+  //    Financial Summary (Line Item Total → +O&P → +Tax → RCV). Material carries
+  //    the shop markup (materialMarkupPct, default 25%); labor is shown as-is —
+  //    its margin comes through O&P, matching the engine's rollup
+  //    (retailBeforeOHP = materialCost×(1+markup) + laborCost). Falls back to
+  //    qty × per-unit when the engine didn't pre-compute the *Total fields. ──
+  function lineMatTotal(l) {
+    return l.materialTotal != null ? Number(l.materialTotal) : (Number(l.quantity) || 0) * (Number(l.materialCostPerUnit) || 0);
+  }
+  function lineLabTotal(l) {
+    return l.laborTotal != null ? Number(l.laborTotal) : (Number(l.quantity) || 0) * (Number(l.laborCostPerUnit) || 0);
+  }
+  function lineMatRetailPerUnit(l, markup) {
+    return (Number(l.materialCostPerUnit) || 0) * (1 + markup);
+  }
+  function lineRetailTotal(l, markup) {
+    const mat = lineMatTotal(l);
+    const lab = lineLabTotal(l);
+    // Pass-through / pre-priced line (e.g. the $75 aerial-measurement report, an
+    // e-sign or permit upcharge): no material or labor cost basis, but a flat
+    // lineTotal / unitPrice was set directly. Show it at FACE — markup and O&P
+    // don't apply to a pass-through fee — and keep it in the Line Item Total so
+    // the scope still sums to RCV. (getCurrentEstimate adds the same face amount
+    // straight onto subtotal+total, so Line Item Total + O&P still == Subtotal.)
+    if (mat === 0 && lab === 0) {
+      if (l.lineTotal != null) return Number(l.lineTotal) || 0;
+      if (l.unitPrice != null) return (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0);
+    }
+    return mat * (1 + markup) + lab;
+  }
+
   // ═════════════════════════════════════════════════════════
   // Per-tenant brand resolution (TenantContext — see company-profile.js)
   //
@@ -333,14 +366,19 @@
       </div>
     `;
 
-    // Build scope tables grouped by category
+    // Build scope tables grouped by category. Lines are priced at RETAIL
+    // (B-8): material × (1+markup), labor as-is, so category subtotals sum to
+    // the pre-O&P retail (scopeGrand) shown as "Line Item Total" below — which
+    // reconciles with the Financial Summary's O&P → RCV ladder.
+    const markup = Number(estimate.materialMarkupPct != null ? estimate.materialMarkupPct : 0.25);
     let scopeTables = '';
+    let scopeGrand = 0;
     categorySections(groups).forEach(catDef => {
       const lines = catDef.lines;
 
       let catSubtotal = 0;
       const rows = lines.map(line => {
-        catSubtotal += line.lineTotal;
+        catSubtotal += lineRetailTotal(line, markup);
         const reason = line.reason
           ? `<div class="reason">${escapeHtml(line.reason)}</div>`
           : '';
@@ -364,13 +402,14 @@
               ${codeRefsHtml}
             </td>
             <td class="num">${fmtQty(line.quantity, line.unit)} ${escapeHtml(line.unit || '')}</td>
-            <td class="num">${fmtMoney(line.materialCostPerUnit)}</td>
+            <td class="num">${fmtMoney(lineMatRetailPerUnit(line, markup))}</td>
             <td class="num">${fmtMoney(line.laborCostPerUnit)}</td>
-            <td class="num"><strong>${fmtMoney(line.lineTotal)}</strong></td>
+            <td class="num"><strong>${fmtMoney(lineRetailTotal(line, markup))}</strong></td>
           </tr>
         `;
       }).join('');
 
+      scopeGrand += catSubtotal;
       scopeTables += `
         <div class="cat-hdr">${escapeHtml(catDef.label)}</div>
         <table>
@@ -397,6 +436,22 @@
       `;
     });
 
+    // Grand "Line Item Total" — the sum of every category subtotal (retail,
+    // pre-O&P). This is the anchor the Financial Summary's O&P ladder builds on,
+    // so the visible scope always adds up to the RCV.
+    scopeTables += `
+      <table>
+        <tbody>
+          <tr class="cat-subtotal grand-row">
+            <td></td>
+            <td><strong>Line Item Total (before O&amp;P)</strong></td>
+            <td colspan="3"></td>
+            <td class="num"><strong>${fmtMoney(scopeGrand)}</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+
     // Financial summary
     const ohp = (estimate.overhead || 0) + (estimate.profit || 0);
     const acv = claim.acv || null;
@@ -404,15 +459,27 @@
     const depreciation = claim.recoverableDepreciation || null;
     const deductible = claim.deductible || 0;
 
+    // Line items are shown at RETAIL, so they sum to scopeGrand (= the engine's
+    // retailBeforeOHP). The summary then layers O&P → Subtotal → Tax → RCV on
+    // top, so a reader who adds the scope lines lands exactly on Line Item Total
+    // and can follow the math to RCV. (B-8: replaces the old Material/Labor
+    // aggregate rows, which showed retailed material yet didn't match the
+    // cost-basis line totals.)
     const summaryRows = [
-      ['Material Cost', fmtMoney(estimate.materialRetail)],
-      ['Labor Cost', fmtMoney(estimate.laborCost)],
+      ['Line Item Total (before O&P)', fmtMoney(scopeGrand)],
       ['Overhead (' + Math.round((estimate.overheadPct || 0.10) * 100) + '%)', fmtMoney(estimate.overhead)],
       ['Profit (' + Math.round((estimate.profitPct || 0.10) * 100) + '%)', fmtMoney(estimate.profit)],
       ['Subtotal', fmtMoney(estimate.subtotal)]
     ];
     if (estimate.taxRate && estimate.taxRate > 0) {
       summaryRows.push(['Sales Tax (' + (estimate.taxRate * 100).toFixed(2) + '%)', fmtMoney(estimate.tax)]);
+    }
+    // When the job fell under the shop minimum, RCV was raised to the minimum —
+    // show that adjustment so Subtotal → RCV still reads as an honest ladder
+    // instead of an unexplained jump.
+    if (estimate.minJobApplied) {
+      const minAdj = rcv - (Number(estimate.subtotal) || 0) - (Number(estimate.tax) || 0);
+      if (Math.round(minAdj) !== 0) summaryRows.push(['Minimum Job Charge Adjustment', fmtMoney(minAdj)]);
     }
     summaryRows.push(['REPLACEMENT COST VALUE (RCV)', fmtMoneyBig(rcv), 'grand']);
     if (acv) {

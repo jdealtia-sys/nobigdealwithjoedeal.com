@@ -67,6 +67,11 @@ The saved `grandTotal` and the retail-quote headline use the **line-item cost-pl
 ### ✅ B-6 (V2-5, MED-HIGH) — CSP blocks `new Function()` formula evaluator — **SHIPPED** (branch `feat/estimate-csp-formula-eval`)
 `docs/pro/js/estimate-logic-engine.js` `calcQuantity` used `new Function()`, blocked by prod CSP (`unsafe-eval` absent) → formula-qty line items resolved to 0. **Done:** replaced Layer 2 with `safeEvalFormula` — a CSP-safe recursive-descent evaluator over the same bounded grammar (`+ - * / %`, unary `+ - !`, comparisons, `&& ||`, ternary, parens, whitelisted vars, the 8 Math helpers bare or as `Math.*`), JS-faithful semantics, numbers/booleans only. Layer 1 whitelist unchanged. Proven identical to the old path by `tests/estimate-formula-eval.test.js` (513 differential comparisons + value pins + escape-rejection), wired into `npm test` as `test:formulaeval`.
 
+### ✅ B-8 (V2-6, MED) — line-item Xactimate scope: visible line totals don't reconcile to the summary — **SHIPPED, Option A (Jo-approved 2026-06-08)**
+**Resolution (Option A — line items at retail, Xactimate-standard):** `formatInsuranceScope` now prices each scope line at RETAIL (`material × (1+markup)`, labor as-is), so category subtotals sum to a grand **"Line Item Total (before O&P)"** = the engine's `retailBeforeOHP`. The Financial Summary was rebuilt as a reconciling ladder: Line Item Total → Overhead → Profit → Subtotal → (Tax) → RCV, replacing the old Material/Labor aggregate rows that showed retailed material yet didn't match the cost-basis line totals. Pass-through lines (e.g. the $75 measurement report) render at FACE and stay in the Line Item Total (markup/O&P don't apply to a flat fee), and a "Minimum Job Charge Adjustment" row now explains any min-job RCV bump. Internal-view keeps its cost basis; retail/single-quote (bullets, no per-line price) are untouched. Tested in `estimate-render.test.js` (B-8 block: retail line totals, ladder reconciliation, pass-through face-value, min-job adjustment). **Latent caveat (not on live path):** the scope reads `estimate.materialMarkupPct ?? 0.25`; the live engine always persists it, but if a future saved/round-tripped insurance estimate strips it, a non-default-markup scope would fall back to 25% and disagree with the engine total — carry `materialMarkupPct` through any insurance-estimate persistence.
+
+<details><summary>Original finding (for history)</summary>
+
 ### B-8 (V2-6, MED) — line-item Xactimate scope: visible line totals don't reconcile to the summary ⚠ NEEDS JO SIGN-OFF (money presentation)
 Found while polishing the line-item format (2e). In `estimate-finalization.js formatInsuranceScope`, each scope line shows **cost-basis** numbers: `Material = materialCostPerUnit`, `Labor = laborCostPerUnit`, `Line Total = qty × (matCost + labCost)`. So the category subtotals sum to **`hardCost`** (`materialCost + laborCost`). But the **Financial Summary**'s first row, "Material Cost", shows **`materialRetail` = materialCost × 1.25** (the 25% material markup). Result: an adjuster who adds up the visible scope lines gets `hardCost`, then the summary jumps to a higher material figure — the line items and the summary **don't reconcile**, and there is no per-line retail price computed anywhere (markup is applied only in aggregate in `resolveEstimate`).
 
@@ -76,6 +81,8 @@ This is a presentation/credibility issue on an insurance scope, not a total erro
 - **(C) Leave as-is** — not recommended; the scope and summary won't add up for a careful reader.
 
 Shipped alongside this finding (safe, no number change): the **never-drop-a-line catch-all** — a line whose `category` isn't in `CAT_ORDER` (custom/future-catalog) now renders under a titleized section instead of being silently dropped from the table while still counting in RCV. Tested in `estimate-render.test.js`.
+
+</details>
 
 ### B-7 (V2-4, MED) — server-side doc render returns INTERNAL
 Investigate the cloud-function render path (`[V2 finalize] server render failed, falling back: INTERNAL`). Confirm whether EMAIL/DOWNLOAD-PDF depends on it; if so, customer PDFs may be failing while the in-app preview (client fallback) looks fine.
