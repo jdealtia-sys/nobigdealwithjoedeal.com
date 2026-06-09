@@ -644,6 +644,7 @@
           <div class="v2-export-btns">
             <button type="button" data-action="finalize" data-arg="insurance-scope">📋 Insurance Scope</button>
             <button type="button" data-action="finalize" data-arg="retail-quote">💼 Retail Quote</button>
+            <button type="button" data-action="finalize" data-arg="single-quote">📄 Single Quote</button>
             <button type="button" data-action="finalize" data-arg="internal-view">🔒 Internal</button>
           </div>
 
@@ -1917,7 +1918,7 @@
     // 'retail-quote' | 'internal-view', but older call sites also use
     // 'internal'. Map legacy aliases so the formatter + titleMap both
     // resolve correctly.
-    const FORMAT_ALIASES = { internal: 'internal-view', retail: 'retail-quote', insurance: 'insurance-scope' };
+    const FORMAT_ALIASES = { internal: 'internal-view', retail: 'retail-quote', insurance: 'insurance-scope', single: 'single-quote' };
     format = FORMAT_ALIASES[format] || format;
 
     const toast = (msg, kind) => (typeof window.showToast === 'function')
@@ -2013,6 +2014,7 @@
       const titleMap = {
         'insurance-scope': 'Insurance Scope',
         'retail-quote': 'Retail Quote',
+        'single-quote': 'Quote',
         'internal-view': 'Internal Estimate View'
       };
       const titleSuffix = state.customer && state.customer.address

@@ -903,6 +903,17 @@ ${orderLines}
     };
   }
 
+  // Single-number quote = the retail quote WITHOUT the Good/Better/Best cards.
+  // formatRetailQuote renders the tier cards only when meta.tiers is present, so we
+  // strip it: same layout + "Your Investment" = the selected per-SQ tier total
+  // (set in getCurrentEstimate), no comparison. finalize() already omits meta.tiers
+  // for single-quote, so this is belt-and-suspenders.
+  function formatSingleQuote(estimate, meta) {
+    const metaNoTiers = Object.assign({}, meta || {}, { tiers: null });
+    const out = formatRetailQuote(estimate, metaNoTiers);
+    return Object.assign({}, out, { format: 'single-quote' });
+  }
+
   // ═════════════════════════════════════════════════════════
   // Unified dispatcher
   // ═════════════════════════════════════════════════════════
@@ -920,6 +931,9 @@ ${orderLines}
       case 'internal-view':
       case 'internal':
         return formatInternalView(estimate, meta);
+      case 'single-quote':
+      case 'single':
+        return formatSingleQuote(estimate, meta);
       default:
         return formatRetailQuote(estimate, meta);
     }
@@ -942,6 +956,7 @@ ${orderLines}
     formatEstimate,
     formatInsuranceScope,
     formatRetailQuote,
+    formatSingleQuote,
     formatInternalView,
     openInNewWindow,
 
@@ -956,5 +971,5 @@ ${orderLines}
     BASE_CSS
   };
 
-  console.log('[EstimateFinalization] 3 output formatters ready: insurance-scope, retail-quote, internal-view');
+  console.log('[EstimateFinalization] 4 output formatters ready: insurance-scope, retail-quote, single-quote, internal-view');
 })();
