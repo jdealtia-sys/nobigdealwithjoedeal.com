@@ -119,6 +119,15 @@ const STRESSORS = [
   'Math.pow(2, 3) + Math.sqrt(16)',
   'abs(0 - sq)',
   '1.5 * sq + 0.25',
+  '.5 * sq',
+  'sq * .1 + .05',
+  // Legacy-octal literals: SyntaxError under "use strict" (old path → 0); the
+  // CSP-safe parser must NOT read these as decimal. refEval is strict, so parity
+  // means both return 0.
+  '010 + 0',
+  '017 % 10',
+  '0123 + 0',
+  '00',
   'eaveLf + rakeLf - hipLf',
   'sq > 0 ? adjustedSqft / sq : 0',
   'deckReplacePct * adjustedSqft',

@@ -260,7 +260,12 @@
     function primary() {
       ws();
       if (src[i] === '(') { i++; const v = expr(); ws(); if (src[i] !== ')') throw new Error('expected )'); i++; return v; }
-      const num = /^\d+(?:\.\d+)?/.exec(src.slice(i));
+      // JS strict-mode decimal literals only: 0 · 0.5 · 5 · 5. · 5.5 · .5.
+      // A leading 0 followed by a digit (legacy octal `010`) is a SyntaxError
+      // in strict mode — the old new Function('"use strict";…') path threw and
+      // returned 0, so we must NOT read `010` as decimal 10. The leading 0 here
+      // matches as a lone `0`, leaving `10` to fail the trailing-input check.
+      const num = /^(?:0(?:\.\d*)?|[1-9]\d*(?:\.\d*)?|\.\d+)/.exec(src.slice(i));
       if (num) { i += num[0].length; return parseFloat(num[0]); }
       const id = /^[a-zA-Z_$][a-zA-Z0-9_$]*/.exec(src.slice(i));
       if (id) {
