@@ -2885,6 +2885,58 @@
   };
 
   // ── SETTINGS ───────────────────────────────────
+  // Populate the Profile tab from the saved user doc. The boot-time
+  // onAuthStateChanged priming (see ~line 1047) runs while these inputs
+  // are still inert inside <template id="tpl-view-settings">, so every
+  // getElementById there returns null and the writes no-op. This runs
+  // from switchSettingsTab('profile') AFTER _hydrateViewTemplate has
+  // cloned the template into the live DOM, so the fields reflect what
+  // was actually saved (default-ON digest/nudge: only OFF when the
+  // stored value is explicitly false — matches the cron `=== false`
+  // opt-out checks in functions/weekly-digest.js + dormant-leads.js).
+  window._loadProfileSettings = async function() {
+    const u = window._user;
+    if (!u) return;
+    const _setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    // Display Name + Email come straight off the auth user (no read needed).
+    _setVal('settingsName',  u.displayName || '');
+    _setVal('settingsEmail', u.email || '');
+    try {
+      const usrSnap = await getDoc(doc(db, 'users', u.uid));
+      if (!usrSnap.exists()) return;
+      const d = usrSnap.data();
+      // Cal.com username + shareable preview link.
+      const calVal = d.calcomUsername || '';
+      _setVal('settingsCalcom', calVal);
+      // Keep the in-memory rep shadow's cal.com username in sync with what we
+      // just read so booking-SMS / portal link helpers use the current value
+      // within this session (parity with the boot-time priming, which also
+      // seeds window._currentRep).
+      window._currentRep = Object.assign({}, window._currentRep || {}, { calcomUsername: calVal });
+      const calPrev = document.getElementById('settingsCalcomPreview');
+      if (calPrev) {
+        if (calVal) {
+          const url = 'https://cal.com/' + calVal;
+          calPrev.textContent = url; calPrev.href = url; calPrev.style.display = '';
+        } else {
+          calPrev.style.display = 'none';
+        }
+      }
+      // Digest + dormant-nudge opt-in: default ON unless explicitly false.
+      const digestEl = document.getElementById('settingsWeeklyDigest');
+      if (digestEl) digestEl.checked = d.weeklyDigestEnabled !== false;
+      const dormantEl = document.getElementById('settingsDormantNudge');
+      if (dormantEl) dormantEl.checked = d.dormantNudgeEnabled !== false;
+      // NOTE (deferred): the Profile tab also renders Company / Phone / Role /
+      // License inputs (#settingsCompany/#settingsPhone/#settingsRole/
+      // #settingsLicense). They are intentionally NOT wired here or in
+      // _saveSettings — they neither persist nor load. Wiring them needs a
+      // product decision (Company overlaps the tenant-wide Company Profile
+      // editor; Phone/Role/License are per-rep) and is tracked as a Tier-A
+      // follow-up — out of scope for this digest/profile-load round-trip fix.
+    } catch (e) { /* silent — rules may deny mid-bootstrap */ }
+  };
+
   window._saveSettings = async () => {
     const name = document.getElementById('settingsName').value.trim();
     // Cal.com username — stored on users/{uid}.calcomUsername so the

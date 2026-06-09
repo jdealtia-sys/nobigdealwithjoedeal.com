@@ -1713,8 +1713,13 @@ section('Wave 5d (A.4) — accent contract on remaining toggle-active states');
     /\.crm-icon-btn\.active\{[\s\S]{0,400}box-shadow:inset 0 0 0 1px var\(--accent-ring\)/.test(dash),
     'expected .crm-icon-btn.active to carry the inset --accent-ring boundary');
   // 2. JS-driven inline orange surfaces in crm.js use --accent-fg.
+  // CO-M-1: the kanban search highlight moved from a buildCard innerHTML
+  // string (<mark style="...">) to a TreeWalker text-node highlighter
+  // (_highlightCardMatches), which creates the <mark> via createElement +
+  // style.cssText. The theme-contrast contract (color via --accent-fg) is
+  // unchanged — only the construction form moved from HTML string to cssText.
   assert('crm.js search-highlight <mark> uses var(--accent-fg)',
-    /<mark style="background:var\(--orange\);color:var\(--accent-fg\)/.test(crmJs),
+    /mark\.style\.cssText\s*=\s*'background:var\(--orange\);color:var\(--accent-fg\)/.test(crmJs),
     'expected the search-highlight <mark> to color via --accent-fg');
   assert('crm.js saveBtn.style.cssText uses var(--accent-fg) + accent-ring',
     /saveBtn\.style\.cssText\s*=\s*'background:var\(--orange\);border:1px solid var\(--orange\);color:var\(--accent-fg\);box-shadow:inset 0 0 0 1px var\(--accent-ring\)/.test(crmJs),
