@@ -1,0 +1,115 @@
+# NBD Pro — Exhaustive QA — Coverage Summary
+
+**Target:** https://nobigdealwithjoedeal.com/pro — LIVE prod, tenant zero (JD).
+**Last session:** `2026-06-09-A`
+
+## Coverage: **137 / 1363 verified (10.1%)**
+
+| status | count |
+|--------|-------|
+| PASS | 121 |
+| FAIL | 0 |
+| BLOCKED | 11 |
+| FIXED | 5 |
+| UNTESTED | 1226 |
+
+> **2026-06-09 remediation session:** all 5 FAIL rows flipped to FIXED — PRs #595/#596/#597/#598/#600 merged + deployed (run 27239108944 green), every fix artifact-verified in served prod content. Behavioral round-trips pending (browser unavailable); checklist in `documentation/qa/remediation-2026-06-09/REMEDIATION-LOG.md`.
+
+### Prior-bug re-verifications (this sweep) ✅
+- **C-1 (`saveLead` no-op)** — RE-VERIFIED **PASS**: ZZ_QA lead created, count 19→20, persisted across reload.
+- **H-5 (owner write persists, no snap-back)** — RE-VERIFIED **PASS**: kanban move new→contacted persisted across full reload (Firestore).
+- **CO-L-1 (Quick Add blank modal)** — RE-VERIFIED **still broken** (root-caused: stale field ids).
+- **CO-M-1 (pipeline search HTML leak)** — RE-VERIFIED **still broken** (severe: corrupts all matching cards).
+- **Dedup** (HIGH-match overlay + create-anyway override + cancel) — verified **PASS**.
+- **Estimate canonical total + rate-takes-effect** — RE-VERIFIED **PASS**: Better-retail @595 = $22,925 (matches estimate-qa); changing the tier rate drives pricing (@999 → $37,950).
+- **Theme apply/persist + mode light/dark** — RE-VERIFIED **PASS** (apply→persist→restore).
+- **Company Profile → doc-gen take-effect** — VERIFIED **PASS**: companyProfile clauses (cancellation statute/window, change-order, payment terms) + brand letterhead flow into a generated Contract (NBDDocGen, 98910-char HTML). NEW-C11 resolved.
+- **H-4 (Ask Joe sendJoeMessage dead button)** — RE-VERIFIED **PASS** (AI round-trip works).
+- **PR#594 (doc preview srcdoc, no freeze)** — RE-VERIFIED **PASS** (90KB srcdoc, no block/freeze).
+- **CO-H-3 (Reports INTERNAL ASSERTION)** — **NOT REPRODUCED** this session (Reports clean; intermittent — monitor).
+- **CO-H-1 (public /inspect lead → CRM bridge)** — RE-VERIFIED **FIXED**: ZZ_QA /inspect submit → lead appeared in CRM instantly (source "Website — Inspection / Storm tool"). (Surfaced NEW-5: bridged leads can't be deleted from CRM.)
+
+### ⚠ Known tooling limit (affects the remaining ~1227 rows)
+Several mutation-heavy / async-loading surfaces keep the page off `document_idle`, which **hangs the CDP browser tools** (`javascript_tool`/screenshot/navigate time out at 45s): **customer.html after any mutation**, the **Settings async tabs** (Team/Billing/Access member+subscription "Loading…"), **Maps/D2D Leaflet**, the **Deleted-Leads drawer**, and **bulk re-renders**. Workarounds proven this session: do single atomic actions; pre-override native dialogs; use `get_page_text` (idle-independent) to read a hung page; reload to recover. But **per-control mutation deep-dives on these surfaces are not reliably automatable via CDP** — they need **Jo-driven clicks (I observe via get_page_text)** or a different tool. The view-render + display + single-action coverage IS reliable; the deep mutation matrix on the hostile surfaces is the gap.
+
+> The denominator **M = 1363** is the result of a 14-surface inventory pass (1149 rows) + a critic-driven gap-fill pass (+214 rows: card-detail modal, mobile nav, delete-confirm boundaries, Prospects, Storm/Close-Board/Rep-OS/Reports deep controls, estimate e-sign, Ask-Joe/analytics/toast/dedup). All fragments valid, zero duplicate IDs.
+
+## By surface (status → as testing proceeds)
+
+| surface | page | rows | priority | done |
+|---------|------|------|----------|------|
+| d1-chrome | dashboard global chrome + nav | 68 | P1 | 52/68 (nav+chrome+cmd palette; 16 top-nav/mobile deferred) |
+| d2-home | dashboard Home widgets | 42 | P1 | 25/42 (widgets+goal+tasks+quickadd; 2 FAIL) |
+| d3-pipeline | Pipeline/Kanban + lead modals | 101 | P1 | 27/101 — **all critical P1 flows verified**; tail remains (see resume) |
+| d4-estimate | Estimate builder V2 | 95 | P1 | — |
+| d5-docs | Documents / PDF generator | 55 | P1 | engine+library+filter+fillModal+**srcdoc preview (PR#594) PASS**; e-sign boundary TODO |
+| d6-photos | Photos engine | 53 | P1 | — |
+| customer | customer.html job detail | 146 | P1 | page loads+renders+nav+SCORE PASS; mutations CDP-idle-hostile (Jo-manual/non-CDP needed) |
+| gap-carddetail | dashboard lead card-detail + task modal | 33 | P1 | — |
+| gap-mobile | dashboard mobile nav/FAB/drawer | 39 | P1 | — |
+| gap-deleteconfirm | destructive confirm boundaries | 17 | P1 | — |
+| gap-prospects | Prospects view + CRM diagnostic | 39 | P1 | — |
+| gap-esign-estimate | estimate e-sign / docviewer bar | 6 | P1 | — |
+| gap-misc | ask-joe/analytics/toast/dedup | 23 | P2 | — |
+| d7-settings | Settings (all tabs) — STRICT BAR | 185 | P2 | 27/185 — **ALL 11 tabs touched**; Help/Access/Team/Billing done (export+GDPR-delete-boundary+tour PASS); **NEW-2 + NEW-4 FAIL; NEW-3 killed; NEW-C10/11/12/13 candidates** |
+| d8-tools | Tools nav group | 123 | P2 | all 5 views render clean (D2D/Drawing/Training/Academy/Products); per-control deep-dives TODO |
+| d9-insights | Insights + Ask Joe + cmd palette | 53 | P2 | Leaderboard/Storm/CloseBoard/RepOS render; **Reports clean (CO-H-3 not-repro)**; **Ask Joe AI round-trip (H-4) PASS**; cmd palette PASS |
+| gap-storm-cb-repos | Storm/CloseBoard/RepOS/Reports deep | 57 | P2 | — |
+| portal | customer portal | 30 | P2 | — |
+| pages-a | estimate-view/photo-review/sign/daily/vault | 82 | P2 | — |
+| pages-b | login/register/analytics/leaderboard/ask-joe/refer/demo/how-to | 54 | P3 | — |
+| public | index/estimate/inspect/free-roof | 62 | P3 | /inspect form submit + **CO-H-1 bridge→CRM PASS**; rest TODO |
+
+## Operational-priority testing order
+1. **P1 daily drivers** — d1-chrome ▸ d2-home ▸ d3-pipeline (+gap-carddetail, gap-deleteconfirm, gap-prospects) ▸ d4-estimate (+gap-esign) ▸ d5-docs ▸ d6-photos ▸ customer ▸ gap-mobile.
+2. **P2 settings & admin** — d7-settings (strict bar) ▸ d8-tools ▸ d9-insights (+gap-storm-cb-repos, gap-misc) ▸ portal ▸ pages-a.
+3. **P3 secondary/public** — pages-b ▸ public.
+
+## ▶ RESUME POINT
+**NEXT (per Jo): `d5-docs` doc-gen take-effect test** — open a lead → Documents → generate a Proposal/Contract → verify (a) Company Profile clauses flow in (confirms d7-006 take-effect), (b) letterhead renders brand-fallback vs blank (resolves **NEW-C11**), (c) doc preview is same-origin srcdoc (re-verify PR #594, no renderer freeze). Then the broader **d5-docs** surface (15 doc types, prereq validation, e-sign boundary).
+**Then:** d8-tools, d9-insights (+ re-verify CO-H-3 Reports assertion), customer.html, gap-prospects, the d3 tail, d2-home remainder, portal, pages-a/b, public.
+
+**d7-settings DONE for this pass (all 11 tabs touched, deep strict-bar on the testable ones).** Untested d7 detail rows remain (individual company/legal/floor inputs, font grid, sidebar customizer, builder color pickers) — lower-value, same proven per-field method. Team/Billing data-loading panels stall ('Loading…', NEW-C10/C13).
+
+_(prior d7 strict-bar method, kept for reference:)_
+**`d7-settings` strict-bar (185 rows, 11 tabs).** Tabs: Profile, Appearance, Estimates, Daily OS, Company, Company Profile, Team, Billing, Notifications, Access, Help. Method per setting: change → Save → **reload → confirm persisted → confirm behavior changes → RESTORE original** (record originals first). Pure toggles (Notifications channels/triggers, Appearance comfort/mode): flip ON→reload→OFF→reload.
+- ⚠ **Test one tab at a time** — cycling all 11 hangs CDP: **Team / Billing / Access load async** (Team member row even shows perpetual "Loading…", NEW-C10) and keep the page off `document_idle`. Safe (synchronous) tabs first: Profile / Appearance / Estimates / Daily OS / Company / Company Profile / Notifications / Help. Pre-override native prompt/confirm for Access (GDPR delete = `_gdprRequestErasure` native confirm → boundary only).
+- Appearance theme picker already opens (d1-021 PASS) — here verify apply→persist→restore NBD-default; mode light/dark; fonts; comfort.
+
+**Then finish `d3-pipeline` tail (74 left):** Still to test —
+- **Bulk-delete boundary** (035) — re-do carefully: enter bulk mode, select **only one ZZ_QA lead** (NOT select-all), click 🗑 DELETE → nbdConfirm `.sa-overlay` → `.sa-btn-cancel` (never `.sa-btn-ok` on real data). Also bulk-move (024)/carrier (026)/snooze (034)/damage/source/jobtype applies → boundary on a single ZZ_QA lead.
+- **Export CSV** (020) via a `URL.createObjectURL`/anchor-click spy (verify CSV content, don't drop a file).
+- ◀ back-move (041), **required-field gate** (049 — bare ZZ_QA lead missing fields → try advance), **lead scoring** badge (verify computes), **classification change** (cdPickType), **Add Task** (overflow), **Move-to-stage submenu**, card-detail action buttons (Photos/Docs/Tasks/Invoice/Report nav + Share-portal=send/Revoke=delete → boundary), Deleted-Leads bin (restore/purge → boundary).
+- Then **d2-home** (004/015/026/027/028/030/031/032-042) and **gap-prospects**.
+
+**Reusable ZZ_QA flow:** Add Lead FAB `#addLeadFab` → fill `#lFname/#lLname/#lAddr/#lEmail(jonathandeal459@gmail.com)/#lDamageType/#lJobValue` → `[data-fn=saveLead]` → delete via card ⋮ → "Delete lead" → `#delConfirmOverlay` "Move to Deleted".
+**⚠ Freeze rules:** single atomic action per JS exec; pre-override native prompt/confirm/alert; ≤3 `NBDWidgets.render()` per exec; do NOT open the Deleted-Leads drawer or select-all+act (they hang CDP at `document_idle`); use `get_page_text` to inspect a hung page, reload to recover.
+  - **d3 (cont. 2):** **Export CSV PASS** (text/csv blob, 19-lead full export, header verified; download suppressed via createObjectURL/anchor spy). **Required-field gate PASS** — bare insurance lead blocked entering claim_filed; modal reopened with "fill these in to advance: Insurance Carrier, Claim Number" + jump anchors (lInsCarrier/lClaimNumber); move did not persist. Gate is stage-specific. Created+deleted a bare ZZ_QA gate-test lead (count restored to 19).
+  - **d3 (cont. 3 — core complete):** **Classification change PASS** (overflow → Cash → re-files to CASH type-tab). **Bulk-delete boundary PASS** (1 selected → native confirm → cancelled, no deletion; bulk-delete = native confirm, not nbdConfirm). Back-move untested (lead re-filed to other type-tab). All ZZ_QA leads cleaned up (count 19, INS tab restored). **d3 core = 27/101, every critical P1 flow verified.**
+  - **d7-settings MAPPED (started):** 11 tabs enumerated. Live cycling hung CDP on the **Team tab** (member row stuck "Loading…" → NEW-C10) — async tabs (Team/Billing/Access) hang when cycled; test one-at-a-time next. Logged BILLING-B1 corroboration: Team tab says "$249/mo, up to 5 reps" (inconsistent w/ marketing $299). No settings mutated yet (strict-bar cycle is next push).
+  - **d7-settings STRICT-BAR STARTED (method proven):** single-tab interaction works (cycling hangs). Appearance tab PASS. **Mode toggle full strict-bar PASS** — ☀️Light → html[data-mode]=light + nbd_pro_mode_pref=light → **persisted across reload** → restored Jo's original 🌙Dark via nbdSetModePref('dark'). Reload via `dashboard.html` (lands on Home/idle) sidesteps the settings-mount hang. Re-verifies theme light/dark mode pref. Next: theme apply/persist/restore, comfort + gx toggles, then Estimates/Daily-OS/Company/Notifications tabs (one at a time).
+  - **d7 (cont.): theme apply strict-bar PASS** (Cobalt → persist → restored ios; re-verifies theme persistence). **BLOCKER for in-panel d7 testing:** the **settings VIEW keeps the page off `document_idle`** (its mount fires the Team-member/subscription async load that never resolves — NEW-C10), so multi-step `javascript_tool` (Runtime.evaluate waits for idle) **hangs at 45s** inside settings. Quick *global* settings work (mode/theme via `nbdSetModePref`/`nbdPickerOpen` from Home, or LS+reload) — that's how mode+theme passed. **Jo's appearance settings verified intact** (theme ios, mode dark, sound off, GX enabled:false [his original — Home was idle all session = no GX animations], font chakra, ui compact). Comfort/GX toggles + Estimates/Daily-OS/Company/Notifications panels remain UNTESTED (the eval-harness hangs on them).
+  - **d7 APPROACH for next push:** drive in-panel settings via (a) **computer-tool coordinate clicks** + `get_page_text` reads (both may bypass the idle-wait), or (b) **LS-key set-from-Home + reload + verify behavior** (bypasses the settings UI), or (c) Jo drives settings while I observe. Do NOT keep using multi-step `javascript_tool` inside the settings view.
+  - **d7 Profile tab (real-usage clicks — works when settings idle):** Profile tab + panel PASS; Email field correctly disabled PASS; **Save Profile (_saveSettings) PASS** (fires + 'Settings saved!' toast, no errors). **🔴 NEW-2 (FAIL):** unchecking **Weekly Digest** + Save → reload → checkbox CHECKED again (×2 cycles). Save writes weeklyDigestEnabled=false, but the Profile LOAD always renders it checked (doesn't read the saved value) — setting can't round-trip in the UI. Inventory-flagged dead Profile fields (Company/Phone/Role/License not read by _saveSettings) noted in BUG-LOG. **Restored Jo's digest to ON.** Confirms computer-clicks + idle-window JS both drive settings; just work in short bursts + reload to recover.
+  - **d7 Estimates tab:** tab + panel PASS; **Better rate FULL strict-bar PASS** — set 999, built a Cash/retail Better estimate → **GRAND TOTAL $37,950** vs $22,925 @595 → rate persists AND drives pricing. **NEW-3 KILLED (false positive)** — the LS `tierRates` cache is stale, not the engine's runtime source. Bonus: **re-verified estimate canonical total** ($22,925 Better-retail @595, matches estimate-qa). Jo's rate restored to 595 (verified across reload).
+  - **d7 Notifications tab:** tab + Save (_saveNotifSettings) + D2D trigger toggle — **full strict-bar PASS** (flip→save→reload persists in nbd_notif_settings AND toggle reflects on load→restore). LS-backed; load correctly reflects saved state. **Sharpens NEW-2:** the Profile digest non-round-trip is a Profile-specific load bug, not a general settings issue (Notifications round-trips fine). Jo's notif settings restored.
+  - **d7 Daily OS tab:** tab + Save (dsSaveConfig) PASS (persists to nbd_user_config). **🔴 NEW-4 (FAIL):** North Star (ds-target) saves to `nbd_user_config.northStar.target` but the **Home north-star widget reads `nbd_ds_config.northStar`** (legacy key, stays empty) → saved North Star never displays (widget stuck on placeholder). Key-mismatch save-but-no-effect. Restored to empty. (Pattern: NEW-2 + NEW-4 are both "save works, load/widget reads wrong source" — a recurring config-key-mismatch theme in Settings.)
+  - **d7 Company tab:** tab + Save (_saveCompanySettings) + field round-trip **PASS** (coWebsite persists to nbd_company_settings keyed by field id; load reads back correctly). All 16 fields empty (Jo uses Company Profile for doc-gen). ⚠ doc-gen take-effect of Company-tab fields unverified — doc-gen sources the **Company Profile** tab (d7-006); test there next. **6 of 11 settings tabs now touched.**
+  - **d7 Company Profile tab:** tab + Save (_saveCompanyProfileSettings) + field round-trip **PASS** (cp_businessWebsite persists via Firestore companyProfile/main; save toast: "new docs will use it"). **NEW-C11 (candidate):** letterhead fields (businessName/phone/email/website/address/license) all EMPTY — verify generated docs fall back to tenant brand vs blank letterhead (test at d5-docs). **7 of 11 settings tabs done.** Remaining d7: Team (async/NEW-C10), Billing (async), Access (GDPR-delete→boundary), Help.
+  - **d7 FINISHED (all 11 tabs touched):** **Help** PASS (Start Tour launches welcome tour, Shortcuts Overlay, Full How-To windowOpen; NEW-C12: Hotkey-Toggles section empty). **Access** PASS (Export All Leads CSV via spy; **GDPR Delete Account driven to native-confirm boundary + cancelled via confirm→false — account safe**; Sign-Out-Everywhere BLOCKED). **Team** renders (NEW-C10 member stuck 'Loading…'; invite SEND = outbound boundary, not fired; '$249/5 reps' copy = BILLING-B1). **Billing** renders (NEW-C13: 'Current Plan: Loading…' stuck; Manage-Subscription → pricing.html, no Stripe portal). d7 scorecard: single-store settings round-trip ✅ (Appearance/Estimates/Notifications/Company/CompanyProfile); fragmented-config FAILs (NEW-2 Profile-digest, NEW-4 north-star). All real settings restored.
+  - **DOC-GEN take-effect test (Jo-requested) — PASS:** NBDDocGen lazy-loads on #docs; `getHTML('contract', lead)` produced a 98910-char branded contract containing the companyProfile clauses (Kentucky statute, cancellation window, change-order, 50% terms) + letterhead. **NEW-C11 resolved** (NBDDocGen.COMPANY brand-fallbacks name/phone/email/website; not blank). Doc-gen ENGINE verified; the full d5-docs UI flow (18 doc-type fillAndGenerate buttons, fill modal, srcdoc preview PR#594, e-sign boundary) is the broader d5 pass. 18 doc types enumerated: proposal/contract/inspectionHomeowner/Insurance/invoice/customer_report/warranty_certificate/cert_of_completion/supplement/scope_of_work/AOB/change_order/work_auth/payment_agreement/material_delivery/thank_you/company_intro/financing.
+  - **D5/D9/D8 multi-surface sweep:** **D5-docs** — Template Library (24 docs/5 cats) + filter chips + card→#docgenFillModal→Generate→**NBDDocViewer srcdoc preview (90KB, no freeze/block, 0 errors) = PR#594 RE-VERIFIED**. **D9-insights** — Leaderboard/Storm/CloseBoard/RepOS render clean (0 errors); **Reports loaded clean → CO-H-3 NOT reproduced** (intermittent, monitor); **Ask Joe AI round-trip PASS** ('🤠 You've got 17 active leads', H-4 sendJoeMessage re-verified). **D8-tools** — all 5 views (D2D/Drawing/Training/Academy/Products) render clean; Products search + 6 Academy tabs present. Remaining: d5 e-sign boundary, d8 per-control deep-dives, customer.html, portal, pages, public, d3 tail, d2 remainder.
+  - **customer.html (P1):** page loads via card-detail 'View Full Customer Details' nav + renders all sections + SCORE chip (36) PASS; **mutation testing CDP-idle-hostile** (stage transition froze tooling) — controls present, effects need Jo-manual/non-CDP. Tooling-limit callout added above.
+  - **CO-H-1 public bridge — RE-VERIFIED FIXED:** ZZ_QA /inspect submit → 'Got it, thanks' → lead in CRM instantly (source 'Website — Inspection / Storm tool'). **NEW-5 (FAIL):** bridged public leads can't be deleted from the CRM (delete completes, lead persists — re-syncs from inspect_leads). ZZ_QA inspect lead left for Jo cleanup (CLEANUP.md). **Crossed 10% (137/1363).**
+Remaining **d2-home** (17 UNTESTED): 004 ✕ remove-widget + 006 hot-lead row (delegated), 015 Open Daily Tracker (window.open _self), 026 Add Widget, 027/028/030/031 picker buttons (backdrop/✕/reset/done — delegated, should work), 032–042 opt-in widgets (need enabling; **033 Quick-Est inputs / 035 Ask-Joe input are inline `on*` → expect FAIL per NEW-1**).
+Deferred **d1-chrome** (16): 001–010 top public nav (hard-nav light pass), 012–013/024–027 mobile (mobile-viewport pass).
+BLOCKED to revisit: 015/017/019/020-d1 notif/recent (need ZZ_QA notification), 029 sign-out (campaign end), 065 Team Manager hidden (NEW-C7), 032 mic.
+⚠ Watch the **renderer freeze**: keep `NBDWidgets.render()` calls ≤3 per JS exec and pre-override native `prompt`/`confirm`/`alert` before clicking controls that use them (goal-edit, account-delete) — they block CDP in a normal tab.
+
+## Session log
+- **2026-06-09-A** — Phase 0 complete (inventory 1149 + gap-fill 214 = M 1363; carryover + bug-log seeded). Phase 1: **d1-chrome 46/68** — 24 sidebar `goTo` nav PASS; header chrome PASS (recent/notif dropdowns, theme picker [screens], theme-guide modal, gear/user-pill→settings, maps→d2d, 3 nav-section collapse toggles [verified visually], customize widget picker, hamburger drawer, New Estimate→builder); 8 BLOCKED (sign-out, notif-mutating, dynamic/conditional, mic). Candidate findings: NEW-C1..C8 (gap-fill statics + Team-Manager-hidden + picker-sync). **No confirmed FAIL** — the nav-section "no-op" was a measurement artifact (offsetParent/transition), corrected via screenshot. Methodology note: use display/class/getBoundingClientRect (not offsetParent) for fixed overlays; screenshot-first for visual toggles. Browser: Chrome, JD session authenticated; no real data mutated; UI state restored.
+  - **d1-chrome 52/68** (added cmd palette 030/031/033/034 + windowOpen 052/063 PASS). **d2-home 25/42**: 12 widget card-navs PASS, Customize/New-Estimate/goal-edit/add-task PASS. **2 FAIL (NEW-1, CONFIRMED):** task-checklist checkbox (011) + Widget-Library toggles (029) use inline `on*` handlers that CSP blocks → flip visually, persist nothing. **CO-L-1 confirmed** (Quick Add → blank modal: stale field ids). **NEW-C9** (in-card buttons bubble to card-nav). All ZZ_QA mutations restored (goal→null, tasks→original, layout→null). Renderer froze twice on stacked re-renders/native prompt — mitigations noted in RESUME.
+  - **d3-pipeline 9/101 — full daily-driver CRUD lifecycle PASS:** created ZZ_QA lead via Add Lead FAB+saveLead (**C-1 re-verified**, 19→20, persisted), moved it new→contacted via ▶ (**H-5 re-verified**, persisted across reload), opened its card-detail modal (15 controls render) + overflow context menu (12 actions), then soft-deleted it via #delConfirmOverlay (20→19). ZZ_QA lead now in Deleted bin (see CLEANUP.md). All real settings restored.
+  - **d3-pipeline 15/101 (cont.):** dedup overlay PASS (HIGH-match on shared address → match-row + Cancel + **Create-anyway** override which stamps `duplicateOf`); **Edit lead** PASS (overflow→Edit prefills edit mode, update persists in place); **Snooze** PASS (modal w/ reason chips + presets + custom date; applies snoozeCount/snoozedUntil); **search FAIL (CO-M-1 confirmed)** — corrupts all matching cards with leaked markup. Created 2 ZZ_QA dedup leads + soft-deleted both (count 21→19); pipeline fully restored. **3 FAIL total: NEW-1 (×2 widget rows), CO-M-1.**
+  - **d3 toolbar (cont.):** type filter / Needs Attention / Stale Shares PASS (filter+restore); Snoozed + Hot-first BLOCKED (no snoozed leads / equal engagement tiers — no observable delta). Bulk: enter bulk mode + Select-all-visible + selected-count PASS (13 selected). **Bulk-delete boundary NOT cleanly tested** — selector ambiguity opened the Deleted-Leads drawer, whose pending load kept the page off `document_idle` and hung CDP (screenshot/navigate/eval all timed out); recovered via reload. **No leads deleted (19 intact).**
+  - **METHODOLOGY:** heavy async drawers (Deleted-Leads bin) + repeated bulk re-renders keep the page non-idle → CDP `executeScript`/screenshot/navigate hang at 45s. `get_page_text` is idle-independent (use it to inspect a hung page); reload recovers. Do bulk/delete tests as single atomic actions; never `selectAllVisibleLeads` then delete on real data.
