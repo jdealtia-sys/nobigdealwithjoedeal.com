@@ -1755,7 +1755,7 @@
   // Tries the renderPdf callable first. Returns true on success so
   // the legacy formatter path can short-circuit. Throws on real
   // errors (which the caller catches and falls back from).
-  async function _tryServerRenderEstimate(format, estimate, meta) {
+  async function _tryServerRenderEstimate(format, estimate, meta, previewHtml) {
     if (!window._functions || !window._httpsCallable) {
       const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
       window._functions = mod.getFunctions();
@@ -1777,6 +1777,10 @@
 
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
       window.NBDDocViewer.open({
+        // Same-origin HTML drives the PREVIEW (renders, never blocked); the
+        // server PDF `url` becomes the high-fidelity Download. Without html the
+        // viewer would embed the cross-origin Storage PDF and get blocked.
+        html:     previewHtml || undefined,
         url:      data.url,
         title:    'Project Estimate' + (payload.preparedFor && payload.preparedFor.name ? ' — ' + payload.preparedFor.name : ''),
         filename: data.filename || filename,
@@ -2282,7 +2286,9 @@
     // server rejects (transient error, missing template, etc.).
     if (format === 'retail-quote' || format === 'internal-view' || format === 'single-quote') {
       try {
-        const ok = await _tryServerRenderEstimate(format, estimate, meta);
+        // Pass the client HTML so the viewer previews it same-origin (renders,
+        // never blocked); the server PDF becomes the Download. See nbd-doc-viewer.
+        const ok = await _tryServerRenderEstimate(format, estimate, meta, result && result.html);
         if (ok) return;
       } catch (e) {
         console.warn('[V2 finalize] server render failed, falling back:', e && e.message || e);
