@@ -60,15 +60,23 @@
           }).join('');
         } catch(e) { console.warn('loadTeamMembers:', e.message); }
       }
-      // Load team when tab opens. Wait for DOMContentLoaded so the
-      // base switchSettingsTab (deferred js/ui.js) is defined — without
-      // this guard the wrapper silently skipped install and the Team
-      // tab opened with whatever rows the previous render left behind.
-      document.addEventListener('DOMContentLoaded', function() {
+      // Load team when tab opens. This script ships INSIDE the lazily-
+      // hydrated tpl-view-settings template, so it is re-executed by
+      // _hydrateViewTemplate() on the first goTo('settings') — AFTER
+      // DOMContentLoaded has already fired. A bare DOMContentLoaded
+      // listener therefore never fires, the wrapper never installs, and
+      // the owner card stays stuck on its 'JD'/'Loading...' placeholder.
+      // Use a readyState guard (same idiom as dashboard-accessory-panel-init.js).
+      function _installTeamTabHook() {
         var _prev = window.switchSettingsTab;
         if (typeof _prev !== 'function') return;
         window.switchSettingsTab = function(tab) {
           _prev(tab);
           if (tab === 'team') loadTeamMembers();
         };
-      });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _installTeamTabHook);
+      } else {
+        _installTeamTabHook();
+      }

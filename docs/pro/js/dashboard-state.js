@@ -265,6 +265,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'updateCertPreview', 'updatePropertyIntelCost', 'uploadPhotos',
   '_mCreatePhotoPicked', 'nbdRenderThemes', 'nbdLiveCustom',
   'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey',
+  // Help tab — Hotkey Toggles grid (dashboard-hotkey-toggles.js); data-on-change delegate
+  'toggleHotkey',
 ]);
 
 // ══════════════════════════════════════════════

@@ -1752,6 +1752,7 @@
       window._leads = snap.docs
         .map(d => ({id:d.id,...d.data()}))
         .filter(l => !l.deleted)
+        .filter(l => l._test !== true) // NEW-C5: never surface a stray testFirestoreRules() probe doc as a real lead
         .filter(l => {
           if (_userRole !== 'sales_rep') return true;
           // sales_rep: keep only own leads

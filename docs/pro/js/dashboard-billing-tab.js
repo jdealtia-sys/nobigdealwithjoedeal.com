@@ -49,7 +49,12 @@
       // available at parse time. Without the wait, billing-tab opens
       // would render whatever was cached last instead of loading the
       // current subscription.
-      document.addEventListener('DOMContentLoaded', function() {
+      // readyState guard: this script ships inside the lazily-hydrated
+      // tpl-view-settings template and is re-executed at hydration, AFTER
+      // DOMContentLoaded has fired — a bare listener never installs the wrapper,
+      // leaving the Billing tab stuck on its 'Loading...' placeholder (same trap
+      // as dashboard-team-tab.js / dashboard-sidebar-customizer.js).
+      function _nbdInstallBillingHook() {
         var _origSwitchSettings = window.switchSettingsTab;
         if (typeof _origSwitchSettings !== 'function') return;
         window.switchSettingsTab = function(tab) {
@@ -75,4 +80,9 @@
             if (typeof nbdRenderFontGrid === 'function') nbdRenderFontGrid();
           }
         };
-      });
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', _nbdInstallBillingHook);
+      } else {
+        _nbdInstallBillingHook();
+      }

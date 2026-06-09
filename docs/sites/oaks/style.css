@@ -23,7 +23,7 @@
   --shadow-lg: 0 8px 32px rgba(0,0,0,0.12);
   --nav-height: 72px;
 }
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; background-color: #1a1a1a !important; } /* Oaks dark (var --dark); !important beats the later-loaded global nbd-mobile.css html{background:#142a52} so the NBD navy does not bleed into Oaks safe-areas/overscroll */
 body { font-family: var(--font-body); color: var(--gray-700); line-height: 1.7; background: var(--white); }
 h1,h2,h3,h4,h5,h6 { font-family: var(--font-heading); line-height: 1.25; color: var(--dark); }
 a { text-decoration: none; color: inherit; }
