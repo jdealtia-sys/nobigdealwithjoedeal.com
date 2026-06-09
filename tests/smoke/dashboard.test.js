@@ -44,6 +44,9 @@ const syntaxFiles = [
   path.join(PRO_JS, 'estimate-finalization.js'),
   path.join(PRO_JS, 'nbd-doc-viewer.js'),
   path.join(PRO_JS, 'template-suite.js'),
+  // Boot-path prefs (de-moji, sizing, fonts, sidebar hidden-prefs) — a
+  // parse error here silently kills every boot-applied UI pref at once.
+  path.join(PRO_JS, 'dashboard-ui-prefs-boot.js'),
   path.join(FUNCTIONS, 'index.js')
 ];
 for (const f of syntaxFiles) {
@@ -2085,6 +2088,50 @@ section('Pro Chrome — icon system + header consolidation');
   assert('CRM action row has ≥3 .crm-hdr-sep dividers between groups',
     (dash.match(/class="crm-hdr-sep"/g) || []).length >= 3,
     'expected at least 3 .crm-hdr-sep elements inside .crm-hdr-actions');
+}
+
+section('Sidebar customizer — hidden prefs apply at real page boot');
+{
+  // The customizer (dashboard-sidebar-customizer.js) ships inside the
+  // lazily-hydrated tpl-view-settings template, so its own apply only runs
+  // once the user first opens Settings → Appearance — saved hidden-nav
+  // prefs came back on every fresh page load until then.
+  // dashboard-ui-prefs-boot.js (a real, non-template <script src> that
+  // executes before the sidebar markup parses) re-applies them at boot:
+  // pre-paint <style> hide, then an inline-style handoff at
+  // DOMContentLoaded. Contract: boot READS nbd_sidebar_hidden; the
+  // customizer remains the single WRITER.
+  const prefsBoot = read(path.join(PRO_JS, 'dashboard-ui-prefs-boot.js'));
+  const sidebarSrc = read(path.join(PRO_JS, 'dashboard-sidebar-customizer.js'));
+  const dashRaw = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+
+  // 1. The boot apply exists and reads the saved prefs.
+  assert('prefs-boot reads nbd_sidebar_hidden at boot',
+    /localStorage\.getItem\('nbd_sidebar_hidden'\)/.test(prefsBoot),
+    'the boot script must apply saved hidden-nav prefs without waiting for the settings template to hydrate');
+  // 2. Single-writer contract: boot never writes the key…
+  assert('prefs-boot stays read-only on nbd_sidebar_hidden (customizer is the single writer)',
+    !/(setItem|removeItem)\('nbd_sidebar_hidden'/.test(prefsBoot),
+    'only dashboard-sidebar-customizer.js may write the key');
+  // 2b. …and the customizer still owns the writes (a key rename there
+  //     must break this pin together with the boot reader above).
+  assert('customizer still owns the nbd_sidebar_hidden writes',
+    /setItem\('nbd_sidebar_hidden'/.test(sidebarSrc) && /removeItem\('nbd_sidebar_hidden'\)/.test(sidebarSrc));
+  // 3. Pre-paint hide + DOMContentLoaded handoff. The handoff is the
+  //    part a refactor could silently drop: a leftover stylesheet rule
+  //    overrides applySidebarCustomizer()'s el.style.display='' un-hide
+  //    and wedges items hidden until reload.
+  assert('boot hide is pre-paint with a DOMContentLoaded inline-style handoff',
+    /nbdSidebarBootHide/.test(prefsBoot)
+      && /readyState === 'loading'/.test(prefsBoot)
+      && /st\.remove\(\)/.test(prefsBoot),
+    "the injected <style> must be swapped for inline display:none and removed once the DOM is ready");
+  // 4. The boot script ships as a real script tag OUTSIDE (before) the
+  //    lazy settings template — inside it, the fix would not fix anything.
+  assert('dashboard.html loads prefs-boot before tpl-view-settings',
+    dashRaw.indexOf('js/dashboard-ui-prefs-boot.js') !== -1
+      && dashRaw.indexOf('js/dashboard-ui-prefs-boot.js') < dashRaw.indexOf('id="tpl-view-settings"'),
+    'the boot apply only fixes the reload gap if the script executes at real page boot');
 }
 
 section('Rock 4 Phase 3 — view-storm lazy hydration');
