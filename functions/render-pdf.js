@@ -40,6 +40,7 @@ const { callableRateLimit } = require('./shared');
 const { withSentry } = require('./integrations/sentry');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 const Handlebars = require('handlebars');
 
 const CORS_ORIGINS = [
@@ -346,54 +347,110 @@ exports.renderPdf = onCall(
     const buildMs = Date.now() - t0;
 
     // ── render the PDF via Chromium ──
-    const browser = await getBrowser();
-    const page = await browser.newPage();
-    let pdfBuffer;
+    // Track the current stage so a failure surfaces as a labeled log line +
+    // HttpsError detail instead of an opaque INTERNAL (B-7 / V2-4). Without
+    // this, ANY raw throw (Chromium launch, font-stall timeout, signBlob IAM,
+    // upload) collapsed to a bare "INTERNAL" and the whole server-render path
+    // silently fell back to html2canvas with no way to tell which failed.
+    let stage = 'launch';
+    let pdfBuffer, bucket, objectPath, file, downloadToken, renderMs;
     try {
-      await page.setContent(html, { waitUntil: ['load', 'networkidle0'] });
-      // Wait for the Google Fonts to actually be ready — networkidle0
-      // alone is occasionally too aggressive when the font-face is
-      // already requested but not yet decoded.
-      await page.evaluateHandle('document.fonts.ready');
-      pdfBuffer = await page.pdf({
-        format: 'Letter',
-        printBackground: true,
-        preferCSSPageSize: true,
-        margin: { top: '0', bottom: '0', left: '0', right: '0' }, // controlled by @page
-        displayHeaderFooter: false,
+      const browser = await getBrowser();
+      const page = await browser.newPage();
+      try {
+        stage = 'setContent';
+        // Cap setContent so a stalled remote asset (Google Fonts, logo) can't
+        // burn the whole 60s function budget before failing.
+        await page.setContent(html, { waitUntil: ['load', 'networkidle0'], timeout: 25_000 });
+        // Wait for fonts to decode, but race a never-resolving font-face
+        // against a short ceiling so it can't hang the render.
+        stage = 'fonts';
+        await Promise.race([
+          page.evaluateHandle('document.fonts.ready'),
+          new Promise((resolve) => setTimeout(resolve, 4_000)),
+        ]);
+        stage = 'pdf';
+        pdfBuffer = await page.pdf({
+          format: 'Letter',
+          printBackground: true,
+          preferCSSPageSize: true,
+          margin: { top: '0', bottom: '0', left: '0', right: '0' }, // controlled by @page
+          displayHeaderFooter: false,
+          timeout: 25_000,
+        });
+      } finally {
+        await page.close().catch(() => {});
+      }
+      renderMs = Date.now() - t0 - buildMs;
+
+      // ── upload to Storage with a deterministic-ish key ──
+      // Stamp a random Firebase download token so we can hand back a URL even
+      // when getSignedUrl() isn't available (see below).
+      stage = 'upload';
+      bucket = admin.storage().bucket();
+      const ts = Date.now();
+      objectPath = `pdf-renders/${uid}/${ts}-${filename}`;
+      file = bucket.file(objectPath);
+      downloadToken = crypto.randomUUID();
+      await file.save(pdfBuffer, {
+        metadata: {
+          contentType: 'application/pdf',
+          cacheControl: 'public, max-age=31536000, immutable',
+          metadata: {
+            template: templateKey, renderedBy: uid, renderedAtMs: String(ts),
+            firebaseStorageDownloadTokens: downloadToken,
+          },
+        },
+        resumable: false,
       });
-    } finally {
-      await page.close().catch(() => {});
+    } catch (e) {
+      // Don't flatten an already-typed HttpsError (e.g. a future domain-specific
+      // throw moved inside this block) into a generic internal error.
+      if (e instanceof HttpsError) throw e;
+      // The diagnosis blocker fix: log the real cause + which stage, and put
+      // the stage in the HttpsError details so the client console shows it too.
+      logger.error('[renderPdf] render failed', {
+        stage, template: templateKey, uid, err: e && e.message, stack: e && e.stack,
+      });
+      throw new HttpsError('internal', 'PDF render failed at stage: ' + stage, { stage });
     }
-    const renderMs = Date.now() - t0 - buildMs;
 
-    // ── upload to Storage with a deterministic-ish key ──
-    const bucket = admin.storage().bucket();
-    const ts = Date.now();
-    const objectPath = `pdf-renders/${uid}/${ts}-${filename}`;
-    const file = bucket.file(objectPath);
-    await file.save(pdfBuffer, {
-      metadata: {
-        contentType: 'application/pdf',
-        cacheControl: 'public, max-age=31536000, immutable',
-        metadata: { template: templateKey, renderedBy: uid, renderedAtMs: String(ts) },
-      },
-      resumable: false,
-    });
-
-    const [signedUrl] = await file.getSignedUrl({
-      action: 'read',
-      // 7 days — same envelope as portal share tokens; long enough
-      // for the rep to email/download but not "forever public".
-      expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
-    });
+    // URL strategy (B-7 / V2-4 fix): getSignedUrl() calls the IAM signBlob API,
+    // which the function's default compute service account can't reach without
+    // roles/iam.serviceAccountTokenCreator — the SAME gap that breaks
+    // createCustomToken (access-code-login-iam-gap). When signing fails the
+    // whole render threw and the client only saw a bare INTERNAL, so the entire
+    // server-render path silently fell back to html2canvas. We now try the
+    // signed URL (7-day expiry — preferred where the IAM role IS granted) and
+    // fall back to a Firebase download-token URL (no signing needed — the same
+    // pattern image-pipeline.js uses) so the render succeeds either way and
+    // self-heals once the role is granted.
+    let url;
+    let urlMode;
+    try {
+      const [signedUrl] = await file.getSignedUrl({
+        action: 'read',
+        // 7 days — same envelope as portal share tokens; long enough
+        // for the rep to email/download but not "forever public".
+        expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+      });
+      url = signedUrl;
+      urlMode = 'signed';
+    } catch (signErr) {
+      const encodedPath = encodeURIComponent(objectPath);
+      url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media&token=${downloadToken}`;
+      urlMode = 'download-token';
+      logger.warn('[renderPdf] getSignedUrl unavailable, using download-token URL', {
+        uid, err: signErr && signErr.message,
+      });
+    }
 
     const totalMs = Date.now() - t0;
-    logger.info('[renderPdf] ok', { template: templateKey, uid, buildMs, renderMs, totalMs, bytes: pdfBuffer.length });
+    logger.info('[renderPdf] ok', { template: templateKey, uid, urlMode, buildMs, renderMs, totalMs, bytes: pdfBuffer.length });
 
     return {
       ok: true,
-      url: signedUrl,
+      url: url,
       path: objectPath,
       filename,
       bytes: pdfBuffer.length,

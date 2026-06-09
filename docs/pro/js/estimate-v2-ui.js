@@ -1821,11 +1821,17 @@
       { label: 'Valid For',      value: '30 days' },
     ];
 
+    // 2f: a Single Quote is one all-in number, no Good/Better/Best and no
+    // itemized table. Defined here (before the tier block) so it can also
+    // force-suppress tiers even if a caller somehow passed meta.tiers — the
+    // single-quote payload is always one consistent number.
+    const isSingleQuote = format === 'single-quote';
+
     // Tier comparison block — only when meta.tiers is populated by
     // the retail-quote path. Marks the middle tier (Better) as
     // recommended unless a different one is flagged.
     let tierList = null;
-    if (meta.tiers && (meta.tiers.good || meta.tiers.better || meta.tiers.best)) {
+    if (!isSingleQuote && meta.tiers && (meta.tiers.good || meta.tiers.better || meta.tiers.best)) {
       const recommended = meta.tiers.recommended || 'better';
       const buildTier = (key, name, subtitle, features) => {
         const src = meta.tiers[key];
@@ -1867,13 +1873,22 @@
       { label: 'Estimate',    value: '$' + (Number(estimate.total || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })), sub: 'incl. tax' },
     ];
 
+    // (isSingleQuote defined above, before the tier block.) Zeroing the lines
+    // below makes estimate.hbs suppress the Scope & Pricing section
+    // ({{#if lines.length}}) and render just the headline total — avoiding the
+    // per-SQ foot-vs-headline mismatch (line items are the internal cost basis
+    // while `total` is the selected tier price).
     const summary = {
       headline: tierList
         ? 'Three ways to do this. Same crew, same workmanship.'
-        : 'Scope and pricing for the proposed work.',
+        : isSingleQuote
+          ? 'Your all-in price for the proposed work.'
+          : 'Scope and pricing for the proposed work.',
       body: tierList
         ? 'Pick the level that fits your budget and how long you want the roof to last. Our recommendation is flagged.'
-        : 'Itemized breakdown below covers materials, labor, and overhead. Subtotal and final total at the foot of the table.',
+        : isSingleQuote
+          ? 'One clear number for the full scope we discussed — materials, labor, and overhead included. No tiers, no upsell pressure, no fine-print surprises.'
+          : 'Itemized breakdown below covers materials, labor, and overhead. Subtotal and final total at the foot of the table.',
     };
 
     const validUntilMs = Date.now() + 30 * 24 * 60 * 60 * 1000;
@@ -1886,7 +1901,9 @@
       preparedBy,
       projectMeta,
       coverTagline: 'Built to last.<br>Priced to fit.',
-      coverSub:     'A clear estimate with itemized scope and three tiers to choose from — no upsell pressure, no fine-print surprises.',
+      coverSub:     isSingleQuote
+        ? 'A clear, all-in price for the work we discussed — no upsell pressure, no fine-print surprises.'
+        : 'A clear estimate with itemized scope and three tiers to choose from — no upsell pressure, no fine-print surprises.',
       coverPhoto:   null,
       coverCaption: null,
       // Body content
@@ -1894,7 +1911,7 @@
       stats,
       tierList,
       tiers: tierList ? true : false, // template gates on truthy
-      lines,
+      lines: isSingleQuote ? [] : lines,
       subtotal: Number(estimate.subtotal || 0),
       tax:      Number(estimate.tax || 0),
       total:    Number(estimate.total || 0),
@@ -1906,6 +1923,87 @@
         warranty:     '10 years labor minimum; tier-dependent extensions',
       },
       notes: null,
+    };
+  }
+
+  // ─── Firestore save payload (extracted so it can be unit-tested) ───
+  // Matches the classic builder's data shape so the estimates list + customer
+  // timeline pick up V2 estimates. PURE: depends only on (estimate, state).
+  function _buildSavePayload(estimate, state) {
+    const ctx = estimate.context || {};
+    // Estimate name: typed name if any, else synthesize from customer + tier.
+    const existingName = (state.estimateName || '').trim();
+    const fallbackName = (state.customer.address || '').trim()
+      || (state.customer.name ? state.customer.name.trim() + ' estimate' : '')
+      || 'V2 Estimate ' + new Date().toLocaleDateString();
+    const num = (v) => (v != null && isFinite(Number(v)) ? Number(v) : null);
+    return {
+      // Identity
+      name:             existingName || fallbackName,
+      builder:          'v2',
+      estimateVersion:  'v2',
+      method:           estimate.method || 'line-item',
+      tier:             estimate.tier || state.tier,
+      mode:             estimate.mode || state.jobMode,
+      // Customer association
+      leadId:           state.leadId || null,
+      addr:             state.customer.address || '',
+      owner:            state.customer.name || '',
+      // Measurements (echoed so the estimate list can show them)
+      raw:              Math.round(ctx.rawSqft || 0),
+      adj:              Math.round(ctx.adjustedSqft || 0),
+      sq:               Number((ctx.sq || 0).toFixed(2)),
+      wf:               ctx.waste || 1.17,
+      pl:               String(state.measurements.pitch || 8) + '/12',
+      ridge:            ctx.ridgeLf || 0,
+      eave:             ctx.eaveLf || 0,
+      hip:              ctx.hipLf || 0,
+      pipes:            ctx.pipes || 0,
+      // Line items in the classic builder's shape (code/desc/qty/rate/total),
+      // PLUS the per-line material/labor split + units so a reopened estimate
+      // can reconstruct B-8 retail line pricing without re-resolving the
+      // catalog. The extra fields are additive — classic reopen ignores them.
+      rows: (estimate.lines || []).map(line => ({
+        code:   line.code,
+        desc:   line.name,
+        qty:    (line.quantity || 0).toFixed(2) + (line.unit || ''),
+        rate:   '$' + ((line.materialCostPerUnit || 0) + (line.laborCostPerUnit || 0)).toFixed(2),
+        total:  line.lineTotal || 0,
+        // B-8 reconstruction fields:
+        quantity:            num(line.quantity),
+        unit:                line.unit || '',
+        category:            line.category || '',
+        materialTotal:       num(line.materialTotal),
+        laborTotal:          num(line.laborTotal),
+        materialCostPerUnit: num(line.materialCostPerUnit),
+        laborCostPerUnit:    num(line.laborCostPerUnit),
+        unitPrice:           num(line.unitPrice),
+      })),
+      // Totals — grandTotal is the canonical customer total: the selected
+      // per-SQ tier price for per-SQ estimates, the scope total for line-item.
+      grandTotal:       estimate.total,
+      prices:           estimate.prices || null,            // {good,better,best} per-SQ tier prices (classic shape, close-board.js reads this)
+      selectedTier:     estimate.tier || state.tier,
+      priceMode:        estimate.priceMode || state.mode,   // 'per-sq' | 'line-item' — tells consumers which model set grandTotal
+      internalLineItemTotal: (estimate.internalLineItemTotal != null ? estimate.internalLineItemTotal : null), // cost basis for per-SQ estimates
+      deposit:          (estimate.deposit != null ? Number(estimate.deposit) : null), // numeric; insurance 0%, so invoicing honors it (V2-pkb)
+      materialCost:     estimate.materialCost,
+      laborCost:        estimate.laborCost,
+      subtotal:         estimate.subtotal,
+      tax:              estimate.tax,
+      taxRate:          estimate.taxRate,
+      // B-8 retail-scope reconstruction: persist the markup + the O&P ladder
+      // inputs so a round-tripped insurance estimate's formatInsuranceScope
+      // reconciles instead of silently defaulting materialMarkupPct to 0.25.
+      materialMarkupPct: num(estimate.materialMarkupPct),
+      retailBeforeOHP:   num(estimate.retailBeforeOHP),
+      overhead:          num(estimate.overhead),
+      overheadPct:       num(estimate.overheadPct),
+      profit:            num(estimate.profit),
+      profitPct:         num(estimate.profitPct),
+      // Internal margin view
+      internal:         estimate.internal || null,
+      // Timestamp handled by _saveEstimate (serverTimestamp)
     };
   }
 
@@ -1998,7 +2096,7 @@
     // (cover, brand band, social rail, tier comparison, etc.). The
     // legacy html2canvas path stays as a fallback for any case the
     // server rejects (transient error, missing template, etc.).
-    if (format === 'retail-quote' || format === 'internal-view') {
+    if (format === 'retail-quote' || format === 'internal-view' || format === 'single-quote') {
       try {
         const ok = await _tryServerRenderEstimate(format, estimate, meta);
         if (ok) return;
@@ -2079,63 +2177,7 @@
     setStatus('Saving to Firestore…', '#888');
 
     try {
-      // Match the classic builder's data shape so the estimates
-      // list + customer timeline rendering picks up V2 estimates.
-      const ctx = estimate.context || {};
-      // Estimate name: use typed name if any, else synthesize one
-      // from customer + tier so the list row is still recognizable
-      // (matches the pattern used by the classic builder).
-      const existingName = (state.estimateName || '').trim();
-      const fallbackName = (state.customer.address || '').trim()
-        || (state.customer.name ? state.customer.name.trim() + ' estimate' : '')
-        || 'V2 Estimate ' + new Date().toLocaleDateString();
-      const payload = {
-        // Identity
-        name:             existingName || fallbackName,
-        builder:          'v2',
-        estimateVersion:  'v2',
-        method:           estimate.method || 'line-item',
-        tier:             estimate.tier || state.tier,
-        mode:             estimate.mode || state.jobMode,
-        // Customer association
-        leadId:           state.leadId || null,
-        addr:             state.customer.address || '',
-        owner:            state.customer.name || '',
-        // Measurements (echoed so the estimate list can show them)
-        raw:              Math.round(ctx.rawSqft || 0),
-        adj:              Math.round(ctx.adjustedSqft || 0),
-        sq:               Number((ctx.sq || 0).toFixed(2)),
-        wf:               ctx.waste || 1.17,
-        pl:               String(state.measurements.pitch || 8) + '/12',
-        ridge:            ctx.ridgeLf || 0,
-        eave:             ctx.eaveLf || 0,
-        hip:              ctx.hipLf || 0,
-        pipes:            ctx.pipes || 0,
-        // Line items in the same shape the classic builder emits
-        rows: (estimate.lines || []).map(line => ({
-          code:   line.code,
-          desc:   line.name,
-          qty:    (line.quantity || 0).toFixed(2) + (line.unit || ''),
-          rate:   '$' + ((line.materialCostPerUnit || 0) + (line.laborCostPerUnit || 0)).toFixed(2),
-          total:  line.lineTotal || 0
-        })),
-        // Totals — grandTotal is the canonical customer total: the selected
-        // per-SQ tier price for per-SQ estimates, the scope total for line-item.
-        grandTotal:       estimate.total,
-        prices:           estimate.prices || null,            // {good,better,best} per-SQ tier prices (classic shape, close-board.js reads this)
-        selectedTier:     estimate.tier || state.tier,
-        priceMode:        estimate.priceMode || state.mode,   // 'per-sq' | 'line-item' — tells consumers which model set grandTotal
-        internalLineItemTotal: (estimate.internalLineItemTotal != null ? estimate.internalLineItemTotal : null), // cost basis for per-SQ estimates
-        deposit:          (estimate.deposit != null ? Number(estimate.deposit) : null), // numeric; insurance 0%, so invoicing honors it (V2-pkb)
-        materialCost:     estimate.materialCost,
-        laborCost:        estimate.laborCost,
-        subtotal:         estimate.subtotal,
-        tax:              estimate.tax,
-        taxRate:          estimate.taxRate,
-        // Internal margin view
-        internal:         estimate.internal || null,
-        // Timestamp handled by _saveEstimate (serverTimestamp)
-      };
+      const payload = _buildSavePayload(estimate, state);
 
       const savedId = await window._saveEstimate(payload);
 
@@ -2480,7 +2522,12 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     loadPreset,
     finalize,
     save,
-    getState: () => state
+    getState: () => state,
+    // Test seam — pure payload builders, exercised by tests/estimate-v2-payload.test.js.
+    _test: {
+      buildEstimatePayload: _buildEstimatePayload,
+      buildSavePayload: _buildSavePayload,
+    },
   };
 
   // Global launchers matched in dashboard.html
