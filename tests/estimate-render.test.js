@@ -111,6 +111,7 @@ const OAKS_BRAND = {
 const FORMATS = [
   { label: 'insurance-scope', fmt: 'insurance-scope' },
   { label: 'retail-quote',    fmt: 'retail-quote' },
+  { label: 'single-quote',    fmt: 'single-quote' },
   { label: 'internal-view',   fmt: 'internal-view' },
 ];
 
@@ -161,6 +162,15 @@ ok('retail-quote / NBD: estimate # uses NBD- prefix', /Estimate #NBD-/.test(retN
 ok('retail-quote / Oaks: estimate # uses OAK- prefix (docPrefix)', /Estimate #OAK-/.test(retOak));
 ok('retail-quote / NBD: workmanship line says "10-year NBD labor warranty"', /10-year NBD labor warranty/.test(retNbd));
 ok('retail-quote / Oaks: workmanship line says "10-year ORC labor warranty"', /10-year ORC labor warranty/.test(retOak));
+
+// single-quote = retail quote WITHOUT the Good/Better/Best cards. The fixture's
+// meta.tiers has a Better card at $16,500; retail-quote renders it, single-quote
+// strips it (only the one "Your Investment" headline = estimate.total $18,500).
+const sglNbd = renderFmt(NBD_BRAND, 'single-quote');
+ok('retail-quote SHOWS the Better-tier card ($16,500)', /16,?500/.test(retNbd));
+ok('single-quote OMITS the tier cards (no $16,500 Better card)', !/16,?500/.test(sglNbd));
+ok('single-quote keeps the single "Your Investment" headline', /Your Investment/.test(sglNbd));
+ok('single-quote estimate # uses NBD- prefix', /Estimate #NBD-/.test(sglNbd));
 
 const intNbd  = renderFmt(NBD_BRAND, 'internal-view');
 const intOak  = renderFmt(OAKS_BRAND, 'internal-view');
