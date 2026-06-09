@@ -103,6 +103,33 @@
     { key: 'warranty',     label: 'Warranty & Documentation' },
     { key: 'other',        label: 'Other' }
   ];
+  const CAT_KEYS = new Set(CAT_ORDER.map(c => c.key));
+
+  // Titleize a raw category key for display: 'code-upgrade' → 'Code Upgrade'.
+  function titleizeCat(key) {
+    return String(key || 'other').replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  }
+
+  // Ordered category sections to render: every CAT_ORDER category that has
+  // lines (in canonical order), THEN any line whose category isn't in
+  // CAT_ORDER — a custom or future-catalog line — under a derived label. This
+  // guarantees a scope table NEVER silently drops a line that still counts
+  // toward the rolled-up total, so the visible line totals always reconcile to
+  // RCV. For a normal estimate (all categories in CAT_ORDER) the leftover loop
+  // adds nothing, so output is byte-identical.
+  function categorySections(groups) {
+    const sections = [];
+    CAT_ORDER.forEach(catDef => {
+      const lines = groups[catDef.key];
+      if (lines && lines.length) sections.push({ key: catDef.key, label: catDef.label, lines: lines });
+    });
+    Object.keys(groups).forEach(key => {
+      if (CAT_KEYS.has(key)) return;
+      const lines = groups[key];
+      if (lines && lines.length) sections.push({ key: key, label: titleizeCat(key), lines: lines });
+    });
+    return sections;
+  }
 
   // ═════════════════════════════════════════════════════════
   // Per-tenant brand resolution (TenantContext — see company-profile.js)
@@ -308,9 +335,8 @@
 
     // Build scope tables grouped by category
     let scopeTables = '';
-    CAT_ORDER.forEach(catDef => {
-      const lines = groups[catDef.key];
-      if (!lines || !lines.length) return;
+    categorySections(groups).forEach(catDef => {
+      const lines = catDef.lines;
 
       let catSubtotal = 0;
       const rows = lines.map(line => {
@@ -533,9 +559,8 @@ ${footer}
     // Bullet-style scope summary (by category, no prices)
     const groups = groupByCategory(estimate.lines || []);
     const bullets = [];
-    CAT_ORDER.forEach(catDef => {
-      const lines = groups[catDef.key];
-      if (!lines || !lines.length) return;
+    categorySections(groups).forEach(catDef => {
+      const lines = catDef.lines;
       // Deduplicate by name
       const seen = new Set();
       lines.forEach(l => {
