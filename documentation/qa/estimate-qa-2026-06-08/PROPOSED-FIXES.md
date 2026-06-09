@@ -64,8 +64,8 @@ The saved `grandTotal` and the retail-quote headline use the **line-item cost-pl
 ```
 (Add `defaultPermitCost: 150` to settings; mirrors classic's `DEFAULT_PERMIT_COST`.) Or surface a "permit not set" warning.
 
-### B-6 (V2-5, MED-HIGH) — CSP blocks `new Function()` formula evaluator
-`docs/pro/js/estimate-logic-engine.js` `calcQuantity` uses `new Function()`, blocked by prod CSP (`unsafe-eval` absent) → formula-qty line items resolve to 0. Replace with a small CSP-safe arithmetic parser (shunting-yard over the whitelisted vars + `min/max/ceil/floor/round`), or precompute quantities at catalog-author time. Larger change — scope separately.
+### ✅ B-6 (V2-5, MED-HIGH) — CSP blocks `new Function()` formula evaluator — **SHIPPED** (branch `feat/estimate-csp-formula-eval`)
+`docs/pro/js/estimate-logic-engine.js` `calcQuantity` used `new Function()`, blocked by prod CSP (`unsafe-eval` absent) → formula-qty line items resolved to 0. **Done:** replaced Layer 2 with `safeEvalFormula` — a CSP-safe recursive-descent evaluator over the same bounded grammar (`+ - * / %`, unary `+ - !`, comparisons, `&& ||`, ternary, parens, whitelisted vars, the 8 Math helpers bare or as `Math.*`), JS-faithful semantics, numbers/booleans only. Layer 1 whitelist unchanged. Proven identical to the old path by `tests/estimate-formula-eval.test.js` (513 differential comparisons + value pins + escape-rejection), wired into `npm test` as `test:formulaeval`.
 
 ### B-7 (V2-4, MED) — server-side doc render returns INTERNAL
 Investigate the cloud-function render path (`[V2 finalize] server render failed, falling back: INTERNAL`). Confirm whether EMAIL/DOWNLOAD-PDF depends on it; if so, customer PDFs may be failing while the in-app preview (client fallback) looks fine.
