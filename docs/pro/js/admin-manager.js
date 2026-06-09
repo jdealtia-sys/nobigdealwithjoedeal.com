@@ -80,8 +80,13 @@
     const claims = window._userClaims || {};
     const isGlobalAdmin  = claims.role === 'admin';
     const isCompanyAdmin = claims.role === 'company_admin';
-    // Solo operator: no companyId claim → they own their own workspace.
-    const isSoloOwner = !claims.companyId;
+    // Solo operator: no companyId claim AND not an explicit subordinate role.
+    // Access-code member/manager logins mint a role but no companyId — they
+    // must NOT be treated as solo owners, or the #nav-admin reveal below would
+    // expose Team Manager to them (server callables still 403 them, but the nav
+    // should not appear). True solo owners have no role, or an owner/admin role.
+    const _subordinateRoles = ['member', 'manager', 'viewer', 'sales_rep'];
+    const isSoloOwner = !claims.companyId && !_subordinateRoles.includes(claims.role);
     // Team member with companyId: we need to check if they're the owner.
     let isCompanyOwner = false;
 
@@ -93,7 +98,12 @@
     }
 
     state.canManage = isGlobalAdmin || isCompanyAdmin || isSoloOwner || isCompanyOwner;
-    navEl.style.display = state.canManage ? '' : 'none';
+    // NEW-C7: #nav-admin ships with class "dn" and theme-system.css has a
+    // doubled-class rule `.dn.dn{display:none}` (specificity 0,2,0) that beats
+    // `.ni{display:flex}`. Setting display to '' only REMOVES the inline rule and
+    // lets .dn.dn win — the nav stays hidden. Assert an inline value (specificity
+    // 1,0,0,0) to reveal it; .ni's base display is flex.
+    navEl.style.display = state.canManage ? 'flex' : 'none';
     state.gatedChecked = true;
   }
 

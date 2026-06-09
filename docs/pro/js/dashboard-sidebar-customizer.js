@@ -81,11 +81,20 @@
         // a real base, not undefined. Without this, the guard below
         // silently skipped the wrapper and the sidebar-customizer grid
         // never re-rendered when reopening Appearance.
-        document.addEventListener('DOMContentLoaded', function() {
+        // readyState guard: this script ships inside the lazily-hydrated
+        // tpl-view-settings template and is re-executed at hydration, AFTER
+        // DOMContentLoaded has fired — a bare listener never installs the
+        // wrapper (same trap as dashboard-team-tab.js / dashboard-billing-tab.js).
+        function _nbdInstallSidebarHook() {
           var _prev3 = window.switchSettingsTab;
           if (typeof _prev3 !== 'function') return;
           window.switchSettingsTab = function(tab) {
             _prev3(tab);
             if (tab === 'appearance') renderSidebarCustomizerGrid();
           };
-        });
+        }
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', _nbdInstallSidebarHook);
+        } else {
+          _nbdInstallSidebarHook();
+        }

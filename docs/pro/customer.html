@@ -6437,7 +6437,10 @@ window.applyBulkPhotoDelete = async function() {
   if (!window._photoSelected || window._photoSelected.size === 0) return;
   if (!window.writeBatch || !window.db || !window.doc || !window.deleteDoc) return;
   var ids = Array.from(window._photoSelected);
-  if (!confirm('Delete ' + ids.length + ' photo' + (ids.length === 1 ? '' : 's') + '? This cannot be undone.')) return;
+  // native confirm() is patched to silently return true in PWA mode
+  // (standalone-compat.js), so route through nbdConfirm to get a real Cancel.
+  var ask = window.nbdConfirm || function(m){ return Promise.resolve(window.confirm(m)); };
+  if (!(await ask('Delete ' + ids.length + ' photo' + (ids.length === 1 ? '' : 's') + '? This cannot be undone.'))) return;
   try {
     var batch = window.writeBatch(window.db);
     for (var i = 0; i < ids.length; i++) {
@@ -7037,7 +7040,10 @@ window.quickSaveMeta = async function() {
 };
 
 window.deletePhoto = async function(photoId) {
-  if (!confirm('Delete this photo? This cannot be undone.')) return;
+  // native confirm() is patched to silently return true in PWA mode
+  // (standalone-compat.js), so route through nbdConfirm to get a real Cancel.
+  const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await ask('Delete this photo? This cannot be undone.'))) return;
 
   try {
     await window.deleteDoc(window.doc(window.db, 'photos', photoId));

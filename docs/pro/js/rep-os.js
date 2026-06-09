@@ -580,7 +580,7 @@
               <div style="font-size:13px;font-weight:600;color:var(--t);">${esc(f.contactName || f.address || 'Unknown')}</div>
               <div style="font-size:11px;color:var(--m);">${esc(f.address || '')} ${f.phone ? '· ' + esc(f.phone) : ''}</div>
             </div>
-            ${f.phone ? `<a href="tel:${f.phone.replace(/\\D/g, '')}" style="padding:6px 10px;background:var(--green);color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;text-decoration:none;">📞 Call</a>` : ''}
+            ${f.phone ? `<a href="tel:${f.phone.replace(/\D/g, '')}" style="padding:6px 10px;background:var(--green);color:white;border:none;border-radius:6px;font-size:10px;font-weight:700;text-decoration:none;">📞 Call</a>` : ''}
           </div>
         `).join('')}
       `;

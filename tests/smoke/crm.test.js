@@ -286,8 +286,10 @@ section('Customer photo multi-select + batched commit');
   // whole batch — the whole point of this PR).
   assert('applyBulkPhotoUpdate uses writeBatch',
     /window\.applyBulkPhotoUpdate\s*=\s*async function[\s\S]{0,500}window\.writeBatch\(window\.db\)/.test(customer));
+  // NEW-C1 added a nbdConfirm gate before the batch (PWA confirm patch),
+  // widening the gap from `async function` to writeBatch — bound bumped 500→900.
   assert('applyBulkPhotoDelete uses writeBatch',
-    /window\.applyBulkPhotoDelete\s*=\s*async function[\s\S]{0,500}window\.writeBatch\(window\.db\)[\s\S]{0,500}batch\.delete\(/.test(customer));
+    /window\.applyBulkPhotoDelete\s*=\s*async function[\s\S]{0,900}window\.writeBatch\(window\.db\)[\s\S]{0,500}batch\.delete\(/.test(customer));
   // After a same-field bulk update, surgical updates happen — no full
   // re-render unless the phase changed.
   assert('bulk update prefers surgical updatePhotoTile over full re-render',
