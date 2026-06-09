@@ -75,10 +75,17 @@ service cloud.firestore {
       // Audit #3 F-1: writes require a non-viewer role. A 'viewer' who happens
       // to own a lead can still READ it but can no longer mutate it at the rules
       // layer (read-only was previously UI-enforced only). Users with no role
-      // claim (solo operators) keep write access — token.role is undefined,
-      // which is != 'viewer'.
+      // claim (solo operators) keep write access.
+      // NEW-5: use .get('role','') NOT `.role != 'viewer'`. Reading an ABSENT
+      // map key with != THROWS in Firestore rules (it does not return undefined),
+      // so a solo operator with no role claim — the intended-allowed case above —
+      // was getting PERMISSION_DENIED on EVERY lead update/delete (soft-delete
+      // silently failed; the optimistic-UI removal masked it, so deleted leads
+      // reappeared on the next loadLeads, incl. bridged /inspect web-leads).
+      // .get(key, default) returns the default when the key is absent and never
+      // throws, preserving the viewer-only deny.
       allow update, delete: if (isOwner(resource.data.userId)
-            && request.auth.token.role != 'viewer') || isAdmin();
+            && request.auth.token.get('role', '') != 'viewer') || isAdmin();
       allow create: if isAuth()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string
