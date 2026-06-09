@@ -84,6 +84,7 @@ function estimateFixtureFixed() {
 function stateFixture() {
   return {
     estimateName: '', customer: { address: '1 Main St', name: 'Jane Homeowner' },
+    claim: { carrier: 'State Farm', number: 'CLM-99', adjuster: 'Bob A.', dateOfLoss: '2026-04-01', deductible: 1000, acv: 14000, recoverableDepreciation: 4500, policyNumber: 'POL-7' },
     leadId: null, tier: 'better', jobMode: 'insurance', mode: 'line-item',
     measurements: { pitch: 6 },
   };
@@ -132,6 +133,19 @@ ok('save: rows carry per-line materialTotal', saved.rows[0].materialTotal === 10
 ok('save: rows carry per-line laborTotal', saved.rows[0].laborTotal === 500 && saved.rows[1].laborTotal === 450);
 ok('save: rows keep classic shape (code/desc/qty/rate/total)', saved.rows[0].code === 'A' && /^\$/.test(saved.rows[0].rate) && saved.rows[0].total === 1500);
 ok('save: grandTotal = canonical total', saved.grandTotal === 2820);
+// FU-1: insurance claim info persists (was dropped before → reopened scope
+// showed "—" for carrier/deductible).
+ok('save: claim persisted (carrier + deductible)', saved.claim && saved.claim.carrier === 'State Farm' && saved.claim.deductible === 1000);
+ok('save: claim acv persisted', saved.claim && saved.claim.acv === 14000);
+ok('save: claim recoverableDepreciation + policyNumber persisted', saved.claim && saved.claim.recoverableDepreciation === 4500 && saved.claim.policyNumber === 'POL-7');
+// Edge cases: deductible 0 must survive (not be dropped/null'd); a fully-empty
+// claim serializes to null (Firestore-safe, no NaN/undefined).
+const savedZeroDed = T.buildSavePayload(est, Object.assign(stateFixture(), { claim: { carrier: 'X', deductible: 0 } }));
+ok('save: deductible 0 survives (not coerced to null)', savedZeroDed.claim && savedZeroDed.claim.deductible === 0);
+const savedEmptyClaim = T.buildSavePayload(est, Object.assign(stateFixture(), { claim: { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: null, acv: null } }));
+ok('save: empty claim → null (no {} / undefined)', savedEmptyClaim.claim === null);
+const savedNanDed = T.buildSavePayload(est, Object.assign(stateFixture(), { claim: { carrier: 'X', deductible: 'abc' } }));
+ok('save: non-numeric deductible → null (never NaN)', savedNanDed.claim && savedNanDed.claim.deductible === null);
 
 // ════════════════════════════════════════════════════════════════════
 // 3B — _reconstructEstimateFromSaved: faithful for a 3A doc, null for pre-3A.
@@ -177,6 +191,8 @@ ok('3B rehydrate: scope rebuilt from catalog rows (passthru/SVC excluded)', st.s
 // reopen doesn't silently drop the $75 service line on the next save.
 ok('3B rehydrate: passThru repopulated from SVC row ($75)', st.passThru.length === 1 && st.passThru[0].amount === 75 && st.passThru[0].code === 'SVC RPT');
 ok('3B rehydrate: jobMode from mode (insurance)', st.jobMode === 'insurance');
+// FU-1: claim restored on reopen (savedDoc inherits the claim from `saved`).
+ok('3B rehydrate: claim restored (carrier State Farm, deductible 1000)', st.claim && st.claim.carrier === 'State Farm' && st.claim.deductible === 1000);
 ok('3B rehydrate: _reopenedClean=true', st._reopenedClean === true);
 ok('3B rehydrate: _editingEstimateId set (re-save updates same doc)', V2WIN._editingEstimateId === 'est_abc');
 // effectiveEstimate: clean reopen → faithful replay; simulate an edit → falls

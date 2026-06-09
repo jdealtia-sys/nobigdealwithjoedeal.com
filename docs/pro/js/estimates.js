@@ -40,11 +40,17 @@ const COUNTY_TAX_RATES = {
 const DEFAULT_TAX_RATE = 0.0700; // fallback
 
 // Permit cost by city. Values are editable at runtime via estData.permitCost
-// override; these are the sensible defaults.
+// override (so these are just defaults). D-1 unify (Joe 2026-06-09): each city's
+// default now reflects its COUNTY's validated V2 permit value (V2 keys by
+// county slug; classic keys by city). City→county→V2-cost basis:
+//   Cincinnati→Hamilton $185 · Hamilton(city)/Fairfield/West Chester→Butler $150
+//   Mason→Warren $165 · Milford→Clermont $170 · Loveland→Hamilton $185 (primary
+//   county; spans Hamilton/Clermont/Warren — rep can override)
+//   Fort Thomas/Newport→Campbell KY $130 · Covington→Kenton KY $125 · Florence→Boone KY $135
 const PERMIT_COSTS = {
-  Cincinnati: 175, Hamilton: 150, Fairfield: 140, Mason: 160,
-  'West Chester': 165, Milford: 150, Loveland: 150,
-  'Fort Thomas': 135, Covington: 140, Florence: 140, Newport: 135,
+  Cincinnati: 185, Hamilton: 150, Fairfield: 150, Mason: 165,
+  'West Chester': 150, Milford: 170, Loveland: 185,
+  'Fort Thomas': 130, Covington: 125, Florence: 135, Newport: 130,
 };
 const DEFAULT_PERMIT_COST = 150;
 // Fallbacks below mirror what's in estimate-config.js — if that file
@@ -258,12 +264,23 @@ function estBack(from){ showEstStep(from-1); }
 // roof" checkbox adds another +3% per spec for dormers/valleys/etc.
 /** @deprecated Use EstimateBuilderV2.wasteFactorForPitch — see docs/dev/estimate-engines-audit.md */
 function recommendedWasteForPitch(pitchFactor) {
+  // D-2 unify (Joe 2026-06-09): delegate to the validated V2 waste table so a
+  // classic estimate gets the SAME waste as V2 for the same pitch. classic
+  // passes the slope-area FACTOR (√(1+(rise/run)²)); V2 keys on the rise/run
+  // RATIO, so convert: ratio = √(factor²−1). Falls back to the legacy table
+  // only if the V2 engine isn't loaded.
+  const pf = Number(pitchFactor) || 1;
+  const V2 = (typeof window !== 'undefined') && window.EstimateBuilderV2;
+  if (V2 && typeof V2.wasteFactorForPitch === 'function') {
+    const ratio = pf > 1 ? Math.sqrt(pf * pf - 1) : 0;
+    return V2.wasteFactorForPitch(ratio);
+  }
   _warnDeprecatedOnce('recommendedWasteForPitch', 'EstimateBuilderV2.wasteFactorForPitch');
-  if (pitchFactor <= 1.054) return 1.10;  // 4/12 and below
-  if (pitchFactor <= 1.118) return 1.12;  // 5/12 – 6/12
-  if (pitchFactor <= 1.202) return 1.15;  // 7/12 – 8/12
-  if (pitchFactor <= 1.302) return 1.18;  // 9/12 – 10/12
-  return 1.22;                            // 11/12+
+  if (pf <= 1.054) return 1.10;  // 4/12 and below
+  if (pf <= 1.118) return 1.12;  // 5/12 – 6/12
+  if (pf <= 1.202) return 1.15;  // 7/12 – 8/12
+  if (pf <= 1.302) return 1.18;  // 9/12 – 10/12
+  return 1.22;                   // 11/12+
 }
 
 function updateEstCalc() {
@@ -321,10 +338,13 @@ function collectAddOns() {
   const chimneyCents    = chimney  ? _toCents(chimneyDollars)  : 0;
   const skylightCents   = skylight ? _toCents(skylightDollars) : 0;
   const gutterCents   = _toCents(gutterLF * 8.50);
-  // Extra pipe boots beyond 4 are a spec-called-out add-on; use R.pipe
-  // to keep parity with the product library's pricing.
+  // Extra pipe boots beyond 4 are a spec-called-out add-on. D-4 unify (Joe
+  // 2026-06-09): use the config/V2 rate ($85) instead of the legacy $45 so
+  // classic matches V2. (window.R.pipe is the product-library install rate,
+  // not the spec add-on price — the two diverged.)
+  const extraPipeRate = (_NBD_CFG && _NBD_CFG.ADDON_EXTRA_PIPE_BOOT) || 85;
   const extraPipes = Math.max(0, pipes - 4);
-  const extraPipeCents = _toCents(extraPipes * (window.R?.pipe || 45));
+  const extraPipeCents = _toCents(extraPipes * extraPipeRate);
 
   return {
     permitCents, dumpCents, extraLayerCents, valleyCents, chimneyCents,

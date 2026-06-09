@@ -80,10 +80,12 @@
     // Classic and V2 had divergent values for these:
     //   chimney: classic $425, V2 $285 → unified at $425 (Joe pick)
     //   skylight: classic $275, V2 $350 → unified at $350 (Joe pick)
-    // Valley LF and extra-pipe-boot stay engine-specific for now —
-    // both Joe-flagged "low margin", revisit later if it matters.
+    //   extra pipe boot: classic $45, V2 $85 → unified at $85 (D-4, Joe 2026-06-09)
     ADDON_CHIMNEY_FLASH:  425,
     ADDON_SKYLIGHT_FLASH: 350,
+    // Extra pipe boot beyond 4 ($/EA). D-4 unify: classic now reads this instead
+    // of its legacy $45 (window.R.pipe fallback), matching V2's $85.
+    ADDON_EXTRA_PIPE_BOOT: 85,
 
     // Per-SQ complexity add-ons (Phase 1, Joe-confirmed 2026-06-08).
     // Surfaced into the per-SQ engine (calculatePerSq) so cash/retail
