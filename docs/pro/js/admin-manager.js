@@ -81,7 +81,14 @@
     const isGlobalAdmin  = claims.role === 'admin';
     const isCompanyAdmin = claims.role === 'company_admin';
     // Solo operator: no companyId claim → they own their own workspace.
-    const isSoloOwner = !claims.companyId;
+    // BUT a subordinate role claim (access-code member/manager, or any team
+    // subordinate) with no companyId is NOT a solo owner — the server's
+    // requireTeamAdmin rejects them. Mirror that here so the admin nav never
+    // teases an action the backend will deny. Keep this set in sync with
+    // SUBORDINATE_ROLES in functions/handlers/_shared.js.
+    const SUBORDINATE_ROLES = new Set(['member', 'manager', 'sales_rep', 'viewer']);
+    const callerRole = (claims.role || '').toString().trim().toLowerCase();
+    const isSoloOwner = !claims.companyId && !SUBORDINATE_ROLES.has(callerRole);
     // Team member with companyId: we need to check if they're the owner.
     let isCompanyOwner = false;
 
