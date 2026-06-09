@@ -31,9 +31,13 @@ async function run() {
   const bob   = env.authenticatedContext('bob',    { role: 'sales_rep',  companyId: 'co-b' }).firestore();
   const admin = env.authenticatedContext('joe',    { role: 'admin' }).firestore();
   const coAdmin = env.authenticatedContext('carol', { role: 'company_admin', companyId: 'co-a' }).firestore();
+  // NEW-5 regression: a solo operator with NO role claim (the most common
+  // real case — exactly Joe's account) and a 'viewer' (read-only).
+  const dave   = env.authenticatedContext('dave',   { companyId: 'co-d' }).firestore();
+  const viewer = env.authenticatedContext('vic',    { role: 'viewer', companyId: 'co-v' }).firestore();
   const anon  = env.unauthenticatedContext().firestore();
 
-  const { setDoc, doc, getDoc } = require('firebase/firestore');
+  const { setDoc, doc, getDoc, updateDoc, deleteDoc } = require('firebase/firestore');
 
   // ─── Seed ALL state in a single withSecurityRulesDisabled call.
   // Multiple calls conflict on Firestore settings in v10+ of the
@@ -46,6 +50,9 @@ async function run() {
     await setDoc(doc(db, 'subscriptions/alice'), { plan: 'free', status: 'inactive' });
     await setDoc(doc(db, 'leads/leadA'), { userId: 'alice', name: 'Alice Lead' });
     await setDoc(doc(db, 'leads/leadB'), { userId: 'bob',   name: 'Bob Lead' });
+    // NEW-5 fixtures: a no-role owner's lead + a viewer's lead.
+    await setDoc(doc(db, 'leads/leadD'), { userId: 'dave', name: 'Dave Lead', companyId: 'co-d' });
+    await setDoc(doc(db, 'leads/leadV'), { userId: 'vic',  name: 'Vic Lead',  companyId: 'co-v' });
     await setDoc(doc(db, 'access_codes/NBD-ADMIN'), { code: 'NBD-ADMIN', active: true, email: 'admin@nobigdeal.pro' });
     await setDoc(doc(db, 'email_log/log1'), { uid: 'alice', to: 'x@y.com' });
     await setDoc(doc(db, 'reps/alice'), { companyId: 'co-a', role: 'rep' });
@@ -290,6 +297,19 @@ async function run() {
   // server-side runner (admin SDK) bypasses rules.
   await assertFails(getDoc(doc(admin, 'system/migrations')));
   await assertFails(setDoc(doc(admin, 'system/migrations'), { appliedVersion: 999 }));
+
+  // 23. NEW-5: a solo owner with NO role claim can mutate (soft-delete,
+  //     stage-move, hard-delete) their OWN leads. The old rule used
+  //     `request.auth.token.role != 'viewer'`, which THROWS when the role
+  //     claim is absent → PERMISSION_DENIED for every no-role owner (so the
+  //     soft-delete silently failed and bridged/web leads reappeared). The
+  //     fix uses `request.auth.token.get('role','') != 'viewer'`.
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { deleted: true }));      // soft-delete
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { stage: 'contacted' })); // stage move
+  await assertSucceeds(deleteDoc(doc(dave, 'leads/leadD')));                         // hard delete
+  // A 'viewer' who owns a lead is still read-only at the rules layer.
+  await assertFails(updateDoc(doc(viewer, 'leads/leadV'), { deleted: true }));
+  await assertFails(deleteDoc(doc(viewer, 'leads/leadV')));
 
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
