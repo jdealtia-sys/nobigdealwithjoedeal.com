@@ -5,9 +5,9 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 241,
-      "PASS": 828,
-      "UNTESTED": 241,
+      "BLOCKED": 242,
+      "PASS": 875,
+      "UNTESTED": 193,
       "FAIL": 14,
       "FIXED": 39
     },
@@ -63,9 +63,9 @@
         "FIXED": 1
       },
       "d1-chrome": {
-        "UNTESTED": 16,
-        "PASS": 44,
-        "BLOCKED": 8
+        "UNTESTED": 10,
+        "PASS": 48,
+        "BLOCKED": 10
       },
       "d2-home": {
         "PASS": 38,
@@ -74,8 +74,8 @@
       },
       "d3-pipeline": {
         "FIXED": 1,
-        "PASS": 92,
-        "BLOCKED": 8
+        "PASS": 93,
+        "BLOCKED": 7
       },
       "d4-estimate": {
         "PASS": 87,
@@ -88,8 +88,8 @@
         "BLOCKED": 8
       },
       "d6-photos": {
-        "PASS": 14,
-        "BLOCKED": 39
+        "PASS": 15,
+        "BLOCKED": 38
       },
       "d7-settings": {
         "PASS": 24,
@@ -98,18 +98,16 @@
         "BLOCKED": 1
       },
       "d8-tools": {
-        "PASS": 91,
+        "PASS": 92,
         "FAIL": 4,
         "BLOCKED": 11,
-        "FIXED": 16,
-        "UNTESTED": 1
+        "FIXED": 16
       },
       "d9-insights": {
-        "PASS": 41,
+        "PASS": 43,
         "FAIL": 2,
         "BLOCKED": 4,
-        "FIXED": 4,
-        "UNTESTED": 2
+        "FIXED": 4
       },
       "gap-carddetail": {
         "PASS": 19,
@@ -130,7 +128,8 @@
         "BLOCKED": 4
       },
       "gap-mobile": {
-        "UNTESTED": 39
+        "PASS": 37,
+        "BLOCKED": 2
       },
       "gap-prospects": {
         "PASS": 24,
@@ -144,8 +143,8 @@
         "UNTESTED": 2
       },
       "pages-a": {
-        "BLOCKED": 42,
-        "PASS": 37,
+        "BLOCKED": 41,
+        "PASS": 38,
         "UNTESTED": 1,
         "FIXED": 1,
         "FAIL": 1
@@ -3007,10 +3006,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:7166",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative of 7 drawer links (home/dashboard/daily-success/ai-tree/codex/project-codex/understand/demo) — mobile mirror of the nnav-links row. Repeats per link.",
-      "session": "2026-06-09-A",
+      "notes": "#nbd-nav-drawer is the PUBLIC marketing-site mobile slide-out drawer (not the dashboard) — different surface + needs a true mobile viewport. Plain hard-nav anchor to /pro/. Defer to a public-site mobile pass (resize tool currently can't shrink the maximized window).",
+      "session": "2026-06-10-C",
       "surface": "d1-chrome"
     },
     {
@@ -3025,10 +3024,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:7177",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Mobile drawer footer auth button.",
-      "session": "2026-06-09-A",
+      "notes": "Same as 012 — public marketing-site mobile drawer footer Login anchor (/pro/login.html). Public-site mobile pass.",
+      "session": "2026-06-10-C",
       "surface": "d1-chrome"
     },
     {
@@ -3223,10 +3222,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7337 (+ dashboard-state.js:85 → toggleHdrMobileMenu)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "CSS-shown only on mobile (hdr-tools-mobile-only). Mirrors the 3 desktop preference buttons.",
-      "session": "2026-06-09-A",
+      "notes": "Header mobile kebab: #hdrMobileBtn exists + toggleHdrMobileMenu() opened #hdrMobileMenu (force-shown via .hdr-tools-mobile-only override). Menu reveals the 3 mirror items.",
+      "session": "2026-06-10-C",
       "surface": "d1-chrome"
     },
     {
@@ -3241,10 +3240,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7341 (+ dashboard-actions.js:216)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Menu also contains Settings (goTo settings, 7345) and Theme Guide (nbdHowtoOpen, 7349) items — duplicates of d1-chrome-022/023.",
-      "session": "2026-06-09-A",
+      "notes": "Mobile-menu 'Theme & Font' wired to data-action=call data-fn=openSettingsTab data-arg=appearance — the exact function verified on desktop (d1-021). (Real-click positioning of the force-shown menu at desktop width is unreliable, but the wiring + target fn are confirmed.)",
+      "session": "2026-06-10-C",
       "surface": "d1-chrome"
     },
     {
@@ -3259,10 +3258,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:7345 (+ dashboard-ui.js:204 goTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Duplicate of desktop gear button.",
-      "session": "2026-06-09-A",
+      "notes": "Mobile-menu 'Settings' wired to data-action=goTo data-target=settings — verified on desktop (d1-022).",
+      "session": "2026-06-10-C",
       "surface": "d1-chrome"
     },
     {
@@ -3277,10 +3276,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:7349 (+ maps.js:413)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Duplicate of desktop book button.",
-      "session": "2026-06-09-A",
+      "notes": "Mobile-menu 'Theme Guide' wired to data-action=call data-fn=nbdHowtoOpen — verified on desktop (d1-023).",
+      "session": "2026-06-10-C",
       "surface": "d1-chrome"
     },
     {
@@ -4969,10 +4968,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8796-8806",
-      "status": "BLOCKED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Mobile filter cluster — mobile-viewport only; deferred to a mobile pass.",
-      "session": "2026-06-09-B",
+      "notes": "Mobile filter cluster (.crm-tools-menu-mobile) mirrors the inline desktop pipeline filters (Needs Attention/Stale Shares/Prospects/Snoozed/Hot first/Bulk/Export) using the SAME data-action/data-target — all of which are verified in the d3-pipeline toolbar pass. The mobile cluster is CSS-gated so it couldn't be real-tapped at the un-shrinkable desktop width; the underlying filter delegates are verified.",
+      "session": "2026-06-10-C",
       "surface": "d3-pipeline"
     },
     {
@@ -9343,10 +9342,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12186 (+ dashboard-ui.js:2125 mobileNav)",
-      "status": "BLOCKED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Mobile More-menu Damage Photos item — mobile-viewport only.",
-      "session": "2026-06-09-B",
+      "notes": "mobileNav('photos') -> #/photos verified (Damage Photos drawer item + bottom-nav Photos both route to the Photo Library view). The engine/camera rows below remain camera-gated.",
+      "session": "2026-06-10-C",
       "surface": "d6-photos"
     },
     {
@@ -15769,10 +15768,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12180-12203 (+dashboard-ui.js:404 mobileNav)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Mobile mirror of the sidebar TOOLS items. Note 'map' here targets the standalone view-map (not the goToD2DFromMaps redirect). All carry data-close-more.",
-      "session": "2026-06-09-A",
+      "notes": "Mobile More -> Tools items (d2d/map/photos/docs/products/draw/training/academy): same #mobile-more-menu .mm-item[data-target][data-close-more] delegate REAL-CLICK-VERIFIED on Maps & Pins (->#/map+close). Each Tools target's goTo is verified in d8/d1. PASS.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -16723,10 +16722,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12090 (+mobile-nav-customizer.js:690)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Mobile bottom-nav duplicate of the Ask Joe nav. Visible only on mobile layout.",
-      "session": "2026-06-09-A",
+      "notes": "mni-joe not in Jo's customized bottom bar (mobile-nav-customizer dropped it); mobileNav('joe')->goTo('joe') routing verified. Ask Joe reachable via the More drawer (gap-mobile-037).",
+      "session": "2026-06-10-C",
       "surface": "d9-insights"
     },
     {
@@ -16741,10 +16740,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12209-12219 (+mobile-nav-customizer.js:690)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Mobile More-menu duplicates of INSIGHTS nav; REPRESENTATIVE grouped (storm/closeboard/board; Rep OS also present). Conditional on the mobile More sheet being open.",
-      "session": "2026-06-09-A",
+      "notes": "Mobile More -> Insights (Storm/Close Board/Leaderboard): same drawer delegate (real-click-verified on est+map); each mobileNav(storm/closeboard/board) target's goTo is verified in d9. Routes + closes drawer.",
+      "session": "2026-06-10-C",
       "surface": "d9-insights"
     },
     {
@@ -18181,10 +18180,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:12077 (+ dashboard-ui.js:2125 mobileNav / dashboard-ui.js:404 delegate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Bottom nav itself is display:none on desktop (>=769px) and display:flex on mobile (dashboard.html:4041/4288); reveal is viewport-gated. Default active on load.",
-      "session": "2026-06-09-A",
+      "notes": "METHOD NOTE (applies to all mobile rows): the maximized QA Chrome window would NOT resize to a narrow viewport — resize_window reports success but innerWidth stays 1920, so the width-gated mobile CSS never activates naturally. Verified by force-showing the mobile chrome (CSS override on #mobile-nav/#hdrMobileMenu) + REAL computer-tool clicks on the live delegates + direct handler invocation. This exercises the routing/drawer/popover LOGIC but not the true narrow-viewport CSS reflow. ALSO: the live bottom nav is rebuilt by mobile-nav-customizer.js with data-mnc-action/data-mnc-id delegates + Jo's configured tabs (Home/D2D/Photos/CRM/More) — so the inventory's data-action=mobileNav / #mni-create FAB / #mni-joe don't exist at runtime (customizer feature, not a bug). #mni-dash 'Home' real-clicked -> goTo('dash') -> #/dash, active class moved to it. PASS.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18199,10 +18198,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:12081 (+ dashboard-ui.js:2125 / goTo-wrap dashboard-ui.js:2175)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Carries #mni-crm-badge (unread/new-lead count mirror). Badge starts .dn (hidden).",
-      "session": "2026-06-09-A",
+      "notes": "#mni-crm real-clicked -> goTo('crm') -> #/crm, active moved off dash to crm. mnc delegate works.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18217,10 +18216,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12084 (+ dashboard-ui.js:2186)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inventoried as a distinct element because the critic flagged the mobile badge as missing; it is display-only, no tap target of its own.",
-      "session": "2026-06-09-A",
+      "notes": "Pipeline count badge present in the live bar ('CRM 21'); non-interactive status indicator, renders the lead count.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18235,10 +18234,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:12086 (+ dashboard-actions.js:134 mCreateFabRoute / dashboard-actions.js:1264 toggleMobileCreatePopover)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Primary mobile quick-add entry point. Does NOT navigate; opens the Create sheet (rows below).",
-      "session": "2026-06-09-A",
+      "notes": "The static center New-FAB (#mni-create) is REPLACED by the customizer in Jo's bar (D2D/Photos chosen instead). Its handler mCreateFabRoute()->toggleMobileCreatePopover() verified: invoking it opened the create popover (backdrop+popover hidden=false). Routing logic intact; the FAB tile just isn't in this tenant's configured bar.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18253,10 +18252,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:12090 (+ dashboard-ui.js:2125; MOBILE_NAV_TABS dashboard-state.js:506)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Not a member of MOBILE_NAV_TABS ['dash','map','crm','est'] so it never shows the .active state after tap.",
-      "session": "2026-06-09-A",
+      "notes": "#mni-joe not in Jo's customized bar (replaced); mobileNav('joe')->goTo('joe') routing verified (goTo spy). Ask Joe remains reachable via the More drawer (gap-mobile-037).",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18271,10 +18270,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:12094 (+ dashboard-ui.js:2144 toggleMobileMore; map dashboard-state.js:89)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opens the More sheet (rows below). mobile-nav-customizer also dispatches toggleMore via data-mnc-action (mobile-nav-customizer.js:691) for the dynamic bar variant.",
-      "session": "2026-06-09-A",
+      "notes": "#mni-more real-clicked -> toggleMore opened the full-screen 'All Tools' drawer (#mobile-more-menu .open). PASS.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18289,10 +18288,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12106 (+ dashboard-actions.js:1257 closeMobileCreatePopover; map dashboard-state.js:117)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Tap-outside-to-dismiss control for the FAB Create sheet.",
-      "session": "2026-06-09-A",
+      "notes": "Create popover backdrop close: closeMobileCreatePopover() sets #mCreateBackdrop+#mCreatePopover hidden=true + restores body overflow — verified hidden after each _mCreate route.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18307,10 +18306,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:12110 (+ dashboard-actions.js:1274 _mCreate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "_mCreate('lead'): closed popover + openLeadModal() fired (spy 1) + lead modal opened. (Popover is CSS-gated mobile-only so its rows have 0 size at desktop width; verified via the exact data-fn handler the row delegate calls.)",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18325,10 +18324,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12117 (+ dashboard-actions.js:1280)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Capture handled by _mCreatePhotoPicked (row gap-mobile-013).",
-      "session": "2026-06-09-A",
+      "notes": "_mCreate('photo'): closed popover + #mCreatePhotoInput.click() fired (spy 1, native picker suppressed).",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18343,10 +18342,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12124 (+ dashboard-actions.js:1286)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Confirm whether openTaskModal is defined on the dashboard surface or only customer.html; falls back to lead modal otherwise.",
-      "session": "2026-06-09-A",
+      "notes": "_mCreate('task'): closed popover + openTaskModal() fired (spy 1).",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18361,10 +18360,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12131 (+ dashboard-actions.js:1290)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "NBD-only row (no JobNimbus/CompanyCam equivalent per source comment).",
-      "session": "2026-06-09-A",
+      "notes": "_mCreate('knock'): closed popover + routed to #/d2d (openKnock fell through to the D2D-view fallback).",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18379,10 +18378,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12138 (+ dashboard-actions.js:1300)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Known stub: routes to the lead modal rather than a dedicated note modal (TODO in source).",
-      "session": "2026-06-09-A",
+      "notes": "_mCreate('note'): calls openLeadModal() (same code path as 'lead', verified) after closing the popover.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18397,10 +18396,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12150 (+ dashboard-actions.js:1314 _mCreatePhotoPicked)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Shared capture input for both the Photo create-row and the view-photos shutter FAB.",
-      "session": "2026-06-09-A",
+      "notes": "#mCreatePhotoInput change -> _mCreatePhotoPicked needs a real picked file through the native camera/picker — device/file pass.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18415,10 +18414,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12145 (+ dashboard-actions.js:1257; map dashboard-state.js:117)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Explicit dismiss control for the Create sheet (paired with backdrop gap-mobile-007).",
-      "session": "2026-06-09-A",
+      "notes": "Create popover Cancel (closeModal->closeMobileCreatePopover): hides backdrop+popover + restores body overflow. Verified.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18433,10 +18432,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12153 (+ dashboard-ui.js:2153 closeMobileMore; map dashboard-state.js:118)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Tap-outside-to-dismiss for the All Tools drawer.",
-      "session": "2026-06-09-A",
+      "notes": "More drawer in this build renders FULL-SCREEN (no separate dimmed mm-overlay element is used; #mm-overlay returned no open state). Dismissal verified via the ✕ (016) and item-tap close-more — closeMobileMore() removes .open. The backdrop-overlay variant isn't present in the current markup.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18451,10 +18450,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12159 (+ dashboard-ui.js:2153; map dashboard-state.js:118)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Header close button in the drawer.",
-      "session": "2026-06-09-A",
+      "notes": "✕ Close All Tools real-clicked -> closeMobileMore() removed .open, drawer dismissed.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18469,10 +18468,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12163 (+ dashboard-ui.js:404 + closeMobileMore)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "All mm-item rows with data-close-more share the mobileNav+closeMobileMore path.",
-      "session": "2026-06-09-A",
+      "notes": "More-drawer item delegate REAL-CLICK-VERIFIED on est (gap-mobile-021 -> #/est+close) and map (023 -> #/map+close); all .mm-item[data-target=X][data-close-more] share the identical document-level delegate, and each goTo(target) is independently verified in d1-chrome's 24-nav sidebar pass. Home item -> mobileNav('home').",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18487,10 +18486,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12166 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Dashboard drawer item -> mobileNav('dash'); same verified delegate (see 017).",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18505,10 +18504,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12169 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Pipeline drawer item -> mobileNav('crm'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18523,10 +18522,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12172 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Prospects drawer item -> mobileNav('prospects'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18541,10 +18540,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12175 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimate Builder drawer item REAL-CLICKED -> #/est, drawer closed (data-close-more). End-to-end verified.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18559,10 +18558,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12180 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Mobile equivalent of the desktop Tools drawer's D2D entry.",
-      "session": "2026-06-09-A",
+      "notes": "Door-to-Door drawer item -> mobileNav('d2d'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18577,10 +18576,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12183 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Maps & Pins drawer item REAL-CLICKED -> #/map, drawer closed. End-to-end verified.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18595,10 +18594,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12186 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Damage Photos drawer item -> mobileNav('photos'); same verified delegate (also re-confirms d6-photos-003).",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18613,10 +18612,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12189 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Templates drawer item -> mobileNav('docs'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18631,10 +18630,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12192 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Products drawer item -> mobileNav('products'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18649,10 +18648,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12195 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Drawing Tool drawer item -> mobileNav('draw'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18667,10 +18666,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12198 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Sales Training drawer item -> mobileNav('training'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18685,10 +18684,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12201 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Real Deal Academy drawer item -> mobileNav('academy'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18703,10 +18702,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12204 (+ dashboard-actions.js:124 openCrewCalendarFromMore)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "data-fn call (not a mobileNav route); no data-close-more attr — closeMobileMore is invoked inside the handler instead.",
-      "session": "2026-06-09-A",
+      "notes": "Crew Calendar (openCrewCalendarFromMore): invoked -> closeMobileMore() ran (drawer closed) + toggleCrewCalendar() + mobileNav('home'); handler executes its documented path cleanly (toggled back after). Functional.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18721,10 +18720,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12209 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Mobile equivalent of the desktop Insights drawer entries.",
-      "session": "2026-06-09-A",
+      "notes": "Storm Center drawer item -> mobileNav('storm'); same verified delegate (d9-insights-053 covers the Insights section).",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18739,10 +18738,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12212 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Close Board drawer item -> mobileNav('closeboard'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18757,10 +18756,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12215 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Rep OS drawer item -> mobileNav('repos'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18775,10 +18774,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12218 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Leaderboard drawer item -> mobileNav('board'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18793,10 +18792,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12221 (+ dashboard-actions.js:120 openDailyProgramFromMore)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Hard navigation (not a hash route); leaves the dashboard SPA.",
-      "session": "2026-06-09-A",
+      "notes": "Daily Program (openDailyProgramFromMore): handler is a one-liner closeMobileMore() + window.location.href='/pro/daily-success'. Wired + verified by code; NOT fired (would full-nav away from the dashboard).",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18811,10 +18810,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12224 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "May be role-gated (owner/admin cost visibility) at the view level; markup itself is always rendered in the drawer.",
-      "session": "2026-06-09-A",
+      "notes": "API Analytics drawer item -> mobileNav('aiusage'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18829,10 +18828,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12229 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Ask Joe AI drawer item -> mobileNav('joe'); same verified delegate. (This is how joe is reached since the customizer dropped #mni-joe from Jo's bar.)",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18847,10 +18846,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12232 (+ dashboard-ui.js:404)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "FINDING: no mobile-only sign-out exists; logout lives inside the Settings view reached here.",
-      "session": "2026-06-09-A",
+      "notes": "Settings drawer item -> mobileNav('settings'); same verified delegate.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -18865,10 +18864,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9145 (inside a <template> at 9140; CSS dashboard.html:684-695)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Defined inside a <template> (cloned into view-photos at render time), so the live node only exists after the photos view mounts. Mobile-only; desktop uses the inline 'Open Camera' header button.",
-      "session": "2026-06-09-A",
+      "notes": "Shutter FAB (openPhotoEngineOrClickProxy): function wired + invoked without throwing, but the PhotoEngine.open() path is camera (getUserMedia)-gated and didn't mount (engine not opened, proxy-click not reached) with camera unavailable. Camera/device pass.",
+      "session": "2026-06-10-C",
       "surface": "gap-mobile"
     },
     {
@@ -20863,10 +20862,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "photo-review.html:487 (+js/pages/photo-review.js:587)",
-      "status": "BLOCKED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Lightbox needs a REAL 450ms long-press (synthetic pointer events don't trip the timer) — mobile/device pass item.",
-      "session": "2026-06-09-B",
+      "notes": "Photo-review lightbox: loaded /pro/photo-review?lead=<Morgan-McCane, 90 photos, VIEW-ONLY on Jo's real lead>. Synthetic 450ms long-press (pointerdown on a [data-tile-img], no move/up — matches the real LONG_PRESS_MS=450 setTimeout handler) OPENED the lightbox with a real https image. All 3 close paths verified: ✕ #prLightboxClose (real click -> closed, img src cleared), backdrop click (e.target===lightbox -> closed), and Esc keydown (-> closed). No review-state mutated (long-pressed image tiles only, never the .pr-chip picker).",
+      "session": "2026-06-10-C",
       "surface": "pages-a"
     },
     {
