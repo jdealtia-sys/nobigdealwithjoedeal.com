@@ -196,3 +196,26 @@ Phase-1 behavioral check of NEW-4: saving Daily OS with an **empty** target sets
 
 **NEW-D9 — LOW (candidate) — D2D date-filter pills may be a no-op**
 Feed pills Today/Week/Month/All all yielded identical item counts (25) when cycled; either the probe counted unfiltered feed entries or `setDateFilter` doesn't filter. Needs a data-shape check (knock timestamps span multiple days, so counts should differ). *Row:* d8-tools-121 (BLOCKED).
+
+### New findings (d9-insights + storm/closeboard/repos deep pass, same session cont.)
+
+**NEW-D13 — HIGH — Close Board share links have NEVER worked (storage rule blocks text/html) — FIX OPEN: PR #610**
+`close-board.js uploadDealPage()` uploads the shareable deal page to Storage `deal_rooms/{uid}/{dealId}.html` as `text/html`, but the `deal_rooms` storage rule gates writes on `isDocType()` which does NOT match text/html → every upload is `storage/unauthorized` (verified live, console captured). So 🔗 Copy ("Could not generate link"), 📱 Text ("Upload failed — share manually"), and 📧 Email (compose opens but link-less) all fail — the product's core "one link to close" flow is dead. Preview works (in-page viewer). **PR #610** switches the gate to `isHtmlOnly()` (the `documents/` pattern) + 3 storage-rules test cases. *Rows:* d9-insights-046/047/048, gap-storm-cb-repos-021/022/023 (FAIL).
+
+**NEW-D11 — MEDIUM — Saved reports can't be deleted (rules deny owner delete; UI fails silently) — FIX OPEN: PR #609**
+My Reports renders a 🗑 for every owner; `deleteSavedReport` confirms "This cannot be undone", calls `_deleteReport` → `deleteDoc(reports/{id})` → PERMISSION_DENIED (`allow update, delete: if isAdmin()`), returns false, and the UI's `if (ok)` swallows it — no toast, report stays. **PR #609**: owner-scoped delete + error toast + rules regression test (case 24). *Rows:* d9-insights-028, gap-storm-cb-repos-053 (FAIL).
+
+**NEW-D12 — MEDIUM — Storm Center map is a gray void: Esri-primary tiles load 0/12 even in Chrome**
+`storm-center.js:618` still uses `server.arcgisonline.com` World_Imagery as the ONLY tile layer — the PR #486 rule (Google `mt{s}` primary + Esri tileerror fallback, because Brave hard-blocks arcgisonline) was never applied here. Live check: 12 tile imgs, **0 loaded** — the map pane renders as a uniform gray void in Chrome too (alert/zone markers float on nothing). *Fix:* same tile stack as the D2D map. *Row:* map pane observed across all storm tabs.
+
+**NEW-D14 — MEDIUM — `deal_rooms` Firestore collection has NO rules block → the deal "backup" sync layer is entirely dead, deals are localStorage-only**
+`syncDealToFirestore` setDocs to `deal_rooms/{dealId}` on every create/update, but firestore.rules has no deal_rooms match → default deny for create/read/delete (verified: owner read + delete both PERMISSION_DENIED). Net effect: Close Board deals live ONLY in `nbd_deal_rooms` localStorage (single browser, no recovery), while the code pretends to back them up. Also `deleteDeal()` never deletes the Firestore copy even where it could. *Fix direction:* add an owner-scoped deal_rooms rules block (and make deleteDeal clean up), or drop the dead sync. *Row:* d9-insights-044 note.
+
+**NEW-D15 — MEDIUM — Ask Joe "⚡ Scenarios" button is permanently dead on #/joe**
+`openDecisionPicker` requires `window.DecisionEngine`, but `decision-engine.js` only lazy-loads via ScriptLoader for the `aitree`/`understand` views — it is never loaded on #/joe, so the button error-toasts "Decision engine loading..." forever (real click + direct call verified: nothing renders). *Fix direction:* have `openDecisionPicker` lazy-load the `decision` bundle (ScriptLoader) before calling `DecisionEngine.openPicker()`. *Row:* d9-insights-010 (FAIL).
+
+**NEW-D10 — LOW/MEDIUM — Generated report's funnel chart renders blank in the viewer**
+The Pipeline Health report renders real data in all CSS-bar sections, but the "Your Pipeline Shape" funnel-chart box is an empty white area (waited + scrolled; never paints). Likely the chart script can't execute/load inside the sandboxed srcdoc iframe. Print/PDF presumably inherit the blank box. *Row:* d9-insights-026 note.
+
+**NEW-D16 — LOW — Ask Joe "New Chat" doesn't clear the transcript (+ greeting says "Hey the —")**
+NEW CHAT appends a fresh greeting UNDER the existing conversation instead of resetting the thread. Separately, the greeting renders "**Hey the** — I've got eyes on your pipeline…" — a broken name interpolation. *Row:* d9-insights-011 (FAIL).

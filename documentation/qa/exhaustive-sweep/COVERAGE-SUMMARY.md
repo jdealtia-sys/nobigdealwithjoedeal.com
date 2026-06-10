@@ -3,15 +3,15 @@
 **Target:** https://nobigdealwithjoedeal.com/pro — LIVE prod, tenant zero (JD).
 **Last session:** `2026-06-09-B` (verify-sweep)
 
-## Coverage: **245 / 1363 verified (18.0%)**
+## Coverage: **343 / 1363 verified (25.2%)**
 
 | status | count |
 |--------|-------|
-| PASS | 193 |
-| FAIL | 21 |
-| BLOCKED | 25 |
+| PASS | 272 |
+| FAIL | 31 |
+| BLOCKED | 34 |
 | FIXED | 6 |
-| UNTESTED | 1118 |
+| UNTESTED | 1020 |
 
 > **2026-06-09-B verify-sweep session:** ✅ **ALL 8 behavioral checklist items PASS in-browser** (normal Chrome window; the tab-group blocker was cleared by launching a fresh `--new-window`). NEW-1/NEW-2/NEW-4/CO-M-1/CO-L-1+NEW-C9/NEW-5(fresh bridge round-trip)/NEW-C10+C13/NEW-C12 all verified working live with reload round-trips; real settings restored; ledger rows annotated. Then resumed the sweep: **d5-docs 100% touched (53 rows)** and **d8-tools 55/123**. **21 new FAILs across 5 new bug families** (NEW-D1 server-PDF previews blocked; NEW-D2 Save-to-Customer silent no-op; NEW-D5 Products dead chrome; NEW-D6 Academy accordions ⇒ **fix PR #606 open, smoke 1825/0**; NEW-D7 Sales Training dead chrome; +NEW-D3/D4/D8/D9 lower). Trackers: `documentation/qa/verify-sweep-2026-06-09/`.
 
@@ -55,8 +55,8 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 | gap-misc | ask-joe/analytics/toast/dedup | 23 | P2 | — |
 | d7-settings | Settings (all tabs) — STRICT BAR | 185 | P2 | 27/185 — **ALL 11 tabs touched**; Help/Access/Team/Billing done (export+GDPR-delete-boundary+tour PASS); **NEW-2 + NEW-4 FAIL; NEW-3 killed; NEW-C10/11/12/13 candidates** |
 | d8-tools | Tools nav group | 123 | P2 | **55/123 (2026-06-09-B)**: navs+docs-dups+D2D core (knock lifecycle/CSV/route/tabs PASS) + Academy (course/lesson/quiz/node PASS; accordion FAIL → PR #606); **Products 10 FAIL (NEW-D5 dead chrome) + Training 5 FAIL (NEW-D7 dead chrome)**. Remaining: maps #/map 009-034 + draw 035-075 (Leaflet-hostile per-control tail) + 122 mobile |
-| d9-insights | Insights + Ask Joe + cmd palette | 53 | P2 | Leaderboard/Storm/CloseBoard/RepOS render; **Reports clean (CO-H-3 not-repro)**; **Ask Joe AI round-trip (H-4) PASS**; cmd palette PASS |
-| gap-storm-cb-repos | Storm/CloseBoard/RepOS/Reports deep | 57 | P2 | — |
+| d9-insights | Insights + Ask Joe + cmd palette | 53 | P2 | **49/53 (2026-06-09-B cont.)**: report generator end-to-end, storm zone/plan lifecycle, ZZ_QA deal-room lifecycle, Ask Joe chip AI round-trip; FAILs: NEW-D11 report-delete (PR #609), NEW-D13 share links (PR #610), NEW-D15 Scenarios dead, NEW-D16 New-Chat. Remaining: 042/043 ins-fields, 052/053 mobile |
+| gap-storm-cb-repos | Storm/CloseBoard/RepOS/Reports deep | 57 | P2 | **52/57 (2026-06-09-B cont.)**: full storm zone→plan→delete + deal create→share-boundary→delete + briefing + report-gen matrix. FAIL family NEW-D13 (×3) + NEW-D11. Remaining: 014/017/018/024/035 (analytics tab, ins fields, breadcrumbs) |
 | portal | customer portal | 30 | P2 | — |
 | pages-a | estimate-view/photo-review/sign/daily/vault | 82 | P2 | — |
 | pages-b | login/register/analytics/leaderboard/ask-joe/refer/demo/how-to | 54 | P3 | — |
@@ -68,8 +68,8 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 3. **P3 secondary/public** — pages-b ▸ public.
 
 ## ▶ RESUME POINT
-**NEXT: `d9-insights` deep pass** (+`gap-storm-cb-repos` 57 rows; re-check **CO-H-3** Reports assertion while there) ▸ **customer.html** (non-CDP approach: computer-clicks + get_page_text, or Jo-driven) ▸ **gap-prospects** ▸ **d3-pipeline tail** (74) ▸ **d2-home remainder** (17) ▸ **d8 maps/draw tail** (rows 009–034 + 035–075 — Leaflet-hostile; budget per-control patience, stubs for dialogs; zone-save/clear-pins/AI calls to boundary only) ▸ portal ▸ pages-a/b ▸ public.
-**Carry-ins for the next pass:** flip d8-tools-103 to FIXED when **PR #606** (academy accordion) merges; re-test d8-118 (SMS chooser) with a callback-dispo ZZ_QA knock; NEW-D9 date-pill data-shape check; the Products+Training delegate fix has a **task chip** (one Products-only chip was already started by Jo + a superseding Products+Training chip exists — reconcile).
+**NEXT: `customer.html`** (non-CDP approach: computer-clicks + get_page_text, or Jo-driven) ▸ **gap-prospects** ▸ **d3-pipeline tail** (74) ▸ **d2-home remainder** (17) ▸ **d8 maps/draw tail** (rows 009–034 + 035–075 — Leaflet-hostile; budget per-control patience, stubs for dialogs; zone-save/clear-pins/AI calls to boundary only) ▸ gap-carddetail ▸ gap-deleteconfirm ▸ gap-esign-estimate ▸ d4-estimate ▸ d6-photos ▸ portal ▸ pages-a/b ▸ public ▸ mobile passes (gap-mobile + deferred d1 mobile + d8-122 + d9-052/053).
+**Carry-ins for the next pass:** flip on merge — d8-tools-103 (**PR #606** academy accordion), d9-028/gap-053 (**PR #609** report delete), d9-046/047/048 + gap-021/022/023 (**PR #610** deal-room share links). Re-test d8-118 (SMS chooser) with a callback-dispo ZZ_QA knock; NEW-D9 date-pill data-shape check; gap-050 journey-report generate AFTER #609 (saved reports become deletable); d9-042/043 + gap-017/018 insurance-conditional deal fields; gap-014 closeboard analytics tab. The Products+Training delegate fix has task chips (Jo started the Products-only chip AND the superseding Products+Training chip exists — worktrees `nbd-wt-product-library` + `nbd-wt-tools-wiring` overlap on product-library.js, reconcile before merging both).
 _Tooling note: javascript_tool has NO top-level await — wrap in `(async()=>{…})()`. Synthetic `.click()` does not trip some delegates (nav-section, product-lib) — always confirm dead controls with REAL computer-tool clicks before logging. `confirm` stubs must return true for the viewer's "Close without saving?" or viewers stack._
 
 **d7-settings DONE for this pass (all 11 tabs touched, deep strict-bar on the testable ones).** Untested d7 detail rows remain (individual company/legal/floor inputs, font grid, sidebar customizer, builder color pickers) — lower-value, same proven per-field method. Team/Billing data-loading panels stall ('Loading…', NEW-C10/C13).
@@ -110,6 +110,7 @@ BLOCKED to revisit: 015/017/019/020-d1 notif/recent (need ZZ_QA notification), 0
 ⚠ Watch the **renderer freeze**: keep `NBDWidgets.render()` calls ≤3 per JS exec and pre-override native `prompt`/`confirm`/`alert` before clicking controls that use them (goal-edit, account-delete) — they block CDP in a normal tab.
 
 ## Session log
+- **2026-06-09-B (cont. 2 — d9 + gap-storm-cb-repos)** — **98 rows: ledger 245→343 (25.2%)**. Reports: CO-H-3 **still not reproduced** (3rd clean load); generator end-to-end (5 templates, quick ranges, compare, narrative, generate → real-data report; journey lead-picker search 22→1 + cancel; Enrich confirm boundary; period buttons). **NEW-D11 found + FIXED-in-PR #609** (reports delete = admin-only rules → silent owner failure; owner-delete + error toast + rules test 24). Storm: zone→plan→delete lifecycle PASS (canvass plan w/ real numbers), **NEW-D12** (Esri-only tiles load 0/12 → gray-void map, PR #486 pattern missing). Close Board: ZZ_QA deal lifecycle PASS (create→preview→delete, zero residue), **NEW-D13 found + FIXED-in-PR #610** (deal_rooms storage rule blocks text/html → Copy/Text/Email share links NEVER worked), **NEW-D14** (deal_rooms Firestore sync default-denied → deals LS-only). Rep OS: briefing + regenerate + goto-nav PASS (local+weather only, no AI). Ask Joe: chip AI round-trip PASS (grounded reply), **NEW-D15** (Scenarios dead — DecisionEngine never loads on #/joe), **NEW-D16** (New Chat doesn't clear + 'Hey the —' greeting). All test data cleaned (zone deleted, deal deleted, 1 stuck saved report pending #609).
 - **2026-06-09-B (verify-sweep)** — **Behavioral verification: all 8 remediation checklist items PASS live** (NEW-1 task-check+widget-toggle round-trips; NEW-2 digest; NEW-4 north-star incl. legacy-mirror restore; CO-M-1 zero leaked markup on 12 matches; CO-L-1/NEW-C9 prefilled modal no-bounce; NEW-5 fresh /inspect bridge→delete→stays-gone, zero residue; NEW-C10 Team row resolves @$299; NEW-C13 Billing resolves; NEW-C12 hotkey persist round-trip). Ledger 137→138.
   - **d5-docs 100% (53 rows)**: filters/collapse PASS; 23-type fill/generate matrix — 20 srcdoc previews (86–98KB, sandboxed; warranty visually verified) PASS, **3 FAIL = NEW-D1** (invoice/change_order/contract: server-PDF storage URL iframed → "blocked by Chrome"); **NEW-D2** Save-to-Customer silent no-op (leadId never threaded from fill modal → no persist, no e-sign reachability) ; **NEW-D3** Blank button missing vs header copy; upload modal validation/boundaries PASS; Print/Download-PDF PASS via spies (19KB real PDF, download suppressed); Email mailto BLOCKED-native. Ledger →191 (14.0%).
   - **d8-tools 55/123**: Products **dead chrome (NEW-D5, 10 FAIL)** + Sales Training **dead chrome (NEW-D7, 5 FAIL)** — both verified with REAL clicks + source (no delegates/listeners; task chip spawned). Academy: course/lesson/mark-complete/quiz/node-modal PASS with full progress restore; **NEW-D6 module accordions never expand → fix PR #606 opened (9 lines, smoke 1825/0)**; **NEW-D8** academy_progress has no rules block (sync silently dead, LS-only). D2D: full ZZ_QA knock lifecycle PASS (modal→dispo→save→detail→in-app-confirm delete, zero residue), CSV spy PASS, 15-stop route calc PASS, tabs PASS; heat/hail/Me/SMS BLOCKED; **NEW-D9** date-pill candidate. Ledger →**245 (18.0%)**.

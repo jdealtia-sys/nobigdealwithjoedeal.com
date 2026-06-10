@@ -29,3 +29,12 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 
 ## Outbound side effects
 - One `lead-alert` email to Jo fired by the ZZ_QA_ Inspect Bridge Test2 public submit (same as the prior sweep's CO-H-1 repro; subject "New lead"). No SMS (Twilio still blocked). No Stripe/billing/account changes. GDPR/dangerous controls untouched this session.
+
+## Continuation pass (d9 + storm/closeboard/repos) — created & cleaned
+| artifact | state |
+|----------|-------|
+| Storm zone "Flood Advisory — Lucas, OH" (sz_17810583703) + its canvass plan | **deleted** via StormCenter.deleteZone — zones 1→0 verified |
+| Close Board deal "ZZ_QA Deal Test" (dr_mq7g8y7hcgeton) | **deleted** from LS (`nbd_deal_rooms` → 0). Firestore copy could not be verified/deleted from the client (deal_rooms is default-denied — NEW-D14); the sync write was most likely ALSO denied, so probably no orphan. If one exists, purge `deal_rooms/dr_mq7g8y7hcgeton` via admin SDK. |
+| Saved report "Pipeline Health Check — May 11→Jun 10, 2026" (reports/17nHTzHzE7…) | **STUCK** — saved-report delete is rules-denied (NEW-D11). Delete via the My Reports 🗑 after **PR #609** deploys. |
+| Ask Joe | one quick-chip AI message on Jo's key (tiny token cost); chat transcript left as-is (New Chat doesn't clear — NEW-D16). Key untouched. |
+| Reports generator | narrative checkbox toggled during test; generator panel re-inits per open (no persisted state). Enrich Data confirm CANCELLED (no enrichment ran). Dashboard period restored to 30 days. |

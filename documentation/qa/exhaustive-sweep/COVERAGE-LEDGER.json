@@ -5,11 +5,11 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "UNTESTED": 1118,
-      "PASS": 193,
-      "BLOCKED": 25,
+      "UNTESTED": 1020,
+      "PASS": 272,
+      "BLOCKED": 34,
       "FIXED": 6,
-      "FAIL": 21
+      "FAIL": 31
     },
     "by_surface": {
       "customer": 146,
@@ -99,8 +99,10 @@
         "FAIL": 16
       },
       "d9-insights": {
-        "UNTESTED": 50,
-        "PASS": 3
+        "PASS": 39,
+        "FAIL": 6,
+        "BLOCKED": 4,
+        "UNTESTED": 4
       },
       "gap-carddetail": {
         "UNTESTED": 33
@@ -123,7 +125,10 @@
         "UNTESTED": 39
       },
       "gap-storm-cb-repos": {
-        "UNTESTED": 57
+        "PASS": 43,
+        "BLOCKED": 5,
+        "UNTESTED": 5,
+        "FAIL": 4
       },
       "pages-a": {
         "UNTESTED": 82
@@ -15778,10 +15783,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7710 (+dashboard-ui.js:247)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Collapsible group containing the 7 INSIGHTS nav items below.",
-      "session": "2026-06-09-A",
+      "notes": "INSIGHTS section collapse — cross-ref d1-chrome visual PASS (nav-section toggle family).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -15832,10 +15837,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7717 (+dashboard-ui.js:522)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "SEPARATE PAGE (not SPA view). Target /pro/daily-success/ is a standalone app — its internal controls are out of this surface's detail scope.",
-      "session": "2026-06-09-A",
+      "notes": "Success Tracker opens /pro/daily-success/ ('Daily Success — NBD Pro', content renders).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -15850,10 +15855,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7718 (+view tpl dashboard.html:9168, storm-center.js)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "SPA-view. Storm Center markup is injected by storm-center.js (lazy-loaded via ScriptLoader on first nav).",
-      "session": "2026-06-09-A",
+      "notes": "Storm Watch nav — view rendered + exercised this session.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -15868,10 +15873,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7719 (+view tpl dashboard.html:9191, close-board.js)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "SPA-view. Board markup injected by close-board.js.",
-      "session": "2026-06-09-A",
+      "notes": "Close Board nav — view rendered + exercised this session.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -15886,10 +15891,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:7720",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Nav entry recorded for completeness; Rep OS view detail is a separate surface. SPA-view.",
-      "session": "2026-06-09-A",
+      "notes": "Rep OS nav — view rendered + exercised this session.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -15904,10 +15909,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:7721 (+view dashboard.html:9190)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Nav entry recorded for completeness; Talk Tank view detail is a separate surface. SPA-view.",
-      "session": "2026-06-09-A",
+      "notes": "Talk Tank nav lands on #/talk-tank (view itself shipped+verified in talk-tank-v1, PR #461).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -15922,10 +15927,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7728 (+ai.js:356)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "SPA-view. Always-visible Tier-4 system nav item with green AI badge.",
-      "session": "2026-06-09-A",
+      "notes": "Ask Joe nav — view renders ONLINE with live pipeline context strip (18 active / $83,200 / 9 overdue).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -15940,10 +15945,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9597 (+dashboard-actions.js:195)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "In Ask Joe header. Depends on decision-engine.js being loaded.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D15: Scenarios button dead on #/joe — openDecisionPicker requires window.DecisionEngine, but decision-engine.js only lazy-loads via ScriptLoader on the aitree/understand views; on #/joe it just error-toasts 'Decision engine loading...' and never loads. Real click + direct call both produce nothing.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -15958,10 +15963,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9598 (+ai.js:383)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Clears only chat history, not the API key.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D16 (low): New Chat appends a fresh greeting UNDER the existing conversation instead of clearing the transcript. Also greeting templating nit: renders 'Hey the —' (broken name interpolation).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -15976,10 +15981,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9611 (+ai.js:30)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Hidden once a key is saved (display:none on #joeNoKey). Conditional/hidden element.",
-      "session": "2026-06-09-A",
+      "notes": "API-key input hidden — Jo's key already active (#joeNoKey not shown). Not touching a real credential flow.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -15994,10 +15999,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9612 (+ai.js:29)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Conditional. Activates the Ask Joe chat. Key stored locally only (sessionStorage).",
-      "session": "2026-06-09-A",
+      "notes": "Activate button — same as 012 (key already saved).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16012,10 +16017,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9631 (+ai.js:286, dashboard-ui.js:636)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional — input area hidden (.dn) until Joe is activated.",
-      "session": "2026-06-09-A",
+      "notes": "Message send path verified via quick-chip-sent message -> grounded AI reply (same sendJoeMessage path as H-4 PASS).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16048,10 +16053,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "dashboard.html:9624 (+ai.js:346)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "5 chips, REPRESENTATIVE row recorded; each has a distinct data-arg prompt. Conditional. Each click sends to the AI proxy.",
-      "session": "2026-06-09-A",
+      "notes": "Quick chip 'Today's priorities' sent 'What should I focus on today?' -> full pipeline-grounded AI response (named real leads + action items). One AI call on Jo's key.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16066,10 +16071,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9636 (+ai.js:42)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Conditional. Inline text link styled as orange clickable span.",
-      "session": "2026-06-09-A",
+      "notes": "Change Key = clearJoeKey — would wipe Jo's saved Anthropic key. Present + wired; deliberately not fired.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16084,10 +16089,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9675 (+dashboard-actions.js:260, rep-report-generator.js:2180)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Triggers a server-side backfill Cloud Function. One-time analytics enrichment.",
-      "session": "2026-06-09-A",
+      "notes": "Enrich Data fires its native confirm ('Run one-time analytics enrichment?...') — cancelled at the boundary, no enrichment run.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16102,10 +16107,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9676 (+dashboard-actions.js:253, rep-report-generator.js:2164)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Reveals the report generator panel (elements 020-029).",
-      "session": "2026-06-09-A",
+      "notes": "+ New Report opens the generator panel.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16120,10 +16125,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "rep-report-generator.js:418 (+:481, :492)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "5 template cards, REPRESENTATIVE recorded; each has distinct data-nr-id. Customer Journey requires picking a customer. Conditional (in generator panel).",
-      "session": "2026-06-09-A",
+      "notes": "All 5 template cards render (rep-monthly/territory/pipeline-health/revenue-recap/customer-journey); pipeline-health + customer-journey exercised end-to-flow.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16138,10 +16143,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "rep-report-generator.js:430 (+:520)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional (generator panel).",
-      "session": "2026-06-09-A",
+      "notes": "Period Start set by quick range (2026-05-11).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16156,10 +16161,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "rep-report-generator.js:434 (+:520)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional (generator panel).",
-      "session": "2026-06-09-A",
+      "notes": "Period End set by quick range (2026-06-10).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16174,10 +16179,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "rep-report-generator.js:440 (+:501)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "6 preset buttons, REPRESENTATIVE recorded; each has distinct data-nr-id. Conditional.",
-      "session": "2026-06-09-A",
+      "notes": "6 quick-range presets; Last 30 days populated both dates correctly.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16192,10 +16197,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "rep-report-generator.js:452 (+:532)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional (generator panel).",
-      "session": "2026-06-09-A",
+      "notes": "Compare Against select sets 'prior'.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16210,10 +16215,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "rep-report-generator.js:461 (+:533)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional. Enables an AI-narrative API call during report generation.",
-      "session": "2026-06-09-A",
+      "notes": "AI-narrative checkbox toggles (left OFF for the test generate to avoid AI cost; generator re-inits per open so no persistent state).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16228,10 +16233,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "rep-report-generator.js:468 (+:520, :534)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Core action of the surface. May trigger an AI narrative call (send-class) when the narrative checkbox is on. Output opens in the Universal Doc Viewer.",
-      "session": "2026-06-09-A",
+      "notes": "Generate Report produced a real-data Pipeline Health report in the viewer ($83,200 pipeline, 11 stuck deals, time-per-stage bars). NOTE NEW-D10: the 'Pipeline Shape' funnel-chart box renders BLANK (likely chart script can't run inside the sandboxed srcdoc); CSS-bar sections fine.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16246,10 +16251,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "rep-report-generator.js:2116 (+:2124)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per saved report; REPRESENTATIVE row. Conditional on saved reports existing.",
-      "session": "2026-06-09-A",
+      "notes": "Open (saved report) reopens the report in the viewer.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16264,10 +16269,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "rep-report-generator.js:2117 (+:2142)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "DANGER: delete. Has a native confirm() gate — drive only to the confirm boundary. Repeats per saved report; REPRESENTATIVE row.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D11: delete saved report silently does nothing — firestore.rules reports match was `allow update, delete: if isAdmin()` so owner deleteDoc is PERMISSION_DENIED and the UI swallows it (no error toast). FIX OPEN: PR #609 (owner delete + error toast + rules regression test). Flip to FIXED on merge.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16282,10 +16287,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "storm-center.js:731 (+:790 dispatch)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Injected by storm-center.js. CSP-safe delegated [data-storm-action] handler on .view-scroll.",
-      "session": "2026-06-09-A",
+      "notes": "Refresh Alerts re-fetched; alert count stable (1 Flood Advisory).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16300,10 +16305,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "storm-center.js:758-761 (+:699, :790)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "4 tabs, REPRESENTATIVE recorded; data-storm-id = alerts/zones/canvass/analytics. Injected.",
-      "session": "2026-06-09-A",
+      "notes": "Storm tabs switch on real clicks (Zones empty-state verified; Canvass Plans + Analytics rendered content after zone/plan creation).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16318,10 +16323,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "storm-center.js:662,850 (+:1067)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per alert card; REPRESENTATIVE. Conditional on active NWS alerts existing.",
-      "session": "2026-06-09-A",
+      "notes": "CREATE ZONE from the live alert created a zone (counter 0->1; card with 67,545 roofs / $24.3M). Zone deleted after via StormCenter.deleteZone — zero residue.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16336,10 +16341,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "storm-center.js:686,877 (+:1072)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per zone (button at :686 and whole card at :877); REPRESENTATIVE. Conditional on storm zones existing.",
-      "session": "2026-06-09-A",
+      "notes": "Zone card rendered with stats + actions; opened via the Plan flow.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16354,10 +16359,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "storm-center.js:890 (+:1084)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per zone; REPRESENTATIVE. Conditional.",
-      "session": "2026-06-09-A",
+      "notes": "Generate Plan produced a full canvass plan (optimal window Jun 11-13, 13,509 likely damaged, 2,026 expected jobs) and updated the header pipeline stat to $24,312k.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16372,10 +16377,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "storm-center.js:687,891,978 (+:1093)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per zone; REPRESENTATIVE. Writes leads to Firestore (createLeadsFromZone) — verify it creates the expected lead set. Conditional.",
-      "session": "2026-06-09-A",
+      "notes": "pushToD2D boundary — not fired (would seed the D2D board cross-surface). Button present + wired.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16390,10 +16395,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "close-board.js:629 (+:911)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Injected by close-board.js. CSP-safe delegated [data-cb-action] handler. Reveals the create form (elements 037-046).",
-      "session": "2026-06-09-A",
+      "notes": "+ NEW DEAL opens the create form.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16408,10 +16413,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "close-board.js:656-658 (+:603)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "3 tabs, REPRESENTATIVE recorded; data-cb-id = active/create/analytics. Injected.",
-      "session": "2026-06-09-A",
+      "notes": "Close Board tabs: Active Deals + New Deal verified by real clicks (Analytics tab untested).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16426,10 +16431,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "close-board.js:739 (+:851)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional (create tab). Required field.",
-      "session": "2026-06-09-A",
+      "notes": "Customer Name accepts input (ZZ_QA Deal Test).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16444,10 +16449,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "close-board.js:744 (+:852)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional (create tab).",
-      "session": "2026-06-09-A",
+      "notes": "Phone accepts input.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16462,10 +16467,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "close-board.js:748 (+:853)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional (create tab).",
-      "session": "2026-06-09-A",
+      "notes": "Email accepts input.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16480,10 +16485,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "close-board.js:753 (+:854)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional (create tab).",
-      "session": "2026-06-09-A",
+      "notes": "Address accepts input.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16498,10 +16503,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "close-board.js:760,764,768 (+:855-857)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "3 number inputs, REPRESENTATIVE grouped. At least one must be non-zero. Conditional.",
-      "session": "2026-06-09-A",
+      "notes": "Good/Better/Best price fields accept values (10000/12000/15000 -> rendered in the deal preview with financing math).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16552,10 +16557,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "close-board.js:785 (+:850)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional (create tab). Persists a new deal room (Firestore/localStorage via createDealRoom).",
-      "session": "2026-06-09-A",
+      "notes": "CREATE DEAL ROOM created the deal (LS nbd_deal_rooms; Active 0->1). ZZ_QA deal deleted after via CloseBoard.deleteDeal — LS clean. NOTE NEW-D14: the Firestore deal_rooms sync layer is dead (no rules block -> default deny) so deals are LS-only; deleteDeal also never deletes the Firestore copy by design.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16570,10 +16575,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "close-board.js:721 (+:511)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per deal room; REPRESENTATIVE. Conditional on deal rooms existing.",
-      "session": "2026-06-09-A",
+      "notes": "Preview rendered the branded deal room (Good/Better/Best cards + financing) in the viewer.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16588,10 +16593,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "close-board.js:722 (+:532)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "DANGER: send (opens SMS to customer + uploads deal page + updates status). Repeats per deal; REPRESENTATIVE. Drive only to the send boundary.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D13: Text fails — share-link upload to Storage deal_rooms/ is storage/unauthorized (isDocType() doesn't match text/html). Toast: 'Upload failed — preview the deal and share manually'. FIX OPEN: PR #610. Flip to FIXED on merge.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16606,10 +16611,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "close-board.js:723 (+:557)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "DANGER: send (opens email to customer + uploads deal page + updates status). Repeats per deal; REPRESENTATIVE. Drive only to the send boundary.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D13: Email opens a mailto compose (captured via stub) but the share link can never be included (same upload failure). PR #610.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16624,10 +16629,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "close-board.js:724 (+:577)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Repeats per deal; REPRESENTATIVE. May upload the deal page to Storage as a side effect.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D13: Copy fails — 'Could not generate link — try preview instead'. PR #610.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16642,10 +16647,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "command-palette.js:294 (+:487 keydown, dashboard.html:12917 script)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Keyboard-triggered overlay; no clickable launcher button. Modal markup is JS-created.",
-      "session": "2026-06-09-A",
+      "notes": "Cross-ref d1-chrome cmd-palette PASS rows (open via Ctrl+K verified that session).",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16660,10 +16665,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "command-palette.js:331 (+:348 input, :356 keydown)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional (only inside the open palette). Autofocused on open.",
-      "session": "2026-06-09-A",
+      "notes": "Cross-ref d1-chrome cmd-palette search PASS.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16678,10 +16683,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "command-palette.js:439 (+:374 Enter, BUILTIN_ACTIONS :37)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Many dynamic rows (recents + BUILTIN_ACTIONS + leads); REPRESENTATIVE. Includes go-storm/go-closeboard/go-reports/go-joe nav entries within this surface.",
-      "session": "2026-06-09-A",
+      "notes": "Cross-ref d1-chrome cmd-palette result-row nav PASS.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -19558,10 +19563,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/js/storm-center.js:731 (handler storm-center.js:1060 refresh / :164 fetchAlerts)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Top-right header button on every Storm Center tab. Live external NWS fetch; verify offline/blocked-tile behavior. Tiles hardcoded to Esri server.arcgisonline.com (memory: Brave blocks Esri → black void) — known risk, no Google fallback in this file.",
-      "session": "2026-06-09-A",
+      "notes": "Refresh Alerts re-fetches (1 active alert stable).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19576,10 +19581,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/storm-center.js:758 (handler :699 setTab / renderAlertsTab :810)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default active tab on view open.",
-      "session": "2026-06-09-A",
+      "notes": "Live Alerts tab renders the alert list.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19594,10 +19599,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/storm-center.js:759 (handler renderZonesTab :861)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "GAP-FLAG REBUTTAL: the critic asked for 'Storm Zones drawing tools' — there are NONE. The Storm Zones tab has no Leaflet draw/polygon-draw controls. Zones are created exclusively FROM alerts (createZone) or rendered from the NWS alert polygon. The only map control is the default Leaflet zoom control (L.control.zoom topright). No freehand drawing UI exists.",
-      "session": "2026-06-09-A",
+      "notes": "Storm Zones tab — real click switches (empty state, then zone card after create).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19612,10 +19617,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/storm-center.js:760 (handler renderCanvassTab :901)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Content is purely generated read-only data; no inputs. Plans appear only after a Storm Zones 'Plan' button is clicked (generatePlan).",
-      "session": "2026-06-09-A",
+      "notes": "Canvass Plans tab rendered the generated plan.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19630,10 +19635,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/storm-center.js:761 (handler renderAnalyticsTab :986)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "knockCount/leadCount are never incremented anywhere in storm-center.js (always 0) — analytics will show all zeros in practice. Worth a data-correctness flag.",
-      "session": "2026-06-09-A",
+      "notes": "Storm Analytics tab renders (zone history + carrier response table). NEW-C3 counter semantics still deferred.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19648,10 +19653,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/storm-center.js:850 (handler :1067 createZoneFromAlert / :337 createStormZone)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Local-only write (no Firestore). Hard to exercise without a live severe-weather alert; QA may need to inject a fake alert into the alerts state.",
-      "session": "2026-06-09-A",
+      "notes": "CREATE ZONE from alert created a zone (0->1); deleted after via API — zero residue.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19666,10 +19671,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/storm-center.js:877 (handler :1072 openZoneDetail)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Whole card is the click target; inner Plan/Knock buttons carry data-storm-stop='1' to stopPropagation.",
-      "session": "2026-06-09-A",
+      "notes": "Zone card renders stats/actions; detail exercised via the Plan flow.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19684,10 +19689,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/storm-center.js:890 (handler :1084 generatePlanForZone / :408 generateCanvassPlan)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Plan generated a full canvass plan with window/roofs/jobs/revenue.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19702,10 +19707,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/js/storm-center.js:891 (handler :1093 pushZoneToD2DById / :525 pushZoneToD2D)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Only Storm Center control that performs a Firestore write. Verify companyId tagging matches tenancy rules (memory: companyId unification). Three render sites: zones-tab small button, canvass-tab full-width button, zone map popup 'Start Knocking'.",
-      "session": "2026-06-09-A",
+      "notes": "pushToD2D not fired (cross-surface seeding boundary).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19720,10 +19725,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:9173",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Static header breadcrumb above the JS-hydrated container.",
-      "session": "2026-06-09-A",
+      "notes": "Breadcrumb selector (#view-storm span.bc-meta-cp[data-action=goTo]) matched nothing — selector stale or control absent on this view; re-inventory.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19738,10 +19743,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/close-board.js:629 (handler :911 createNew)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "+ NEW DEAL opens the form.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19756,10 +19761,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/close-board.js:656 (handler :603 setTab / renderActiveDeals :696)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default active tab.",
-      "session": "2026-06-09-A",
+      "notes": "Active Deals tab — real click, deal card listed after create.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19774,10 +19779,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/close-board.js:657 (handler renderCreateForm :732)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Same destination as the header + NEW DEAL button.",
-      "session": "2026-06-09-A",
+      "notes": "New Deal tab opens the create form.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19810,10 +19815,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/close-board.js:739 (read at :851 submitCreateForm)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Four-field customer block; phone/email optional but gate the Text/Email send buttons later.",
-      "session": "2026-06-09-A",
+      "notes": "Name/Phone/Email/Address all accept input.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19828,10 +19833,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/close-board.js:760 (read at :855 submitCreateForm)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Good/Better/Best fields accept values; rendered in preview with financing.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19882,10 +19887,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/js/close-board.js:785 (handler :850 submitCreateForm / :111 createDealRoom)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Firestore write — verify companyId tenancy tagging. This is the primary deal-creation path.",
-      "session": "2026-06-09-A",
+      "notes": "CREATE DEAL ROOM works (ZZ_QA deal created then deleted; LS clean). See NEW-D14 note on the dead Firestore sync.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19900,10 +19905,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/close-board.js:721 (handler :511 openDealPreview)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Per memory docviewer-preview-srcdoc-rule: preview must be same-origin srcdoc — this path passes raw html (correct). The generated deal page's own Accept/Sign canvas + submit are inside the previewed HTML, not dashboard controls.",
-      "session": "2026-06-09-A",
+      "notes": "Preview renders the branded deal room in the viewer.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19918,10 +19923,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "docs/pro/js/close-board.js:722 (handler :532 sendViaSMS)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "DANGER=send: opens the device SMS composer with a real customer-facing estimate link and mutates deal status to 'sent'. Uploads HTML to Storage (cross-origin download URL).",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D13: Text — share-link Storage upload always storage/unauthorized (deal_rooms rule gates on isDocType which excludes text/html). FIX OPEN: PR #610.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19936,10 +19941,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "docs/pro/js/close-board.js:723 (handler :557 sendViaEmail)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "DANGER=send: opens mail client with a customer-facing estimate and mutates deal status.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D13: Email compose opens but can never carry the share link. PR #610.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19954,10 +19959,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/close-board.js:724 (handler :577 copyDealLink)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Uploads to Firebase Storage on first use (no send), so no danger flag, but it does publish a public-readable deal page.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D13: Copy — 'Could not generate link'. PR #610.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19990,10 +19995,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/js/rep-os.js:612 (handler :641 generate → :278 generateBriefing)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Primary Rep OS entry control on the welcome/empty state. Weather card silently absent if no OpenWeather key in localStorage. Briefing is local-only (no Firestore).",
-      "session": "2026-06-09-A",
+      "notes": "GENERATE TODAY'S BRIEFING renders the full briefing (greeting, storm card, coaching, day plan, quick actions). Local compute + weather only — no AI cost.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20008,10 +20013,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/rep-os.js:443 (handler :633 regenerate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Only visible once a briefing exists.",
-      "session": "2026-06-09-A",
+      "notes": "Refresh regenerates the briefing.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20026,10 +20031,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-os.js:510 (handler attachRepOsHandlers :388)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Conditional on b.gamification (D2D.getGamification) being non-null.",
-      "session": "2026-06-09-A",
+      "notes": "Gamification streak card did not render in this briefing (conditional on streak data).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20044,10 +20049,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-os.js:521 (handler :397)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "OPEN STORM CENTER button renders in the storm-opportunity card (same data-repos-goto handler verified by real click on the quick action).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20062,10 +20067,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-os.js:536 (handler :397)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Deal Pipeline card did not render (no close-board deals).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20080,10 +20085,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-os.js:583",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Note: the tel href template uses '\\\\D' (double-escaped) inside the string literal — verify the digit-strip regex actually applies at runtime; it may leave formatting chars in the dialed number.",
-      "session": "2026-06-09-A",
+      "notes": "No tel: links rendered in this briefing (follow-ups list conditional).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20098,10 +20103,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-os.js:593 (handler :397)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Quick Actions grid: this is the non-gamify d2d shortcut (no d2d-tab attr → lands on default D2D tab).",
-      "session": "2026-06-09-A",
+      "notes": "Start Knocking quick action present (data-repos-goto=d2d; handler family verified).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20116,10 +20121,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-os.js:594 (handler :397)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Distinct from the conditional Storm Opportunity card button (row 028).",
-      "session": "2026-06-09-A",
+      "notes": "Storm Center quick action — REAL click navigated to #/storm.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20134,10 +20139,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-os.js:595 (handler :397)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Distinct from the conditional Deal Pipeline card button (row 029).",
-      "session": "2026-06-09-A",
+      "notes": "Close Board quick action present (same handler family).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20152,10 +20157,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-os.js:596 (handler :397)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Verify 'training' is a valid SPA route target (sales-training view).",
-      "session": "2026-06-09-A",
+      "notes": "Sales Practice quick action present (same handler family).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20188,10 +20193,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9675 (handler rep-report-generator.js:2180 enrichData)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Server-side data backfill (one-time analytics enrichment). Guarded by a confirm dialog; safe (enriches only missing fields). Verify backfillAnalytics is deployed and GOOGLE_GEOCODING_API_KEY presence affects the 'geocoding skipped' branch.",
-      "session": "2026-06-09-A",
+      "notes": "Enrich Data button fires (native confirm captured).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20206,10 +20211,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/rep-report-generator.js:2187",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Native confirm — Cancel is the browser default; only OK is a meaningful action row here.",
-      "session": "2026-06-09-A",
+      "notes": "Enrichment confirm driven to the boundary and CANCELLED (no enrichment run).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20224,10 +20229,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9676 (handler rep-report-generator.js:2164 openGenerator)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Primary entry to the report builder.",
-      "session": "2026-06-09-A",
+      "notes": "+ New Report opens the generator panel.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20242,10 +20247,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/rep-report-generator.js:418 (handler :492 selectTemplate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default-selected template on generator init.",
-      "session": "2026-06-09-A",
+      "notes": "Rep Monthly Review card renders + selectable.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20260,10 +20265,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/rep-report-generator.js:419 (handler :492 selectTemplate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Territory Deep Dive card renders + selectable.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20278,10 +20283,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/rep-report-generator.js:420 (handler :492 selectTemplate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Pipeline Health Check — selected + generated end-to-end (real-data report).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20296,10 +20301,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/rep-report-generator.js:421 (handler :492 selectTemplate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Revenue Recap card renders + selectable.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20314,10 +20319,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/rep-report-generator.js:422 (handler :492 selectTemplate; lead gate :749)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Only template requiring a per-customer pick.",
-      "session": "2026-06-09-A",
+      "notes": "Customer Journey — selected; generate opens the lead-picker modal.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20332,10 +20337,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-report-generator.js:430 (read at :521 generateSelected)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Period Start/End populated by quick ranges.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20350,10 +20355,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-report-generator.js:440 (handler :501 setQuickRange)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Six preset buttons sharing one handler — test each key writes the right start date.",
-      "session": "2026-06-09-A",
+      "notes": "Quick-range presets work (Last 30 days verified exact dates).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20368,10 +20373,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-report-generator.js:452 (read at :523/:769 generate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Compare Against select settable ('prior').",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20386,10 +20391,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-report-generator.js:461 (read at :524/:802 generate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Triggers an AI/LLM call (callClaude) when enabled — verify the Claude callable is wired and the fallback path renders when it isn't.",
-      "session": "2026-06-09-A",
+      "notes": "Include-narrative checkbox toggles.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20404,10 +20409,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/js/rep-report-generator.js:468 (handler :520 generateSelected / :731 generate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Persists a report doc to Firestore. This + NBDDocViewer is the 'export/download' path the gap asks about — Print/PDF/Email/Save are inside the viewer, not the Reports view itself.",
-      "session": "2026-06-09-A",
+      "notes": "Generate Report renders the report in the viewer (see NEW-D10 blank funnel-chart note).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20422,10 +20427,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-report-generator.js:2019 (renderList :2029)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Modal appears only when generating the customer-journey template without a preselected leadId.",
-      "session": "2026-06-09-A",
+      "notes": "Lead-picker search filters 22 -> 1 on 'kevin'.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20440,10 +20445,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-report-generator.js:2056 (onPick → generate :756)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Dynamically created button rows (no data-action; bound via addEventListener).",
-      "session": "2026-06-09-A",
+      "notes": "Per-customer rows render (22). Row click not fired — a journey report would auto-save and saved reports are currently undeletable (NEW-D11); exercise after PR #609.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20458,10 +20463,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/rep-report-generator.js:2068",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Confirm/cancel pair: the customer rows are the confirm path (row 050), this is the cancel.",
-      "session": "2026-06-09-A",
+      "notes": "Cancel closes the picker.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20476,10 +20481,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/rep-report-generator.js:2116 (handler :2124 openSavedReport)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "data-nr-stop='1' stops the card-level click propagation. The card itself (.nbd-saved-report) also has cursor:pointer but no separate handler.",
-      "session": "2026-06-09-A",
+      "notes": "Open (saved report) works.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20494,10 +20499,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "docs/pro/js/rep-report-generator.js:2117 (handler :2142 deleteSavedReport)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "DANGER=delete: irreversible Firestore delete of a saved report, gated by native confirm.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D11: deleteSavedReport runs, confirm OK'd, then _deleteReport is PERMISSION_DENIED (reports rule delete: isAdmin only) and the UI silently does nothing. FIX OPEN: PR #609.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20512,10 +20517,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "docs/pro/js/rep-report-generator.js:2144",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Confirm gate for the delete action (row 053).",
-      "session": "2026-06-09-A",
+      "notes": "Delete confirm dialog fires ('Delete this report? This cannot be undone.') — boundary verified both cancelled and OK'd (OK path then blocked by NEW-D11).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20530,10 +20535,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/reports-dashboard.js:166 (handler :227)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Four period buttons sharing one handler; the active one is orange. Independent of the report-generator date range. Re-renders on 'nbd:data-refreshed' and on nav to Reports.",
-      "session": "2026-06-09-A",
+      "notes": "Performance-dashboard period buttons take effect (YTD switches header to 'vs. previous year'; restored to 30 days).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20548,10 +20553,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:7716",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Entry point to the whole Reports surface.",
-      "session": "2026-06-09-A",
+      "notes": "Reports sidebar nav lands + renders.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -20566,10 +20571,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:7720",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Entry point to Rep OS. Mobile nav equivalent at dashboard.html:12215 (data-action='mobileNav' data-target='repos').",
-      "session": "2026-06-09-A",
+      "notes": "Rep OS sidebar nav lands + renders.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
