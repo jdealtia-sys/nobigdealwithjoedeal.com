@@ -311,6 +311,21 @@ async function run() {
   await assertFails(updateDoc(doc(viewer, 'leads/leadV'), { deleted: true }));
   await assertFails(deleteDoc(doc(viewer, 'leads/leadV')));
 
+  // 24. NEW-D11: saved reports — owners delete their OWN reports. The old
+  //     rule was `allow update, delete: if isAdmin()`, so the My Reports
+  //     delete button silently failed for every non-admin owner. Update
+  //     stays admin-only (no client edit flow); cross-owner + anon delete
+  //     stay blocked.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'reports/report-alice'), { userId: 'alice', name: 'Alice report', template: 'pipeline-health' });
+    await setDoc(doc(db, 'reports/report-bob'),   { userId: 'bob',   name: 'Bob report',   template: 'rep-monthly' });
+  });
+  await assertFails(updateDoc(doc(alice, 'reports/report-alice'), { name: 'renamed' })); // update still admin-only
+  await assertFails(deleteDoc(doc(alice, 'reports/report-bob')));                        // cross-owner delete blocked
+  await assertFails(deleteDoc(doc(anon, 'reports/report-alice')));                       // anon delete blocked
+  await assertSucceeds(deleteDoc(doc(alice, 'reports/report-alice')));                   // owner deletes own report
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }
