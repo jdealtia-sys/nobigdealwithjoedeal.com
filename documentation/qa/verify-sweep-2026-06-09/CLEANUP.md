@@ -99,3 +99,14 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 | Saved report "Pipeline Health Check — May 11→Jun 10, 2026" (reports/17nHTzHzE7…) | **STUCK** — saved-report delete is rules-denied (NEW-D11). Delete via the My Reports 🗑 after **PR #609** deploys. |
 | Ask Joe | one quick-chip AI message on Jo's key (tiny token cost); chat transcript left as-is (New Chat doesn't clear — NEW-D16). Key untouched. |
 | Reports generator | narrative checkbox toggled during test; generator panel re-inits per open (no persisted state). Enrich Data confirm CANCELLED (no enrichment ran). Dashboard period restored to 30 days. |
+
+## d8 maps/draw tail (2026-06-10-C) — created & cleaned
+| artifact | state |
+|----------|-------|
+| Territory zone "ZZ_QA Zone" (#/map) | **deleted** — created via Draw-New-Zone, then removed via both the zone-list ✕ AND `deleteZone()`; zones array 1→0, polygon off the map. (Zones are in-memory only / no persistence, so a reload also clears them.) |
+| Door pin "ZZ_QA test pin - QA sweep, delete me" (Versailles, KY; status not-home) | **deleted** — dropped via Drop-a-Pin (Firestore `_savePin`), used to verify pins-toggle + clear-all + popup, then deleted via the pin popup "🗑 Delete Pin" (`deletePinOnly`→`_deletePin`). pinMarkers 0, verified gone. |
+| Stray pin (NEW-D37 side effect) | A zone-draw click landed on the auto-popped pin-confirm "Save Pin" and silently saved ONE stray pin → **deleted immediately via deletePin** in the same exec. Zero residue (pinMarkers verified 0). |
+| `nbd_v2_draft_v1` localStorage (stale "ZZ_QA_ ServerPDF Test" draft, 200 SF) | **removed** — was a pre-existing stale ZZ_QA estimate draft (predates this session) surfaced by the NEW-D39 import test; my import re-created it once (autosave-on-input), removed again. Final state: key absent (verified). This also clears the estimate-qa carry-over throwaway draft. |
+| Draw-tool in-memory state (lines/facets/structures/cr-* totals) | All in-memory, **cleared** via Clear (confirm OK) + manual layer removal + navigated to #/home (full reset). No persistence; nothing to clean server-side. |
+| Outbound | NONE. No leads, no emails, no SMS, no Stripe. The ESX/PNG/PDF "downloads" were all spy-suppressed (URL.createObjectURL + anchor-click stub) — no files written. Solar/Auto-Detect/Shadow AI calls hit free/local fallbacks (no key, no cost). |
+| Session | Jo's login **still intact** at session end (verified `window._user` present, 21 leads, on #/home). |

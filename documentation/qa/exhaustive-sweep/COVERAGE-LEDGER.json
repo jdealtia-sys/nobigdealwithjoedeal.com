@@ -5,10 +5,10 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 236,
-      "PASS": 770,
-      "UNTESTED": 308,
-      "FAIL": 10,
+      "BLOCKED": 241,
+      "PASS": 828,
+      "UNTESTED": 241,
+      "FAIL": 14,
       "FIXED": 39
     },
     "by_surface": {
@@ -98,10 +98,11 @@
         "BLOCKED": 1
       },
       "d8-tools": {
-        "PASS": 33,
-        "UNTESTED": 68,
-        "BLOCKED": 6,
-        "FIXED": 16
+        "PASS": 91,
+        "FAIL": 4,
+        "BLOCKED": 11,
+        "FIXED": 16,
+        "UNTESTED": 1
       },
       "d9-insights": {
         "PASS": 41,
@@ -13734,10 +13735,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8038 (+maps.js searchMap)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "view-map template; reached via mobile More 'map' or crm tools, not the sidebar Maps&Pins item.",
-      "session": "2026-06-09-A",
+      "notes": "Enter fires searchMap via data-enter-action: geocoded, setView z19, propCard intel rendered (Jefferson Co, roof score, est value). Caveat: first Enter immediately after typing can be swallowed by the autocomplete layer; second Enter fires.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13752,10 +13753,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8041 (+maps.js searchMap)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "GO button fires searchMap (call-count spy 1->2->3): geocoded Frankfort, recentered z19. Note: un-geocodable address fails SILENTLY on this path (no 'Address not found' toast unlike dropPinByAddress).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13770,10 +13771,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8053 (+dashboard-ui.js:261 mapOverlay → toggleOverlay)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "One of 5 Map Layer toggles (heat/pins/jobs/storm/weather), same handler keyed by data-target.",
-      "session": "2026-06-09-A",
+      "notes": "Toggle flips overlayState.heat + .on class both directions (real clicks). 0-pin dataset -> no layer by design (buildHeatLayer early-returns on 0 pts). BUG (minor, logged in NEW-D40 bundle): refreshHeatLayer on commitPin reads stale window._pins (never appended by _savePin) -> new pins don't heat-map until reload.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13788,10 +13789,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8057 (+dashboard-ui.js:261 mapOverlay)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Verified against a live ZZ_QA marker: OFF -> marker element disconnected, ON -> reconnected. Works with clustering active at z18 (disableClusteringAtZoom).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13806,10 +13807,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8061 (+dashboard-ui.js:261 mapOverlay)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D35: toggle machinery works (state+class+show/hide fire) but buildJobsLayer filters ['In Progress','Complete','Finalizing'] legacy display names ONLY (maps-overlays.js:35) - canonical stages (install_in_progress/closed) never match -> jobs overlay permanently EMPTY for migrated tenants. Colorizer below it handles both name sets; the filter was missed by the v159.4 sweep.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13824,10 +13825,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8065 (+dashboard-ui.js:261 mapOverlay)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NOAA NEXRAD tile layer attached + 'Storm radar loaded' toast; detaches on off. (This is the main map's mesonet layer, distinct from NEW-D12 storm-center.js.)",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13842,10 +13843,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8069 (+dashboard-ui.js:261 mapOverlay)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "RainViewer precipitation layer attached + 'Live weather overlay active' toast; detaches on off.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13860,10 +13861,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8076",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inside Territory Zones panel.",
-      "session": "2026-06-09-A",
+      "notes": "Name typed into #zoneNameInput honored by saveZone -> zone + tooltip + list row all read 'ZZ_QA Zone'. Input cleared after save.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13878,10 +13879,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8078-8083 (+dashboard-ui.js:332 zoneColor → selectZoneColor)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats 6× (one per color); record one representative. Red is default active (#zoneColorActive).",
-      "session": "2026-06-09-A",
+      "notes": "Green swatch click: zoneColor='var(--green)', white border moves to selected swatch, saved polygon renders green.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13896,10 +13897,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8086 (+maps.js saveZone)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "saveZone: polygon + permanent zone-tooltip label on map, zone-list row rendered, 'Zone saved' toast, panel hidden, draw state reset. NOTE zones are IN-MEMORY ONLY (no Firestore/LS persistence; id=Date.now()) - lost on reload. ZZ_QA zone deleted after test.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13914,10 +13915,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8087 (+maps.js cancelZoneDraw)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "cancelZoneDraw (real click on X): drawing=false, pts/dots cleared, tempPoly removed, panel hidden, crosshair cursor restored, saved zones untouched.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13932,10 +13933,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8091 (+maps.js startZoneDraw)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Also has a FAB twin (#fab-zone) on the map bottom bar.",
-      "session": "2026-06-09-A",
+      "notes": "startZoneDraw enters draw mode (panel reveal + toast + crosshair + map clicks add points, >=3 shows dashed temp polygon). TWO BUGS found while driving it: NEW-D37 (every zone click ALSO pops pinConfirmOverlay - the unconditional map-click handler; a click landing on the dialog's Save Pin SILENTLY SAVED A STRAY PIN live - deleted via deletePin) and NEW-D38 (re-entering startZoneDraw stacks orphaned _zoneClick handlers -> each click adds 2+ points; only the latest handler is ever off()'d).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13950,10 +13951,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8097",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Has autocomplete dropdown #ac-pinAddrInput.",
-      "session": "2026-06-09-A",
+      "notes": "Address typed -> 'Geocoding address...' toast -> view recentered z18 -> pin-confirm overlay opened, input cleared after.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13968,10 +13969,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8100 (+maps.js dropPinByAddress)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Both paths verified: address path (geocode->confirm) and blank path (map-center coords in #pcd-coords).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -13986,10 +13987,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8103-8110 (+maps-overlays.js:386 selectPin; dashboard-ui.js:343 delegate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats 8× (one per disposition). Not Home is default .active.",
-      "session": "2026-06-09-A",
+      "notes": "Spot-checked Interested / Signed / Not Home: active class moves, #mapBadge text updates (incl star for Signed), curPinStatus/curPinColor set. Restored to Not Home.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14004,10 +14005,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8113 (+maps-routing.js damagNearMe)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Geolocation granted in QA profile: 'Getting your location...' -> 'Located ✓', map recentered z17.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14022,10 +14023,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "dashboard.html:8114 (+maps.js clearAllPins)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Destructive — drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "DISPLAY-ONLY clear: removes markers from cluster/map + resets pinMarkers{}; NO confirm fires (dialog spy 0) despite danger:delete expectation, but NO data deletion (Firestore docs intact; marker restorable via addPinMarker). UX trap noted in NEW-D40 bundle: pins vanish until view remount with no warning.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14040,10 +14041,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8120 (+maps spyglassSearch)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Floating Spyglass panel overlaid on the map.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D36: entire #mapSpyglassPanel renders UNDER the page header (position:absolute top:10px, offsetParent=BODY - panel sits outside the position:relative .map-area) -> elementFromPoint at its center hits HEADER; input unreachable by users. spyglassSearch() works when invoked programmatically (geocoded Versailles, z18) - fix is purely positional.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14058,10 +14059,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8125 (+maps spyglassGoToLocation)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Also duplicated as the first map FAB (line 8140).",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D36 (same occlusion): button exists with correct data-fn but is under the header - unclickable.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14076,10 +14077,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8126 (+maps spyglassSearch)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D36 (same occlusion): Go button under the header - unclickable.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14094,10 +14095,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8144-8148 (+maps fabToggle)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats 5× (fab-heat/pins/jobs/storm/weather); duplicate of the Map Layer toggles. data-pass-el passes the element.",
-      "session": "2026-06-09-A",
+      "notes": "FAB toggles act on layers + set their own active class both directions (heat verified on/off; all 4 used to restore overlays). NEW-D34: sidebar->FAB active-class sync is dead - the dashboard-ui.js toggleOverlay wrapper is clobbered by maps-core.js load order (window.toggleOverlay.toString() lacks _origToggleOverlay) -> FAB highlight stale when layers are toggled from the sidebar.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14112,10 +14113,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8151 (+storm/maps quickStormCheck)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "quickStormCheck: geoloc -> recenter + storm overlay ON + fab-storm active + 'Storm radar active at your location' toast. Restored OFF after.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14130,10 +14131,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8154 (+dashboard-ui.js:254 mapSidebar)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "display:none at desktop width (mobile-reflow control) - retest in the 390px mobile pass.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14148,10 +14149,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8185 (+maps cancelPinConfirm)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Dialog appears after dropPinByAddress / map-click.",
-      "session": "2026-06-09-A",
+      "notes": "Real click on Cancel: overlay closed, pendingPin nulled, no marker/save.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14166,10 +14167,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8183",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Notes typed into #pcd-notes persisted through commitPin -> shown in the pin popup ('ZZ_QA test pin - QA sweep, delete me').",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14184,10 +14185,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8186 (+maps commitPin)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "commitPin: 'Pin saved ✓' toast, marker added (Firestore _savePin), overlay closed. ZZ_QA pin deleted after via popup 'Delete Pin' (deletePinOnly -> _deletePin verified). Caveat: refreshHeatLayer no-ops on new pins (stale _pins, see 011).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14202,10 +14203,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8210 (+maps searchDraw)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Enter in #drawSearch fires searchDraw: geocoded Versailles KY, drawMap recentered z19 (verified center delta + zoom).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14220,10 +14221,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8213 (+maps searchDraw)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "GO button fires searchDraw: geocoded Frankfort KY, recentered z19.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14238,10 +14239,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8215 (+maps-routing.js:331 goToMyLocation)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "My Location (goToMyLocation): geoloc -> 'Moved to your location' toast, drawMap recentered to rep position.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14256,10 +14257,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8219-8222 (+maps setDrawMode)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats 4× (line/perim/er/gutter). Lines is default .active. data-pass-el.",
-      "session": "2026-06-09-A",
+      "notes": "All 4 draw-mode buttons switch drawMode (line/perim/er/gutter) via real clicks: ltGrid shows in line, hides + perimBar/erBar/gutterResult reveal in the others; active class moves; setDrawMode auto-stops draw on switch.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14274,10 +14275,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8227 (+dashboard-actions.js:313 modeLineDraw)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Exit Eave/Rake (modeLineDraw): er -> line, erBar hidden, ltGrid back.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14292,10 +14293,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8233-8234 (+maps perimChooseType)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two buttons (eave/rake).",
-      "session": "2026-06-09-A",
+      "notes": "perimChooseType eave/rake: reChooser ('THIS SEGMENT IS A...') reveals after the first perimeter point; clicking EAVE(solid)/RAKE(dashed) tags the segment and lets the next point be placed. Drove a full 4-corner perimeter -> Facet 1 closed (6469 sf), line types stored (2/5/4/5 = hip/eave/wall/eave).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14310,10 +14311,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8241-8251 (+dashboard-ui.js:356 selLineType → selLT)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats 11× (data-target 0..10). Ridge (0) is default .active.",
-      "session": "2026-06-09-A",
+      "notes": "Line Type grid (selLT): clicking Hip moves active class + sets active line type/color; next drawn line stored as type 2 (Hip), 93.1 ft. ltGrid correctly hidden in perim/er/gutter modes.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14328,10 +14329,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8262 (+dashboard-state.js:84 drawing→toggleDraw)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Draw toggle: drawOn flips, btn text Draw<->Stop, crosshair cursor on. Map clicks add measurement points only while ON; two clicks = one line with live ft measurement (93 ft).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14346,10 +14347,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8263 (+maps undoLine)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Undo: 2 drawn lines -> 1 (deleteLine on last). Also pops perim/gutter dots when in those modes.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14364,10 +14365,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "dashboard.html:8264 (+maps clearDraw)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Destructive — drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Clear: native confirm 'Clear all lines and facets?' (nbdConfirm/confirm gate) -> on OK all lines+facets+dots+temp removed, cr-base back to 0 sf, lineList emptied. Danger gate present and honored.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14382,10 +14383,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8276 (+maps recalc)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "10 options; 8/12 default selected.",
-      "session": "2026-06-09-A",
+      "notes": "Pitch select (data-on-change=recalc): recalc reads pitchSel.value as the global multiplier (Flat 1.0 .. 12/12). NOTE: in a MULTI-FACET drawing the per-facet pitch dropdown dominates (recalc sums per-facet pitch when facets.length>0), so changing the GLOBAL pitchSel shows no delta until facets are removed — by design, but the global control looks inert on multi-facet roofs. Single-facet/line drawings honor it.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14400,10 +14401,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8290 (+maps recalc)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "6 options; 17% default selected.",
-      "session": "2026-06-09-A",
+      "notes": "Waste select (data-on-change=recalc): changing 17%->20% recomputed With-Waste (9097->9331 sf) and Squares; restored to 17%. Waste multiplier always applied regardless of facets.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14418,10 +14419,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8307 (+maps applySmartWaste)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Smart Waste (AI): computed 'Smart: 14% (Moderate)', inserted as a wasteSel option + selected it, recomputed With-Waste to 8825 sf, showed smartWasteInfo ('14% waste — Moderate roof (1 hip, tight angles)') + toast. Local heuristic (calcSmartWaste), no network.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14436,10 +14437,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8310 (+maps importToEstimate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Generate Estimate (importToEstimate): confirm dialog lists pitched/footprint/eave/ridge/rake/hip/valley/wall; OK -> V2 builder opens with rawSqft=PITCHED area + LF fields (verified clean: 6000 SF / 120 eave / 80 ridge with no draft). NOTE pitched (not footprint) is sent per the in-code fix comment. BUG NEW-D39 found (see BUG-LOG): when a v2 draft already exists, openEstimateV2Builder's draft-restore overrides the imported measurements -> first run showed the stale draft's 200 SF / 'ZZ_QA ServerPDF Test' customer despite the dialog saying 7776 SF; the 'imported' toast still fires. Cleared the stale + re-created drafts after.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14454,10 +14455,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8311 (+maps saveDrawingToCustomer)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Save to Customer: empty-address guard ('Enter an address first') fires; with an address, no-match -> nbdConfirm 'Save as an unlinked drawing?' boundary (declined). Found the doc-viewer 'Close without saving?' confirm wired correctly (must return true) per tooling note. Did not persist (boundary).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14472,10 +14473,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8312 (+maps loadDrawingFromCustomer)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Load from Customer: empty-address guard fires; with an address it queries leads/{id}/drawings ordered by version. Live result: 'Load failed: Missing or insufficient permissions' (FirebaseError) — the drawings subcollection has no read rule for this owner. Logged as NEW-D40-a (rules gap; non-blocking, feature simply can't load saved drawings). Button + flow work; backend denies.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14490,10 +14491,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8313 (+maps exportDrawReport)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Measurement Report (exportDrawReport): opens NBDDocViewer srcdoc (5069 chars, 'Roof Measurement Report', no freeze/block) with the full Save/Email/Print/Download/Send-for-Signature bar. Closed clean.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14508,10 +14509,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8314 (+maps generateScopeFromDrawing)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Scope of Work (generateScopeFromDrawing): NBDDocViewer srcdoc 5647 chars, title 'Scope of Work — Property Address'. Closed clean.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14526,10 +14527,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8315 (+maps showMaterialTakeoff)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Material-takeoff tool called out in surface scope.",
-      "session": "2026-06-09-A",
+      "notes": "Material Takeoff (showMaterialTakeoff): NBDDocViewer srcdoc 4424 chars, branded 'Material Takeoff' with squares/smart-waste/material-list table. (Note: the viewer overlay is z-index 10000 fullscreen — left open it occludes the whole sidebar; always close it before the next control.)",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14544,10 +14545,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8316 (+maps exportXactimateESX)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Xactimate Export (ESX): generated a blob download 'NBD-Xactimate-Property-2026-06-10.esx' (verified via anchor-click spy, file suppressed) + 'Xactimate ESX file downloaded' toast. ESX XML built from grouped line types.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14562,10 +14563,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8317 (+maps runSolarAnalysis)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Solar tool called out in surface scope.",
-      "session": "2026-06-09-A",
+      "notes": "Solar Analysis (runSolarAnalysis): 'Running solar analysis...' -> on-map solar marker 'Est. 2078 hrs/yr · Lat 38.1°' + toast prompting Google Solar API key for precise data. Local fallback estimate (no key) works.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14580,10 +14581,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8329 (+maps addStructure)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Add Structure: 'Added: Structure 1' toast, structureList row '🏠 STRUCTURE 1 ✏️' added. In-memory (no persistence).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14598,10 +14599,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8334 (+dashboard-state.js:88 mapLayer→toggleMapLayer)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Layer toggle (toggleMapLayer): cycles basemap Satellite -> Street(OSM) -> Satellite (verified by inspecting attached TileLayer _url across clicks). Label updates SATELLITE/STREET.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14616,10 +14617,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8335 (+maps zoomToFit)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Fit All (zoomToFit): map recentered onto the drawing bounds (center matched facet bounds center, z21).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14634,10 +14635,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8336 (+maps screenshotMap)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Screenshot tool called out in surface scope.",
-      "session": "2026-06-09-A",
+      "notes": "Screenshot (screenshotMap): 'Capturing map...' -> blob PNG download 'nbd-drawing.png' (spy-captured, suppressed) + 'Screenshot saved!' toast.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14652,10 +14653,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8337 (+maps showAngles)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Angles tool called out in surface scope.",
-      "session": "2026-06-09-A",
+      "notes": "Angles (showAngles): overlaid interior-angle labels at each vertex (8 x '90°' on the rectangular facet).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14670,10 +14671,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8343 (+maps startShadowPitch)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Shadow Pitch (startShadowPitch): shadowMode entered, shadowBar 'Step 1: Click two points along the roof shadow'; clicked 2 shadow pts -> 'Shadow: 12.4 ft — Step 2: draw roof edge' -> drew edge -> computed but returned 'Sun too low for reliable pitch estimation' (valid edge-case result, not an error). Full 2-step flow works.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14688,10 +14689,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8344 (+maps startAutoDetect)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Auto-Detect (startAutoDetect): 'Click a corner — AI will trace edges' -> clicked a roof corner -> 'Analyzing satellite imagery...' -> 'Could not detect clear edges' (graceful no-result; tried on a real building too). Flow + AI call fire; detection is best-effort.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14706,10 +14707,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8345 (+dashboard-state.js:93 voiceControl→toggleVoiceControl)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Voice (toggleVoiceControl): ON -> btn '🎙️ Listening...', voice-active class, 'Voice control ON — say commands like ridge 48 feet' toast; OFF -> '🎤 Voice', 'Voice control OFF'. (SpeechRecognition starts; mic granted.)",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14724,10 +14725,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8346 (+dashboard-state.js:86 historicalImagery→toggleHistoricalImagery)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "History (toggleHistoricalImagery): historyPanel reveals with date+opacity sliders; 'Historical imagery loaded' toast; a historical tile layer attaches (tileLayers 1->2).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14742,10 +14743,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8347 (+maps startPresentation)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Present (startPresentation): presentOverlay launches a 5-slide homeowner deck (slide 1 'Satellite aerial measurement' with property address title + map fly-to, slide 2 'ROOF OUTLINE — 2 roof sections, 6469 base sf'); Back/Next/✕ all work; closed clean.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14760,10 +14761,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8348 (+maps openComparisonMode)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Compare (openComparisonMode): comparisonModal opens 'Measurement Comparison — upload EagleView/RoofScope report'; close + drop-zone verified below.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14778,10 +14779,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8368 (+maps setHistoricalLayer)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Historical date slider (setHistoricalLayer): moving it changed the displayed date label (2017-09-20 -> 2018-02-14) and swapped the historical layer.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14796,10 +14797,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8372 (+maps updateHistoryOpacity)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Historical opacity slider (updateHistoryOpacity): set 0.5 -> Opacity label '50%' updated.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14814,10 +14815,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8364 (+dashboard-state.js:123 historicalImagery→closeHistoricalImagery)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Close historical (closeHistoricalImagery): ✕ hides historyPanel + removes the historical tile layer (tileLayers back to 1).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14832,10 +14833,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8356 (+maps acceptAutoDetect)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Accept Edges: autoDetectBar with Accept/Cancel only appears AFTER a successful AI edge detection; live detection returned 'Could not detect clear edges' on multiple corners (forest + real building), so the bar never revealed. Accept path unreachable without a detectable roof in current imagery. Structurally wired (acceptAutoDetect commits detected lines).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14850,10 +14851,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8357 (+maps cancelAutoDetect)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Cancel (auto-detect): same as 070 — autoDetectBar never revealed (no successful detection). Wired (cancelAutoDetect discards).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14868,10 +14869,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8385 (+dashboard-ui.js:254 mapSidebar)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Draw Tools sidebar toggle (map-sidebar-draw): display:none at desktop width (mobile-reflow control) — retest in the 390px mobile pass.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14886,10 +14887,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8396 (+dashboard-ui.js:546 clickProxy)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Hidden #compFile input fires handleComparisonFile on change (pass files0).",
-      "session": "2026-06-09-A",
+      "notes": "Comparison drop-zone (clickProxy -> #compFile.click): clicking the drop area proxied to the hidden file input (spy caught 1 .click() call; native picker suppressed).",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14904,10 +14905,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8399 (+maps handleComparisonFile)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Accepts .pdf,.txt,.csv,.xml.",
-      "session": "2026-06-09-A",
+      "notes": "Comparison file input (handleComparisonFile): requires a real EagleView/RoofScope PDF/CSV upload through the native picker — device/file pass. Wired via data-on-change.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {
@@ -14922,10 +14923,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8392,8401 (+dashboard-state.js:114 comparisonModal→closeComparisonMode)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two elements (top ✕ and bottom Cancel), same handler.",
-      "session": "2026-06-09-A",
+      "notes": "Cancel/✕ comparison (closeComparisonMode): dismissed comparisonModal cleanly.",
+      "session": "2026-06-10-C",
       "surface": "d8-tools"
     },
     {

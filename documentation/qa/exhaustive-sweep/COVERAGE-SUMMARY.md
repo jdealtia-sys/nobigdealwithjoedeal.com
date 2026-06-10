@@ -1,17 +1,19 @@
 # NBD Pro — Exhaustive QA — Coverage Summary
 
 **Target:** https://nobigdealwithjoedeal.com/pro — LIVE prod, tenant zero (JD).
-**Last session:** `2026-06-09-B` (verify-sweep)
+**Last session:** `2026-06-10-C` (d8 maps/draw tail)
 
-## Coverage: **1055 / 1363 verified (77.4%)**
+## Coverage: **1122 / 1363 verified (82.3%)**
 
 | status | count |
 |--------|-------|
-| PASS | 769 |
-| FAIL | 10 |
-| BLOCKED | 237 |
+| PASS | 828 |
+| FAIL | 14 |
+| BLOCKED | 241 |
 | FIXED | 39 |
-| UNTESTED | 308 |
+| UNTESTED | 241 |
+
+> **2026-06-10-C (d8 maps/draw tail):** **+67 rows → 1122/1363 (82.3%).** Drove #/map (009–034) + #/draw (035–075) entirely with REAL computer-tool clicks (Leaflet-hostile; window kept foregrounded). **#/map:** layer toggles (heat/pins/jobs/storm/weather) + FAB mirror, address search (Enter + GO), zone draw→save→delete lifecycle (ZZ_QA Zone), drop-pin confirm flow + notes + commit + popup delete (ZZ_QA pin), pin-status picker, clear-all, my-location, quick-storm-check. **#/draw:** all 4 draw modes, line-type grid, perimeter→facet close (6469 sf), pitch/waste/smart-waste recalc, Generate-Estimate→V2 import, Measurement-Report/Scope/Takeoff srcdoc viewers, ESX/PNG/Solar exports, layer cycle, fit/angles/shadow-pitch/auto-detect/voice/history/present/compare. **7 new bugs (NEW-D34..D40):** D35 Jobs-overlay-empty (legacy stage filter, FAIL), D36 spyglass panel under header (3× FAIL), D39 Generate-Estimate import overridden by stale V2 draft, D40a Load-from-Customer rules-denied, + D34/D37/D38 (FAB sync, zone-click pin trap, handler stacking). All ZZ_QA data deleted, session intact. Remaining UNTESTED: mobile passes (gap-mobile 39 + scattered mobile rows) + estimate-view token rows + d7 detail rows (157) + camera/device rows.
 
 > **2026-06-10 (cont. 12 — pages-a closeout):** **69 rows → 1055/1363 (77.4%).** sign.html error states clean (no-token + invalid-token 400); **vault NEW-D30 live-confirmed** (Overview Loading-stuck, _firestore undefined, Save toasts Loading — 19 rows parked BLOCKED on the keep-or-kill decision, Save Now = FAIL); **daily-success safe subset 26 PASS** (search, CSV data:-URI spy, modals incl. the full 4-step onboarding wizard in-modal with floor add/remove + Back + Save&Launch label, appearance picker tabs/search/category/custom-inputs/copy-fs/guide) — Jo's real page data untouched (page-view mutations + theme applies + page create/delete = boundaries); **NEW-D33 found+FIXED (#636)**: 📖 welcome-guide reopen was a silent no-op (openM .open class vs inline display:none — the audit-flagged asymmetry confirmed live). Remaining UNTESTED: d8 maps/draw tail (67) + mobile passes + d7 detail rows (157) + estimate-view token rows + camera/device rows.
 
@@ -72,7 +74,7 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 | gap-esign-estimate | estimate e-sign / docviewer bar | 6 | P1 | **6/6 (2026-06-10)**: output viewer Save/Email/Print/Download PASS; e-sign overlay rows BLOCKED (outbound Send-for-Signature boundary) |
 | gap-misc | ask-joe/analytics/toast/dedup | 23 | P2 | **23/23 (2026-06-10)**: ask-joe.html + analytics.html standalone render+controls; toast close + widget-remove PASS; dedup PASS; SPA #joe → d9 (NEW-D15/D16); credential rows BLOCKED |
 | d7-settings | Settings (all tabs) — STRICT BAR | 185 | P2 | 27/185 — **ALL 11 tabs touched**; Help/Access/Team/Billing done (export+GDPR-delete-boundary+tour PASS); **NEW-2 + NEW-4 FAIL; NEW-3 killed; NEW-C10/11/12/13 candidates** |
-| d8-tools | Tools nav group | 123 | P2 | **55/123 (2026-06-09-B)**: navs+docs-dups+D2D core (knock lifecycle/CSV/route/tabs PASS) + Academy (course/lesson/quiz/node PASS; accordion FAIL → PR #606); **Products 10 FAIL (NEW-D5 dead chrome) + Training 5 FAIL (NEW-D7 dead chrome)**. Remaining: maps #/map 009-034 + draw 035-075 (Leaflet-hostile per-control tail) + 122 mobile |
+| d8-tools | Tools nav group | 123 | P2 | **122/123 (2026-06-10-C)**: navs+docs-dups+D2D+Academy+Products+Training (prior) **+ full maps #/map 009-034 + draw 035-075 tail this session** (REAL clicks, all layers/zones/pins/draw-modes/calc/exports/AI-tools). FAILs: NEW-D35 jobs-overlay (013), NEW-D36 spyglass-under-header (026/027/028). BLOCKED: 070/071 auto-detect accept/cancel (needs a detectable roof), 074 compare-file (device), 031/072 mobile-reflow sidebar toggles. Only 122 (mobile) remains → mobile pass |
 | d9-insights | Insights + Ask Joe + cmd palette | 53 | P2 | **49/53 (2026-06-09-B cont.)**: report generator end-to-end, storm zone/plan lifecycle, ZZ_QA deal-room lifecycle, Ask Joe chip AI round-trip; FAILs: NEW-D11 report-delete (PR #609), NEW-D13 share links (PR #610), NEW-D15 Scenarios dead, NEW-D16 New-Chat. Remaining: 042/043 ins-fields, 052/053 mobile |
 | gap-storm-cb-repos | Storm/CloseBoard/RepOS/Reports deep | 57 | P2 | **52/57 (2026-06-09-B cont.)**: full storm zone→plan→delete + deal create→share-boundary→delete + briefing + report-gen matrix. FAIL family NEW-D13 (×3) + NEW-D11. Remaining: 014/017/018/024/035 (analytics tab, ins fields, breadcrumbs) |
 | portal | customer portal | 30 | P2 | **30/30 (2026-06-10)** — after fixing the portal itself: NEW-D23 (page CSP-dead → #619/#620) then NEW-D26 (TOKEN/repName ReferenceErrors in every card sender → #622/#624). Upload ✓/message/copy/callback driven live on the ZZ_QA portal; 14 rows BLOCKED-conditional (contract/sign/booking/photos/rating/warranty cards need a richer lead) |
@@ -86,8 +88,11 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 3. **P3 secondary/public** — pages-b ▸ public.
 
 ## ▶ RESUME POINT
-_(Cleanup DONE 2026-06-10 — all 12 ZZ_QA leads deleted; see CLEANUP.md. Shipped-fix re-verifies DONE except: /estimate non-fallback AI estimate [needs OTP/Twilio] and the Restart-Tour overlay paint [pops on next dashboard foreground; skip = self-restore].)_
-**NEXT: d8 maps/draw tail** (rows 009–075, Leaflet-hostile, REAL clicks) ▸ **mobile passes** (gap-mobile 39 + d1 mobile + d8-122 + d9-052/053 + d3-011 + d6 mobile rows + photo-review lightbox long-press) ▸ estimate-view token rows (mint via Share-Portal on a ZZ lead carrying an estimate) ▸ re-verify #636 welcome-reopen + flip pages-a-020/062 ▸ d7-settings detail rows (157, low-value). Vault rows parked on NEW-D30; ~45 customer photo + d6 camera rows need a device pass.
+_(2026-06-10-C: d8 maps/draw tail DONE — all ZZ_QA map data [zone + pin + stray pin + stale v2 draft] deleted, session intact; see CLEANUP.md. 7 new bugs NEW-D34..D40 in BUG-LOG.)_
+**NEXT: mobile passes** — resize the QA window to ~390px and restore after. Rows: **gap-mobile (39)** + d1-chrome mobile (012/013/024-027) + **d8-tools-031/072/122** (the map/draw sidebar-reflow toggles that are display:none at desktop — now BLOCKED-pending-mobile) + d9-insights 052/053 + d3-pipeline 011 + d6 mobile rows + **pages-a-015 photo-review lightbox long-press (real 450ms hold via computer-use hold_key/left_mouse_down)**.
+**THEN: estimate-view token rows** (pages-a-001/002) — create a ZZ_QA lead, add an estimate (customer.html Log Estimate, works post-#611), mint a portal token via card-detail Share Portal, open /pro/estimate-view.html?token=…&estimateId=…, verify Print/Back CTAs fire + render with the orange brand styling (PR #630 a-vs-button fix — confirm live), soft-delete the ZZ lead after.
+**THEN (optional, low-value): d7-settings detail rows (157)** with the per-field method.
+Vault rows parked on NEW-D30; ~45 customer photo + d6 camera rows need a device pass.
 **Carry-ins:** **NEW-D30 vault cluster (P1 — Jo's keep-or-kill decision on /pro/vault before any fix)**; **NEW-D31 photo-review Share link-copy** (design choice, recommendation in BUG-LOG); **NEW-D29 follow-up** — leaderboard aggregator Cloud Function (until built, /pro/leaderboard renders zeroes); NEW-D20 portal-reply "Unauthenticated" (callable-auth investigation); NEW-D17 stale-panel refresh hooks; NEW-D21 review-href with photos; NEW-D25 login persistence-downgrade (design fix: redirect signed-in users away from /login or defer setPersistence to success); NEW-D22 card-detail task delete; NEW-D2 docgen Save-to-Customer (NEW-D1 fixed via #594); NEW-D12 storm tiles; NEW-D15/D16 Ask Joe. Re-test d8-118 (SMS chooser), NEW-D9 date-pill, gap-050 journey-report, d9-042/043 + gap-017/018 ins fields, gap-014 closeboard analytics tab. `/admin/project-codex.html` + `/admin/vault.html` ship inline scripts under the strict CSP (out of sweep scope — Jo to confirm if those pages matter). Hygiene: dead `.html`-keyed header rules in firebase.json never match (cleanUrls) — delete or re-key. _NEW-D5/D7 RESOLVED via #607 (#605 closed as superseded); post-merge prod re-verify of Products/Training still pending (auth)._
 _Tooling note: javascript_tool has NO top-level await — wrap in `(async()=>{…})()`. Synthetic `.click()` does not trip some delegates (nav-section, product-lib) — always confirm dead controls with REAL computer-tool clicks before logging. `confirm` stubs must return true for the viewer's "Close without saving?" or viewers stack._
 
