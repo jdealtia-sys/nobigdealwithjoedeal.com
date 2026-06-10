@@ -71,7 +71,14 @@ console.log('\nCSP INVARIANT — every enforced CSP across all pages');
 // exception here; this stays a REGRESSION GUARD — any OTHER page that introduces
 // unsafe-inline fails the build, and removing the customer exception (once
 // hardened) also flags so the list is kept honest.
-const KNOWN_UNSAFE_EXCEPTIONS = ['/pro/customer'];
+// NEW-D23 (verify-sweep 2026-06-10): portal/estimate-view/refer/demo boot from
+// inline <script> IIFEs that the strict ** CSP silently refused — the homeowner
+// portal and remote estimate view were hard-down in prod ("Loading..." forever).
+// Same interim exception as /pro/customer until their inline scripts are
+// extracted to js/ files. These four are token-gated or public pages with no
+// authenticated session, so the XSS blast radius is smaller than the customer
+// exception above.
+const KNOWN_UNSAFE_EXCEPTIONS = ['/pro/customer', '/pro/@(portal|estimate-view|refer|demo)'];
 let cspCount = 0; const offenders = [];
 for (const rule of rules) {
   const csp = headerVal(rule, 'Content-Security-Policy');
