@@ -50,7 +50,7 @@
       // Step 4f (2026-05-17): sales-training.js split into engine +
       // ui modules + thin shim. Load order: engine → ui → shim.
       'js/sales-training-engine.js?v=1',
-      'js/sales-training-ui.js?v=1',
+      'js/sales-training-ui.js?v=2',
       'js/sales-training.js?v=2'
     ],
     storm: [
@@ -104,7 +104,7 @@
     estimates: [
       'js/product-data.js?v=1',
       'js/roofivent-catalog.js?v=1',
-      'js/product-library.js?v=2',
+      'js/product-library.js?v=3',
       'js/estimate-labor-catalog.js?v=1',
       'js/estimate-builder-v2.js?v=2',
       'js/estimate-catalog-xactimate.js?v=1',

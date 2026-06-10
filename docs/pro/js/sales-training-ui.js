@@ -402,4 +402,45 @@
   state.renderRapidResults = renderRapidResults;
   state.renderProfile = renderProfile;
 
+  // ════════════════════════════════════════════════════════════
+  // EVENT WIRING — CSP-safe click delegate (inline on* never
+  // executes on /pro pages)
+  // ════════════════════════════════════════════════════════════
+  // Every control renders with data-st-action (+ data-st-id for scenario ids
+  // and option indexes). The engine publishes the action functions on the
+  // shared state object; 'advance' is the one attribute→method alias, and
+  // option indexes arrive as strings so they're coerced to numbers. Bound
+  // once at document scope so the handler survives every #trainingContent
+  // innerHTML swap.
+  const CLICK_ACTIONS = {
+    startScenario:  { method: 'startScenario' },
+    chooseOption:   { method: 'chooseOption', numeric: true },
+    advance:        { method: 'advanceAfterFeedback' },
+    rapidAnswer:    { method: 'rapidAnswer', numeric: true },
+    rapidNext:      { method: 'rapidNext' },
+    startRapidFire: { method: 'startRapidFire' },
+    showProfile:    { method: 'showProfile' },
+    backToMenu:     { method: 'backToMenu' }
+  };
+
+  if (!window._NBD_ST_DELEGATE_BOUND) {
+    window._NBD_ST_DELEGATE_BOUND = true;
+    document.addEventListener('click', function (ev) {
+      const t = ev.target.closest && ev.target.closest('[data-st-action]');
+      if (!t) return;
+      const map = CLICK_ACTIONS[t.dataset.stAction];
+      const fn = map && state[map.method];
+      if (typeof fn !== 'function') {
+        console.warn('[sales-training-ui] no dispatch for', t.dataset.stAction);
+        return;
+      }
+      try {
+        if (t.dataset.stId !== undefined) fn(map.numeric ? Number(t.dataset.stId) : t.dataset.stId);
+        else fn();
+      } catch (e) {
+        console.error('[sales-training-ui] dispatch ' + t.dataset.stAction + ' failed:', e);
+      }
+    });
+  }
+
 })();
