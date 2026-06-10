@@ -1,0 +1,158 @@
+[
+  {
+    "id": "d8-tools-009",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Enter fires searchMap via data-enter-action: geocoded, setView z19, propCard intel rendered (Jefferson Co, roof score, est value). Caveat: first Enter immediately after typing can be swallowed by the autocomplete layer; second Enter fires."
+  },
+  {
+    "id": "d8-tools-010",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "GO button fires searchMap (call-count spy 1->2->3): geocoded Frankfort, recentered z19. Note: un-geocodable address fails SILENTLY on this path (no 'Address not found' toast unlike dropPinByAddress)."
+  },
+  {
+    "id": "d8-tools-011",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Toggle flips overlayState.heat + .on class both directions (real clicks). 0-pin dataset -> no layer by design (buildHeatLayer early-returns on 0 pts). BUG (minor, logged in NEW-D40 bundle): refreshHeatLayer on commitPin reads stale window._pins (never appended by _savePin) -> new pins don't heat-map until reload."
+  },
+  {
+    "id": "d8-tools-012",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Verified against a live ZZ_QA marker: OFF -> marker element disconnected, ON -> reconnected. Works with clustering active at z18 (disableClusteringAtZoom)."
+  },
+  {
+    "id": "d8-tools-013",
+    "status": "FAIL",
+    "session": "2026-06-10-C",
+    "notes": "NEW-D35: toggle machinery works (state+class+show/hide fire) but buildJobsLayer filters ['In Progress','Complete','Finalizing'] legacy display names ONLY (maps-overlays.js:35) - canonical stages (install_in_progress/closed) never match -> jobs overlay permanently EMPTY for migrated tenants. Colorizer below it handles both name sets; the filter was missed by the v159.4 sweep."
+  },
+  {
+    "id": "d8-tools-014",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "NOAA NEXRAD tile layer attached + 'Storm radar loaded' toast; detaches on off. (This is the main map's mesonet layer, distinct from NEW-D12 storm-center.js.)"
+  },
+  {
+    "id": "d8-tools-015",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "RainViewer precipitation layer attached + 'Live weather overlay active' toast; detaches on off."
+  },
+  {
+    "id": "d8-tools-016",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Name typed into #zoneNameInput honored by saveZone -> zone + tooltip + list row all read 'ZZ_QA Zone'. Input cleared after save."
+  },
+  {
+    "id": "d8-tools-017",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Green swatch click: zoneColor='var(--green)', white border moves to selected swatch, saved polygon renders green."
+  },
+  {
+    "id": "d8-tools-018",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "saveZone: polygon + permanent zone-tooltip label on map, zone-list row rendered, 'Zone saved' toast, panel hidden, draw state reset. NOTE zones are IN-MEMORY ONLY (no Firestore/LS persistence; id=Date.now()) - lost on reload. ZZ_QA zone deleted after test."
+  },
+  {
+    "id": "d8-tools-019",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "cancelZoneDraw (real click on X): drawing=false, pts/dots cleared, tempPoly removed, panel hidden, crosshair cursor restored, saved zones untouched."
+  },
+  {
+    "id": "d8-tools-020",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "startZoneDraw enters draw mode (panel reveal + toast + crosshair + map clicks add points, >=3 shows dashed temp polygon). TWO BUGS found while driving it: NEW-D37 (every zone click ALSO pops pinConfirmOverlay - the unconditional map-click handler; a click landing on the dialog's Save Pin SILENTLY SAVED A STRAY PIN live - deleted via deletePin) and NEW-D38 (re-entering startZoneDraw stacks orphaned _zoneClick handlers -> each click adds 2+ points; only the latest handler is ever off()'d)."
+  },
+  {
+    "id": "d8-tools-021",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Address typed -> 'Geocoding address...' toast -> view recentered z18 -> pin-confirm overlay opened, input cleared after."
+  },
+  {
+    "id": "d8-tools-022",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Both paths verified: address path (geocode->confirm) and blank path (map-center coords in #pcd-coords)."
+  },
+  {
+    "id": "d8-tools-023",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Spot-checked Interested / Signed / Not Home: active class moves, #mapBadge text updates (incl star for Signed), curPinStatus/curPinColor set. Restored to Not Home."
+  },
+  {
+    "id": "d8-tools-024",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Geolocation granted in QA profile: 'Getting your location...' -> 'Located ✓', map recentered z17."
+  },
+  {
+    "id": "d8-tools-025",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "DISPLAY-ONLY clear: removes markers from cluster/map + resets pinMarkers{}; NO confirm fires (dialog spy 0) despite danger:delete expectation, but NO data deletion (Firestore docs intact; marker restorable via addPinMarker). UX trap noted in NEW-D40 bundle: pins vanish until view remount with no warning."
+  },
+  {
+    "id": "d8-tools-026",
+    "status": "FAIL",
+    "session": "2026-06-10-C",
+    "notes": "NEW-D36: entire #mapSpyglassPanel renders UNDER the page header (position:absolute top:10px, offsetParent=BODY - panel sits outside the position:relative .map-area) -> elementFromPoint at its center hits HEADER; input unreachable by users. spyglassSearch() works when invoked programmatically (geocoded Versailles, z18) - fix is purely positional."
+  },
+  {
+    "id": "d8-tools-027",
+    "status": "FAIL",
+    "session": "2026-06-10-C",
+    "notes": "NEW-D36 (same occlusion): button exists with correct data-fn but is under the header - unclickable."
+  },
+  {
+    "id": "d8-tools-028",
+    "status": "FAIL",
+    "session": "2026-06-10-C",
+    "notes": "NEW-D36 (same occlusion): Go button under the header - unclickable."
+  },
+  {
+    "id": "d8-tools-029",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "FAB toggles act on layers + set their own active class both directions (heat verified on/off; all 4 used to restore overlays). NEW-D34: sidebar->FAB active-class sync is dead - the dashboard-ui.js toggleOverlay wrapper is clobbered by maps-core.js load order (window.toggleOverlay.toString() lacks _origToggleOverlay) -> FAB highlight stale when layers are toggled from the sidebar."
+  },
+  {
+    "id": "d8-tools-030",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "quickStormCheck: geoloc -> recenter + storm overlay ON + fab-storm active + 'Storm radar active at your location' toast. Restored OFF after."
+  },
+  {
+    "id": "d8-tools-031",
+    "status": "BLOCKED",
+    "session": "2026-06-10-C",
+    "notes": "display:none at desktop width (mobile-reflow control) - retest in the 390px mobile pass."
+  },
+  {
+    "id": "d8-tools-032",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Real click on Cancel: overlay closed, pendingPin nulled, no marker/save."
+  },
+  {
+    "id": "d8-tools-033",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Notes typed into #pcd-notes persisted through commitPin -> shown in the pin popup ('ZZ_QA test pin - QA sweep, delete me')."
+  },
+  {
+    "id": "d8-tools-034",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "commitPin: 'Pin saved ✓' toast, marker added (Firestore _savePin), overlay closed. ZZ_QA pin deleted after via popup 'Delete Pin' (deletePinOnly -> _deletePin verified). Caveat: refreshHeatLayer no-ops on new pins (stale _pins, see 011)."
+  }
+]
