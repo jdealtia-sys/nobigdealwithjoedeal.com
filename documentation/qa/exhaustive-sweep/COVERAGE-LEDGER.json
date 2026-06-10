@@ -5,11 +5,11 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 197,
-      "PASS": 742,
-      "UNTESTED": 377,
-      "FAIL": 9,
-      "FIXED": 38
+      "BLOCKED": 236,
+      "PASS": 770,
+      "UNTESTED": 308,
+      "FAIL": 10,
+      "FIXED": 39
     },
     "by_surface": {
       "customer": 146,
@@ -143,9 +143,11 @@
         "UNTESTED": 2
       },
       "pages-a": {
-        "UNTESTED": 70,
-        "PASS": 9,
-        "BLOCKED": 3
+        "BLOCKED": 42,
+        "PASS": 37,
+        "UNTESTED": 1,
+        "FIXED": 1,
+        "FAIL": 1
       },
       "pages-b": {
         "PASS": 51,
@@ -20608,10 +20610,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-view.html:370 (+estimate-view.html:386)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Customer-facing read-only estimate viewer. Entire UI is JS-built into #evRoot; only renders after a valid estimate loads.",
-      "session": "2026-06-09-A",
+      "notes": "Print CTA renders only on the success path — needs a createPortalToken mint on a lead carrying an estimate (next session; CSS button-styling fix already shipped in #630). Error states verified separately (estimate-view boots clean post-NEW-D23).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20626,10 +20628,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate-view.html:371 (+estimate-view.html:387)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Customer-facing. Only the print + back buttons are interactive on this page; line items and totals are static text.",
-      "session": "2026-06-09-A",
+      "notes": "Back CTA — same success-path gate as 001.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20644,10 +20646,10 @@
       "danger": "esign",
       "priority": "P1",
       "source_ref": "sign.html:47 (+js/sign-page.js:96-134)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Customer/remote-signer facing. Token-gated public page (no auth). DANGER: this is the e-signature commit — drive only to the confirm/finalize boundary, do not submit a real signature against a live token. The doc-to-sign lives inside the sandboxed #spFrame iframe (srcdoc'd HTML loading signature-widget.js).",
-      "session": "2026-06-09-A",
+      "notes": "Submit Signature needs a real createSignRequest token (mint EMAILS the signer = outbound boundary). Error states verified live: no-token '⚠️ Invalid link… use the button in your email' + invalid-token server-rejected '🔗 Invalid link' (getSignDocument 400).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20896,10 +20898,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1084,1110 (+js/app.js:1415)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two buttons (topbar 🔍 and the CLOSE inside #sbar) share the same toggle-search action.",
-      "session": "2026-06-09-A",
+      "notes": "Search toggles open/closed (toggle-search), input live-fires do-search; dropdown responds (0 hits on Jo's data for test terms — see 029).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20914,10 +20916,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "daily-success/index.html:1085 (+js/app.js:1416)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Theme picker overlaps the SPA theme engine (maps.js) — same nbdPickerOpen surface.",
-      "session": "2026-06-09-A",
+      "notes": "🎨 opens the appearance picker (display:flex).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20932,10 +20934,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "daily-success/index.html:1086,1102 (+js/app.js:1419)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two triggers share open-onboard.",
-      "session": "2026-06-09-A",
+      "notes": "⚙️ opens the 4-step onboarding wizard; full step-through verified in-modal (see 033-041); CANCELLED — nbd_user_config untouched.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20950,10 +20952,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1087 (+js/app.js:656,1420)",
-      "status": "UNTESTED",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D33 (#636) LIVE RE-VERIFIED post-deploy: 📖 reopen shows the modal (computed display none→flex).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20968,10 +20970,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "daily-success/index.html:1088 (+js/app.js:1421)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "+ NEW creates a real page in Jo's tracker (now cloud-synced) — real-data boundary.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20986,10 +20988,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1089 (+js/app.js:1422)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "RENAME opens #mRen (display:flex), Cancel closes.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21004,10 +21006,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "daily-success/index.html:1090 (+js/app.js:1423)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "DANGER(delete): opens a confirm modal; actual delete is the do-delete button (pages-a-029).",
-      "session": "2026-06-09-A",
+      "notes": "DELETE opens #mDel with the right message ('Delete \"MAR 17, 26\"? This cannot be undone.') — CANCELLED (boundary; the destructive confirm itself is 031).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21022,10 +21024,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1091 (+js/app.js:1425)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "CSV builds a data: URI download (617 chars, download attr) — captured + suppressed via anchor spy.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21040,10 +21042,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1092 (+js/app.js:1426)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "PDF fires saveNow + window.print (print stubbed).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21058,10 +21060,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "daily-success/index.html:1093 (+js/app.js:1427)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "SAVE → savePages → cloud push: badge 'Backed up'→'Synced' (the NEW-D29 re-verify rode this control).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21076,10 +21078,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1103 (+js/app.js:1428)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Onboard banner renders only when nbd_user_config is ABSENT — Jo has a config. Quick-Start would overwrite real floors anyway.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21094,10 +21096,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1104 (+js/app.js:1429)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Banner ✕ — same conditional as 027.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21112,10 +21114,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1109 (+js/app.js:1456)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Search results are search-jump buttons (data-action=search-jump) injected into #sdrop that switch to the matching page.",
-      "session": "2026-06-09-A",
+      "notes": "Search input live-queries on input; dropdown renders (0 hits for probe terms against Jo's page data — mechanism responds, term-dependent).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21130,10 +21132,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1118,1119,1120,1194 (+js/app.js:1430)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of 4 modal cancel/close buttons sharing close-m.",
-      "session": "2026-06-09-A",
+      "notes": "Cancel/Close (close-m) closes every modal it was tested on (mOnboard/mRen/mDel round-trips).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21148,10 +21150,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "daily-success/index.html:1118 (+js/app.js:1431)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER(delete): this is the confirm-boundary action inside the Delete Page modal. Stop here / only against test data.",
-      "session": "2026-06-09-A",
+      "notes": "Delete confirm = destructive on a REAL page ('cannot be undone', no undo) — boundary; modal + message verified in 023.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21166,10 +21168,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1119 (+js/app.js:1432)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Combines the rename text input and its Save button.",
-      "session": "2026-06-09-A",
+      "notes": "#renInp present (maxlength 22) in the opened rename modal; Save not fired on the real tab name (boundary).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21184,10 +21186,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1140-1146",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Step-1 goal-category select present + steps render.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21202,10 +21204,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1148,1150,1152",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "3 settings inputs grouped (one representative entry).",
-      "session": "2026-06-09-A",
+      "notes": "Target/Deadline/Bodyweight inputs present (step 1).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21220,10 +21222,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1160-1165",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "6 checkboxes (one representative entry).",
-      "session": "2026-06-09-A",
+      "notes": "Focus-area checkboxes toggle (fa-fitness round-trip).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21238,10 +21240,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1177 (+js/app.js:1433)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "+ ADD FLOOR appends a row (5→6 rows; 20→24 data-floor-idx inputs).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21256,10 +21258,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/app.js:967 (+js/app.js:1434,1462-1464)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of dynamic floor rows (repeats per floor, up to 7). Inputs use data-input-action; × uses data-action.",
-      "session": "2026-06-09-A",
+      "notes": "Floor label input accepts text; × remove drops the row back (24→20). All in-modal; cancelled unsaved.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21274,10 +21276,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1185",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Reward input present (step 4).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21292,10 +21294,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1187",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Show-reward toggle present (step 4).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21310,10 +21312,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1193 (+js/app.js:1435)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "← Back returns step 4→3 (floor editor re-renders).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21328,10 +21330,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "daily-success/index.html:1195 (+js/app.js:1436)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Next → advances all 4 steps; label flips to 'Save & Launch ✓' on step 4 (Save NOT fired — cancelled).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21346,10 +21348,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "js/app.js:177 (+js/app.js:1424,1444)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative of the dynamic tab row. The × is a delete trigger (opens confirm modal).",
-      "session": "2026-06-09-A",
+      "notes": "Page tabs operate on Jo's real pages (switch silently persists; × = delete flow) — real-data boundary. Delete-modal half verified via 023.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21364,10 +21366,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "js/app.js:197 (+js/app.js:1446)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative of dynamic floor checklist items.",
-      "session": "2026-06-09-A",
+      "notes": "Floor toggle writes real daily data (now cloud-synced) — boundary.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21382,10 +21384,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/app.js:224 (+js/app.js:1447)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative of dynamic mindset items.",
-      "session": "2026-06-09-A",
+      "notes": "Mindset toggle — real-data boundary.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21400,10 +21402,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/app.js:366 (+js/app.js:1448)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative of the habit grid cells.",
-      "session": "2026-06-09-A",
+      "notes": "Habit grid cell — real-data boundary.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21418,10 +21420,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/app.js:1449",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative of section toggles.",
-      "session": "2026-06-09-A",
+      "notes": "Section collapse persists to nbd_collapsed on Jo's real page view — skipped with the other page-view mutations (low value alone).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21436,10 +21438,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/app.js:269 (+js/app.js:1450,1451)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Fitness exercise log. Row inputs use data-input-action=mark-dirty.",
-      "session": "2026-06-09-A",
+      "notes": "Add/delete exercise rows — real-data boundary.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21454,10 +21456,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/app.js:245 (+js/app.js:1460)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative of the diet macro grid inputs.",
-      "session": "2026-06-09-A",
+      "notes": "Meal macro inputs — real-data boundary.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21472,10 +21474,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/app.js:274 (+js/app.js:1461)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative. Also has body-metric (bm-*) inputs with data-input-action=mark-dirty.",
-      "session": "2026-06-09-A",
+      "notes": "PR lift inputs (auto-stamps date on edit) — real-data boundary.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21490,10 +21492,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/app.js:274 (+js/app.js:1452)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative of per-lift HISTORY buttons.",
-      "session": "2026-06-09-A",
+      "notes": "PR HISTORY modal renders from real page data — needs a page open; skipped with the page-view set.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21508,10 +21510,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/app.js:378,276 (+js/app.js:1459)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Catch-all representative for the many mark-dirty fields (12 scoreboard months, 6 body metrics, focus/notes textareas).",
-      "session": "2026-06-09-A",
+      "notes": "Scoreboard/body-metric inputs — real-data boundary.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21526,10 +21528,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1214 (+js/app.js:1417)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "✕ closes the picker (display:none).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21544,10 +21546,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1217-1219 (+js/app.js:1418)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "3 tabs.",
-      "session": "2026-06-09-A",
+      "notes": "Themes/Fonts/Custom tabs switch (8 font cards; custom panel mounts).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21562,10 +21564,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1224 (+js/app.js:1457)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Theme search re-renders bubbles live (88→0 for 'dark' — names don't contain it; clear restores 88).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21580,10 +21582,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1225 (+js/app.js:1437)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "⚄ Random APPLIES a random theme (would change Jo's DS theme) — boundary.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21598,10 +21600,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/app.js:1292 (+js/app.js:1443)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of dynamically-rendered category chips. Theme grid swatches themselves also apply themes on click (rendered by nbdRenderThemes).",
-      "session": "2026-06-09-A",
+      "notes": "Category chip filters bubbles (88→10), All restores.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21616,10 +21618,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1236-1240 (+js/app.js:1458)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "5 color inputs (one representative entry).",
-      "session": "2026-06-09-A",
+      "notes": "All 5 custom color inputs present (ncp-bg/s/accent/t/m); live-preview not fired (would restyle).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21634,10 +21636,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1243 (+js/app.js:1438)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Apply Preview changes the live theme — boundary.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21652,10 +21654,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1244 (+js/app.js:1439)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Save as Custom Theme writes nbd-customs — boundary (skipped with 058).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21670,10 +21672,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1256-1257 (+js/app.js:1440,1442)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two buttons grouped.",
-      "session": "2026-06-09-A",
+      "notes": "Copy Firestore Write → clipboard spy captured the snippet; 📖 Guide opens the howto modal (display:flex).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21688,10 +21690,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1267 (+js/app.js:1441)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Howto ✕ closes.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21706,10 +21708,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1058 (+js/app.js:655,1414)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Welcome modal also contains a #welcomeThemePicker container filled by JS (theme swatches) — those swatches have no dedicated data-action and apply themes via the shared theme engine.",
-      "session": "2026-06-09-A",
+      "notes": "Lets-Get-After-It CTA closes the reopened welcome modal (flex→none) + stamps nbd-welcome-seen.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21724,10 +21726,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "vault.html:732 (+js/vault-page.js:186-188; +js/vault-auth.module.js:5-7)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "ENTIRE PAGE is admin-only (Joe's internal Eternal Vault session tracker). Every element below is role-gated; non-admin users never reach it.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster: /pro/vault data layer LIVE-CONFIRMED dead (Overview 'Loading...' stuck after 10s, window._firestore undefined, Save toasts 'Loading...'). All vault rows parked on Jo's keep-or-kill decision — fixing boot alone just exposes the missing codex/* rules.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21742,10 +21744,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "vault.html:741",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21760,10 +21762,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "vault.html:743 (+js/vault-page.js:164-167)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "💾 Save Now LIVE-VERIFIED broken: toasts 'Loading...' forever (firebase-ready never dispatched + _firestore never set = NEW-D30(a)).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21778,10 +21780,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "vault.html:752-799 (+js/vault-page.js:186-188,206-232)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative of the 9-item sidebar. Each renders a distinct vault data view.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21796,10 +21798,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "vault.html:846 (+js/vault-page.js:336-344)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21814,10 +21816,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "vault.html:857 (+js/vault-page.js:186-188)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21832,10 +21834,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "js/vault-page.js:389,1081 (+js/vault-page.js:189-192,486-501)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Representative of dynamic session cards (repeats per session).",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21850,10 +21852,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "js/vault-page.js:437-451,475 (filterSessions)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "POSSIBLE BUG: inline oninput survives despite the CSP-safe data-v-action input delegate added at vault-page.js:2294 (whose comment claims 'the 2 search inputs use data-v-action'). Verify whether these inputs actually fire under CSP.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster + NEW-D30(c): this input ships a CSP-dead inline oninput= (vault-page.js renderSessions template).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21868,10 +21870,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "js/vault-page.js:965-971,980 (executeSearch)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "POSSIBLE BUG: same inline-oninput-vs-CSP concern as pages-a-070. Verify firing under the strict CSP.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster + NEW-D30(c): CSP-dead inline oninput= (renderSearch template).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21886,10 +21888,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "vault.html(js):419 (+js/vault-page.js:2009)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER(send): triggers a billable AI/Cloud-Function call and mutates the backlog. Drive carefully against test data only.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21904,10 +21906,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/vault-page.js:462 (+js/vault-page.js:501)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21922,10 +21924,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "js/vault-page.js:1245 (+js/vault-page.js:1349)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21940,10 +21942,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/vault-page.js:1248",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21958,10 +21960,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/vault-page.js:1249 (+js/vault-page.js:1409)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21976,10 +21978,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/vault-page.js:1260",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster + NEW-D30(d): FORMAT-1 import path runs eval(payload) — CSP-refused (the one good outcome; replace with JSON.parse in the fix).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -21994,10 +21996,10 @@
       "danger": "publish",
       "priority": "P1",
       "source_ref": "js/vault-page.js:1264 (+js/vault-page.js:1416)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER(publish): writes parsed data into Firestore. May surface the duplicate-session resolver (handleDuplicateAction). Drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster + NEW-D30(b): codex/codex-sessions have NO rules match block — default deny even for admins.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -22012,10 +22014,10 @@
       "danger": "publish",
       "priority": "P2",
       "source_ref": "js/vault-page.js:1275 (+js/vault-page.js:1525)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER(publish): full write to Firestore.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063, 065).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -22030,10 +22032,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/vault-page.js:1294-1300 (+js/vault-page.js:2227)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Input + button grouped.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -22048,10 +22050,10 @@
       "danger": "publish",
       "priority": "P1",
       "source_ref": "js/vault-page.js:1312 (+js/vault-page.js:1870)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER(publish): batch-writes derived data across 5 collections, irreversible. The page itself warns 'Cannot be undone'. Do NOT run against live vault data.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -22066,10 +22068,10 @@
       "danger": "publish",
       "priority": "P2",
       "source_ref": "js/vault-page.js:1686-1700 (+js/vault-page.js:193-196,1709)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "3 buttons (rename/version/cancel). handleDuplicateAction is assigned to window only while the resolver is open (deleted after use). rename/version write to Firestore (publish); cancel is none.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D30 cluster (see 063).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
