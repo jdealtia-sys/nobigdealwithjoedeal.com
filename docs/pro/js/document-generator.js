@@ -518,7 +518,19 @@ window.NBDDocGen = {
     if (!respData || !respData.ok || !respData.url) throw new Error('Render returned no URL');
 
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      // NEW-D1: also hand the viewer the CLIENT-rendered HTML. The viewer's
+      // preview is srcdoc-only by design (docviewer rule, PR #594) — a
+      // url-only open() falls into its last-resort branch that sets a
+      // cross-origin Firebase-Storage PDF as iframe.src, which Chrome/Brave
+      // block ("This page has been blocked by Chrome"). With html supplied,
+      // the preview renders same-origin and the server PDF stays attached as
+      // pdfUrl for the high-fidelity Download action. Every SERVER_TYPE_MAP
+      // type has a client template (generate()'s fallback path relies on it);
+      // if getHTML ever returns null we degrade to the old url-only open.
+      let previewHtml = null;
+      try { previewHtml = this.getHTML(type, data) || null; } catch (e) { /* fall back to url-only */ }
       window.NBDDocViewer.open({
+        html: previewHtml || undefined,
         url: respData.url,
         title: (this.DOCUMENT_TYPES[type]?.name || type) + (customerName ? ' — ' + customerName : ''),
         filename: respData.filename || filename,
