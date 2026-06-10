@@ -8,7 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ROOT, FUNCTIONS, read, readDashboard } = require('./_shared');
+const { ROOT, FUNCTIONS, read, readDashboard, readPortal } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -31,7 +31,7 @@ section('Push-4: homeowner portal page + token callables');
     /REDACTION:/.test(psrc));
   assert('portal.html exists + reads token from query string',
     fs.existsSync(path.join(ROOT, 'docs/pro/portal.html')));
-  const portal = read(path.join(ROOT, 'docs/pro/portal.html'));
+  const portal = readPortal();
   assert('portal.html fetches getHomeownerPortalView',
     /getHomeownerPortalView/.test(portal));
   assert('portal.html embeds Cal.com iframe',
@@ -58,7 +58,7 @@ section('Wave B1: portal BoldSign signing embed');
     /signatureStatus === 'sent'.+signatureStatus === 'viewed'|signature[Ss]tatus === 'sent' \|\| latest\.signatureStatus === 'viewed'/.test(psrc));
   assert('portal view returns signEmbedUrl field',
     /signEmbedUrl:\s*signEmbedUrl/.test(psrc));
-  const p = read(path.join(ROOT, 'docs/pro/portal.html'));
+  const p = readPortal();
   assert('portal.html renders signing iframe when signEmbedUrl present',
     /awaitingSign && signEmbedUrl/.test(p));
 }
@@ -82,7 +82,7 @@ section('Wave B4+B5: revoke / regenerate portal link');
 
 section('Wave B6: post-sign booking promotion');
 {
-  const p = read(path.join(ROOT, 'docs/pro/portal.html'));
+  const p = readPortal();
   assert('portal promotes booking when signedNow',
     /signedNow[\s\S]{0,200}border-color:var\(--green/.test(p));
 }
@@ -90,7 +90,7 @@ section('Wave B6: post-sign booking promotion');
 section('Customer-facing portal gallery — share photos with homeowner');
 {
   const portal   = read(path.join(ROOT, 'functions/portal.js'));
-  const portalUI = read(path.join(ROOT, 'docs/pro/portal.html'));
+  const portalUI = readPortal();
   const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
   const types    = read(path.join(ROOT, 'docs/pro/js/types.js'));
 
