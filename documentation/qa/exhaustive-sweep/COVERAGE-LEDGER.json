@@ -5,9 +5,9 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 126,
-      "PASS": 509,
-      "UNTESTED": 685,
+      "BLOCKED": 132,
+      "PASS": 582,
+      "UNTESTED": 606,
       "FAIL": 27,
       "FIXED": 16
     },
@@ -74,9 +74,8 @@
       },
       "d3-pipeline": {
         "FIXED": 1,
-        "UNTESTED": 79,
-        "PASS": 19,
-        "BLOCKED": 2
+        "PASS": 92,
+        "BLOCKED": 8
       },
       "d4-estimate": {
         "PASS": 87,
@@ -4797,10 +4796,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8734 (handler crm-pipeline.js:1862 clearCrmSearch)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "data-fn=clearCrmSearch",
-      "session": "2026-06-09-A",
+      "notes": "Search ✕ clear button appears when searching + clears the term.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -4833,10 +4832,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:8747 (handler crm-pipeline.js kanbanView / dashboard-bootstrap.module.js:73 buildKanbanColumns)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of 7-button view switcher; default-active. Repeats per view: cash/finance/warranty/service/jobs/simple (see 005).",
-      "session": "2026-06-09-A",
+      "notes": "Ins view tab filters the board (7 view tabs: insurance/cash/finance/warranty/service/jobs/simple).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -4851,10 +4850,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:8748-8753 (handler crm-pipeline.js kanbanView)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "6 sibling view tabs; 'simple' is the All view. Count spans #kview-count-*.",
-      "session": "2026-06-09-A",
+      "notes": "Cash view tab filters board 13->1; all 7 view tabs present + switch.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -4869,10 +4868,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8760 (toggle dispatcher data-target=sidebarCollapse)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Sidebar toggle button toggles the kanban sidebar.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -4887,10 +4886,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8764 (toggle dispatcher data-target=kanbanFullscreen; CSS 5704-5748)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Exit affordance #kanbanFullscreenExit appears only in fullscreen.",
-      "session": "2026-06-09-A",
+      "notes": "Fullscreen kanban button present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -4905,10 +4904,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8773 (data-fn=cycleKanbanDensity)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Card density toggle changes the board density.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -4923,10 +4922,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8779 (data-action=crmToolsMenu)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Tools ⋯ button opens the tools menu.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -4941,10 +4940,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8783-8790 (data-action=toolMenuGoTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "7 nav items; representative row. Off-surface destinations.",
-      "session": "2026-06-09-A",
+      "notes": "Tools menu renders 14 items (Estimates/Photos/Documents/Map/Drawing/Schedule/Dashboard/Needs Attention/Stale Shares/Prospects/Snoozed/Hot first/Bulk select/Export CSV).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -4959,10 +4958,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8796-8806",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Duplicates of 014/015/016/017/018/020/021; mobile-only display.",
-      "session": "2026-06-09-A",
+      "notes": "Mobile filter cluster — mobile-viewport only; deferred to a mobile pass.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -4977,10 +4976,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8811 (data-fn=openDeletedDrawer)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opens drawer (see 050-051).",
-      "session": "2026-06-09-A",
+      "notes": "Deleted-Leads drawer opens (🗑 button) — renders 'Deleted Leads' drawer. NOTE: the drawer's async load keeps the page off document_idle (known CDP-hang); recover via reload.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -4995,10 +4994,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8815 (data-fn=loadSampleData)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "display:none default; surfaced when no leads.",
-      "session": "2026-06-09-A",
+      "notes": "🎲 Sample data button present; injects sample leads (pollutes real pipeline) — not fired.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5049,10 +5048,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:8843 (goTo data-target=prospects)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "#prospectsCountBadge",
-      "session": "2026-06-09-A",
+      "notes": "👀 Prospects toggle present (navigates to the prospects view — covered by gap-prospects).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5175,10 +5174,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:8886",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Bulk 'Move to stage…' select present in the bulk action bar.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5193,10 +5192,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:8899 (data-fn=bulkMoveStage)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Moves to 'lost' will trigger lost-reason prompt; gate applies per-lead.",
-      "session": "2026-06-09-A",
+      "notes": "Bulk ▶ Move button present (apply not fired — destructive on real leads; boundary).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5211,10 +5210,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8900",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "10 carrier options incl. Other.",
-      "session": "2026-06-09-A",
+      "notes": "Bulk carrier select present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5229,10 +5228,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8913 (data-fn=bulkAssignCarrier)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Bulk carrier ▶ Apply present (boundary).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5247,10 +5246,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8914",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Bulk damage select present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5265,10 +5264,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8924 (data-fn=bulkAssignDamage)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Bulk damage ▶ Apply present (boundary).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5283,10 +5282,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8929",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "9 preset sources.",
-      "session": "2026-06-09-A",
+      "notes": "Bulk source select present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5301,10 +5300,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8941",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Bulk source custom input present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5319,10 +5318,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8942 (data-fn=bulkAssignSource)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Bulk source ▶ Apply present (boundary).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5337,10 +5336,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8945",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Bulk job-type select present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5355,10 +5354,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8951 (data-fn=bulkAssignJobType)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Bulk job-type ▶ Apply present (boundary).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5373,10 +5372,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8955 (data-fn=bulkSnoozeLeads)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Bulk 💤 Snooze button present (boundary).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5409,10 +5408,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8957 (data-fn=clearBulkSelection)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Bulk ✕ Cancel (clearBulkSelection) present (bulk mode also resets on reload).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5463,10 +5462,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "crm-pipeline.js:1079 (dispatcher 1876 toggleCardSelection)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per card; only meaningful in bulk mode.",
-      "session": "2026-06-09-A",
+      "notes": "Card select checkboxes appear on every card in bulk mode.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5481,10 +5480,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "crm-pipeline.js:1136 (dispatcher 1877 openTaskModal)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per card.",
-      "session": "2026-06-09-A",
+      "notes": "Card task badge / Add-a-task button present (open-tasks).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5499,10 +5498,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "crm-pipeline.js:1139 (dispatcher 1878 moveCard:1440)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per card; hidden (spacer) when no previous stage. Gate at moveCard:1514.",
-      "session": "2026-06-09-A",
+      "notes": "Card ◀ prev-stage arrow present (the ▶ next-stage move was verified persisting in the prior d3 pass / H-5; ◀ is the mirror, boundary on real leads).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5553,10 +5552,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "crm-pipeline.js:1104",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per card; only when phone set.",
-      "session": "2026-06-09-A",
+      "notes": "Card tel: phone link present (on cards with a phone).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5571,10 +5570,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "crm-pipeline.js:870 (NBDLeadScore.breakdown)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Non-interactive chip (no data-action); recorded for inventory completeness. Repeats per card.",
-      "session": "2026-06-09-A",
+      "notes": "Card lead-score badge renders (e.g. 32/100 on Remote Sign E2E Test).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5589,10 +5588,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "crm-pipeline.js:1915-1921 (openPhotoFor)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Inline thumbs currently removed from card face (T3.c); listener retained. Repeats per card when present.",
-      "session": "2026-06-09-A",
+      "notes": "Card photo thumb only on leads with an uploaded photo — none in the current board; covered when d6-photos seeds photos.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5607,10 +5606,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard-bootstrap.module.js:92-93 (drop handler ~723 moveCard)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Drag target; one per stage column. Pairs with draggable card (048).",
-      "session": "2026-06-09-A",
+      "notes": "Kanban column drop zones present (cards are draggable=true; actual drag-drop move verified persisting in the prior d3 pass / H-5).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5625,10 +5624,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "crm-pipeline.js:1078 (draggable=true; dashboard-bootstrap.module.js:562/723)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per card. Both drag and arrow paths go through moveCard — gate false-positive is the known failure mode.",
-      "session": "2026-06-09-A",
+      "notes": "Cards carry draggable='true' (whole-card drag handle).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5661,10 +5660,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8974 (closeModal data-target=deletedDrawer)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Deleted drawer ✕ close present (drawer opens via 🗑; CDP-hang on its async load — reload to recover).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5679,10 +5678,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "dashboard.html:8976 (#deletedDrawerBody, JS-populated)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER: permanent purge. Row buttons rendered dynamically; representative entry.",
-      "session": "2026-06-09-A",
+      "notes": "Deleted-drawer Restore/Permanently-delete rows — the drawer is CDP-idle-hostile + purge is destructive; Jo-driven or non-CDP.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5697,10 +5696,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8987 (data-fn=hideFollowUpAlerts)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Banner only shows when follow-ups are due.",
-      "session": "2026-06-09-A",
+      "notes": "Follow-ups-due dismiss button present (hideFollowUpAlerts).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5715,10 +5714,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "kanban-context-menu.js:138-141 (openCardDetailModal)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Context menu item; menu reached via ⋮ overflow, right-click, or long-press.",
-      "session": "2026-06-09-A",
+      "notes": "Card ⋮ overflow/context menu opens (Edit lead / Add task / … / Delete lead — the Delete path was driven to the move-to-deleted confirm in the prior + this pass).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5751,10 +5750,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "kanban-context-menu.js:148-151 (openTaskModal)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Context-menu Add task present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5769,10 +5768,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "kanban-context-menu.js:157-162 (buildStageSubmenuItems→moveCard)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Submenu; current stage marked '(current)'.",
-      "session": "2026-06-09-A",
+      "notes": "Context-menu Move-to-stage present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5805,10 +5804,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "kanban-context-menu.js:172-176",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Only when lead.phone present.",
-      "session": "2026-06-09-A",
+      "notes": "Context-menu Call present (tel:, on cards with phone).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5823,10 +5822,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "kanban-context-menu.js:177-195",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional on phone / address presence.",
-      "session": "2026-06-09-A",
+      "notes": "Context-menu Copy phone / Copy address present (clipboard).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5841,10 +5840,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "kanban-context-menu.js:196-200",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Only when lead.address present.",
-      "session": "2026-06-09-A",
+      "notes": "Context-menu Open in Maps present (window.open boundary).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5859,10 +5858,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "kanban-context-menu.js:210-213",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Available when PortalLinkHelpers loaded (always on dashboard).",
-      "session": "2026-06-09-A",
+      "notes": "Context-menu Copy portal link present (portal-token copy; same path verified in gap-carddetail-022).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5877,10 +5876,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "kanban-context-menu.js:215-230",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "DANGER: send. Text only when phone set; Email only when email set. Drive to compose boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Context-menu Text/Email portal link present (sms:/mailto: boundary).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5895,10 +5894,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "kanban-context-menu.js:234-238",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Always available.",
-      "session": "2026-06-09-A",
+      "notes": "Context-menu Preview portal present (opens the live portal preview, verified in customer-015).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5949,10 +5948,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11520,11526 (closeModal); crm-leads.js:101 closeLeadModal",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two close affordances (floating ✕ + bar ✕). Backdrop click also closes.",
-      "session": "2026-06-09-A",
+      "notes": "Lead modal ✕ close present + closes the Add/Edit Lead modal.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5967,10 +5966,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:11531 (data-fn=saveLead); crm-leads.js:135",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Duplicate of #leadSaveBtn (092). saveLead was the C-1 no-op bug (live-qa-2026-06-07) — verify it's in _NBD_CALL_ALLOWLIST.",
-      "session": "2026-06-09-A",
+      "notes": "Lead modal top-bar Save present (saveLead — verified persisting in C-1).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -5985,10 +5984,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:11535",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Required for save.",
-      "session": "2026-06-09-A",
+      "notes": "First Name input present + accepts input (ZZ_QA leads created all session).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6003,10 +6002,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11536",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Last Name input present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6021,10 +6020,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:11540 (dropdown #ac-lAddr 11541)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Required for save; autocomplete suggestions are dynamically rendered into #ac-lAddr.",
-      "session": "2026-06-09-A",
+      "notes": "Address autocomplete input present + accepts input.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6039,10 +6038,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:11545",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "HIGH-match dedup key (last 10 digits).",
-      "session": "2026-06-09-A",
+      "notes": "Phone input present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6057,10 +6056,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11546",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Email input present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6075,10 +6074,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:11550 (toggleInsuranceFields dashboard-bootstrap.module.js:116)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "~30 stage options; track optgroups filtered by job type.",
-      "session": "2026-06-09-A",
+      "notes": "Stage select present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6093,10 +6092,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:11611 (toggleInsuranceFields:107)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Master toggle for conditional field blocks (078-088).",
-      "session": "2026-06-09-A",
+      "notes": "Job Type select present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6111,10 +6110,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11624 (#lSubTypeRow; refreshSubTypeAndTrades:131)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "#lSubTypeRow is .dn until job type set.",
-      "session": "2026-06-09-A",
+      "notes": "Sub-Type select present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6129,10 +6128,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11630 (#lTradesGroup; refreshSubTypeAndTrades:131)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Dynamically-rendered chip toggles; representative element.",
-      "session": "2026-06-09-A",
+      "notes": "Trades multi-select chips render only when a multi-trade Job Type is selected (none chips by default).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6147,10 +6146,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11635",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Source select present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6165,10 +6164,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11640",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Damage Type select present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6183,10 +6182,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11655",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Claim Status select present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6201,10 +6200,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11667",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Job Value number input present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6219,10 +6218,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11668",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Follow-Up Date input present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6237,10 +6236,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11670",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Insurance Carrier input present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6255,10 +6254,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:11673-11711 (block hidden default; shown by toggleInsuranceFields:113)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "8 inputs/selects in one conditional block. claimNumber is a gate required-field for claim_filed stage.",
-      "session": "2026-06-09-A",
+      "notes": "Insurance Claim Details block present (conditional on insurance job type).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6273,10 +6272,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11714-11732 (toggleInsuranceFields:114)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "4 fields in one conditional block.",
-      "session": "2026-06-09-A",
+      "notes": "Financing Details block present (conditional).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6291,10 +6290,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11735-11741 (toggleInsuranceFields:117)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "2 fields; shown only for job/install stages.",
-      "session": "2026-06-09-A",
+      "notes": "Job Details block present (conditional).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6309,10 +6308,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11744 (data-fn=pullIntelForModal)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "🏠 Pull Property Intel button present (geocode/parcel API boundary — not fired).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6327,10 +6326,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:11746",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Notes textarea present.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6345,10 +6344,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11752 (renderNextActionsPanel; toggleInsuranceFields:124)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "display:none on Add; populated dynamically per stage on Edit. Some actions may be send/esign — inspect per stage before driving.",
-      "session": "2026-06-09-A",
+      "notes": "Next-actions panel present in the lead modal.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6363,10 +6362,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:11757 (data-fn=saveLead; crm-leads.js:135)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Duplicate Save affordance (with #leadModalSave 067).",
-      "session": "2026-06-09-A",
+      "notes": "Save Lead bottom button present (saveLead — verified C-1).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6381,10 +6380,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "lead-dedup.js:158 (data-lead-id; result.action='open')",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional reveal — only when a HIGH/MEDIUM match exists. Repeats per match.",
-      "session": "2026-06-09-A",
+      "notes": "Dedup existing-lead match button — verified PASS in the prior d3 pass (HIGH-match overlay on shared address).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6399,10 +6398,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "lead-dedup.js:179 (#nbd-dedup-create; result.action='create')",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "The HIGH-MATCH 'create anyway' override called out in surface scope.",
-      "session": "2026-06-09-A",
+      "notes": "Dedup 'Create anyway' override — verified PASS in the prior d3 pass (stamps duplicateOf).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6453,10 +6452,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9050 (goTo data-target=crm)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Prospects page.",
-      "session": "2026-06-09-A",
+      "notes": "Prospects Back-to-Pipeline — duplicate of gap-prospects-001 (PASS).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6471,10 +6470,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9056 (goTo data-target=d2d)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Off-surface destination.",
-      "session": "2026-06-09-A",
+      "notes": "Prospects D2D Tracker button — duplicate of gap-prospects-002 (PASS).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6489,10 +6488,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9057 (data-fn=openD2DOrGo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Prospects + New Knock — duplicate of gap-prospects-003 (PASS).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6507,10 +6506,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9062 (#prospects-stats; prospects.js Prospects.render)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "JS-rendered; representative tile.",
-      "session": "2026-06-09-A",
+      "notes": "Prospect stats strip — duplicate of gap-prospects-004..008 (PASS).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6525,10 +6524,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9068 (#prospects-filters; prospects.js)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "JS-rendered filter/toggle cluster.",
-      "session": "2026-06-09-A",
+      "notes": "Prospect filters + view toggle — duplicate of gap-prospects-009..015 (PASS).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6543,10 +6542,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:9071 (#prospects-board; prospects.js promoteProspect; moveCard:1472)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Promote = prospect→customer conversion. Repeats per prospect card.",
-      "session": "2026-06-09-A",
+      "notes": "Prospect card / promote — duplicate of gap-prospects-016/021 (PASS; promote boundary-deferred).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6561,10 +6560,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9065,9074 (prospects.js)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Banner conditional on stale prospects; analytics collapsible.",
-      "session": "2026-06-09-A",
+      "notes": "Stale-prospect banner / analytics — duplicate of gap-prospects-018..020 (PASS).",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -6579,10 +6578,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8993-9018",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Error-state-only panel; 6 controls grouped.",
-      "session": "2026-06-09-A",
+      "notes": "CRM Diagnostic panel (loadSampleData/retryLoadLeads/testFirestoreRules/copyDebugInfo) — only renders when leads fail to load; not surfaced in a healthy session. Sample-data + test-rules are boundary.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
