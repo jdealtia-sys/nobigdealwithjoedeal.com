@@ -5,10 +5,10 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 89,
-      "PASS": 380,
-      "UNTESTED": 854,
-      "FAIL": 24,
+      "BLOCKED": 116,
+      "PASS": 418,
+      "UNTESTED": 786,
+      "FAIL": 27,
       "FIXED": 16
     },
     "by_surface": {
@@ -110,18 +110,21 @@
         "UNTESTED": 2
       },
       "gap-carddetail": {
-        "UNTESTED": 33
+        "PASS": 19,
+        "BLOCKED": 13,
+        "FAIL": 1
       },
       "gap-deleteconfirm": {
-        "UNTESTED": 15,
-        "PASS": 2
+        "PASS": 7,
+        "BLOCKED": 10
       },
       "gap-esign-estimate": {
         "UNTESTED": 6
       },
       "gap-misc": {
-        "UNTESTED": 20,
-        "PASS": 3
+        "PASS": 17,
+        "FAIL": 2,
+        "BLOCKED": 4
       },
       "gap-mobile": {
         "UNTESTED": 39
@@ -16744,10 +16747,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12584",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Backdrop click also closes via data-action='modalBackdropClose' data-target='closeCardDetailModal' on the .modal-bg root (dashboard.html:12582).",
-      "session": "2026-06-09-A",
+      "notes": "modal-close (data-action=closeModal) closes the card-detail modal (verified).",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16762,10 +16765,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12593",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "aria-label='Close'.",
-      "session": "2026-06-09-A",
+      "notes": "m-modal-bar-x (data-action=closeModal) — present; same handler as 001.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16780,10 +16783,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12604 (+ dashboard-actions.js:92)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "role='button' tabindex='0' cursor:pointer; label text + tint set in openCardDetailModal from JOB_TYPE_META/inferJobType (dashboard-widgets.js:892).",
-      "session": "2026-06-09-A",
+      "notes": "jobType chip opens the type picker overlay.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16798,10 +16801,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12609 (+ dashboard-actions.js:85)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Stage move runs through moveCard's required-field gate (see kanban-move-gate memory). Label/color set from stageLabel()/stageColor() (dashboard-widgets.js:873).",
-      "session": "2026-06-09-A",
+      "notes": "stage chip opens the stage picker overlay.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16816,10 +16819,10 @@
       "danger": "publish",
       "priority": "P1",
       "source_ref": "dashboard.html:12627 (+ dashboard-actions.js:243,1376)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Banner shown/hidden by openCardDetailModal based on lead.isProspect (dashboard-widgets.js:915). Promote is a state-changing write that surfaces the lead into the live pipeline — treated as publish-class.",
-      "session": "2026-06-09-A",
+      "notes": "Promote banner only renders for D2D-prospect-created leads, not a manually-created CRM lead — covered by gap-prospects-021.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16834,10 +16837,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12630 (+ dashboard-widgets.js:1210)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Built with createElement; no stable id — selector is positional within #prospectQuickActions.",
-      "session": "2026-06-09-A",
+      "notes": "prospectQuickActions render only in the prospect card-detail context — covered by gap-prospects-024.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16852,10 +16855,10 @@
       "danger": "send",
       "priority": "P3",
       "source_ref": "dashboard.html:12630 (+ dashboard-widgets.js:1211)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "send-class (opens SMS composer pre-addressed). Hands off to OS messaging app; no in-app send.",
-      "session": "2026-06-09-A",
+      "notes": "prospect-only — covered by gap-prospects-025.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16870,10 +16873,10 @@
       "danger": "send",
       "priority": "P3",
       "source_ref": "dashboard.html:12630 (+ dashboard-widgets.js:1212)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "send-class (opens mail composer); no in-app send.",
-      "session": "2026-06-09-A",
+      "notes": "prospect-only — covered by gap-prospects-026.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16888,10 +16891,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12630 (+ dashboard-widgets.js:1213)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Always enabled.",
-      "session": "2026-06-09-A",
+      "notes": "prospect-only — covered by gap-prospects-027.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16906,10 +16909,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12630 (+ dashboard-widgets.js:1221, dashboard-actions.js:1418)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Disabled when !hasGeo.",
-      "session": "2026-06-09-A",
+      "notes": "prospect-only — covered by gap-prospects-028.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16924,10 +16927,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12630 (+ dashboard-widgets.js:1225, dashboard-actions.js:1398)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Reversible soft-hide (record kept); not a delete.",
-      "session": "2026-06-09-A",
+      "notes": "prospect-only — covered by gap-prospects-029.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16942,10 +16945,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "dashboard.html:12630 (+ dashboard-widgets.js:1228, dashboard-actions.js:1439)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Permanent erase, prospects only. Guard at dashboard-actions.js:1447 blocks customers.",
-      "session": "2026-06-09-A",
+      "notes": "prospect-only delete — covered by gap-prospects-030 (boundary-deferred, real-data destructive).",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16960,10 +16963,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "dashboard-actions.js:1459 (+ _prospectConfirm dashboard-actions.js:1354)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "No static markup in dashboard.html — dialog DOM is built dynamically by D2D.uiConfirm (or window.uiConfirm), native confirm() fallback. Paired Cancel button also present (cancelLabel='Cancel').",
-      "session": "2026-06-09-A",
+      "notes": "Prospect 3-step delete confirm — deferred (real-data destructive); covered by gap-prospects-022/031.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16978,10 +16981,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "dashboard-actions.js:1466 (+ _prospectConfirm dashboard-actions.js:1354)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Paired Cancel ('Cancel') aborts and leaves lead as a hidden prospect.",
-      "session": "2026-06-09-A",
+      "notes": "Prospect delete step 2 — deferred.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -16996,10 +16999,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "dashboard-actions.js:1473 (+ _prospectPrompt dashboard-actions.js:1365, deleteDoc dashboard-actions.js:1481)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Typed-confirmation gate. Case-sensitive exact match 'DELETE'. Permanent erase — no recovery.",
-      "session": "2026-06-09-A",
+      "notes": "Prospect delete typed-DELETE gate — deferred.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17014,10 +17017,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12666 (+ dashboard-actions.js:1529)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Full-page navigation to customer.html photos tab.",
-      "session": "2026-06-09-A",
+      "notes": "Photos action navigates to customer.html#photos.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17032,10 +17035,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12669 (+ dashboard-actions.js:1536)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Full-page navigation to customer.html documents tab.",
-      "session": "2026-06-09-A",
+      "notes": "Documents action navigates to customer.html#documents.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17050,10 +17053,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12672 (+ dashboard-actions.js:248, tasks.js:156)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opens #taskModal stacked above the card-detail modal (taskModal z-index 2500).",
-      "session": "2026-06-09-A",
+      "notes": "Tasks action (cdaOpenTaskModal) opens the task modal.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17068,10 +17071,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12675 (+ dashboard-actions.js:57)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Distinct from Photos (016): Camera opens the in-app capture flow, not the customer.html gallery.",
-      "session": "2026-06-09-A",
+      "notes": "Camera (cdaPhotos) -> PhotoEngine.openCamera = native camera; not automatable.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17086,10 +17089,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12678 (+ dashboard-actions.js:65)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opens invoice builder UI; creation/send happens inside that flow (out of this gap's scope).",
-      "session": "2026-06-09-A",
+      "notes": "Invoice opens the nbd-invoice-modal ('Create Invoice from Estimate', estimate-ID picker).",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17104,10 +17107,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12681 (+ dashboard-actions.js:100)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "200ms timeout lets the modal-close animation finish before showing the overlay.",
-      "session": "2026-06-09-A",
+      "notes": "Report opens the inspectionBuilderOverlay in-page.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17122,10 +17125,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "dashboard.html:12690 (+ dashboard-actions.js:233, dashboard-api.js:431)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "send-class: mints a live homeowner-portal access token and can open SMS to the homeowner. Token grants external portal access.",
-      "session": "2026-06-09-A",
+      "notes": "Share Homeowner Portal copied a portal.html?token= link + 'Portal link copied' toast.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17140,10 +17143,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12693 (+ dashboard-actions.js:166)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Voice Memo opens its capture overlay.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17158,10 +17161,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12699 (+ dashboard-actions.js:174)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Distinct from Voice Memo (023): this is the summarize+upload+auto-task layer.",
-      "session": "2026-06-09-A",
+      "notes": "Voicemail opens its overlay.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17176,10 +17179,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "dashboard.html:12703 (+ dashboard-actions.js:238, dashboard-api.js:410)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Confirm is a single native confirm() (no separate markup row). delete-class because it invalidates existing access tokens — destructive to outstanding homeowner links.",
-      "session": "2026-06-09-A",
+      "notes": "Revoke portal links (cd-icon-btn-danger) only renders when active portal tokens are detected for the lead — not present on a fresh lead.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17194,10 +17197,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12710 (+ dashboard-actions.js:1543)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Primary full-width CTA.",
-      "session": "2026-06-09-A",
+      "notes": "View Full Customer Details navigates to customer.html?id=<lead>.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17212,10 +17215,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12716 (+ dashboard-actions.js:1550)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Edit form/Save out of this gap's scope (separate lead-modal). See C-1 saveLead allowlist note in live-qa memory.",
-      "session": "2026-06-09-A",
+      "notes": "Edit Details (editCardDetails) closes card-detail + routes to editLead (Edit lead modal, verified PASS in the d3 pass).",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17230,10 +17233,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:11950 / 11954 (+ tasks.js:167)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "There is NO separate Cancel button in the task modal — close X is the cancel affordance. closeTaskModal handles the re-render side-effects.",
-      "session": "2026-06-09-A",
+      "notes": "Task modal opens via Tasks action; modal-close present.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17248,10 +17251,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11966 (+ tasks.js:180,188)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "This is the task 'title' field — there is no separate Save button; Add (or Enter) persists.",
-      "session": "2026-06-09-A",
+      "notes": "Task text input accepts input.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17266,10 +17269,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:11967 (+ tasks.js:93,168)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "NOTE: prompt anticipated a priority field + notes textarea — neither exists in #taskModal. Only title + due date.",
-      "session": "2026-06-09-A",
+      "notes": "Task due-date input accepts a date.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17284,10 +17287,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11968 (+ tasks.js:180,93)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "This is the de-facto Save/Create for a task. No edit-in-place; tasks are add/complete/delete only.",
-      "session": "2026-06-09-A",
+      "notes": "+ Add creates the task (rendered in #taskList with due-date pill).",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17302,10 +17305,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "tasks.js:177 (+ delegate tasks.js:214, checkTask tasks.js:193, _toggleTask tasks.js:99)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "No standalone 'Complete' button — completion is the row checkbox. Completed tasks sort to the bottom with .done styling.",
-      "session": "2026-06-09-A",
+      "notes": "Per-task checkbox toggles + persists (done=true survived reload; strikethrough rendered).",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17320,10 +17323,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "tasks.js:177 (+ delegate tasks.js:214, removeTask tasks.js:194, _deleteTask tasks.js:107)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Deletes a subcollection task doc (not the lead). No confirm dialog — flag as a UX risk for the punchlist (accidental task loss).",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D22: per-task DELETE (×, data-tk-action=removeTask) is a no-op AND freezes the renderer — real + synthetic clicks both left the task present across reloads; yet a direct deleteDoc(leads/{id}/tasks/{tid}) succeeds (rules allow it, used to clean up). So the removeTask UI handler is broken (its deleteDoc/loadTasks path hangs and never removes), while the underlying delete works.",
+      "session": "2026-06-09-B",
       "surface": "gap-carddetail"
     },
     {
@@ -17338,10 +17341,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "dashboard.html:10829 (handler dashboard-api.js:382-400; native-confirm bypass standalone-compat.js:154-162)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Account-deletion confirm is a NATIVE browser confirm, not a typed-confirm modal. Cancel = native Cancel (aborts, returns from _gdprRequestErasure). QA cannot drive native confirm via DOM selectors; drive via dialog handler / accept|dismiss. Real risk: PWA confirm-patch bypass.",
-      "session": "2026-06-09-A",
+      "notes": "Native confirm OK exercised repeatedly (stage-move 'Move to Contacted' OK -> contacted; report-delete OK).",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17356,10 +17359,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:10829 (handler dashboard-api.js:390 `if (!window.confirm(warning)) return;`)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Cancel-path of the destructive account-deletion flow. Must verify it truly aborts (and that the PWA confirm-patch does NOT auto-proceed, which it would).",
-      "session": "2026-06-09-A",
+      "notes": "Native confirm Cancel exercised (Enrich Data cancel; bulk-delete cancel; stage-move cancel).",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17374,10 +17377,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "dashboard.html:8956 (handler crm-portal-bridge.js:243-273; modal standalone-compat.js:93-107)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "bulkDelete uses the generic nbdConfirm modal (.sa-btn-ok/.sa-btn-cancel), NOT the dedicated #delConfirmOverlay (that one is single-lead only). Confirm button label is literally 'OK'.",
-      "session": "2026-06-09-A",
+      "notes": "The .sa-overlay nbdConfirm is the STANDALONE/PWA-only replacement (standalone-compat.js gates on isStandalone) — in a normal tab native confirm is used instead. This is the NEW-C1 PWA-confirm path; not testable outside an installed PWA.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17392,10 +17395,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:8956 (handler crm-portal-bridge.js:251; modal standalone-compat.js:84-90)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Cancel-path of bulkDelete. QA boundary control to drive-and-cancel.",
-      "session": "2026-06-09-A",
+      "notes": "PWA-only .sa-overlay Cancel — see 003.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17446,10 +17449,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "crm-portal-bridge.js:557 (.nbd-dc-perm) → handler crm-portal-bridge.js:584-593; hard delete dashboard-bootstrap.module.js:2601",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Drawer permanent purge is the only HARD delete in the lead lifecycle (deleteDoc, not soft flag). Confirm uses generic nbdConfirm modal (.sa-btn-ok). Drawer body is dynamic; per-card Remove buttons are .dc-perm.nbd-dc-perm with data-id/data-name.",
-      "session": "2026-06-09-A",
+      "notes": "PWA-only .sa-overlay OK — see 003.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17464,10 +17467,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "crm-portal-bridge.js:557 (.nbd-dc-perm) → handler crm-portal-bridge.js:586",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Cancel-path of the hard purge. Critical to verify it aborts in BOTH browser and PWA (PWA native-confirm fallback would auto-proceed, but this path uses nbdConfirm so the modal really renders).",
-      "session": "2026-06-09-A",
+      "notes": "PWA-only .sa-overlay Cancel — see 003.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17482,10 +17485,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "photo-engine.js:1765-1771 (modal standalone-compat.js:93-107)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Dashboard photo delete uses nbdConfirm. (customer.html deletePhoto uses NATIVE confirm — see row 011/012.)",
-      "session": "2026-06-09-A",
+      "notes": "PWA-only .sa-overlay OK — see 003.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17500,10 +17503,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-engine.js:1766",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Cancel-path of dashboard photo delete.",
-      "session": "2026-06-09-A",
+      "notes": "PWA-only .sa-overlay Cancel — see 003.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17518,10 +17521,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "customer.html:6957 (trigger) → handler customer.html:7039-7040",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "customer.html photo delete uses NATIVE confirm (unlike dashboard's nbdConfirm). No DOM confirm/cancel selectors; drive via dialog accept. PWA bypass risk same as account-deletion.",
-      "session": "2026-06-09-A",
+      "notes": "Native confirm OK — see 001.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17536,10 +17539,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:7040",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Cancel-path of customer.html photo delete. Verify abort in browser; flag that PWA patch would NOT honor cancel.",
-      "session": "2026-06-09-A",
+      "notes": "Native confirm Cancel — see 002.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17554,10 +17557,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "product-library.js:606-612 (modal standalone-compat.js:93-107)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Product hard-delete confirm (nbdConfirm). Note product-library.js:620 archiveProductFromUI uses native confirm for the non-destructive 'Archive this product?' — that is a soft action, out of this gap's scope.",
-      "session": "2026-06-09-A",
+      "notes": "PWA-only .sa-overlay OK — see 003.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17572,10 +17575,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "product-library.js:607",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Cancel-path of product hard-delete.",
-      "session": "2026-06-09-A",
+      "notes": "PWA-only .sa-overlay Cancel — see 003.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17590,10 +17593,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "standalone-compat.js:93-107 (def) / :177 (window.nbdConfirm)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Generic primitive row — the concrete destructive consumers are rowed individually above. Danger=none because the primitive itself is neutral; danger lives in each caller. Cancel counterpart is row 016.",
-      "session": "2026-06-09-A",
+      "notes": "PWA-only .sa-overlay OK — see 003.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17608,10 +17611,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "standalone-compat.js:84-90 / :118-120 (ESC)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Generic primitive Cancel. Shared by all nbdConfirm-gated destructive flows.",
-      "session": "2026-06-09-A",
+      "notes": "PWA-only .sa-overlay Cancel — see 003.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17626,10 +17629,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:7310 (trigger) → handler notif-bell.js:608-613",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "FINDING for the critic: clearAllNotifications has NO confirm dialog, so it contributes ZERO confirm/cancel rows. Rowed here only to document the absence — the trigger itself belongs to the bell/notifications gap, not this delete-confirm gap. No typed-confirmation input anywhere in scope.",
-      "session": "2026-06-09-A",
+      "notes": "Clear-all notifications dismisses all (writes ids to nbd_notif_dismissed_v1 LS set; reversible via toggleDismissedView). Tested + restored the dismiss/read/queue keys.",
+      "session": "2026-06-09-B",
       "surface": "gap-deleteconfirm"
     },
     {
@@ -17752,10 +17755,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/ask-joe.html:299 (+ docs/pro/js/pages/ask-joe-main.js:6,12,19)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Pass 1 already rowed this — re-confirmed handler. Model claude-haiku-4-5-20251001, max_tokens 1024.",
-      "session": "2026-06-09-A",
+      "notes": "ask-joe.html standalone: #userInput present.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17770,10 +17773,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "docs/pro/ask-joe.html:300 (+ docs/pro/js/pages/ask-joe-main.js:19-124)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "danger=send: dispatches an outbound LLM/API call (incurs token cost). Pass 1 rowed this.",
-      "session": "2026-06-09-A",
+      "notes": "ask-joe.html: #sendBtn present.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17788,10 +17791,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/ask-joe.html:285",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Pass 1 rowed this.",
-      "session": "2026-06-09-A",
+      "notes": "ask-joe.html: Back-to-Dashboard link present.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17806,10 +17809,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/ask-joe.html:283-303 (whole body)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Documenting the gap as a non-existence finding. Rows gap-misc-005..012 capture the controls on the SPA #joe view they were confused with.",
-      "session": "2026-06-09-A",
+      "notes": "ask-joe.html: no Scenarios button (expected absent state confirmed).",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17824,10 +17827,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9597 (+ docs/pro/js/dashboard-actions.js:195-201)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "This is the 'scenario buttons' control the gap referenced — singular Scenarios launcher, not per-scenario buttons inline. The per-scenario list is rendered by DecisionEngine.openPicker (out of scope here).",
-      "session": "2026-06-09-A",
+      "notes": "SPA #joe Scenarios = NEW-D15 (DecisionEngine never loads on #/joe) — same as d9-insights-010.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17842,10 +17845,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9598 (+ docs/pro/js/ai.js:383-388)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Clears session chat only; does not clear the API key.",
-      "session": "2026-06-09-A",
+      "notes": "SPA #joe New Chat = NEW-D16 (doesn't clear transcript) — same as d9-insights-011.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17860,10 +17863,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9611 (+ docs/pro/js/ai.js:30)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "reveal_state is conditional on no-key state set by initJoeChat (ai.js).",
-      "session": "2026-06-09-A",
+      "notes": "API key input hidden (Jo's key active) — credential flow, not entered.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17878,10 +17881,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9612 (+ docs/pro/js/ai.js:29-41)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "The 'API-key activate' control the gap referenced. Standalone ask-joe.html has NO equivalent (see gap-misc-004).",
-      "session": "2026-06-09-A",
+      "notes": "Activate — credential flow, not fired.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17896,10 +17899,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9624-9628 (+ docs/pro/js/ai.js:346-350)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "danger=send: each triggers an outbound LLM call (token cost). Five distinct data-arg prompts; tested as one row group.",
-      "session": "2026-06-09-A",
+      "notes": "Quick-prompt chips fire grounded AI replies — verified d9-insights-016.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17914,10 +17917,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9631 (+ docs/pro/js/ai.js:286, docs/pro/js/dashboard-ui.js:636)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "joeInput textarea + send path — verified d9-insights-014.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17932,10 +17935,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9633 (+ docs/pro/js/ai.js:286-345)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "danger=send: outbound LLM call.",
-      "session": "2026-06-09-A",
+      "notes": "SEND (sendJoeMessage) — verified d9-insights-014/H-4.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17950,10 +17953,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:9636 (+ docs/pro/js/ai.js:42-50)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Also wipes chat history as a side effect (clears JOE_CHAT_STORE).",
-      "session": "2026-06-09-A",
+      "notes": "Change Key (clearJoeKey) — would wipe Jo's saved key; not fired.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17968,10 +17971,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/analytics.html:174-177 (+ docs/pro/js/pages/pro-analytics.js:42-47,272-276)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Four time-filter tabs. Pass 1 likely captured 3 of the 4 (or the group as one) — this row covers all 4 as the canonical interactive filter set. Projected-cost meta recomputes per range.",
-      "session": "2026-06-09-A",
+      "notes": "analytics.html range tabs (today/7d/30d/all) activate on click.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -17986,10 +17989,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/analytics.html:179 (+ docs/pro/js/pages/pro-analytics.js:54-94,277-280)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Read-only Firestore read; danger=none.",
-      "session": "2026-06-09-A",
+      "notes": "analytics.html Refresh fires (re-reads api_usage).",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -18004,10 +18007,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/analytics.html:90-92,198 (+ docs/pro/js/pages/pro-analytics.js:139-169)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Documents the absence of chart drilldowns the critic asked about — hover tooltip only.",
-      "session": "2026-06-09-A",
+      "notes": "Chart bars hover-only + no api_usage data ('No data yet' empty state) — nothing to hover. Page renders correctly.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -18022,10 +18025,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/analytics.html:1-247 (+ docs/pro/js/pages/pro-analytics.js:1-282)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Closes out the 'export controls beyond the 3 rows' gap as a non-existence finding. Pass 1's 3 rows ≈ the time-tab group + refresh; nothing further exists.",
-      "session": "2026-06-09-A",
+      "notes": "analytics.html: no export/CSV control (expected absent state confirmed).",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -18040,10 +18043,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/ui.js:737-744,785-791 (+ wiring docs/pro/js/ui.js:1137; callers docs/pro/js/crm-pipeline.js:1689-1698,1785-1791)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "The generic clickable toast Undo affordance. In the current codebase its only wired callers are the two crm-pipeline retry toasts (label='Retry'). The default label is 'Undo' for any future caller.",
-      "session": "2026-06-09-A",
+      "notes": "Toast Undo/Retry uses the same data-ui-action delegate as closeToast (proven by 018); the undo callback is caller-specific. Delegate verified.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -18058,10 +18061,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/ui.js:753,772-782 (+ wiring docs/pro/js/ui.js:1138)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Captured because the gap asked for toast affordances; the ✕ is the universal one (the Undo at gap-misc-017 is conditional).",
-      "session": "2026-06-09-A",
+      "notes": "Toast ✕ close (data-ui-action=closeToast) dismisses the toast (verified via a ZZ_QA test toast).",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -18076,10 +18079,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "docs/pro/js/widgets.js:665,746-751,864",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "danger=delete (removes a configured widget). Documents that the expected Undo affordance is absent on this path — a real gap to flag, not just inventory.",
-      "session": "2026-06-09-A",
+      "notes": "Home widget ✕ remove (data-w-action=removeWidget) removes the widget from nbd_home_widgets + DOM (tested on quote-widget; restored layout).",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {
@@ -18094,10 +18097,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/lead-snooze.js:56,107-147,149-180",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Closes the 'clickable Undo on snooze' part of the gap as a non-existence finding. Undo here is a persistent banner/menu action, not a toast.",
-      "session": "2026-06-09-A",
+      "notes": "Snooze toast intentionally has no Undo (informational); snooze itself verified PASS in d3-pipeline.",
+      "session": "2026-06-09-B",
       "surface": "gap-misc"
     },
     {

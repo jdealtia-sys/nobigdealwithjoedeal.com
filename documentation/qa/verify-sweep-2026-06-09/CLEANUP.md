@@ -30,6 +30,14 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 ## Outbound side effects
 - One `lead-alert` email to Jo fired by the ZZ_QA_ Inspect Bridge Test2 public submit (same as the prior sweep's CO-H-1 repro; subject "New lead"). No SMS (Twilio still blocked). No Stripe/billing/account changes. GDPR/dangerous controls untouched this session.
 
+## gap-carddetail pass (2026-06-10) — created & cleaned
+| artifact | state |
+|----------|-------|
+| Lead "ZZ_QA CardDetail Test" (qkMxuoxX26LoAZH8DF3E) | **soft-deleted → Deleted bin** (count 23→22). Its task subdoc was deleted directly during the NEW-D22 investigation; a portal token (KT8ZCGHBHTYL8NR) was minted by the Share-Portal test (admin-SDK collection, points at the deleted lead — harmless). |
+| Home widget layout (quote-widget remove test) | toggled then **restored** (nbd_home_widgets key removed → defaults). |
+| Notification dismiss/read/queue keys (clear-all test) | snapshotted + **restored** to before-values. |
+| ZZ_QA test toast | transient, auto/✕-dismissed. |
+
 ## #611 live-verify + gap-prospects pass (2026-06-10) — created & cleaned
 | artifact | state |
 |----------|-------|

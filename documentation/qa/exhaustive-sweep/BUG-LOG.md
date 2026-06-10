@@ -238,3 +238,8 @@ Pattern confirmed across three independent saves: Edit Customer (header JOB VALU
 On a lead with no photos the href has no lead id at all → clicking navigates to photo-review without context. Verify whether the id populates once photos exist; as rendered it's a broken nav. *Row:* customer-052 (FAIL).
 
 _Also re-confirmed on a fresh lead: CO-L-2 ("Invalid Date" on the Lead-created timeline entry) did NOT reproduce — timeline dates render correctly._
+
+### New finding (gap-carddetail pass, 2026-06-10 cont.)
+
+**NEW-D22 — MEDIUM — Card-detail Tasks: per-task DELETE (×) is a no-op that freezes the renderer**
+In the lead card-detail → Tasks modal, the per-task **×** button (`data-tk-action="removeTask"` → `removeTask()` in `tasks.js:194`) does not remove the task: real AND synthetic clicks both leave the task present across full reloads, and the click wedges the renderer (CDP 45s timeout). Yet a direct `deleteDoc(leads/{id}/tasks/{tid})` succeeds immediately (rules allow it — that's how the QA task was cleaned up), and the sibling checkbox toggle (`checkTask`) works + persists. So the bug is in `removeTask`'s UI path — `await _deleteTask(...); renderTaskList(await _loadTasks(...))` — most likely `_loadTasks`/`renderTaskList` hangs (or `removeTask` throws before the delete). *Likely:* `tasks.js` `removeTask`/`_deleteTask`/`_loadTasks`. *Row:* gap-carddetail-033 (FAIL). (Note: this is the card-detail Tasks modal — distinct from the customer.html timeline task checkbox, which works.)
