@@ -653,7 +653,12 @@ function doPrint(){if(cur<0){toast('Open a page first');return;}saveNow();window
 function openM(id){document.getElementById(id).classList.add('open');}
 function closeM(id){document.getElementById(id).classList.remove('open');}
 function closeWelcome(){document.getElementById('welcomeModal').style.display='none';localStorage.setItem('nbd-welcome-seen','1');}
-function openWelcomeGuide(){openM('welcomeModal');}
+// 📖 reopen: #welcomeModal is shown via inline display (welcome-gate.js sets
+// display:flex on first visit; closeWelcome sets display:none) and has no
+// .open CSS rule — openM's classList.add('open') alone never re-showed it
+// (confirmed live 2026-06-10: class added, computed display stayed none).
+// Set the inline display to match the close path.
+function openWelcomeGuide(){const m=document.getElementById('welcomeModal');m.style.display='flex';openM('welcomeModal');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
 
 // ═══════════════════════════════════════════
