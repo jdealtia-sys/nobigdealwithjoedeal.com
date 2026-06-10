@@ -3,17 +3,17 @@
 **Target:** https://nobigdealwithjoedeal.com/pro — LIVE prod, tenant zero (JD).
 **Last session:** `2026-06-09-B` (verify-sweep)
 
-## Coverage: **472 / 1363 verified (34.6%)**
+## Coverage: **509 / 1363 verified (37.3%)**
 
 | status | count |
 |--------|-------|
-| PASS | 343 |
-| FAIL | 25 |
+| PASS | 380 |
+| FAIL | 24 |
 | BLOCKED | 89 |
-| FIXED | 15 |
-| UNTESTED | 891 |
+| FIXED | 16 |
+| UNTESTED | 854 |
 
-> **2026-06-10 (cont. 3):** PRs **#606/#608/#609/#610 MERGED + deploy green + all three fixes LIVE-VERIFIED** (academy accordions work; stuck report deleted; deal share links copy real URLs) — 9 rows flipped to FIXED. **customer.html 129/146 touched** on a ZZ_QA lead: stage/edit/tasks/notes/portals/doc-gates all exercised; **3 new FAIL families** — NEW-D19 Log-Estimate never saves + NEW-D18 reports panel never loads (**both fixed in PR #611, open**), NEW-D20 portal reply "Unauthenticated", NEW-D17 stale-panels-after-save pattern, NEW-D21 empty Review&Sort href. CO-L-2 not reproduced on a fresh lead. Photo-dependent rows (~45) BLOCKED pending a pre-seeded-photos or Jo-driven pass.
+> **2026-06-10 (cont. 3+4):** PRs **#606/#608/#609/#610/#611/#612 ALL MERGED + deployed + LIVE-VERIFIED.** #611 confirmed on a fresh ZZ_QA lead: Log Estimate now saves ($4,800 row + viewer opens) and the Inspection Reports panel loads clean — NEW-D19/D18 → FIXED, and the 6 estimate-viewer/row rows they blocked now PASS. Also finished Close Board insurance-conditional fields + analytics tab, and gap-prospects (filters/toggles/views/card-detail/quick-actions all PASS; promote + 3-step delete left at BLOCKED-boundary — won't fire on real prospects). **customer.html 130/146.** Still-open FAILs: NEW-D20 portal reply "Unauthenticated", NEW-D17 stale-panels-after-save, NEW-D21 empty Review&Sort href, plus the earlier dead-chrome (Products/Training chips) + docgen/storm-tile/Scenarios set.
 
 > **2026-06-09-B verify-sweep session:** ✅ **ALL 8 behavioral checklist items PASS in-browser** (normal Chrome window; the tab-group blocker was cleared by launching a fresh `--new-window`). NEW-1/NEW-2/NEW-4/CO-M-1/CO-L-1+NEW-C9/NEW-5(fresh bridge round-trip)/NEW-C10+C13/NEW-C12 all verified working live with reload round-trips; real settings restored; ledger rows annotated. Then resumed the sweep: **d5-docs 100% touched (53 rows)** and **d8-tools 55/123**. **21 new FAILs across 5 new bug families** (NEW-D1 server-PDF previews blocked; NEW-D2 Save-to-Customer silent no-op; NEW-D5 Products dead chrome; NEW-D6 Academy accordions ⇒ **fix PR #606 open, smoke 1825/0**; NEW-D7 Sales Training dead chrome; +NEW-D3/D4/D8/D9 lower). Trackers: `documentation/qa/verify-sweep-2026-06-09/`.
 
