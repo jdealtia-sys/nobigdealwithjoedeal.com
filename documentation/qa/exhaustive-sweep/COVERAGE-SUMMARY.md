@@ -3,15 +3,17 @@
 **Target:** https://nobigdealwithjoedeal.com/pro — LIVE prod, tenant zero (JD).
 **Last session:** `2026-06-09-B` (verify-sweep)
 
-## Coverage: **986 / 1363 verified (72.3%)**
+## Coverage: **1055 / 1363 verified (77.4%)**
 
 | status | count |
 |--------|-------|
-| PASS | 742 |
-| FAIL | 9 |
-| BLOCKED | 197 |
-| FIXED | 38 |
-| UNTESTED | 377 |
+| PASS | 769 |
+| FAIL | 10 |
+| BLOCKED | 237 |
+| FIXED | 39 |
+| UNTESTED | 308 |
+
+> **2026-06-10 (cont. 12 — pages-a closeout):** **69 rows → 1055/1363 (77.4%).** sign.html error states clean (no-token + invalid-token 400); **vault NEW-D30 live-confirmed** (Overview Loading-stuck, _firestore undefined, Save toasts Loading — 19 rows parked BLOCKED on the keep-or-kill decision, Save Now = FAIL); **daily-success safe subset 26 PASS** (search, CSV data:-URI spy, modals incl. the full 4-step onboarding wizard in-modal with floor add/remove + Back + Save&Launch label, appearance picker tabs/search/category/custom-inputs/copy-fs/guide) — Jo's real page data untouched (page-view mutations + theme applies + page create/delete = boundaries); **NEW-D33 found+FIXED (#636)**: 📖 welcome-guide reopen was a silent no-op (openM .open class vs inline display:none — the audit-flagged asymmetry confirmed live). Remaining UNTESTED: d8 maps/draw tail (67) + mobile passes + d7 detail rows (157) + estimate-view token rows + camera/device rows.
 
 > **2026-06-10 (cont. 11 — Jo re-logged in):** **Cleanup + re-verify + photo-review pass; 986/1363 (72.3%), FAIL 27→9.** ALL 12 ZZ_QA leads soft-deleted (9 HomeTest + ReferTest + Portal Test + the pre-existing WriteDiag DELETE_ME; one CO-H-3-style INTERNAL ASSERTION required a reload mid-batch). Live re-verified: **NEW-D5/D7** Products+Training fully alive post-#607 (search 222→36, CSV 53KB blob, Reset/Archive boundaries, edit modal + margin recalc, scenario/rapid-fire flows — 15 rows FIXED); **portal-002** live banner caught via MutationObserver; **NEW-D24** force-flag consumed + complete-key not re-set (overlay paint rAF-gated, pops on next foreground); **NEW-D29** DS sync Backed-up→**Synced** — first successful cloud sync ever; **NEW-D1 → FIXED via #633** (88KB srcdoc preview — #594 was only the viewer half); **NEW-D32 found+FIXED via #634** — photo-review bounced every signed-in user (fabricated firebaseConfig apiKey); page now alive, 12 pages-a rows dispositioned incl. #630 location-picker verified live.
 
@@ -85,7 +87,7 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 
 ## ▶ RESUME POINT
 _(Cleanup DONE 2026-06-10 — all 12 ZZ_QA leads deleted; see CLEANUP.md. Shipped-fix re-verifies DONE except: /estimate non-fallback AI estimate [needs OTP/Twilio] and the Restart-Tour overlay paint [pops on next dashboard foreground; skip = self-restore].)_
-**NEXT: pages-a remainder** (~67 — estimate-view token rows [mint via Share-Portal on a ZZ lead carrying an estimate], sign.html [createSignRequest mint = outbound-email boundary; error states testable], daily-success rows [no auth needed, big chunk], vault [BLOCKED on NEW-D30 keep-or-kill — document the dead state against the cluster]; control inventory in documentation/qa/static-audit-2026-06-10/FINDINGS.json) ▸ **d8 maps/draw tail** (rows 009–075, Leaflet-hostile, REAL clicks) ▸ **mobile passes** (gap-mobile 39 + d1 mobile + d8-122 + d9-052/053 + d3-011 + d6 mobile rows + photo-review lightbox long-press) ▸ d7-settings detail rows (157, low-value). ~45 customer photo rows + d6 camera rows need native camera/file-picker — Jo-driven or device pass.
+**NEXT: d8 maps/draw tail** (rows 009–075, Leaflet-hostile, REAL clicks) ▸ **mobile passes** (gap-mobile 39 + d1 mobile + d8-122 + d9-052/053 + d3-011 + d6 mobile rows + photo-review lightbox long-press) ▸ estimate-view token rows (mint via Share-Portal on a ZZ lead carrying an estimate) ▸ re-verify #636 welcome-reopen + flip pages-a-020/062 ▸ d7-settings detail rows (157, low-value). Vault rows parked on NEW-D30; ~45 customer photo + d6 camera rows need a device pass.
 **Carry-ins:** **NEW-D30 vault cluster (P1 — Jo's keep-or-kill decision on /pro/vault before any fix)**; **NEW-D31 photo-review Share link-copy** (design choice, recommendation in BUG-LOG); **NEW-D29 follow-up** — leaderboard aggregator Cloud Function (until built, /pro/leaderboard renders zeroes); NEW-D20 portal-reply "Unauthenticated" (callable-auth investigation); NEW-D17 stale-panel refresh hooks; NEW-D21 review-href with photos; NEW-D25 login persistence-downgrade (design fix: redirect signed-in users away from /login or defer setPersistence to success); NEW-D22 card-detail task delete; NEW-D2 docgen Save-to-Customer (NEW-D1 fixed via #594); NEW-D12 storm tiles; NEW-D15/D16 Ask Joe. Re-test d8-118 (SMS chooser), NEW-D9 date-pill, gap-050 journey-report, d9-042/043 + gap-017/018 ins fields, gap-014 closeboard analytics tab. `/admin/project-codex.html` + `/admin/vault.html` ship inline scripts under the strict CSP (out of sweep scope — Jo to confirm if those pages matter). Hygiene: dead `.html`-keyed header rules in firebase.json never match (cleanUrls) — delete or re-key. _NEW-D5/D7 RESOLVED via #607 (#605 closed as superseded); post-merge prod re-verify of Products/Training still pending (auth)._
 _Tooling note: javascript_tool has NO top-level await — wrap in `(async()=>{…})()`. Synthetic `.click()` does not trip some delegates (nav-section, product-lib) — always confirm dead controls with REAL computer-tool clicks before logging. `confirm` stubs must return true for the viewer's "Close without saving?" or viewers stack._
 
