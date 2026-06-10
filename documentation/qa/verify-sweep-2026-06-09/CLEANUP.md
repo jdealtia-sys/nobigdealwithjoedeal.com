@@ -110,3 +110,12 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 | Draw-tool in-memory state (lines/facets/structures/cr-* totals) | All in-memory, **cleared** via Clear (confirm OK) + manual layer removal + navigated to #/home (full reset). No persistence; nothing to clean server-side. |
 | Outbound | NONE. No leads, no emails, no SMS, no Stripe. The ESX/PNG/PDF "downloads" were all spy-suppressed (URL.createObjectURL + anchor-click stub) — no files written. Solar/Auto-Detect/Shadow AI calls hit free/local fallbacks (no key, no cost). |
 | Session | Jo's login **still intact** at session end (verified `window._user` present, 21 leads, on #/home). |
+
+## mobile pass (2026-06-10-C) — no mutations
+| artifact | state |
+|----------|-------|
+| Forced-visibility CSS override (`#__qaMobileCss`) | Injected to reveal the mobile nav / kebab / shutter FAB at desktop width (window wouldn't shrink). **Removed** at pass end (verified `#mobile-nav` display back to `none`). DOM-only, no persistence. |
+| Dashboard nav state | Navigated through views (crm/d2d/photos/est/map) + opened the More drawer + Create popover during testing — all transient SPA view changes, **restored to #/home**. Lead modal / task modal opened by the `_mCreate` route tests were closed (0 modals open at end). No leads/tasks/data created. |
+| Crew calendar | `openCrewCalendarFromMore()` toggled it on then **toggled back off** (toggleCrewCalendar). No persisted state. |
+| /pro/photo-review?lead=JoKt4d0yJeF51MTmjaJh (John & Jennifer Morgan-McCane, 90 real photos) | **VIEW-ONLY** on Jo's real lead — opened the lightbox via long-press on image tiles only (never the `.pr-chip` review-pickers), closed via ✕/backdrop/Esc. No review-state mutated (was already 90/90 reviewed; unchanged). Tab closed. |
+| Outbound | NONE. No leads/tasks/photos created, no emails/SMS, no Stripe. |

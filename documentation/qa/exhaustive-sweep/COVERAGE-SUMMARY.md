@@ -1,17 +1,19 @@
 # NBD Pro — Exhaustive QA — Coverage Summary
 
 **Target:** https://nobigdealwithjoedeal.com/pro — LIVE prod, tenant zero (JD).
-**Last session:** `2026-06-10-C` (d8 maps/draw tail)
+**Last session:** `2026-06-10-C` (d8 maps/draw tail + mobile pass)
 
-## Coverage: **1122 / 1363 verified (82.3%)**
+## Coverage: **1170 / 1363 verified (85.8%)**
 
 | status | count |
 |--------|-------|
-| PASS | 828 |
+| PASS | 875 |
 | FAIL | 14 |
-| BLOCKED | 241 |
+| BLOCKED | 242 |
 | FIXED | 39 |
-| UNTESTED | 241 |
+| UNTESTED | 193 |
+
+> **2026-06-10-C (mobile pass):** **+48 rows → 1170/1363 (85.8%).** ⚠ **Tooling limit: the maximized QA Chrome window would NOT resize to a narrow viewport** (resize_window reports success but innerWidth stays 1920), so the width-gated mobile CSS never activates naturally. Verified the mobile delegate machinery by force-showing the chrome (CSS override) + REAL clicks on the live delegates + direct handler invocation — exercises routing/drawer/popover LOGIC, not true narrow-viewport reflow/touch. **gap-mobile 37/39 PASS:** live bottom-nav routing (Home/D2D/Photos/CRM real-clicked → goTo + active), More 'All Tools' drawer (24 items, est+map real-click-verified end-to-end, rest share the verified delegate + per-target goTo proven in d1), Create popover + all 5 _mCreate routes (lead/photo/task/knock/note), crew-calendar + daily-program handlers; 013 (native file) + 039 (camera FAB) BLOCKED. **FINDING (not a bug):** the live bar is rebuilt by `mobile-nav-customizer.js` with `data-mnc-action`/`data-mnc-id` + Jo's configured tabs, so the inventory's `data-action=mobileNav` / `#mni-create` FAB / `#mni-joe` don't exist at runtime. Scattered mobile rows PASS: d1-chrome kebab 024-027, d8-122, d9-052/053, d3-011 (mirror), d6-003. **pages-a-015 PASS** (photo-review lightbox — real 450ms long-press opened it on Jo's Morgan-McCane lead [view-only, 90 photos]; ✕/backdrop/Esc all close). d1-012/013 (public marketing mobile drawer) BLOCKED → public-site mobile pass.
 
 > **2026-06-10-C (d8 maps/draw tail):** **+67 rows → 1122/1363 (82.3%).** Drove #/map (009–034) + #/draw (035–075) entirely with REAL computer-tool clicks (Leaflet-hostile; window kept foregrounded). **#/map:** layer toggles (heat/pins/jobs/storm/weather) + FAB mirror, address search (Enter + GO), zone draw→save→delete lifecycle (ZZ_QA Zone), drop-pin confirm flow + notes + commit + popup delete (ZZ_QA pin), pin-status picker, clear-all, my-location, quick-storm-check. **#/draw:** all 4 draw modes, line-type grid, perimeter→facet close (6469 sf), pitch/waste/smart-waste recalc, Generate-Estimate→V2 import, Measurement-Report/Scope/Takeoff srcdoc viewers, ESX/PNG/Solar exports, layer cycle, fit/angles/shadow-pitch/auto-detect/voice/history/present/compare. **7 new bugs (NEW-D34..D40):** D35 Jobs-overlay-empty (legacy stage filter, FAIL), D36 spyglass panel under header (3× FAIL), D39 Generate-Estimate import overridden by stale V2 draft, D40a Load-from-Customer rules-denied, + D34/D37/D38 (FAB sync, zone-click pin trap, handler stacking). All ZZ_QA data deleted, session intact. Remaining UNTESTED: mobile passes (gap-mobile 39 + scattered mobile rows) + estimate-view token rows + d7 detail rows (157) + camera/device rows.
 
@@ -68,7 +70,7 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 | d6-photos | Photos engine | 53 | P1 | **53/53 (2026-06-10)** — manager UI (modes/search/select/filter/modal/upload-proxy) + entry buttons PASS; camera capture + pe-gallery + report builder BLOCKED (native camera/mobile). 90 real photos viewed in per-lead modal |
 | customer | customer.html job detail | 146 | P1 | **130/146 (2026-06-10)** on a ZZ_QA lead: header actions, 7 tabs, task/note/edit/stage/claim/profit round-trips, portal generate/copy/preview, doc-preflight gate + blank preview, report/picker modals. FAILs: NEW-D19 estimate-save + NEW-D18 reports panel (PR #611), NEW-D20 portal reply, NEW-D21 review-href. ~45 photo rows BLOCKED (native picker / needs photos). The old "mutations freeze CDP" = stage-move self-reload, demystified |
 | gap-carddetail | dashboard lead card-detail + task modal | 33 | P1 | **33/33 (2026-06-10)**: all nav/overlay/share/task/chip/close controls; **NEW-D22** (per-task × delete no-op + freeze). Prospect-only rows BLOCKED→gap-prospects |
-| gap-mobile | dashboard mobile nav/FAB/drawer | 39 | P1 | — |
+| gap-mobile | dashboard mobile nav/FAB/drawer | 39 | P1 | **37/39 (2026-06-10-C)** — bottom-nav routing + More 'All Tools' drawer (24 items) + Create popover + all 5 _mCreate routes + crew/daily handlers, all delegate-verified (force-show + real clicks; window won't shrink to true mobile). FINDING: live bar rebuilt by mobile-nav-customizer (data-mnc delegate, Jo's tabs ≠ inventory's create-FAB/joe). 013 native-file + 039 camera-FAB BLOCKED |
 | gap-deleteconfirm | destructive confirm boundaries | 17 | P1 | **17/17 (2026-06-10)**: native confirm OK/Cancel PASS; clear-all-notif PASS; `.sa-overlay` rows BLOCKED (PWA-only nbdConfirm, not testable in normal tab) |
 | gap-prospects | Prospects view + CRM diagnostic | 39 | P1 | — |
 | gap-esign-estimate | estimate e-sign / docviewer bar | 6 | P1 | **6/6 (2026-06-10)**: output viewer Save/Email/Print/Download PASS; e-sign overlay rows BLOCKED (outbound Send-for-Signature boundary) |
@@ -88,11 +90,11 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 3. **P3 secondary/public** — pages-b ▸ public.
 
 ## ▶ RESUME POINT
-_(2026-06-10-C: d8 maps/draw tail DONE — all ZZ_QA map data [zone + pin + stray pin + stale v2 draft] deleted, session intact; see CLEANUP.md. 7 new bugs NEW-D34..D40 in BUG-LOG.)_
-**NEXT: mobile passes** — resize the QA window to ~390px and restore after. Rows: **gap-mobile (39)** + d1-chrome mobile (012/013/024-027) + **d8-tools-031/072/122** (the map/draw sidebar-reflow toggles that are display:none at desktop — now BLOCKED-pending-mobile) + d9-insights 052/053 + d3-pipeline 011 + d6 mobile rows + **pages-a-015 photo-review lightbox long-press (real 450ms hold via computer-use hold_key/left_mouse_down)**.
-**THEN: estimate-view token rows** (pages-a-001/002) — create a ZZ_QA lead, add an estimate (customer.html Log Estimate, works post-#611), mint a portal token via card-detail Share Portal, open /pro/estimate-view.html?token=…&estimateId=…, verify Print/Back CTAs fire + render with the orange brand styling (PR #630 a-vs-button fix — confirm live), soft-delete the ZZ lead after.
+_(2026-06-10-C: d8 maps/draw tail [PR #638, MERGED] + mobile pass DONE. All ZZ_QA data deleted, session intact; see CLEANUP.md. New bugs NEW-D34..D40 in BUG-LOG.)_
+**NEXT: estimate-view token rows** (pages-a-001/002) — create a ZZ_QA lead, add an estimate (customer.html Log Estimate, works post-#611), mint a portal token via card-detail Share Portal, open /pro/estimate-view.html?token=…&estimateId=…, verify Print/Back CTAs fire + render with the orange brand styling (PR #630 a-vs-button fix — confirm live), soft-delete the ZZ lead after.
 **THEN (optional, low-value): d7-settings detail rows (157)** with the per-field method.
-Vault rows parked on NEW-D30; ~45 customer photo + d6 camera rows need a device pass.
+**Carry-in mobile follow-ups:** (1) ⚠ the resize_window tool can't shrink the maximized window to a true mobile viewport — a real device or a working resize is needed to exercise the narrow-viewport CSS reflow + touch for gap-mobile/d3-011/d1-012-013 (handlers all verified; visual reflow + true tap unverified). (2) d1-chrome-012/013 (public marketing-site mobile drawer) → public-site mobile pass. (3) d8-tools-031/072 (map/draw sidebar-reflow toggles) still display:none at desktop — same mobile-viewport gap.
+Vault rows parked on NEW-D30; ~45 customer photo + d6 camera (003 now PASS, rest camera) + gap-mobile-013/039 rows need a device pass.
 **Carry-ins:** **NEW-D30 vault cluster (P1 — Jo's keep-or-kill decision on /pro/vault before any fix)**; **NEW-D31 photo-review Share link-copy** (design choice, recommendation in BUG-LOG); **NEW-D29 follow-up** — leaderboard aggregator Cloud Function (until built, /pro/leaderboard renders zeroes); NEW-D20 portal-reply "Unauthenticated" (callable-auth investigation); NEW-D17 stale-panel refresh hooks; NEW-D21 review-href with photos; NEW-D25 login persistence-downgrade (design fix: redirect signed-in users away from /login or defer setPersistence to success); NEW-D22 card-detail task delete; NEW-D2 docgen Save-to-Customer (NEW-D1 fixed via #594); NEW-D12 storm tiles; NEW-D15/D16 Ask Joe. Re-test d8-118 (SMS chooser), NEW-D9 date-pill, gap-050 journey-report, d9-042/043 + gap-017/018 ins fields, gap-014 closeboard analytics tab. `/admin/project-codex.html` + `/admin/vault.html` ship inline scripts under the strict CSP (out of sweep scope — Jo to confirm if those pages matter). Hygiene: dead `.html`-keyed header rules in firebase.json never match (cleanUrls) — delete or re-key. _NEW-D5/D7 RESOLVED via #607 (#605 closed as superseded); post-merge prod re-verify of Products/Training still pending (auth)._
 _Tooling note: javascript_tool has NO top-level await — wrap in `(async()=>{…})()`. Synthetic `.click()` does not trip some delegates (nav-section, product-lib) — always confirm dead controls with REAL computer-tool clicks before logging. `confirm` stubs must return true for the viewer's "Close without saving?" or viewers stack._
 
