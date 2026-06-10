@@ -41,6 +41,16 @@
   // only serves the card senders.
   const TOKEN = getToken().trim();
 
+  // NEW-D26 (part 2): renderView() declared `const repName` locally, but the
+  // card wirers reference it after render — wireMessagingCard's incoming
+  // bubbles (rep replies), wireRatingCard's thank-you panels, and
+  // wireCallbackCard's success line all threw `ReferenceError: repName is not
+  // defined` (live repro: callback send POSTed fine, then surfaced "Network
+  // error: repName is not defined" and re-enabled the button — inviting
+  // double-sends). Same latent class as TOKEN above: unreachable while the
+  // script was CSP-dead. Hoisted to module scope; renderView assigns it.
+  let repName = 'Your Rep';
+
   // ─── Live-poll state ────────────────────────────────────────────
   // Step 13: portal becomes "push-feeling" via 30s visibility-aware
   // polling against the same getHomeownerPortalView callable. Diffs the
@@ -259,7 +269,7 @@
     const lastName  = (view.homeowner && view.homeowner.lastName)  || '';
     const fullName = (firstName + ' ' + lastName).trim();
     const address = (view.homeowner && view.homeowner.address) || '';
-    const repName = (view.rep && view.rep.displayName) || 'Your Rep';
+    repName = (view.rep && view.rep.displayName) || 'Your Rep';
     const companyName = (view.company && view.company.name) || 'No Big Deal Home Solutions';
 
     // Hero
