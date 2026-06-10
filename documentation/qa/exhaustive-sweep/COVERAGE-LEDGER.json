@@ -23488,7 +23488,7 @@
       "source_ref": "portal.html:951 (handler portal.html:1718-1760)",
       "status": "FIXED",
       "evidence": "",
-      "notes": "Send POSTed OK then threw 'Network error: repName is not defined' (NEW-D26 part 2 — repName local to renderView, used by callback/rating/thread wirers; button re-enabled inviting double-sends). PR #624 merged; re-verify post-deploy. One ZZ_QA callback request created.",
+      "notes": "NEW-D26 part 2 (repName out of scope — POST succeeded but success line threw, button re-enabled = double-send bait). PR #624 merged + deployed + LIVE RE-VERIFIED: '✓ Got it! Your Rep will reach out.' + slots lock against double-send. Two ZZ_QA callback requests exist on the lead (pre-fix + re-verify) — cleanup with lead.",
       "session": "2026-06-09-B",
       "surface": "portal"
     },
@@ -23866,7 +23866,7 @@
       "source_ref": "index.html:1539 (handler 72f02d79d0.js:95; submit bound 72fb917108.js:3)",
       "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D27: submit ran to the catch path — fetch to formsubmit.co is CSP-refused (connect-src), so EVERY real visitor saw 'Something went wrong. Please call or text Joe…'. Firestore capture (submitPublicLead) still fired. PR #623 (formsubmit.co added to the ** connect-src) merged; re-verify post-deploy. ZZ_QA_HomeTest contact capture(s) created — cleanup-flagged.",
+      "notes": "NEW-D27 (formsubmit.co CSP-blocked → every visitor saw 'Something went wrong'). Needed BOTH fixes: #623 (HTTP header connect-src) AND #626 (index.html's own META CSP — multiple policies intersect, strictest wins). LIVE RE-VERIFIED post-#626: no alert, form hidden, success panel shown, formsubmit email sent. ZZ_QA_HomeTest captures + one formsubmit email to jd@ — cleanup-flagged.",
       "session": "2026-06-09-B",
       "surface": "public"
     },
