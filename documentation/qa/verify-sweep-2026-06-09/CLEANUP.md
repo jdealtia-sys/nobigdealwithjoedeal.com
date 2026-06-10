@@ -30,6 +30,11 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 ## Outbound side effects
 - One `lead-alert` email to Jo fired by the ZZ_QA_ Inspect Bridge Test2 public submit (same as the prior sweep's CO-H-1 repro; subject "New lead"). No SMS (Twilio still blocked). No Stripe/billing/account changes. GDPR/dangerous controls untouched this session.
 
+## portal pass (2026-06-10) — BLOCKED by Firestore 503 outage
+| artifact | state |
+|----------|-------|
+| Lead "ZZ_QA Portal Test" (K8uRGekxr8gictxDZSLr) + its portal token (HU4ATZQ4646U7UHTKUR38Z7K) | Created to test portal.html. **The portal never loaded — all Firestore reads returned HTTP 503 (transient Google Firestore backend outage, ~12:30–12:35Z 2026-06-10) — degraded the whole app, not a portal bug.** Soft-delete was issued but during the 503 window, so it removed from local cache (count 22) yet the write may not have persisted. ⚠ **Verify this lead is gone (and the portal_tokens/HU4… doc) once Firestore recovers; re-delete if it reappears.** |
+
 ## d4-estimate pass (2026-06-10) — created & cleaned
 | artifact | state |
 |----------|-------|
