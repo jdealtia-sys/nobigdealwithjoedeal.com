@@ -677,7 +677,11 @@ service cloud.firestore {
     match /reports/{docId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin();
+      allow update: if isAdmin();
+      // Owners must be able to delete their own saved reports — the My
+      // Reports list exposes a delete button to every owner, and admin-only
+      // delete left it permanently failing (NEW-D11).
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
     }
 
     // ── INVITES (admin-SDK only) ─────────────────────

@@ -2147,6 +2147,10 @@
     if (ok) {
       if (typeof showToast === 'function') showToast('✓ Report deleted', 'success');
       await listSavedReports();
+    } else if (typeof showToast === 'function') {
+      // Surface the failure — the old silent path left the user believing
+      // the report was deleted when the Firestore delete was denied.
+      showToast('Delete failed — report was not removed', 'error');
     }
   }
 
