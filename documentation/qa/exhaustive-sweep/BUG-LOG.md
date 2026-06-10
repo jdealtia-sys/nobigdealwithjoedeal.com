@@ -219,3 +219,22 @@ The Pipeline Health report renders real data in all CSS-bar sections, but the "Y
 
 **NEW-D16 — LOW — Ask Joe "New Chat" doesn't clear the transcript (+ greeting says "Hey the —")**
 NEW CHAT appends a fresh greeting UNDER the existing conversation instead of resetting the thread. Separately, the greeting renders "**Hey the** — I've got eyes on your pipeline…" — a broken name interpolation. *Row:* d9-insights-011 (FAIL).
+
+### New findings (customer.html deep pass, 2026-06-10 cont.)
+
+**NEW-D19 — HIGH — customer.html "Log Estimate" has NEVER saved (missing userId vs create rule) — FIX OPEN: PR #611**
+`saveEstimate` writes `/estimates` without a `userId` field, but the create rule requires `request.resource.data.userId == request.auth.uid` → every save alerts "Failed to save estimate. Please try again." (console: permission-denied, reproduced on a ZZ_QA lead). `loadEstimates` already queries `leadId+userId`, so reads were fine. **PR #611** stamps userId on the payload. *Rows:* customer-114 (FAIL), 116–118 + 045–048 (BLOCKED until fixed).
+
+**NEW-D18 — MEDIUM-HIGH — customer.html "Inspection Reports" panel fails on EVERY page load (rules-incompatible query) — FIX OPEN: PR #611**
+`window.loadReports` queries `/reports` by `leadId` + `orderBy(date)` with no userId clause; the owner-scoped read rule denies any query that can't prove ownership → "⚠️ Failed to load reports" on every customer page (console captured). **PR #611** adds the userId equality clause + client-side date sort (avoids a composite index). *Row:* the reports panel (082–085 family).
+
+**NEW-D20 — MEDIUM-HIGH — Portal message reply always fails "Error: Unauthenticated"**
+The rep-side reply box calls the `replyToPortalMessage` callable with `{leadId, text}`; it rejects the signed-in OWNER with `unauthenticated` (status element shows "Error: Unauthenticated", reproduced twice on a ZZ_QA lead). Either the page's `getFunctions()` instance isn't carrying the auth context or the function's auth check is wrong — two-way portal chat is rep-side dead either way. *Likely:* customer.html ~:8530 (httpsCallable wiring) vs functions `replyToPortalMessage` auth guard. *Rows:* customer-087 (FAIL), 086 PASS.
+
+**NEW-D17 — LOW/MEDIUM — customer.html panels don't refresh after their own saves (data persists; UI stale until reload)**
+Pattern confirmed across three independent saves: Edit Customer (header JOB VALUE stays stale), Job Costs & Profit (totals stay stale after Save Costs), Insurance Claim Workflow (stage label stays stale after Advance). All three persist correctly (verified across reload) — only the in-page re-render is missing. Timeline appends (notes/tasks) DO render live, so it's panel-specific. One refresh hook per panel save would close all three. *Rows:* customer-010/136/145/146 notes.
+
+**NEW-D21 — LOW (candidate) — "Review & Sort" photo link renders with an empty id (`photo-review.html?id=`)**
+On a lead with no photos the href has no lead id at all → clicking navigates to photo-review without context. Verify whether the id populates once photos exist; as rendered it's a broken nav. *Row:* customer-052 (FAIL).
+
+_Also re-confirmed on a fresh lead: CO-L-2 ("Invalid Date" on the Lead-created timeline entry) did NOT reproduce — timeline dates render correctly._

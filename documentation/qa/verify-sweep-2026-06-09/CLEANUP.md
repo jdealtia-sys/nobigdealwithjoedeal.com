@@ -30,6 +30,16 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 ## Outbound side effects
 - One `lead-alert` email to Jo fired by the ZZ_QA_ Inspect Bridge Test2 public submit (same as the prior sweep's CO-H-1 repro; subject "New lead"). No SMS (Twilio still blocked). No Stripe/billing/account changes. GDPR/dangerous controls untouched this session.
 
+## customer.html pass (2026-06-10) — created & cleaned
+| artifact | state |
+|----------|-------|
+| Lead "ZZ_QA CustPage Test" (HWfAcHhMJ03iZPKabVHi) + its notes/task/costs/claim-stage | **soft-deleted → Deleted bin** (count 23→22). Optional permanent purge from the bin on Jo's OK. |
+| Portal storage page portals/{uid}/HWfAcHhMJ03iZPKabVHi-photos.html | **deleted** (deleteObject confirmed — follow-up delete returned object-not-found; listAll lag is cosmetic). |
+| Portal tokens possibly minted server-side for the test portals | admin-SDK-only collection — cannot verify/purge from client; harmless (point at a deleted lead). |
+| Deal "ZZ_QA ShareFix Test" (#610 verification) | **deleted** from LS + its deal_rooms storage HTML **deleted**. |
+| Stuck saved report from the prior pass | **DELETED** — #609 deploy made owner-delete work; deletion doubled as the live verification. CLEANUP ITEM CLOSED. |
+| Customer Report generated during 009 test | viewed in-preview only; persisted copy (if any) targets the now-deleted lead — purge with the lead if desired. |
+
 ## Continuation pass (d9 + storm/closeboard/repos) — created & cleaned
 | artifact | state |
 |----------|-------|
