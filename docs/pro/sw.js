@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v30', // v30 — INFRA-1 (estimate-remediation-2026-06-09): SW no longer intercepts top-level navigations (dashboard boot-wedge fix, see fetch handler). Bumping forces every active v29 SW to install→skipWaiting→activate, purge stale caches, and adopt the navigation-bypass on the next navigation.
-  cdn: 'nbd-cdn-v30',     // v30 — paired bump.
+  shell: 'nbd-shell-v31', // v31 — INFRA-2 (2026-06-10): googleapis/gstatic requests are no longer SW-handled and the CDN network path is timeout-bounded (see isExternalCDN + handleCDNRequest). Bumping forces every active v30 SW to install→skipWaiting→activate and discard wedge-era cdn-cache entries.
+  cdn: 'nbd-cdn-v31',     // v31 — paired bump.
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
@@ -256,11 +256,20 @@ self.addEventListener('message', event => {
 // ═════════════════════════════════════════════════════════
 
 function isExternalCDN(url) {
+  // INFRA-2 (2026-06-10): googleapis.com / gstatic.com are deliberately NOT
+  // matched here any more. fonts.googleapis.com serves render-blocking CSS —
+  // observed live: that stylesheet request entered handleCDNRequest and never
+  // settled (the same URL returned 200 in 291ms outside the browser), and a
+  // pending render-blocking stylesheet blocks ALL subsequent script execution,
+  // so every /pro page on the profile hung at its loading screen with its JS
+  // fully fetched. Fonts gain ~nothing from SW caching (the browser HTTP cache
+  // handles them), and firestore.googleapis.com channel GETs must never be
+  // answered cache-first. Cross-origin requests not matched here get no
+  // respondWith() at all — the browser fetches them natively, so a wedged SW
+  // can no longer sit between the page and its fonts or Firestore.
   return url.hostname === 'unpkg.com' ||
          url.hostname === 'cdnjs.cloudflare.com' ||
          url.hostname === 'cdn.jsdelivr.net' ||
-         url.hostname.includes('googleapis.com') ||
-         url.hostname.includes('gstatic.com') ||
          url.hostname === 'server.arcgisonline.com' ||
          url.hostname === 'tile.openstreetmap.org';
 }
@@ -366,18 +375,32 @@ async function handleCDNRequest(request) {
     return cached;
   }
 
+  // INFRA-2 (2026-06-10): the network path is timeout-bounded. unpkg/cdnjs
+  // serve render-blocking CSS (Leaflet et al.), and a respondWith() promise
+  // that never settles blocks all subsequent script execution on the page —
+  // the same wedge class as the fonts.googleapis.com hang. A bounded failure
+  // degrades to the stale cache or a 503, which a <link rel="stylesheet">
+  // treats as a load error and unblocks the parser.
+  let timer;
   try {
-    const response = await fetch(request);
+    const response = await Promise.race([
+      fetch(request),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('cdn-fetch-timeout')), 10000);
+      })
+    ]);
     if (response.ok) {
-      const responseClone = response.clone();
-      cache.add(request);
-      return response;
+      // cache.put with the clone — the previous cache.add(request) issued a
+      // SECOND network fetch for a response we already had in hand.
+      try { cache.put(request, response.clone()); } catch (_) { /* quota */ }
     }
     return response;
   } catch (err) {
-    // CDN offline: try stale cache or fail gracefully
+    // CDN offline or timed out: try stale cache or fail gracefully
     const staleCache = await caches.match(request);
     return staleCache || new Response('CDN unavailable', { status: 503 });
+  } finally {
+    clearTimeout(timer);
   }
 }
 
