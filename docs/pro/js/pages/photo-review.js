@@ -9,21 +9,29 @@
  * hung on "Loading..." forever. Mirror of the same fix the
  * customer.html FIXME at firebase.json:76 calls for.
  */
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, getDoc, onSnapshot, query, where, orderBy, updateDoc, deleteDoc, serverTimestamp, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { connectEmulatorsIfLocal } from "../nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
 
+// NEW-D32: this file shipped a FABRICATED firebaseConfig (apiKey/senderId
+// 555556015293 / appId that exist nowhere else in the repo). Firebase Auth
+// keys its persisted session by apiKey, so getAuth() on the wrong key NEVER
+// sees the signed-in user — onAuthStateChanged fired null and the auth gate
+// bounced every visitor to /pro/login even with a live session. The page has
+// been unreachable since extraction. Config below mirrors the canonical one
+// in nbd-auth.js (single source of truth); getApps() guard matches
+// ds-firebase-sync.js's pattern.
 const firebaseConfig = {
-  apiKey: "AIzaSyAGl-VyzpL3F8Mq8GwYjL8Y3KEcRz23YxA",
+  apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
   authDomain: "nobigdeal-pro.firebaseapp.com",
   projectId: "nobigdeal-pro",
   storageBucket: "nobigdeal-pro.firebasestorage.app",
-  messagingSenderId: "555556015293",
-  appId: "1:555556015293:web:8d1c8e8b2c4f6e3a5d2e8f"
+  messagingSenderId: "717435841570",
+  appId: "1:717435841570:web:c2338e11052c96fde02e7b"
 };
-const app = initializeApp(firebaseConfig);
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 try {
   if (typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
     initializeAppCheck(app, {
