@@ -403,8 +403,18 @@
   }
 
   // Auto-trigger: first time, on the dashboard, with no leads.
+  // NEW-D24: how-to.html's "▶ Restart Tour" sets the one-shot FORCE_KEY before
+  // navigating here — an explicit request must fire the tour even when the user
+  // has leads, otherwise the has-leads branch below silently re-marks the tour
+  // complete and the button is a no-op for exactly the users who click it.
+  const FORCE_KEY = 'nbd-tour-force';
   function maybeAutoStart() {
-    try { if (localStorage.getItem(STORAGE_KEY) === '1') return; } catch (e) { return; }
+    let force = false;
+    try {
+      force = localStorage.getItem(FORCE_KEY) === '1';
+      if (force) localStorage.removeItem(FORCE_KEY); // one-shot
+    } catch (e) {}
+    try { if (!force && localStorage.getItem(STORAGE_KEY) === '1') return; } catch (e) { return; }
     // Wait for leads to load before deciding "is this a first-time user"
     let attempts = 0;
     const t = setInterval(() => {
@@ -413,6 +423,12 @@
       // are zero leads. If they have any data we don't want to interrupt.
       if (window._leadsLoaded || attempts > 80) {
         clearInterval(t);
+        if (force) {
+          // Explicit restart: skip the zero-leads heuristic. Shorter breath —
+          // the user just asked for the tour, no need to ease them in.
+          setTimeout(() => start(true), 500);
+          return;
+        }
         const leads = window._leads || [];
         if (leads.length === 0) {
           // Give the user a breath to take in the empty dashboard before
