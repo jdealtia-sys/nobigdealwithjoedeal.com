@@ -1202,12 +1202,13 @@ function nbdApplyTheme(id) {
   _nbd_activeTheme = id;
   localStorage.setItem('nbd-theme', id);
   try { localStorage.setItem('nbd_pro_theme', id === 'default' ? 'nbd-original' : id); } catch (e) {}
-  // 5. Firestore sync (if auth available)
-  try {
-    if (typeof db !== 'undefined' && typeof currentUser !== 'undefined' && currentUser) {
-      db.collection('users').doc(currentUser.uid).set({ theme: id }, { merge: true });
-    }
-  } catch(e) {}
+  // 5. (removed, audit 2026-06-10) A compat-SDK Firestore theme sync lived
+  //    here guarded on global `db`/`currentUser` — neither exists on this
+  //    page (modular SDK only, module-scoped in ds-firebase-sync.js), so the
+  //    guard skipped it on every call since the page was built. localStorage
+  //    (above) is the real persistence; the dashboard reads the canonical
+  //    key. If cross-device theme sync is ever wanted here, route it through
+  //    ds-firebase-sync's authed module instead.
   // 6. UI
   _nbdUpdateLabels(t);
   nbdRenderThemes();

@@ -1046,13 +1046,11 @@ canvas{max-width:100%;display:block;}
       </div>
     </div>
 
-    <!-- Theme picker row -->
-    <div style="margin-bottom:28px;">
-      <div style="font-weight:800;font-size:.88rem;color:#fff;margin-bottom:12px;">🎨 Pick Your Color Theme</div>
-      <div id="welcomeThemePicker" style="display:flex;gap:8px;flex-wrap:wrap;">
-        <!-- Filled by JS -->
-      </div>
-    </div>
+    <!-- Theme picker row removed (audit 2026-06-10): buildWelcomeThemePicker
+         is an explicit no-op in app.js (the full appearance picker via the 🎨
+         topbar button replaced it), so this section rendered a "Pick Your
+         Color Theme" heading over a permanently empty box for every new
+         user. -->
 
     <!-- CTA -->
     <button data-action="close-welcome" data-hover-opacity=".88" style="
