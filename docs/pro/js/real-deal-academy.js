@@ -1568,6 +1568,15 @@
         });
       });
 
+      // Module accordions — without this the auto-expand .click() below is a
+      // no-op and lessons are unreachable from the course view.
+      container.querySelectorAll('.rda-collapsible-header').forEach(header => {
+        header.addEventListener('click', () => {
+          const isOpen = header.classList.toggle('open');
+          header.nextElementSibling.classList.toggle('open', isOpen);
+        });
+      });
+
       // Open first module by default
       if (course.modules && course.modules.length > 0) {
         container.querySelector('.rda-collapsible-header').click();
