@@ -230,7 +230,7 @@
         const colorCount = p.colors ? p.colors.length : 0;
         const hasLabor = p.labor && p.labor.perUnit > 0;
         productsHtml += `
-          <div style="background:var(--s);border-radius:10px;padding:16px;border:1px solid var(--br);box-shadow:0 1px 3px rgba(0,0,0,.06);transition:box-shadow .15s;" onmouseenter="this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseleave="this.style.boxShadow='0 1px 3px rgba(0,0,0,.06)'">
+          <div class="pl-card" style="background:var(--s);border-radius:10px;padding:16px;border:1px solid var(--br);box-shadow:0 1px 3px rgba(0,0,0,.06);transition:box-shadow .15s;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
               <div style="flex:1;min-width:0;">
                 <div style="font-weight:700;font-size:14px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
@@ -282,6 +282,7 @@
     });
 
     return `
+      <style>.pl-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)!important;}</style>
       <div style="padding:20px;background:transparent;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 
         <!-- Header -->
@@ -320,8 +321,7 @@
         <!-- Search & Filter -->
         <div style="background:var(--s);padding:14px;border-radius:8px;margin-bottom:16px;">
           <input type="text" id="product-search" placeholder="Search by name, brand, tag..." value="${escapeHtml(currentFilter.search)}"
-            style="width:100%;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px;color:var(--t);"
-            oninput="window._productLib.setFilter(undefined,this.value)">
+            style="width:100%;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px;color:var(--t);">
 
           <!-- Tier Filter Buttons -->
           <div style="display:flex;gap:6px;margin-bottom:12px;">
@@ -420,11 +420,11 @@
                   <div style="font-size:11px;font-weight:600;color:${TIER_COLORS[t]};text-transform:uppercase;margin-bottom:6px;text-align:center;">${TIER_LABELS[t]}</div>
                   <div style="margin-bottom:6px;">
                     <label style="font-size:10px;color:var(--m);">Sell Price</label>
-                    <input id="pm-sell-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.sell || 0}" oninput="window._productLib.recalcModalMargins()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                    <input id="pm-sell-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.sell || 0}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
                   </div>
                   <div>
                     <label style="font-size:10px;color:var(--m);">Material Cost</label>
-                    <input id="pm-cost-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.cost || 0}" oninput="window._productLib.recalcModalMargins()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                    <input id="pm-cost-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.cost || 0}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
                   </div>
                   <div id="pm-margin-${t}" style="text-align:center;margin-top:6px;font-size:11px;font-weight:700;"></div>
                 </div>
@@ -439,7 +439,7 @@
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
               <div>
                 <label style="font-size:10px;color:var(--m);">Per Unit Cost</label>
-                <input id="pm-labor-perunit" type="number" step="0.01" value="${p?.labor?.perUnit || 0}" oninput="window._productLib.recalcModalMargins()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                <input id="pm-labor-perunit" type="number" step="0.01" value="${p?.labor?.perUnit || 0}" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
               </div>
               <div>
                 <label style="font-size:10px;color:var(--m);">Rate / Man-Hour</label>
@@ -594,9 +594,10 @@
       profitMarginPct: parseFloat(document.getElementById('pm-labor-profit').value) || 25
     };
 
+    const wasEdit = !!editingProduct;
     saveProduct(product);
     closeModal();
-    showToast(editingProduct ? 'Product updated' : 'Product added', 'success');
+    showToast(wasEdit ? 'Product updated' : 'Product added', 'success');
     reRender();
   }
 
@@ -712,6 +713,48 @@
   };
 
   window.renderProductLibrary = render;
+
+  // ============================================================================
+  // EVENT WIRING — CSP-safe delegates (inline on* never executes on /pro pages)
+  // ============================================================================
+  // Controls render with data-pl-action (+ data-pl-id); the search box and the
+  // modal pricing inputs are handled by a delegated 'input' listener. Bound
+  // once at document scope so handlers survive every innerHTML re-render.
+  if (!window._NBD_PL_DELEGATE_BOUND) {
+    window._NBD_PL_DELEGATE_BOUND = true;
+
+    document.addEventListener('click', function (ev) {
+      const t = ev.target.closest && ev.target.closest('[data-pl-action]');
+      if (!t) return;
+      const fn = window._productLib && window._productLib[t.dataset.plAction];
+      // landing-page.js uses the same data-pl-action attribute for its own
+      // actions — only dispatch names _productLib actually exposes.
+      if (typeof fn !== 'function') return;
+      try {
+        if (t.dataset.plId !== undefined) fn(t.dataset.plId);
+        else fn();
+      } catch (e) {
+        console.error('[product-library] dispatch ' + t.dataset.plAction + ' failed:', e);
+      }
+    });
+
+    document.addEventListener('input', function (ev) {
+      const el = ev.target;
+      if (!el || !el.id) return;
+      if (el.id === 'product-search') {
+        setFilter(undefined, el.value);
+        // setFilter re-renders the view, replacing this input — restore focus
+        // and caret so typing isn't interrupted mid-word.
+        const fresh = document.getElementById('product-search');
+        if (fresh && fresh !== el) {
+          fresh.focus();
+          fresh.setSelectionRange(fresh.value.length, fresh.value.length);
+        }
+      } else if (/^pm-(?:sell|cost)-(?:good|better|best)$/.test(el.id) || el.id === 'pm-labor-perunit') {
+        recalcModalMargins();
+      }
+    });
+  }
 
   // Auto-load
   loadProducts();
