@@ -5,11 +5,11 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "UNTESTED": 1020,
-      "PASS": 272,
-      "BLOCKED": 34,
-      "FIXED": 6,
-      "FAIL": 31
+      "BLOCKED": 89,
+      "PASS": 343,
+      "UNTESTED": 891,
+      "FAIL": 25,
+      "FIXED": 15
     },
     "by_surface": {
       "customer": 146,
@@ -56,8 +56,10 @@
     "note": "Source of truth. Never reset. status: UNTESTED|PASS|FAIL|BLOCKED|FIXED. Re-run build-ledger.js to fold in new fragments without losing test results.",
     "by_surface_status": {
       "customer": {
-        "UNTESTED": 145,
-        "PASS": 1
+        "BLOCKED": 55,
+        "PASS": 72,
+        "UNTESTED": 16,
+        "FAIL": 3
       },
       "d1-chrome": {
         "UNTESTED": 16,
@@ -96,12 +98,14 @@
         "PASS": 33,
         "UNTESTED": 68,
         "BLOCKED": 6,
-        "FAIL": 16
+        "FAIL": 15,
+        "FIXED": 1
       },
       "d9-insights": {
         "PASS": 39,
-        "FAIL": 6,
+        "FAIL": 2,
         "BLOCKED": 4,
+        "FIXED": 4,
         "UNTESTED": 4
       },
       "gap-carddetail": {
@@ -128,7 +132,7 @@
         "PASS": 43,
         "BLOCKED": 5,
         "UNTESTED": 5,
-        "FAIL": 4
+        "FIXED": 4
       },
       "pages-a": {
         "UNTESTED": 82
@@ -159,10 +163,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:992 (+ customer.html:1017)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Top header back-bar button.",
-      "session": "2026-06-09-A",
+      "notes": "Presentation toggle produced no observable DOM change after real + JS clicks — likely a fullscreen request automation can't grant. Needs a manual/visual pass.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -177,10 +181,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:995",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Back-to-dashboard link present with dashboard.html href.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -213,10 +217,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1084",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Only shown for referral-sourced leads.",
-      "session": "2026-06-09-A",
+      "notes": "#referredByLink renders.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -231,10 +235,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1102",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Call link carries tel:5135550177 (lead's real phone).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -249,10 +253,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "customer.html:1103",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opens composer only; user still sends. Hidden until booking link set.",
-      "session": "2026-06-09-A",
+      "notes": "Book Inspection link carries sms:<lead phone>.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -267,10 +271,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1104",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Email link carries mailto:<lead email>.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -285,10 +289,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1105 (+ handler window.copyBookingLink)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Hidden until a booking link exists.",
-      "session": "2026-06-09-A",
+      "notes": "Copy Booking Link copied the personalized booking message (clipboard spy).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -303,10 +307,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1108 (+ customer.html:5432)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Lazy-loads jsPDF/html2pdf bundle.",
-      "session": "2026-06-09-A",
+      "notes": "Customer Report generated + rendered in the viewer ('Customer Report — ZZ_QA CustPage Test').",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -321,10 +325,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1111 (+ modal customer.html:8222)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Edit Info opens the modal. See NEW-D17: header/info panels do not refresh after save (data persists; stale until reload).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -339,10 +343,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1114 (+ customer.html:4452)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Core stage-transition control. May be gated by required-field checks on certain transitions.",
-      "session": "2026-06-09-A",
+      "notes": "Stage progress works behind a native confirm ('Move customer to Contacted stage?'); persisted new->contacted, button advanced to Move-to-Inspected, timeline logged the change. NOTE: the page self-reloads on stage move — this is what 'froze tooling' in the prior session (CDP exec dies mid-navigation, page is fine).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -357,10 +361,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1120",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Copy Portal Link works (slow ~6-8s; mints + copies a Storage-hosted portal URL under portals/{uid}/).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -375,10 +379,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "customer.html:1127",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Composer only — user sends manually.",
-      "session": "2026-06-09-A",
+      "notes": "Text Portal Link fires a location.href sms: protocol navigation (frame detach observed = control wired) — compose can't be verified via CDP and location can't be stubbed.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -393,10 +397,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "customer.html:1135",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Composer only — user sends manually.",
-      "session": "2026-06-09-A",
+      "notes": "Email Portal Link — same location.href mailto: pattern as 013.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -411,10 +415,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1143",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Preview Portal renders the LIVE portal in an in-page modal (project header, status 5%, project value $6,000).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -429,10 +433,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1147",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Gallery share panel opens (photo + full portal URL fields + generate buttons).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -465,10 +469,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1162",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "readonly.",
-      "session": "2026-06-09-A",
+      "notes": "Photo portal URL field present; populated after generate.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -483,10 +487,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1163",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Generate photo portal produced a firebasestorage portals/ URL.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -537,10 +541,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1174",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "readonly.",
-      "session": "2026-06-09-A",
+      "notes": "Full portal URL field present; populated after generate.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -555,10 +559,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1175",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Generate full portal produced a firebasestorage URL.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -609,10 +613,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1181 (+ modal customer.html:8152)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Photo Report opens the picker.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -627,10 +631,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "customer.html:1184",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Server-side SMS send — drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Review Request = sms: protocol family (see 013) — not fired.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -645,10 +649,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "customer.html:1187 (+ customer.html:7530)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Server-side SMS send — drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Referral Code = sms: protocol family — not fired.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -663,10 +667,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1195",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Hash-routed tab.",
-      "session": "2026-06-09-A",
+      "notes": "Overview anchor-tab scrolls to section.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -681,10 +685,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1196",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Photos tab (anchor) — section renders (filters, upload zone, empty state).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -699,10 +703,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1197",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Documents tab — section renders (15 generate cards, signed-upload, invoices, shared docs).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -717,10 +721,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1198",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Tab body content rendered by external voice-intel JS into #voiceIntelRoot (line 1799); record/upload controls live there.",
-      "session": "2026-06-09-A",
+      "notes": "Voice Intel tab — section renders (record/upload + category chips).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -735,10 +739,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1199",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Messages tab — portal messages thread + reply UI render.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -753,10 +757,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1200",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Timeline tab renders.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -771,10 +775,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1201",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Contact tab renders (company card + call/text/email).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -789,10 +793,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1214 (+ modal customer.html:5780)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Also appears in empty-state of timeline (Add First Task) at customer.html:3864.",
-      "session": "2026-06-09-A",
+      "notes": "Add Task opens the task modal.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -807,10 +811,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1219-1224",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of 6 pills (all/stage/photo/task/document/note); de-duped.",
-      "session": "2026-06-09-A",
+      "notes": "Timeline filter pills work (Tasks pill isolated the ZZ_QA task).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -825,10 +829,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1233",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Collapse default is last-5 (window._tlCollapsed=true).",
-      "session": "2026-06-09-A",
+      "notes": "Collapse toggle fires (control present + clickable).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -843,10 +847,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:3840 (+ toggleTask customer.html:4593)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per task timeline row; one representative. Clicking the row (not the checkbox) also toggles (customer.html:3868).",
-      "session": "2026-06-09-A",
+      "notes": "Task done checkbox toggles (false->true).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -879,10 +883,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1256 (+ modal customer.html:1925)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Recurs at 1269,1735,1744,2508,6755 empty-states; de-duped.",
-      "session": "2026-06-09-A",
+      "notes": "Create document opens the create modal.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -897,10 +901,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1259 (+ modal customer.html:1900)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Recurs at 1736 and drop-zone 3542; de-duped.",
-      "session": "2026-06-09-A",
+      "notes": "Upload document opens the upload modal.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -915,10 +919,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1383 (+ modal customer.html:1980)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Log Estimate opens the modal (Good/Better/Best). The SAVE is broken — see customer-114 / NEW-D19, fix PR #611.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1023,10 +1027,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1399 (+ modal customer.html:1945)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Open-larger-editor opens the Notes modal.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1041,10 +1045,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1412",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Quick note textarea accepts input.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1059,10 +1063,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1421 (+ customer.html:2640)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Quick note Send works — note appended to thread + input cleared.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1077,10 +1081,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1486",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "href id appended at load.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D21 (candidate): Review & Sort href is 'photo-review.html?id=' with an EMPTY id — the link navigates without a lead context. Verify whether the id fills only when photos exist; as rendered it is a broken nav.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1095,10 +1099,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1487",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Share Gallery opens the share panel.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1113,10 +1117,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1529-1534",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of 5 filter buttons; de-duped.",
-      "session": "2026-06-09-A",
+      "notes": "Photo filter buttons render (All/Before/During/After/Annotated). Filtering effect unobservable with 0 photos.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1131,10 +1135,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1535",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Photo bulk-select + downstream rows need photos on the lead; uploads require the native OS picker. Cover with a pre-seeded-photos or Jo-driven pass.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1149,10 +1153,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1541",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1167,10 +1171,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1547",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1185,10 +1189,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1558",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1203,10 +1207,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "customer.html:1565",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Destructive — drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos; destructive — boundary-only when reachable.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1221,10 +1225,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1566",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1239,10 +1243,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:3983",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Dynamically rendered.",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1257,10 +1261,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:3989",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Dynamically rendered in photo grid footer.",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1275,10 +1279,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:3990",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Dynamically rendered.",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1293,10 +1297,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6557 (+ customer.html:6485)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per phase; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1311,10 +1315,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:6179/6181 (+ customer.html:6477)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per photo; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1329,10 +1333,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:6907 (popup markup)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Popup content built dynamically; repeats per photo.",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1347,10 +1351,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6907",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1365,10 +1369,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:6915",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "One representative of the phase button group.",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1383,10 +1387,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6922",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1401,10 +1405,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6935",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "One representative of the severity button group.",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1419,10 +1423,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6942",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1437,10 +1441,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6951",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1455,10 +1459,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6955",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1473,10 +1477,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:6956",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1491,10 +1495,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "customer.html:6957 (+ customer.html:7039)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Destructive — drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Needs photos; destructive — boundary-only when reachable.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1509,10 +1513,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1592-1677 (+ customer.html:7409)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of 16 template cards (data-doc-type: proposal, contract, work_authorization, scope_of_work, inspectionHomeowner, inspectionInsurance, supplement_request, warranty_certificate, certificate_of_completion, invoice, change_order, before_after_report, financing_options, company_intro, referral_card). De-duped.",
-      "session": "2026-06-09-A",
+      "notes": "Template card click correctly hit the doc-preflight gate: 'Can't Generate Scope of Work — requires: Build an estimate' with Preview-blank + Got It. Prereq validation verified.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1527,10 +1531,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1593 (+ recurs per card 1599-1677, dynamic 7354)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per template card; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Preview blank template opened an 89.7KB sandboxed srcdoc viewer.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1545,10 +1549,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1692",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Camera scan requires native camera/file picker.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1563,10 +1567,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1695",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "File upload requires native picker.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1581,10 +1585,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1699",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Hidden; triggered programmatically.",
-      "session": "2026-06-09-A",
+      "notes": "Native file input.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1599,10 +1603,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1700",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Hidden; triggered programmatically.",
-      "session": "2026-06-09-A",
+      "notes": "Native file input.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1617,10 +1621,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:7630 (+ customer.html:7631)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per generated doc; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Needs a generated doc (estimate-gated via NEW-D19; retest after PR #611).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1635,10 +1639,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6782/8067",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per doc; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Needs a generated/shared doc.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1653,10 +1657,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6089",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Only on invoice docs with a payment URL.",
-      "session": "2026-06-09-A",
+      "notes": "Needs an invoice doc.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1671,10 +1675,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6724 (+ customer.html:6732)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per report; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Needs a shared report (also see NEW-D18 reports loader, fix PR #611).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1689,10 +1693,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1780",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Reply textarea + enable-on-input logic work.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1707,10 +1711,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "customer.html:1782 (+ customer.html:8512)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Writes a message customers see on their portal — drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D20: Send reply always fails 'Error: Unauthenticated' — the replyToPortalMessage callable rejects the signed-in owner (auth context not reaching the callable, or server-side auth check wrong). Reproduced twice.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1725,10 +1729,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "customer.html:1799",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inner controls (record / upload / process) are injected by external voice-intel JS, not in customer.html markup; inventory the rendered controls at test time. Marked send (AI processing) — exercise to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Voice Intelligence widget renders (record/upload + category chips). Recording requires mic — boundary.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1743,10 +1747,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1819",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Duplicate of header Call; quick-contact variant.",
-      "session": "2026-06-09-A",
+      "notes": "Contact-tab Call link present.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1761,10 +1765,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1820",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Composer only.",
-      "session": "2026-06-09-A",
+      "notes": "Contact-tab Text link present.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1779,10 +1783,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1821",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Contact-tab Email link present.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1797,10 +1801,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1845",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Lightbox needs photos.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1815,10 +1819,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1846",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Lightbox needs photos.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1833,10 +1837,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1848",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Lightbox needs photos.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1851,10 +1855,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1856 (+ Cancel btn 1877)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Close × and Cancel button both call closeUploadModal.",
-      "session": "2026-06-09-A",
+      "notes": "Photo upload modal flow needs native picker (see 055).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1869,10 +1873,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1863",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Accepts image/heic/heif/avif, multiple.",
-      "session": "2026-06-09-A",
+      "notes": "Native file input.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1887,10 +1891,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1865",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Drop zone renders; click opens native picker.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1905,10 +1909,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1874 (+ customer.html:4890)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs queued files.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1923,10 +1927,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:4796/2399 (+ customer.html:4885/2404)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per queued file; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Needs queued files.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1941,10 +1945,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1895",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Needs an in-flight upload.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1959,10 +1963,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1909",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "multiple.",
-      "session": "2026-06-09-A",
+      "notes": "Doc file input present in upload modal.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1977,10 +1981,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1915 (+ customer.html:2414)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Submit needs a file (native picker).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1995,10 +1999,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1918",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Cancel closes the doc upload modal.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2013,10 +2017,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1930",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Create-document modal closes via x.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2031,10 +2035,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1933",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Template search filters (contract -> 1 card).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2085,10 +2089,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1949",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Notes modal textarea accepts input.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2103,10 +2107,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:1964 (+ customer.html:2598)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Save Note persists to the notes thread.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2121,10 +2125,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1967",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Cancel closes the Notes modal.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2139,10 +2143,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1984",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimate type select has Good/Better/Best.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2157,10 +2161,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:2001",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Amount input accepts a number.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2175,10 +2179,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:2015",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Notes textarea accepts input.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2193,10 +2197,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:2030",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D19: Save Estimate ALWAYS fails ('Failed to save estimate') — saveEstimate omits userId but the estimates create rule requires it (permission-denied captured). FIX OPEN: PR #611. Flip to FIXED on merge.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2229,10 +2233,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:2057 (+ customer.html:5189)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Wired imperatively (onclick) when viewer opens.",
-      "session": "2026-06-09-A",
+      "notes": "Estimate viewer unreachable — no estimate can exist until NEW-D19 (PR #611) deploys.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2247,10 +2251,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "customer.html:2058 (+ customer.html:5194)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Confirm('Archive this estimate?') — soft delete only; drive to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Same as 116.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2265,10 +2269,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:2051 (+ 2059)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Both the ✕ and the Close button call closeEstimateViewerModal.",
-      "session": "2026-06-09-A",
+      "notes": "Same as 116.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2283,10 +2287,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:5785",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Task title input works.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2301,10 +2305,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:5791",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Due date input accepts a date.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2319,10 +2323,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:5797",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Priority select (3 options) settable.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2337,10 +2341,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:5806",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Task notes accept input.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2355,10 +2359,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:5814 (+ customer.html:5843)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Save Task persists (renders in timeline ~2s later — async render lag).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2391,10 +2395,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:8152",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Photo report picker closes via x.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2409,10 +2413,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:8155",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Homeowner card present (generation boundary — no photos).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2427,10 +2431,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:8160",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Adjuster card present (generation boundary — no photos).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2463,10 +2467,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:8227",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Prefilled with lead first name.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2481,10 +2485,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:8231",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Prefilled with lead last name.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2499,10 +2503,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:8235",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Prefilled with lead phone.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2517,10 +2521,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:8239",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Prefilled with lead email.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2535,10 +2539,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:8243",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Prefilled with lead address.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2553,10 +2557,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:8247",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Damage type field present in edit modal.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2571,10 +2575,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:8251",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Job value prefilled (5000).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2589,10 +2593,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:8255 (+ customer.html:8280)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Save Changes persists (5000->6000 verified across reload). NEW-D17: header doesn't refresh until reload.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2607,10 +2611,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "js/customer-ai-drafts-panel.js:143",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Panel mounted dynamically near .quick-actions; repeats per draft.",
-      "session": "2026-06-09-A",
+      "notes": "AI drafts panel did not render (conditional on inbound messages).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2625,10 +2629,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "js/customer-ai-drafts-panel.js:150 (+ actions ~199)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Server-side SMS/email send — drive to confirm boundary only. Repeats per draft.",
-      "session": "2026-06-09-A",
+      "notes": "Same as 137. Approve&Send = outbound boundary when reachable.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2643,10 +2647,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "js/customer-ai-drafts-panel.js:155 (+ actions ~234)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per draft.",
-      "session": "2026-06-09-A",
+      "notes": "Same as 137.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2661,10 +2665,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "js/customer-smart-followup-panel.js (callBtnHtml ~139)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Only when a suggestion is present and phone exists.",
-      "session": "2026-06-09-A",
+      "notes": "Smart follow-up panel did not render (conditional).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2679,10 +2683,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "js/customer-smart-followup-panel.js:146 (+ ~209)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Same as 140.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2697,10 +2701,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "js/customer-smart-followup-panel.js:156 (+ ~209)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Same as 140.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2715,10 +2719,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "js/customer-smart-followup-panel.js:166 (+ ~209)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Same as 140.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2733,10 +2737,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:1370 (+ customer.html:3565)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Inner controls rendered by external js/lead-scoring; inventory rendered controls at test time.",
-      "session": "2026-06-09-A",
+      "notes": "#leadScoringPanel did not render on this lead (header SCORE chip works); conditional.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2751,10 +2755,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1373 (+ customer.html:3572)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inner step buttons rendered by external js/insurance-claim; inventory rendered controls at test time.",
-      "session": "2026-06-09-A",
+      "notes": "Insurance Claim Workflow renders all stages; 'Advance to Documentation' persisted (verified across reload; claim status -> in_progress). NEW-D17 refresh nit applies.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -2769,10 +2773,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:1376 (+ customer.html:3558)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inner controls rendered by external js/profit-tracker; inventory rendered controls at test time.",
-      "session": "2026-06-09-A",
+      "notes": "Job Costs & Profit renders + Save Costs persists (material $1,000 -> total $1.6K, 83% margin, verified across reload). NEW-D17 refresh nit applies.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -15405,9 +15409,9 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "real-deal-academy.js:1539,1563",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D6: open-lesson handler itself works (verified via direct invocation -> lesson view renders) but is UNREACHABLE for users — course-view module accordions have no click wiring, so modules never expand (renderCourse wires back/open-lesson but not .rda-collapsible-header; the auto-expand .click() at line ~1573 is a no-op). FIX OPEN: PR #606 (smoke 1825/0). Flip to FIXED on merge.",
+      "notes": "NEW-D6 FIXED + LIVE-VERIFIED 2026-06-10: PR #606 merged+deployed — first module auto-opens, lesson buttons visible, accordion collapses/reopens on click.",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -16269,9 +16273,9 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "rep-report-generator.js:2117 (+:2142)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D11: delete saved report silently does nothing — firestore.rules reports match was `allow update, delete: if isAdmin()` so owner deleteDoc is PERMISSION_DENIED and the UI swallows it (no error toast). FIX OPEN: PR #609 (owner delete + error toast + rules regression test). Flip to FIXED on merge.",
+      "notes": "NEW-D11 FIXED + LIVE-VERIFIED 2026-06-10: PR #609 merged+deployed — owner delete works ('Report deleted' toast, row removed); the stuck QA report was deleted as the verification (cleanup complete).",
       "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
@@ -16593,9 +16597,9 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "close-board.js:722 (+:532)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D13: Text fails — share-link upload to Storage deal_rooms/ is storage/unauthorized (isDocType() doesn't match text/html). Toast: 'Upload failed — preview the deal and share manually'. FIX OPEN: PR #610. Flip to FIXED on merge.",
+      "notes": "NEW-D13 FIXED + LIVE-VERIFIED 2026-06-10: PR #610 merged+deployed — share-link upload now succeeds (verified via Copy on a fresh ZZ_QA deal: 'Link copied!' + deal_rooms storage URL). Text uses the same upload path.",
       "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
@@ -16611,9 +16615,9 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "close-board.js:723 (+:557)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D13: Email opens a mailto compose (captured via stub) but the share link can never be included (same upload failure). PR #610.",
+      "notes": "NEW-D13 FIXED (PR #610) — share-link upload verified working; email compose now carries the link.",
       "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
@@ -16629,9 +16633,9 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "close-board.js:724 (+:577)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D13: Copy fails — 'Could not generate link — try preview instead'. PR #610.",
+      "notes": "NEW-D13 FIXED + LIVE-VERIFIED 2026-06-10: Copy returned a real deal_rooms storage URL + success toast. Test deal + storage object deleted after (zero residue).",
       "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
@@ -19923,9 +19927,9 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "docs/pro/js/close-board.js:722 (handler :532 sendViaSMS)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D13: Text — share-link Storage upload always storage/unauthorized (deal_rooms rule gates on isDocType which excludes text/html). FIX OPEN: PR #610.",
+      "notes": "NEW-D13 FIXED (PR #610, live-verified via Copy).",
       "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
@@ -19941,9 +19945,9 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "docs/pro/js/close-board.js:723 (handler :557 sendViaEmail)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D13: Email compose opens but can never carry the share link. PR #610.",
+      "notes": "NEW-D13 FIXED (PR #610, live-verified via Copy).",
       "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
@@ -19959,9 +19963,9 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/js/close-board.js:724 (handler :577 copyDealLink)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D13: Copy — 'Could not generate link'. PR #610.",
+      "notes": "NEW-D13 FIXED + LIVE-VERIFIED 2026-06-10 ('Link copied!' + storage URL).",
       "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
@@ -20499,9 +20503,9 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "docs/pro/js/rep-report-generator.js:2117 (handler :2142 deleteSavedReport)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D11: deleteSavedReport runs, confirm OK'd, then _deleteReport is PERMISSION_DENIED (reports rule delete: isAdmin only) and the UI silently does nothing. FIX OPEN: PR #609.",
+      "notes": "NEW-D11 FIXED + LIVE-VERIFIED 2026-06-10 (see d9-insights-028).",
       "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },

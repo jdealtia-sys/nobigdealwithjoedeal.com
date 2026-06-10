@@ -3,15 +3,17 @@
 **Target:** https://nobigdealwithjoedeal.com/pro — LIVE prod, tenant zero (JD).
 **Last session:** `2026-06-09-B` (verify-sweep)
 
-## Coverage: **343 / 1363 verified (25.2%)**
+## Coverage: **472 / 1363 verified (34.6%)**
 
 | status | count |
 |--------|-------|
-| PASS | 272 |
-| FAIL | 31 |
-| BLOCKED | 34 |
-| FIXED | 6 |
-| UNTESTED | 1020 |
+| PASS | 343 |
+| FAIL | 25 |
+| BLOCKED | 89 |
+| FIXED | 15 |
+| UNTESTED | 891 |
+
+> **2026-06-10 (cont. 3):** PRs **#606/#608/#609/#610 MERGED + deploy green + all three fixes LIVE-VERIFIED** (academy accordions work; stuck report deleted; deal share links copy real URLs) — 9 rows flipped to FIXED. **customer.html 129/146 touched** on a ZZ_QA lead: stage/edit/tasks/notes/portals/doc-gates all exercised; **3 new FAIL families** — NEW-D19 Log-Estimate never saves + NEW-D18 reports panel never loads (**both fixed in PR #611, open**), NEW-D20 portal reply "Unauthenticated", NEW-D17 stale-panels-after-save pattern, NEW-D21 empty Review&Sort href. CO-L-2 not reproduced on a fresh lead. Photo-dependent rows (~45) BLOCKED pending a pre-seeded-photos or Jo-driven pass.
 
 > **2026-06-09-B verify-sweep session:** ✅ **ALL 8 behavioral checklist items PASS in-browser** (normal Chrome window; the tab-group blocker was cleared by launching a fresh `--new-window`). NEW-1/NEW-2/NEW-4/CO-M-1/CO-L-1+NEW-C9/NEW-5(fresh bridge round-trip)/NEW-C10+C13/NEW-C12 all verified working live with reload round-trips; real settings restored; ledger rows annotated. Then resumed the sweep: **d5-docs 100% touched (53 rows)** and **d8-tools 55/123**. **21 new FAILs across 5 new bug families** (NEW-D1 server-PDF previews blocked; NEW-D2 Save-to-Customer silent no-op; NEW-D5 Products dead chrome; NEW-D6 Academy accordions ⇒ **fix PR #606 open, smoke 1825/0**; NEW-D7 Sales Training dead chrome; +NEW-D3/D4/D8/D9 lower). Trackers: `documentation/qa/verify-sweep-2026-06-09/`.
 
@@ -46,7 +48,7 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 | d4-estimate | Estimate builder V2 | 95 | P1 | — |
 | d5-docs | Documents / PDF generator | 55 | P1 | **55/55 touched (2026-06-09-B)**: 42 PASS, 5 FAIL (NEW-D1 invoice/change_order/contract previews, NEW-D2 save-no-op, NEW-D3 Blank btn), 8 BLOCKED (native/file/sign-unreachable). 23-type generate matrix done; e-sign structurally unreachable from Templates (NEW-D2) — test on customer/estimate surfaces |
 | d6-photos | Photos engine | 53 | P1 | — |
-| customer | customer.html job detail | 146 | P1 | page loads+renders+nav+SCORE PASS; mutations CDP-idle-hostile (Jo-manual/non-CDP needed) |
+| customer | customer.html job detail | 146 | P1 | **130/146 (2026-06-10)** on a ZZ_QA lead: header actions, 7 tabs, task/note/edit/stage/claim/profit round-trips, portal generate/copy/preview, doc-preflight gate + blank preview, report/picker modals. FAILs: NEW-D19 estimate-save + NEW-D18 reports panel (PR #611), NEW-D20 portal reply, NEW-D21 review-href. ~45 photo rows BLOCKED (native picker / needs photos). The old "mutations freeze CDP" = stage-move self-reload, demystified |
 | gap-carddetail | dashboard lead card-detail + task modal | 33 | P1 | — |
 | gap-mobile | dashboard mobile nav/FAB/drawer | 39 | P1 | — |
 | gap-deleteconfirm | destructive confirm boundaries | 17 | P1 | — |
@@ -68,8 +70,8 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 3. **P3 secondary/public** — pages-b ▸ public.
 
 ## ▶ RESUME POINT
-**NEXT: `customer.html`** (non-CDP approach: computer-clicks + get_page_text, or Jo-driven) ▸ **gap-prospects** ▸ **d3-pipeline tail** (74) ▸ **d2-home remainder** (17) ▸ **d8 maps/draw tail** (rows 009–034 + 035–075 — Leaflet-hostile; budget per-control patience, stubs for dialogs; zone-save/clear-pins/AI calls to boundary only) ▸ gap-carddetail ▸ gap-deleteconfirm ▸ gap-esign-estimate ▸ d4-estimate ▸ d6-photos ▸ portal ▸ pages-a/b ▸ public ▸ mobile passes (gap-mobile + deferred d1 mobile + d8-122 + d9-052/053).
-**Carry-ins for the next pass:** flip on merge — d8-tools-103 (**PR #606** academy accordion), d9-028/gap-053 (**PR #609** report delete), d9-046/047/048 + gap-021/022/023 (**PR #610** deal-room share links). Re-test d8-118 (SMS chooser) with a callback-dispo ZZ_QA knock; NEW-D9 date-pill data-shape check; gap-050 journey-report generate AFTER #609 (saved reports become deletable); d9-042/043 + gap-017/018 insurance-conditional deal fields; gap-014 closeboard analytics tab. The Products+Training delegate fix has task chips (Jo started the Products-only chip AND the superseding Products+Training chip exists — worktrees `nbd-wt-product-library` + `nbd-wt-tools-wiring` overlap on product-library.js, reconcile before merging both).
+**NEXT: `gap-prospects`** ▸ **d3-pipeline tail** (74) ▸ **d2-home remainder** (17) ▸ **gap-carddetail** ▸ **gap-deleteconfirm** ▸ **d4-estimate** (+gap-esign-estimate) ▸ **d6-photos** (also unblocks the ~45 customer photo rows — seed photos on a ZZ_QA lead via the photos engine if automatable, else Jo-driven) ▸ **d8 maps/draw tail** (009–034 + 035–075, Leaflet-hostile) ▸ portal ▸ pages-a/b ▸ public ▸ mobile passes (gap-mobile + d1 mobile + d8-122 + d9-052/053).
+**Carry-ins:** flip customer-114 (+116–118, 045–048, 082–085) when **PR #611** merges (NEW-D19 estimate save + NEW-D18 reports loader); customer-052 NEW-D21 re-check with photos; NEW-D20 portal-reply fix needs a callable-auth investigation; NEW-D17 stale-panel refresh hooks. Re-test d8-118 (SMS chooser) with a callback-dispo knock; NEW-D9 date-pill data-shape check; gap-050 journey-report generate (now deletable post-#609); d9-042/043 + gap-017/018 insurance deal fields; gap-014 closeboard analytics tab. Products+Training delegate chips: Jo runs both worktrees (`nbd-wt-product-library`, `nbd-wt-tools-wiring`) — they overlap on product-library.js, reconcile before merging.
 _Tooling note: javascript_tool has NO top-level await — wrap in `(async()=>{…})()`. Synthetic `.click()` does not trip some delegates (nav-section, product-lib) — always confirm dead controls with REAL computer-tool clicks before logging. `confirm` stubs must return true for the viewer's "Close without saving?" or viewers stack._
 
 **d7-settings DONE for this pass (all 11 tabs touched, deep strict-bar on the testable ones).** Untested d7 detail rows remain (individual company/legal/floor inputs, font grid, sidebar customizer, builder color pickers) — lower-value, same proven per-field method. Team/Billing data-loading panels stall ('Loading…', NEW-C10/C13).
