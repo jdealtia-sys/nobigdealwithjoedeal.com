@@ -3,15 +3,17 @@
 **Target:** https://nobigdealwithjoedeal.com/pro — LIVE prod, tenant zero (JD).
 **Last session:** `2026-06-09-B` (verify-sweep)
 
-## Coverage: **974 / 1363 verified (71.5%)**
+## Coverage: **986 / 1363 verified (72.3%)**
 
 | status | count |
 |--------|-------|
-| PASS | 732 |
-| FAIL | 27 |
-| BLOCKED | 195 |
-| FIXED | 20 |
-| UNTESTED | 389 |
+| PASS | 742 |
+| FAIL | 9 |
+| BLOCKED | 197 |
+| FIXED | 38 |
+| UNTESTED | 377 |
+
+> **2026-06-10 (cont. 11 — Jo re-logged in):** **Cleanup + re-verify + photo-review pass; 986/1363 (72.3%), FAIL 27→9.** ALL 12 ZZ_QA leads soft-deleted (9 HomeTest + ReferTest + Portal Test + the pre-existing WriteDiag DELETE_ME; one CO-H-3-style INTERNAL ASSERTION required a reload mid-batch). Live re-verified: **NEW-D5/D7** Products+Training fully alive post-#607 (search 222→36, CSV 53KB blob, Reset/Archive boundaries, edit modal + margin recalc, scenario/rapid-fire flows — 15 rows FIXED); **portal-002** live banner caught via MutationObserver; **NEW-D24** force-flag consumed + complete-key not re-set (overlay paint rAF-gated, pops on next foreground); **NEW-D29** DS sync Backed-up→**Synced** — first successful cloud sync ever; **NEW-D1 → FIXED via #633** (88KB srcdoc preview — #594 was only the viewer half); **NEW-D32 found+FIXED via #634** — photo-review bounced every signed-in user (fabricated firebaseConfig apiKey); page now alive, 12 pages-a rows dispositioned incl. #630 location-picker verified live.
 
 > **2026-06-10 (cont. 10):** **portal 30/30 + pages-b 54/54 + public 62/62 (146 rows)** — and the day's biggest find: **NEW-D23, the homeowner portal (and estimate-view/refer/demo/codex) were hard-down in prod** — the strict `**` CSP refused their inline boot scripts; the Firestore 503 had merely masked the identical symptom. Fixed via #619 (interim per-route exception) + #620 (extraction chip, Jo-run). Booting the portal then exposed **NEW-D26**: every card sender threw `ReferenceError` (undeclared `TOKEN`, then out-of-scope `repName`) → #622/#624; upload "✓" + message bubble live-verified. Also: **NEW-D27** homepage contact form's formsubmit.co email path CSP-blocked (every visitor saw "Something went wrong") → #623; **NEW-D24** Restart-Tour no-op for users with leads → #621; **NEW-D25** failed login with remember-me unchecked downgrades an existing session to session-persistence (open — this signed the QA browser out of Jo's session); **INFRA-1's PR #592 was discovered UNMERGED** and merged+deployed (sw v30 nav bypass — the recurring login/register/portal renderer wedges all session were live INFRA-1). estimate funnel steps 1→5 + ballpark verified; OTP rows Twilio-BLOCKED. Crossed **71%**.
 
@@ -82,8 +84,8 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 3. **P3 secondary/public** — pages-b ▸ public.
 
 ## ▶ RESUME POINT
-**⚠ FIRST: Jo must LOG BACK IN** — the QA browser's session was downgraded + lost by the NEW-D25 repro (failed login with remember-me unchecked migrates the existing session to session-persistence). Everything auth-gated below waits on that.
-**NEXT (auth required): cleanup re-deletes** (ZZ_QA Portal Test lead K8uRGekxr8gictxDZSLr + ZZ_QA_ReferTest + ZZ_QA_HomeTest captures — see CLEANUP.md) ▸ **pages-a** (82 — estimate-view full-token rows, photo-review/sign/daily/vault; **use the prepared control inventory in `documentation/qa/static-audit-2026-06-10/FINDINGS.json` — the `verdicts:"inventory"` entries map every control, gate, and conditional**) ▸ **d8 maps/draw tail** (rows 009–075, Leaflet-hostile) ▸ **mobile passes** (gap-mobile 39 + d1 mobile + d8-122 + d9-052/053 + d3-011 + d6 mobile rows) ▸ behavioral re-verifies: Restart-Tour overlay (#621), portal-002 live banner via a rep-side stage change, **Daily Success "Synced" badge while signed in (#629)**, /estimate non-fallback AI estimate once OTP/Twilio works (#628 — /storm-check half already live-verified). _portal + pages-b + public + d2 + d3 + d4 + d6 + d5 + gap-esign DONE (71.5%). Homepage form success panel (#623+#626) + callback ✓ (#624) + all #630 fixes already live-verified._ The ~45 customer photo rows + d6 camera rows still need native camera/file-picker — Jo-driven or a device pass.
+_(Cleanup DONE 2026-06-10 — all 12 ZZ_QA leads deleted; see CLEANUP.md. Shipped-fix re-verifies DONE except: /estimate non-fallback AI estimate [needs OTP/Twilio] and the Restart-Tour overlay paint [pops on next dashboard foreground; skip = self-restore].)_
+**NEXT: pages-a remainder** (~67 — estimate-view token rows [mint via Share-Portal on a ZZ lead carrying an estimate], sign.html [createSignRequest mint = outbound-email boundary; error states testable], daily-success rows [no auth needed, big chunk], vault [BLOCKED on NEW-D30 keep-or-kill — document the dead state against the cluster]; control inventory in documentation/qa/static-audit-2026-06-10/FINDINGS.json) ▸ **d8 maps/draw tail** (rows 009–075, Leaflet-hostile, REAL clicks) ▸ **mobile passes** (gap-mobile 39 + d1 mobile + d8-122 + d9-052/053 + d3-011 + d6 mobile rows + photo-review lightbox long-press) ▸ d7-settings detail rows (157, low-value). ~45 customer photo rows + d6 camera rows need native camera/file-picker — Jo-driven or device pass.
 **Carry-ins:** **NEW-D30 vault cluster (P1 — Jo's keep-or-kill decision on /pro/vault before any fix)**; **NEW-D31 photo-review Share link-copy** (design choice, recommendation in BUG-LOG); **NEW-D29 follow-up** — leaderboard aggregator Cloud Function (until built, /pro/leaderboard renders zeroes); NEW-D20 portal-reply "Unauthenticated" (callable-auth investigation); NEW-D17 stale-panel refresh hooks; NEW-D21 review-href with photos; NEW-D25 login persistence-downgrade (design fix: redirect signed-in users away from /login or defer setPersistence to success); NEW-D22 card-detail task delete; NEW-D2 docgen Save-to-Customer (NEW-D1 fixed via #594); NEW-D12 storm tiles; NEW-D15/D16 Ask Joe. Re-test d8-118 (SMS chooser), NEW-D9 date-pill, gap-050 journey-report, d9-042/043 + gap-017/018 ins fields, gap-014 closeboard analytics tab. `/admin/project-codex.html` + `/admin/vault.html` ship inline scripts under the strict CSP (out of sweep scope — Jo to confirm if those pages matter). Hygiene: dead `.html`-keyed header rules in firebase.json never match (cleanUrls) — delete or re-key. _NEW-D5/D7 RESOLVED via #607 (#605 closed as superseded); post-merge prod re-verify of Products/Training still pending (auth)._
 _Tooling note: javascript_tool has NO top-level await — wrap in `(async()=>{…})()`. Synthetic `.click()` does not trip some delegates (nav-section, product-lib) — always confirm dead controls with REAL computer-tool clicks before logging. `confirm` stubs must return true for the viewer's "Close without saving?" or viewers stack._
 

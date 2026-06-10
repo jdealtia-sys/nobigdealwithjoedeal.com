@@ -5,11 +5,11 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 195,
-      "PASS": 732,
-      "UNTESTED": 389,
-      "FAIL": 27,
-      "FIXED": 20
+      "BLOCKED": 197,
+      "PASS": 742,
+      "UNTESTED": 377,
+      "FAIL": 9,
+      "FIXED": 38
     },
     "by_surface": {
       "customer": 146,
@@ -83,7 +83,8 @@
       },
       "d5-docs": {
         "PASS": 42,
-        "FAIL": 5,
+        "FIXED": 3,
+        "FAIL": 2,
         "BLOCKED": 8
       },
       "d6-photos": {
@@ -100,8 +101,7 @@
         "PASS": 33,
         "UNTESTED": 68,
         "BLOCKED": 6,
-        "FAIL": 15,
-        "FIXED": 1
+        "FIXED": 16
       },
       "d9-insights": {
         "PASS": 41,
@@ -143,7 +143,9 @@
         "UNTESTED": 2
       },
       "pages-a": {
-        "UNTESTED": 82
+        "UNTESTED": 70,
+        "PASS": 9,
+        "BLOCKED": 3
       },
       "pages-b": {
         "PASS": 51,
@@ -151,8 +153,8 @@
         "FIXED": 1
       },
       "portal": {
-        "PASS": 12,
-        "BLOCKED": 16,
+        "PASS": 13,
+        "BLOCKED": 15,
         "FIXED": 2
       },
       "public": {
@@ -8492,9 +8494,9 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9302 (handler dashboard-ui.js:379 docgen + document-generator.js:191)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D1: Invoice generate routes to SERVER-PDF (no signers + SERVER_TYPE_MAP) and sets cross-origin storage.googleapis.com/pdf-renders URL as nbdv-iframe src -> Chrome shows 'This page has been blocked by Chrome', preview blank. Violates PR#594 srcdoc rule (server PDF must be Download-only). Sandbox without allow-same-origin contributes.",
+      "notes": "NEW-D1 → PR #633 (after #594's viewer half): _tryServerRender now passes the client HTML alongside the server-PDF url. LIVE RE-VERIFIED: invoice generate → viewer renders an 88KB same-origin srcdoc preview (no cross-origin src); 'blocked by Chrome' gone. Server PDF stays attached as pdfUrl for Download.",
       "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
@@ -8618,9 +8620,9 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9371 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D1: Change Order — same server-PDF cross-origin iframe block as invoice (vtitle 'Change Order — Homeowner', IFRAME-SRC storage.googleapis.com).",
+      "notes": "NEW-D1 → PR #633. Change Order rides the identical _tryServerRender path live-verified on invoice (type-agnostic fix).",
       "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
@@ -8636,9 +8638,9 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9392 (handler dashboard-ui.js:379 docgen + document-generator.js:176)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D1: Roofing Contract — same server-PDF cross-origin iframe block ('Roofing Contract — Homeowner'). Highest-impact of the three (the contract is the signable customer doc).",
+      "notes": "NEW-D1 → PR #633. Roofing Contract — same path as invoice (live-verified).",
       "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
@@ -15134,9 +15136,9 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "product-library.js:294 (rendered into view-products)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D5: + Add Product is DEAD — no data-pl-action delegate exists on dashboard (only landing-page.js has one, different actions). Real click verified no-op.",
+      "notes": "NEW-D5 → PR #607 live-verified: + Add Product opens the modal (pm-* inputs render).",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15152,9 +15154,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "product-library.js:295",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D5: Export CSV dead — same missing delegate.",
+      "notes": "PR #607: Export CSV builds a real 53KB text/csv blob (download spy; nav suppressed).",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15170,9 +15172,9 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "product-library.js:296",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D5: Reset dead — same missing delegate (its confirm boundary is unreachable).",
+      "notes": "PR #607: Reset now reaches its confirm boundary ('Reset all products to defaults? Your customizations will be lost.') — CANCELLED, no reset performed.",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15188,9 +15190,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "product-library.js:328,331",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D5: tier filter buttons dead (real click on Good — no active state, no change). Ledger selector also stale: actual action is setTierFilter.",
+      "notes": "PR #607: tier filter re-renders the cards (card content delta on Good; product count constant by design — every product has all tiers). Nit: the filter button itself shows no active-state styling.",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15206,9 +15208,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "product-library.js:337",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D5: category chips dead; search input ALSO dead (inline oninput= CSP-blocked, typed 'fence' -> no filter).",
+      "notes": "PR #607: search filters live (222→36 on 'shingle', clear restores 222) via the delegated input listener; category chips ride the same click delegate.",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15224,9 +15226,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "product-library.js:215",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D5: category header collapse dead.",
+      "notes": "PR #607: category header collapse hides its products (visible edit-buttons 222→216, restored on second click).",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15242,9 +15244,9 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "product-library.js:274",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D5: Edit (product row) dead.",
+      "notes": "PR #607: Edit opens the modal prefilled ('Concrete Flatwork…'), closes clean without saving.",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15260,9 +15262,9 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "product-library.js:275",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D5: Archive (product row) dead.",
+      "notes": "PR #607: Archive reaches its confirm boundary ('Archive this product?') — CANCELLED (real product untouched).",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15278,9 +15280,9 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "product-library.js:501",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D5: modal save unreachable (modal cannot open — addProduct/editProduct dead).",
+      "notes": "PR #607: modal save is now REACHABLE (blocker removed); save itself not fired on a real product (RULE 0) — pm-sell/cost inputs + live margin recalc ('40% ($40.00)') verified inside the modal.",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15296,9 +15298,9 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "product-library.js:498",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D5: modal delete unreachable (same).",
+      "notes": "PR #607: modal delete now reachable (same modal); not fired on a real product — boundary.",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15314,9 +15316,9 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "sales-training-ui.js:80 (rendered into #trainingContent)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D7: Objection Obliterator START dead — sales-training-ui.js has 15 data-st-action controls and ZERO addEventListener calls; no delegate anywhere.",
+      "notes": "NEW-D7 → PR #607 live-verified: Rapid Fire starts (rapidAnswer controls mount).",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15332,9 +15334,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "sales-training-ui.js:75",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D7: My Profile dead (real click no-op).",
+      "notes": "PR #607: My Profile opens (view changes on click).",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15350,9 +15352,9 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "sales-training-ui.js:47",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D7: scenario cards dead (real click no-op).",
+      "notes": "PR #607: scenario card opens the simulator (chooseOption controls mount).",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15368,9 +15370,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "sales-training-ui.js:142",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D7: scenario options unreachable (simulator can never open).",
+      "notes": "PR #607: chooseOption click advances the scenario (view delta).",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -15386,9 +15388,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "sales-training-ui.js:284,293 (rapidNext)",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D7: rapid-fire answers unreachable (drill can never start).",
+      "notes": "PR #607: rapidAnswer click registers + advances the drill (view delta).",
       "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
@@ -20660,10 +20662,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "photo-review.html:437 (+js/pages/photo-review.js:65)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Operator (rep) facing photo review sprint. Auth-gated: redirects to /pro/login.html if not signed in.",
-      "session": "2026-06-09-A",
+      "notes": "Post-#634 (NEW-D32 fabricated-firebaseConfig fix — the page bounced ALL signed-in users to login before): ← Back rewritten to /pro/customer.html?id=<lead> once auth+lead resolve.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20678,10 +20680,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-review.html:444 (+js/pages/photo-review.js:198-204)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Operator facing. Hand-off to customer page report generator.",
-      "session": "2026-06-09-A",
+      "notes": "Generate Report enabled with photos; click navigates to customer.html?id=<lead> and the Homeowner/Adjuster report picker auto-opens (handoff verified; picker cancelled, no report generated).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20696,10 +20698,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-review.html:449-453 (+js/pages/photo-review.js:305-312)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Filter tab bar; 5 representative buttons share one delegated handler on #prFilterBar.",
-      "session": "2026-06-09-A",
+      "notes": "Filter bar live counts (all:1/During:1/others:0); Before→0 tiles, During→1 tile + .active, all restores.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20714,10 +20716,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "js/pages/photo-review.js:286 (+js/pages/photo-review.js:321-359)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of the per-photo tile image. De-duped: one entry for all tiles. Selection drives the bulk-action bar.",
-      "session": "2026-06-09-A",
+      "notes": "Tile tap toggles bulk selection (bulk bar with 8 controls mounts; deselect clears).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20732,10 +20734,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "js/pages/photo-review.js:281 (+js/pages/photo-review.js:361-389)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of the 4 metadata chips per tile. Writes to Firestore photos/<id>. Picker option dictionaries at FIELD_OPTIONS (phase/damageType/severity).",
-      "session": "2026-06-09-A",
+      "notes": "Chips render per photo with live states; empty-chip tap opens the picker. Location chip now WORKS end-to-end (#630 added the missing FIELD_OPTIONS.location): picked 'Front Slope' → chip 'overridden' + persisted via snapshot re-render. Severity 'Minor' same.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20750,10 +20752,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "js/pages/photo-review.js:477 (+js/pages/photo-review.js:486-520)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Options injected dynamically per field. Clicking the dimmed backdrop closes without saving.",
-      "session": "2026-06-09-A",
+      "notes": "Picker options write the field (location + severity verified on the ZZ_QA photo) and re-render the chip state.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20768,10 +20770,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "photo-review.html:465 (+js/pages/photo-review.js:493)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inside the field-value picker overlay.",
-      "session": "2026-06-09-A",
+      "notes": "Clear value button present in the picker (rendered alongside options; not fired — the set-path was the test).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20786,10 +20788,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-review.html:472-474 (+js/pages/photo-review.js:456-461)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "3 bulk-field buttons in the bulk action bar.",
-      "session": "2026-06-09-A",
+      "notes": "Bulk bar mounts with phase/damageType bulk-field controls + pr-bulk-count on selection.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20804,10 +20806,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "photo-review.html:479 (+js/pages/photo-review.js:431-454)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER(send): publishes photos to the homeowner-visible portal + triggers a share-link copy. Drive to confirm boundary only against test data.",
-      "session": "2026-06-09-A",
+      "notes": "Bulk Share: photos-share half works per code; the portal-link COPY half is NEW-D31 (open — always throws 'Portal module not loaded' with a swallowed toast). Not fired; fix decision pending.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20822,10 +20824,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "photo-review.html:480 (+js/pages/photo-review.js:412-426)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER(delete): permanent. Has native confirm() gate — stop at the confirm dialog.",
-      "session": "2026-06-09-A",
+      "notes": "Bulk Delete — destructive boundary (would delete the photo doc); not fired. Reachable (bulk bar mounts).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20840,10 +20842,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "photo-review.html:482 (+js/pages/photo-review.js:411)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Done clears the bulk selection (bar dismisses on deselect).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20858,10 +20860,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "photo-review.html:487 (+js/pages/photo-review.js:587)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Lightbox needs a REAL 450ms long-press (synthetic pointer events don't trip the timer) — mobile/device pass item.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -22948,7 +22950,7 @@
       "source_ref": "docs/pro/how-to.html:190 (handler js/how-to.js:8-12)",
       "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D24: Restart Tour was a no-op for users WITH leads (maybeAutoStart re-marks complete when leads>0). FIXED PR #621 (nbd-tour-force one-shot flag), merged + deployed. Tour-overlay re-verify needs an authed dashboard (session lost to NEW-D25) — flag for Jo's next login.",
+      "notes": "NEW-D24 fix (#621) RE-VERIFIED live with 22 leads: Restart Tour consumed the one-shot nbd-tour-force flag, start(true) ran, and nbd-onboarding-complete was NOT re-set (pre-fix it silently re-marked '1'). Overlay paint is rAF-gated so it can't render in a hidden tab — it will pop when the tab is next foregrounded; skipping it re-marks complete (self-restoring).",
       "session": "2026-06-09-B",
       "surface": "pages-b"
     },
@@ -23072,9 +23074,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:508 (handler portal.html:520)",
-      "status": "BLOCKED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Live banner only appears on a diffed change between 30s polls — needs a rep-side mutation (auth lost to NEW-D25).",
+      "notes": "Live banner CAUGHT via MutationObserver after a rep-side stage change crossed the 30s poll: '🎉 Status update: now Inspection' (auto-dismisses after 8s — earlier probes simply missed the window). Diff → banner → re-render chain fully verified; portal re-rendered NEXT UP on every stage change. Note: poll is visibility-gated (document.hidden) — hidden-tab testing needs the defineProperty override.",
       "session": "2026-06-09-B",
       "surface": "portal"
     },
