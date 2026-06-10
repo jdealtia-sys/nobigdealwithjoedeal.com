@@ -2826,6 +2826,9 @@ window.saveEstimate = async function() {
   try {
     await window.addDoc(window.collection(window.db, 'estimates'), {
       leadId: window._customerId,
+      // The estimates create rule requires userId == auth.uid; omitting it
+      // made every Log Estimate from this page PERMISSION_DENIED.
+      userId: window.auth?.currentUser?.uid || auth.currentUser?.uid || null,
       type: type,
       amount: amount,
       notes: notes,
@@ -6697,7 +6700,13 @@ function updatePhotoStats() {
 window.loadReports = async function(leadId) {
   try {
     const reportsRef = window.collection(window.db, 'reports');
-    const q = window.query(reportsRef, window.where('leadId', '==', leadId), window.orderBy('date', 'desc'));
+    // The reports read rule is owner-scoped (userId == auth.uid). A
+    // leadId-only query can't prove ownership to the rules engine, so this
+    // ALWAYS failed permission-denied ("Failed to load reports" on every
+    // customer page). Two equality filters need no composite index; sort
+    // client-side instead of orderBy (which would).
+    const uid = window.auth?.currentUser?.uid || null;
+    const q = window.query(reportsRef, window.where('leadId', '==', leadId), window.where('userId', '==', uid));
     const snap = await window.getDocs(q);
 
     if (snap.empty) {
@@ -6708,7 +6717,13 @@ window.loadReports = async function(leadId) {
     const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     let html = '';
     const reportDocs = [];
-    snap.forEach(doc => {
+    const sortedDocs = snap.docs.slice().sort((a, b) => {
+      const ad = a.data().date, bd = b.data().date;
+      const at = ad?.toDate ? ad.toDate().getTime() : new Date(ad || 0).getTime();
+      const bt = bd?.toDate ? bd.toDate().getTime() : new Date(bd || 0).getTime();
+      return bt - at;
+    });
+    sortedDocs.forEach(doc => {
       const report = doc.data();
       reportDocs.push(report);
       const idx = reportDocs.length - 1;
