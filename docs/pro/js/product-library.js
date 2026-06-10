@@ -230,7 +230,7 @@
         const colorCount = p.colors ? p.colors.length : 0;
         const hasLabor = p.labor && p.labor.perUnit > 0;
         productsHtml += `
-          <div style="background:var(--s);border-radius:10px;padding:16px;border:1px solid var(--br);box-shadow:0 1px 3px rgba(0,0,0,.06);transition:box-shadow .15s;" onmouseenter="this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseleave="this.style.boxShadow='0 1px 3px rgba(0,0,0,.06)'">
+          <div data-pl-hover style="background:var(--s);border-radius:10px;padding:16px;border:1px solid var(--br);box-shadow:0 1px 3px rgba(0,0,0,.06);transition:box-shadow .15s;">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
               <div style="flex:1;min-width:0;">
                 <div style="font-weight:700;font-size:14px;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div>
@@ -319,9 +319,8 @@
 
         <!-- Search & Filter -->
         <div style="background:var(--s);padding:14px;border-radius:8px;margin-bottom:16px;">
-          <input type="text" id="product-search" placeholder="Search by name, brand, tag..." value="${escapeHtml(currentFilter.search)}"
-            style="width:100%;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px;color:var(--t);"
-            oninput="window._productLib.setFilter(undefined,this.value)">
+          <input type="text" id="product-search" data-pl-input="search" placeholder="Search by name, brand, tag..." value="${escapeHtml(currentFilter.search)}"
+            style="width:100%;padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:12px;color:var(--t);">
 
           <!-- Tier Filter Buttons -->
           <div style="display:flex;gap:6px;margin-bottom:12px;">
@@ -420,11 +419,11 @@
                   <div style="font-size:11px;font-weight:600;color:${TIER_COLORS[t]};text-transform:uppercase;margin-bottom:6px;text-align:center;">${TIER_LABELS[t]}</div>
                   <div style="margin-bottom:6px;">
                     <label style="font-size:10px;color:var(--m);">Sell Price</label>
-                    <input id="pm-sell-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.sell || 0}" oninput="window._productLib.recalcModalMargins()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                    <input id="pm-sell-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.sell || 0}" data-pl-input="recalcMargins" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
                   </div>
                   <div>
                     <label style="font-size:10px;color:var(--m);">Material Cost</label>
-                    <input id="pm-cost-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.cost || 0}" oninput="window._productLib.recalcModalMargins()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                    <input id="pm-cost-${t}" type="number" step="0.01" value="${p?.pricing?.[t]?.cost || 0}" data-pl-input="recalcMargins" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
                   </div>
                   <div id="pm-margin-${t}" style="text-align:center;margin-top:6px;font-size:11px;font-weight:700;"></div>
                 </div>
@@ -439,7 +438,7 @@
             <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
               <div>
                 <label style="font-size:10px;color:var(--m);">Per Unit Cost</label>
-                <input id="pm-labor-perunit" type="number" step="0.01" value="${p?.labor?.perUnit || 0}" oninput="window._productLib.recalcModalMargins()" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
+                <input id="pm-labor-perunit" type="number" step="0.01" value="${p?.labor?.perUnit || 0}" data-pl-input="recalcMargins" style="width:100%;padding:6px;background:var(--s2);border:1px solid var(--br);border-radius:4px;font-size:13px;box-sizing:border-box;color:var(--t);">
               </div>
               <div>
                 <label style="font-size:10px;color:var(--m);">Rate / Man-Hour</label>
@@ -712,6 +711,61 @@
   };
 
   window.renderProductLibrary = render;
+
+  // ============================================================================
+  // CSP-SAFE EVENT DELEGATION
+  // ============================================================================
+  // /pro pages ship a CSP without 'unsafe-inline' for scripts, so inline on*
+  // attributes never fire — all library chrome routes through data-pl-*
+  // attributes handled here. Listeners are document-level (not scoped to the
+  // grid container) because the edit modal is appended to document.body.
+  // The typeof guard keeps this delegate from colliding with the unrelated
+  // data-pl-action values in landing-page.js (goRegister/toggleFAQ): those
+  // aren't _productLib methods, and landing's delegate matches its two
+  // action names explicitly.
+
+  document.addEventListener('click', function (e) {
+    const el = e.target && e.target.closest && e.target.closest('[data-pl-action]');
+    if (!el || !window._productLib) return;
+    const fn = window._productLib[el.getAttribute('data-pl-action')];
+    if (typeof fn !== 'function') return;
+    e.preventDefault();
+    // data-pl-id is the one dynamic argument: a product id (editProduct /
+    // archiveProduct), a category id (setFilter / toggleCategory), or a tier
+    // (setTierFilter) — '' means "all". setFilter(category, search) keeps the
+    // current search term because only the first argument is passed.
+    fn(el.getAttribute('data-pl-id'));
+  });
+
+  document.addEventListener('input', function (e) {
+    const el = e.target && e.target.closest && e.target.closest('[data-pl-input]');
+    if (!el) return;
+    const kind = el.getAttribute('data-pl-input');
+    if (kind === 'recalcMargins') { recalcModalMargins(); return; }
+    if (kind === 'search') {
+      const caret = el.selectionStart;
+      setFilter(undefined, el.value);
+      // setFilter re-rendered the grid, replacing this input mid-keystroke —
+      // restore focus + caret so typing continues uninterrupted.
+      const fresh = document.getElementById('product-search');
+      if (fresh && fresh !== el) {
+        fresh.focus();
+        const pos = caret == null ? fresh.value.length : caret;
+        fresh.setSelectionRange(pos, pos);
+      }
+    }
+  });
+
+  // Card hover lift — replaces the per-card inline onmouseenter/onmouseleave
+  // (same CSP family as the handlers above).
+  document.addEventListener('mouseover', function (e) {
+    const card = e.target && e.target.closest && e.target.closest('[data-pl-hover]');
+    if (card) card.style.boxShadow = '0 4px 12px rgba(0,0,0,.1)';
+  });
+  document.addEventListener('mouseout', function (e) {
+    const card = e.target && e.target.closest && e.target.closest('[data-pl-hover]');
+    if (card && !card.contains(e.relatedTarget)) card.style.boxShadow = '0 1px 3px rgba(0,0,0,.06)';
+  });
 
   // Auto-load
   loadProducts();

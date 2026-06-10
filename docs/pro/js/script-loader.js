@@ -104,7 +104,7 @@
     estimates: [
       'js/product-data.js?v=1',
       'js/roofivent-catalog.js?v=1',
-      'js/product-library.js?v=2',
+      'js/product-library.js?v=3',
       'js/estimate-labor-catalog.js?v=1',
       'js/estimate-builder-v2.js?v=2',
       'js/estimate-catalog-xactimate.js?v=1',
