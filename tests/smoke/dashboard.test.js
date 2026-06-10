@@ -2156,4 +2156,71 @@ section('Rock 4 Phase 3 — view-storm lazy hydration');
     'expected _hydrateViewTemplate(name) to run before the view-active update');
 }
 
+section('Hardening 2026-06-09 — settings-tab renderers (post-#597 live surface)');
+{
+  // PR #597's readyState-guard fix made the Settings-tab renderers run
+  // for the first time. This section pins the two bug classes that
+  // became reachable with them:
+  //  1. XSS hardening — dashboard-team-tab.js renders Firestore member
+  //     docs (semi-external strings) into innerHTML. Every member field
+  //     must round through the file's _nbdEscHtml escaper.
+  //  2. CSP — the /pro/ header ships script-src-attr 'none', so JS-built
+  //     markup carrying an inline on*-handler attribute renders dead
+  //     controls (same class as the C-1 saveLead no-op). The settings
+  //     shards must use the data-on-change delegate, and the handler
+  //     names must be on _NBD_CALL_ALLOWLIST or the delegate silently
+  //     ignores them.
+  const teamSrc = read(path.join(PRO_JS, 'dashboard-team-tab.js'));
+  const sidebarSrc = read(path.join(PRO_JS, 'dashboard-sidebar-customizer.js'));
+  const hotkeySrc = read(path.join(PRO_JS, 'dashboard-hotkey-toggles.js'));
+  const billingSrc = read(path.join(PRO_JS, 'dashboard-billing-tab.js'));
+  const stateSrc = read(path.join(PRO_JS, 'dashboard-state.js'));
+
+  // 1a. The escaper exists (widgets.js esc() is IIFE-scoped and
+  //     unreachable from this hydrated-template script).
+  assert('dashboard-team-tab.js defines the _nbdEscHtml escaper',
+    /function _nbdEscHtml\(/.test(teamSrc),
+    'member rows render Firestore strings into innerHTML; the file must define its own escaper');
+  // 1b. Both email interpolations (row line + avatar initial) escape.
+  assert('team rows escape m.email through _nbdEscHtml',
+    /_nbdEscHtml\(m\.email\s*\|\|\s*''\)/.test(teamSrc)
+      && /_nbdEscHtml\(\(m\.email\s*\|\|\s*'\?'\)\[0\]/.test(teamSrc),
+    'both the email line and the avatar initial must be escaped');
+  // 1c. Role (both interpolations) + status escape.
+  assert('team rows escape m.role and m.status through _nbdEscHtml',
+    (teamSrc.match(/_nbdEscHtml\(\(m\.role\s*\|\|\s*'rep'\)/g) || []).length >= 2
+      && /_nbdEscHtml\(m\.status\s*\|\|\s*'invited'\)/.test(teamSrc),
+    'role renders twice (meta line + badge) and status once; all three must be escaped');
+  // 1d. No raw member-field concatenation survives.
+  assert('no unescaped member-field interpolation remains in team rows',
+    !/\+\s*\(m\.(email|role|status)/.test(teamSrc),
+    'every "+ (m.<field>" concatenation must be wrapped in _nbdEscHtml(...)');
+
+  // 2a. Zero inline handler attributes in any of the four settings shards.
+  [['dashboard-team-tab.js', teamSrc],
+   ['dashboard-sidebar-customizer.js', sidebarSrc],
+   ['dashboard-hotkey-toggles.js', hotkeySrc],
+   ['dashboard-billing-tab.js', billingSrc]].forEach(function(pair) {
+    assert(pair[0] + " has zero inline on*-handler attributes (script-src-attr 'none')",
+      !/\son(click|change|input|submit|load|error|focus|blur)\s*=/.test(pair[1]),
+      'inline handler attributes are CSP-dead on /pro/ — use the data-on-change / data-action delegates');
+  });
+  // 2b. The two checkbox grids ride the delegate with the checked+arg shape.
+  assert('sidebar-customizer checkboxes use the data-on-change delegate',
+    /data-on-change="toggleSidebarItem" data-on-pass="checked" data-on-arg="/.test(sidebarSrc),
+    'expected data-on-change="toggleSidebarItem" data-on-pass="checked" data-on-arg="<nav id>"');
+  assert('hotkey-toggles checkboxes use the data-on-change delegate',
+    /data-on-change="toggleHotkey" data-on-pass="checked" data-on-arg="/.test(hotkeySrc),
+    'expected data-on-change="toggleHotkey" data-on-pass="checked" data-on-arg="<hk id>"');
+  // 2c. Delegate handlers are allowlisted (missing entry = silent no-op).
+  assert('toggleSidebarItem + toggleHotkey are on _NBD_CALL_ALLOWLIST',
+    /'toggleSidebarItem'/.test(stateSrc) && /'toggleHotkey'/.test(stateSrc),
+    'the data-on-change delegate ignores names missing from the allowlist (C-1 class)');
+  // 2d. Their handler signatures match the delegate call shape (checked, id).
+  assert('toggleSidebarItem signature matches delegate (on, navId)',
+    /function toggleSidebarItem\(on, navId\)/.test(sidebarSrc));
+  assert('toggleHotkey signature matches delegate (on, id)',
+    /function toggleHotkey\(on, id\)/.test(hotkeySrc));
+}
+
 };

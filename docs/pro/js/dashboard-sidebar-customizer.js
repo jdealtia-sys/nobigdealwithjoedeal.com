@@ -30,10 +30,21 @@
           try { return JSON.parse(localStorage.getItem('nbd_sidebar_hidden') || '[]'); } catch(e) { return []; }
         }
 
-        function toggleSidebarItem(navId) {
+        // Hardening 2026-06-09: the checkbox row used an inline onchange
+        // attribute, but the /pro/ CSP ships script-src-attr 'none' — the
+        // browser silently drops inline handler attributes, so every
+        // checkbox in this grid was a dead control from the moment PR #597
+        // made the renderer live. Migrated to the data-on-change delegate
+        // (dashboard-ui.js), same shape as dashboard-hotkey-toggles.js.
+        // The delegate passes (checked, navId); checked means "item
+        // visible". Set-state rather than blind-flip so the stored pref
+        // always agrees with the checkbox the user actually clicked.
+        // Name must stay on _NBD_CALL_ALLOWLIST (dashboard-state.js).
+        function toggleSidebarItem(on, navId) {
           var hidden = getSidebarHidden();
           var idx = hidden.indexOf(navId);
-          if (idx >= 0) hidden.splice(idx, 1); else hidden.push(navId);
+          if (on && idx >= 0) hidden.splice(idx, 1);
+          else if (!on && idx < 0) hidden.push(navId);
           localStorage.setItem('nbd_sidebar_hidden', JSON.stringify(hidden));
           applySidebarCustomizer();
           renderSidebarCustomizerGrid();
@@ -55,7 +66,7 @@
             var isHidden = hidden.includes(item.id);
             var isLocked = item.alwaysOn;
             return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--s2);border:1px solid ' + (isHidden ? 'var(--br)' : 'var(--orange)') + ';border-radius:6px;cursor:' + (isLocked ? 'not-allowed' : 'pointer') + ';opacity:' + (isHidden ? '.5' : '1') + ';transition:all .15s;">'
-              + '<input type="checkbox" ' + (isHidden ? '' : 'checked') + ' ' + (isLocked ? 'disabled' : '') + ' onchange="toggleSidebarItem(\'' + item.id + '\')" style="accent-color:var(--orange);width:16px;height:16px;">'
+              + '<input type="checkbox" ' + (isHidden ? '' : 'checked') + ' ' + (isLocked ? 'disabled' : '') + ' data-on-change="toggleSidebarItem" data-on-pass="checked" data-on-arg="' + item.id + '" style="accent-color:var(--orange);width:16px;height:16px;">'
               + '<span class="fs-14">' + item.icon + '</span>'
               + '<span style="font-size:12px;color:var(--t);font-weight:600;">' + item.label + '</span>'
               + (isLocked ? '<span style="font-size:9px;color:var(--m);margin-left:auto;">Required</span>' : '')
@@ -70,10 +81,17 @@
           if (typeof showToast === 'function') showToast('Sidebar reset to default', 'info');
         }
 
-        // Apply on boot + render when settings opens
-        document.addEventListener('DOMContentLoaded', function() {
+        // Apply on boot + render when settings opens.
+        // readyState guard (hardening 2026-06-09): this script ships inside
+        // the lazily-hydrated tpl-view-settings template and executes at
+        // hydration, AFTER DOMContentLoaded has fired — the previous bare
+        // listener never ran, so saved hidden-item prefs were not applied
+        // until the first checkbox click. Same trap/idiom as the hook below.
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', applySidebarCustomizer);
+        } else {
           applySidebarCustomizer();
-        });
+        }
         // Hook into settings tab switch. The base switchSettingsTab is
         // defined in deferred js/ui.js, which loads AFTER this inline
         // script. Wait for DOMContentLoaded (fires after all defer
