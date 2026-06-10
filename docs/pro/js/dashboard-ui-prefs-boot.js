@@ -274,3 +274,52 @@ function nbdSettingsUpdateCalcomPreview(value) {
     p.style.display = v ? '' : 'none';
   }
 }
+
+// ── Sidebar Customizer hidden-prefs — boot apply ──
+// The customizer UI (js/dashboard-sidebar-customizer.js) ships inside the
+// lazily-hydrated tpl-view-settings template, so its own apply only runs
+// once the user first opens Settings → Appearance. Without this boot step,
+// nav items the user hid all reappear on every fresh page load.
+//
+// Contract: this block only READS nbd_sidebar_hidden — the customizer
+// stays the single writer (setItem/removeItem live there only).
+//
+// Timing: this file is a synchronous <script src> that executes BEFORE the
+// static sidebar markup parses, so getElementById can't see the nav yet.
+// Inject a <style> hide immediately (pre-paint, same no-flash ethos as the
+// DE-MOJI boot above), then at DOMContentLoaded convert to the same inline
+// display:none the customizer writes and remove the style tag. The handoff
+// matters: applySidebarCustomizer() un-hides items by setting
+// el.style.display = '' — a leftover stylesheet rule would override that
+// and wedge items hidden until reload.
+(function() {
+  var hidden;
+  try { hidden = JSON.parse(localStorage.getItem('nbd_sidebar_hidden') || '[]'); } catch (e) { hidden = []; }
+  if (!Array.isArray(hidden)) hidden = [];
+  // The ids feed a CSS selector — keep only sane element-id shapes.
+  hidden = hidden.filter(function(id) { return /^[A-Za-z][A-Za-z0-9_-]*$/.test(String(id)); });
+  if (!hidden.length) return;
+  var st = document.createElement('style');
+  st.id = 'nbdSidebarBootHide';
+  st.textContent = hidden.map(function(id) { return '#' + id + '{display:none;}'; }).join('');
+  (document.head || document.documentElement).appendChild(st);
+  function _nbdSidebarBootFinalize() {
+    if (_nbdSidebarBootFinalize._done) return;
+    _nbdSidebarBootFinalize._done = true;
+    hidden.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    st.remove();
+  }
+  // DOMContentLoaded is gated on every module/defer script finishing —
+  // an early location.replace (auth gate, unauthenticated) can tear the
+  // document down before it ever fires. Hook both ready events; first
+  // one wins via the idempotence guard above.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _nbdSidebarBootFinalize);
+    window.addEventListener('load', _nbdSidebarBootFinalize);
+  } else {
+    _nbdSidebarBootFinalize();
+  }
+})();
