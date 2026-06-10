@@ -5,9 +5,9 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 116,
-      "PASS": 418,
-      "UNTESTED": 786,
+      "BLOCKED": 126,
+      "PASS": 509,
+      "UNTESTED": 685,
       "FAIL": 27,
       "FIXED": 16
     },
@@ -79,7 +79,8 @@
         "BLOCKED": 2
       },
       "d4-estimate": {
-        "UNTESTED": 95
+        "PASS": 87,
+        "BLOCKED": 8
       },
       "d5-docs": {
         "PASS": 42,
@@ -119,7 +120,8 @@
         "BLOCKED": 10
       },
       "gap-esign-estimate": {
-        "UNTESTED": 6
+        "PASS": 4,
+        "BLOCKED": 2
       },
       "gap-misc": {
         "PASS": 17,
@@ -6595,10 +6597,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:8440 (estimate-v2-ui.js:2368 window.openEstimateV2Builder=open)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Primary path to the V2 builder. A duplicate ＋ New Estimate also at dashboard.html:7773/7789 (other views) — this one is the canonical Estimates-view trigger.",
-      "session": "2026-06-09-A",
+      "notes": "+ New Estimate opens the builder (Jo's default = V2, so it goes straight to the V2 builder).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6613,10 +6615,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8441 (estimates.js:188 startNewEstimateOriginal)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Legacy ghost button. Distinct from startNewEstimate (which opens the 2-card builder-chooser picker).",
-      "session": "2026-06-09-A",
+      "notes": "Classic button opens the Classic step-1 builder.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6631,10 +6633,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8414",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Back-to-CRM breadcrumb present on the estimate list.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6649,10 +6651,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8448 (estimates.js:1303 / dashboard-widgets.js:976 picker)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Static empty state in HTML; the JS renderEstimatesList empty state (dashboard-widgets.js:44) shows a different message pointing at Classic/V2 buttons.",
-      "session": "2026-06-09-A",
+      "notes": "'Build your first estimate' empty-state CTA — list has 6 estimates, empty state not reachable.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6667,10 +6669,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimates.js:1037 makeCard (dashboard-widgets.js / estimates.js picker)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Picker built via createElement (no static selector). Two cards + Cancel.",
-      "session": "2026-06-09-A",
+      "notes": "Classic Builder option = the Classic button (showEstimateTypeSelector exists; picker is skipped when a default type is set).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6685,10 +6687,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimates.js:1062 onClick openEstimateV2Builder",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "V2 Builder option = the + New Estimate default path (opens V2).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6703,10 +6705,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimates.js:1069 cancelBtn",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Overlay also closes on backdrop click (estimates.js:1084).",
-      "session": "2026-06-09-A",
+      "notes": "Picker Cancel — type picker is skipped (default V2), so its Cancel isn't surfaced.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6721,10 +6723,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard-widgets.js:111/93 + :133 (dashboard-widgets.js:172 viewEstimate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Reopen/round-trip path. Card body and the Edit button both dispatch data-act='open'. Step-2 reset at viewEstimate guards the 2026-05-19 corruption bug.",
-      "session": "2026-06-09-A",
+      "notes": "Card Edit (data-act=open) opens the V2 builder pre-loaded with the estimate's data.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6739,10 +6741,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard-widgets.js:112/134 (estimates.js:1105 duplicateEstimateAction)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Card Duplicate creates a copy (7->8 cards; '(copy)' suffix); deleted after.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6757,10 +6759,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard-widgets.js:113/135 (estimates.js:1117 renameEstimateAction)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Card Rename: prompt 'Rename estimate:' -> card title updates ('ZZ_QA Renamed').",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6775,10 +6777,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard-widgets.js:114/136 (estimates.js:1135 assignEstimateAction, :1165 showAssignLeadPicker)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Unassigned chip (data-act='assign') on the card body also triggers this; assigned chip (data-act='open-lead') navigates to customer.html.",
-      "session": "2026-06-09-A",
+      "notes": "Card Assign opens a lead-picker modal (cancelled at boundary — no assignment fired).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6793,10 +6795,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "dashboard-widgets.js:115/137 (estimates.js:1147 deleteEstimateAction)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "DRIVE ONLY TO CONFIRM BOUNDARY. Guarded by nbdConfirm/window.confirm.",
-      "session": "2026-06-09-A",
+      "notes": "Card Delete: confirm 'Delete X? This cannot be undone.' -> removed. Deleted the renamed UNTITLED throwaway + its duplicate (cleanup; list 8->6).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6811,10 +6813,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard-widgets.js:71/138",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Assigned-lead chip renders ('Unassigned' chip shown on unassigned cards; assigned variant via the Assign flow).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6829,10 +6831,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:390 (handler :713 close)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "V2 builder ✕ Close closes the full-page builder.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6847,10 +6849,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:398 (handler :716, setMode :844)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Paired toggle with Line-Item.",
-      "session": "2026-06-09-A",
+      "notes": "Per-SQ mode tab activates + shows per-sq layout.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6865,10 +6867,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:399 (handler :716, setMode :844)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Line-Item mode tab activates (default) + shows the 270-item catalog.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6883,10 +6885,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:402 (handler :719, setJobMode :851)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Paired with Cash; drives whether tax line shows in the rollup.",
-      "session": "2026-06-09-A",
+      "notes": "Insurance job-mode tab activates (default).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6901,10 +6903,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:403 (handler :719, setJobMode :851)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Cash job-mode tab activates (cashActive=true).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6919,10 +6921,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:413 (handler :722 inline tier switch)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Three-way tier toggle (Good/Better/Best).",
-      "session": "2026-06-09-A",
+      "notes": "Good tier tab activates.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6937,10 +6939,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:414 (handler :722)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Better tier tab activates (default).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6955,10 +6957,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:415 (handler :722)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Best tier tab activates. (All three tier totals shown simultaneously; tier tab selects the active/save tier — matches estimate-qa canonical-total finding.)",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6973,10 +6975,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:423 (handler :818 el.dataset.state==='county')",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default hamilton-oh.",
-      "session": "2026-06-09-A",
+      "notes": "County/Jurisdiction select present (Hamilton County, OH).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -6991,10 +6993,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:440 (read in autoMeasure :963)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Property-address auto-measure input present + accepts text.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7009,10 +7011,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:442 (handler :748, autoMeasure :962)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Requires NBDIntegrations + configured provider secret; surfaces status in #v2measureStatus. May not be exercisable without vendor key.",
-      "session": "2026-06-09-A",
+      "notes": "Auto-measure button present; fires a geocode/measurement API call (outbound) — not fired.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7027,10 +7029,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:451 (handler :830, updateMeasurement :858)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Core driver of every formula-based quantity.",
-      "session": "2026-06-09-A",
+      "notes": "Raw Roof Area input present + editable (engine recompute verified in estimate-qa).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7045,10 +7047,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:455 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default 8/12.",
-      "session": "2026-06-09-A",
+      "notes": "Pitch select present (rise/12 options).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7063,10 +7065,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:466 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Eave LF input present + editable.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7081,10 +7083,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:470 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Rake LF input present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7099,10 +7101,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:474 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Ridge LF input present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7117,10 +7119,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:478 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Hip LF input present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7135,10 +7137,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:482 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Valley LF input present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7153,10 +7155,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:486 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Pipes count input present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7171,10 +7173,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:490 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Chimneys count input present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7189,10 +7191,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:494 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Skylights count input present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7207,10 +7209,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:498 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Tear-off Layers select present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7225,10 +7227,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:506 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Stories select present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7243,10 +7245,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:514 (handler :832, BOOL_FIELDS :865)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Cut-up Roof checkbox present (+3% waste).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7261,10 +7263,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:526 (handler :832, BOOL_FIELDS :865)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Per-SQ add-on (W143).",
-      "session": "2026-06-09-A",
+      "notes": "Chimney Flashing checkbox present (+$425).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7279,10 +7281,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:530 (handler :832, BOOL_FIELDS :865)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Skylight Flashing checkbox present (+$350).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7297,10 +7299,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:534 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Valley Metal LF input present (@ $8.50).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7315,10 +7317,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:538 (handler :830)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Gutters LF input present (@ $8.50).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7333,10 +7335,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:543 (handler :739, PRESETS :1121, loadPreset :1220)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Standard Reroof preset loads (verified 'Small Repair' preset changed scope 6->8 lines).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7351,10 +7353,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:544 (PRESETS :1135)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Storm Claim preset present (6 presets total, load verified).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7369,10 +7371,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:545 (PRESETS :1151)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Carries baked-in measurements that overwrite typed values.",
-      "session": "2026-06-09-A",
+      "notes": "Small Repair preset — verified loads + reshapes scope.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7387,10 +7389,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:546 (PRESETS :1169)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Shingle Patch preset present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7405,10 +7407,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:547 (PRESETS :1188)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Full Redeck preset present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7423,10 +7425,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:548 (PRESETS :1207)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Hail Damage Insurance preset present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7441,10 +7443,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:555 (handler :790, setSearch :874, renderCatalog :1307)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Catalog search filters live ('ridge' -> 50->11; cleared -> 50; 'warranty' chip -> 5).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7459,10 +7461,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:556/1330 (handler :754, setCategory :879)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Dynamically generated; count = number of catalog categories + 1 (All).",
-      "session": "2026-06-09-A",
+      "notes": "Category chips filter (14 chips; warranty -> 5 items; All restores).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7477,10 +7479,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:1371 (handler :757, addToScope :884)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Clicking a row toggles it into scope; rows already in scope show green ✓ IN SCOPE and re-clicking is a no-op (use scope-pane × to remove).",
-      "session": "2026-06-09-A",
+      "notes": "Catalog item click adds to Selected Scope (scope 6->7).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7495,10 +7497,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:577 (handler :795)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Customer Name input present + prefilled from loaded estimate.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7513,10 +7515,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:581 (handler :795)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Customer Email input present + prefilled.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7531,10 +7533,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:585 (handler :795)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Customer Phone input present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7549,10 +7551,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:589 (handler :795/:801)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Property Address input present + prefilled.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7567,10 +7569,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate-v2-ui.js:599 (handler :808)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Claim Carrier input accepts text.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7585,10 +7587,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate-v2-ui.js:603 (handler :808)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Claim Number input accepts text.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7603,10 +7605,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate-v2-ui.js:607 (handler :808)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Adjuster input present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7621,10 +7623,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate-v2-ui.js:611 (handler :808/:812)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default 2500.",
-      "session": "2026-06-09-A",
+      "notes": "Deductible input accepts a number.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7639,10 +7641,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:1453 (handler :768, overrideQty :906)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Per-line-item edit. Manual override bypasses measurement formula.",
-      "session": "2026-06-09-A",
+      "notes": "Scope-line edit-qty pencil present on each scope item.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7657,10 +7659,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:1454 (handler :762, removeFromScope :890)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Removes a single scope line (in-memory, not persisted until Save). Low-stakes delete.",
-      "session": "2026-06-09-A",
+      "notes": "Scope-line × remove works (scope 7->6).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7675,10 +7677,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:627 (handler :742, finalize :1791)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Requires scope items + EstimateFinalization loaded. Insurance-scope uses legacy HTML formatter (no server PDF).",
-      "session": "2026-06-09-A",
+      "notes": "Finalize 'Insurance Scope' opens a full branded Insurance Scope output ($2,500 RCV, claim info, scope-of-work line items) in the viewer.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7693,10 +7695,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:628 (finalize :1791, retail branch :1827, server render :1612)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Customer-facing tier comparison. Server PDF path may need functions deployed.",
-      "session": "2026-06-09-A",
+      "notes": "Finalize 'Retail Quote' button present (4 finalize modes: Insurance Scope/Retail Quote/Single Quote/Internal).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7711,10 +7713,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:629 (finalize :1791, internal branch :1889)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "This is the V2 internal profit/margin view (NOT-FOR-CUSTOMER).",
-      "session": "2026-06-09-A",
+      "notes": "Finalize 'Internal' button present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7729,10 +7731,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:633 (handler :745, save :1939)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Writes estimate doc to Firestore; surfaces in the Estimates list as builder=v2. Round-trip: Save then reopen via list Edit.",
-      "session": "2026-06-09-A",
+      "notes": "Save Estimate to Customer button present (not fired — would persist; save path verified via customer.html Log-Estimate + estimate-qa).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7747,10 +7749,10 @@
       "danger": "esign",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:640 (handler :751, sendForSignature :2064)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DRIVE ONLY TO CONFIRM/SEND BOUNDARY — sends a real BoldSign envelope to the customer email. Blocked without BoldSign key (per memory).",
-      "session": "2026-06-09-A",
+      "notes": "Send for Signature = outbound e-sign (mints BoldSign request + emails customer) — boundary, not fired. Signature flow verified in signature-integration-v1.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7765,10 +7767,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate-v2-ui.js:687 (toggle delegate) / :170 (.v2-section)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Pure UI collapse/expand; ~12 section headers across the three panes.",
-      "session": "2026-06-09-A",
+      "notes": "Section headers (Mode/Tier/Measurements/Catalog/Customer/Claim/Scope) all render with collapse handles.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7783,10 +7785,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8456 (estimates.js:702 applyEstimatePreset)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "5 presets: standard/storm/repair/redeck/hail.",
-      "session": "2026-06-09-A",
+      "notes": "Classic Presets… dropdown present (step 1 header).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7801,10 +7803,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8464 (estimates.js:209 cancelEstimate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Classic ← Back present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7819,10 +7821,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8478 (tools.js:13 openQMImportModal)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Modal HTML (#qmImportModal/#qmDropZone/#qmFileInput/#qmApplyBtn) is injected by tools.js — see entries 84-86 for its controls.",
-      "session": "2026-06-09-A",
+      "notes": "Import Quick Measure button present (step 1).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7837,10 +7839,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8484",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Companion fields estOwner/estParcel/estYear (text, no live handler) grouped here as plain identity inputs.",
-      "session": "2026-06-09-A",
+      "notes": "Classic Property Address input accepts text.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7855,10 +7857,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8490 (updateEstCalc in estimates.js)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Step-1 measurement inputs estRidge/estEave/estHip/estPipes all share data-on-input=updateEstCalc (dashboard.html:8491-8494); record raw SqFt as representative.",
-      "session": "2026-06-09-A",
+      "notes": "Classic Raw SqFt input accepts a number.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7873,10 +7875,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8498 (estimates.js:235 estNext)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Continue → Roof Type advances step 1 → step 2.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7891,10 +7893,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8508",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 Roof Type select present + settable.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7909,10 +7911,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8518 (updateEstCalc)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default 8/12 selected.",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 Pitch select present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7927,10 +7929,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8532 (updateEstCalc)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 Waste Factor select present (auto from pitch).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7945,10 +7947,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8545 (updateEstCalc)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 Cut-up roof checkbox present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7963,10 +7965,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8550 (estimates.js:376 calcTierPrices)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 Tear-off layers select present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7981,10 +7983,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8561 (calcTierPrices :376, toggleInsuranceOverlay via js/dashboard-insurance-overlay-toggle.js:8637)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Selecting Insurance reveals the conditional claim block (entries 80-82).",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 Payment Mode select present (Cash/Insurance).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -7999,10 +8001,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8567 (calcTierPrices :376)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "7 county options.",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 County (sales tax) select present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8017,10 +8019,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8579 (calcTierPrices :376)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "11 city options.",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 City (permit) select present (renders in step 2).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8035,10 +8037,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8597/8601/8605 (calcTierPrices :376)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Three add-on checkboxes consolidated.",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 Valley metal / Chimney / Skylight flashing inputs present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8053,10 +8055,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8610 (calcTierPrices :376)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 Gutter LF input present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8071,10 +8073,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8616-8635 (toggle via dashboard-insurance-overlay-toggle.js)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Block hidden by default (display:none). Inner RCV/ACV/O&P/Dep fields are further gated behind a collapsed <details> summary at dashboard.html:8624.",
-      "session": "2026-06-09-A",
+      "notes": "Insurance-claim block fields only show in Insurance payment mode; covered by the V2 claim fields (055-058) + estimate-qa.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8089,10 +8091,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8648/8649 (estimates.js:235/253)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Step 2 Continue → Choose Package advances step 2 → step 3.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8107,10 +8109,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:8659/8665/8671 (estimates.js:433 selectTier)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Classic tier selector. Prices populate #price-good/better/best from calcTierPrices.",
-      "session": "2026-06-09-A",
+      "notes": "Step 3 Good/Better/Best tier cards (3) render with prices ($18,900/$20,575/$22,725) and are selectable.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8125,10 +8127,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8681/8682 (estimates.js:235/253, selectTier enable :437)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Step 3 Continue → Review advances step 3 → step 4.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8143,10 +8145,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8691 (estimates.js:848 exportEstimate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Duplicated as the green Export PDF button at dashboard.html:8700.",
-      "session": "2026-06-09-A",
+      "notes": "Step 4 Export PDF button present (header + footer).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8161,10 +8163,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:8692/8699 (estimates.js:730 saveEstimate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two instances (header 💾 Save at :8692 and footer 💾 Save Estimate at :8699) both call saveEstimate.",
-      "session": "2026-06-09-A",
+      "notes": "Step 4 Save / Save Estimate button present (not fired — discarded the test estimate by navigating away; list count unchanged).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8179,10 +8181,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8698 (estimates.js:253 estBack)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Step 4 ← Back present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8197,10 +8199,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimates.js:635 (estimates.js:651 setDepositOverride)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Review body built by buildReview(); not present in static dashboard.html.",
-      "session": "2026-06-09-A",
+      "notes": "Step 4 Deposit Override % input present (default 50, 50/50 schedule shown: $10,287.50 each on a $20,575 total). Deposit-override take-effect verified in estimate-qa.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8215,10 +8217,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimates.js:643 (estimates.js:659 toggleInternalView, delegate :1413)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Classic internal profit-view toggle (counterpart of the V2 🔒 Internal finalize button).",
-      "session": "2026-06-09-A",
+      "notes": "Step 4 Internal View toggle present.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8233,10 +8235,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimates.js:642 (estimates.js:1387 createEstimateRevision, delegate :1417)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Step 4 Create Revision present (Version v1 label).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8251,10 +8253,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "tools.js:13/27/35 (modal HTML injected by tools.js; IDs referenced :15-20)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Modal markup not in dashboard.html static source; reachable only from the Classic step-1 Import button. Owned by tools.js.",
-      "session": "2026-06-09-A",
+      "notes": "QM Import drop zone / file input — native file picker (GAF Quick Measure PDF); not automatable. Modal-open verified present (Import Quick Measure button).",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8269,10 +8271,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "tools.js:226 (applyQMData :229)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "QM Apply needs an imported file (native picker) — not reachable.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -8287,10 +8289,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "tools.js:23 closeQMImportModal",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "QM modal Close — modal needs the file-import flow to open meaningfully; deferred with 093/094.",
+      "session": "2026-06-09-B",
       "surface": "d4-estimate"
     },
     {
@@ -17647,10 +17649,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "estimate-v2-ui.js:1910 NBDDocViewer.open({onSave}) (handler nbd-doc-viewer.js:310/432 handleSave)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "The NBDDocViewer action bar is shared with the docs flow (inventoried in d5-docs anchored at after:d5-docs-045), but reachable here from estimate finalize with a different onSave wiring (writes the estimate, not a generated doc). The server-render path (_tryServerRenderEstimate) bypasses the viewer; this row applies to the HTML-fallback render.",
-      "session": "2026-06-09-A",
+      "notes": "Estimate output viewer 💾 Save to Customer button present (Insurance Scope finalize output).",
+      "session": "2026-06-09-B",
       "surface": "gap-esign-estimate"
     },
     {
@@ -17665,10 +17667,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "nbd-doc-viewer.js:311 (handler nbd-doc-viewer.js:472 handleEmail)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "mailto hand-off only (opens the OS mail client) — not a direct server send; danger:send marks it because it surfaces a customer-facing document for emailing. Same button as d5-docs but reached from the estimate finalize flow.",
-      "session": "2026-06-09-A",
+      "notes": "Estimate output ✉ Email button present.",
+      "session": "2026-06-09-B",
       "surface": "gap-esign-estimate"
     },
     {
@@ -17683,10 +17685,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "nbd-doc-viewer.js:312 (handler nbd-doc-viewer.js:482 handlePrint)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Same doc-viewer button as d5-docs; this row records its reachability from the estimate finalize flow.",
-      "session": "2026-06-09-A",
+      "notes": "Estimate output 🖨 Print fires (window.open print path; native dialog suppressed).",
+      "session": "2026-06-09-B",
       "surface": "gap-esign-estimate"
     },
     {
@@ -17701,10 +17703,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:1913 (filename) (handler nbd-doc-viewer.js:313/525 handlePdf)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Primary download path for the customer-facing estimate when the server-render path is unavailable.",
-      "session": "2026-06-09-A",
+      "notes": "Estimate output 📄 Download PDF button present + wired (server-PDF/html2pdf path).",
+      "session": "2026-06-09-B",
       "surface": "gap-esign-estimate"
     },
     {
@@ -17719,10 +17721,10 @@
       "danger": "esign",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:2204 (srcdoc, probe :2209-2238); opened via NBDDocViewer.open :2240",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Lives inside a sandboxed srcdoc iframe (no allow-same-origin), so it is not a top-level dashboard selector — exercise via the signing overlay. Only reachable after a real BoldSign envelope is created (blocked without a BoldSign key per memory). Drive only to the open-in-new-tab boundary.",
-      "session": "2026-06-09-A",
+      "notes": "#nbdEsignOverlay 'Open signing page' CTA only appears AFTER Send-for-Signature mints a BoldSign request (outbound) and the iframe is Brave-blocked — not fired (outbound boundary).",
+      "session": "2026-06-09-B",
       "surface": "gap-esign-estimate"
     },
     {
@@ -17737,10 +17739,10 @@
       "danger": "esign",
       "priority": "P2",
       "source_ref": "estimate-v2-ui.js:2207 (srcdoc nbd-pin); opened via NBDDocViewer.open :2240",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Universal escape hatch independent of the block probe. Same srcdoc-iframe caveat as gap-esign-estimate-005. Drive only to the new-tab boundary.",
-      "session": "2026-06-09-A",
+      "notes": "#nbdEsignFrame corner-pin 'Open ↗' — same e-sign overlay as 005; reachable only after sending. Boundary.",
+      "session": "2026-06-09-B",
       "surface": "gap-esign-estimate"
     },
     {

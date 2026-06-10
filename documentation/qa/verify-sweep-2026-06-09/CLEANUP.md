@@ -30,6 +30,14 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 ## Outbound side effects
 - One `lead-alert` email to Jo fired by the ZZ_QA_ Inspect Bridge Test2 public submit (same as the prior sweep's CO-H-1 repro; subject "New lead"). No SMS (Twilio still blocked). No Stripe/billing/account changes. GDPR/dangerous controls untouched this session.
 
+## d4-estimate pass (2026-06-10) — created & cleaned
+| artifact | state |
+|----------|-------|
+| Leftover "UNTITLED ESTIMATE" ($0, Jun 10) from a prior estimate-qa session | renamed to "ZZ_QA Renamed" then **DELETED** (list 7→6 — one fewer leftover test estimate). |
+| Duplicate "ZZ_QA Renamed (copy)" created by the Duplicate test | **DELETED** (cleanup). |
+| Classic ZZ_QA test estimate (999 ZZ_QA Est Test St, $20,575) built to verify the 4-step flow | **never saved** — discarded by navigating away (list count unchanged at 6). |
+| V2 builder edits (preset loads, scope add/remove, claim fields) on the leftover ZZ_QA ServerPDF estimate | **not saved** — closed without Save; the underlying estimate retains its prior saved state. |
+
 ## gap-carddetail pass (2026-06-10) — created & cleaned
 | artifact | state |
 |----------|-------|
