@@ -664,12 +664,6 @@ body{background:var(--bg);color:var(--white);font-family:'Barlow',sans-serif;lin
   <div style="font-size:11px;color:#4a5568">© 2026 No Big Deal Home Solutions</div>
 </footer>
 
-<script>
-// Scroll reveal
-const observer = new IntersectionObserver((entries) => {
-  entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('visible'); observer.unobserve(e.target); } });
-}, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
-document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-</script>
+<script src="js/demo-reveal.js" defer></script>
 </body>
 </html>

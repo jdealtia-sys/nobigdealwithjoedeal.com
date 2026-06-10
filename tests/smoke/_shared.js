@@ -194,6 +194,19 @@ function readFunctionsIndex() {
   return parts.join('\n');
 }
 
+// CSP extraction (2026-06-10): portal.html's end-of-body inline <script>
+// IIFE got extracted to docs/pro/js/portal.js so the route can drop the
+// 'unsafe-inline' CSP exception added as the #619 interim fix.
+// readPortal() returns portal.html + js/portal.js joined, so existing
+// assertions keep finding patterns regardless of which file the code
+// lives in (same pattern as readDashboard above).
+function readPortal() {
+  const parts = [read(path.join(ROOT, 'docs/pro/portal.html'))];
+  const p = path.join(ROOT, 'docs/pro/js/portal.js');
+  if (fs.existsSync(p)) parts.push(read(p));
+  return parts.join('\n');
+}
+
 function syntaxCheck(file) {
   try {
     execSync(`node --check "${file}"`, { stdio: 'pipe' });
@@ -240,6 +253,7 @@ module.exports = {
   read,
   readDashboard,
   readDashboardMain,
+  readPortal,
   readCrm,
   readMaps,
   readD2DLive,

@@ -12,7 +12,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readFunctionsIndex, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readFunctionsIndex, readPortal, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -235,7 +235,7 @@ section('F-06: getHomeownerPortalView is POST-only');
     assert('F-06: token sourced from body, not query',
       /const token = \(req\.body && req\.body\.token\)/.test(block[0]));
   }
-  const portal = read(path.join(ROOT, 'docs/pro/portal.html'));
+  const portal = readPortal();
   assert('F-06: portal.html uses POST + JSON body',
     /method:\s*'POST'[\s\S]{0,400}body:\s*JSON\.stringify\(\{\s*token\s*\}\)/.test(portal));
 }
