@@ -3,15 +3,17 @@
 **Target:** https://nobigdealwithjoedeal.com/pro — LIVE prod, tenant zero (JD).
 **Last session:** `2026-06-09-B` (verify-sweep)
 
-## Coverage: **577 / 1363 verified (42.3%)**
+## Coverage: **678 / 1363 verified (49.7%)**
 
 | status | count |
 |--------|-------|
-| PASS | 418 |
+| PASS | 509 |
 | FAIL | 27 |
-| BLOCKED | 116 |
+| BLOCKED | 126 |
 | FIXED | 16 |
-| UNTESTED | 786 |
+| UNTESTED | 685 |
+
+> **2026-06-10 (cont. 6):** **d4-estimate 95/95 + gap-esign-estimate 6/6** done. V2 builder fully driven (mode/job/tier tabs, 17 measurement fields, 6 presets, 270-item catalog search + 14 category chips, scope add/remove, customer/claim fields, 4 finalize modes → branded Insurance Scope output). Classic builder full 4-step flow (Measurements→Roof Type→Package→Review) with $20,575 total, tier cards, deposit override, export/save/internal/revision — re-confirms the estimate-qa classic-unify fixes are live. Estimate-list card actions (Edit/Duplicate/Rename/Assign/Delete) all PASS — cleaned up a leftover UNTITLED throwaway + the test duplicate. e-sign Send-for-Signature + auto-measure + QM-import = outbound/native boundaries. **Zero new bugs** on this surface (engine was already 93/93 oracle-verified in estimate-qa). Crossed **49.7%**.
 
 > **2026-06-10 (cont. 5):** **gap-carddetail 33/33, gap-deleteconfirm 17/17, gap-misc 23/23** done. Card-detail modal fully exercised on a ZZ_QA lead (nav actions, invoice/report/voice overlays, share-portal token copy, task add/check, chips, edit-route, closes); **NEW-D22 found** (card-detail Tasks per-task × delete is a no-op that freezes the renderer — yet direct deleteDoc works). gap-deleteconfirm: native confirm OK/Cancel PASS; the `.sa-overlay` rows are the PWA-only nbdConfirm (standalone-compat gated on isStandalone — not testable in a normal tab, BLOCKED). gap-misc: ask-joe.html + analytics.html standalone pages render + controls work; toast close + home-widget remove PASS; SPA #joe rows map to d9 (NEW-D15/D16). Clear-all-notifications PASS (LS-backed, restored).
 
@@ -47,7 +49,7 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 | d1-chrome | dashboard global chrome + nav | 68 | P1 | 52/68 (nav+chrome+cmd palette; 16 top-nav/mobile deferred) |
 | d2-home | dashboard Home widgets | 42 | P1 | 25/42 (widgets+goal+tasks+quickadd; 2 FAIL) |
 | d3-pipeline | Pipeline/Kanban + lead modals | 101 | P1 | 27/101 — **all critical P1 flows verified**; tail remains (see resume) |
-| d4-estimate | Estimate builder V2 | 95 | P1 | — |
+| d4-estimate | Estimate builder V2 | 95 | P1 | **95/95 (2026-06-10)**: V2 builder (tabs/fields/presets/catalog/scope/finalize) + Classic 4-step flow + list card actions all PASS; auto-measure/e-sign/QM-import = boundaries. Zero new bugs (engine 93/93 in estimate-qa) |
 | d5-docs | Documents / PDF generator | 55 | P1 | **55/55 touched (2026-06-09-B)**: 42 PASS, 5 FAIL (NEW-D1 invoice/change_order/contract previews, NEW-D2 save-no-op, NEW-D3 Blank btn), 8 BLOCKED (native/file/sign-unreachable). 23-type generate matrix done; e-sign structurally unreachable from Templates (NEW-D2) — test on customer/estimate surfaces |
 | d6-photos | Photos engine | 53 | P1 | — |
 | customer | customer.html job detail | 146 | P1 | **130/146 (2026-06-10)** on a ZZ_QA lead: header actions, 7 tabs, task/note/edit/stage/claim/profit round-trips, portal generate/copy/preview, doc-preflight gate + blank preview, report/picker modals. FAILs: NEW-D19 estimate-save + NEW-D18 reports panel (PR #611), NEW-D20 portal reply, NEW-D21 review-href. ~45 photo rows BLOCKED (native picker / needs photos). The old "mutations freeze CDP" = stage-move self-reload, demystified |
@@ -55,7 +57,7 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 | gap-mobile | dashboard mobile nav/FAB/drawer | 39 | P1 | — |
 | gap-deleteconfirm | destructive confirm boundaries | 17 | P1 | **17/17 (2026-06-10)**: native confirm OK/Cancel PASS; clear-all-notif PASS; `.sa-overlay` rows BLOCKED (PWA-only nbdConfirm, not testable in normal tab) |
 | gap-prospects | Prospects view + CRM diagnostic | 39 | P1 | — |
-| gap-esign-estimate | estimate e-sign / docviewer bar | 6 | P1 | — |
+| gap-esign-estimate | estimate e-sign / docviewer bar | 6 | P1 | **6/6 (2026-06-10)**: output viewer Save/Email/Print/Download PASS; e-sign overlay rows BLOCKED (outbound Send-for-Signature boundary) |
 | gap-misc | ask-joe/analytics/toast/dedup | 23 | P2 | **23/23 (2026-06-10)**: ask-joe.html + analytics.html standalone render+controls; toast close + widget-remove PASS; dedup PASS; SPA #joe → d9 (NEW-D15/D16); credential rows BLOCKED |
 | d7-settings | Settings (all tabs) — STRICT BAR | 185 | P2 | 27/185 — **ALL 11 tabs touched**; Help/Access/Team/Billing done (export+GDPR-delete-boundary+tour PASS); **NEW-2 + NEW-4 FAIL; NEW-3 killed; NEW-C10/11/12/13 candidates** |
 | d8-tools | Tools nav group | 123 | P2 | **55/123 (2026-06-09-B)**: navs+docs-dups+D2D core (knock lifecycle/CSV/route/tabs PASS) + Academy (course/lesson/quiz/node PASS; accordion FAIL → PR #606); **Products 10 FAIL (NEW-D5 dead chrome) + Training 5 FAIL (NEW-D7 dead chrome)**. Remaining: maps #/map 009-034 + draw 035-075 (Leaflet-hostile per-control tail) + 122 mobile |
@@ -72,7 +74,7 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 3. **P3 secondary/public** — pages-b ▸ public.
 
 ## ▶ RESUME POINT
-**NEXT: `d4-estimate`** (95 rows — estimate builder V2; +gap-esign-estimate) ▸ **d3-pipeline tail** (74) ▸ **d2-home remainder** (17) ▸ **d6-photos** (53 — also unblocks the ~45 customer photo rows + gap-carddetail-019; seed photos on a ZZ_QA lead if automatable, else Jo-driven) ▸ **d8 maps/draw tail** (009–034 + 035–075, Leaflet-hostile) ▸ portal ▸ pages-a/b ▸ public ▸ mobile passes (gap-mobile + d1 mobile + d8-122 + d9-052/053).
+**NEXT: `d3-pipeline tail`** (74) ▸ **d2-home remainder** (17) ▸ **d6-photos** (53 — also unblocks the ~45 customer photo rows + gap-carddetail-019; seed photos on a ZZ_QA lead if automatable, else Jo-driven) ▸ **d8 maps/draw tail** (009–034 + 035–075, Leaflet-hostile) ▸ portal ▸ pages-a/b ▸ public ▸ mobile passes (gap-mobile + d1 mobile + d8-122 + d9-052/053). _d4-estimate + gap-esign-estimate DONE (49.7%)._
 **Carry-ins:** flip customer-114 (+116–118, 045–048, 082–085) when **PR #611** merges (NEW-D19 estimate save + NEW-D18 reports loader); customer-052 NEW-D21 re-check with photos; NEW-D20 portal-reply fix needs a callable-auth investigation; NEW-D17 stale-panel refresh hooks. Re-test d8-118 (SMS chooser) with a callback-dispo knock; NEW-D9 date-pill data-shape check; gap-050 journey-report generate (now deletable post-#609); d9-042/043 + gap-017/018 insurance deal fields; gap-014 closeboard analytics tab. Products+Training delegate chips: Jo runs both worktrees (`nbd-wt-product-library`, `nbd-wt-tools-wiring`) — they overlap on product-library.js, reconcile before merging.
 _Tooling note: javascript_tool has NO top-level await — wrap in `(async()=>{…})()`. Synthetic `.click()` does not trip some delegates (nav-section, product-lib) — always confirm dead controls with REAL computer-tool clicks before logging. `confirm` stubs must return true for the viewer's "Close without saving?" or viewers stack._
 
