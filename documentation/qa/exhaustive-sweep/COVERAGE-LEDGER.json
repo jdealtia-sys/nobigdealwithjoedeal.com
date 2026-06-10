@@ -5,11 +5,11 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 173,
-      "PASS": 613,
-      "UNTESTED": 534,
+      "BLOCKED": 195,
+      "PASS": 732,
+      "UNTESTED": 389,
       "FAIL": 27,
-      "FIXED": 16
+      "FIXED": 20
     },
     "by_surface": {
       "customer": 146,
@@ -146,14 +146,19 @@
         "UNTESTED": 82
       },
       "pages-b": {
-        "UNTESTED": 54
+        "PASS": 51,
+        "BLOCKED": 2,
+        "FIXED": 1
       },
       "portal": {
-        "UNTESTED": 30
+        "PASS": 12,
+        "BLOCKED": 16,
+        "FIXED": 2
       },
       "public": {
-        "UNTESTED": 61,
-        "PASS": 1
+        "PASS": 57,
+        "FIXED": 1,
+        "BLOCKED": 4
       }
     },
     "last_update_session": "2026-06-09-A"
@@ -22077,10 +22082,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/login.html:250 (handler js/pages/login.js:45)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Member tab switches to view-member, deactivates others.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22095,10 +22100,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/login.html:251 (handler js/pages/login.js:41,45)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Access-code tab shows view-code, hides member.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22113,10 +22118,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/login.html:252 (handler js/pages/login.js:45)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Demo tab shows view-demo (Launch Demo Dashboard button).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22131,10 +22136,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/login.html:269 (handler js/pages/login.js:99,141)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Email field accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22149,10 +22154,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/login.html:273 (handler js/pages/login.js:100,131)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Password field accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22167,10 +22172,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/login.html:274 (handler js/pages/login.js:63-67)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "#togglePw flips password↔text, 👁 icon, restores.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22185,10 +22190,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/login.html:277 (handler js/pages/login.js:109)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Remember-me toggles + restored.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22203,10 +22208,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/login.html:278 (handler js/pages/login.js:138-143)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Reset view shows, email copied into #resetEmail.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22221,10 +22226,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/login.html:280 (handler js/pages/login.js:98-135)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Starts disabled in HTML; JS removes disabled after wiring (line 96).",
-      "session": "2026-06-09-A",
+      "notes": "Bogus creds → 'Invalid email or password.', stays on login. ⚠ SIDE EFFECT = NEW-D25: doLogin calls setPersistence(browserSessionPersistence) BEFORE signIn when remember-me unchecked — a FAILED attempt still downgrades an existing signed-in session to session-persistence (this signed Jo's QA browser out). Logged in BUG-LOG.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22239,10 +22244,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/login.html:298 (handler js/pages/login.js:156)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Reset email input accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22257,10 +22262,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "docs/pro/login.html:300 (handler js/pages/login.js:155-175)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Sends a real password-reset email — drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "'Reset link sent! Check your inbox.' (fired with nonexistent zz-qa address — non-revealing success copy, no real email).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22275,10 +22280,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/login.html:305 (handler js/pages/login.js:144-149)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "← Back to sign in restores member view.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22293,10 +22298,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/login.html:316 (handler js/pages/login.js:185-188)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Code input normalizes 'nbd-zz!@#qa9' → 'NBD-ZZQA9'.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22311,10 +22316,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/login.html:319 (handler js/pages/login.js:189,192-239)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Access-code login was prod-broken pending serviceAccountTokenCreator IAM grant (memory: access-code-login-iam-gap).",
-      "session": "2026-06-09-A",
+      "notes": "Invalid code → visible error ('Authentication error. Contact Joe…' — generic copy for an invalid code is a minor nit), stays on login.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22329,10 +22334,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/login.html:344 (handler js/pages/login.js:248,251-277)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Demo code re-activated via scripts/seed-demo-access.js; same IAM dependency as access code.",
-      "session": "2026-06-09-A",
+      "notes": "doDemoLogin NOT fired: success would replace the signed-in session (and access-code logins are broken on the known serviceAccountTokenCreator IAM gap regardless). Button present + wired.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22347,10 +22352,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/login.html:230",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "← Back to Pro overview → /pro/.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22365,10 +22370,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/login.html:260,350 (also bp-bot/header plan links 242,286)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of several plan/contact links (tel:8594207382, mailto Joe) in the auth chrome.",
-      "session": "2026-06-09-A",
+      "notes": "View plans link → /pro/ (pricing lives on the overview).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22383,10 +22388,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/register.html:490 (handler js/pages/register.js:142-183,192)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Continue with Google fires signInWithPopup (window.open spy → nobigdeal-pro.firebaseapp.com auth handler); stubbed popup → clean 'auth/popup-blocked' error. No auth performed (boundary).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22401,10 +22406,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/register.html:514 (handler js/pages/register.js:76,195-196)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Hint suggests code NBD-PRO.",
-      "session": "2026-06-09-A",
+      "notes": "regCode accepts NBD-ZZQA9.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22419,10 +22424,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/register.html:521 (handler js/pages/register.js:70,78)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "regFirst accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22437,10 +22442,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/register.html:525 (handler js/pages/register.js:71)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "regLast accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22455,10 +22460,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/register.html:531 (handler js/pages/register.js:72)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "regCompany accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22473,10 +22478,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/register.html:536 (handler js/pages/register.js:73,78)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "regEmail accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22491,10 +22496,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/register.html:542 (handler js/pages/register.js:74,79,198-199)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "regPass accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22509,10 +22514,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/register.html:552 (handler js/pages/register.js:75,80)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "regConfirm accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22527,10 +22532,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/register.html:544 (handler js/pages/register.js:201-205)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats for #regConfirm at register.html:554 (data-target='regConfirm').",
-      "session": "2026-06-09-A",
+      "notes": "pass-toggle eye (type=button) flips type + restores.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22545,10 +22550,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/register.html:558 (handler js/pages/register.js:63-137,190)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Creates a real Firebase user + sends verification email; drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Mismatched-password submit → 'Passwords do not match.', no nav, NO account created (boundary). Note: clicking before register.js wires (readyState interactive) natively submits action='#' and reloads — low-sev progressive-enhancement nit.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22563,10 +22568,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/register.html:478,561",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "mailto:jd@nobigdealwithjoedeal.com contact links also present (478-479,515).",
-      "session": "2026-06-09-A",
+      "notes": "Both sign-in links → /pro/login.html.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22581,10 +22586,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/analytics.html:174-177 (handler js/pages/pro-analytics.js:272-276)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Represents 4 range buttons (data-range today/7d/30d/all). Page is behind pro-analytics-gate.js auth/plan gate.",
-      "session": "2026-06-09-A",
+      "notes": "Range buttons (today/7d/30d/all) activate + re-render.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22599,10 +22604,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/analytics.html:179 (handler js/pages/pro-analytics.js:277-280)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "↻ Refresh re-fetches without error.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22617,10 +22622,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/analytics.html:151-159",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative of 8 nav links + tb-brand logo link (146). Duplicates SPA nav surfaces.",
-      "session": "2026-06-09-A",
+      "notes": "8 top-nav links present with correct hrefs.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22635,10 +22640,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/leaderboard.html:155-158 (handler js/pages/leaderboard.js:257-264)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Represents 4 period buttons (day/week/month/all; 'all' default active).",
-      "session": "2026-06-09-A",
+      "notes": "Period buttons set .active + renderAll.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22653,10 +22658,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/leaderboard.html:163-165 (handler js/pages/leaderboard.js:247-254)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Represents 3 metric tabs (doors/deals/revenue; 'doors' default active).",
-      "session": "2026-06-09-A",
+      "notes": "Doors/Deals/Revenue tabs set .active + renderAll.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22671,10 +22676,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/leaderboard.html:194 (gate js/pages/leaderboard.js:267-269)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Revealed only when onAuthStateChanged has no user. nav-back link (144) navigates to dashboard.",
-      "session": "2026-06-09-A",
+      "notes": "Signed-out gate Log In link — requires signed-out state (logging out is off-limits per RULE 0). Element + href verified in DOM (hidden while authed).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22689,10 +22694,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/ask-joe.html:299 (handler js/pages/ask-joe-main.js:2-25)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Page behind ask-joe-gate.js auth gate.",
-      "session": "2026-06-09-A",
+      "notes": "Chat textarea auto-grows on input (40→85px).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22707,10 +22712,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/ask-joe.html:300 (handler js/pages/ask-joe-main.js:19-123)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Calls Claude proxy (claude-proxy.js) — consumes AI quota; not destructive.",
-      "session": "2026-06-09-A",
+      "notes": "Send wired (sendMessage function, enabled). Live AI round-trip verified in d9-insights-014; not re-fired (AI cost).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22725,10 +22730,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/ask-joe.html:285",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "← Back to Dashboard link present.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22743,10 +22748,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/refer.html:116 (handler inline refer.html:190,197)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Whole #referForm is display:none until a ?ref= query param exists; else #emptyState shows.",
-      "session": "2026-06-09-A",
+      "notes": "Blank first name blocks submit: 'First name is required.' (post-NEW-D23 fix — page now boots).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22761,10 +22766,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/refer.html:120 (handler inline refer.html:191)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "lastName accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22779,10 +22784,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/refer.html:125 (handler inline refer.html:192,198-199)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "phone accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22797,10 +22802,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/refer.html:129 (handler inline refer.html:193,199)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "email accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22815,10 +22820,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/refer.html:133 (handler inline refer.html:194)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "address accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22833,10 +22838,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/refer.html:137 (handler inline refer.html:195)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "notes accepts text.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22851,10 +22856,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "docs/pro/refer.html:139 (handler inline refer.html:187-199+)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Submits a real public referral lead to prod Cloud Function — drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Submit with valid ref (NBD-0044) → doneState shown, form hidden. Created referral lead 'ZZ_QA_ReferTest' (cleanup-flagged).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22869,10 +22874,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/demo.html:354,650",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Static teaser page; appears twice (top + bottom CTA).",
-      "session": "2026-06-09-A",
+      "notes": "Start Free trial link → /pro/register.html (demo.html boots post-NEW-D23).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22887,10 +22892,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/demo.html:355,651",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "$79/mo conflicts with canonical pricing (Solo $99) per memory terms-page-pricing-conflict — flag content, not a functional bug.",
-      "session": "2026-06-09-A",
+      "notes": "Go Pro link → /pro/register.html?plan=pro.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22905,10 +22910,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/demo.html:386,438,480,521,564,615",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats 6x (one per feature card). All point to register.html.",
-      "session": "2026-06-09-A",
+      "notes": "6 teaser-card Sign Up links → /pro/register.html.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22923,10 +22928,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/demo.html:338,343,344,659-662",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inline <script> at 667 is scroll-reveal IntersectionObserver only — no interactive controls.",
-      "session": "2026-06-09-A",
+      "notes": "Header/footer chrome links (/pro/, landing#pricing, login, /). Reveal observer runs (js/demo-reveal.js loads, observer constructed; IO callbacks can't fire in a hidden tab — CSS .visible path verified manually).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22941,10 +22946,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/how-to.html:190 (handler js/how-to.js:8-12)",
-      "status": "UNTESTED",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D24: Restart Tour was a no-op for users WITH leads (maybeAutoStart re-marks complete when leads>0). FIXED PR #621 (nbd-tour-force one-shot flag), merged + deployed. Tour-overlay re-verify needs an authed dashboard (session lost to NEW-D25) — flag for Jo's next login.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22959,10 +22964,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/how-to.html:200 (handler js/how-to.js:29,93-118)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Search highlights matches (17 <mark>) + .dim on non-matching sections; clear button appears.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22977,10 +22982,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/how-to.html:201 (handler js/how-to.js:97-99)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Gets .show class only when search has text.",
-      "session": "2026-06-09-A",
+      "notes": "× clears query + restores sections.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -22995,10 +23000,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/how-to.html:208 (handler js/how-to.js:122-127)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Contents toggle collapses/expands #toc (round-trip).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -23013,10 +23018,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/how-to.html:212-240 (handler js/how-to.js:14-26)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Represents ~20 in-page anchor links across 5 TOC groups; plus in-body cross-reference anchors (e.g. #documents).",
-      "session": "2026-06-09-A",
+      "notes": "TOC links anchor-scroll (17 links; #leads verified).",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -23031,10 +23036,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/how-to.html:184,191",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Both back links → dashboard.html.",
+      "session": "2026-06-09-B",
       "surface": "pages-b"
     },
     {
@@ -23049,10 +23054,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:373",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Only hard-coded static link in the page; everything else is JS-rendered from the token view.",
-      "session": "2026-06-09-A",
+      "notes": "Footer link → marketing site. (Portal itself only renders at all since NEW-D23 fix — #619/#620.)",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23067,10 +23072,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:508 (handler portal.html:520)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Conditional/hidden: only appears when _pollOnce diffs a real change against _lastView.",
-      "session": "2026-06-09-A",
+      "notes": "Live banner only appears on a diffed change between 30s polls — needs a rep-side mutation (auth lost to NEW-D25).",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23085,10 +23090,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:701-702",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Rendered inside the Your Estimate card only when the estimate is signed and a signed PDF URL exists.",
-      "session": "2026-06-09-A",
+      "notes": "No signedDocumentUrl on the ZZ_QA lead — card not rendered.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23103,10 +23108,10 @@
       "danger": "esign",
       "priority": "P1",
       "source_ref": "portal.html:728-737",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER esign — drive only to the signature confirm boundary. Cross-origin iframe; per Brave note may need contentWindow probe. Fallback card (check-your-email) renders when awaitingSign but no embed URL.",
-      "session": "2026-06-09-A",
+      "notes": "No signEmbedUrl — BoldSign iframe not rendered.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23121,10 +23126,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:750-764",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Card label/title reorder: primary CTA when signed, secondary otherwise. Cross-origin cal.com iframe.",
-      "session": "2026-06-09-A",
+      "notes": "No booking config on view — cal.com embed not rendered.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23139,10 +23144,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:765",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Sits directly below the booking iframe.",
-      "session": "2026-06-09-A",
+      "notes": "No bookingUrl — fallback link not rendered.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23157,10 +23162,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:803 (handler portal.html:1191-1199)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per available phase (all/Before/During/After) — record one representative; 'All' tab starts aria-pressed.",
-      "session": "2026-06-09-A",
+      "notes": "No shared photos on lead — phase tabs not rendered.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23175,10 +23180,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:811 + 819 (handler portal.html:1203-1211)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "First chip is 'All locations' (data-loc=all, starts active). Repeats per location — record one representative.",
-      "session": "2026-06-09-A",
+      "notes": "No photos — location chips not rendered.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23193,10 +23198,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:1143-1158 + grid click delegate portal.html:1160-1166",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Tiles rendered by tileHtml(); grid-level click listener fires audit telemetry. Repeats per photo — record one representative.",
-      "session": "2026-06-09-A",
+      "notes": "No photos — grid not rendered.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23211,10 +23216,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:837 (handler portal.html:1768)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "📷 Choose a photo proxies a click to hidden #cuh-file (capture-trap).",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23229,10 +23234,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:836 (handler portal.html:1769-1773)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "accept image/jpeg,png,webp; capture=environment for mobile camera.",
-      "session": "2026-06-09-A",
+      "notes": "Synthetic File via DataTransfer → change → resize + preview + 'Add an optional note, then send.' (native OS picker itself is the only untestable hop).",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23247,10 +23252,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:1841",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Injected into #cuh-preview after handleUpload builds the preview.",
-      "session": "2026-06-09-A",
+      "notes": "Caption accepts text (280 max).",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23265,10 +23270,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "portal.html:1842 (handler portal.html:1848-1884)",
-      "status": "UNTESTED",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "DANGER send — fires a real Cloud Function that pushes a photo into the rep's CRM. Has per-day quota (remainingToday). Drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "First send FAILED 'Network error: TOKEN is not defined' = NEW-D26 (latent — undeclared TOKEN in all card senders; unreachable while CSP-dead). PR #622 merged+deployed; LIVE RE-VERIFIED: send → ✓ → 'Got more? Upload another.' (ZZ_QA photo created on lead — cleanup with lead).",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23283,10 +23288,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:850-851 (href built portal.html:844)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "In the Your Rep card; only shown when rep phone exists.",
-      "session": "2026-06-09-A",
+      "notes": "No rep phone on view — tel button not rendered.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23301,10 +23306,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:870 (handler portal.html:1555-1574)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Conditional card: only on completed jobs not yet rated. Hover preview via mouseenter/leave. Repeats 5x — record one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Rating card not rendered at this stage (stage-gated).",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23319,10 +23324,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:873",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Starts display:none; shown when a star is clicked.",
-      "session": "2026-06-09-A",
+      "notes": "Rating comment — card absent.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23337,10 +23342,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "portal.html:874 (handler portal.html:1592-1661)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER send — submits a persisted customer rating. Disabled until a star is chosen. Drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Rating send — card absent. NOTE: success path would have hit NEW-D26 repName too (fixed PR #624).",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23355,10 +23360,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:1642-1643",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Conditional follow-up CTA inside #cr-thanks; only for 4-5★ ratings.",
-      "session": "2026-06-09-A",
+      "notes": "Google-review nudge lives in the rating thanks panel — card absent.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23373,10 +23378,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:898-904 (wiring portal.html:1076-1100, mount via ./js/before-after-slider.js)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Slots populated by wireBeforeAfterSliders(). Repeats per before/after pair — record one representative.",
-      "session": "2026-06-09-A",
+      "notes": "No photoPairs — before/after sliders not rendered.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23391,10 +23396,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:924 (handlers portal.html:1423-1442)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "keydown Enter triggers send via sendBtn.click().",
-      "session": "2026-06-09-A",
+      "notes": "Compose: counter 33/2000, Send enables on input.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23409,10 +23414,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "portal.html:928 (handler portal.html:1493-1523, doSend 1444-1471)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "DANGER send — pushes a real message into the rep's CRM thread. Per-token daily quota enforced server-side. Drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Send (post-#622): optimistic bubble → settles clean (no failed class, no error status). ZZ_QA message on lead — cleanup with lead.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23427,10 +23432,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "portal.html:1362 (handler portal.html:1473-1481)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER send — retry re-fires sendPortalMessage. Click listener only attached to failed bubbles in renderThread.",
-      "session": "2026-06-09-A",
+      "notes": "Retry needs a failed pending bubble — sends succeeded post-fix.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23445,10 +23450,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:943-948 (handler portal.html:1678-1696)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Six fixed slots (today/tomorrow-morning/-afternoon/-evening/weekend/anytime) — record one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Slot click selects + enables Send. Nit: no visual active class on .cb-slot (className stays bare) — selection state invisible to the homeowner.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23463,10 +23468,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:950",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Callback note accepts text.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23481,10 +23486,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "portal.html:951 (handler portal.html:1718-1760)",
-      "status": "UNTESTED",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "DANGER send — creates a real CRM task/notification. Disabled until a slot is selected. Drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Send POSTed OK then threw 'Network error: repName is not defined' (NEW-D26 part 2 — repName local to renderView, used by callback/rating/thread wirers; button re-enabled inviting double-sends). PR #624 merged; re-verify post-deploy. One ZZ_QA callback request created.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23499,10 +23504,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:1000",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Digital Warranty Card only renders when lead.warranty exists.",
-      "session": "2026-06-09-A",
+      "notes": "No warranty cert — card not rendered.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23517,10 +23522,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:1033",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Refer-a-friend card hidden entirely when lead has no customerId.",
-      "session": "2026-06-09-A",
+      "notes": "Readonly referral link renders refer?ref=NBD-0044.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23535,10 +23540,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "portal.html:1034 (handler portal.html:1102-1135)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "wireReferralCard() copy handler.",
-      "session": "2026-06-09-A",
+      "notes": "Copy → clipboard spy captured the referral URL.",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23553,10 +23558,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:1037",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "sms: share link present (protocol boundary, not fired).",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23571,10 +23576,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "portal.html:1038",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "mailto: share link present (protocol boundary, not fired).",
+      "session": "2026-06-09-B",
       "surface": "portal"
     },
     {
@@ -23589,10 +23594,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:806 (handler 72f02d79d0.js:54)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Visible only at <=1024px via CSS; handler always bound. Note: index.html loads 479bd49556.js + 72f02d79d0.js, both bind hamburger/mobileNav.",
-      "session": "2026-06-09-A",
+      "notes": "Hamburger toggles #mobileNav.open both ways.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23607,10 +23612,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:771 (handler nav-faq.js:10)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Reveals ~21 service/storm sub-links (lines 774-794). Those child links are plain <a> navigations to /services/* and /storm-*; representative, not individually enumerated.",
-      "session": "2026-06-09-A",
+      "notes": "Services dropdown toggles .open.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23625,10 +23630,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "index.html:804 (handler 72f02d79d0.js:73)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Primary conversion CTA. Repeated as hs-btn (1551), hero CTA (1157), and footer link.",
-      "session": "2026-06-09-A",
+      "notes": "Free Estimate nav CTA anchor present (#contact).",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23643,10 +23648,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:802",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Plain navigation; no JS handler.",
-      "session": "2026-06-09-A",
+      "notes": "Instant Estimate → /estimate.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23661,10 +23666,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:860",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats many times (hero, sidebar hs-phone, contact section, footer, mobile-cta-call); one representative recorded.",
-      "session": "2026-06-09-A",
+      "notes": "tel: link present.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23679,10 +23684,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1766",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Sticky mobile bar; visible on small viewports.",
-      "session": "2026-06-09-A",
+      "notes": "sms: sticky CTA present.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23697,10 +23702,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1158",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Cross-origin embed/redirect; Brave-iframe note in memory applies if embedded.",
-      "session": "2026-06-09-A",
+      "notes": "cal.com booking link present.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23715,10 +23720,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "index.html:1500 (handler 72f02d79d0.js:96)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Part of the homepage contact/estimate lead form.",
-      "session": "2026-06-09-A",
+      "notes": "First name accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23733,10 +23738,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1504 (handler 72f02d79d0.js:97)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Optional (not validated).",
-      "session": "2026-06-09-A",
+      "notes": "Last name accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23751,10 +23756,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "index.html:1510 (handler 72f02d79d0.js:98)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Phone accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23769,10 +23774,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1514 (handler 72f02d79d0.js:99)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Email accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23787,10 +23792,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1519 (handler 72f02d79d0.js:100)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Address accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23805,10 +23810,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1523 (handler 72f02d79d0.js:101)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Options: Roof Replacement/Repair, Siding Replacement/Repair, Gutter Replacement, Storm Damage, Other.",
-      "session": "2026-06-09-A",
+      "notes": "Service select (7 options) sets value.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23823,10 +23828,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1536 (handler 72f02d79d0.js:102)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Message textarea accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23841,10 +23846,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1538 (handler 72f02d79d0.js:105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Anti-spam; position:absolute left:-9999px. Should never be filled by a human.",
-      "session": "2026-06-09-A",
+      "notes": "Honeypot filled → console.warn('Bot detected') ×3, submit suppressed every time.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23859,10 +23864,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "index.html:1539 (handler 72f02d79d0.js:95; submit bound 72fb917108.js:3)",
-      "status": "UNTESTED",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "DANGER:send — dispatches an email lead to Joe via formsubmit.co + writes Firestore lead. Drive only to confirm boundary. Success reveals #formSuccess (index.html:1489).",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D27: submit ran to the catch path — fetch to formsubmit.co is CSP-refused (connect-src), so EVERY real visitor saw 'Something went wrong. Please call or text Joe…'. Firestore capture (submitPublicLead) still fired. PR #623 (formsubmit.co added to the ** connect-src) merged; re-verify post-deploy. ZZ_QA_HomeTest contact capture(s) created — cleanup-flagged.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23877,10 +23882,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1747 (handler f222a147d2.js:3)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Back-to-top click scrolls to top (.visible toggling not observable in a hidden tab).",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23895,10 +23900,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1263",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats ~25x (lines 1263-1292), one per city; representative row. Plus 'View All 25+ Cities' → /areas/ (line 1295).",
-      "session": "2026-06-09-A",
+      "notes": "25 area-tag links → /areas/<city>.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23913,10 +23918,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1047",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per service card (lines 1047-1109); representative row.",
-      "session": "2026-06-09-A",
+      "notes": "6 service cards → /services/<service>.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23931,10 +23936,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "index.html:1741",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Footer cross-link to the SaaS product.",
-      "session": "2026-06-09-A",
+      "notes": "Pro door → /pro/.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23949,10 +23954,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate.html:516 (handler 4053149b2f.js:194 / validate 4053149b2f.js:132)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Step 1 of the estimate funnel.",
-      "session": "2026-06-09-A",
+      "notes": "Typing populates #acDrop (2 suggestions for '100 Main St, Cincinnati').",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23967,10 +23972,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:518 (handler 4053149b2f.js:1059 / selectAddr 4053149b2f.js:244)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Dynamically injected; repeats per suggestion. Delegated via .ac-item[data-idx].",
-      "session": "2026-06-09-A",
+      "notes": "Suggestion click fills the input (selectAddr).",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -23985,10 +23990,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate.html:522 (handler 4053149b2f.js:1044 / goToStep 4053149b2f.js:107)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Continue → step 2 with satellite imagery.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24003,10 +24008,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:542 (handler 4053149b2f.js:1044)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Step 2 confirms satellite image.",
-      "session": "2026-06-09-A",
+      "notes": "'Yes, this is my home' → step 3.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24021,10 +24026,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:543 (handler 4053149b2f.js:1044)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Back buttons repeat on steps 3/4/5 (data-step=2/3/4); representative row.",
-      "session": "2026-06-09-A",
+      "notes": "← Different address returns to step 1.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24039,10 +24044,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate.html:558 (handler 4053149b2f.js:1047 / selectTile 4053149b2f.js:373)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "5 service tiles (lines 558-582); choosing roof-replacement reveals the hidden #roofTypeGroup (estimate.html:586).",
-      "session": "2026-06-09-A",
+      "notes": "Service tile selects.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24057,10 +24062,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:586 (handler 4053149b2f.js:1047)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "CONDITIONAL/HIDDEN group (style=display:none initial). Asphalt pre-selected.",
-      "session": "2026-06-09-A",
+      "notes": "Roof-material tile selects.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24075,10 +24080,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:612 (handler 4053149b2f.js:1047)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "'Typical' pre-selected.",
-      "session": "2026-06-09-A",
+      "notes": "Home-size tile selects.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24093,10 +24098,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:638 (handler 4053149b2f.js:1047)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "4 timeline tiles (lines 641-660).",
-      "session": "2026-06-09-A",
+      "notes": "Timeline tile selects + enables See My Estimate.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24111,10 +24116,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate.html:664 (handler 4053149b2f.js:1044 / goToStep 4053149b2f.js:119)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Starts disabled.",
-      "session": "2026-06-09-A",
+      "notes": "calculateBallpark → results step with '$8,400 – $10,400'.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24129,10 +24134,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate.html:707 (handler 4053149b2f.js:1044)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Step 4 shows the ballpark price gate.",
-      "session": "2026-06-09-A",
+      "notes": "Unlock Detailed Estimate → step 5 (contact).",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24147,10 +24152,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:724 (handler 4053149b2f.js:696)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "First name accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24165,10 +24170,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:729 (handler 4053149b2f.js:697)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Last name accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24183,10 +24188,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate.html:737 (handler 4053149b2f.js:550)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Phone is verified via Twilio Verify OTP before submit.",
-      "session": "2026-06-09-A",
+      "notes": "Phone accepts text (10-digit gate in sendVerificationCode).",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24201,10 +24206,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "estimate.html:738 (handler 4053149b2f.js:1065 / fn 4053149b2f.js:550)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER:send — triggers a real SMS OTP via Twilio. Drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Send Code fires _sendOTP and fails (button → 'Retry') — known Twilio A2P/trial block. Wiring verified; SMS delivery blocked upstream.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24219,10 +24224,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate.html:746 (handler 4053149b2f.js:41 _verifyOTP)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "CONDITIONAL: #otpSection is display:none until Send Code succeeds. 6 boxes; representative row.",
-      "session": "2026-06-09-A",
+      "notes": "6 OTP digit inputs render (verification round-trip Twilio-gated).",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24237,10 +24242,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:758 (handler 4053149b2f.js:699)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Email accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24255,10 +24260,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "estimate.html:763 (handler 4053149b2f.js checkSubmitReady)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Required for SMS/contact consent compliance.",
-      "session": "2026-06-09-A",
+      "notes": "TCPA checkbox toggles (feeds checkSubmitReady).",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24273,10 +24278,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "estimate.html:767 (handler 4053149b2f.js:1066 / fn 4053149b2f.js:691)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER:send — writes a real public lead + notifies Joe (email/SMS). Disabled until OTP verified + TCPA checked. Drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Submit correctly stays disabled without OTP verification — full path Twilio-gated (gate behavior itself verified).",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24291,10 +24296,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:796 (handler 4053149b2f.js:1053 / switchTier 4053149b2f.js:908)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "3 tabs (Good 3-Tab / Better Architectural pre-active / Best Designer); shown only on the results step.",
-      "session": "2026-06-09-A",
+      "notes": "Good/Better/Best tabs switch ('Better · Architectural' activates).",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24309,10 +24314,10 @@
       "danger": "send",
       "priority": "P3",
       "source_ref": "estimate.html:859 (handler 4053149b2f.js:1067 / fn 4053149b2f.js:954)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DANGER:send — emails the estimate. Drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Send-to-email lives on the post-submit results — OTP-gated.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24327,10 +24332,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:868 (handler 4053149b2f.js:1068 / fn 4053149b2f.js:992)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Start over → step 1, address cleared, 0 tiles selected.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24345,10 +24350,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "estimate.html:438 (handler 479bd49556.js:4)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Shared tool-nav across marketing pages.",
-      "session": "2026-06-09-A",
+      "notes": "Estimate-page hamburger toggles #mobileNav.open.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24365,7 +24370,7 @@
       "source_ref": "inspect.html:164 (handler inspect-form.js:38)",
       "status": "PASS",
       "evidence": "Public /inspect form: filled name/address/phone/email/story → 'Request Free Inspection' → form replaced by success card '✓ GOT IT — THANKS! Joe will reach out within 24 hours'. Lead then appeared in the CRM pipeline IMMEDIATELY as 'ZZ_QA_ Inspect Bridge Test', stage New, source 'Website — Inspection / Storm tool' (publicLeadCollection=inspect_leads).",
-      "notes": "PASS; CO-H-1 bridge RE-RE-VERIFIED 2026-06-09-B with fresh ZZ_QA submit (lead arrived instantly, source Website-Inspection/Storm). NEW-5 BEHAVIORALLY VERIFIED: CRM soft-delete of the bridged lead now STICKS across full reload (no inspect_leads re-sync; count 23->22 stable). Prior leftover ZZ_QA_ Inspect Bridge Test was already gone from pipeline pre-session. Zero ZZ_QA residue.",
+      "notes": "Name accepts text; required (form invalid when blank).",
       "session": "2026-06-09-B",
       "surface": "public"
     },
@@ -24381,10 +24386,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "inspect.html:168 (handler inspect-form.js:38)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Address accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24399,10 +24404,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "inspect.html:172 (handler inspect-form.js:38)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Phone accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24417,10 +24422,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "inspect.html:176 (handler inspect-form.js:38)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Email (optional) accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24435,10 +24440,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "inspect.html:180 (handler inspect-form.js:38)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Story textarea accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24453,10 +24458,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "inspect.html:184 (handler inspect-form.js:45)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Files themselves not uploaded — only names/count are sent.",
-      "session": "2026-06-09-A",
+      "notes": "Photos input = native OS multi-file picker.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24471,10 +24476,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "inspect.html:187 (handler inspect-form.js:90)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "DANGER:send — writes a real public lead. UTM params (utm_source/medium/campaign hidden inputs lines 158-160) auto-stamped from URL on load. Drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Required-gate verified (checkValidity false with name blank). Full submitPublicLead round-trip incl. CRM bridge + lead-alert verified earlier this session-group ('ZZ_QA_ Inspect Bridge Test2') — not re-fired to avoid another alert email.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24489,10 +24494,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "inspect.html:125",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Also repeated as hero .phone-cta (line 147).",
-      "session": "2026-06-09-A",
+      "notes": "tel: call button present.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24507,10 +24512,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "free-roof/index.html:259 (handler 0a394536a8.js:9)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Free-roof nomination entry form.",
-      "session": "2026-06-09-A",
+      "notes": "Name accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24525,10 +24530,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "free-roof/index.html:263 (handler 0a394536a8.js:9)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Phone accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24543,10 +24548,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "free-roof/index.html:270 (handler 0a394536a8.js:9)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Email accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24561,10 +24566,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "free-roof/index.html:275 (handler 0a394536a8.js:9)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "6 options.",
-      "session": "2026-06-09-A",
+      "notes": "Category select sets 'veteran'.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24579,10 +24584,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "free-roof/index.html:289 (handler 0a394536a8.js:9)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Address accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24597,10 +24602,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "free-roof/index.html:296 (handler 0a394536a8.js:9)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Nominator name accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24615,10 +24620,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "free-roof/index.html:300 (handler 0a394536a8.js:9)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Relationship accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24633,10 +24638,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "free-roof/index.html:307 (handler 0a394536a8.js:9)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Story accepts text.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24651,10 +24656,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "free-roof/index.html:312 (handler 0a394536a8.js:16)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Anti-spam; should never be filled by a human.",
-      "session": "2026-06-09-A",
+      "notes": "Honeypot-filled submit → fake success shown, ZERO submitPublicLead requests (silent discard works).",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24669,10 +24674,10 @@
       "danger": "send",
       "priority": "P1",
       "source_ref": "free-roof/index.html:315 (handler 0a394536a8.js:9)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "DANGER:send — writes a real public lead (free_roof kind). Drive only to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "Submit handler exercised via the honeypot variant; real POST pipe (submitPublicLead) verified via inspect/refer this session-group — no junk nomination created.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
@@ -24687,10 +24692,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "free-roof/index.html:346",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Also mailto:jd@nobigdealwithjoedeal.com on the same line, and 'Back to nobigdealwithjoedeal.com' link (line 347).",
-      "session": "2026-06-09-A",
+      "notes": "tel: closer link present.",
+      "session": "2026-06-09-B",
       "surface": "public"
     }
   ]

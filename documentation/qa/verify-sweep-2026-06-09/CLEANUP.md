@@ -34,6 +34,7 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 | artifact | state |
 |----------|-------|
 | Lead "ZZ_QA Portal Test" (K8uRGekxr8gictxDZSLr) + its portal token (HU4ATZQ4646U7UHTKUR38Z7K) | Created to test portal.html. **The portal never loaded — all Firestore reads returned HTTP 503 (transient Google Firestore backend outage, ~12:30–12:35Z 2026-06-10) — degraded the whole app, not a portal bug.** Soft-delete was issued but during the 503 window, so it removed from local cache (count 22) yet the write may not have persisted. ⚠ **Verify this lead is gone (and the portal_tokens/HU4… doc) once Firestore recovers; re-delete if it reappears.** |
+| **UPDATE 2026-06-10 (later):** soft-delete HAD persisted (`deleted:true` verified on the doc once Firestore recovered) — and the REAL portal blocker turned out to be NEW-D23 (CSP-refused inline boot script), not the outage. Lead **deliberately RESTORED** via `restoreDeletedLead()` so the existing HU4… token works for the portal-surface pass. | ⚠ **OPEN: re-soft-delete "ZZ_QA Portal Test" (K8uRGekxr8gictxDZSLr) when the portal pass completes.** |
 
 ## d4-estimate pass (2026-06-10) — created & cleaned
 | artifact | state |
@@ -67,6 +68,17 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 | Deal "ZZ_QA ShareFix Test" (#610 verification) | **deleted** from LS + its deal_rooms storage HTML **deleted**. |
 | Stuck saved report from the prior pass | **DELETED** — #609 deploy made owner-delete work; deletion doubled as the live verification. CLEANUP ITEM CLOSED. |
 | Customer Report generated during 009 test | viewed in-preview only; persisted copy (if any) targets the now-deleted lead — purge with the lead if desired. |
+
+## portal + pages-b + public pass (2026-06-10 cont.) — created & flagged
+| artifact | state |
+|----------|-------|
+| Lead "ZZ_QA Portal Test" (K8uRGekxr8gictxDZSLr) | **STILL RESTORED** (un-deleted for the portal pass). Now carries: 1 homeowner photo upload ("zz-qa-portal-test.png", caption "ZZ_QA sweep test photo — ignore"), 1 portal message ("ZZ_QA sweep test message — ignore"), 1 callback request ("Tomorrow morning" / "ZZ_QA sweep — ignore"). ⚠ **Re-soft-delete the lead (photo/message/callback go with it) once Jo is logged back in.** |
+| Referral lead "ZZ_QA_ReferTest" (via /pro/refer?ref=NBD-0044 submit) | Created in the public referral collection + bridged to CRM; 1 lead-alert email to Jo fired. ⚠ **Soft-delete from CRM after login.** |
+| Homepage contact capture "ZZ_QA_HomeTest" (×2-3 — submitForm ran during NEW-D27 diagnosis) | `_captureContactLead` → submitPublicLead docs (+ bridged CRM lead(s)) + lead-alert email(s). The formsubmit.co email did NOT send (that was the bug). ⚠ **Soft-delete after login.** |
+| Estimate-funnel partial (ZZ_QA_EstFunnel, step-5 contact + failed OTP) | OTP send failed (Twilio-blocked) → NO lead created; funnel reset to step 1. Possible abandoned-funnel recovery doc keyed on zz-qa@example.com — harmless, purge if found. |
+| Password-reset request (zz-qa-nonexistent-sweep@example.com) | Nonexistent account — Firebase sends nothing. Zero residue. |
+| **⚠ Jo's signed-in session in the QA Chrome profile** | **LOST** — NEW-D25 repro (failed login with remember-me unchecked downgraded the existing session's persistence). **Jo must log back in**; no credentials were typed or stored by the sweep. |
+| Free-roof + register + inspect forms | Honeypot/validation boundaries only — nothing submitted for real. Zero residue. |
 
 ## Continuation pass (d9 + storm/closeboard/repos) — created & cleaned
 | artifact | state |
