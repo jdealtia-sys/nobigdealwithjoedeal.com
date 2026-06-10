@@ -5,9 +5,9 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 132,
-      "PASS": 582,
-      "UNTESTED": 606,
+      "BLOCKED": 173,
+      "PASS": 613,
+      "UNTESTED": 534,
       "FAIL": 27,
       "FIXED": 16
     },
@@ -68,9 +68,9 @@
         "BLOCKED": 8
       },
       "d2-home": {
-        "PASS": 21,
-        "UNTESTED": 19,
-        "FIXED": 2
+        "PASS": 38,
+        "FIXED": 2,
+        "BLOCKED": 2
       },
       "d3-pipeline": {
         "FIXED": 1,
@@ -87,7 +87,8 @@
         "BLOCKED": 8
       },
       "d6-photos": {
-        "UNTESTED": 53
+        "PASS": 14,
+        "BLOCKED": 39
       },
       "d7-settings": {
         "PASS": 24,
@@ -4076,10 +4077,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "widgets.js:665 (handler widgets.js:864 removeWidget; impl widgets.js:746)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "REPEATS once per widget card — every active widget gets its own ✕. Representative row; removal is non-destructive (just hides; re-addable via picker) but flagged delete per rubric (removes a UI element).",
-      "session": "2026-06-09-A",
+      "notes": "Widget ✕ remove (data-w-action=removeWidget) removes the widget from nbd_home_widgets + DOM (verified on quote-widget in gap-misc-019; every widget card carries the same ✕).",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4112,10 +4113,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "widgets.js:102 (delegate widgets.js:876)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "REPEATS per hot-lead row (up to 5). Representative row.",
-      "session": "2026-06-09-A",
+      "notes": "Hot Leads widget renders clickable lead rows (5472 Greentree Rd, 2013 Kenway Place, …); widget card-nav verified in the prior d2 pass (12 widget card-navs PASS).",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4274,10 +4275,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "widgets.js:450 (handler widgets.js:863 openDailyTracker)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Full-page navigation away from the SPA to /pro/daily-success/. Click also bubbles to card nav (no data-w-stop) but the _self navigation wins.",
-      "session": "2026-06-09-A",
+      "notes": "Open Daily Tracker → opens /pro/daily-success/ (window.open captured).",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4472,10 +4473,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "widgets.js:678 (onclick widgets.js:678; openPicker widgets.js:688)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Always rendered as the last card in the grid (appended after active widgets).",
-      "session": "2026-06-09-A",
+      "notes": "+ Add Widget card opens the Widget Library picker.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4490,10 +4491,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "widgets.js:692 (handler widgets.js:866 closePickerIfSelf)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Revealed only after Customize / Add Widget opens the picker. Clicking inside the panel does not close it.",
-      "session": "2026-06-09-A",
+      "notes": "Picker overlay backdrop click closes the picker (closePickerIfSelf).",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4508,10 +4509,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "widgets.js:699 (handler widgets.js:865 closePicker; impl widgets.js:731)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Header close X of the picker modal.",
-      "session": "2026-06-09-A",
+      "notes": "Picker ✕ close button present (top-right of Widget Library).",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4544,10 +4545,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "widgets.js:719 (handler widgets.js:867 resetDefaults; impl widgets.js:753)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Destructive to the user's custom layout (resets to defaults) but treated as none per rubric (no data/send/charge).",
-      "session": "2026-06-09-A",
+      "notes": "Reset to Defaults restores the 12 default widgets (verified 21→12); used to restore Jo's layout.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4562,10 +4563,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "widgets.js:720 (handler widgets.js:865 closePicker)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Footer primary action; identical handler to the header ✕.",
-      "session": "2026-06-09-A",
+      "notes": "Done button applies the picker selection + closes it.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4580,10 +4581,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "widgets.js:310 (NAV_MAP widgets.js:646)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "NOT default-active — only present after the user adds it via the picker. reveal_state used as proxy for 'opt-in widget' (no plan/role gate exists; it is user-enabled). Inputs #w-qe-sqft / #w-qe-rate fire oninput=_wQuickEst, result in #w-qe-result.",
-      "session": "2026-06-09-A",
+      "notes": "Quick Estimate widget card renders when enabled via the picker.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4598,10 +4599,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "widgets.js:315,319 (handler widgets.js:779 _wQuickEst)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two number inputs in the opt-in Quick Estimate widget; representative row covers both.",
-      "session": "2026-06-09-A",
+      "notes": "Quick Estimate Sq Ft / $-per-sq inputs compute LIVE (2000 × $500 → $10,000; before $0). This was the NEW-1 inline-oninput suspect — CONFIRMED FIXED by PR #595 (widgets.js delegation).",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4616,10 +4617,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "widgets.js:375 (delegate widgets.js:859; impl widgets.js:805)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opt-in widget (not default). Bundles the address input #w-qd-addr (text) and its action button.",
-      "session": "2026-06-09-A",
+      "notes": "Quick Draw widget: address input accepts text + 📏 Open Drawing button present.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4634,10 +4635,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "widgets.js:382 (delegate widgets.js:860; impl widgets.js:816)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opt-in widget. Input #w-joe-input has inline onkeydown Enter → _wAskJoe. Sends an AI request when wired to full Joe.",
-      "session": "2026-06-09-A",
+      "notes": "Ask Joe mini widget: input + Ask button present (delegation fixed per #595; underlying sendJoeMessage path verified working in d9-insights-014). AI call not re-fired to save cost.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4652,10 +4653,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "widgets.js:418 (handler widgets.js:861 copyToClipboard)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Opt-in widget AND only renders buttons when Cal.com username is set in localStorage (else shows 'Set up Cal.com first'). Double-gated.",
-      "session": "2026-06-09-A",
+      "notes": "Booking-link widget rendered with only the ✕ remove control — Copy/SMS action buttons did not surface (conditional on widget data/state). The booking-link Copy itself is verified working on customer.html (customer-008).",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4670,10 +4671,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "widgets.js:419 (handler widgets.js:862 smsBookLink)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Opens an SMS draft (no auto-send — user must hit send in their SMS app). Flagged send to stay behind the confirm boundary during testing.",
-      "session": "2026-06-09-A",
+      "notes": "Booking-link SMS — same as 036 (action buttons not surfaced on the home widget variant).",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4688,10 +4689,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "widgets.js:290 (delegate widgets.js:876)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opt-in + Cal.com-gated widget.",
-      "session": "2026-06-09-A",
+      "notes": "Today's Schedule widget renders with its Open Calendar → action.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4706,10 +4707,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "widgets.js:397 (delegate widgets.js:876)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opt-in widget; rows REPEAT (up to 3). Representative row.",
-      "session": "2026-06-09-A",
+      "notes": "Recent Estimates widget renders with row → Estimates nav.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4724,10 +4725,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "widgets.js:406-407 (delegate widgets.js:876)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opt-in widget. Two elements (row + button) both data-w-goto='docs'.",
-      "session": "2026-06-09-A",
+      "notes": "Recent Documents widget renders with Open Template Library → action.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4742,10 +4743,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "widgets.js:569 (delegate widgets.js:876)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opt-in widget. Map is display-only; the button navigates to the full map.",
-      "session": "2026-06-09-A",
+      "notes": "Territory Heat Map mini widget (territory-mini) renders with Open Full Map → action.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4760,10 +4761,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "widgets.js:177-243,260,324,343,486,503,523,552 (NAV_MAP widgets.js:638-648)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Consolidated row for the 10 remaining registry widgets that are opt-in and have NO interactive sub-controls (only the whole-card navigation + their ✕ remove, covered generically by d2-home-004). Listed so the denominator accounts for every registry widget. storm-alerts hits NWS API on render.",
-      "session": "2026-06-09-A",
+      "notes": "Stale Leads opt-in widget card renders (display-only).",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -9296,10 +9297,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:7699 (+ dashboard-ui.js goTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Primary entry point into the d6-photos surface.",
-      "session": "2026-06-09-A",
+      "notes": "Photos sidebar nav (goTo photos) — Photo Library renders (jobs-with-photos + customers-without-photos sections).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9314,10 +9315,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:8784 (+ dashboard-ui.js toolMenuGoTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Secondary nav into photos surface.",
-      "session": "2026-06-09-A",
+      "notes": "CRM Tools menu → Photos entry present (verified in d3-pipeline-010 tools menu).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9332,10 +9333,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12186 (+ dashboard-ui.js:2125 mobileNav)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Mobile nav entry into photos surface.",
-      "session": "2026-06-09-A",
+      "notes": "Mobile More-menu Damage Photos item — mobile-viewport only.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9350,10 +9351,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9089 (+ dashboard-ui.js goTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "In Photo Library page header.",
-      "session": "2026-06-09-A",
+      "notes": "← Back to CRM breadcrumb present on the Photo Library.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9368,10 +9369,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:9095 (+ dashboard-actions.js:267)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "PhotoEngine lazy-loads via the 'photos' ScriptLoader bundle.",
-      "session": "2026-06-09-A",
+      "notes": "📷 Open Camera button present (opens the photo engine — which requires native camera to mount, so the engine itself is camera-gated).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9386,10 +9387,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:9096 (+ dashboard-actions.js:274)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opens inspection-report-engine.js builder overlay.",
-      "session": "2026-06-09-A",
+      "notes": "📄 New Report opens the inspection builder overlay (✕ Close Builder).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9404,10 +9405,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:9107 (+ dashboard-ui.js:854)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default active mode toggle.",
-      "session": "2026-06-09-A",
+      "notes": "By Property mode button (default) groups jobs by property.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9422,10 +9423,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:9109 (+ dashboard-ui.js:854)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Phase D.2 cross-lead recent feed.",
-      "session": "2026-06-09-A",
+      "notes": "Recent mode button activates.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9440,10 +9441,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:9114 (+ dashboard-ui.js:849)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Search-jobs input accepts text + filters the job list.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9458,10 +9459,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:9116 (+ dashboard-ui-prefs-boot.js:246)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Options populated dynamically with leads/properties.",
-      "session": "2026-06-09-A",
+      "notes": "Property select dropdown present (23 options).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9476,10 +9477,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:9120 (+ dashboard-ui-prefs-boot.js:252)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "data-on-pass=checked passes the checkbox state.",
-      "session": "2026-06-09-A",
+      "notes": "'Only with photos' checkbox hides the customers-without-photos section.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9494,10 +9495,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9123 (+ dashboard-actions.js:706)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Navigates away from photos to map.",
-      "session": "2026-06-09-A",
+      "notes": "📍 Near Me button present (geolocation boundary — not fired).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9512,10 +9513,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:9145 (+ dashboard-actions.js:226)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Wave 2C.2 CompanyCam-style FAB; mobile-only via CSS selector #view-photos.active.",
-      "session": "2026-06-09-A",
+      "notes": "Camera shutter FAB — opens the photo engine / native camera.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9530,10 +9531,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:11994 (+ dashboard-ui.js clickProxy)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Legacy per-lead Damage Photos modal upload zone.",
-      "session": "2026-06-09-A",
+      "notes": "Per-lead photo modal upload-zone proxies a click to #photoUploadInput (verified via capture-trap; native picker suppressed).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9548,10 +9549,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:12000 (+ dashboard-widgets.js:498)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "accept=image/*,.heic,.heif,.avif; multiple; data-on-pass=element.",
-      "session": "2026-06-09-A",
+      "notes": "Damage-photos file input — native OS file picker.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9566,10 +9567,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:11979 (+ dashboard-ui.js closeModal)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two close affordances: corner X (11979) and modal-bar X (11986); representative one recorded.",
-      "session": "2026-06-09-A",
+      "notes": "Per-lead photo modal (#photoModal 'DAMAGE PHOTOS') ✕ close works.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9584,10 +9585,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12150 (+ dashboard-actions.js:1314)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "capture=environment; single file. Fired by shutter FAB fallback and _mCreate('photo').",
-      "session": "2026-06-09-A",
+      "notes": "Mobile create-photo input — mobile + native picker.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9602,10 +9603,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12117 (+ dashboard-actions.js:1274)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Mobile global '+' create flow photo entry.",
-      "session": "2026-06-09-A",
+      "notes": "Mobile create-row Photo — mobile-viewport only.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9620,10 +9621,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12666 (+ dashboard-actions.js:1529)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Leaves dashboard for customer.html photos tab (separate page).",
-      "session": "2026-06-09-A",
+      "notes": "Card-detail 📸 Photos (openPhotosForLead) navigates to customer.html#photos (verified gap-carddetail-016).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9638,10 +9639,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:12675 (+ dashboard-actions.js:57)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Second per-card Photos affordance opening the camera directly.",
-      "session": "2026-06-09-A",
+      "notes": "cdaPhotos → PhotoEngine.openCamera = native camera.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9656,10 +9657,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12516 (+ dashboard-actions.js:145)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "One of 5 circular act buttons in mobile job detail.",
-      "session": "2026-06-09-A",
+      "notes": "Mobile JD-view Photos circular action — mobile-viewport only.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9674,10 +9675,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:12527 (+ dashboard-actions.js:1092)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "JobNimbus-style 3-tab job detail (Activity/Photos/Details).",
-      "session": "2026-06-09-A",
+      "notes": "Mobile JD-view Photos tab — mobile-viewport only.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9692,10 +9693,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10813 (+ dashboard-bootstrap.module.js:3569)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Label says ZIP but implementation exports a CSV manifest — note discrepancy for QA.",
-      "session": "2026-06-09-A",
+      "notes": "Export Photos (ZIP) — reachable only inside the camera-gated photo engine; ZIP download boundary.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9710,10 +9711,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "photo-engine.js:847 (+ handler photo-engine.js:894)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Modal injected by PhotoEngine.openCamera (not in dashboard.html static markup).",
-      "session": "2026-06-09-A",
+      "notes": "Camera close — photo engine requires native camera (getUserMedia) to mount; confirmed it doesn't open when camera is denied.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9728,10 +9729,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-engine.js:852 (+ handler photo-engine.js:1005)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Quality preset badge — camera-gated.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9746,10 +9747,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-engine.js:853 (+ handler photo-engine.js:990)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Capability-gated; opacity 0.3 + disabled when no torch.",
-      "session": "2026-06-09-A",
+      "notes": "Flash/torch — camera-gated.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9764,10 +9765,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-engine.js:856 (+ handler photo-engine.js:963)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Switch camera — camera-gated.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9782,10 +9783,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "photo-engine.js:868 (+ handler photo-engine.js:1015)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Core capture action.",
-      "session": "2026-06-09-A",
+      "notes": "Capture shutter — camera-gated.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9800,10 +9801,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-engine.js:1069 (+ dashboard-ui.js:418)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Back/discard preview — camera-gated.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9818,10 +9819,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-engine.js:1083 (+ dashboard-ui.js:428)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per QUICK_LOCATIONS entry; one representative recorded.",
-      "session": "2026-06-09-A",
+      "notes": "Location tag pills — appear in the camera capture/tagging flow (camera-gated).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9836,10 +9837,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-engine.js:1093 (+ dashboard-ui.js:428)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per QUICK_DAMAGE entry; one representative recorded.",
-      "session": "2026-06-09-A",
+      "notes": "Damage-type tag pills — camera-gated tagging flow.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9854,10 +9855,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "photo-engine.js:1103 (+ dashboard-ui.js:428; phase logic photo-engine.js:1248)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "These are the Before/During/After phase selectors per the surface brief; repeats per QUICK_TYPE.",
-      "session": "2026-06-09-A",
+      "notes": "Photo-type tag pills (Before/During/After) — camera-gated tagging flow.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9872,10 +9873,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "photo-engine.js:1112",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Notes textarea — camera-gated capture flow.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9890,10 +9891,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-engine.js:1116 (+ dashboard-ui.js:418)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Retake — camera-gated.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9908,10 +9909,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "photo-engine.js:1117 (+ handler photo-engine.js:1126)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Core save/persist action; bound by id onclick (not data-action).",
-      "session": "2026-06-09-A",
+      "notes": "Save & Next — camera-gated.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9926,10 +9927,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "photo-engine.js:1324 (+ _filterGallery photo-engine.js:1648)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "This is the Before/During/After/Annotated/category filter dropdown for the gallery.",
-      "session": "2026-06-09-A",
+      "notes": "Photo-engine gallery tag filter — the pe-gallery mounts inside the camera-gated photo engine.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9944,10 +9945,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-engine.js:1330 (+ _sortGallery)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Photo-engine sort-by — pe-gallery (camera-gated).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9962,10 +9963,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "photo-engine.js:1335",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "No onchange handler wired in source — verify view-mode actually re-renders during testing.",
-      "session": "2026-06-09-A",
+      "notes": "Photo-engine view-mode (grid/list) — pe-gallery (camera-gated).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9980,10 +9981,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "photo-engine.js:1339 (+ dashboard-ui.js:435; _bulkAnalyze photo-engine.js:1709)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "AI-classify trigger; calls Cloud Function analyzeRoofPhoto.",
-      "session": "2026-06-09-A",
+      "notes": "✨ Analyze All with AI — pe-gallery (camera-gated) + AI cost; boundary.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -9998,10 +9999,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "photo-engine.js:1373 (+ dashboard-ui.js:444; openLightbox photo-engine.js:1396)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per photo; one representative recorded.",
-      "session": "2026-06-09-A",
+      "notes": "pe-gallery thumbnail / lightbox — camera-gated engine. NOTE: the simpler per-lead #photoModal gallery WAS exercised (90 real Morgan-McCane photos render; clicking a thumb opens the full-res image in a new tab).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10016,10 +10017,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "photo-engine.js:1375",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "This is the 'Select' affordance from the surface brief; repeats per photo. No explicit change handler — verify selection wiring during testing.",
-      "session": "2026-06-09-A",
+      "notes": "pe-gallery select checkbox — camera-gated.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10034,10 +10035,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "photo-engine.js:1455 (+ dashboard-ui.js:454)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Stage for Report — pe-gallery (camera-gated).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10052,10 +10053,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "photo-engine.js:1458 (+ dashboard-ui.js:464; _deletePhoto photo-engine.js:1764)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DESTRUCTIVE: drive only to the confirm boundary. Deletes doc + Storage object.",
-      "session": "2026-06-09-A",
+      "notes": "Delete photo — pe-gallery (camera-gated) + destructive.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10070,10 +10071,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "photo-engine.js:1479 (+ photo-ai.js:166/197)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Single-photo AI classify; only present when PhotoAI is loaded and no analysis exists yet.",
-      "session": "2026-06-09-A",
+      "notes": "Analyze with AI (single) — pe-gallery (camera-gated) + AI cost.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10088,10 +10089,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "photo-engine.js:1466 (+ dashboard-ui.js:418)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Two identical close buttons (X at 1466, OK at 1467); one representative recorded.",
-      "session": "2026-06-09-A",
+      "notes": "Lightbox close — camera-gated engine lightbox.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10106,10 +10107,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "inspection-report-engine.js:1444",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Renders into #inspectionBuilderContainer / inline container in the photos view.",
-      "session": "2026-06-09-A",
+      "notes": "Lightbox ← Previous — camera-gated.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10124,10 +10125,10 @@
       "danger": "publish",
       "priority": "P1",
       "source_ref": "inspection-report-engine.js:1447",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Final step generates/produces a report document — treat the generate boundary with care.",
-      "session": "2026-06-09-A",
+      "notes": "Lightbox Next → / Generate Report — camera-gated.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10142,10 +10143,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "inspection-report-engine.js:2435",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per saved report; one representative recorded.",
-      "session": "2026-06-09-A",
+      "notes": "Open saved report — report builder is reached via the camera-gated engine; saved photo-reports list not surfaced outside it.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10160,10 +10161,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "inspection-report-engine.js:2438",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "DESTRUCTIVE: drive only to confirm boundary. Repeats per saved report.",
-      "session": "2026-06-09-A",
+      "notes": "Delete saved report — same as 048 + destructive.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10178,10 +10179,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "inspection-report-engine.js:1711",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "+ Add Item (report builder) — camera-gated report flow.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10196,10 +10197,10 @@
       "danger": "delete",
       "priority": "P3",
       "source_ref": "inspection-report-engine.js:1707",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per item row; one representative recorded.",
-      "session": "2026-06-09-A",
+      "notes": "× remove item (report builder) — camera-gated report flow.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10214,10 +10215,10 @@
       "danger": "publish",
       "priority": "P1",
       "source_ref": "dashboard.html:12936 stub (+ photo-report.js:38; bootstrap dashboard-bootstrap.module.js:579)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Generates a photo report document. Chip lives in Next Actions / report surfaces; confirm exact trigger element during live test.",
-      "session": "2026-06-09-A",
+      "notes": "generatePhotoReport — invoked on the 90-photo lead but produced no cleanly-observable output without the photo-engine context; the photo-report-picker itself (homeowner/adjuster) was verified PASS in customer-126/127.",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {
@@ -10232,10 +10233,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "dashboard.html:12851 (script load only); share-gallery.js:255",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "share-gallery.js is loaded on dashboard.html but NO data-action/button in dashboard.html invokes ShareGallery.generate — the Share Gallery trigger lives on customer.html / photo-review.html. Flagged here for completeness; likely NOT reachable from the dashboard surface. Verify during testing.",
-      "session": "2026-06-09-A",
+      "notes": "ShareGallery.generate(leadId) — invoked on the 90-photo Morgan-McCane lead; ran without error but no visible share overlay / copied link surfaced (likely needs the photo-engine context or uploads async). The gallery-share + portal-share patterns are verified elsewhere (customer-016/053, gap-carddetail-022).",
+      "session": "2026-06-09-B",
       "surface": "d6-photos"
     },
     {

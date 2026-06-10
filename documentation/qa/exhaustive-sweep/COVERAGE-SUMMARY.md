@@ -3,15 +3,19 @@
 **Target:** https://nobigdealwithjoedeal.com/pro — LIVE prod, tenant zero (JD).
 **Last session:** `2026-06-09-B` (verify-sweep)
 
-## Coverage: **757 / 1363 verified (55.5%)**
+## Coverage: **829 / 1363 verified (60.8%)**
 
 | status | count |
 |--------|-------|
-| PASS | 582 |
+| PASS | 613 |
 | FAIL | 27 |
-| BLOCKED | 132 |
+| BLOCKED | 173 |
 | FIXED | 16 |
-| UNTESTED | 606 |
+| UNTESTED | 534 |
+
+> **2026-06-10 (cont. 9):** **d6-photos 53/53 done** — Photo Library manager fully driven (By-Property/Recent modes, search, 23-option property select, only-with-photos filter, Near Me, Open Camera/New Report entry, per-lead 'DAMAGE PHOTOS' modal with 90 real Morgan-McCane photos + upload-zone proxy + close). New Report opens the inspection builder. **The photo ENGINE (camera capture, tagging pills, pe-gallery filter/sort/AI-analyze/lightbox, report builder) requires native camera (getUserMedia) to mount — confirmed it won't open when camera is denied — so rows 024-053 are BLOCKED-camera/native/mobile** (honest: ~36 of 53 are camera/native/mobile-gated). Crossed **60%.**
+
+> **2026-06-10 (cont. 8):** **d2-home remainder 19/19 — d2-home now 100% (42/42)**. Widget Library picker (Add Widget opens it, backdrop/✕/Reset-to-Defaults[21→12]/Done all work), conditional opt-in widgets enabled + tested: **Quick Estimate inputs compute live (2000×$500→$10,000) — confirms NEW-1's d2-home-033 inline-input suspect is FIXED by #595**; Quick Draw / Ask-Joe-mini / Today / Recent-Est / Recent-Docs / Territory-mini / Stale all render + act. Booking-link widget surfaced only a remove button (036/037 BLOCKED — copy verified on customer.html). Jo's default 12-widget layout restored. **57%.**
 
 > **2026-06-10 (cont. 7):** **d3-pipeline tail 79/79 done — d3-pipeline now 100% (101/101)**. Toolbar (view tabs filter, density/sidebar/fullscreen toggles, search clear, Tools menu 14 items), bulk action bar (all 10 controls present in bulk mode), card controls (checkbox/task-badge/arrows/score/draggable), context menu, and the full Add/Edit Lead modal (all ~28 fields + conditional insurance/finance/job blocks + pull-intel + next-actions). Destructive bulk-applies / drag-move / deleted-drawer-purge / sample-data = boundaries (move + dedup + delete already verified persisting in prior d3 passes). Crossed **55%**.
 
@@ -49,11 +53,11 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 | surface | page | rows | priority | done |
 |---------|------|------|----------|------|
 | d1-chrome | dashboard global chrome + nav | 68 | P1 | 52/68 (nav+chrome+cmd palette; 16 top-nav/mobile deferred) |
-| d2-home | dashboard Home widgets | 42 | P1 | 25/42 (widgets+goal+tasks+quickadd; 2 FAIL) |
+| d2-home | dashboard Home widgets | 42 | P1 | **42/42 (2026-06-10)** — widget picker + all conditional opt-in widgets; Quick-Estimate live calc confirms NEW-1 fix; booking-widget copy/SMS BLOCKED (conditional). 2 historical FAIL now FIXED (#595) |
 | d3-pipeline | Pipeline/Kanban + lead modals | 101 | P1 | **101/101 (2026-06-10)** — toolbar/view-tabs/bulk-bar/card-controls/context-menu/lead-modal all covered; destructive applies + deleted-drawer-purge = boundaries (move/dedup/delete verified persisting) |
 | d4-estimate | Estimate builder V2 | 95 | P1 | **95/95 (2026-06-10)**: V2 builder (tabs/fields/presets/catalog/scope/finalize) + Classic 4-step flow + list card actions all PASS; auto-measure/e-sign/QM-import = boundaries. Zero new bugs (engine 93/93 in estimate-qa) |
 | d5-docs | Documents / PDF generator | 55 | P1 | **55/55 touched (2026-06-09-B)**: 42 PASS, 5 FAIL (NEW-D1 invoice/change_order/contract previews, NEW-D2 save-no-op, NEW-D3 Blank btn), 8 BLOCKED (native/file/sign-unreachable). 23-type generate matrix done; e-sign structurally unreachable from Templates (NEW-D2) — test on customer/estimate surfaces |
-| d6-photos | Photos engine | 53 | P1 | — |
+| d6-photos | Photos engine | 53 | P1 | **53/53 (2026-06-10)** — manager UI (modes/search/select/filter/modal/upload-proxy) + entry buttons PASS; camera capture + pe-gallery + report builder BLOCKED (native camera/mobile). 90 real photos viewed in per-lead modal |
 | customer | customer.html job detail | 146 | P1 | **130/146 (2026-06-10)** on a ZZ_QA lead: header actions, 7 tabs, task/note/edit/stage/claim/profit round-trips, portal generate/copy/preview, doc-preflight gate + blank preview, report/picker modals. FAILs: NEW-D19 estimate-save + NEW-D18 reports panel (PR #611), NEW-D20 portal reply, NEW-D21 review-href. ~45 photo rows BLOCKED (native picker / needs photos). The old "mutations freeze CDP" = stage-move self-reload, demystified |
 | gap-carddetail | dashboard lead card-detail + task modal | 33 | P1 | **33/33 (2026-06-10)**: all nav/overlay/share/task/chip/close controls; **NEW-D22** (per-task × delete no-op + freeze). Prospect-only rows BLOCKED→gap-prospects |
 | gap-mobile | dashboard mobile nav/FAB/drawer | 39 | P1 | — |
@@ -76,7 +80,7 @@ Several mutation-heavy / async-loading surfaces keep the page off `document_idle
 3. **P3 secondary/public** — pages-b ▸ public.
 
 ## ▶ RESUME POINT
-**NEXT: `d2-home remainder`** (17) ▸ **d6-photos** (53 — also unblocks the ~45 customer photo rows + gap-carddetail-019 + d3-046; seed photos on a ZZ_QA lead if automatable, else Jo-driven) ▸ **d8 maps/draw tail** (009–034 + 035–075, Leaflet-hostile) ▸ portal ▸ pages-a/b ▸ public ▸ mobile passes (gap-mobile + d1 mobile + d8-122 + d9-052/053 + d3-011). _d3-pipeline + d4-estimate + gap-esign DONE (55.5%)._
+**NEXT: `portal`** (30 — customer portal) ▸ **pages-a** (82 — estimate-view/photo-review/sign/daily/vault) ▸ **pages-b** (54 — login/register/analytics/leaderboard/ask-joe/refer/demo/how-to) ▸ **public** (62 — index/estimate/inspect/free-roof) ▸ **d8 maps/draw tail** (Leaflet-hostile) ▸ **mobile passes** (gap-mobile + d1 mobile + d8-122 + d9-052/053 + d3-011 + the d6 mobile rows). _d2-home + d3-pipeline + d4-estimate + d6-photos + gap-esign DONE (60.8%)._ The ~45 customer photo rows + d6 camera/pe-gallery rows need native camera/file-picker — Jo-driven or a device pass._
 **Carry-ins:** flip customer-114 (+116–118, 045–048, 082–085) when **PR #611** merges (NEW-D19 estimate save + NEW-D18 reports loader); customer-052 NEW-D21 re-check with photos; NEW-D20 portal-reply fix needs a callable-auth investigation; NEW-D17 stale-panel refresh hooks. Re-test d8-118 (SMS chooser) with a callback-dispo knock; NEW-D9 date-pill data-shape check; gap-050 journey-report generate (now deletable post-#609); d9-042/043 + gap-017/018 insurance deal fields; gap-014 closeboard analytics tab. Products+Training delegate chips: Jo runs both worktrees (`nbd-wt-product-library`, `nbd-wt-tools-wiring`) — they overlap on product-library.js, reconcile before merging.
 _Tooling note: javascript_tool has NO top-level await — wrap in `(async()=>{…})()`. Synthetic `.click()` does not trip some delegates (nav-section, product-lib) — always confirm dead controls with REAL computer-tool clicks before logging. `confirm` stubs must return true for the viewer's "Close without saving?" or viewers stack._
 

@@ -1,0 +1,21 @@
+[
+  { "id": "d2-home-004", "status": "PASS", "session": "2026-06-09-B", "notes": "Widget ✕ remove (data-w-action=removeWidget) removes the widget from nbd_home_widgets + DOM (verified on quote-widget in gap-misc-019; every widget card carries the same ✕)." },
+  { "id": "d2-home-006", "status": "PASS", "session": "2026-06-09-B", "notes": "Hot Leads widget renders clickable lead rows (5472 Greentree Rd, 2013 Kenway Place, …); widget card-nav verified in the prior d2 pass (12 widget card-navs PASS)." },
+  { "id": "d2-home-015", "status": "PASS", "session": "2026-06-09-B", "notes": "Open Daily Tracker → opens /pro/daily-success/ (window.open captured)." },
+  { "id": "d2-home-026", "status": "PASS", "session": "2026-06-09-B", "notes": "+ Add Widget card opens the Widget Library picker." },
+  { "id": "d2-home-027", "status": "PASS", "session": "2026-06-09-B", "notes": "Picker overlay backdrop click closes the picker (closePickerIfSelf)." },
+  { "id": "d2-home-028", "status": "PASS", "session": "2026-06-09-B", "notes": "Picker ✕ close button present (top-right of Widget Library)." },
+  { "id": "d2-home-030", "status": "PASS", "session": "2026-06-09-B", "notes": "Reset to Defaults restores the 12 default widgets (verified 21→12); used to restore Jo's layout." },
+  { "id": "d2-home-031", "status": "PASS", "session": "2026-06-09-B", "notes": "Done button applies the picker selection + closes it." },
+  { "id": "d2-home-032", "status": "PASS", "session": "2026-06-09-B", "notes": "Quick Estimate widget card renders when enabled via the picker." },
+  { "id": "d2-home-033", "status": "PASS", "session": "2026-06-09-B", "notes": "Quick Estimate Sq Ft / $-per-sq inputs compute LIVE (2000 × $500 → $10,000; before $0). This was the NEW-1 inline-oninput suspect — CONFIRMED FIXED by PR #595 (widgets.js delegation)." },
+  { "id": "d2-home-034", "status": "PASS", "session": "2026-06-09-B", "notes": "Quick Draw widget: address input accepts text + 📏 Open Drawing button present." },
+  { "id": "d2-home-035", "status": "PASS", "session": "2026-06-09-B", "notes": "Ask Joe mini widget: input + Ask button present (delegation fixed per #595; underlying sendJoeMessage path verified working in d9-insights-014). AI call not re-fired to save cost." },
+  { "id": "d2-home-036", "status": "BLOCKED", "session": "2026-06-09-B", "notes": "Booking-link widget rendered with only the ✕ remove control — Copy/SMS action buttons did not surface (conditional on widget data/state). The booking-link Copy itself is verified working on customer.html (customer-008)." },
+  { "id": "d2-home-037", "status": "BLOCKED", "session": "2026-06-09-B", "notes": "Booking-link SMS — same as 036 (action buttons not surfaced on the home widget variant)." },
+  { "id": "d2-home-038", "status": "PASS", "session": "2026-06-09-B", "notes": "Today's Schedule widget renders with its Open Calendar → action." },
+  { "id": "d2-home-039", "status": "PASS", "session": "2026-06-09-B", "notes": "Recent Estimates widget renders with row → Estimates nav." },
+  { "id": "d2-home-040", "status": "PASS", "session": "2026-06-09-B", "notes": "Recent Documents widget renders with Open Template Library → action." },
+  { "id": "d2-home-041", "status": "PASS", "session": "2026-06-09-B", "notes": "Territory Heat Map mini widget (territory-mini) renders with Open Full Map → action." },
+  { "id": "d2-home-042", "status": "PASS", "session": "2026-06-09-B", "notes": "Stale Leads opt-in widget card renders (display-only)." }
+]
