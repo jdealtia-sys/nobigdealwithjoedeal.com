@@ -120,6 +120,27 @@ async function run() {
     { contentType: 'text/html' }
   ));
 
+  // 9d. NEW-D13: alice CAN upload her deal-room share page (text/html) —
+  //     the old isDocType() gate didn't match text/html, so Close Board's
+  //     Copy/Text/Email link generation always failed storage/unauthorized.
+  await assertSucceeds(uploadBytes(
+    ref(alice, 'deal_rooms/alice/dr_test123.html'),
+    buf(1024),
+    { contentType: 'text/html' }
+  ));
+  // 9e. bob CANNOT upload into alice's deal_rooms (cross-user)
+  await assertFails(uploadBytes(
+    ref(bob, 'deal_rooms/alice/dr_evil.html'),
+    buf(1024),
+    { contentType: 'text/html' }
+  ));
+  // 9f. non-HTML uploads to deal_rooms stay blocked
+  await assertFails(uploadBytes(
+    ref(alice, 'deal_rooms/alice/payload.zip'),
+    buf(1024),
+    { contentType: 'application/zip' }
+  ));
+
   // 10. bob CANNOT read alice's photos
   await assertFails(getBytes(ref(bob, 'photos/alice/roof.jpg')));
 
