@@ -69,6 +69,16 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 | Stuck saved report from the prior pass | **DELETED** — #609 deploy made owner-delete work; deletion doubled as the live verification. CLEANUP ITEM CLOSED. |
 | Customer Report generated during 009 test | viewed in-preview only; persisted copy (if any) targets the now-deleted lead — purge with the lead if desired. |
 
+## ✅ CLEANUP EXECUTED (2026-06-10, after Jo re-logged in) — ALL CLEAR
+| artifact | final state |
+|----------|-------------|
+| 9× "ZZ_QA_HomeTest Sweep" bridged contact leads + "ZZ_QA_ReferTest" + "ZZ_WriteDiag DELETE_ME" (pre-existing, name says delete me) | **ALL soft-deleted** (deleted:true verified; pipeline 33→22). First delete batch hit a CO-H-3-style FIRESTORE INTERNAL ASSERTION (session-poisoned SDK) — full reload recovered, all writes then succeeded. |
+| Lead "ZZ_QA Portal Test" (K8uRGekxr8gictxDZSLr) | **soft-deleted** (deleted:true verified) AFTER serving its final purposes: portal-002 live-banner test (PASS) + the photo-review row pass post-#634. Its photo/message/callbacks/portal tokens ride with the deleted lead. |
+| Photo-review writes (location 'Front Slope', severity 'Minor') | On the ZZ_QA photo of the now-deleted lead — gone with it. |
+| Products/Training/docgen tests | All boundaries CANCELLED (Reset/Archive confirms declined, product modal closed without save, invoice doc viewed in-preview only — one more purgeable server-PDF artifact in Storage `pdf-renders`). |
+| Onboarding tour | nbd-tour-force consumed; complete-key currently unset → the tour will pop ONCE the next time the dashboard tab is foregrounded. Take it or skip — either re-marks complete (self-restoring). |
+| Pre-existing pipeline test data | "Test Signer NBDtest" + "Remote Sign E2E Test" remain (flagged in the original manifest, not owned by this sweep). |
+
 ## portal + pages-b + public pass (2026-06-10 cont.) — created & flagged
 | artifact | state |
 |----------|-------|
