@@ -11,8 +11,8 @@
  */
 
 const CACHE_VERSIONS = {
-  shell: 'nbd-shell-v29', // v29 — daily-success CSP fix: extracted 3 inline <script> blocks (incl. the 102k-char main app) to external js/{auth-init,welcome-gate,app}.js so they pass `script-src 'self'`. Old cached shell still had the inline blocks and rendered as a header-only blue void in prod.
-  cdn: 'nbd-cdn-v29',     // v29 — paired bump.
+  shell: 'nbd-shell-v30', // v30 — INFRA-1 (estimate-remediation-2026-06-09): SW no longer intercepts top-level navigations (dashboard boot-wedge fix, see fetch handler). Bumping forces every active v29 SW to install→skipWaiting→activate, purge stale caches, and adopt the navigation-bypass on the next navigation.
+  cdn: 'nbd-cdn-v30',     // v30 — paired bump.
   tiles: 'nbd-tiles-v1',
   api: 'nbd-api-v1',
   images: 'nbd-images-v2'
@@ -151,6 +151,33 @@ self.addEventListener('fetch', event => {
 
   // Skip non-GET requests (handled by background sync)
   if (request.method !== 'GET') {
+    return;
+  }
+
+  // ─────────────────────────────────────────────────────────
+  // INFRA-1 (estimate-remediation-2026-06-09): NEVER intercept top-level
+  // navigations. Piping this SW's streamed Brotli fetch() Response into the
+  // navigation consumer intermittently STALLS after ~5.7KB (the <head> only,
+  // no <body>) — a hard dashboard boot-wedge reproduced live on prod with the
+  // v29 SW as the active controller (readyState stuck 'loading', document.body
+  // null, renderer unpaintable; unregistering the SW recovered it). The
+  // IDENTICAL handler returns the full ~721KB document in ~250ms when consumed
+  // via fetch().text(), so the stall is specific to the navigation pipe, not
+  // the network or the server. This is the root cause of the long-running
+  // "Ctrl+R won't fix it, only Shift+Ctrl+R does" reports.
+  //
+  // Auth-gated HTML is ALREADY `no-store` at the HTTP layer (firebase.json:
+  // /pro/dashboard, /pro/vault, /pro/customer, /pro/login, …), so letting the
+  // browser fetch navigations natively caches nothing new and changes no
+  // security property — the no-cache guarantee is unchanged. Sub-resources
+  // (JS/CSS network-first, images, tiles, API, offline-write queue) still route
+  // through this SW below, so PWA/offline behaviour for assets is preserved.
+  //
+  // Trade-off: an OFFLINE top-level navigation now shows the browser's default
+  // offline page instead of /offline.html. Acceptable for an auth-gated CRM
+  // that cannot function offline anyway, and far better than a wedged boot.
+  // ─────────────────────────────────────────────────────────
+  if (request.mode === 'navigate') {
     return;
   }
 
