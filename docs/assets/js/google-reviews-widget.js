@@ -38,7 +38,7 @@
   function renderReviewCard(review) {
     const name = esc(review.author || 'Google user');
     const photo = review.profilePhotoUrl
-      ? `<img src="${esc(review.profilePhotoUrl)}" alt="" referrerpolicy="no-referrer" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`
+      ? `<img src="${esc(review.profilePhotoUrl)}" alt="" referrerpolicy="no-referrer" class="gr-avatar" style="width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0">`
       : `<div style="width:40px;height:40px;border-radius:50%;background:#e8e5e0;flex-shrink:0"></div>`;
     const when = esc(review.relativeTime || '');
     const text = truncate(review.text || '', 320);
@@ -97,6 +97,17 @@
           ${reviews.map(renderReviewCard).join('')}
         </div>
       </div>`;
+    // Hide avatars whose Google URL has expired/404s. Was an inline
+    // onerror= attribute, but the global CSP's script-src-attr 'none'
+    // refuses inline handlers even in JS-built markup (audit 2026-06-10) —
+    // the broken-image icon showed instead. Listener must attach after the
+    // innerHTML insertion; error events don't bubble, so per-element.
+    container.querySelectorAll('img.gr-avatar').forEach((img) => {
+      img.addEventListener('error', () => { img.style.display = 'none'; });
+      // If the image already failed before this listener attached (cached
+      // 404 resolves synchronously on some engines), catch it via complete.
+      if (img.complete && img.naturalWidth === 0) img.style.display = 'none';
+    });
   }
 
   async function load() {

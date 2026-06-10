@@ -172,6 +172,12 @@ const FIELD_OPTIONS = {
   phase:      [['Before','Before'],['During','During'],['After','After']],
   damageType: [['hail','Hail'],['wind','Wind'],['wear','Wear'],['granular_loss','Granular Loss'],['leak','Leak'],['none','None'],['other','Other']],
   severity:   [['minor','Minor'],['moderate','Moderate'],['severe','Severe']],
+  // Audit 2026-06-10: every tile renders a "+ Location" chip, but with no
+  // entry here its picker opened with zero options — the chip could clear or
+  // accept an AI guess, never SET a location. Mirrors QUICK_LOCATIONS in
+  // photo-engine.js (the camera tagging flow) so both surfaces share one
+  // taxonomy.
+  location:   [['Front Slope','Front Slope'],['Back Slope','Back Slope'],['Left Slope','Left Slope'],['Right Slope','Right Slope'],['Ridge','Ridge'],['Valley','Valley'],['Eave','Eave'],['Gutter','Gutter'],['Chimney','Chimney'],['Interior','Interior']],
 };
 const FIELD_TITLE = {
   phase: 'Phase', damageType: 'Damage type', severity: 'Severity', location: 'Location'

@@ -212,13 +212,21 @@
     gap: var(--nbd-space-3);
     margin: var(--nbd-space-6) 0;
   }
-  .ev-cta-row a {
+  /* Audit 2026-06-10: the renderer emits <button data-ev-action> (converted
+     from anchors in the Wave-28 CSP onclick sweep) but these rules only
+     matched anchors — the homeowner-facing CTAs rendered as unstyled native
+     buttons. Style both. */
+  .ev-cta-row a,
+  .ev-cta-row button {
     flex: 1;
     min-width: 140px;
     text-align: center;
     background: var(--nbd-orange);
     color: var(--nbd-ink-on-orange);
     text-decoration: none;
+    border: 0;
+    cursor: pointer;
+    font-family: inherit;
     padding: var(--nbd-space-4) var(--nbd-space-5);
     border-radius: var(--nbd-radius-md);
     font-weight: 700;
@@ -227,13 +235,16 @@
     -webkit-tap-highlight-color: transparent;
     transition: background .15s ease, box-shadow .15s ease;
   }
-  .ev-cta-row a:hover { background: var(--nbd-orange-deep); box-shadow: var(--nbd-shadow-md); }
-  .ev-cta-row a.ghost {
+  .ev-cta-row a:hover,
+  .ev-cta-row button:hover { background: var(--nbd-orange-deep); box-shadow: var(--nbd-shadow-md); }
+  .ev-cta-row a.ghost,
+  .ev-cta-row button.ghost {
     background: transparent;
     color: var(--nbd-orange);
     border: 1px solid var(--nbd-orange);
   }
-  .ev-cta-row a.ghost:hover { background: var(--nbd-orange-soft); }
+  .ev-cta-row a.ghost:hover,
+  .ev-cta-row button.ghost:hover { background: var(--nbd-orange-soft); }
   .ev-error, .ev-loading {
     text-align: center;
     padding: 60px 20px;
