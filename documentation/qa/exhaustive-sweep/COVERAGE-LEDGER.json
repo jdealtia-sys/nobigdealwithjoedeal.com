@@ -5,8 +5,8 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 237,
-      "PASS": 769,
+      "BLOCKED": 236,
+      "PASS": 770,
       "UNTESTED": 308,
       "FAIL": 10,
       "FIXED": 39
@@ -143,8 +143,8 @@
         "UNTESTED": 2
       },
       "pages-a": {
-        "BLOCKED": 43,
-        "PASS": 36,
+        "BLOCKED": 42,
+        "PASS": 37,
         "UNTESTED": 1,
         "FIXED": 1,
         "FAIL": 1
@@ -20954,7 +20954,7 @@
       "source_ref": "daily-success/index.html:1087 (+js/app.js:656,1420)",
       "status": "FIXED",
       "evidence": "",
-      "notes": "FOUND BROKEN live (the audit-flagged openM class-vs-inline-display asymmetry): 📖 added .open but #welcomeModal has no .open CSS rule + inline display:none → silent no-op for every returning user. FIXED PR #636 (openWelcomeGuide sets inline display:flex). Re-verify post-deploy.",
+      "notes": "NEW-D33 (#636) LIVE RE-VERIFIED post-deploy: 📖 reopen shows the modal (computed display none→flex).",
       "session": "2026-06-09-B",
       "surface": "pages-a"
     },
@@ -21708,9 +21708,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "daily-success/index.html:1058 (+js/app.js:655,1414)",
-      "status": "BLOCKED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "'Let's Get After It →' CTA lives in the welcome modal — unreachable until #636 deploys (reopen was broken); flips with the 020 re-verify.",
+      "notes": "Lets-Get-After-It CTA closes the reopened welcome modal (flex→none) + stamps nbd-welcome-seen.",
       "session": "2026-06-09-B",
       "surface": "pages-a"
     },

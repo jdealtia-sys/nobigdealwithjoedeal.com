@@ -1,0 +1,14 @@
+[
+ {
+  "id": "pages-a-020",
+  "status": "FIXED",
+  "session": "2026-06-09-B",
+  "notes": "NEW-D33 (#636) LIVE RE-VERIFIED post-deploy: 📖 reopen shows the modal (computed display none→flex)."
+ },
+ {
+  "id": "pages-a-062",
+  "status": "PASS",
+  "session": "2026-06-09-B",
+  "notes": "Lets-Get-After-It CTA closes the reopened welcome modal (flex→none) + stamps nbd-welcome-seen."
+ }
+]
