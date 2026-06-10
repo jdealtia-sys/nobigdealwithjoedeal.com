@@ -31,6 +31,16 @@
     } catch (e) { return ''; }
   }
 
+  // NEW-D26: every interactive card (messages, rating, callback, photo
+  // upload, audit events) posts `token: TOKEN` — but TOKEN was never
+  // declared anywhere, so each send threw `ReferenceError: TOKEN is not
+  // defined` the moment a homeowner used it. The bug predates the js/
+  // extraction (the inline original had the same 5 dangling references);
+  // it was simply unreachable while the whole script was CSP-dead
+  // (NEW-D23). loadView() re-reads getToken() itself, so this constant
+  // only serves the card senders.
+  const TOKEN = getToken().trim();
+
   // ─── Live-poll state ────────────────────────────────────────────
   // Step 13: portal becomes "push-feeling" via 30s visibility-aware
   // polling against the same getHomeownerPortalView callable. Diffs the
