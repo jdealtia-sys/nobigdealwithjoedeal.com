@@ -52,6 +52,8 @@ Deploy: run **27239108944** (firebase-deploy.yml) **green** — rules-test gate 
 
 ## Behavioral re-verify checklist (≈5 min in a logged-in normal Chrome window)
 
+> ✅ **COMPLETED 2026-06-09-B (verify-sweep session): ALL 8 ITEMS PASS in-browser.** Every "behavioral: pending" cell in the fix ledger above is now verified (full reload round-trips, real clicks, settings restored). Details + per-item evidence: ledger notes (session `2026-06-09-B`) and `documentation/qa/verify-sweep-2026-06-09/CLEANUP.md`. Notable: item 6 was run as a FRESH /inspect bridge→delete round-trip (the prior leftover lead was already gone at session start) — delete sticks across reload, zero residue. One new low-sev nit from item 3 logged as NEW-D4 (empty-target mirror writes category string to legacy key).
+
 The artifact level is proven; these are the in-browser round-trips that complete the bar (all on `ZZ_QA_`/own data; restore anything real):
 
 1. **NEW-1:** Home → Task Checklist → check a task → reload → still checked (restore it after). Home → Customize → toggle a widget → grid updates → toggle back.

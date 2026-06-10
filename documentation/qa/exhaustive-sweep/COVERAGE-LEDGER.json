@@ -5,10 +5,11 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "UNTESTED": 1226,
-      "PASS": 121,
-      "BLOCKED": 11,
-      "FIXED": 5
+      "UNTESTED": 1118,
+      "PASS": 193,
+      "BLOCKED": 25,
+      "FIXED": 6,
+      "FAIL": 21
     },
     "by_surface": {
       "customer": 146,
@@ -78,21 +79,24 @@
         "UNTESTED": 95
       },
       "d5-docs": {
-        "UNTESTED": 53,
-        "PASS": 2
+        "PASS": 42,
+        "FAIL": 5,
+        "BLOCKED": 8
       },
       "d6-photos": {
         "UNTESTED": 53
       },
       "d7-settings": {
         "PASS": 24,
-        "UNTESTED": 158,
-        "FIXED": 2,
+        "UNTESTED": 157,
+        "FIXED": 3,
         "BLOCKED": 1
       },
       "d8-tools": {
-        "UNTESTED": 122,
-        "PASS": 1
+        "PASS": 33,
+        "UNTESTED": 68,
+        "BLOCKED": 6,
+        "FAIL": 16
       },
       "d9-insights": {
         "UNTESTED": 50,
@@ -4148,8 +4152,8 @@
       "source_ref": "widgets.js:151 (click listener widgets.js:152-174)",
       "status": "PASS",
       "evidence": "prompt override 77777 → nbd_monthly_goal=77777 + widget renders '$78k goal'; restored to null",
-      "notes": "PASS as tested; NEW-C9 follow-up fixed in PR #595 (goal-edit got data-w-stop): prompt no longer bounces to /crm after edit. Deployed 2026-06-09.",
-      "session": "2026-06-09-A",
+      "notes": "PASS as tested; NEW-C9 fix confirmed in-context 2026-06-09-B: Quick-Add in-card ADD button acted in place (no card-nav bubble, no /crm bounce).",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4184,8 +4188,8 @@
       "source_ref": "widgets.js:301 (handler widgets.js:762 _wToggleTask)",
       "status": "FIXED",
       "evidence": "PR #595 merged; deploy run 27239108944 green; served widgets.js has data-w-change delegate, zero inline on* (artifact-verified live 2026-06-09)",
-      "notes": "NEW-1+NEW-C9: task checkbox was CSP-dead inline onchange; now delegated + card-nav bails on interactive targets. Behavioral round-trip (check->reload->persists) pending: browser unavailable this session — see remediation-2026-06-09/REMEDIATION-LOG.md checklist.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-1+NEW-C9 BEHAVIORALLY VERIFIED 2026-06-09-B: real click on 'Send 3 estimates' checkbox persisted to nbd_home_tasks AND survived full reload (LS + DOM both checked); restored to original. data-w-change=toggleTask delegate live in DOM.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4346,8 +4350,8 @@
       "source_ref": "widgets.js:370 (delegate widgets.js:858; impl widgets.js:788)",
       "status": "PASS",
       "evidence": "ADD → opens #leadModal (visible, 30 fields)",
-      "notes": "PASS as tested (button opens modal); CO-L-1 prefill fixed in PR #595: stale ids #leadName/#leadAddr/#leadDamage -> #lFname/#lLname/#lAddr/#lDamageType, name split, damage option values aligned to modal. Deployed 2026-06-09; typed-value handoff round-trip pending browser.",
-      "session": "2026-06-09-A",
+      "notes": "PASS as tested; CO-L-1 prefill BEHAVIORALLY VERIFIED 2026-06-09-B: Quick-Add name+address+damage -> Add -> full ADD LEAD modal opened PREFILLED (name split ZZ_QA/QuickAdd Test, address, damage Roof-Hail), no bounce to /crm. Closed without saving, lead count unchanged.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4508,8 +4512,8 @@
       "source_ref": "widgets.js:709 (handler widgets.js:738 toggleWidget)",
       "status": "FIXED",
       "evidence": "PR #595 merged; deploy run 27239108944 green; served widgets.js has data-w-change delegate on picker rows (artifact-verified live 2026-06-09)",
-      "notes": "NEW-1: widget-library toggles were CSP-dead inline onchange; now delegated to NBDWidgets.toggleWidget. Behavioral round-trip pending — see remediation checklist.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-1 BEHAVIORALLY VERIFIED 2026-06-09-B: Widget Library toggle ON rendered Stage Funnel widget in grid with live data; toggle OFF removed it; nbd_home_widgets write-through confirmed both directions. Residual default-set key removed to restore Jo's null-default state.",
+      "session": "2026-06-09-B",
       "surface": "d2-home"
     },
     {
@@ -4760,8 +4764,8 @@
       "source_ref": "dashboard.html:8731 (handler crm-pipeline.js kanbanFilter ~1860)",
       "status": "FIXED",
       "evidence": "PR #595 merged; deploy run 27239108944 green; served crm-pipeline.js has _highlightCardMatches TreeWalker text-node highlighter, innerHTML regex-replace removed (artifact-verified live 2026-06-09)",
-      "notes": "CO-M-1: search no longer re-innerHTMLs cards; <mark> built via createElement+textContent. Behavioral round-trip (search 'co' -> clean cards) pending — see remediation checklist.",
-      "session": "2026-06-09-A",
+      "notes": "CO-M-1 BEHAVIORALLY VERIFIED 2026-06-09-B: search 'co' -> 12 matches, 13 highlight elements, board innerText contains ZERO leaked style=/data-action=/<span markup. Cards render clean. Search cleared after.",
+      "session": "2026-06-09-B",
       "surface": "d3-pipeline"
     },
     {
@@ -8286,10 +8290,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9260 (handler dashboard-ui.js goTo delegate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Page header back-link in tpl-view-docs.",
-      "session": "2026-06-09-A",
+      "notes": "Back-to-CRM breadcrumb navigates to #/crm; returned to #/docs after.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8304,10 +8308,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9265 (handler dashboard-ui.js:1438 openUploadDoc)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Page-header primary button. Reveals d5-docs-038..043.",
-      "session": "2026-06-09-A",
+      "notes": "+ Upload opens #docUploadArea modal.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8340,10 +8344,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9274 (handler dashboard-ui.js:1395 tlFilterCat)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Category-filter pill.",
-      "session": "2026-06-09-A",
+      "notes": "Generators chip filters to 4 rows / generators cat only; All restores 24.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8358,10 +8362,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9275 (handler dashboard-ui.js:1395 tlFilterCat)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Category-filter pill.",
-      "session": "2026-06-09-A",
+      "notes": "Insurance chip filters to 5 rows.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8376,10 +8380,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9276 (handler dashboard-ui.js:1395 tlFilterCat)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Category-filter pill.",
-      "session": "2026-06-09-A",
+      "notes": "Contracts chip filters to 5 rows.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8394,10 +8398,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9277 (handler dashboard-ui.js:1395 tlFilterCat)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Category-filter pill.",
-      "session": "2026-06-09-A",
+      "notes": "Leave-Behinds chip filters to 5 rows.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8412,10 +8416,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9278 (handler dashboard-ui.js:1395 tlFilterCat)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Category-filter pill.",
-      "session": "2026-06-09-A",
+      "notes": "Marketing chip filters to 5 rows.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8430,10 +8434,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:9286 (handler dashboard-ui.js:1391 tlToggleCat)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Collapsible-section header; representative of 5 identical headers (one per category).",
-      "session": "2026-06-09-A",
+      "notes": "Category header toggle collapses (4->0 visible) and reopens (0->4).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8466,10 +8470,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9302 (handler dashboard-ui.js:379 docgen + document-generator.js:191)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Generators category. No signers.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D1: Invoice generate routes to SERVER-PDF (no signers + SERVER_TYPE_MAP) and sets cross-origin storage.googleapis.com/pdf-renders URL as nbdv-iframe src -> Chrome shows 'This page has been blocked by Chrome', preview blank. Violates PR#594 srcdoc rule (server PDF must be Download-only). Sandbox without allow-same-origin contributes.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8484,10 +8488,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9310 (handler dashboard-ui.js:379 docgen + document-generator.js:193)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Generators category. No signers.",
-      "session": "2026-06-09-A",
+      "notes": "Warranty Certificate: fill modal (8 fields) -> Generate -> SRCDOC sandboxed preview renders branded cert (visual verified).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8502,10 +8506,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9318 (handler dashboard-ui.js:379 docgen + document-generator.js:194)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Generators category. Signable doc (defaultSigners).",
-      "session": "2026-06-09-A",
+      "notes": "Certificate of Completion: 10 fields -> SRCDOC preview 88.8KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8520,10 +8524,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9339 (handler dashboard-ui.js:379 docgen + document-generator.js:199)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Insurance category.",
-      "session": "2026-06-09-A",
+      "notes": "Supplement Request: 11 fields -> SRCDOC preview 88.2KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8538,10 +8542,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9347 (handler dashboard-ui.js:379 docgen + document-generator.js:200)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Insurance category. Signable doc.",
-      "session": "2026-06-09-A",
+      "notes": "Scope of Work: 9 fields -> SRCDOC preview 89.0KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8556,10 +8560,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9355 (handler dashboard-ui.js:379 docgen + document-generator.js:186)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Insurance category. No signers.",
-      "session": "2026-06-09-A",
+      "notes": "Inspection Report (Insurance): 12 fields -> SRCDOC preview 98.3KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8574,10 +8578,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9363 (handler dashboard-ui.js:379 docgen + document-generator.js:205)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Insurance category. Signable doc.",
-      "session": "2026-06-09-A",
+      "notes": "AOB: 10 fields -> SRCDOC preview 89.2KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8592,10 +8596,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9371 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Insurance category.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D1: Change Order — same server-PDF cross-origin iframe block as invoice (vtitle 'Change Order — Homeowner', IFRAME-SRC storage.googleapis.com).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8610,10 +8614,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9392 (handler dashboard-ui.js:379 docgen + document-generator.js:176)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Contracts category. Signable doc.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D1: Roofing Contract — same server-PDF cross-origin iframe block ('Roofing Contract — Homeowner'). Highest-impact of the three (the contract is the signable customer doc).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8628,10 +8632,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9400 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Contracts category.",
-      "session": "2026-06-09-A",
+      "notes": "Work Authorization: 12 fields -> SRCDOC preview 87.8KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8646,10 +8650,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9408 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Contracts category.",
-      "session": "2026-06-09-A",
+      "notes": "Payment Agreement: 13 fields -> SRCDOC preview 89.2KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8664,10 +8668,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9416 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Contracts category.",
-      "session": "2026-06-09-A",
+      "notes": "Material Delivery Notice: 8 fields -> SRCDOC preview 88.3KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8682,10 +8686,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9424 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Contracts category.",
-      "session": "2026-06-09-A",
+      "notes": "Thank You Letter: 7 fields -> SRCDOC preview 86.4KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8700,10 +8704,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9445 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Leave-Behind category.",
-      "session": "2026-06-09-A",
+      "notes": "Company One-Pager: 1 field -> SRCDOC preview 90.1KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8718,10 +8722,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9453 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Leave-Behind category.",
-      "session": "2026-06-09-A",
+      "notes": "Financing Options: 3 fields -> SRCDOC preview 90.2KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8736,10 +8740,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9461 (handler dashboard-ui.js:379 docgen + document-generator.js:181)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Leave-Behind category. Signable doc.",
-      "session": "2026-06-09-A",
+      "notes": "Inspection Report (Homeowner): 9 fields -> SRCDOC preview 98.1KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8754,10 +8758,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9469 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Leave-Behind category.",
-      "session": "2026-06-09-A",
+      "notes": "Storm Damage Checklist: 1 field -> SRCDOC preview 91.7KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8772,10 +8776,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9477 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Leave-Behind category.",
-      "session": "2026-06-09-A",
+      "notes": "Insurance Claim Process Guide: 1 field -> SRCDOC preview 90.3KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8790,10 +8794,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9498 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Marketing category.",
-      "session": "2026-06-09-A",
+      "notes": "Referral Card: 1 field -> SRCDOC preview 86.6KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8808,10 +8812,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "docs/pro/dashboard.html:9506 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Marketing category.",
-      "session": "2026-06-09-A",
+      "notes": "Before & After Report: 9 fields -> SRCDOC preview 87.7KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8826,10 +8830,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9514 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Marketing category.",
-      "session": "2026-06-09-A",
+      "notes": "Door Hanger: 1 field -> SRCDOC preview 86.6KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8844,10 +8848,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9522 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Marketing category.",
-      "session": "2026-06-09-A",
+      "notes": "Neighborhood Mailer: 3 fields -> SRCDOC preview 86.7KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8862,10 +8866,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9530 (handler dashboard-ui.js:379 docgen + document-generator.js DOCUMENT_TYPES)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Marketing category.",
-      "session": "2026-06-09-A",
+      "notes": "Customer Testimonial Sheet: 1 field -> SRCDOC preview 88.2KB.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8880,10 +8884,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9268 (injector + handler dashboard-ui.js:1450 injectBlankButtons → NBDDocGen.generateBlank)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Injected at runtime before each .tl-doc-arrow; repeats once per template row (24 instances). One representative entry. NOTE: injector matches legacy inline onclick=fillAndGenerate(...) via getAttribute('onclick') — rows now use data-action=docgen, so this regex may no longer match (potential bug: Blank buttons may not inject).",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D3: 'Blank' button does not exist anywhere in the rendered DOM (zero buttons inside .tl-doc-row), but the page header copy still instructs 'Use the Blank button to print an empty copy for hand-fill'. Control missing + stale copy.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8898,10 +8902,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:9555 (handler dashboard-ui.js goTo delegate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Empty-state CTA inside Uploaded Documents panel.",
-      "session": "2026-06-09-A",
+      "notes": "Empty-state 'OPEN PIPELINE ->' navigates to #/crm.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8916,10 +8920,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:9562 (handler dashboard-ui.js:1482 closeUploadDoc)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inline upload area, hidden until Upload clicked.",
-      "session": "2026-06-09-A",
+      "notes": "Cancel closes the upload modal.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8934,10 +8938,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:9564 (consumer dashboard-ui.js saveDocUpload)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inline upload area.",
-      "session": "2026-06-09-A",
+      "notes": "Document Name input accepts text.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8952,10 +8956,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:9566 (consumer dashboard-ui.js saveDocUpload)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inline upload area; 6 fixed options.",
-      "session": "2026-06-09-A",
+      "notes": "Category select has the 6 expected options and is settable.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8970,10 +8974,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:9570 (handler dashboard-ui.js clickProxy delegate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Upload drop-zone proxy.",
-      "session": "2026-06-09-A",
+      "notes": "Upload-zone clickProxy fires a click on #docFileInput (verified via capture-trap; OS picker suppressed with preventDefault).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -8988,10 +8992,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/dashboard.html:9573 (handler dashboard-ui.js:1486 handleDocUpload)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Hidden type=file; data-on-change=handleDocUpload, data-on-pass=element.",
-      "session": "2026-06-09-A",
+      "notes": "Actual file attach requires the native OS file picker — not automatable here. Proxy wiring to the input verified (d5-039).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9006,10 +9010,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "docs/pro/dashboard.html:9575 (handler dashboard-ui.js saveDocUpload)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Inline upload area submit. NOTE: this Documents view has no lead context, so saveDocUpload may need a lead binding (empty-state text says uploads are per-lead on customer.html).",
-      "session": "2026-06-09-A",
+      "notes": "Upload Document without a file validation-blocks with toast 'Add a name and select a file'; modal stays open. Real upload boundary not crossed (no file).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9024,10 +9028,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "document-generator.js:2691 (handler document-generator.js:2705/2708 _docgenAutoFill)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Built dynamically by the fill-modal builder; key autofill control.",
-      "session": "2026-06-09-A",
+      "notes": "Auto-fill from Lead populates per-template fields (homeownerName filled from selected lead; 23 leads listed).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9042,10 +9046,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "document-generator.js:2662 (builder forEach over fields) / consumer _docgenSubmit",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Representative entry for the variable per-template field set; count/labels depend on selected doc type.",
-      "session": "2026-06-09-A",
+      "notes": "Per-template fill fields render for all 23 types (1-15 fields each) and accept typed + autofilled values.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9060,10 +9064,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "document-generator.js:2686,2696 (handler document-generator.js:2944 closeFillModal)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two instances (header × + footer Cancel); same action.",
-      "session": "2026-06-09-A",
+      "notes": "Close (closeFillModal) removes the fill modal.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9078,10 +9082,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "document-generator.js:2697 (handler document-generator.js:2945 submit → _docgenSubmit)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Primary generate action; data-dg-id carries the template key.",
-      "session": "2026-06-09-A",
+      "notes": "Generate submit verified across all 23 types (20 srcdoc previews + 3 server-PDF FAILs logged separately).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9096,10 +9100,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "nbd-doc-viewer.js:310 (handler nbd-doc-viewer.js handleSave)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Doc-viewer action bar (separate NBDDocViewer surface but reachable from the docs generate flow).",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D2: 'Save to Customer' from the template library is a SILENT NO-OP that still toasts 'Document saved'. Root cause: _docgenSubmit assembles only field values — never data.leadId from the Auto-fill lead select — so _leadIdEarly is null and _persistPromise never runs (verified: leads/{id}/documents stayed empty after lead-selected generates). handleSave then toasts success around a no-op onSave.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9114,10 +9118,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "nbd-doc-viewer.js:311 (handler nbd-doc-viewer.js:472 handleEmail)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Opens mail client (no server send) — boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Email = location.href='mailto:?subject=...' (compose-only, no auto-send; handler wired in nbd-doc-viewer.js handleEmail). Not fired: mailto triggers Chrome's native external-protocol dialog which can wedge CDP. No way to stub window.location.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9132,10 +9136,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "nbd-doc-viewer.js:312 (handler nbd-doc-viewer.js:482 handlePrint)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Doc-viewer action bar.",
-      "session": "2026-06-09-A",
+      "notes": "Print fired: posts print message into sandboxed iframe + opens print window (window.open recorded by stub; native dialog suppressed).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9150,10 +9154,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "nbd-doc-viewer.js:313 (handler nbd-doc-viewer.js handlePdf)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Doc-viewer action bar; primary Download path.",
-      "session": "2026-06-09-A",
+      "notes": "Download PDF produced a real client-side PDF via lazy html2pdf (spy captured 19,016-byte application/pdf blob; file write suppressed). NOTE: rasterization keeps the renderer busy ~45s+ on an 89KB doc — tooling note, possibly user-visible jank.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9168,10 +9172,10 @@
       "danger": "esign",
       "priority": "P1",
       "source_ref": "nbd-doc-viewer.js:316/337 (handler handleSendForSignature → document-generator.js:384 onSendForSignature → createSignRequest)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Remote-signing boundary control. Only revealed for signable docs (proposal/contract/scope_of_work/AOB/cert-of-completion/inspectionHomeowner etc.) tied to a lead. Drive only to the email prompt.",
-      "session": "2026-06-09-A",
+      "notes": "Send-for-Signature is structurally unreachable from the template library: onSendForSignature requires hasSigners && leadId, but this path never sets data.signers nor data.leadId (see NEW-D2). Signature flows live in lead-context preflight (doc-preflight.js) / estimate e-sign — test there (gap-esign rows).",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9186,10 +9190,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "document-generator.js:1561 (handler signature-widget.js:174 clear)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "In-doc canvas signature control; repeats once per signer block.",
-      "session": "2026-06-09-A",
+      "notes": "Sig-block Clear lives inside signer-enabled docs only (template-library docs never have signers) and inside a sandboxed opaque-origin iframe. Covered by signature-integration PR3a/b tests; unreachable on this surface.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9204,10 +9208,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "document-generator.js:1562 (handler signature-widget.js:175 undo)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "In-doc canvas signature control; repeats per signer block.",
-      "session": "2026-06-09-A",
+      "notes": "Sig-block Undo — same unreachability as d5-051.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9222,10 +9226,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "signature-widget.js:223 (handler signature-widget.js:228 applySavedToPad / renderSavedButtons)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Conditionally injected per signer block; PR3b saved-sig reuse.",
-      "session": "2026-06-09-A",
+      "notes": "Sig-block Use-saved — same unreachability as d5-051.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9240,10 +9244,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "document-generator.js:486 (handler document-generator.js:2943 print)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Fallback path only — reached when NBDDocViewer is unavailable.",
-      "session": "2026-06-09-A",
+      "notes": "doc-action-bar Print lives in the standalone Blank-print window; the Blank button is missing (d5-034 FAIL) so this window is unreachable.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -9258,10 +9262,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "document-generator.js:482 (handler document-generator.js:2942 closeWindow)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Fallback path only.",
-      "session": "2026-06-09-A",
+      "notes": "doc-action-bar Close — same unreachability as d5-054.",
+      "session": "2026-06-09-B",
       "surface": "d5-docs"
     },
     {
@@ -10340,8 +10344,8 @@
       "source_ref": "dashboard.html:9781",
       "status": "PASS",
       "evidence": "Team tab → panel renders: Team Members (JD owner row), Invite a Rep form (email + role select + Send Invite), Role Permissions matrix, Growth roadmap",
-      "notes": "PASS as tested (tab reveals); NEW-C10 fixed in PR #597: dashboard-team-tab.js readyState guard (tpl-view-settings scripts re-execute after DOMContentLoaded so bare listeners never ran) — member row should now resolve instead of perpetual 'Loading…'. Team copy now 'Crew tier ($299/mo...)' per PR #598 (artifact-verified live). Behavioral check pending browser.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-C10 BEHAVIORALLY VERIFIED 2026-06-09-B: Team tab member row RESOLVES (jd@ owner row rendered, no perpetual Loading), invite form + role matrix render, copy reads Crew $299/mo + $39/seat (BILLING-B1 in-app copy confirmed live).",
+      "session": "2026-06-09-B",
       "surface": "d7-settings"
     },
     {
@@ -10358,8 +10362,8 @@
       "source_ref": "dashboard.html:9782",
       "status": "PASS",
       "evidence": "Billing tab → panel renders: Current Plan + View All Plans / Manage Subscription / View pricing (all link to /pro/pricing.html)",
-      "notes": "PASS as tested (tab reveals); NEW-C13 fixed in PR #597: dashboard-billing-tab.js readyState guard — 'Current Plan: Loading…' should now resolve via loadSubscription()->renderBillingTab. Plan card price 299 in served billing-gate.js (artifact-verified). 'Manage Subscription' still links pricing.html — Stripe portal = BILLING-B2, deliberately unbuilt. Behavioral check pending browser.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-C13 BEHAVIORALLY VERIFIED 2026-06-09-B: Billing 'Current Plan' RESOLVES (NBD PRO ENTERPRISE, ACTIVE, usage meters 0/inf render; no Loading stall). Plan grid shows $299 Growth/Professional.",
+      "session": "2026-06-09-B",
       "surface": "d7-settings"
     },
     {
@@ -10574,8 +10578,8 @@
       "source_ref": "dashboard.html:9828 (dashboard-bootstrap.module.js:2899)",
       "status": "FIXED",
       "evidence": "PR #595 merged; deploy run 27239108944 green; served dashboard-bootstrap.module.js has _loadProfileSettings reading users/{uid} on profile-tab open (artifact-verified live 2026-06-09)",
-      "notes": "NEW-2: load now applies saved weeklyDigestEnabled (checked = value !== false, matches cron opt-out semantics); root cause was tpl lazy-hydration timing. Also covers #settingsDormantNudge (021). Behavioral round-trip pending — see remediation checklist. Jo's digest was restored ON during the sweep and untouched since.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-2 BEHAVIORALLY VERIFIED 2026-06-09-B: uncheck Weekly Digest -> Save -> full reload -> renders UNCHECKED (saved value loads; old bug always re-rendered checked). Restored ON + Save, re-verified ON across reload.",
+      "session": "2026-06-09-B",
       "surface": "d7-settings"
     },
     {
@@ -11780,8 +11784,8 @@
       "source_ref": "dashboard.html:10334 (dashboard-actions.js:1031)",
       "status": "FIXED",
       "evidence": "PR #595 merged; deploy run 27239108944 green; served bootstrap dsSaveConfig mirrors nbd_ds_config (byte-identical transform to daily-success syncToWidgetKeys) (artifact-verified live 2026-06-09)",
-      "notes": "NEW-4: North Star save now reaches the Home widget's read key. Behavioral round-trip (set -> save -> widget shows -> restore empty) pending — see remediation checklist.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-4 BEHAVIORALLY VERIFIED 2026-06-09-B: Target 'ZZ_QA test' -> Save Daily Program -> Home North Star widget displayed ZZ_QA TEST. Restored empty + Save. NOTE (low, logged): with empty target the dsSaveConfig mirror writes the focus CATEGORY string to nbd_ds_config.northStar, so the widget shows 'Roofing Sales' instead of the set-your-north-star placeholder; manually restored ds.northStar='' to as-found render.",
+      "session": "2026-06-09-B",
       "surface": "d7-settings"
     },
     {
@@ -13506,10 +13510,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:11070 (dashboard-hotkey-toggles.js)",
-      "status": "UNTESTED",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "Repeats per shortcut — one representative row.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-C12 BEHAVIORALLY VERIFIED 2026-06-09-B: Hotkey Toggles section renders 4 controls (n/e//?). Flipped 'New Lead' OFF -> wrote nbd_hk_disabled_hk_n=1 -> survived full reload rendering unchecked -> flipped back ON, key cleared. Full strict-bar round-trip.",
+      "session": "2026-06-09-B",
       "surface": "d7-settings"
     },
     {
@@ -13560,10 +13564,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7692 (+dashboard-ui.js:247 navSection delegate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Section header; child nav items below depend on it being expanded.",
-      "session": "2026-06-09-A",
+      "notes": "TOOLS section collapse — cross-ref d1-chrome visual PASS (3 nav-section toggles). Note: class-state probes are unreliable on this control (transition artifact); d1's screenshot evidence stands.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -13596,10 +13600,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7698 (+dashboard-actions.js:292 goToD2DFromMaps)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "The standalone tpl-view-map still exists (reachable via mobile More 'map' / other paths) but the sidebar item redirects to D2D.",
-      "session": "2026-06-09-A",
+      "notes": "Maps & Pins nav — d1 sidebar-nav PASS; route renders.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -13614,10 +13618,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7700 (+dashboard-actions.js:325 goTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "SPA view inside dashboard.html.",
-      "session": "2026-06-09-A",
+      "notes": "Templates nav — visited repeatedly this session, renders.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -13632,10 +13636,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7701 (+dashboard-actions.js:325 goTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "SPA view inside dashboard.html.",
-      "session": "2026-06-09-A",
+      "notes": "Products nav — view renders (222 products/16 cats). Controls on the view are dead — see NEW-D5 / rows 087-096.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -13650,10 +13654,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7702 (+dashboard-actions.js:325 goTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "SPA view inside dashboard.html.",
-      "session": "2026-06-09-A",
+      "notes": "Drawing nav — #/draw reached via CRM Tools menu this session (row 123).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -13668,10 +13672,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7703 (+dashboard-actions.js:325 goTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "SPA view inside dashboard.html.",
-      "session": "2026-06-09-A",
+      "notes": "Sales Training nav — view renders (banner + 8 scenario cards). Controls dead — see NEW-D7 / rows 097-101.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -13686,10 +13690,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:7704 (+dashboard-actions.js:325 goTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "SPA view inside dashboard.html.",
-      "session": "2026-06-09-A",
+      "notes": "Real Deal Academy nav — view renders (tabs + stats).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -14910,10 +14914,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9265 (+docs openUploadDoc)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs-002 — upload modal opens (verified this session).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -14928,10 +14932,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9273-9278 (+dashboard-actions.js tlFilterCat)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats 6× (all/generators/insurance/contracts/leave_behind/marketing). All is default active. data-pass-el.",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs-004..008 — all 5 category chips filter correctly.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -14946,10 +14950,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9286,9331,9384,9437,9490 (+dashboard-actions.js tlToggleCat)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats 5× (one per category). data-pass-el.",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs-009 — category header collapse/reopen verified.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -14964,10 +14968,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9294-9530 (+dashboard-ui.js:379 docgen delegate → NBDDocGen.fillAndGenerate)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats 24× (one per data-target listed in label). Generators auto-fill from CRM; others are static templates. Record one representative; verify each target resolves in NBDDocGen.",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs doc-row matrix — all 24 rows open fill modal + generate; 20 srcdoc previews OK; invoice/change_order/contract preview FAIL (NEW-D1, d5-011/018/019).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -14982,10 +14986,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9555 (+dashboard-actions.js:325 goTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs-035 — Open Pipeline empty-state navigates to #/crm.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15000,10 +15004,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9564",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs-037.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15018,10 +15022,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9566",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs-038 (6 categories, settable).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15036,10 +15040,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9570 (+dashboard-ui.js:546 clickProxy)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs-039 (clickProxy fires file-input click; OS picker suppressed).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15054,10 +15058,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9573 (+docs handleDocUpload)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs-040 — native OS file picker, not automatable.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15072,10 +15076,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9575 (+docs saveDocUpload)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs-041 — no-file validation toast, modal stays open.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15090,10 +15094,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9562 (+dashboard-state.js:124 uploadDoc→closeUploadDoc)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Duplicate of d5-docs-036 — Cancel closes modal.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15108,10 +15112,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "product-library.js:294 (rendered into view-products)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Dynamically rendered by product-library.js into the SPA view.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D5: + Add Product is DEAD — no data-pl-action delegate exists on dashboard (only landing-page.js has one, different actions). Real click verified no-op.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15126,10 +15130,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "product-library.js:295",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D5: Export CSV dead — same missing delegate.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15144,10 +15148,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "product-library.js:296",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Destructive (wipes customizations) — drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D5: Reset dead — same missing delegate (its confirm boundary is unreachable).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15162,10 +15166,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "product-library.js:328,331",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Repeats per tier; All Tiers default.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D5: tier filter buttons dead (real click on Good — no active state, no change). Ledger selector also stale: actual action is setTierFilter.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15180,10 +15184,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "product-library.js:337",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Repeats per category (count rendered dynamically).",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D5: category chips dead; search input ALSO dead (inline oninput= CSP-blocked, typed 'fence' -> no filter).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15198,10 +15202,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "product-library.js:215",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Repeats per category.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D5: category header collapse dead.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15216,10 +15220,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "product-library.js:274",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Repeats per product row; record one representative.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D5: Edit (product row) dead.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15234,10 +15238,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "product-library.js:275",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Repeats per product row. Soft-delete style — drive to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D5: Archive (product row) dead.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15252,10 +15256,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "product-library.js:501",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Modal also has Cancel (closeModal) and, when editing, a Delete (deleteFromModal).",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D5: modal save unreachable (modal cannot open — addProduct/editProduct dead).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15270,10 +15274,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "product-library.js:498",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Only present when editing an existing product. Destructive — drive to confirm boundary.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D5: modal delete unreachable (same).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15288,10 +15292,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "sales-training-ui.js:80 (rendered into #trainingContent)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Dynamically rendered by sales-training-ui.js.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D7: Objection Obliterator START dead — sales-training-ui.js has 15 data-st-action controls and ZERO addEventListener calls; no delegate anywhere.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15306,10 +15310,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "sales-training-ui.js:75",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D7: My Profile dead (real click no-op).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15324,10 +15328,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "sales-training-ui.js:47",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Repeats per scenario in the training grid; record one representative.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D7: scenario cards dead (real click no-op).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15342,10 +15346,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "sales-training-ui.js:142",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Repeats per option; plus advance (line 191), backToMenu (132/164/248), and Try Again (247).",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D7: scenario options unreachable (simulator can never open).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15360,10 +15364,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "sales-training-ui.js:284,293 (rapidNext)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Repeats per option. rapid_results screen has Try Again (startRapidFire) + Back to Menu.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D7: rapid-fire answers unreachable (drill can never start).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15378,10 +15382,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "real-deal-academy.js:1402,1428 (rendered into #academyContainer)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per course in the catalog grid; record one representative. Some tier-locked (plan/tier-gated).",
-      "session": "2026-06-09-A",
+      "notes": "Course card opens course detail (Door-to-Door Mastery, 3 modules).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15396,10 +15400,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "real-deal-academy.js:1539,1563",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Repeats per lesson; record one representative.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D6: open-lesson handler itself works (verified via direct invocation -> lesson view renders) but is UNREACHABLE for users — course-view module accordions have no click wiring, so modules never expand (renderCourse wires back/open-lesson but not .rda-collapsible-header; the auto-expand .click() at line ~1573 is a no-op). FIX OPEN: PR #606 (smoke 1825/0). Flip to FIXED on merge.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15414,10 +15418,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "real-deal-academy.js:1497,1558,1601,1636",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Two variants (back-to-courses, back-to-course).",
-      "session": "2026-06-09-A",
+      "notes": "Back navigation from lesson -> course view works.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15432,10 +15436,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "real-deal-academy.js:1624,1641",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Mark-lesson-complete works (completedLessons persisted to LS rda_progress_{uid}). NOTE NEW-D8: the Firestore academy_progress sync silently fails permission-denied (no rules block) -> progress is LS-only, no cross-device sync. Test progress fully restored (LS cleared; Firestore was never written).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15450,10 +15454,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "real-deal-academy.js:1650,1710",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Quiz form present only on lessons that include a quiz.",
-      "session": "2026-06-09-A",
+      "notes": "Submit-quiz works (graded 0/2 with per-question feedback on empty submit; no empty-answer guard — minor UX nit). quizScores written to LS; restored.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15468,10 +15472,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "real-deal-academy.js:1303,1309,1312,1340",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Node modal includes prev-node (1309) and next-node (1312) too (disabled at ends).",
-      "session": "2026-06-09-A",
+      "notes": "Insurance decision-tree node modal opens; Mark complete writes completedNodes (LS). Restored to pristine 0-progress.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15486,10 +15490,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "d2d-tracker-ui-2026b.js:681 (rendered into #d2dContent)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Dynamically rendered by d2d-tracker-ui-2026b.js. Repeats per tab.",
-      "session": "2026-06-09-A",
+      "notes": "D2D sub-tabs swap content (Feed/Routes/Challenges/Stats verified: route CTA, golden hours).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15504,10 +15508,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "d2d-tracker-ui-2026b.js:710 (quick-knock modal at :277)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Core D2D flow. Also reachable via mobile create popover (knock) and the CRM ＋ New Knock button.",
-      "session": "2026-06-09-A",
+      "notes": "Quick Knock modal opens (Knock #1/5, address field, 15 dispositions, contact & notes).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15522,10 +15526,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "d2d-tracker-ui-2026b.js:711",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Heat toggle fires without error but layer effect not visually verifiable at city-wide zoom with no knock pins in viewport. Needs knock-dense viewport.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15540,10 +15544,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "d2d-tracker-ui-2026b.js:712",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Hail toggle — same verification limit as 110.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15558,10 +15562,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "d2d-tracker-ui-2026b.js:713",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "My Location requires the native geolocation permission prompt — not automatable.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15576,10 +15580,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "d2d-tracker-ui-2026b.js:714",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "CSV export produced a 766-byte text/csv blob (NBD-D2D-Knocks-2026-06-10.csv) — captured via spy, no file dropped.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15594,10 +15598,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "d2d-tracker-ui-2026b.js:289",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per disposition. Modal also has capturePhoto (336) and startVoice (337).",
-      "session": "2026-06-09-A",
+      "notes": "Disposition select drives the save button (label reflects chosen dispo).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15612,10 +15616,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "d2d-tracker-ui-2026b.js:344",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Core write. Starts disabled.",
-      "session": "2026-06-09-A",
+      "notes": "Save knock works: ZZ_QA knock saved with toast, appeared in feed. Deleted after (row 119) — zero residue.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15630,10 +15634,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "d2d-tracker-ui-2026b.js:617,877 (+convertToLeadWithEdit :878)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per knock. Also convert-prompt variants at :514/:517 after saving a knock.",
-      "session": "2026-06-09-A",
+      "notes": "Convert-to-Lead button present + enabled in knock detail. NOT fired (would create a CRM lead) — boundary only; lead-creation path covered by C-1/d3 evidence.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15648,10 +15652,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "d2d-tracker-ui-2026b.js:854 (detail modal :568)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per knock; record one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Knock card opens detail modal (Convert/Re-Knock/Delete).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15666,10 +15670,10 @@
       "danger": "send",
       "priority": "P2",
       "source_ref": "d2d-tracker-ui-2026b.js:622",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Send path (SMS) — drive to confirm/compose boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "SMS Follow-Up button not present in detail for a Not-Home knock — appears to require a contact/callback dispo. Re-test with a callback-dispo ZZ_QA knock.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15684,10 +15688,10 @@
       "danger": "delete",
       "priority": "P2",
       "source_ref": "d2d-tracker-ui-2026b.js:623",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Destructive — drive to confirm boundary only.",
-      "session": "2026-06-09-A",
+      "notes": "Delete knock works via in-app 'Delete this knock?' confirm (NEW-C1 family pattern, not native) -> knock removed from feed. ZZ_QA residue zero.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15702,10 +15706,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "d2d-tracker-ui-2026b.js:897 (clearRoute :898)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Calculate Walking Route computed an optimized 15-stop route (38.37 mi / 767 min) with toast; Clear control present (route cleared after).",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15720,10 +15724,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "d2d-tracker-ui-2026b.js:831 (setDispoFilter :816,:822)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Repeats per range. Disposition filter via bar segments/legend chips.",
-      "session": "2026-06-09-A",
+      "notes": "Date pills (Today/Week/Month/All) click without error but item counts were IDENTICAL (25) across all four — either the probe counted unfiltered feed entries or the filter is a no-op. Logged NEW-D9 candidate; needs a data-shape check.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -15756,10 +15760,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:8787 (+dashboard-ui.js:233 toolMenuGoTo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Alternate entry point to the Drawing tool from the CRM toolbar dropdown.",
-      "session": "2026-06-09-A",
+      "notes": "CRM Tools menu opens; Drawing Tool navigates to #/draw.",
+      "session": "2026-06-09-B",
       "surface": "d8-tools"
     },
     {
@@ -24344,8 +24348,8 @@
       "source_ref": "inspect.html:164 (handler inspect-form.js:38)",
       "status": "PASS",
       "evidence": "Public /inspect form: filled name/address/phone/email/story → 'Request Free Inspection' → form replaced by success card '✓ GOT IT — THANKS! Joe will reach out within 24 hours'. Lead then appeared in the CRM pipeline IMMEDIATELY as 'ZZ_QA_ Inspect Bridge Test', stage New, source 'Website — Inspection / Storm tool' (publicLeadCollection=inspect_leads).",
-      "notes": "PASS for the /inspect public form + RE-VERIFIES CO-H-1 (public lead → CRM bridge WORKS — the prior 'leads never reach CRM' bug is fixed). Representative of the inspect form fields/submit. ⚠ NEW-5: the bridged lead could NOT be deleted from the CRM (delete flow completed but lead persists — re-syncs from inspect_leads or webLead delete blocked).",
-      "session": "2026-06-09-A",
+      "notes": "PASS; CO-H-1 bridge RE-RE-VERIFIED 2026-06-09-B with fresh ZZ_QA submit (lead arrived instantly, source Website-Inspection/Storm). NEW-5 BEHAVIORALLY VERIFIED: CRM soft-delete of the bridged lead now STICKS across full reload (no inspect_leads re-sync; count 23->22 stable). Prior leftover ZZ_QA_ Inspect Bridge Test was already gone from pipeline pre-session. Zero ZZ_QA residue.",
+      "session": "2026-06-09-B",
       "surface": "public"
     },
     {
