@@ -6,10 +6,10 @@
     "total": 1363,
     "by_status": {
       "BLOCKED": 89,
-      "PASS": 343,
-      "UNTESTED": 891,
-      "FAIL": 25,
-      "FIXED": 15
+      "PASS": 380,
+      "UNTESTED": 854,
+      "FAIL": 24,
+      "FIXED": 16
     },
     "by_surface": {
       "customer": 146,
@@ -56,10 +56,11 @@
     "note": "Source of truth. Never reset. status: UNTESTED|PASS|FAIL|BLOCKED|FIXED. Re-run build-ledger.js to fold in new fragments without losing test results.",
     "by_surface_status": {
       "customer": {
-        "BLOCKED": 55,
-        "PASS": 72,
-        "UNTESTED": 16,
-        "FAIL": 3
+        "BLOCKED": 51,
+        "PASS": 80,
+        "UNTESTED": 12,
+        "FAIL": 2,
+        "FIXED": 1
       },
       "d1-chrome": {
         "UNTESTED": 16,
@@ -102,11 +103,11 @@
         "FIXED": 1
       },
       "d9-insights": {
-        "PASS": 39,
+        "PASS": 41,
         "FAIL": 2,
         "BLOCKED": 4,
         "FIXED": 4,
-        "UNTESTED": 4
+        "UNTESTED": 2
       },
       "gap-carddetail": {
         "UNTESTED": 33
@@ -126,13 +127,15 @@
         "UNTESTED": 39
       },
       "gap-prospects": {
-        "UNTESTED": 39
+        "PASS": 24,
+        "BLOCKED": 4,
+        "UNTESTED": 11
       },
       "gap-storm-cb-repos": {
-        "PASS": 43,
+        "PASS": 46,
         "BLOCKED": 5,
-        "UNTESTED": 5,
-        "FIXED": 4
+        "FIXED": 4,
+        "UNTESTED": 2
       },
       "pages-a": {
         "UNTESTED": 82
@@ -921,7 +924,7 @@
       "source_ref": "customer.html:1383 (+ modal customer.html:1980)",
       "status": "PASS",
       "evidence": "",
-      "notes": "Log Estimate opens the modal (Good/Better/Best). The SAVE is broken — see customer-114 / NEW-D19, fix PR #611.",
+      "notes": "Log Estimate modal opens AND now saves (post-#611).",
       "session": "2026-06-09-B",
       "surface": "customer"
     },
@@ -955,10 +958,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:4131 (+ viewer modal customer.html:2045)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per estimate; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Estimate row renders after save (post-#611) and opens the viewer on click.",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -973,10 +976,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:4138 (+ wiring customer.html:4151)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per estimate row; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Estimate export PDF button present on the saved row (📤).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -991,10 +994,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:4139 (+ wiring customer.html:4154)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per estimate row; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Estimate share-link button present on the saved row (🔗).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1009,10 +1012,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "customer.html:4140 (+ wiring customer.html:4157)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Repeats per estimate row; one representative.",
-      "session": "2026-06-09-A",
+      "notes": "Warranty-cert button present on the saved row (🛡️).",
+      "session": "2026-06-09-B",
       "surface": "customer"
     },
     {
@@ -1675,9 +1678,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:6724 (+ customer.html:6732)",
-      "status": "BLOCKED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Needs a shared report (also see NEW-D18 reports loader, fix PR #611).",
+      "notes": "NEW-D18 FIXED + LIVE-VERIFIED 2026-06-10: Inspection Reports panel loads cleanly ('No reports yet', no 'Failed to load') post-#611.",
       "session": "2026-06-09-B",
       "surface": "customer"
     },
@@ -2197,9 +2200,9 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:2030",
-      "status": "FAIL",
+      "status": "FIXED",
       "evidence": "",
-      "notes": "NEW-D19: Save Estimate ALWAYS fails ('Failed to save estimate') — saveEstimate omits userId but the estimates create rule requires it (permission-denied captured). FIX OPEN: PR #611. Flip to FIXED on merge.",
+      "notes": "NEW-D19 FIXED + LIVE-VERIFIED 2026-06-10: PR #611 merged+deployed — Log Estimate saved '$4,800' row on a fresh ZZ_QA lead (export/share/cert/supplement actions present); no permission error.",
       "session": "2026-06-09-B",
       "surface": "customer"
     },
@@ -2233,9 +2236,9 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "customer.html:2057 (+ customer.html:5189)",
-      "status": "BLOCKED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Estimate viewer unreachable — no estimate can exist until NEW-D19 (PR #611) deploys.",
+      "notes": "Estimate Viewer opens from the row (post-#611); Edit-in-Builder button present.",
       "session": "2026-06-09-B",
       "surface": "customer"
     },
@@ -2251,9 +2254,9 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "customer.html:2058 (+ customer.html:5194)",
-      "status": "BLOCKED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Same as 116.",
+      "notes": "Estimate Viewer Archive button present (boundary — not fired).",
       "session": "2026-06-09-B",
       "surface": "customer"
     },
@@ -2269,9 +2272,9 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "customer.html:2051 (+ 2059)",
-      "status": "BLOCKED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Same as 116.",
+      "notes": "Estimate Viewer Close button closes the modal.",
       "session": "2026-06-09-B",
       "surface": "customer"
     },
@@ -16525,10 +16528,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "close-board.js:774 (+:900 change listener)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional. Reveals #cb-carrier / #cb-deductible inputs when checked.",
-      "session": "2026-06-09-A",
+      "notes": "Insurance-claim checkbox reveals carrier + deductible fields (Close Board New Deal); both settable.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -16543,10 +16546,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "close-board.js:780-781 (+:859-860)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Conditional/hidden: revealed only when the Insurance claim checkbox is checked. REPRESENTATIVE grouped (2 inputs).",
-      "session": "2026-06-09-A",
+      "notes": "Insurance carrier + deductible inputs accept values when revealed.",
+      "session": "2026-06-09-B",
       "surface": "d9-insights"
     },
     {
@@ -18865,10 +18868,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9050",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Header back-link inside tpl-view-prospects template.",
-      "session": "2026-06-09-A",
+      "notes": "Back-to-Pipeline breadcrumb present in header.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -18883,10 +18886,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9056",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "D2D Tracker header button present (goTo d2d).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -18901,10 +18904,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:9057 (+ dashboard-actions.js openD2DOrGo)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Primary CTA in the header. Verify openD2DOrGo is in _NBD_CALL_ALLOWLIST (dashboard-state.js).",
-      "session": "2026-06-09-A",
+      "notes": "+ New Knock header button present (openQuickKnock — verified working in d8 D2D pass).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -18919,10 +18922,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "prospects.js:205,231-237 (renderStats)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Stat tiles double as bucket filter pills.",
-      "session": "2026-06-09-A",
+      "notes": "Total stat tile filters board to all 6.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -18937,10 +18940,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "prospects.js:219,231-237 (renderStats); HOT_DISPS prospects.js:48",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Hot stat tile filters to 5 (hot bucket).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -18955,10 +18958,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "prospects.js:220,231-237; WARM_DISPS prospects.js:49",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Warm stat tile present (0 warm).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -18973,10 +18976,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "prospects.js:221,231-237; COLD_DISPS prospects.js:50",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Cold stat tile present (1 cold).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -18991,10 +18994,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "prospects.js:222-229 (renderStats); computeStats prospects.js:184-192",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Read-only metric; included for completeness — not interactive.",
-      "session": "2026-06-09-A",
+      "notes": "Conv. Rate tile renders (0%, last 90 days).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19009,10 +19012,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "prospects.js:259-261 (renderFilters), :286 (change wire), :152-155 (applyFilters age)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Age filter (5 options) filters: Fresh<7d -> 6 to 3 cards; restored.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19027,10 +19030,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "prospects.js:262-264, :287, :157-162 (applyFilters attempts); attemptCount :114-118",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Attempts filter settable (1st knock); board reflowed; restored.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19045,10 +19048,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "prospects.js:265-270, :288, :164-167 (applyFilters rep); collectReps :296-304; showRepFilter :254",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Only rendered when role is admin/owner or role is unset (showRepFilter). Hidden entirely for sales_rep (who also see only their own prospects per applyFilters:129-131).",
-      "session": "2026-06-09-A",
+      "notes": "Rep filter not present for a solo owner (#pf-rep absent) — multi-rep-only control.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19063,10 +19066,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "prospects.js:271-274, :289, :169-172; isFollowUpDue :119-122",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Follow-up due checkbox filters (6 to 3); restored OFF.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19081,10 +19084,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "prospects.js:275-278, :290, :134-137 (applyFilters showHidden)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Pairs with the Hide/Unhide quick-action (toggleProspectHidden writes prospectHidden).",
-      "session": "2026-06-09-A",
+      "notes": "Show hidden checkbox toggles; restored OFF.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19099,10 +19102,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "prospects.js:280,291-293; renderKanban :307-351",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Half of the kanban-vs-list toggle the critic called out.",
-      "session": "2026-06-09-A",
+      "notes": "Kanban view toggle renders cards.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19117,10 +19120,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "prospects.js:281,291-293; renderList :354-372",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "List view is sort-by-age only (no user-facing sort control); the only 'sort' in the gap is this implicit age-ascending order.",
-      "session": "2026-06-09-A",
+      "notes": "List view toggle renders rows; back to Kanban works.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19135,10 +19138,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "prospects.js:382 (renderCard), :425-436 (wireCardClicks)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Each card is the entry point to per-prospect actions (promote/hide/delete live in the modal).",
-      "session": "2026-06-09-A",
+      "notes": "Prospect card opens card-detail modal (quick actions + promote banner).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19153,10 +19156,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "prospects.js:410 (renderRow), :425-436 (wireCardClicks)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "List-view prospect rows render with data-lead-id.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19207,10 +19210,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "prospects.js:519-536 (renderAnalytics); computeAnalytics :442-480",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Display-only analytics; bars are not clickable.",
-      "session": "2026-06-09-A",
+      "notes": "Conversion Analytics collapsible toggles open/closed (by-disposition + by-knock-attempt breakdowns).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19225,10 +19228,10 @@
       "danger": "publish",
       "priority": "P1",
       "source_ref": "dashboard.html:12627 (+ dashboard-actions.js:243 cdaConfirmPromote, :1376 confirmPromoteProspect; promoteProspect crm-portal-bridge.js:628)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "State-changing promotion (writes the lead live into the customer pipeline). Banner is hidden via inline display:none until a prospect lead opens. Verify cdaConfirmPromote in _NBD_CALL_ALLOWLIST (dashboard-state.js:231 — confirmed present).",
-      "session": "2026-06-09-A",
+      "notes": "Promote-to-Customer banner button present in card detail (found by ref).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19243,10 +19246,10 @@
       "danger": "publish",
       "priority": "P1",
       "source_ref": "dashboard-actions.js:1383-1391 (confirmPromoteProspect); _prospectConfirm :1354-1364",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Confirm control captured as its own row per the gap brief.",
-      "session": "2026-06-09-A",
+      "notes": "Promote confirm dialog: hung CDP once mid-interaction; not safe to fire on a real prospect (would move it to the pipeline). Boundary deferred — Jo-driven or on a ZZ_QA D2D knock-created prospect.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19261,10 +19264,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard-actions.js:1383-1387",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Promote-cancel — same dialog as 022; deferred.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19279,10 +19282,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard-widgets.js:1210 (populateProspectQuickActions :1174); wired from openCardDetailModal :919",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Quick-actions row injected via createElement (no inline HTML).",
-      "session": "2026-06-09-A",
+      "notes": "Quick-action 📞 Call present in #prospectQuickActions.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19297,10 +19300,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard-widgets.js:1211",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opens native SMS app; does not send anything automatically.",
-      "session": "2026-06-09-A",
+      "notes": "Quick-action 💬 Text present (boundary — sms: not fired).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19315,10 +19318,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard-widgets.js:1212",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opens native mail composer; does not send.",
-      "session": "2026-06-09-A",
+      "notes": "Quick-action ✉️ Email present (boundary — not fired).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19333,10 +19336,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard-widgets.js:1213-1220",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Always enabled (no disable condition).",
-      "session": "2026-06-09-A",
+      "notes": "Quick-action 🚪 Re-knock present.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19351,10 +19354,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard-widgets.js:1221-1224; viewProspectOnMap dashboard-actions.js:1418-1433",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Quick-action 🗺️ See on Map present.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19369,10 +19372,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard-widgets.js:1225-1227; toggleProspectHidden dashboard-actions.js:1398-1415",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Soft-hide writes prospectHidden:true — pairs with the 'Show hidden' filter (gap-prospects-013).",
-      "session": "2026-06-09-A",
+      "notes": "Quick-action 🗄️ Hide present (boundary — would hide a real prospect; not fired).",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19387,10 +19390,10 @@
       "danger": "delete",
       "priority": "P1",
       "source_ref": "dashboard-widgets.js:1228-1230; absoluteDeleteProspect dashboard-actions.js:1439-1489",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Hard-delete reserved for prospects only; styled red (danger). Distinct from the customer soft-delete/trash flow.",
-      "session": "2026-06-09-A",
+      "notes": "Delete present but is a 3-step typed-DELETE gate on a REAL prospect — not safe to fire; boundary deferred to a ZZ_QA-knock prospect.",
+      "session": "2026-06-09-B",
       "surface": "gap-prospects"
     },
     {
@@ -19801,10 +19804,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/close-board.js:658 (handler renderAnalytics :792)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "GAP-FLAG REBUTTAL: critic asked for 'add/edit/move deal' kanban-style editor. Close Board has NO move/drag and NO per-deal edit form — only 3 tabs (Active/New/Analytics). updateDeal/deleteDeal exist on the public API but are NOT wired to any visible control (no Edit or Delete button is rendered). Status changes happen only programmatically (sendSMS/sendEmail set status='sent').",
-      "session": "2026-06-09-A",
+      "notes": "Close Board Analytics tab renders (TOTAL/SENT/VIEWED/CLOSE RATE + conversion funnel; all 0 after cleanup, correct).",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19855,10 +19858,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/close-board.js:774 (change listener bound at :903)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Listener is bound via a single setTimeout(100) in init() — if the user switches tabs and back, the listener may not re-bind on re-render (render() does not re-bind it). Possible bug: toggle dead after a tab round-trip.",
-      "session": "2026-06-09-A",
+      "notes": "Insurance-claim checkbox toggles the conditional fields.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {
@@ -19873,10 +19876,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "docs/pro/js/close-board.js:780 (read at :859 submitCreateForm)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Carrier/Deductible conditional fields settable.",
+      "session": "2026-06-09-B",
       "surface": "gap-storm-cb-repos"
     },
     {

@@ -30,6 +30,13 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 ## Outbound side effects
 - One `lead-alert` email to Jo fired by the ZZ_QA_ Inspect Bridge Test2 public submit (same as the prior sweep's CO-H-1 repro; subject "New lead"). No SMS (Twilio still blocked). No Stripe/billing/account changes. GDPR/dangerous controls untouched this session.
 
+## #611 live-verify + gap-prospects pass (2026-06-10) — created & cleaned
+| artifact | state |
+|----------|-------|
+| Lead "ZZ_QA EstFix Test" (ZRVt65rIK5j7HdP6prAi) + its $4,800 estimate (created to verify #611 estimate-save) | **soft-deleted → Deleted bin** (count 23→22). Estimate doc lives under the deleted lead; purge with the lead if desired. |
+| Close Board "New Deal" insurance fields | typed into the form only; **never submitted** (no deal created). |
+| Prospects filters (followup/hidden/age/attempts) + analytics collapsible | all toggled during testing then **restored** (6 cards, all filters off, verified). No prospect promoted/hidden/deleted (boundaries deferred). |
+
 ## customer.html pass (2026-06-10) — created & cleaned
 | artifact | state |
 |----------|-------|
