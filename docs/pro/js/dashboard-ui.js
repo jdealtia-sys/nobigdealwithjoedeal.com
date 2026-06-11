@@ -1585,19 +1585,27 @@ function setKanbanBoldHierarchy(on) {
   try { localStorage.setItem(KANBAN_BOLD_KEY, on ? '1' : '0'); } catch (e) {}
 }
 
-// Wire up the settings panel state when it opens.
+// Prime the settings-panel kanban controls (density button active state +
+// bold / auto-collapse checkboxes) from localStorage and apply the saved
+// density to <html>. The controls live inside the lazy-hydrated
+// tpl-view-settings template, so the DCL+200ms call below only reaches
+// them on a direct #/settings load; on every later Settings open,
+// ui.js switchSettingsTab('profile') re-runs this after the template
+// mounts (NEW-D45c — same hydration-timing family as the #597 fixes).
+function syncKanbanPrefControls() {
+  const d = localStorage.getItem(KANBAN_DENSITY_KEY) || 'comfortable';
+  setKanbanDensity(d);
+  const bold = localStorage.getItem(KANBAN_BOLD_KEY) === '1';
+  const t = document.getElementById('kanbanBoldToggle');
+  if (t) t.checked = bold;
+  // Sync auto-collapse toggle from localStorage (default off).
+  const ac = localStorage.getItem('nbd-crm-autocollapse') === '1';
+  const acT = document.getElementById('crmAutoCollapseToggle');
+  if (acT) acT.checked = ac;
+}
+window._syncKanbanPrefControls = syncKanbanPrefControls;
 document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    const d = localStorage.getItem(KANBAN_DENSITY_KEY) || 'comfortable';
-    setKanbanDensity(d);
-    const bold = localStorage.getItem(KANBAN_BOLD_KEY) === '1';
-    const t = document.getElementById('kanbanBoldToggle');
-    if (t) t.checked = bold;
-    // Sync auto-collapse toggle from localStorage (default off).
-    const ac = localStorage.getItem('nbd-crm-autocollapse') === '1';
-    const acT = document.getElementById('crmAutoCollapseToggle');
-    if (acT) acT.checked = ac;
-  }, 200);
+  setTimeout(syncKanbanPrefControls, 200);
 });
 window.setKanbanDensity = setKanbanDensity;
 window.setKanbanBoldHierarchy = setKanbanBoldHierarchy;

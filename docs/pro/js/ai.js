@@ -45,6 +45,10 @@ function clearJoeKey() {
     localStorage.removeItem(JOE_KEY_STORE);
     localStorage.removeItem(JOE_CHAT_STORE);
   } catch(e){}
+  // Without this the settings status line kept showing "✓ Key saved —
+  // Joe AI is active" after the key was gone (NEW-D45b).
+  const status = document.getElementById('joeKeyStatus');
+  if (status) { status.textContent = 'Key cleared — Joe AI is off until you save a new key'; status.style.color = 'var(--m)'; }
   _joeMessages = [];
   initJoeChat();
 }
