@@ -326,6 +326,48 @@ async function run() {
   await assertFails(deleteDoc(doc(anon, 'reports/report-alice')));                       // anon delete blocked
   await assertSucceeds(deleteDoc(doc(alice, 'reports/report-alice')));                   // owner deletes own report
 
+  // 25. NEW-D40a: drawings. The lead-linked subcollection
+  //     (leads/{leadId}/drawings) has long had owner rules, but the
+  //     top-level /drawings collection — the draw tool's fallback for
+  //     drawings saved with no matching lead — had NO block, so
+  //     default-deny failed every unlinked save and load. Exercise the
+  //     exact client query shapes from maps-routing.js.
+  const { collection, query, where, orderBy, limit, getDocs, addDoc } = require('firebase/firestore');
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'drawings/draw-alice'),
+      { userId: 'alice', leadId: '_unlinked_alice', version: 1, address: '1 Test St' });
+    await setDoc(doc(db, 'drawings/draw-bob'),
+      { userId: 'bob', leadId: '_unlinked_bob', version: 1, address: '2 Test St' });
+    await setDoc(doc(db, 'leads/leadA/drawings/d1'),
+      { userId: 'alice', leadId: 'leadA', version: 1, address: '3 Test St' });
+  });
+  // ✅ unlinked load: owner-filtered query (loadDrawingFromCustomer shape)
+  await assertSucceeds(getDocs(query(collection(alice, 'drawings'),
+    where('userId', '==', 'alice'), orderBy('version', 'desc'), limit(1))));
+  // ✅ unlinked save: create with self-stamped userId (saveDrawingToCustomer shape)
+  await assertSucceeds(addDoc(collection(alice, 'drawings'),
+    { userId: 'alice', leadId: '_unlinked_alice', version: 2, address: '1 Test St' }));
+  // ❌ create stamped with someone else's userId → blocked
+  await assertFails(addDoc(collection(alice, 'drawings'),
+    { userId: 'bob', leadId: '_unlinked_bob', version: 9, address: 'forged' }));
+  // ❌ cross-owner direct read + unfiltered collection scan → blocked
+  await assertFails(getDoc(doc(alice, 'drawings/draw-bob')));
+  await assertFails(getDocs(query(collection(alice, 'drawings'),
+    orderBy('version', 'desc'), limit(1))));
+  // ❌ anon read → blocked
+  await assertFails(getDoc(doc(anon, 'drawings/draw-alice')));
+  // ✅ owner deletes their own unlinked drawing
+  await assertSucceeds(deleteDoc(doc(alice, 'drawings/draw-alice')));
+  // ✅ lead-linked load regression: owner queries the subcollection with
+  //    orderBy(version) — no userId clause; ownership proves via the
+  //    parent-lead get() in the existing rule.
+  await assertSucceeds(getDocs(query(collection(alice, 'leads/leadA/drawings'),
+    orderBy('version', 'desc'), limit(1))));
+  // ❌ same query from a non-owner of the lead → blocked
+  await assertFails(getDocs(query(collection(bob, 'leads/leadA/drawings'),
+    orderBy('version', 'desc'), limit(1))));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }

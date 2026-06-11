@@ -49,6 +49,12 @@ const FLAT_USER_COLLECTIONS = [
   { name: 'supplements' },
   { name: 'photos' },
   { name: 'pins' },
+  // NEW-D40a: the draw tool's unlinked-drawing fallback — drawings
+  // saved with no matching lead land here (leadId '_unlinked_<uid>',
+  // userId stamped by saveDrawingToCustomer). Lead-LINKED drawings
+  // live under leads/{id}/drawings and ride the recursive leads
+  // entry above.
+  { name: 'drawings' },
   { name: 'tasks' },
   { name: 'documents' },
   { name: 'communications' },

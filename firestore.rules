@@ -291,6 +291,20 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 
+    // ── UNLINKED DRAWINGS (draw tool, no matching lead) ──
+    // saveDrawingToCustomer (maps-routing.js) falls back to this
+    // top-level collection (leadId '_unlinked_<uid>') when no lead
+    // matches the drawn address; loadDrawingFromCustomer queries it
+    // with where(userId == uid) + orderBy(version desc). It had NO
+    // rule, so default-deny made every unlinked save AND load
+    // permission-denied (NEW-D40a) — the lead-linked path already
+    // works via leads/{leadId}/drawings above. Same owner-scope
+    // shape as photos / pins.
+    match /drawings/{drawingId} {
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+    }
+
     // ── TASKS ─────────────────────────────────────────
     match /tasks/{taskId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
