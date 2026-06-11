@@ -119,3 +119,15 @@ Browser: normal Chrome window, tab group OK (last session's PWA-focus blocker cl
 | Crew calendar | `openCrewCalendarFromMore()` toggled it on then **toggled back off** (toggleCrewCalendar). No persisted state. |
 | /pro/photo-review?lead=JoKt4d0yJeF51MTmjaJh (John & Jennifer Morgan-McCane, 90 real photos) | **VIEW-ONLY** on Jo's real lead — opened the lightbox via long-press on image tiles only (never the `.pr-chip` review-pickers), closed via ✕/backdrop/Esc. No review-state mutated (was already 90/90 reviewed; unchanged). Tab closed. |
 | Outbound | NONE. No leads/tasks/photos created, no emails/SMS, no Stripe. |
+
+## 2026-06-10-C cont. — d7-settings detail pass artifacts
+- LS snapshot key `ZZ_QA_orig_snapshot_2026-06-10C` (original settings blobs) + `ZZ_QA_cp_orig` + `ZZ_QA_est_orig` + `ZZ_QA_estv3_orig` + `ZZ_QA_prof_orig` — created in the QA browser for restore verification; REMOVE at session end (done below if checked).
+- Notifications: mode/triggers/channels flipped + saved twice; RESTORED to critical + all triggers on + inApp/push/email on (chPush restored to the Firestore-synced TRUE, not the stale LS false).
+- Company tab: all 18 fields token-saved; RESTORED byte-exact from snapshot (only coRadius had an original value).
+- Company Profile (LIVE shop-wide doc): all 69 cp_* fields token-saved for ~3 min; RESTORED + re-saved; LS mirror verified token-free, tier APR + services/valueProps arrays content-verified. Reset-to-defaults driven to confirm boundary + cancelled.
+- Estimates: 44 fields token-saved (tier rates included) for ~2 min; RESTORED — v3 top-level diff vs original ZERO, catalog untouched, cp.pricing.addonPrices restored (25/425 spot checks).
+- Daily OS: config token-saved; RESTORED nbd_user_config + nbd_ds_config byte-exact, ds-theme key REMOVED (did not pre-exist).
+- Profile: displayName "QA Name Test" + calcom "qa-test" + dormant-off saved then RESTORED (name+calcom emptied, dormant on, saved). Joe AI test key saved to sessionStorage then CLEARED (stale status line = NEW-D45b). Pipeline prefs (density/bold/auto-collapse/sec-header) flipped + RESTORED (spacious/off/off/on).
+- Two CSV exports fired with download spy (leads, estimates) — downloads suppressed, no files on disk. Import modal opened/closed, no file.
+- NOT fired: Load Sample Data (would seed 13 leads), Sign out, GDPR delete, Team invite.
+- Earlier in session (draw phase): stale ZZ_QA V2-builder draft `nbd_v2_draft_v1` (from estimate-qa 2026-06-08) DELETED — closes that session's leftover.
