@@ -160,7 +160,8 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .compare-section h2 { text-align: center; font-family: 'Bebas Neue', sans-serif; font-size: clamp(1.8rem, 3.5vw, 2.4rem); color: var(--navy-dark); letter-spacing: 1px; margin-bottom: 12px; }
 .compare-section h2 span { color: var(--orange); }
 .compare-section .sub { text-align: center; color: var(--gray); margin-bottom: 40px; max-width: 680px; margin-left: auto; margin-right: auto; line-height: 1.6; }
-.compare-table { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 24px rgba(20,42,82,.06); }
+.compare-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
+.compare-table { width: 100%; min-width: 560px; border-collapse: separate; border-spacing: 0; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 24px rgba(20,42,82,.06); }
 .compare-table th, .compare-table td { padding: 16px 18px; text-align: left; font-size: .88rem; border-bottom: 1px solid var(--light-gray); vertical-align: top; }
 .compare-table thead th { background: var(--navy-dark); color: #fff; font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 1px; padding: 18px; }
 .compare-table thead th:first-child { background: var(--navy); }
@@ -498,6 +499,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <div class="compare-inner">
     <h2>The Whole <span>Picture.</span></h2>
     <p class="sub">Same roof shape, three different builds. Here's exactly what changes between tiers.</p>
+    <div class="compare-scroll">
     <table class="compare-table">
       <thead>
         <tr>
@@ -594,6 +596,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         </tr>
       </tbody>
     </table>
+    </div>
     <p style="text-align:center;margin-top:24px;font-size:.82rem;color:var(--gray);">Want exact numbers for your roof? <a href="/estimate" style="color:var(--orange);font-weight:700;">Try the Instant Estimate</a> or call Joe.</p>
   </div>
 </section>
