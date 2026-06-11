@@ -10255,20 +10255,14 @@ body.theme-frosted {
           </div>
         </div>
 
-        <!-- ▸ Default Measurements -->
+        <!-- ▸ Cost Defaults. The Default Pitch / Waste % / Deck Replace %
+             trio that used to sit here was markup-only decoration — no JS
+             ever read or persisted those ids, so Save All silently
+             discarded them (NEW-D43a). Pitch/waste defaults live in the
+             builders themselves (estimate-v2-ui state + pitch→waste rule). -->
         <div class="panel mb-md">
-          <div class="panel-hdr"><div><div class="panel-label">Defaults</div><div class="panel-title">Measurement & Waste Defaults</div></div></div>
+          <div class="panel-hdr"><div><div class="panel-label">Defaults</div><div class="panel-title">Cost & Tax Defaults</div></div></div>
           <div class="panel-body">
-            <div class="sf-row">
-              <div class="sf"><label>Default Pitch</label>
-                <select id="defPitch" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
-                  <option>4/12</option><option>6/12</option><option selected>8/12</option>
-                  <option>10/12</option><option>12/12</option><option>14/12</option>
-                </select>
-              </div>
-              <div class="sf"><label>Default Waste %</label><input type="number" id="defWaste" value="17" step="1"></div>
-              <div class="sf"><label>Default Deck Replace %</label><input type="number" id="defDeckPct" value="15" step="1"></div>
-            </div>
             <div class="sf-row">
               <div class="sf"><label>Dump Fee ($)</label><input type="number" id="defDumpFee" value="550" step="25"></div>
               <div class="sf"><label>Extra Layer Tear-Off ($/SQ)</label><input type="number" id="defExtraLayer" value="50" step="5"></div>
