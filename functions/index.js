@@ -290,6 +290,21 @@ exports.saveFunnelProgress = funnelRecovery.saveFunnelProgress;
 exports.runAbandonRecovery = funnelRecovery.runAbandonRecovery;
 
 // ═══════════════════════════════════════════════════════════════
+// ESTIMATE EMAIL — "Email My Estimate" homeowner copy
+// ═══════════════════════════════════════════════════════════════
+//
+// Firestore trigger on estimate_leads: when the /estimate funnel saves
+// a doc with type === 'email_estimate_request', emails the homeowner
+// their estimate summary + a free-inspection CTA via Resend. NBD-only
+// (non-NBD tenant leads are skipped); idempotent via a transactional
+// estimateEmailedAt claim.
+//
+// Ships DRY-RUN by default. Set ESTIMATE_EMAIL_ENABLED=true on the
+// estimateEmail Cloud Run revision to go live.
+const estimateEmailFn = require('./estimate-email');
+exports.estimateEmail = estimateEmailFn.estimateEmail;
+
+// ═══════════════════════════════════════════════════════════════
 // WEEKLY DIGEST EMAIL — Wave 16
 // ═══════════════════════════════════════════════════════════════
 // Scheduled Mon 7am ET. Sends each rep a recap of the previous 7

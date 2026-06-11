@@ -80,7 +80,7 @@ nav { background:var(--navy-dark); border-bottom:3px solid var(--orange); paddin
 .how-steps { display:grid; grid-template-columns:repeat(3,1fr); gap:20px; }
 .how-step { text-align:center; }
 .how-num { width:36px; height:36px; background:var(--orange); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:.85rem; margin:0 auto 10px; }
-.how-step h4 { font-size:.85rem; font-weight:700; margin-bottom:4px; }
+.how-step h3 { font-family:'Montserrat','Segoe UI',-apple-system,sans-serif; font-size:.85rem; font-weight:700; letter-spacing:normal; line-height:1.65; margin-bottom:4px; }
 .how-step p { font-size:.78rem; color:rgba(255,255,255,.5); line-height:1.5; }
 
 .foot { text-align:center; padding:40px 5%; font-size:.75rem; color:rgba(255,255,255,.3); }
@@ -340,20 +340,20 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     
     <div class="row">
       <div class="field">
-        <label>First Name</label>
+        <label for="alertName">First Name</label>
         <input type="text" id="alertName" placeholder="John" autocomplete="given-name">
       </div>
       <div class="field">
-        <label>Phone Number</label>
+        <label for="alertPhone">Phone Number</label>
         <input type="tel" id="alertPhone" placeholder="(513) 555-0123" autocomplete="tel" inputmode="tel">
       </div>
     </div>
     <div class="field">
-      <label>Zip Code</label>
+      <label for="alertZip">Zip Code</label>
       <input type="text" id="alertZip" placeholder="45122" maxlength="5" pattern="[0-9]{5}" autocomplete="postal-code" inputmode="numeric">
     </div>
     <div class="field">
-      <label>What Are You Most Concerned About?</label>
+      <label for="alertConcern">What Are You Most Concerned About?</label>
       <select id="alertConcern">
         <option value="hail">Hail damage to my roof</option>
         <option value="wind">Wind damage</option>
@@ -361,7 +361,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         <option value="insurance">I already have damage — waiting on insurance</option>
       </select>
     </div>
-    <div style="position:absolute;left:-9999px;"><input type="text" id="alertHoneypot" tabindex="-1" autocomplete="off"></div>
+    <div style="position:absolute;left:-9999px;" aria-hidden="true"><input type="text" id="alertHoneypot" tabindex="-1" autocomplete="off" aria-label="Leave this field blank"></div>
     <button class="signup-btn" id="alertSignupBtn">🔔 Sign Me Up — Free</button>
     <script defer  src="/assets/js/inline/ba974607f0.js"></script>
     <div class="signup-note">We'll only text you when severe weather actually hits your zip code. Usually 2-4 times per season. Reply STOP to unsubscribe anytime.</div>
@@ -379,17 +379,17 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <div class="how-steps">
     <div class="how-step">
       <div class="how-num">1</div>
-      <h4>Storm Hits Your Area</h4>
+      <h3>Storm Hits Your Area</h3>
       <p>We monitor NWS weather data for hail, high winds, and severe storms in Greater Cincinnati.</p>
     </div>
     <div class="how-step">
       <div class="how-num">2</div>
-      <h4>You Get a Text</h4>
+      <h3>You Get a Text</h3>
       <p>Within minutes of a confirmed report, you'll get a text with storm details and what to look for.</p>
     </div>
     <div class="how-step">
       <div class="how-num">3</div>
-      <h4>Free Inspection If Needed</h4>
+      <h3>Free Inspection If Needed</h3>
       <p>If your roof might be affected, Joe will come look — free, no obligation, no pressure.</p>
     </div>
   </div>

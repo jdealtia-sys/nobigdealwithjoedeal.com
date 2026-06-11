@@ -154,8 +154,19 @@ const PUBLIC_LEAD_KINDS = {
   estimate: {
     collection: 'estimate_leads',
     required: ['address', 'source'],
-    maxLen:   { address: 500, source: 200 },
-    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
+    // The /estimate instant-estimator funnel posts its own contact +
+    // selection fields (firstName/lastName/phone/email, service/roofType/
+    // timeline), event tags (type/requestType — e.g. 'email_estimate_request',
+    // which estimate-email.js sends on), and the preformatted plain-text
+    // estimateSummary that gets emailed back to the homeowner. Previously
+    // these were silently stripped by the strict allowlist.
+    // (M-04: deliberate, bounded expansion.)
+    maxLen:   {
+      address: 500, source: 200, firstName: 200, lastName: 200, phone: 30,
+      email: 200, service: 200, roofType: 50, timeline: 50, type: 50,
+      requestType: 50, estimateSummary: 2000
+    },
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'firstName', 'lastName', 'phone', 'email', 'service', 'roofType', 'timeline', 'type', 'requestType', 'estimateSummary']
   },
   storm: {
     collection: 'storm_alert_subscribers',
