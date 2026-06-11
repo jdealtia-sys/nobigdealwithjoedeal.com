@@ -5,10 +5,10 @@
     "last_build_session": "2026-06-09-A",
     "total": 1363,
     "by_status": {
-      "BLOCKED": 242,
-      "PASS": 875,
-      "UNTESTED": 193,
-      "FAIL": 14,
+      "BLOCKED": 244,
+      "PASS": 975,
+      "UNTESTED": 77,
+      "FAIL": 28,
       "FIXED": 39
     },
     "by_surface": {
@@ -92,10 +92,11 @@
         "BLOCKED": 38
       },
       "d7-settings": {
-        "PASS": 24,
-        "UNTESTED": 157,
+        "PASS": 124,
+        "FAIL": 14,
         "FIXED": 3,
-        "BLOCKED": 1
+        "BLOCKED": 3,
+        "UNTESTED": 41
       },
       "d8-tools": {
         "PASS": 92,
@@ -10458,10 +10459,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9795 (dashboard-bootstrap.module.js:2889)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Display name: set + Save Profile -> toast + #userName pill updates live; persisted across reload; restored to original (empty -> pill re-derives jd on next boot).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10494,10 +10495,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9799",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Possible dead field — _saveSettings only persists name/calcom/digest/dormant.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D44: confirmed-dead placeholder — in-code comment dashboard-bootstrap.module.js:2931-2937 says Company/Phone/Role/License are intentionally NOT wired to _saveSettings/load. User-visible field silently discards input.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10512,10 +10513,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9800",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Possible dead field.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D44: same confirmed-dead group (code comment).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10530,10 +10531,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9804",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Options: Owner/Operator, Sales Rep, Project Manager, Estimator, Other.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D44: same confirmed-dead group; cosmetic select, unrelated to auth role claims.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10548,10 +10549,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9812",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D44: same confirmed-dead group.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10566,10 +10567,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9817 (dashboard-ui-prefs-boot.js:269; dashboard-bootstrap.module.js:2893)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Key: users/{uid}.calcomUsername (powers calcomWebhook rep resolution).",
-      "session": "2026-06-09-A",
+      "notes": "cal.com username: set QA-Test -> Save -> persisted (normalized lowercase qa-test) across reload; restored to empty original.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10584,10 +10585,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:9819 (dashboard-ui-prefs-boot.js:269)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "display:none until a username is typed.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D45a: preview is an <a target rel> whose href is NEVER set (live: hasHref=false; nbdSettingsUpdateCalcomPreview writes textContent+display only) — looks like a link, goes nowhere.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10620,10 +10621,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9846 (dashboard-bootstrap.module.js:2904)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "Dormant nudge: uncheck -> Save -> persisted false across reload -> restored true + saved.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10656,10 +10657,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9874 (data-export.js)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Exported 15 leads -> nbd-leads-2026-06-10.csv (blob anchor spied/suppressed) + toast.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10674,10 +10675,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9879 (data-export.js:201)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Exported 6 estimates -> nbd-estimates-2026-06-10.csv (spied) + toast.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10692,10 +10693,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9886 (data-import.js:517)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Opens import modal; data-writing happens inside the modal flow.",
-      "session": "2026-06-09-A",
+      "notes": "Import Leads modal opens (CSV drop/browse step rendered); closed via x without file (native picker = boundary).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10710,10 +10711,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9904 (dashboard-ui-prefs-boot.js:241)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "Real-click toggle: Secondary header OFF toast + LS nbd_crm_sec_header_enabled=false -> re-click ON + restored. (goTo-hook keeps this control synced, unlike the density repaint.)",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10728,10 +10729,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9918 (dashboard-ui.js:1537)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "3 buttons (compact/comfortable/spacious) — same handler with different data-arg. Key: localStorage KANBAN_DENSITY_KEY.",
-      "session": "2026-06-09-A",
+      "notes": "Compact: LS nbd-kanban-density=compact + html[data-density] applied immediately AND at boot after reload. NEW-D45c (cosmetic): after reload NEITHER density button shows the active repaint (dead DCL+200ms painter dashboard-ui.js:1589-1601). Restored spacious.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10746,10 +10747,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9931 (dashboard-ui-prefs-boot.js:242)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default unchecked.",
-      "session": "2026-06-09-A",
+      "notes": "Bold toggle: click -> LS nbd-kanban-bold=1; RELOAD: checkbox correctly primed checked (the static dead-DCL suspicion did NOT reproduce on a direct #/settings load; possible SPA-late-entry edge remains — noted, not a FAIL).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10764,10 +10765,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9946 (dashboard-ui-prefs-boot.js:243)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default off.",
-      "session": "2026-06-09-A",
+      "notes": "Auto-collapse: click -> LS nbd-crm-autocollapse=1; reload-primed correctly (same refutation as 028). Restored off.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10782,10 +10783,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9958 (ai.js:370)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Key input: value -> sessionStorage nbd_joe_key (NOT localStorage as the inventory said), input cleared after save.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10800,10 +10801,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9960 (ai.js:370)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Save button: \"Joe AI activated\" toast + status line + sessionStorage write. Test key cleared after (original state: no key).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10818,10 +10819,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9961 (ai.js:42)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D45b: clearJoeKey removes the key (sessionStorage cleared OK) but leaves the stale \"Key saved — Joe AI is active\" status line (ai.js never touches #joeKeyStatus on clear) — UI claims active with no key present.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10836,10 +10837,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9971 (dashboard-bootstrap.module.js:1970)",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Danger Zone panel; writes data but additive (not destructive).",
-      "session": "2026-06-09-A",
+      "notes": "Boundary by policy: would seed 13 real leads on accept. Wiring verified: button present, window.loadSampleData live, allowlisted at dashboard-state.js:184; confirm gate exists when leads>0.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -10854,10 +10855,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:9975",
-      "status": "UNTESTED",
+      "status": "BLOCKED",
       "evidence": "",
-      "notes": "Danger Zone; session-ending but not destructive of data.",
-      "session": "2026-06-09-A",
+      "notes": "Sign-out would end the QA session (Rule 0). Control present with data-action=signOut.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11376,10 +11377,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10195 (dashboard-bootstrap.module.js:3009)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Persisted via EstimateBuilderV2.updateSettings (localStorage) + userSettings/{uid}.estimateSettingsV2.",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11412,10 +11413,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10197 (dashboard-bootstrap.module.js:3011)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11430,10 +11431,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10201 (dashboard-bootstrap.module.js:3014)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Internal cost basis — drives margin calc.",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11448,10 +11449,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10202 (dashboard-bootstrap.module.js:3015)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11466,10 +11467,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10203 (dashboard-bootstrap.module.js:3016)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11484,10 +11485,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10206 (dashboard-bootstrap.module.js:3018)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11502,10 +11503,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10207 (dashboard-bootstrap.module.js:3019)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11520,10 +11521,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10218 (dashboard-bootstrap.module.js:3020)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Stored as fraction (÷100).",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11538,10 +11539,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10219 (dashboard-bootstrap.module.js:3021)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11556,10 +11557,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10220 (dashboard-bootstrap.module.js:3022)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11574,10 +11575,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10231",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Default 8/12. Not in the explicit patch map at 3007 — verify it persists.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D43: markup-only ghost — Save All silently discards it (token absent from nbd_est_settings_v3) and reload reverts to the hardcoded HTML default (8/12 / 17 / 15). Zero JS references repo-wide.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11592,10 +11593,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10236",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Not in _saveEstimateDefaultsV2 patch map — verify persistence path.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D43: markup-only ghost — Save All silently discards it (token absent from nbd_est_settings_v3) and reload reverts to the hardcoded HTML default (8/12 / 17 / 15). Zero JS references repo-wide.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11610,10 +11611,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10237",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Not in patch map — verify.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D43: markup-only ghost — Save All silently discards it (token absent from nbd_est_settings_v3) and reload reverts to the hardcoded HTML default (8/12 / 17 / 15). Zero JS references repo-wide.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11628,10 +11629,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10240 (dashboard-bootstrap.module.js:3023)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11646,10 +11647,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10241 (dashboard-bootstrap.module.js:3024)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11664,10 +11665,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10242 (dashboard-bootstrap.module.js:3025)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11682,10 +11683,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10253 (dashboard-bootstrap.module.js:3031)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "7 inputs: permHamOh/permButOh/permWarOh/permCleOh/permKenKy/permBooKy/permCamKy — same handler keyed by permMap. One representative row.",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11700,10 +11701,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10273 (dashboard-bootstrap.module.js:3047)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "7 inputs: taxHamOh/taxButOh/taxWarOh/taxCleOh/taxKenKy/taxBooKy/taxCamKy keyed by taxMap. One representative row.",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11718,10 +11719,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:10302 (dashboard-bootstrap.module.js:3000)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Affects every linked estimate's pricing.",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11736,10 +11737,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10303 (dashboard-bootstrap.module.js:3082)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Guarded by confirm(); destructive of custom rate config but recoverable by re-entering.",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11754,10 +11755,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10304",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11772,10 +11773,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10319 (dashboard-actions.js:1030)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "5 options Roofing Sales…Other.",
-      "session": "2026-06-09-A",
+      "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11790,10 +11791,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10329 (dashboard-actions.js:1032)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11826,10 +11827,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10347 (dashboard-actions.js:1025)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Up to 7 floors, dynamically rendered — one representative row.",
-      "session": "2026-06-09-A",
+      "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11844,10 +11845,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10348 (dashboard-actions.js:1014)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11862,10 +11863,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10358 (dashboard-actions.js:1035)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11880,10 +11881,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10363 (dashboard-actions.js:1036)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11898,10 +11899,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10375 (dashboard-actions.js:1039)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Separate from dashboard theme. Dynamically rendered — one representative row.",
-      "session": "2026-06-09-A",
+      "notes": "Theme swatch: real-click Cobalt -> selected border + ds-theme=cobalt saved + reload-repopulated highlight. FINDING (NEW-D45d, static): runtime consumers read ds-theme only as LAST fallback behind nbd_pro_theme/nbd-theme and the daily-success lookup lacks 8/12 swatch keys -> picked program theme rarely takes effect. Restored (ds-theme key removed; was absent).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11916,10 +11917,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:10380 (dashboard-actions.js:1025)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Keys: localStorage DS_NBD_CFG + DS_THEME_KEY.",
-      "session": "2026-06-09-A",
+      "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11934,10 +11935,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10381 (dashboard-actions.js:1045)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Clears the in-form config (not yet saved until Save clicked).",
-      "session": "2026-06-09-A",
+      "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11952,10 +11953,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10382",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11970,10 +11971,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10394 (dashboard-bootstrap.module.js:3099)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "CO_FIELDS x18: coName,coDba,coEin,coState,coPhone,coEmail,coAddress,coCity,coWebsite,coGbp,coLicOh,coLicKy,coGl,coWc,coGaf,coCerts,coTerritory,coRadius. One representative row; remaining captured as siblings below.",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -11988,10 +11989,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10395 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12006,10 +12007,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10398 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12024,10 +12025,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10399 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12042,10 +12043,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10402 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12060,10 +12061,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10403 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12078,10 +12079,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10406 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12096,10 +12097,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10407 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12132,10 +12133,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10411 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12150,10 +12151,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10420 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12168,10 +12169,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10421 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12186,10 +12187,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10424 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12204,10 +12205,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10425 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12222,10 +12223,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10428 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12240,10 +12241,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10429 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12258,10 +12259,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10438 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12276,10 +12277,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10441 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default 50.",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12294,10 +12295,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:10447 (dashboard-bootstrap.module.js:3105)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Keys: localStorage nbd_company_settings + userSettings/{uid}.company.",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12312,10 +12313,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10448 (dashboard-bootstrap.module.js:3132)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12330,10 +12331,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10461 (dashboard-bootstrap.module.js:3173,3264)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Letterhead set: businessName/Phone/Email/Website/Address/License (cp_ prefix). One representative + siblings below.",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12348,10 +12349,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10463 (dashboard-bootstrap.module.js:3173)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12366,10 +12367,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10467 (dashboard-bootstrap.module.js:3173)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12402,10 +12403,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10473 (dashboard-bootstrap.module.js:3173)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12420,10 +12421,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10475 (dashboard-bootstrap.module.js:3173)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12438,10 +12439,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10485 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "_CP_LEGAL_FIELDS set (16 fields). Representative; key legal-text inputs/textareas listed below.",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12456,10 +12457,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10487 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). NOTE: no runtime consumer found for this field (static).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12474,10 +12475,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10490 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12492,10 +12493,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10492 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12510,10 +12511,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10495 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12528,10 +12529,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10497 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12546,10 +12547,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10500 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12564,10 +12565,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10503 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12582,10 +12583,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10506 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12600,10 +12601,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10509 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12618,10 +12619,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10511 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12636,10 +12637,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10513 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12654,10 +12655,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10516 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12672,10 +12673,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10520 (dashboard-bootstrap.module.js:3182)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). NOTE: no runtime consumer found for this field (static).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12690,10 +12691,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10522 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12708,10 +12709,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10525 (dashboard-bootstrap.module.js:3163)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12726,10 +12727,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10533 (dashboard-bootstrap.module.js:3172)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12744,10 +12745,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10536 (dashboard-bootstrap.module.js:3190)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "cp_tier{0,1,2}_{apr,months,label,badge} = 12 inputs across 3 tier rows — one representative row.",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12762,10 +12763,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10572 (dashboard-bootstrap.module.js:3172)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12780,10 +12781,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10574 (dashboard-bootstrap.module.js:3172)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12798,10 +12799,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10579 (dashboard-bootstrap.module.js:3204)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "cp_svc{0..5}_{icon,name,desc} = 18 inputs — one representative row.",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12816,10 +12817,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10611 (dashboard-bootstrap.module.js:3213)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "cp_vp{0..3}_{icon,title,desc} = 12 inputs — one representative row.",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12834,10 +12835,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10638 (dashboard-bootstrap.module.js:3172)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12852,10 +12853,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10640 (dashboard-bootstrap.module.js:3172)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12870,10 +12871,10 @@
       "danger": "none",
       "priority": "P1",
       "source_ref": "dashboard.html:10646 (dashboard-bootstrap.module.js:3264)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Key: Firestore companyProfile/main (shop-wide singleton).",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12888,10 +12889,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10647 (dashboard-bootstrap.module.js:3254)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -12906,10 +12907,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10648 (dashboard-bootstrap.module.js:3283)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Guarded by confirm().",
-      "session": "2026-06-09-A",
+      "notes": "Boundary: native confirm (\"Reset every Company Profile field to factory defaults?\") fired + CANCELLED via stub-false; fields unchanged. Never saved post-reset.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13212,10 +13213,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10933 (dashboard-bootstrap.module.js:3395)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Radio group notifMode (critical/digest/firehose).",
-      "session": "2026-06-09-A",
+      "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13230,10 +13231,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10941 (dashboard-bootstrap.module.js:3395)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13248,10 +13249,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10949 (dashboard-bootstrap.module.js:3395)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. ",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13266,10 +13267,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:10967 (dashboard-bootstrap.module.js:3298)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "7 trigger checkboxes — listed individually for coverage. Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. Consumer: REAL consumer: tasks.js:136-146 fires type 'task_overdue' via createNotification (tasks.js",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13284,10 +13285,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10974 (dashboard-bootstrap.module.js:3298)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D41: persists + round-trips (verified live) but gates NOTHING — the hot-lead surface ask-joe-proactive.js builds hot_lead actions without consulting shouldFireNotif.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13302,10 +13303,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10981 (dashboard-bootstrap.module.js:3298)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D41: storm alerts fire from storm-integration.js triggerProactiveAlert with no shouldFireNotif check; toggle persists but suppresses nothing.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13320,10 +13321,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10988 (dashboard-bootstrap.module.js:3298)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "Round-trip verified; REAL consumer review-engine.js:126 (estimate_approved). Caveat: under default critical mode the normal-priority call is suppressed before the trigger is read — the toggle only matters in firehose mode.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13338,10 +13339,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:10995 (dashboard-bootstrap.module.js:3298)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D41: inbound_msg exists only in the type map; zero firing callers repo-wide.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13374,10 +13375,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:11009 (dashboard-bootstrap.module.js:3298)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D41: the auto-needs-field notifier referenced by the code comment does not exist; only the type-map entry does.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13392,10 +13393,10 @@
       "danger": "none",
       "priority": "P2",
       "source_ref": "dashboard.html:11021 (dashboard-bootstrap.module.js:3299)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. Consumer: REAL consumer: tasks.js:27 inAppAllowed = shouldFireNotif(type,'inApp',pr) gates the toast",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13410,10 +13411,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:11025 (dashboard-bootstrap.module.js:3299)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "Default off.",
-      "session": "2026-06-09-A",
+      "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. Consumer: REAL consumer: tasks.js:26 pushAllowed = shouldFireNotif(type,'push',pr) gates the OS Noti",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13428,10 +13429,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:11029 (dashboard-bootstrap.module.js:3299)",
-      "status": "UNTESTED",
+      "status": "FAIL",
       "evidence": "",
-      "notes": "Default checked.",
-      "session": "2026-06-09-A",
+      "notes": "NEW-D41: email channel mapped but no caller passes channel \"email\", and no Cloud Function reads userSettings.notifications — toggle consumed nowhere client- or server-side.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13446,10 +13447,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:11033 (dashboard-bootstrap.module.js:3299)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "disabled attribute.",
-      "session": "2026-06-09-A",
+      "notes": "Disabled-by-design verified live: disabled attr present, real click does not flip it, persists false through save.",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -13482,10 +13483,10 @@
       "danger": "none",
       "priority": "P3",
       "source_ref": "dashboard.html:11041 (dashboard-bootstrap.module.js:3492)",
-      "status": "UNTESTED",
+      "status": "PASS",
       "evidence": "",
-      "notes": "",
-      "session": "2026-06-09-A",
+      "notes": "Test toast fired: \"Test notification — your alerts work!\". NOTE (cosmetic expectation gap): _testNotif ignores saved mode/channels entirely (never calls shouldFireNotif).",
+      "session": "2026-06-10-C",
       "surface": "d7-settings"
     },
     {
@@ -20612,8 +20613,8 @@
       "source_ref": "estimate-view.html:370 (+estimate-view.html:386)",
       "status": "BLOCKED",
       "evidence": "",
-      "notes": "estimate-view Print/Save-PDF CTA. The button renders ONLY after getEstimateForView succeeds, which requires a server-minted portal_tokens token + a matching estimateId (est.leadId===tok.leadId) delivered to the homeowner via an OUTBOUND SMS/email — a sending boundary, and Twilio is blocked. The client exposes NO estimate-view link builder (grep: zero client construction of estimate-view URLs), and portal_tokens are server-read-only (client read = permission-denied), so the live-rendered CTA can't be reached without sending. SOURCE-VERIFIED instead: the delegate (estimate-view.html:382-388) calls window.print() on data-ev-action=print — identical to dozens of verified data-*-action delegates. PR #630 a-vs-button STYLING FIX CONFIRMED LANDED on origin/main (commit c95493c1: .ev-cta-row a,button combined selectors + border/cursor/font-family resets) and deployed — the homeowner CTAs ARE orange-brand styled. (NEW-D41 was investigated + RETRACTED: the apparent 'still-broken' CSS was the stale feat/pro-terms-page working copy in the main clone, which predates #630; origin/main is correct.) No-token + invalid-token 400 error states were live-verified in the prior pages-a pass.",
-      "session": "2026-06-10-C",
+      "notes": "Print CTA renders only on the success path — needs a createPortalToken mint on a lead carrying an estimate (next session; CSS button-styling fix already shipped in #630). Error states verified separately (estimate-view boots clean post-NEW-D23).",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
@@ -20630,8 +20631,8 @@
       "source_ref": "estimate-view.html:371 (+estimate-view.html:387)",
       "status": "BLOCKED",
       "evidence": "",
-      "notes": "estimate-view Back CTA. Same outbound-token live-render gate as pages-a-001. SOURCE-VERIFIED: delegate (estimate-view.html:387) calls history.back() on data-ev-action=back. Styling = same #630 fix (confirmed landed on origin/main + deployed). Live click unreachable without a server-minted token via outbound homeowner SMS/email (boundary + Twilio-blocked).",
-      "session": "2026-06-10-C",
+      "notes": "Back CTA — same success-path gate as 001.",
+      "session": "2026-06-09-B",
       "surface": "pages-a"
     },
     {
