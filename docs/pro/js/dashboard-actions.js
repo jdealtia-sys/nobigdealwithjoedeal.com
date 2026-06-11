@@ -620,7 +620,10 @@ function startZoneDraw() {
   showToast('Click map to draw zone boundary. Click Save when done.');
   mainMap.getContainer().style.cursor = 'crosshair';
 
-  // Attach zone click handler
+  // Attach zone click handler. Re-entering zone-draw overwrites
+  // _zoneClick before cancel/save can off() it, leaving the orphaned
+  // handler attached — each click then adds 2+ points (NEW-D38).
+  if (mainMap._zoneClick) mainMap.off('click', mainMap._zoneClick);
   mainMap._zoneClick = (e) => {
     if(!zoneDrawing) return;
     zonePoints.push(e.latlng);
