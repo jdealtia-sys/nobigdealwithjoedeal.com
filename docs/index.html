@@ -128,7 +128,7 @@ section{padding:80px 40px}
 /* ── HERO ── */
 .hero{background:var(--navy-dark);position:relative;overflow:hidden;min-height:640px;display:flex;align-items:center}
 .hero-pattern{position:absolute;top:0;right:0;bottom:0;left:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(232,114,12,.04) 40px,rgba(232,114,12,.04) 41px);z-index:0}
-.hero-bg{position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(135deg,rgba(20,42,82,.88) 0%,rgba(20,42,82,.78) 55%,rgba(232,114,12,.18) 100%),url(/assets/images/drone-hero-crew.jpg) center/cover no-repeat;z-index:1}
+.hero-bg{position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(135deg,rgba(20,42,82,.88) 0%,rgba(20,42,82,.78) 55%,rgba(232,114,12,.18) 100%),image-set(url(/assets/images/drone-hero-crew.webp) type("image/webp"), url(/assets/images/drone-hero-crew.jpg) type("image/jpeg")) center/cover no-repeat;z-index:1}
 .hero-content{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:80px 40px;display:grid;grid-template-columns:1fr 400px;gap:64px;align-items:center;width:100%}
 .hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(232,114,12,.18);border:1px solid rgba(232,114,12,.4);color:var(--orange-light);padding:6px 16px;border-radius:100px;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px;animation:fadeUp .6s ease both}
 .hero-badge::before{content:'';width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite}
@@ -845,6 +845,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <a href="/storm-check" style="color:#f08030">Is It Worth a Claim?</a>
   <a href="/#contact" style="color:#e8720c;font-weight:800;">Free Estimate &rarr;</a>
 </div>
+<main>
 <!-- HERO -->
 <section class="hero" id="home">
   <div class="hero-pattern"></div>
@@ -1646,6 +1647,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <p style="color:var(--gray);font-size:.75rem;margin-top:22px;opacity:.7">Brand names are trademarks of their respective manufacturers. NBD Home Solutions is an independent installer.</p>
   </div>
 </section>
+</main>
 
 <!-- FOOTER -->
 
