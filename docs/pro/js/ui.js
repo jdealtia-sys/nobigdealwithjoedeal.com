@@ -993,6 +993,13 @@ function switchSettingsTab(tab) {
     if (typeof window._loadProfileSettings === 'function') {
       window._loadProfileSettings();
     }
+    // The kanban density buttons + bold/auto-collapse checkboxes live in
+    // this panel too; their boot-time DCL+200ms painter ran before the
+    // template hydrated on any non-direct load, so the active state and
+    // checkbox priming were lost until now (NEW-D45c).
+    if (typeof window._syncKanbanPrefControls === 'function') {
+      window._syncKanbanPrefControls();
+    }
   }
 }
 window.switchSettingsTab = switchSettingsTab;

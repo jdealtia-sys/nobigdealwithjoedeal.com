@@ -270,7 +270,12 @@ function nbdSettingsUpdateCalcomPreview(value) {
   var v = (value || '').trim().replace(/^@+/, '').replace(/\/+$/, '').toLowerCase();
   var p = document.getElementById('settingsCalcomPreview');
   if (p) {
-    p.textContent = v ? ('https://cal.com/' + v) : '';
+    var url = v ? ('https://cal.com/' + v) : '';
+    p.textContent = url;
+    // The preview is an <a target=_blank> — textContent alone left it a
+    // live-looking dead link (NEW-D45a). Keep href in step, same as the
+    // bootstrap loaders that populate it from the saved user doc.
+    if (url) { p.setAttribute('href', url); } else { p.removeAttribute('href'); }
     p.style.display = v ? '' : 'none';
   }
 }
