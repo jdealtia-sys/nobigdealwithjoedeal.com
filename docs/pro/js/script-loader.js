@@ -111,7 +111,7 @@
       'js/estimate-logic-engine.js?v=4',
       'js/estimates.js?v=6',
       'js/estimate-finalization.js?v=2',
-      'js/estimate-v2-ui.js?v=11',
+      'js/estimate-v2-ui.js?v=12',
       'js/estimate-supplement.js?v=1',
       'js/supplement-ui.js?v=1'
     ],
