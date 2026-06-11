@@ -10,7 +10,11 @@
      advertising an admin surface. -->
 <meta name="robots" content="noindex, nofollow">
 <title>NBD Pro</title>
-<script type="module" src="js/pages/index-redirect.js"></script>
+<!-- Site-absolute on purpose: cleanUrls serves this page at /admin (no
+     trailing slash), so a relative src resolved to /js/pages/… → 404 and
+     the page rendered permanently blank (its body is empty; this script
+     IS the page). -->
+<script type="module" src="/admin/js/pages/index-redirect.js"></script>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head>
 <body></body>

@@ -48,6 +48,14 @@ async function bridgeToCrm(collection, data, sourceId) {
   data = data || {};
   const db = admin.firestore();
 
+  // Estimator follow-up events (results/CTA/email-request) are enrichment
+  // on an already-bridged lead, not new leads — without this skip a single
+  // completed funnel mirrored up to 4 duplicate pipeline cards.
+  if (L.isFollowUpEvent(collection, data)) {
+    logger.info('leadBridge: follow-up event doc — not a new lead, skipping', { collection, sourceId, type: data.type });
+    return;
+  }
+
   // Resolve the lead's tenant owner. companyId was validated against the
   // companies registry by submitPublicLead before it was stamped.
   const companyId = data.companyId ? String(data.companyId) : '';
