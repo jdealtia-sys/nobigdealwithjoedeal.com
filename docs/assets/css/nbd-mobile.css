@@ -103,6 +103,30 @@ img, video {
   margin: 0 !important;
 }
 
+/* ─── TAP TARGETS (≤ 600px): inline link hit-area expansion ──────────────── */
+/*
+  Phase-3 audit: breadcrumb links, footer link-list anchors, and the
+  announcement-bar (free-roof) anchor measure only 11–16px tall at 390px —
+  far below the ~40px touch guideline. Expand the HIT AREA with padding and
+  pull the box back with an equal negative margin so the visual layout does
+  not shift (padding-box expansion). display:inline-block makes the padding
+  actually contribute to the box. 10px vertical (not 6px) because the
+  measured content heights are 11–16px and the target box is ≥32px:
+  11px + 2×10px ≈ 31–36px across all four link families.
+  Note: in the stacked footer lists (10px gap) adjacent hit boxes overlap a
+  few px; the later link wins the overlap, which is the correct bias.
+*/
+@media (max-width: 600px) {
+  .breadcrumb a,
+  .footer-col ul li a,
+  .footer-links a,
+  .ann-bar a {
+    display: inline-block;
+    padding: 10px 6px;
+    margin: -10px -6px;
+  }
+}
+
 /* ─── PHONE BREAKPOINT (≤ 480px) ─────────────────────────────────────────── */
 /*  Targets common Android viewports: 360, 375, 390, 412, 414, 428, 480     */
 
