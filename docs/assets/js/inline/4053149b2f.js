@@ -52,7 +52,16 @@ let funnelData = {
 const PRICING = {
   // $/square installed (1 square = 100 sq ft of roof)
   roof: {
-    asphalt: { good: [320, 380],  better: [420, 520],  best: [580, 750] },
+    // Asphalt is locked to the CRM spec (source: docs/pro/js/estimate-config.js):
+    // TIER_RATES $545 / $595 / $660 per square (good/better/best) with the
+    // CRM's pitch-based waste factor (1.12 low-slope … 1.25 steep) baked in.
+    // Each range spans rate×1.12 .. rate×1.25:
+    //   good   545×1.12=610  .. 545×1.25=681  → [610, 680]
+    //   better 595×1.12=666  .. 595×1.25=744  → [665, 745]
+    //   best   660×1.12=739  .. 660×1.25=825  → [740, 825]
+    // Do not edit without updating the locked CRM spec too.
+    asphalt: { good: [610, 680],  better: [665, 745],  best: [740, 825] },
+    // Metal/flat are market-rate placeholders — NOT CRM-locked.
     metal:   { good: [900, 1100], better: [1100, 1400], best: [1400, 1800] },
     flat:    { good: [400, 500],  better: [500, 650],  best: [650, 850] }
   },
@@ -87,6 +96,31 @@ const SIZE_WALL_SQFT = { small: 1100, typical: 1700, large: 2700, not_sure: 1700
 const SIZE_GUTTER_LF = { small: 130, typical: 200, large: 300, not_sure: 200 };
 // Human label
 const SIZE_LABEL = { small: 'Small (~1,200 sq ft)', typical: 'Typical (~2,000 sq ft)', large: 'Large (~3,000 sq ft)', not_sure: 'Joe will measure' };
+// Service display labels — shared by ballpark factors, results, and email summary
+const SERVICE_LABELS = {
+  'roof-replacement':   'Roof Replacement',
+  'roof-repair':        'Roof Repair',
+  'siding-replacement': 'Siding Replacement',
+  'siding-repair':      'Siding Repair',
+  'gutter-replacement': 'Gutter Replacement',
+  'storm-damage':       'Storm Damage'
+};
+// Short word for the results headline ("<Name>'s <kind> Estimate")
+const RESULT_KIND = {
+  'roof-replacement':   'Roof',
+  'roof-repair':        'Roof Repair',
+  'siding-replacement': 'Siding',
+  'siding-repair':      'Siding Repair',
+  'gutter-replacement': 'Gutter',
+  'storm-damage':       'Storm Damage'
+};
+
+// Round to the CRM's $25 grand-total step (ROUND_TO_DOLLARS in the locked
+// spec, docs/pro/js/estimate-config.js). Reused by priceRangeForFunnel()
+// and buildFallbackEstimate() so every surface shows the same numbers.
+function roundTo25(n) {
+  return Math.round(n / 25) * 25;
+}
 
 /* ── Progress Bar ── */
 function updateProgress(step) {
@@ -431,14 +465,6 @@ function calculateBallpark() {
   }
 
   // Factor cards
-  var serviceLabels = {
-    'roof-replacement': 'Roof Replacement',
-    'roof-repair':      'Roof Repair',
-    'siding-replacement': 'Siding Replacement',
-    'siding-repair':    'Siding Repair',
-    'gutter-replacement': 'Gutter Replacement',
-    'storm-damage':     'Storm Damage'
-  };
   var timelineLabels = {
     'asap':        'ASAP',
     'few-weeks':   'Next Few Weeks',
@@ -461,7 +487,7 @@ function calculateBallpark() {
   var bpTimeline = document.getElementById('bpTimeline');
   var bpMaterial = document.getElementById('bpMaterial');
   var bpArea     = document.getElementById('bpArea');
-  if (bpService)  bpService.textContent  = serviceLabels[funnelData.service]  || funnelData.service || '—';
+  if (bpService)  bpService.textContent  = SERVICE_LABELS[funnelData.service]  || funnelData.service || '—';
   if (bpTimeline) bpTimeline.textContent = timelineLabels[funnelData.timeline] || funnelData.timeline || '—';
   if (bpMaterial) bpMaterial.textContent = funnelData.service === 'storm-damage'
     ? 'Insurance Claim'
@@ -509,14 +535,18 @@ function priceRangeForFunnel(size) {
     return { min: r[0], max: r[1] };
   }
   if (s === 'roof-replacement') {
-    // Use Better (architectural) tier as the headline range — most-chosen tier
+    // Use Better (architectural) tier as the headline range — most-chosen tier.
+    // $25 rounding + $2,500 job minimum match the CRM engine (estimate-config.js).
     var b = (PRICING.roof[mat] || PRICING.roof.asphalt).better;
-    return { min: Math.round(b[0] * sz), max: Math.round(b[1] * sz) };
+    return {
+      min: Math.max(2500, roundTo25(b[0] * sz)),
+      max: Math.max(2500, roundTo25(b[1] * sz))
+    };
   }
   if (s === 'siding-replacement') {
     var w = SIZE_WALL_SQFT[size] || 1700;
     var sb = (PRICING.siding[mat] || PRICING.siding.vinyl).better;
-    return { min: Math.round(sb[0] * w), max: Math.round(sb[1] * w) };
+    return { min: roundTo25(sb[0] * w), max: roundTo25(sb[1] * w) };
   }
   if (s === 'siding-repair') {
     return { min: PRICING.sidingRepair[0], max: PRICING.sidingRepair[1] };
@@ -524,7 +554,7 @@ function priceRangeForFunnel(size) {
   if (s === 'gutter-replacement') {
     var lf = SIZE_GUTTER_LF[size] || 200;
     var g = PRICING.gutters[mat] || PRICING.gutters.seamless;
-    return { min: Math.round(g[0] * lf), max: Math.round(g[1] * lf) };
+    return { min: roundTo25(g[0] * lf), max: roundTo25(g[1] * lf) };
   }
   // Sensible default
   return { min: 8500, max: 13000 };
@@ -767,6 +797,24 @@ async function submitAndGetEstimate() {
     }
   }
 
+  // Service-aware results: only roof-replacement gets the AI tier-table
+  // call. Every other service shows a deterministic single range built
+  // from priceRangeForFunnel() — the same numbers as the step-4 ballpark —
+  // and the AI proxy is only asked for a short personalized note.
+  if (funnelData.service !== 'roof-replacement') {
+    var svcEst = buildServiceEstimate();
+    funnelData.estimate = svcEst;
+    try {
+      var note = await fetchJoesTakeNote();
+      if (note) svcEst.joesTake = note;
+    } catch (noteErr) {
+      // Keep the offline fallback note already on svcEst
+      console.error('Joes-take note error:', noteErr);
+    }
+    setTimeout(function () { showResults(svcEst); }, 800);
+    return;
+  }
+
   // Get AI estimate
   try {
     var serviceLabel = {
@@ -804,7 +852,8 @@ async function submitAndGetEstimate() {
       'Apply NBD\'s actual installed pricing for this material:\n' +
       '- Good (3-tab):           $' + matPricing.good[0]   + '-$' + matPricing.good[1]   + '/square\n' +
       '- Better (architectural): $' + matPricing.better[0] + '-$' + matPricing.better[1] + '/square\n' +
-      '- Best (designer):        $' + matPricing.best[0]   + '-$' + matPricing.best[1]   + '/square\n\n' +
+      '- Best (designer):        $' + matPricing.best[0]   + '-$' + matPricing.best[1]   + '/square\n' +
+      'These per-square ranges already include pitch-based waste — do not add more.\n\n' +
       'Return JSON with:\n' +
       '1. roofSqft: estimated roof area in sq ft\n' +
       '2. squares: roofSqft / 100\n' +
@@ -847,10 +896,11 @@ function buildFallbackEstimate() {
   var sqft = squares * 100;
   var mat = funnelData.roofType === 'other' ? 'asphalt' : (funnelData.roofType || 'asphalt');
   var p = PRICING.roof[mat] || PRICING.roof.asphalt;
+  // $25 rounding + $2,500 job minimum match the CRM engine (estimate-config.js)
   var tiers = {
-    good:   { min: Math.round(p.good[0]   * squares), max: Math.round(p.good[1]   * squares) },
-    better: { min: Math.round(p.better[0] * squares), max: Math.round(p.better[1] * squares) },
-    best:   { min: Math.round(p.best[0]   * squares), max: Math.round(p.best[1]   * squares) }
+    good:   { min: Math.max(2500, roundTo25(p.good[0]   * squares)), max: Math.max(2500, roundTo25(p.good[1]   * squares)) },
+    better: { min: Math.max(2500, roundTo25(p.better[0] * squares)), max: Math.max(2500, roundTo25(p.better[1] * squares)) },
+    best:   { min: Math.max(2500, roundTo25(p.best[0]   * squares)), max: Math.max(2500, roundTo25(p.best[1]   * squares)) }
   };
   var fb = {
     roofSqft: sqft,
@@ -864,6 +914,65 @@ function buildFallbackEstimate() {
   return fb;
 }
 
+// Deterministic estimate object for every non-roof-replacement service —
+// a single range straight from priceRangeForFunnel(), so the results
+// screen always matches the step-4 ballpark. joesTake starts as the
+// offline fallback note and is replaced if the AI note call succeeds.
+function buildServiceEstimate() {
+  var size = funnelData.homeSize || 'typical';
+  var range = priceRangeForFunnel(size);
+  // Roof sqft/squares only make sense for roof services
+  var isRoofService = funnelData.service === 'roof-repair' || funnelData.service === 'storm-damage';
+  var squares = SIZE_SQUARES[size] || 20;
+  var label = SERVICE_LABELS[funnelData.service] || funnelData.service;
+  var joesTake;
+  if (funnelData.service === 'storm-damage') {
+    joesTake = funnelData.firstName + ", with storm damage most homeowners end up paying just their deductible — insurance covers the rest when a claim is approved. I'll document everything in a free inspection and walk you through the process, no obligation.";
+  } else {
+    joesTake = funnelData.firstName + ', the range above is what ' + label.toLowerCase() + ' typically runs for a ' + sizeShortLabel(size) + ' home in your area. I\'d rather see it in person and give you the exact number — free, no obligation.';
+  }
+  return {
+    range: { min: range.min, max: range.max },
+    roofSqft: isRoofService ? squares * 100 : null,
+    squares: isRoofService ? squares : null,
+    yearBuilt: null,
+    serviceLabel: label,
+    joesTake: joesTake,
+    _singleRange: true
+  };
+}
+
+// Ask the AI proxy for the short personalized note ONLY — pricing for
+// non-roof-replacement services is deterministic (priceRangeForFunnel),
+// so the model is never asked for dollar amounts.
+async function fetchJoesTakeNote() {
+  var label = (SERVICE_LABELS[funnelData.service] || funnelData.service || 'home repair').toLowerCase();
+  var stormRule = funnelData.service === 'storm-damage'
+    ? 'This is an insurance-claim situation: you may say insurance often covers approved storm damage minus the deductible, but NEVER promise or imply that their claim will be approved. '
+    : '';
+  var prompt = 'You are Joe Deal, owner of No Big Deal Home Solutions. NBD serves the Greater Cincinnati metro area — SW Ohio, Northern Kentucky, and SE Indiana. A verified homeowner just completed the instant estimate funnel.\n\n' +
+    'Name: ' + funnelData.firstName + '\n' +
+    'Address: ' + funnelData.address + '\n' +
+    'Service: ' + label + '\n' +
+    'Timeline: ' + funnelData.timeline + '\n\n' +
+    'Write a 2-3 sentence personalized note addressing ' + funnelData.firstName + ' by name about their ' + label + ' project. Reference the neighborhood/city if you can. Do NOT mention any dollar amounts, prices, or ranges. ' + stormRule +
+    'Close by saying Joe will confirm everything with a free in-person look — no obligation.\n\n' +
+    'Respond with the note text only — no JSON, no markdown, no surrounding quotes.';
+
+  var resp = await fetch(CONFIG.PROXY_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 180,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  var data = await resp.json();
+  var text = (data && data.content && data.content[0] && data.content[0].text) || '';
+  return text.trim();
+}
+
 /* ── Show Results ── */
 function showResults(est) {
   document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
@@ -872,14 +981,36 @@ function showResults(est) {
   // Personalized header
   document.getElementById('resultName').textContent = funnelData.firstName + "'s";
   document.getElementById('resultAddr').textContent = funnelData.address;
+  var kindEl = document.getElementById('resultKind');
+  if (kindEl) kindEl.textContent = RESULT_KIND[funnelData.service] || 'Roof';
 
-  // Default to "better" tier
-  switchTier('better');
+  var single = !!(est && est._singleRange);
 
-  // Details
-  document.getElementById('detailSize').textContent = est.roofSqft ? '~' + est.roofSqft.toLocaleString() + ' sq ft' : '&#8212;';
+  // Good/Better/Best tabs only make sense for roof replacement —
+  // every other service shows its single deterministic range.
+  var tabsRow = document.getElementById('tierTabsRow');
+  if (tabsRow) tabsRow.style.display = single ? 'none' : '';
+
+  if (single) {
+    document.getElementById('resultPrice').innerHTML = '$' + est.range.min.toLocaleString() + ' <span>&#8211; $' + est.range.max.toLocaleString() + '</span>';
+    document.getElementById('detailTier').textContent = est.serviceLabel || '—';
+  } else {
+    // Default to "better" tier
+    switchTier('better');
+  }
+
+  // Keep step-4's deductible/insurance framing for storm claims
+  var noteEl = document.getElementById('resultNote');
+  if (noteEl) {
+    noteEl.textContent = funnelData.service === 'storm-damage'
+      ? 'Typical out-of-pocket if going through insurance — your deductible. Insurance covers the rest.'
+      : 'Based on your property · Cincinnati-area pricing · 2026';
+  }
+
+  // Details — roof sqft/squares only make sense for roof services
+  document.getElementById('detailSize').textContent = est.roofSqft ? '~' + est.roofSqft.toLocaleString() + ' sq ft' : '—';
   document.getElementById('detailYear').textContent = est.yearBuilt || 'Unknown';
-  document.getElementById('detailSquares').textContent = est.squares ? '~' + est.squares : '&#8212;';
+  document.getElementById('detailSquares').textContent = est.squares ? '~' + est.squares : '—';
 
   // Joe's take
   document.getElementById('joesText').textContent = est.joesTake || 'Give Joe a call for the full picture.';
@@ -951,40 +1082,70 @@ function trackCTA(type) {
   trackEvent('cta_click', { cta_type: type, service: funnelData.service });
 }
 
-function emailEstimate() {
-  trackCTA('email-estimate');
-  var est = funnelData.estimate;
-  var tierLabels = { good: '3-Tab (Good)', better: 'Architectural (Better)', best: 'Designer (Best)' };
+// Plain-text summary for the estimate email — tier lines for
+// roof-replacement, a single range line for every other service.
+function buildEstimateSummary(est) {
   var msg = 'Your estimate for ' + funnelData.address + ':\n\n';
-  if (est && est.tiers) {
+  if (est && est._singleRange && est.range) {
+    msg += (est.serviceLabel || 'Estimated range') + ': $' + est.range.min.toLocaleString() + ' - $' + est.range.max.toLocaleString() + '\n';
+    if (funnelData.service === 'storm-damage') {
+      msg += '(Typical out-of-pocket going through insurance — your deductible. Insurance covers the rest.)\n';
+    }
+  } else if (est && est.tiers) {
     ['good','better','best'].forEach(function(t) {
       if (est.tiers[t]) {
-        msg += tierLabels[t] + ': $' + est.tiers[t].min.toLocaleString() + ' - $' + est.tiers[t].max.toLocaleString() + '\n';
+        msg += TIER_LABELS[t] + ': $' + est.tiers[t].min.toLocaleString() + ' - $' + est.tiers[t].max.toLocaleString() + '\n';
       }
     });
   }
-  msg += '\nRoof size: ~' + (est && est.roofSqft ? est.roofSqft.toLocaleString() : '?') + ' sq ft';
+  if (est && est.roofSqft) {
+    msg += '\nRoof size: ~' + est.roofSqft.toLocaleString() + ' sq ft';
+  }
   msg += '\n\nFor your exact price, schedule a free inspection with Joe: https://cal.com/nobigdeal/roof-inspection';
   msg += '\nOr call: (859) 420-7382';
+  return msg;
+}
 
-  // Show confirmation
-  var btn = event.target;
-  btn.textContent = 'Sent! Check your inbox ✓';
-  btn.disabled = true;
-  btn.style.opacity = '0.6';
+// `btn` is passed through from the delegated [data-action] handler so we
+// never rely on the global `event`. Only claims "Sent!" once _saveLead
+// resolves with a real document id (it returns the id or null).
+async function emailEstimate(btn) {
+  trackCTA('email-estimate');
+  var est = funnelData.estimate;
+  var msg = buildEstimateSummary(est);
 
-  // Save that they want the email
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    btn.style.opacity = '0.6';
+  }
+
+  var id = null;
   if (window._saveLead) {
-    window._saveLead({
-      address: funnelData.address,
-      email: funnelData.email,
-      phone: funnelData.phone,
-      firstName: funnelData.firstName,
-      lastName: funnelData.lastName,
-      estimateData: est,
-      estimateSummary: msg,
-      type: 'email_estimate_request'
-    });
+    try {
+      id = await window._saveLead({
+        address: funnelData.address,
+        email: funnelData.email,
+        phone: funnelData.phone,
+        firstName: funnelData.firstName,
+        lastName: funnelData.lastName,
+        estimateData: est,
+        estimateSummary: msg,
+        type: 'email_estimate_request'
+      });
+    } catch (e) {
+      console.error('Email estimate save failed:', e);
+      id = null;
+    }
+  }
+
+  if (!btn) return;
+  if (id) {
+    btn.textContent = 'Sent! Check your inbox ✓';
+  } else {
+    btn.textContent = 'Couldn\'t send — call/text (859) 420-7382';
+    btn.disabled = false;
+    btn.style.opacity = '';
   }
 }
 
@@ -992,7 +1153,8 @@ function emailEstimate() {
 function resetFunnel() {
   funnelData = {
     address: '', addressFull: null, lat: null, lon: null,
-    service: '', roofType: 'asphalt', timeline: '',
+    service: '', roofType: 'asphalt', homeSize: 'typical', timeline: '',
+    insuranceClaim: null,
     firstName: '', lastName: '', phone: '', email: '',
     phoneVerified: false, ballpark: { min: 0, max: 0 }, estimate: null
   };
@@ -1014,8 +1176,13 @@ function resetFunnel() {
   document.getElementById('btnSubmit').textContent = 'Get My Free Detailed Estimate &#x2192;';
   document.getElementById('btnStep3').disabled = true;
 
-  // Reset tiles
+  // Reset tiles — then re-select the defaults so the UI matches the
+  // restored state (same as a fresh page load: asphalt + typical).
   document.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); });
+  var defAsphalt = document.querySelector('#roofTypeGroup .tile[data-value="asphalt"]');
+  if (defAsphalt) defAsphalt.classList.add('selected');
+  var defTypical = document.querySelector('#homeSizeGroup .tile[data-value="typical"]');
+  if (defTypical) defTypical.classList.add('selected');
   document.getElementById('roofTypeGroup').style.display = 'none';
 
   // Reset OTP inputs
@@ -1064,7 +1231,7 @@ document.addEventListener('click', function (e) {
     var a = act.dataset.action;
     if (a === 'sendCode') sendVerificationCode();
     else if (a === 'submitEstimate') submitAndGetEstimate();
-    else if (a === 'emailEstimate') emailEstimate();
+    else if (a === 'emailEstimate') emailEstimate(act);
     else if (a === 'resetFunnel') resetFunnel();
   }
 });

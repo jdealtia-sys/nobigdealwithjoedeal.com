@@ -13,9 +13,25 @@ const app = initializeApp({
 });
 const functions = getFunctions(app);
 
+// UTM attribution — read once at load (same pattern as inspect-form.js
+// readUtms) and merged into every _saveLead payload so print/QR and ad
+// campaigns attribute. Empty params are omitted.
+const _utms = (() => {
+  let params;
+  try { params = new URLSearchParams(window.location.search); }
+  catch (e) { return {}; }
+  const out = {};
+  ['utm_source', 'utm_medium', 'utm_campaign'].forEach((k) => {
+    const v = (params.get(k) || '').slice(0, 80);
+    if (v) out[k] = v;
+  });
+  return out;
+})();
+
 // Expose to global scope for inline handlers
 window._saveLead = async (data) => {
   const res = await window.submitPublicLead('estimate', {
+    ..._utms,
     ...data,
     source: 'estimate-funnel-v2'
   });
