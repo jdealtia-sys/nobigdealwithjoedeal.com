@@ -74,7 +74,7 @@
         "source": "/assets/images/**",
         "headers": [
           { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" },
-          { "key": "Cache-Control", "value": "public, max-age=86400" }
+          { "key": "Cache-Control", "value": "public, max-age=2592000" }
         ]
       },
       {
