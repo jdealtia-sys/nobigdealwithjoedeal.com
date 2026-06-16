@@ -23,6 +23,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { callableRateLimit } = require('./shared');
@@ -73,7 +74,7 @@ exports.trackUsage = onCall({
     throw new HttpsError('invalid-argument', 'feature must be one of: leads, reports, aiCalls');
   }
 
-  const db = admin.firestore();
+  const db = getFirestore();
   const subRef = db.doc(`subscriptions/${uid}`);
 
   // Atomically increment + read back. Transaction so concurrent

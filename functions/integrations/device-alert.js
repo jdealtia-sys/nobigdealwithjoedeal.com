@@ -22,6 +22,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { SECRETS, hasSecret, getSecret } = require('./_shared');
@@ -80,7 +81,7 @@ exports.registerDeviceFingerprint = onCall(
     const composite = raw + '|' + userAgent + '|' + ip;
     const fp = hashFingerprint(uid, composite);
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const ref = db.doc('user_devices/' + uid + '/seen/' + fp);
     const snap = await ref.get();
     const seen = snap.exists;

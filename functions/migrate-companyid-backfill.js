@@ -31,6 +31,8 @@
 'use strict';
 
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 
 // Collections that carry companyId and back a company-scoped read rule.
@@ -51,8 +53,8 @@ function needsBackfill(companyId) {
 async function main() {
   const args = parseArgs(process.argv);
   admin.initializeApp();
-  const db = admin.firestore();
-  const auth = admin.auth();
+  const db = getFirestore();
+  const auth = getAuth();
 
   // Resolve a uid → tenant key, cached. key = claims.companyId || uid.
   const keyCache = new Map();

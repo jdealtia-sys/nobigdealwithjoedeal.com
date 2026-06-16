@@ -25,6 +25,8 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
@@ -72,7 +74,7 @@ exports.calcomWebhook = onRequest(
     const attendee = Array.isArray(payload.attendees) ? payload.attendees[0] : null;
 
     // Resolve rep uid by username or email.
-    const db = admin.firestore();
+    const db = getFirestore();
     let repUid = null;
     if (organizerUsername) {
       const q = await db.collection('users').where('calcomUsername', '==', organizerUsername).limit(1).get();
@@ -80,7 +82,7 @@ exports.calcomWebhook = onRequest(
     }
     if (!repUid && organizerEmail) {
       try {
-        const u = await admin.auth().getUserByEmail(organizerEmail);
+        const u = await getAuth().getUserByEmail(organizerEmail);
         repUid = u.uid;
       } catch (e) { /* no matching user */ }
     }
@@ -110,8 +112,8 @@ exports.calcomWebhook = onRequest(
           title:          payload.title,
           location:       payload.location,
           description:    payload.additionalNotes || payload.description,
-          startTime:      startTime ? admin.firestore.Timestamp.fromDate(startTime) : null,
-          endTime:        endTime   ? admin.firestore.Timestamp.fromDate(endTime)   : null,
+          startTime:      startTime ? Timestamp.fromDate(startTime) : null,
+          endTime:        endTime   ? Timestamp.fromDate(endTime)   : null,
           status:         trigger === 'BOOKING_RESCHEDULED' ? 'rescheduled' : 'booked',
           source:         'calcom',
           createdAt:      FieldValue.serverTimestamp(),
@@ -125,7 +127,7 @@ exports.calcomWebhook = onRequest(
             userId: repUid,
             title: 'Inspection: ' + (attendee && attendee.name || 'Homeowner'),
             description: (payload.location || 'Cal.com booking') + ' — ' + (payload.title || ''),
-            dueAt: admin.firestore.Timestamp.fromDate(remindAt),
+            dueAt: Timestamp.fromDate(remindAt),
             createdAt: FieldValue.serverTimestamp(),
             source: 'calcom',
             bookingId,

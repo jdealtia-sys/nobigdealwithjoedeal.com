@@ -42,6 +42,7 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
@@ -213,7 +214,7 @@ exports.estimateEmail = onDocumentCreated(
     // Transactionally claim the doc before sending so a redelivery is a no-op.
     let claimed = false;
     try {
-      claimed = await admin.firestore().runTransaction(async (tx) => {
+      claimed = await getFirestore().runTransaction(async (tx) => {
         const fresh = await tx.get(snap.ref);
         if (!fresh.exists) return false;
         if (fresh.get('estimateEmailedAt')) return false; // already handled

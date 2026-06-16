@@ -45,6 +45,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { withSentry } = require('./integrations/sentry');
@@ -171,7 +172,7 @@ exports.analyzePhotoVision = onCall({
   const photoId = typeof request.data?.photoId === 'string' ? request.data.photoId : null;
   if (!photoId) throw new HttpsError('invalid-argument', 'photoId required');
 
-  const db = admin.firestore();
+  const db = getFirestore();
   const photoRef = db.doc(`photos/${photoId}`);
   const photoSnap = await photoRef.get();
   if (!photoSnap.exists) throw new HttpsError('not-found', 'Photo not found');

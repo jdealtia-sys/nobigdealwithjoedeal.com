@@ -8,15 +8,16 @@
  */
 
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getApps } = require('firebase-admin/app');
 
 // Initialize Firebase Admin (ensure this is set up in your environment)
 // The script assumes credentials are set via GOOGLE_APPLICATION_CREDENTIALS env var
-if (!admin.apps.length) {
+if (!getApps().length) {
   admin.initializeApp();
 }
 
-const db = admin.firestore();
-const Timestamp = admin.firestore.Timestamp;
+const db = getFirestore();
 
 /**
  * Company data to seed

@@ -30,6 +30,8 @@ const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { logger } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
 const { FieldValue } = require('firebase-admin/firestore');
 const { getSecret, hasSecret, PROVIDERS, SECRETS } = require('./_shared');
 const prompts = require('../voice-prompts');
@@ -440,8 +442,8 @@ async function checkVerbalConsent({ transcript, segments }) {
 async function processRecording({
   uid, leadId, recordingId, path, contentType, size, forceReanalyze
 }) {
-  const db = admin.firestore();
-  const bucket = admin.storage().bucket();
+  const db = getFirestore();
+  const bucket = getStorage().bucket();
   const recordingRef = db.doc('leads/' + leadId + '/recordings/' + recordingId);
 
   // ── Idempotency ──
@@ -773,7 +775,7 @@ exports.reprocessRecording = onCall(
       throw new HttpsError('invalid-argument', 'leadId + recordingId required');
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const snap = await db.doc('leads/' + leadId + '/recordings/' + recordingId).get();
     if (!snap.exists) throw new HttpsError('not-found', 'recording not found');
     const rec = snap.data();
@@ -826,9 +828,9 @@ exports.recordingRetentionCron = onSchedule(
     memory: '512MiB'
   },
   async () => {
-    const db = admin.firestore();
-    const bucket = admin.storage().bucket();
-    const now = admin.firestore.Timestamp.now();
+    const db = getFirestore();
+    const bucket = getStorage().bucket();
+    const now = Timestamp.now();
 
     // Resolve each company's retention override in one pass.
     // Small N (<10k companies at SaaS scale) makes this cheap.
@@ -853,7 +855,7 @@ exports.recordingRetentionCron = onSchedule(
     // Sweep pages of completed recordings older than the MIN
     // retention (7 days = lowest allowed override); filter
     // per-company inside the loop.
-    const minCutoff = admin.firestore.Timestamp.fromMillis(
+    const minCutoff = Timestamp.fromMillis(
       now.toMillis() - (7 * 86_400_000)
     );
     let softDeleted = 0;
@@ -876,7 +878,7 @@ exports.recordingRetentionCron = onSchedule(
             await d.ref.update({
               status: 'soft_deleted',
               deletedAt: now,
-              hardDeleteAt: admin.firestore.Timestamp.fromMillis(
+              hardDeleteAt: Timestamp.fromMillis(
                 now.toMillis() + (HARD_DELETE_GRACE_DAYS * 86_400_000)
               ),
               updatedAt: now

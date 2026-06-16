@@ -68,6 +68,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 
 const TOKEN_RE = /^[A-Z0-9]{10,64}$/i;
@@ -285,7 +286,7 @@ exports.shareSSR = onRequest(
     }
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
       const tokSnap = await db.doc(`portal_tokens/${rawToken}`).get();
       if (!tokSnap.exists) { send(notFoundPage()); return; }
       const tok = tokSnap.data();

@@ -21,6 +21,7 @@
 'use strict';
 
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 
 const TTL_MS = 60_000;
 let _cache = { at: 0, flags: {} };
@@ -29,7 +30,7 @@ async function getFlags() {
   const now = Date.now();
   if (now - _cache.at < TTL_MS) return _cache.flags;
   try {
-    const snap = await admin.firestore().doc('feature_flags/global').get();
+    const snap = await getFirestore().doc('feature_flags/global').get();
     _cache = { at: now, flags: (snap.exists && snap.data()) || {} };
   } catch (e) {
     // Fail open: keep serving with the last-known flags, but advance the

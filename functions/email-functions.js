@@ -14,6 +14,8 @@ const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https')
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 const { enforceRateLimit, httpRateLimit } = require('./rate-limit');
@@ -289,7 +291,7 @@ async function verifyAuth(req) {
   if (!idToken) return null;
 
   try {
-    return await admin.auth().verifyIdToken(idToken);
+    return await getAuth().verifyIdToken(idToken);
   } catch (e) {
     logger.warn('email_auth_verify_failed', { err: e.message });
     return null;
@@ -366,7 +368,7 @@ exports.sendEmail = onRequest(
       });
 
       // Log to Firestore
-      const db = admin.firestore();
+      const db = getFirestore();
       await logEmailToFirestore(db, to, subject, decoded.uid, 'sent');
 
       res.json({
@@ -378,7 +380,7 @@ exports.sendEmail = onRequest(
       logger.error('sendEmail error', { err: e.message });
 
       // Log failure
-      const db = admin.firestore();
+      const db = getFirestore();
       await logEmailToFirestore(db, to, subject, decoded.uid, 'failed');
 
       res.status(500).json({
@@ -425,7 +427,7 @@ exports.sendEstimateEmail = onRequest(
     }
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
 
       // Look up lead
       const leadSnap = await db.doc(`leads/${leadId}`).get();
@@ -559,7 +561,7 @@ exports.sendDripEmail = onCall(
       });
 
       // Log to Firestore — owner is ALWAYS the authenticated caller.
-      const db = admin.firestore();
+      const db = getFirestore();
       await logEmailToFirestore(db, to, template.subject, request.auth.uid, 'sent');
 
       return {
@@ -645,7 +647,7 @@ exports.sendTeamInviteEmail = onRequest(
     }
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
 
       // Generate invite token
       const token = require('crypto').randomBytes(32).toString('hex');
@@ -659,7 +661,7 @@ exports.sendTeamInviteEmail = onRequest(
         inviterRole: callerRole,
         inviterName,
         createdAt: FieldValue.serverTimestamp(),
-        expiresAt: admin.firestore.Timestamp.fromDate(
+        expiresAt: Timestamp.fromDate(
           new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
         ),
         used: false

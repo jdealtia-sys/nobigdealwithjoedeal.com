@@ -57,11 +57,13 @@
 'use strict';
 
 const admin = require('firebase-admin');
+const { Timestamp, FieldPath, getFirestore } = require('firebase-admin/firestore');
+const { getApps } = require('firebase-admin/app');
 const { FieldValue } = require('firebase-admin/firestore');
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 
-if (!admin.apps.length) admin.initializeApp();
+if (!getApps().length) admin.initializeApp();
 
 const STATE_DOC_PATH = 'system/migrations';
 const HISTORY_COLLECTION = 'system/migrations/history';
@@ -80,7 +82,7 @@ async function acquireMigrationLease(db) {
     if (d && d.expiresAt && d.expiresAt.toMillis() > now) return false;
     tx.set(ref, {
       lockedAt: FieldValue.serverTimestamp(),
-      expiresAt: admin.firestore.Timestamp.fromMillis(now + LEASE_MS),
+      expiresAt: Timestamp.fromMillis(now + LEASE_MS),
     });
     return true;
   });
@@ -89,7 +91,7 @@ async function acquireMigrationLease(db) {
 async function releaseMigrationLease(db) {
   try {
     await db.doc(LOCK_DOC_PATH).set(
-      { expiresAt: admin.firestore.Timestamp.fromMillis(0) },
+      { expiresAt: Timestamp.fromMillis(0) },
       { merge: true }
     );
   } catch (e) { /* lease will expire on its own */ }
@@ -131,7 +133,7 @@ async function* paginate(db, collectionPath, batchSize = 200) {
   const coll = db.collection(collectionPath);
   let cursor = null;
   while (true) {
-    let q = coll.orderBy(admin.firestore.FieldPath.documentId()).limit(batchSize);
+    let q = coll.orderBy(FieldPath.documentId()).limit(batchSize);
     if (cursor) q = q.startAfter(cursor);
     const snap = await q.get();
     if (snap.empty) return;
@@ -188,7 +190,7 @@ async function backfillField(db, collectionPath, fieldName, computeValue, log) {
  * after each one.
  */
 async function runPending() {
-  const db = admin.firestore();
+  const db = getFirestore();
   const migrations = loadMigrations();
 
   // 2.4: single-runner lease. The scheduled tick and the manual
@@ -237,7 +239,7 @@ async function runPending() {
       await db.collection(HISTORY_COLLECTION).add({
         version: m.version,
         name: m.name,
-        startedAt: admin.firestore.Timestamp.fromMillis(start),
+        startedAt: Timestamp.fromMillis(start),
         finishedAt: FieldValue.serverTimestamp(),
         durationMs: duration,
         docsRead: result.docsRead,

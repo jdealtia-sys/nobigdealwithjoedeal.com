@@ -29,7 +29,8 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
-// Modular FieldValue import — admin.firestore.FieldValue is undefined under
+const { getFirestore } = require('firebase-admin/firestore');
+// Modular FieldValue import — FieldValue is undefined under
 // the emulator runtime (see emulator-qa notes); the modular path works in
 // both prod and emulator.
 const { FieldValue } = require('firebase-admin/firestore');
@@ -46,7 +47,7 @@ const BRIDGE_COLLECTIONS = Object.keys(L.BRIDGE_KINDS);
 
 async function bridgeToCrm(collection, data, sourceId) {
   data = data || {};
-  const db = admin.firestore();
+  const db = getFirestore();
 
   // Estimator follow-up events (results/CTA/email-request) are enrichment
   // on an already-bridged lead, not new leads — without this skip a single

@@ -16,6 +16,9 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
+const { getStorage } = require('firebase-admin/storage');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { enforceRateLimit, httpRateLimit } = require('../integrations/upstash-ratelimit');
@@ -41,7 +44,7 @@ exports.setStorageCors = onRequest(
     const authResult = await requireAuth(req, { adminOnly: true });
     if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
     try {
-      const bucket = admin.storage().bucket();
+      const bucket = getStorage().bucket();
       await bucket.setCorsConfiguration([
         {
           origin: [
@@ -135,7 +138,7 @@ exports.signImageUrl = onRequest(
       const callerRole = decoded.role || '';
       if (callerCompanyId && ['manager', 'company_admin'].includes(callerRole)) {
         try {
-          const db = admin.firestore();
+          const db = getFirestore();
           const [userDoc, repDoc] = await Promise.all([
             db.doc(`users/${ownerUid}`).get(),
             db.doc(`reps/${ownerUid}`).get()
@@ -150,7 +153,7 @@ exports.signImageUrl = onRequest(
     if (!allowed) { res.status(403).json({ error: 'Forbidden' }); return; }
 
     try {
-      const bucket = admin.storage().bucket();
+      const bucket = getStorage().bucket();
       const file = bucket.file(filePath);
       const [exists] = await file.exists();
       if (!exists) { res.status(404).json({ error: 'File not found' }); return; }
@@ -315,7 +318,7 @@ exports.analyzeRoofPhoto = onRequest(
 
     let decoded;
     try {
-      decoded = await admin.auth().verifyIdToken(idToken);
+      decoded = await getAuth().verifyIdToken(idToken);
     } catch (e) {
       logger.warn('analyzeRoofPhoto auth failed', { err: e.message });
       res.status(401).json({ error: 'Unauthorized' });
@@ -340,7 +343,7 @@ exports.analyzeRoofPhoto = onRequest(
     }
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
       const photoRef = db.collection('photos').doc(photoId);
       const photoSnap = await photoRef.get();
       if (!photoSnap.exists) {

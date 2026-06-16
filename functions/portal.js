@@ -33,6 +33,8 @@
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const {
@@ -145,7 +147,7 @@ exports.createPortalToken = onCall(
     const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
     if (!leadId) throw new HttpsError('invalid-argument', 'leadId required');
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const leadSnap = await db.doc(`leads/${leadId}`).get();
     if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
     const lead = leadSnap.data();
@@ -158,7 +160,7 @@ exports.createPortalToken = onCall(
     // 30-day default TTL — rep can force re-mint anytime.
     const ttlDays = Math.min(90, Math.max(1, Number(request.data?.ttlDays) || 30));
     const now = Date.now();
-    const expiresAt = admin.firestore.Timestamp.fromMillis(now + ttlDays * 86_400_000);
+    const expiresAt = Timestamp.fromMillis(now + ttlDays * 86_400_000);
 
     const token = mintPortalToken();
     await db.doc(`portal_tokens/${token}`).set({
@@ -197,7 +199,7 @@ exports.revokePortalToken = onCall(
       throw new HttpsError('invalid-argument', 'leadId or token required');
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const isAdmin = request.auth.token.role === 'admin';
     let revoked = [];
 
@@ -209,7 +211,7 @@ exports.revokePortalToken = onCall(
         throw new HttpsError('permission-denied', 'Not your token');
       }
       await ref.update({
-        expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
+        expiresAt: Timestamp.fromMillis(Date.now() - 1),
         revokedAt: FieldValue.serverTimestamp(),
         revokedBy: uid
       });
@@ -224,7 +226,7 @@ exports.revokePortalToken = onCall(
         const data = d.data();
         if (!isAdmin && data.ownerUid !== uid) return;
         batch.update(d.ref, {
-          expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() - 1),
+          expiresAt: Timestamp.fromMillis(Date.now() - 1),
           revokedAt: FieldValue.serverTimestamp(),
           revokedBy: uid
         });
@@ -280,7 +282,7 @@ exports.getHomeownerPortalView = onRequest(
       return;
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
     const tokSnap = await tokRef.get();
     if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
@@ -618,7 +620,7 @@ exports.uploadHomeownerPhoto = onRequest(
     }
     const safeCaption = (typeof caption === 'string') ? caption.slice(0, 280) : '';
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
 
     // W134 CRITICAL fix: TOCTOU race. Previously we read the token,
@@ -671,7 +673,7 @@ exports.uploadHomeownerPhoto = onRequest(
       const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
       const ts = Date.now();
       const path = `homeowner-uploads/${tok.ownerUid}/${tok.leadId}/${ts}.${ext}`;
-      const file = admin.storage().bucket().file(path);
+      const file = getStorage().bucket().file(path);
       await file.save(buffer, { contentType: mimeType, resumable: false });
       // W134 hardening: shorter signed-URL expiry. Previously
       // '03-09-2491' (~466 years) made every uploaded photo
@@ -813,7 +815,7 @@ exports.requestCallback = onRequest(
     }
     const safeNote = (typeof note === 'string') ? note.trim().slice(0, 280) : '';
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
 
     // W134 CRITICAL fix: TOCTOU race on per-token daily quota — same
@@ -1049,7 +1051,7 @@ exports.submitCustomerRating = onRequest(
     }
     const safeComment = (typeof comment === 'string') ? comment.trim().slice(0, 500) : '';
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
     const tokSnap = await tokRef.get();
     if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
@@ -1231,7 +1233,7 @@ exports.sendPortalMessage = onRequest(
     }
     const safeText = text.trim().slice(0, 2000);
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
 
     // W134 CRITICAL fix: TOCTOU race on per-token daily quota — same
@@ -1360,7 +1362,7 @@ exports.replyToPortalMessage = onCall(
     if (!text) throw new HttpsError('invalid-argument', 'text required');
     const safeText = text.slice(0, 2000);
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const leadRef = db.doc(`leads/${leadId}`);
     const leadSnap = await leadRef.get();
     if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
@@ -1447,7 +1449,7 @@ exports.getPortalMessages = onRequest(
       return;
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
     const tokSnap = await tokRef.get();
     if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
@@ -1551,7 +1553,7 @@ exports.getEstimateForView = onRequest(
       return;
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
     const tokSnap = await tokRef.get();
     if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }

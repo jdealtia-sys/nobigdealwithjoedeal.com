@@ -20,6 +20,8 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const Stripe = require('stripe');
 
@@ -207,7 +209,7 @@ exports.stripeWebhook = onRequest(
     }
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
 
       // ── Idempotency guard ──
       // Stripe retries webhooks up to 15 times. F-07: the previous
@@ -318,7 +320,7 @@ exports.stripeWebhook = onRequest(
           // via request.auth.token.plan and in client JS via
           // user.getIdTokenResult().claims.plan
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await getAuth().setCustomUserClaims(uid, {
               plan,
               subscriptionStatus: 'active',
               stripeCustomerId: customerId
@@ -373,7 +375,7 @@ exports.stripeWebhook = onRequest(
 
           // Sync custom claims
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await getAuth().setCustomUserClaims(uid, {
               plan,
               subscriptionStatus: subscription.status,
               stripeCustomerId: customerId
@@ -410,7 +412,7 @@ exports.stripeWebhook = onRequest(
 
           // Downgrade custom claims to free
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await getAuth().setCustomUserClaims(uid, {
               plan: 'free',
               subscriptionStatus: 'cancelled',
               stripeCustomerId: customerId
@@ -446,7 +448,7 @@ exports.stripeWebhook = onRequest(
 
           // Update claims to past_due so client can show warning
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await getAuth().setCustomUserClaims(uid, {
               plan: subDoc.data().plan || 'free',
               subscriptionStatus: 'past_due',
               stripeCustomerId: customerId
@@ -457,7 +459,7 @@ exports.stripeWebhook = onRequest(
           // channel, and stamp a lead activity row if the invoice
           // has a leadId on its metadata (auto-invoice C5 sets it).
           try {
-            const userRecord = await admin.auth().getUser(uid);
+            const userRecord = await getAuth().getUser(uid);
             const email = userRecord.email;
             const leadId = (invoice.metadata && invoice.metadata.leadId) || null;
             const estimateId = (invoice.metadata && invoice.metadata.estimateId) || null;
@@ -582,7 +584,7 @@ exports.createCustomerPortalSession = onRequest(
     const { decoded } = authResult;
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
       const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
 
       if (!subscriptionSnap.exists) {
@@ -649,7 +651,7 @@ exports.getSubscriptionStatus = onRequest(
     const { decoded } = authResult;
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
       const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
 
       if (!subscriptionSnap.exists) {
@@ -707,7 +709,7 @@ exports.createStripePaymentLink = onRequest(
       }
 
       // Fetch invoice from Firestore
-      const db = admin.firestore();
+      const db = getFirestore();
       const invoiceSnap = await db.collection('invoices').doc(invoiceId).get();
 
       if (!invoiceSnap.exists) {
@@ -849,7 +851,7 @@ exports.invoiceWebhook = onRequest(
       // future side effects (receipt emails, Slack notifications,
       // analytics events) MUST NOT fire twice — so gate the whole
       // handler behind an atomic create() that fails on duplicate.
-      const db = admin.firestore();
+      const db = getFirestore();
       const eventRef = db.doc(`stripe_events/${event.id}`);
       try {
         await eventRef.create({

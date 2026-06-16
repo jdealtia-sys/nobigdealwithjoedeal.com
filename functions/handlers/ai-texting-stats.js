@@ -22,6 +22,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { callableRateLimit } = require('../shared');
 const { CORS_ORIGINS } = require('./_shared');
 
@@ -44,8 +45,8 @@ exports.getAiTextingStats = onCall(
     await callableRateLimit(request, 'getAiTextingStats', 30, 3_600_000);
 
     const windowDays = Math.min(Math.max(Number(request.data && request.data.windowDays) || 90, 1), 365);
-    const since = admin.firestore.Timestamp.fromMillis(Date.now() - windowDays * 86_400_000);
-    const db = admin.firestore();
+    const since = Timestamp.fromMillis(Date.now() - windowDays * 86_400_000);
+    const db = getFirestore();
 
     let docs = [];
     try {

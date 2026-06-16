@@ -26,6 +26,8 @@
 'use strict';
 
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 
 // Known platform-owner emails (mirrors PROVISION_OWNER_EMAILS in
 // functions/handlers/_shared.js). The owner's companyId claim — or uid when
@@ -47,7 +49,7 @@ function parseArgs(argv) {
 async function resolveOwnerKey() {
   for (const email of OWNER_EMAILS) {
     try {
-      const u = await admin.auth().getUserByEmail(email);
+      const u = await getAuth().getUserByEmail(email);
       const claimCid = u.customClaims && u.customClaims.companyId;
       const key = claimCid || u.uid;
       console.log(`  resolved owner ${email}: key=${key} (companyId claim=${claimCid || '(none → using uid)'})`);
@@ -62,7 +64,7 @@ async function resolveOwnerKey() {
 async function main() {
   const args = parseArgs(process.argv);
   admin.initializeApp();
-  const db = admin.firestore();
+  const db = getFirestore();
 
   const mainSnap = await db.doc('companyProfile/main').get();
   if (!mainSnap.exists) {

@@ -23,7 +23,7 @@
  *      harness with no Firebase runtime.
  *   2. Accepts BOTH shapes. onCall callers pass `request.auth.token`
  *      as the claims object; onRequest callers pass the decoded
- *      Bearer token (`await admin.auth().verifyIdToken()`). The
+ *      Bearer token (`await getAuth().verifyIdToken()`). The
  *      fields we consult (`role`, `companyId`, `email_verified`,
  *      `uid`) exist on both — accept either.
  *   3. Never throw `HttpsError` from a helper used by onRequest
@@ -45,6 +45,7 @@ let _admin;
 function getAdmin() {
   if (_admin) return _admin;
   _admin = require('firebase-admin');
+  const { getAuth } = require('firebase-admin/auth');
   return _admin;
 }
 

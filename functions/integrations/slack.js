@@ -19,6 +19,7 @@
 const { onDocumentCreated, onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
 
 async function postSlack(payload) {
@@ -144,7 +145,7 @@ exports.slack_onStormAlert = onDocumentCreated(
 async function resolveRepName(uid) {
   if (!uid) return 'Unknown rep';
   try {
-    const snap = await admin.firestore().doc(`users/${uid}`).get();
+    const snap = await getFirestore().doc(`users/${uid}`).get();
     if (snap.exists) {
       const d = snap.data();
       return d.displayName || d.email || uid;

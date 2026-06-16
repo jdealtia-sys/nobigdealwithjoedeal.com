@@ -37,6 +37,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
@@ -187,7 +188,7 @@ exports.saveFunnelProgress = onRequest(
         return;
       }
 
-      const db = admin.firestore();
+      const db = getFirestore();
       const docRef = db.collection('funnel_abandoned').doc(funnelId);
       const now = FieldValue.serverTimestamp();
 
@@ -256,15 +257,15 @@ exports.runAbandonRecovery = onSchedule(
   },
   async (event) => {
     const enabled = process.env.FUNNEL_RECOVERY_ENABLED === 'true';
-    const db = admin.firestore();
+    const db = getFirestore();
     const now = Date.now();
     const cutoffOld = new Date(now - ABANDON_WINDOW_MS);
     const cutoffTooOld = new Date(now - RECOVERY_MAX_AGE_DAYS * 24 * 60 * 60 * 1000);
 
     const snap = await db
       .collection('funnel_abandoned')
-      .where('createdAt', '<', admin.firestore.Timestamp.fromDate(cutoffOld))
-      .where('createdAt', '>', admin.firestore.Timestamp.fromDate(cutoffTooOld))
+      .where('createdAt', '<', Timestamp.fromDate(cutoffOld))
+      .where('createdAt', '>', Timestamp.fromDate(cutoffTooOld))
       .limit(200)
       .get();
 

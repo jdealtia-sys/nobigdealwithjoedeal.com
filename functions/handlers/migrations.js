@@ -18,6 +18,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { enforceRateLimit } = require('../integrations/upstash-ratelimit');
@@ -92,7 +93,7 @@ exports.backfillAnalytics = onCall(
     // subcollections) OR leads/{uid}/leads/{leadId}/knocks/*. We check
     // both paths. For safety this backfill only reads, writes, and
     // deletes from within the caller's uid namespace.
-    const db = admin.firestore();
+    const db = getFirestore();
 
     // Fetch knocks collection — assumes top-level 'knocks' with userId field
     const knocksSnap = await db.collection('knocks').where('userId', '==', uid).limit(5000).get();
@@ -232,7 +233,7 @@ exports.migratePinsToKnocks = onCall(
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const STATUS_TO_DISPO = {
       'Signed':         'appointment',
       'Interested':     'interested',

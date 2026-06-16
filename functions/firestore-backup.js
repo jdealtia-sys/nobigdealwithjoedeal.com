@@ -33,11 +33,12 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const firestore = require('@google-cloud/firestore');
 const { Storage } = require('@google-cloud/storage');
 
 // Initialise lazily — index.js already calls admin.initializeApp() before
-// it `require`s us, so we can safely reach into admin.firestore() here.
+// it `require`s us, so we can safely reach into getFirestore() here.
 const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'nobigdeal-pro';
 const BUCKET = `${PROJECT_ID}-firestore-backups`;
 const RETENTION_DAYS = 30;

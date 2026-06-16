@@ -30,6 +30,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
@@ -78,7 +79,7 @@ exports.recordCustomerEvent = onRequest({
     return;
   }
 
-  const db = admin.firestore();
+  const db = getFirestore();
   const tokSnap = await db.doc(`portal_tokens/${token}`).get();
   if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
   const tok = tokSnap.data();

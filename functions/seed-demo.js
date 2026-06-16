@@ -9,14 +9,17 @@
  */
 
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
+const { getApps } = require('firebase-admin/app');
 
 // Use existing admin app if running inside Cloud Functions, otherwise init fresh
-if (!admin.apps.length) {
+if (!getApps().length) {
   admin.initializeApp({ projectId: 'nobigdeal-pro' });
 }
 
-const db = admin.firestore();
-const TS = admin.firestore.Timestamp;
+const db = getFirestore();
+const TS = Timestamp;
 
 // ─── Helpers ───────────────────────────────────────────────
 
@@ -367,7 +370,7 @@ async function seed() {
   console.log('[1/7] Looking up demo user...');
   let demoUser;
   try {
-    demoUser = await admin.auth().getUserByEmail('demo@nobigdeal.pro');
+    demoUser = await getAuth().getUserByEmail('demo@nobigdeal.pro');
   } catch (e) {
     console.error('FATAL: Could not find demo user (demo@nobigdeal.pro):', e.message);
     process.exit(1);

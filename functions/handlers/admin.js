@@ -19,6 +19,8 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { callableRateLimit } = require('../shared');
@@ -73,8 +75,8 @@ exports.getAdminAnalytics = onCall(
       ? (request.data?.companyId || request.auth.token.companyId || null)
       : request.auth.token.companyId;
 
-    const db = admin.firestore();
-    const since = admin.firestore.Timestamp.fromMillis(Date.now() - 30 * 86_400_000);
+    const db = getFirestore();
+    const since = Timestamp.fromMillis(Date.now() - 30 * 86_400_000);
 
     // Helper — for a rep-owned collection, restrict to the caller's
     // company when not platform admin. Platform admin with no company
@@ -217,7 +219,7 @@ exports.auditCustomerDataIntegrity = onCall(
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const snap = await db.collection('leads').where('userId', '==', uid).limit(10000).get();
 
     let missingCompanyId = 0;
@@ -285,7 +287,7 @@ exports.backfillCustomerData = onCall(
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const callerCompanyId = (request.auth.token && request.auth.token.companyId) || uid;
 
     const snap = await db.collection('leads').where('userId', '==', uid).limit(10000).get();
@@ -391,7 +393,7 @@ exports.rotateAccessCodes = onCall(
       throw new HttpsError('permission-denied', 'Platform admin required');
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const deactivated = [];
     for (const codeId of LEGACY_ACCESS_CODES) {
       const ref = db.doc(`access_codes/${codeId}`);
@@ -460,7 +462,7 @@ exports.createTeamMember = onCall(
       ? request.data.displayName.trim().slice(0, 120)
       : '';
 
-    const db = admin.firestore();
+    const db = getFirestore();
 
     // Make sure the company doc exists so security rules for members work.
     const companySnap = await companyRef.get();
@@ -475,10 +477,10 @@ exports.createTeamMember = onCall(
     let userRecord;
     let created = false;
     try {
-      userRecord = await admin.auth().getUserByEmail(email);
+      userRecord = await getAuth().getUserByEmail(email);
     } catch (e) {
       if (e.code === 'auth/user-not-found') {
-        userRecord = await admin.auth().createUser({
+        userRecord = await getAuth().createUser({
           email,
           emailVerified: false,
           displayName: displayName || email.split('@')[0],
@@ -503,7 +505,7 @@ exports.createTeamMember = onCall(
       companyId,
       role
     };
-    await admin.auth().setCustomUserClaims(userRecord.uid, newClaims);
+    await getAuth().setCustomUserClaims(userRecord.uid, newClaims);
 
     const memberRef = db.doc(`companies/${companyId}/members/${email}`);
     await memberRef.set({
@@ -572,8 +574,8 @@ exports.updateUserRole = onCall(
     let userRecord;
     try {
       userRecord = targetUid
-        ? await admin.auth().getUser(targetUid)
-        : await admin.auth().getUserByEmail(targetEmail);
+        ? await getAuth().getUser(targetUid)
+        : await getAuth().getUserByEmail(targetEmail);
     } catch (e) {
       throw new HttpsError('not-found', 'User not found');
     }
@@ -593,7 +595,7 @@ exports.updateUserRole = onCall(
       throw new HttpsError('failed-precondition', 'Cannot demote the company owner');
     }
 
-    await admin.auth().setCustomUserClaims(userRecord.uid, {
+    await getAuth().setCustomUserClaims(userRecord.uid, {
       ...existingClaims,
       companyId,
       role
@@ -607,14 +609,14 @@ exports.updateUserRole = onCall(
     // still carries stale claims, and forces a re-login that picks up the
     // new role.)
     try {
-      await admin.auth().revokeRefreshTokens(userRecord.uid);
+      await getAuth().revokeRefreshTokens(userRecord.uid);
     } catch (e) {
       logger.warn('updateUserRole: token revoke failed', { uid: userRecord.uid, err: e.message });
     }
 
     const emailKey = (userRecord.email || targetEmail || '').toLowerCase();
     if (emailKey) {
-      await admin.firestore().doc(`companies/${companyId}/members/${emailKey}`).set({
+      await getFirestore().doc(`companies/${companyId}/members/${emailKey}`).set({
         role,
         updatedAt: FieldValue.serverTimestamp(),
         updatedBy: callerUid
@@ -652,8 +654,8 @@ exports.deactivateUser = onCall(
     let userRecord;
     try {
       userRecord = targetUid
-        ? await admin.auth().getUser(targetUid)
-        : await admin.auth().getUserByEmail(targetEmail);
+        ? await getAuth().getUser(targetUid)
+        : await getAuth().getUserByEmail(targetEmail);
     } catch (e) {
       throw new HttpsError('not-found', 'User not found');
     }
@@ -675,15 +677,15 @@ exports.deactivateUser = onCall(
       throw new HttpsError('failed-precondition', 'Cannot deactivate your own account');
     }
 
-    await admin.auth().updateUser(userRecord.uid, { disabled: !reactivate });
+    await getAuth().updateUser(userRecord.uid, { disabled: !reactivate });
     // Revoke tokens when deactivating so existing sessions die.
     if (!reactivate) {
-      await admin.auth().revokeRefreshTokens(userRecord.uid);
+      await getAuth().revokeRefreshTokens(userRecord.uid);
     }
 
     const emailKey = (userRecord.email || targetEmail || '').toLowerCase();
     if (emailKey) {
-      await admin.firestore().doc(`companies/${companyId}/members/${emailKey}`).set({
+      await getFirestore().doc(`companies/${companyId}/members/${emailKey}`).set({
         status: reactivate ? 'active' : 'deactivated',
         active: !!reactivate,
         deactivatedAt: reactivate ? null : FieldValue.serverTimestamp(),
@@ -726,7 +728,7 @@ exports.listTeamMembers = onCall(
       throw new HttpsError('permission-denied', 'Cannot view another company');
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const companySnap = await db.doc(`companies/${companyId}`).get();
     // Solo-operator fallback: if the company doc hasn't been created
     // yet AND the caller is acting on their own workspace
@@ -747,7 +749,7 @@ exports.listTeamMembers = onCall(
     // Always include the owner card first.
     if (ownerId) {
       try {
-        const ownerRecord = await admin.auth().getUser(ownerId);
+        const ownerRecord = await getAuth().getUser(ownerId);
         members.push({
           uid: ownerId,
           email: (ownerRecord.email || '').toLowerCase(),
@@ -773,8 +775,8 @@ exports.listTeamMembers = onCall(
       let authMeta = null;
       try {
         const u = m.uid
-          ? await admin.auth().getUser(m.uid)
-          : await admin.auth().getUserByEmail(m.email);
+          ? await getAuth().getUser(m.uid)
+          : await getAuth().getUserByEmail(m.email);
         authMeta = {
           uid: u.uid,
           disabled: !!u.disabled,

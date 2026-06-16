@@ -30,6 +30,7 @@
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 // ─── DEPRECATED no-ops — superseded by audit-triggers.js (see header) ──
@@ -44,7 +45,7 @@ exports.auditCompanies     = onDocumentWritten('companies/{companyId}', noop);
 // ─── Invoices — the one sensitive collection audit-triggers.js omits ──
 async function writeAudit(entry) {
   try {
-    await admin.firestore().collection('audit_log').add(entry);
+    await getFirestore().collection('audit_log').add(entry);
   } catch (e) {
     logger.error('audit_log_write_failed', { err: e.message, path: entry.path });
   }

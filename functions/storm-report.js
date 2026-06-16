@@ -17,6 +17,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;     // storm history changes slowly
@@ -107,7 +108,7 @@ exports.stormReport = onRequest(
       return res.status(400).json({ error: 'Valid US lat/lon required' });
     }
     const key = 'storm_' + lat.toFixed(2).replace(/[.-]/g, '_') + '__' + lon.toFixed(2).replace(/[.-]/g, '_');
-    const ref = admin.firestore().doc('public_cache/' + key);
+    const ref = getFirestore().doc('public_cache/' + key);
     const now = Date.now();
 
     let cached = null;

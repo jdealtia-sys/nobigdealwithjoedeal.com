@@ -32,6 +32,8 @@ const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https')
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
 const { FieldValue } = require('firebase-admin/firestore');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 const { callableRateLimit } = require('./shared');
@@ -90,7 +92,7 @@ exports.createSignRequest = onCall(
       throw new HttpsError('invalid-argument', 'A valid signer email is required');
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     // Owner-scope: the rep must own the lead (or be platform admin).
     const leadSnap = await db.doc(`leads/${leadId}`).get();
     if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
@@ -108,7 +110,7 @@ exports.createSignRequest = onCall(
 
     const now = Date.now();
     const ttlDays = 7;
-    const expiresAt = admin.firestore.Timestamp.fromMillis(now + ttlDays * 86_400_000);
+    const expiresAt = Timestamp.fromMillis(now + ttlDays * 86_400_000);
     const token = mintSignToken();
 
     await db.doc(`doc_sign_tokens/${token}`).set({
@@ -181,7 +183,7 @@ exports.getSignDocument = onRequest(
       res.status(400).json({ error: 'Invalid link' }); return;
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokSnap = await db.doc(`doc_sign_tokens/${token}`).get();
     if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
     const tok = tokSnap.data();
@@ -195,7 +197,7 @@ exports.getSignDocument = onRequest(
     // Serve the interactive doc HTML the generator uploaded to Storage.
     let html = '';
     try {
-      const file = admin.storage().bucket().file(tok.htmlPath);
+      const file = getStorage().bucket().file(tok.htmlPath);
       const [buf] = await file.download();
       html = buf.toString('utf8');
     } catch (e) {
@@ -246,7 +248,7 @@ exports.submitSignature = onRequest(
       res.status(413).json({ error: 'Signed document too large' }); return;
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokRef = db.doc(`doc_sign_tokens/${token}`);
 
     // ATOMIC single-use burn: flip pending → signed inside a transaction
@@ -279,7 +281,7 @@ exports.submitSignature = onRequest(
     try {
       // Overwrite the doc's Storage object with the signed version so the
       // rep re-opens the signed copy from the documents tab.
-      const file = admin.storage().bucket().file(info.htmlPath);
+      const file = getStorage().bucket().file(info.htmlPath);
       await file.save(Buffer.from(signedHtml, 'utf8'), { contentType: 'text/html', resumable: false });
     } catch (e) {
       logger.warn('[submitSignature] signed html upload failed', { msg: e.message });

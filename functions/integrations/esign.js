@@ -29,7 +29,8 @@
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
-// Modular FieldValue import: the namespaced admin.firestore.FieldValue is
+const { getFirestore } = require('firebase-admin/firestore');
+// Modular FieldValue import: the namespaced FieldValue is
 // undefined inside the Functions emulator runtime (firebase-admin v12 +
 // emulator instrumentation drops the static). The modular import works in
 // BOTH prod and the emulator.
@@ -86,7 +87,7 @@ exports.sendEstimateForSignature = onCall(
     }
 
     // Verify caller owns the estimate (company scope check).
-    const db = admin.firestore();
+    const db = getFirestore();
     const estSnap = await db.doc(`estimates/${estimateId}`).get();
     if (!estSnap.exists) throw new HttpsError('not-found', 'Estimate not found');
     const est = estSnap.data();
@@ -235,7 +236,7 @@ exports.esignWebhook = onRequest(
     if (!documentId) { res.status(400).json({ error: 'Missing documentId' }); return; }
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
       let ref = null;
       if (estimateId) ref = db.doc(`estimates/${estimateId}`);
       else {
@@ -318,7 +319,7 @@ async function createStripeInvoiceForEstimate(estRef) {
   // behavior-neutral on the billing path.
   const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
 
-  const db = admin.firestore();
+  const db = getFirestore();
   const estSnap = await estRef.get();
   const est = estSnap.data();
   if (!est) return;

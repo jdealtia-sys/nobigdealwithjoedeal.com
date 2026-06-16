@@ -29,6 +29,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const DEEPGRAM_API_KEY = defineSecret('DEEPGRAM_API_KEY');
@@ -118,7 +119,7 @@ exports.transcribeVoiceMemo = onCall(
       // Persist to the lead's activity subcollection (if linked).
       if (leadId && transcript) {
         try {
-          await admin.firestore().collection(`leads/${leadId}/activity`).add({
+          await getFirestore().collection(`leads/${leadId}/activity`).add({
             userId: uid,
             type: 'voice_memo',
             label: 'Voice memo',
