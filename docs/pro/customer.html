@@ -21,8 +21,11 @@
      tokens. Without it, callables with enforceAppCheck:true (e.g.
      replyToPortalMessage — rep-side portal reply) reject with
      'unauthenticated'. Classic (non-deferred) script = runs before the
-     type="module" init below. Same single-source key file as dashboard. -->
-<script src="js/dashboard-appcheck-config.js?v=1"></script>
+     type="module" init below. Same single-source key file as dashboard.
+     `defer` keeps it non-render-blocking (customer.html perf invariant) while
+     still executing before the deferred init module, since deferred scripts
+     run in document order and this tag precedes the module. -->
+<script defer src="js/dashboard-appcheck-config.js?v=1"></script>
 <!-- Escape helpers for user-controlled strings — exposes window.nbdEsc -->
 <script type="module" src="js/dom-safe.js"></script>
 <!-- Canonical customer URL builder (window.NBDUrl). Loads early so
