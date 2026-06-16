@@ -106,8 +106,15 @@ async function doLogin() {
   }
   setLoading(loginBtn, true);
   try {
-    await setPersistence(auth, rememberMe.checked ? browserLocalPersistence : browserSessionPersistence);
+    // NEW-D25: sign in FIRST, then set persistence. setPersistence mutates
+    // the live Auth instance immediately, so calling it before signIn means a
+    // wrong-password attempt by someone who already holds a durable
+    // (Remember-me) session silently downgrades that session to session-only —
+    // it then evaporates on the next browser close. Applying persistence only
+    // after a successful sign-in confines the change to the freshly
+    // authenticated user and never touches an existing session on failure.
     await signInWithEmailAndPassword(auth, email, pass);
+    await setPersistence(auth, rememberMe.checked ? browserLocalPersistence : browserSessionPersistence);
     // Explicit Credential Management API hint. Chrome / Edge / Safari
     // already prompt to save on form submission, but storing the
     // credential here gives the browser a stable name/id to associate
