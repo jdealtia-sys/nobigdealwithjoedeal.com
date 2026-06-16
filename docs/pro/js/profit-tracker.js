@@ -241,6 +241,9 @@
       costNotes: document.getElementById('ptNotes')?.value
     }).then(ok => {
       if (ok) {
+        // NEW-D17: re-render this panel so totals / margin badge update live
+        // (it re-reads the lead that saveJobCosts just updated).
+        renderCostPanel('profitPanel', leadId);
         // Re-render KPI row to reflect updated margins
         if (typeof window.renderKPIRow === 'function') window.renderKPIRow();
       }

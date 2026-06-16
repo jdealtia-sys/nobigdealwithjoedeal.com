@@ -107,6 +107,11 @@ function buildJoeContext() {
 
   return {
     name: settings.displayName || user?.displayName || 'the rep',
+    // NEW-D16: clean first name for the greeting. ctx.name keeps the
+    // 'the rep' fallback for the system prompt, but the greeting must not
+    // render "Hey the —" (which happens because 'the rep'.split(' ')[0] is
+    // the truthy 'the'). Derive a real first name or fall back to 'there'.
+    firstName: ((settings.displayName || user?.displayName || '').trim().split(' ')[0]) || 'there',
     company: settings.company || 'their company',
     totalLeads: leads.length,
     activeLeads: active.length,
@@ -195,12 +200,17 @@ function initJoeChat() {
 
   loadJoeChat();
 
+  // NEW-D16: always reset the rendered transcript first so "New Chat"
+  // (clearJoeChat) and key changes don't append a fresh greeting under the
+  // old bubbles — initJoeChat fully repopulates the container below.
+  msgs.innerHTML = '';
+
   if(_joeMessages.length === 0) {
     // Welcome message
     const ctx = buildJoeContext();
     const greeting = ctx.totalLeads > 0
-      ? `Hey ${ctx.name.split(' ')[0] || 'there'} — I've got eyes on your pipeline. You've got ${ctx.activeLeads} active leads worth $${ctx.pipelineValue.toLocaleString()}${ctx.overdueCount ? `, and ${ctx.overdueCount} follow-up${ctx.overdueCount!==1?'s':''} that need attention today` : ''}. What do you want to work on?`
-      : `Hey ${ctx.name.split(' ')[0] || 'there'} — Joe here. Looks like you're just getting started. Add your first lead in CRM and I can start giving you real advice based on your actual pipeline. In the meantime, ask me anything about running claims, canvassing, or closing jobs.`;
+      ? `Hey ${ctx.firstName} — I've got eyes on your pipeline. You've got ${ctx.activeLeads} active leads worth $${ctx.pipelineValue.toLocaleString()}${ctx.overdueCount ? `, and ${ctx.overdueCount} follow-up${ctx.overdueCount!==1?'s':''} that need attention today` : ''}. What do you want to work on?`
+      : `Hey ${ctx.firstName} — Joe here. Looks like you're just getting started. Add your first lead in CRM and I can start giving you real advice based on your actual pipeline. In the meantime, ask me anything about running claims, canvassing, or closing jobs.`;
     appendJoeMessage('joe', greeting);
   } else {
     renderJoeMessages();
