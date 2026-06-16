@@ -16,6 +16,13 @@
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
 <link rel="dns-prefetch" href="https://nobigdeal-pro.firebaseapp.com">
 <link rel="dns-prefetch" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
+<!-- App Check (NEW-D20): set the reCAPTCHA Enterprise site key BEFORE the
+     deferred Firebase init module runs, so this page can mint App Check
+     tokens. Without it, callables with enforceAppCheck:true (e.g.
+     replyToPortalMessage — rep-side portal reply) reject with
+     'unauthenticated'. Classic (non-deferred) script = runs before the
+     type="module" init below. Same single-source key file as dashboard. -->
+<script src="js/dashboard-appcheck-config.js?v=1"></script>
 <!-- Escape helpers for user-controlled strings — exposes window.nbdEsc -->
 <script type="module" src="js/dom-safe.js"></script>
 <!-- Canonical customer URL builder (window.NBDUrl). Loads early so
@@ -2864,6 +2871,7 @@ window.fetchImageAsBase64 = fetchImageAsBase64;
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, getDocs, getDoc, doc, query, orderBy, where, updateDoc, deleteDoc, serverTimestamp, addDoc, arrayUnion, arrayRemove, limit, runTransaction, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getStorage, ref, uploadBytesResumable, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
@@ -2879,6 +2887,25 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+// App Check (NEW-D20): init BEFORE any callable fires so requests carry a
+// real App Check token. replyToPortalMessage (and createPortalToken) are
+// onCall with enforceAppCheck:true and reject with 'unauthenticated' in
+// production without it. Mirrors dashboard-bootstrap.module.js. The site key
+// is set by the classic js/dashboard-appcheck-config.js script in <head>.
+const __APP_CHECK_KEY = (window.__NBD_APP_CHECK_KEY || '').trim();
+if (__APP_CHECK_KEY && !window.__NBD_APP_CHECK_INITIALIZED) {
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(__APP_CHECK_KEY),
+      isTokenAutoRefreshEnabled: true
+    });
+    window.__NBD_APP_CHECK_INITIALIZED = true;
+  } catch (e) {
+    console.error('[customer] App Check init failed:', e);
+  }
+} else if (!__APP_CHECK_KEY) {
+  console.warn('[customer] App Check not configured — callables with enforceAppCheck WILL reject in production.');
+}
 const auth = getAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
