@@ -193,10 +193,23 @@ window.restartOnboardingTour = function restartOnboardingTour() {
   }
 };
 window.openDecisionPicker = function openDecisionPicker() {
+  // NEW-D15: the decision-engine bundle is lazy and wired (in script-loader's
+  // VIEW_BUNDLES) only to aitree/understand — never to #/joe, where the
+  // "⚡ Scenarios" button lives. Load the 'decision' bundle on demand before
+  // opening, mirroring the estimate/photo lazy stubs below.
+  const _open = function () {
+    if (window.DecisionEngine && typeof window.DecisionEngine.openPicker === 'function') {
+      window.DecisionEngine.openPicker();
+    } else if (typeof showToast === 'function') {
+      showToast('Decision engine loading...', 'error');
+    }
+  };
   if (window.DecisionEngine && typeof window.DecisionEngine.openPicker === 'function') {
-    window.DecisionEngine.openPicker();
-  } else if (typeof showToast === 'function') {
-    showToast('Decision engine loading...', 'error');
+    _open();
+  } else if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+    window.ScriptLoader.loadBundle('decision').then(_open);
+  } else {
+    _open();
   }
 };
 window.openD2DOrGo = function openD2DOrGo() {
