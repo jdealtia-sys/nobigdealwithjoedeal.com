@@ -116,7 +116,10 @@ jobs:
     needs: check
     if: needs.check.outputs.configured == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Bumped 15 -> 30: the real (strict) functions deploy alone can run
+    # ~10-13 min; with the tolerant retry now bounded below, this leaves
+    # comfortable headroom so Hosting always reaches its step.
+    timeout-minutes: 30
     permissions:
       contents: read
     env:
@@ -444,7 +447,16 @@ jobs:
       # functions still run their LAST deployed revision — it's the
       # update that fails, not the runtime.
       - name: Deploy Cloud Functions (tolerant — IAM-blocked retry)
+        # ROOT-CAUSE FIX (deploy run 27631207476 starved Hosting): this retry
+        # of the GCIP/IAM-blocked skip-list (onRepSignup) had NO step timeout,
+        # so it ran until the job timeout-minutes cap canceled the WHOLE job —
+        # the canceled job skipped the Deploy Hosting step below, even though
+        # this step's comment promises "the rest of the deploy (Hosting, etc.)
+        # continues." continue-on-error + a step timeout make that promise real:
+        # a slow/hung retry self-bounds and the job proceeds to Hosting.
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'functions' }}
+        continue-on-error: true
+        timeout-minutes: 8
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
           NBD_DEPLOY_SKIP_LIST: "onRepSignup"
