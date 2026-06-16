@@ -15,7 +15,7 @@
     "handlebars": "^4.7.8",
     "puppeteer-core": "^24.43.1",
     "resend": "^3.5.0",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.1",
     "stripe": "^14.25.0",
     "twilio": "^5.13.1"
   }
