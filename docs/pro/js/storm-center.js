@@ -614,11 +614,24 @@
 
     L.control.zoom({ position: 'topright' }).addTo(stormMap);
 
-    // Satellite tiles
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Esri',
+    // Satellite tiles — Google primary (mt{s}.google.com, on the CSP img-src
+    // allow-list); Esri/ArcGIS as a per-tile fallback. Esri alone is blocked
+    // by Brave Shields at the network layer => gray void (NEW-D12 / PR #486).
+    // Mirrors docs/pro/js/d2d-tracker-core-2026b.js initD2DMap.
+    const stormSat = L.tileLayer('https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      subdomains: '0123',
+      attribution: 'Imagery © Google',
+      maxNativeZoom: 22,
       maxZoom: 19
-    }).addTo(stormMap);
+    });
+    stormSat.on('tileerror', function (ev) {
+      if (!ev.tile || !ev.coords || ev.tile.dataset.nbdFallbackTried === '1') return;
+      ev.tile.dataset.nbdFallbackTried = '1';
+      const c = ev.coords;
+      ev.tile.src = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/'
+        + c.z + '/' + c.y + '/' + c.x;
+    });
+    stormSat.addTo(stormMap);
 
     // Layer groups
     stormLayers.alerts = L.layerGroup().addTo(stormMap);
