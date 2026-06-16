@@ -23,6 +23,14 @@ const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const Stripe = require('stripe');
 
+// Pin the Stripe API version explicitly. stripe-node 14.x defaults to
+// '2023-10-16'; without an explicit pin, bumping the SDK (e.g. #654 → v22)
+// would silently change the API version every request uses — altering webhook
+// event shapes + checkout behavior on the LIVE billing path. Pinning to the
+// version we already run makes any SDK upgrade behavior-neutral; a deliberate
+// API-version upgrade is then a separate, testable change.
+const STRIPE_API_VERSION = '2023-10-16';
+
 // Shared helpers (B2).
 const { requireAuth } = require('./shared');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
@@ -102,7 +110,7 @@ exports.createCheckoutSession = onRequest(
         : STRIPE_PRICE_PROFESSIONAL.value();
 
       // Initialize Stripe
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
 
       // Create Checkout Session
       const session = await stripe.checkout.sessions.create({
@@ -167,7 +175,7 @@ exports.stripeWebhook = onRequest(
       return;
     }
 
-    const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+    const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
     const sig = req.headers['stripe-signature'];
     const webhookSecret = STRIPE_WEBHOOK_SECRET.value();
 
@@ -589,7 +597,7 @@ exports.createCustomerPortalSession = onRequest(
         return;
       }
 
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
 
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: customerId,
@@ -757,7 +765,7 @@ exports.createStripePaymentLink = onRequest(
         return;
       }
 
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
       const paymentLink = await stripe.paymentLinks.create({
         line_items: lineItems,
         metadata: { invoiceId: String(invoiceId), userId: decoded.uid },
@@ -801,7 +809,7 @@ exports.invoiceWebhook = onRequest(
 
     try {
       const signature = req.headers['stripe-signature'] || '';
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
 
       // H-6: same rawBody requirement as stripeWebhook. The previous
       // `req.rawBody || req.body` fallback is a footgun — it gives
