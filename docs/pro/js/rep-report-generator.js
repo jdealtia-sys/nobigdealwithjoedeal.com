@@ -2,8 +2,11 @@
 // NBD Pro — Rep Report Generator (Stage 1)
 //
 // Legendary visual reports for rep coaching + owner meetings.
-// Uses ApexCharts for charts, NBDDocViewer for rendering/export,
-// Firestore for saving generated reports.
+// Charts are pure server-generated static HTML/SVG built at
+// generation time (CSP-safe — reports render inside an <iframe srcdoc>
+// whose inherited CSP has no 'unsafe-inline' in script-src, so inline
+// chart scripts were blocked and rendered blank). NBDDocViewer handles
+// rendering/export; Firestore stores generated reports.
 //
 // Ships with: Rep Monthly Review template (Tier 3 metrics).
 // Future stages add: Territory Deep Dive, Pipeline Health Check,
@@ -58,6 +61,68 @@
   const fmtNumber = (n) => (Number(n) || 0).toLocaleString('en-US');
   const fmtPct = (n) => ((Number(n) || 0) * 100).toFixed(1) + '%';
   const fmtDate = (d) => d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+  // ─── Static chart helpers (CSP-safe) ─────────────────────
+  // Reports render inside an <iframe srcdoc> that inherits the
+  // /pro/dashboard CSP — which has NO 'unsafe-inline' in script-src.
+  // So every chart is built as pure server-generated HTML/SVG at
+  // generation time. No inline <script>, no on* handlers, no CDN.
+
+  // Clamp a value to a 0–100 width percentage of a max.
+  const barPct = (v, max) => max > 0 ? Math.max(0, Math.min(100, (Number(v) || 0) / max * 100)) : 0;
+
+  // Static time-of-day heatmap. `series` is the ApexCharts-shaped
+  // array: [{ name:'Sat', data:[{x:'00:00',y:N}, …24] }, …7 rows].
+  // Renders a 25-col CSS grid (day label + 24 hours), one row per day,
+  // cell background ramped by absolute knock count.
+  function renderStaticHeatmap(series) {
+    const rows = Array.isArray(series) ? series : [];
+    if (!rows.length) {
+      return '<div class="empty-state">No activity data yet.</div>';
+    }
+    const intensity = (y) => {
+      const n = Number(y) || 0;
+      if (n <= 0) return '#f0f0ed';
+      if (n <= 2) return '#ffdcc0';
+      if (n <= 5) return '#ff9940';
+      return '#e8720c';
+    };
+    // Hour header labels are taken from the first row's data (00:00 → 23:00).
+    const firstData = (rows[0] && Array.isArray(rows[0].data)) ? rows[0].data : [];
+    const hourLabels = firstData.map((c) => esc(c && c.x != null ? c.x : ''));
+    const headerCells = '<div class="hm-corner"></div>' +
+      hourLabels.map((h) => `<div class="hm-hour">${h.replace(':00', '')}</div>`).join('');
+    const bodyRows = rows.map((row) => {
+      const name = esc(row && row.name != null ? row.name : '');
+      const data = (row && Array.isArray(row.data)) ? row.data : [];
+      const cells = data.map((c) => {
+        const hour = esc(c && c.x != null ? c.x : '');
+        const y = Number(c && c.y) || 0;
+        return `<div class="hm-cell" style="background:${intensity(y)};" title="${name} ${hour} — ${y} knocks"></div>`;
+      }).join('');
+      return `<div class="hm-daylabel">${name}</div>${cells}`;
+    }).join('');
+    return `<div class="hm-grid" style="display:grid;grid-template-columns:34px repeat(24,1fr);gap:2px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">` +
+      headerCells + bodyRows +
+      `</div>`;
+  }
+
+  // Shared CSS for the static charts. Injected into every report's
+  // <head> <style> block (no external sheet, srcdoc has no same-origin
+  // assets). Reuses the report orange palette.
+  const STATIC_CHART_CSS = `
+  /* ── STATIC CHART PRIMITIVES (CSP-safe, no charting library) ── */
+  .hm-grid { align-items: stretch; }
+  .hm-corner { }
+  .hm-hour { font-family: 'Barlow Condensed', sans-serif; font-size: 9px; color: #999; text-align: center; line-height: 1; padding-bottom: 2px; }
+  .hm-daylabel { font-family: 'Barlow Condensed', sans-serif; font-size: 11px; font-weight: 700; color: #666; display: flex; align-items: center; }
+  .hm-cell { height: 22px; border-radius: 2px; }
+  .terr-bar-row { display: grid; grid-template-columns: 130px 1fr 70px; gap: 12px; align-items: center; padding: 7px 0; font-size: 12px; }
+  .terr-bar-city { font-family: 'Barlow Condensed', sans-serif; font-weight: 700; text-transform: uppercase; color: #111; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .terr-bar-rev { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; color: #e8720c; text-align: right; }
+  .funnel-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 6px 0; }
+  .funnel-bar { color: #fff; font-weight: 700; font-family: 'Barlow Condensed', sans-serif; letter-spacing: .03em; padding: 12px 16px; border-radius: 4px; text-align: center; white-space: nowrap; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .revenue-svg { width: 100%; height: auto; display: block; }`;
 
   const WON_STAGES = new Set([
     'closed', 'install_complete', 'final_photos', 'final_payment',
@@ -273,7 +338,7 @@
       }
     });
     // Filter out stages with zero count from the canonical order for
-    // ApexCharts funnel — empty stages create ugly zero-width bars.
+    // the funnel — empty stages create ugly zero-width bars.
     const stages = canonicalOrder
       .map(s => ({ stage: s.label, key: s.key, count: counts[s.key] || 0 }))
       .filter(s => s.count > 0);
@@ -910,13 +975,9 @@
       </div>
     `).join('') || '<div class="empty-state">No pipeline velocity data yet.</div>';
 
-    // Convert heatmap series to a JSON string for inline script
-    const heatmapJSON = JSON.stringify(heatmap.series);
-
     return `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>Rep Monthly Review — ${repName}</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"><\/script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -936,9 +997,9 @@
      (and inside the print viewport on desktop). The doc-viewer wraps
      in overflow-x:auto so wide table content can scroll, but the
      chart containers themselves shouldn't try to exceed the visible
-     content width — ApexCharts re-renders at the rendered size. */
+     content width — static SVG/grid charts size to their container. */
   .report-page > * { max-width:100%; }
-  .report-page canvas, .report-page svg, .report-page .apexcharts-canvas { max-width:100% !important; }
+  .report-page canvas, .report-page svg { max-width:100% !important; }
   @media (max-width:600px) {
     .report-page { font-size:13px; }
   }
@@ -1191,7 +1252,7 @@
     border: 1px solid #eee;
     min-height: 300px;
   }
-
+${STATIC_CHART_CSS}
   @media print {
     body { background: #fff; }
     .report-page { max-width: 100%; padding: 0; }
@@ -1269,7 +1330,7 @@
       <div class="section-label">When You Knock Best</div>
       <div class="section-title">Activity Heatmap</div>
       <div class="section-desc">Hour × day grid showing your knocking pattern. Best slot: <strong>${esc(heatmap.bestSlot)}</strong></div>
-      <div class="chart-box" id="heatmap-chart"></div>
+      <div class="chart-box" id="heatmap-chart">${(heatmap.series && heatmap.series.length) ? renderStaticHeatmap(heatmap.series) : '<div style="padding:40px;text-align:center;color:#999;">No activity data yet.</div>'}</div>
     </div>
 
     <!-- TOP CITIES -->
@@ -1300,64 +1361,6 @@
       </div>
     </div>
   </div>
-
-  <script>
-    // Render ApexCharts heatmap once the DOM is ready.
-    (function () {
-      try {
-        if (typeof ApexCharts === 'undefined') {
-          document.getElementById('heatmap-chart').innerHTML = '<div style="padding:40px;text-align:center;color:#999;">Chart library loading — refresh to see the heatmap.</div>';
-          return;
-        }
-        var series = ${heatmapJSON};
-        var options = {
-          series: series,
-          chart: {
-            height: 320,
-            type: 'heatmap',
-            toolbar: { show: false },
-            fontFamily: 'Barlow, sans-serif'
-          },
-          dataLabels: { enabled: false },
-          colors: ['#e8720c'],
-          plotOptions: {
-            heatmap: {
-              shadeIntensity: 0.5,
-              radius: 2,
-              useFillColorAsStroke: false,
-              colorScale: {
-                ranges: [
-                  { from: 0, to: 0, color: '#f0f0ed', name: 'None' },
-                  { from: 1, to: 2, color: '#ffdcc0', name: 'Light' },
-                  { from: 3, to: 5, color: '#ff9940', name: 'Active' },
-                  { from: 6, to: 1000, color: '#e8720c', name: 'Heavy' }
-                ]
-              }
-            }
-          },
-          xaxis: {
-            type: 'category',
-            labels: {
-              style: { colors: '#999', fontSize: '10px' },
-              rotate: 0
-            }
-          },
-          yaxis: {
-            labels: {
-              style: { colors: '#666', fontSize: '11px', fontWeight: 600 }
-            }
-          },
-          grid: { borderColor: '#eee' }
-        };
-        var chart = new ApexCharts(document.getElementById('heatmap-chart'), options);
-        chart.render();
-      } catch (e) {
-        console.error('[Report] heatmap render failed:', e);
-        var el = document.getElementById('heatmap-chart');
-        if (el) el.innerHTML = '<div style="padding:40px;text-align:center;color:#999;">Heatmap unavailable: ' + e.message + '</div>';
-      }
-    })();
-  <\/script>
 </body>
 </html>`;
   }
@@ -1365,7 +1368,7 @@
   // ═══════════════════════════════════════════════════════════
   // Shared report shell — the header, footer, and base CSS that
   // every template uses. Each template injects its own <body>
-  // content plus an optional inline chart script.
+  // content (charts are static HTML/SVG built at generation time).
   // ═══════════════════════════════════════════════════════════
   function reportShell(opts) {
     const repName = esc(opts.repName || 'Rep');
@@ -1387,7 +1390,6 @@
       head: `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <title>${title} — ${repName}</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js"><\/script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: 'Barlow', sans-serif; color: #111; background: #f7f7f5; padding: 0; line-height: 1.5; }
@@ -1450,6 +1452,7 @@
   .narrative-text { font-size: 16px; line-height: 1.6; color: #1a1a1a; font-weight: 500; }
   .narrative-badge { position: absolute; top: 12px; right: 20px; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #e8720c; background: #fff; border: 1px solid rgba(232,114,12,.3); padding: 3px 8px; border-radius: 10px; }
   @media print { body { background: #fff; } .report-page { max-width: 100%; padding: 0; } .section { page-break-inside: avoid; } @page { margin: 0.5cm; size: letter; } .narrative { background: #fff; border-left: 4px solid #e8720c; } }
+${STATIC_CHART_CSS}
 </style>
 </head>
 <body>
@@ -1504,10 +1507,22 @@
       x: c.city.length > 18 ? c.city.substring(0, 18) + '…' : c.city,
       y: c.revenue,
       deals: c.deals,
-      knocks: c.knocks
+      knocks: c.knocks,
+      fullCity: c.city
     }));
-    const chartDataJSON = JSON.stringify(chartData);
-    const heatmapJSON = JSON.stringify(heatmap.series);
+    // Static horizontal revenue bars (CSP-safe; reuses .velocity-bar* classes).
+    const maxRev = chartData.reduce((m, d) => Math.max(m, Number(d.y) || 0), 0);
+    const territoryBars = chartData.length > 0
+      ? chartData.map(d => `
+        <div class="terr-bar-row">
+          <div class="terr-bar-city" title="${esc(d.fullCity)}">${esc(d.x)}</div>
+          <div class="velocity-bar-wrap">
+            <div class="velocity-bar" style="width:${barPct(d.y, maxRev)}%"></div>
+          </div>
+          <div class="terr-bar-rev">$${Math.round((Number(d.y) || 0) / 1000)}K</div>
+        </div>
+      `).join('')
+      : '<div style="padding:40px;text-align:center;color:#999;">No territory data yet.</div>';
 
     const cityTable = hasCities
       ? cityList.slice(0, 10).map((c, i) => `
@@ -1549,7 +1564,7 @@
       <div class="section-label">Top 10 Territories by Revenue</div>
       <div class="section-title">Your Money Map</div>
       <div class="section-desc">Cities ranked by closed revenue. Where you should be doubling down.</div>
-      <div class="chart-box" id="territory-bar-chart"></div>
+      <div class="chart-box" id="territory-bar-chart">${territoryBars}</div>
     </div>
 
     <div class="section">
@@ -1563,67 +1578,9 @@
       <div class="section-label">When You're Most Active</div>
       <div class="section-title">Activity Heatmap</div>
       <div class="section-desc">Hour × day grid of your knocking pattern. Best slot: <strong>${esc(heatmap.bestSlot)}</strong></div>
-      <div class="chart-box" id="territory-heatmap"></div>
+      <div class="chart-box" id="territory-heatmap">${(heatmap.series && heatmap.series.length) ? renderStaticHeatmap(heatmap.series) : '<div style="padding:40px;text-align:center;color:#999;">No activity data yet.</div>'}</div>
     </div>
-    ` + shell.footer + `
-  <script>
-    (function () {
-      try {
-        if (typeof ApexCharts === 'undefined') return;
-        // Territory revenue bar chart
-        var barData = ${chartDataJSON};
-        if (barData.length > 0) {
-          var barOptions = {
-            series: [{ name: 'Revenue', data: barData.map(function(d){return d.y;}) }],
-            chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Barlow, sans-serif' },
-            plotOptions: { bar: { horizontal: true, barHeight: '65%', distributed: true, borderRadius: 4 } },
-            colors: ['#e8720c','#ff9030','#e8720c','#ff9030','#e8720c','#ff9030','#e8720c','#ff9030','#e8720c','#ff9030'],
-            dataLabels: {
-              enabled: true,
-              formatter: function(val) { return '$' + Math.round(val/1000) + 'K'; },
-              style: { fontWeight: 700, colors: ['#fff'] }
-            },
-            xaxis: {
-              categories: barData.map(function(d){return d.x;}),
-              labels: { formatter: function(val) { return '$' + Math.round(val/1000) + 'K'; }, style: { colors: '#999', fontSize: '11px' } }
-            },
-            yaxis: { labels: { style: { colors: '#111', fontSize: '12px', fontWeight: 600 } } },
-            legend: { show: false },
-            grid: { borderColor: '#eee' }
-          };
-          new ApexCharts(document.getElementById('territory-bar-chart'), barOptions).render();
-        } else {
-          document.getElementById('territory-bar-chart').innerHTML = '<div style="padding:40px;text-align:center;color:#999;">No territory data yet.</div>';
-        }
-
-        // Heatmap
-        var heatmapSeries = ${heatmapJSON};
-        var heatOptions = {
-          series: heatmapSeries,
-          chart: { height: 320, type: 'heatmap', toolbar: { show: false }, fontFamily: 'Barlow, sans-serif' },
-          dataLabels: { enabled: false },
-          colors: ['#e8720c'],
-          plotOptions: {
-            heatmap: {
-              shadeIntensity: 0.5,
-              colorScale: { ranges: [
-                { from: 0, to: 0, color: '#f0f0ed' },
-                { from: 1, to: 2, color: '#ffdcc0' },
-                { from: 3, to: 5, color: '#ff9940' },
-                { from: 6, to: 1000, color: '#e8720c' }
-              ] }
-            }
-          },
-          xaxis: { labels: { style: { colors: '#999', fontSize: '10px' } } },
-          yaxis: { labels: { style: { colors: '#666', fontSize: '11px', fontWeight: 600 } } },
-          grid: { borderColor: '#eee' }
-        };
-        new ApexCharts(document.getElementById('territory-heatmap'), heatOptions).render();
-      } catch (e) {
-        console.error('[Territory] chart render failed:', e);
-      }
-    })();
-  <\/script>`;
+    ` + shell.footer;
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1643,7 +1600,15 @@
       narrative: meta.narrative
     });
 
-    const funnelJSON = JSON.stringify(funnel.stages.map(s => ({ x: s.stage, y: s.count })));
+    // Static funnel — centered tapering bars (CSP-safe, no ApexCharts).
+    const funnelData = funnel.stages.map(s => ({ x: s.stage, y: s.count }));
+    const funnelMax = funnelData.reduce((m, d) => Math.max(m, Number(d.y) || 0), 0);
+    const funnelPalette = ['#e8720c','#ff9030','#ffb870','#ffc68a','#ffce9a','#f0a060','#c58040','#8a5a28','#444'];
+    const funnelHTML = funnelData.length > 0
+      ? `<div class="funnel-wrap">` + funnelData.map((d, i) => `
+          <div class="funnel-bar" style="width:${barPct(d.y, funnelMax)}%;min-width:90px;background:${funnelPalette[i % funnelPalette.length]};">${esc(d.x)}: ${d.y}</div>
+        `).join('') + `</div>`
+      : '<div style="padding:40px;text-align:center;color:#999;">No pipeline data for the selected period.</div>';
     const velocityRows = (velocity.stages || []).map(s => `
       <div class="velocity-row">
         <div class="velocity-stage">${esc(s.stage)}</div>
@@ -1695,7 +1660,7 @@
       <div class="section-label">Stage Funnel</div>
       <div class="section-title">Your Pipeline Shape</div>
       <div class="section-desc">Lead count by stage. Notice where the shape gets narrow \u2014 that's where deals leak.</div>
-      <div class="chart-box" id="funnel-chart"></div>
+      <div class="chart-box" id="funnel-chart">${funnelHTML}</div>
     </div>
 
     <div class="section">
@@ -1711,47 +1676,7 @@
       <div class="section-desc">Call these customers this week. Every day they sit costs you money.</div>
       ${stuckRows}
     </div>
-    ` + shell.footer + `
-  <script>
-    (function () {
-      try {
-        if (typeof ApexCharts === 'undefined') return;
-        var funnelData = ${funnelJSON};
-        if (funnelData.length > 0) {
-          var options = {
-            series: [{ name: 'Leads', data: funnelData.map(function(d){return d.y;}) }],
-            chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Barlow, sans-serif' },
-            plotOptions: {
-              bar: {
-                horizontal: true,
-                barHeight: '72%',
-                distributed: true,
-                borderRadius: 4,
-                isFunnel: true
-              }
-            },
-            colors: ['#e8720c','#ff9030','#ffb870','#ffc68a','#ffce9a','#f0a060','#c58040','#8a5a28','#444'],
-            dataLabels: {
-              enabled: true,
-              formatter: function(val, opts) {
-                return funnelData[opts.dataPointIndex].x + ': ' + val;
-              },
-              style: { fontWeight: 700, colors: ['#fff'] },
-              dropShadow: { enabled: false }
-            },
-            xaxis: { categories: funnelData.map(function(d){return d.x;}) },
-            legend: { show: false },
-            grid: { show: false }
-          };
-          new ApexCharts(document.getElementById('funnel-chart'), options).render();
-        } else {
-          document.getElementById('funnel-chart').innerHTML = '<div style="padding:40px;text-align:center;color:#999;">No pipeline data for the selected period.</div>';
-        }
-      } catch (e) {
-        console.error('[Pipeline Health] chart render failed:', e);
-      }
-    })();
-  <\/script>`;
+    ` + shell.footer;
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -1771,7 +1696,46 @@
       narrative: meta.narrative
     });
 
-    const trendJSON = JSON.stringify((revenueTrend.months || []).map(m => ({ x: m.label, y: m.revenue })));
+    // Static inline-SVG revenue trend (CSP-safe; inert markup, no <img>).
+    const trendData = (revenueTrend.months || []).map(m => ({ x: m.label, y: m.revenue }));
+    const revenueChartHTML = (function () {
+      const n = trendData.length;
+      if (n === 0) {
+        return '<div style="padding:40px;text-align:center;color:#999;">No revenue in this period.</div>';
+      }
+      const VBW = 600, VBH = 240, padL = 40, padT = 10, padB = 24;
+      const W = VBW - padL;
+      const H = VBH - padT - padB;
+      const maxRev = Math.max(trendData.reduce((m, d) => Math.max(m, Number(d.y) || 0), 0), 1);
+      const xAt = (i) => padL + (n <= 1 ? W / 2 : i * W / (n - 1));
+      const yAt = (v) => padT + H - barPct(v, maxRev) / 100 * H;
+      const pts = trendData.map((d, i) => ({ px: xAt(i), py: yAt(d.y), d }));
+      const polyline = pts.map(p => `${p.px.toFixed(1)},${p.py.toFixed(1)}`).join(' ');
+      // Area polygon: line points + drop to baseline.
+      const baselineY = (padT + H).toFixed(1);
+      const polygon = `${padL.toFixed(1)},${baselineY} ` + polyline + ` ${(padL + W).toFixed(1)},${baselineY}`;
+      const circles = pts.map(p => `<circle cx="${p.px.toFixed(1)}" cy="${p.py.toFixed(1)}" r="3" fill="#e8720c"/>`).join('');
+      const xLabels = pts.map(p => `<text x="${p.px.toFixed(1)}" y="${(VBH - 6)}" fill="#666" font-size="11" font-family="Barlow, sans-serif" text-anchor="middle">${esc(p.d.x)}</text>`).join('');
+      // A few y-axis $K gridline labels (0, 50%, 100% of max).
+      const yTicks = [0, 0.5, 1].map(frac => {
+        const v = maxRev * frac;
+        const py = yAt(v);
+        return `<text x="${(padL - 6)}" y="${(py + 3).toFixed(1)}" fill="#999" font-size="10" font-family="Barlow, sans-serif" text-anchor="end">$${Math.round(v / 1000)}K</text>`;
+      }).join('');
+      return `<svg class="revenue-svg" viewBox="0 0 ${VBW} ${VBH}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Monthly revenue trend">
+  <defs>
+    <linearGradient id="revfill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8720c" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#e8720c" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <polygon points="${polygon}" fill="url(#revfill)" stroke="none"/>
+  <polyline points="${polyline}" fill="none" stroke="#e8720c" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  ${circles}
+  ${xLabels}
+  ${yTicks}
+</svg>`;
+    })();
     const cityTopRows = (topCities.topCities || []).slice(0, 5).map((c, i) => `
       <div class="city-row">
         <div class="city-rank">${i + 1}</div>
@@ -1810,7 +1774,7 @@
       <div class="section-label">Monthly Revenue Trend</div>
       <div class="section-title">Month-over-Month</div>
       <div class="section-desc">Best month: <strong>${esc(revenueTrend.bestMonth)}</strong></div>
-      <div class="chart-box" id="revenue-chart"></div>
+      <div class="chart-box" id="revenue-chart">${revenueChartHTML}</div>
     </div>
 
     <div class="section">
@@ -1819,38 +1783,7 @@
       <div class="section-desc">Where the revenue is coming from.</div>
       ${cityTopRows}
     </div>
-    ` + shell.footer + `
-  <script>
-    (function () {
-      try {
-        if (typeof ApexCharts === 'undefined') return;
-        var trendData = ${trendJSON};
-        var options = {
-          series: [{ name: 'Revenue', data: trendData.map(function(d){return d.y;}) }],
-          chart: { type: 'area', height: 320, toolbar: { show: false }, fontFamily: 'Barlow, sans-serif', sparkline: { enabled: false } },
-          stroke: { curve: 'smooth', width: 3, colors: ['#e8720c'] },
-          fill: { type: 'gradient', gradient: { shade: 'light', type: 'vertical', shadeIntensity: 0.3, gradientToColors: ['#ff9030'], inverseColors: false, opacityFrom: 0.6, opacityTo: 0.05 } },
-          colors: ['#e8720c'],
-          dataLabels: { enabled: false },
-          xaxis: {
-            categories: trendData.map(function(d){return d.x;}),
-            labels: { style: { colors: '#666', fontSize: '11px', fontWeight: 600 } }
-          },
-          yaxis: {
-            labels: {
-              formatter: function(val) { return '$' + Math.round(val/1000) + 'K'; },
-              style: { colors: '#999', fontSize: '11px' }
-            }
-          },
-          grid: { borderColor: '#eee', strokeDashArray: 4 },
-          tooltip: { y: { formatter: function(val) { return '$' + Math.round(val).toLocaleString(); } } }
-        };
-        new ApexCharts(document.getElementById('revenue-chart'), options).render();
-      } catch (e) {
-        console.error('[Revenue Recap] chart render failed:', e);
-      }
-    })();
-  <\/script>`;
+    ` + shell.footer;
   }
 
   // ═══════════════════════════════════════════════════════════
