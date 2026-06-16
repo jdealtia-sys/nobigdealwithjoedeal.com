@@ -2764,6 +2764,13 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
         const el = document.getElementById('docgen_'+f.name);
         if (el) data[f.name] = el.value;
       });
+      // NEW-D2: thread the chosen lead through so generate()'s _leadIdEarly is
+      // non-null and the document actually persists to leads/{id}/documents +
+      // Storage (and the e-sign hook can arm). The "Auto-fill from Lead" select
+      // is not part of `fields`, so without this its value was dropped and
+      // "Save to Customer" from the Template Library was a silent no-op.
+      const _sel = document.getElementById('docgen_leadSelect');
+      if (_sel && _sel.value) data.leadId = _sel.value;
       document.getElementById('docgenFillModal').remove();
       self.generate(type, data);
     };
