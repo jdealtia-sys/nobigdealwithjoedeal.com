@@ -34,9 +34,16 @@ const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 // Firestore access and (b) makes them a cross-tenant takeover target for the
 // team-admin callables. Always read-then-merge so identity claims survive.
 async function mergeCustomClaims(uid, patch) {
-  let existing = {};
+  // Read-then-merge is only safe when the READ succeeds. On a transient getUser
+  // failure, writing a bare patch would strip role/companyId — the exact wipe
+  // this helper exists to prevent — so abort and let the next billing event
+  // re-sync (the subscriptions/{uid} doc is written separately and survives).
+  let existing;
   try { existing = (await admin.auth().getUser(uid)).customClaims || {}; }
-  catch (e) { logger.warn('mergeCustomClaims_getUser_failed', { uid, err: e.message }); }
+  catch (e) {
+    logger.error('mergeCustomClaims_abort_getUser_failed', { uid, err: e.message });
+    return;
+  }
   await admin.auth().setCustomUserClaims(uid, { ...existing, ...patch });
 }
 

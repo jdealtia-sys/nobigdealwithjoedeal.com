@@ -33,6 +33,12 @@ jobs:
           fi
       - name: Run smoke tests
         run: node tests/smoke.test.js
+      # Security-sensitive privilege-escalation / cross-tenant guard logic
+      # (requireTeamAdmin, callerMayManageTarget, normalizeRole, classifyClaims).
+      # Previously local-only (npm run test:teamroles) — gated here so a future
+      # edit can't silently re-open a fail-open hole or over-block a solo owner.
+      - name: Run team/role + tenant guard tests
+        run: node tests/team-roles.test.js
       # Theme legibility + completeness gate (audit Phase 3): every theme in both
       # registries must define the required vars and clear the WCAG contrast floor
       # as rendered. Dependency-free; extracts the real engine colour helpers.

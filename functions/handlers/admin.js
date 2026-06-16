@@ -497,7 +497,10 @@ exports.createTeamMember = onCall(
     // ours to take (fail closed — see callerMayManageTarget).
     const existingClaims = userRecord.customClaims || {};
     if (!callerMayManageTarget(existingClaims, companyId, request.auth.token.role === 'admin', created)) {
-      throw new HttpsError('already-exists', 'User is already a member of another company');
+      // Distinguish the two fail-closed reasons so the admin-facing toast is accurate.
+      throw new HttpsError('already-exists', existingClaims.companyId
+        ? 'This email already belongs to another company; it cannot be added here.'
+        : 'This email already has a standalone account; it must sign up via an invite link or be migrated by an admin.');
     }
 
     // Merge claims — preserve plan/subscriptionStatus if present.
