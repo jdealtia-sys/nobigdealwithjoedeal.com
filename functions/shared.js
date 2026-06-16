@@ -38,15 +38,15 @@
 // R-01 adapter; no-op when Upstash isn't configured.
 const { enforceRateLimit } = require('./integrations/upstash-ratelimit');
 
-// firebase-admin is lazy-loaded for the same reason HttpsError is:
+// firebase-admin Auth is lazy-loaded for the same reason HttpsError is:
 // the smoke-test harness doesn't have firebase-admin on its require
-// path for shared.js's sibling modules.
-let _admin;
-function getAdmin() {
-  if (_admin) return _admin;
-  _admin = require('firebase-admin');
-  const { getAuth } = require('firebase-admin/auth');
-  return _admin;
+// path for shared.js's sibling modules. Modular getAuth() — firebase-admin
+// v14-ready; the legacy admin.auth() accessor is gone.
+let _adminAuth;
+function getAdminAuth() {
+  if (_adminAuth) return _adminAuth;
+  _adminAuth = require('firebase-admin/auth').getAuth();
+  return _adminAuth;
 }
 
 // ─── HttpsError lazy-loaded ─────────────────────────────────
@@ -161,7 +161,7 @@ async function requireAuth(req, { adminOnly = false } = {}) {
   }
   let decoded;
   try {
-    decoded = await getAdmin().auth().verifyIdToken(idToken, true);
+    decoded = await getAdminAuth().verifyIdToken(idToken, true);
   } catch (e) {
     if (e.code === 'auth/id-token-expired') {
       return { error: { status: 401, body: { error: 'Token expired — please re-authenticate' } } };

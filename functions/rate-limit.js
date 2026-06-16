@@ -14,12 +14,13 @@ const crypto = require('crypto');
 // Q1: firebase-admin is loaded lazily. clientIp + hashKey are pure
 // helpers that must be importable from test harnesses that don't
 // install the functions/ node_modules tree. enforceRateLimit +
-// httpRateLimit call getAdmin() at request time.
-let _admin;
-function getAdmin() {
-  if (_admin) return _admin;
-  _admin = require('firebase-admin');
-  return _admin;
+// httpRateLimit call getDb() at request time. Modular getFirestore()
+// — firebase-admin v14-ready; the legacy admin.firestore() accessor is gone.
+let _db;
+function getDb() {
+  if (_db) return _db;
+  _db = require('firebase-admin/firestore').getFirestore();
+  return _db;
 }
 
 // Lazy-load the v2 logger — this module is also require()'d by unit tests
@@ -108,7 +109,7 @@ function clientIp(req) {
  * @param {number} windowMs window duration in ms
  */
 async function enforceRateLimit(namespace, key, limit, windowMs) {
-  const db = getAdmin().firestore();
+  const db = getDb();
   const docId = `${namespace}__${hashKey(key)}`;
   const ref = db.collection('_rate_limits_ip').doc(docId);
   const now = Date.now();
