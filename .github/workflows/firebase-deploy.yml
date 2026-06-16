@@ -359,6 +359,20 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: npx firebase-tools deploy --only storage --project "$PRO_PROJECT" --non-interactive
 
+      # Hosting deploys HERE — after rules/indexes/storage, BEFORE the
+      # functions steps — so a functions deploy ERROR or TIMEOUT can never
+      # starve the user-facing hosting deploy. (Run 27634347263 failed at the
+      # strict functions step and skipped hosting; bounding the tolerant retry
+      # alone didn't help because hosting was still gated behind functions.)
+      # The functions steps still run after this and still fail the job on a
+      # real error, so functions regressions are surfaced — they just no
+      # longer block the frontend from shipping.
+      - name: Deploy Hosting
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
+        run: npx firebase-tools deploy --only hosting --project "$PRO_PROJECT" --non-interactive
+
       # F-10 + Q8: functions deploy is strict by default — any failure
       # fails the workflow. But there's an explicit exception list for
       # functions whose DEPLOY blocks on IAM the GitHub Actions deploy
@@ -491,12 +505,6 @@ jobs:
             echo "✓ All previously-IAM-blocked functions deployed cleanly. Remove NBD_DEPLOY_SKIP_LIST in the workflow."
           fi
           exit 0
-
-      - name: Deploy Hosting
-        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: npx firebase-tools deploy --only hosting --project "$PRO_PROJECT" --non-interactive
 
       # Marketing-project deploy. Tolerant of failure — this is a
       # SEPARATE Firebase project (nobigdealwithjoedeal) that may
