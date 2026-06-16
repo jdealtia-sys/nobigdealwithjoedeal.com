@@ -69,6 +69,14 @@
     'campbell-ky': { name: 'Campbell County, KY', cost: 130 }
   };
 
+  // C-1 (estimate-remediation-2026-06-09): permit fail-safe. When the job's
+  // jurisdiction isn't in PERMIT_COSTS (county left blank or off-list), V2 used
+  // to charge $0 permit — silently under-quoting a real cost and leaving an
+  // incomplete insurance scope. Fall back to the same default the classic engine
+  // uses (estimates.js DEFAULT_PERMIT_COST = 150). It is rep-overridable on the
+  // estimate, so a job that genuinely needs no permit can still be zeroed out.
+  const DEFAULT_PERMIT_COST = 150;
+
   // Sales tax by county
   const COUNTY_TAX = {
     'hamilton-oh': 0.0780,
@@ -541,7 +549,7 @@
 
     const permitKey = input.city || input.county || '';
     const permitInfo = s.permits[permitKey];
-    addOns.permit = permitInfo ? Number(permitInfo.cost) : 0;
+    addOns.permit = permitInfo ? Number(permitInfo.cost) : DEFAULT_PERMIT_COST; // C-1: never $0 for an unknown/blank jurisdiction
     addOns.dumpFee = Number(input.dumpFeeOverride != null ? input.dumpFeeOverride : s.dumpFee);
 
     const layers = Math.max(1, Number(input.tearOffLayers) || 1);
@@ -762,18 +770,19 @@
     // Permit (from city lookup if available)
     const permitKey = input.city || input.county || '';
     const permitInfo = s.permits[permitKey];
-    if (permitInfo) {
-      items.push({
-        catalogKey: 'permit-fee',
-        code: 'PERMIT',
-        name: `Building Permit — ${permitInfo.name}`,
-        category: 'permit',
-        unit: 'JOB',
-        qty: 1,
-        materialCost: Number(permitInfo.cost),
-        laborCost: 0
-      });
-    }
+    // C-1: always include a permit line. When the jurisdiction is unknown/blank
+    // the line was silently omitted (→ $0 permit); fall back to a default cost +
+    // label instead so the per-SQ tier and the scope both reflect a real permit.
+    items.push({
+      catalogKey: 'permit-fee',
+      code: 'PERMIT',
+      name: `Building Permit — ${permitInfo ? permitInfo.name : 'jurisdiction not set'}`,
+      category: 'permit',
+      unit: 'JOB',
+      qty: 1,
+      materialCost: permitInfo ? Number(permitInfo.cost) : DEFAULT_PERMIT_COST,
+      laborCost: 0
+    });
 
     // Gutters — optional add-on
     if (input.guttersLf) {

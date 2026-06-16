@@ -1,0 +1,19 @@
+[
+  { "id": "portal-002", "status": "PASS", "session": "2026-06-09-B", "notes": "Live banner CAUGHT via MutationObserver after a rep-side stage change crossed the 30s poll: '🎉 Status update: now Inspection' (auto-dismisses after 8s — earlier probes simply missed the window). Diff → banner → re-render chain fully verified; portal re-rendered NEXT UP on every stage change. Note: poll is visibility-gated (document.hidden) — hidden-tab testing needs the defineProperty override." },
+  { "id": "pages-b-049", "status": "FIXED", "session": "2026-06-09-B", "notes": "NEW-D24 fix (#621) RE-VERIFIED live with 22 leads: Restart Tour consumed the one-shot nbd-tour-force flag, start(true) ran, and nbd-onboarding-complete was NOT re-set (pre-fix it silently re-marked '1'). Overlay paint is rAF-gated so it can't render in a hidden tab — it will pop when the tab is next foregrounded; skipping it re-marks complete (self-restoring)." },
+  { "id": "d8-tools-087", "status": "FIXED", "session": "2026-06-09-B", "notes": "NEW-D5 → PR #607 live-verified: + Add Product opens the modal (pm-* inputs render)." },
+  { "id": "d8-tools-088", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: Export CSV builds a real 53KB text/csv blob (download spy; nav suppressed)." },
+  { "id": "d8-tools-089", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: Reset now reaches its confirm boundary ('Reset all products to defaults? Your customizations will be lost.') — CANCELLED, no reset performed." },
+  { "id": "d8-tools-090", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: tier filter re-renders the cards (card content delta on Good; product count constant by design — every product has all tiers). Nit: the filter button itself shows no active-state styling." },
+  { "id": "d8-tools-091", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: search filters live (222→36 on 'shingle', clear restores 222) via the delegated input listener; category chips ride the same click delegate." },
+  { "id": "d8-tools-092", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: category header collapse hides its products (visible edit-buttons 222→216, restored on second click)." },
+  { "id": "d8-tools-093", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: Edit opens the modal prefilled ('Concrete Flatwork…'), closes clean without saving." },
+  { "id": "d8-tools-094", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: Archive reaches its confirm boundary ('Archive this product?') — CANCELLED (real product untouched)." },
+  { "id": "d8-tools-095", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: modal save is now REACHABLE (blocker removed); save itself not fired on a real product (RULE 0) — pm-sell/cost inputs + live margin recalc ('40% ($40.00)') verified inside the modal." },
+  { "id": "d8-tools-096", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: modal delete now reachable (same modal); not fired on a real product — boundary." },
+  { "id": "d8-tools-097", "status": "FIXED", "session": "2026-06-09-B", "notes": "NEW-D7 → PR #607 live-verified: Rapid Fire starts (rapidAnswer controls mount)." },
+  { "id": "d8-tools-098", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: My Profile opens (view changes on click)." },
+  { "id": "d8-tools-099", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: scenario card opens the simulator (chooseOption controls mount)." },
+  { "id": "d8-tools-100", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: chooseOption click advances the scenario (view delta)." },
+  { "id": "d8-tools-101", "status": "FIXED", "session": "2026-06-09-B", "notes": "PR #607: rapidAnswer click registers + advances the drill (view delta)." }
+]

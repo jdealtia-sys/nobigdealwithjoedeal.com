@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://js.stripe.com https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.workers.dev https://nominatim.openstreetmap.org https://www.google-analytics.com https://api.resend.com https://api.stripe.com; frame-src https://js.stripe.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://js.stripe.com https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://challenges.cloudflare.com https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.workers.dev https://nominatim.openstreetmap.org https://www.google-analytics.com https://api.resend.com https://api.stripe.com; frame-src https://challenges.cloudflare.com https://js.stripe.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Free Roof Estimate | Get Your Cost in Minutes | No Big Deal</title>
 <meta name="description" content="Get a free personalized roof estimate for your Cincinnati-area home. See your ballpark cost, material options, and connect with Joe — no pressure.">
@@ -21,7 +21,7 @@
 <link rel="apple-touch-icon" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Dancing+Script:wght@700&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <style>
 :root {
   --navy: #1e3a6e; --navy-dark: #142a52;
@@ -734,7 +734,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="input-group">
       <label for="phoneNumber">Phone Number</label>
       <div class="phone-input-row">
-        <input type="tel" id="phoneNumber" placeholder="(513) 555-1234" autocomplete="tel">
+        <input type="tel" id="phoneNumber" placeholder="(859) 555-1234" autocomplete="tel">
         <button class="btn-send-code" id="btnSendCode" data-action="sendCode">Send Code</button>
       </div>
       <div class="error-msg">Valid phone number required</div>
@@ -787,12 +787,12 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <!-- ═══════════════════════ RESULTS ═══════════════════════ -->
 <div class="step" id="stepResults">
   <div class="step-eyebrow">Your Personalized Estimate</div>
-  <h2 class="step-title"><span id="resultName">Your</span> Roof <span>Estimate</span></h2>
+  <h2 class="step-title"><span id="resultName">Your</span> <span id="resultKind" style="color:inherit;">Roof</span> <span>Estimate</span></h2>
 
   <div class="results-card">
     <div style="font-size:.8rem;color:rgba(255,255,255,.4);margin-bottom:20px;text-align:center;" id="resultAddr"></div>
 
-    <div class="tier-tabs">
+    <div class="tier-tabs" id="tierTabsRow">
       <button class="tier-tab" data-tier="good">Good &#183; 3-Tab</button>
       <button class="tier-tab active" data-tier="better">Better &#183; Architectural</button>
       <button class="tier-tab" data-tier="best">Best &#183; Designer</button>
@@ -801,7 +801,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="result-range">
       <div class="result-label">Your Personalized Estimate</div>
       <div class="result-price" id="resultPrice">$8,500 <span>&#8211; $14,200</span></div>
-      <div class="result-note">Based on your property &#183; Cincinnati-area pricing &#183; 2026</div>
+      <div class="result-note" id="resultNote">Based on your property &#183; Cincinnati-area pricing &#183; 2026</div>
     </div>
 
     <div class="detail-grid">
@@ -898,7 +898,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <!-- Public lead gateway — estimate_leads is locked at the rules
      layer (C-3); submissions go through submitPublicLead. -->
 <script defer  src="/assets/js/inline/7cd8e505ab.js"></script>
-<script src="/assets/js/public-lead-submit.js"></script>
+<script defer src="/assets/js/public-lead-submit.js"></script>
 <script type="module" src="/assets/js/inline/f95015cb84.module.js"></script>
 
 <!-- ═══════════════════════ MAIN SCRIPT ═══════════════════════ -->

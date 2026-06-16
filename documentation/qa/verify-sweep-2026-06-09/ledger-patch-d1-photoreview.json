@@ -1,0 +1,17 @@
+[
+  { "id": "d5-docs-011", "status": "FIXED", "session": "2026-06-09-B", "notes": "NEW-D1 → PR #633 (after #594's viewer half): _tryServerRender now passes the client HTML alongside the server-PDF url. LIVE RE-VERIFIED: invoice generate → viewer renders an 88KB same-origin srcdoc preview (no cross-origin src); 'blocked by Chrome' gone. Server PDF stays attached as pdfUrl for Download." },
+  { "id": "d5-docs-018", "status": "FIXED", "session": "2026-06-09-B", "notes": "NEW-D1 → PR #633. Change Order rides the identical _tryServerRender path live-verified on invoice (type-agnostic fix)." },
+  { "id": "d5-docs-019", "status": "FIXED", "session": "2026-06-09-B", "notes": "NEW-D1 → PR #633. Roofing Contract — same path as invoice (live-verified)." },
+  { "id": "pages-a-004", "status": "PASS", "session": "2026-06-09-B", "notes": "Post-#634 (NEW-D32 fabricated-firebaseConfig fix — the page bounced ALL signed-in users to login before): ← Back rewritten to /pro/customer.html?id=<lead> once auth+lead resolve." },
+  { "id": "pages-a-005", "status": "PASS", "session": "2026-06-09-B", "notes": "Generate Report enabled with photos; click navigates to customer.html?id=<lead> and the Homeowner/Adjuster report picker auto-opens (handoff verified; picker cancelled, no report generated)." },
+  { "id": "pages-a-006", "status": "PASS", "session": "2026-06-09-B", "notes": "Filter bar live counts (all:1/During:1/others:0); Before→0 tiles, During→1 tile + .active, all restores." },
+  { "id": "pages-a-007", "status": "PASS", "session": "2026-06-09-B", "notes": "Tile tap toggles bulk selection (bulk bar with 8 controls mounts; deselect clears)." },
+  { "id": "pages-a-008", "status": "PASS", "session": "2026-06-09-B", "notes": "Chips render per photo with live states; empty-chip tap opens the picker. Location chip now WORKS end-to-end (#630 added the missing FIELD_OPTIONS.location): picked 'Front Slope' → chip 'overridden' + persisted via snapshot re-render. Severity 'Minor' same." },
+  { "id": "pages-a-009", "status": "PASS", "session": "2026-06-09-B", "notes": "Picker options write the field (location + severity verified on the ZZ_QA photo) and re-render the chip state." },
+  { "id": "pages-a-010", "status": "PASS", "session": "2026-06-09-B", "notes": "Clear value button present in the picker (rendered alongside options; not fired — the set-path was the test)." },
+  { "id": "pages-a-011", "status": "PASS", "session": "2026-06-09-B", "notes": "Bulk bar mounts with phase/damageType bulk-field controls + pr-bulk-count on selection." },
+  { "id": "pages-a-012", "status": "BLOCKED", "session": "2026-06-09-B", "notes": "Bulk Share: photos-share half works per code; the portal-link COPY half is NEW-D31 (open — always throws 'Portal module not loaded' with a swallowed toast). Not fired; fix decision pending." },
+  { "id": "pages-a-013", "status": "BLOCKED", "session": "2026-06-09-B", "notes": "Bulk Delete — destructive boundary (would delete the photo doc); not fired. Reachable (bulk bar mounts)." },
+  { "id": "pages-a-014", "status": "PASS", "session": "2026-06-09-B", "notes": "Done clears the bulk selection (bar dismisses on deselect)." },
+  { "id": "pages-a-015", "status": "BLOCKED", "session": "2026-06-09-B", "notes": "Lightbox needs a REAL 450ms long-press (synthetic pointer events don't trip the timer) — mobile/device pass item." }
+]

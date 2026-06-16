@@ -39,6 +39,27 @@ jobs:
       - name: Run theme QA
         run: node tests/theme-qa.test.js
 
+  site-integrity:
+    name: Site integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      # Gate the defect classes the 2026-06 manual QC sweep fixed by hand:
+      # dead internal links, 404'd assets, broken in-page/cross-page anchors.
+      # Zero npm deps (Node builtins only) — no install step needed.
+      # firebase.json redirects/rewrites are read at runtime, so hosting
+      # config changes can't desync the checker.
+      - name: Check links, assets, and anchors (docs/, excluding /pro + /admin)
+        run: node scripts/check-site-integrity.js --quiet
+      # Sitemap drift gate: build-sitemap.js dry-runs by default and exits 1
+      # when the generated sitemap differs from docs/sitemap.xml (prints the
+      # unified diff). Writes nothing without --write.
+      - name: Check sitemap drift (dry-run diff)
+        run: node scripts/build-sitemap.js
+
   syntax-check:
     name: Node syntax check
     runs-on: ubuntu-latest

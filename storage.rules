@@ -102,11 +102,16 @@ service firebase.storage {
     }
 
     // ── DEAL ROOMS ─────────────────────────────────────
+    // close-board.js uploadDealPage() uploads the shareable deal page as
+    // text/html — isDocType() does NOT match text/html, so every
+    // share-link upload was storage/unauthorized and the Copy/Text/Email
+    // link actions always failed (NEW-D13). Deal rooms only ever store
+    // HTML pages, so gate on isHtmlOnly() like documents/.
     match /deal_rooms/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
       allow write: if isOwner(uid)
         && request.resource.size < 5 * 1024 * 1024
-        && isDocType();
+        && isHtmlOnly();
       allow delete: if isOwner(uid) || isAdmin();
     }
 

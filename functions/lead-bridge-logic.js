@@ -82,6 +82,19 @@ function bridgeDocId(collection, sourceId) {
   return String(collection) + '__' + String(sourceId);
 }
 
+// The /estimate funnel saves follow-up EVENT docs (results shown, CTA
+// click, email request) into estimate_leads alongside the initial lead
+// save. Each event carries a `type` tag; the initial save has none.
+// Bridging the events too gave the owner up to 4 duplicate "New" pipeline
+// cards per completed funnel. Known event types are skipped; an UNKNOWN
+// future type still bridges (fail-open — never silently drop a possible
+// lead). estimate-email.js still fires on email_estimate_request docs.
+const ESTIMATE_EVENT_TYPES = ['estimate_result', 'cta_click', 'email_estimate_request'];
+function isFollowUpEvent(collection, data) {
+  return collection === 'estimate_leads' &&
+    ESTIMATE_EVENT_TYPES.indexOf(String((data || {}).type || '')) !== -1;
+}
+
 // Best-effort name split: the public kinds carry a single `name` (or
 // `nomineeName`), except `contact` which already has firstName.
 function splitName(data) {
@@ -113,6 +126,15 @@ function mapPublicLeadToLead(args) {
   }
   if (collection === 'free_roof_entries') notesParts.push('"One Free Roof" giveaway entry');
   if (data.photoCount) notesParts.push('Homeowner has ' + data.photoCount + ' photo(s) to share');
+  // Estimator context — so the pipeline card shows what the homeowner
+  // actually asked for, not just a name and address. Fields are present
+  // only post-M-04 allowlist expansion; older docs simply add no line.
+  if (collection === 'estimate_leads') {
+    const ctx = [];
+    if (data.service) ctx.push(String(data.service) + (data.roofType ? ' (' + String(data.roofType) + ')' : ''));
+    if (data.timeline) ctx.push('timeline: ' + String(data.timeline));
+    if (ctx.length) notesParts.push('Instant Estimate — ' + ctx.join(' · '));
+  }
 
   const doc = {
     userId: args.ownerUid,
@@ -144,6 +166,8 @@ function mapPublicLeadToLead(args) {
 
 module.exports = {
   BRIDGE_KINDS,
+  ESTIMATE_EVENT_TYPES,
+  isFollowUpEvent,
   looksLikeUid,
   resolveBridgeTarget,
   bridgeDocId,

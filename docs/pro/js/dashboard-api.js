@@ -387,7 +387,10 @@ window._gdprRequestErasure = async function () {
     'Your account will be disabled. This CANNOT be undone.\n\n' +
     'We will email you a confirmation link. The deletion only completes when you click it ' +
     'within 24 hours. If the email doesn\'t arrive, check spam.';
-  if (!window.confirm(warning)) return;
+  // native confirm() is patched to silently return true in PWA mode
+  // (standalone-compat.js), so route through nbdConfirm to get a real Cancel.
+  const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await ask(warning))) return;
   try {
     const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
     const fn = mod.httpsCallable(mod.getFunctions(), 'requestAccountErasure');

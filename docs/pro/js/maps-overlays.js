@@ -32,7 +32,17 @@ async function buildJobsLayer() {
   jobMarkers.forEach(m=>mainMap.removeLayer(m));
   jobMarkers = [];
   const leads = window._leads || [];
-  const active = leads.filter(l => ['In Progress','Complete','Finalizing'].includes(l.stage||''));
+  // Match BOTH canonical (post-crm-stages migration) ids and legacy
+  // display names — same dual-name rule as the colorizer below. The
+  // legacy-only filter left the Jobs layer permanently empty for
+  // migrated tenants (NEW-D35); 'Finalizing' maps to the canonical
+  // finalization trio (final_photos/deductible_collected/final_payment).
+  const JOB_OVERLAY_STAGES = [
+    'install_in_progress','install_complete','final_photos',
+    'deductible_collected','final_payment','closed',
+    'In Progress','Complete','Finalizing'
+  ];
+  const active = leads.filter(l => JOB_OVERLAY_STAGES.includes(l.stage||''));
   const esc = (typeof _mapsEscHtml === 'function') ? _mapsEscHtml : (s => String(s||''));
   let liveRequests = 0;
   for(const lead of active) {

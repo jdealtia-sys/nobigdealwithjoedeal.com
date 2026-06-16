@@ -1273,18 +1273,20 @@ function importToEstimate() {
 
   if (useV2) {
     // V2 Builder: rawSqft is pitched area (logic engine only applies waste).
-    window.openEstimateV2Builder();
-    setTimeout(() => {
-      const setVal = (id, val) => { const el = document.getElementById(id); if (el) { el.value = val; el.dispatchEvent(new Event('input', { bubbles: true })); } };
-      setVal('v2rawSqft', Math.round(pitchedSqft));
-      setVal('v2pitch', pitchRise);
-      setVal('v2eaveLf', eaveLf);
-      setVal('v2ridgeLf', ridgeLf);
-      setVal('v2rakeLf', rakeLf);
-      setVal('v2hipLf', hipLf);
-      setVal('v2valleyLf', valleyLf);
-      if (typeof showToast === 'function') showToast('Drawing measurements imported into V2 Builder', 'success');
-    }, 300);
+    // Measurements ride through open(opts) instead of a setTimeout DOM poke:
+    // the builder may still be lazy-loading (openEstimateV2Builder can be the
+    // load-then-run stub, which forwards arguments) and open() restores any
+    // nbd_v2_draft_v1 draft asynchronously — a fixed 300ms timer lost both
+    // races, so the import silently no-opd or was overridden by the stale
+    // draft while the success toast still fired (NEW-D39, d8 sweep). The
+    // builder now applies these AFTER draft restore and owns the toast.
+    window.openEstimateV2Builder({
+      importMeasurements: {
+        rawSqft: Math.round(pitchedSqft),
+        pitch: pitchRise,
+        eaveLf, ridgeLf, rakeLf, hipLf, valleyLf, wallLf
+      }
+    });
   } else {
     // Classic builder: `updateEstCalc` does raw × pitch × waste. The drawing
     // tool already baked pitch (and per-facet pitch on multi-facet drawings)

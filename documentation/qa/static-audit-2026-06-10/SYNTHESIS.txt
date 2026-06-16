@@ -1,0 +1,63 @@
+NBD PRO AUDIT SYNTHESIS — 2026-06-09 (post 3-skeptic adversarial panel)
+Source tree: C:/Users/jonat/nbd-wt-audit (origin/main, read-only). 16 raw confirmed findings -> 13 distinct defects after merging 3 duplicate pairs (see Section 3a).
+
+=====================================================================
+SECTION 1 — RANKED FINDINGS (P1 -> P3)
+=====================================================================
+
+P1 — ship-blocking / silent data loss
+1. [P1] ds-sync-leaderboard-batch-poison — docs/pro/daily-success/ds-firebase-sync.js:76 — Every Daily Success cloud sync fails permanently: one atomic writeBatch includes a rules-forbidden leaderboard/{uid} set (firestore.rules:399 allow write: if false), poisoning the legal ds_pages/ds_meta writes; all DS data lives only in localStorage, cross-device sync dead, "Sync failed" on every edit. Leaderboard write has zero consumers anywhere.
+2. [P1] metacsp-estimate-workersdev-header-gap — firebase.json:60 vs docs/estimate.html:5 + docs/assets/js/inline/4053149b2f.js + docs/assets/js/storm-check.js:14,177 — Global ** header CSP connect-src lacks workers.dev, so the AI-proxy fetch is CSP-blocked despite the page meta allowlisting it; every homeowner silently gets buildFallbackEstimate() generic pricing + canned apology. Same root cause kills /storm-check AI. (Impact caveat: see Section 3c.)
+3. [P1] vault-boot-firebase-ready-never-fires (merged: vault-firebase-ready-never-fires) — docs/pro/js/vault-page.js:36 — Entire /pro/vault.html data layer is dead: boot gates on a 'firebase-ready' event nothing on the page dispatches (only dispatcher is legacy docs/admin/vault.html:54) and window._firestore is never set anywhere. Overview stuck at "Loading...", every Save toasts "Firestore still loading" forever. Double fault: even with the event, _firestore destructure would throw. Admin-only surface — see Section 3e before fixing alone.
+
+P2 — broken feature, lower blast radius
+4. [P2] vault-codex-no-match-block — docs/pro/js/vault-page.js:65 + firestore.rules:834 — All vault Firestore ops target codex/* and codex-sessions/* which have NO match block -> default deny, even for admins. Currently masked by finding #3; fixing #3 alone immediately exposes this wall. Fix decision must be bundled with #3 (Section 3e).
+5. [P2*] vault-search-inputs-csp-oninput-dead (merged: vault-oninput-csp-dead-search, filed P3) — docs/pro/js/vault-page.js:450,970 — Both vault search inputs render inline oninput= attributes refused by script-src-attr 'none'; the CSP-safe delegate added at lines 2294-2311 claims the inputs were converted to data-v-action, but they never were. Typing does nothing. *Severity disputed P2 vs P3 — see Section 3b; recommended P3.
+
+P3 — cosmetic, latent, or narrow-path
+6. [P3] metacsp-turnstile-blocked-on-lead-pages — docs/estimate.html:5, docs/index.html:5, docs/inspect.html + public-lead-submit.js:58,87 — LATENT: the moment __NBD_TURNSTILE_SITEKEY is set, the meta CSPs on the 3 highest-value lead pages block the Turnstile script + iframe -> potentially 403s every lead. Must land BEFORE key configuration. free-roof/index.html shows the correct pattern.
+7. [P3] photoreview-share-portal-link-copy-dead (merged: photo-review-bulkshare-copy-dead-path) — docs/pro/js/pages/photo-review.js:444 + portal-link-helpers.js:92 — Bulk Share's portal-link copy always throws 'Portal module not loaded' (window.CustomerPortal/doc/getDoc never loaded on this page) AND the error toast is swallowed (window.showToast absent). Photos do share; link copy silently never happens. On the normal happy path of the feature.
+8. [P3] vault-ai-analyze-csp-blocked — docs/pro/js/vault-page.js:2111,1427 — "Analyze with AI" fetches api.anthropic.com directly (CSP-blocked, and keyless anyway); session-import FORMAT-1 runs eval() (blocked, no 'unsafe-eval'). Reachability partly gated behind finding #3.
+9. [P3] photoreview-location-chip-empty-picker — docs/pro/js/pages/photo-review.js:294 — Every photo tile shows a "+ Location" chip whose picker opens with zero options (FIELD_OPTIONS has no 'location' key); only Clear/AI-accept work, never set.
+10. [P3] estimateview-cta-css-selector-mismatch — docs/pro/estimate-view.html:215 + estimate-view.js:111 — Homeowner-facing CTA row styles anchors but the renderer emits <button> (Wave 28 CSP conversion); buttons work but render as unstyled native controls.
+11. [P3] dailysuccess-welcome-theme-picker-empty — docs/pro/daily-success/index.html:1052 — First-run welcome modal shows "Pick Your Color Theme" heading over a permanently empty container (buildWelcomeThemePicker is an explicit no-op stub; no other writer exists).
+12. [P3] ds-app-theme-write-dead-path — docs/pro/daily-success/js/app.js:1207 — Vestigial compat-SDK theme persist is guard-skipped forever (no global db/currentUser on the page); theme never syncs to users/{uid} from DS. Rules would allow it; pure dead code.
+13. [P3] metacsp-review-avatar-onerror-dead — docs/assets/js/google-reviews-widget.js:41 — JS-built img markup uses inline onerror to hide dead avatars; script-src-attr 'none' kills it -> broken-image icons on expired Google avatar URLs. WEAKEST finding: survived 2-1 with one reachability REFUTE; file citation correction in Section 3d.
+
+=====================================================================
+SECTION 2 — TRIVIAL INLINE FIX vs NEEDS DESIGN
+=====================================================================
+
+Trivially fixable (config / one-liner / few-line mechanical):
+- #2 workersdev header gap: add https://nbd-ai-proxy.jonathandeal459.workers.dev to connect-src in firebase.json's ** rule. One config line + live re-verify.
+- #6 turnstile metas: copy free-roof/index.html's challenges.cloudflare.com directives into 3 meta tags. Config-only; sequencing constraint (before sitekey ever set).
+- #1 ds-sync CONTAINMENT: delete the leaderboard/{uid} set from the batch (lines 76-83). Safe — the write has zero consumers and zero legal path. This alone restores all DS sync. (Whether leaderboard sync should exist at all = design, below.)
+- #5 vault search inputs: swap two oninput= attributes for data-v-action/data-v-pass; delegate + window globals already exist.
+- #10 estimate-view CTA: extend CSS selectors to cover button + add button-reset rules.
+- #11 DS welcome picker: delete the heading + empty container (full picker exists via topbar button).
+- #12 ds-app theme write: delete the vestigial compat block (localStorage persist already works).
+- #13 review avatar: replace inline onerror with addEventListener('error') after innerHTML insertion.
+- #9 location chip: near-trivial code, but needs a one-time micro-decision on the option list (match inferredLocation labels) or free-text prompt.
+
+Needs design / product decision:
+- VAULT CLUSTER (#3 P1 + #4 P2 + #8 P3 + #5): single decision gate — is /pro/vault.html a real surface or superseded by /admin/vault.html? If real: fix bootstrap contract (dispatch firebase-ready + window._firestore from vault-auth.module.js) AND add admin-scoped codex/codex-sessions rules AND route AI through claude-proxy + replace eval with JSON.parse. If superseded: delete vault.html + vault-page.js + vault-auth.module.js and all four findings close at once. Do NOT fix #3 in isolation (Section 3e).
+- #1 leaderboard FUTURE: if a leaderboard product is wanted, it needs a Cloud Function aggregator writing via admin SDK (no legitimate client path under rules). Containment above doesn't need this.
+- #7 photoreview share copy: choose between (a) loading customer-portal.js + exposing modular doc/getDoc on the page, or (b) dropping copyForLead and using state.lead.portalUrl with photo-review's own clipboard/toast. (b) is smaller; either way bridge window.showToast.
+
+=====================================================================
+SECTION 3 — CONTRADICTIONS / TENSIONS BETWEEN FINDINGS
+=====================================================================
+
+a. Duplicate pairs (merged, no substantive conflict): vault-firebase-ready-never-fires == vault-boot-firebase-ready-never-fires (both P1); vault-oninput-csp-dead-search == vault-search-inputs-csp-oninput-dead (P3 vs P2 — only real disagreement, see b); photo-review-bulkshare-copy-dead-path == photoreview-share-portal-link-copy-dead (both P3). Same defects found by independent passes — corroborating, not conflicting.
+
+b. SEVERITY CONFLICT on vault search inputs: filed once as P3, once as P2. Recommend logging as P3: the page is admin-only and its entire data layer is already dead (P1 #3), so the search boxes have nothing to search regardless; the defect only matters after the vault-cluster decision. If the vault is kept, revisit at P2.
+
+c. IMPACT-FRAMING DISPUTE inside #2 (workersdev): dissent 2 upholds the root cause but corrects the headline — the manifestation reachable today is /storm-check; /estimate's AI fetch is additionally dead behind "an even-earlier gate" (unspecified in panel output). Consequence for verification: after the firebase.json fix, /storm-check should immediately work; /estimate may still fall back and needs the earlier gate diagnosed separately. Do not close the ticket on a /estimate-only check, and do not be surprised if /estimate still serves fallback post-fix.
+
+d. PARTIAL REFUTE on #13 (avatar onerror): one of three skeptics refuted on reachability — the widget loads only on /review (docs/review.html:390); the our-work.html / b1d1695580 citation in the finding is WRONG (that file is the shared nav script, contains no review code). Two skeptics upheld the mechanism itself. Log with corrected scope (/review only), lowest confidence in the set.
+
+e. DEPENDENCY (not contradiction, but fix-ordering hazard): #3 (vault boot) currently MASKS #4 (no rules for codex/*). Fixing the P1 boot gap alone converts silent "Loading..." into explicit permission-denied errors on every load/save — strictly worse UX. #4's dissents explicitly note this. The two must ship together (or the page deleted), which is why Section 2 bundles the vault cluster.
+
+f. Consistency note: #12 (ds-app theme dead path) and #1 (ds-sync batch poison) both diagnose /pro/daily-success Firebase plumbing and agree: rules WOULD allow the users/{uid} theme write (#12 is a client-side dead path, not rules-denied), while the leaderboard write is rules-denied by design. No conflict; together they indicate DS's Firebase layer has never been end-to-end exercised.
+
+g. For the record: 1 finding killed pre-report — login-register-route-csp-blocks-sentry-cdn (refuted 3-0: cleanUrls:true means the /pro/login.html//pro/register.html per-route header rules at firebase.json:158-168 never match a real request — dead config, not a live block). Side observation worth a hygiene line in the tracker: those dead header rules should be deleted or re-keyed to extensionless paths so they don't mislead future CSP audits.

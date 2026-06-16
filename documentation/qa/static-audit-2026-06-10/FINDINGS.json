@@ -1,0 +1,521 @@
+[
+ {
+  "id": "metacsp-estimate-workersdev-header-gap",
+  "severity": "P1",
+  "file": "firebase.json:60 (header connect-src) vs docs/estimate.html:5 + docs/assets/js/inline/4053149b2f.js:6,817",
+  "claim": "The flagship AI estimate on /estimate is silently dead in prod. The page's meta CSP explicitly allowlists `https://*.workers.dev` in connect-src (proving intent), and the funnel's submitAndGetEstimate() POSTs the homeowner's data to the AI proxy at https://nbd-ai-proxy.jonathandeal459.workers.dev — but the global ** HTTP-header CSP connect-src contains NO workers.dev entry. Strictest-per-directive wins, so the browser blocks the fetch; the catch path always runs buildFallbackEstimate(), so every homeowner gets the generic size-table price and the canned joesTake apology (\"the live estimate engine couldn't reach me right now\") instead of the AI-personalized estimate. The fallback masks the failure, which is why funnel QA passed. Same root cause kills the AI feature on docs/storm-check.html (docs/assets/js/storm-check.js:14,177 — that page has no meta CSP, the header alone blocks it).",
+  "evidence": "4053149b2f.js: `PROXY_URL: 'https://nbd-ai-proxy.jonathandeal459.workers.dev'` … line 817 `var resp = await fetch(CONFIG.PROXY_URL, {…model:'claude-haiku-4-5-20251001'…})` inside submitAndGetEstimate(); estimate.html meta: `connect-src 'self' … https://*.cloudfunctions.net https://*.workers.dev https://nominatim.openstreetmap.org …`; firebase.json:60 header connect-src: `'self' https://formsubmit.co https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com … https://nominatim.openstreetmap.org …` — no workers.dev anywhere in the header.",
+  "fixDirection": "Add https://nbd-ai-proxy.jonathandeal459.workers.dev (preferred over wildcard *.workers.dev) to the header connect-src in firebase.json's ** rule, then live-verify /estimate returns a non-fallback estimate (joesTake without the 'couldn't reach me' line) and /storm-check's AI path works.",
+  "finder": "meta-csp",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Finding confirmed, not refuted. (1) The only CSP-bearing header rule matching /estimate is firebase.json's global \"**\" block (line 60); its connect-src has no workers.dev source, and a live curl of https://nobigdealwithjoedeal.com/estimate confirms the deployed enforced header's connect-src likewise",
+   "UPHOLD: CONFIRMED root cause, but the headline /estimate impact must be corrected — the reachable manifestation today is /storm-check, while /estimate's AI fetch is dead behind an even-earlier gate.\n\nVERIFIED (live, not just repo): (1) curl of https://nobigdealwithjoedeal.com/estimate shows the HTTP-header ",
+   "UPHOLD: NOT refuted on recency grounds — the finding stands as a real, current, unlogged bug. (1) Not fixed on main: firebase.json at HEAD d1608acb (origin/main, 2026-06-10) has no workers.dev in any connect-src, and `git log --all -S 'workers.dev' -- firebase.json` returns nothing — no branch ever added it"
+  ]
+ },
+ {
+  "id": "metacsp-turnstile-blocked-on-lead-pages",
+  "severity": "P3",
+  "file": "docs/estimate.html:5, docs/index.html:5, docs/inspect.html (meta CSPs) + docs/assets/js/public-lead-submit.js:58,87",
+  "claim": "Latent, will fire the moment the Turnstile site key is configured: public-lead-submit.js auto-injects https://challenges.cloudflare.com/turnstile/v0/api.js and renders a challenges.cloudflare.com iframe whenever window.__NBD_TURNSTILE_SITEKEY is non-empty (it is currently \"\" in docs/assets/js/inline/7cd8e505ab.js:3, loaded on estimate.html and index.html). The meta CSPs on estimate.html/index.html (script-src lacks challenges.cloudflare.com, frame-src is only js.stripe + *.firebaseapp.com) and inspect.html (script-src lacks it; frame-src falls back to default-src 'self') will block both the script and the widget iframe, so Turnstile verification silently no-ops on the three highest-value lead pages while the server is documented as Turnstile-enforcing (\"unconfigured server = pass; configured = 403\" — i.e. configuring the key without fixing the metas could 403 every lead from these pages or run keyless). Only docs/free-roof/index.html carries the correct meta (script/frame/connect all include challenges.cloudflare.com), showing the intended pattern. The HTTP header already allows Turnstile in script-src, frame-src, and connect-src, so the metas are the sole blocker.",
+  "evidence": "public-lead-submit.js:58 `s.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'`; :87 `window.turnstile.render(box, …)` (iframe); comment :46-47 \"If no site key … server decides whether to allow (unconfigured server = pass; configured = 403)\". estimate/index meta: `script-src 'self' 'unsafe-inline' https://www.googletagmanager.com … https://apis.google.com` (no challenges.cloudflare.com); `frame-src https://js.stripe.com https://*.firebaseapp.com`. free-roof meta (the correct one): `script-src … https://challenges.cloudflare.com …; connect-src 'self' https://us-central1-nobigdeal-pro.cloudfunctions.net https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com`.",
+  "fixDirection": "Before ever setting __NBD_TURNSTILE_SITEKEY, add https://challenges.cloudflare.com to script-src and frame-src (and connect-src for parity) in the meta CSPs of estimate.html, index.html, and inspect.html — mirror free-roof's policy D.",
+  "finder": "meta-csp",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Confirmed, not refuted. (1) docs/assets/js/public-lead-submit.js:54-63 injects https://challenges.cloudflare.com/turnstile/v0/api.js when __NBD_TURNSTILE_SITEKEY is non-empty, and :87 renders the challenges.cloudflare.com iframe; submitPublicLead always calls nbdTurnstileExecute (:112). (2) All thre",
+   "UPHOLD: Real but latent — exactly as the finder labeled it. Every factual premise verified in the repo: (1) docs/assets/js/public-lead-submit.js:52-63,87 injects challenges.cloudflare.com api.js + widget iframe when __NBD_TURNSTILE_SITEKEY is non-empty; (2) the only setter (docs/assets/js/inline/7cd8e505ab.",
+   "UPHOLD: Recency verification fails to refute. (1) Not fixed on origin/main: fetched remote tip a3a690f7 (current as of 2026-06-10); meta CSPs at docs/estimate.html:5, docs/index.html:5, docs/inspect.html:5 contain zero 'challenges.cloudflare.com' in any directive (estimate/index frame-src = js.stripe.com + "
+  ]
+ },
+ {
+  "id": "metacsp-review-avatar-onerror-dead",
+  "severity": "P3",
+  "file": "docs/assets/js/google-reviews-widget.js:41 (used by docs/review.html and docs/our-work.html via b1d1695580/widget include)",
+  "claim": "On /review, reviewer avatars from lh3.googleusercontent.com render fine (img-src allows them in both meta `https:` and header `*.googleusercontent.com`), but the widget's JS-built markup relies on an inline `onerror=\"this.style.display='none'\"` attribute to hide dead avatar URLs. The header CSP sets `script-src-attr 'none'` (and the meta's 'unsafe-inline' cannot rescue it — intersection wins), so the handler never executes: an expired/404 Google avatar URL shows a broken-image icon in the review card instead of being hidden. This is the JS-built-markup variant of the CSP-dead inline-handler class (same lesson as PR #603).",
+  "evidence": "google-reviews-widget.js:41: `<img src=\"${esc(review.profilePhotoUrl)}\" … onerror=\"this.style.display='none'\">`; firebase.json:60 header: `script-src-attr 'none'`.",
+  "fixDirection": "Replace the inline onerror with an addEventListener('error', …) attached after innerHTML insertion (or use a load-tested Image() preflight) in google-reviews-widget.js.",
+  "finder": "meta-csp",
+  "refutes": 1,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: CONFIRMED with minor corrections. (1) docs/assets/js/google-reviews-widget.js:41 builds `<img src=\"${esc(review.profilePhotoUrl)}\" alt=\"\" … onerror=\"this.style.display='none'\">` and injects it via container.innerHTML — an inline event-handler attribute in JS-built markup. (2) firebase.json's global ",
+   "REFUTE: Refuted on reachability: the avatar-render path the claim depends on is not reachable by any user on the live site today. The widget is only loaded on /review (docs/review.html:390; the claim's our-work.html citation is wrong — b1d1695580.js is the shared nav script and contains no reviews code). A ",
+   "UPHOLD: NOT refuted — the finding is current, unfixed, and unlogged on origin/main as of HEAD d1608acb (2026-06-10).\n\nRecency checks performed:\n\n1. Not already fixed on main. C:/Users/jonat/nbd-wt-audit is detached at origin/main HEAD d1608acb (\"docs(qa): final re-verifies — #624 callback + #626 homepage fo"
+  ]
+ },
+ {
+  "id": "vault-firebase-ready-never-fires",
+  "severity": "P1",
+  "file": "docs/pro/js/vault-page.js:36",
+  "claim": "The entire Eternal Vault page (/pro/vault.html, admin-only) can never load or save its Firestore data. vault-page.js gates ALL initialization on a 'firebase-ready' window event and reads window._db / window._firestore inside that listener — but no script loaded on vault.html ever dispatches 'firebase-ready' or assigns window._firestore. vault-auth.module.js (the page's only other script) sets only window._authUser and window._db inside NBDAuth.init's onReady, and nbd-auth.js contains zero dispatchEvent calls (repo-wide grep for 'firebase-ready' matches only the consumer). Consequences: loadFromFirestore()/renderOverview() never run (the codex/latest doc is never read), the module-level `db`/`firestore` vars stay undefined forever, and every Save click (data-v-action=\"manualSave\" → saveToFirestore guard at lines 94-98) permanently toasts 'Firestore still loading — please retry in a moment'. The gap predates the PR #468 extraction — the pre-extraction inline module (git show 1a0b5818~1:docs/pro/vault.html lines 11-22) had the identical NBDAuth bootstrap, so the consumer at line 36 was written against a bootstrap contract (firebase-ready + _firestore) that no longer exists anywhere in the repo.",
+  "evidence": "vault-page.js:36-40: window.addEventListener('firebase-ready', async () => { ... db = window._db; firestore = window._firestore; ... await loadFromFirestore(); renderOverview(); ... }); — vault-auth.module.js (entire producer): window._nbdAuth = NBDAuth.init({ ... onReady: (user) => { window._authUser = user; window._db = NBDAuth.db; ... } }); — grep -rn \"firebase-ready\" docs/pro returns only vault-page.js; grep for window._firestore assignment returns nothing; vault.html loads exactly 2 scripts (lines 11, 886). Save guard vault-page.js:94-98: if (!firestore || !db) { toast('Firestore still loading — please retry in a moment', 'info'); return false; }",
+  "fixDirection": "In vault-auth.module.js onReady, import the needed modular Firestore helpers (doc, getDoc, setDoc) — e.g. re-export from nbd-auth.js or import firebase-firestore.js directly — assign window._firestore = { doc, getDoc, setDoc }, then window.dispatchEvent(new Event('firebase-ready')). Alternatively refactor vault-page.js to consume NBDAuth's existing onReady contract (window._db is already set; nbd-auth.js also sets window._auth/window._db at init).",
+  "finder": "undeclared-idents",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Attempted refutation failed on every angle; the finding is correct and precisely evidenced.\n\n1. Script inventory confirmed: C:/Users/jonat/nbd-wt-audit/docs/pro/vault.html loads exactly two scripts — line 11 `<script type=\"module\" src=\"js/vault-auth.module.js\">` and line 886 `<script src=\"js/vault-p",
+   "UPHOLD: CONFIRMED, not refuted. Every mechanical fact checks out: docs/pro/vault.html loads exactly 2 scripts (vault-auth.module.js line 11, vault-page.js line 886); vault-page.js:36 gates all init on a 'firebase-ready' event and reads window._firestore; vault-auth.module.js sets only window._authUser/windo",
+   "UPHOLD: NOT refuted on recency grounds — the bug is live on the current origin/main tip (a3a690f7) and is not previously logged. (1) Current code: docs/pro/js/vault-page.js:36 still gates ALL init on a 'firebase-ready' event and reads window._firestore (line 40); the saveToFirestore guard at lines 94-98 sti"
+  ]
+ },
+ {
+  "id": "vault-oninput-csp-dead-search",
+  "severity": "P3",
+  "file": "docs/pro/js/vault-page.js:450",
+  "claim": "Both vault search boxes are dead chrome: vault-page.js renders inline oninput= handler attributes into its template HTML (line 450 oninput=\"filterSessions(this.value)\" for the Sessions filter; line 970 oninput=\"executeSearch()\" for the global search input), which the header CSP's script-src-attr 'none' refuses. The CSP-safe input delegate added at lines 2294-2311 dispatches on [data-v-action] + data-v-pass, and its comment claims 'The 2 search inputs use data-v-action instead' — but the rendered markup was never converted: no input in vault-page.js or vault.html carries data-v-action. Typing in either search box does nothing (user action: navigate to Sessions or Search view, type in the filter/search input).",
+  "evidence": "vault-page.js:450: oninput=\"filterSessions(this.value)\" — vault-page.js:970: oninput=\"executeSearch()\" — vault-page.js:2294-2296 comment: 'Strict CSP at firebase.json:44 blocks inline oninput= attributes. ... The 2 search inputs use data-v-action instead and dispatch here.' — grep for data-v-pass in vault-page.js/vault.html: zero markup matches (only the delegate reads it). Header CSP (firebase.json ** route) includes script-src-attr 'none'.",
+  "fixDirection": "Replace the two oninput= attributes in the rendered templates with data-v-action=\"filterSessions\"/\"executeSearch\" + data-v-pass=\"value\", and expose those two functions on window (vault-page.js is a classic top-level script so its function declarations are already globals — the delegate's window[action] lookup will find them).",
+  "finder": "undeclared-idents",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Finding verified, not refuted. (1) docs/pro/js/vault-page.js:450 renders oninput=\"filterSessions(this.value)\" on #sessionSearch and :970 renders oninput=\"executeSearch()\" on #searchInput. (2) firebase.json:60 global ** CSP includes script-src-attr 'none', which blocks ALL inline event-handler attrib",
+   "UPHOLD: Claim verified end-to-end, including reachability. (1) Code accurate: vault-page.js renders inline oninput=\"filterSessions(this.value)\" (line 450, #sessionSearch in Sessions view) and oninput=\"executeSearch()\" (line 970, #searchInput in Search view); the CSP-safe input delegate (lines 2294-2311) dis",
+   "UPHOLD: NOT refuted — the finding is real, current on origin/main, and is not a re-report of a BUG-LOG entry.\n\n1) Not already fixed on main. At origin/main HEAD (d1608acb, 2026-06-10), C:/Users/jonat/nbd-wt-audit/docs/pro/js/vault-page.js still contains `oninput=\"filterSessions(this.value)\"` at line 450 (#s"
+  ]
+ },
+ {
+  "id": "vault-ai-analyze-csp-blocked",
+  "severity": "P3",
+  "file": "docs/pro/js/vault-page.js:2111",
+  "claim": "Two interaction-triggered vault features are guaranteed failures independent of the dead init: (1) the '🧠 Analyze with AI' button (data-v-action=\"analyzeSessionsWithAI\", rendered at line 419) fetches https://api.anthropic.com/v1/messages directly from the browser with no API key/auth headers — the global CSP's connect-src does not include api.anthropic.com, so the fetch is refused at the CSP layer before it could even 401; (2) the session-import 'Import to Firestore' button's FORMAT-1 path (importSessionPayload, line 1427) runs eval(payload) on pasted text, which the CSP (script-src without 'unsafe-eval') refuses with an EvalError. Both surface as caught errors/failed status text when the admin clicks the respective buttons.",
+  "evidence": "vault-page.js:2111-2117: const response = await fetch('https://api.anthropic.com/v1/messages', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ model:'claude-haiku-4-5-20251001', ... }) }); — no x-api-key/anthropic-version headers. firebase.json ** CSP connect-src lists googleapis/cloudfunctions/stripe/sentry/etc but NOT api.anthropic.com. vault-page.js:1425-1427: if (payload.includes('vaultImportSession')) { eval(payload); ... } — script-src has no 'unsafe-eval'.",
+  "fixDirection": "Route the analysis through the existing claude-proxy Cloud Function (functions side holds the key; connect-src already allows *.cloudfunctions.net) instead of calling Anthropic from the browser. Replace the eval import path with the already-working JSON.parse path (FORMAT 2) — e.g. strip the vaultImportSession(...) wrapper with a regex and parse the inner object.",
+  "finder": "undeclared-idents",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Both sub-claims verified against actual code and policy. (1) docs/pro/js/vault-page.js:2111 fetches https://api.anthropic.com/v1/messages with only a Content-Type header; /pro/vault is governed by the global ** CSP in firebase.json (the /pro/vault header rule only overrides Cache-Control — header me",
+   "UPHOLD: NOT refuted — both claimed failures are real and reachable by the admin on the live site, with one reachability nuance on claim (1). Reachability verified: /pro/vault.html is live (linked from docs/tools/index.html:369, precached in /pro/sw.js:29), admin-gated via vault-auth.module.js → NBDAuth.init",
+   "UPHOLD: Finding survives all three recency checks. (1) NOT fixed on main: git log for docs/pro/js/vault-page.js shows only one commit ever (1a0b5818, PR #468, 2026-05-18); at HEAD d1608acb (2026-06-10) the file still contains eval(payload) at line 1426 and the keyless fetch('https://api.anthropic.com/v1/mes"
+  ]
+ },
+ {
+  "id": "photo-review-bulkshare-copy-dead-path",
+  "severity": "P3",
+  "file": "docs/pro/js/portal-link-helpers.js:92",
+  "claim": "On /pro/photo-review.html, the bulk 'Share' flow's follow-up copy-portal-link step can never succeed and fails completely silently. photo-review.js's prBulkShare handler (line 444-450) calls window.PortalLinkHelpers.copyForLead(state.lead) after flipping sharedWithHomeowner; copyForLead → resolveUrl, which hard-requires window.CustomerPortal (throws 'Portal module not loaded') and window.doc/window.getDoc — none of which are loaded on this page (the page loads only portal-link-helpers.js + the photo-review.js module, which sets only window.db). The catch path then calls _toast → window.showToast, which is ALSO absent on this page (photo-review.js's showToast is module-scoped, not a window global), so the error toast no-ops. User action: select photos → tap 'Share' in the bulk bar — photos get shared (the rep sees the 'Shared N photos' toast from photo-review.js's own showToast), but the promised best-effort portal-link copy never happens and no failure feedback is ever shown. No ReferenceError (all reads are guarded property accesses), but the cross-script contract is unsatisfiable on this page — same latent class as NEW-D26.",
+  "evidence": "photo-review.js:444-450: if (window.PortalLinkHelpers && typeof window.PortalLinkHelpers.copyForLead === 'function' && state.lead) { window.PortalLinkHelpers.copyForLead(state.lead); } — portal-link-helpers.js:92-97: if (typeof window.CustomerPortal === 'undefined') { throw new Error('Portal module not loaded'); } if (!window.db || !window.doc || !window.getDoc) { throw new Error('Firestore not loaded'); } — portal-link-helpers.js:27-29: function _toast(msg, type) { if (typeof window.showToast === 'function') window.showToast(msg, type || 'info'); } — photo-review.html script tags (lines 497, 499) load only these two files; photo-review.js:39 sets window.db only; its showToast (line 601) is module-scoped.",
+  "fixDirection": "Either load customer-portal.js (provider of window.CustomerPortal) plus expose modular doc/getDoc on photo-review.html, or drop the copyForLead call there and instead surface the already-known portal URL (state.lead.portalUrl) with photo-review's own clipboard+toast code. Also consider having photo-review.js assign window.showToast = showToast so PortalLinkHelpers' error feedback isn't swallowed.",
+  "finder": "undeclared-idents",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Confirmed, not refuted. photo-review.html loads exactly two scripts (lines 497/499: js/portal-link-helpers.js and module js/pages/photo-review.js); grep shows no inline scripts or other loaders. The prBulkShare handler (pages/photo-review.js:431-454) calls window.PortalLinkHelpers.copyForLead(state.",
+   "UPHOLD: Finding CONFIRMED on reachability grounds — the broken path is hit on EVERY use of the bulk Share feature, which is itself a first-class, ungated flow. Chain: (1) docs/pro/customer.html:1486 Photos tab has a visible \"Review & Sort\" button whose click handler (lines 1504-1521) navigates to photo-revi",
+   "UPHOLD: Recency check fails to refute. (1) Not fixed on origin/main: portal-link-helpers.js last touched 2026-05-19 (#499), docs/pro/js/pages/photo-review.js last touched 2026-05-31 (emulator wiring), photo-review.html last touched 2026-05-19 (#496) — none address this; current HEAD content matches the clai"
+  ]
+ },
+ {
+  "id": "vault-boot-firebase-ready-never-fires",
+  "severity": "P1",
+  "file": "docs/pro/js/vault-page.js:36",
+  "claim": "The entire /pro/vault.html data layer is dead chrome: vault-page.js gates ALL boot work (loadFromFirestore, renderOverview, seeding) on a 'firebase-ready' window event that no script loaded on this page ever dispatches. The only dispatcher in the repo is docs/admin/vault.html:54 (a different, legacy page). vault.html loads only js/vault-auth.module.js + js/vault-page.js; vault-auth.module.js calls NBDAuth.init and sets window._db in onReady but never dispatches 'firebase-ready', and NOTHING anywhere sets window._firestore (which vault-page.js:40 reads and every load/save destructures). User-visible symptom: Overview is stuck at 'Loading...' forever (overviewTitle/overviewSubtitle/blockersPreview/nextSessionMission/recentSessions), sidebar badges stay at the hardcoded HTML values (Tasks 12, Debt 7, Blockers 1), every nav page renders from the never-loaded empty CODEX seed, and the prominent '💾 Save Now' button (plus Admin-page 'Save to Firestore Now' / 'Import to Firestore') forever toasts 'Firestore still loading — please retry in a moment' because the saveToFirestore guard at lines 94-98 can never pass. Note this is a double fault: even if the event were dispatched, window._firestore is still undefined so loadFromFirestore's `const {doc, getDoc} = firestore` throws.",
+  "evidence": "vault-page.js:36 `window.addEventListener('firebase-ready', async () => {` … :39-40 `db = window._db; firestore = window._firestore;` … :94-97 `if (!firestore || !db) { … toast('Firestore still loading — please retry in a moment', 'info'); return false; }`. vault-auth.module.js (entire 13 lines) contains no dispatchEvent and no window._firestore assignment; repo-wide grep for 'firebase-ready' dispatch hits only docs/admin/vault.html:54. nbd-auth.js exposes `get db()` (line 167) and sets window._db (278/734) but never dispatches the event or exposes modular firestore helpers as window._firestore.",
+  "fixDirection": "In vault-auth.module.js onReady: import the needed modular firestore helpers (doc, getDoc, setDoc) alongside NBDAuth, set window._firestore = { doc, getDoc, setDoc }, set window._db = NBDAuth.db, then window.dispatchEvent(new Event('firebase-ready')). Alternatively refactor vault-page.js boot to run from NBDAuth's onReady callback directly. Verify with fresh-profile headless Chrome that Overview populates and Save Now writes codex/latest.",
+  "finder": "dead-chrome",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Finding verified, not refuted. (1) docs/pro/vault.html loads only vault-auth.module.js (line 11) and vault-page.js (line 886) — no other scripts. (2) vault-page.js:36 gates all boot on window 'firebase-ready'; repo-wide grep shows the ONLY dispatcher is docs/admin/vault.html:54 (different page); mar",
+   "UPHOLD: Verified, not refuted. Mechanism: /pro/vault.html (docs/pro/vault.html) loads only js/vault-auth.module.js (line 11) and js/vault-page.js (line 886). vault-page.js:36 gates all data boot on a 'firebase-ready' window event; repo-wide grep confirms the only dispatcher is docs/admin/vault.html:54 (lega",
+   "UPHOLD: Recency refutation fails on all three prongs. (1) Not already fixed: current origin/main HEAD (d1608acb) still has the bug — docs/pro/js/vault-page.js:36 gates all boot on 'firebase-ready', :39-40 read window._db/window._firestore, :94-98 contain the retry-toast guard; last commit touching vault-pag"
+  ]
+ },
+ {
+  "id": "vault-search-inputs-csp-oninput-dead",
+  "severity": "P2",
+  "file": "docs/pro/js/vault-page.js:450",
+  "claim": "Both search inputs on /pro/vault.html are CSP-dead: the Sessions-page filter input (renderSessions template, line 450) is emitted with oninput=\"filterSessions(this.value)\" and the Search-page input (renderSearch template, line 970) with oninput=\"executeSearch()\". The global ** CSP header (firebase.json:60) carries script-src-attr 'none', so the browser refuses both inline handler attributes. A CSP-safe input delegate was ADDED at the bottom of vault-page.js (lines 2294-2311) whose comment claims 'The 2 search inputs use data-v-action instead' — but the two templates were never converted: zero occurrences of data-v-action/data-v-pass on either input. User-visible symptom: typing in 'Search sessions...' or the full-text 'Search Codex' box does nothing, ever (independent of the P1 boot bug).",
+  "evidence": "vault-page.js:450 `oninput=\"filterSessions(this.value)\"` and :970 `oninput=\"executeSearch()\"` inside template literals; :2295-2296 comment `// Strict CSP at firebase.json:44 blocks inline oninput= attributes. The 2 search inputs use data-v-action instead and dispatch here.`; `grep -c data-v-pass vault-page.js` → 0. firebase.json:60 global ** CSP includes `script-src-attr 'none'`. filterSessions (line 475) and executeSearch (line 980) are declared, so the fix is markup-only.",
+  "fixDirection": "Replace the two oninput attributes with data-v-action=\"filterSessions\" data-v-pass=\"value\" and data-v-action=\"executeSearch\" respectively — the existing input delegate at vault-page.js:2297-2311 already dispatches window[action](value).",
+  "finder": "dead-chrome",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Verified every element of the claim against C:/Users/jonat/nbd-wt-audit and could not refute it. (1) CSP applies: firebase.json's global \"**\" header block (lines 49-63) carries Content-Security-Policy with `script-src-attr 'none'`; the only /pro/vault-specific rule (firebase.json:94-98) sets Cache-C",
+   "UPHOLD: Claim verified on both correctness and reachability. Correctness: docs/pro/js/vault-page.js emits oninput=\"filterSessions(this.value)\" (line 450, #sessionSearch in renderSessions) and oninput=\"executeSearch()\" (line 970, #searchInput in renderSearch); the global ** CSP header (firebase.json:60) incl",
+   "UPHOLD: Finding is REAL and CURRENT on origin/main — not refutable on recency grounds. (1) Not fixed: audit worktree HEAD d1608acb; last commit touching docs/pro/js/vault-page.js is 1a0b5818 (PR #468, 2026-05-18 CSP onclick sweep). Current file content still has oninput=\"filterSessions(this.value)\" (line 45"
+  ]
+ },
+ {
+  "id": "photoreview-share-portal-link-copy-dead",
+  "severity": "P3",
+  "file": "docs/pro/js/pages/photo-review.js:444",
+  "claim": "On /pro/photo-review.html the bulk 'Share' button's second half — copying the homeowner portal link, the stated reason portal-link-helpers.js is loaded on this page — can never work. PortalLinkHelpers.copyForLead → resolveUrl hard-requires window.CustomerPortal (defined only in js/customer-portal.js, which photo-review.html does not load) and window.doc/window.getDoc (never set on this page; photo-review.js exposes only window.db). copyForLead therefore always throws 'Portal module not loaded', and even the error toast is invisible because portal-link-helpers' _toast requires window.showToast, while photo-review.js keeps its showToast module-scoped. _recordShare (lastSharedAt stamping) likewise silently no-ops. User-visible symptom: Share correctly flips sharedWithHomeowner on the photos and toasts 'Shared N photos…', but the promised one-click link copy silently never happens and no error is shown.",
+  "evidence": "photo-review.html:494-497 comment 'portal-link helpers power the Share bulk action so a rep can mark selected photos shared + open the SMS/copy/email share flow with one click' + `<script src=\"js/portal-link-helpers.js?v=1\">`; photo-review.js:444-450 `if (window.PortalLinkHelpers && typeof window.PortalLinkHelpers.copyForLead === 'function' && state.lead) { window.PortalLinkHelpers.copyForLead(state.lead); }`; portal-link-helpers.js:92-97 `if (typeof window.CustomerPortal === 'undefined') throw new Error('Portal module not loaded'); if (!window.db || !window.doc || !window.getDoc) throw new Error('Firestore not loaded');`; :27-29 `_toast` no-ops without window.showToast; window.CustomerPortal is only assigned at customer-portal.js:594; photo-review.js:39 sets only `window.db = db`.",
+  "fixDirection": "Either load customer-portal.js (+ expose window.doc/getDoc/serverTimestamp/updateDoc from the module like customer.html does) on photo-review.html, or have photo-review.js read lead.portalUrl directly / call its own copy path, and bridge window.showToast = showToast so helper toasts surface.",
+  "finder": "dead-chrome",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Could not refute — every load-bearing claim checks out against origin/main. (1) Reachability: photo-review.html:479 ships #prBulkShare and photo-review.js:431-454 wires it; the guard at :444 passes because portal-link-helpers.js IS loaded (photo-review.html:497), so copyForLead(state.lead) runs on e",
+   "UPHOLD: CONFIRMED — the broken path is on the feature's normal happy path, not behind any gate. Reachability chain, verified end-to-end in C:/Users/jonat/nbd-wt-audit:\n\n(1) Page is reachable on the live site: docs/pro/customer.html:1486 ships the \"Review & Sort\" button on the Photos tab; its click handler (",
+   "UPHOLD: Recency refutation FAILS — the finding is current, unfixed, and unlogged. (1) Not fixed on origin/main: at HEAD d1608acb, docs/pro/js/pages/photo-review.js:444-450 contains the exact claimed gate calling window.PortalLinkHelpers.copyForLead(state.lead); photo-review.html (lines 494-499) loads ONLY j"
+  ]
+ },
+ {
+  "id": "photoreview-location-chip-empty-picker",
+  "severity": "P3",
+  "file": "docs/pro/js/pages/photo-review.js:294",
+  "claim": "Every photo tile renders a Location chip ('+ Location' when empty), but the chip can never be used to SET a location: tapping an empty location chip calls openPicker('location'), and FIELD_OPTIONS has no 'location' key, so the picker sheet opens with zero option buttons — only the 'Clear value' button. Long-press does the same. The chip is a visible control whose primary action (choose a location) is impossible; only accepting an AI-inferred location (suggested state) or clearing works.",
+  "evidence": "photo-review.js:294 `chip('location', chipValue(photo, 'location'), chipState(photo, 'location'))`; :370-372 empty state → `openPicker(field, photoId)`; :472 `const opts = FIELD_OPTIONS[field] || [];` with FIELD_OPTIONS (lines 171-175) defining only phase/damageType/severity; openPicker renders opts.map(...) → empty HTML into #prPickerOptions, leaving only #prPickerClear.",
+  "fixDirection": "Add a location entry to FIELD_OPTIONS (e.g. cardinal/area options matching inferredLocation labels) or swap the location picker for a free-text prompt; alternatively render the chip read-only when there is no AI suggestion.",
+  "finder": "dead-chrome",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Confirmed, not refuted. All cited evidence checks out in docs/pro/js/pages/photo-review.js: renderTile always emits the location chip (:294); empty-state tap (:370-372) and any long-press (:327-336) call openPicker('location', photoId); openPicker does FIELD_OPTIONS[field] || [] (:472) and FIELD_OPT",
+   "UPHOLD: Confirmed real and fully reachable on the live site. Reachability chain: (1) the page is linked from the core CRM customer page — docs/pro/customer.html:1486 \"Review & Sort\" button navigates to photo-review.html?id=<leadId> via a click handler that works because /pro/customer is the one CSP-excepted",
+   "UPHOLD: Finding stands on all three recency grounds. (1) Current origin/main (HEAD d1608acb, 2026-06-10) contains the bug exactly as cited: docs/pro/js/pages/photo-review.js lines 171-175 define FIELD_OPTIONS with only phase/damageType/severity (no 'location', though FIELD_TITLE line 177 includes 'location:"
+  ]
+ },
+ {
+  "id": "dailysuccess-welcome-theme-picker-empty",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/index.html:1052",
+  "claim": "The first-run welcome modal on /pro/daily-success advertises a theme picker that never renders: the modal shows the heading '🎨 Pick Your Color Theme' above #welcomeThemePicker (marked '<!-- Filled by JS -->'), but app.js explicitly stubs the filler to a no-op (`window.buildWelcomeThemePicker = () => {}` with comment 'DS welcome modal — no-op, full picker replaces it') and no loaded script ever writes into the container (repo-wide grep finds no other writer). New users see a section title promising theme swatches over an empty box. The exhaustive-sweep ledger's note that it is 'filled by JS (theme swatches)' is stale.",
+  "evidence": "index.html:1050-1054 `<div ...>🎨 Pick Your Color Theme</div><div id=\"welcomeThemePicker\" ...><!-- Filled by JS --></div>`; app.js:1375 `window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full picker replaces it`; grep for welcomeThemePicker across the repo hits only index.html and the QA ledger notes — no renderer.",
+  "fixDirection": "Either delete the heading + container from the welcome modal (the 🎨 topbar button opens the full picker), or implement buildWelcomeThemePicker to emit a few NBD_THEMES swatches with data-action delegates and call it from welcome-gate/openWelcomeGuide.",
+  "finder": "dead-chrome",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Could not refute; every check confirms the finding. (1) docs/pro/daily-success/index.html:1049-1055 statically ships the heading '🎨 Pick Your Color Theme' above an empty #welcomeThemePicker container, and no code removes or hides that section. (2) The page's complete script list is Chart.js CDN, au",
+   "UPHOLD: Reachability is fully established — this is not a dead path. (1) Page reachable: /pro/daily-success is linked from docs/pro/dashboard.html, docs/tools/index.html, docs/pro/js/dashboard-actions.js, widgets.js and nav scripts. (2) Modal reachable, automatically: docs/pro/daily-success/js/welcome-gate.",
+   "UPHOLD: Finding NOT refutable on recency grounds. (1) Not fixed on main: at origin/main HEAD d1608acb (2026-06-10), docs/pro/daily-success/index.html:1049-1055 still ships the '🎨 Pick Your Color Theme' heading over an empty #welcomeThemePicker ('<!-- Filled by JS -->'), and BOTH possible fillers are explic"
+  ]
+ },
+ {
+  "id": "estimateview-cta-css-selector-mismatch",
+  "severity": "P3",
+  "file": "docs/pro/estimate-view.html:215",
+  "claim": "On the customer-facing /pro/estimate-view.html the CTA row's brand styling is dead: the page CSS styles anchors (`.ev-cta-row a`, `.ev-cta-row a.ghost`, hover states), but the renderer emits `<button type=\"button\" class=\"ghost\" data-ev-action=...>` elements (converted from anchors during the CSP onclick sweep, per the 'Wave 28' comment). The click delegate works (Print / Back both function), but the buttons render as unstyled native browser buttons instead of the full-width orange/ghost brand CTAs — a visibly broken-looking control row on a homeowner-facing surface.",
+  "evidence": "estimate-view.html:215-236 `.ev-cta-row a { flex:1; … background: var(--nbd-orange); … }` and `.ev-cta-row a.ghost { … }` — selectors target `a` only; estimate-view.js:111-112 emits `'<button type=\"button\" class=\"ghost\" data-ev-action=\"print\">Print / Save PDF</button>'` + `'<button … data-ev-action=\"back\">Back</button>'`; estimate-view.js:122 comment `// Wave 28: button delegates (replaces inline onclick=\"window.print()\" etc.)`.",
+  "fixDirection": "Change the CSS selectors to `.ev-cta-row a, .ev-cta-row button` (plus the .ghost variants and button-reset rules: border:0, font:inherit, cursor:pointer), or emit styled <a href=\"#\"> with preventDefault in the delegate.",
+  "finder": "dead-chrome",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Confirmed, not refuted. docs/pro/estimate-view.html:215-236 styles the CTA row exclusively via anchor selectors (.ev-cta-row a, .ev-cta-row a:hover, .ev-cta-row a.ghost, .ev-cta-row a.ghost:hover); the page's inline style block contains no `button` selector at all. docs/pro/js/estimate-view.js:111-1",
+   "UPHOLD: Finding is REAL and REACHABLE on the primary intended user path. (1) Mismatch verified: estimate-view.html:215-236 styles only `.ev-cta-row a` / `.ev-cta-row a.ghost` (anchor selectors), while estimate-view.js:111-112 emits `<button type=\"button\" class=\"ghost\" data-ev-action=...>`; no loaded stylesh",
+   "UPHOLD: The finding survives all three recency checks against origin/main at C:/Users/jonat/nbd-wt-audit.\n\n1) NOT already fixed on origin/main. Current HEAD of C:/Users/jonat/nbd-wt-audit/docs/pro/estimate-view.html (lines 215-236) still styles anchors only: `.ev-cta-row a { flex:1; ... background: var(--nb"
+  ]
+ },
+ {
+  "id": "ds-sync-leaderboard-batch-poison",
+  "severity": "P1",
+  "file": "docs/pro/daily-success/ds-firebase-sync.js:76",
+  "claim": "Every Daily Success cloud sync fails, permanently. pushToFirestore() builds ONE writeBatch containing (a) per-page sets to users/{uid}/ds_pages/* and users/{uid}/ds_meta/streaks — which the rules allow — and (b) a set to leaderboard/{uid} (lines 76-83), which firestore.rules locks to admin-SDK-only ('allow write: if false', firestore.rules:399; the block comment explicitly says client writes are banned to prevent stat inflation). Firestore batches are atomic, so the denied leaderboard write rejects the ENTIRE commit: the legal ds_pages/ds_meta writes never land either. User-visible: every edit on /pro/daily-success (savePages → 2s debounce → push, ds-firebase-sync.js:107-112) flashes the 'Sync failed' badge; the first-login local-backup path (line 137) shows 'Sync error'; no Daily Success data is ever backed up to Firestore and cross-device sync is dead — all data lives only in localStorage key nbd_dsp_v1. Side effect: the leaderboard collection has NO server-side writer either (grep of functions/ finds only the GDPR-erasure list in functions/integrations/user-owned.js:141), so leaderboard/{uid} docs can never exist by any path.",
+  "evidence": "ds-firebase-sync.js:70-84: `const batch = writeBatch(db); for (const page of pages) { batch.set(doc(db,'users',_uid,'ds_pages',String(page.id)), ...) } batch.set(doc(db,'users',_uid,'ds_meta','streaks'), ...); batch.set(doc(db,'leaderboard',_uid), { uid:_uid, displayName..., door_streak..., total_revenue..., }, {merge:true}); await batch.commit();` vs firestore.rules:395-400: `match /leaderboard/{uid} { allow read: ...; allow write: if false; }` (comment: 'Writes are admin-SDK only — counters must come from a Cloud Function'). Loaded on docs/pro/daily-success/index.html:1294.",
+  "fixDirection": "Remove the leaderboard/{uid} set from the client batch (it has no legitimate client path under current rules). Either drop leaderboard sync entirely until a Cloud Function aggregator exists, or move the streak rollup into a callable that writes leaderboard via admin SDK. At minimum, split the leaderboard write out of the atomic batch so ds_pages/ds_meta still persist. Note /pro/js/pages/leaderboard.js doesn't even read the leaderboard collection (it recomputes from leads/knocks/invoices with proper owner clauses), so the write is currently pure poison with zero consumers.",
+  "finder": "rules-denied",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: CONFIRMED — every refutation angle failed against the actual code at C:\\Users\\jonat\\nbd-wt-audit.\n\n1. The batch poison is real. docs/pro/daily-success/ds-firebase-sync.js:70-84 builds ONE writeBatch: per-page sets to users/{_uid}/ds_pages/{id} (line 72), users/{_uid}/ds_meta/streaks (line 74), and d",
+   "UPHOLD: Finding CONFIRMED as real and fully reachable. (1) Page reachable: /pro/daily-success/ is linked from dashboard.html main nav (lines 7146/7168), sidebar 'Success Tracker' (line 7717), customer panel (10415), mobile menu, analytics/ai-tree/ai-tool-finder navs — core chrome. (2) Script executes live: ",
+   "UPHOLD: The finding survives recency verification on all three grounds; it is a real, still-live bug on origin/main.\n\n(1) NOT fixed on origin/main. After a fresh `git fetch`, the last commit touching C:\\Users\\jonat\\nbd-wt-audit\\docs\\pro\\daily-success\\ds-firebase-sync.js on origin/main is 91c71b07 (2026-05-1"
+  ]
+ },
+ {
+  "id": "vault-codex-no-match-block",
+  "severity": "P2",
+  "file": "docs/pro/js/vault-page.js:65",
+  "claim": "Every Firestore operation in the Eternal Vault engine targets collections with NO match block in firestore.rules, so all of them fall through to the default deny: getDoc(codex/latest) at vault-page.js:65-68 (loadFromFirestore), setDoc(codex/latest) at 103-108 (saveToFirestore, also called by the 60s auto-save at 143-147 and seedFirestore at 129), and setDoc(codex-sessions/sNN-delta) at 1647-1649 (saveSessionToFirestore, triggered by session import). Even the platform-admin role is denied — default deny has no role carve-out, and the page's NBDAuth requireAdmin gate (vault-auth.module.js:7) is irrelevant at the rules layer. User-visible (once reachable): load always falls back to 'Failed to load from Firestore — using local data', every Save/auto-save toasts 'Failed to save to Firestore: Missing or insufficient permissions', and session imports throw. Currently the failure is masked by a second, NEW-D26-class defect: vault-page.js waits for a 'firebase-ready' event (line 36) and a window._firestore global that NOTHING on /pro/vault.html ever provides — vault-auth.module.js sets only window._db and never dispatches the event (the only dispatcher in the repo is the separate inline copy in docs/admin/vault.html:54). So /pro/vault.html's engine never initializes at all; fixing that boot gap will immediately expose the rules wall.",
+  "evidence": "vault-page.js:65 `const docRef = doc(db, 'codex', 'latest');` + :103-108 `await setDoc(latestRef, {...CODEX, lastSaved..., savedBy:'vault-v2'})` + :1647-1649 `const deltaRef = doc(db, 'codex-sessions', `s${...}-delta`); await setDoc(deltaRef, sessionData);` — firestore.rules contains no `match /codex/` or `match /codex-sessions/` block; the only applicable rule is the default deny at firestore.rules:833-836 `match /{document=**} { allow read, write: if false; }`. /pro/vault.html loads exactly two scripts (lines 11 and 886): vault-auth.module.js (sets window._db only) and vault-page.js (waits on never-fired 'firebase-ready' and never-set window._firestore).",
+  "fixDirection": "Decide whether the vault is a real product surface. If yes: add owner/admin-scoped match blocks for codex/{docId} and codex-sessions/{docId} (e.g. allow read, write: if isAdmin(); — matches the page's requireAdmin intent), AND fix the boot gap (have vault-auth.module.js set window._firestore to the modular helpers and dispatch 'firebase-ready' after NBDAuth onReady, mirroring docs/admin/vault.html:54). If the /pro copy is superseded by /admin/vault.html, delete /pro/vault.html + vault-page.js + vault-auth.module.js instead.",
+  "finder": "rules-denied",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Every factual claim verified against the repo. (1) firestore.rules contains no match block for 'codex' or 'codex-sessions' (grep: zero hits); the full enumeration of all 73 match statements shows no top-level wildcard except the default deny at lines 834-836 (allow read, write: if false), which has ",
+   "UPHOLD: Every factual element verified at the claimed locations. (1) Rules gap real: firestore.rules has no match block containing 'codex' (grep: zero hits); default deny at lines 834-836 is the only applicable rule, with no admin carve-out, so getDoc(codex/latest) [vault-page.js:65-68], setDoc(codex/latest",
+   "UPHOLD: Finding survives the recency lens on all three axes. (1) Not fixed on main: at origin/main HEAD d1608acb (#627), docs/pro/js/vault-page.js, docs/pro/js/vault-auth.module.js, and docs/pro/vault.html were last touched by #468 (1a0b5818, 2026-05-18); `git log --all --since=2026-05-19 -- <those files>` "
+  ]
+ },
+ {
+  "id": "ds-app-theme-write-dead-path",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/js/app.js:1207",
+  "claim": "Not rules-denied, but a guaranteed-dead write worth logging: nbdApplyTheme's Firestore theme persist (`db.collection('users').doc(currentUser.uid).set({theme:id},{merge:true})`) is guarded by `typeof db !== 'undefined' && typeof currentUser !== 'undefined'`, and on /pro/daily-success no global compat `db` or `currentUser` exists (ds-firebase-sync.js is a module with module-scoped modular-SDK bindings; it exports nothing to window). The guard means it silently no-ops instead of throwing, so the theme picked on the Daily Success page never syncs to users/{uid} — pure localStorage. The rules WOULD allow the write (users/{uid} owner update touching only 'theme' passes didNotChange at firestore.rules:340-341), so this is a NEW-D26-adjacent dead path, not a rules denial.",
+  "evidence": "app.js:1206-1210: `try { if (typeof db !== 'undefined' && typeof currentUser !== 'undefined' && currentUser) { db.collection('users').doc(currentUser.uid).set({ theme: id }, { merge: true }); } } catch(e) {}` — compat-style API; no compat SDK or `db`/`currentUser` globals are loaded anywhere on /pro/daily-success/index.html.",
+  "fixDirection": "Either delete the vestigial compat block (theme already persists via localStorage 'nbd-theme'/'nbd_pro_theme' at app.js:1203-1204, which the dashboard engine reads), or expose the modular db from ds-firebase-sync.js and rewrite the persist with modular setDoc.",
+  "finder": "rules-denied",
+  "refutes": 0,
+  "voters": 3,
+  "verdictReasons": [
+   "UPHOLD: Could not refute; every element of the finding verified. (1) docs/pro/daily-success/js/app.js:1206-1210 matches the quoted evidence exactly. (2) The page loads exactly 5 scripts (Chart.js CDN, js/auth-init.js module, js/welcome-gate.js, js/app.js, ds-firebase-sync.js module) — none defines a global ",
+   "UPHOLD: VERIFIED, not refuted — the dead path is trivially reachable on the live site, and the finder's mechanics check out exactly. Reachability chain, all confirmed in C:/Users/jonat/nbd-wt-audit: (1) /pro/daily-success/ is linked from live chrome everywhere — docs/pro/dashboard.html:7146/7168 (nnav links",
+   "UPHOLD: NOT refuted on recency grounds — the dead path exists verbatim at origin/main HEAD and is unlogged. Evidence: (1) Current file content: C:/Users/jonat/nbd-wt-audit/docs/pro/daily-success/js/app.js lines 1206-1210 contain exactly the claimed block (`if (typeof db !== 'undefined' && typeof currentUser"
+  ]
+ },
+ {
+  "id": "estimateview-cta-row",
+  "severity": "P3",
+  "file": "docs/pro/estimate-view.html",
+  "claim": "CTA row controls (rendered only after a successful getEstimateForView fetch): 'Print / Save PDF' button [data-ev-action=print] calls window.print(); 'Back' button [data-ev-action=back] calls history.back(). Handler is a click delegate attached to #evRoot inside renderEstimate() (js/estimate-view.js:123-129), so the delegate exists only on the success path — never on error/loading states. GATE: needs ?token=...&estimateId=... query; the token is a portal_tokens/{token} doc minted by the createPortalToken onCall (functions/portal.js:131, invoked from dashboard _sharePortalLink / CustomerPortal.generate share flows); getEstimateForView (functions/portal.js:1531) validates token expiry/replay-cap and that the estimate belongs to the token's lead. Conditional/visual note: the row is hidden under @media print, and the page CSS styles only '.ev-cta-row a' (anchors) while the controls are <button> elements — buttons render with default UA styling, not the orange CTA style.",
+  "evidence": "#evRoot [data-ev-action=\"print\"], #evRoot [data-ev-action=\"back\"] (markup built at js/estimate-view.js:111-112; delegate :123-129; CSS .ev-cta-row a at estimate-view.html:215-236)",
+  "fixDirection": "Ledger pass: verify both buttons fire post-render and confirm button-vs-anchor styling gap on a live token link.",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "estimateview-render-states",
+  "severity": "P3",
+  "file": "docs/pro/estimate-view.html",
+  "claim": "Non-button interactive surface / states: (1) initial state '.ev-loading' (Loading your estimate…); (2) error state '.ev-error' set by showError() for missing token/estimateId ('This link is missing required information'), non-OK fetch (server error message), or network failure ('link may have expired') — error states contain NO retry control, only static text; (3) data-shape conditional rendering: tier comparison cards render only when est.tiers.{good|better|best} exists (featured ring on est.tier), otherwise single-tier line list renders only when est.lines is a non-empty array, else italic 'Detailed line items will be reviewed in person'; customer block renders only when est.owner||est.addr. GATE: none beyond the token fetch itself; everything is read-only display. No keyboard handlers exist on this page.",
+  "evidence": ".ev-loading, .ev-error (js/estimate-view.js:19-26,34-42), .ev-tier-card[.featured] (:73-84), .ev-line-list/.ev-line (:86-103), .ev-customer (:65-70), .ev-foot static footer text (:115-118)",
+  "fixDirection": "Ledger: exercise all three fetch-failure branches (bad token, expired 410, network) and the tiers-vs-lines payload shapes.",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "photoreview-header",
+  "severity": "P3",
+  "file": "docs/pro/photo-review.html",
+  "claim": "Header controls: '← Back' anchor #prBack ships as href=\"#\" and is rewritten to /pro/customer.html?id=<leadId> only after auth resolves AND a lead param exists (photo-review.js:65) — before that, clicking it is a no-op hash jump. #prLeadName/#prCounter are display-only (counter re-rendered via innerHTML each snapshot). 'Generate Report' button #prGenerateBtn starts disabled, is enabled when state.photos.length>0, and its onclick (assigned every render, photo-review.js:200-204) navigates to /pro/customer.html?id=<leadId>#photo-report to auto-open the Homeowner-vs-Adjuster picker on customer.html. GATE: Firebase auth — onAuthStateChanged redirects logged-out users to /pro/login.html; also needs ?lead= or ?id= query param (otherwise 'No lead specified' dead-end with no controls). Error state on lead-load failure renders a 'Back to dashboard' link to /pro/dashboard.html.",
+  "evidence": "#prBack, #prLeadName, #prCounter, #prTotal, #prGenerateBtn (photo-review.html:437-445; js/pages/photo-review.js:58-70,196-204)",
+  "fixDirection": "Ledger: confirm Generate hand-off opens the report picker on customer.html and that no-param/error states are reachable.",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "photoreview-filter-bar",
+  "severity": "P3",
+  "file": "docs/pro/photo-review.html",
+  "claim": "Filter bar: five .pr-filter buttons with data-filter=all|Before|During|After|unsorted, each carrying a live count badge (#cnt-all, #cnt-Before, #cnt-During, #cnt-After, #cnt-unsorted updated every snapshot). One click delegate on #prFilterBar (photo-review.js:305-312) toggles .active, sets state.filter, re-renders the grid. 'Needs review' (unsorted) = photos with no confirmed/AI phase. GATE: Firebase auth (page-level); no writes.",
+  "evidence": "#prFilterBar .pr-filter[data-filter], .pr-filter-count ids cnt-all/cnt-Before/cnt-During/cnt-After/cnt-unsorted (photo-review.html:448-454; js:189-193,305-312)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "photoreview-tile-chips",
+  "severity": "P3",
+  "file": "docs/pro/photo-review.html",
+  "claim": "Photo-tile chip controls (rendered per photo): four .pr-chip buttons per tile (data-field=phase|location|damageType|severity, data-photo-id, data-state=suggested|accepted|overridden|empty). Tap behavior is state-dependent (handleChipTap, photo-review.js:361-377): 'suggested' → accepts the AI value via updateDoc(photos/{id}) + toast; 'empty' → opens picker; 'accepted'/'overridden' → info toast 'Long-press to change'. Long-press (450ms pointerdown timer, js:321-340) on a chip opens the picker for that field. Tile image area [data-tile-img]: tap toggles bulk selection (toggleSelect); long-press opens the lightbox with the full-res URL. Confidence dot .pr-tile-conf[data-level=high|medium|low] and AI-pending shimmer .pr-tile-pending are display-only and conditional on photo.aiSuggestion existing. GATE: Firebase auth + Firestore rules — photos updates require isOwner(resource.data.userId) (firestore.rules:283-286); the subscription query is already owner-scoped (where userId==uid AND leadId==lead), so writes match rules. Note location field has no FIELD_OPTIONS entry, so its picker renders zero option buttons (only 'Clear value').",
+  "evidence": ".pr-chip[data-field][data-photo-id][data-state], [data-tile-img][data-photo-id], .pr-tile-conf[data-level], .pr-tile-pending (js renderTile:263-302, delegates :321-359, updatePhotoField:379-389)",
+  "fixDirection": "Ledger: verify each chip state transition writes, and check the location-field picker which has no options dictionary.",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "photoreview-picker",
+  "severity": "P3",
+  "file": "docs/pro/photo-review.html",
+  "claim": "Picker overlay #prPicker[data-open]: option buttons .pr-picker-opt[data-pick=<value>] built from FIELD_OPTIONS (phase: Before/During/After; damageType: hail/wind/wear/granular_loss/leak/none/other; severity: minor/moderate/severe), current value highlighted .pr-picker-opt-current; '#prPickerClear' (Clear value) applies null. applyPickerChoice (js:495-520) batch-updates one photo (chip path) or every selected photo (bulk path, then clears selection) via writeBatch on photos/{id} with updatedAt serverTimestamp. Backdrop click (e.target===picker) closes without applying. GATE: Firebase auth + photos owner rules; bulk path additionally requires a non-empty selection.",
+  "evidence": "#prPicker, #prPickerTitle, #prPickerOptions .pr-picker-opt[data-pick], #prPickerClear (photo-review.html:461-467; js openPicker:467-481, picker click:486-493, applyPickerChoice:495-520)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "photoreview-bulk-bar",
+  "severity": "P3",
+  "file": "docs/pro/photo-review.html",
+  "claim": "Bulk action bar #prBulkBar (slides up only when selection count>0, data-open toggled by updateSelectionUI): 'Phase'/'Damage'/'Severity' buttons [data-bulk-field] open the picker in bulk mode (no-op if selection empty); '📤 Share' #prBulkShare batch-updates sharedWithHomeowner:true on selected photos (makes them visible in getHomeownerPortalView) then best-effort calls window.PortalLinkHelpers.copyForLead(state.lead) — OUTBOUND-SEND adjacent (portal link to clipboard); 'Delete' #prBulkDelete is a DESTRUCTIVE-BOUNDARY control: native confirm() ('This can't be undone') then writeBatch batch.delete on photos/{id} — hard delete, no soft-delete; 'Done' #prBulkClear clears selection. GATE: Firebase auth + photos owner rules for share/delete. CONDITIONAL: the share flow's copy step depends on window.CustomerPortal and window.doc/getDoc globals which photo-review.html never loads (only portal-link-helpers.js is included), so resolveUrl throws 'Portal module not loaded'; the helper's _toast also requires window.showToast which this page does not define (its showToast is module-scoped), so that failure is silent — the sharedWithHomeowner flag still gets set.",
+  "evidence": "#prBulkBar[data-open], #prBulkCount, [data-bulk-field=phase|damageType|severity], #prBulkShare, #prBulkDelete, #prBulkClear (photo-review.html:470-483; js:411-461; portal-link-helpers.js resolveUrl:90-110, _toast:27-29)",
+  "fixDirection": "Ledger: confirm flag write succeeds, then verify whether any user-visible copy/toast happens after Share on this page.",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "photoreview-lasso-lightbox-kbd",
+  "severity": "P3",
+  "file": "docs/pro/photo-review.html",
+  "claim": "Desktop lasso: pointerdown on empty .pr-body space (not on tile/chip/filter/bulk/picker/lightbox, primary button, only when matchMedia '(hover:hover) and (pointer:fine)') starts a selection rectangle #prLasso; pointermove >6px activates it; window pointerup adds all intersecting .pr-tile photoIds to selection. Lightbox #prLightbox[data-open]: opened by tile long-press, shows fullUrl(photo) in #prLightboxImg; closed by #prLightboxClose (×) button or backdrop click; closing also clears img.src. Keyboard: document keydown Escape closes lightbox first, then picker, then clears selection (priority chain, js:591-597). Toast #prToast is display-only; window event 'nbd:ai-classify-skipped' shows cap-reached toasts (lead-cap $10 / daily-cap 100 / monthly) — listener exists but nothing on this page dispatches the event (it is fired by the upload/classify pipeline on other surfaces). GATE: none beyond page auth; all read-only UI state.",
+  "evidence": "#prLasso, #prLightbox, #prLightboxImg, #prLightboxClose, #prToast, document keydown Escape, window 'nbd:ai-classify-skipped' (js:522-618)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "photoreview-portalhelpers-api",
+  "severity": "P3",
+  "file": "docs/pro/js/portal-link-helpers.js",
+  "claim": "Programmatic control surface loaded on photo-review (and customer/kanban pages): window.PortalLinkHelpers exposes resolveUrl(leadId) (Firestore-first portalUrl read then CustomerPortal.generate), copyForLead (clipboard API → execCommand fallback → share-panel fallback that needs window.openGallerySharePanel + #fullPortalUrl, only present on customer.html), smsForLead (OUTBOUND-SEND: sms:<phone>?body= handoff, requires lead.phone, optional TemplatesLibrary picker, cancel aborts), emailForLead (OUTBOUND-SEND: mailto: with subject+body, requires lead.email), previewForLead (builds #nbd-portal-preview-overlay modal: × close button #nbd-portal-preview-close, two 'Open ↗' target=_blank anchors, backdrop click + Esc keydown dismiss, iframe #nbd-portal-preview-iframe with Brave-block probe that flips [data-state] loading→blocked on same-origin probe success or 3.5s timeout), recordShare(leadId, via) (stamps lastSharedAt/lastSharedVia on leads/{id} fire-and-forget, requires window.db/doc/updateDoc globals). GATE for every flow: window.CustomerPortal + modular Firestore globals (window.db/doc/getDoc) — present on customer.html/dashboard, absent on photo-review; all toasts route through window.showToast if defined.",
+  "evidence": "window.PortalLinkHelpers.{resolveUrl,copyForLead,smsForLead,emailForLead,previewForLead,recordShare}; preview modal selectors #nbd-portal-preview-overlay, #nbd-portal-preview-close, #nbd-portal-preview-iframe, #nbd-portal-preview-overlay-state[data-state] (portal-link-helpers.js:90-527)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "sign-load-states",
+  "severity": "P3",
+  "file": "docs/pro/sign.html",
+  "claim": "Boot/load surface (sign-page.js load(), runs at DCL or immediately): GATE is ?token= query ≥10 chars — token is a doc_sign_tokens/{token} doc minted by the createSignRequest onCall (functions/remote-signing.js:67; rep-authenticated + enforceAppCheck, lead-owner-scoped, 7-day TTL, link emailed to the signer via Resend). POSTs getSignDocument({token}) to us-central1 cloudfunctions (allowed by global CSP connect-src *.cloudfunctions.net). Message-card states in #spMsg (no retry buttons — recovery is manual page reload): missing/short token → 'Invalid link'; network throw → 'Connection problem… reload'; 410 → '✅ Already signed'; 404 → 'Invalid link'; 429 → 'Too many tries… wait a minute and reload'; other → 'Could not load'. On success the returned doc HTML is srcdoc'd into sandboxed iframe #spFrame (sandbox=allow-popups allow-popups-to-escape-sandbox allow-forms allow-scripts allow-modals — no allow-same-origin) and the footer bar appears only after the iframe 'load' event. #spDocName shows '· <docTypeName>' when provided.",
+  "evidence": "#spMsg/#spMsgIcon/#spMsgTitle/#spMsgBody, #spFrame[sandbox], #spDocName (sign.html:31-48; js/sign-page.js:48-72)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "sign-submit",
+  "severity": "P3",
+  "file": "docs/pro/sign.html",
+  "claim": "'✍️ Submit Signature' button #spSubmit (direct addEventListener, sign-page.js:134) — the page's single action control, OUTBOUND-SEND + one-shot token burn. Flow: disables itself → postMessage {__nbd_sig:'finalize'} into the sandboxed iframe and waits up to 4s for a {__nbd_sig:'finalized'} reply on the window message listener (js:76-93); failure branches re-enable the button with native alert()s: missing[] → 'Please add your signature', timedOut → 'document is still loading', else generic capture failure. On finalize success POSTs submitSignature({token, signedHtml}) — server burns the token; success hides iframe+footer and shows '🎉 All done'; 409/410 shows 'Already signed' and removes the footer permanently; other errors alert and re-enable for retry (button itself is the retry control). The drawing controls themselves (signature canvas, clear, etc.) live INSIDE the srcdoc document, injected by the doc generator's _injectSignatureAssets/signature-widget.js — they inherit the page CSP (srcdoc inherits parent policy) so widget scripts must come from 'self'/allowed hosts. GATE: valid unexpired unburned token; no Firebase auth anywhere on this page.",
+  "evidence": "#spSubmit, #spFoot, window 'message' listener for __nbd_sig:'finalized', frame.contentWindow.postMessage({__nbd_sig:'finalize'}) (sign-page.js:76-134)",
+  "fixDirection": "Ledger: test missing-signature alert, 4s timeout path, double-submit/already-signed 409 path, and post-submit token reuse (should 410).",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "vault-gate-baseline",
+  "severity": "P3",
+  "file": "docs/pro/vault.html",
+  "claim": "Page-level GATE inventory (applies to every control group below): vault-auth.module.js runs NBDAuth.init({requiredPlan:'professional', requireAdmin:true}) → needs Firebase auth with admin; onReady sets window._authUser and window._db. The data layer in vault-page.js, however, only initializes inside a window 'firebase-ready' event listener (vault-page.js:36) that reads window._db AND window._firestore — repo-wide grep shows 'firebase-ready' is dispatched only by docs/admin/vault.html:54 (a different page) and window._firestore is never assigned by any script loaded on /pro/vault, so on this page loadFromFirestore/renderOverview never run from that path and every Firestore-touching control depends on state that never arrives (saveToFirestore's guard then toasts 'Firestore still loading — please retry'). Additionally firestore.rules has NO match block for codex/{doc} or codex-sessions/{doc}; the default catch-all (rules:834 'allow read, write: if false') denies them even for admins, so codex/latest reads+writes are rules-denied end-to-end. Markup quirk: vault.html closes </body></html> at lines 882-883, then the vault-page.js <script> and a second </body></html> follow at 886-887 (browsers tolerate; parsers may not).",
+  "evidence": "vault-auth.module.js:5-13; vault-page.js:36-55 (firebase-ready listener), :94-98 (not-ready guard); firestore.rules:834-836 default deny, no codex match; vault.html:882-887 duplicated close tags",
+  "fixDirection": "Ledger: load /pro/vault as admin and record which of the groups below are reachable vs permanently stuck at 'Loading...'.",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "vault-topbar-sidebar",
+  "severity": "P3",
+  "file": "docs/pro/vault.html",
+  "claim": "Topbar + sidebar controls, all dispatched through the single data-v-action click delegate (vault-page.js:174-200): topbar logo anchor [data-v-action=navTo data-arg=overview] (preventDefault'd for <a>); plain anchor '← Back to Dashboard' → /pro/dashboard.html (no gate); #saveIndicator display-only chip; '💾 Save Now' [data-v-action=manualSave] → clears the 60s autosave debounce + saveToFirestore() (rules-denied per baseline). Sidebar: nine .nav-item buttons [data-v-action=navTo, data-arg=overview|sessions|tasks|debt|blockers|directives|decisions|search|admin] switching .page visibility and calling the matching render* function; live count badges #sessionsBadge/#taskBadge/#debtBadge/#blockerBadge (HTML ships hardcoded seed values 0/12/7/1 until renderOverview overwrites them). GATE: page auth; navTo itself is pure client-side, but rendered page content depends on CODEX (empty arrays until a load succeeds). CONDITIONAL: navTo('decisions') calls renderDecisions which spreads CODEX.decisions — the boot CODEX object defines architecturalDecisions but no decisions key, so this tab depends on the Firestore doc carrying a literal decisions array.",
+  "evidence": ".topbar-logo[data-v-action=navTo], a[href=/pro/dashboard.html], #saveIndicator, button.btn-save[data-v-action=manualSave], aside#sidebar .nav-item[data-page][data-v-action=navTo], #sessionsBadge #taskBadge #debtBadge #blockerBadge (vault.html:731-800; vault-page.js:174-234, renderDecisions:851)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "vault-overview",
+  "severity": "P3",
+  "file": "docs/pro/vault.html",
+  "claim": "Overview page controls: three clickable stat chips [data-v-action=navTo data-arg=sessions|blockers|debt] (cursor:pointer inline) plus one non-interactive 'Days Straight' chip (opacity .6, hardcoded 6); '🚀 Start Next Session' #startNextSessionBtn [data-v-action=startNextSession] → navTo('admin') then scrolls #sessionStarterSection into view after 300ms; 'View All →' [data-v-action=navTo data-arg=sessions]; rendered recent-session rows .nbd-recent-session[data-session-num] get DIRECT click listeners (renderOverview, vault-page.js:310-312) → viewSession(num) → navTo('sessions') + 50ms-deferred viewSessionDetail. Display areas #overviewTitle/#overviewSubtitle/#blockersPreview/#nextSessionMission ship 'Loading...' placeholders that only update when renderOverview runs (gated on the firebase-ready path per baseline). GATE: page auth; data-shape conditional — blockers preview filters status==='open' && severity==='critical'.",
+  "evidence": "#page-overview .stat-chip[data-v-action=navTo], #startNextSessionBtn, button.btn-ghost[data-arg=sessions], .nbd-recent-session[data-session-num], #overviewTitle #overviewSubtitle #blockersPreview #nextSessionMission (vault.html:805-863; vault-page.js:240-359)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "vault-sessions-page",
+  "severity": "P3",
+  "file": "docs/pro/vault.html",
+  "claim": "Sessions page (innerHTML-rendered by renderSessions): '🔄 Analyze & Update Backlog' #aiAnalyzeBtn [data-v-action=analyzeSessionsWithAI] — OUTBOUND-SEND + DESTRUCTIVE-BOUNDARY: fetches https://api.anthropic.com/v1/messages directly with NO auth header (and api.anthropic.com is not in the global CSP connect-src, so the request is CSP-refused in prod), then on success OVERWRITES CODEX.blockers/debt/tasks wholesale and saves; status/timestamp areas #aiAnalyzerStatus/#aiAnalyzerTimestamp/#lastAnalyzedTime. Session search input #sessionSearch uses a literal inline oninput=\"filterSessions(this.value)\" attribute — dead under the header CSP's script-src-attr 'none' (the data-v-action INPUT delegate at vault-page.js:2297-2311 exists but this input carries no data-v-action/data-v-pass). Session list: .session-card[data-v-action=viewSessionDetail data-arg=<num>] rows → populate #sessionDetail (#sessionDetailTitle/#sessionDetailContent via textContent) + scrollIntoView; 'Close' [data-v-action=closeSessionDetail] hides it. GATE: page auth; list content conditional on CODEX.sessions being loaded.",
+  "evidence": "#aiAnalyzeBtn[data-v-action=analyzeSessionsWithAI], #sessionSearch[oninput=filterSessions(this.value)], .session-card[data-v-action=viewSessionDetail][data-arg], #sessionDetail close [data-v-action=closeSessionDetail] (vault-page.js renderSessions:383-473, filterSessions:475-484, analyzeSessionsWithAI:2009-2225, input delegate:2297-2311)",
+  "fixDirection": "Ledger: record the oninput attr as CSP-dead chrome and the analyzer's connect-src refusal; both inputs need data-v-action+data-v-pass wiring to use the existing delegate.",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "vault-tasks-debt-blockers-directives",
+  "severity": "P3",
+  "file": "docs/pro/vault.html",
+  "claim": "Tasks / Debt / Blockers / Directives / Decisions pages: rendered entirely as read-only cards by renderTasks/renderDebt/renderBlockers/renderDirectives/renderDecisions — NO interactive controls except one native <details>/<summary> disclosure ('✅ RESOLVED (n)') on the Debt page that collapses resolved-debt cards. Status/priority pills reuse .btn-xs/.btn-sm button CLASSES on <span> elements (look like buttons, are not clickable). GATE: page auth; all content conditional on CODEX arrays (empty-state cards render when length===0). Data-shape conditionals: renderDecisions and the search/parse paths read CODEX.decisions which the boot CODEX never defines (only architecturalDecisions), and renderBlockers assumes b.status is a string (calls .toUpperCase()).",
+  "evidence": "#page-tasks, #page-debt details>summary (vault-page.js:706-715), #page-blockers, #page-directives, #page-decisions; renderTasks:505-598, renderDebt:600-726, renderBlockers:728-751, renderDirectives:753-845, renderDecisions:847-950",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "vault-search-page",
+  "severity": "P3",
+  "file": "docs/pro/vault.html",
+  "claim": "Search page (renderSearch): input #searchInput with literal inline oninput=\"executeSearch()\" — CSP-dead under script-src-attr 'none' exactly like #sessionSearch, so typing produces no results in prod (the comment at vault-page.js:2294 claims 'The 2 search inputs use data-v-action instead' but the rendered markup still emits oninput attrs). executeSearch (if invoked) searches sessions/directives/decisions/tasks/debt/blockers (query ≥2 chars) into #searchResults; the only interactive results are session hit cards [data-v-action=viewSession data-arg=<num>] → sessions page + detail; directive/decision/task/debt/blocker hits are non-clickable cards. Found-count line interpolates the raw query unescaped into innerHTML (the no-results branch DOES escape it). GATE: page auth; CODEX-loaded data.",
+  "evidence": "#searchInput[oninput=executeSearch()] (vault-page.js:965-971), #searchResults session cards [data-v-action=viewSession][data-arg] (:1080-1093), unescaped query at :1069 vs escaped at :1054-1059",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "vault-admin-page",
+  "severity": "P3",
+  "file": "docs/pro/vault.html",
+  "claim": "Admin page (renderAdmin) control inventory: (1) Session Starter — 'Generate Prompt' [data-v-action=generateSessionStarter] fills textarea #sessionStarterOutput; '📋 Copy to Clipboard' [data-v-action=copySessionStarter] uses textarea.select()+document.execCommand('copy'). (2) Import Session — textarea #sessionImportPayload + 'Import to Firestore' [data-v-action=importSessionPayload]: if the pasted payload contains the string 'vaultImportSession' it is passed to eval() (vault-page.js:1426) — arbitrary code execution on paste, DESTRUCTIVE-BOUNDARY; otherwise JSON.parse → parseTextToSession → createGenericSession fallbacks, all funneling into window.vaultImportSession which validates num/meta, detects duplicates, and can open the duplicate-resolution modal whose three buttons [data-v-action=handleDuplicateAction data-arg=rename|version|cancel, data-arg2=<num>] dispatch to a window.handleDuplicateAction installed only while the modal exists. (3) 'Save to Firestore Now' [data-v-action=manualSaveToFirestore] + status div #manualSaveStatus. (4) AI Session Parser — number input #testSessionNum + '🔍 Test Parse' [data-v-action=parseSessionTest] and '🔄 Parse All Sessions' #parseAllBtn [data-v-action=parseAllSessions]: both fetch https://api.anthropic.com/v1/messages with no key (CSP connect-src also blocks it; note parseSessionWithGemini declares const jsonText then reassigns it at :1838, so even a successful response would throw); parse-all loops 1 req/sec, merges into CODEX, saves. (5) window.vaultBulkImportSessions(sessionsArray) — console-invocable bulk import that REPLACES same-numbered sessions. GATE: page auth + saveToFirestore (rules-denied per baseline) for everything that persists; the textarea/copy/generate controls work purely client-side.",
+  "evidence": "#sessionStarterSection [data-v-action=generateSessionStarter|copySessionStarter], #sessionStarterOutput, #sessionImportPayload + [data-v-action=importSessionPayload] (eval at vault-page.js:1426), [data-v-action=manualSaveToFirestore] + #manualSaveStatus, #testSessionNum + [data-v-action=parseSessionTest], #parseAllBtn[data-v-action=parseAllSessions] + #parseProgress, duplicate modal [data-v-action=handleDuplicateAction][data-arg][data-arg2] (:1652-1714), window.vaultBulkImportSessions (:1717-1738)",
+  "fixDirection": "Ledger: flag eval-on-paste and the Anthropic-direct fetches (no key, CSP-blocked, const reassignment) as the admin page's risk cluster.",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "dailysuccess-topbar",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/index.html",
+  "claim": "Topbar controls (all via the data-action click delegate in app.js nbdWireDelegates:1467-1472): 'NBD PRO' logo anchor → /pro/dashboard.html (plain link, no gate); 🔍 [data-action=toggle-search]; 🎨 #themeBtn [data-action=nbd-picker-open]; ⚙️ [data-action=open-onboard]; 📖 [data-action=open-welcome-guide] (re-opens welcome modal); '+ NEW' [data-action=smart-new-page] (jumps to today's unnamed page or creates one); 'RENAME' [data-action=open-rename] (no-op when dashboard tab active, cur<0); 'DELETE' [data-action=trigger-del] (refuses when only one page exists); 'CSV' [data-action=export-csv] (client-side data: URI download of all pages); 'PDF' [data-action=do-print] (saves then window.print; toasts 'Open a page first' on dashboard); 'SAVE' [data-action=save-now]. #sdot and #autosave-badge are display-only save-state chips. GATE: none — page is free-tier, no login, all data in localStorage (nbd_dsp_v1). Note ~520px viewport hides .btn-lbl text. A large #nbd-pro-nav CSS block ships at lines 729-953 with NO matching markup (removed April 2026 per comment at line 955) — pure dead chrome CSS.",
+  "evidence": "a.nbd-logo[href=/pro/dashboard.html], [data-action=toggle-search|nbd-picker-open|open-onboard|open-welcome-guide|smart-new-page|open-rename|trigger-del|export-csv|do-print|save-now], #sdot, #autosave-badge (index.html:1075-1095; app.js:1413-1453,642-657)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "dailysuccess-onboard-banner-search",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/index.html",
+  "claim": "Onboard banner #onboard-banner (CONDITIONAL: visible only when localStorage nbd_user_config is absent, checkOnboardBanner app.js:869-874): 'Customize Now' [data-action=open-onboard]; 'Quick Start with Defaults' [data-action=quick-start-defaults] (writes default config incl. '30 min of guilt-free screen time' goose, hides banner); × [data-action=hide-banner] (dismisses visually but does NOT set config, so it reappears next load). Search bar #sbar (toggled by toggle-search / Ctrl+F): input #sinp [data-input-action=do-search] live-searches all page data into dropdown #sdrop; result rows .sri [data-action=search-jump data-page-idx] switch to that page and close search; 'CLOSE' [data-action=toggle-search]. GATE: none.",
+  "evidence": "#onboard-banner [data-action=open-onboard|quick-start-defaults|hide-banner], #sbar #sinp[data-input-action=do-search], #sdrop .sri[data-action=search-jump][data-page-idx] (index.html:1099-1112; app.js:649-650,869-879,1004-1017)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "dailysuccess-tabrow",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/index.html",
+  "claim": "Tab row #tabrow (fully JS-rendered by renderTabs, app.js:168-183): '📊 DASH' tab [data-action=switch-to data-page-idx=-1] → renderDash; one tab per page [data-action=switch-to data-page-idx=<i>] (collects current page before switching), each containing an × button [data-action=trigger-del-tab data-tab-idx=<i>] whose handler stopPropagation()s then opens the delete-confirm modal; '+' .tplus [data-action=smart-new-page]. Today's page shows .today-dot. GATE: none; switchTo silently persists the outgoing page (collectPage true).",
+  "evidence": "#tabrow .tab[data-action=switch-to][data-page-idx], .tx[data-action=trigger-del-tab][data-tab-idx], .tplus[data-action=smart-new-page] (app.js:168-183, delegate trigger-del-tab:1424)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "dailysuccess-page-view",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/index.html",
+  "claim": "Daily page view controls (all innerHTML-rendered per page by renderPage, app.js:517-553): Floor score card — .dsc-item [data-action=toggle-floor data-floor-id] toggles floormet flags, re-renders #day-score-wrap, and via the patched toggleFloor fires confetti on all-floors-met + syncs widget localStorage keys; floors list itself is CONDITIONAL on nbd_user_config.floors (falls back to 5 defaults with protein floor resolved from bodyweight). Week-glance circles [data-action=switch-to] render only for days that have a page. Mindset checklist .mc-item [data-action=toggle-mindset data-mindset-id] (8 fixed items). Collapsible section headers .ph [data-action=toggle-section] persist per-section collapse to nbd_collapsed. Diet table inputs [data-k=diet-*][data-input-action=calc-macros] live-total into #dt-p/c/f/cal + .mpill summaries. Fitness: '+ ADD EXERCISE' [data-action=add-exercise]; per-row × .ex-del [data-action=delete-exercise] (removes <tr>, marks dirty — exercises persist only via collectPage indexing data-k=ex-i-*). PR tracker: 'HISTORY' .pr-hist-btn [data-action=open-pr-history data-lift data-pr-key] opens #mPRH modal with cross-page history; .pr-inp [data-input-action=pr-stamp] auto-stamps date on edit. Body-metric .bm-inp, scorecard .scinp, ratings .rbox input and all .ed textareas/inputs [data-input-action=mark-dirty or direct input listeners] feed the 30s autosave + Ctrl+S + beforeunload collect. Pipeline panel: 'Open CRM →'/'OPEN FULL CRM →' anchors to /pro/dashboard.html, content CONDITIONAL on localStorage nbd_pipeline_cache written by the CRM. GATE: none (localStorage only).",
+  "evidence": ".dsc-item[data-action=toggle-floor][data-floor-id], #week-glance-wrap [data-action=switch-to], .mc-item[data-action=toggle-mindset], .ph[data-action=toggle-section], [data-input-action=calc-macros|mark-dirty|pr-stamp], .addbtn[data-action=add-exercise], .ex-del[data-action=delete-exercise], .pr-hist-btn[data-action=open-pr-history][data-lift][data-pr-key], #pipeline-pb a[href=/pro/dashboard.html] (app.js:191-378,483-553)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "dailysuccess-dashboard-view",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/index.html",
+  "claim": "Dashboard view (renderDash, app.js:565-633, default view at boot): hero buttons 'CSV' [data-action=export-csv], 'PDF' [data-action=do-print] (toasts 'Open a page first' since cur=-1), '⚙️ CUSTOMIZE' [data-action=open-onboard]. Monthly Goals card: three number inputs #gpi-d/#gpi-r/#gpi-c with DIRECT input listeners (not the delegate) that update bars #gpbar-* and labels #gpnum-* live and debounce-write GT_KEY to localStorage (flush on blur). 'Best Door Day'/'Best Revenue Day' cards .best [data-action=switch-to data-page-idx] (CONDITIONAL: render only when a best exists). Daily Floors status card: '↺ Reset to Quick Start Defaults' [data-action=quick-start-defaults] (overwrites nbd_user_config floors). 'All Pages' rows .prd [data-action=switch-to data-page-idx]. North Star card CONDITIONAL on cfg.northStar; revenue pace bars CONDITIONAL on gt.r>0. Charts #c-doors/#c-rev/#c-close need the Chart global from cdnjs.cloudflare.com (allowed by header CSP script-src) — if the CDN script fails, mkChart throws per-canvas inside setTimeout. GATE: none.",
+  "evidence": "#gpi-d #gpi-r #gpi-c (+#gpbar-*/#gpnum-*), .best[data-action=switch-to], .prd[data-action=switch-to][data-page-idx], [data-action=export-csv|do-print|open-onboard|quick-start-defaults], canvas#c-doors #c-rev #c-close (app.js:565-633,563)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "dailysuccess-modals-kbd",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/index.html",
+  "claim": "Static modals + keyboard: #mDel Delete-page confirm — 'Cancel' [data-action=close-m data-arg=mDel], 'Delete' [data-action=do-delete] DESTRUCTIVE-BOUNDARY (splices the page from localStorage, toast 'cannot be undone' wording lives in #mDelMsg; no undo); #mRen rename — input #renInp (maxlength 22, autofocused), 'Cancel' close-m, 'Save' [data-action=apply-ren]; #mPRH lift history — 'Close' close-m (content #prh-list display-only). Keyboard (document keydown, app.js:1019-1023): Ctrl/Cmd+S → saveNow (preventDefault), Ctrl/Cmd+F → toggleSearch, Escape → closes mDel/mRen/mPRH/mOnboard and the search bar. window beforeunload silently collects dirty data; a 30s interval auto-saves dirty pages and flashes #autosave-badge. GATE: none. NOTE: none of these modals close on backdrop click (only the appearance/howto modals do).",
+  "evidence": "#mDel [data-action=close-m|do-delete] #mDelMsg, #mRen #renInp [data-action=apply-ren], #mPRH [data-action=close-m], document keydown Ctrl+S/Ctrl+F/Escape, beforeunload, startAutoSave (index.html:1118-1120; app.js:152-155,1019-1026,704-716)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "dailysuccess-onboarding-modal",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/index.html",
+  "claim": "4-step onboarding modal #mOnboard: Step1 — select #ob-cat (5 goal categories), inputs #ob-target/#ob-deadline/#ob-bodyweight; Step2 — six focus-area checkboxes #fa-sales/#fa-fitness/#fa-nutrition/#fa-mindset/#fa-learning/#fa-other; Step3 — floor editor #floor-editor rows rendered by renderFloorEditor with inputs [data-input-action=ob-floor-label|ob-floor-target|ob-floor-unit data-floor-idx] and per-row × [data-action=remove-floor-row], '+ ADD FLOOR' [data-action=add-floor-row] (max 7), plus an injected '↺ Regenerate suggestions' button #floor-regen-hint that uses a DIRECT .onclick property (CSP-safe, not an attribute); Step4 — reward input #ob-goose and toggle #ob-showgoose. Footer: '← Back' #ob-prev [data-action=onboard-prev] (hidden on step 1), 'Cancel' [data-action=close-m data-arg=mOnboard], '#ob-next' [data-action=onboard-next] (label flips to 'Save & Launch ✓' on step 4 → saveOnboardConfig requires ≥1 labeled floor, writes nbd_user_config, hides banner, re-renders). CONDITIONAL: step-3 floors are auto-merged from step-1 category presets + step-2 focus areas, with 'BW' protein targets resolved from bodyweight. GATE: none. Markup quirk: literal ``` markdown fences at index.html:1134 and 1197 sit inside the modal and render as stray text nodes.",
+  "evidence": "#mOnboard, #ob-cat, #ob-target, #ob-deadline, #ob-bodyweight, #fa-* checkboxes, #floor-editor [data-input-action=ob-floor-*][data-floor-idx], [data-action=add-floor-row|remove-floor-row|onboard-prev|onboard-next|close-m], #ob-goose, #ob-showgoose, #floor-regen-hint (index.html:1124-1200; app.js:881-1002)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "dailysuccess-welcome-modal",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/index.html",
+  "claim": "Welcome modal #welcomeModal (CONDITIONAL: shown on first visit only — js/welcome-gate.js checks localStorage nbd-welcome-seen and flips display:flex; re-openable any time via the 📖 topbar button which calls openM('welcomeModal') — note that path adds class .open but the modal uses inline display:none, and closeWelcome sets display:none directly, an asymmetry worth one ledger check): single CTA button [data-action=close-welcome data-hover-opacity=.88] ('Let's Get After It →') → closeWelcome() hides modal + sets nbd-welcome-seen; hover dimming handled by the data-hover-opacity mouseover/mouseout delegates. '#welcomeThemePicker' div is documented 'Filled by JS' but window.buildWelcomeThemePicker is defined as an explicit no-op (app.js:1375), so the 'Pick Your Color Theme' row permanently renders empty. Everything else in the modal is static install instructions. GATE: none.",
+  "evidence": "#welcomeModal, [data-action=close-welcome][data-hover-opacity], #welcomeThemePicker, js/welcome-gate.js:5-12, app.js closeWelcome/openWelcomeGuide:655-656, buildWelcomeThemePicker no-op:1375, openM uses classList.add('open') vs inline display:none:653",
+  "fixDirection": "Ledger: verify 📖 reopen actually shows the modal (classList 'open' vs display:none mismatch) and note the empty theme-picker row.",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "dailysuccess-appearance-picker",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/index.html",
+  "claim": "Appearance engine modals: picker #nbd-picker-modal — ✕ [data-action=nbd-picker-close]; tabs [data-action=nbd-picker-tab data-arg=themes|fonts|custom]; theme search #npm-search [data-input-action=nbd-render-themes]; '⚄ Random' [data-action=nbd-random]; category pills (rendered) .npm-cat [data-action=nbd-set-cat data-cat]; theme bubbles .npm-bubble and font cards .npm-font-card use DIRECT .onclick property assignment (CSP-safe) → nbdApplyTheme/nbdApplyFont (~90 themes/8 fonts, all unlocked — _nbdUnlocked always true so the 'Requires Command plan' copy is vestigial); Custom Builder — five color inputs #ncp-bg/#ncp-s/#ncp-accent/#ncp-t/#ncp-m [data-input-action=nbd-live-custom], 'Apply Preview' [data-action=nbd-apply-custom], 'Save as Custom Theme' [data-action=nbd-save-custom] (localStorage nbd-customs); footer '📖 Guide' [data-action=nbd-howto-open] and 'Copy Firestore Write' [data-action=nbd-copy-fs] (navigator.clipboard snippet copy). Howto modal #nbd-howto-modal ✕ [data-action=nbd-howto-close]; both modals close on backdrop click via DOMContentLoaded-bound listeners. Theme apply persists to nbd-theme + canonical nbd_pro_theme and attempts a Firestore users/{uid} theme write only if compat-style db+currentUser globals exist (they never do on this page — modular SDK only — so the write silently no-ops). GATE: none.",
+  "evidence": "#nbd-picker-modal [data-action=nbd-picker-close|nbd-picker-tab|nbd-random|nbd-apply-custom|nbd-save-custom|nbd-howto-open|nbd-copy-fs], #npm-search[data-input-action=nbd-render-themes], .npm-cat[data-action=nbd-set-cat][data-cat], .npm-bubble/.npm-font-card .onclick property, #ncp-*[data-input-action=nbd-live-custom], #nbd-howto-modal [data-action=nbd-howto-close] (index.html:1207-1289; app.js:1179-1400)",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ },
+ {
+  "id": "dailysuccess-cloud-sync",
+  "severity": "P3",
+  "file": "docs/pro/daily-success/ds-firebase-sync.js",
+  "claim": "Cloud-sync layer (module, loaded after </body>): no visible controls, but it intercepts window.savePages so EVERY save-triggering control above becomes an outbound Firestore write when a Firebase user is signed in. GATE: optional Firebase auth — auth-init.js runs NBDAuth.init({requiredPlan:'free'}) which never redirects; logged-out users see an 'Offline mode' badge and stay localStorage-only. When signed in: pull-merge of users/{uid}/ds_pages on load, then debounced (2s) pushToFirestore on each save — a single writeBatch that writes users/{uid}/ds_pages/* and users/{uid}/ds_meta/streaks (allowed by the users/{uid}/{subcol} owner rule, firestore.rules:344-346) AND leaderboard/{uid} (firestore.rules:395-400 says allow write: if false) — Firestore batches are atomic, so the denied leaderboard write fails the entire batch and the badge shows 'Sync failed' for signed-in users; localStorage saving is unaffected. Status surface: injected #ds-sync-badge (Saving/Synced/Backed up/Offline mode/Sync failed/Sync error), display-only. Separate note: ds-firebase-sync.js carries its own FIREBASE_CONFIG with a different apiKey/appId/senderId than the rest of /pro (it only wins if no app was initialized first; auth-init's module usually initializes first).",
+  "evidence": "window.savePages interceptor (ds-firebase-sync.js:99-114), pushToFirestore batch incl. leaderboard/{uid} (:67-86), firestore.rules:344-346 vs :395-400, #ds-sync-badge (:28-43), auth-init.js:1-2",
+  "fixDirection": "Ledger: sign in on /pro/daily-success and confirm whether sync fails atomically on the leaderboard write.",
+  "verdicts": "inventory",
+  "finder": "pages-a-map"
+ }
+]

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://js.stripe.com https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.workers.dev https://nominatim.openstreetmap.org https://www.google-analytics.com https://api.resend.com https://api.stripe.com; frame-src https://js.stripe.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self';">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com https://js.stripe.com https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://challenges.cloudflare.com https://formsubmit.co https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://*.workers.dev https://nominatim.openstreetmap.org https://www.google-analytics.com https://api.resend.com https://api.stripe.com; frame-src https://challenges.cloudflare.com https://js.stripe.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self';">
 <!-- Google Analytics — uncomment and replace GA_MEASUREMENT_ID -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
 <script defer  src="/assets/js/inline/2a90205f1b.js"></script>
@@ -21,10 +21,10 @@
 <meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/favicon.svg">
-<link rel="preload" href="/assets/images/drone-hero-crew.jpg" as="image">
+<link rel="preload" href="/assets/images/drone-hero-crew.webp" as="image" type="image/webp" fetchpriority="high">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <style>
 :root {
   --navy: #1e3a6e;
@@ -128,7 +128,7 @@ section{padding:80px 40px}
 /* ── HERO ── */
 .hero{background:var(--navy-dark);position:relative;overflow:hidden;min-height:640px;display:flex;align-items:center}
 .hero-pattern{position:absolute;top:0;right:0;bottom:0;left:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(232,114,12,.04) 40px,rgba(232,114,12,.04) 41px);z-index:0}
-.hero-bg{position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(135deg,rgba(20,42,82,.88) 0%,rgba(20,42,82,.78) 55%,rgba(232,114,12,.18) 100%),url(/assets/images/drone-hero-crew.jpg) center/cover no-repeat;z-index:1}
+.hero-bg{position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(135deg,rgba(20,42,82,.88) 0%,rgba(20,42,82,.78) 55%,rgba(232,114,12,.18) 100%),image-set(url(/assets/images/drone-hero-crew.webp) type("image/webp"), url(/assets/images/drone-hero-crew.jpg) type("image/jpeg")) center/cover no-repeat;z-index:1}
 .hero-content{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:80px 40px;display:grid;grid-template-columns:1fr 400px;gap:64px;align-items:center;width:100%}
 .hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(232,114,12,.18);border:1px solid rgba(232,114,12,.4);color:var(--orange-light);padding:6px 16px;border-radius:100px;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px;animation:fadeUp .6s ease both}
 .hero-badge::before{content:'';width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite}
@@ -845,6 +845,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <a href="/storm-check" style="color:#f08030">Is It Worth a Claim?</a>
   <a href="/#contact" style="color:#e8720c;font-weight:800;">Free Estimate &rarr;</a>
 </div>
+<main>
 <!-- HERO -->
 <section class="hero" id="home">
   <div class="hero-pattern"></div>
@@ -1410,9 +1411,9 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 
       <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:20px 20px 18px;text-align:center">
         <div style="background:white;border-radius:6px;padding:16px 10px;margin:0 auto 12px;width:96px;height:96px;display:flex;align-items:center;justify-content:center"><img src="/assets/partners/improvifi.webp" alt="Improvifi — home improvement financing partner" width="80" height="80" loading="lazy" style="max-width:100%;height:auto;object-fit:contain;display:block"></div>
-        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);margin-bottom:6px">0% Financing</p>
+        <p style="font-size:.62rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);margin-bottom:6px">Financing</p>
         <p style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:white;letter-spacing:.04em;margin-bottom:4px">Improvifi</p>
-        <p style="font-size:.74rem;color:rgba(255,255,255,.6);line-height:1.5">0% financing on approved credit</p>
+        <p style="font-size:.74rem;color:rgba(255,255,255,.6);line-height:1.5">Flexible financing on approved credit</p>
       </div>
 
       <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:20px 20px 18px;text-align:center">
@@ -1496,30 +1497,30 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             <p class="form-required-note"><span style="color:#e8720c;">*</span> = required</p>
             <div class="form-row">
               <div class="form-group">
-                <label>First Name <span class="req">*</span></label>
+                <label for="fieldFirst">First Name <span class="req">*</span></label>
                 <input type="text" id="fieldFirst" placeholder="John" autocomplete="given-name" required>
               </div>
               <div class="form-group">
-                <label>Last Name <span class="req">*</span></label>
+                <label for="fieldLast">Last Name <span class="req">*</span></label>
                 <input type="text" id="fieldLast" placeholder="Smith" autocomplete="family-name" required>
               </div>
             </div>
             <div class="form-row">
               <div class="form-group">
-                <label>Phone <span class="req">*</span></label>
+                <label for="fieldPhone">Phone <span class="req">*</span></label>
                 <input type="tel" id="fieldPhone" placeholder="(859) 420-7382" autocomplete="tel" inputmode="tel" required>
               </div>
               <div class="form-group">
-                <label>Email</label>
+                <label for="fieldEmail">Email</label>
                 <input type="email" id="fieldEmail" placeholder="your@email.com" autocomplete="email" inputmode="email">
               </div>
             </div>
             <div class="form-group">
-              <label>Address / Zip Code <span class="req">*</span></label>
+              <label for="fieldAddress">Address / Zip Code <span class="req">*</span></label>
               <input type="text" id="fieldAddress" placeholder="Your address or zip code" autocomplete="street-address" required>
             </div>
             <div class="form-group">
-              <label>Service Needed <span class="req">*</span></label>
+              <label for="fieldService">Service Needed <span class="req">*</span></label>
               <select id="fieldService" required>
                 <option value="">— Select a Service —</option>
                 <option>Roof Replacement</option>
@@ -1532,10 +1533,10 @@ footer.foot a,.review-footer a{color:#e8720c!important}
               </select>
             </div>
             <div class="form-group">
-              <label>Tell Me About Your Project</label>
+              <label for="fieldMessage">Tell Me About Your Project</label>
               <textarea id="fieldMessage" placeholder="Describe what's going on — we'll get back to you with honest answers and a fair quote."></textarea>
             </div>
-            <div style="position:absolute;left:-9999px;"><label>Leave blank</label><input type="text" id="fieldWebsite" tabindex="-1" autocomplete="off"></div>
+            <div style="position:absolute;left:-9999px;" aria-hidden="true"><label for="fieldWebsite">Leave blank</label><input type="text" id="fieldWebsite" tabindex="-1" autocomplete="off"></div>
             <button class="form-submit" id="leadFormSubmit">Get My Free Estimate →</button>
             <script defer  src="/assets/js/inline/72fb917108.js"></script>
             <p class="form-note">🔒 No spam, no pressure. I will reach out personally — usually same day.</p>
@@ -1646,6 +1647,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <p style="color:var(--gray);font-size:.75rem;margin-top:22px;opacity:.7">Brand names are trademarks of their respective manufacturers. NBD Home Solutions is an independent installer.</p>
   </div>
 </section>
+</main>
 
 <!-- FOOTER -->
 
@@ -1723,7 +1725,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
 
     <div style="border-top:1px solid rgba(255,255,255,.08);padding:18px 0 4px;margin-top:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-      <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" aria-label="Verify GAF Certified™ Contractor on GAF.com" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
+      <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" aria-label="Verify on GAF.com — GAF Certified™ Contractor directory" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
         <img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified™ Residential Roofing Contractor" width="40" height="40" loading="lazy" style="display:block">
         <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">GAF Certified™ Contractor<br><span style="color:rgba(255,255,255,.5);font-weight:500;font-size:.65rem">Verify on GAF.com →</span></span>
       </a>
@@ -1750,7 +1752,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <!-- Public lead gateway — contact_leads is locked at the rules layer
      (C-3); submissions route through submitPublicLead. -->
 <script defer  src="/assets/js/inline/7cd8e505ab.js"></script>
-<script src="/assets/js/public-lead-submit.js"></script>
+<script defer src="/assets/js/public-lead-submit.js"></script>
 <script defer  src="/assets/js/inline/0214ed5eea.js"></script>
 <script defer  src="/assets/js/inline/72f02d79d0.js"></script>
 

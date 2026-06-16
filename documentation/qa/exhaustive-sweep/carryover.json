@@ -1,0 +1,184 @@
+{
+  "generated": "2026-06-09",
+  "seed_agent": "exhaustive-sweep carryover distilled from live-qa-2026-06-07, estimate-qa-2026-06-08, estimate-remediation-2026-06-09, theme-sweep-2026-06-07, brand-sweep-2026-06-07",
+  "target": "https://nobigdealwithjoedeal.com/pro (LIVE prod, tenant zero / NBD)",
+  "open_bugs": [
+    {
+      "id": "H-1",
+      "sev": "HIGH",
+      "title": "Public lead bridge — re-verify it actually surfaces web leads in the CRM (was: /inspect leads never entered CRM UI, only email + Gmail label)",
+      "repro": "Submit public form at /inspect (use ZZ_QA_ name + jonathandeal459@gmail.com). Then in CRM: Pipeline search the ZZ_QA name, check Prospects/D2D board, Recent Activity, Notifications. Originally 0 matches everywhere despite lead-alert email firing.",
+      "likely_file": "docs/pro/js/public-lead-submit.js (write target collection) + crm.js read scope; bridge function public collection -> tenant leads (phase-cd-leadbridge work)",
+      "prior_source": "live-qa-2026-06-07/BUG-LOG.md H-1. NOTE: memory [phase-cd-leadbridge-2026-06-08] says the H-1 public-lead->CRM bridge + Oaks intake cutover SHIPPED + live-verified. Carry as RE-VERIFY-FIRST: confirm a fresh /inspect (or Oaks contact) lead now appears in the pipeline before treating as fixed."
+    },
+    {
+      "id": "M-1",
+      "sev": "MEDIUM",
+      "title": "Pipeline search corrupts/leaks raw HTML into lead cards",
+      "repro": "Pipeline -> type a term in 'Search leads...' that matches a lead carrying a nudge/badge span. Matching cards render leaked markup as literal text (e.g. STYLE=\"BACKGROUND:#64748B22;...\"). Clearing search -> cards render cleanly.",
+      "likely_file": "docs/pro/js/crm-pipeline.js search-highlight logic (highlights on innerHTML, corrupts existing element attributes; should run on text nodes only)",
+      "prior_source": "live-qa-2026-06-07/BUG-LOG.md M-1 (FLAGGED, not trivial — never fixed)"
+    },
+    {
+      "id": "M-3",
+      "sev": "MEDIUM",
+      "title": "Pro dashboard sidebar nav INVISIBLE in Brave (works in Chrome)",
+      "repro": "Open /pro/dashboard in Brave -> left sidebar nav (Home/Dashboard/Pipeline/Tools/Insights) renders blank (icons+labels invisible). Same URL in Chrome = perfect. Survives hard-refresh, resize, SW-unregister. DOM intact (28 .ni items present with normal computed colors).",
+      "likely_file": "theme-engine CSS-variable init (--s bg / --m text) vs Brave Shields/fingerprint protection; add non-variable fallback color on .sidebar/.ni",
+      "prior_source": "live-qa-2026-06-07/BUG-LOG.md M-3 (FLAGGED; workaround = Chrome or Shields down). Automated sweep is Chrome-driven so Brave-only render bugs are invisible — needs a dedicated Brave pass."
+    },
+    {
+      "id": "H-3/M-2",
+      "sev": "HIGH",
+      "title": "Reports loadReports throws Firestore INTERNAL ASSERTION FAILED and cascades (poisons whole Firestore client for the session)",
+      "repro": "Insights -> Reports. Dashboard renders but console: '[Reports] loadReports failed: FIRESTORE (10.12.2) INTERNAL ASSERTION FAILED: Unexpected state' (x2). Then subsequent Firestore ops on the same page-session also fail (loadNotifications onSnapshot crm-snooze.js:91), recurs across SPA hash routes until a full reload. Page rendering survives (uses preloaded window._leads) so it's silent.",
+      "likely_file": "docs/pro/js/rep-report-generator.js listSavedReports (:2098) + dashboard-bootstrap.module.js _loadReports (:2783); likely firebase-js-sdk 'Unexpected state' async-queue bug, possibly provoked by WebChannel instability",
+      "prior_source": "live-qa-2026-06-07/BUG-LOG.md M-2 elevated to H-3 (FLAGGED — needs reliable repro + Firestore init/SDK-version fix; never fixed)"
+    },
+    {
+      "id": "L-1-lead",
+      "sev": "LOW",
+      "title": "Quick Add Lead discards entered name/address when opening the full modal",
+      "repro": "Dashboard -> Quick Add Lead -> type Homeowner name + Property address -> click 'Add ->'. Full ADD LEAD modal opens blank (placeholders only); entered values not carried over.",
+      "likely_file": "dashboard Quick Add handler -> Add Lead modal open (no value pass-through); shares the modal with C-1/saveLead",
+      "prior_source": "live-qa-2026-06-07/BUG-LOG.md L-1 (FLAGGED, behavior change to verify intended mapping)"
+    },
+    {
+      "id": "L-2-lead",
+      "sev": "LOW",
+      "title": "Customer timeline shows 'Invalid Date' on the Lead-created entry",
+      "repro": "Open a freshly-created lead -> Customer detail -> Overview -> Timeline & Tasks -> 'Lead created - Source Unknown - Invalid Date'. May be specific to leads created this session (serverTimestamp not yet materialized).",
+      "likely_file": "docs/pro/js/customer.js timeline render date formatting (formats createdAt before serverTimestamp resolves, or date-parse on a Firestore Timestamp object)",
+      "prior_source": "live-qa-2026-06-07/BUG-LOG.md L-2 (FLAGGED LOW, cosmetic)"
+    },
+    {
+      "id": "BLEED-O2",
+      "sev": "HIGH",
+      "title": "NBD navy bleeds onto Oaks microsite (html background)",
+      "repro": "Load any Oaks page under /sites/oaks/ -> NBD navy #142a52 painted as <html> background, visible below the Oaks footer (Oaks should be dark #1a1a1a/#111111).",
+      "likely_file": "docs/assets/css/nbd-mobile.css:43 (loaded by all 8 Oaks pages); also BLEED-O3 shared NBD canonical/og:url + drone-hero-curb.jpg og:image in docs/sites/oaks/*.html head; BLEED-O4 Oaks accent #e8720c == NBD orange (Jo wants distinct); O-N1 Oaks /contact map embed broken",
+      "prior_source": "brand-sweep-2026-06-07/BUG-LOG.md Phase 2. Public-surface Oaks bleeds were NOT part of the multi-tenant docgen build (that covered artifacts/portal/serverPDF). Confirm still present."
+    },
+    {
+      "id": "BILLING-B1",
+      "sev": "BLOCKER",
+      "title": "Crew price mismatch: pricing page says $299 but live Stripe Price (STRIPE_PRICE_PROFESSIONAL) is $249",
+      "repro": "docs/pro/pricing.html asserts Crew $299/mo; in-file comment says STRIPE_PRICE_PROFESSIONAL is $249 today. A customer clicking 'Start Crew' would be charged $249 while page promised $299. Gates PR #579 (feat/pro-terms-page, still OPEN).",
+      "likely_file": "docs/pro/pricing.html + meta/JSON-LD/FAQ/Terms copy; functions config STRIPE_PRICE_PROFESSIONAL",
+      "prior_source": "estimate-remediation-2026-06-09/LAUNCH-BLOCKERS.md Blocker 1 (decision pending Jo: align Stripe to $299 or rewrite copy to $249)"
+    },
+    {
+      "id": "BILLING-B2",
+      "sev": "BLOCKER",
+      "title": "Per-seat billing ($39/seat Crew) not built",
+      "repro": "Crew lists +$39/seat but per-seat billing does not exist: no Stripe metered/quantity subscription, no seat-count enforcement, no add/remove-seat UI. Gates public self-serve launch + PR #579.",
+      "likely_file": "Phase D (unbuilt): subscriptions/{companyId}, Stripe base+per-seat quantity Price, webhook, Settings->Billing seat UI; needs Stripe test-mode keys in functions/.env.local + amounts + Firestore backup gate",
+      "prior_source": "estimate-remediation-2026-06-09/LAUNCH-BLOCKERS.md Blocker 2 + memory [phase-d-billing-decisions]"
+    }
+  ],
+  "reverify": [
+    {
+      "item": "C-1 — Add/Edit Lead modal Save persists (saveLead on _NBD_CALL_ALLOWLIST)",
+      "prior_status": "FIXED+DEPLOYED+CONFIRMED LIVE (commit 4e1fac71)",
+      "where": "docs/pro/js/dashboard-state.js (_NBD_CALL_ALLOWLIST must contain 'saveLead'); modal Save buttons data-action=call data-fn=saveLead; delegate dashboard-ui.js:492. Repro: Dashboard -> Quick Add Lead -> Add -> fill -> SAVE LEAD -> expect dedup prompt + persist + pipeline count increment."
+    },
+    {
+      "item": "H-4 — 21 data-action=call buttons restored (Maps/Joe/Quick-Add/bulk/doc-upload/scheduling allowlisted)",
+      "prior_status": "FIXED+DEPLOYED (commit fe1f06c8)",
+      "where": "docs/pro/js/dashboard-state.js _NBD_CALL_ALLOWLIST (214+ entries). Spot-check: Ask Joe SEND (sendJoeMessage), Maps searchMap/saveZone, selectAllVisibleLeads, saveQuickLead. FOLLOW-UP STILL OPEN: saveCustomTheme button references a fn that does NOT exist on window (separate fix needed); audit other standalone /pro/ pages for the same data-fn allowlist gap."
+    },
+    {
+      "item": "H-5 — Owner can move/edit/delete leads on prod (token carries companyId + role custom claim)",
+      "prior_status": "FIXED+VERIFIED (Jo ran functions/set-jd-claims.js; token now companyId:1phDvA... role:company_admin)",
+      "where": "Claim-set was the immediate unblock; DEEPER FIX STILL OPEN: deployed firestore.rules are STALE vs repo (repo leads rule is isOwner-based and would allow a claim-less owner). Re-deploy current firestore.rules so future solo operators aren't blocked. Repro: drag a real lead to a new stage -> must persist (not snap back); deleteDoc on an owned lead must succeed."
+    },
+    {
+      "item": "H-2 — Customer Portal generates + renders",
+      "prior_status": "RESOLVED (same claim-less-token root as H-5)",
+      "where": "docs/pro/js/customer-portal.js generate flow. Repro: real lead -> Preview Portal -> portal generates. Inline preview iframe = see M-5 (CSP frame-src)."
+    },
+    {
+      "item": "M-4 — Doc/report edits save (undefined stripped from updateDoc payload)",
+      "prior_status": "FIXED+DEPLOYED (commit 8cf87a06 / 725f6f92)",
+      "where": "docs/pro/js/doc-preflight.js applyDocEdits (:1800) strips undefined recursively from leadUpdates + docOverrides. Repro: open a lead Homeowner Inspection Report -> edit (leave an optional field empty) -> save -> expect success, no 'Unsupported field value: undefined' banner."
+    },
+    {
+      "item": "M-5 — Customer Portal inline preview renders (CSP frame-src added)",
+      "prior_status": "FIXED+DEPLOYED (commit 725f6f92)",
+      "where": "firebase.json CSP frame-src across 7 /pro page CSPs now includes 'self' https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com. Repro (Chrome, hard-refresh for CSP cache): Preview Portal -> inline iframe should render (not 'This content is blocked')."
+    },
+    {
+      "item": "Estimate canonical total — headline == selected tier card == saved grandTotal",
+      "prior_status": "FIXED+DEPLOYED+RE-VERIFIED LIVE (PRs #580/#581; remediation 2026-06-09)",
+      "where": "estimate-v2-ui.js getCurrentEstimate (:1332+). Repro: build per-SQ retail estimate 3000 SF / 6/12 / Hamilton-OH / Better -> headline 'YOUR INVESTMENT $22,925' == Better card ($22,925) == saved grandTotal; internalLineItemTotal ($11,650 cost basis) appears NOWHERE customer-facing; reopen round-trip restores total/prices/waste/scope."
+    },
+    {
+      "item": "Estimate waste pitch-driven (V2-1/V2-7)",
+      "prior_status": "FIXED+DEPLOYED+CONFIRMED (PR #580)",
+      "where": "EstimateBuilderV2.wasteFactorForPitch(ratio): 0.50(6/12)->1.15, 1.0->1.20, 1.33->1.25. Live 6/12 job derives measurements.waste=1.15 (was constant-1.25 bug). One estimate must show ONE waste, not three."
+    },
+    {
+      "item": "Estimate L-1 chimney flash $425 (stale localStorage no longer authoritative)",
+      "prior_status": "FIXED+DEPLOYED (PR #583)",
+      "where": "loadSettings re-seeds config-backed values from companyProfile->config layer; stale nbd_est_settings_v2 localStorage snapshot no longer wins. Repro: calculatePerSq({hasChimneyFlash:true}) adds $425 (was $285)."
+    },
+    {
+      "item": "Estimate V2-5 CSP-safe formula evaluator (formula-qty line items non-zero)",
+      "prior_status": "FIXED+DEPLOYED (PR #586)",
+      "where": "estimate-logic-engine.js safeEvalFormula replaces new Function(). Repro: generate a line-item quote -> drip-edge/IWS/starter/ridge/dumpster formula items resolve non-zero (no 'unsafe-eval' compile errors -> $0)."
+    },
+    {
+      "item": "Estimate V2-4 server-PDF render (no INTERNAL fallback)",
+      "prior_status": "FIXED+DEPLOYED (PR #589)",
+      "where": "functions/render-pdf.js renderPdf. Repro: generate retail quote -> lands as storage-hosted PDF (storage.googleapis.com/...firebasestorage), no '[V2 finalize] server render failed... INTERNAL' console error."
+    },
+    {
+      "item": "Estimate classic<->V2 parity (permit/waste divergence D-1/D-2/D-4)",
+      "prior_status": "FIXED+DEPLOYED (PR #591 + estimate-engine-parity.test.js, 22 green)",
+      "where": "classic lookupPermitCost realigned to county values + $150 default; recommendedWasteForPitch delegates to V2 wasteFactorForPitch. C-1 permit guardrail (blank/off-list county->$150) shipped PR #593 (not V2-UI-reachable, ~nil blast radius)."
+    },
+    {
+      "item": "Doc-preview renderer freeze + 'blocked by Chrome' (srcdoc rule)",
+      "prior_status": "FIXED+DEPLOYED (PR #594)",
+      "where": "NBDDocViewer.open() previews same-origin HTML via srcdoc; server PDF routed to Download (new tab). Repro: open an estimate doc preview -> renders inline, does NOT freeze the renderer or show 'This page has been blocked'."
+    },
+    {
+      "item": "Theme apply/persist + accent-fg legibility (B-1)",
+      "prior_status": "PASS (live) + B-1 FIXED+DEPLOYED (PR #572 squash 6fefcd25)",
+      "where": "Apply a theme -> instant live apply + persists across full reload (no FOUC). generateCSSVariables emits computed --accent-fg in te-vars block. Spot-check accent-FILL surfaces (quick-add 'ADD ->' btn-orange, modal 'View Full Customer Details' CTA, kanban active filter tab) on pale/near-white-accent themes (stadium-lights/snowfall/avatar-water/marble/steel) -> button label legible (>=3:1)."
+    },
+    {
+      "item": "Multi-tenant brand resolution (CRIT-1/2/3/4) — docgen/portal/serverPDF/lead-routing resolve from active tenant",
+      "prior_status": "BUILT after the sweep (memory [brand-sweep-2026-06-07]: 6 phases shipped A backbone + B-1/2/3/4 + C lead-routing, all NBD byte-identical, on main)",
+      "where": "functions/render-pdf.js + print/*.hbs (CRIT-1), docs/pro/js/document-generator.js (CRIT-2), docs/pro/customer.html portal (CRIT-3), doc-number/customer-ID NBD- prefix (CRIT-4). RE-VERIFY: NBD output must remain byte-identical; an Oaks-tenant doc/portal/SMS/email must show Oaks brand not NBD. B-3b/B-4b render-verify follow-ons were still open."
+    }
+  ],
+  "gotchas": [
+    "Brave Shields block cross-origin iframe embeds (Firebase Storage, cal.com, e-sign): iframe fires 'load' not 'error'; detect via contentWindow.location.href probe (SecurityError=success, readable value=blocked). Brave also blocks Esri tiles AND can render the dashboard sidebar invisibly (M-3). Drive QA in Chrome; do a SEPARATE Brave pass for render bugs the Chrome-driven sweep cannot see.",
+    "Esri tiles (server.arcgisonline.com) are blocked by Brave Shields -> Leaflet map renders as a black void. Default new maps to Google mt{s}.google.com primary with Esri tileerror fallback. Blank map tiles in QA are usually this, not a real bug.",
+    "App's OWN CSP frame-src governs portal/doc inline previews (firebase.json, per /pro page) — was missing entirely (fell back to default-src 'self') so cross-origin Storage URLs were blocked in EVERY browser, not just Brave. M-5 fix added Storage origins; verify after a hard-refresh (CSP headers cache).",
+    "NBDDocViewer/estimate doc preview: NEVER set a cross-origin Storage PDF as iframe.src — Chrome/Brave block it AND it FREEZES the CDP/print renderer (froze the screenshot tool repeatedly). Preview must be same-origin srcdoc HTML; server PDF -> Download/new-tab only.",
+    "Print-based doc render froze the browser-tool screenshot mid-session (recovered on navigate). To verify rendered doc output, render to srcdoc and screenshot that, or have Jo eyeball it — don't rely on CDP screenshot of the print preview.",
+    "admin.firestore.FieldValue is undefined in the emulator runtime — use the modular 'firebase-admin/firestore' import (FieldValue from there).",
+    "Emulator secrets load from functions/.env.local (NOT .env). Run the emulator on a demo- project: a real project pulls prod Secret Manager stubs via ADC = a RULE-0 prod-data leak. 8 emulator-backed specs need vendor API keys in functions/.env.local for AI/billing/SMS/e-sign paths.",
+    "serviceAccountTokenCreator IAM gap: ALL access-code logins (demo + member) are broken in prod because the function compute SA lacks roles/iam.serviceAccountTokenCreator -> createCustomToken fails. Fix is an IAM grant Jo/devops must run (access-control change is outside QA's safe-action scope; Claude must NOT run it). See estimate-remediation-2026-06-09/IAM-RUNBOOK.md.",
+    "onRepSignup blocking claim-setter is UNDEPLOYED (GCIP gap, in NBD_DEPLOY_SKIP_LIST). New reps/tenants will have claim-less tokens -> any companyId-gated rule denies their writes (root cause of H-5/H-2). JD's claims were backfilled manually via functions/set-jd-claims.js; a fresh signup will hit the same wall until onRepSignup deploys or rules reconcile to isOwner.",
+    "Deployed firestore.rules can be STALE vs repo: the leads update/delete rule in the repo is isOwner-based (would allow a claim-less owner), yet prod denied owner writes — meaning deployed != repo. Re-deploy current rules. Every push to main auto-deploys (rules gated on the cross-tenant emulator test).",
+    "Every push to main auto-deploys to Firebase prod via firebase-deploy.yml (~9 min: rules->storage->indexes->functions->hosting). 'Merged' ~= 'deployed' — do not assume on-main work is undeployed. JS/CSS served with max-age=300 (cache-busted fetch to confirm a live deploy); CSP headers cache too (hard-refresh).",
+    "Stripe is treated as LIVE in QA — drive to the pre-submit boundary, never submit. Test users password is test1234. Use ZZ_QA_ prefix for all test leads/jobs; email to jonathandeal459@gmail.com; never touch real customer records (Sherrill/McCain).",
+    "Estimate config-unification is silently defeated for any user who ever SAVED estimate settings: localStorage nbd_est_settings_v2 snapshot overrode unified config (L-1 root). Fix shipped; watch for the same pattern on any other localStorage-snapshotted config.",
+    "Firestore WebChannel 503 storm on dashboard load (~70 of 107 requests) is BENIGN stream-cycling, not a failure (writes persist) — do not chase it. Separately, the Firestore 'INTERNAL ASSERTION FAILED: Unexpected state' from Reports (H-3) is REAL and poisons the client for the whole hash-routed session until a full reload.",
+    "Test browser had Grammarly + Adobe Acrobat extensions injecting benign console noise and one popup interrupted a save — use a clean/incognito profile to isolate any save/click bug.",
+    "Photo upload could NOT be tested via the browser file_upload tool (rejects generated images — only accepts user-shared files). AI classify + photo/inspection report are unverified end-to-end; needs Jo to drag-drop or share a real test photo.",
+    "No CSP-blocked inline onclick/onchange handlers on /pro pages — the app routes UI actions through a data-action=call delegate gated by _NBD_CALL_ALLOWLIST; a missing allowlist entry = a silently dead button (root of C-1 + H-4). When auditing a non-working button, check the allowlist first."
+  ],
+  "known_blockers": [
+    "serviceAccountTokenCreator IAM grant (devops-only, Jo/Claude must NOT run) — blocks all access-code/demo + member logins in prod.",
+    "onRepSignup claim-setter undeployed (GCIP upgrade gap) — new reps/tenants get claim-less tokens; companyId-gated writes denied until deployed or rules reconciled.",
+    "Per-seat billing ($39/seat Crew) not built (Phase D) — gates public self-serve launch + PR #579; needs Stripe test-mode keys + amounts + Firestore backup before build.",
+    "Crew price $299 (marketing) vs $249 (live Stripe STRIPE_PRICE_PROFESSIONAL) — product decision pending Jo; blocks PR #579 merge.",
+    "8 emulator-backed test specs + AI/billing/SMS/e-sign emulator paths blocked without vendor API keys in functions/.env.local; run only on a demo- project.",
+    "Brave-specific render bugs (sidebar invisible M-3, Esri tiles, iframe embeds) cannot be caught by the Chrome-driven sweep — a dedicated Brave pass is its own gated effort.",
+    "Photo upload + AI classify end-to-end cannot be driven by the browser file_upload tool — needs a user-shared/drag-dropped real image."
+  ]
+}

@@ -11,6 +11,9 @@
  *   - exact-length violation (storm zip != 5) → 400
  *   - honeypot ('website' filled) → 200 silent success, no write
  *   - a fully valid submission passes validation (reaches the write)
+ *   - estimate optional allowlist (M-04 bounded expansion): the estimator
+ *     funnel's own fields persist; over-cap optionals and unknown keys are
+ *     silently dropped without failing the submission
  *
  * App Check is not enforced by the emulator, so these are drivable here.
  *
@@ -37,6 +40,22 @@ async function post(payload) {
   let body = null; try { body = await res.json(); } catch {}
   return { status: res.status, body };
 }
+
+// Read a written doc straight off the Firestore emulator REST surface so the
+// optional-field assertions need no admin SDK. `Bearer owner` is the
+// emulator's documented admin bypass — without it the REST read is subject
+// to security rules, which (correctly) deny public reads of lead docs.
+// Returns the `fields` map ({ key: { stringValue } }) or null when missing.
+async function fetchDoc(collection, id) {
+  const res = await fetch(
+    `http://${process.env.FIRESTORE_EMULATOR_HOST}/v1/projects/${PROJECT}/databases/(default)/documents/${collection}/${id}`,
+    { headers: { Authorization: 'Bearer owner' } }
+  );
+  if (!res.ok) return null;
+  const json = await res.json();
+  return (json && json.fields) || null;
+}
+function str(fields, key) { return fields && fields[key] && fields[key].stringValue; }
 
 async function run() {
   console.log('PUBLIC LEAD INTAKE — submitPublicLead validation gateway');
@@ -81,6 +100,55 @@ async function run() {
   {
     const r = await post({ kind: 'storm', name: 'Jo', phone: '5550100', zip: '78704', source: 'web' });
     ok(`valid storm (zip 5) passes validation (not 4xx; got ${r.status})`, ![400, 405].includes(r.status));
+  }
+
+  // ── estimate optional allowlist (M-04 bounded expansion) ──
+  // The /estimate funnel posts its own contact + selection fields, event tags
+  // (type/requestType), and the preformatted estimateSummary alongside the
+  // required [address, source]. Allowlisted optionals persist on the written
+  // doc; keys outside the allowlist are still silently dropped.
+  {
+    const r = await post({
+      kind: 'estimate', address: '123 Main St, Union KY', source: '/estimate',
+      firstName: 'Jane', lastName: 'Doe', phone: '8595550100', email: 'jane@example.com',
+      service: 'Roof Replacement', roofType: 'asphalt', timeline: 'asap',
+      type: 'email_estimate_request', requestType: 'instant_estimate',
+      estimateSummary: 'Roof Replacement — Asphalt\nEstimated range: $12,400 – $15,800',
+      leadScore: '100', assignedTo: 'attacker' // NOT allowlisted → must be dropped
+    });
+    ok(`estimate with funnel optionals passes validation (not 4xx; got ${r.status})`, ![400, 405].includes(r.status));
+    const fields = (r.body && r.body.id) ? await fetchDoc('estimate_leads', r.body.id) : null;
+    ok('estimate doc written + readable from emulator', !!fields);
+    ok('estimate optional firstName persisted', str(fields, 'firstName') === 'Jane');
+    ok('estimate optional lastName persisted', str(fields, 'lastName') === 'Doe');
+    ok('estimate optional phone persisted', str(fields, 'phone') === '8595550100');
+    ok('estimate optional email persisted', str(fields, 'email') === 'jane@example.com');
+    ok('estimate optional service persisted', str(fields, 'service') === 'Roof Replacement');
+    ok('estimate optional roofType persisted', str(fields, 'roofType') === 'asphalt');
+    ok('estimate optional timeline persisted', str(fields, 'timeline') === 'asap');
+    ok('estimate optional type persisted', str(fields, 'type') === 'email_estimate_request');
+    ok('estimate optional requestType persisted', str(fields, 'requestType') === 'instant_estimate');
+    ok('estimate optional estimateSummary persisted', (str(fields, 'estimateSummary') || '').startsWith('Roof Replacement'));
+    ok('unknown key leadScore still dropped', !(fields && fields.leadScore));
+    ok('unknown key assignedTo still dropped', !(fields && fields.assignedTo));
+  }
+  // over-cap optionals are dropped, NOT 400 — an optional field must never
+  // fail an otherwise-valid submission. In-cap optionals on the same submit
+  // still persist.
+  {
+    const r = await post({
+      kind: 'estimate', address: '456 Oak Ave', source: '/estimate',
+      roofType: 'x'.repeat(51),          // maxLen 50 → dropped
+      estimateSummary: 'y'.repeat(2001), // maxLen 2000 → dropped
+      phone: '1'.repeat(31),             // maxLen 30 → dropped
+      email: 'still-ok@example.com'
+    });
+    ok(`estimate with over-cap optionals still succeeds (not 4xx; got ${r.status})`, ![400, 405].includes(r.status));
+    const fields = (r.body && r.body.id) ? await fetchDoc('estimate_leads', r.body.id) : null;
+    ok('over-cap roofType (51) dropped', !!fields && !fields.roofType);
+    ok('over-cap estimateSummary (2001) dropped', !!fields && !fields.estimateSummary);
+    ok('over-cap phone (31) dropped', !!fields && !fields.phone);
+    ok('in-cap email kept alongside dropped over-caps', str(fields, 'email') === 'still-ok@example.com');
   }
 
   console.log('\n──────────────────────────────────────────────────');

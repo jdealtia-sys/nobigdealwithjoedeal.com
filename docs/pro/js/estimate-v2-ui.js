@@ -1755,7 +1755,7 @@
   // Tries the renderPdf callable first. Returns true on success so
   // the legacy formatter path can short-circuit. Throws on real
   // errors (which the caller catches and falls back from).
-  async function _tryServerRenderEstimate(format, estimate, meta) {
+  async function _tryServerRenderEstimate(format, estimate, meta, previewHtml) {
     if (!window._functions || !window._httpsCallable) {
       const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
       window._functions = mod.getFunctions();
@@ -1777,6 +1777,10 @@
 
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
       window.NBDDocViewer.open({
+        // Same-origin HTML drives the PREVIEW (renders, never blocked); the
+        // server PDF `url` becomes the high-fidelity Download. Without html the
+        // viewer would embed the cross-origin Storage PDF and get blocked.
+        html:     previewHtml || undefined,
         url:      data.url,
         title:    'Project Estimate' + (payload.preparedFor && payload.preparedFor.name ? ' — ' + payload.preparedFor.name : ''),
         filename: data.filename || filename,
@@ -2282,7 +2286,9 @@
     // server rejects (transient error, missing template, etc.).
     if (format === 'retail-quote' || format === 'internal-view' || format === 'single-quote') {
       try {
-        const ok = await _tryServerRenderEstimate(format, estimate, meta);
+        // Pass the client HTML so the viewer previews it same-origin (renders,
+        // never blocked); the server PDF becomes the Download. See nbd-doc-viewer.
+        const ok = await _tryServerRenderEstimate(format, estimate, meta, result && result.html);
         if (ok) return;
       } catch (e) {
         console.warn('[V2 finalize] server render failed, falling back:', e && e.message || e);
@@ -2657,10 +2663,35 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     }
   }
 
+  // Drawing-tool import (maps-routing importToEstimate). The drawing's
+  // measurements are authoritative — they must override whatever a
+  // restored draft holds, so open() applies them AFTER restoreDraft()/
+  // prefillFromLead() resolve. The old caller-side setTimeout(300) lost
+  // that race two ways (lazy 'estimates' bundle still mounting; async
+  // draft restore re-syncing inputs afterwards) and the restored draft
+  // silently won while the success toast still fired (NEW-D39, d8 sweep).
+  function applyImportedMeasurements(imp) {
+    Object.keys(imp).forEach(k => {
+      if (imp[k] == null) return;
+      state.measurements[k] = Number(imp[k]) || 0;
+    });
+    // Same pitch→waste rule as updateMeasurement so the imported pitch
+    // doesn't leave a stale waste factor behind.
+    if (window.EstimateBuilderV2 && typeof EstimateBuilderV2.wasteFactorForPitch === 'function') {
+      const ratio = (Number(state.measurements.pitch) || 8) / 12;
+      let w = EstimateBuilderV2.wasteFactorForPitch(ratio);
+      if (state.measurements.cutUpRoof) w += 0.03;
+      state.measurements.waste = w;
+    }
+    state._reopenedClean = false;
+    syncMeasurementInputs();
+  }
+
   function open(opts) {
     opts = opts || {};
     ensureModal();
     document.getElementById('estV2Modal').classList.add('open');
+    const pendingImport = opts.importMeasurements || null;
     // 3B: reopen a saved V2 estimate (routed here from the estimates list).
     // Rehydrate its state and render — takes precedence over draft restore.
     if (opts.estimateId) {
@@ -2683,11 +2714,22 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     const leadId = opts.leadId || window._cardDetailLeadId || null;
     if (leadId) {
       prefillFromLead(leadId);
+      if (pendingImport) {
+        applyImportedMeasurements(pendingImport);
+        if (typeof window.showToast === 'function') window.showToast('Drawing measurements imported into V2 Builder', 'success');
+      }
       render();
       return;
     }
     restoreDraft().then((restored) => {
-      if (restored) {
+      if (pendingImport) {
+        applyImportedMeasurements(pendingImport);
+        if (typeof window.showToast === 'function') {
+          window.showToast(restored
+            ? 'Drawing measurements imported — they replace the restored draft’s measurements'
+            : 'Drawing measurements imported into V2 Builder', 'success');
+        }
+      } else if (restored) {
         if (typeof window.showToast === 'function') {
           window.showToast('Restored unsaved draft', 'info');
         }

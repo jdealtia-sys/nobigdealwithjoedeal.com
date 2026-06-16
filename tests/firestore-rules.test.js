@@ -31,9 +31,13 @@ async function run() {
   const bob   = env.authenticatedContext('bob',    { role: 'sales_rep',  companyId: 'co-b' }).firestore();
   const admin = env.authenticatedContext('joe',    { role: 'admin' }).firestore();
   const coAdmin = env.authenticatedContext('carol', { role: 'company_admin', companyId: 'co-a' }).firestore();
+  // NEW-5 regression: a solo operator with NO role claim (the most common
+  // real case — exactly Joe's account) and a 'viewer' (read-only).
+  const dave   = env.authenticatedContext('dave',   { companyId: 'co-d' }).firestore();
+  const viewer = env.authenticatedContext('vic',    { role: 'viewer', companyId: 'co-v' }).firestore();
   const anon  = env.unauthenticatedContext().firestore();
 
-  const { setDoc, doc, getDoc } = require('firebase/firestore');
+  const { setDoc, doc, getDoc, updateDoc, deleteDoc } = require('firebase/firestore');
 
   // ─── Seed ALL state in a single withSecurityRulesDisabled call.
   // Multiple calls conflict on Firestore settings in v10+ of the
@@ -46,6 +50,9 @@ async function run() {
     await setDoc(doc(db, 'subscriptions/alice'), { plan: 'free', status: 'inactive' });
     await setDoc(doc(db, 'leads/leadA'), { userId: 'alice', name: 'Alice Lead' });
     await setDoc(doc(db, 'leads/leadB'), { userId: 'bob',   name: 'Bob Lead' });
+    // NEW-5 fixtures: a no-role owner's lead + a viewer's lead.
+    await setDoc(doc(db, 'leads/leadD'), { userId: 'dave', name: 'Dave Lead', companyId: 'co-d' });
+    await setDoc(doc(db, 'leads/leadV'), { userId: 'vic',  name: 'Vic Lead',  companyId: 'co-v' });
     await setDoc(doc(db, 'access_codes/NBD-ADMIN'), { code: 'NBD-ADMIN', active: true, email: 'admin@nobigdeal.pro' });
     await setDoc(doc(db, 'email_log/log1'), { uid: 'alice', to: 'x@y.com' });
     await setDoc(doc(db, 'reps/alice'), { companyId: 'co-a', role: 'rep' });
@@ -290,6 +297,76 @@ async function run() {
   // server-side runner (admin SDK) bypasses rules.
   await assertFails(getDoc(doc(admin, 'system/migrations')));
   await assertFails(setDoc(doc(admin, 'system/migrations'), { appliedVersion: 999 }));
+
+  // 23. NEW-5: a solo owner with NO role claim can mutate (soft-delete,
+  //     stage-move, hard-delete) their OWN leads. The old rule used
+  //     `request.auth.token.role != 'viewer'`, which THROWS when the role
+  //     claim is absent → PERMISSION_DENIED for every no-role owner (so the
+  //     soft-delete silently failed and bridged/web leads reappeared). The
+  //     fix uses `request.auth.token.get('role','') != 'viewer'`.
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { deleted: true }));      // soft-delete
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadD'), { stage: 'contacted' })); // stage move
+  await assertSucceeds(deleteDoc(doc(dave, 'leads/leadD')));                         // hard delete
+  // A 'viewer' who owns a lead is still read-only at the rules layer.
+  await assertFails(updateDoc(doc(viewer, 'leads/leadV'), { deleted: true }));
+  await assertFails(deleteDoc(doc(viewer, 'leads/leadV')));
+
+  // 24. NEW-D11: saved reports — owners delete their OWN reports. The old
+  //     rule was `allow update, delete: if isAdmin()`, so the My Reports
+  //     delete button silently failed for every non-admin owner. Update
+  //     stays admin-only (no client edit flow); cross-owner + anon delete
+  //     stay blocked.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'reports/report-alice'), { userId: 'alice', name: 'Alice report', template: 'pipeline-health' });
+    await setDoc(doc(db, 'reports/report-bob'),   { userId: 'bob',   name: 'Bob report',   template: 'rep-monthly' });
+  });
+  await assertFails(updateDoc(doc(alice, 'reports/report-alice'), { name: 'renamed' })); // update still admin-only
+  await assertFails(deleteDoc(doc(alice, 'reports/report-bob')));                        // cross-owner delete blocked
+  await assertFails(deleteDoc(doc(anon, 'reports/report-alice')));                       // anon delete blocked
+  await assertSucceeds(deleteDoc(doc(alice, 'reports/report-alice')));                   // owner deletes own report
+
+  // 25. NEW-D40a: drawings. The lead-linked subcollection
+  //     (leads/{leadId}/drawings) has long had owner rules, but the
+  //     top-level /drawings collection — the draw tool's fallback for
+  //     drawings saved with no matching lead — had NO block, so
+  //     default-deny failed every unlinked save and load. Exercise the
+  //     exact client query shapes from maps-routing.js.
+  const { collection, query, where, orderBy, limit, getDocs, addDoc } = require('firebase/firestore');
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'drawings/draw-alice'),
+      { userId: 'alice', leadId: '_unlinked_alice', version: 1, address: '1 Test St' });
+    await setDoc(doc(db, 'drawings/draw-bob'),
+      { userId: 'bob', leadId: '_unlinked_bob', version: 1, address: '2 Test St' });
+    await setDoc(doc(db, 'leads/leadA/drawings/d1'),
+      { userId: 'alice', leadId: 'leadA', version: 1, address: '3 Test St' });
+  });
+  // ✅ unlinked load: owner-filtered query (loadDrawingFromCustomer shape)
+  await assertSucceeds(getDocs(query(collection(alice, 'drawings'),
+    where('userId', '==', 'alice'), orderBy('version', 'desc'), limit(1))));
+  // ✅ unlinked save: create with self-stamped userId (saveDrawingToCustomer shape)
+  await assertSucceeds(addDoc(collection(alice, 'drawings'),
+    { userId: 'alice', leadId: '_unlinked_alice', version: 2, address: '1 Test St' }));
+  // ❌ create stamped with someone else's userId → blocked
+  await assertFails(addDoc(collection(alice, 'drawings'),
+    { userId: 'bob', leadId: '_unlinked_bob', version: 9, address: 'forged' }));
+  // ❌ cross-owner direct read + unfiltered collection scan → blocked
+  await assertFails(getDoc(doc(alice, 'drawings/draw-bob')));
+  await assertFails(getDocs(query(collection(alice, 'drawings'),
+    orderBy('version', 'desc'), limit(1))));
+  // ❌ anon read → blocked
+  await assertFails(getDoc(doc(anon, 'drawings/draw-alice')));
+  // ✅ owner deletes their own unlinked drawing
+  await assertSucceeds(deleteDoc(doc(alice, 'drawings/draw-alice')));
+  // ✅ lead-linked load regression: owner queries the subcollection with
+  //    orderBy(version) — no userId clause; ownership proves via the
+  //    parent-lead get() in the existing rule.
+  await assertSucceeds(getDocs(query(collection(alice, 'leads/leadA/drawings'),
+    orderBy('version', 'desc'), limit(1))));
+  // ❌ same query from a non-owner of the lead → blocked
+  await assertFails(getDocs(query(collection(bob, 'leads/leadA/drawings'),
+    orderBy('version', 'desc'), limit(1))));
 
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();

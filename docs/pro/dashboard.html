@@ -1728,7 +1728,11 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
    sidebar's overflow-y:auto actually triggers. Without it,
    the sidebar expands to its natural content height and the
    parent page scrolls instead of the sidebar scrolling. */
-.map-view{display:none;flex:1;min-height:0;}
+/* position:relative so the absolute spyglass panel anchors to the map
+   view, not BODY — body-anchored it rendered under the page header and
+   its input/buttons were unclickable (NEW-D36). Mobile overrides below
+   still force their own position with !important. */
+.map-view{display:none;flex:1;min-height:0;position:relative;}
 .map-view.active{display:flex;min-height:0;height:100%;}
 .map-sidebar{width:280px;flex-shrink:0;background:var(--s);border-right:1px solid var(--br);overflow-y:auto;padding:14px;min-height:0;max-height:100%;}
 .map-sidebar::-webkit-scrollbar{width:3px;}
@@ -6773,7 +6777,7 @@ body.theme-frosted {
   <style>@keyframes nbd-load-bar{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}</style>
 </div>
 <script src="js/dashboard-loader-fadeout.js?v=1"></script>
-<script src="js/dashboard-ui-prefs-boot.js?v=1"></script>
+<script src="js/dashboard-ui-prefs-boot.js?v=2"></script>
 <!-- ═══════════════════════════════════════════════════════════════
      NBD PRO UNIVERSAL NAV BAR v1.0
      Drop this block into any NBD Pro tool page.
@@ -10255,20 +10259,14 @@ body.theme-frosted {
           </div>
         </div>
 
-        <!-- ▸ Default Measurements -->
+        <!-- ▸ Cost Defaults. The Default Pitch / Waste % / Deck Replace %
+             trio that used to sit here was markup-only decoration — no JS
+             ever read or persisted those ids, so Save All silently
+             discarded them (NEW-D43a). Pitch/waste defaults live in the
+             builders themselves (estimate-v2-ui state + pitch→waste rule). -->
         <div class="panel mb-md">
-          <div class="panel-hdr"><div><div class="panel-label">Defaults</div><div class="panel-title">Measurement & Waste Defaults</div></div></div>
+          <div class="panel-hdr"><div><div class="panel-label">Defaults</div><div class="panel-title">Cost & Tax Defaults</div></div></div>
           <div class="panel-body">
-            <div class="sf-row">
-              <div class="sf"><label>Default Pitch</label>
-                <select id="defPitch" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:inherit;font-size:13px;color:var(--t);outline:none;">
-                  <option>4/12</option><option>6/12</option><option selected>8/12</option>
-                  <option>10/12</option><option>12/12</option><option>14/12</option>
-                </select>
-              </div>
-              <div class="sf"><label>Default Waste %</label><input type="number" id="defWaste" value="17" step="1"></div>
-              <div class="sf"><label>Default Deck Replace %</label><input type="number" id="defDeckPct" value="15" step="1"></div>
-            </div>
             <div class="sf-row">
               <div class="sf"><label>Dump Fee ($)</label><input type="number" id="defDumpFee" value="550" step="25"></div>
               <div class="sf"><label>Extra Layer Tear-Off ($/SQ)</label><input type="number" id="defExtraLayer" value="50" step="5"></div>
@@ -10779,7 +10777,7 @@ body.theme-frosted {
               </div>
             </div>
             <div style="font-size:11px;color:var(--m);padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:4px;">
-              <strong class="fg-orange">Pricing:</strong> Solo operators never pay for team features. Multi-user unlocks at the Growth tier ($249/mo, up to 5 reps) and scales with Enterprise (unlimited, custom pricing).
+              <strong class="fg-orange">Pricing:</strong> Solo operators never pay for team features. Multi-user unlocks at the Crew tier ($299/mo, up to 5 reps, +$39/mo per additional seat) and scales with Enterprise (unlimited, custom pricing).
             </div>
           </div>
         </div>
@@ -12069,9 +12067,9 @@ body.theme-frosted {
 <script defer src="js/nbd-url.js?v=1"></script>
 <script defer src="js/dashboard-state.js?v=1"></script>
 <script defer src="js/dashboard-api.js?v=1"></script>
-<script defer src="js/dashboard-widgets.js?v=1"></script>
-<script defer src="js/dashboard-ui.js?v=1"></script>
-<script defer src="js/dashboard-actions.js?v=2"></script>
+<script defer src="js/dashboard-widgets.js?v=2"></script>
+<script defer src="js/dashboard-ui.js?v=2"></script>
+<script defer src="js/dashboard-actions.js?v=3"></script>
 <script defer src="js/dashboard-main.js?v=4"></script>
 
 <!-- DOC VIEWER MODAL -->
@@ -12834,7 +12832,7 @@ body.theme-frosted {
 <script defer src="js/almost-there-widget.js?v=1"></script>
 <script defer src="js/stale-shares-widget.js?v=1"></script>
 <script defer src="js/widgets.js?v=6"></script>
-<script defer src="js/ui.js?v=5"></script>
+<script defer src="js/ui.js?v=6"></script>
 <script defer src="js/demo.js?v=3"></script>
 <script defer src="js/icons.js?v=3"></script>
 <script defer src="js/nbd-comms.js?v=1"></script>
@@ -12847,9 +12845,9 @@ body.theme-frosted {
      loaded in order before the thin maps.js shim. See maps.js
      header for the full split rationale. Each module is a classic
      <script> (non-ESM) and shares sibling-scope globals. -->
-<script defer src="js/maps-core.js?v=1"></script>
-<script defer src="js/maps-overlays.js?v=1"></script>
-<script defer src="js/maps-routing.js?v=2"></script>
+<script defer src="js/maps-core.js?v=2"></script>
+<script defer src="js/maps-overlays.js?v=2"></script>
+<script defer src="js/maps-routing.js?v=3"></script>
 <script defer src="js/maps.js?v=10"></script>
 <!-- Smart Calendar — Today's Schedule with travel-time + priority. Reads
      /appointments (Cal.com webhook output) for the current rep, cross-
@@ -12870,7 +12868,7 @@ body.theme-frosted {
      `estimates` bundle (PR 2c). estimate-config stays eager (prerequisite read
      at load by the builder). -->
 
-<script defer src="js/ai.js?v=4"></script>
+<script defer src="js/ai.js?v=5"></script>
 <script defer src="js/review-engine.js?v=2"></script>
 <script defer src="js/company-profile.js?v=1"></script>
 <!-- LAZY: doc-generation cluster (nbd-logo-asset, document-generator,

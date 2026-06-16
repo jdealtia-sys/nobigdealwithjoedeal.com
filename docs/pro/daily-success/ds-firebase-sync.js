@@ -72,15 +72,13 @@ async function pushToFirestore(pages) {
     batch.set(doc(db, 'users', _uid, 'ds_pages', String(page.id)), { ...page, _uid, _updatedAt: serverTimestamp() }, { merge: true });
   }
   batch.set(doc(db, 'users', _uid, 'ds_meta', 'streaks'), { ...streaks, _updatedAt: serverTimestamp() });
-  const user = auth.currentUser;
-  batch.set(doc(db, 'leaderboard', _uid), {
-    uid: _uid,
-    displayName: user?.displayName || user?.email?.split('@')[0] || 'Anonymous',
-    door_streak: streaks.runD, workout_streak: streaks.runW, win_streak: streaks.runWin,
-    best_door_streak: streaks.maxD, total_doors: streaks.totalDoors,
-    total_closes: streaks.totalCloses, total_revenue: streaks.totalRevenue,
-    page_count: pages.length, _updatedAt: serverTimestamp()
-  }, { merge: true });
+  // NO leaderboard/{uid} write here. firestore.rules deliberately sets
+  // `allow write: if false` on /leaderboard (client-inflatable stats must
+  // come from an admin-SDK aggregator) — and because a writeBatch commits
+  // atomically, the old leaderboard set() in this batch made EVERY signed-in
+  // sync fail wholesale ("Sync failed" badge, cloud copy never written).
+  // The streaks doc above is the authoritative owner-side source a future
+  // Cloud Function aggregator can fan into /leaderboard.
   await batch.commit();
   showBadge('Synced', '#2ECC8A');
 }

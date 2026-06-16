@@ -7,6 +7,12 @@ document.documentElement.style.visibility = 'visible';
 // ── Restart-tour button ──
 document.getElementById('restartTourBtn').addEventListener('click', () => {
   try { localStorage.removeItem('nbd-onboarding-complete'); } catch (e) {}
+  // NEW-D24: removing the complete-key alone only re-fires the tour for users
+  // with ZERO leads — the dashboard's maybeAutoStart treats "has leads" as
+  // "don't interrupt" and silently re-marks the tour complete. An explicit
+  // restart must override that, so set a one-shot force flag the dashboard's
+  // onboarding-tour.js consumes on its next boot.
+  try { localStorage.setItem('nbd-tour-force', '1'); } catch (e) {}
   // Tour lives on the dashboard. Send the user there and let it auto-fire.
   window.location.href = 'dashboard.html';
 });

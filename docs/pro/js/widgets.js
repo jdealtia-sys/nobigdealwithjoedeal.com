@@ -148,7 +148,7 @@ const WIDGETS = [
         <div class="w-big-num" style="color:var(--green);">$${rev >= 1000 ? (rev/1000).toFixed(1)+'k' : rev.toFixed(0)}</div>
         <div class="w-sub">Revenue This Month</div>
         <div class="w-bar-track"><div class="w-bar-fill" style="width:${pct}%"></div></div>
-        <div class="w-goal-edit" title="Click to change your monthly goal" style="font-size:9px;color:var(--m);text-align:right;margin-top:3px;cursor:pointer;user-select:none;">${pct.toFixed(0)}% of $${(goal/1000).toFixed(0)}k goal ✎</div>`;
+        <div class="w-goal-edit" data-w-stop="1" title="Click to change your monthly goal" style="font-size:9px;color:var(--m);text-align:right;margin-top:3px;cursor:pointer;user-select:none;">${pct.toFixed(0)}% of $${(goal/1000).toFixed(0)}k goal ✎</div>`;
       const goalEl = el.querySelector('.w-goal-edit');
       if (goalEl) {
         goalEl.addEventListener('click', () => {
@@ -298,8 +298,8 @@ const WIDGETS = [
       if(!tasks.length) tasks = [{t:'Follow up on yesterday\'s leads',d:false},{t:'Send 3 estimates',d:false},{t:'Update pipeline stages',d:false},{t:'Check storm reports',d:false}];
       el.innerHTML = `<div id="w-tasks">` + tasks.map((t,i) => `
         <label class="w-task-row">
-          <input type="checkbox" ${t.d?'checked':''} onchange="window._wToggleTask(${i},this.checked)">
-          <span style="${t.d?'text-decoration:line-through;opacity:.5;':''}font-size:12px;color:var(--t);">${t.t}</span>
+          <input type="checkbox" ${t.d?'checked':''} data-w-change="toggleTask" data-w-idx="${i}">
+          <span style="${t.d?'text-decoration:line-through;opacity:.5;':''}font-size:12px;color:var(--t);">${esc(t.t)}</span>
         </label>`).join('') + `</div>
         <div style="margin-top:6px;display:flex;gap:4px;">
           <input type="text" id="w-task-input" placeholder="Add task..." style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:5px 8px;font-size:11px;color:var(--t);font-family:inherit;">
@@ -312,11 +312,11 @@ const WIDGETS = [
       el.innerHTML = `
         <div style="margin-bottom:6px;">
           <label style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;">Sq Ft</label>
-          <input type="number" id="w-qe-sqft" placeholder="2000" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:6px 8px;font-size:13px;color:var(--t);font-family:inherit;margin-top:2px;" oninput="window._wQuickEst()">
+          <input type="number" id="w-qe-sqft" placeholder="2000" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:6px 8px;font-size:13px;color:var(--t);font-family:inherit;margin-top:2px;" data-w-input="quickEst">
         </div>
         <div style="margin-bottom:6px;">
           <label style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;">$/sq</label>
-          <input type="number" id="w-qe-rate" placeholder="350" value="350" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:6px 8px;font-size:13px;color:var(--t);font-family:inherit;margin-top:2px;" oninput="window._wQuickEst()">
+          <input type="number" id="w-qe-rate" placeholder="350" value="350" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:6px 8px;font-size:13px;color:var(--t);font-family:inherit;margin-top:2px;" data-w-input="quickEst">
         </div>
         <div id="w-qe-result" style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--orange);text-align:center;padding:6px 0;">$0</div>`;
     }},
@@ -365,7 +365,7 @@ const WIDGETS = [
           <input type="text" id="w-ql-addr" placeholder="Property address" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px;font-size:12px;color:var(--t);font-family:inherit;">
           <div style="display:flex;gap:6px;">
             <select id="w-ql-damage" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px;font-size:11px;color:var(--t);font-family:inherit;">
-              <option>Roof - Hail</option><option>Roof - Wind</option><option>Siding</option><option>Full Exterior</option>
+              <option value="Roof - Hail">Roof - Hail</option><option value="Roof - Wind">Roof - Wind</option><option value="Siding - Hail">Siding - Hail</option><option value="Siding - Wind">Siding - Wind</option><option value="Full Exterior">Full Exterior</option>
             </select>
             <button class="btn btn-orange" style="padding:8px 16px;font-size:11px;" data-w-action="quickAddLead">Add →</button>
           </div>
@@ -384,7 +384,7 @@ const WIDGETS = [
       el.innerHTML = `
         <div id="w-joe-response" style="font-size:12px;color:var(--m);min-height:40px;margin-bottom:8px;max-height:120px;overflow-y:auto;">Ask Joe anything about sales, claims, or your pipeline.</div>
         <div style="display:flex;gap:6px;">
-          <input type="text" id="w-joe-input" placeholder="Ask Joe..." style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px;font-size:12px;color:var(--t);font-family:inherit;" onkeydown="if(event.key==='Enter')window._wAskJoe()">
+          <input type="text" id="w-joe-input" placeholder="Ask Joe..." style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:5px;padding:8px 10px;font-size:12px;color:var(--t);font-family:inherit;" data-w-keydown="askJoe">
           <button class="btn btn-orange" style="padding:8px 12px;font-size:11px;" data-w-action="askJoe">Ask</button>
         </div>`;
     }},
@@ -427,8 +427,8 @@ const WIDGETS = [
       const goal = cfg.northStar || 'Set your North Star in Settings → Daily OS';
       const deadline = cfg.northStarDeadline || '';
       el.innerHTML = `
-        <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--orange);text-transform:uppercase;line-height:1.3;margin-bottom:6px;">${goal}</div>
-        ${deadline ? `<div style="font-size:10px;color:var(--m);">Deadline: ${deadline}</div>` : ''}`;
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--orange);text-transform:uppercase;line-height:1.3;margin-bottom:6px;">${esc(goal)}</div>
+        ${deadline ? `<div style="font-size:10px;color:var(--m);">Deadline: ${esc(deadline)}</div>` : ''}`;
     }},
 
   {id:'daily-floors', name:'Daily Floors', icon:'📏', cat:'Motivation & Tracking', size:'md',
@@ -442,7 +442,7 @@ const WIDGETS = [
         const pct = f.target > 0 ? Math.min(100, val/f.target*100) : 0;
         return `<div style="margin-bottom:8px;">
           <div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;">
-            <span style="font-weight:700;color:var(--t);">${f.label}</span>
+            <span style="font-weight:700;color:var(--t);">${esc(f.label)}</span>
             <span style="color:${pct>=100?'var(--green)':'var(--m)'};">${val} / ${f.target}</span>
           </div>
           <div class="w-bar-track"><div class="w-bar-fill" style="width:${pct}%;${pct>=100?'background:var(--green);':''}"></div></div>
@@ -495,7 +495,7 @@ const WIDGETS = [
         <div style="text-align:center;">
           <div style="font-size:36px;">${allHit ? '🪿✨' : '🪿'}</div>
           <div style="font-size:12px;font-weight:700;color:${allHit?'var(--green)':'var(--t)'};margin:6px 0;">${allHit ? 'UNLOCKED!' : 'Hit all floors to unlock'}</div>
-          <div style="font-size:11px;color:var(--orange);font-style:italic;">${reward}</div>
+          <div style="font-size:11px;color:var(--orange);font-style:italic;">${esc(reward)}</div>
         </div>`;
     }},
 
@@ -655,7 +655,19 @@ function renderWidgetHome() {
     const navTarget = NAV_MAP[w.id] || 'crm';
     card.style.cursor = 'pointer';
     card.addEventListener('click', (e) => {
-      if (e.target.closest('.w-card-remove')) return;
+      // NEW-C9: only the card CHROME (header/body padding) navigates.
+      // Any click that lands on an interactive inner control — a
+      // delegated button/row (data-w-action / data-w-goto), the remove
+      // ✕, an opt-out marker (data-w-stop), or a native form control
+      // (input/select/textarea/button/label/a) — must NOT bounce the
+      // user to /crm. We bail HERE (in the per-card listener) rather
+      // than via stopPropagation in the document delegate, because the
+      // card listener fires first on bubble, so a document-level stop
+      // would run too late to cancel this navigation.
+      if (e.target.closest(
+        '.w-card-remove,[data-w-action],[data-w-goto],[data-w-stop],' +
+        'input,select,textarea,button,label,a'
+      )) return;
       if (typeof window.goTo === 'function') window.goTo(navTarget);
     });
     card.innerHTML = `
@@ -706,7 +718,7 @@ function openWidgetPicker() {
     catWidgets.forEach(w => {
       const isActive = activeIds.includes(w.id);
       html += `<label class="w-picker-row ${isActive ? 'w-picker-active' : ''}">
-        <input type="checkbox" ${isActive ? 'checked' : ''} onchange="window.NBDWidgets.toggleWidget('${w.id}', this.checked)">
+        <input type="checkbox" ${isActive ? 'checked' : ''} data-w-change="toggleWidget" data-w-id="${w.id}">
         <span class="w-picker-icon">${w.icon}</span>
         <span class="w-picker-name">${w.name}</span>
         <span class="w-picker-size">${w.size}</span>
@@ -793,10 +805,19 @@ window._wQuickAddLead = function() {
   // Trigger the lead modal if available
   if(window.openLeadModal) {
     openLeadModal();
+    // Prefill the real Add Lead modal fields (#lFname/#lLname/#lAddr/#lDamageType).
+    // Mirrors the D2D knock->lead prefill idiom in d2d-tracker-core-2026b.js:
+    // split the single homeowner name into first/last, fill after open.
     setTimeout(() => {
-      const nameEl = document.getElementById('leadName'); if(nameEl && name) nameEl.value = name;
-      const addrEl = document.getElementById('leadAddr'); if(addrEl) addrEl.value = addr;
-      const dmgEl = document.getElementById('leadDamage'); if(dmgEl && damage) dmgEl.value = damage;
+      const firstName = (name || '').split(' ')[0] || '';
+      const lastName  = (name || '').split(' ').slice(1).join(' ') || '';
+      const fill = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+      fill('lFname', firstName);
+      fill('lLname', lastName);
+      fill('lAddr', addr);
+      // #lDamageType is a <select>; assigning an unmatched value is a silent
+      // no-op (leaves the placeholder), so this degrades gracefully.
+      const dmgEl = document.getElementById('lDamageType'); if(dmgEl && damage) dmgEl.value = damage;
     }, 100);
   }
   showToast('Opening lead form...','info');
@@ -867,6 +888,21 @@ const _wActions = {
   resetDefaults:  () => window.NBDWidgets.resetDefaults(),
 };
 
+// CSP-dead inline on* on rendered inputs/checkboxes have the same
+// problem as onclick=: script-src-attr 'none' blocks them. These
+// handlers are dispatched by the change/input/keydown delegates below.
+// Signature mirrors _wActions: (wId, ev, target).
+const _wChange = {
+  toggleTask:   (_id, ev, target) => { if (typeof window._wToggleTask === 'function') window._wToggleTask(parseInt(target.dataset.wIdx, 10), target.checked); },
+  toggleWidget: (id, ev, target) => { window.NBDWidgets.toggleWidget(id, target.checked); },
+};
+const _wInput = {
+  quickEst:     () => { if (typeof window._wQuickEst === 'function') window._wQuickEst(); },
+};
+const _wKeydown = {
+  askJoe:       (_id, ev) => { if (ev && ev.key === 'Enter') { ev.preventDefault(); if (typeof window._wAskJoe === 'function') window._wAskJoe(); } },
+};
+
 if (!window._NBD_WIDGETS_DELEGATE_BOUND) {
   window._NBD_WIDGETS_DELEGATE_BOUND = true;
   document.addEventListener('click', function (ev) {
@@ -885,6 +921,28 @@ if (!window._NBD_WIDGETS_DELEGATE_BOUND) {
       console.error('[widgets] dispatch ' + t.dataset.wAction + ' failed:', e);
     }
   });
+
+  // Non-click delegates: checkboxes/inputs need 'change'/'input', and
+  // the Ask-Joe field needs 'keydown'. The click delegate above does
+  // NOT see these, so register one listener per event type, each
+  // dispatching from its own data-w-* attr + map (same idiom).
+  function _wDelegate(attr, map, evName) {
+    document.addEventListener(evName, function (ev) {
+      const t = ev.target && ev.target.closest && ev.target.closest('[' + attr + ']');
+      if (!t) return;
+      const key = t.dataset[attr.replace(/^data-/, '').replace(/-([a-z])/g, (_, c) => c.toUpperCase())];
+      const fn = map[key];
+      if (!fn) { console.warn('[widgets] no ' + evName + ' dispatch for', key); return; }
+      try {
+        fn(t.dataset.wId, ev, t);
+      } catch (e) {
+        console.error('[widgets] ' + evName + ' dispatch ' + key + ' failed:', e);
+      }
+    });
+  }
+  _wDelegate('data-w-change', _wChange, 'change');
+  _wDelegate('data-w-input', _wInput, 'input');
+  _wDelegate('data-w-keydown', _wKeydown, 'keydown');
 }
 
 })();

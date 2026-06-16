@@ -44,6 +44,9 @@ const syntaxFiles = [
   path.join(PRO_JS, 'estimate-finalization.js'),
   path.join(PRO_JS, 'nbd-doc-viewer.js'),
   path.join(PRO_JS, 'template-suite.js'),
+  // Boot-path prefs (de-moji, sizing, fonts, sidebar hidden-prefs) — a
+  // parse error here silently kills every boot-applied UI pref at once.
+  path.join(PRO_JS, 'dashboard-ui-prefs-boot.js'),
   path.join(FUNCTIONS, 'index.js')
 ];
 for (const f of syntaxFiles) {
@@ -1713,8 +1716,13 @@ section('Wave 5d (A.4) — accent contract on remaining toggle-active states');
     /\.crm-icon-btn\.active\{[\s\S]{0,400}box-shadow:inset 0 0 0 1px var\(--accent-ring\)/.test(dash),
     'expected .crm-icon-btn.active to carry the inset --accent-ring boundary');
   // 2. JS-driven inline orange surfaces in crm.js use --accent-fg.
+  // CO-M-1: the kanban search highlight moved from a buildCard innerHTML
+  // string (<mark style="...">) to a TreeWalker text-node highlighter
+  // (_highlightCardMatches), which creates the <mark> via createElement +
+  // style.cssText. The theme-contrast contract (color via --accent-fg) is
+  // unchanged — only the construction form moved from HTML string to cssText.
   assert('crm.js search-highlight <mark> uses var(--accent-fg)',
-    /<mark style="background:var\(--orange\);color:var\(--accent-fg\)/.test(crmJs),
+    /mark\.style\.cssText\s*=\s*'background:var\(--orange\);color:var\(--accent-fg\)/.test(crmJs),
     'expected the search-highlight <mark> to color via --accent-fg');
   assert('crm.js saveBtn.style.cssText uses var(--accent-fg) + accent-ring',
     /saveBtn\.style\.cssText\s*=\s*'background:var\(--orange\);border:1px solid var\(--orange\);color:var\(--accent-fg\);box-shadow:inset 0 0 0 1px var\(--accent-ring\)/.test(crmJs),
@@ -2082,6 +2090,50 @@ section('Pro Chrome — icon system + header consolidation');
     'expected at least 3 .crm-hdr-sep elements inside .crm-hdr-actions');
 }
 
+section('Sidebar customizer — hidden prefs apply at real page boot');
+{
+  // The customizer (dashboard-sidebar-customizer.js) ships inside the
+  // lazily-hydrated tpl-view-settings template, so its own apply only runs
+  // once the user first opens Settings → Appearance — saved hidden-nav
+  // prefs came back on every fresh page load until then.
+  // dashboard-ui-prefs-boot.js (a real, non-template <script src> that
+  // executes before the sidebar markup parses) re-applies them at boot:
+  // pre-paint <style> hide, then an inline-style handoff at
+  // DOMContentLoaded. Contract: boot READS nbd_sidebar_hidden; the
+  // customizer remains the single WRITER.
+  const prefsBoot = read(path.join(PRO_JS, 'dashboard-ui-prefs-boot.js'));
+  const sidebarSrc = read(path.join(PRO_JS, 'dashboard-sidebar-customizer.js'));
+  const dashRaw = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+
+  // 1. The boot apply exists and reads the saved prefs.
+  assert('prefs-boot reads nbd_sidebar_hidden at boot',
+    /localStorage\.getItem\('nbd_sidebar_hidden'\)/.test(prefsBoot),
+    'the boot script must apply saved hidden-nav prefs without waiting for the settings template to hydrate');
+  // 2. Single-writer contract: boot never writes the key…
+  assert('prefs-boot stays read-only on nbd_sidebar_hidden (customizer is the single writer)',
+    !/(setItem|removeItem)\('nbd_sidebar_hidden'/.test(prefsBoot),
+    'only dashboard-sidebar-customizer.js may write the key');
+  // 2b. …and the customizer still owns the writes (a key rename there
+  //     must break this pin together with the boot reader above).
+  assert('customizer still owns the nbd_sidebar_hidden writes',
+    /setItem\('nbd_sidebar_hidden'/.test(sidebarSrc) && /removeItem\('nbd_sidebar_hidden'\)/.test(sidebarSrc));
+  // 3. Pre-paint hide + DOMContentLoaded handoff. The handoff is the
+  //    part a refactor could silently drop: a leftover stylesheet rule
+  //    overrides applySidebarCustomizer()'s el.style.display='' un-hide
+  //    and wedges items hidden until reload.
+  assert('boot hide is pre-paint with a DOMContentLoaded inline-style handoff',
+    /nbdSidebarBootHide/.test(prefsBoot)
+      && /readyState === 'loading'/.test(prefsBoot)
+      && /st\.remove\(\)/.test(prefsBoot),
+    "the injected <style> must be swapped for inline display:none and removed once the DOM is ready");
+  // 4. The boot script ships as a real script tag OUTSIDE (before) the
+  //    lazy settings template — inside it, the fix would not fix anything.
+  assert('dashboard.html loads prefs-boot before tpl-view-settings',
+    dashRaw.indexOf('js/dashboard-ui-prefs-boot.js') !== -1
+      && dashRaw.indexOf('js/dashboard-ui-prefs-boot.js') < dashRaw.indexOf('id="tpl-view-settings"'),
+    'the boot apply only fixes the reload gap if the script executes at real page boot');
+}
+
 section('Rock 4 Phase 3 — view-storm lazy hydration');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
@@ -2102,6 +2154,73 @@ section('Rock 4 Phase 3 — view-storm lazy hydration');
   assert('goTo() calls _hydrateViewTemplate(name) before reading view-' + 'name',
     /_hydrateViewTemplate\(name\)[\s\S]{0,400}document\.getElementById\(['"]view-['"]\+name\)/.test(mainJs),
     'expected _hydrateViewTemplate(name) to run before the view-active update');
+}
+
+section('Hardening 2026-06-09 — settings-tab renderers (post-#597 live surface)');
+{
+  // PR #597's readyState-guard fix made the Settings-tab renderers run
+  // for the first time. This section pins the two bug classes that
+  // became reachable with them:
+  //  1. XSS hardening — dashboard-team-tab.js renders Firestore member
+  //     docs (semi-external strings) into innerHTML. Every member field
+  //     must round through the file's _nbdEscHtml escaper.
+  //  2. CSP — the /pro/ header ships script-src-attr 'none', so JS-built
+  //     markup carrying an inline on*-handler attribute renders dead
+  //     controls (same class as the C-1 saveLead no-op). The settings
+  //     shards must use the data-on-change delegate, and the handler
+  //     names must be on _NBD_CALL_ALLOWLIST or the delegate silently
+  //     ignores them.
+  const teamSrc = read(path.join(PRO_JS, 'dashboard-team-tab.js'));
+  const sidebarSrc = read(path.join(PRO_JS, 'dashboard-sidebar-customizer.js'));
+  const hotkeySrc = read(path.join(PRO_JS, 'dashboard-hotkey-toggles.js'));
+  const billingSrc = read(path.join(PRO_JS, 'dashboard-billing-tab.js'));
+  const stateSrc = read(path.join(PRO_JS, 'dashboard-state.js'));
+
+  // 1a. The escaper exists (widgets.js esc() is IIFE-scoped and
+  //     unreachable from this hydrated-template script).
+  assert('dashboard-team-tab.js defines the _nbdEscHtml escaper',
+    /function _nbdEscHtml\(/.test(teamSrc),
+    'member rows render Firestore strings into innerHTML; the file must define its own escaper');
+  // 1b. Both email interpolations (row line + avatar initial) escape.
+  assert('team rows escape m.email through _nbdEscHtml',
+    /_nbdEscHtml\(m\.email\s*\|\|\s*''\)/.test(teamSrc)
+      && /_nbdEscHtml\(\(m\.email\s*\|\|\s*'\?'\)\[0\]/.test(teamSrc),
+    'both the email line and the avatar initial must be escaped');
+  // 1c. Role (both interpolations) + status escape.
+  assert('team rows escape m.role and m.status through _nbdEscHtml',
+    (teamSrc.match(/_nbdEscHtml\(\(m\.role\s*\|\|\s*'rep'\)/g) || []).length >= 2
+      && /_nbdEscHtml\(m\.status\s*\|\|\s*'invited'\)/.test(teamSrc),
+    'role renders twice (meta line + badge) and status once; all three must be escaped');
+  // 1d. No raw member-field concatenation survives.
+  assert('no unescaped member-field interpolation remains in team rows',
+    !/\+\s*\(m\.(email|role|status)/.test(teamSrc),
+    'every "+ (m.<field>" concatenation must be wrapped in _nbdEscHtml(...)');
+
+  // 2a. Zero inline handler attributes in any of the four settings shards.
+  [['dashboard-team-tab.js', teamSrc],
+   ['dashboard-sidebar-customizer.js', sidebarSrc],
+   ['dashboard-hotkey-toggles.js', hotkeySrc],
+   ['dashboard-billing-tab.js', billingSrc]].forEach(function(pair) {
+    assert(pair[0] + " has zero inline on*-handler attributes (script-src-attr 'none')",
+      !/\son(click|change|input|submit|load|error|focus|blur)\s*=/.test(pair[1]),
+      'inline handler attributes are CSP-dead on /pro/ — use the data-on-change / data-action delegates');
+  });
+  // 2b. The two checkbox grids ride the delegate with the checked+arg shape.
+  assert('sidebar-customizer checkboxes use the data-on-change delegate',
+    /data-on-change="toggleSidebarItem" data-on-pass="checked" data-on-arg="/.test(sidebarSrc),
+    'expected data-on-change="toggleSidebarItem" data-on-pass="checked" data-on-arg="<nav id>"');
+  assert('hotkey-toggles checkboxes use the data-on-change delegate',
+    /data-on-change="toggleHotkey" data-on-pass="checked" data-on-arg="/.test(hotkeySrc),
+    'expected data-on-change="toggleHotkey" data-on-pass="checked" data-on-arg="<hk id>"');
+  // 2c. Delegate handlers are allowlisted (missing entry = silent no-op).
+  assert('toggleSidebarItem + toggleHotkey are on _NBD_CALL_ALLOWLIST',
+    /'toggleSidebarItem'/.test(stateSrc) && /'toggleHotkey'/.test(stateSrc),
+    'the data-on-change delegate ignores names missing from the allowlist (C-1 class)');
+  // 2d. Their handler signatures match the delegate call shape (checked, id).
+  assert('toggleSidebarItem signature matches delegate (on, navId)',
+    /function toggleSidebarItem\(on, navId\)/.test(sidebarSrc));
+  assert('toggleHotkey signature matches delegate (on, id)',
+    /function toggleHotkey\(on, id\)/.test(hotkeySrc));
 }
 
 };

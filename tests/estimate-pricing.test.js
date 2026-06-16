@@ -105,14 +105,24 @@ test('extraPipeBootCharge: 7 pipes → $255 (3 extra)', () => {
 });
 
 // ── End-to-end calculations via calculateEstimate ──
-test('39 SQ Better tier ≈ $23,755 (rawSqft pre-baked, waste=1)', () => {
+test('39 SQ Better tier ≈ $23,900 (rawSqft pre-baked, waste=1)', () => {
   const r = EBv2.calculateEstimate({
     method: 'per-sq', tier: 'better', mode: 'insurance',
     rawSqft: 3900, pitch: '6/12', wasteFactorOverride: 1.0
   });
-  // 39 × $595 = $23,205. Insurance hides tax. Add-ons default 0.
-  // Base + dumpFee default ($550) = $23,755 → rounds to $23,750
-  near(r.total, 23755, 30, 'insurance Better total');
+  // 39 × $595 = $23,205. Insurance hides tax.
+  // Base + dumpFee default ($550) = $23,755. C-1 fail-safe: no county set →
+  // DEFAULT_PERMIT_COST $150 (was a silent $0). $23,905 → rounds to $23,900.
+  near(r.total, 23900, 30, 'insurance Better total');
+});
+test('C-1: blank/unknown jurisdiction → default permit $150, not $0 (per-SQ)', () => {
+  const base = { method: 'per-sq', tier: 'better', mode: 'insurance', rawSqft: 3900, pitch: '6/12', wasteFactorOverride: 1.0 };
+  const blank   = EBv2.calculateEstimate({ ...base });                          // no county
+  const unknown = EBv2.calculateEstimate({ ...base, county: 'zz-nowhere' });    // off-list county
+  const known   = EBv2.calculateEstimate({ ...base, county: 'hamilton-oh' });   // in PERMIT_COSTS
+  eq(blank.addOns.permit, 150);    // was a silent $0 before the C-1 fix
+  eq(unknown.addOns.permit, 150);  // off-list jurisdiction also fails safe to the default
+  eq(known.addOns.permit, 185);    // known county still uses its real value (unchanged)
 });
 test('Cash mode applies county tax; insurance mode hides it', () => {
   const cash = EBv2.calculateEstimate({

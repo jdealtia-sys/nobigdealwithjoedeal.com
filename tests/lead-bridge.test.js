@@ -117,6 +117,24 @@ console.log('\nLEAD-BRIDGE — public lead → CRM leads doc mapping');
     data: { address: '1 A St', utm_source: 'google', utm_medium: 'cpc' } });
   ok('utm: source mapped when present', utm.utmSource === 'google');
   ok('utm: campaign absent when not sent', !('utmCampaign' in utm));
+
+  // estimator follow-up events must NOT bridge (4-duplicate-cards bug);
+  // the initial save (no type) and unknown future types MUST bridge.
+  ok('event: estimate_result skipped', L.isFollowUpEvent('estimate_leads', { type: 'estimate_result' }) === true);
+  ok('event: cta_click skipped', L.isFollowUpEvent('estimate_leads', { type: 'cta_click' }) === true);
+  ok('event: email_estimate_request skipped', L.isFollowUpEvent('estimate_leads', { type: 'email_estimate_request' }) === true);
+  ok('event: initial save (no type) bridges', L.isFollowUpEvent('estimate_leads', { address: '1 A St' }) === false);
+  ok('event: unknown type fails open (bridges)', L.isFollowUpEvent('estimate_leads', { type: 'something_new' }) === false);
+  ok('event: type on other collections ignored', L.isFollowUpEvent('contact_leads', { type: 'cta_click' }) === false);
+  ok('event: null data safe', L.isFollowUpEvent('estimate_leads', null) === false);
+
+  // estimator context line on the CRM card notes.
+  const est = L.mapPublicLeadToLead({ collection: 'estimate_leads', sourceId: 's', ownerUid: NBD, companyId: NBD,
+    data: { address: '1 A St', service: 'roof-replacement', roofType: 'asphalt', timeline: 'asap' } });
+  ok('estimate notes: service+roofType+timeline', /Instant Estimate — roof-replacement \(asphalt\) · timeline: asap/.test(est.notes));
+  const estBare = L.mapPublicLeadToLead({ collection: 'estimate_leads', sourceId: 's', ownerUid: NBD, companyId: NBD,
+    data: { address: '1 A St' } });
+  ok('estimate notes: no context line on legacy docs', !/Instant Estimate —/.test(estBare.notes));
 }
 
 console.log('\n──────────────────────────────────────────────────');

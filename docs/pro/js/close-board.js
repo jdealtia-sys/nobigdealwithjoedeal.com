@@ -673,6 +673,19 @@ function submitDeal() {
     html += '</div>';
     scroll.innerHTML = html;
 
+    // NEW-C2: bind the New-Deal insurance toggle on every paint. render()
+    // replaces innerHTML, so #cb-insurance is a fresh node each time — binding
+    // here attaches exactly one listener (no accumulation) and survives tab
+    // round-trips, unlike the one-shot setTimeout bind in init() which fired
+    // before the create form existed on the default 'active' tab.
+    const insToggle = scroll.querySelector('#cb-insurance');
+    if (insToggle) {
+      insToggle.addEventListener('change', () => {
+        const fields = scroll.querySelector('#cb-ins-fields');
+        if (fields) fields.style.display = insToggle.checked ? 'block' : 'none';
+      });
+    }
+
     // Delegated click handler — replaces previously-inline onclick handlers
     // that were silently no-op'd by prod CSP `script-src-attr 'none'`. The
     // CSP blocks inline event-handler attributes even when injected via
@@ -895,17 +908,9 @@ function submitDeal() {
   function init() {
     loadDealRooms();
     render();
-
-    // Bind insurance toggle
-    setTimeout(() => {
-      const cb = document.getElementById('cb-insurance');
-      if (cb) {
-        cb.addEventListener('change', () => {
-          const fields = document.getElementById('cb-ins-fields');
-          if (fields) fields.style.display = cb.checked ? 'block' : 'none';
-        });
-      }
-    }, 100);
+    // Insurance toggle is bound inside render() (it reattaches on every paint,
+    // surviving tab switches); the old one-shot setTimeout bind here fired
+    // before the create form existed on the default 'active' tab and is removed.
   }
 
   function createNew() {

@@ -1,0 +1,248 @@
+[
+  {
+    "id": "d8-tools-035",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Enter in #drawSearch fires searchDraw: geocoded Versailles KY, drawMap recentered z19 (verified center delta + zoom)."
+  },
+  {
+    "id": "d8-tools-036",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "GO button fires searchDraw: geocoded Frankfort KY, recentered z19."
+  },
+  {
+    "id": "d8-tools-037",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "My Location (goToMyLocation): geoloc -> 'Moved to your location' toast, drawMap recentered to rep position."
+  },
+  {
+    "id": "d8-tools-038",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "All 4 draw-mode buttons switch drawMode (line/perim/er/gutter) via real clicks: ltGrid shows in line, hides + perimBar/erBar/gutterResult reveal in the others; active class moves; setDrawMode auto-stops draw on switch."
+  },
+  {
+    "id": "d8-tools-039",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Exit Eave/Rake (modeLineDraw): er -> line, erBar hidden, ltGrid back."
+  },
+  {
+    "id": "d8-tools-040",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "perimChooseType eave/rake: reChooser ('THIS SEGMENT IS A...') reveals after the first perimeter point; clicking EAVE(solid)/RAKE(dashed) tags the segment and lets the next point be placed. Drove a full 4-corner perimeter -> Facet 1 closed (6469 sf), line types stored (2/5/4/5 = hip/eave/wall/eave)."
+  },
+  {
+    "id": "d8-tools-041",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Line Type grid (selLT): clicking Hip moves active class + sets active line type/color; next drawn line stored as type 2 (Hip), 93.1 ft. ltGrid correctly hidden in perim/er/gutter modes."
+  },
+  {
+    "id": "d8-tools-042",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Draw toggle: drawOn flips, btn text Draw<->Stop, crosshair cursor on. Map clicks add measurement points only while ON; two clicks = one line with live ft measurement (93 ft)."
+  },
+  {
+    "id": "d8-tools-043",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Undo: 2 drawn lines -> 1 (deleteLine on last). Also pops perim/gutter dots when in those modes."
+  },
+  {
+    "id": "d8-tools-044",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Clear: native confirm 'Clear all lines and facets?' (nbdConfirm/confirm gate) -> on OK all lines+facets+dots+temp removed, cr-base back to 0 sf, lineList emptied. Danger gate present and honored."
+  },
+  {
+    "id": "d8-tools-045",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Pitch select (data-on-change=recalc): recalc reads pitchSel.value as the global multiplier (Flat 1.0 .. 12/12). NOTE: in a MULTI-FACET drawing the per-facet pitch dropdown dominates (recalc sums per-facet pitch when facets.length>0), so changing the GLOBAL pitchSel shows no delta until facets are removed — by design, but the global control looks inert on multi-facet roofs. Single-facet/line drawings honor it."
+  },
+  {
+    "id": "d8-tools-046",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Waste select (data-on-change=recalc): changing 17%->20% recomputed With-Waste (9097->9331 sf) and Squares; restored to 17%. Waste multiplier always applied regardless of facets."
+  },
+  {
+    "id": "d8-tools-047",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Smart Waste (AI): computed 'Smart: 14% (Moderate)', inserted as a wasteSel option + selected it, recomputed With-Waste to 8825 sf, showed smartWasteInfo ('14% waste — Moderate roof (1 hip, tight angles)') + toast. Local heuristic (calcSmartWaste), no network."
+  },
+  {
+    "id": "d8-tools-048",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Generate Estimate (importToEstimate): confirm dialog lists pitched/footprint/eave/ridge/rake/hip/valley/wall; OK -> V2 builder opens with rawSqft=PITCHED area + LF fields (verified clean: 6000 SF / 120 eave / 80 ridge with no draft). NOTE pitched (not footprint) is sent per the in-code fix comment. BUG NEW-D39 found (see BUG-LOG): when a v2 draft already exists, openEstimateV2Builder's draft-restore overrides the imported measurements -> first run showed the stale draft's 200 SF / 'ZZ_QA ServerPDF Test' customer despite the dialog saying 7776 SF; the 'imported' toast still fires. Cleared the stale + re-created drafts after."
+  },
+  {
+    "id": "d8-tools-049",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Save to Customer: empty-address guard ('Enter an address first') fires; with an address, no-match -> nbdConfirm 'Save as an unlinked drawing?' boundary (declined). Found the doc-viewer 'Close without saving?' confirm wired correctly (must return true) per tooling note. Did not persist (boundary)."
+  },
+  {
+    "id": "d8-tools-050",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Load from Customer: empty-address guard fires; with an address it queries leads/{id}/drawings ordered by version. Live result: 'Load failed: Missing or insufficient permissions' (FirebaseError) — the drawings subcollection has no read rule for this owner. Logged as NEW-D40-a (rules gap; non-blocking, feature simply can't load saved drawings). Button + flow work; backend denies."
+  },
+  {
+    "id": "d8-tools-051",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Measurement Report (exportDrawReport): opens NBDDocViewer srcdoc (5069 chars, 'Roof Measurement Report', no freeze/block) with the full Save/Email/Print/Download/Send-for-Signature bar. Closed clean."
+  },
+  {
+    "id": "d8-tools-052",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Scope of Work (generateScopeFromDrawing): NBDDocViewer srcdoc 5647 chars, title 'Scope of Work — Property Address'. Closed clean."
+  },
+  {
+    "id": "d8-tools-053",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Material Takeoff (showMaterialTakeoff): NBDDocViewer srcdoc 4424 chars, branded 'Material Takeoff' with squares/smart-waste/material-list table. (Note: the viewer overlay is z-index 10000 fullscreen — left open it occludes the whole sidebar; always close it before the next control.)"
+  },
+  {
+    "id": "d8-tools-054",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Xactimate Export (ESX): generated a blob download 'NBD-Xactimate-Property-2026-06-10.esx' (verified via anchor-click spy, file suppressed) + 'Xactimate ESX file downloaded' toast. ESX XML built from grouped line types."
+  },
+  {
+    "id": "d8-tools-055",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Solar Analysis (runSolarAnalysis): 'Running solar analysis...' -> on-map solar marker 'Est. 2078 hrs/yr · Lat 38.1°' + toast prompting Google Solar API key for precise data. Local fallback estimate (no key) works."
+  },
+  {
+    "id": "d8-tools-056",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Add Structure: 'Added: Structure 1' toast, structureList row '🏠 STRUCTURE 1 ✏️' added. In-memory (no persistence)."
+  },
+  {
+    "id": "d8-tools-057",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Layer toggle (toggleMapLayer): cycles basemap Satellite -> Street(OSM) -> Satellite (verified by inspecting attached TileLayer _url across clicks). Label updates SATELLITE/STREET."
+  },
+  {
+    "id": "d8-tools-058",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Fit All (zoomToFit): map recentered onto the drawing bounds (center matched facet bounds center, z21)."
+  },
+  {
+    "id": "d8-tools-059",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Screenshot (screenshotMap): 'Capturing map...' -> blob PNG download 'nbd-drawing.png' (spy-captured, suppressed) + 'Screenshot saved!' toast."
+  },
+  {
+    "id": "d8-tools-060",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Angles (showAngles): overlaid interior-angle labels at each vertex (8 x '90°' on the rectangular facet)."
+  },
+  {
+    "id": "d8-tools-061",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Shadow Pitch (startShadowPitch): shadowMode entered, shadowBar 'Step 1: Click two points along the roof shadow'; clicked 2 shadow pts -> 'Shadow: 12.4 ft — Step 2: draw roof edge' -> drew edge -> computed but returned 'Sun too low for reliable pitch estimation' (valid edge-case result, not an error). Full 2-step flow works."
+  },
+  {
+    "id": "d8-tools-062",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Auto-Detect (startAutoDetect): 'Click a corner — AI will trace edges' -> clicked a roof corner -> 'Analyzing satellite imagery...' -> 'Could not detect clear edges' (graceful no-result; tried on a real building too). Flow + AI call fire; detection is best-effort."
+  },
+  {
+    "id": "d8-tools-063",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Voice (toggleVoiceControl): ON -> btn '🎙️ Listening...', voice-active class, 'Voice control ON — say commands like ridge 48 feet' toast; OFF -> '🎤 Voice', 'Voice control OFF'. (SpeechRecognition starts; mic granted.)"
+  },
+  {
+    "id": "d8-tools-064",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "History (toggleHistoricalImagery): historyPanel reveals with date+opacity sliders; 'Historical imagery loaded' toast; a historical tile layer attaches (tileLayers 1->2)."
+  },
+  {
+    "id": "d8-tools-065",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Present (startPresentation): presentOverlay launches a 5-slide homeowner deck (slide 1 'Satellite aerial measurement' with property address title + map fly-to, slide 2 'ROOF OUTLINE — 2 roof sections, 6469 base sf'); Back/Next/✕ all work; closed clean."
+  },
+  {
+    "id": "d8-tools-066",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Compare (openComparisonMode): comparisonModal opens 'Measurement Comparison — upload EagleView/RoofScope report'; close + drop-zone verified below."
+  },
+  {
+    "id": "d8-tools-067",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Historical date slider (setHistoricalLayer): moving it changed the displayed date label (2017-09-20 -> 2018-02-14) and swapped the historical layer."
+  },
+  {
+    "id": "d8-tools-068",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Historical opacity slider (updateHistoryOpacity): set 0.5 -> Opacity label '50%' updated."
+  },
+  {
+    "id": "d8-tools-069",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Close historical (closeHistoricalImagery): ✕ hides historyPanel + removes the historical tile layer (tileLayers back to 1)."
+  },
+  {
+    "id": "d8-tools-070",
+    "status": "BLOCKED",
+    "session": "2026-06-10-C",
+    "notes": "Accept Edges: autoDetectBar with Accept/Cancel only appears AFTER a successful AI edge detection; live detection returned 'Could not detect clear edges' on multiple corners (forest + real building), so the bar never revealed. Accept path unreachable without a detectable roof in current imagery. Structurally wired (acceptAutoDetect commits detected lines)."
+  },
+  {
+    "id": "d8-tools-071",
+    "status": "BLOCKED",
+    "session": "2026-06-10-C",
+    "notes": "Cancel (auto-detect): same as 070 — autoDetectBar never revealed (no successful detection). Wired (cancelAutoDetect discards)."
+  },
+  {
+    "id": "d8-tools-072",
+    "status": "BLOCKED",
+    "session": "2026-06-10-C",
+    "notes": "Draw Tools sidebar toggle (map-sidebar-draw): display:none at desktop width (mobile-reflow control) — retest in the 390px mobile pass."
+  },
+  {
+    "id": "d8-tools-073",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Comparison drop-zone (clickProxy -> #compFile.click): clicking the drop area proxied to the hidden file input (spy caught 1 .click() call; native picker suppressed)."
+  },
+  {
+    "id": "d8-tools-074",
+    "status": "BLOCKED",
+    "session": "2026-06-10-C",
+    "notes": "Comparison file input (handleComparisonFile): requires a real EagleView/RoofScope PDF/CSV upload through the native picker — device/file pass. Wired via data-on-change."
+  },
+  {
+    "id": "d8-tools-075",
+    "status": "PASS",
+    "session": "2026-06-10-C",
+    "notes": "Cancel/✕ comparison (closeComparisonMode): dismissed comparisonModal cleanly."
+  }
+]

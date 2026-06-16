@@ -518,7 +518,19 @@ window.NBDDocGen = {
     if (!respData || !respData.ok || !respData.url) throw new Error('Render returned no URL');
 
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+      // NEW-D1: also hand the viewer the CLIENT-rendered HTML. The viewer's
+      // preview is srcdoc-only by design (docviewer rule, PR #594) — a
+      // url-only open() falls into its last-resort branch that sets a
+      // cross-origin Firebase-Storage PDF as iframe.src, which Chrome/Brave
+      // block ("This page has been blocked by Chrome"). With html supplied,
+      // the preview renders same-origin and the server PDF stays attached as
+      // pdfUrl for the high-fidelity Download action. Every SERVER_TYPE_MAP
+      // type has a client template (generate()'s fallback path relies on it);
+      // if getHTML ever returns null we degrade to the old url-only open.
+      let previewHtml = null;
+      try { previewHtml = this.getHTML(type, data) || null; } catch (e) { /* fall back to url-only */ }
       window.NBDDocViewer.open({
+        html: previewHtml || undefined,
         url: respData.url,
         title: (this.DOCUMENT_TYPES[type]?.name || type) + (customerName ? ' — ' + customerName : ''),
         filename: respData.filename || filename,
@@ -2752,6 +2764,13 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
         const el = document.getElementById('docgen_'+f.name);
         if (el) data[f.name] = el.value;
       });
+      // NEW-D2: thread the chosen lead through so generate()'s _leadIdEarly is
+      // non-null and the document actually persists to leads/{id}/documents +
+      // Storage (and the e-sign hook can arm). The "Auto-fill from Lead" select
+      // is not part of `fields`, so without this its value was dropped and
+      // "Save to Customer" from the Template Library was a silent no-op.
+      const _sel = document.getElementById('docgen_leadSelect');
+      if (_sel && _sel.value) data.leadId = _sel.value;
       document.getElementById('docgenFillModal').remove();
       self.generate(type, data);
     };

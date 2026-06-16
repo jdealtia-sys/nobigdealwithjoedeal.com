@@ -252,7 +252,24 @@ function _nbdUpdateLabels(t) {
 }
 
 /* ── PICKER MODAL ─────────────────────────────────────────────────── */
-function nbdPickerOpen()  { document.getElementById('nbd-picker-modal').classList.add('open'); nbdRenderCats(); nbdRenderThemes(); nbdRenderFonts(); }
+function nbdPickerOpen()  { document.getElementById('nbd-picker-modal').classList.add('open'); _nbdSyncActiveLabels(); nbdRenderCats(); nbdRenderThemes(); nbdRenderFonts(); }
+// Re-sync the header sub-label + footer "Active:" label to the LIVE applied
+// theme. On the dashboard (window.ThemeEngine) the saved theme is applied
+// by ThemeEngine.init()/theme-init.js, NOT via nbdApplyTheme, so _nbdUpdateLabels
+// never ran at boot and the static HTML default ("NBD Default") would otherwise
+// show even when data-theme is e.g. 'ios' (NEW-C8). Read TE.getCurrent() so the
+// label tracks the real applied key; fall back to the legacy _nbd_activeTheme.
+function _nbdSyncActiveLabels() {
+  const TE = window.ThemeEngine;
+  if (TE) {
+    const key = TE.getCurrent() || 'nbd-original';
+    const t = (TE.get && TE.get(key)) || null;
+    _nbdUpdateLabels({ name: t && t.name ? t.name : key });
+  } else {
+    const t = _nbdGetTheme(_nbd_activeTheme);
+    if (t) _nbdUpdateLabels(t);
+  }
+}
 function nbdPickerClose() { document.getElementById('nbd-picker-modal').classList.remove('open'); }
 
 // Add modal click handler after DOM loads

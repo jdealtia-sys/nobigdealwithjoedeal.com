@@ -88,10 +88,12 @@ document.querySelectorAll('a[href^="#"]').forEach(link=>{
 // Service cards are now full-card anchors linking to /services/* detail pages.
 // (The old pre-fill-form intercept was removed so the detail pages finally get traffic.)
 
-// ── CONTACT FORM — FormSubmit ──
-// FormSubmit.co forwards submissions to jd@nobigdealwithjoedeal.com
-// No backend needed. First submission triggers a one-time activation
-// email to that address — Joe must click confirm once.
+// ── CONTACT FORM — CRM capture primary, FormSubmit backup ──
+// The CRM capture (window._captureContactLead → submitPublicLead) is the
+// gate for the user-visible success card. FormSubmit.co still emails a
+// copy to jd@nobigdealwithjoedeal.com but is fire-and-forget — its
+// failure is ignored. If the CRM bridge never loaded, we fall back to
+// gating on the FormSubmit response so the form keeps working.
 async function submitForm(){
   const first   = document.getElementById('fieldFirst')?.value.trim();
   const last    = document.getElementById('fieldLast')?.value.trim();
@@ -114,14 +116,7 @@ async function submitForm(){
   btn.textContent = 'Sending…';
   btn.disabled = true;
 
-  // Capture to Firestore as backup
-  if (window._captureContactLead) {
-    window._captureContactLead({
-      firstName: first, lastName: last, phone, email,
-      address, service, message
-    });
-  }
-
+  // Backup email relay — fire-and-forget; failures are ignored.
   const body = new FormData();
   body.append('name',    `${first} ${last}`.trim());
   body.append('phone',   phone);
@@ -132,19 +127,32 @@ async function submitForm(){
   body.append('_subject', `New Estimate Request — ${service || 'General'} — ${first} ${last}`);
   body.append('_captcha', 'false');
   body.append('_template', 'table');
+  const relay = fetch('https://formsubmit.co/jd@nobigdealwithjoedeal.com', {
+    method: 'POST',
+    body
+  }).catch(() => null);
 
-  try {
-    const res = await fetch('https://formsubmit.co/jd@nobigdealwithjoedeal.com', {
-      method: 'POST',
-      body
-    });
-    if(res.ok || res.status === 200){
-      document.getElementById('formFields').style.display = 'none';
-      document.getElementById('formSuccess').style.display = 'block';
-    } else {
-      throw new Error('Server error');
+  // Primary gate — the lead must land in the CRM.
+  let captured = false;
+  if (window._captureContactLead) {
+    try {
+      captured = await window._captureContactLead({
+        firstName: first, lastName: last, phone, email,
+        address, service, message
+      });
+    } catch(err){
+      captured = false;
     }
-  } catch(err){
+  } else {
+    // CRM bridge missing entirely — legacy behavior: gate on the relay.
+    const res = await relay;
+    captured = !!(res && res.ok);
+  }
+
+  if(captured){
+    document.getElementById('formFields').style.display = 'none';
+    document.getElementById('formSuccess').style.display = 'block';
+  } else {
     btn.textContent = 'Get My Free Estimate →';
     btn.disabled = false;
     alert('Something went wrong. Please call or text Joe directly at (859) 420-7382.');

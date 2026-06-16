@@ -193,10 +193,23 @@ window.restartOnboardingTour = function restartOnboardingTour() {
   }
 };
 window.openDecisionPicker = function openDecisionPicker() {
+  // NEW-D15: the decision-engine bundle is lazy and wired (in script-loader's
+  // VIEW_BUNDLES) only to aitree/understand — never to #/joe, where the
+  // "⚡ Scenarios" button lives. Load the 'decision' bundle on demand before
+  // opening, mirroring the estimate/photo lazy stubs below.
+  const _open = function () {
+    if (window.DecisionEngine && typeof window.DecisionEngine.openPicker === 'function') {
+      window.DecisionEngine.openPicker();
+    } else if (typeof showToast === 'function') {
+      showToast('Decision engine loading...', 'error');
+    }
+  };
   if (window.DecisionEngine && typeof window.DecisionEngine.openPicker === 'function') {
-    window.DecisionEngine.openPicker();
-  } else if (typeof showToast === 'function') {
-    showToast('Decision engine loading...', 'error');
+    _open();
+  } else if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+    window.ScriptLoader.loadBundle('decision').then(_open);
+  } else {
+    _open();
   }
 };
 window.openD2DOrGo = function openD2DOrGo() {
@@ -620,7 +633,10 @@ function startZoneDraw() {
   showToast('Click map to draw zone boundary. Click Save when done.');
   mainMap.getContainer().style.cursor = 'crosshair';
 
-  // Attach zone click handler
+  // Attach zone click handler. Re-entering zone-draw overwrites
+  // _zoneClick before cancel/save can off() it, leaving the orphaned
+  // handler attached — each click then adds 2+ points (NEW-D38).
+  if (mainMap._zoneClick) mainMap.off('click', mainMap._zoneClick);
   mainMap._zoneClick = (e) => {
     if(!zoneDrawing) return;
     zonePoints.push(e.latlng);
@@ -1036,6 +1052,21 @@ function dsSaveConfig() {
     showGoose: document.getElementById('ds-showgoose')?.checked !== false,
   };
   localStorage.setItem(DS_NBD_CFG, JSON.stringify(config));
+  // NEW-4: mirror into the derived 'nbd_ds_config' key that the Home widgets
+  // read (north-star / daily-floors / golden-goose in js/widgets.js). Without
+  // this, a North Star set here saves to nbd_user_config but the Home widget
+  // (which reads nbd_ds_config) never sees it and stays on the placeholder.
+  // Uses the EXACT shape transform as daily-success/js/app.js syncToWidgetKeys()
+  // so the two save paths stay byte-consistent.
+  try {
+    const widgetCfg = {
+      northStar: config.northStar.target || config.northStar.category || '',
+      northStarDeadline: config.northStar.deadline || '',
+      floors: config.floors.map(f => ({ label: f.label, target: parseFloat(f.targetValue) || 1, unit: f.unit || '' })),
+      goldenGoose: config.goose || '',
+    };
+    localStorage.setItem('nbd_ds_config', JSON.stringify(widgetCfg));
+  } catch {}
   try { localStorage.setItem(DS_THEME_KEY, dsSelectedTheme); } catch {}
   const msg = document.getElementById('ds-save-msg');
   if (msg) { msg.style.display = 'block'; setTimeout(() => msg.style.display = 'none', 3000); }

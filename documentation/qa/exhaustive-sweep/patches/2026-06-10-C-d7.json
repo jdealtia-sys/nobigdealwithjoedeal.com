@@ -1,0 +1,698 @@
+[
+ {
+  "id": "d7-settings-012",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Display name: set + Save Profile -> toast + #userName pill updates live; persisted across reload; restored to original (empty -> pill re-derives jd on next boot)."
+ },
+ {
+  "id": "d7-settings-014",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D44: confirmed-dead placeholder — in-code comment dashboard-bootstrap.module.js:2931-2937 says Company/Phone/Role/License are intentionally NOT wired to _saveSettings/load. User-visible field silently discards input."
+ },
+ {
+  "id": "d7-settings-015",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D44: same confirmed-dead group (code comment)."
+ },
+ {
+  "id": "d7-settings-016",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D44: same confirmed-dead group; cosmetic select, unrelated to auth role claims."
+ },
+ {
+  "id": "d7-settings-017",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D44: same confirmed-dead group."
+ },
+ {
+  "id": "d7-settings-018",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "cal.com username: set QA-Test -> Save -> persisted (normalized lowercase qa-test) across reload; restored to empty original."
+ },
+ {
+  "id": "d7-settings-019",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D45a: preview is an <a target rel> whose href is NEVER set (live: hasHref=false; nbdSettingsUpdateCalcomPreview writes textContent+display only) — looks like a link, goes nowhere."
+ },
+ {
+  "id": "d7-settings-021",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Dormant nudge: uncheck -> Save -> persisted false across reload -> restored true + saved."
+ },
+ {
+  "id": "d7-settings-023",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Exported 15 leads -> nbd-leads-2026-06-10.csv (blob anchor spied/suppressed) + toast."
+ },
+ {
+  "id": "d7-settings-024",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Exported 6 estimates -> nbd-estimates-2026-06-10.csv (spied) + toast."
+ },
+ {
+  "id": "d7-settings-025",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Import Leads modal opens (CSV drop/browse step rendered); closed via x without file (native picker = boundary)."
+ },
+ {
+  "id": "d7-settings-026",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Real-click toggle: Secondary header OFF toast + LS nbd_crm_sec_header_enabled=false -> re-click ON + restored. (goTo-hook keeps this control synced, unlike the density repaint.)"
+ },
+ {
+  "id": "d7-settings-027",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Compact: LS nbd-kanban-density=compact + html[data-density] applied immediately AND at boot after reload. NEW-D45c (cosmetic): after reload NEITHER density button shows the active repaint (dead DCL+200ms painter dashboard-ui.js:1589-1601). Restored spacious."
+ },
+ {
+  "id": "d7-settings-028",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Bold toggle: click -> LS nbd-kanban-bold=1; RELOAD: checkbox correctly primed checked (the static dead-DCL suspicion did NOT reproduce on a direct #/settings load; possible SPA-late-entry edge remains — noted, not a FAIL)."
+ },
+ {
+  "id": "d7-settings-029",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Auto-collapse: click -> LS nbd-crm-autocollapse=1; reload-primed correctly (same refutation as 028). Restored off."
+ },
+ {
+  "id": "d7-settings-030",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Key input: value -> sessionStorage nbd_joe_key (NOT localStorage as the inventory said), input cleared after save."
+ },
+ {
+  "id": "d7-settings-031",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Save button: \"Joe AI activated\" toast + status line + sessionStorage write. Test key cleared after (original state: no key)."
+ },
+ {
+  "id": "d7-settings-032",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D45b: clearJoeKey removes the key (sessionStorage cleared OK) but leaves the stale \"Key saved — Joe AI is active\" status line (ai.js never touches #joeKeyStatus on clear) — UI claims active with no key present."
+ },
+ {
+  "id": "d7-settings-033",
+  "status": "BLOCKED",
+  "session": "2026-06-10-C",
+  "notes": "Boundary by policy: would seed 13 real leads on accept. Wiring verified: button present, window.loadSampleData live, allowlisted at dashboard-state.js:184; confirm gate exists when leads>0."
+ },
+ {
+  "id": "d7-settings-034",
+  "status": "BLOCKED",
+  "session": "2026-06-10-C",
+  "notes": "Sign-out would end the QA session (Rule 0). Control present with data-action=signOut."
+ },
+ {
+  "id": "d7-settings-063",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-065",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-066",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-067",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-068",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-069",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-070",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-071",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-072",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-073",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-074",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D43: markup-only ghost — Save All silently discards it (token absent from nbd_est_settings_v3) and reload reverts to the hardcoded HTML default (8/12 / 17 / 15). Zero JS references repo-wide."
+ },
+ {
+  "id": "d7-settings-075",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D43: markup-only ghost — Save All silently discards it (token absent from nbd_est_settings_v3) and reload reverts to the hardcoded HTML default (8/12 / 17 / 15). Zero JS references repo-wide."
+ },
+ {
+  "id": "d7-settings-076",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D43: markup-only ghost — Save All silently discards it (token absent from nbd_est_settings_v3) and reload reverts to the hardcoded HTML default (8/12 / 17 / 15). Zero JS references repo-wide."
+ },
+ {
+  "id": "d7-settings-077",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-078",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-079",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-080",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-081",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-082",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-083",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-084",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Estimates cycle: distinct numeric token -> Save All (_saveEstimateDefaultsV2) -> verified in nbd_est_settings_v3 (tierRates/minJob/dumpFee/permits/taxes) or companyProfile.pricing.addonPrices (v2addon*) -> reload round-trip OK (2-decimal reformat only) -> restored; v3 top-level diff vs original = ZERO, catalog untouched. NEW-D43 notes: the Firestore estimateSettingsV2 mirror is WRITE-ONLY (claimed cross-device sync never read back) and v3.addonPrices goes stale vs cp.pricing (calc-time override wins)."
+ },
+ {
+  "id": "d7-settings-085",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist."
+ },
+ {
+  "id": "d7-settings-086",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist."
+ },
+ {
+  "id": "d7-settings-088",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist."
+ },
+ {
+  "id": "d7-settings-089",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist."
+ },
+ {
+  "id": "d7-settings-090",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist."
+ },
+ {
+  "id": "d7-settings-091",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist."
+ },
+ {
+  "id": "d7-settings-092",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Theme swatch: real-click Cobalt -> selected border + ds-theme=cobalt saved + reload-repopulated highlight. FINDING (NEW-D45d, static): runtime consumers read ds-theme only as LAST fallback behind nbd_pro_theme/nbd-theme and the daily-success lookup lacks 8/12 swatch keys -> picked program theme rarely takes effect. Restored (ds-theme key removed; was absent)."
+ },
+ {
+  "id": "d7-settings-093",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist."
+ },
+ {
+  "id": "d7-settings-094",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist."
+ },
+ {
+  "id": "d7-settings-095",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Daily OS cycle: mutation -> dsSaveConfig -> nbd_user_config (+ nbd_ds_config mirror, ds-theme) -> reload + SPA re-entry round-trip OK -> originals restored byte-exact (LS) incl. removing the ds-theme key that did not pre-exist."
+ },
+ {
+  "id": "d7-settings-096",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-097",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-098",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-099",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-100",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-101",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-102",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-103",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-105",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-106",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-107",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-108",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-109",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-110",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-111",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-112",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-113",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-114",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-115",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle: token saved to LS nbd_company_settings (keyed by field id) + Firestore userSettings.company -> full reload + reopen round-trip OK -> restored byte-exact from snapshot. NEW-D42 finding (tab-level): NOTHING consumes nbd_company_settings/userSettings.company at runtime — doc-gen reads companyProfile instead; the whole tab is store-only."
+ },
+ {
+  "id": "d7-settings-116",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-117",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-118",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-120",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-121",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-122",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-123",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). NOTE: no runtime consumer found for this field (static)."
+ },
+ {
+  "id": "d7-settings-124",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-125",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-126",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-127",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-128",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-129",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-130",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-131",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-132",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-133",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-134",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-135",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). NOTE: no runtime consumer found for this field (static)."
+ },
+ {
+  "id": "d7-settings-136",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-137",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-138",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-139",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-140",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-141",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-142",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-143",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-144",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-145",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-146",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-147",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Batch cycle on the LIVE shop-wide profile: token -> Save (single-form _saveCompanyProfileSettings) -> LS mirror nbd_company_profile_v1 + Firestore companyProfile/{companyId||uid} -> full reload + reopen round-trip OK (all 69 cp_* fields) -> ALL originals restored + re-saved (mirror verified token-free). "
+ },
+ {
+  "id": "d7-settings-148",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Boundary: native confirm (\"Reset every Company Profile field to factory defaults?\") fired + CANCELLED via stub-false; fields unchanged. Never saved post-reset."
+ },
+ {
+  "id": "d7-settings-165",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. "
+ },
+ {
+  "id": "d7-settings-166",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. "
+ },
+ {
+  "id": "d7-settings-167",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. "
+ },
+ {
+  "id": "d7-settings-168",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. Consumer: REAL consumer: tasks.js:136-146 fires type 'task_overdue' via createNotification (tasks.js"
+ },
+ {
+  "id": "d7-settings-169",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D41: persists + round-trips (verified live) but gates NOTHING — the hot-lead surface ask-joe-proactive.js builds hot_lead actions without consulting shouldFireNotif."
+ },
+ {
+  "id": "d7-settings-170",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D41: storm alerts fire from storm-integration.js triggerProactiveAlert with no shouldFireNotif check; toggle persists but suppresses nothing."
+ },
+ {
+  "id": "d7-settings-171",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Round-trip verified; REAL consumer review-engine.js:126 (estimate_approved). Caveat: under default critical mode the normal-priority call is suppressed before the trigger is read — the toggle only matters in firehose mode."
+ },
+ {
+  "id": "d7-settings-172",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D41: inbound_msg exists only in the type map; zero firing callers repo-wide."
+ },
+ {
+  "id": "d7-settings-174",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D41: the auto-needs-field notifier referenced by the code comment does not exist; only the type-map entry does."
+ },
+ {
+  "id": "d7-settings-175",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. Consumer: REAL consumer: tasks.js:27 inAppAllowed = shouldFireNotif(type,'inApp',pr) gates the toast"
+ },
+ {
+  "id": "d7-settings-176",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Full strict-bar in the 2026-06-10-C batch cycle: real-click flip -> Save -> LS nbd_notif_settings verified -> reload + reopen tab (1s re-sync wait) -> control reflects saved state -> restored to original + saved. Consumer: REAL consumer: tasks.js:26 pushAllowed = shouldFireNotif(type,'push',pr) gates the OS Noti"
+ },
+ {
+  "id": "d7-settings-177",
+  "status": "FAIL",
+  "session": "2026-06-10-C",
+  "notes": "NEW-D41: email channel mapped but no caller passes channel \"email\", and no Cloud Function reads userSettings.notifications — toggle consumed nowhere client- or server-side."
+ },
+ {
+  "id": "d7-settings-178",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Disabled-by-design verified live: disabled attr present, real click does not flip it, persists false through save."
+ },
+ {
+  "id": "d7-settings-180",
+  "status": "PASS",
+  "session": "2026-06-10-C",
+  "notes": "Test toast fired: \"Test notification — your alerts work!\". NOTE (cosmetic expectation gap): _testNotif ignores saved mode/channels entirely (never calls shouldFireNotif)."
+ }
+]

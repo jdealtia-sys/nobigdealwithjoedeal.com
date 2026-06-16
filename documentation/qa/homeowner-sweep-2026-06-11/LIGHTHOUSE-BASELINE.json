@@ -1,0 +1,114 @@
+{
+ "area-mason|desktop": {
+  "performance": 100,
+  "accessibility": 93,
+  "best-practices": 96,
+  "seo": 100,
+  "LCP": "0.7 s",
+  "CLS": "0"
+ },
+ "area-mason|mobile": {
+  "performance": 91,
+  "accessibility": 93,
+  "best-practices": 96,
+  "seo": 100,
+  "LCP": "3.5 s",
+  "CLS": "0.003"
+ },
+ "blog-class4|desktop": {
+  "performance": 100,
+  "accessibility": 90,
+  "best-practices": 96,
+  "seo": 100,
+  "LCP": "0.4 s",
+  "CLS": "0"
+ },
+ "blog-class4|mobile": {
+  "performance": 99,
+  "accessibility": 90,
+  "best-practices": 96,
+  "seo": 100,
+  "LCP": "1.8 s",
+  "CLS": "0"
+ },
+ "estimate|desktop": {
+  "performance": 100,
+  "accessibility": 89,
+  "best-practices": 85,
+  "seo": 100,
+  "LCP": "0.6 s",
+  "CLS": "0"
+ },
+ "estimate|mobile": {
+  "performance": 98,
+  "accessibility": 89,
+  "best-practices": 85,
+  "seo": 100,
+  "LCP": "2.3 s",
+  "CLS": "0"
+ },
+ "home|desktop": {
+  "performance": 99,
+  "accessibility": 86,
+  "best-practices": 96,
+  "seo": 100,
+  "LCP": "1.0 s",
+  "CLS": "0"
+ },
+ "home|mobile": {
+  "performance": 95,
+  "accessibility": 84,
+  "best-practices": 96,
+  "seo": 100,
+  "LCP": "2.6 s",
+  "CLS": "0.004"
+ },
+ "inspect|desktop": {
+  "performance": 100,
+  "accessibility": 91,
+  "best-practices": 96,
+  "seo": 69,
+  "LCP": "0.4 s",
+  "CLS": "0"
+ },
+ "inspect|mobile": {
+  "performance": 100,
+  "accessibility": 91,
+  "best-practices": 96,
+  "seo": 69,
+  "LCP": "1.4 s",
+  "CLS": "0"
+ },
+ "storm-alerts|desktop": {
+  "performance": 100,
+  "accessibility": 77,
+  "best-practices": 96,
+  "seo": 100,
+  "LCP": "0.4 s",
+  "CLS": "0"
+ },
+ "storm-alerts|mobile": {
+  "performance": 99,
+  "accessibility": 77,
+  "best-practices": 96,
+  "seo": 100,
+  "LCP": "1.8 s",
+  "CLS": "0"
+ },
+ "storm-report|desktop": {
+  "performance": 100,
+  "accessibility": 89,
+  "best-practices": 96,
+  "seo": 100,
+  "LCP": "0.4 s",
+  "CLS": "0"
+ },
+ "storm-report|mobile": {
+  "performance": 100,
+  "accessibility": 89,
+  "best-practices": 96,
+  "seo": 100,
+  "LCP": "1.5 s",
+  "CLS": "0"
+ }
+}

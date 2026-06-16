@@ -653,7 +653,12 @@ function doPrint(){if(cur<0){toast('Open a page first');return;}saveNow();window
 function openM(id){document.getElementById(id).classList.add('open');}
 function closeM(id){document.getElementById(id).classList.remove('open');}
 function closeWelcome(){document.getElementById('welcomeModal').style.display='none';localStorage.setItem('nbd-welcome-seen','1');}
-function openWelcomeGuide(){openM('welcomeModal');}
+// 📖 reopen: #welcomeModal is shown via inline display (welcome-gate.js sets
+// display:flex on first visit; closeWelcome sets display:none) and has no
+// .open CSS rule — openM's classList.add('open') alone never re-showed it
+// (confirmed live 2026-06-10: class added, computed display stayed none).
+// Set the inline display to match the close path.
+function openWelcomeGuide(){const m=document.getElementById('welcomeModal');m.style.display='flex';openM('welcomeModal');}
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2400);}
 
 // ═══════════════════════════════════════════
@@ -1202,12 +1207,13 @@ function nbdApplyTheme(id) {
   _nbd_activeTheme = id;
   localStorage.setItem('nbd-theme', id);
   try { localStorage.setItem('nbd_pro_theme', id === 'default' ? 'nbd-original' : id); } catch (e) {}
-  // 5. Firestore sync (if auth available)
-  try {
-    if (typeof db !== 'undefined' && typeof currentUser !== 'undefined' && currentUser) {
-      db.collection('users').doc(currentUser.uid).set({ theme: id }, { merge: true });
-    }
-  } catch(e) {}
+  // 5. (removed, audit 2026-06-10) A compat-SDK Firestore theme sync lived
+  //    here guarded on global `db`/`currentUser` — neither exists on this
+  //    page (modular SDK only, module-scoped in ds-firebase-sync.js), so the
+  //    guard skipped it on every call since the page was built. localStorage
+  //    (above) is the real persistence; the dashboard reads the canonical
+  //    key. If cross-device theme sync is ever wanted here, route it through
+  //    ds-firebase-sync's authed module instead.
   // 6. UI
   _nbdUpdateLabels(t);
   nbdRenderThemes();

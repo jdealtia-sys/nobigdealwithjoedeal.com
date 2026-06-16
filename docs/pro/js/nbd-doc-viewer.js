@@ -524,6 +524,22 @@
 
   async function handlePdf() {
     if (!currentContext) return;
+    // Prefer the server-rendered PDF (higher fidelity than the client
+    // html2pdf render) when one was supplied — open it in a NEW TAB. Only the
+    // cross-origin iframe EMBED is blocked; a top-level navigation to the
+    // Storage URL is fine and lets the browser's native viewer save/print it.
+    // Skipped when the doc carries unsigned signature placeholders, since the
+    // server PDF predates in-preview signing — those go through the client
+    // render below so the drawn signatures are captured in the download.
+    const _hasUnsignedSigs = typeof currentContext.html === 'string'
+      && currentContext.html.indexOf('data-nbd-sig=') !== -1;
+    if (currentContext.pdfUrl && !_hasUnsignedSigs) {
+      try {
+        window.open(currentContext.pdfUrl, '_blank', 'noopener');
+        flashStatus('✓ Opening PDF…');
+        return;
+      } catch (e) { /* fall through to the client html2pdf render */ }
+    }
     // PR 2b2: html2pdf is lazy (ScriptLoader 'pdfexport' bundle, ~1.1 MB).
     // Load it on the first PDF export, then continue. handlePdf is async.
     if (typeof window.html2pdf !== 'function') {
@@ -670,6 +686,10 @@
     currentContext = {
       html: opts.html || null,
       url:  opts.url  || null,
+      // Server-rendered PDF (Firebase Storage). Used for the high-fidelity
+      // Download action — NOT as the preview iframe.src: a cross-origin PDF
+      // embed gets blocked by Chrome/Brave and can freeze the renderer.
+      pdfUrl: opts.url || null,
       title: opts.title || 'Document',
       filename: opts.filename || 'NBD-Document.pdf',
       leadId: opts.leadId || null,
@@ -697,13 +717,13 @@
 
     const iframe = document.getElementById('nbdv-iframe');
     if (iframe) {
-      if (hasUrl) {
-        // Server-rendered PDF — browser's native viewer renders it.
-        // Clear any prior srcdoc so the URL takes effect.
-        iframe.removeAttribute('srcdoc');
-        iframe.src = opts.url;
-      } else {
-        // Legacy HTML path — wrap with the print listener and inject.
+      if (hasHtml) {
+        // ALWAYS render the same-origin srcdoc HTML for the PREVIEW. When a
+        // server-rendered PDF `url` is also supplied it is kept as pdfUrl for
+        // the Download action only — setting a cross-origin Firebase-Storage
+        // PDF as iframe.src is BLOCKED by Chrome/Brave ("This page has been
+        // blocked by Chrome") and froze the renderer. srcdoc renders in an
+        // opaque same-origin context, so it is never blocked.
         iframe.removeAttribute('src');
         iframe.srcdoc = wrapWithPrintListener(opts.html);
         // PR3b: once the sandboxed doc + signature widget have loaded,
@@ -718,6 +738,12 @@
             } catch (_) { /* cross-origin / not ready — non-fatal */ }
           }, { once: true });
         }
+      } else {
+        // No HTML available (legacy url-only caller) — last-resort embed of
+        // the url. May be blocked when cross-origin, but it is the only
+        // content we have to show.
+        iframe.removeAttribute('srcdoc');
+        iframe.src = opts.url;
       }
     }
 

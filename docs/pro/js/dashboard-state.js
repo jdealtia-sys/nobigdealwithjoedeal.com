@@ -265,6 +265,12 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'updateCertPreview', 'updatePropertyIntelCost', 'uploadPhotos',
   '_mCreatePhotoPicked', 'nbdRenderThemes', 'nbdLiveCustom',
   'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey',
+  // Help tab — Hotkey Toggles grid (dashboard-hotkey-toggles.js); data-on-change delegate
+  'toggleHotkey',
+  // Appearance tab — Sidebar Customizer grid (dashboard-sidebar-customizer.js);
+  // its JS-built checkboxes carried CSP-dead inline onchange attrs until
+  // 2026-06-09, now the data-on-change delegate (same shape as toggleHotkey)
+  'toggleSidebarItem',
 ]);
 
 // ══════════════════════════════════════════════

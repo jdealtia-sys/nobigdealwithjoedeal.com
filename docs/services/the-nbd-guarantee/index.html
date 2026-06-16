@@ -20,7 +20,7 @@
 <link rel="apple-touch-icon" href="/favicon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&family=Dancing+Script:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 
 <script type="application/ld+json">
 {
@@ -160,7 +160,8 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .compare-section h2 { text-align: center; font-family: 'Bebas Neue', sans-serif; font-size: clamp(1.8rem, 3.5vw, 2.4rem); color: var(--navy-dark); letter-spacing: 1px; margin-bottom: 12px; }
 .compare-section h2 span { color: var(--orange); }
 .compare-section .sub { text-align: center; color: var(--gray); margin-bottom: 40px; max-width: 680px; margin-left: auto; margin-right: auto; line-height: 1.6; }
-.compare-table { width: 100%; border-collapse: separate; border-spacing: 0; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 24px rgba(20,42,82,.06); }
+.compare-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
+.compare-table { width: 100%; min-width: 560px; border-collapse: separate; border-spacing: 0; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 24px rgba(20,42,82,.06); }
 .compare-table th, .compare-table td { padding: 16px 18px; text-align: left; font-size: .88rem; border-bottom: 1px solid var(--light-gray); vertical-align: top; }
 .compare-table thead th { background: var(--navy-dark); color: #fff; font-family: 'Bebas Neue', sans-serif; font-size: 1rem; letter-spacing: 1px; padding: 18px; }
 .compare-table thead th:first-child { background: var(--navy); }
@@ -332,7 +333,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> <span class="ann-text" data-long="NBD Lifetime Pledge — Joe stands behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — Joe stands behind every install personally</span></div>
   <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> <span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></div>
   <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg> <span class="ann-text" data-long="Storm Damage? I Handle the Insurance Claim for You — No Big Deal" data-short="Storm Damage? I Handle the Claim">Storm Damage? I Handle the Insurance Claim for You — No Big Deal</span></div>
-  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor &amp;rarr;" data-short="One free roof a year →">One free roof a year — nominate a Cincinnati neighbor &rarr;</span></a></div>
+  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor →" data-short="One free roof a year →">One free roof a year — nominate a Cincinnati neighbor &rarr;</span></a></div>
 </div>
 
 <nav id="mainNav" class="nav">
@@ -498,6 +499,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <div class="compare-inner">
     <h2>The Whole <span>Picture.</span></h2>
     <p class="sub">Same roof shape, three different builds. Here's exactly what changes between tiers.</p>
+    <div class="compare-scroll">
     <table class="compare-table">
       <thead>
         <tr>
@@ -594,6 +596,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         </tr>
       </tbody>
     </table>
+    </div>
     <p style="text-align:center;margin-top:24px;font-size:.82rem;color:var(--gray);">Want exact numbers for your roof? <a href="/estimate" style="color:var(--orange);font-weight:700;">Try the Instant Estimate</a> or call Joe.</p>
   </div>
 </section>

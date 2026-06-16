@@ -191,7 +191,7 @@ async function addTask(){const inp=document.getElementById('taskInput'),due=docu
   else bind();
 })();
 async function checkTask(taskId,done){if(!_taskModalLeadId)return;const t=(window._taskCache[_taskModalLeadId]||[]).find(t=>t.id===taskId);if(t)t.done=done;const item=document.getElementById('titem-'+taskId);if(item)item.classList.toggle('done',done);await _toggleTask(_taskModalLeadId,taskId,done);setTimeout(async()=>renderTaskList(await _loadTasks(_taskModalLeadId)),400);}
-async function removeTask(taskId){if(!_taskModalLeadId)return;await _deleteTask(_taskModalLeadId,taskId);renderTaskList(await _loadTasks(_taskModalLeadId));}
+async function removeTask(taskId){if(!_taskModalLeadId)return;const _t=(window._taskCache&&window._taskCache[_taskModalLeadId]||[]).find(t=>t.id===taskId);const _label=_t&&_t.text?'"'+_t.text+'"':'this task';const _ask=window.nbdConfirm||((m)=>Promise.resolve(window.confirm(m)));if(!(await _ask('Delete '+_label+'? This cannot be undone.')))return;await _deleteTask(_taskModalLeadId,taskId);renderTaskList(await _loadTasks(_taskModalLeadId));}
 window.addEventListener('load',()=>{setTimeout(loadAllTasks,1800);});
 // ══ END TASK SYSTEM ══════════════════════════════
 

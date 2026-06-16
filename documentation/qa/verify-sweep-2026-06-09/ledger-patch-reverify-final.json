@@ -1,0 +1,4 @@
+[
+  { "id": "portal-025", "status": "FIXED", "session": "2026-06-09-B", "notes": "NEW-D26 part 2 (repName out of scope — POST succeeded but success line threw, button re-enabled = double-send bait). PR #624 merged + deployed + LIVE RE-VERIFIED: '✓ Got it! Your Rep will reach out.' + slots lock against double-send. Two ZZ_QA callback requests exist on the lead (pre-fix + re-verify) — cleanup with lead." },
+  { "id": "public-016", "status": "FIXED", "status_note": "", "session": "2026-06-09-B", "notes": "NEW-D27 (formsubmit.co CSP-blocked → every visitor saw 'Something went wrong'). Needed BOTH fixes: #623 (HTTP header connect-src) AND #626 (index.html's own META CSP — multiple policies intersect, strictest wins). LIVE RE-VERIFIED post-#626: no alert, form hidden, success panel shown, formsubmit email sent. ZZ_QA_HomeTest captures + one formsubmit email to jd@ — cleanup-flagged." }
+]

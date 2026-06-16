@@ -982,6 +982,25 @@ function switchSettingsTab(tab) {
       window._loadNotifSettings();
     }
   }
+  // Profile tab — repopulate fields from the saved user doc. The
+  // boot-time priming in onAuthStateChanged ran while these inputs were
+  // still inside the lazy-hydrated <template id="tpl-view-settings">,
+  // so it no-oped; this runs after _hydrateViewTemplate has mounted the
+  // template, so Display Name / Cal.com / the digest + dormant-nudge
+  // checkboxes reflect what was actually saved (not the hardcoded
+  // `checked` defaults in the markup).
+  if (tab === 'profile') {
+    if (typeof window._loadProfileSettings === 'function') {
+      window._loadProfileSettings();
+    }
+    // The kanban density buttons + bold/auto-collapse checkboxes live in
+    // this panel too; their boot-time DCL+200ms painter ran before the
+    // template hydrated on any non-direct load, so the active state and
+    // checkbox priming were lost until now (NEW-D45c).
+    if (typeof window._syncKanbanPrefControls === 'function') {
+      window._syncKanbanPrefControls();
+    }
+  }
 }
 window.switchSettingsTab = switchSettingsTab;
 

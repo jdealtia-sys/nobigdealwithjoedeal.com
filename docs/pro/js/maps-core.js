@@ -95,8 +95,13 @@ function initMainMap() {
     pinClusterGroup = L.markerClusterGroup({ maxClusterRadius:50, spiderfyOnMaxZoom:true, showCoverageOnHover:false, zoomToBoundsOnClick:true, disableClusteringAtZoom:18 });
     mainMap.addLayer(pinClusterGroup);
   }
-  // Click = show confirm dialog instead of instant drop
-  mainMap.on('click', e => openPinConfirm(e.latlng.lat, e.latlng.lng));
+  // Click = show confirm dialog instead of instant drop. Suppressed while
+  // drawing a territory zone — otherwise every vertex click ALSO pops the
+  // pin-confirm overlay and can silently save stray pins (NEW-D37).
+  mainMap.on('click', e => {
+    if (zoneDrawing) return;
+    openPinConfirm(e.latlng.lat, e.latlng.lng);
+  });
   if(window._pins) window._pins.forEach(p => addPinMarker(p));
   // Build heat + jobs layers from existing data
   setTimeout(()=>{ buildHeatLayer(); buildJobsLayer(); updatePinStats(); }, 400);
