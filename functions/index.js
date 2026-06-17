@@ -76,6 +76,7 @@ const aiHandlers = require('./handlers/ai');
 exports.claudeProxy        = aiHandlers.claudeProxy;
 exports.publicVisualizerAI = aiHandlers.publicVisualizerAI;
 exports.publicFunnelAI     = aiHandlers.publicFunnelAI;
+exports.adminAI            = aiHandlers.adminAI;
 
 // Photo / image (signed URLs, vision analysis, CORS bootstrap)
 const photoHandlers = require('./handlers/photo');

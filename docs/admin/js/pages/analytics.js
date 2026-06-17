@@ -1,4 +1,6 @@
-const WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+// NOTE: this page renders mock analytics only (see loadAnalytics). The old
+// nbd-ai-proxy WORKER_URL constant was dead (never fetched) and was removed —
+// it only advertised the retired worker in publicly-fetchable JS.
 
 let autoRefreshTimer = null;
 

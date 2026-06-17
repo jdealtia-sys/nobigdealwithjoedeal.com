@@ -460,3 +460,101 @@ exports.publicFunnelAI = onRequest(
     }
   }
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// adminAI — Authenticated, admin-only text AI for internal operator tools.
+//
+// Replaces the `nbd-ai-proxy` Cloudflare Worker for the admin tools that still
+// used it (the project-codex assistant and the vault session-parsers). Unlike
+// the public funnel endpoint, these are signed-in operators working with large
+// internal prompts (full session text, codex DNA), so this endpoint:
+//   - requires a valid Firebase ID token AND an admin-tier role claim
+//   - allows much larger prompts + output than the public funnel
+//   - still forces a fixed cheap Claude model server-side, caps max_tokens,
+//     and per-uid rate-limits (the key cannot be abused as an open proxy)
+// ═══════════════════════════════════════════════════════════════════════════
+const ADMIN_AI_MODEL = 'claude-haiku-4-5-20251001';
+const ADMIN_AI_MAX_PROMPT_CHARS = 60000;
+const ADMIN_AI_MAX_TOKENS_CAP = 2048;
+const ADMIN_AI_ROLES = new Set(['admin', 'company_admin', 'manager']);
+
+exports.adminAI = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: true,
+    maxInstances: 5,
+    concurrency: 10,
+    timeoutSeconds: 60,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    // Identity + role gate (not just App Check + IP, like the public funnel).
+    const auth = await requireAuth(req);
+    if (auth.error) {
+      res.status(auth.error.status).json(auth.error.body);
+      return;
+    }
+    const decoded = auth.decoded;
+    const role = decoded.role || (decoded.admin === true ? 'admin' : '');
+    if (!ADMIN_AI_ROLES.has(role)) {
+      res.status(403).json({ error: 'Admin access required' });
+      return;
+    }
+
+    // Per-uid rate limit — generous for interactive admin tooling.
+    if (!(await httpRateLimit(req, res, 'adminAI:' + decoded.uid, 60, 3_600_000))) return;
+
+    try {
+      const { prompt, maxTokens } = req.body || {};
+      if (typeof prompt !== 'string' || prompt.length === 0) {
+        res.status(400).json({ error: 'prompt required' });
+        return;
+      }
+      if (prompt.length > ADMIN_AI_MAX_PROMPT_CHARS) {
+        res.status(413).json({ error: 'Prompt too large' });
+        return;
+      }
+      const cappedMax = Math.min(
+        Math.max(parseInt(maxTokens, 10) || 1024, 1),
+        ADMIN_AI_MAX_TOKENS_CAP
+      );
+
+      const anthropicBody = {
+        model: ADMIN_AI_MODEL,
+        max_tokens: cappedMax,
+        messages: [{ role: 'user', content: prompt }],
+      };
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key': ANTHROPIC_API_KEY.value(),
+        },
+        body: JSON.stringify(anthropicBody),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        logger.warn('adminAI: upstream error', { status: response.status });
+        res.status(response.status).json({ error: 'Upstream AI error' });
+        return;
+      }
+
+      const text = Array.isArray(data.content)
+        ? data.content.map(c => (c && c.type === 'text' ? c.text : '')).join('')
+        : '';
+      res.json({ text });
+    } catch (e) {
+      logger.error('adminAI error', { err: e.message });
+      res.status(500).json({ error: 'Internal error' });
+    }
+  }
+);
