@@ -267,10 +267,11 @@ function isExternalCDN(url) {
   // answered cache-first. Cross-origin requests not matched here get no
   // respondWith() at all — the browser fetches them natively, so a wedged SW
   // can no longer sit between the page and its fonts or Firestore.
-  return url.hostname === 'unpkg.com' ||
-         url.hostname === 'cdnjs.cloudflare.com' ||
-         url.hostname === 'cdn.jsdelivr.net' ||
-         url.hostname === 'server.arcgisonline.com' ||
+  // unpkg/cdnjs/jsdelivr are no longer matched: the third-party libs they used
+  // to serve (Leaflet, Font Awesome, jsPDF, ApexCharts, Chart.js) are now
+  // vendored same-origin under /assets/vendor/ and handled by the normal
+  // same-origin JS/CSS strategy. Only the map-tile CDNs remain here.
+  return url.hostname === 'server.arcgisonline.com' ||
          url.hostname === 'tile.openstreetmap.org';
 }
 

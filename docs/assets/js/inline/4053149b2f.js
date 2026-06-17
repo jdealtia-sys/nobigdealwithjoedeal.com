@@ -346,14 +346,14 @@ function loadLeafletAssets(cb) {
     const css = document.createElement('link');
     css.id = 'leaflet-css';
     css.rel = 'stylesheet';
-    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    css.href = '/assets/vendor/leaflet/leaflet.css';
     css.crossOrigin = '';
     document.head.appendChild(css);
   }
   if (!document.getElementById('leaflet-js')) {
     const js = document.createElement('script');
     js.id = 'leaflet-js';
-    js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    js.src = '/assets/vendor/leaflet/leaflet.js';
     js.crossOrigin = '';
     js.onload = cb;
     js.onerror = function() {

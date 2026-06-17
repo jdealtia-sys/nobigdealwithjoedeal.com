@@ -808,7 +808,8 @@ section('customer.html: perf — all <script src> defers, preconnect hints prese
     'fonts.gstatic.com',
     'www.gstatic.com',
     'firebasestorage.googleapis.com',
-    'cdnjs.cloudflare.com',
+    // cdnjs.cloudflare.com removed: third-party libs are now vendored
+    // same-origin under /assets/vendor/, so no CDN preconnect is needed.
   ];
   for (const host of expectedPreconnects) {
     const escaped = host.replace(/\./g, '\\.');

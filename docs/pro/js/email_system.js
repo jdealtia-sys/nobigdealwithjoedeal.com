@@ -716,7 +716,7 @@ window.emailSystem.send = async function(to, subject, body, options = {}) {
       // Load EmailJS SDK if not already loaded
       if (!window.emailjs) {
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+        script.src = '/assets/vendor/emailjs/email.min.js';
         document.head.appendChild(script);
         await new Promise(resolve => script.onload = resolve);
         window.emailjs.init(this.config.emailjsPublicKey);
