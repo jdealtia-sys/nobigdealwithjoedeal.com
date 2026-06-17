@@ -245,6 +245,7 @@ window.sendEmail = async function() {
 
     // Fallback: Log and use mailto
     if (window._emailLeadId && window.db) {
+      const _eu = window.auth?.currentUser;
       await window.addDoc(window.collection(window.db, 'emails'), {
         leadId: window._emailLeadId,
         to: to,
@@ -253,7 +254,11 @@ window.sendEmail = async function() {
         context: window._emailContext || 'general',
         hasAttachment: !!window._emailAttachment,
         sentAt: window.serverTimestamp(),
-        sentBy: window.auth?.currentUser?.email || 'Unknown'
+        sentBy: _eu?.email || 'Unknown',
+        // Bind ownership to the immutable uid (rules prefer this over the
+        // mutable token email). Only set when present so unauth fallbacks
+        // don't write an empty value that would fail the create rule.
+        ...(_eu?.uid ? { sentByUid: _eu.uid } : {})
       });
     }
 
