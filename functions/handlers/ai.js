@@ -365,3 +365,98 @@ exports.publicVisualizerAI = onRequest(
     }
   }
 );
+
+// ═══════════════════════════════════════════════════════════════════════════
+// publicFunnelAI — Public marketing-funnel text AI (estimate + storm-check).
+//
+// The estimate.html instant-estimator and the storm-alerts self-check call this
+// for short, text-only Claude completions (a roof-size JSON estimate and a
+// personalized "Joe's take" note). Homeowners are NOT authenticated, so — like
+// publicVisualizerAI — we gate with App Check + a per-IP rate limit rather than
+// the claudeProxy subscription gate.
+//
+// This REPLACES the `nbd-ai-proxy` Cloudflare Worker, which was an open
+// Anthropic passthrough guarded only by an Origin header (bypassable when the
+// header was absent) — no auth, no rate limit, no model/token cap. This
+// endpoint removes every one of those abuse vectors:
+//   - enforceAppCheck: true
+//   - per-IP rolling-window rate limit (the funnel makes <=2 calls per run)
+//   - the model is forced server-side to the cheapest Haiku tier (the client
+//     cannot select an expensive model)
+//   - max_tokens is capped server-side
+//   - text-only: the request is a single bounded prompt string, never an
+//     arbitrary upstream passthrough
+// ═══════════════════════════════════════════════════════════════════════════
+const FUNNEL_AI_MODEL = 'claude-haiku-4-5-20251001';
+const FUNNEL_AI_MAX_PROMPT_CHARS = 6000;
+const FUNNEL_AI_MAX_TOKENS_CAP = 700;
+
+exports.publicFunnelAI = onRequest(
+  {
+    cors: CORS_ORIGINS,
+    secrets: [ANTHROPIC_API_KEY],
+    enforceAppCheck: true,
+    maxInstances: 10,
+    concurrency: 20,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') {
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
+    }
+
+    // Per-IP cap — 10 calls / hour. A full funnel completion is <=2 calls
+    // (estimate JSON + note); the headroom covers a couple of retries.
+    if (!(await httpRateLimit(req, res, 'publicFunnelAI:ip', 10, 3_600_000))) return;
+
+    try {
+      const { prompt, maxTokens } = req.body || {};
+      if (typeof prompt !== 'string' || prompt.length === 0) {
+        res.status(400).json({ error: 'prompt required' });
+        return;
+      }
+      if (prompt.length > FUNNEL_AI_MAX_PROMPT_CHARS) {
+        res.status(413).json({ error: 'Prompt too large' });
+        return;
+      }
+      const cappedMax = Math.min(
+        Math.max(parseInt(maxTokens, 10) || 600, 1),
+        FUNNEL_AI_MAX_TOKENS_CAP
+      );
+
+      const anthropicBody = {
+        model: FUNNEL_AI_MODEL,           // forced — client cannot choose
+        max_tokens: cappedMax,
+        messages: [{ role: 'user', content: prompt }],
+      };
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key': ANTHROPIC_API_KEY.value(),
+        },
+        body: JSON.stringify(anthropicBody),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        logger.warn('publicFunnelAI: upstream error', { status: response.status });
+        res.status(response.status).json({ error: 'Upstream AI error' });
+        return;
+      }
+
+      // Return only the joined text — never the raw upstream payload.
+      const text = Array.isArray(data.content)
+        ? data.content.map(c => (c && c.type === 'text' ? c.text : '')).join('')
+        : '';
+      res.json({ text });
+    } catch (e) {
+      logger.error('publicFunnelAI error', { err: e.message });
+      res.status(500).json({ error: 'Internal error' });
+    }
+  }
+);
