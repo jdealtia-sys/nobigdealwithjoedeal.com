@@ -186,7 +186,10 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Appearance picker
   'nbdSetSize', 'nbdPickerTab', 'nbdComfortSet', 'nbdHowtoOpen', 'nbdHowtoClose',
   'nbdSaveCustom', 'nbdRandom', 'nbdPickerClose', 'nbdNavToggle', 'nbdCopyFS',
-  'nbdApplyFont', 'nbdApplyCustom', 'nbdPickerOpen',
+  // nbdApplyLegacyFont = the Settings 28-font grid applier. Renamed from nbdApplyFont
+  // (2026-06-20) to stop colliding with maps.js's theme-engine nbdApplyFont, which
+  // loaded later and shadowed window.nbdApplyFont → every Settings font card no-op'd.
+  'nbdApplyFont', 'nbdApplyLegacyFont', 'nbdApplyCustom', 'nbdPickerOpen',
   // Display-mode segmented toggle (Light/Dark/Auto) above the theme grid
   'nbdSetModePref',
   'resetCustomTheme', 'resetSidebarCustomizer',
