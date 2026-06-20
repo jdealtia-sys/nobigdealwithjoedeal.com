@@ -1635,6 +1635,16 @@ body.professional-mode .mn-icon,
 body.professional-mode .empty-icon {
   display: none !important;
 }
+/* FIX (2026-06-20): professional-mode hides .ni-icon for a clean text-only look —
+   correct in the EXPANDED sidebar, where the text labels remain visible. But
+   sidebar-collapsed hides the labels too (font-size:0 on .ni, see #kanban-force-css),
+   leaving the icon as the ONLY content. Hiding it then blanks the entire 60px rail:
+   every nav item renders as an empty box and the nav becomes unusable. Keep nav
+   icons visible whenever the sidebar is collapsed, regardless of professional mode.
+   Higher specificity + !important beats the display:none rule above. */
+body.professional-mode.sidebar-collapsed .sidebar .ni .ni-icon{
+  display:inline-block!important;
+}
 /* Sidebar nav items — remove left gap where emoji was */
 body.professional-mode .ni { gap: 4px; }
 body.professional-mode .mn-item { gap: 1px; }
