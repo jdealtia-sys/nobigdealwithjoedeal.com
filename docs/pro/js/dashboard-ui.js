@@ -2234,6 +2234,15 @@ function setCrmSecHeaderEnabled(enabled) {
   try { localStorage.setItem(CRM_SEC_HEADER_SETTING, String(enabled)); } catch {}
   applyCrmSecHeaderState();
 }
+// Expose to window. This file is IIFE-wrapped, so the Settings "Secondary Toolbar"
+// toggle could not reach this setter: its handler nbdSetCrmSecHeaderEnabledT
+// (dashboard-ui-prefs-boot.js, a separate file) guards on a BARE
+// `typeof setCrmSecHeaderEnabled === 'function'`, which resolves against the global
+// scope — and this function was never put there. The toggle silently no-op'd
+// (and, post-PR #670, falsely toasted "Secondary header ON"). Its siblings
+// setKanbanDensity / setKanbanBoldHierarchy / setCrmAutoCollapse are all
+// window-exposed; this was the one missed export.
+window.setCrmSecHeaderEnabled = setCrmSecHeaderEnabled;
 
 function applyCrmSecHeaderState() {
   const enabled = getCrmSecHeaderEnabled();
