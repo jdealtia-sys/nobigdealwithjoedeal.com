@@ -115,7 +115,16 @@ var _NBD_LEGACY_FONTS = [
   { id: 'roboto-mono',label: 'Roboto Mono',   cat: 'mono',    body: "'Roboto Mono',ui-monospace,monospace",     heading: "'Roboto Mono',ui-monospace,monospace",     gf: 'Roboto+Mono:wght@400;500;600;700' }
 ];
 var _nbdLoadedFonts = {};
-function nbdApplyFont(fontId) {
+// Renamed from `nbdApplyFont` → `nbdApplyLegacyFont` (2026-06-20). A SECOND global
+// `function nbdApplyFont` lives in maps.js (theme-engine, NBD_FONTS pairings) and
+// loads LATER (deferred at the bottom of dashboard.html), so it overwrote
+// window.nbdApplyFont. The Settings font grid's cards (data-fn="nbdApplyFont",
+// legacy ids like 'poppins'/'inter') were then dispatched to the maps.js version,
+// whose NBD_FONTS.find() doesn't contain those ids → `if(!f) return` → every card
+// silently no-op'd. This is the same collision noted above for the FONT LIST
+// (NBD_FONTS → _NBD_LEGACY_FONTS); we now give the FUNCTION a unique name too so the
+// two font systems stop clobbering each other. The grid + boot below call this name.
+function nbdApplyLegacyFont(fontId) {
   var font = _NBD_LEGACY_FONTS.find(function(f) { return f.id === fontId; });
   if (!font) font = _NBD_LEGACY_FONTS[0]; // fallback to Barlow
   // Load Google Font if not already loaded
@@ -138,6 +147,10 @@ function nbdApplyFont(fontId) {
   });
   if (typeof showToast === 'function') showToast('Font: ' + font.label, 'info');
 }
+// Expose under the unique name so the data-action="call" delegate's window[fnName]
+// lookup resolves it. (The top-level declaration already creates the global, but be
+// explicit — and immune to any later same-name shadowing from deferred scripts.)
+window.nbdApplyLegacyFont = nbdApplyLegacyFont;
 // Render font grid into settings — grouped by category with a section
 // heading so users can browse Sans / Serif / Mono. Each card shows an
 // Aa preview rendered in that font so the picker reads like a sample
@@ -159,7 +172,7 @@ function nbdRenderFontGrid() {
     html += '<div class="nbd-font-cat-head" style="grid-column:1/-1;font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--m);margin:6px 0 2px;border-bottom:1px solid var(--br);padding-bottom:4px;">' + cat.label + ' <span style="opacity:.6;font-weight:600;">· ' + fonts.length + '</span></div>';
     fonts.forEach(function(f) {
       var active = f.id === saved;
-      html += '<div class="nbd-font-card" data-font-id="' + f.id + '" data-action="call" data-fn="nbdApplyFont" data-arg="' + f.id + '" style="background:' + (active ? 'color-mix(in srgb, var(--orange) 12%, transparent)' : 'var(--s2)') + ';border:2px solid ' + (active ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;' + (active ? 'box-shadow:0 0 0 3px color-mix(in srgb, var(--orange) 18%, transparent);' : '') + '">'
+      html += '<div class="nbd-font-card" data-font-id="' + f.id + '" data-action="call" data-fn="nbdApplyLegacyFont" data-arg="' + f.id + '" style="background:' + (active ? 'color-mix(in srgb, var(--orange) 12%, transparent)' : 'var(--s2)') + ';border:2px solid ' + (active ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:12px;cursor:pointer;transition:all .15s;text-align:center;' + (active ? 'box-shadow:0 0 0 3px color-mix(in srgb, var(--orange) 18%, transparent);' : '') + '">'
         + '<div style="font-family:' + f.body + ';font-size:22px;font-weight:700;color:var(--t);margin-bottom:4px;line-height:1;">Aa</div>'
         + '<div style="font-size:10px;color:var(--m);font-weight:600;">' + f.label + (active ? ' ✓' : '') + '</div>'
         + '</div>';
@@ -174,7 +187,7 @@ window.nbdRenderFontGrid = nbdRenderFontGrid;
 // Boot: apply saved font
 (function() {
   var saved = localStorage.getItem('nbd_font');
-  if (saved && saved !== 'barlow') nbdApplyFont(saved);
+  if (saved && saved !== 'barlow') nbdApplyLegacyFont(saved);
 })();
 document.addEventListener('DOMContentLoaded', nbdRenderFontGrid);
 
