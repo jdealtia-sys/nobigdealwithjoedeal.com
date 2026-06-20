@@ -7,6 +7,36 @@
     document.body.classList.add('professional-mode');
   }
 })();
+// ── Toast notifications (dashboard) ──
+// 30+ dashboard call sites — dashboard-ui.js (28x), the settings-toggle wrappers
+// below (_nbdToast), nbdSetSize, nbdApplyLegacyFont — call `showToast(msg, type)`
+// guarded by `typeof showToast === 'function'`. But the ONLY definition lived in
+// /pro/customer.html — never on the dashboard — so every call silently no-op'd:
+// font / UI-size / toggle changes applied with NO visible confirmation. Define it
+// here (same self-contained impl as customer.html: own element + keyframes, typed
+// colors) so that feedback finally shows. Guarded so it never clobbers a page that
+// already defines its own showToast.
+if (typeof window.showToast !== 'function') {
+  window.showToast = function(message, type) {
+    var bg = type === 'success' ? '#28a745' : type === 'error' ? '#dc3545' : '#0ea5e9';
+    var toast = document.createElement('div');
+    toast.className = 'nbd-showtoast';
+    toast.style.cssText = 'position:fixed;top:80px;right:20px;background:' + bg + ';color:#fff;padding:13px 18px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.18);z-index:100000;font-size:14px;font-weight:600;max-width:340px;animation:nbdToastIn .25s ease-out;pointer-events:auto;';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(function() {
+      toast.style.animation = 'nbdToastOut .25s ease-in';
+      toast.style.pointerEvents = 'none';
+      setTimeout(function() { if (toast.parentNode) toast.remove(); }, 250);
+    }, 2600);
+  };
+  if (!document.getElementById('nbdToastKeyframes')) {
+    var _nbdTk = document.createElement('style');
+    _nbdTk.id = 'nbdToastKeyframes';
+    _nbdTk.textContent = '@keyframes nbdToastIn{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes nbdToastOut{from{transform:translateX(0);opacity:1}to{transform:translateX(400px);opacity:0}}';
+    (document.head || document.documentElement).appendChild(_nbdTk);
+  }
+}
 // ── Site-wide sizing system ──
 // 4 presets that scale --nbd-scale on :root, which every
 // padding/font/gap rule multiplies against. The CSS uses
