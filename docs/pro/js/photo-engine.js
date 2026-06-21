@@ -1321,13 +1321,13 @@
       container.innerHTML = `
         <div class="pe-gallery-container">
           <div class="pe-gallery-toolbar">
-            <select class="pe-toolbar-select" id="filter-tag" onchange="window.PhotoEngine._filterGallery('${leadId}')">
+            <select class="pe-toolbar-select" id="filter-tag">
               <option value="">All Photos</option>
               ${Object.entries(TAG_CATEGORIES).map(([_, cat]) =>
                 cat.tags.map(tag => `<option value="${tag}">${cat.label}: ${tag.replace(/_/g, ' ')}</option>`).join('')
               ).join('')}
             </select>
-            <select class="pe-toolbar-select" id="sort-by" onchange="window.PhotoEngine._sortGallery('${leadId}')">
+            <select class="pe-toolbar-select" id="sort-by">
               <option value="newest">Newest First</option>
               <option value="oldest">Oldest First</option>
               <option value="quality">Quality Preset</option>
@@ -1353,6 +1353,14 @@
       `;
 
       renderGalleryGrid(container.querySelector('#gallery-content'), photos, leadId);
+
+      // CSP-safe wiring: the dashboard CSP enforces script-src-attr 'none', which
+      // blocks inline onchange= — the filter/sort <select>s were silently dead.
+      // Attach the same handlers via addEventListener instead.
+      const _peFilter = container.querySelector('#filter-tag');
+      if (_peFilter) _peFilter.addEventListener('change', function () { window.PhotoEngine._filterGallery(leadId); });
+      const _peSort = container.querySelector('#sort-by');
+      if (_peSort) _peSort.addEventListener('change', function () { window.PhotoEngine._sortGallery(leadId); });
     } catch (err) {
       container.innerHTML = `<div class="pe-empty-state"><div class="pe-empty-icon">Camera</div><p>No photos yet</p></div>`;
       console.error('Gallery error:', err);
@@ -1374,7 +1382,7 @@
             ${state.stagedPhotos[leadId]?.includes(photo.id) ? `<div class="pe-staged-badge">OK</div>` : ''}
             <input type="checkbox" class="pe-gallery-checkbox" data-photo-id="${photo.id}" />
             <div class="pe-gallery-tags">
-              ${photo.tags.slice(0, 3).map(tag => `<span class="pe-mini-tag">${tag}</span>`).join('')}
+              ${photo.tags.slice(0, 3).map(tag => `<span class="pe-mini-tag">${escHtml(tag)}</span>`).join('')}
             </div>
             ${photo.aiSuggestion && photo.aiSuggestion.damageType ? `
               <span class="pe-ai-chip"
@@ -1426,7 +1434,7 @@
             ${photo.description ? `
               <div class="pe-metadata-row">
                 <div class="pe-metadata-label">Notes</div>
-                <div>${photo.description}</div>
+                <div>${escHtml(photo.description)}</div>
               </div>
             ` : ''}
             ${photo.location ? `
@@ -1447,7 +1455,7 @@
               <div class="pe-metadata-row">
                 <div class="pe-metadata-label">Tags</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                  ${photo.tags.map(tag => `<span style="background: var(--orange); color: white; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.8rem;">${tag}</span>`).join('')}
+                  ${photo.tags.map(tag => `<span style="background: var(--orange); color: white; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.8rem;">${escHtml(tag)}</span>`).join('')}
                 </div>
               </div>
             ` : ''}
