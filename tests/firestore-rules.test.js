@@ -53,6 +53,7 @@ async function run() {
     // NEW-5 fixtures: a no-role owner's lead + a viewer's lead.
     await setDoc(doc(db, 'leads/leadD'), { userId: 'dave', name: 'Dave Lead', companyId: 'co-d' });
     await setDoc(doc(db, 'leads/leadV'), { userId: 'vic',  name: 'Vic Lead',  companyId: 'co-v' });
+    await setDoc(doc(db, 'leads/leadCar'), { userId: 'carol', name: 'Carol Lead', companyId: 'co-a' });
     await setDoc(doc(db, 'access_codes/NBD-ADMIN'), { code: 'NBD-ADMIN', active: true, email: 'admin@nobigdeal.pro' });
     await setDoc(doc(db, 'email_log/log1'), { uid: 'alice', to: 'x@y.com' });
     await setDoc(doc(db, 'reps/alice'), { companyId: 'co-a', role: 'rep' });
@@ -310,6 +311,30 @@ async function run() {
   // A 'viewer' who owns a lead is still read-only at the rules layer.
   await assertFails(updateDoc(doc(viewer, 'leads/leadV'), { deleted: true }));
   await assertFails(deleteDoc(doc(viewer, 'leads/leadV')));
+  // 23b. QA 2026-06-21 #4: a company_admin who OWNS a lead can permanent-delete
+  //      it too (same isOwner branch; 'company_admin' != 'viewer'). Prod was
+  //      denying this (stale/divergent deployed rule) while soft-delete worked,
+  //      so Deleted-bin "Remove" failed and leads could never be purged. The
+  //      committed rule already allows it — this locks it against regression
+  //      and forces the redeploy that ships the correct rule.
+  await assertSucceeds(deleteDoc(doc(coAdmin, 'leads/leadCar')));
+
+  // 23c. QA 2026-06-21 #2: academy_progress/{uid} — owner reads+writes their
+  //      OWN progress; a different user is denied. No rule existed before, so
+  //      every Academy save/load was PERMISSION_DENIED (silent localStorage-only).
+  await assertSucceeds(setDoc(doc(alice, 'academy_progress/alice'), { completedNodes: ['n1'] }));
+  await assertSucceeds(getDoc(doc(alice, 'academy_progress/alice')));
+  await assertFails(getDoc(doc(bob, 'academy_progress/alice')));
+  await assertFails(setDoc(doc(bob, 'academy_progress/alice'), { completedNodes: ['x'] }));
+
+  // 23d. QA 2026-06-21 #10: companies/{uid}/members keyed under the caller's
+  //      OWN uid is readable/writable even when no /companies/{uid} doc exists
+  //      (the get(...).ownerId check denies a missing doc). The live Team tab
+  //      queries /companies/{_user.uid}/members. Cross-uid still denied.
+  await assertSucceeds(getDoc(doc(alice, 'companies/alice/members/m1')));
+  await assertSucceeds(setDoc(doc(alice, 'companies/alice/members/rep1'), { email: 'r@x.com', role: 'sales_rep', status: 'invited' }));
+  await assertFails(getDoc(doc(bob, 'companies/alice/members/m1')));
+  await assertFails(setDoc(doc(bob, 'companies/alice/members/rep2'), { email: 'x@x.com', role: 'sales_rep' }));
 
   // 24. NEW-D11: saved reports — owners delete their OWN reports. The old
   //     rule was `allow update, delete: if isAdmin()`, so the My Reports

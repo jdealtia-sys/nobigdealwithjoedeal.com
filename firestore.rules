@@ -579,11 +579,19 @@ service cloud.firestore {
       allow update, delete: if (isAuth() && resource.data.ownerId == request.auth.uid) || isAdmin();
 
       // Members subcollection is writable only by the company owner or admin.
+      // QA 2026-06-21 #10: the live app queries /companies/{_user.uid}/members,
+      // so companyId == the caller's own uid. The ownerId-doc check below FAILS
+      // for solo owners who never had a /companies/{uid} doc created (get() of a
+      // missing doc denies), so loadTeamMembers/invite were PERMISSION_DENIED.
+      // Allow the company-keyed-by-uid owner directly — they can only ever reach
+      // the members subcollection under their OWN uid, so this is tenant-safe.
       match /members/{memberId} {
         allow read: if isAdmin()
+          || (isAuth() && request.auth.uid == companyId)
           || (isAuth() && get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid)
           || (isAuth() && request.auth.uid == memberId);
         allow create, update, delete: if isAdmin()
+          || (isAuth() && request.auth.uid == companyId)
           || (isAuth() && get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid);
       }
     }
@@ -599,6 +607,16 @@ service cloud.firestore {
             || request.resource.data.companyId == myCompanyId()
             || request.resource.data.companyId == request.auth.uid);
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    // ── REAL DEAL ACADEMY ────────────────────────────
+    // Per-user training progress. Doc id IS the owner's uid; the live app
+    // reads/writes /academy_progress/{uid} (real-deal-academy.js _loadProgress
+    // / _saveProgress). No rule existed, so every read/write was
+    // PERMISSION_DENIED and the Academy silently fell back to localStorage
+    // (progress never synced server-side / cross-device). QA 2026-06-21 #2.
+    match /academy_progress/{userId} {
+      allow read, write: if isOwner(userId);
     }
 
     // ── PUBLIC LEAD FORMS ────────────────────────────

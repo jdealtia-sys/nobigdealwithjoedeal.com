@@ -68,7 +68,12 @@ const WIDGETS = [
       const stages = {New:0, Contacted:0, 'Est. Sent':0, Negotiating:0, Won:0};
       let total = 0;
       leads.forEach(l => {
-        const val = parseFloat(l.estValue || l.value || 0);
+        // QA 2026-06-21 #3: leads store their amount in `jobValue` (see
+        // crm-pipeline.js — the CRM header sums jobValue to $126k). This
+        // widget summed `estValue || value`, fields that don't exist on a
+        // lead, so Home's Pipeline Value always rendered $0 while the CRM
+        // showed the real total. jobValue first, legacy fields as fallback.
+        const val = parseFloat(l.jobValue || l.estValue || l.value || 0);
         total += val;
         const bucket = _bucketOf(l);
         if (bucket && stages[bucket] !== undefined) stages[bucket] += val;

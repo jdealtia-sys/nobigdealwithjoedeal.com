@@ -42,7 +42,7 @@
       && window.CustomerAiDraftsPanel.__sentinel === 'nbd-customer-ai-drafts-panel-v1') return;
 
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/customer\.html$/.test(PATH)) return;
+  if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
 
   // Guards against a card whose action is mid-flight, so a double-tap
   // can't fire two approves (which the server trigger would dedupe

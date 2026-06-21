@@ -578,7 +578,7 @@ function finalizeLine(p1, p2, dot1, dot2) {
   // Editable label on click
   lbl.on('click', () => editLineLength(id));
   const id = Date.now() + Math.random();
-  drawnLines.push({id, type:drawLT, name:lt.name, color:lt.color, dist:d, line, lbl, p1, p2, dot1, dot2, subtype:'line'});
+  drawnLines.push({id, type:drawLT, name:lt.n, color:lt.color, dist:d, line, lbl, p1, p2, dot1, dot2, subtype:'line'});
   // ── Click line on map → type picker popup (April 2026) ──
   line.on('click', function(e) {
     L.DomEvent.stopPropagation(e);

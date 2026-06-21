@@ -31,7 +31,7 @@
       && window.CustomerSnoozeBanner.__sentinel === 'nbd-customer-snooze-banner-v1') return;
 
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/customer\.html$/.test(PATH)) return;
+  if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
 
   let bannerEl = null;
 
