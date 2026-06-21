@@ -12,6 +12,10 @@ const firebaseConfig = {
   appId: "1:717435841570:web:c2338e11052c96fde02e7b"
 };
 
+// Escape user-controlled text (rep/member names — set from profile firstName/lastName,
+// so a teammate's name is peer-controlled) before innerHTML interpolation on the board.
+const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -193,9 +197,9 @@ function renderBoard(reps) {
 
     return '<div class="lb-row ' + rankClass + '">' +
       '<div class="rank">' + rankIcon + '</div>' +
-      '<div class="avatar">' + initials(name) + '</div>' +
+      '<div class="avatar">' + esc(initials(name)) + '</div>' +
       '<div class="lb-info">' +
-        '<div class="lb-name">' + name + '</div>' +
+        '<div class="lb-name">' + esc(name) + '</div>' +
         '<div class="lb-sub">' + sub + '</div>' +
       '</div>' +
       '<div class="lb-stat">' +
