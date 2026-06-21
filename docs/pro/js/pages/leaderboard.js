@@ -214,16 +214,19 @@ function renderFeed(metrics) {
 
   // Build recent activity from won leads and knocks
   const events = [];
+  // Escape lead/knock fields (name/address can originate from public intake) — the
+  // feed text mixes intentional <strong> markup with user data and is set via innerHTML.
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
   metrics.wonLeads.slice(0, 5).forEach(l => {
     const d = toDate(l.updatedAt);
-    if (d) events.push({ icon: '🏆', text: '<strong>Deal closed</strong> — ' + (l.name || l.address || 'Lead') + (l.jobValue ? ' · ' + fmtCurrency(parseFloat(l.jobValue)) : ''), time: d });
+    if (d) events.push({ icon: '🏆', text: '<strong>Deal closed</strong> — ' + esc(l.name || l.address || 'Lead') + (l.jobValue ? ' · ' + fmtCurrency(parseFloat(l.jobValue)) : ''), time: d });
   });
 
   const recentKnocks = metrics.knocks.filter(k => k.disposition === 'appointment').slice(0, 5);
   recentKnocks.forEach(k => {
     const d = toDate(k.createdAt);
-    if (d) events.push({ icon: '📋', text: '<strong>Appointment set</strong> — ' + (k.address || 'Address'), time: d });
+    if (d) events.push({ icon: '📋', text: '<strong>Appointment set</strong> — ' + esc(k.address || 'Address'), time: d });
   });
 
   events.sort((a, b) => b.time - a.time);
