@@ -65,15 +65,24 @@ async function loadProjects() {
 
   try {
     if (window._db && window._authUser) {
-      const { collection, getDocs, query, orderBy } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const { collection, getDocs, query, where } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const uid = window._authUser.uid;
-      const q = query(collection(window._db, 'leads', uid, 'leads'), orderBy('createdAt', 'desc'));
+      // Leads live in the FLAT top-level `/leads` collection keyed by a
+      // `userId` field (same model CRM + the deleted-bin read). The old
+      // `collection(db,'leads',uid,'leads')` pointed at a nested subcollection
+      // that doesn't exist → the security rule never matched → permission
+      // denied ("Error loading projects"). Query flat + filter by owner; sort
+      // newest-first client-side to avoid a composite-index requirement.
+      const q = query(collection(window._db, 'leads'), where('userId', '==', uid));
       const snap = await getDocs(q);
       projectList = [];
       snap.forEach(d => {
         const data = d.data();
         projectList.push({ id: d.id, ...data });
       });
+      const _ts = v => (v && typeof v.seconds === 'number') ? v.seconds
+        : (typeof v === 'number' ? v / 1000 : (v ? (Date.parse(v) / 1000 || 0) : 0));
+      projectList.sort((a, b) => _ts(b.createdAt) - _ts(a.createdAt));
 
       sel.innerHTML = '<option value="">-- Select a project (' + projectList.length + ' found) --</option>';
       projectList.forEach(p => {
