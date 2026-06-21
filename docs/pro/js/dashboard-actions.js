@@ -431,6 +431,16 @@ function goTo(name, params = {}) {
       if (typeof window.renderEstimatesList === 'function') window.renderEstimatesList(window._estimates || []);
       if (typeof window.renderLeads === 'function' && Array.isArray(window._leads)) window.renderLeads(window._leads, window._filteredLeads);
     } catch (e) { console.warn('dash KPI refresh failed:', e); }
+    // QA 2026-06-21 #9b: the dashboard widget SECTIONS (hot-leads, smart-followup
+    // briefing, almost-there, stale-shares, engagement-cohort, bottleneck) render
+    // off the 'nbd:data-refreshed' signal, which fires during boot — BEFORE the
+    // view-dash template is hydrated, so their body elements didn't exist yet and
+    // the sections stayed stuck on 'Loading…' when reached via SPA route-enter
+    // (only a full page load fixed them). The template is hydrated by this point
+    // (_hydrateViewTemplate ran above), so re-emit the signal to make every
+    // widget re-render into its now-present body. Idempotent + already fires
+    // frequently in normal use (task/snooze/lead-load), so no new churn.
+    try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'dash-enter' } })); } catch (e) {}
   }
   if(name==='map') {
     if (!mapInited.map) {
