@@ -324,7 +324,7 @@
             <input
               type="checkbox"
               ${isChecked ? 'checked' : ''}
-              onchange="window.InsuranceClaim.updateChecklistItem('${leadId}', '${currentStageId}', '${item.replace(/'/g, "\\'")}', this.checked)"
+              data-ic-check="1" data-ic-lead="${leadId}" data-ic-stage="${currentStageId}" data-ic-item="${String(item).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"
               style="cursor: pointer; width: 16px; height: 16px;"
             >
             <label style="flex: 1; color: ${isChecked ? 'var(--m,#9ca3af)' : 'var(--h,#fff)'}; text-decoration: ${isChecked ? 'line-through' : 'none'}; cursor: pointer;">
@@ -425,4 +425,4 @@
 
 })();
 
-(function(){if(window._NBD_IC_DELEGATE)return;window._NBD_IC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-ic-action]');if(!t)return;if(t.dataset.icAction==='advance'&&window.InsuranceClaim&&window.InsuranceClaim.advanceClaimStage){var leadId=t.dataset.icId;var notesEl=document.getElementById('claim-notes-'+leadId);var notes=notesEl?notesEl.value.trim():'';window.InsuranceClaim.advanceClaimStage(leadId,notes).then(function(ok){if(ok&&window.InsuranceClaim&&window.InsuranceClaim.renderClaimWorkflow)window.InsuranceClaim.renderClaimWorkflow('insuranceClaimWorkflow',leadId);});}});})();
+(function(){if(window._NBD_IC_DELEGATE)return;window._NBD_IC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-ic-action]');if(!t)return;if(t.dataset.icAction==='advance'&&window.InsuranceClaim&&window.InsuranceClaim.advanceClaimStage){var leadId=t.dataset.icId;var notesEl=document.getElementById('claim-notes-'+leadId);var notes=notesEl?notesEl.value.trim():'';window.InsuranceClaim.advanceClaimStage(leadId,notes).then(function(ok){if(ok&&window.InsuranceClaim&&window.InsuranceClaim.renderClaimWorkflow)window.InsuranceClaim.renderClaimWorkflow('insuranceClaimWorkflow',leadId);});}});document.addEventListener('change',function(ev){var c=ev.target.closest&&ev.target.closest('[data-ic-check]');if(!c)return;if(window.InsuranceClaim&&window.InsuranceClaim.updateChecklistItem){window.InsuranceClaim.updateChecklistItem(c.dataset.icLead,c.dataset.icStage,c.dataset.icItem,c.checked);}});})();
