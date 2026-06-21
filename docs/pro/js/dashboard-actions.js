@@ -809,7 +809,7 @@ if (typeof window.PhotoEngine === 'undefined' || typeof window.InspectionReportE
   };
   if (typeof window.PhotoEngine === 'undefined') {
     const _peStub = { __nbdLazyPhotosStub: true };
-    ['openCamera', 'openGallery', 'uploadOne', 'uploadFromFile', 'renderGallery', 'openLightbox'].forEach(function (m) {
+    ['openCamera', 'openGallery', 'uploadFromFile', 'renderGallery', 'openLightbox'].forEach(function (m) {
       _peStub[m] = function () {
         const a = arguments;
         _lazyPhotos(function () {
@@ -1338,29 +1338,28 @@ function _mCreate(kind) {
 }
 window._mCreate = _mCreate;
 
-// Photo create handler — uploads the captured file via the existing
-// PhotoEngine if available, otherwise stages it for the next lead
-// modal save. Best-effort: we don't want the popover entry point to
-// fail loudly if PhotoEngine isn't loaded on this surface.
+// Photo capture handler — shared by the mobile "+" create popover and the
+// view-photos shutter FAB's no-lead fallback. Both fire BEFORE any lead
+// exists, but a photo can only be stored against a lead
+// (PhotoEngine.uploadFromFile requires a leadId) and there is no
+// standalone-upload path. So route the rep to create/open a lead and add
+// photos from its gallery.
+//
+// Previously this called window.PhotoEngine.uploadOne — not a real
+// PhotoEngine method (only uploadFromFile exists) — and otherwise pushed
+// the file into window._pendingPhotoUploads, an array nothing ever
+// consumed. Either way the photo was silently dropped while a false
+// "Photo uploaded" / "Photo queued" toast claimed success.
 window._mCreatePhotoPicked = function (event) {
   try {
     const file = event && event.target && event.target.files && event.target.files[0];
     if (!file) return;
-    if (window.PhotoEngine && typeof window.PhotoEngine.uploadOne === 'function') {
-      window.PhotoEngine.uploadOne(file, {
-        source: 'mobile-create-popover'
-      });
-      if (typeof showToast === 'function') showToast('Photo uploaded', 'success');
-    } else {
-      // Stash on window so the next lead-modal save can attach it.
-      window._pendingPhotoUploads = window._pendingPhotoUploads || [];
-      window._pendingPhotoUploads.push(file);
-      if (typeof showToast === 'function') showToast('Photo queued — attach to a lead to save', 'info');
-    }
+    if (typeof openLeadModal === 'function') openLeadModal();
+    if (typeof showToast === 'function') showToast('Create or open a lead, then add photos from its gallery', 'info');
   } catch (e) {
-    console.warn('mobile photo create failed:', e && e.message);
+    console.warn('mobile photo create reroute failed:', e && e.message);
   } finally {
-    // Reset input so the same file can be re-picked.
+    // Reset input so the same file can be re-picked next time.
     if (event && event.target) event.target.value = '';
   }
 };
