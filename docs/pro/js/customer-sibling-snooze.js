@@ -40,7 +40,7 @@
       && window.CustomerSiblingSnooze.__sentinel === 'nbd-customer-sibling-snooze-v1') return;
 
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/customer\.html$/.test(PATH)) return;
+  if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
 
   // W83: lowercase-only set + normalize the stage key before
   // checking. Previous shape `Set(['closed', 'lost', 'Lost', 'Complete'])`

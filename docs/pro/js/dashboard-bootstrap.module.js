@@ -3567,7 +3567,8 @@
     if (!_db || !uid) return;
     try {
       const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-      const snap = await getDoc(doc(_db, 'userSettings', uid));
+      // QA 2026-06-21 #1: retry transient cold-boot offline (WebChannel not up yet).
+      const snap = await (window.nbdRetryOffline || (f => f()))(() => getDoc(doc(_db, 'userSettings', uid)));
       if (!snap.exists()) return;
       const data = snap.data();
       if (!data || !data.notifications) return;

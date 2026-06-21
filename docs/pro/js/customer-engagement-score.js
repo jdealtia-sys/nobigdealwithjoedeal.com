@@ -40,7 +40,7 @@
   // be available everywhere so the kanban (W92) and other surfaces
   // can call it without re-implementing the tier logic.
   const PATH = window.location.pathname || '';
-  const IS_CUSTOMER_PAGE = /\/pro\/customer\.html$/.test(PATH);
+  const IS_CUSTOMER_PAGE = /\/pro\/customer(?:\.html)?$/.test(PATH);
 
   const FRESH_SHARE_MS = 24 * 60 * 60 * 1000; // W57 freshness window
 
