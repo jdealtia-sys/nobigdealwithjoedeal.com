@@ -1321,9 +1321,9 @@ Any additional damage discovered during work shall be documented and submitted a
         <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
           <input type="text" id="template-search" placeholder="Search templates..."
             style="flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;"
-            onkeyup="window.NBDTemplateSuite.performSearch(this.value)">
+            >
           <select id="template-type-filter" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;"
-            onchange="window.NBDTemplateSuite.filterByType(this.value)">
+            >
             <option value="">All Types</option>
             <option value="email">Email</option>
             <option value="estimate">Estimate</option>
@@ -1352,6 +1352,10 @@ Any additional damage discovered during work shall be documented and submitted a
     `;
 
     container.innerHTML = html;
+    // CSP-safe: inline onkeyup/onchange are blocked (script-src-attr 'none'); wire the
+    // search + type filter after render.
+    container.querySelector('#template-search')?.addEventListener('input', function () { window.NBDTemplateSuite.performSearch(this.value); });
+    container.querySelector('#template-type-filter')?.addEventListener('change', function () { window.NBDTemplateSuite.filterByType(this.value); });
     return container;
   }
 
