@@ -9,7 +9,12 @@ Legend: ✅ works · 🐞 bug found · ⚠️ needs decision · ⏭️ deferred
 
 ## Findings
 
-### 🐞 DUP-1 (MED) — Two command palettes both bind Ctrl+K (and `/`) → open stacked
+### 🐞 DUP-1 (MED) — Two command palettes both bind Ctrl+K (and `/`) → open stacked  — ✅ FIXED
+> FIX (this branch): `global-search.js` (legacy Wave-18 `#cmdPalette`) now defers its
+> Cmd+K / `/` handling to `window.NBDCommand` (command-palette.js, W133 — the canonical,
+> richer palette with the registerAction plugin API) whenever it's loaded. Per-event check,
+> so load order is moot and global-search still works as a fallback if NBDCommand is absent.
+> Needs post-deploy live re-confirm (one Ctrl+K → exactly one palette).
 - **Confirmed live:** one `Ctrl+K` opens BOTH palettes at once (`bothOpenSimultaneously: true`).
   - `command-palette.js:489` — `document.addEventListener('keydown', …)`, opens the
     "Search actions, leads, or pages…" palette (Navigation + Leads). Renders on top.
