@@ -605,9 +605,16 @@ ${signBlock}
       // supplements aren't a thing today, but defensive).
       if (supplement.leadId) {
         try {
-          const totalDelta = supplement.totalDelta
-            || ((supplement.addedItems || []).reduce((s, it) => s + (it.lineTotal || 0), 0)
-              + (supplement.modifications || []).reduce((s, m) => s + (m.delta || 0), 0));
+          // calculateDelta() has already stamped supplement.supplementTotal
+          // (the canonical, OH&P-applied, rounded total the modal and formal
+          // letter both display). Use it so the timeline label matches. Fall
+          // back to summing the real engine fields — addedItems[].lineTotal +
+          // modifiedItems[].deltaLineTotal — NOT the phantom totalDelta /
+          // modifications[].delta fields the engine never sets.
+          const totalDelta = (typeof supplement.supplementTotal === 'number' && isFinite(supplement.supplementTotal))
+            ? supplement.supplementTotal
+            : ((supplement.addedItems || []).reduce((s, it) => s + (Number(it.lineTotal) || 0), 0)
+              + (supplement.modifiedItems || []).reduce((s, m) => s + (Number(m.deltaLineTotal) || 0), 0));
           await window.addDoc(
             window.collection(window.db, `leads/${supplement.leadId}/activity`),
             {
