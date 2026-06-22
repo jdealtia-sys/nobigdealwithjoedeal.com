@@ -761,6 +761,17 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── CLOSE BOARD DEAL ROOMS ────────────────────────
+    // Shareable deal rooms (close-board.js syncDealToFirestore). Owner-keyed on
+    // userId. createDealAcceptToken (admin SDK) reads this doc to owner-scope a
+    // share token + snapshot tier prices, so userId MUST be trustworthy: pin it
+    // to the caller on create (a rep can't plant a deal under another uid).
+    // Without this rule the client write default-denied and deals never synced.
+    match /deal_rooms/{dealId} {
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+    }
+
     // Close Board deal acceptance (1a). createDealAcceptToken mints these;
     // the homeowner accepts via the public getDealRoom / submitDealAcceptance
     // endpoints (token-authed, admin SDK). No Firebase-auth client ever

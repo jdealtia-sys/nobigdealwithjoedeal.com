@@ -214,14 +214,22 @@ exports.submitDealAcceptance = onRequest(
     const token = typeof b.token === 'string' ? b.token : '';
     const tier = typeof b.tier === 'string' ? b.tier : '';
     const signature = typeof b.signature === 'string' ? b.signature : '';
-    const financing = (b.financing == null) ? null : String(b.financing).slice(0, 80);
+    // financing is a numeric index from the client (-1 = pay in full). Coerce
+    // to a number or null — never persist free-text from the unauthenticated
+    // wire (defends a future renderer against a stored-XSS payload here).
+    const financing = Number.isFinite(Number(b.financing)) ? Number(b.financing) : null;
     const scheduledDate = typeof b.scheduledDate === 'string' ? b.scheduledDate.slice(0, 40) : '';
 
-    if (token.length < 10 || token.length > 64) { res.status(400).json({ error: 'Invalid link' }); return; }
+    // Charset-validate the token BEFORE it becomes a Firestore doc-path segment
+    // — a '/' would otherwise make db.doc() throw an uncaught 500. Mirrors
+    // getDealRoom's [A-Za-z0-9]{10,64} check.
+    if (!/^[A-Za-z0-9]{10,64}$/.test(token)) { res.status(400).json({ error: 'Invalid link' }); return; }
     if (!VALID_TIERS.includes(tier)) { res.status(400).json({ error: 'Please choose a package first' }); return; }
-    // Signature is a canvas PNG dataURL. Require it; cap the size (a typed
-    // signature is a few tens of KB — anything huge is abuse).
-    if (!/^data:image\/png;base64,/.test(signature) || signature.length < 200) {
+    // Signature is a canvas PNG dataURL — require it and allow ONLY base64 body
+    // chars after the prefix (blocks a "><svg ...> attribute breakout if a
+    // future rep-facing view ever renders it). Size-capped (a drawn signature
+    // is tens of KB; anything huge is abuse).
+    if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(signature) || signature.length < 200) {
       res.status(400).json({ error: 'A signature is required' }); return;
     }
     if (signature.length > 600 * 1024) { res.status(413).json({ error: 'Signature too large' }); return; }
