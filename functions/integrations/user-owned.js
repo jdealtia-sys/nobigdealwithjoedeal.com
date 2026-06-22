@@ -65,6 +65,9 @@ const FLAT_USER_COLLECTIONS = [
   { name: 'territories' },
   { name: 'products' },
   { name: 'templates' },
+  // Close Board deal rooms (close-board.js syncDealToFirestore). Owner-keyed
+  // on userId; rides the GDPR cascade so a user's shared deals erase too.
+  { name: 'deal_rooms' },
   { name: 'training_sessions' },
   { name: 'drip_queue' },
   { name: 'drip_log' },
