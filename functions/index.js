@@ -225,6 +225,12 @@ Object.assign(exports, portalFunctions);
 const remoteSigningFunctions = require('./remote-signing');
 Object.assign(exports, remoteSigningFunctions);
 
+// Close Board deal acceptance (1a): no-login remote accept of a shared deal
+// room (deal_accept_tokens + /deal/<token> + /api/deal-accept). Same
+// single-use token model as remote-signing.js. See functions/deal-acceptance.js.
+const dealAcceptanceFunctions = require('./deal-acceptance');
+Object.assign(exports, dealAcceptanceFunctions);
+
 // L-03 cont.: Stripe handlers (createCheckoutSession, stripeWebhook,
 // createCustomerPortalSession, getSubscriptionStatus,
 // createStripePaymentLink, invoiceWebhook) live in functions/stripe.js.

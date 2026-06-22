@@ -761,6 +761,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Close Board deal acceptance (1a). createDealAcceptToken mints these;
+    // the homeowner accepts via the public getDealRoom / submitDealAcceptance
+    // endpoints (token-authed, admin SDK). No Firebase-auth client ever
+    // touches this collection — same lockdown as doc_sign_tokens.
+    match /deal_accept_tokens/{token} {
+      allow read, write: if false;
+    }
+
     // ── PARCEL CACHE (admin-SDK only) ──────────────────
     // Regrid lookup cache — reads are a privacy issue (address →
     // owner name). Only the Cloud Function accesses via admin SDK.

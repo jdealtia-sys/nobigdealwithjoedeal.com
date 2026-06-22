@@ -461,12 +461,32 @@ function clearSig() {
   checkReady();
 }
 
-function submitDeal() {
+async function submitDeal() {
   if (!selectedTier || !sigHasContent) return;
   const sigData = canvas.toDataURL('image/png');
   const schedDate = document.getElementById('schedDate').value;
-  // In production this would POST to a webhook/function
-  console.log('Deal accepted:', { tier: selectedTier, financing: selectedFinance, signature: sigData, scheduledDate: schedDate, dealId: '${deal.id}' });
+  const btn = document.getElementById('submitBtn');
+  // When this page is served via /deal/<token> (the shared link), getDealRoom
+  // injects a token + same-origin submit URL — record the acceptance for real.
+  // With no token (the rep's in-app preview) it's a visual walkthrough only.
+  var token = window.__NBD_DEAL_TOKEN, url = window.__NBD_DEAL_SUBMIT_URL;
+  if (token && url) {
+    var orig = btn.textContent; btn.disabled = true; btn.textContent = 'Submitting...';
+    try {
+      var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, tier: selectedTier, financing: selectedFinance, signature: sigData, scheduledDate: schedDate }) });
+      if (!r.ok) {
+        var j = await r.json().catch(function () { return {}; });
+        btn.disabled = false; btn.textContent = orig;
+        alert((j && j.error) || 'Could not submit your acceptance. Please try again.');
+        return;
+      }
+    } catch (e) {
+      btn.disabled = false; btn.textContent = orig;
+      alert('Network error. Please check your connection and try again.');
+      return;
+    }
+  }
   document.getElementById('successOverlay').classList.add('show');
 }
 <\/script>
@@ -547,12 +567,9 @@ function submitDeal() {
       return;
     }
 
-    // Generate and upload the page
-    const html = generateDealPageHTML(deal);
-    let shareUrl = deal.shareUrl;
-    if (!shareUrl) {
-      shareUrl = await uploadDealPage(deal, html);
-    }
+    // Upload + mint a single-use accept link (/deal/<token>) the homeowner
+    // can actually accept from — not the raw Storage URL.
+    const shareUrl = await getDealAcceptLink(deal);
 
     if (shareUrl) {
       // Open SMS with pre-filled message
@@ -572,11 +589,7 @@ function submitDeal() {
       return;
     }
 
-    const html = generateDealPageHTML(deal);
-    let shareUrl = deal.shareUrl;
-    if (!shareUrl) {
-      shareUrl = await uploadDealPage(deal, html);
-    }
+    const shareUrl = await getDealAcceptLink(deal);
 
     const subject = encodeURIComponent('Your Roof Estimate — No Big Deal Home Solutions');
     const body = encodeURIComponent(`Hi ${deal.customerName || 'there'},\n\nThank you for giving us the opportunity to earn your business! I've put together your personalized roof estimate.\n\nView your options here: ${shareUrl || '[Link will be available shortly]'}\n\nYou can compare packages, see financing options, and digitally sign — all from your phone.\n\nBest,\n${deal.repName}\nNo Big Deal Home Solutions\n${deal.repPhone}`);
@@ -585,25 +598,43 @@ function submitDeal() {
     updateDeal(dealId, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'email' });
   }
 
-  function copyDealLink(dealId) {
+  // Build the first-party ACCEPT link for a deal: upload the interactive HTML
+  // to Storage, then mint a single-use token via createDealAcceptToken. The
+  // homeowner opens /deal/<token> (served same-origin by getDealRoom) and can
+  // actually ACCEPT — submitDealAcceptance records tier + signature + date and
+  // notifies the rep. Returns the /deal/<token> URL, or null on failure.
+  async function getDealAcceptLink(deal) {
+    try { await syncDealToFirestore(deal); } catch (_) {}
+    const html = generateDealPageHTML(deal);
+    await uploadDealPage(deal, html); // → deal_rooms/<uid>/<dealId>.html
+    if (!window._httpsCallable || !window._functions) {
+      if (window.showToast) window.showToast('Sign in required to create a share link', 'error');
+      return null;
+    }
+    try {
+      const fn = window._httpsCallable(window._functions, 'createDealAcceptToken');
+      const res = await fn({ dealId: deal.id });
+      const acceptUrl = res && res.data && res.data.acceptUrl;
+      if (acceptUrl) { deal.acceptUrl = acceptUrl; saveDealRooms(); }
+      return acceptUrl || null;
+    } catch (e) {
+      console.error('createDealAcceptToken failed:', e);
+      if (window.showToast) window.showToast('Could not create the accept link — try again', 'error');
+      return null;
+    }
+  }
+
+  async function copyDealLink(dealId) {
     const deal = dealRooms.find(d => d.id === dealId);
     if (!deal) return;
-    if (deal.shareUrl) {
-      navigator.clipboard?.writeText(deal.shareUrl).then(() => {
-        if (window.showToast) window.showToast('Link copied!', 'success');
-      });
-    } else {
-      // Generate and upload first
-      const html = generateDealPageHTML(deal);
-      uploadDealPage(deal, html).then(url => {
-        if (url) {
-          navigator.clipboard?.writeText(url).then(() => {
-            if (window.showToast) window.showToast('Link copied!', 'success');
-          });
-        } else {
-          if (window.showToast) window.showToast('Could not generate link — try preview instead', 'warning');
-        }
-      });
+    if (window.showToast) window.showToast('Creating accept link…', 'info');
+    const url = await getDealAcceptLink(deal);
+    if (!url) return; // getDealAcceptLink already surfaced the failure
+    try {
+      await navigator.clipboard?.writeText(url);
+      if (window.showToast) window.showToast('Accept link copied!', 'success');
+    } catch (e) {
+      if (window.showToast) window.showToast('Link ready — paste it to your customer', 'success');
     }
   }
 
