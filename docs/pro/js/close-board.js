@@ -512,7 +512,24 @@ function submitDeal() {
     const deal = dealRooms.find(d => d.id === dealId);
     if (!deal) return;
     const html = generateDealPageHTML(deal);
-    // Route through the Universal Document Viewer
+    // CB fix: the deal preview is INTERACTIVE (pick tier, choose financing,
+    // sign, ACCEPT). Its inline <script> + onclick handlers are dead inside the
+    // NBDDocViewer srcdoc sandbox (no allow-same-origin + the dashboard's strict
+    // CSP), which left every preview control inert. Open it as a blob-URL tab
+    // instead — a top-level document with no inherited CSP, so it behaves exactly
+    // like the customer's shared link. The doc viewer stays as a visual-only
+    // fallback if the popup is blocked.
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (w) {
+      // Free the blob once the new tab has had time to load the document.
+      setTimeout(() => { try { URL.revokeObjectURL(url); } catch (_) {} }, 60000);
+      return;
+    }
+    // Popup blocked — fall back to the (script-sandboxed) doc viewer so the rep
+    // can at least see the layout. Release the blob URL we won't use.
+    try { URL.revokeObjectURL(url); } catch (_) {}
     if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
       const slug = String(deal.customerName || dealId || 'deal').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
       window.NBDDocViewer.open({
@@ -520,12 +537,6 @@ function submitDeal() {
         title: 'Deal Preview — ' + (deal.customerName || 'Deal #' + dealId),
         filename: 'NBD-Deal-' + slug + '-' + new Date().toISOString().split('T')[0] + '.pdf'
       });
-      return;
-    }
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.write(html);
-      w.document.close();
     }
   }
 

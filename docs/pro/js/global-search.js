@@ -623,9 +623,16 @@
   }
 
   function onGlobalKeydown(ev) {
+    // DUP-1 fix: command-palette.js (W133, window.NBDCommand) is the canonical
+    // Cmd+K / "/" palette. This legacy Wave-18 palette must NOT also fire on those
+    // shortcuts, or BOTH open stacked (one renders over the other). Defer the
+    // shortcut to NBDCommand whenever it's loaded; if it's somehow absent, this
+    // palette still works as a fallback. Checked per-event so load order is moot.
+    const deferToCanonical = !!window.NBDCommand;
     // Cmd+K / Ctrl+K — toggle from anywhere.
     const k = ev.key && ev.key.toLowerCase();
     if (k === 'k' && (ev.metaKey || ev.ctrlKey) && !ev.altKey && !ev.shiftKey) {
+      if (deferToCanonical) return;
       ev.preventDefault();
       if (isPaletteOpen()) closePalette();
       else openPalette();
@@ -634,6 +641,7 @@
     // "/" — open only when not focused on an input.
     if (ev.key === '/' && !ev.metaKey && !ev.ctrlKey && !ev.altKey
         && !isTypingInForm(ev.target) && !isPaletteOpen()) {
+      if (deferToCanonical) return;
       ev.preventDefault();
       openPalette();
       return;
