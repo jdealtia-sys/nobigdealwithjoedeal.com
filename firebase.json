@@ -155,6 +155,19 @@
         ]
       },
       {
+        "_comment": "NBD PRO blog (contractor-facing, /pro/blog/*) is walled off from the No Big Deal HOMEOWNER brand: it's shared word-of-mouth / direct link, not an SEO play, so a homeowner searching the brand never surfaces contractor content. X-Robots-Tag noindex is the authoritative signal (pages stay reachable by direct link; deliberately NOT robots.txt-Disallowed so crawlers can SEE the noindex rather than leaving a URL-only listing). The posts also carry a <meta robots noindex>. Separate from the homeowner blog at /blog/*.",
+        "source": "/pro/blog",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
+        "source": "/pro/blog/**",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
         "source": "/pro/login.html",
         "headers": [
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }
