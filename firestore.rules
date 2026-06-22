@@ -619,6 +619,24 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // ── ETERNAL VAULT / PROJECT CODEX ────────────────
+    // Jo's personal build-memory tool (docs/pro/js/vault-page.js):
+    //   codex/latest         → the full codex snapshot (setDoc)
+    //   codex-sessions/{id}   → per-session deltas (e.g. s01-delta)
+    // This is a singleton DEV artifact — not tenant data, not per-user
+    // owned: the docs carry no userId/companyId field. With no rule they
+    // default-deny, so the Vault's "Save to Firestore" silently
+    // PERMISSION_DENIED and never synced. Lock to the platform admin OR
+    // Jo's uid (the sole operator of this tool). QA 2026-06-21.
+    match /codex/{docId} {
+      allow read, write: if isAdmin()
+        || (isAuth() && request.auth.uid == '1phDvAVXHSg82wDLegAbQFq14Ci1');
+    }
+    match /codex-sessions/{sessionId} {
+      allow read, write: if isAdmin()
+        || (isAuth() && request.auth.uid == '1phDvAVXHSg82wDLegAbQFq14Ci1');
+    }
+
     // ── PUBLIC LEAD FORMS ────────────────────────────
     // Direct client creates are DISABLED (C-3). Public forms must now
     // post through the `submitPublicLead` Cloud Function, which enforces
