@@ -367,6 +367,13 @@ function goTo(name, params = {}) {
   document.querySelectorAll('.crm-sec-btn').forEach(btn => btn.classList.remove('active'));
   const view = document.getElementById('view-'+name);
   const nav  = document.getElementById('nav-'+name);
+  // NEW-E1 hardening: an unknown route key (a stale bookmark, a renamed view,
+  // or a hand-typed #/<garbage> hash) has no `view-<name>` element at all —
+  // _hydrateViewTemplate no-ops on it — so the .view deactivation above would
+  // leave a blank screen with no view active. Fall back to the always-present
+  // CRM pipeline instead. The `name !== 'crm'` guard prevents infinite
+  // recursion in the impossible case that view-crm itself is missing.
+  if (!view && name !== 'crm') { goTo('crm'); return; }
   if(view) view.classList.add('active');
   if(nav)  nav.classList.add('active');
 
