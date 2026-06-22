@@ -630,11 +630,11 @@ service cloud.firestore {
     // Jo's uid (the sole operator of this tool). QA 2026-06-21.
     match /codex/{docId} {
       allow read, write: if isAdmin()
-        || (isAuth() && request.auth.uid == '1phDvAVXHSg82wDLegAbQFq14Ci1'); // gitleaks:allow — Firebase Auth UID, an identifier (not a credential)
+        || (isAuth() && request.auth.uid == '1phDvAVXHSg82wDLegAbQFq14Ci1');
     }
     match /codex-sessions/{sessionId} {
       allow read, write: if isAdmin()
-        || (isAuth() && request.auth.uid == '1phDvAVXHSg82wDLegAbQFq14Ci1'); // gitleaks:allow — Firebase Auth UID, an identifier (not a credential)
+        || (isAuth() && request.auth.uid == '1phDvAVXHSg82wDLegAbQFq14Ci1');
     }
 
     // ── PUBLIC LEAD FORMS ────────────────────────────
