@@ -780,11 +780,15 @@
     // Tile factory mirrors the original sorted-photo render so the
     // grid looks identical after a filter as it did at first paint.
     function tileHtml(p) {
-      const u = (p.urls && p.urls.med) ? esc(safeUrl(p.urls.med)) : esc(safeUrl(p.url || ''));
+      // NOTE: photo src/href are server-origin Storage https URLs (and an
+      // <img src> can't execute script), so they keep plain esc() — the
+      // safeUrl scheme guard is applied to the click-anchors that matter
+      // (signed-contract download + booking link) above.
+      const u = (p.urls && p.urls.med) ? esc(p.urls.med) : esc(p.url || '');
       const srcset = (p.urls && p.urls.thumb && p.urls.med && p.urls.full)
-        ? ' srcset="' + esc(safeUrl(p.urls.thumb)) + ' 200w, ' + esc(safeUrl(p.urls.med)) + ' 600w, ' + esc(safeUrl(p.urls.full)) + ' 1600w" sizes="(max-width:520px) 30vw, 160px"'
+        ? ' srcset="' + esc(p.urls.thumb) + ' 200w, ' + esc(p.urls.med) + ' 600w, ' + esc(p.urls.full) + ' 1600w" sizes="(max-width:520px) 30vw, 160px"'
         : '';
-      const fullHref = (p.urls && p.urls.full) ? esc(safeUrl(p.urls.full)) : u;
+      const fullHref = (p.urls && p.urls.full) ? esc(p.urls.full) : u;
       // Audit batch 7: data-photo-id powers the photo_view event emission
       // via the delegated grid click handler below. Server validates token
       // → leadId binding, so a tampered photoId can't leak across leads.
