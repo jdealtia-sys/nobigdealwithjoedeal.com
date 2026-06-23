@@ -148,6 +148,13 @@
           type: this.getTemplate(templateId)?.name,
           status: 'complete',
           createdAt: serverTimestamp(),
+          // The /reports security rule keys ownership off `userId`
+          // (create: request.resource.data.userId == auth.uid; read+delete:
+          // isOwner(resource.data.userId)). Without it every save was denied
+          // permission-denied and silently toasted "Failed to save report" —
+          // the headline "Save to database" feature (INSP-1) never persisted.
+          // Keep createdBy too for display/back-compat.
+          userId: window._user.uid,
           createdBy: window._user.uid,
           html: reportData.html,
           data: reportData.data,
