@@ -43,7 +43,7 @@ const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app',
+  'https://nobigdeal-pro.web.app',
 ];
 
 // Same audio cap as F8's transcribeVoiceMemo so dictation can't
