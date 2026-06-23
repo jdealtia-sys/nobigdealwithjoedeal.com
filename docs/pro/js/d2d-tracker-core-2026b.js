@@ -935,22 +935,30 @@
       const docSnap = await window.getDoc(window.doc(window._db, 'reps', window._user.uid));
       if (docSnap.exists()) {
         state.currentRep = docSnap.data();
+        // role is no longer persisted on /reps (reserved field — see create
+        // branch); derive it from custom claims when the stored doc omits it.
+        if (state.currentRep && !state.currentRep.role) state.currentRep.role = window._userClaims?.role || 'rep';
       } else {
         const initials = (window._user.displayName || 'R').split(' ').map(n => n[0]).join('').toUpperCase();
         const {setDoc} = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        // The /reps create rule FORBIDS a `role` (or `isAdmin`) key on the doc
+        // — role is reserved for admin-SDK / custom-claim assignment to prevent
+        // client-side privilege escalation. Writing role:'rep' here made every
+        // new rep's profile create permission-denied (silently swallowed by the
+        // catch below), so it never persisted. Persist only rule-allowed fields
+        // and derive the role in-memory from custom claims.
         await setDoc(window.doc(window._db, 'reps', window._user.uid), {
           userId: window._user.uid,
           name: window._user.displayName || 'Rep',
           initials: initials,
-          role: 'rep',
           companyId: window._userClaims?.companyId || window._user.uid,
           createdAt: window.serverTimestamp()
         });
-        state.currentRep = { userId: window._user.uid, name: window._user.displayName || 'Rep', initials, role: 'rep', companyId: window._userClaims?.companyId || window._user.uid };
+        state.currentRep = { userId: window._user.uid, name: window._user.displayName || 'Rep', initials, role: window._userClaims?.role || 'rep', companyId: window._userClaims?.companyId || window._user.uid };
       }
     } catch (e) {
       console.error('loadRepProfile failed:', e);
-      state.currentRep = { userId: window._user.uid, name: window._user.displayName || 'Rep', companyId: window._userClaims?.companyId || window._user.uid };
+      state.currentRep = { userId: window._user.uid, name: window._user.displayName || 'Rep', role: window._userClaims?.role || 'rep', companyId: window._userClaims?.companyId || window._user.uid };
     }
   }
 
