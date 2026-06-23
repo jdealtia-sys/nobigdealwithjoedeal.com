@@ -14,6 +14,16 @@
 (function () {
   'use strict';
 
+  // Defense-in-depth HTML escaper — this module builds DOM via string
+  // concatenation into innerHTML and renders lead.source (which can be
+  // public-sourced via public lead forms), so unescaped values are a
+  // stored-XSS vector against the rep viewing the dashboard.
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c];
+    });
+  }
+
   // ── Stage classifications ──
   const WON_STAGES = [
     'closed', 'install_complete', 'final_photos',
@@ -174,7 +184,7 @@
           '<div class="kpi-data">' +
             '<div class="kpi-value">' + k.leadsThisMonth + '</div>' +
             '<div class="kpi-label">New Leads</div>' +
-            '<div class="kpi-sub">Top: ' + k.topSource + '</div>' +
+            '<div class="kpi-sub">Top: ' + esc(k.topSource) + '</div>' +
           '</div>' +
         '</div>' +
         (k.overdueFollowUps > 0
@@ -472,6 +482,12 @@
     fetchAllData().then(function (data) {
       var m = computeFullAnalytics(data);
       renderDashboardHTML(el, m);
+      // This el.innerHTML= wipes #analyticsContainer's children, including the
+      // AI Texting card (a child div appended by AiTextingStatsCard). Re-mount
+      // it AFTER our async render wins the race, or it silently disappears.
+      if (window.AiTextingStatsCard && typeof window.AiTextingStatsCard.render === 'function') {
+        window.AiTextingStatsCard.render();
+      }
     }).catch(function (err) {
       console.error('Analytics fetch error:', err);
       el.innerHTML =
@@ -479,6 +495,9 @@
           '<div class="ak-empty-icon">⚠️</div>' +
           '<div>Could not load analytics. Please try again.</div>' +
         '</div>';
+      if (window.AiTextingStatsCard && typeof window.AiTextingStatsCard.render === 'function') {
+        window.AiTextingStatsCard.render();
+      }
     });
   }
 
@@ -524,7 +543,7 @@
         var color = stageColor(entry[0]);
         stageBarsHTML +=
           '<div class="ak-bar-row">' +
-            '<div class="ak-bar-label" title="' + label + '">' + label + '</div>' +
+            '<div class="ak-bar-label" title="' + esc(label) + '">' + esc(label) + '</div>' +
             '<div class="ak-bar-track">' +
               '<div class="ak-bar-fill" style="width:' + widthPct + '%;background:' + color + ';">' + count + '</div>' +
             '</div>' +
@@ -544,7 +563,7 @@
         var widthPct = Math.max(Math.round((count / maxSource) * 100), 4);
         sourceBarsHTML +=
           '<div class="ak-bar-row">' +
-            '<div class="ak-bar-label" title="' + label + '">' + label + '</div>' +
+            '<div class="ak-bar-label" title="' + esc(label) + '">' + esc(label) + '</div>' +
             '<div class="ak-bar-track">' +
               '<div class="ak-bar-fill" style="width:' + widthPct + '%;background:var(--orange,#e8720c);">' + count + '</div>' +
             '</div>' +
