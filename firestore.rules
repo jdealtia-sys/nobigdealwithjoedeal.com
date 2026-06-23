@@ -119,10 +119,17 @@ service cloud.firestore {
           && request.resource.data.userId == request.auth.uid
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
           && request.resource.data.source == 'rep'
+          // F-05 allowlist of rep-authored, first-party activity types. These
+          // are UI/timeline labels (drive timeline icons + lead-score signals)
+          // — NOT webhook/payment-shaped — and remain gated by source=='rep',
+          // the parent-lead owner check, and the financial-key denylist below.
+          // ('voicemail','supplement_created','lead_created' added 2026-06-23:
+          // these legit rep actions were silently permission-denied without it.)
           && request.resource.data.type in [
                'note', 'call', 'sms_out', 'email_out',
                'photo_added', 'task_done', 'appointment_set',
-               'door_knock', 'follow_up', 'status_change'
+               'door_knock', 'follow_up', 'status_change',
+               'voicemail', 'supplement_created', 'lead_created'
              ]
           && !(request.resource.data.keys().hasAny([
                'stripeInvoiceId', 'stripeCustomerId', 'stripePaymentIntentId',
