@@ -69,6 +69,14 @@
   const CONDITIONS = ['Good', 'Fair', 'Poor', 'Critical'];
   const SEVERITY_LEVELS = [1, 2, 3, 4, 5];
 
+  // Work-completed checklist items (Project Completion report)
+  const COMPLETION_WORK_ITEMS = [
+    'Tear-off', 'Decking repair/replacement', 'Ice & water shield',
+    'Synthetic underlayment', 'Drip edge', 'Starter strip', 'Field shingles',
+    'Ridge caps', 'Pipe boots', 'Wall flashing', 'Chimney flashing',
+    'Valley metal', 'Ventilation', 'Gutters', 'Cleanup', 'Final inspection'
+  ];
+
   // Report storage
   const REPORTS_COLLECTION = 'reports';
   const STORAGE_KEY_DRAFT = 'nbd_report_draft_';
@@ -215,7 +223,7 @@
      * Generate Full Inspection Report
      */
     _generateFullInspection(leadId, data) {
-      const lead = this._getLead(leadId);
+      const lead = this._effectiveLead(leadId, data);
       if (!lead) return '';
 
       const {
@@ -259,7 +267,7 @@
 
                 <div class="cover-section">
                   <h3>Inspection Date</h3>
-                  <p>${inspectionDate || new Date().toLocaleDateString()}</p>
+                  <p>${this._escapeHtml(inspectionDate || new Date().toLocaleDateString())}</p>
                 </div>
 
                 <div class="cover-section">
@@ -455,7 +463,7 @@
      * Generate Storm Damage Assessment
      */
     _generateStormDamage(leadId, data) {
-      const lead = this._getLead(leadId);
+      const lead = this._effectiveLead(leadId, data);
       if (!lead) return '';
 
       const {
@@ -496,7 +504,7 @@
 
                 <div class="cover-section">
                   <h3>Storm Date</h3>
-                  <p>${stormDate || 'N/A'}</p>
+                  <p>${this._escapeHtml(stormDate || 'N/A')}</p>
                 </div>
 
                 <div class="cover-section">
@@ -522,7 +530,7 @@
               <table class="info-table">
                 <tr>
                   <td><strong>Date of Storm:</strong></td>
-                  <td>${stormDate || 'N/A'}</td>
+                  <td>${this._escapeHtml(stormDate || 'N/A')}</td>
                 </tr>
                 <tr>
                   <td><strong>Type of Storm:</strong></td>
@@ -566,7 +574,7 @@
                 </tr>
                 <tr>
                   <td><strong>Dimensions:</strong></td>
-                  <td>${testSquare.dimensions || 'N/A'}</td>
+                  <td>${this._escapeHtml(testSquare.dimensions || 'N/A')}</td>
                 </tr>
                 <tr>
                   <td><strong>Hits Counted:</strong></td>
@@ -589,13 +597,13 @@
                 ${interiorDamage.waterStains ? `
                 <tr>
                   <td><strong>Water Stains:</strong></td>
-                  <td>${interiorDamage.waterStains}</td>
+                  <td>${this._escapeHtml(interiorDamage.waterStains)}</td>
                 </tr>
                 ` : ''}
                 ${interiorDamage.activeLeaks ? `
                 <tr>
                   <td><strong>Active Leaks:</strong></td>
-                  <td>${interiorDamage.activeLeaks}</td>
+                  <td>${this._escapeHtml(interiorDamage.activeLeaks)}</td>
                 </tr>
                 ` : ''}
                 ${interiorDamage.atticObservations ? `
@@ -615,12 +623,12 @@
 
               <p style="margin-bottom: 15px;">Additional damage found at property:</p>
               <ul>
-                ${collateralDamage.acUnits ? `<li>AC Units: ${collateralDamage.acUnits}</li>` : ''}
-                ${collateralDamage.vents ? `<li>Vents: ${collateralDamage.vents}</li>` : ''}
-                ${collateralDamage.mailbox ? `<li>Mailbox: ${collateralDamage.mailbox}</li>` : ''}
-                ${collateralDamage.fencing ? `<li>Fencing: ${collateralDamage.fencing}</li>` : ''}
-                ${collateralDamage.vehicles ? `<li>Vehicles: ${collateralDamage.vehicles}</li>` : ''}
-                ${collateralDamage.landscaping ? `<li>Landscaping: ${collateralDamage.landscaping}</li>` : ''}
+                ${collateralDamage.acUnits ? `<li>AC Units: ${this._escapeHtml(collateralDamage.acUnits)}</li>` : ''}
+                ${collateralDamage.vents ? `<li>Vents: ${this._escapeHtml(collateralDamage.vents)}</li>` : ''}
+                ${collateralDamage.mailbox ? `<li>Mailbox: ${this._escapeHtml(collateralDamage.mailbox)}</li>` : ''}
+                ${collateralDamage.fencing ? `<li>Fencing: ${this._escapeHtml(collateralDamage.fencing)}</li>` : ''}
+                ${collateralDamage.vehicles ? `<li>Vehicles: ${this._escapeHtml(collateralDamage.vehicles)}</li>` : ''}
+                ${collateralDamage.landscaping ? `<li>Landscaping: ${this._escapeHtml(collateralDamage.landscaping)}</li>` : ''}
               </ul>
             </div>
             ` : ''}
@@ -686,7 +694,7 @@
      * Generate Insurance Supplement Report
      */
     _generateSupplement(leadId, data) {
-      const lead = this._getLead(leadId);
+      const lead = this._effectiveLead(leadId, data);
       if (!lead) return '';
 
       const {
@@ -855,7 +863,7 @@
      * Generate Project Completion Report
      */
     _generateCompletion(leadId, data) {
-      const lead = this._getLead(leadId);
+      const lead = this._effectiveLead(leadId, data);
       if (!lead) return '';
 
       const {
@@ -1012,12 +1020,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  ${[
-                    'Tear-off', 'Decking repair/replacement', 'Ice & water shield',
-                    'Synthetic underlayment', 'Drip edge', 'Starter strip', 'Field shingles',
-                    'Ridge caps', 'Pipe boots', 'Wall flashing', 'Chimney flashing',
-                    'Valley metal', 'Ventilation', 'Gutters', 'Cleanup', 'Final inspection'
-                  ].map(item => {
+                  ${COMPLETION_WORK_ITEMS.map(item => {
                     const status = workCompleted[item];
                     return `
                       <tr>
@@ -1492,8 +1495,59 @@
               </div>
             `).join('')}
           </div>
+
+          <div id="saved-reports-list" style="margin-top: 30px;"></div>
         </div>
       `;
+    },
+
+    /**
+     * INSP-1: populate the step-0 "saved reports" panel (async — getReports
+     * hits Firestore). Binds View / Delete on the rows it renders.
+     */
+    async _renderSavedReportsInto(container, state, lead) {
+      const host = container.querySelector('#saved-reports-list');
+      if (!host) return;
+
+      const reports = await this.getReports(state.leadId);
+      if (!reports.length) {
+        host.innerHTML = '';
+        return;
+      }
+
+      host.innerHTML = `
+        <h3 style="margin-bottom: 12px;">Saved Reports (${reports.length})</h3>
+        <div style="display: grid; gap: 10px;">
+          ${reports.map(report => `
+            <div style="border: 1px solid #ddd; border-radius: 4px; padding: 12px; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <strong style="color: ${BRAND.colors.navy};">${this._escapeHtml(report.type || 'Report')}</strong>
+                <div style="font-size: 12px; color: #666;">
+                  ${this._escapeHtml(report.metadata?.inspectorName || '')}
+                  ${report.createdAt ? '· ' + new Date(report.createdAt?.toDate?.() || report.createdAt).toLocaleDateString() : ''}
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                <button type="button" class="btn-open-report" data-report-id="${this._escapeHtml(report.id)}" style="padding: 6px 14px; background: ${BRAND.colors.orange}; color: white; border: none; border-radius: 3px; cursor: pointer;">View</button>
+                <button type="button" class="btn-delete-report" data-report-id="${this._escapeHtml(report.id)}" style="padding: 6px 14px; background: #eee; color: #333; border: none; border-radius: 3px; cursor: pointer;">Delete</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      host.querySelectorAll('.btn-open-report').forEach(btn => {
+        btn.addEventListener('click', (e) => this._openReport(e.currentTarget.dataset.reportId));
+      });
+      host.querySelectorAll('.btn-delete-report').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+          if (await _ask('Delete this report?')) {
+            await this.deleteReport(e.currentTarget.dataset.reportId);
+            this._renderSavedReportsInto(container, state, lead);
+          }
+        });
+      });
     },
 
     /**
@@ -1616,6 +1670,38 @@
               <textarea name="recommendations" rows="4" placeholder="Repair vs replace recommendation with reasoning...">${this._escapeHtml(state.data.recommendations || '')}</textarea>
             </div>
           </form>
+
+          <h3 style="margin-top: 30px;">Roof Components Checklist</h3>
+          <p style="font-size:12px;color:#666;margin-bottom:10px;">Rate each component you inspected. Leave the condition blank to omit a component from the report.</p>
+          <div id="components-checklist">
+            ${ROOF_COMPONENTS.map(comp => {
+              const c = (state.data.components && state.data.components[comp]) || {};
+              return `
+                <div class="comp-row" data-comp="${this._escapeHtml(comp)}">
+                  <span class="comp-name">${this._escapeHtml(comp)}</span>
+                  <select class="comp-condition">
+                    <option value="">—</option>
+                    ${CONDITIONS.map(cond => `<option value="${cond}" ${c.condition === cond ? 'selected' : ''}>${cond}</option>`).join('')}
+                  </select>
+                  <input type="text" class="comp-notes" placeholder="Notes (optional)" value="${this._escapeHtml(c.notes || '')}">
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <h3 style="margin-top: 30px;">Estimated Scope of Work (optional)</h3>
+          <div id="scope-items-container">
+            ${(state.data.estimatedWork || []).map((item, idx) => `
+              <div class="line-item scope-item" data-index="${idx}">
+                <input type="text" placeholder="Description" value="${this._escapeHtml(item.description || '')}" class="scope-description">
+                <input type="number" placeholder="Qty" value="${item.qty != null ? item.qty : ''}" class="scope-qty" step="0.01">
+                <input type="text" placeholder="Unit" value="${this._escapeHtml(item.unit || '')}" class="scope-unit">
+                <input type="number" placeholder="Total $" value="${item.total != null ? item.total : ''}" class="scope-total" step="0.01">
+                <button type="button" class="btn-remove-scope">×</button>
+              </div>
+            `).join('')}
+          </div>
+          <button type="button" id="btn-add-scope" class="btn-secondary" style="margin-top: 10px;">+ Add Scope Item</button>
         </div>
       `;
     },
@@ -1654,18 +1740,55 @@
             </div>
           </form>
 
-          <h3 style="margin-top: 30px;">Damage Summary</h3>
+          <h3 style="margin-top: 30px;">Exterior Damage Summary</h3>
           <form id="damage-summary">
-            <div class="damage-section">
-              <h4>Roof Damage</h4>
-              <label><input type="checkbox" name="roofDamageFound" ${state.data.roofDamage?.found ? 'checked' : ''}> Damage Found</label>
-              <input type="text" name="roofNotes" value="${this._escapeHtml(state.data.roofDamage?.notes || '')}" placeholder="Notes" style="width: 100%; margin-top: 8px;">
-            </div>
-            <div class="damage-section">
-              <h4>Siding Damage</h4>
-              <label><input type="checkbox" name="sidingDamageFound" ${state.data.sidingDamage?.found ? 'checked' : ''}> Damage Found</label>
-              <input type="text" name="sidingNotes" value="${this._escapeHtml(state.data.sidingDamage?.notes || '')}" placeholder="Notes" style="width: 100%; margin-top: 8px;">
-            </div>
+            ${[
+              ['roof', 'Roof'], ['siding', 'Siding'],
+              ['gutter', 'Gutters & Downspouts'], ['window', 'Windows'], ['screen', 'Screens']
+            ].map(([key, label]) => {
+              const dd = (state.data[key + 'Damage']) || {};
+              return `
+                <div class="damage-section">
+                  <h4>${label} Damage</h4>
+                  <label><input type="checkbox" name="${key}DamageFound" ${dd.found ? 'checked' : ''}> Damage Found</label>
+                  <select name="${key}Severity" style="width:100%;margin-top:8px;">
+                    <option value="">Severity…</option>
+                    ${SEVERITY_LEVELS.map(n => `<option value="${n}" ${String(dd.severity) === String(n) ? 'selected' : ''}>${n}</option>`).join('')}
+                  </select>
+                  <input type="text" name="${key}Notes" value="${this._escapeHtml(dd.notes || '')}" placeholder="Notes" style="width: 100%; margin-top: 8px;">
+                </div>
+              `;
+            }).join('')}
+          </form>
+
+          <h3 style="margin-top: 30px;">Test Square (optional)</h3>
+          <form id="testsquare-form">
+            <div class="form-group"><label>Location</label><input type="text" name="testSquareLocation" value="${this._escapeHtml(state.data.testSquare?.location || '')}" placeholder="e.g., South slope"></div>
+            <div class="form-group"><label>Dimensions</label><input type="text" name="testSquareDimensions" value="${this._escapeHtml(state.data.testSquare?.dimensions || '')}" placeholder="e.g., 10ft x 10ft"></div>
+            <div class="form-group"><label>Hits Counted</label><input type="number" name="testSquareHits" value="${state.data.testSquare?.hits || ''}" min="0"></div>
+            <div class="form-group"><label>Measurements / Notes</label><input type="text" name="testSquareMeasurements" value="${this._escapeHtml(state.data.testSquare?.measurements || '')}"></div>
+          </form>
+
+          <h3 style="margin-top: 30px;">Interior Damage (optional)</h3>
+          <form id="interior-form">
+            <div class="form-group"><label>Water Stains</label><input type="text" name="interiorWaterStains" value="${this._escapeHtml(state.data.interiorDamage?.waterStains || '')}" placeholder="Location / extent"></div>
+            <div class="form-group"><label>Active Leaks</label><input type="text" name="interiorActiveLeaks" value="${this._escapeHtml(state.data.interiorDamage?.activeLeaks || '')}"></div>
+            <div class="form-group"><label>Attic Observations</label><input type="text" name="interiorAtticObservations" value="${this._escapeHtml(state.data.interiorDamage?.atticObservations || '')}"></div>
+          </form>
+
+          <h3 style="margin-top: 30px;">Collateral Damage (optional)</h3>
+          <form id="collateral-form">
+            ${[['acUnits','AC Units'],['vents','Vents'],['mailbox','Mailbox'],['fencing','Fencing'],['vehicles','Vehicles'],['landscaping','Landscaping']].map(([k,l]) =>
+              `<div class="form-group"><label>${l}</label><input type="text" name="collateral_${k}" value="${this._escapeHtml(state.data.collateralDamage?.[k] || '')}"></div>`
+            ).join('')}
+          </form>
+
+          <h3 style="margin-top: 30px;">Insurance Recommendation</h3>
+          <form id="storm-rec-form">
+            <div class="form-group"><label><input type="checkbox" name="recFileClaim" ${state.data.recommendations?.fileClaim ? 'checked' : ''}> Recommend filing an insurance claim</label></div>
+            <div class="form-group"><label>Estimated Scope</label><textarea name="recEstimatedScope" rows="3">${this._escapeHtml(state.data.recommendations?.estimatedScope || '')}</textarea></div>
+            <div class="form-group"><label>Recommended Next Steps</label><textarea name="recNextSteps" rows="3">${this._escapeHtml(state.data.recommendations?.nextSteps || '')}</textarea></div>
+            <div class="form-group"><label>Inspector Notes</label><textarea name="stormNotes" rows="3">${this._escapeHtml(state.data.notes || '')}</textarea></div>
           </form>
         </div>
       `;
@@ -1757,7 +1880,28 @@
               <label>Labor Warranty</label>
               <input type="text" name="laborWarranty" value="${this._escapeHtml(state.data.warrantyInfo?.laborWarranty || '')}" placeholder="e.g., 5-year">
             </div>
+            <div class="form-group">
+              <label>Warranty Registration Number</label>
+              <input type="text" name="registrationNumber" value="${this._escapeHtml(state.data.warrantyInfo?.registrationNumber || '')}">
+            </div>
           </form>
+
+          <h3 style="margin-top: 30px;">Work Completed Checklist</h3>
+          <div id="work-completed-checklist">
+            ${COMPLETION_WORK_ITEMS.map(item => {
+              const status = (state.data.workCompleted && state.data.workCompleted[item]) || '';
+              return `
+                <div class="comp-row" data-work="${this._escapeHtml(item)}">
+                  <span class="comp-name">${this._escapeHtml(item)}</span>
+                  <select class="work-status">
+                    <option value="" ${status === '' ? 'selected' : ''}>— Not recorded</option>
+                    <option value="complete" ${status === 'complete' ? 'selected' : ''}>✓ Completed</option>
+                    <option value="na" ${status === 'na' ? 'selected' : ''}>N/A</option>
+                  </select>
+                </div>
+              `;
+            }).join('')}
+          </div>
 
           <h3 style="margin-top: 30px;">Post-Installation Care Tips</h3>
           <form id="care-form">
@@ -2011,6 +2155,39 @@
           background: #cc0000;
         }
 
+        .comp-row {
+          display: grid;
+          grid-template-columns: 1.4fr 1fr 1.6fr;
+          gap: 10px;
+          align-items: center;
+          padding: 6px 0;
+          border-bottom: 1px solid #f0f0f0;
+        }
+        .comp-row .comp-name {
+          font-size: 13px;
+          color: #333;
+        }
+        .comp-row select,
+        .comp-row input {
+          padding: 6px 8px;
+          border: 1px solid #ddd;
+          border-radius: 3px;
+          font-size: 12px;
+        }
+        #work-completed-checklist .comp-row {
+          grid-template-columns: 1.4fr 1fr;
+        }
+        @media (max-width: 600px) {
+          .comp-row,
+          #work-completed-checklist .comp-row {
+            grid-template-columns: 1fr 1fr;
+          }
+          .comp-row .comp-name {
+            grid-column: 1 / -1;
+            font-weight: 600;
+          }
+        }
+
         .photo-preview-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -2080,24 +2257,271 @@
     },
 
     /**
-     * Attach event listeners to builder
+     * Attach event listeners to builder (full re-render: binds nav + step)
      */
     _attachBuilderListeners(container, state, lead) {
       const nextBtn = container.querySelector('#btn-next');
       const prevBtn = container.querySelector('#btn-prev');
 
       nextBtn?.addEventListener('click', () => this._handleNextStep(container, state, lead));
-      prevBtn?.addEventListener('click', () => this._handlePrevStep(container, state));
+      prevBtn?.addEventListener('click', () => this._handlePrevStep(container, state, lead));
 
-      // Step-specific listeners
-      if (state.currentStep === 0) {
+      this._attachStepListeners(container, state, lead);
+    },
+
+    /**
+     * Attach listeners specific to the current step. Safe to call again
+     * after a content-only re-render — it does NOT rebind the footer nav.
+     */
+    _attachStepListeners(container, state, lead) {
+      const step = state.currentStep;
+
+      if (step === 0) {
         container.querySelectorAll('.template-card').forEach(card => {
-          card.addEventListener('click', (e) => {
+          card.addEventListener('click', () => {
             container.querySelectorAll('.template-card').forEach(c => c.classList.remove('selected'));
             card.classList.add('selected');
             state.templateId = card.dataset.template;
           });
         });
+        // INSP-1: surface saved reports (async — populates #saved-reports-list)
+        this._renderSavedReportsInto(container, state, lead);
+      }
+
+      if (step === 2 && state.templateId === 'supplement') {
+        container.querySelector('#btn-add-item')?.addEventListener('click', () => {
+          this._collectCurrentStep(container, state);
+          if (!Array.isArray(state.data.supplementalItems)) state.data.supplementalItems = [];
+          state.data.supplementalItems.push({});
+          this._refreshStep(container, state, lead);
+        });
+        container.querySelectorAll('#supplemental-items-container .btn-remove-item').forEach((btn, idx) => {
+          btn.addEventListener('click', () => {
+            this._collectCurrentStep(container, state);
+            (state.data.supplementalItems || []).splice(idx, 1);
+            this._refreshStep(container, state, lead);
+          });
+        });
+      }
+
+      if (step === 2 && state.templateId === 'full-inspection') {
+        container.querySelector('#btn-add-scope')?.addEventListener('click', () => {
+          this._collectCurrentStep(container, state);
+          if (!Array.isArray(state.data.estimatedWork)) state.data.estimatedWork = [];
+          state.data.estimatedWork.push({});
+          this._refreshStep(container, state, lead);
+        });
+        container.querySelectorAll('#scope-items-container .btn-remove-scope').forEach((btn, idx) => {
+          btn.addEventListener('click', () => {
+            this._collectCurrentStep(container, state);
+            (state.data.estimatedWork || []).splice(idx, 1);
+            this._refreshStep(container, state, lead);
+          });
+        });
+      }
+
+      if (step === 3) {
+        this._loadPhotosForSelection(container, state);
+      }
+    },
+
+    /**
+     * Re-render only the current step's content + re-bind step listeners,
+     * leaving the footer nav (and its handlers) intact. Used by the
+     * dynamic add/remove-row buttons.
+     */
+    _refreshStep(container, state, lead) {
+      const contentEl = container.querySelector('#builder-content');
+      if (!contentEl) {
+        container.innerHTML = this._renderBuilderUI(state);
+        this._attachBuilderListeners(container, state, lead);
+        return;
+      }
+      contentEl.innerHTML = this._renderBuilderStep(state);
+      this._attachStepListeners(container, state, lead);
+    },
+
+    /**
+     * Load the lead's photos into the step-3 selection grid and let the
+     * user toggle which ones go into the report. Selected photos are
+     * stored on state.data.photos in the shape the templates expect
+     * ({ url, description, aiAnalysis }).
+     */
+    _loadPhotosForSelection(container, state) {
+      const grid = container.querySelector('#photo-preview');
+      if (!grid) return;
+
+      const pool = (window.PhotoEngine && typeof window.PhotoEngine.getPhotosForLead === 'function')
+        ? (window.PhotoEngine.getPhotosForLead(state.leadId) || [])
+        : [];
+
+      if (!pool.length) {
+        grid.innerHTML = '<p style="color:#666;font-size:13px;">No photos found for this lead. Add photos from the Photos tab to include them in the report.</p>';
+        state.data.photos = [];
+        return;
+      }
+
+      const urlOf = (p) => (p && p.urls && (p.urls.lg || p.urls.md)) || (p && p.url) || '';
+      const toReportPhoto = (p) => ({
+        url: urlOf(p),
+        description: p.caption || p.aiCaption || p.description || '',
+        aiAnalysis: p.aiAnalysis || null
+      });
+
+      // First visit: default-select all so reports aren't accidentally empty.
+      if (!state._photosInitialized) {
+        state._photosInitialized = true;
+        state.data.photos = pool.map(toReportPhoto).filter(p => p.url);
+      }
+      const selectedUrls = new Set((state.data.photos || []).map(p => p.url));
+
+      grid.innerHTML = pool.map((p, i) => {
+        const url = urlOf(p);
+        return `
+          <div class="photo-preview-item ${selectedUrls.has(url) ? 'selected' : ''}" data-idx="${i}">
+            <img src="${this._escapeHtml(url)}" alt="Lead photo">
+          </div>`;
+      }).join('');
+
+      grid.querySelectorAll('.photo-preview-item').forEach(el => {
+        el.addEventListener('click', () => {
+          el.classList.toggle('selected');
+          const chosen = [];
+          grid.querySelectorAll('.photo-preview-item.selected').forEach(sel => {
+            const p = pool[Number(sel.dataset.idx)];
+            const rp = p && toReportPhoto(p);
+            if (rp && rp.url) chosen.push(rp);
+          });
+          state.data.photos = chosen;
+        });
+      });
+    },
+
+    /**
+     * Collect everything entered on the current step into state.data,
+     * assembling the NESTED shapes the report templates and the server
+     * payload expect (flat form names → nested objects). This is the fix
+     * for the flat-vs-nested data-contract break.
+     */
+    _collectCurrentStep(container, state) {
+      const d = state.data;
+
+      // 1) Generic flat form fields (roofType, recommendations, dates, …)
+      container.querySelectorAll('form').forEach(form => {
+        const fd = new FormData(form);
+        for (let [key, value] of fd.entries()) {
+          d[key] = value;
+        }
+        // Unchecked checkboxes are omitted from FormData — capture them.
+        form.querySelectorAll('input[type="checkbox"][name]').forEach(cb => {
+          d[cb.name] = cb.checked;
+        });
+      });
+
+      const step = state.currentStep;
+      if (step !== 2) return;
+
+      // 2) Full inspection: damageAssessment + components + scope
+      if (state.templateId === 'full-inspection') {
+        d.damageAssessment = {
+          type: d.damageType || '',
+          severity: d.severity ? Number(d.severity) : '',
+          area: d.area || '',
+          location: d.location || '',
+          description: d.description || '',
+          summary: d.description || ''
+        };
+        const components = {};
+        container.querySelectorAll('#components-checklist .comp-row').forEach(row => {
+          const name = row.dataset.comp;
+          const condition = row.querySelector('.comp-condition')?.value || '';
+          const notes = row.querySelector('.comp-notes')?.value || '';
+          if (condition || notes) components[name] = { condition, notes };
+        });
+        d.components = components;
+        const scope = [];
+        container.querySelectorAll('#scope-items-container .scope-item').forEach(row => {
+          const description = row.querySelector('.scope-description')?.value || '';
+          const qty = row.querySelector('.scope-qty')?.value || '';
+          const unit = row.querySelector('.scope-unit')?.value || '';
+          const total = row.querySelector('.scope-total')?.value || '';
+          if (description || qty || unit || total) {
+            scope.push({ description, qty, unit, total, item: description, quantity: qty });
+          }
+        });
+        d.estimatedWork = scope;
+      }
+
+      // 3) Storm damage: nested damage sections + interior/collateral/test/rec
+      if (state.templateId === 'storm-damage') {
+        ['roof', 'siding', 'gutter', 'window', 'screen'].forEach(key => {
+          d[key + 'Damage'] = {
+            found: !!d[key + 'DamageFound'],
+            severity: d[key + 'Severity'] || '',
+            notes: d[key + 'Notes'] || ''
+          };
+        });
+        d.testSquare = {
+          location: d.testSquareLocation || '',
+          dimensions: d.testSquareDimensions || '',
+          hits: d.testSquareHits || '',
+          measurements: d.testSquareMeasurements || ''
+        };
+        d.interiorDamage = {
+          waterStains: d.interiorWaterStains || '',
+          activeLeaks: d.interiorActiveLeaks || '',
+          atticObservations: d.interiorAtticObservations || ''
+        };
+        d.collateralDamage = {
+          acUnits: d.collateral_acUnits || '',
+          vents: d.collateral_vents || '',
+          mailbox: d.collateral_mailbox || '',
+          fencing: d.collateral_fencing || '',
+          vehicles: d.collateral_vehicles || '',
+          landscaping: d.collateral_landscaping || ''
+        };
+        d.recommendations = {
+          fileClaim: !!d.recFileClaim,
+          estimatedScope: d.recEstimatedScope || '',
+          nextSteps: d.recNextSteps || ''
+        };
+        d.notes = d.stormNotes || '';
+      }
+
+      // 4) Supplement: line items from class-based inputs
+      if (state.templateId === 'supplement') {
+        const items = [];
+        container.querySelectorAll('#supplemental-items-container .line-item').forEach(row => {
+          items.push({
+            description: row.querySelector('.item-description')?.value || '',
+            xactCode: row.querySelector('.item-code')?.value || '',
+            quantity: row.querySelector('.item-qty')?.value || '',
+            unitCost: row.querySelector('.item-cost')?.value || '',
+            reason: row.querySelector('.item-reason')?.value || ''
+          });
+        });
+        d.supplementalItems = items;
+      }
+
+      // 5) Completion: nested materials/warranty + work-completed checklist
+      if (state.templateId === 'completion') {
+        d.materials = {
+          manufacturer: d.manufacturer || '',
+          productLine: d.productLine || '',
+          color: d.color || ''
+        };
+        d.warrantyInfo = {
+          materialWarranty: d.materialWarranty || '',
+          laborWarranty: d.laborWarranty || '',
+          registrationNumber: d.registrationNumber || ''
+        };
+        const work = {};
+        container.querySelectorAll('#work-completed-checklist .comp-row').forEach(row => {
+          const name = row.dataset.work;
+          const status = row.querySelector('.work-status')?.value || '';
+          if (status) work[name] = status;
+        });
+        d.workCompleted = work;
       }
     },
 
@@ -2105,29 +2529,30 @@
      * Handle next step
      */
     async _handleNextStep(container, state, lead) {
-      // Collect data from current step
-      const forms = container.querySelectorAll('form');
+      // Native form-constraint validation (required fields, etc.)
       let valid = true;
-
-      forms.forEach(form => {
+      container.querySelectorAll('form').forEach(form => {
         if (!form.checkValidity()) {
+          form.reportValidity?.();
           valid = false;
         }
-        // Collect form data
-        const formData = new FormData(form);
-        for (let [key, value] of formData.entries()) {
-          state.data[key] = value;
-        }
       });
-
       if (!valid) {
         showToast('Please fill in required fields', 'warning');
         return;
       }
 
+      // Step 0 requires a template choice
+      if (state.currentStep === 0 && !state.templateId) {
+        showToast('Choose a report template to continue', 'warning');
+        return;
+      }
+
+      // Collect (with nested assembly) before advancing
+      this._collectCurrentStep(container, state);
+
       if (state.currentStep === 4) {
-        // Generate report
-        await this._generateAndOpen(state);
+        await this._generateAndOpen(state, container);
       } else {
         state.currentStep++;
         container.innerHTML = this._renderBuilderUI(state);
@@ -2136,12 +2561,14 @@
     },
 
     /**
-     * Handle previous step
+     * Handle previous step — preserves anything typed before going back.
      */
-    _handlePrevStep(container, state) {
+    _handlePrevStep(container, state, lead) {
       if (state.currentStep > 0) {
+        this._collectCurrentStep(container, state);
         state.currentStep--;
         container.innerHTML = this._renderBuilderUI(state);
+        this._attachBuilderListeners(container, state, lead);
       }
     },
 
@@ -2155,10 +2582,35 @@
      * supplement, and completion still go through the legacy path
      * until D-2 follow-ups port them.
      */
-    async _generateAndOpen(state) {
+    async _generateAndOpen(state, container) {
       this._saveDraft(state.leadId, state.data);
 
-      // ── D-2 server path ──
+      const saveEl = container && container.querySelector('#save-to-db');
+      const wantSave = !!(saveEl && saveEl.checked);
+
+      // Always build the client HTML — used for the legacy popup AND for
+      // persisting a self-contained copy when "Save to database" is on.
+      const html = this.generateReport(state.leadId, state.templateId, state.data);
+
+      // INSP-1: persist to Firestore when requested (was a dead checkbox).
+      // Do it first so a saved copy survives even if the popup is blocked.
+      if (wantSave) {
+        if (html) {
+          const lead = this._getLead(state.leadId) || {};
+          await this.saveReport(state.leadId, state.templateId, {
+            html,
+            data: state.data,
+            photoIds: (state.data.photos || []).map(p => p.url).filter(Boolean),
+            propertyAddress: lead.address || state.data.address || '',
+            inspectorName: state.data.inspectorName || '',
+            inspectionDate: state.data.inspectionDate || ''
+          });
+        } else {
+          showToast('Could not build report to save', 'error');
+        }
+      }
+
+      // ── D-2 server path (full-inspection only) ──
       if (state.templateId === 'full-inspection') {
         try {
           const ok = await this._tryServerRender(state);
@@ -2170,7 +2622,6 @@
 
       // ── Legacy blob-popup path (always runs for non-full-inspection
       //    templates, or as fallback after a server-render error) ──
-      const html = this.generateReport(state.leadId, state.templateId, state.data);
       if (!html) {
         showToast('Failed to generate report', 'error');
         return;
@@ -2516,6 +2967,23 @@
     _getLead(leadId) {
       if (!window._leads) return null;
       return window._leads.find(lead => lead.id === leadId);
+    },
+
+    /**
+     * INSP-6: lead overlaid with any property-step edits the rep made in
+     * the wizard, so corrected address/owner/phone/email reach the report
+     * (templates read lead.* — this keeps that, but lets edits win).
+     */
+    _effectiveLead(leadId, data) {
+      const base = this._getLead(leadId);
+      if (!base) return null;
+      const d = data || {};
+      return Object.assign({}, base, {
+        address: d.address || base.address,
+        name: d.ownerName || base.name,
+        phone: d.phone || base.phone,
+        email: d.email || base.email
+      });
     },
 
     /**
