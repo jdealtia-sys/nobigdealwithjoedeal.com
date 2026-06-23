@@ -1299,22 +1299,10 @@
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
   window.firebase_onAuthStateChanged = onAuthStateChanged;
 
-  // ── ACCOUNT ACTIVATION HELPER (run once per user from console) ──
-  window.activateMyAccount = async () => {
-    const user = window._auth?.currentUser;
-    if (!user) { console.error('❌ Not logged in or auth not ready'); return; }
-    try {
-      const {setDoc, doc: _doc} = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-      await setDoc(_doc(window._db, 'subscriptions', user.uid), {
-        status: 'active',
-        plan: 'professional',
-        email: user.email,
-        activatedAt: new Date().toISOString()
-      });
-      console.log('✅ Account activated for', user.email, '| UID:', user.uid);
-      alert('✅ Activated! Refresh the page.');
-    } catch(e) { console.error('❌ Activation failed:', e); }
-  };
+  // (Removed the window.activateMyAccount console helper: it setDoc'd directly
+  // to /subscriptions, which is admin-SDK-write-only — `allow write: if false`
+  // — so the client write could never succeed. Real activation flows through
+  // the Stripe webhook / validateAccessCode callable, which use the admin SDK.)
 
   // ── GLOBAL KEYBOARD SHORTCUTS ──
   // isHotkeyEnabled is defined inside an IIFE in dashboard-hotkey-toggles.js

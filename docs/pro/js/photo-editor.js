@@ -972,7 +972,12 @@
       if (overwrite && S.photoId) {
         await window.updateDoc(window.doc(window.db, 'photos', S.photoId), { url, ...meta });
       } else {
-        await window.addDoc(window.collection(window.db, 'photos'), { url, originalPhotoId: S.photoId, leadId: S.leadId, userId: S.userId, ...meta });
+        // Use the resolved authUid (guaranteed non-empty above), not the raw
+        // S.userId — S.userId is '' when the editor was opened while
+        // auth.currentUser was momentarily null, which made the Storage upload
+        // succeed (it falls back to currentUser) while the Firestore create was
+        // denied (userId:'' != request.auth.uid), silently losing the save.
+        await window.addDoc(window.collection(window.db, 'photos'), { url, originalPhotoId: S.photoId, leadId: S.leadId, userId: authUid, ...meta });
       }
       S.hasUnsaved = false;
       toast('Saved!', 'success');
