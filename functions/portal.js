@@ -200,12 +200,16 @@ exports.revokePortalToken = onCall(
     const db = admin.firestore();
     const isAdmin = request.auth.token.role === 'admin';
     let revoked = [];
+    // The legacy-portal purge below is lead-level; when the caller passes
+    // only a token id, derive the lead from the token doc.
+    let resolvedLeadId = leadId;
 
     if (tokenId) {
       const ref = db.doc(`portal_tokens/${tokenId}`);
       const snap = await ref.get();
       if (!snap.exists) throw new HttpsError('not-found', 'Token not found');
-      if (!isAdmin && snap.data().ownerUid !== uid) {
+      const tokenData = snap.data();
+      if (!isAdmin && tokenData.ownerUid !== uid) {
         throw new HttpsError('permission-denied', 'Not your token');
       }
       await ref.update({
@@ -214,6 +218,9 @@ exports.revokePortalToken = onCall(
         revokedBy: uid
       });
       revoked = [tokenId];
+      if (!resolvedLeadId && typeof tokenData.leadId === 'string') {
+        resolvedLeadId = tokenData.leadId;
+      }
     } else {
       // Revoke every token for this lead owned by the caller.
       const q = await db.collection('portal_tokens')
@@ -232,7 +239,82 @@ exports.revokePortalToken = onCall(
       });
       if (revoked.length) await batch.commit();
     }
-    logger.info('revokePortalToken', { leadId, count: revoked.length });
+
+    // ── Legacy baked-HTML Storage purge ──────────────────────────────
+    // Pre-#698, customer-portal.js baked a lead's data into a static HTML
+    // file and uploaded it to Storage at
+    //   portals/{uid}/{leadId}/v-<ts>.html   (full project portal, versioned)
+    //   portals/{uid}/{leadId}-photos.html   (photo gallery portal)
+    // persisting the getDownloadURL on the lead (portalUrl / portalPath /
+    // portalHistory[].path / photoPortalUrl). A Storage download-token URL
+    // bypasses Security Rules and never expires, so flipping portal_tokens
+    // above left those already-shared links live forever. Delete the objects
+    // and clear the dead fields so a revoke actually revokes. Owner-or-admin
+    // gated — never touch another tenant's artifacts or lead doc.
+    if (resolvedLeadId) {
+      try {
+        const leadRef = db.doc(`leads/${resolvedLeadId}`);
+        const leadSnap = await leadRef.get();
+        if (leadSnap.exists) {
+          const lead = leadSnap.data();
+          const ownerUid = lead.userId;
+          if (isAdmin || ownerUid === uid) {
+            // Collect every baked-HTML object path recorded for this lead.
+            const paths = new Set();
+            if (typeof lead.portalPath === 'string' && lead.portalPath) {
+              paths.add(lead.portalPath);
+            }
+            if (Array.isArray(lead.portalHistory)) {
+              for (const h of lead.portalHistory) {
+                if (h && typeof h.path === 'string' && h.path) paths.add(h.path);
+              }
+            }
+            // The photo portal persisted only its URL, never a path — but the
+            // object location is deterministic.
+            if (lead.photoPortalUrl && ownerUid) {
+              paths.add(`portals/${ownerUid}/${resolvedLeadId}-photos.html`);
+            }
+            const bucket = admin.storage().bucket();
+            let deleted = 0;
+            for (const p of paths) {
+              // Defense-in-depth: only ever delete inside the portals/ tree.
+              if (!p.startsWith('portals/')) continue;
+              try {
+                await bucket.file(p).delete({ ignoreNotFound: true });
+                deleted++;
+              } catch (e) {
+                logger.warn('revokePortalToken: storage delete failed',
+                  { path: p, err: e.message });
+              }
+            }
+            // Strip the now-dead URL/path fields so the dashboard stops
+            // surfacing a link that 404s.
+            if (paths.size || lead.portalUrl || lead.photoPortalUrl) {
+              await leadRef.update({
+                portalUrl: FieldValue.delete(),
+                portalPath: FieldValue.delete(),
+                portalHistory: FieldValue.delete(),
+                portalGeneratedAt: FieldValue.delete(),
+                photoPortalUrl: FieldValue.delete(),
+                photoPortalGeneratedAt: FieldValue.delete()
+              });
+            }
+            logger.info('revokePortalToken: legacy portal purge',
+              { leadId: resolvedLeadId, objectsDeleted: deleted, objectsFound: paths.size });
+          } else {
+            logger.warn('revokePortalToken: legacy purge skipped — caller not lead owner',
+              { leadId: resolvedLeadId });
+          }
+        }
+      } catch (e) {
+        // Never fail the revoke because cleanup of a legacy artifact errored —
+        // the token expiry above is the security-critical part and is done.
+        logger.warn('revokePortalToken: legacy purge failed',
+          { leadId: resolvedLeadId, err: e.message });
+      }
+    }
+
+    logger.info('revokePortalToken', { leadId: resolvedLeadId, count: revoked.length });
     return { success: true, revoked: revoked.length };
   }
 );
