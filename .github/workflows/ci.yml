@@ -33,6 +33,11 @@ jobs:
           fi
       - name: Run smoke tests
         run: node tests/smoke.test.js
+      # Money-path gate (H3): the Stripe payment-link reconciliation must add a
+      # sales-tax line and refuse to issue any link that wouldn't charge
+      # invoice.total. Dependency-free logic mirror of functions/stripe.js.
+      - name: Run Stripe payment-link tax reconciliation tests
+        run: node tests/stripe-payment-link-tax.test.js
       # Theme legibility + completeness gate (audit Phase 3): every theme in both
       # registries must define the required vars and clear the WCAG contrast floor
       # as rendered. Dependency-free; extracts the real engine colour helpers.
