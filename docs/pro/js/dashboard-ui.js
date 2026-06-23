@@ -1855,6 +1855,9 @@ function toggleSidebarCollapse() {
   // Sync the button's `active` state
   const btn = document.getElementById('sidebarToggleBtn');
   if (btn) btn.classList.toggle('active', collapsed);
+  // Keep the Settings "Show tool names" checkbox in sync (inverse of collapsed)
+  const lblCb = document.getElementById('sidebarLabelsToggle');
+  if (lblCb) lblCb.checked = !collapsed;
   // Leaflet maps need an invalidate-size after the rail width changes
   // so they don't render with the old viewport dimensions.
   setTimeout(() => {

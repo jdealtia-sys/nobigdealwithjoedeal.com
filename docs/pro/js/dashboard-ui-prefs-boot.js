@@ -240,6 +240,39 @@ document.addEventListener('DOMContentLoaded', function() {
   if (cb) cb.checked = localStorage.getItem('nbd_professional_mode') === '1';
 });
 
+// ── Sidebar tool names — a discoverable, inverse view of the sidebar-collapse
+// rail state. "Show tool names" CHECKED == labels visible == body is NOT
+// .sidebar-collapsed. Single source of truth: the same `sidebar-collapsed`
+// class + `nbd-sidebar-collapsed` key the rail toggle button uses, so the
+// Settings checkbox and the rail button can never disagree. (The labels were
+// never removed — they're text nodes hidden by font-size:0 under
+// body.sidebar-collapsed; this just makes the toggle findable in Settings.)
+function nbdSetSidebarLabels(show) {
+  var collapsed = !show;
+  document.body.classList.toggle('sidebar-collapsed', collapsed);
+  try { localStorage.setItem('nbd-sidebar-collapsed', collapsed ? '1' : '0'); } catch (e) {}
+  // Keep the rail's own toggle button in sync
+  var btn = document.getElementById('sidebarToggleBtn');
+  if (btn) btn.classList.toggle('active', collapsed);
+  // Reflect in our own checkbox if present
+  var cb = document.getElementById('sidebarLabelsToggle');
+  if (cb) cb.checked = show;
+  // Leaflet maps need an invalidate-size after the rail width changes.
+  setTimeout(function () {
+    if (window.mainMap && window.mainMap.invalidateSize) window.mainMap.invalidateSize();
+    if (window.d2dMap && window.d2dMap.invalidateSize) window.d2dMap.invalidateSize();
+  }, 200);
+  if (typeof showToast === 'function') showToast(show ? 'Sidebar tool names shown' : 'Sidebar tool names hidden', 'info');
+}
+window.nbdSetSidebarLabels = nbdSetSidebarLabels;
+
+// On load, sync the "Show tool names" checkbox to the persisted rail state
+// (checked = labels visible = not collapsed; default is shown).
+document.addEventListener('DOMContentLoaded', function() {
+  var cb = document.getElementById('sidebarLabelsToggle');
+  if (cb) cb.checked = localStorage.getItem('nbd-sidebar-collapsed') !== '1';
+});
+
 // ══════════════════════════════════════════════════════════════════════
 // CSP-safe wrappers for the inline onchange handlers we just stripped.
 //
