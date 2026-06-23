@@ -44,6 +44,17 @@ const STRIPE_WEBHOOK_SECRET     = defineSecret('STRIPE_WEBHOOK_SECRET');
 const STRIPE_PRICE_FOUNDATION   = defineSecret('STRIPE_PRICE_FOUNDATION');
 const STRIPE_PRICE_PROFESSIONAL = defineSecret('STRIPE_PRICE_PROFESSIONAL');
 
+// Always .trim() the secret before handing it to the SDK. A secret value
+// stored with a trailing newline/whitespace (e.g. `echo "$KEY" | gcloud
+// secrets ...` appends \n, and Windows CRLF appends \r\n) lands in the
+// `Authorization: Bearer <key>` header verbatim. Node's http layer then
+// throws ERR_INVALID_CHAR BEFORE the socket opens, which the Stripe SDK
+// wraps as the opaque "An error occurred with our connection to Stripe.
+// Request was retried N times." (StripeConnectionError) — masquerading as a
+// network/egress outage. Trimming turns that into a normal request so a bad
+// key surfaces as a clear 401 instead.
+const stripeKey = () => STRIPE_SECRET_KEY.value().trim();
+
 // CORS origins — same allowlist as index.js + portal.js. Deliberately
 // duplicated for module independence (matches portal.js precedent).
 const CORS_ORIGINS = [
@@ -110,7 +121,7 @@ exports.createCheckoutSession = onRequest(
         : STRIPE_PRICE_PROFESSIONAL.value();
 
       // Initialize Stripe
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
+      const stripe = new Stripe(stripeKey(), { apiVersion: STRIPE_API_VERSION });
 
       // Create Checkout Session
       const session = await stripe.checkout.sessions.create({
@@ -175,7 +186,7 @@ exports.stripeWebhook = onRequest(
       return;
     }
 
-    const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
+    const stripe = new Stripe(stripeKey(), { apiVersion: STRIPE_API_VERSION });
     const sig = req.headers['stripe-signature'];
     const webhookSecret = STRIPE_WEBHOOK_SECRET.value();
 
@@ -597,7 +608,7 @@ exports.createCustomerPortalSession = onRequest(
         return;
       }
 
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
+      const stripe = new Stripe(stripeKey(), { apiVersion: STRIPE_API_VERSION });
 
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: customerId,
@@ -815,7 +826,7 @@ exports.createStripePaymentLink = onRequest(
         return;
       }
 
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
+      const stripe = new Stripe(stripeKey(), { apiVersion: STRIPE_API_VERSION });
       const paymentLink = await stripe.paymentLinks.create({
         line_items: lineItems,
         metadata: { invoiceId: String(invoiceId), userId: decoded.uid },
@@ -834,7 +845,16 @@ exports.createStripePaymentLink = onRequest(
       res.json({ url: paymentLink.url, paymentLinkId: paymentLink.id });
 
     } catch (e) {
-      logger.error('createStripePaymentLink error', { uid: decoded.uid, err: e.message });
+      // Log the Stripe error classification too — `e.message` alone hides the
+      // real cause. A StripeConnectionError whose detail is ERR_INVALID_CHAR is
+      // a malformed secret (stray char in the key), NOT a network outage.
+      logger.error('createStripePaymentLink error', {
+        uid: decoded.uid,
+        err: e.message,
+        type: e.type,
+        code: e.code,
+        detailCode: e.detail && e.detail.code,
+      });
       res.status(500).json({ error: 'Failed to create payment link' });
     }
   }
@@ -859,7 +879,7 @@ exports.invoiceWebhook = onRequest(
 
     try {
       const signature = req.headers['stripe-signature'] || '';
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
+      const stripe = new Stripe(stripeKey(), { apiVersion: STRIPE_API_VERSION });
 
       // H-6: same rawBody requirement as stripeWebhook. The previous
       // `req.rawBody || req.body` fallback is a footgun — it gives
