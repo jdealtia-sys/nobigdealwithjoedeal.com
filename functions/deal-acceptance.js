@@ -43,7 +43,7 @@ const { callableRateLimit } = require('./shared');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app',
+  'https://nobigdeal-pro.web.app',
 ];
 const DEAL_URL_BASE = 'https://nobigdealwithjoedeal.com/deal/';
 const SUBMIT_PATH = '/api/deal-accept'; // same-origin hosting rewrite → submitDealAcceptance

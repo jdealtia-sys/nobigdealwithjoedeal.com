@@ -30,7 +30,7 @@ const { callableRateLimit } = require('./shared');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app',
+  'https://nobigdeal-pro.web.app',
 ];
 
 // Mirrors PLANS in docs/pro/js/billing-gate.js. Server is the source
