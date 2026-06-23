@@ -124,7 +124,7 @@
     // loads still works.
     photos: [
       'js/photo-engine.js?v=6',
-      'js/inspection-report-engine.js?v=4',
+      'js/inspection-report-engine.js?v=5',
       'js/photo-report.js?v=3'
     ],
     // D2D tracker (PR 2e). The door-to-door knock tracker — only the D2D
