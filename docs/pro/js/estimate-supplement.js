@@ -619,6 +619,7 @@ ${signBlock}
             window.collection(window.db, `leads/${supplement.leadId}/activity`),
             {
               userId: window.auth.currentUser.uid,
+              source: 'rep', // F-05: client-written activity must declare source:'rep'
               type: 'supplement_created',
               label: 'Supplement #' + (supplement.version || 1)
                 + (totalDelta ? ' (+$' + Math.round(totalDelta).toLocaleString() + ')' : ''),

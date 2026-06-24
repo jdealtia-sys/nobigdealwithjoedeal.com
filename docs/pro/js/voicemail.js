@@ -331,7 +331,10 @@
             dates:       Array.isArray(summary.dates)       ? summary.dates       : [],
             category:    summary.category || 'other'
           },
-          source,
+          // F-05 rule requires source:'rep' on client-written activity;
+          // keep the recording origin ('recorded'/'uploaded') in mediaSource.
+          source: 'rep',
+          mediaSource: source,
           filename: filename || null,
           mimeType: mimeType || null,
           sizeBytes: sizeBytes || null,

@@ -207,6 +207,22 @@ async function run() {
     { userId: 'alice', source: 'rep', type: 'note',
       note: 'spoke with homeowner', createdAt: nowTs }));
 
+  // ✅ first-party rep activity types added 2026-06-23 — voicemail /
+  //    supplement-created / quick-add lead-created timeline entries. These
+  //    were silently permission-denied before the allowlist was widened.
+  await assertSucceeds(setDoc(
+    doc(alice, 'leads/leadA/activity/ok-voicemail'),
+    { userId: 'alice', source: 'rep', type: 'voicemail',
+      label: 'Voicemail recording', mediaSource: 'recorded', createdAt: nowTs }));
+  await assertSucceeds(setDoc(
+    doc(alice, 'leads/leadA/activity/ok-supplement'),
+    { userId: 'alice', source: 'rep', type: 'supplement_created',
+      label: 'Supplement #1', createdAt: nowTs }));
+  await assertSucceeds(setDoc(
+    doc(alice, 'leads/leadA/activity/ok-leadcreated'),
+    { userId: 'alice', source: 'rep', type: 'lead_created',
+      leadSource: 'Door Knock', createdAt: nowTs }));
+
   // ❌ missing source field → blocked
   await assertFails(setDoc(
     doc(alice, 'leads/leadA/activity/no-source'),
