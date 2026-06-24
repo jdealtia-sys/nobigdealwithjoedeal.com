@@ -35,6 +35,26 @@ const STRIPE_API_VERSION = '2023-10-16';
 const { requireAuth } = require('./shared');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 
+// setCustomUserClaims REPLACES the entire claim set. Writing a bare billing
+// patch ({ plan, subscriptionStatus, stripeCustomerId }) therefore WIPES a
+// user's role/companyId on every billing event — turning a tenant company_admin
+// into a no-companyId account, which (a) breaks their own company-scoped
+// Firestore access and (b) makes them a cross-tenant takeover target for the
+// team-admin callables. Always read-then-merge so identity claims survive.
+async function mergeCustomClaims(uid, patch) {
+  // Read-then-merge is only safe when the READ succeeds. On a transient getUser
+  // failure, writing a bare patch would strip role/companyId — the exact wipe
+  // this helper exists to prevent — so abort and let the next billing event
+  // re-sync (the subscriptions/{uid} doc is written separately and survives).
+  let existing;
+  try { existing = (await admin.auth().getUser(uid)).customClaims || {}; }
+  catch (e) {
+    logger.error('mergeCustomClaims_abort_getUser_failed', { uid, err: e.message });
+    return;
+  }
+  await admin.auth().setCustomUserClaims(uid, { ...existing, ...patch });
+}
+
 // Stripe secrets. Redeclared here because defineSecret scope is
 // per-module. index.js still declares them too for claudeProxy +
 // other endpoints. Both declarations resolve to the SAME underlying
@@ -318,7 +338,7 @@ exports.stripeWebhook = onRequest(
           // via request.auth.token.plan and in client JS via
           // user.getIdTokenResult().claims.plan
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await mergeCustomClaims(uid, {
               plan,
               subscriptionStatus: 'active',
               stripeCustomerId: customerId
@@ -373,7 +393,7 @@ exports.stripeWebhook = onRequest(
 
           // Sync custom claims
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await mergeCustomClaims(uid, {
               plan,
               subscriptionStatus: subscription.status,
               stripeCustomerId: customerId
@@ -410,7 +430,7 @@ exports.stripeWebhook = onRequest(
 
           // Downgrade custom claims to free
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await mergeCustomClaims(uid, {
               plan: 'free',
               subscriptionStatus: 'cancelled',
               stripeCustomerId: customerId
@@ -446,7 +466,7 @@ exports.stripeWebhook = onRequest(
 
           // Update claims to past_due so client can show warning
           try {
-            await admin.auth().setCustomUserClaims(uid, {
+            await mergeCustomClaims(uid, {
               plan: subDoc.data().plan || 'free',
               subscriptionStatus: 'past_due',
               stripeCustomerId: customerId
