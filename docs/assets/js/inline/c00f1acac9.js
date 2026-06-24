@@ -8,6 +8,22 @@
 // ──────────────────────────────────────────────────────────────────
 const POSTS = [
   {
+    url: "/blog/gaf-timberline-vs-tamko-storm-series",
+    tag: "Roofing",
+    title: "GAF Timberline vs. TAMKO Storm Series: Which Roof for Hail Country?",
+    meta: "By Joe Deal · June 2026 · 8 min read",
+    excerpt: "Two shingle lanes, one decision. The classic GAF Timberline lineup (NS/HDZ/UHDZ) vs the hail-tough TAMKO Storm Series (Heritage, Titan XT, StormFighter Flex, HailGuard) — and how I help homeowners pick the right one for their house.",
+    published: "2026-06-23",
+  },
+  {
+    url: "/blog/tamko-hailguard-first-shingle-with-hail-warranty",
+    tag: "Hail Country",
+    title: "HailGuard: The First Asphalt Shingle With a Hail Warranty",
+    meta: "By Joe Deal · June 2026 · 8 min read",
+    excerpt: "A hail rating and a hail warranty are not the same thing. TAMKO HailGuard is the first asphalt shingle to back its Class 4 rating with a written hail warranty — a 10-year non-prorated Full Start plus 7-year hail coverage, available now. What that means for your Ohio or Kentucky roof.",
+    published: "2026-06-09",
+  },
+  {
     url: "/blog/why-class-4-impact-shingles",
     tag: "Insurance & Roofing",
     title: "Why Class 4 Impact Shingles (And Your Insurance Discount)",
