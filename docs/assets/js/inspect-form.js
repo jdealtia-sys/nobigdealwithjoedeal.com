@@ -43,8 +43,12 @@
       out[k] = typeof v === 'string' ? v.trim() : v;
     });
     var photoInput = form.querySelector('input[type=file][name=photos]');
-    out.photoCount = photoInput && photoInput.files ? photoInput.files.length : 0;
-    if (out.photoCount) {
+    // Send as a string: the server's optional-field allowlist drops any
+    // value that isn't a string (typeof !== 'string' → skipped), so a
+    // numeric photoCount would silently never persist on the lead.
+    var photoFiles = photoInput && photoInput.files ? photoInput.files.length : 0;
+    out.photoCount = String(photoFiles);
+    if (photoFiles) {
       // Server allowlist treats photoNames as a single string field —
       // join (and cap to the 2000-char maxLen with some margin).
       out.photoNames = Array.prototype.map
