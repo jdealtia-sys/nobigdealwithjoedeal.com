@@ -316,7 +316,9 @@ async function createStripeInvoiceForEstimate(estRef) {
   const Stripe = require('stripe');
   // Pin API version (mirrors functions/stripe.js) so an SDK bump stays
   // behavior-neutral on the billing path.
-  const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
+  // maxNetworkRetries/timeout mirror functions/stripe.js getStripe() so the
+  // auto-invoice path survives transient Stripe connection blips too.
+  const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16', maxNetworkRetries: 2, timeout: 20000 });
 
   const db = admin.firestore();
   const estSnap = await estRef.get();
