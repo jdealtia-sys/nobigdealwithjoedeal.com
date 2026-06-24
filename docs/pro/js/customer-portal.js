@@ -55,6 +55,27 @@
     closed:                     { label: 'Project Complete!', progress: 100, icon: '🎉' }
   };
 
+  // ─── Token-based portal URL (the secure, revocable path) ──────────────
+  // DEPRECATION: this module used to bake a lead's data into a static HTML
+  // file, upload it to Firebase Storage, and share the getDownloadURL — a
+  // permanent, non-expiring, UNREVOCABLE link (revokePortalToken never touched
+  // it). The live portal is now token-based: mint a short-lived, revocable
+  // token (createPortalToken) and share /pro/portal.html?token=…, which the
+  // getHomeownerPortalView Cloud Function resolves to a redacted homeowner view
+  // server-side. Every entry point below now mints a token URL; the legacy
+  // buildPortalHTML builder + per-portal data loads are retained only as dead
+  // reference and can be pruned in a follow-up.
+  async function mintTokenUrl(leadId) {
+    if (!leadId) throw new Error('leadId required');
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    const fns = mod.getFunctions();
+    const call = mod.httpsCallable(fns, 'createPortalToken');
+    const res = await call({ leadId: leadId, ttlDays: 30 });
+    const token = res && res.data && res.data.token;
+    if (!token) throw new Error('No token returned');
+    return location.origin + '/pro/portal.html?token=' + encodeURIComponent(token);
+  }
+
   /**
    * Generate and share the customer portal for a lead
    * @param {string} leadId
@@ -141,35 +162,12 @@
       // portalUrl always points at the newest version — homeowners
       // who got the previous link don't get auto-promoted to the new
       // content because the old URL is a different file.
-      const _ts = Date.now();
-      const _versionPath = `portals/${window._user.uid}/${leadId}/v-${_ts}.html`;
-      const storageRef = window.ref(window.storage, _versionPath);
-      const blob = new Blob([html], { type: 'text/html' });
-      await window.uploadBytes(storageRef, blob, { contentType: 'text/html' });
-      const shareUrl = await window.getDownloadURL(storageRef);
-
-      // Save share URL + history to lead
-      const _entry = {
-        url: shareUrl,
-        path: _versionPath,
-        generatedAt: new Date().toISOString(),
-        generatedBy: window.auth?.currentUser?.email || 'unknown'
-      };
-      const updatePayload = {
-        portalUrl: shareUrl,
-        portalPath: _versionPath,
-        portalGeneratedAt: window.serverTimestamp()
-      };
-      // arrayUnion appends without dupe — fine since the timestamp
-      // makes each entry unique.
-      if (window.arrayUnion) {
-        updatePayload.portalHistory = window.arrayUnion(_entry);
-      }
-      await window.updateDoc(window.doc(window.db, 'leads', leadId), updatePayload);
-
-      // Update local lead cache
-      lead.portalUrl = shareUrl;
-      lead.portalPath = _versionPath;
+      // Portal is now token-based + revocable (createPortalToken →
+      // /pro/portal.html?token=). The legacy Storage upload that used to live
+      // here produced a permanent, non-expiring, UNREVOCABLE getDownloadURL —
+      // mint a secure token URL instead. (`html` built above is now unused; see
+      // the deprecation note on mintTokenUrl.)
+      const shareUrl = await mintTokenUrl(leadId);
 
       // Clipboard write before the toast — Safari, focus-loss, and
       // insecure-context all silently fail. Tell the user whether the
@@ -202,8 +200,9 @@
   async function sharePortalSMS(leadId) {
     const lead = (window._leads || []).find(l => l.id === leadId);
     if (!lead) return;
-    let url = lead.portalUrl;
-    if (!url) url = await generatePortal(leadId);
+    let url;
+    try { url = await mintTokenUrl(leadId); }
+    catch (e) { if (typeof showToast === 'function') showToast('Could not create link: ' + (e.message || 'error'), 'error'); return; }
     if (!url) return;
 
     const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim();
@@ -220,8 +219,9 @@
   async function sharePortalEmail(leadId) {
     const lead = (window._leads || []).find(l => l.id === leadId);
     if (!lead) return;
-    let url = lead.portalUrl;
-    if (!url) url = await generatePortal(leadId);
+    let url;
+    try { url = await mintTokenUrl(leadId); }
+    catch (e) { if (typeof showToast === 'function') showToast('Could not create link: ' + (e.message || 'error'), 'error'); return; }
     if (!url) return;
 
     const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim();
@@ -556,18 +556,10 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
   <div class="footer">Generated ${esc(now)} · <a href="https://${BRAND.website}">${BRAND.website}</a></div>
 </body></html>`;
 
-      // Upload to Firebase Storage under a separate path
-      const storageRef = window.ref(window.storage, `portals/${window._user.uid}/${leadId}-photos.html`);
-      const blob = new Blob([html], { type: 'text/html' });
-      await window.uploadBytes(storageRef, blob, { contentType: 'text/html' });
-      const shareUrl = await window.getDownloadURL(storageRef);
-
-      await window.updateDoc(window.doc(window.db, 'leads', leadId), {
-        photoPortalUrl: shareUrl,
-        photoPortalGeneratedAt: window.serverTimestamp()
-      });
-
-      lead.photoPortalUrl = shareUrl;
+      // Token-based now: the homeowner portal already shows shared photos, so
+      // the dedicated photo gallery shares the same secure /pro/portal.html
+      // token URL instead of uploading a separate static HTML file to Storage.
+      const shareUrl = await mintTokenUrl(leadId);
       if (typeof showToast === 'function') showToast('Photo gallery ready!', 'ok');
       try { await navigator.clipboard.writeText(shareUrl); } catch(e) {}
       return shareUrl;
@@ -579,15 +571,15 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
   }
 
   // ── Preview portal (opens in NBDDocViewer or new tab) ──
-  function previewPortal(leadId, type) {
-    const lead = (window._leads || []).find(l => l.id === leadId);
-    if (!lead) return;
-    const url = type === 'photo' ? lead.photoPortalUrl : lead.portalUrl;
-    if (!url) {
-      if (typeof showToast === 'function') showToast('Generate the portal first', 'info');
-      return;
+  async function previewPortal(leadId, type) {
+    if (!leadId) return;
+    // type kept for signature compat; the token portal renders photos inline.
+    try {
+      const url = await mintTokenUrl(leadId);
+      window.open(url, '_blank', 'noopener');
+    } catch (e) {
+      if (typeof showToast === 'function') showToast('Could not open preview: ' + (e.message || 'error'), 'error');
     }
-    window.open(url, '_blank', 'noopener');
   }
 
   // Expose to window
@@ -596,7 +588,8 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
     generatePhotoPortal: generatePhotoPortal,
     preview: previewPortal,
     shareSMS: sharePortalSMS,
-    shareEmail: sharePortalEmail
+    shareEmail: sharePortalEmail,
+    mintUrl: mintTokenUrl
   };
 
 })();

@@ -1138,8 +1138,14 @@ async function renameEstimateAction(id) {
   const src = (window._estimates || []).find(e => e.id === id);
   if (!src) { showToast('Estimate not found', 'error'); return; }
   const current = src.name || src.addr || '';
+  // QA 2026-06-21 #7: native prompt() is BLOCKED in iOS standalone (PWA) mode,
+  // so rename silently no-op'd there while delete/duplicate worked (they use
+  // nbdConfirm). Prefer the modal nbdPrompt (defined by standalone-compat.js in
+  // standalone mode) and fall back to native prompt in a normal browser.
   // eslint-disable-next-line no-alert
-  const next = window.prompt('Rename estimate:', current);
+  const next = (typeof window.nbdPrompt === 'function')
+    ? await window.nbdPrompt('Rename estimate:', current)
+    : window.prompt('Rename estimate:', current);
   if (next === null) return;  // user hit Cancel
   const trimmed = String(next).trim();
   if (!trimmed) { showToast('Name cannot be empty', 'error'); return; }

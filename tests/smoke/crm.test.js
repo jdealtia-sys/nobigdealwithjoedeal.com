@@ -383,10 +383,13 @@ section('Phase D.2 — Cross-lead Recent Photo Feed');
     /window\.renderRecentPhotoFeed\s*=/.test(mainJs),
     'expected window.renderRecentPhotoFeed export');
 
-  // 4. Query uses where(userId == uid) + orderBy(uploadedAt desc) + limit.
-  assert('renderRecentPhotoFeed queries photos by userId + orderBy uploadedAt + limit',
-    /window\.query\(\s*window\.collection\(window\.db,\s*'photos'\)[\s\S]{0,200}window\.where\('userId',\s*'==',\s*uid\)[\s\S]{0,200}window\.orderBy\('uploadedAt',\s*'desc'\)[\s\S]{0,200}window\.limit\(/.test(mainJs),
-    'expected Firestore query: where(userId == uid).orderBy(uploadedAt,desc).limit()');
+  // 4. Query uses where(userId == uid) + orderBy(createdAt desc) + limit.
+  //    createdAt is the canonical /photos ordering field (every write path
+  //    stamps it) — ordering by the photo-engine-only uploadedAt silently
+  //    excluded quick-upload / annotation photos from the feed.
+  assert('renderRecentPhotoFeed queries photos by userId + orderBy createdAt + limit',
+    /window\.query\(\s*window\.collection\(window\.db,\s*'photos'\)[\s\S]{0,200}window\.where\('userId',\s*'==',\s*uid\)[\s\S]{0,200}window\.orderBy\('createdAt',\s*'desc'\)[\s\S]{0,200}window\.limit\(/.test(mainJs),
+    'expected Firestore query: where(userId == uid).orderBy(createdAt,desc).limit()');
 
   // 5. Date grouping uses Today / Yesterday smart labels.
   assert('renderRecentPhotoFeed renders Today / Yesterday smart date labels',

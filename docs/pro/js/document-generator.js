@@ -808,6 +808,17 @@ window.NBDDocGen = {
    * @param {object} data - Data object
    * @returns {string} Merged HTML
    */
+  // Shared HTML-escaper for user/lead-sourced values interpolated into document
+  // HTML. Docs render via NBDDocViewer's <iframe srcdoc>, which executes scripts,
+  // and lead fields can originate from PUBLIC intake (submitPublicLead) — so any
+  // unescaped value is a stored-XSS vector. Mirrors the local _esc already used for
+  // line-items / signers in this file.
+  _escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  },
+
   mergeFields(template, data = {}) {
     // Provide defaults for common fields
     const mergedData = {
@@ -831,7 +842,10 @@ window.NBDDocGen = {
     let result = template;
     Object.keys(mergedData).forEach(key => {
       const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
-      result = result.replace(regex, mergedData[key]);
+      // Escape values: placeholders carry scalar lead/company data into an HTML
+      // template, so values are text. (Line-items/signature blocks are built
+      // separately, not via {{placeholders}}.)
+      result = result.replace(regex, this._escHtml(mergedData[key]));
     });
 
     return result;
@@ -1760,8 +1774,8 @@ window.NBDDocGen = {
           <div class="document-title">Roofing Proposal</div>
 
           <div class="document-subtitle">
-            <div><strong>Prepared for:</strong> ${merged.homeownerName}</div>
-            <div><strong>Property:</strong> ${merged.address}</div>
+            <div><strong>Prepared for:</strong> ${this._escHtml(merged.homeownerName)}</div>
+            <div><strong>Property:</strong> ${this._escHtml(merged.address)}</div>
             <div><strong>Date:</strong> ${merged.date}</div>
           </div>
 
@@ -1770,7 +1784,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Executive Summary</div>
               <div class="summary-text">
-                ${merged.projectDescription}
+                ${this._escHtml(merged.projectDescription)}
               </div>
             </div>
 
@@ -2351,10 +2365,10 @@ window.NBDDocGen = {
       .filter(([k,v]) => v && !skipFields.has(k) && typeof v === 'string' && v.trim())
       .map(([k,v]) => {
         const label = k.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).replace(/_/g, ' ');
-        return `<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;white-space:nowrap;width:180px;border-bottom:1px solid #f0f0f0;">${label}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${String(v).substring(0, 500)}</td></tr>`;
+        return `<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;white-space:nowrap;width:180px;border-bottom:1px solid #f0f0f0;">${this._escHtml(label)}</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">${this._escHtml(String(v).substring(0, 500))}</td></tr>`;
       }).join('');
 
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${typeName} — ${name || 'NBD Pro'}</title>
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${typeName} — ${this._escHtml(name || 'NBD Pro')}</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -2384,13 +2398,13 @@ table{width:100%;border-collapse:collapse;margin-bottom:16px;}
 </div>
 ${name || addr ? `<h2>Customer Information</h2>
 <table>
-  ${name ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Homeowner</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + name + '</td></tr>' : ''}
-  ${addr ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Address</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + addr + '</td></tr>' : ''}
-  ${phone ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Phone</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + phone + '</td></tr>' : ''}
-  ${email ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Email</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + email + '</td></tr>' : ''}
+  ${name ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Homeowner</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(name) + '</td></tr>' : ''}
+  ${addr ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Address</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(addr) + '</td></tr>' : ''}
+  ${phone ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Phone</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(phone) + '</td></tr>' : ''}
+  ${email ? '<tr><td style="padding:8px 12px;font-weight:600;color:#1e3a6e;width:180px;border-bottom:1px solid #f0f0f0;">Email</td><td style="padding:8px 12px;border-bottom:1px solid #f0f0f0;">' + this._escHtml(email) + '</td></tr>' : ''}
 </table>` : ''}
 ${fieldRows ? '<h2>Details</h2><table>' + fieldRows + '</table>' : ''}
-${desc ? '<h2>Description</h2><div class="desc">' + desc + '</div>' : ''}
+${desc ? '<h2>Description</h2><div class="desc">' + this._escHtml(desc) + '</div>' : ''}
 ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:12px;color:#666;">Total:</span> <span style="font-family:\'Barlow Condensed\',sans-serif;font-size:32px;font-weight:800;color:#e8720c;">' + (String(price).startsWith('$') ? price : '$' + price) + '</span></div>' : ''}
 <div class="sig-block">
   <div><div class="sig-line">Homeowner Signature</div><div style="margin-top:16px;"><div class="sig-line">Date</div></div></div>
@@ -2666,7 +2680,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
     if (window._leads && window._leads.length) {
       window._leads.forEach(l => {
         const name = ((l.firstName||'')+ ' ' + (l.lastName||'')).trim() || 'Unnamed';
-        leadOptions += `<option value="${l.id}">${name} — ${l.address||'No address'}</option>`;
+        leadOptions += `<option value="${this._escHtml(l.id)}">${this._escHtml(name)} — ${this._escHtml(l.address||'No address')}</option>`;
       });
     }
 

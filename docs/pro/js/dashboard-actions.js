@@ -367,6 +367,13 @@ function goTo(name, params = {}) {
   document.querySelectorAll('.crm-sec-btn').forEach(btn => btn.classList.remove('active'));
   const view = document.getElementById('view-'+name);
   const nav  = document.getElementById('nav-'+name);
+  // NEW-E1 hardening: an unknown route key (a stale bookmark, a renamed view,
+  // or a hand-typed #/<garbage> hash) has no `view-<name>` element at all —
+  // _hydrateViewTemplate no-ops on it — so the .view deactivation above would
+  // leave a blank screen with no view active. Fall back to the always-present
+  // CRM pipeline instead. The `name !== 'crm'` guard prevents infinite
+  // recursion in the impossible case that view-crm itself is missing.
+  if (!view && name !== 'crm') { goTo('crm'); return; }
   if(view) view.classList.add('active');
   if(nav)  nav.classList.add('active');
 
@@ -416,6 +423,31 @@ function goTo(name, params = {}) {
         }
       });
     });
+  }
+  if(name==='dash') {
+    // QA 2026-06-21 #9: the ops-overview KPI tiles (statLeads / statVal /
+    // statClosed / statEsts) are populated only as a side-effect of
+    // renderLeads / renderEstimatesList during BOOT. SPA route-enter to #/dash
+    // never refreshed them, so the overview showed the $0 HTML defaults until a
+    // full reload. Repopulate from the in-memory sets on every dash entry.
+    // renderEstimatesList runs first (it also writes statVal = estimate total),
+    // then renderLeads runs LAST so statVal ends as the pipeline value (matches
+    // boot). _filteredLeads is passed through so the hidden CRM filter state is
+    // preserved (renderLeads keeps it when the 2nd arg is the current filter).
+    try {
+      if (typeof window.renderEstimatesList === 'function') window.renderEstimatesList(window._estimates || []);
+      if (typeof window.renderLeads === 'function' && Array.isArray(window._leads)) window.renderLeads(window._leads, window._filteredLeads);
+    } catch (e) { console.warn('dash KPI refresh failed:', e); }
+    // QA 2026-06-21 #9b: the dashboard widget SECTIONS (hot-leads, smart-followup
+    // briefing, almost-there, stale-shares, engagement-cohort, bottleneck) render
+    // off the 'nbd:data-refreshed' signal, which fires during boot — BEFORE the
+    // view-dash template is hydrated, so their body elements didn't exist yet and
+    // the sections stayed stuck on 'Loading…' when reached via SPA route-enter
+    // (only a full page load fixed them). The template is hydrated by this point
+    // (_hydrateViewTemplate ran above), so re-emit the signal to make every
+    // widget re-render into its now-present body. Idempotent + already fires
+    // frequently in normal use (task/snooze/lead-load), so no new churn.
+    try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'dash-enter' } })); } catch (e) {}
   }
   if(name==='map') {
     if (!mapInited.map) {
@@ -809,7 +841,7 @@ if (typeof window.PhotoEngine === 'undefined' || typeof window.InspectionReportE
   };
   if (typeof window.PhotoEngine === 'undefined') {
     const _peStub = { __nbdLazyPhotosStub: true };
-    ['openCamera', 'openGallery', 'uploadOne', 'uploadFromFile', 'renderGallery', 'openLightbox'].forEach(function (m) {
+    ['openCamera', 'openGallery', 'uploadFromFile', 'renderGallery', 'openLightbox'].forEach(function (m) {
       _peStub[m] = function () {
         const a = arguments;
         _lazyPhotos(function () {
@@ -1338,29 +1370,28 @@ function _mCreate(kind) {
 }
 window._mCreate = _mCreate;
 
-// Photo create handler — uploads the captured file via the existing
-// PhotoEngine if available, otherwise stages it for the next lead
-// modal save. Best-effort: we don't want the popover entry point to
-// fail loudly if PhotoEngine isn't loaded on this surface.
+// Photo capture handler — shared by the mobile "+" create popover and the
+// view-photos shutter FAB's no-lead fallback. Both fire BEFORE any lead
+// exists, but a photo can only be stored against a lead
+// (PhotoEngine.uploadFromFile requires a leadId) and there is no
+// standalone-upload path. So route the rep to create/open a lead and add
+// photos from its gallery.
+//
+// Previously this called window.PhotoEngine.uploadOne — not a real
+// PhotoEngine method (only uploadFromFile exists) — and otherwise pushed
+// the file into window._pendingPhotoUploads, an array nothing ever
+// consumed. Either way the photo was silently dropped while a false
+// "Photo uploaded" / "Photo queued" toast claimed success.
 window._mCreatePhotoPicked = function (event) {
   try {
     const file = event && event.target && event.target.files && event.target.files[0];
     if (!file) return;
-    if (window.PhotoEngine && typeof window.PhotoEngine.uploadOne === 'function') {
-      window.PhotoEngine.uploadOne(file, {
-        source: 'mobile-create-popover'
-      });
-      if (typeof showToast === 'function') showToast('Photo uploaded', 'success');
-    } else {
-      // Stash on window so the next lead-modal save can attach it.
-      window._pendingPhotoUploads = window._pendingPhotoUploads || [];
-      window._pendingPhotoUploads.push(file);
-      if (typeof showToast === 'function') showToast('Photo queued — attach to a lead to save', 'info');
-    }
+    if (typeof openLeadModal === 'function') openLeadModal();
+    if (typeof showToast === 'function') showToast('Create or open a lead, then add photos from its gallery', 'info');
   } catch (e) {
-    console.warn('mobile photo create failed:', e && e.message);
+    console.warn('mobile photo create reroute failed:', e && e.message);
   } finally {
-    // Reset input so the same file can be re-picked.
+    // Reset input so the same file can be re-picked next time.
     if (event && event.target) event.target.value = '';
   }
 };

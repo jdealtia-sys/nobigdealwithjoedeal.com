@@ -499,7 +499,19 @@ window.goToMyLocation = goToMyLocation;
       _nbdUpdateLabels(t);
     }
   }
-  nbdApplyFont(localStorage.getItem('nbd-font') || 'nbd-default');
+  // Don't clobber a font chosen via the Settings grid. That picker (legacy
+  // prefs-boot, nbdApplyLegacyFont) writes localStorage 'nbd_font' (UNDERSCORE);
+  // this engine uses 'nbd-font' (HYPHEN) and boots LAST, so unconditionally
+  // applying 'nbd-default' here reverted the user's Settings font on every reload.
+  // Only auto-apply this engine's font when the user actually picked one here,
+  // or when no Settings-grid font is active.
+  (function(){
+    var mapsFont = localStorage.getItem('nbd-font');
+    var legacyFont = localStorage.getItem('nbd_font');
+    if (mapsFont) nbdApplyFont(mapsFont);
+    else if (!(legacyFont && legacyFont !== 'barlow')) nbdApplyFont('nbd-default');
+    // else: a Settings-grid font is active; prefs-boot already applied it — leave it.
+  })();
   nbdRenderCats();
 })();
 /* ── END NBD UNIFIED APPEARANCE ENGINE ── */

@@ -260,7 +260,23 @@
       const key = await _resolveCompanyKey();
       if (!key) return window._companyProfile; // not signed in yet — defaults/cache stand
       const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-      const snap = await getDoc(doc(window.db, 'companyProfile', key));
+      // QA 2026-06-21 #1: on a cold boot the Firestore WebChannel can still be
+      // establishing, so this first getDoc throws "client is offline" and the
+      // feature silently fell back to localStorage/defaults until a reload.
+      // Retry the transient before giving up. nbdRetryOffline is defined
+      // idempotently here so boot-script load order can't matter.
+      window.nbdRetryOffline = window.nbdRetryOffline || async function (fn, tries, delay) {
+        tries = tries || 3; delay = delay || 800;
+        for (let i = 0; ; i++) {
+          try { return await fn(); }
+          catch (e) {
+            const m = ((e && (e.code || e.message)) || '') + '';
+            if (i >= tries - 1 || !/offline|unavailable|deadline|backend|network/i.test(m)) throw e;
+            await new Promise(r => setTimeout(r, delay * (i + 1)));
+          }
+        }
+      };
+      const snap = await window.nbdRetryOffline(() => getDoc(doc(window.db, 'companyProfile', key)));
       if (snap && snap.exists()) {
         const remote = snap.data() || {};
         window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, remote);

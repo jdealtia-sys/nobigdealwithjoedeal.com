@@ -12,6 +12,10 @@ const firebaseConfig = {
   appId: "1:717435841570:web:c2338e11052c96fde02e7b"
 };
 
+// Escape user-controlled text (rep/member names — set from profile firstName/lastName,
+// so a teammate's name is peer-controlled) before innerHTML interpolation on the board.
+const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -193,9 +197,9 @@ function renderBoard(reps) {
 
     return '<div class="lb-row ' + rankClass + '">' +
       '<div class="rank">' + rankIcon + '</div>' +
-      '<div class="avatar">' + initials(name) + '</div>' +
+      '<div class="avatar">' + esc(initials(name)) + '</div>' +
       '<div class="lb-info">' +
-        '<div class="lb-name">' + name + '</div>' +
+        '<div class="lb-name">' + esc(name) + '</div>' +
         '<div class="lb-sub">' + sub + '</div>' +
       '</div>' +
       '<div class="lb-stat">' +
@@ -214,16 +218,19 @@ function renderFeed(metrics) {
 
   // Build recent activity from won leads and knocks
   const events = [];
+  // Escape lead/knock fields (name/address can originate from public intake) — the
+  // feed text mixes intentional <strong> markup with user data and is set via innerHTML.
+  const esc = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
   metrics.wonLeads.slice(0, 5).forEach(l => {
     const d = toDate(l.updatedAt);
-    if (d) events.push({ icon: '🏆', text: '<strong>Deal closed</strong> — ' + (l.name || l.address || 'Lead') + (l.jobValue ? ' · ' + fmtCurrency(parseFloat(l.jobValue)) : ''), time: d });
+    if (d) events.push({ icon: '🏆', text: '<strong>Deal closed</strong> — ' + esc(l.name || l.address || 'Lead') + (l.jobValue ? ' · ' + fmtCurrency(parseFloat(l.jobValue)) : ''), time: d });
   });
 
   const recentKnocks = metrics.knocks.filter(k => k.disposition === 'appointment').slice(0, 5);
   recentKnocks.forEach(k => {
     const d = toDate(k.createdAt);
-    if (d) events.push({ icon: '📋', text: '<strong>Appointment set</strong> — ' + (k.address || 'Address'), time: d });
+    if (d) events.push({ icon: '📋', text: '<strong>Appointment set</strong> — ' + esc(k.address || 'Address'), time: d });
   });
 
   events.sort((a, b) => b.time - a.time);

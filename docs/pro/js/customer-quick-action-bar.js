@@ -34,7 +34,7 @@
       && window.CustomerQuickActionBar.__sentinel === 'nbd-quick-action-v1') return;
 
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/customer\.html$/.test(PATH)) return;
+  if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
 
   const MOBILE_MAX_WIDTH = 640;
   let barEl = null;

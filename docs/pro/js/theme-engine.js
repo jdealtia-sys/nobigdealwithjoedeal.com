@@ -5315,7 +5315,11 @@
         try {
           const uid = (window._user && window._user.uid) || null;
           if (!uid || !window.db || !window.getDoc || !window.doc) return false;
-          window.getDoc(window.doc(window.db, 'userSettings', uid))
+          // QA 2026-06-21 #1: retry the transient cold-boot "client is offline"
+          // (WebChannel not yet up) so the saved theme actually hydrates instead
+          // of silently staying on the default until a reload. Falls back to a
+          // direct call if the retry helper hasn't loaded yet.
+          (window.nbdRetryOffline || (f => f()))(() => window.getDoc(window.doc(window.db, 'userSettings', uid)))
             .then(snap => {
               if (!snap.exists()) return;
               const remoteTheme = snap.data() && snap.data().theme;

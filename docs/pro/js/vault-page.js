@@ -447,7 +447,7 @@ function renderSessions() {
             color:var(--text);
             font-size:14px;
           "
-          oninput="filterSessions(this.value)"
+          data-v-action="filterSessions" data-v-pass="value"
         />
       </div>
       <div class="card-body" id="sessionsList" style="max-height:600px; overflow-y:auto;">
@@ -967,7 +967,7 @@ function renderSearch() {
           id="searchInput" 
           placeholder="Search sessions, directives, decisions, tasks..." 
           style="width:100%; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; color:var(--text); font-size:15px; font-family:'Barlow Condensed', sans-serif;"
-          oninput="executeSearch()"
+          data-v-action="executeSearch"
         >
       </div>
     </div>

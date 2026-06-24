@@ -159,8 +159,10 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Restores: Maps search/zone/spyglass/draw-search/save-drawing/material-takeoff/
   // solar/screenshot/angles, photo auto-detect, bulk select-all, lead retry-load,
   // doc upload, Ask Joe key+send+settings-key, cal-link share (SMS/email)+settings,
-  // and Quick-Add (use-location + add-lead). (saveCustomTheme intentionally NOT
-  // added — its function does not exist on window; that button needs a separate fix.)
+  // and Quick-Add (use-location + add-lead). (saveCustomTheme is now allowlisted
+  // below — 2026-06-20. The earlier "does not exist on window" note was a
+  // misdiagnosis: it's a top-level global in dashboard-custom-theme.js, reachable as
+  // window.saveCustomTheme, so only the missing allowlist entry kept SAVE THEME dead.)
   'searchMap', 'saveZone', 'spyglassSearch', 'searchDraw', 'saveDrawingToCustomer',
   'showMaterialTakeoff', 'runSolarAnalysis', 'screenshotMap', 'showAngles',
   'startAutoDetect', 'selectAllVisibleLeads', 'retryLoadLeads', 'saveDocUpload',
@@ -186,10 +188,13 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Appearance picker
   'nbdSetSize', 'nbdPickerTab', 'nbdComfortSet', 'nbdHowtoOpen', 'nbdHowtoClose',
   'nbdSaveCustom', 'nbdRandom', 'nbdPickerClose', 'nbdNavToggle', 'nbdCopyFS',
-  'nbdApplyFont', 'nbdApplyCustom', 'nbdPickerOpen',
+  // nbdApplyLegacyFont = the Settings 28-font grid applier. Renamed from nbdApplyFont
+  // (2026-06-20) to stop colliding with maps.js's theme-engine nbdApplyFont, which
+  // loaded later and shadowed window.nbdApplyFont → every Settings font card no-op'd.
+  'nbdApplyFont', 'nbdApplyLegacyFont', 'nbdApplyCustom', 'nbdPickerOpen',
   // Display-mode segmented toggle (Light/Dark/Auto) above the theme grid
   'nbdSetModePref',
-  'resetCustomTheme', 'resetSidebarCustomizer',
+  'saveCustomTheme', 'resetCustomTheme', 'resetSidebarCustomizer',
   // FAB / scoreboard tabs
   'fabToggle', 'switchScTab',
   // Daily-success / floors config

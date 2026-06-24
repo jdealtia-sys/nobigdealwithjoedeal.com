@@ -381,8 +381,12 @@ section('T-2: AI draft send-on-approve');
     /ai_drafts\/\{draftId\}[\s\S]{0,500}allow create, delete: if false/.test(rules));
 
   const panel = read(path.join(PRO_JS, 'customer-ai-drafts-panel.js'));
-  assert('panel path-gated to /pro/customer.html',
-    /\/\\\/pro\\\/customer\\\.html\$\//.test(panel) || /customer\\\.html\$/.test(panel));
+  // QA 2026-06-21 #5: the gate must match the canonical no-.html URL too
+  // (/pro/customer.html redirects to /pro/customer), so the regex is now
+  // /\/pro\/customer(?:\.html)?$/. The old assertion required the bare
+  // .html$ form and would have re-flagged the (correct) relaxed gate.
+  assert('panel path-gated to /pro/customer (optional .html)',
+    panel.includes('/pro\\/customer(?:\\.html)?$'));
   assert('panel reads pending drafts',
     /where\(['"]status['"],\s*['"]==['"],\s*['"]pending['"]\)/.test(panel));
   assert('panel approve writes status:approved via updateDoc',

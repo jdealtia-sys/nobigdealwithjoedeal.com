@@ -94,7 +94,7 @@ async function renderLeaderboard(){
   const medals = ['🥇', '🥈', '🥉'];
   const maxWon = sorted[0]?.won || 1;
 
-  const esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c])));
   lbEl.innerHTML = sorted.map((r, i) => {
     const rateStr = r.leads ? Math.round(r.won / r.leads * 100) + '%' : '—';
     const revStr = r.revenue > 0 ? '$' + (r.revenue >= 1000 ? (r.revenue / 1000).toFixed(1) + 'K' : Math.round(r.revenue)) : '$0';
@@ -341,7 +341,7 @@ async function loadDocs(){
     const snap = await getDocs(query(collection(window._db,'documents'), window.where('userId','==',_duid)));
     const docs = snap.docs.map(d=>({id:d.id,...d.data()}));
     if(!docs.length){ wrap.innerHTML='<div class="empty"><div class="empty-icon">📁</div>No uploaded documents yet.</div>'; return; }
-    const esc = window.nbdEsc || (s => String(s == null ? '' : s));
+    const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c])));
     wrap.innerHTML = docs.map(d=>{
       // Only allow http(s) URLs — prevents javascript: and data: schemes.
       const safeUrl = /^https?:/i.test(d.url || '') ? d.url : '#';

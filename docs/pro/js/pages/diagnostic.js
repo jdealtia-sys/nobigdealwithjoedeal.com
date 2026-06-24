@@ -9,7 +9,7 @@
  */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, collection, getDocs, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFirestore, collection, getDocs, query, where, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { connectEmulatorsIfLocal } from '../nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
 
 const results = document.getElementById('results');
@@ -49,7 +49,13 @@ try {
     if (user) {
       log('Auth State', true, `Logged in as: ${user.email}`);
       try {
-        const snap = await getDocs(query(collection(db, 'leads'), orderBy('createdAt', 'desc')));
+        // Owner-scope the query: the /leads read rule is isOwner(userId)||isAdmin(),
+        // so an unfiltered collection-wide read is permission-denied for normal
+        // (non-platform-admin) users — this self-test always FAILed with
+        // "Missing or insufficient permissions", falsely reporting the DB broken.
+        // Filtering by the signed-in uid matches the rule (and the existing
+        // leads [userId,createdAt] composite index serves it).
+        const snap = await getDocs(query(collection(db, 'leads'), where('userId', '==', user.uid), orderBy('createdAt', 'desc')));
         const leads = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(l => !l.deleted);
         log('Firestore - Leads', true, `Found ${leads.length} active leads:\n${JSON.stringify(leads.slice(0, 3), null, 2)}`);
 

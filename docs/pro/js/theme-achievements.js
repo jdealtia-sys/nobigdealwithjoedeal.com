@@ -166,7 +166,8 @@
         // Load from Firestore userSettings
         const uid = window._user?.uid;
         if (uid && window.db && window.getDoc && window.doc) {
-          const snap = await window.getDoc(window.doc(window.db, 'userSettings', uid));
+          // QA 2026-06-21 #1: retry transient cold-boot offline (WebChannel not up yet).
+          const snap = await (window.nbdRetryOffline || (f => f()))(() => window.getDoc(window.doc(window.db, 'userSettings', uid)));
           if (snap.exists() && snap.data().themeUnlocks) {
             snap.data().themeUnlocks.forEach(key => {
               window._themeUnlocks.add(key);
@@ -465,7 +466,7 @@
           // Count knocks from D2D collection
           if (window.collection && window.query && window.where && window.getDocs) {
             const knocksQ = window.query(window.collection(window.db, 'knocks'), window.where('userId', '==', uid));
-            const knocksSnap = await window.getDocs(knocksQ);
+            const knocksSnap = await (window.nbdRetryOffline || (f => f()))(() => window.getDocs(knocksQ));
             stats.totalKnocks = knocksSnap.size;
           }
         } catch (error) {

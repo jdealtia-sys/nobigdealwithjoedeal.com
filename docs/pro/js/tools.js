@@ -454,9 +454,12 @@ async function _qaCreateEverything(leadId, meta) {
       await window.addDoc(
         window.collection(db, 'leads', leadId, 'activity'),
         {
-          kind: 'lead_created',
+          // F-05: client activity must be type-in-allowlist + source:'rep'.
+          // Keep the original lead-source string in a non-reserved field.
+          type: 'lead_created',
+          source: 'rep',
           channel: 'quick-add',
-          source: meta?.source || '',
+          leadSource: meta?.source || '',
           damageType: meta?.damage || '',
           message: 'Lead created via Quick Add — needs enrichment',
           userId: uid,

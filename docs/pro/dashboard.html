@@ -1633,6 +1633,16 @@ body.professional-mode .mn-icon,
 body.professional-mode .empty-icon {
   display: none !important;
 }
+/* FIX (2026-06-20): professional-mode hides .ni-icon for a clean text-only look —
+   correct in the EXPANDED sidebar, where the text labels remain visible. But
+   sidebar-collapsed hides the labels too (font-size:0 on .ni, see #kanban-force-css),
+   leaving the icon as the ONLY content. Hiding it then blanks the entire 60px rail:
+   every nav item renders as an empty box and the nav becomes unusable. Keep nav
+   icons visible whenever the sidebar is collapsed, regardless of professional mode.
+   Higher specificity + !important beats the display:none rule above. */
+body.professional-mode.sidebar-collapsed .sidebar .ni .ni-icon{
+  display:inline-block!important;
+}
 /* Sidebar nav items — remove left gap where emoji was */
 body.professional-mode .ni { gap: 4px; }
 body.professional-mode .mn-item { gap: 1px; }
@@ -7138,7 +7148,7 @@ body.theme-frosted {
   <a href="/pro/landing.html" class="nnav-logo">
     <div class="nnav-mark">NBD</div>
     <div>
-      <div class="nnav-wordmark"><span style="color:var(--t);">NBD</span> <span class="fg-orange">PRO</span></div>
+      <div class="nnav-wordmark"><span style="color:#f5f7fa;">NBD</span> <span class="fg-orange">PRO</span></div>
     </div>
   </a>
 
@@ -10035,6 +10045,20 @@ body.theme-frosted {
           </div>
         </div>
 
+        <!-- Sidebar Tool Names (inverse of the rail collapse toggle) -->
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">Display</div><div class="panel-title">Sidebar Tool Names</div></div></div>
+          <div class="panel-body">
+            <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0;">
+              <input type="checkbox" id="sidebarLabelsToggle" style="accent-color:var(--orange);width:18px;height:18px;" data-on-change="nbdSetSidebarLabels" data-on-pass="checked">
+              <div>
+                <div style="font-size:13px;font-weight:600;color:var(--t);">Show tool names</div>
+                <div style="font-size:11px;color:var(--m);margin-top:2px;">Show the text label next to each sidebar icon. Turn off for a compact, icon-only rail (same as the collapse button on the sidebar).</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
         <!-- GX Effects: Glow & Animation -->
         <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">GX Effects</div><div class="panel-title">Glow & Animation</div></div></div>
@@ -12064,7 +12088,7 @@ body.theme-frosted {
      dashboard-actions.js because that file calls NBDUrl.customer(). -->
 <script defer src="js/nbd-url.js?v=1"></script>
 <script defer src="js/dashboard-state.js?v=1"></script>
-<script defer src="js/dashboard-api.js?v=1"></script>
+<script defer src="js/dashboard-api.js?v=2"></script>
 <script defer src="js/dashboard-widgets.js?v=2"></script>
 <script defer src="js/dashboard-ui.js?v=2"></script>
 <script defer src="js/dashboard-actions.js?v=3"></script>
@@ -12837,7 +12861,7 @@ body.theme-frosted {
 <script defer src="js/nbd-input-guards.js?v=1"></script>
 <!-- LAZY: photo-engine loads via ScriptLoader's `photos` bundle (PR 2d). -->
 <script defer src="js/photo-ai.js?v=2"></script>
-<script defer src="js/invoice-pipeline.js?v=3"></script>
+<script defer src="js/invoice-pipeline.js?v=4"></script>
 <!-- LAZY: inspection-report-engine loads via the `photos` bundle (PR 2d). -->
 <!-- Step 4d (2026-05-16): maps.js split into three sibling modules
      loaded in order before the thin maps.js shim. See maps.js
@@ -12878,7 +12902,7 @@ body.theme-frosted {
      window._leadDoc / _customerId / _customerEstimates / _allPhotos, which
      the dashboard stages just-in-time in _stageWindowStateForLead. -->
 <script defer src="js/share-gallery.js?v=2"></script>
-<script defer src="js/analytics-kpi.js?v=2"></script>
+<script defer src="js/analytics-kpi.js?v=3"></script>
 <!-- T-3: AI texting analytics card (renders on the board/analytics view) -->
 <script defer src="js/ai-texting-stats-card.js?v=1"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
