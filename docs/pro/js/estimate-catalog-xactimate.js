@@ -1168,7 +1168,7 @@
       tags:['specialty','copper','finial','historic'] });
 
   // ═════════════════════════════════════════════════════════
-  // 20. WARRANTY & DOCUMENTATION (4)
+  // 20. WARRANTY & DOCUMENTATION (3)
   // ═════════════════════════════════════════════════════════
 
   // NBD registers GAF System Plus (available to GAF Certified contractors).
@@ -1180,15 +1180,13 @@
       desc:'GAF System Plus — material + workmanship system warranty, registerable by GAF Certified contractors (what NBD holds).', tier:'best',
       reason:'GAF System Plus Limited Warranty covers the full system; NBD can register it as a GAF Certified contractor.',
       tags:['warranty','gaf','system-plus','best-tier'], retailDefault:true });
-  // OC "Platinum Preferred" requires Owens Corning PLATINUM PREFERRED contractor
-  // status — Joe's OC tier is undocumented, so quoting Platinum Preferred may
-  // promise coverage NBD can't register (same risk as Golden Pledge was).
-  // Conservatively renamed off the specific cert tier pending confirmation.
-  // If Joe IS OC Platinum Preferred, restore the original name. [accuracy 2026-06-24]
-  A({ code:'WAR PP-OC', name:'OC Preferred Protection Limited Warranty', sub:'warranty', cat:'warranty', unit:'JOB', mat:285, lab:85,
-      tier:'best', desc:'Owens Corning enhanced system warranty — confirm the OC contractor tier (Preferred vs Platinum Preferred) NBD is credentialed to register.',
-      reason:'Owens Corning system warranty registered per NBD contractor tier.',
-      tags:['warranty','owens-corning','preferred','best-tier'] });
+  // OC system warranties (Preferred / Platinum Preferred) require Owens Corning
+  // contractor-network status, which Joe holds NONE of — quoting any OC system
+  // warranty would promise coverage NBD cannot register. OC shingles still carry
+  // their standard manufacturer warranty (included, no cert), filed via the
+  // generic "Manufacturer Warranty Registration" line below. The cert-gated OC
+  // system-warranty line was removed for this reason. (Re-add only if Joe joins
+  // the OC contractor network.)  [accuracy fix 2026-06-24 — confirmed no OC certs]
   A({ code:'WAR MFG', name:'Manufacturer Warranty Registration', sub:'warranty', cat:'warranty', unit:'JOB', mat:0, lab:65,
       tier:'any', reason:'Manufacturer warranty registration filing on customer behalf.',
       tags:['warranty','registration','documentation'], insuranceDefault:true });
