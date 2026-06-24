@@ -36,6 +36,7 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
 
@@ -245,7 +246,7 @@ exports.stormBriefing_onAlertSent = onDocumentCreated(
     const alertId = data.alertId;
     if (!alertId) return;
 
-    const db = admin.firestore();
+    const db = getFirestore();
 
     // Try to reserve. If another invocation won, return early.
     let reserved;

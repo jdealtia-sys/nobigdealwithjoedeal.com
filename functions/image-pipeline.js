@@ -61,6 +61,8 @@
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
 const { FieldValue } = require('firebase-admin/firestore');
 const path = require('path');
 const os = require('os');
@@ -123,7 +125,7 @@ exports.onPhotoUploaded = onObjectFinalized(
     }
 
     const bucketName = object.bucket;
-    const bucket = admin.storage().bucket(bucketName);
+    const bucket = getStorage().bucket(bucketName);
     const sourceFile = bucket.file(objectName);
 
     // Strip extension for the variant base name. We use the
@@ -209,7 +211,7 @@ exports.onPhotoUploaded = onObjectFinalized(
     // Stamp the photo doc. The upload code in customer.html writes
     // `storagePath` alongside the doc; we use that to find the
     // record without needing to crack the URL.
-    const db = admin.firestore();
+    const db = getFirestore();
     try {
       const snap = await db
         .collection('photos')

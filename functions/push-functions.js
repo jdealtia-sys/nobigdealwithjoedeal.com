@@ -23,10 +23,12 @@ const { onDocumentCreated, onDocumentUpdated } = require('firebase-functions/v2/
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getMessaging } = require('firebase-admin/messaging');
 const { FieldValue } = require('firebase-admin/firestore');
 
-const db = admin.firestore();
-const messaging = admin.messaging();
+const db = getFirestore();
+const messaging = getMessaging();
 
 // ══════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -308,7 +310,7 @@ exports.onAppointmentReminder = onSchedule(
                       .where('type', '==', 'appointmentReminder')
                       .where('details.leadId', '==', leadId)
                       .where('sentAt', '>',
-                        admin.firestore.Timestamp.fromDate(
+                        Timestamp.fromDate(
                           new Date(now.getTime() - idempotencyWindowMs)))
                       .limit(1).get();
                     if (!recentLog.empty) {

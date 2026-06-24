@@ -23,6 +23,9 @@ const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https')
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
+const { getStorage } = require('firebase-admin/storage');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 
@@ -63,8 +66,8 @@ exports.auditLogRetentionCron = onSchedule(
     memory: '256MiB'
   },
   async () => {
-    const db = admin.firestore();
-    const cutoff = admin.firestore.Timestamp.fromMillis(
+    const db = getFirestore();
+    const cutoff = Timestamp.fromMillis(
       Date.now() - AUDIT_LOG_RETENTION_DAYS * 86_400_000
     );
 
@@ -164,7 +167,7 @@ exports.exportMyData = onCall(
       throw e;
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const out = {
       uid,
       generatedAt: new Date().toISOString(),
@@ -255,7 +258,7 @@ exports.exportMyData = onCall(
     // from blowing the export timeout; users over that limit get a
     // `truncated: true` marker per prefix.
     try {
-      const bucket = admin.storage().bucket();
+      const bucket = getStorage().bucket();
       for (const prefix of STORAGE_PREFIXES) {
         try {
           const [files] = await bucket.getFiles({
@@ -307,7 +310,7 @@ exports.exportMyData = onCall(
 
     // ── (6) api_usage (last 90 days) ──
     try {
-      const since = admin.firestore.Timestamp.fromMillis(Date.now() - 90 * 86_400_000);
+      const since = Timestamp.fromMillis(Date.now() - 90 * 86_400_000);
       const snap = await db.collection('api_usage')
         .where('uid', '==', uid)
         .where('timestamp', '>', since)
@@ -324,7 +327,7 @@ exports.exportMyData = onCall(
 
     // Write to Storage under docs/{uid}/... so the existing rules
     // apply (owner read).
-    const bucket = admin.storage().bucket();
+    const bucket = getStorage().bucket();
     const objectName = `docs/${uid}/gdpr-export-${Date.now()}.json`;
     const file = bucket.file(objectName);
     await file.save(body, {
@@ -374,18 +377,18 @@ exports.requestAccountErasure = onCall(
 
     const token = crypto.randomBytes(32).toString('hex');
     const hash  = crypto.createHash('sha256').update(token).digest('hex');
-    const db = admin.firestore();
+    const db = getFirestore();
     await db.doc('account_erasures/' + uid).set({
       tokenHash: hash,
       requestedAt: FieldValue.serverTimestamp(),
-      expiresAt: admin.firestore.Timestamp.fromMillis(Date.now() + 24 * 3_600_000),
+      expiresAt: Timestamp.fromMillis(Date.now() + 24 * 3_600_000),
       confirmed: false
     });
 
     // Email the link. The email-functions module is already wired
     // with Resend — we just enqueue a send job.
     try {
-      const userRecord = await admin.auth().getUser(uid);
+      const userRecord = await getAuth().getUser(uid);
       const email = userRecord.email;
       const confirmUrl =
         'https://nobigdealwithjoedeal.com/pro/account-erasure?uid=' +
@@ -543,7 +546,7 @@ exports.confirmAccountErasure = onRequest(
       return;
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const hash = crypto.createHash('sha256').update(token).digest('hex');
     const reqRef = db.doc('account_erasures/' + uid);
     const reqSnap = await reqRef.get();
@@ -651,7 +654,7 @@ exports.confirmAccountErasure = onRequest(
 
     // ── (4) Storage prefix sweeps ──
     try {
-      const bucket = admin.storage().bucket();
+      const bucket = getStorage().bucket();
       for (const prefix of STORAGE_PREFIXES) {
         try {
           await bucket.deleteFiles({ prefix: prefix + '/' + uid + '/', force: true });
@@ -672,8 +675,8 @@ exports.confirmAccountErasure = onRequest(
     // Disable the Auth account (don't delete — we keep the uid so
     // future fraud investigations can correlate).
     try {
-      await admin.auth().updateUser(uid, { disabled: true });
-      await admin.auth().revokeRefreshTokens(uid);
+      await getAuth().updateUser(uid, { disabled: true });
+      await getAuth().revokeRefreshTokens(uid);
     } catch (e) {
       logger.warn('erasure: auth disable failed', { err: e.message });
     }

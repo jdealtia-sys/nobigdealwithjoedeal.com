@@ -15,6 +15,8 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { enforceRateLimit, clientIp } = require('../integrations/upstash-ratelimit');
@@ -62,7 +64,7 @@ exports.validateAccessCode = onCall(
       throw new HttpsError('invalid-argument', 'Code not recognized');
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const codeRef = db.collection('access_codes').doc(normalized);
     const codeSnap = await codeRef.get();
     if (!codeSnap.exists) {
@@ -92,10 +94,10 @@ exports.validateAccessCode = onCall(
       // Look up or create the user — but do not overwrite passwords.
       let userRecord;
       try {
-        userRecord = await admin.auth().getUserByEmail(email);
+        userRecord = await getAuth().getUserByEmail(email);
       } catch (e) {
         if (e.code === 'auth/user-not-found') {
-          userRecord = await admin.auth().createUser({
+          userRecord = await getAuth().createUser({
             email,
             emailVerified: false,
             displayName: code.displayName || 'NBD Member',
@@ -106,7 +108,7 @@ exports.validateAccessCode = onCall(
       }
 
       // Set role claim (never admin).
-      await admin.auth().setCustomUserClaims(userRecord.uid, { role });
+      await getAuth().setCustomUserClaims(userRecord.uid, { role });
 
       // Create subscription doc via admin SDK. Trust only the fields from the
       // Firestore-stored access code record.
@@ -120,7 +122,7 @@ exports.validateAccessCode = onCall(
       };
       if (typeof code.trialDays === 'number' && code.trialDays > 0) {
         const trialEnd = new Date(Date.now() + code.trialDays * 86_400_000);
-        subData.trialEndsAt = admin.firestore.Timestamp.fromDate(trialEnd);
+        subData.trialEndsAt = Timestamp.fromDate(trialEnd);
       }
       const subRef = db.doc(`subscriptions/${userRecord.uid}`);
       if (!(await subRef.get()).exists) {
@@ -147,7 +149,7 @@ exports.validateAccessCode = onCall(
       });
 
       // Mint a short-lived custom token. Client exchanges via signInWithCustomToken.
-      const customToken = await admin.auth().createCustomToken(userRecord.uid, { role });
+      const customToken = await getAuth().createCustomToken(userRecord.uid, { role });
       logger.info('access_code_redeemed', { normalized, uid: userRecord.uid, role });
       return { success: true, customToken, role };
     } catch (e) {

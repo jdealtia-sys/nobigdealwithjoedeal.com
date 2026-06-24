@@ -70,7 +70,7 @@ section('Wave B4+B5: revoke / regenerate portal link');
   assert('revokePortalToken callable exported',
     /exports\.revokePortalToken\s*=/.test(psrc));
   assert('revoke flips expiresAt to past',
-    /expiresAt: admin\.firestore\.Timestamp\.fromMillis\(Date\.now\(\) - 1\)/.test(psrc));
+    /expiresAt: (?:admin\.firestore\.)?Timestamp\.fromMillis\(Date\.now\(\) - 1\)/.test(psrc));
   // Audit batch 10: also search dashboard-main.js for the extracted
   // helper definition (the inline button still lives in dashboard.html).
   const dash = readDashboard();

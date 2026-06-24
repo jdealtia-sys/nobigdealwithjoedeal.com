@@ -24,6 +24,7 @@ const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
@@ -144,7 +145,7 @@ exports.stormReportEmail = onDocumentCreated(
     const ref = snap.ref;
     let claimed = false;
     try {
-      claimed = await admin.firestore().runTransaction(async (tx) => {
+      claimed = await getFirestore().runTransaction(async (tx) => {
         const fresh = await tx.get(ref);
         if (!fresh.exists) return false;
         if (fresh.get('reportEmailedAt')) return false; // already handled

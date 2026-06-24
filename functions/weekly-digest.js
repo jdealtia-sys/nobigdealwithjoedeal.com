@@ -24,6 +24,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { FieldPath, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
@@ -234,7 +235,7 @@ exports.weeklyDigest = onSchedule(
   },
   async () => {
     const enabled = process.env.WEEKLY_DIGEST_ENABLED === 'true';
-    const db = admin.firestore();
+    const db = getFirestore();
 
     const resend = enabled && process.env.RESEND_API_KEY
       ? new Resend(process.env.RESEND_API_KEY)
@@ -256,7 +257,7 @@ exports.weeklyDigest = onSchedule(
     let userCursor = null;
     while (true) {
       let uq = db.collection('users')
-        .orderBy(admin.firestore.FieldPath.documentId())
+        .orderBy(FieldPath.documentId())
         .limit(500);
       if (userCursor) uq = uq.startAfter(userCursor);
       const usersSnap = await uq.get();

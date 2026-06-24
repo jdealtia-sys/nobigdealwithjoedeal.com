@@ -16,7 +16,10 @@ const { onDocumentUpdated } = require('firebase-functions/v2/firestore');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
-// Modular FieldValue: admin.firestore.FieldValue is undefined inside the
+const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
+const { getMessaging } = require('firebase-admin/messaging');
+// Modular FieldValue: FieldValue is undefined inside the
 // Functions emulator runtime (see PR #556 / emulator-compat). The modular
 // import works in BOTH prod and the emulator, so T-2's send trigger can be
 // exercised against the emulator. Existing prod code in this file still uses
@@ -138,7 +141,7 @@ async function verifyAuth(req) {
   if (!idToken) return null;
 
   try {
-    return await admin.auth().verifyIdToken(idToken);
+    return await getAuth().verifyIdToken(idToken);
   } catch (e) {
     logger.warn('sms_auth_verify_failed', { err: e.message });
     return null;
@@ -188,7 +191,7 @@ exports.sendSMS = onRequest(
     // C-02: paid-subscription + email-verify gate. Rejected callers
     // NEVER reach the per-uid rate-limit increment below, so a
     // failed gate doesn't burn their budget.
-    const subGate = await requirePaidSubscription(admin.firestore(), decoded);
+    const subGate = await requirePaidSubscription(getFirestore(), decoded);
     if (!subGate.ok) {
       res.status(subGate.status).json({ error: subGate.error });
       return;
@@ -230,7 +233,7 @@ exports.sendSMS = onRequest(
     // them again — civil penalties per message are steep. Store
     // lookup is fast (single doc get).
     if (toDigits) {
-      const optOut = await admin.firestore().doc('sms_opt_outs/' + toDigits).get();
+      const optOut = await getFirestore().doc('sms_opt_outs/' + toDigits).get();
       if (optOut.exists) {
         res.status(403).json({
           error: 'This recipient has opted out of SMS (replied STOP). Contact them by phone or email.'
@@ -272,7 +275,7 @@ exports.sendSMS = onRequest(
       });
 
       // Log to Firestore
-      const db = admin.firestore();
+      const db = getFirestore();
       await logSMSToFirestore(db, to, body, decoded.uid, leadId || null, 'sent', message.sid);
 
       res.json({
@@ -284,7 +287,7 @@ exports.sendSMS = onRequest(
       logger.error('sendSMS error', { err: e.message });
 
       // Log failure
-      const db = admin.firestore();
+      const db = getFirestore();
       await logSMSToFirestore(db, to, body, decoded.uid, leadId || null, 'failed');
 
       res.status(500).json({
@@ -325,7 +328,7 @@ exports.sendD2DSMS = onRequest(
     }
 
     // C-02: paid-subscription + email-verify gate (see sendSMS).
-    const subGate = await requirePaidSubscription(admin.firestore(), decoded);
+    const subGate = await requirePaidSubscription(getFirestore(), decoded);
     if (!subGate.ok) {
       res.status(subGate.status).json({ error: subGate.error });
       return;
@@ -354,7 +357,7 @@ exports.sendD2DSMS = onRequest(
     }
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
 
       // C-01: collection is `knocks` (matches firestore.rules:282,
       // functions/index.js:2217,2448, seed-demo.js:487, and every
@@ -420,7 +423,7 @@ exports.sendD2DSMS = onRequest(
       }
       // F3: TCPA — check opt-out list before sending.
       if (toDigits) {
-        const optOut = await admin.firestore().doc('sms_opt_outs/' + toDigits).get();
+        const optOut = await getFirestore().doc('sms_opt_outs/' + toDigits).get();
         if (optOut.exists) {
           res.status(403).json({
             error: 'This number has opted out of SMS (replied STOP).'
@@ -549,7 +552,7 @@ exports.incomingSMS = onRequest(
         return;
       }
 
-      const db = admin.firestore();
+      const db = getFirestore();
 
       // F3: TCPA compliance. Any of the opt-out keywords
       // (per CTIA Short Code Monitoring Handbook § 5.2) must be
@@ -687,7 +690,7 @@ exports.incomingSMS = onRequest(
             const token = tokenDoc.data().token;
 
             try {
-              await admin.messaging().send({
+              await getMessaging().send({
                 token,
                 notification: {
                   title: `New Message from ${lead.firstName || 'Customer'}`,
@@ -754,7 +757,7 @@ exports.checkStormAlerts = onSchedule(
     memory: '256MiB'
   },
   async (event) => {
-    const db = admin.firestore();
+    const db = getFirestore();
 
     try {
       // Get all active subscribers
@@ -962,7 +965,7 @@ exports.onAiDraftApproved = onDocumentUpdated(
     if (after.status !== 'approved') return;
 
     const { leadId, draftId } = event.params;
-    const db = admin.firestore();
+    const db = getFirestore();
     const draftRef = db.doc(`leads/${leadId}/ai_drafts/${draftId}`);
 
     const fail = (reason, detail) => draftRef.update({

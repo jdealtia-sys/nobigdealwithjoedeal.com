@@ -40,6 +40,7 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 
@@ -116,7 +117,7 @@ exports.submitReferral = onRequest(
       return bad(res, 400, 'Phone needs 10-15 digits');
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
 
     // ─── Resolve the source customer ────────────────────────────
     // Try customerId first; if no match, fall back to raw lead id.

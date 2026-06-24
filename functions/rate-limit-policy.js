@@ -168,8 +168,10 @@ function guardHttp(name, handler) {
     if (policy.uidLimit > 0 && m) {
       try {
         const admin = require('firebase-admin');
-        if (!admin.apps.length) admin.initializeApp();
-        const decoded = await admin.auth().verifyIdToken(m[1]).catch(() => null);
+        const { getAuth } = require('firebase-admin/auth');
+        const { getApps } = require('firebase-admin/app');
+        if (!getApps().length) admin.initializeApp();
+        const decoded = await getAuth().verifyIdToken(m[1]).catch(() => null);
         if (decoded?.uid) {
           await enforceRateLimit(name + ':uid', decoded.uid, policy.uidLimit, policy.uidWindow);
         }

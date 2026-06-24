@@ -21,6 +21,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');
@@ -110,7 +111,7 @@ exports.lookupParcel = onCall(
       throw new HttpsError('failed-precondition', 'Parcel provider not configured.');
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const key = addrHash(address);
     const cacheRef = db.doc(`parcel_cache/${key}`);
     const cache = await cacheRef.get();

@@ -15,7 +15,8 @@
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
-// Modular FieldValue import — admin.firestore.FieldValue is undefined under the
+const { getFirestore } = require('firebase-admin/firestore');
+// Modular FieldValue import — FieldValue is undefined under the
 // emulator runtime, so submitPublicLead 500'd on a valid write (see
 // tests/public-intake.test.js). The modular path works in both prod and
 // emulator. Same pattern as lead-bridge.js.
@@ -298,14 +299,14 @@ exports.submitPublicLead = onRequest(
       .trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 64);
     if (_cid) {
       try {
-        const known = await admin.firestore().collection('companies').doc(_cid).get();
+        const known = await getFirestore().collection('companies').doc(_cid).get();
         if (!known.exists) _cid = '';
       } catch (_) { _cid = ''; }
     }
     if (_cid) data.companyId = _cid;
 
     try {
-      const ref = await admin.firestore().collection(spec.collection).add(data);
+      const ref = await getFirestore().collection(spec.collection).add(data);
       logger.info('submitPublicLead', { kind, id: ref.id });
       res.status(200).json({ success: true, id: ref.id });
     } catch (e) {

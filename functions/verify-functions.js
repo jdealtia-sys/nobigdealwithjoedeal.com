@@ -30,6 +30,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const twilio = require('twilio');
 const { enforceRateLimit, clientIp } = require('./rate-limit');
@@ -112,7 +113,7 @@ exports.sendVerificationCode = onCall(
     }
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
 
       // Per-phone cap — 3 OTP sends per 10 minutes.
       const allowed = await checkOTPRateLimit(db, formatted);
@@ -210,7 +211,7 @@ exports.verifyCode = onCall(
 
       if (check.status === 'approved') {
         // Log successful verification
-        const db = admin.firestore();
+        const db = getFirestore();
         await db.collection('verified_phones').doc(formatted).set({
           verifiedAt: FieldValue.serverTimestamp(),
           phone: formatted
@@ -278,7 +279,7 @@ exports.notifyNewLead = onCall(
     // in the payload — the old code just echoed whatever the client sent.
     let trulyVerified = false;
     try {
-      const vSnap = await admin.firestore().doc(`verified_phones/${formattedLeadPhone}`).get();
+      const vSnap = await getFirestore().doc(`verified_phones/${formattedLeadPhone}`).get();
       trulyVerified = vSnap.exists;
     } catch (_) {}
 

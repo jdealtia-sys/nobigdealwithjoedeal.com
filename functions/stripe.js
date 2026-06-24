@@ -20,6 +20,8 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 const Stripe = require('stripe');
 
@@ -47,12 +49,12 @@ async function mergeCustomClaims(uid, patch) {
   // this helper exists to prevent — so abort and let the next billing event
   // re-sync (the subscriptions/{uid} doc is written separately and survives).
   let existing;
-  try { existing = (await admin.auth().getUser(uid)).customClaims || {}; }
+  try { existing = (await getAuth().getUser(uid)).customClaims || {}; }
   catch (e) {
     logger.error('mergeCustomClaims_abort_getUser_failed', { uid, err: e.message });
     return;
   }
-  await admin.auth().setCustomUserClaims(uid, { ...existing, ...patch });
+  await getAuth().setCustomUserClaims(uid, { ...existing, ...patch });
 }
 
 // Stripe secrets. Redeclared here because defineSecret scope is
@@ -227,7 +229,7 @@ exports.stripeWebhook = onRequest(
     }
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
 
       // ── Idempotency guard ──
       // Stripe retries webhooks up to 15 times. F-07: the previous
@@ -477,7 +479,7 @@ exports.stripeWebhook = onRequest(
           // channel, and stamp a lead activity row if the invoice
           // has a leadId on its metadata (auto-invoice C5 sets it).
           try {
-            const userRecord = await admin.auth().getUser(uid);
+            const userRecord = await getAuth().getUser(uid);
             const email = userRecord.email;
             const leadId = (invoice.metadata && invoice.metadata.leadId) || null;
             const estimateId = (invoice.metadata && invoice.metadata.estimateId) || null;
@@ -602,7 +604,7 @@ exports.createCustomerPortalSession = onRequest(
     const { decoded } = authResult;
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
       const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
 
       if (!subscriptionSnap.exists) {
@@ -669,7 +671,7 @@ exports.getSubscriptionStatus = onRequest(
     const { decoded } = authResult;
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
       const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
 
       if (!subscriptionSnap.exists) {
@@ -727,7 +729,7 @@ exports.createStripePaymentLink = onRequest(
       }
 
       // Fetch invoice from Firestore
-      const db = admin.firestore();
+      const db = getFirestore();
       const invoiceSnap = await db.collection('invoices').doc(invoiceId).get();
 
       if (!invoiceSnap.exists) {
@@ -919,7 +921,7 @@ exports.invoiceWebhook = onRequest(
       // future side effects (receipt emails, Slack notifications,
       // analytics events) MUST NOT fire twice — so gate the whole
       // handler behind an atomic create() that fails on duplicate.
-      const db = admin.firestore();
+      const db = getFirestore();
       const eventRef = db.doc(`stripe_events/${event.id}`);
       try {
         await eventRef.create({

@@ -15,6 +15,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { enforceRateLimit, httpRateLimit } = require('../integrations/upstash-ratelimit');
@@ -82,7 +83,7 @@ exports.claudeProxy = onRequest(
       }
 
       // Subscription gate — server-trusted Firestore doc written only by Stripe webhook.
-      const subSnap = await admin.firestore().doc(`subscriptions/${decoded.uid}`).get();
+      const subSnap = await getFirestore().doc(`subscriptions/${decoded.uid}`).get();
       const sub = subSnap.exists ? subSnap.data() : null;
       const hasPaidPlan = sub && sub.plan && sub.plan !== 'free' && sub.status === 'active';
       if (!isAdmin && !hasPaidPlan) {
@@ -157,9 +158,9 @@ exports.claudeProxy = onRequest(
       // past the cap.
       const callerCompanyId = decoded.companyId || decoded.uid; // solo op = own company
       const dayKey = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
-      const uidCounterRef = admin.firestore()
+      const uidCounterRef = getFirestore()
         .doc(`api_usage_daily/${dayKey}__uid__${decoded.uid}`);
-      const coCounterRef  = admin.firestore()
+      const coCounterRef  = getFirestore()
         .doc(`api_usage_daily/${dayKey}__co__${callerCompanyId}`);
       const plan = (sub && sub.plan) || 'lite';
       const companyCap = CLAUDE_COMPANY_BUDGET[plan] ?? CLAUDE_COMPANY_BUDGET_DEFAULT;
@@ -169,7 +170,7 @@ exports.claudeProxy = onRequest(
         CLAUDE_RESERVATION_MAX
       );
       const reserveResult = await reserveClaudeBudget(
-        admin.firestore(), uidCounterRef, coCounterRef, reservation,
+        getFirestore(), uidCounterRef, coCounterRef, reservation,
         {
           isAdmin,
           uidCap: CLAUDE_DAILY_TOKEN_BUDGET,
@@ -243,7 +244,7 @@ exports.claudeProxy = onRequest(
         const delta  = total - reservation;
         const srv = FieldValue.serverTimestamp();
         await Promise.all([
-          admin.firestore().collection('api_usage').add({
+          getFirestore().collection('api_usage').add({
             uid: decoded.uid,
             companyId: callerCompanyId,   // H-5: per-company budget query
             leadId,                        // C6: per-lead cost attribution

@@ -27,6 +27,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -55,7 +56,7 @@ exports.emailQueueWorker = onSchedule(
 
     const { Resend } = require('resend');
     const resend = new Resend(resendKey);
-    const db = admin.firestore();
+    const db = getFirestore();
 
     // Reaper (Audit #4 / 2.2): re-queue rows stuck in 'sending'. A tick
     // that crashed or timed out after claiming a row but before writing
@@ -69,7 +70,7 @@ exports.emailQueueWorker = onSchedule(
     // drop, and bounded by MAX_ATTEMPTS.
     let requeued = 0;
     try {
-      const staleCutoff = admin.firestore.Timestamp.fromMillis(Date.now() - 10 * 60_000);
+      const staleCutoff = Timestamp.fromMillis(Date.now() - 10 * 60_000);
       const stuck = await db.collection('email_queue')
         .where('status', '==', 'sending')
         .where('claimedAt', '<', staleCutoff)

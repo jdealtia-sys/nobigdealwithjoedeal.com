@@ -36,7 +36,8 @@
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
-const { FieldValue } = require('firebase-admin/firestore');
+const { FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 const { callableRateLimit } = require('./shared');
 
@@ -87,7 +88,7 @@ exports.createDealAcceptToken = onCall(
       throw new HttpsError('invalid-argument', 'A valid dealId is required');
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     // Owner-scope: the rep must own the deal (or be platform admin).
     const dealSnap = await db.doc(`deal_rooms/${dealId}`).get();
     if (!dealSnap.exists) throw new HttpsError('not-found', 'Deal not found');
@@ -111,7 +112,7 @@ exports.createDealAcceptToken = onCall(
 
     const now = Date.now();
     const ttlDays = 14;
-    const expiresAt = admin.firestore.Timestamp.fromMillis(now + ttlDays * 86_400_000);
+    const expiresAt = Timestamp.fromMillis(now + ttlDays * 86_400_000);
     const token = mintToken();
 
     await db.doc(`deal_accept_tokens/${token}`).set({
@@ -156,7 +157,7 @@ exports.getDealRoom = onRequest(
     // Per-IP rate limit — stops token brute-forcing.
     if (!(await httpRateLimit(req, res, 'dealroom-get:ip', 30, 60_000))) return;
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokSnap = await db.doc(`deal_accept_tokens/${token}`).get();
     if (!tokSnap.exists) { errPage(404, 'This deal link is invalid.'); return; }
     const tok = tokSnap.data();
@@ -173,7 +174,7 @@ exports.getDealRoom = onRequest(
 
     let html = '';
     try {
-      const [buf] = await admin.storage().bucket().file(tok.htmlPath).download();
+      const [buf] = await getStorage().bucket().file(tok.htmlPath).download();
       html = buf.toString('utf8');
     } catch (e) {
       logger.error('[getDealRoom] html fetch failed', { token: token.slice(0, 6), err: e.message });
@@ -234,7 +235,7 @@ exports.submitDealAcceptance = onRequest(
     }
     if (signature.length > 600 * 1024) { res.status(413).json({ error: 'Signature too large' }); return; }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const tokRef = db.doc(`deal_accept_tokens/${token}`);
 
     // ATOMIC single-use burn: flip pending → accepted inside a transaction so

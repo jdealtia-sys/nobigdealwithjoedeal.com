@@ -18,6 +18,7 @@
 'use strict';
 
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { HttpsError } = require('firebase-functions/v2/https');
 
@@ -209,7 +210,7 @@ async function requireTeamAdmin(request, targetCompanyId = null) {
   }
 
   // Verify ownership against the company doc if one exists.
-  const db = admin.firestore();
+  const db = getFirestore();
   const companyRef = db.doc(`companies/${companyId}`);
   const companySnap = await companyRef.get();
   const ownerId = companySnap.exists ? (companySnap.data().ownerId || null) : null;

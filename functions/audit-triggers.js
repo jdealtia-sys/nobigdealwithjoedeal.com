@@ -27,7 +27,8 @@
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
-// Modular FieldValue import — admin.firestore.FieldValue is undefined under the
+const { getFirestore } = require('firebase-admin/firestore');
+// Modular FieldValue import — FieldValue is undefined under the
 // emulator runtime, so every audit_log write threw and was swallowed by the
 // try/catch below ("audit_log write failed"). The modular path works in both
 // prod and emulator. Same pattern as lead-bridge.js / sms-functions.js.
@@ -75,7 +76,7 @@ function diff(before, after) {
 
 async function writeAuditEntry(entry) {
   try {
-    await admin.firestore().collection('audit_log').add({
+    await getFirestore().collection('audit_log').add({
       ...entry,
       ts: FieldValue.serverTimestamp()
     });

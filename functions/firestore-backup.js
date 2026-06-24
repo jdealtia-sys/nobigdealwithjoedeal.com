@@ -36,8 +36,9 @@ const admin = require('firebase-admin');
 const firestore = require('@google-cloud/firestore');
 const { Storage } = require('@google-cloud/storage');
 
-// Initialise lazily — index.js already calls admin.initializeApp() before
-// it `require`s us, so we can safely reach into admin.firestore() here.
+// index.js already calls admin.initializeApp() before it `require`s us.
+// Backups run through the @google-cloud/firestore admin client
+// (FirestoreAdminClient) below, not the firebase-admin Firestore SDK.
 const PROJECT_ID = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'nobigdeal-pro';
 const BUCKET = `${PROJECT_ID}-firestore-backups`;
 const RETENTION_DAYS = 30;

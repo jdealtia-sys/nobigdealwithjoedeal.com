@@ -31,6 +31,7 @@
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');
 const { getSecret, hasSecret, PROVIDERS, notConfigured, SECRETS } = require('./_shared');
@@ -191,7 +192,7 @@ exports.requestMeasurement = onCall(
       throw new HttpsError('internal', 'Measurement request failed: ' + (result.reason || 'unknown'));
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const doc = {
       ownerId: uid,
       leadId: leadId,
@@ -345,7 +346,7 @@ exports.measurementWebhook = onRequest(
     if (!externalJobId) { res.status(400).json({ error: 'Missing job id' }); return; }
 
     try {
-      const db = admin.firestore();
+      const db = getFirestore();
       const snap = await db.collection('measurements')
         .where('externalJobId', '==', externalJobId)
         .limit(1)
@@ -388,7 +389,7 @@ exports.measurementWebhook = onRequest(
           source: 'measurement',
           provider,
           measurementJobId: measurementDoc.id,
-          dueAt: admin.firestore.Timestamp.now(),
+          dueAt: Timestamp.now(),
           createdAt: FieldValue.serverTimestamp(),
           done: false
         });

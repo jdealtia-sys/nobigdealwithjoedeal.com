@@ -25,6 +25,7 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 // Destination — single recipient, the platform owner. Could become a
@@ -130,14 +131,14 @@ async function gatherActivity(db, cutoffMs) {
   let portalEvents = 0;
   try {
     const photosSnap = await db.collection('photos')
-      .where('uploadedAt', '>=', admin.firestore.Timestamp.fromMillis(cutoffMs))
+      .where('uploadedAt', '>=', Timestamp.fromMillis(cutoffMs))
       .limit(2000)
       .get();
     photos = photosSnap.size;
   } catch (_) { /* missing index → skip */ }
   try {
     const eventsSnap = await db.collection('customerAuditEvents')
-      .where('createdAt', '>=', admin.firestore.Timestamp.fromMillis(cutoffMs))
+      .where('createdAt', '>=', Timestamp.fromMillis(cutoffMs))
       .limit(2000)
       .get();
     portalEvents = eventsSnap.size;
@@ -212,7 +213,7 @@ exports.healthDigestCron = onSchedule(
       return;
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
     const now = Date.now();
     const cutoffMs = now - WINDOW_MS;
     const cutoff = new Date(cutoffMs);

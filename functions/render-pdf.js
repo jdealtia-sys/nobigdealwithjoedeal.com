@@ -36,6 +36,8 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getStorage } = require('firebase-admin/storage');
 const { callableRateLimit } = require('./shared');
 const { withSentry } = require('./integrations/sentry');
 const fs = require('fs');
@@ -248,7 +250,7 @@ function buildBrandVars(colors) {
 async function resolveDocCompany(companyId) {
   if (!companyId) return NBD_DOC_COMPANY;
   try {
-    const snap = await admin.firestore().collection('companyProfile').doc(String(companyId)).get();
+    const snap = await getFirestore().collection('companyProfile').doc(String(companyId)).get();
     if (snap.exists) {
       const b = (snap.data() || {}).brand || {};
       if (b.legalName && b.legalName !== NBD_DOC_COMPANY.footerName) {
@@ -387,7 +389,7 @@ exports.renderPdf = onCall(
       // Stamp a random Firebase download token so we can hand back a URL even
       // when getSignedUrl() isn't available (see below).
       stage = 'upload';
-      bucket = admin.storage().bucket();
+      bucket = getStorage().bucket();
       const ts = Date.now();
       objectPath = `pdf-renders/${uid}/${ts}-${filename}`;
       file = bucket.file(objectPath);

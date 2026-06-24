@@ -24,6 +24,7 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { SECRETS, PROVIDERS, hasSecret, getSecret } = require('./_shared');
 
@@ -106,7 +107,7 @@ exports.hailMatchCron = onSchedule(
     secrets: [SECRETS.HAILTRACE_API_KEY, SECRETS.SLACK_WEBHOOK_URL]
   },
   async (event) => {
-    const db = admin.firestore();
+    const db = getFirestore();
     const SIZE_THRESHOLD = 0.75;   // inches — below this, not worth pitching
     const RADIUS_MI = 0.3;          // ~5 blocks
     const DAYS_BACK = 90;

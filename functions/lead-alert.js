@@ -22,6 +22,7 @@ const { logger } = require('firebase-functions/v2');
 const { Resend } = require('resend');
 const twilio = require('twilio');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
@@ -41,7 +42,7 @@ async function resolveAlertTarget(companyId) {
   const fallback = { emails: ALERT_EMAILS, sms: ALERT_SMS, name: 'No Big Deal Home Solutions', seal: 'NBD' };
   if (!companyId) return fallback;
   try {
-    const snap = await admin.firestore().collection('companyProfile').doc(String(companyId)).get();
+    const snap = await getFirestore().collection('companyProfile').doc(String(companyId)).get();
     if (snap.exists) {
       const b = (snap.data() || {}).brand || {};
       const c = b.contact || {};

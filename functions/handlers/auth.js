@@ -20,6 +20,8 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { beforeUserCreated, beforeUserSignedIn } = require('firebase-functions/v2/identity');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
+const { getFirestore } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const {
@@ -76,8 +78,8 @@ exports.provisionE2ETestUser = onCall(
       throw new HttpsError('permission-denied', 'Owner-only');
     }
 
-    const auth = admin.auth();
-    const db = admin.firestore();
+    const auth = getAuth();
+    const db = getFirestore();
     const password = _generateE2EPassword();
 
     let userRecord, action;
@@ -166,7 +168,7 @@ exports.cleanupE2ETestData = onCall(
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
 
-    const db = admin.firestore();
+    const db = getFirestore();
 
     // Belt-and-suspenders: only the e2eTestAccount user can run
     // cleanup. A regular user calling this would see leadsDeleted=0
@@ -286,7 +288,7 @@ exports.onRepSignup = beforeUserCreated(
     const email = (user.email || '').toLowerCase().trim();
     if (!email) return; // No email = nothing to match
 
-    const db = admin.firestore();
+    const db = getFirestore();
 
     let companyId, role;
     try {
@@ -398,7 +400,7 @@ const _beforeAdminSignInHandler = beforeUserSignedIn(
     // Firestore outage to lock Joe out of his own admin panel.
     let mfaRequired = false;
     try {
-      const flagSnap = await admin.firestore().doc('feature_flags/_default').get();
+      const flagSnap = await getFirestore().doc('feature_flags/_default').get();
       mfaRequired = !!(flagSnap.exists && flagSnap.data()?.admin_mfa_required === true);
     } catch (e) {
       logger.warn('beforeAdminSignIn: feature-flag read failed — allowing', { err: e.message });
@@ -457,7 +459,7 @@ exports.activateInvitedRep = onCall(
       return { activated: false, reason: 'no_company_claim' };
     }
 
-    const db = admin.firestore();
+    const db = getFirestore();
 
     try {
       // Update the member doc: invited → active
