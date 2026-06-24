@@ -13,8 +13,8 @@
  * site + Oaks microsite already use: the `submitPublicLead` Cloud Function on
  * nobigdeal-pro, which enforces App Check + Turnstile + per-IP rate limit +
  * honeypot server-side, and bridges the lead into the CRM pipeline + operator
- * alerts. The marketing project's `leads` collection is now closed to client
- * writes (see marketing-site-firestore.rules).
+ * alerts. The standalone `nobigdealwithjoedeal` marketing project has since
+ * been retired, so its old `leads` collection no longer accepts writes.
  *
  * The exported helper keeps its original name + contract (resolves with the
  * new lead id, throws on failure) so existing callers — sites/js/sites-landing.js

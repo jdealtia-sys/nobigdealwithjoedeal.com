@@ -11,7 +11,6 @@ name: Firebase deploy
 #   2. Storage rules
 #   3. Cloud Functions
 #   4. Hosting
-#   5. Marketing-project Firestore rules (separate project)
 #
 # ─────────────────────────────────────────────────────────────
 # REQUIRED GITHUB ACTIONS SECRET (one-time setup to enable deploys)
@@ -59,7 +58,6 @@ on:
           - hosting
           - functions
           - rules
-          - marketing-rules
 
 concurrency:
   group: firebase-deploy
@@ -123,7 +121,6 @@ jobs:
       contents: read
     env:
       PRO_PROJECT: nobigdeal-pro
-      MKT_PROJECT: nobigdealwithjoedeal
       NODE_VERSION: '22'
 
     steps:
@@ -542,43 +539,6 @@ jobs:
             echo "::warning::Scheduled/blocking functions deferred — see summary"
           else
             echo "✓ All previously-IAM-blocked functions deployed cleanly. Remove NBD_DEPLOY_SKIP_LIST in the workflow."
-          fi
-          exit 0
-
-      # Marketing-project Firestore-rules deploy — MANUAL DISPATCH ONLY.
-      # The separate `nobigdealwithjoedeal` Firebase project is RETIRED: all
-      # marketing leads now flow through submitPublicLead on nobigdeal-pro
-      # (see docs/sites/js/marketing-firebase.js). This step used to run on
-      # every push, where it could only ever fail (project unreachable) — it
-      # warned-and-passed but printed a FALSE "deployed" row in the summary.
-      # It is kept (not deleted) because marketing-site-firestore.rules is the
-      # lockdown that closes the old project's public-write leads collection;
-      # if that project still exists it should still be locked down. Trigger
-      # it deliberately via "Run workflow → scope: marketing-rules" once the
-      # deploy SA has access (or confirm the project is deleted and remove
-      # this step + the rules file). Never blocks the production deploy.
-      - name: Deploy marketing-project Firestore rules
-        if: ${{ github.event.inputs.scope == 'marketing-rules' }}
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: |
-          set +e
-          if [ ! -f marketing-site-firestore.rules ]; then
-            echo "::warning::marketing-site-firestore.rules not found — skipping"
-            exit 0
-          fi
-          # Swap the pro rules for the marketing rules, deploy against
-          # the marketing project, then restore. Always restore on exit
-          # so the pro rules never get orphaned.
-          cp firestore.rules /tmp/firestore.rules.pro.bak
-          trap 'cp /tmp/firestore.rules.pro.bak firestore.rules; rm -f /tmp/firestore.rules.pro.bak' EXIT
-          cp marketing-site-firestore.rules firestore.rules
-          npx firebase-tools deploy --only firestore:rules --project "$MKT_PROJECT" --non-interactive
-          EXIT=$?
-          if [ $EXIT -eq 0 ]; then
-            echo "✓ Marketing rules deployed."
-          else
-            echo "::warning::Marketing-project deploy returned $EXIT. Usually means the project '$MKT_PROJECT' doesn't exist or the deploy SA isn't a member. The pro-project deploys already completed — this step only affects a separate marketing site Firestore."
           fi
           exit 0
 

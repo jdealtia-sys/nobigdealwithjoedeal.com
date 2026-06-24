@@ -6,7 +6,6 @@
 #   2. Storage rules
 #   3. Cloud Functions   (picks up secrets + App Check enforcement)
 #   4. Hosting           (static site + strict CSP headers)
-#   5. Marketing-site Firestore rules (SEPARATE project)
 #
 # PRECONDITIONS — do these ONCE before the first deploy:
 #   1. Rotate every secret per documentation/runbooks/SECRET_ROTATION.md and run
@@ -17,7 +16,6 @@
 #   5. Register the web app for App Check (reCAPTCHA Enterprise) in the
 #      Firebase Console and paste the site key into:
 #        - docs/visualizer.html (search for __NBD_RECAPTCHA_KEY__)
-#        - docs/sites/js/marketing-firebase.js (MARKETING_RECAPTCHA_SITE_KEY)
 #   6. In Twilio: set messaging geo-permissions to US & Canada only.
 #   7. In Stripe: rotate the webhook endpoint + signing secret.
 #   8. firebase login  (if you haven't already)
@@ -30,9 +28,6 @@
 set -euo pipefail
 
 PRO=nobigdeal-pro
-MKT=nobigdealwithjoedeal
-PRO_RULES=firestore.rules
-MKT_RULES=marketing-site-firestore.rules
 
 if ! command -v firebase >/dev/null 2>&1; then
   echo "ERROR: firebase CLI is not installed."
@@ -42,49 +37,28 @@ fi
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "NBD Pro production deploy"
-echo "Project: $PRO (marketing: $MKT)"
+echo "Project: $PRO"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo
 
-echo "▶ Step 1/5: deploying Firestore rules to $PRO..."
+echo "▶ Step 1/4: deploying Firestore rules to $PRO..."
 firebase deploy --only firestore:rules --project "$PRO"
 echo "✓ Firestore rules deployed"
 echo
 
-echo "▶ Step 2/5: deploying Storage rules to $PRO..."
+echo "▶ Step 2/4: deploying Storage rules to $PRO..."
 firebase deploy --only storage --project "$PRO"
 echo "✓ Storage rules deployed"
 echo
 
-echo "▶ Step 3/5: deploying Cloud Functions to $PRO..."
+echo "▶ Step 3/4: deploying Cloud Functions to $PRO..."
 firebase deploy --only functions --project "$PRO"
 echo "✓ Functions deployed"
 echo
 
-echo "▶ Step 4/5: deploying Hosting to $PRO..."
+echo "▶ Step 4/4: deploying Hosting to $PRO..."
 firebase deploy --only hosting --project "$PRO"
 echo "✓ Hosting deployed"
-echo
-
-echo "▶ Step 5/5: deploying marketing-site Firestore rules to $MKT..."
-if [ ! -f "$MKT_RULES" ]; then
-  echo "! $MKT_RULES not found — skipping marketing project"
-else
-  # Firebase CLI reads `firestore.rules` per the firebase.json config.
-  # Swap in the marketing rules file temporarily, deploy against the
-  # marketing project, then restore. No history is lost because the pro
-  # rules still live in git.
-  TMP=/tmp/firestore.rules.bak.$$
-  cp "$PRO_RULES" "$TMP"
-  cp "$MKT_RULES" "$PRO_RULES"
-  # Always restore on exit (even on error).
-  trap 'cp "$TMP" "$PRO_RULES"; rm -f "$TMP"' EXIT
-  firebase deploy --only firestore:rules --project "$MKT"
-  trap - EXIT
-  cp "$TMP" "$PRO_RULES"
-  rm -f "$TMP"
-  echo "✓ Marketing rules deployed, pro rules restored"
-fi
 echo
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
