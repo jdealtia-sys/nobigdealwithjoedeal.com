@@ -297,11 +297,29 @@ jobs:
           npx firebase-tools emulators:exec --only firestore --project nbd-rules-test 'node firestore-rules.test.js'
           npx firebase-tools emulators:exec --only firestore --project nbd-xtenant-test 'node firestore-rules.cross-tenant.test.js'
 
+      # Rules deploy is idempotent. The CLI intermittently fails the FIRST
+      # attempt with a transient auth race ("Failed to authenticate, have you
+      # run firebase login?") that clears on a re-run — and because this step
+      # runs BEFORE hosting with no continue-on-error, that flake used to abort
+      # the entire deploy (content didn't go live until a manual re-run). Retry
+      # in-job up to 3x so the transient auth race self-heals instead of going
+      # RED. A genuine failure still fails the workflow after the retries.
       - name: Deploy Firestore rules (pro)
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: npx firebase-tools deploy --only firestore:rules --project "$PRO_PROJECT" --non-interactive
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            if npx firebase-tools deploy --only firestore:rules --project "$PRO_PROJECT" --non-interactive; then
+              echo "✓ Firestore rules deployed (attempt $attempt)."
+              exit 0
+            fi
+            echo "::warning::Firestore rules deploy attempt $attempt failed (likely transient auth race) — retrying in 15s…"
+            sleep 15
+          done
+          echo "::error::Firestore rules deploy failed after 3 attempts."
+          exit 1
 
       # Firestore composite indexes ship before functions so every
       # new .where() query has its index ready when the function
@@ -357,7 +375,18 @@ jobs:
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'rules' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: npx firebase-tools deploy --only storage --project "$PRO_PROJECT" --non-interactive
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            if npx firebase-tools deploy --only storage --project "$PRO_PROJECT" --non-interactive; then
+              echo "✓ Storage rules deployed (attempt $attempt)."
+              exit 0
+            fi
+            echo "::warning::Storage rules deploy attempt $attempt failed (likely transient auth race) — retrying in 15s…"
+            sleep 15
+          done
+          echo "::error::Storage rules deploy failed after 3 attempts."
+          exit 1
 
       # Hosting deploys HERE — after rules/indexes/storage, BEFORE the
       # functions steps — so a functions deploy ERROR or TIMEOUT can never
@@ -371,7 +400,18 @@ jobs:
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
-        run: npx firebase-tools deploy --only hosting --project "$PRO_PROJECT" --non-interactive
+        run: |
+          set -e
+          for attempt in 1 2 3; do
+            if npx firebase-tools deploy --only hosting --project "$PRO_PROJECT" --non-interactive; then
+              echo "✓ Hosting deployed (attempt $attempt)."
+              exit 0
+            fi
+            echo "::warning::Hosting deploy attempt $attempt failed (likely transient auth race) — retrying in 15s…"
+            sleep 15
+          done
+          echo "::error::Hosting deploy failed after 3 attempts."
+          exit 1
 
       # F-10 + Q8: functions deploy is strict by default — any failure
       # fails the workflow. But there's an explicit exception list for
