@@ -82,9 +82,8 @@ echo
 echo "  1. Registered the web app for App Check (reCAPTCHA Enterprise)"
 echo "     in Firebase Console → Project Settings → App Check"
 echo "  2. Copied the site key"
-echo "  3. Pasted it into BOTH of these files:"
+echo "  3. Pasted it into:"
 echo "       docs/visualizer.html                (window.__NBD_RECAPTCHA_KEY__)"
-echo "       docs/sites/js/marketing-firebase.js (MARKETING_RECAPTCHA_SITE_KEY)"
 echo "  4. Committed and pushed those changes"
 echo
 read -r -p "Have you done all 4? (y/N) " ack

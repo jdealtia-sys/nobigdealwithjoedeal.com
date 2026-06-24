@@ -10,7 +10,6 @@
 /firestore.indexes.json                 @jdealtia-sys
 /storage.rules                          @jdealtia-sys
 /firebase.json                          @jdealtia-sys
-/marketing-site-firestore.rules         @jdealtia-sys
 /functions/index.js                     @jdealtia-sys
 /functions/integrations/                @jdealtia-sys
 /functions/audit-triggers.js            @jdealtia-sys
