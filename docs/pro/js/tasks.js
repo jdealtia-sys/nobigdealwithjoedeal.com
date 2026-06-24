@@ -177,7 +177,18 @@ function renderTaskList(tasks){
     return `<div class="task-item ${t.done?'done':''} ${ov?'overdue':''}" id="titem-${_escTask(t.id)}"><input type="checkbox" class="task-cb" ${t.done?'checked':''} data-tk-action="checkTask" data-tk-id="${_escTask(t.id)}"><span class="task-text">${_escTask(t.text)}</span>${t.dueDate?`<span class="task-due ${ov?'overdue':''}">${_taskDueLabel(t.dueDate)}</span>`:''}<button class="task-del" data-tk-action="removeTask" data-tk-id="${_escTask(t.id)}" title="Delete">×</button></div>`;
   }).join('');
 }
-async function addTask(){const inp=document.getElementById('taskInput'),due=document.getElementById('taskDue'),text=inp.value.trim();if(!text||!_taskModalLeadId)return;inp.value='';await _saveTask(_taskModalLeadId,text,due.value||'');renderTaskList(await _loadTasks(_taskModalLeadId));}
+async function addTask(){
+  const inp=document.getElementById('taskInput'),due=document.getElementById('taskDue');
+  if(!inp)return;
+  const text=inp.value.trim();
+  // Was a silent no-op on empty input / no-lead — users hit "+ Add" and
+  // nothing happened. Give explicit feedback instead.
+  if(!text){ if(typeof showToast==='function')showToast('Type a task first','info'); inp.focus(); return; }
+  if(!_taskModalLeadId){ if(typeof showToast==='function')showToast('Open a lead to add a task','info'); return; }
+  inp.value='';
+  await _saveTask(_taskModalLeadId,text,due.value||'');
+  renderTaskList(await _loadTasks(_taskModalLeadId));
+}
 // Wave 28: Enter-key submit on the task input. Replaces the inline
 // onkeydown="" handler in dashboard.html for CSP cleanliness.
 (function(){

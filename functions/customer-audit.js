@@ -38,7 +38,7 @@ const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app',
+  'https://nobigdeal-pro.web.app',
 ];
 
 const ALLOWED_TYPES = new Set([

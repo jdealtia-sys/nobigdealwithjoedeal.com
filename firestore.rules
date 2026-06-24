@@ -119,10 +119,17 @@ service cloud.firestore {
           && request.resource.data.userId == request.auth.uid
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
           && request.resource.data.source == 'rep'
+          // F-05 allowlist of rep-authored, first-party activity types. These
+          // are UI/timeline labels (drive timeline icons + lead-score signals)
+          // — NOT webhook/payment-shaped — and remain gated by source=='rep',
+          // the parent-lead owner check, and the financial-key denylist below.
+          // ('voicemail','supplement_created','lead_created' added 2026-06-23:
+          // these legit rep actions were silently permission-denied without it.)
           && request.resource.data.type in [
                'note', 'call', 'sms_out', 'email_out',
                'photo_added', 'task_done', 'appointment_set',
-               'door_knock', 'follow_up', 'status_change'
+               'door_knock', 'follow_up', 'status_change',
+               'voicemail', 'supplement_created', 'lead_created'
              ]
           && !(request.resource.data.keys().hasAny([
                'stripeInvoiceId', 'stripeCustomerId', 'stripePaymentIntentId',
@@ -328,9 +335,18 @@ service cloud.firestore {
     }
 
     // ── EMAILS (sent log) ─────────────────────────────
+    // Ownership binds to the IMMUTABLE uid (sentByUid). The token email is a
+    // mutable identity key, so it's kept only as a fallback for docs written
+    // before sentByUid existed — new writes additionally bind to the uid.
     match /emails/{emailId} {
-      allow read: if isAuth() && resource.data.sentBy == request.auth.token.email;
-      allow create: if isAuth() && request.resource.data.sentBy == request.auth.token.email;
+      allow read: if isAuth() && (
+        resource.data.get('sentByUid', '') == request.auth.uid ||
+        resource.data.sentBy == request.auth.token.email
+      );
+      allow create: if isAuth() &&
+        request.resource.data.sentBy == request.auth.token.email &&
+        (!('sentByUid' in request.resource.data) ||
+         request.resource.data.sentByUid == request.auth.uid);
     }
 
     // ── DOCUMENTS ─────────────────────────────────────
@@ -579,11 +595,19 @@ service cloud.firestore {
       allow update, delete: if (isAuth() && resource.data.ownerId == request.auth.uid) || isAdmin();
 
       // Members subcollection is writable only by the company owner or admin.
+      // QA 2026-06-21 #10: the live app queries /companies/{_user.uid}/members,
+      // so companyId == the caller's own uid. The ownerId-doc check below FAILS
+      // for solo owners who never had a /companies/{uid} doc created (get() of a
+      // missing doc denies), so loadTeamMembers/invite were PERMISSION_DENIED.
+      // Allow the company-keyed-by-uid owner directly — they can only ever reach
+      // the members subcollection under their OWN uid, so this is tenant-safe.
       match /members/{memberId} {
         allow read: if isAdmin()
+          || (isAuth() && request.auth.uid == companyId)
           || (isAuth() && get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid)
           || (isAuth() && request.auth.uid == memberId);
         allow create, update, delete: if isAdmin()
+          || (isAuth() && request.auth.uid == companyId)
           || (isAuth() && get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid);
       }
     }
@@ -599,6 +623,34 @@ service cloud.firestore {
             || request.resource.data.companyId == myCompanyId()
             || request.resource.data.companyId == request.auth.uid);
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+
+    // ── REAL DEAL ACADEMY ────────────────────────────
+    // Per-user training progress. Doc id IS the owner's uid; the live app
+    // reads/writes /academy_progress/{uid} (real-deal-academy.js _loadProgress
+    // / _saveProgress). No rule existed, so every read/write was
+    // PERMISSION_DENIED and the Academy silently fell back to localStorage
+    // (progress never synced server-side / cross-device). QA 2026-06-21 #2.
+    match /academy_progress/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ── ETERNAL VAULT / PROJECT CODEX ────────────────
+    // Jo's personal build-memory tool (docs/pro/js/vault-page.js):
+    //   codex/latest         → the full codex snapshot (setDoc)
+    //   codex-sessions/{id}   → per-session deltas (e.g. s01-delta)
+    // This is a singleton DEV artifact — not tenant data, not per-user
+    // owned: the docs carry no userId/companyId field. With no rule they
+    // default-deny, so the Vault's "Save to Firestore" silently
+    // PERMISSION_DENIED and never synced. Lock to the platform admin OR
+    // Jo's uid (the sole operator of this tool). QA 2026-06-21.
+    match /codex/{docId} {
+      allow read, write: if isAdmin()
+        || (isAuth() && request.auth.uid == '1phDvAVXHSg82wDLegAbQFq14Ci1');
+    }
+    match /codex-sessions/{sessionId} {
+      allow read, write: if isAdmin()
+        || (isAuth() && request.auth.uid == '1phDvAVXHSg82wDLegAbQFq14Ci1');
     }
 
     // ── PUBLIC LEAD FORMS ────────────────────────────
@@ -722,6 +774,25 @@ service cloud.firestore {
     // (token-authed, admin SDK). No Firebase-auth client ever touches
     // this collection — same lockdown as portal_tokens.
     match /doc_sign_tokens/{token} {
+      allow read, write: if false;
+    }
+
+    // ── CLOSE BOARD DEAL ROOMS ────────────────────────
+    // Shareable deal rooms (close-board.js syncDealToFirestore). Owner-keyed on
+    // userId. createDealAcceptToken (admin SDK) reads this doc to owner-scope a
+    // share token + snapshot tier prices, so userId MUST be trustworthy: pin it
+    // to the caller on create (a rep can't plant a deal under another uid).
+    // Without this rule the client write default-denied and deals never synced.
+    match /deal_rooms/{dealId} {
+      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Close Board deal acceptance (1a). createDealAcceptToken mints these;
+    // the homeowner accepts via the public getDealRoom / submitDealAcceptance
+    // endpoints (token-authed, admin SDK). No Firebase-auth client ever
+    // touches this collection — same lockdown as doc_sign_tokens.
+    match /deal_accept_tokens/{token} {
       allow read, write: if false;
     }
 

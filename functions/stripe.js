@@ -37,6 +37,26 @@ const STRIPE_API_VERSION = '2023-10-16';
 const { requireAuth } = require('./shared');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 
+// setCustomUserClaims REPLACES the entire claim set. Writing a bare billing
+// patch ({ plan, subscriptionStatus, stripeCustomerId }) therefore WIPES a
+// user's role/companyId on every billing event — turning a tenant company_admin
+// into a no-companyId account, which (a) breaks their own company-scoped
+// Firestore access and (b) makes them a cross-tenant takeover target for the
+// team-admin callables. Always read-then-merge so identity claims survive.
+async function mergeCustomClaims(uid, patch) {
+  // Read-then-merge is only safe when the READ succeeds. On a transient getUser
+  // failure, writing a bare patch would strip role/companyId — the exact wipe
+  // this helper exists to prevent — so abort and let the next billing event
+  // re-sync (the subscriptions/{uid} doc is written separately and survives).
+  let existing;
+  try { existing = (await getAuth().getUser(uid)).customClaims || {}; }
+  catch (e) {
+    logger.error('mergeCustomClaims_abort_getUser_failed', { uid, err: e.message });
+    return;
+  }
+  await getAuth().setCustomUserClaims(uid, { ...existing, ...patch });
+}
+
 // Stripe secrets. Redeclared here because defineSecret scope is
 // per-module. index.js still declares them too for claudeProxy +
 // other endpoints. Both declarations resolve to the SAME underlying
@@ -320,7 +340,7 @@ exports.stripeWebhook = onRequest(
           // via request.auth.token.plan and in client JS via
           // user.getIdTokenResult().claims.plan
           try {
-            await getAuth().setCustomUserClaims(uid, {
+            await mergeCustomClaims(uid, {
               plan,
               subscriptionStatus: 'active',
               stripeCustomerId: customerId
@@ -375,7 +395,7 @@ exports.stripeWebhook = onRequest(
 
           // Sync custom claims
           try {
-            await getAuth().setCustomUserClaims(uid, {
+            await mergeCustomClaims(uid, {
               plan,
               subscriptionStatus: subscription.status,
               stripeCustomerId: customerId
@@ -412,7 +432,7 @@ exports.stripeWebhook = onRequest(
 
           // Downgrade custom claims to free
           try {
-            await getAuth().setCustomUserClaims(uid, {
+            await mergeCustomClaims(uid, {
               plan: 'free',
               subscriptionStatus: 'cancelled',
               stripeCustomerId: customerId
@@ -448,7 +468,7 @@ exports.stripeWebhook = onRequest(
 
           // Update claims to past_due so client can show warning
           try {
-            await getAuth().setCustomUserClaims(uid, {
+            await mergeCustomClaims(uid, {
               plan: subDoc.data().plan || 'free',
               subscriptionStatus: 'past_due',
               stripeCustomerId: customerId
@@ -764,6 +784,56 @@ exports.createStripePaymentLink = onRequest(
       }
       if (lineItems.length === 0) {
         res.status(400).json({ error: 'Invoice has no line items' });
+        return;
+      }
+
+      // ── Sales-tax line + total reconciliation (H3, money bug) ─────────
+      // invoice.items hold TAX-EXCLUSIVE line totals; the invoice's sales
+      // tax lives only in invoice.tax / invoice.total. Without an explicit
+      // tax line the payment link would charge the pre-tax subtotal, so the
+      // customer underpays by the entire tax and the contractor eats it.
+      // Append a dedicated tax line, then assert the link total reconciles
+      // to invoice.total to the penny before we ever create the link.
+      const productSumCents = lineItems.reduce(
+        (sum, li) => sum + li.price_data.unit_amount * li.quantity, 0);
+      const expectedTotalCents = Math.round(Number(invoice.total || 0) * 100);
+      const taxCents = Math.round(Number(invoice.tax || 0) * 100);
+
+      if (!Number.isFinite(taxCents) || taxCents < 0 || taxCents > MAX_CENTS) {
+        res.status(400).json({ error: 'Invoice tax amount out of allowed range' });
+        return;
+      }
+      if (taxCents > 0) {
+        lineItems.push({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: 'Sales Tax',
+              description: `Invoice ${invoiceId}`,
+            },
+            unit_amount: taxCents,
+          },
+          quantity: 1,
+        });
+      }
+
+      // The charged total must equal invoice.total. Line totals from the
+      // estimate engine are full-precision floats (fractional quantities ×
+      // per-unit cents), so the sum of per-line rounding can drift a few
+      // cents from the stored total — allow a tolerance that scales with
+      // line count but stays far below any real tax amount, so a genuine
+      // mismatch (e.g. a missing tax line, or a server-recomputed line that
+      // diverges from the client total) still trips the guard and we refuse
+      // to charge rather than bill the wrong amount.
+      const linkTotalCents = lineItems.reduce(
+        (sum, li) => sum + li.price_data.unit_amount * li.quantity, 0);
+      const reconcileTolCents = Math.max(2, lineItems.length);
+      if (Math.abs(linkTotalCents - expectedTotalCents) > reconcileTolCents) {
+        logger.error('payment_link_total_mismatch', {
+          invoiceId, uid: decoded.uid,
+          productSumCents, taxCents, linkTotalCents, expectedTotalCents,
+        });
+        res.status(400).json({ error: 'Invoice total does not reconcile; refusing to create payment link' });
         return;
       }
 

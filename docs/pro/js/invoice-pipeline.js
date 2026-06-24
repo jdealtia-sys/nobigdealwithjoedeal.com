@@ -58,10 +58,22 @@
    * Format currency
    */
   function formatCurrency(amount) {
-    return '$' + parseFloat(amount).toLocaleString('en-US', {
+    const n = parseFloat(amount);
+    return '$' + (Number.isFinite(n) ? n : 0).toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
+  }
+
+  /**
+   * HTML-escape for the list/panel renderers. renderInvoiceDetail and the
+   * email builder define their own local _esc; this serves the others
+   * (renderInvoicePanel / renderInvoiceList) which had none in scope.
+   */
+  function escHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   /**
@@ -105,13 +117,25 @@
       // scope skips tax → 0 honored; fall back to 7.5% only when no rate saved).
       const taxRate = (typeof est.taxRate === 'number') ? est.taxRate : 0.075;
 
-      // V2-pkb (estimate-qa-2026-06-08): for PER-SQ estimates the customer price
-      // is the LOCKED selected-tier grandTotal, not the internal cost-basis rows.
-      // Invoice it as a single summary line so the invoice total == the signed quote.
-      const isPerSqLocked = ((est.priceMode === 'per-sq') || (est.prices != null)) && Number(est.grandTotal) > 0;
+      // Classic-builder rows store qty/rate as DISPLAY STRINGS ('20.00 SQ',
+      // '$595/SQ', '1 EA'), so a bare parseFloat('$595/SQ') is NaN and dropped
+      // unit prices to $0 on the invoice. Pull the first numeric token instead.
+      const numFrom = (v) => {
+        if (typeof v === 'number') return v;
+        const m = String(v == null ? '' : v).match(/-?\d[\d,]*\.?\d*/);
+        return m ? parseFloat(m[0].replace(/,/g, '')) : NaN;
+      };
+
+      const savedGrand = Number(est.grandTotal);
+      const hasLockedTotal = Number.isFinite(savedGrand) && savedGrand > 0;
+      const isPerSq = (est.priceMode === 'per-sq') || (est.prices != null);
+
       let items, subtotal, tax, total;
-      if (isPerSqLocked) {
-        total = Number(est.grandTotal);
+      if (isPerSq && hasLockedTotal) {
+        // PER-SQ V2: the customer price is the LOCKED selected-tier grandTotal,
+        // not the internal cost-basis rows. Invoice it as a single summary line
+        // so the invoice total == the signed quote.
+        total = savedGrand;
         subtotal = taxRate > 0 ? (total / (1 + taxRate)) : total;
         tax = total - subtotal;
         subtotal = Math.round(subtotal * 100) / 100;
@@ -124,15 +148,38 @@
           total: subtotal
         }];
       } else {
-        items = (est.rows || []).map(row => ({
-          description: row.desc || row.description || '',
-          quantity: parseFloat(row.qty) || 1,
-          unitPrice: parseFloat(row.rate) || 0,
-          total: parseFloat(row.total) || 0
-        }));
-        subtotal = items.reduce((sum, item) => sum + item.total, 0);
-        tax = subtotal * taxRate;
-        total = subtotal + tax;
+        // Row-based (classic builder). Keep the estimate's real line items.
+        items = (est.rows || []).map(row => {
+          const quantity = numFrom(row.qty);
+          const lineTotal = numFrom(row.total);
+          let unitPrice = numFrom(row.rate);
+          if (!Number.isFinite(unitPrice) || unitPrice === 0) {
+            unitPrice = (Number.isFinite(quantity) && quantity !== 0 && Number.isFinite(lineTotal))
+              ? lineTotal / quantity : 0;
+          }
+          return {
+            description: row.desc || row.description || '',
+            quantity: Number.isFinite(quantity) ? quantity : 1,
+            unitPrice: Math.round((unitPrice || 0) * 100) / 100,
+            total: Number.isFinite(lineTotal) ? lineTotal : 0
+          };
+        });
+        if (hasLockedTotal) {
+          // Trust the estimate's saved locked totals — the signed quote bakes in
+          // the job-minimum floor + nearest-$25 rounding that a naive row-sum
+          // recompute would drop, making the invoice disagree with the quote.
+          total = savedGrand;
+          const savedSub = Number(est.subtotal);
+          const savedTax = Number(est.taxAmount);
+          subtotal = Number.isFinite(savedSub) ? savedSub : (taxRate > 0 ? total / (1 + taxRate) : total);
+          tax = Number.isFinite(savedTax) ? savedTax : (total - subtotal);
+          subtotal = Math.round(subtotal * 100) / 100;
+          tax = Math.round(tax * 100) / 100;
+        } else {
+          subtotal = items.reduce((sum, item) => sum + item.total, 0);
+          tax = subtotal * taxRate;
+          total = subtotal + tax;
+        }
       }
       // Honor the estimate's saved deposit (insurance 0% or rep override); else 50%.
       // CLASSIC builder saves deposit as an object {pct,amount,remainder}; V2 saves
@@ -142,11 +189,30 @@
       const depNum = (depRaw && typeof depRaw === 'object') ? Number(depRaw.amount) : Number(depRaw);
       const depositAmount = Number.isFinite(depNum) ? depNum : total * 0.5;
 
+      // Resolve the customer's identity + contact ONCE so downstream send
+      // (email/SMS), the paid-receipt, and the rendered "Bill To" actually have
+      // a recipient. createInvoiceFromEstimate previously never stored these, so
+      // sends reached an empty address and the invoice showed placeholders.
+      let lead = (est.leadId && Array.isArray(window._leads))
+        ? window._leads.find(l => l && l.id === est.leadId) : null;
+      if (!lead && est.leadId) {
+        try {
+          const leadSnap = await window.getDoc(window.doc(db, 'leads', est.leadId));
+          if (leadSnap.exists()) lead = leadSnap.data();
+        } catch (_) { /* lead read is best-effort */ }
+      }
+      const customerName  = est.customerName  || (lead && lead.name)  || '';
+      const customerEmail = est.customerEmail || (lead && lead.email) || '';
+      const customerPhone = est.customerPhone || (lead && lead.phone) || '';
+
       // Create invoice doc
       const invoiceData = {
         leadId: est.leadId || null,
         estimateId: estimateId,
         customerId: est.customerId || null,
+        customerName: customerName,
+        customerEmail: customerEmail,
+        customerPhone: customerPhone,
         status: 'draft',
         items: items,
         subtotal: subtotal,
@@ -354,6 +420,11 @@
   async function markPaid(invoiceId, amount, method) {
     const db = getDb();
 
+    amount = Number(amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error('Invalid payment amount');
+    }
+
     try {
       const invRef = window.doc(db, 'invoices', invoiceId);
       const invSnap = await window.getDoc(invRef);
@@ -438,7 +509,8 @@
         html += `<div style="display:grid;gap:8px;">`;
         invoices.forEach(inv => {
           const statusBg = inv.status === 'paid' ? 'var(--green)' : inv.status === 'sent' ? 'var(--blue)' : 'var(--m)';
-          const statusTxt = inv.status.charAt(0).toUpperCase() + inv.status.slice(1);
+          const _s = String(inv.status || '');
+          const statusTxt = escHtml(_s.charAt(0).toUpperCase() + _s.slice(1));
           html += `
             <div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:var(--s2);border-radius:5px;border-left:3px solid ${statusBg};">
               <div style="flex:1;">
@@ -501,8 +573,9 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
             <div>
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;font-weight:700;margin-bottom:4px;">Bill To</div>
-              <div style="font-size:14px;font-weight:700;">Customer Name</div>
-              <div style="font-size:12px;color:var(--m);">customer@example.com</div>
+              <div style="font-size:14px;font-weight:700;">${_esc(inv.customerName || 'Customer')}</div>
+              <div style="font-size:12px;color:var(--m);">${_esc(inv.customerEmail || '')}</div>
+              ${inv.customerPhone ? `<div style="font-size:12px;color:var(--m);">${_esc(inv.customerPhone)}</div>` : ''}
             </div>
             <div>
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;font-weight:700;margin-bottom:4px;">Invoice Details</div>
@@ -548,19 +621,30 @@
                 <span>${formatCurrency(inv.subtotal)}</span>
               </div>
               <div style="display:flex;justify-content:space-between;padding:8px;border-bottom:1px solid var(--br);font-size:12px;">
-                <span>Tax (${(inv.taxRate * 100).toFixed(1)}%):</span>
+                <span>Tax (${((Number(inv.taxRate) || 0) * 100).toFixed(1)}%):</span>
                 <span>${formatCurrency(inv.tax)}</span>
               </div>
               <div style="display:flex;justify-content:space-between;padding:8px;font-size:14px;font-weight:700;">
                 <span>Total:</span>
                 <span>${formatCurrency(inv.total)}</span>
               </div>
+              ${(Number(inv.depositAmount) > 0 && Number(inv.depositAmount) < Number(inv.total)) ? `
+              <div style="display:flex;justify-content:space-between;padding:8px;border-top:1px solid var(--br);font-size:12px;">
+                <span>Deposit ${inv.depositPaid ? '(paid)' : 'due'}:</span>
+                <span>${formatCurrency(inv.depositAmount)}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between;padding:8px;font-size:13px;font-weight:700;color:var(--orange);">
+                <span>Balance Due:</span>
+                <span>${formatCurrency(inv.balanceDue != null ? inv.balanceDue : (Number(inv.total) - Number(inv.depositAmount)))}</span>
+              </div>
+              ` : ''}
             </div>
           </div>
 
           <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
             <button data-ip-action="print" style="padding:8px 16px;background:var(--s2);border:1px solid var(--br);border-radius:5px;cursor:pointer;font-weight:700;">Print Invoice</button>
             <button data-ip-action="sendInvoice" data-ip-id="${_escJs(invoiceId)}" style="padding:8px 16px;background:var(--orange);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Send to Customer</button>
+            ${inv.status !== 'paid' ? `<button data-ip-action="markPaid" data-ip-id="${_escJs(invoiceId)}" style="padding:8px 16px;background:var(--green,#2e7d32);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Mark Paid (Cash/Check)</button>` : ''}
             ${inv.stripePaymentLink ? `<button data-ip-action="copyStripeLink" data-ip-id="${_escJs(inv.stripePaymentLink)}" style="padding:8px 16px;background:var(--blue);color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:700;">Copy Payment Link</button>` : ''}
           </div>
 
@@ -634,12 +718,12 @@
 
         html += `
           <tr style="border-bottom:1px solid var(--br);">
-            <td style="padding:10px;font-weight:700;font-size:12px;">${inv.id.slice(0, 8)}</td>
-            <td style="padding:10px;font-size:12px;">Customer</td>
+            <td style="padding:10px;font-weight:700;font-size:12px;">${escHtml(inv.id.slice(0, 8))}</td>
+            <td style="padding:10px;font-size:12px;">${escHtml(inv.customerName || '—')}</td>
             <td style="text-align:right;padding:10px;font-size:12px;font-weight:700;">${formatCurrency(inv.total)}</td>
             <td style="text-align:right;padding:10px;font-size:12px;">${dueDate.toLocaleDateString()}</td>
             <td style="padding:10px;">
-              <span style="background:${statusBg};color:#fff;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase;">${inv.status}</span>
+              <span style="background:${statusBg};color:#fff;padding:3px 8px;border-radius:3px;font-size:10px;font-weight:700;text-transform:uppercase;">${escHtml(inv.status)}</span>
             </td>
             <td style="padding:10px;">
               <button data-ip-action="renderDetail" data-ip-id="${inv.id}" data-ip-target="inv-detail-modal" style="padding:4px 10px;font-size:10px;background:var(--blue);color:#fff;border:none;border-radius:3px;cursor:pointer;">View</button>
@@ -735,6 +819,16 @@
                   <td colspan="3" style="text-align: right; padding: 10px; font-weight: 700;">Total:</td>
                   <td style="text-align: right; padding: 10px; font-weight: 700; font-size: 16px;">${formatCurrency(invoice.total)}</td>
                 </tr>
+                ${(Number(invoice.depositAmount) > 0 && Number(invoice.depositAmount) < Number(invoice.total)) ? `
+                <tr>
+                  <td colspan="3" style="text-align: right; padding: 10px;">Deposit ${invoice.depositPaid ? '(paid)' : 'due'}:</td>
+                  <td style="text-align: right; padding: 10px;">${formatCurrency(invoice.depositAmount)}</td>
+                </tr>
+                <tr>
+                  <td colspan="3" style="text-align: right; padding: 10px; font-weight: 700; color:#e8720c;">Balance Due:</td>
+                  <td style="text-align: right; padding: 10px; font-weight: 700; color:#e8720c;">${formatCurrency(invoice.balanceDue != null ? invoice.balanceDue : (Number(invoice.total) - Number(invoice.depositAmount)))}</td>
+                </tr>
+                ` : ''}
               </tbody>
             </table>
             <p><strong>Payment Terms:</strong> ${_esc(invoice.terms)}</p>
@@ -790,7 +884,7 @@
           const invoiceId = await createInvoiceFromEstimate(estimateId);
           await generateStripePaymentLink(invoiceId);
           showToast('Invoice created successfully', 'success');
-          renderInvoicePanel('invoice-panel', leadId);
+          showInvoiceDetailModal(invoiceId);
         } catch (error) {
           showToast(`Error: ${error.message}`, 'error');
         }
@@ -843,6 +937,89 @@
     });
   }
 
+  /**
+   * Show a just-created (or selected) invoice in a reachable modal. The prior
+   * post-create path rendered into '#invoice-panel', an element that doesn't
+   * exist anywhere — so the created invoice and its Send / Copy-Link / Mark-Paid
+   * buttons were unreachable from the dashboard. This mounts the detail view
+   * (which carries those buttons) into a real overlay.
+   */
+  function showInvoiceDetailModal(invoiceId) {
+    const existing = document.getElementById('nbd-invoice-detail-modal');
+    if (existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'nbd-invoice-detail-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:100000;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.innerHTML = `
+      <div style="max-width:920px;width:100%;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+          <button id="nbd-inv-detail-close" style="padding:8px 16px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;cursor:pointer;font-weight:700;">✕ Close</button>
+        </div>
+        <div id="nbd-inv-detail-host"></div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.getElementById('nbd-inv-detail-close').onclick = () => overlay.remove();
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    renderInvoiceDetail('nbd-inv-detail-host', invoiceId);
+  }
+
+  /**
+   * UI: record a manual (cash/check) payment. Wires the previously-dead
+   * markPaid() to a modal so reps can record off-Stripe payments.
+   */
+  async function markPaidUI(invoiceId) {
+    let balanceDefault = '';
+    try {
+      const snap = await window.getDoc(window.doc(getDb(), 'invoices', invoiceId));
+      if (snap.exists()) {
+        const d = snap.data();
+        const bal = (d.balanceDue != null) ? d.balanceDue : d.total;
+        if (Number.isFinite(Number(bal))) balanceDefault = String(Number(bal).toFixed(2));
+      }
+    } catch (_) { /* default to blank */ }
+
+    const existing = document.getElementById('nbd-markpaid-modal');
+    if (existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'nbd-markpaid-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(10,12,15,.85);z-index:100001;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);';
+    overlay.innerHTML = `
+      <div style="background:#14161a;border:1px solid rgba(255,255,255,.1);border-radius:16px;max-width:380px;width:92%;padding:28px;color:#fff;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;margin-bottom:16px;">Record Payment</div>
+        <label style="font-size:10px;font-weight:600;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.08em;">Amount</label>
+        <input id="nbd-mp-amount" type="number" step="0.01" min="0" value="${balanceDefault}" style="width:100%;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;font-size:14px;margin:6px 0 14px;box-sizing:border-box;">
+        <div style="display:flex;gap:8px;">
+          <button class="nbd-mp-method" data-method="cash" style="flex:1;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;">💵 Cash</button>
+          <button class="nbd-mp-method" data-method="check" style="flex:1;padding:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:8px;color:#fff;cursor:pointer;font-weight:600;">🧾 Check</button>
+        </div>
+        <button id="nbd-mp-cancel" style="width:100%;padding:12px;background:none;border:1px solid rgba(255,255,255,.12);border-radius:8px;color:rgba(255,255,255,.5);cursor:pointer;margin-top:12px;font-size:12px;">Cancel</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.getElementById('nbd-mp-cancel').onclick = () => overlay.remove();
+    overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+    overlay.querySelectorAll('.nbd-mp-method').forEach(btn => {
+      btn.onclick = async () => {
+        const amount = parseFloat(document.getElementById('nbd-mp-amount').value);
+        if (!Number.isFinite(amount) || amount <= 0) {
+          if (typeof showToast === 'function') showToast('Enter a valid amount', 'error');
+          return;
+        }
+        const method = btn.dataset.method;
+        overlay.remove();
+        try {
+          if (typeof showToast === 'function') showToast('Recording payment...', 'info');
+          await markPaid(invoiceId, amount, method);
+          if (typeof showToast === 'function') showToast('Payment recorded', 'success');
+          if (document.getElementById('nbd-inv-detail-host')) renderInvoiceDetail('nbd-inv-detail-host', invoiceId);
+        } catch (error) {
+          if (typeof showToast === 'function') showToast(`Error: ${error.message}`, 'error');
+        }
+      };
+    });
+  }
+
   // ═══════════════════════════════════════════════════════════════════════
   // EXPORTS
   // ═══════════════════════════════════════════════════════════════════════
@@ -852,11 +1029,13 @@
     generateStripePaymentLink,
     sendInvoice,
     markPaid,
+    markPaidUI,
     renderInvoicePanel,
     renderInvoiceDetail,
     renderInvoiceList,
     createInvoiceUI,
-    sendInvoiceUI
+    sendInvoiceUI,
+    showInvoiceDetailModal
   };
 
 })();
@@ -878,6 +1057,7 @@
         case 'createInvoiceUI': if (typeof IP.createInvoiceUI === 'function') IP.createInvoiceUI(id); break;
         case 'renderDetail':    if (typeof IP.renderInvoiceDetail === 'function') IP.renderInvoiceDetail(target, id); break;
         case 'sendInvoice':     if (typeof IP.sendInvoiceUI === 'function') IP.sendInvoiceUI(id); break;
+        case 'markPaid':        if (typeof IP.markPaidUI === 'function') IP.markPaidUI(id); break;
         case 'print':           window.print(); break;
         case 'copyStripeLink':  {
           if (id) navigator.clipboard.writeText(id);

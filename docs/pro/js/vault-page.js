@@ -447,7 +447,7 @@ function renderSessions() {
             color:var(--text);
             font-size:14px;
           "
-          oninput="filterSessions(this.value)"
+          data-v-action="filterSessions" data-v-pass="value"
         />
       </div>
       <div class="card-body" id="sessionsList" style="max-height:600px; overflow-y:auto;">
@@ -967,7 +967,7 @@ function renderSearch() {
           id="searchInput" 
           placeholder="Search sessions, directives, decisions, tasks..." 
           style="width:100%; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px 16px; color:var(--text); font-size:15px; font-family:'Barlow Condensed', sans-serif;"
-          oninput="executeSearch()"
+          data-v-action="executeSearch"
         >
       </div>
     </div>
@@ -1741,7 +1741,9 @@ window.vaultBulkImportSessions = async function(sessionsArray) {
    AI SESSION PARSER — Gemini-Powered Content Extraction
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const GEMINI_WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+// Migrated off the nbd-ai-proxy worker to the gated, admin-authed adminAI
+// Cloud Function (Claude). Name kept generic; this is no longer Gemini.
+const NBD_ADMIN_AI_URL = 'https://us-central1-nobigdeal-pro.cloudfunctions.net/adminAI';
 
 async function parseSessionWithGemini(session) {
   const prompt = `Analyze this NBD Pro build session and extract structured data.
@@ -1816,23 +1818,27 @@ EXTRACTION RULES:
 - CRITICAL: Return ONLY the raw JSON object with no markdown formatting, no backticks, no explanatory text`;
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const _u = window._currentUser || window._auth?.currentUser;
+    const _tok = _u ? await _u.getIdToken() : '';
+    if (!_tok) throw new Error('Not signed in');
+    const response = await fetch(NBD_ADMIN_AI_URL, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001', max_tokens: 2048, messages: [{role: 'user', content: prompt}]
-      })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + _tok
+      },
+      body: JSON.stringify({ prompt, maxTokens: 2048 })
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Gemini error ${response.status}: ${errorText}`);
+      throw new Error(`adminAI error ${response.status}: ${errorText}`);
     }
-    
+
     const data = await response.json();
-    const jsonText = data?.content?.[0]?.text || '';
-    
-    if (!jsonText) throw new Error('Gemini returned no content');
+    let jsonText = data?.text || '';
+
+    if (!jsonText) throw new Error('adminAI returned no content');
     
     // Strip markdown code fences if present
     jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();

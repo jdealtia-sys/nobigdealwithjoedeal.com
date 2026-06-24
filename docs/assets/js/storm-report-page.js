@@ -134,8 +134,8 @@
     if (typeof L === 'undefined') { loadLeaflet(drawMap); } else { drawMap(); }
   }
   function loadLeaflet(cb) {
-    if (!$('lf-css')) { var c = document.createElement('link'); c.id = 'lf-css'; c.rel = 'stylesheet'; c.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'; document.head.appendChild(c); }
-    if (!$('lf-js')) { var s = document.createElement('script'); s.id = 'lf-js'; s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'; s.onload = cb; s.onerror = function () { var m = $('sr-map'); if (m) m.style.display = 'none'; }; document.head.appendChild(s); }
+    if (!$('lf-css')) { var c = document.createElement('link'); c.id = 'lf-css'; c.rel = 'stylesheet'; c.href = '/assets/vendor/leaflet/leaflet.css'; document.head.appendChild(c); }
+    if (!$('lf-js')) { var s = document.createElement('script'); s.id = 'lf-js'; s.src = '/assets/vendor/leaflet/leaflet.js'; s.onload = cb; s.onerror = function () { var m = $('sr-map'); if (m) m.style.display = 'none'; }; document.head.appendChild(s); }
     else cb();
   }
   function drawMap() {

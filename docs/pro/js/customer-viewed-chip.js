@@ -25,7 +25,7 @@
       && window.CustomerViewedChip.__sentinel === 'nbd-customer-viewed-chip-v1') return;
 
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/customer\.html$/.test(PATH)) return;
+  if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
 
   // ─── Helpers ─────────────────────────────────────────────────────
   function escapeHtml(s) {

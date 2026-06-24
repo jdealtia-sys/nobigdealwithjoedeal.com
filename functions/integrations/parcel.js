@@ -29,7 +29,7 @@ const { getSecret, hasSecret, SECRETS } = require('./_shared');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app'
+  'https://nobigdeal-pro.web.app'
 ];
 
 const CACHE_TTL_MS = 90 * 24 * 60 * 60 * 1000; // 90 days

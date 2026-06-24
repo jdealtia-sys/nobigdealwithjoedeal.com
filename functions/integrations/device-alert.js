@@ -30,7 +30,7 @@ const { SECRETS, hasSecret, getSecret } = require('./_shared');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app'
+  'https://nobigdeal-pro.web.app'
 ];
 
 function hashFingerprint(uid, raw) {

@@ -30,7 +30,7 @@
       && window.SmartFollowupBriefing.__sentinel === 'nbd-smart-followup-briefing-v1') return;
 
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/dashboard\.html$/.test(PATH)) return;
+  if (!/\/pro\/dashboard(?:\.html)?$/.test(PATH)) return;
 
   const TOP_N = 5;
   const TERMINAL_STAGES = new Set(['closed', 'lost', 'complete']);

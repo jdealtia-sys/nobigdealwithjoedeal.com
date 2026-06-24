@@ -145,6 +145,11 @@ window.openEmailModal = function(options = {}) {
   modal.id = 'emailModal';
   modal.className = 'modal';
   modal.style.cssText = 'display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:10000;align-items:center;justify-content:center;';
+
+  // Escape user/lead-sourced values before interpolating into innerHTML below.
+  // to/subject/body originate from lead docs (which can come from PUBLIC intake),
+  // so a name/address containing " < > & would break the markup or inject script.
+  const esc = function(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); };
   
   modal.innerHTML = `
     <div class="modal-content" style="max-width:700px;width:95%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;background:var(--s);border-radius:12px;">
@@ -156,20 +161,20 @@ window.openEmailModal = function(options = {}) {
       <div style="flex:1;overflow-y:auto;padding:25px;">
         <div style="margin-bottom:15px;">
           <label style="display:block;font-weight:600;margin-bottom:6px;">To:</label>
-          <input type="email" id="emailTo" value="${to}" placeholder="customer@example.com"
+          <input type="email" id="emailTo" value="${esc(to)}" placeholder="customer@example.com"
                  style="width:100%;padding:10px;border:1px solid var(--br);border-radius:6px;font-size:14px;">
         </div>
         
         <div style="margin-bottom:15px;">
           <label style="display:block;font-weight:600;margin-bottom:6px;">Subject:</label>
-          <input type="text" id="emailSubject" value="${subject}"
+          <input type="text" id="emailSubject" value="${esc(subject)}"
                  style="width:100%;padding:10px;border:1px solid var(--br);border-radius:6px;font-size:14px;">
         </div>
         
         <div style="margin-bottom:15px;">
           <label style="display:block;font-weight:600;margin-bottom:6px;">Message:</label>
           <textarea id="emailBody" rows="12"
-                    style="width:100%;padding:10px;border:1px solid var(--br);border-radius:6px;font-size:14px;resize:vertical;">${body}</textarea>
+                    style="width:100%;padding:10px;border:1px solid var(--br);border-radius:6px;font-size:14px;resize:vertical;">${esc(body)}</textarea>
         </div>
         
         ${attachmentName ? `
@@ -177,7 +182,7 @@ window.openEmailModal = function(options = {}) {
             <div style="display:flex;align-items:center;gap:10px;">
               <div style="font-size:32px;">📎</div>
               <div style="flex:1;">
-                <div style="font-weight:600;color:var(--t);">${attachmentName}</div>
+                <div style="font-weight:600;color:var(--t);">${esc(attachmentName)}</div>
                 <div style="font-size:12px;color:var(--m);">Attachment will be included</div>
               </div>
             </div>
@@ -245,6 +250,7 @@ window.sendEmail = async function() {
 
     // Fallback: Log and use mailto
     if (window._emailLeadId && window.db) {
+      const _eu = window.auth?.currentUser;
       await window.addDoc(window.collection(window.db, 'emails'), {
         leadId: window._emailLeadId,
         to: to,
@@ -253,7 +259,11 @@ window.sendEmail = async function() {
         context: window._emailContext || 'general',
         hasAttachment: !!window._emailAttachment,
         sentAt: window.serverTimestamp(),
-        sentBy: window.auth?.currentUser?.email || 'Unknown'
+        sentBy: _eu?.email || 'Unknown',
+        // Bind ownership to the immutable uid (rules prefer this over the
+        // mutable token email). Only set when present so unauth fallbacks
+        // don't write an empty value that would fail the create rule.
+        ...(_eu?.uid ? { sentByUid: _eu.uid } : {})
       });
     }
 
@@ -711,7 +721,7 @@ window.emailSystem.send = async function(to, subject, body, options = {}) {
       // Load EmailJS SDK if not already loaded
       if (!window.emailjs) {
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+        script.src = '/assets/vendor/emailjs/email.min.js';
         document.head.appendChild(script);
         await new Promise(resolve => script.onload = resolve);
         window.emailjs.init(this.config.emailjsPublicKey);

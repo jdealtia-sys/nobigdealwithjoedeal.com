@@ -37,7 +37,7 @@ const DEEPGRAM_API_KEY = defineSecret('DEEPGRAM_API_KEY');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app'
+  'https://nobigdeal-pro.web.app'
 ];
 
 // Max audio clip accepted. 60s at 128kbps ≈ 960KB, so 1.5MB is a

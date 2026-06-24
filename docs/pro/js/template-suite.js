@@ -1321,9 +1321,9 @@ Any additional damage discovered during work shall be documented and submitted a
         <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
           <input type="text" id="template-search" placeholder="Search templates..."
             style="flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;"
-            onkeyup="window.NBDTemplateSuite.performSearch(this.value)">
+            >
           <select id="template-type-filter" style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px;"
-            onchange="window.NBDTemplateSuite.filterByType(this.value)">
+            >
             <option value="">All Types</option>
             <option value="email">Email</option>
             <option value="estimate">Estimate</option>
@@ -1352,6 +1352,10 @@ Any additional damage discovered during work shall be documented and submitted a
     `;
 
     container.innerHTML = html;
+    // CSP-safe: inline onkeyup/onchange are blocked (script-src-attr 'none'); wire the
+    // search + type filter after render.
+    container.querySelector('#template-search')?.addEventListener('input', function () { window.NBDTemplateSuite.performSearch(this.value); });
+    container.querySelector('#template-type-filter')?.addEventListener('change', function () { window.NBDTemplateSuite.filterByType(this.value); });
     return container;
   }
 
@@ -1363,12 +1367,12 @@ Any additional damage discovered during work shall be documented and submitted a
       <div style="border: 1px solid #ddd; border-radius: 8px; padding: 15px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
         <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
           <div>
-            <h3 style="margin: 0 0 5px 0; color: #333;">${tpl.name}</h3>
+            <h3 style="margin: 0 0 5px 0; color: #333;">${escapeHtml(tpl.name)}</h3>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
               <span style="background: ${TYPE_COLORS[tpl.type]}; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: bold;">
                 ${tpl.type.replace('_', ' ').toUpperCase()}
               </span>
-              ${tpl.category ? `<span style="background: #e0e0e0; color: #333; padding: 2px 8px; border-radius: 3px; font-size: 11px;">${tpl.category}</span>` : ''}
+              ${tpl.category ? `<span style="background: #e0e0e0; color: #333; padding: 2px 8px; border-radius: 3px; font-size: 11px;">${escapeHtml(tpl.category)}</span>` : ''}
               ${tpl.isDefault ? `<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 3px; font-size: 11px;">DEFAULT</span>` : ''}
             </div>
           </div>
@@ -1379,7 +1383,7 @@ Any additional damage discovered during work shall be documented and submitted a
         </div>
 
         <p style="color: #666; font-size: 13px; margin: 10px 0; line-height: 1.4; min-height: 50px;">
-          ${tpl.description || preview.substring(0, 80) + '...'}
+          ${escapeHtml(tpl.description || preview.substring(0, 80) + '...')}
         </p>
 
         <div style="display: flex; justify-content: space-between; font-size: 12px; color: #999; margin-bottom: 10px;">
@@ -1422,7 +1426,7 @@ Any additional damage discovered during work shall be documented and submitted a
 
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Template Name *</label>
-          <input type="text" id="tpl-name" value="${tpl.name || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+          <input type="text" id="tpl-name" value="${escapeHtml(tpl.name || '')}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
         </div>
 
         <div style="margin-bottom: 15px;">
@@ -1438,12 +1442,12 @@ Any additional damage discovered during work shall be documented and submitted a
 
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Category</label>
-          <input type="text" id="tpl-category" value="${tpl.category || ''}" placeholder="e.g., insurance_pipeline, general" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+          <input type="text" id="tpl-category" value="${escapeHtml(tpl.category || '')}" placeholder="e.g., insurance_pipeline, general" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
         </div>
 
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Description</label>
-          <textarea id="tpl-description" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; height: 60px;">${tpl.description || ''}</textarea>
+          <textarea id="tpl-description" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; height: 60px;">${escapeHtml(tpl.description || '')}</textarea>
         </div>
     `;
 
@@ -1451,7 +1455,7 @@ Any additional damage discovered during work shall be documented and submitted a
       formHTML += `
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Email Subject *</label>
-          <input type="text" id="tpl-subject" value="${tpl.subject || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
+          <input type="text" id="tpl-subject" value="${escapeHtml(tpl.subject || '')}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box;">
         </div>
 
         <div style="margin-bottom: 15px;">
@@ -1461,7 +1465,7 @@ Any additional damage discovered during work shall be documented and submitted a
             <button type="button" data-ts-action="insertMergeField" data-ts-id="lastName" data-ts-target="tpl-body" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Insert {{lastName}}</button>
             <button type="button" data-ts-action="insertMergeField" data-ts-id="address" data-ts-target="tpl-body" style="padding: 5px 10px; background: #2196F3; color: white; border: none; border-radius: 3px; cursor: pointer; font-size: 12px;">Insert {{address}}</button>
           </div>
-          <textarea id="tpl-body" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; height: 250px; font-family: monospace; font-size: 12px;">${tpl.body || ''}</textarea>
+          <textarea id="tpl-body" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; height: 250px; font-family: monospace; font-size: 12px;">${escapeHtml(tpl.body || '')}</textarea>
         </div>
 
         <div style="margin-bottom: 15px;">
@@ -1475,14 +1479,14 @@ Any additional damage discovered during work shall be documented and submitted a
       formHTML += `
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Contract Content *</label>
-          <textarea id="tpl-content" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; height: 300px; font-family: monospace; font-size: 12px;">${tpl.content || ''}</textarea>
+          <textarea id="tpl-content" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; height: 300px; font-family: monospace; font-size: 12px;">${escapeHtml(tpl.content || '')}</textarea>
         </div>
       `;
     } else if (tpl.type === 'scope_of_work') {
       formHTML += `
         <div style="margin-bottom: 15px;">
           <label style="display: block; font-weight: bold; margin-bottom: 5px;">Scope of Work Content *</label>
-          <textarea id="tpl-content" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; height: 300px; font-family: monospace; font-size: 12px;">${tpl.content || ''}</textarea>
+          <textarea id="tpl-content" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; height: 300px; font-family: monospace; font-size: 12px;">${escapeHtml(tpl.content || '')}</textarea>
         </div>
       `;
     }
@@ -1597,7 +1601,7 @@ Any additional damage discovered during work shall be documented and submitted a
 
     modal.innerHTML = `
       <div style="background: white; padding: 20px; border-radius: 8px; width: 90%; max-width: 800px; max-height: 90vh; overflow-y: auto;">
-        <h2 style="margin-top: 0; color: var(--orange);">${tpl.name} — Preview</h2>
+        <h2 style="margin-top: 0; color: var(--orange);">${escapeHtml(tpl.name)} — Preview</h2>
         <div style="border: 1px solid #ddd; padding: 15px; border-radius: 4px; background: #f9f9f9; white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.5;">
           ${escapeHtml(preview)}
         </div>
@@ -1638,9 +1642,11 @@ Any additional damage discovered during work shall be documented and submitted a
   }
 
   function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+    // Full escape incl. quotes so it is safe in BOTH text and value="..." attribute
+    // contexts (the prior textContent->innerHTML form left " and ' unescaped).
+    return String(text == null ? '' : text)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
   // ============================================================================

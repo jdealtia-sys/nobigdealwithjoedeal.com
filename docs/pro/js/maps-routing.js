@@ -578,7 +578,7 @@ function finalizeLine(p1, p2, dot1, dot2) {
   // Editable label on click
   lbl.on('click', () => editLineLength(id));
   const id = Date.now() + Math.random();
-  drawnLines.push({id, type:drawLT, name:lt.name, color:lt.color, dist:d, line, lbl, p1, p2, dot1, dot2, subtype:'line'});
+  drawnLines.push({id, type:drawLT, name:lt.n, color:lt.color, dist:d, line, lbl, p1, p2, dot1, dot2, subtype:'line'});
   // ── Click line on map → type picker popup (April 2026) ──
   line.on('click', function(e) {
     L.DomEvent.stopPropagation(e);
@@ -826,7 +826,7 @@ function renderFacetList() {
     return `<div class="facet-row" style="border-left:3px solid ${color};">
       <span class="facet-name">${f.label}</span>
       <span class="facet-area">${f.baseArea.toFixed(0)} sf</span>
-      <select class="facet-pitch-sel" onchange="updateFacetPitch(${i},this.value)" title="Facet pitch">
+      <select class="facet-pitch-sel" data-mr-pitch="${i}" title="Facet pitch">
         <option value="1.0" ${f.pitch===1?'selected':''}>Flat</option>
         <option value="1.054" ${f.pitch===1.054?'selected':''}>4/12</option>
         <option value="1.083" ${f.pitch===1.083?'selected':''}>5/12</option>
@@ -840,6 +840,11 @@ function renderFacetList() {
       </select>
     </div>`;
   }).join('');
+  // CSP-safe: inline onchange= is blocked (script-src-attr 'none'); wire the pitch
+  // selects after render so changing a facet's roof pitch recalculates.
+  el.querySelectorAll('.facet-pitch-sel').forEach(function (sel) {
+    sel.addEventListener('change', function () { updateFacetPitch(Number(this.dataset.mrPitch), this.value); });
+  });
 }
 
 function updateFacetPitch(fi, val) {

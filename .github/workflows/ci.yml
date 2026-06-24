@@ -33,6 +33,23 @@ jobs:
           fi
       - name: Run smoke tests
         run: node tests/smoke.test.js
+      # Security-sensitive privilege-escalation / cross-tenant guard logic
+      # (requireTeamAdmin, callerMayManageTarget, normalizeRole, classifyClaims).
+      # Previously local-only (npm run test:teamroles) — gated here so a future
+      # edit can't silently re-open a fail-open hole or over-block a solo owner.
+      - name: Run team/role + tenant guard tests
+        run: node tests/team-roles.test.js
+      # /photos canonical-timestamp gate: every write path must stamp
+      # createdAt and both chronological queries must orderBy it (with
+      # the matching composite indexes), or quick-upload / annotation
+      # photos silently vanish from the feed + gallery. Dependency-free.
+      - name: Run photos timestamp contract tests
+        run: node tests/photos-timestamp-contract.test.js
+      # Money-path gate (H3): the Stripe payment-link reconciliation must add a
+      # sales-tax line and refuse to issue any link that wouldn't charge
+      # invoice.total. Dependency-free logic mirror of functions/stripe.js.
+      - name: Run Stripe payment-link tax reconciliation tests
+        run: node tests/stripe-payment-link-tax.test.js
       # Theme legibility + completeness gate (audit Phase 3): every theme in both
       # registries must define the required vars and clear the WCAG contrast floor
       # as rendered. Dependency-free; extracts the real engine colour helpers.

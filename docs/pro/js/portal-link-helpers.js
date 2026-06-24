@@ -89,23 +89,16 @@
   // the kanban context menu can reuse it without duplicating.
   async function resolveUrl(leadId) {
     if (!leadId) throw new Error('leadId required');
-    if (typeof window.CustomerPortal === 'undefined') {
+    if (typeof window.CustomerPortal === 'undefined' || typeof window.CustomerPortal.mintUrl !== 'function') {
       throw new Error('Portal module not loaded');
     }
-    if (!window.db || !window.doc || !window.getDoc) {
-      throw new Error('Firestore not loaded');
-    }
-    // Try existing URL first.
-    let url = null;
-    try {
-      const snap = await window.getDoc(window.doc(window.db, 'leads', leadId));
-      const data = snap.exists() ? snap.data() : {};
-      if (typeof data.portalUrl === 'string' && /^https?:\/\//.test(data.portalUrl)) {
-        url = data.portalUrl;
-      }
-    } catch (_) { /* fall through to generate */ }
-    if (!url) url = await window.CustomerPortal.generate(leadId);
-    if (!url) throw new Error('Generation failed');
+    // Always mint a fresh, revocable token URL (/pro/portal.html?token=…).
+    // We deliberately no longer return a persisted lead.portalUrl — those were
+    // the legacy, permanent, UNREVOCABLE Firebase Storage links this sweep
+    // is retiring. Tokens are cheap (30-day TTL) and revoked together by
+    // revokePortalToken({leadId}).
+    const url = await window.CustomerPortal.mintUrl(leadId);
+    if (!url) throw new Error('Could not create portal link');
     return url;
   }
 

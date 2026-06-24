@@ -827,10 +827,19 @@ function processToastQueue() {
   }
 
   const toast = document.getElementById('toast');
-  toast.innerHTML = `
-    <div style="flex:1;">${msg}</div>
-    <div class="toast-progress"></div>
-  `;
+  // SECURITY: render msg as TEXT, never HTML. showToast is called from ~30
+  // sites with lead/customer-sourced strings (e.g. firstName/address that
+  // originate from the public intake form), so innerHTML here was a stored-XSS
+  // sink that executed in the rep/manager's authenticated session. No caller
+  // passes intentional markup, so textContent is a safe drop-in. (This
+  // top-level showToast is global and overrides the safe boot-time fallback.)
+  toast.textContent = '';
+  const body = document.createElement('div');
+  body.style.flex = '1';
+  body.textContent = msg;
+  const prog = document.createElement('div');
+  prog.className = 'toast-progress';
+  toast.append(body, prog);
   toast.className = 'toast show '+(type==='error'?'error':'success');
 
   setTimeout(() => {
@@ -1855,6 +1864,9 @@ function toggleSidebarCollapse() {
   // Sync the button's `active` state
   const btn = document.getElementById('sidebarToggleBtn');
   if (btn) btn.classList.toggle('active', collapsed);
+  // Keep the Settings "Show tool names" checkbox in sync (inverse of collapsed)
+  const lblCb = document.getElementById('sidebarLabelsToggle');
+  if (lblCb) lblCb.checked = !collapsed;
   // Leaflet maps need an invalidate-size after the rail width changes
   // so they don't render with the old viewport dimensions.
   setTimeout(() => {
@@ -2234,6 +2246,15 @@ function setCrmSecHeaderEnabled(enabled) {
   try { localStorage.setItem(CRM_SEC_HEADER_SETTING, String(enabled)); } catch {}
   applyCrmSecHeaderState();
 }
+// Expose to window. This file is IIFE-wrapped, so the Settings "Secondary Toolbar"
+// toggle could not reach this setter: its handler nbdSetCrmSecHeaderEnabledT
+// (dashboard-ui-prefs-boot.js, a separate file) guards on a BARE
+// `typeof setCrmSecHeaderEnabled === 'function'`, which resolves against the global
+// scope — and this function was never put there. The toggle silently no-op'd
+// (and, post-PR #670, falsely toasted "Secondary header ON"). Its siblings
+// setKanbanDensity / setKanbanBoldHierarchy / setCrmAutoCollapse are all
+// window-exposed; this was the one missed export.
+window.setCrmSecHeaderEnabled = setCrmSecHeaderEnabled;
 
 function applyCrmSecHeaderState() {
   const enabled = getCrmSecHeaderEnabled();

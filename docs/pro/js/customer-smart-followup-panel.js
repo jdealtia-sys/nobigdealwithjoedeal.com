@@ -50,7 +50,7 @@
       && window.CustomerSmartFollowupPanel.__sentinel === 'nbd-customer-smart-followup-panel-v1') return;
 
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/customer\.html$/.test(PATH)) return;
+  if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
 
   // Per-session dismissed set so a rep doesn't see the same
   // suggestion repeatedly after acknowledging it. Cleared on

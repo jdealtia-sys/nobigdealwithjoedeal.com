@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>NBD Pro Blog — Marketing, SEO &amp; Sales Systems for Contractors</title>
+  <meta name="description" content="Field-tested marketing, SEO, and sales systems for local contractors. Built by Joe Deal — contractor-turned-entrepreneur.">
+  <link rel="canonical" href="https://nobigdealwithjoedeal.com/pro/blog">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#1e3a6e;--navy-dark:#142a52;--orange:#e8720c;--orange-dark:#c45e08;
+  --white:#fff;--off-white:#f5f3ef;--gray:#6b7280;--light-gray:#e8e5e0;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{font-family:'Montserrat',sans-serif;color:#1a1a1a;background:var(--off-white);-webkit-font-smoothing:antialiased;}
+a{text-decoration:none;color:inherit;}
+.ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;}
+nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom:3px solid var(--orange);padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:70px;}
+.nav-logo{display:flex;align-items:center;gap:10px;}
+.nav-logo img{height:42px;width:auto;border-radius:6px;}
+.nav-logo-text .brand{font-size:1rem;font-weight:800;color:var(--white);letter-spacing:.04em;}
+.nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:500;}
+.nav-links{display:flex;align-items:center;gap:28px;list-style:none;}
+.nav-links a{color:rgba(255,255,255,.85);font-size:.8rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;transition:color .2s;}
+.nav-links a:hover{color:var(--orange);}
+.nav-cta{background:var(--orange)!important;color:var(--white)!important;padding:10px 18px;border-radius:6px;font-weight:700!important;}
+.nav-cta:hover{background:var(--orange-dark)!important;}
+.hamburger{display:none;flex-direction:column;gap:6px;background:transparent;border:none;cursor:pointer;padding:10px;z-index:1001;}
+.hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.mobile-nav{display:none;background:var(--navy-dark);padding:0 5%;}
+.mobile-nav.open{display:flex;flex-direction:column;}
+.mobile-nav .mnav-group{color:rgba(255,255,255,.5);font-size:.7rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:14px 0 4px;}
+.mobile-nav a{color:rgba(255,255,255,.85);padding:12px 0;font-size:.85rem;font-weight:600;border-bottom:1px solid rgba(255,255,255,.07);}
+.hero{background:var(--navy-dark);color:var(--white);padding:64px 5% 52px;}
+.hero-inner{max-width:1080px;margin:0 auto;}
+.hero .eyebrow{display:inline-block;background:rgba(232,114,12,.15);border:1px solid rgba(232,114,12,.4);color:var(--orange);font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;border-radius:20px;margin-bottom:18px;}
+.hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.6rem,5.5vw,4.2rem);line-height:1.02;letter-spacing:.02em;margin-bottom:14px;}
+.hero h1 span{color:var(--orange);}
+.hero p{font-size:1.02rem;line-height:1.6;color:rgba(255,255,255,.82);max-width:620px;}
+.wrap{max-width:1080px;margin:0 auto;padding:48px 5% 72px;}
+.post-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:22px;}
+.post-card{display:flex;flex-direction:column;background:var(--white);border:1px solid var(--light-gray);border-radius:12px;padding:24px;transition:transform .15s,box-shadow .15s,border-color .15s;}
+.post-card:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(20,42,82,.12);border-color:rgba(232,114,12,.5);}
+.post-card .pc-meta{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap;}
+.post-card .pc-tag{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);background:rgba(232,114,12,.1);padding:4px 10px;border-radius:6px;}
+.post-card .pc-date{font-size:.72rem;color:var(--gray);font-weight:600;}
+.post-card h2{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;line-height:1.08;letter-spacing:.02em;color:var(--navy-dark);margin-bottom:10px;}
+.post-card p{font-size:.9rem;line-height:1.6;color:#4a4a4a;flex:1;}
+.post-card .pc-read{margin-top:16px;font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--orange);}
+footer{background:var(--navy-dark);color:rgba(255,255,255,.7);padding:40px 5% 28px;}
+.footer-inner{max-width:1080px;margin:0 auto;display:flex;flex-wrap:wrap;gap:20px;align-items:center;justify-content:space-between;}
+.footer-inner .f-brand{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:.04em;color:var(--white);}
+.footer-inner .f-brand span{color:var(--orange);}
+.footer-inner a{color:var(--orange);font-weight:700;font-size:.85rem;}
+.footer-bottom{max-width:1080px;margin:18px auto 0;font-size:.74rem;color:rgba(255,255,255,.45);border-top:1px solid rgba(255,255,255,.1);padding-top:16px;}
+@media(max-width:760px){.nav-links{display:none;}.hamburger{display:flex;}}
+</style>
+</head>
+<body>
+<div class="ann-bar">NBD PRO — the roofing sales operating system. Get the full masterclass at /pro/landing</div>
+<nav id="mainNav" class="nav">
+  <a href="/pro/landing" class="nav-logo">
+    <img src="/assets/images/nbd-logo.png" alt="NBD Pro">
+    <div class="nav-logo-text">
+      <div class="brand">NBD PRO</div>
+      <div class="sub">Pro Resources</div>
+    </div>
+  </a>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="/pro/blog">Blog</a></li>
+    <li><a href="/pro/landing">Masterclass</a></li>
+    <li><a href="/pro/dashboard" class="nav-cta">Open NBD Pro &rarr;</a></li>
+  </ul>
+  <button class="hamburger" id="hamburger" aria-label="Open menu">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+<div class="mobile-nav" id="mobileNav">
+  <div class="mnav-group">NBD Pro</div>
+  <a href="/pro/blog">Blog</a>
+  <a href="/pro/landing">Masterclass</a>
+  <a href="/pro/dashboard" style="color:var(--orange,#e8720c);font-weight:800;">Open NBD Pro &rarr;</a>
+</div>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">NBD Pro Blog</div>
+    <h1>Marketing, SEO &amp; sales systems <span>that actually move the needle</span></h1>
+    <p>Field-tested playbooks for local contractors — written by Joe Deal, contractor-turned-entrepreneur. No fluff, no agency retainers. Just systems that work.</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="post-grid">
+
+    <a class="post-card" href="/pro/blog/ai-search-contractors-geo">
+      <div class="pc-meta"><span class="pc-tag">AI Search Strategy</span><span class="pc-date">Mar 28, 2026</span></div>
+      <h2>How Contractors Can Use AI to Get Found in Search (Before Your Competition Does)</h2>
+      <p>AI search is changing how homeowners find contractors. The 5 GEO rules, the 3-step audit, and the content strategy that gets you cited by ChatGPT and Google AI.</p>
+      <div class="pc-read">Read &rarr;</div>
+    </a>
+
+    <a class="post-card" href="/pro/blog/competition-crusher-contractor-marketing">
+      <div class="pc-meta"><span class="pc-tag">Contractor Marketing</span><span class="pc-date">Mar 21, 2026</span></div>
+      <h2>The Competition Crusher: 30-Minute Weekly System to Outmarket Every Contractor in Your Area</h2>
+      <p>Outmarket bigger contractors with a 30-minute weekly system. Stack 4 trust signals, spy on competitors for free, and build an unfair advantage — no big budget needed.</p>
+      <div class="pc-read">Read &rarr;</div>
+    </a>
+
+    <a class="post-card" href="/pro/blog/google-maps-contractor-ranking">
+      <div class="pc-meta"><span class="pc-tag">Contractor Marketing</span><span class="pc-date">Mar 13, 2026</span></div>
+      <h2>How to Dominate Google Maps as a Local Contractor (Without Paying for Ads)</h2>
+      <p>Rank higher on Google Maps as a contractor. The 7-day GBP routine, hyperlocal suburb strategy, and the 3 ranking factors that matter. No ad spend needed.</p>
+      <div class="pc-read">Read &rarr;</div>
+    </a>
+
+    <a class="post-card" href="/pro/blog/contractor-seo-90-day-fix">
+      <div class="pc-meta"><span class="pc-tag">Contractor SEO</span><span class="pc-date">Mar 6, 2026</span></div>
+      <h2>Why Most Contractor Websites Don't Rank (And the 90-Day Fix)</h2>
+      <p>Your contractor website isn't ranking because of 3 fixable mistakes. The exact 90-day SEO plan to go from invisible to page 1 — no agency required.</p>
+      <div class="pc-read">Read &rarr;</div>
+    </a>
+
+    <a class="post-card" href="/pro/blog/contractor-review-system">
+      <div class="pc-meta"><span class="pc-tag">Contractor Marketing</span><span class="pc-date">Feb 27, 2026</span></div>
+      <h2>The Contractor's Review Flywheel: How to Get 5-Star Reviews on Autopilot</h2>
+      <p>Get more 5-star reviews as a contractor with an automated 3-step system. SMS templates, email follow-ups, and the velocity principle that beats volume every time.</p>
+      <div class="pc-read">Read &rarr;</div>
+    </a>
+
+  </div>
+</main>
+
+<footer>
+  <div class="footer-inner">
+    <div class="f-brand">NBD <span>PRO</span></div>
+    <a href="/pro/dashboard">Open the App &rarr;</a>
+  </div>
+  <div class="footer-bottom">© 2026 NBD Pro · Pro resources for contractors, by Joe Deal. Shared by invitation — not affiliated with the No Big Deal Home Solutions homeowner brand.</div>
+</footer>
+
+<script defer src="/assets/js/blog-nav.js"></script>
+</body>
+</html>

@@ -43,7 +43,7 @@
       && window.EngagementCohortWidget.__sentinel === 'nbd-engagement-cohort-v1') return;
 
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/dashboard\.html$/.test(PATH)) return;
+  if (!/\/pro\/dashboard(?:\.html)?$/.test(PATH)) return;
 
   const TIER_DEFS = [
     { tier: 4, key: 'responded', label: 'Responded', icon: '✅', bg: 'rgba(251,191,36,0.18)', color: '#fbbf24', border: 'rgba(251,191,36,0.45)' },

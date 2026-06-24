@@ -75,6 +75,8 @@ require('./shared');
 const aiHandlers = require('./handlers/ai');
 exports.claudeProxy        = aiHandlers.claudeProxy;
 exports.publicVisualizerAI = aiHandlers.publicVisualizerAI;
+exports.publicFunnelAI     = aiHandlers.publicFunnelAI;
+exports.adminAI            = aiHandlers.adminAI;
 
 // Photo / image (signed URLs, vision analysis, CORS bootstrap)
 const photoHandlers = require('./handlers/photo');
@@ -224,6 +226,12 @@ Object.assign(exports, portalFunctions);
 // homeowner endpoints). Same token-auth model as portal.js.
 const remoteSigningFunctions = require('./remote-signing');
 Object.assign(exports, remoteSigningFunctions);
+
+// Close Board deal acceptance (1a): no-login remote accept of a shared deal
+// room (deal_accept_tokens + /deal/<token> + /api/deal-accept). Same
+// single-use token model as remote-signing.js. See functions/deal-acceptance.js.
+const dealAcceptanceFunctions = require('./deal-acceptance');
+Object.assign(exports, dealAcceptanceFunctions);
 
 // L-03 cont.: Stripe handlers (createCheckoutSession, stripeWebhook,
 // createCustomerPortalSession, getSubscriptionStatus,

@@ -28,6 +28,7 @@ const {
   CORS_ORIGINS,
   LEGACY_ACCESS_CODES,
   requireTeamAdmin,
+  callerMayManageTarget,
   normalizeRole,
   normalizeEmail,
 } = require('./_shared');
@@ -492,11 +493,16 @@ exports.createTeamMember = onCall(
       }
     }
 
-    // Block cross-company poaching: if the target already has a different
-    // companyId claim, require global admin to reassign.
+    // Block cross-company poaching AND cross-tenant adoption: only adopt a
+    // brand-new invitee (created in this call) or a user already scoped to this
+    // company. An existing account with a different OR ABSENT companyId is not
+    // ours to take (fail closed — see callerMayManageTarget).
     const existingClaims = userRecord.customClaims || {};
-    if (existingClaims.companyId && existingClaims.companyId !== companyId && request.auth.token.role !== 'admin') {
-      throw new HttpsError('already-exists', 'User is already a member of another company');
+    if (!callerMayManageTarget(existingClaims, companyId, request.auth.token.role === 'admin', created)) {
+      // Distinguish the two fail-closed reasons so the admin-facing toast is accurate.
+      throw new HttpsError('already-exists', existingClaims.companyId
+        ? 'This email already belongs to another company; it cannot be added here.'
+        : 'This email already has a standalone account; it must sign up via an invite link or be migrated by an admin.');
     }
 
     // Merge claims — preserve plan/subscriptionStatus if present.
@@ -581,8 +587,10 @@ exports.updateUserRole = onCall(
     }
 
     const existingClaims = userRecord.customClaims || {};
-    // Block changing a user from a different company unless platform admin.
-    if (existingClaims.companyId && existingClaims.companyId !== companyId && !isGlobalAdmin) {
+    // Only re-role a user already scoped to THIS company (or as global admin).
+    // A target with a different OR ABSENT companyId is not ours — fail closed so
+    // a company_admin cannot re-role/seize a solo owner or access-code member.
+    if (!callerMayManageTarget(existingClaims, companyId, isGlobalAdmin)) {
       throw new HttpsError('permission-denied', 'User belongs to another company');
     }
 
@@ -662,7 +670,10 @@ exports.deactivateUser = onCall(
 
     const existingClaims = userRecord.customClaims || {};
     const isGlobalAdmin = request.auth.token.role === 'admin';
-    if (existingClaims.companyId && existingClaims.companyId !== companyId && !isGlobalAdmin) {
+    // Only disable a user already scoped to THIS company (or as global admin).
+    // A target with a different OR ABSENT companyId is not ours — fail closed so
+    // a company_admin cannot lock out a solo owner or another tenant's member.
+    if (!callerMayManageTarget(existingClaims, companyId, isGlobalAdmin)) {
       throw new HttpsError('permission-denied', 'User belongs to another company');
     }
 

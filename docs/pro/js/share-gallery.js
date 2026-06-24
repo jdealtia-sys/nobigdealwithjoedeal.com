@@ -158,12 +158,12 @@
 
         phaseSections += '<div style="background:#1e293b;border-radius:12px;overflow:hidden;border:1px solid #334155;">';
         phaseSections += '<div style="position:relative;cursor:pointer;" data-sg-action="openLightbox" data-sg-url="' + esc(photo.url || '') + '" data-sg-desc="' + esc(photo.description || '') + '">';
-        phaseSections += '<img src="' + photo.url + '" alt="' + (photo.description || 'Photo') + '" style="width:100%;height:200px;object-fit:cover;display:block;">';
+        phaseSections += '<img src="' + esc(photo.url || '') + '" alt="' + esc(photo.description || 'Photo') + '" style="width:100%;height:200px;object-fit:cover;display:block;">';
         phaseSections += '</div>';
         phaseSections += '<div style="padding:12px;">';
         if (badges) phaseSections += '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;">' + badges + '</div>';
         if (photo.description) phaseSections += '<div style="font-size:13px;color:#cbd5e1;margin-bottom:4px;">' + esc(photo.description) + '</div>';
-        if (photo.date) phaseSections += '<div style="font-size:11px;color:#64748b;">' + photo.date + '</div>';
+        if (photo.date) phaseSections += '<div style="font-size:11px;color:#64748b;">' + esc(photo.date) + '</div>';
         phaseSections += '</div></div>';
       });
       phaseSections += '</div></div>';
@@ -196,7 +196,7 @@
       + '<div class="brand-mark">NBD</div>'
       + '<div class="brand-name">' + BRAND.name + '</div>'
       + '<h1>Project Photos</h1>'
-      + '<div class="meta">' + esc(customerName) + (address ? ' &middot; ' + address : '') + (damageType ? ' &middot; ' + esc(damageType) + ' Damage' : '') + (dateStr ? ' &middot; ' + dateStr : '') + '</div>'
+      + '<div class="meta">' + esc(customerName) + (address ? ' &middot; ' + esc(address) : '') + (damageType ? ' &middot; ' + esc(damageType) + ' Damage' : '') + (dateStr ? ' &middot; ' + esc(dateStr) : '') + '</div>'
       + '<div class="stats"><span style="background:rgba(255,255,255,.1);padding:6px 14px;border-radius:20px;font-size:13px;font-weight:600;color:#fff;">' + statsHtml + '</span></div>'
       + (tagsHtml ? '<div style="margin-top:12px;display:flex;flex-wrap:wrap;justify-content:center;gap:6px;">' + tagsHtml + '</div>' : '')
       + '</div>'

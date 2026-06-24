@@ -25,13 +25,29 @@
 
 const path = require('path');
 const shared = require(path.join(__dirname, '..', 'functions', 'handlers', '_shared.js'));
-const { normalizeRole, requireTeamAdmin, INVITE_ALLOWED_ROLES, TEAM_ROLES } = shared;
+const { normalizeRole, requireTeamAdmin, callerMayManageTarget, INVITE_ALLOWED_ROLES, TEAM_ROLES, SUBORDINATE_ROLES } = shared;
+// Remediation script's pure triage logic (import-safe — main() is require.main-guarded).
+const { classifyClaims } = require(path.join(__dirname, '..', 'scripts', 'audit-claim-escalation.js'));
 
 let passed = 0, failed = 0; const fails = [];
 function ok(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name); } else { failed++; fails.push(name); console.log('  ✗ ' + name); } }
 async function throwsCode(name, p, code) {
   try { await p(); ok(name + ' (expected throw)', false); }
   catch (e) { ok(`${name} → ${code}`, e && e.code === code); }
+}
+// Assert the caller is NOT rejected by requireTeamAdmin's pre-read guards
+// (subordinate-role / cross-company). A legitimate owner/admin gets PAST the
+// guards and then either succeeds or — in this plain-node harness, where no
+// Firebase app is initialized — fails at the `admin.firestore()` read with a
+// non-'permission-denied' error. Either outcome proves the guards let them
+// through; only a 'permission-denied' (which can only come from the pre-read
+// guards here) is a failure.
+async function passesPreReadGuard(name, p) {
+  try { await p(); ok(`${name} (reached company read)`, true); }
+  catch (e) {
+    if (e && e.code === 'permission-denied') ok(`${name} (wrongly rejected pre-read)`, false);
+    else ok(`${name} (passed guard, failed at company read)`, true);
+  }
 }
 
 (async () => {
@@ -52,6 +68,10 @@ async function throwsCode(name, p, code) {
     ['company_admin', 'manager', 'sales_rep', 'viewer'].every(r => INVITE_ALLOWED_ROLES.has(r)));
   ok('TEAM_ROLES is exactly the 4 team roles (no admin)',
     JSON.stringify(TEAM_ROLES) === JSON.stringify(['company_admin', 'manager', 'sales_rep', 'viewer']));
+  ok('SUBORDINATE_ROLES = access-code/member + team subordinates (no owner roles)',
+    SUBORDINATE_ROLES instanceof Set
+    && ['member', 'manager', 'sales_rep', 'viewer'].every(r => SUBORDINATE_ROLES.has(r))
+    && !SUBORDINATE_ROLES.has('company_admin') && !SUBORDINATE_ROLES.has('admin'));
 
   console.log('\nrequireTeamAdmin — pre-read guards');
   await throwsCode('unauthenticated caller', () => requireTeamAdmin({}), 'unauthenticated');
@@ -62,6 +82,96 @@ async function throwsCode(name, p, code) {
   await throwsCode('non-admin (company_admin) still blocked cross-company',
     () => requireTeamAdmin({ auth: { uid: 'u2', token: { companyId: 'co-A', role: 'company_admin' } } }, 'co-B'),
     'permission-denied');
+
+  // ── Access-code solo-owner-fallback escalation (the bug this guards) ──
+  // validateAccessCode mints a bare { role: 'member' | 'manager' } claim with
+  // NO companyId and creates NO companies/{uid} doc. The solo-owner fallback
+  // (`!companySnap.exists && companyId === uid`) would otherwise treat such a
+  // caller as owner of companies/{uid} → requireTeamAdmin passes → they could
+  // drive createTeamMember / updateUserRole / deactivateUser and self-escalate
+  // to company_admin. All of these MUST be rejected before any Firestore read.
+  console.log('\nrequireTeamAdmin — access-code subordinate w/o companyId (escalation guard)');
+  await throwsCode("access-code 'member' (no companyId) → blocked",
+    () => requireTeamAdmin({ auth: { uid: 'attacker', token: { role: 'member' } } }),
+    'permission-denied');
+  await throwsCode("access-code 'manager' (no companyId) → blocked",
+    () => requireTeamAdmin({ auth: { uid: 'attacker', token: { role: 'manager' } } }),
+    'permission-denied');
+  await throwsCode("'member' explicitly targeting companies/{own uid} → blocked",
+    () => requireTeamAdmin({ auth: { uid: 'attacker', token: { role: 'member' } } }, 'attacker'),
+    'permission-denied');
+  await throwsCode("'sales_rep' (no companyId) → blocked",
+    () => requireTeamAdmin({ auth: { uid: 'attacker', token: { role: 'sales_rep' } } }),
+    'permission-denied');
+  await throwsCode("'viewer' (no companyId) → blocked",
+    () => requireTeamAdmin({ auth: { uid: 'attacker', token: { role: 'viewer' } } }),
+    'permission-denied');
+  await throwsCode("case/whitespace dodge ('  Member ', no companyId) → blocked",
+    () => requireTeamAdmin({ auth: { uid: 'attacker', token: { role: '  Member ' } } }),
+    'permission-denied');
+
+  // ── Legitimate callers must NOT be caught by the new guard ──
+  // These get past the pre-read guards; in this no-Firebase-app harness they
+  // then fail at admin.firestore() — which proves the guard let them through.
+  console.log('\nrequireTeamAdmin — legitimate callers pass the new guard');
+  await passesPreReadGuard("self-signup solo owner (NO role claim, no companyId)",
+    () => requireTeamAdmin({ auth: { uid: 'solo', token: {} } }));
+  await passesPreReadGuard("global admin (role 'admin', no companyId)",
+    () => requireTeamAdmin({ auth: { uid: 'plat', token: { role: 'admin' } } }));
+  await passesPreReadGuard("team member WITH companyId managing own company",
+    () => requireTeamAdmin({ auth: { uid: 'm1', token: { role: 'manager', companyId: 'co-X' } } }, 'co-X'));
+  await passesPreReadGuard("company_admin WITH companyId managing own company",
+    () => requireTeamAdmin({ auth: { uid: 'ca1', token: { role: 'company_admin', companyId: 'co-Y' } } }, 'co-Y'));
+
+  // ── Target-side guard: callerMayManageTarget (createTeamMember/updateUserRole/
+  //    deactivateUser). The OLD guard `targetClaims.companyId && ... !== companyId`
+  //    failed OPEN when the target had no companyId, letting a company_admin of
+  //    company A re-role/disable/adopt any no-companyId account cross-tenant.
+  console.log('\ncallerMayManageTarget — target-side cross-tenant guard (fail closed)');
+  // BLOCKED: no-companyId targets (the bug) — solo owner {} and access-code member.
+  ok("no-companyId target {} → NOT manageable by company_admin of 'co-A'",
+    callerMayManageTarget({}, 'co-A', false, false) === false);
+  ok("access-code member {role:'member'} (no companyId) → NOT manageable",
+    callerMayManageTarget({ role: 'member' }, 'co-A', false, false) === false);
+  ok("self-keyed {role:'company_admin'} but no companyId → NOT manageable",
+    callerMayManageTarget({ role: 'company_admin' }, 'co-A', false, false) === false);
+  // BLOCKED: target belonging to a different company.
+  ok("target in another company ('co-B') → NOT manageable from 'co-A'",
+    callerMayManageTarget({ companyId: 'co-B', role: 'viewer' }, 'co-A', false, false) === false);
+  // BLOCKED: degenerate falsy caller company can't match a no-companyId target.
+  ok("falsy caller companyId + no-companyId target → NOT manageable",
+    callerMayManageTarget({}, '', false, false) === false
+    && callerMayManageTarget({}, undefined, false, false) === false);
+  // ALLOWED: legitimate cases.
+  ok("target already in 'co-A' → manageable from 'co-A'",
+    callerMayManageTarget({ companyId: 'co-A', role: 'sales_rep' }, 'co-A', false, false) === true);
+  ok("brand-new invitee (justCreated) → manageable (no prior tenant)",
+    callerMayManageTarget({}, 'co-A', false, true) === true);
+  ok("global admin → manageable regardless of target companyId",
+    callerMayManageTarget({ companyId: 'co-B' }, 'co-A', true, false) === true
+    && callerMayManageTarget({}, 'co-A', true, false) === true);
+
+  // ── Remediation triage: classifyClaims (scripts/audit-claim-escalation.js) ──
+  // Drives the dry-run report + which access-code accounts --apply resets.
+  console.log('\nclassifyClaims — post-incident remediation triage');
+  ok("self-keyed company_admin (companyId===uid) → critical (exploit signature)",
+    classifyClaims({ uid: 'u1', role: 'company_admin', companyId: 'u1', isAccessCode: true, expectedRole: 'member' }) === 'critical');
+  ok("self-keyed subordinate (member, companyId===uid) → critical",
+    classifyClaims({ uid: 'u1', role: 'member', companyId: 'u1', isAccessCode: true, expectedRole: 'member' }) === 'critical');
+  ok("self-keyed but NON-access-code → still critical (flag for manual review)",
+    classifyClaims({ uid: 'u1', role: 'company_admin', companyId: 'u1', isAccessCode: false, expectedRole: null }) === 'critical');
+  ok("legit solo owner {} (no role, no companyId) → ok",
+    classifyClaims({ uid: 'u1', role: undefined, companyId: undefined, isAccessCode: false, expectedRole: null }) === 'ok');
+  ok("clean access-code member (bare role, no companyId) → ok",
+    classifyClaims({ uid: 'u1', role: 'member', companyId: undefined, isAccessCode: true, expectedRole: 'member' }) === 'ok');
+  ok("access-code member drifted to company_admin (no companyId) → review",
+    classifyClaims({ uid: 'u1', role: 'company_admin', companyId: undefined, isAccessCode: true, expectedRole: 'member' }) === 'review');
+  ok("access-code member adopted into a foreign company → review",
+    classifyClaims({ uid: 'u1', role: 'member', companyId: 'co-B', isAccessCode: true, expectedRole: 'member' }) === 'review');
+  ok("platform admin self-keyed (role 'admin') → ok (admin excluded from critical)",
+    classifyClaims({ uid: 'u1', role: 'admin', companyId: 'u1', isAccessCode: false, expectedRole: null }) === 'ok');
+  ok("legit team member in another company (not access-code) → ok",
+    classifyClaims({ uid: 'u1', role: 'sales_rep', companyId: 'co-B', isAccessCode: false, expectedRole: null }) === 'ok');
 
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);

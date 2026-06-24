@@ -34,7 +34,7 @@
 
   // Path-gate: customer detail page only.
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/customer\.html$/.test(PATH)) return;
+  if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
 
   const MAX_PHOTO_BYTES    = 30 * 1024 * 1024; // 30 MB
   const MAX_DOC_BYTES      = 20 * 1024 * 1024; // 20 MB

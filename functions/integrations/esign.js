@@ -41,7 +41,7 @@ const { getSecret, hasSecret, SECRETS } = require('./_shared');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app'
+  'https://nobigdeal-pro.web.app'
 ];
 
 // ─── Callable: sendEstimateForSignature ─────────────────────
