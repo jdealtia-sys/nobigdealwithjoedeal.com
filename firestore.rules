@@ -398,6 +398,13 @@ service cloud.firestore {
     // key by functions/migrate-companyprofile-per-tenant.js and is no
     // longer client-reachable (its id matches neither branch below).
     match /companyProfile/{companyId} {
+      // Same-tenant members (any role) may read AND write their own company's
+      // profile; cross-tenant is denied by the companyId/uid scoping. NOTE: a
+      // 2026-06-24 audit flagged that this lets a viewer/sales_rep edit the
+      // legal/financing text — but the cross-tenant rules test deliberately
+      // asserts a same-tenant sales_rep CAN write own config (it encodes the
+      // desired behaviour), so role-restricting writes is a PRODUCT decision,
+      // not a security fix. Left open per that tested design intent.
       allow read, write: if isAuth()
         && (companyId == myCompanyId() || companyId == request.auth.uid);
     }

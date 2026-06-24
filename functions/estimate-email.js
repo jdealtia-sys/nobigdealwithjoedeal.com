@@ -200,7 +200,9 @@ exports.estimateEmail = onDocumentCreated(
     const firstName = sanitizeString(data.firstName, 80);
 
     if (!enabled) {
-      logger.info('estimate_email_dry_run', { leadId, email: data.email, firstName });
+      // Log only the non-PII leadId — never the homeowner email/firstName.
+      // (SEC-PII, backend security audit 2026-06-24.)
+      logger.info('estimate_email_dry_run', { leadId });
       return;
     }
 

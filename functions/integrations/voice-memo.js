@@ -92,6 +92,22 @@ exports.transcribeVoiceMemo = onCall(
       throw new HttpsError('invalid-argument', 'Clip too large');
     }
 
+    // Owner-scope: when this memo is attached to a lead, the caller must
+    // own that lead (or be platform admin). The activity write below uses
+    // the Admin SDK, which BYPASSES firestore.rules — so without this check
+    // any authed rep could forge a voice_memo timeline entry onto another
+    // tenant's lead by passing its (non-secret) id. Checked before Deepgram
+    // so a cross-tenant id also can't burn transcription cost. Mirrors the
+    // guard in remote-signing.js:97-101 / esign.js:94.
+    if (leadId) {
+      const leadSnap = await getFirestore().doc(`leads/${leadId}`).get();
+      if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
+      const isAdmin = !!(request.auth.token && request.auth.token.role === 'admin');
+      if (leadSnap.data().userId !== uid && !isAdmin) {
+        throw new HttpsError('permission-denied', 'Not your lead');
+      }
+    }
+
     // POST to Deepgram. Model: nova-3 (Nov 2024). smart_format=true
     // inserts commas/periods; punctuate=true adds punctuation;
     // diarize=true labels speakers (useful for homeowner+rep memos).

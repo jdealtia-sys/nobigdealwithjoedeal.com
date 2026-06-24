@@ -220,9 +220,14 @@ exports.claudeProxy = onRequest(
         return;
       }
       if (!response.ok) {
-        // Anthropic returned an error — refund and forward the status.
+        // Anthropic returned an error — refund and forward the STATUS only.
+        // The raw upstream body can carry internal detail, so log it server-
+        // side and return a generic error to the client, matching the
+        // hardened sibling endpoints (publicVisualizerAI / publicFunnelAI /
+        // adminAI). (SEC info-disclosure, backend security audit 2026-06-24.)
         await adjustClaudeBudget(uidCounterRef, coCounterRef, -reservation).catch(() => {});
-        res.status(response.status).json(data);
+        logger.error('claudeProxy upstream error', { status: response.status, body: JSON.stringify(data).slice(0, 500) });
+        res.status(response.status).json({ error: 'Upstream AI error' });
         return;
       }
 

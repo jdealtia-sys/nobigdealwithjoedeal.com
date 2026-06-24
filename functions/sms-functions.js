@@ -291,8 +291,7 @@ exports.sendSMS = onRequest(
       await logSMSToFirestore(db, to, body, decoded.uid, leadId || null, 'failed');
 
       res.status(500).json({
-        error: 'Failed to send SMS',
-        details: e.message
+        error: 'Failed to send SMS'
       });
     }
   }
@@ -490,8 +489,7 @@ exports.sendD2DSMS = onRequest(
     } catch (e) {
       logger.error('sendD2DSMS error', { err: e.message });
       res.status(500).json({
-        error: 'Failed to send D2D SMS',
-        details: e.message
+        error: 'Failed to send D2D SMS'
       });
     }
   }

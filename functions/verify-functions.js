@@ -307,6 +307,11 @@ exports.notifyNewLead = onCall(
     };
     const requestLabel = requestLabels[requestType] || '';
 
+    // Hash the homeowner name for logs so Cloud Logging retention can't leak
+    // plaintext PII — first 16 hex chars allow correlation, not reversal.
+    // (SEC-PII, backend security audit 2026-06-24; mirrors admin.js M-5.)
+    const nameHash = require('crypto').createHash('sha256').update(String(name || '')).digest('hex').slice(0, 16);
+
     try {
       // ── SMS to Joe (only when the lead phone is OTP-verified) ──
       // Unverified leads still email Joe, but skip SMS so the lead form cannot
@@ -330,9 +335,9 @@ exports.notifyNewLead = onCall(
           from: TWILIO_PHONE_NUMBER.value(),
           to: joePhone,
         });
-        logger.info('lead_sms_sent_to_joe', { name });
+        logger.info('lead_sms_sent_to_joe', { nameHash });
       } else {
-        logger.info('lead_sms_skipped_unverified', { name });
+        logger.info('lead_sms_skipped_unverified', { nameHash });
       }
 
       // ── Email to Joe ──

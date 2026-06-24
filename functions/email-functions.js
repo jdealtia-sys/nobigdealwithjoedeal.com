@@ -336,6 +336,18 @@ exports.sendEmail = onRequest(
       throw e;
     }
 
+    // Block read-only / access-code-only accounts from using this generic
+    // sender as an email relay: `viewer` is the read-only team role and
+    // `member` is the access-code-only login. Neither should emit HTML mail
+    // from the verified company domain (phishing/spam reputation risk).
+    // Real senders — sales_rep / manager / company_admin / admin / owner —
+    // are unaffected. (AUTHZ-2, backend security audit 2026-06-24.)
+    const _senderRole = decoded.role || '';
+    if (_senderRole === 'viewer' || _senderRole === 'member') {
+      res.status(403).json({ error: 'Your account role cannot send email' });
+      return;
+    }
+
     const { to, subject, body, html, replyTo, attachments } = req.body;
 
     // Validate input
@@ -384,8 +396,7 @@ exports.sendEmail = onRequest(
       await logEmailToFirestore(db, to, subject, decoded.uid, 'failed');
 
       res.status(500).json({
-        error: 'Failed to send email',
-        details: e.message
+        error: 'Failed to send email'
       });
     }
   }
@@ -505,8 +516,7 @@ exports.sendEstimateEmail = onRequest(
     } catch (e) {
       logger.error('sendEstimateEmail error', { err: e.message });
       res.status(500).json({
-        error: 'Failed to send estimate email',
-        details: e.message
+        error: 'Failed to send estimate email'
       });
     }
   }
@@ -702,8 +712,7 @@ exports.sendTeamInviteEmail = onRequest(
     } catch (e) {
       logger.error('sendTeamInviteEmail error', { err: e.message });
       res.status(500).json({
-        error: 'Failed to send team invite',
-        details: e.message
+        error: 'Failed to send team invite'
       });
     }
   }
