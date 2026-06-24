@@ -572,6 +572,50 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "_comment": "QA 2026-06-23 query-index audit: Smart Calendar daily timeline (smart-calendar.js _fetchTodaysAppointments) — where('repUid'/'userId','==') + range/orderBy('startTime'). Without these the appointments query throws 'requires an index' and the whole Today's Schedule panel silently renders the empty state.",
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "repUid",    "order": "ASCENDING" },
+        { "fieldPath": "startTime", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",    "order": "ASCENDING" },
+        { "fieldPath": "startTime", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "_comment": "QA 2026-06-23: inspection-report-engine.js getReports — where('leadId','==') + orderBy('createdAt','desc'). Existing reports composites are [leadId,date] and [userId,createdAt]; neither serves this, so the per-lead saved-reports list silently returned empty even after PR #703 fixed the save.",
+      "collectionGroup": "reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "leadId",    "order": "ASCENDING"  },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "_comment": "QA 2026-06-23: maps-routing.js loadDrawingFromCustomer unlinked branch — top-level /drawings where('userId','==') + orderBy('version','desc'). No drawings index existed, so reloading an unlinked-address sketch failed with a 'requires an index' toast.",
+      "collectionGroup": "drawings",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",  "order": "ASCENDING"  },
+        { "fieldPath": "version", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "_comment": "QA 2026-06-23: dashboard-widgets.js recent-photo feed — where('userId','==') + orderBy('uploadedAt','desc'). FOLLOW-UP: photo write paths set inconsistent timestamp fields (createdAt / uploadedAt / capturedAt), so this feed may still miss photos created outside photo-engine until a single timestamp field is standardized.",
+      "collectionGroup": "photos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",     "order": "ASCENDING"  },
+        { "fieldPath": "uploadedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
