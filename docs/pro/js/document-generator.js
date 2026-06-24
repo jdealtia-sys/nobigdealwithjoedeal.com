@@ -257,6 +257,30 @@ window.NBDDocGen = {
       ? window._companyProfile
       : (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
 
+    // ─── QA fix: reconcile single-total docs against their rendered lines ───
+    // The invoice + proposal fill-forms collect ONE rep-entered total
+    // (totalAmount / totalPrice, both required) but no line items, while the
+    // renderers default to hardcoded placeholder line items. Result: the
+    // server invoice path summed empty lines → $0; the client invoice/proposal
+    // paths rendered fixed placeholder figures that contradict the real total.
+    // Synthesize one summary line from the entered total so EVERY render path
+    // (_buildServerPayload, renderInvoice, renderProposal) reflects the real
+    // figure. Only when the caller supplied no explicit line items — an
+    // estimate→doc flow that passes real lines is respected untouched.
+    if ((type === 'invoice' || type === 'proposal') &&
+        (!Array.isArray(data.lineItems) || data.lineItems.length === 0)) {
+      const _rawTotal = (type === 'invoice') ? data.totalAmount : data.totalPrice;
+      const _amt = Number(String(_rawTotal == null ? '' : _rawTotal).replace(/[^0-9.\-]/g, '')) || 0;
+      if (_amt > 0) {
+        const _desc = data.projectDescription || data.projectType ||
+          (type === 'invoice' ? 'Roofing Services — Complete Project' : 'Complete Roofing Project');
+        // Carry every field name the three consumers read (rate / unitPrice /
+        // lineTotal / total) so no path falls back to a placeholder.
+        data.lineItems = [{ description: _desc, qty: 1, unit: 'JOB',
+          rate: _amt, unitPrice: _amt, lineTotal: _amt, total: _amt }];
+      }
+    }
+
     // ─── D-5: try server-side Puppeteer render first ───
     // Supported types: contract / invoice / change_order. Receipt is
     // a future call site (no client surface yet). Falls through to
@@ -1690,14 +1714,12 @@ window.NBDDocGen = {
         'Install seamless gutters and downspouts',
         'Final cleanup and debris removal'
       ],
-      lineItems: [
-        { description: 'Architectural Asphalt Shingles', qty: 25, unit: 'SQ', unitPrice: 165, total: 4125 },
-        { description: 'Underlayment & Ice/Water Shield', qty: 25, unit: 'SQ', unitPrice: 45, total: 1125 },
-        { description: 'Flashing & Ridge Vent Installation', qty: 1, unit: 'Job', unitPrice: 500, total: 500 },
-        { description: 'Seamless Gutter Installation', qty: 140, unit: 'LF', unitPrice: 15, total: 2100 },
-        { description: 'Labor & Installation', qty: 1, unit: 'Job', unitPrice: 3000, total: 3000 },
-        { description: 'Permits & Compliance', qty: 1, unit: 'Job', unitPrice: 200, total: 200 }
-      ],
+      // No placeholder line items: a roofing proposal must never render
+      // fabricated dollar rows that contradict the rep-entered Total Price.
+      // generate() synthesizes a single summary line from totalPrice; if none
+      // was entered, the itemized table renders empty (the qualitative scope
+      // list + TOTAL PROJECT COST still show).
+      lineItems: [],
       totalPrice: '',
       warrantyTier: 'better',
       photos: null,
