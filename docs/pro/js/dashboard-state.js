@@ -276,6 +276,11 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // its JS-built checkboxes carried CSP-dead inline onchange attrs until
   // 2026-06-09, now the data-on-change delegate (same shape as toggleHotkey)
   'toggleSidebarItem',
+  // Appearance tab — "Show tool names" sidebar toggle (#sidebarLabelsToggle,
+  // data-on-change). Target nbdSetSidebarLabels lives in dashboard-ui-prefs-
+  // boot.js; without this allowlist entry the change delegate returned early
+  // and the toggle was a silent no-op (same class as the saveLead drop).
+  'nbdSetSidebarLabels',
 ]);
 
 // ══════════════════════════════════════════════
