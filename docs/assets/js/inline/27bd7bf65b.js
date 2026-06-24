@@ -45,9 +45,12 @@ const VIZ_OPTIONS = {
       ai: 'GAF Camelot II designer slate-look dimensional luxury asphalt shingles' },
 
     // TAMKO Storm Series — the impact/hail lineup Joe installs (a brand he
-    // installs, NOT a certification). Titan XT carries TAMKO's full 14-color
-    // premium palette; StormFighter Flex + HailGuard share the same 8-color
-    // storm palette, so both point at `tamkoStormColors`.
+    // installs, NOT a certification). Heritage is the value architectural floor;
+    // Titan XT carries TAMKO's full 14-color premium palette; StormFighter Flex
+    // + HailGuard share the same 8-color storm palette (both → tamkoStormColors).
+    { id: 'tamko-heritage',     label: 'Heritage',          desc: 'TAMKO · value architectural · 130 mph',
+      mfr: 'TAMKO', group: 'TAMKO Storm Series', colorsRef: 'tamkoHeritageColors',
+      ai: 'TAMKO Heritage architectural laminated asphalt shingles with TriShield technology' },
     { id: 'tamko-titan-xt',     label: 'Titan XT',          desc: 'TAMKO · Class 3 impact · 160 mph',
       mfr: 'TAMKO', group: 'TAMKO Storm Series', colorsRef: 'tamkoTitanColors',
       ai: 'TAMKO Titan XT premium architectural laminated asphalt shingles with Class 3 impact rating (UL 2218)' },
@@ -233,6 +236,19 @@ const VIZ_OPTIONS = {
   // Flex 8). hex = dominant tone (calibrated against TAMKO swatch imagery);
   // blend = the multi-tone granule description fed to the FLUX prompt — same
   // format as the GAF palettes above.
+
+  // Heritage — TAMKO's value architectural line (newly reformulated, TriShield).
+  // Phillipsburg-region "Classic Colors" featured palette, per Jo's brochure.
+  tamkoHeritageColors: [
+    { id: 'rustic-black',        name: 'Rustic Black',        hex: '#232323',
+      blend: 'deep black base with dark-grey highlights and charcoal granules; bold heirloom cast-iron tone' },
+    { id: 'oxford-grey',         name: 'Oxford Grey',         hex: '#44464d',
+      blend: 'rich gothic grey with soft tan undertones, charcoal granules, and warm-gray flecks; refined transitional tone' },
+    { id: 'weathered-wood',      name: 'Weathered Wood',      hex: '#5e4e3a',
+      blend: 'balanced warm-and-cool blend with tan granules, darker brown flecks, and silver-gray accents; timeless aged-wood look' },
+    { id: 'antique-slate',       name: 'Antique Slate',       hex: '#3f4047',
+      blend: 'multi-tone aged slate with charcoal granules, blue-gray flecks, and warm-gray accents; classic stone tone' },
+  ],
 
   // Titan XT — TAMKO's full 14-color premium palette.
   tamkoTitanColors: [
