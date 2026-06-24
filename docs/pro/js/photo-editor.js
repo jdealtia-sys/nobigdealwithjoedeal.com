@@ -977,7 +977,12 @@
         // auth.currentUser was momentarily null, which made the Storage upload
         // succeed (it falls back to currentUser) while the Firestore create was
         // denied (userId:'' != request.auth.uid), silently losing the save.
-        await window.addDoc(window.collection(window.db, 'photos'), { url, originalPhotoId: S.photoId, leadId: S.leadId, userId: authUid, ...meta });
+        // Stamp the canonical `createdAt` (serverTimestamp) so this annotated
+        // copy appears in the Recent feed + per-lead gallery, which both
+        // orderBy('createdAt'). Without it the new doc had no ordering field
+        // and was silently excluded. (annotatedAt stays in `meta` as the
+        // edit timestamp — distinct from doc-create time.)
+        await window.addDoc(window.collection(window.db, 'photos'), { url, originalPhotoId: S.photoId, leadId: S.leadId, userId: authUid, createdAt: window.serverTimestamp(), ...meta });
       }
       S.hasUnsaved = false;
       toast('Saved!', 'success');
