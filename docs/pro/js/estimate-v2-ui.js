@@ -571,12 +571,13 @@
             <button type="button" data-action="load-preset" data-arg="shingle-patch">Shingle Patch</button>
             <button type="button" data-action="load-preset" data-arg="full-redeck">Full Redeck</button>
             <button type="button" data-action="load-preset" data-arg="hail-damage-insurance" style="grid-column:span 2;">Hail Damage Insurance</button>
+            <button type="button" data-action="load-preset" data-arg="tamko-storm-hailguard" style="grid-column:span 2;">TAMKO Storm — HailGuard</button>
           </div>
         </div>
 
         <!-- MIDDLE: Catalog picker -->
         <div class="v2-pane">
-          <div class="v2-section">Line Item Catalog (270 items)</div>
+          <div class="v2-section">Line Item Catalog (278 items)</div>
           <input type="text" class="v2-search" id="v2search" placeholder="Search by code, name, or tag..." data-action="search">
           <div class="v2-cat-tabs" id="v2cats"></div>
           <div class="v2-item-list" id="v2items"></div>
@@ -1264,6 +1265,23 @@
       codes: [
         'LAB TO1', 'RFG ARM-GAF', 'RFG SYN-P', 'RFG IWS', 'RFG STRT-PS',
         'RFG DRPE-AL', 'RFG RIDG-IMP', 'RFG VLY-W', 'RFG PIPE-LD',
+        'RFG CHIM-STD', 'RFG CHIM-SAD', 'RFG STPF-AL',
+        'RFG RIDG-VNT-PR', 'RFG NAIL-LUMA',
+        'DSP 30YD', 'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M',
+        'LAB PHOTO', 'LAB WALK', 'CUP IWS-E', 'CUP KICK', 'CUP HC'
+      ],
+      measurements: null
+    },
+    // TAMKO Storm Series — HailGuard: Class 4 (tested beyond) + the first
+    // asphalt shingle with a hail warranty. Bundles the TAMKO warranty-required
+    // accessories — Synthetic Guard + Moisture Guard (HailGuard hail warranty)
+    // and TAMKO starter + hip&ridge (160mph wind warranty). Vents/boots stay
+    // GAF/Roofivent. Modeled on hail-damage-insurance with only the 5 TAMKO
+    // codes swapped, so every other code is guaranteed valid.
+    'tamko-storm-hailguard': {
+      codes: [
+        'LAB TO1', 'RFG 240-TAMKO-HAIL', 'RFG SYN-TAMKO', 'RFG IWS-TAMKO', 'RFG STRT-TAMKO',
+        'RFG DRPE-AL', 'RFG RIDG-TAMKO', 'RFG VLY-W', 'RFG PIPE-LD',
         'RFG CHIM-STD', 'RFG CHIM-SAD', 'RFG STPF-AL',
         'RFG RIDG-VNT-PR', 'RFG NAIL-LUMA',
         'DSP 30YD', 'PRM RES-OH', 'LAB MOB', 'LAB DEMOB', 'LAB CLN-M',

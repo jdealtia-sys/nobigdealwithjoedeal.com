@@ -89,6 +89,48 @@
       reason:'ENERGY STAR rated cool roof reduces cooling loads per OBC energy code.',
       tags:['shingle','gaf','cool','energy-star'] });
 
+  // ── TAMKO Storm Series ──  PRICING TODO: mat/lab MIRRORED from the closest
+  // GAF catalog line as a placeholder (Heritage←HD, Titan←HDZ, SFFlex/HailGuard
+  // ←Armorshield, accessories←their GAF analog). Edit when real TAMKO sell
+  // pricing is set. Codes contain "TAMKO" so generated docs detect manufacturer.
+  A({ code:'RFG 240-TAMKO-HERITAGE', name:'TAMKO Heritage', sub:'shingles-arch', cat:'roofing', unit:'SQ', mat:95, lab:62,
+      desc:'TAMKO architectural laminate (TriShield) — value tier.', tier:'good',
+      oh:'OBC R905.2', ky:'KRC R905.2', irc:'IRC R905.2',
+      reason:'Laminated asphalt shingles required per OBC R905.2.',
+      tags:['shingle','tamko','architectural','laminated'] });
+  A({ code:'RFG 240-TAMKO-TITAN', name:'TAMKO Titan XT (Impact Class 3)', sub:'shingles-impact', cat:'roofing', unit:'SQ', mat:115, lab:65,
+      desc:'TAMKO impact-rated, UL 2218 Class 3. 160mph WindGuard with TAMKO starter + hip & ridge.', tier:'better',
+      oh:'OBC R905.2', ky:'KRC R905.2', irc:'IRC R905.2.4', ul:'UL 2218 Class 3',
+      reason:'Impact-rated (Class 3) shingles for hail-prone region.',
+      tags:['shingle','tamko','impact','class3','wind-resistant'], insuranceDefault:true });
+  A({ code:'RFG 240-TAMKO-SFFLEX', name:'TAMKO StormFighter Flex (Impact Class 4)', sub:'shingles-impact', cat:'roofing', unit:'SQ', mat:165, lab:72,
+      desc:'TAMKO polymer-modified, UL 2218 Class 4. 160mph WindGuard with TAMKO starter + hip & ridge. Insurance premium discount.', tier:'best',
+      oh:'OBC R905.2', ky:'KRC R905.2', irc:'IRC R905.2', ul:'UL 2218 Class 4',
+      reason:'Impact-rated (Class 4) shingles for hail-prone region. Qualifies for homeowner insurance discount.',
+      tags:['shingle','tamko','impact','class4','hail-resistant'], insuranceDefault:true });
+  A({ code:'RFG 240-TAMKO-HAIL', name:'TAMKO HailGuard (Class 4, tested beyond)', sub:'shingles-impact', cat:'roofing', unit:'SQ', mat:165, lab:75,
+      desc:'TAMKO ImpactCore, UL 2218 Class 4 (tested beyond). First asphalt shingle with a hail warranty. Requires TAMKO Synthetic Guard + Moisture Guard for warranty.', tier:'best',
+      oh:'OBC R905.2', ky:'KRC R905.2', irc:'IRC R905.2', ul:'UL 2218 Class 4',
+      reason:'Impact-rated (Class 4) shingles with hail warranty. Qualifies for homeowner insurance discount.',
+      tags:['shingle','tamko','impact','class4','hail-resistant','hail-warranty'], insuranceDefault:true });
+  // TAMKO warranty-required accessories
+  A({ code:'RFG SYN-TAMKO', name:'TAMKO Synthetic Guard Underlayment', sub:'underlayment', cat:'roofing', unit:'SQ', mat:22, lab:12,
+      desc:'TAMKO synthetic underlayment — required for TAMKO system warranties.', tier:'any',
+      oh:'OBC R905.1.1', reason:'Underlayment required per OBC R905.1.1.',
+      tags:['underlayment','synthetic','tamko'] });
+  A({ code:'RFG IWS-TAMKO', name:'TAMKO Moisture Guard Ice & Water', sub:'underlayment', cat:'roofing', unit:'SQ', mat:85, lab:22,
+      desc:'TAMKO ice & water shield — required for HailGuard warranty.', tier:'any',
+      oh:'OBC R905.1.2', reason:'Ice barrier at eaves required per OBC R905.1.2.',
+      tags:['underlayment','ice-shield','tamko'] });
+  A({ code:'RFG STRT-TAMKO', name:'TAMKO Perforated Starter Strip', sub:'starter', cat:'roofing', unit:'LF', mat:1.85, lab:0.80,
+      desc:'TAMKO starter strip — required for TAMKO 160mph wind warranty.', tier:'any',
+      reason:'Starter strip per manufacturer spec for wind warranty.',
+      tags:['starter','tamko'] });
+  A({ code:'RFG RIDG-TAMKO', name:'TAMKO Hip & Ridge Shingles', sub:'ridge', cat:'roofing', unit:'LF', mat:4.25, lab:1.85,
+      desc:'TAMKO hip & ridge cap — required for TAMKO 160mph wind warranty.', tier:'any',
+      reason:'Ridge cap per manufacturer spec for wind warranty.',
+      tags:['ridge','tamko'] });
+
   // GAF Designer
   A({ code:'RFG CAM2-GAF', name:'GAF Camelot II Designer', sub:'shingles-designer', cat:'roofing', unit:'SQ', mat:195, lab:85,
       desc:'Luxury designer shingle with artisan-crafted dimensional depth. Lifetime warranty.', tier:'best',
