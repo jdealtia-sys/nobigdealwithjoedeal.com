@@ -97,17 +97,24 @@
     return 'ice';
   }
   function dispositionKey(lead) {
-    // d2d-tracker writes "D2D Knock #N: <Label>" into notes; the original
-    // disposition key isn't always copied to the lead. We backfill from
-    // damageType + notes pattern matching, falling back to 'other'.
+    // Prefer the structured disposition key (d2d-tracker now persists it on the
+    // lead). Then damageType. Then parse the label from the CANONICAL
+    // "D2D Knock #N: <Label>" notes PREFIX only — never substring-search the
+    // whole notes, which mis-bucketed when a rep's free-text note happened to
+    // contain another disposition's label (e.g. "come back later" typed on an
+    // Interested knock would re-bucket hot->warm). Falls back to 'other'.
     if (lead.disposition && DISP_BY_KEY[lead.disposition]) return lead.disposition;
     if ((lead.damageType || '').toLowerCase() === 'storm damage') return 'storm_damage';
-    const notes = (lead.notes || '').toLowerCase();
-    // Match the most-specific (longest) label first so "Not Interested"
-    // wins over "Interested", and "Ins. Approved" wins over "Insurance".
-    const sorted = [...DISPOSITIONS].sort((a, b) => b.label.length - a.label.length);
-    for (const d of sorted) {
-      if (notes.includes(d.label.toLowerCase())) return d.key;
+    const m = (lead.notes || '').match(/D2D Knock(?: #\d+)?:\s*([^\n]+)/i);
+    if (m) {
+      const labelLine = m[1].trim().toLowerCase();
+      const exact = DISPOSITIONS.find(d => d.label.toLowerCase() === labelLine);
+      if (exact) return exact.key;
+      // Drift-tolerant: longest-label-first match WITHIN the label line only
+      // (not the rep's free text), so "Not Interested" still beats "Interested".
+      const sorted = [...DISPOSITIONS].sort((a, b) => b.label.length - a.label.length);
+      const sub = sorted.find(d => labelLine.includes(d.label.toLowerCase()));
+      if (sub) return sub.key;
     }
     return 'other';
   }
@@ -265,7 +272,7 @@
         ${showRepFilter ? `
           <select class="prosp-sel" id="pf-rep">
             <option value="all" ${state.rep==='all'?'selected':''}>All reps</option>
-            ${reps.map(r => `<option value="${r.uid}" ${state.rep===r.uid?'selected':''}>${escapeHtml(r.label)}</option>`).join('')}
+            ${reps.map(r => `<option value="${escapeAttr(r.uid)}" ${state.rep===r.uid?'selected':''}>${escapeHtml(r.label)}</option>`).join('')}
           </select>
         ` : ''}
         <label class="prosp-check">
@@ -379,7 +386,7 @@
     const photos = Array.isArray(p.photoUrls) ? p.photoUrls.slice(0, 3) : [];
     const fuDue = isFollowUpDue(p);
     return `
-      <div class="prosp-card" data-lead-id="${p.id}">
+      <div class="prosp-card" data-lead-id="${escapeAttr(p.id)}">
         <div class="prosp-card-hdr">
           <div class="prosp-addr">${escapeHtml(p.address || '(no address)')}</div>
           <div class="prosp-attempt" title="Knock attempt #${att}">#${att}</div>
@@ -407,7 +414,7 @@
     const days = ageInDays(p);
     const fuDue = isFollowUpDue(p);
     return `
-      <div class="prosp-row" data-lead-id="${p.id}">
+      <div class="prosp-row" data-lead-id="${escapeAttr(p.id)}">
         <div class="prosp-row-main">
           <div class="prosp-addr">${escapeHtml(p.address || '(no address)')}</div>
           <div class="prosp-row-sub">

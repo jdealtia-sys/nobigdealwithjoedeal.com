@@ -1279,6 +1279,10 @@
         jobType,
         source: 'Door-to-Door',
         damageType: knock.disposition === 'storm_damage' ? 'Storm Damage' : '',
+        // Persist the structured disposition KEY on the lead so the Prospects
+        // view buckets off this directly (dispositionKey fast-path) instead of
+        // reverse-engineering it from the notes prose. '' for an unknown key.
+        disposition: knock.disposition || '',
         insCarrier: knock.insCarrier || '',
         claimNumber: knock.claimNumber || '',
         claimStatus,
