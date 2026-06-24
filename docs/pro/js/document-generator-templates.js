@@ -701,12 +701,12 @@
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
       homeownerPhone:'', homeownerEmail:'',
       invoiceNumber:'INV-'+(Date.now()%100000), invoiceDate:today(), dueDate:'Due upon receipt',
-      lineItems:[
-        {description:'Complete Roof Replacement — Architectural Shingles',qty:1,unit:'JOB',rate:12500},
-        {description:'Ice & Water Shield Upgrade',qty:1,unit:'JOB',rate:850},
-        {description:'Additional OSB Decking Replacement (4 sheets)',qty:4,unit:'SQ',rate:125}
-      ],
-      taxRate:0, paymentsReceived:6250,
+      // No placeholder line items / no phantom prior payment: an invoice must
+      // reflect only the rep-entered figures. generate() synthesizes a single
+      // summary line from the required Total Amount; taxRate/paymentsReceived
+      // default to 0 so a blank field never invents tax or a $6,250 credit.
+      lineItems:[],
+      taxRate:0, paymentsReceived:0,
       claimNumber:'', insuranceCompany:'',
       notes:'Thank you for choosing ' + C.name + '. We appreciate your business and trust in our team.' }, data);
 
