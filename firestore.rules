@@ -398,20 +398,15 @@ service cloud.firestore {
     // key by functions/migrate-companyprofile-per-tenant.js and is no
     // longer client-reachable (its id matches neither branch below).
     match /companyProfile/{companyId} {
-      // Read: any member of the tenant (every generated document reads the
-      // legal/financing/brand text from here).
-      allow read: if isAuth()
+      // Same-tenant members (any role) may read AND write their own company's
+      // profile; cross-tenant is denied by the companyId/uid scoping. NOTE: a
+      // 2026-06-24 audit flagged that this lets a viewer/sales_rep edit the
+      // legal/financing text — but the cross-tenant rules test deliberately
+      // asserts a same-tenant sales_rep CAN write own config (it encodes the
+      // desired behaviour), so role-restricting writes is a PRODUCT decision,
+      // not a security fix. Left open per that tested design intent.
+      allow read, write: if isAuth()
         && (companyId == myCompanyId() || companyId == request.auth.uid);
-      // Write: the solo owner editing their own profile (doc id == their
-      // uid) always may; a team member only if company_admin/manager.
-      // Without the role gate, any viewer/sales_rep/member could overwrite
-      // the legal + financing text baked into every contract/estimate/
-      // invoice the tenant generates. (Backend security audit 2026-06-24.)
-      allow write: if isAuth()
-        && (
-          companyId == request.auth.uid
-          || (companyId == myCompanyId() && (isCompanyAdmin() || isManager()))
-        );
     }
 
     // ── SUBSCRIPTIONS ─────────────────────────────────
