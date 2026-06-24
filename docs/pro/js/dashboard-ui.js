@@ -827,10 +827,19 @@ function processToastQueue() {
   }
 
   const toast = document.getElementById('toast');
-  toast.innerHTML = `
-    <div style="flex:1;">${msg}</div>
-    <div class="toast-progress"></div>
-  `;
+  // SECURITY: render msg as TEXT, never HTML. showToast is called from ~30
+  // sites with lead/customer-sourced strings (e.g. firstName/address that
+  // originate from the public intake form), so innerHTML here was a stored-XSS
+  // sink that executed in the rep/manager's authenticated session. No caller
+  // passes intentional markup, so textContent is a safe drop-in. (This
+  // top-level showToast is global and overrides the safe boot-time fallback.)
+  toast.textContent = '';
+  const body = document.createElement('div');
+  body.style.flex = '1';
+  body.textContent = msg;
+  const prog = document.createElement('div');
+  prog.className = 'toast-progress';
+  toast.append(body, prog);
   toast.className = 'toast show '+(type==='error'?'error':'success');
 
   setTimeout(() => {

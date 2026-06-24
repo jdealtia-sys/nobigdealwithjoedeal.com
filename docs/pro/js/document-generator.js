@@ -2680,7 +2680,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
     if (window._leads && window._leads.length) {
       window._leads.forEach(l => {
         const name = ((l.firstName||'')+ ' ' + (l.lastName||'')).trim() || 'Unnamed';
-        leadOptions += `<option value="${l.id}">${name} — ${l.address||'No address'}</option>`;
+        leadOptions += `<option value="${this._escHtml(l.id)}">${this._escHtml(name)} — ${this._escHtml(l.address||'No address')}</option>`;
       });
     }
 
