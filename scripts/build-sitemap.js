@@ -90,6 +90,7 @@ const PREMIUM_DIR_SERVICES = [
   ['gaf-pivot-boot',    '0.85'],
 ];
 const GAF_TIMBERLINE_SERVICE = ['gaf-timberline', '0.85'];
+const TAMKO_STORM_SERIES_SERVICE = ['tamko-storm-series', '0.85'];
 
 // Blog posts that live outside the main 0.6 blog section.
 const PREMIUM_BLOG_POSTS = [
@@ -207,6 +208,7 @@ function generate(prevLastmod, warn) {
   const knownDirSlugs = new Set([
     ...PREMIUM_DIR_SERVICES.map(([s]) => s),
     GAF_TIMBERLINE_SERVICE[0],
+    TAMKO_STORM_SERIES_SERVICE[0],
   ]);
   const premiumEntries = PREMIUM_DIR_SERVICES.filter(([slug]) => {
     if (dirServicesOnDisk.includes(slug)) return true;
@@ -307,6 +309,11 @@ function generate(prevLastmod, warn) {
     lines.push(entry(urlFor('services/' + GAF_TIMBERLINE_SERVICE[0]), 'monthly', GAF_TIMBERLINE_SERVICE[1]));
   } else {
     warn('directory service page missing on disk, dropped: services/' + GAF_TIMBERLINE_SERVICE[0] + '/');
+  }
+  if (dirServicesOnDisk.includes(TAMKO_STORM_SERIES_SERVICE[0])) {
+    lines.push(entry(urlFor('services/' + TAMKO_STORM_SERIES_SERVICE[0]), 'monthly', TAMKO_STORM_SERIES_SERVICE[1]));
+  } else {
+    warn('directory service page missing on disk, dropped: services/' + TAMKO_STORM_SERIES_SERVICE[0] + '/');
   }
   if (blogOnDisk.includes(GAF_TIMBERLINE_BLOG[0])) {
     lines.push(entry(urlFor('blog/' + GAF_TIMBERLINE_BLOG[0]), 'monthly', GAF_TIMBERLINE_BLOG[1]));
