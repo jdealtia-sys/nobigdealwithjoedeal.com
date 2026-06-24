@@ -242,6 +242,17 @@ exports.onPhotoUploaded = onObjectFinalized(
 
       const writes = [];
       snap.forEach((doc) => {
+        // Owner-scope: `uid` comes from the Storage object path
+        // photos/{uid}/... (Storage-rule-owned, trustworthy), but
+        // `storagePath` is a client-written Firestore field whose create
+        // rule only pins userId — not storagePath. Without this guard a
+        // user could pre-create a photo doc with someone else's storagePath
+        // and have these variant URLs stamped onto another tenant's doc.
+        // Skip any non-owned match. (DI-02, backend security audit 2026-06-24.)
+        if (doc.data().userId !== uid) {
+          logger.warn('image_pipeline_owner_mismatch_skipped', { objectName, uid, docOwner: doc.data().userId || null });
+          return;
+        }
         writes.push(
           doc.ref.update({
             urls: generated,

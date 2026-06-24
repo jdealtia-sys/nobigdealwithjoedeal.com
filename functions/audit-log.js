@@ -63,8 +63,12 @@ exports.auditInvoices = onDocumentWritten('invoices/{invoiceId}', async (event) 
     kind: 'invoice.state_change',
     path: event.data.after.ref.path,
     docId: event.data.after.ref.id,
-    before: before || null,
-    after: after || null,
+    // Store ONLY the non-PII state fields this trigger audits (status +
+    // total) — never the full invoice doc, which carries homeowner
+    // name/email/phone + line items and would accumulate plaintext PII in
+    // the ~7-year audit_log. (DI-01, backend security audit 2026-06-24.)
+    before: before ? { status: before.status ?? null, total: before.total ?? null } : null,
+    after:  after  ? { status: after.status  ?? null, total: after.total  ?? null } : null,
     // `ts` (not just createdAt) so auditLogRetentionCron — which queries
     // on `ts` — can actually age these out instead of accumulating forever.
     ts: FieldValue.serverTimestamp(),

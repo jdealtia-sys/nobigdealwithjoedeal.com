@@ -398,8 +398,20 @@ service cloud.firestore {
     // key by functions/migrate-companyprofile-per-tenant.js and is no
     // longer client-reachable (its id matches neither branch below).
     match /companyProfile/{companyId} {
-      allow read, write: if isAuth()
+      // Read: any member of the tenant (every generated document reads the
+      // legal/financing/brand text from here).
+      allow read: if isAuth()
         && (companyId == myCompanyId() || companyId == request.auth.uid);
+      // Write: the solo owner editing their own profile (doc id == their
+      // uid) always may; a team member only if company_admin/manager.
+      // Without the role gate, any viewer/sales_rep/member could overwrite
+      // the legal + financing text baked into every contract/estimate/
+      // invoice the tenant generates. (Backend security audit 2026-06-24.)
+      allow write: if isAuth()
+        && (
+          companyId == request.auth.uid
+          || (companyId == myCompanyId() && (isCompanyAdmin() || isManager()))
+        );
     }
 
     // ── SUBSCRIPTIONS ─────────────────────────────────
