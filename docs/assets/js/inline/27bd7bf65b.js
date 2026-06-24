@@ -27,21 +27,39 @@ const VIZ_OPTIONS = {
   // actually manufactured in — so picking UHDZ no longer surfaces NS-only
   // colors like "Sunset Brick", and picking Camelot II shows the slate-look
   // designer palette instead of the architectural lineup.
+  // Each line carries `mfr` (brand prefix for the palette header) and `group`
+  // (the manufacturer dimension surfaced as a labeled group in the pill picker).
+  // GAF is Joe's default lineup; TAMKO Storm Series is the hail/impact lane.
   roofLines: [
     { id: 'timberline-ns',   label: 'Timberline NS',      desc: 'Natural Shadow · entry architectural',
-      colorsRef: 'timberlineNsColors',
+      mfr: 'GAF', group: 'GAF', colorsRef: 'timberlineNsColors',
       ai: 'GAF Timberline Natural Shadow (NS) architectural laminated asphalt shingles' },
     { id: 'timberline-hdz',  label: 'Timberline HDZ',     desc: 'Architectural · most chosen',
-      colorsRef: 'timberlineHdzColors',
+      mfr: 'GAF', group: 'GAF', colorsRef: 'timberlineHdzColors',
       ai: 'GAF Timberline HDZ architectural laminated asphalt shingles' },
     { id: 'timberline-uhdz', label: 'Timberline UHDZ',    desc: 'Premium · Class 4 impact-rated',
-      colorsRef: 'timberlineUhdzColors',
+      mfr: 'GAF', group: 'GAF', colorsRef: 'timberlineUhdzColors',
       ai: 'GAF Timberline UHDZ premium architectural shingles with Class 4 impact rating (UL 2218)' },
     { id: 'camelot-2',       label: 'Camelot II',         desc: 'Designer · slate-look luxury',
-      colorsRef: 'camelot2Colors',
+      mfr: 'GAF', group: 'GAF', colorsRef: 'camelot2Colors',
       ai: 'GAF Camelot II designer slate-look dimensional luxury asphalt shingles' },
+
+    // TAMKO Storm Series — the impact/hail lineup Joe installs (a brand he
+    // installs, NOT a certification). Titan XT carries TAMKO's full 14-color
+    // premium palette; StormFighter Flex + HailGuard share the same 8-color
+    // storm palette, so both point at `tamkoStormColors`.
+    { id: 'tamko-titan-xt',     label: 'Titan XT',          desc: 'TAMKO · Class 3 impact · 160 mph',
+      mfr: 'TAMKO', group: 'TAMKO Storm Series', colorsRef: 'tamkoTitanColors',
+      ai: 'TAMKO Titan XT premium architectural laminated asphalt shingles with Class 3 impact rating (UL 2218)' },
+    { id: 'tamko-stormfighter', label: 'StormFighter Flex', desc: 'TAMKO · Class 4 impact · 160 mph',
+      mfr: 'TAMKO', group: 'TAMKO Storm Series', colorsRef: 'tamkoStormColors',
+      ai: 'TAMKO StormFighter FLEX polymer-modified architectural asphalt shingles with Class 4 impact rating (UL 2218)' },
+    { id: 'tamko-hailguard',    label: 'HailGuard',         desc: 'TAMKO · Class 4 · hail warranty',
+      mfr: 'TAMKO', group: 'TAMKO Storm Series', colorsRef: 'tamkoStormColors',
+      ai: 'TAMKO HailGuard impact-resistant architectural asphalt shingles, UL 2218 Class 4 impact rated (tested beyond Class 4)' },
+
     { id: 'metal',           label: 'Standing-Seam Metal', desc: 'Premium metal panels',
-      colorsRef: 'metalColors',
+      group: 'Metal', colorsRef: 'metalColors',
       ai: 'standing-seam metal roofing panels (NOT metal shingles — these are flat panels with raised seams)' },
   ],
 
@@ -208,6 +226,64 @@ const VIZ_OPTIONS = {
       blend: 'creamy almond painted metal — warm beige-cream; soft low-sheen finish' },
     { id: 'stone-white',     name: 'Stone White',     hex: '#e8e0d0', light: true,
       blend: 'soft stone-white painted metal — gentle off-white with warm undertone; satin finish' },
+  ],
+
+  // ── TAMKO STORM SERIES COLOR PALETTES ─────────────────────────
+  // Color names pulled from Jo's TAMKO sell sheets (Titan XT 14, StormFighter
+  // Flex 8). hex = dominant tone (calibrated against TAMKO swatch imagery);
+  // blend = the multi-tone granule description fed to the FLUX prompt — same
+  // format as the GAF palettes above.
+
+  // Titan XT — TAMKO's full 14-color premium palette.
+  tamkoTitanColors: [
+    { id: 'autumn-brown',        name: 'Autumn Brown',        hex: '#5a3b28',
+      blend: 'warm autumn brown with darker chocolate granules, reddish-rust flecks, and golden-amber accents; rich fall-foliage tone' },
+    { id: 'black-walnut',        name: 'Black Walnut',        hex: '#2e2620',
+      blend: 'deep walnut brown-black with near-black granules, dark espresso flecks, and faint warm-brown accents; rich dark hardwood tone' },
+    { id: 'mountain-slate',      name: 'Mountain Slate',      hex: '#4a4e54',
+      blend: 'cool gray-slate with darker charcoal granules, blue-gray flecks, and lighter silver accents; mountain-stone tone' },
+    { id: 'natural-timber',      name: 'Natural Timber',      hex: '#6e553a',
+      blend: 'warm tan-brown with golden-wheat granules, darker brown flecks, and bleached-cedar accents; natural timber look' },
+    { id: 'painted-desert',      name: 'Painted Desert',      hex: '#8a5238',
+      blend: 'warm terracotta-clay with brick-red granules, golden-amber flecks, and darker brown variation; southwestern desert blend' },
+    { id: 'thunderstorm-grey',   name: 'Thunderstorm Grey',   hex: '#44464a',
+      blend: 'deep storm-gray with charcoal granules, slate-gray flecks, and subtle cool highlights; overcast-sky tone' },
+    { id: 'desert-sand',         name: 'Desert Sand',         hex: '#b6a079', light: true,
+      blend: 'light sandy tan with warm cream granules, soft beige flecks, and pale taupe accents; airy desert-sand tone' },
+    { id: 'olde-english-pewter', name: 'Olde English Pewter', hex: '#6a6a6a',
+      blend: 'medium pewter gray with darker slate granules, lighter silver-gray flecks, and a faint warm undertone' },
+    { id: 'oxford-grey',         name: 'Oxford Grey',         hex: '#3a3c40',
+      blend: 'dark oxford charcoal with near-black granules, slate-gray flecks, and subtle cool-gray accents' },
+    { id: 'rustic-black',        name: 'Rustic Black',        hex: '#232323',
+      blend: 'deep rustic black with charcoal granules, dark slate flecks, and faint warm-gray accents; clean black-roof look' },
+    { id: 'rustic-cedar',        name: 'Rustic Cedar',        hex: '#6e4128',
+      blend: 'warm reddish cedar-brown with darker chocolate granules, copper-red flecks, and golden-tan accents; weathered cedar tone' },
+    { id: 'rustic-evergreen',    name: 'Rustic Evergreen',    hex: '#2f4233',
+      blend: 'deep evergreen with darker pine granules, olive-green flecks, and a faint warm-brown undertone; forest tone' },
+    { id: 'rustic-slate',        name: 'Rustic Slate',        hex: '#4c4f57',
+      blend: 'multi-tone rustic slate with charcoal granules, blue-gray flecks, and warm-gray accents; varied natural-slate look' },
+    { id: 'weathered-wood',      name: 'Weathered Wood',      hex: '#5e4e3a',
+      blend: 'warm gray-brown with tan granules, darker brown flecks, and silver-gray accents; reads like aged weathered wood' },
+  ],
+
+  // StormFighter Flex + HailGuard — shared 8-color storm palette.
+  tamkoStormColors: [
+    { id: 'black-walnut',        name: 'Black Walnut',        hex: '#2e2620',
+      blend: 'deep walnut brown-black with near-black granules, dark espresso flecks, and faint warm-brown accents; rich dark hardwood tone' },
+    { id: 'olde-english-pewter', name: 'Olde English Pewter', hex: '#6a6a6a',
+      blend: 'medium pewter gray with darker slate granules, lighter silver-gray flecks, and a faint warm undertone' },
+    { id: 'oxford-grey',         name: 'Oxford Grey',         hex: '#3a3c40',
+      blend: 'dark oxford charcoal with near-black granules, slate-gray flecks, and subtle cool-gray accents' },
+    { id: 'rustic-black',        name: 'Rustic Black',        hex: '#232323',
+      blend: 'deep rustic black with charcoal granules, dark slate flecks, and faint warm-gray accents; clean black-roof look' },
+    { id: 'thunderstorm-grey',   name: 'Thunderstorm Grey',   hex: '#44464a',
+      blend: 'deep storm-gray with charcoal granules, slate-gray flecks, and subtle cool highlights; overcast-sky tone' },
+    { id: 'rustic-cedar',        name: 'Rustic Cedar',        hex: '#6e4128',
+      blend: 'warm reddish cedar-brown with darker chocolate granules, copper-red flecks, and golden-tan accents; weathered cedar tone' },
+    { id: 'rustic-slate',        name: 'Rustic Slate',        hex: '#4c4f57',
+      blend: 'multi-tone rustic slate with charcoal granules, blue-gray flecks, and warm-gray accents; varied natural-slate look' },
+    { id: 'weathered-wood',      name: 'Weathered Wood',      hex: '#5e4e3a',
+      blend: 'warm gray-brown with tan granules, darker brown flecks, and silver-gray accents; reads like aged weathered wood' },
   ],
 
   sidingMaterials: [
@@ -424,12 +500,21 @@ function renderPills(containerId, items, opts) {
   const onChange = opts.onChange;
   const c = document.getElementById(containerId);
   if (!c) return;
+  // Optional manufacturer/group dimension: when items carry a `group`, emit a
+  // full-width group label whenever the group changes. Items without `group`
+  // render as a flat list exactly as before (backward compatible).
+  let lastGroup = null;
   c.innerHTML = items.map(it => {
     const sel = multi
       ? (state[stateKey] || []).includes(it.id)
       : state[stateKey] === it.id;
     const sub = it.desc ? `<span class="pill-sub">${it.desc}</span>` : '';
-    return `<span class="pill${sel ? ' selected' : ''}" data-val="${it.id}">${it.label}${sub}</span>`;
+    let groupHdr = '';
+    if (it.group && it.group !== lastGroup) {
+      groupHdr = `<div class="pill-group-label">${it.group}</div>`;
+      lastGroup = it.group;
+    }
+    return `${groupHdr}<span class="pill${sel ? ' selected' : ''}" data-val="${it.id}">${it.label}${sub}</span>`;
   }).join('');
   c.addEventListener('click', e => {
     const pill = e.target.closest('.pill');
@@ -521,7 +606,8 @@ function paletteHeaderLabel(lineId) {
   const line = VIZ_OPTIONS.roofLines.find(l => l.id === lineId);
   if (!line) return 'Roof Color';
   if (line.id === 'metal') return 'Roof Color · Standing-Seam Metal Palette';
-  return `Roof Color · GAF ${line.label} Palette`;
+  const brand = line.mfr ? line.mfr + ' ' : '';
+  return `Roof Color · ${brand}${line.label} Palette`;
 }
 
 function onRoofLineChange() {
