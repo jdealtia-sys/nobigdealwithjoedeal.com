@@ -3,7 +3,7 @@
 /* ── Configuration ── */
 const CONFIG = {
   GOOGLE_MAPS_KEY: '', // Add your Google Maps Static API key here
-  PROXY_URL: 'https://nbd-ai-proxy.jonathandeal459.workers.dev',
+  PROXY_URL: 'https://us-central1-nobigdeal-pro.cloudfunctions.net/publicFunnelAI',
   JOE_PHONE: '8594207382',
   OTP_ENABLED: true // Set to false to skip SMS verification during testing
 };
@@ -346,14 +346,14 @@ function loadLeafletAssets(cb) {
     const css = document.createElement('link');
     css.id = 'leaflet-css';
     css.rel = 'stylesheet';
-    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    css.href = '/assets/vendor/leaflet/leaflet.css';
     css.crossOrigin = '';
     document.head.appendChild(css);
   }
   if (!document.getElementById('leaflet-js')) {
     const js = document.createElement('script');
     js.id = 'leaflet-js';
-    js.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    js.src = '/assets/vendor/leaflet/leaflet.js';
     js.crossOrigin = '';
     js.onload = cb;
     js.onerror = function() {
@@ -866,15 +866,11 @@ async function submitAndGetEstimate() {
     var resp = await fetch(CONFIG.PROXY_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 600,
-        messages: [{ role: 'user', content: prompt }]
-      })
+      body: JSON.stringify({ prompt: prompt, maxTokens: 600 })
     });
 
     var data = await resp.json();
-    var raw = (data && data.content && data.content[0] && data.content[0].text) || '';
+    var raw = (data && data.text) || '';
     var clean = raw.replace(/```json|```/g, '').trim();
     var est = JSON.parse(clean);
     funnelData.estimate = est;
@@ -962,14 +958,10 @@ async function fetchJoesTakeNote() {
   var resp = await fetch(CONFIG.PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 180,
-      messages: [{ role: 'user', content: prompt }]
-    })
+    body: JSON.stringify({ prompt: prompt, maxTokens: 180 })
   });
   var data = await resp.json();
-  var text = (data && data.content && data.content[0] && data.content[0].text) || '';
+  var text = (data && data.text) || '';
   return text.trim();
 }
 

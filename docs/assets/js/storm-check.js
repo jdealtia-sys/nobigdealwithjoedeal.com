@@ -11,7 +11,7 @@
 (function () {
   'use strict';
 
-  var PROXY = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+  var PROXY = 'https://us-central1-nobigdeal-pro.cloudfunctions.net/publicFunnelAI';
   var S = {
     step: 1, address: '', addressFull: null, lat: null, lon: null,
     stormWhen: '', stormType: '', roofAge: '', roofType: 'asphalt',
@@ -176,9 +176,9 @@
         '. Signs reported: ' + (S.signs.join(', ') || 'none') + '. Do NOT promise the claim will be approved or pay out; say you’ll inspect free and handle the claim. No dollar amounts.';
       return fetch(PROXY, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 180, messages: [{ role: 'user', content: prompt }] })
+        body: JSON.stringify({ prompt: prompt, maxTokens: 180 })
       }).then(function (r) { return r.json(); }).then(function (d) {
-        var txt = d && d.content && d.content[0] && d.content[0].text;
+        var txt = d && d.text;
         return (txt && txt.trim()) ? txt.trim() : fb;
       }).catch(function () { return fb; });
     } catch (e) { return Promise.resolve(fb); }

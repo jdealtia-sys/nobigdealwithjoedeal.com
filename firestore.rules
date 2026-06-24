@@ -335,9 +335,18 @@ service cloud.firestore {
     }
 
     // ── EMAILS (sent log) ─────────────────────────────
+    // Ownership binds to the IMMUTABLE uid (sentByUid). The token email is a
+    // mutable identity key, so it's kept only as a fallback for docs written
+    // before sentByUid existed — new writes additionally bind to the uid.
     match /emails/{emailId} {
-      allow read: if isAuth() && resource.data.sentBy == request.auth.token.email;
-      allow create: if isAuth() && request.resource.data.sentBy == request.auth.token.email;
+      allow read: if isAuth() && (
+        resource.data.get('sentByUid', '') == request.auth.uid ||
+        resource.data.sentBy == request.auth.token.email
+      );
+      allow create: if isAuth() &&
+        request.resource.data.sentBy == request.auth.token.email &&
+        (!('sentByUid' in request.resource.data) ||
+         request.resource.data.sentByUid == request.auth.uid);
     }
 
     // ── DOCUMENTS ─────────────────────────────────────

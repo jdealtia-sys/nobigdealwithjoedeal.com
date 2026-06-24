@@ -1,120 +1,96 @@
 /**
- * NBD Marketing — shared Firebase bootstrap for every marketing-site page.
+ * NBD Marketing — lead submission shim.
  *
- * Replaces the compat SDK pattern:
+ * HISTORY: this module used to initialize a SEPARATE `nobigdealwithjoedeal`
+ * Firebase project and write leads straight into its `leads` collection via
+ * the modular Firestore SDK. That collection accepted unauthenticated public
+ * writes gated ONLY by firestore.rules shape checks — no App Check, no
+ * Turnstile, no rate limit (App Check was never registered for the marketing
+ * project, so MARKETING_RECAPTCHA_SITE_KEY stayed empty). Anyone could POST
+ * unlimited leads straight to Firestore.
  *
- *   <script src=".../firebase-app-compat.js"></script>
- *   <script src=".../firebase-firestore-compat.js"></script>
- *   <script>
- *     firebase.initializeApp({ ... });
- *     const db = firebase.firestore();
- *   </script>
+ * Every marketing lead now flows through the SAME hardened gateway the main
+ * site + Oaks microsite already use: the `submitPublicLead` Cloud Function on
+ * nobigdeal-pro, which enforces App Check + Turnstile + per-IP rate limit +
+ * honeypot server-side, and bridges the lead into the CRM pipeline + operator
+ * alerts. The marketing project's `leads` collection is now closed to client
+ * writes (see marketing-site-firestore.rules).
  *
- * …with a single external module that:
- *   1. Initializes the `nobigdealwithjoedeal` Firebase project via the
- *      modular v10 SDK.
- *   2. Attaches Firebase App Check (reCAPTCHA Enterprise) so form-write
- *      abuse can be blocked at the infrastructure layer, not just by
- *      firestore.rules shape checks.
- *   3. Exposes a small `submitMarketingLead(data)` helper that every host
- *      page's contact form can call, regardless of how the form is wired
- *      in the surrounding HTML.
- *
- * The legacy `window.db` global is still provided for backwards compat
- * with inline form handlers in host HTML, but all new code should import
- * `submitMarketingLead` from this module.
- *
- * STRICT CSP:
- * This module is loaded via `<script type="module" src=".../marketing-firebase.js">`
- * so no inline `<script>` block is required. The matching `firebase.json`
- * header for marketing-site paths drops `'unsafe-inline'` from script-src.
- *
- * APP CHECK SITE KEY:
- * Joe registers the marketing project for App Check in the Firebase Console
- * and hardcodes the reCAPTCHA Enterprise site key in `MARKETING_RECAPTCHA_SITE_KEY`
- * below. Until that happens the helper initializes without App Check and
- * logs a warning — the Firestore writes will still work because the rules
- * don't yet enforce App Check tokens on the `leads` collection, but Joe
- * should flip App Check enforcement on as soon as the key is set.
+ * The exported helper keeps its original name + contract (resolves with the
+ * new lead id, throws on failure) so existing callers — sites/js/sites-landing.js
+ * and the company-site template (assets/js/inline/a480f74bc8.js), both via
+ * window._nbdSubmitLead — need no change.
  */
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js';
-import { getFirestore, collection, addDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-// Marketing project — NOT nobigdeal-pro. These two Firebase projects are
-// intentionally separate; do not merge them.
-const firebaseConfig = {
-  apiKey: 'AIzaSyDmDhacGOipy1JRfprrFcEBqKLfUZ8meYQ',
-  authDomain: 'nobigdealwithjoedeal.firebaseapp.com',
-  projectId: 'nobigdealwithjoedeal',
-  storageBucket: 'nobigdealwithjoedeal.firebasestorage.app',
-  messagingSenderId: '140387052359',
-  appId: '1:140387052359:web:e95a34024e498e16e6e1a1'
-};
+const PUBLIC_LEAD_SUBMIT_SRC = '/assets/js/public-lead-submit.js';
 
-// reCAPTCHA Enterprise site key for App Check enforcement. Set this once
-// Joe has registered the marketing project in the Firebase Console.
-// Until it's set, App Check init is skipped with a console warning.
-const MARKETING_RECAPTCHA_SITE_KEY = '';
-
-const app = initializeApp(firebaseConfig);
-
-if (MARKETING_RECAPTCHA_SITE_KEY) {
-  try {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaEnterpriseProvider(MARKETING_RECAPTCHA_SITE_KEY),
-      isTokenAutoRefreshEnabled: true,
-    });
-  } catch (e) {
-    console.warn('marketing App Check init failed:', e);
-  }
-} else if (typeof console !== 'undefined') {
-  console.warn('marketing-firebase: App Check not configured. Set MARKETING_RECAPTCHA_SITE_KEY in docs/sites/js/marketing-firebase.js once reCAPTCHA Enterprise is registered.');
+let _loadPromise = null;
+function ensureGateway() {
+  if (typeof window.submitPublicLead === 'function') return Promise.resolve(window.submitPublicLead);
+  if (_loadPromise) return _loadPromise;
+  _loadPromise = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = PUBLIC_LEAD_SUBMIT_SRC;   // same-origin; satisfies script-src 'self'
+    s.onload = () => (typeof window.submitPublicLead === 'function'
+      ? resolve(window.submitPublicLead)
+      : reject(new Error('submitPublicLead unavailable after load')));
+    s.onerror = () => reject(new Error('failed to load public-lead-submit.js'));
+    document.head.appendChild(s);
+  });
+  return _loadPromise;
 }
 
-const db = getFirestore(app);
+// The gateway's `contact` kind accepts: firstName, phone, source (required) +
+// lastName, email, address, zip, service, message (optional allowlist), plus a
+// registry-validated companyId. Marketing forms collect a slightly different
+// shape (a full `name`, and the SaaS sales form adds company/plan/area/services),
+// so we normalise here and fold any extra context into `message` — nothing the
+// homeowner/operator typed is dropped, and no new server-side field is needed.
+function toContactPayload(data) {
+  const d = data || {};
+  const firstName = String(d.firstName || d.name || '').trim();
 
-// Back-compat global — legacy inline handlers in some host HTML pages
-// still reference `window.db.collection('leads').add(...)` via the compat
-// API. We cannot provide that exact shape, but we can expose the modular
-// db so future code can migrate cleanly.
-window._nbdMarketingDb = db;
+  // Preserve context (company/plan/service-area/etc.) that has no dedicated
+  // field on the homeowner contact schema by appending it to `message`.
+  const extras = [];
+  if (d.company)     extras.push('Company: ' + d.company);
+  if (d.companyName) extras.push('Site: ' + d.companyName);
+  if (d.plan)        extras.push('Plan: ' + d.plan);
+  if (d.area)        extras.push('Area: ' + d.area);
+  if (d.services)    extras.push('Services: ' + d.services);
+  if (d.type)        extras.push('Type: ' + d.type);
+  const baseMsg = String(d.message || '');
+  const message = extras.length
+    ? ((baseMsg ? baseMsg + '\n\n' : '') + '— ' + extras.join(' | '))
+    : baseMsg;
+
+  const payload = {
+    firstName,
+    phone:  String(d.phone || ''),
+    email:  String(d.email || ''),
+    source: String(d.source || 'website'),
+  };
+  if (d.lastName) payload.lastName = String(d.lastName);
+  if (d.service)  payload.service = String(d.service);
+  if (d.zip)      payload.zip = String(d.zip);
+  if (message)    payload.message = message.slice(0, 1500);
+  // companyId is validated against the companies registry by the gateway; an
+  // unknown id is simply dropped there (lead falls back to Joe).
+  if (d.companyId) payload.companyId = String(d.companyId);
+  return payload;
+}
 
 /**
- * Submit a lead to the marketing-project `leads` collection.
- *
- * `data` should be a plain object — the firestore.rules for the marketing
- * project enforce shape + size + status allowlist. This helper adds:
- *   - `status: 'new'`
- *   - `createdAt: serverTimestamp()`
- *   - a minimal `source: 'website'` fallback if absent
- *
- * Returns the newly-created doc id on success, throws otherwise.
+ * Submit a marketing lead through the hardened submitPublicLead gateway.
+ * Returns the new lead id on success; throws on failure (same contract as the
+ * legacy direct-write helper this replaces).
  */
 export async function submitMarketingLead(data) {
   if (!data || typeof data !== 'object') throw new Error('data required');
-
-  // Trim every string field to something sane before shipping it to
-  // Firestore — avoids accidentally tripping the size caps in the rules.
-  const clean = {};
-  for (const [k, v] of Object.entries(data)) {
-    if (v == null) continue;
-    if (typeof v === 'string') clean[k] = v.slice(0, 3900);
-    else clean[k] = v;
+  const submit = await ensureGateway();
+  const out = await submit('contact', toContactPayload(data));
+  if (!out || !out.ok) {
+    throw new Error((out && out.reason) || 'submission failed');
   }
-
-  const payload = {
-    source: 'website',
-    status: 'new',
-    createdAt: serverTimestamp(),
-    ...clean,
-  };
-
-  const ref = await addDoc(collection(db, 'leads'), payload);
-  return ref.id;
+  return out.id || null;
 }
-
-// Re-export the raw modular primitives for the odd host page that wants to
-// do its own write (eg. a dedicated guide-request form that writes to a
-// different collection).
-export { db, collection, addDoc, serverTimestamp };

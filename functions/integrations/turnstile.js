@@ -15,6 +15,12 @@
  * { configured: false } and submitPublicLead falls back to App
  * Check + honeypot + rate limit (still strong — Turnstile is
  * defense in depth).
+ *
+ * PRODUCTION ENFORCEMENT: set the env var TURNSTILE_REQUIRED=true to make a
+ * missing/unset secret fail CLOSED instead of silently waving traffic through.
+ * This prevents a Turnstile config drift in prod (secret accidentally cleared)
+ * from quietly disabling the CAPTCHA gate. Leave it unset in dev/preview so
+ * those environments keep working without a Turnstile secret.
  */
 
 'use strict';
@@ -33,6 +39,14 @@ const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
  */
 async function verifyTurnstile(token, remoteip) {
   if (!hasSecret('TURNSTILE_SECRET')) {
+    // Opt-in hard requirement: in prod, set TURNSTILE_REQUIRED=true so an
+    // unset secret fails closed rather than silently passing on App Check +
+    // honeypot + rate limit alone. Default (unset) preserves the original
+    // defense-in-depth passthrough for dev/preview.
+    if (String(process.env.TURNSTILE_REQUIRED).toLowerCase() === 'true') {
+      logger.error('Turnstile required (TURNSTILE_REQUIRED=true) but TURNSTILE_SECRET is unset — failing closed');
+      return { ok: false, configured: false, reason: 'turnstile-required' };
+    }
     return { ok: true, configured: false };  // allow when not configured
   }
   if (typeof token !== 'string' || token.length < 10 || token.length > 2048) {

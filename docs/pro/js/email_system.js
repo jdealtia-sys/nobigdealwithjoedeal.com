@@ -250,6 +250,7 @@ window.sendEmail = async function() {
 
     // Fallback: Log and use mailto
     if (window._emailLeadId && window.db) {
+      const _eu = window.auth?.currentUser;
       await window.addDoc(window.collection(window.db, 'emails'), {
         leadId: window._emailLeadId,
         to: to,
@@ -258,7 +259,11 @@ window.sendEmail = async function() {
         context: window._emailContext || 'general',
         hasAttachment: !!window._emailAttachment,
         sentAt: window.serverTimestamp(),
-        sentBy: window.auth?.currentUser?.email || 'Unknown'
+        sentBy: _eu?.email || 'Unknown',
+        // Bind ownership to the immutable uid (rules prefer this over the
+        // mutable token email). Only set when present so unauth fallbacks
+        // don't write an empty value that would fail the create rule.
+        ...(_eu?.uid ? { sentByUid: _eu.uid } : {})
       });
     }
 
@@ -716,7 +721,7 @@ window.emailSystem.send = async function(to, subject, body, options = {}) {
       // Load EmailJS SDK if not already loaded
       if (!window.emailjs) {
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js';
+        script.src = '/assets/vendor/emailjs/email.min.js';
         document.head.appendChild(script);
         await new Promise(resolve => script.onload = resolve);
         window.emailjs.init(this.config.emailjsPublicKey);

@@ -75,7 +75,7 @@
       // ApexCharts global is defined before the generator executes. If the
       // CDN fetch fails, load() resolves anyway and the generator's existing
       // `typeof ApexCharts === 'undefined'` guard degrades gracefully.
-      'https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js',
+      '/assets/vendor/apexcharts/apexcharts.min.js',
       'js/rep-report-generator.js?v=4'
     ],
     // Doc-generation cluster (PR 2b). Only needed when the rep generates a
@@ -144,8 +144,8 @@
     // load-then-runs this bundle on demand. Standalone jsPDF is unused on the
     // dashboard (only customer.html instantiates it) but kept here for safety.
     pdfexport: [
-      'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'
+      '/assets/vendor/jspdf/jspdf.umd.min.js',
+      '/assets/vendor/html2pdf/html2pdf.bundle.min.js'
     ],
     // Warranty cert wizard — opened from the Docs view only.
     warranty: [
