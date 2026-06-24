@@ -1126,17 +1126,18 @@
       tags:['specialty','copper','finial','historic'] });
 
   // ═════════════════════════════════════════════════════════
-  // 20. WARRANTY & DOCUMENTATION (5)
+  // 20. WARRANTY & DOCUMENTATION (4)
   // ═════════════════════════════════════════════════════════
 
-  A({ code:'WAR GP-GAF', name:'GAF Golden Pledge Warranty', sub:'warranty', cat:'warranty', unit:'JOB', mat:285, lab:85,
-      desc:'GAF Golden Pledge — lifetime shingles + 25yr workmanship + system warranty.', tier:'best',
-      reason:'GAF Golden Pledge warranty covers full system including labor, workmanship, and materials.',
-      tags:['warranty','gaf','golden-pledge','best-tier'], retailDefault:true });
-  A({ code:'WAR SP-GAF', name:'GAF Silver Pledge Warranty', sub:'warranty', cat:'warranty', unit:'JOB', mat:185, lab:45,
-      desc:'GAF Silver Pledge — lifetime shingles + 10yr workmanship.', tier:'better',
-      reason:'GAF Silver Pledge warranty for better-tier system.',
-      tags:['warranty','gaf','silver-pledge','better-tier'] });
+  // NBD registers GAF System Plus (available to GAF Certified contractors).
+  // GAF Golden Pledge + Silver Pledge require GAF MASTER ELITE, which Joe does
+  // not hold — quoting them promises coverage NBD can't register. Default GAF
+  // warranty corrected to System Plus. (Re-add the Master-Elite tiers only if/
+  // when Joe earns Master Elite.)  [accuracy fix 2026-06-24]
+  A({ code:'WAR SYSP-GAF', name:'GAF System Plus Limited Warranty', sub:'warranty', cat:'warranty', unit:'JOB', mat:285, lab:85,
+      desc:'GAF System Plus — material + workmanship system warranty, registerable by GAF Certified contractors (what NBD holds).', tier:'best',
+      reason:'GAF System Plus Limited Warranty covers the full system; NBD can register it as a GAF Certified contractor.',
+      tags:['warranty','gaf','system-plus','best-tier'], retailDefault:true });
   A({ code:'WAR PP-OC', name:'OC Platinum Preferred System Warranty', sub:'warranty', cat:'warranty', unit:'JOB', mat:285, lab:85,
       tier:'best', reason:'Owens Corning Platinum Preferred system warranty.',
       tags:['warranty','owens-corning','platinum','best-tier'] });
