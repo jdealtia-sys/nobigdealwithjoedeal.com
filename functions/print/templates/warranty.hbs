@@ -65,7 +65,7 @@
 
 <div class="feature-grid">
   <div class="feature">NBD Lifetime Pledge — no expiration on labor warranty</div>
-  <div class="feature">GAF Timberline lifetime manufacturer shingle warranty</div>
+  <div class="feature">{{#if manufacturerWarrantyFeature}}{{manufacturerWarrantyFeature}}{{else}}GAF Timberline lifetime manufacturer shingle warranty{{/if}}</div>
   {{#if isPreferred}}<div class="feature">Transferable to new owner on sale of property</div>{{/if}}
   {{#if isElite}}<div class="feature">Annual courtesy inspection included</div>{{/if}}
   {{#if isElite}}<div class="feature">Fully transferable — follows the property through all subsequent owners</div>{{/if}}
@@ -73,7 +73,7 @@
   <div class="feature">Recorded on file at NBD Home Solutions</div>
 </div>
 
-<p class="meta" style="margin-top:18pt; line-height:1.6;">This guarantee covers defects in labor and workmanship only. It does not cover damage caused by acts of nature, severe weather events, improper maintenance, or modifications made by parties other than No Big Deal Home Solutions. The GAF manufacturer shingle warranty is a separate warranty provided directly by GAF and is not administered by No Big Deal Home Solutions.</p>
+<p class="meta" style="margin-top:18pt; line-height:1.6;">This guarantee covers defects in labor and workmanship only. It does not cover damage caused by acts of nature, severe weather events, improper maintenance, or modifications made by parties other than No Big Deal Home Solutions. The {{#if manufacturer}}{{manufacturer}}{{else}}GAF{{/if}} manufacturer shingle warranty is a separate warranty provided directly by {{#if manufacturer}}{{manufacturer}}{{else}}GAF{{/if}} and is not administered by No Big Deal Home Solutions.</p>
 
 <div class="sig-block">
   <h2 style="margin-top:0;">Signatures</h2>
