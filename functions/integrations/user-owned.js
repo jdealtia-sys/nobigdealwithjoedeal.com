@@ -65,6 +65,9 @@ const FLAT_USER_COLLECTIONS = [
   { name: 'territories' },
   { name: 'products' },
   { name: 'templates' },
+  // Close Board deal rooms (close-board.js syncDealToFirestore). Owner-keyed
+  // on userId; rides the GDPR cascade so a user's shared deals erase too.
+  { name: 'deal_rooms' },
   { name: 'training_sessions' },
   { name: 'drip_queue' },
   { name: 'drip_log' },
@@ -129,6 +132,13 @@ const STORAGE_PREFIXES = [
   'audio',
   'photos',
   'docs',
+  // `portals/{uid}/...` covers the legacy baked-HTML customer portals
+  // (portals/{uid}/{leadId}/v-<ts>.html + portals/{uid}/{leadId}-photos.html).
+  // Those static files carry permanent, never-expiring Storage download-token
+  // URLs that bypass Security Rules, so erasure MUST delete them — the
+  // Firestore lead row alone isn't enough. The prefix sweep below
+  // (deleteFiles `portals/{uid}/`) removes every version + the photo gallery
+  // in one call. (The live portal is token-based and stores no Storage blob.)
   'portals',
   'galleries',
   'reports',

@@ -763,7 +763,16 @@
   }
 
   function formatDate(date) {
+    if (date == null) return '—';
+    // Accept Firestore Timestamps (createdAt/uploadedAt) as well as the
+    // legacy numeric capturedAt epoch — quick-upload / annotation photos
+    // have no capturedAt, so callers fall back to the Timestamp fields.
+    if (typeof date === 'object') {
+      if (typeof date.toDate === 'function') date = date.toDate();
+      else if (typeof date.seconds === 'number') date = new Date(date.seconds * 1000);
+    }
     if (typeof date === 'number') date = new Date(date);
+    if (!(date instanceof Date) || isNaN(date.getTime())) return '—';
     return new Intl.DateTimeFormat('en-US', {
       month: 'short',
       day: 'numeric',
@@ -771,6 +780,20 @@
       hour: '2-digit',
       minute: '2-digit'
     }).format(date);
+  }
+
+  // Comparable epoch (ms) for sorting a photo by recency. Prefers the
+  // canonical `createdAt` (Firestore Timestamp), then `uploadedAt`
+  // (Timestamp), then the legacy numeric `capturedAt` epoch. Returns 0
+  // when nothing usable is present so undated docs sort oldest.
+  function photoEpoch(p) {
+    const t = (p && (p.createdAt || p.uploadedAt || p.capturedAt)) || null;
+    if (t == null) return 0;
+    if (typeof t === 'number') return t;                       // capturedAt: Date.now() ms
+    if (typeof t.toMillis === 'function') return t.toMillis(); // Firestore Timestamp
+    if (typeof t.seconds === 'number') return t.seconds * 1000;
+    const d = new Date(t);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
   }
 
   function formatFileSize(bytes) {
@@ -1270,6 +1293,14 @@
         width: blob.size > 0 ? 'auto' : 0,
         height: 'auto',
         fileSize: blob.size,
+        // `createdAt` is the CANONICAL ordering field for /photos — every
+        // write path (quick-upload, repos.create, annotation copy) stamps it
+        // with serverTimestamp(), and the Recent feed + per-lead gallery both
+        // orderBy('createdAt'). `capturedAt` (client capture epoch) and
+        // `uploadedAt` are kept additively for display/back-compat; they are
+        // no longer the ordering authority. See firestore.indexes.json
+        // (photos [userId, createdAt] / [leadId, userId, createdAt]).
+        createdAt: serverTimestamp(),
         capturedAt: timestamp,
         uploadedAt: serverTimestamp(),
         reportSections: [],
@@ -1321,13 +1352,13 @@
       container.innerHTML = `
         <div class="pe-gallery-container">
           <div class="pe-gallery-toolbar">
-            <select class="pe-toolbar-select" id="filter-tag" onchange="window.PhotoEngine._filterGallery('${leadId}')">
+            <select class="pe-toolbar-select" id="filter-tag">
               <option value="">All Photos</option>
               ${Object.entries(TAG_CATEGORIES).map(([_, cat]) =>
                 cat.tags.map(tag => `<option value="${tag}">${cat.label}: ${tag.replace(/_/g, ' ')}</option>`).join('')
               ).join('')}
             </select>
-            <select class="pe-toolbar-select" id="sort-by" onchange="window.PhotoEngine._sortGallery('${leadId}')">
+            <select class="pe-toolbar-select" id="sort-by">
               <option value="newest">Newest First</option>
               <option value="oldest">Oldest First</option>
               <option value="quality">Quality Preset</option>
@@ -1353,6 +1384,14 @@
       `;
 
       renderGalleryGrid(container.querySelector('#gallery-content'), photos, leadId);
+
+      // CSP-safe wiring: the dashboard CSP enforces script-src-attr 'none', which
+      // blocks inline onchange= — the filter/sort <select>s were silently dead.
+      // Attach the same handlers via addEventListener instead.
+      const _peFilter = container.querySelector('#filter-tag');
+      if (_peFilter) _peFilter.addEventListener('change', function () { window.PhotoEngine._filterGallery(leadId); });
+      const _peSort = container.querySelector('#sort-by');
+      if (_peSort) _peSort.addEventListener('change', function () { window.PhotoEngine._sortGallery(leadId); });
     } catch (err) {
       container.innerHTML = `<div class="pe-empty-state"><div class="pe-empty-icon">Camera</div><p>No photos yet</p></div>`;
       console.error('Gallery error:', err);
@@ -1374,7 +1413,7 @@
             ${state.stagedPhotos[leadId]?.includes(photo.id) ? `<div class="pe-staged-badge">OK</div>` : ''}
             <input type="checkbox" class="pe-gallery-checkbox" data-photo-id="${photo.id}" />
             <div class="pe-gallery-tags">
-              ${photo.tags.slice(0, 3).map(tag => `<span class="pe-mini-tag">${tag}</span>`).join('')}
+              ${photo.tags.slice(0, 3).map(tag => `<span class="pe-mini-tag">${escHtml(tag)}</span>`).join('')}
             </div>
             ${photo.aiSuggestion && photo.aiSuggestion.damageType ? `
               <span class="pe-ai-chip"
@@ -1421,12 +1460,12 @@
           <div class="pe-lightbox-metadata">
             <div class="pe-metadata-row">
               <div class="pe-metadata-label">Date</div>
-              <div>${formatDate(photo.capturedAt)}</div>
+              <div>${formatDate(photo.capturedAt || photo.createdAt || photo.uploadedAt)}</div>
             </div>
             ${photo.description ? `
               <div class="pe-metadata-row">
                 <div class="pe-metadata-label">Notes</div>
-                <div>${photo.description}</div>
+                <div>${escHtml(photo.description)}</div>
               </div>
             ` : ''}
             ${photo.location ? `
@@ -1447,7 +1486,7 @@
               <div class="pe-metadata-row">
                 <div class="pe-metadata-label">Tags</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-                  ${photo.tags.map(tag => `<span style="background: var(--orange); color: white; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.8rem;">${tag}</span>`).join('')}
+                  ${photo.tags.map(tag => `<span style="background: var(--orange); color: white; padding: 0.2rem 0.5rem; border-radius: 0.25rem; font-size: 0.8rem;">${escHtml(tag)}</span>`).join('')}
                 </div>
               </div>
             ` : ''}
@@ -1504,11 +1543,16 @@
       'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js'
     );
 
+    // Order by the canonical `createdAt` (serverTimestamp on every write
+    // path) — NOT `capturedAt`, which only photo-engine uploads set, so
+    // quick-upload / annotation-copy photos were silently excluded from
+    // this gallery. Requires the composite index
+    // photos [leadId, userId, createdAt DESC] (firestore.indexes.json).
     const q = query(
       collection(window._db, 'photos'),
       where('leadId', '==', leadId),
       where('userId', '==', window._auth?.currentUser?.uid),
-      orderBy('capturedAt', 'desc')
+      orderBy('createdAt', 'desc')
     );
 
     const querySnapshot = await getDocs(q);
@@ -1650,9 +1694,9 @@
       const filtered = filterTag ? photos.filter(p => p.tags && p.tags.includes(filterTag)) : photos;
       const sortBy = document.getElementById('sort-by')?.value || 'newest';
       const sorted = [...filtered].sort((a, b) => {
-        if (sortBy === 'oldest') return (a.capturedAt?.seconds || 0) - (b.capturedAt?.seconds || 0);
+        if (sortBy === 'oldest') return photoEpoch(a) - photoEpoch(b);
         if (sortBy === 'quality') return (b.quality || '').localeCompare(a.quality || '');
-        return (b.capturedAt?.seconds || 0) - (a.capturedAt?.seconds || 0);
+        return photoEpoch(b) - photoEpoch(a);
       });
       const container = document.getElementById('gallery-content');
       if (container) renderGalleryGrid(container, sorted, leadId);
@@ -1663,9 +1707,9 @@
       const filtered = filterTag ? photos.filter(p => p.tags && p.tags.includes(filterTag)) : photos;
       const sortBy = document.getElementById('sort-by')?.value || 'newest';
       const sorted = [...filtered].sort((a, b) => {
-        if (sortBy === 'oldest') return (a.capturedAt?.seconds || 0) - (b.capturedAt?.seconds || 0);
+        if (sortBy === 'oldest') return photoEpoch(a) - photoEpoch(b);
         if (sortBy === 'quality') return (b.quality || '').localeCompare(a.quality || '');
-        return (b.capturedAt?.seconds || 0) - (a.capturedAt?.seconds || 0);
+        return photoEpoch(b) - photoEpoch(a);
       });
       const container = document.getElementById('gallery-content');
       if (container) renderGalleryGrid(container, sorted, leadId);

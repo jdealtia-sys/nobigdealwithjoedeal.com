@@ -23,6 +23,14 @@ const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const Stripe = require('stripe');
 
+// Pin the Stripe API version explicitly. stripe-node 14.x defaults to
+// '2023-10-16'; without an explicit pin, bumping the SDK (e.g. #654 → v22)
+// would silently change the API version every request uses — altering webhook
+// event shapes + checkout behavior on the LIVE billing path. Pinning to the
+// version we already run makes any SDK upgrade behavior-neutral; a deliberate
+// API-version upgrade is then a separate, testable change.
+const STRIPE_API_VERSION = '2023-10-16';
+
 // Shared helpers (B2).
 const { requireAuth } = require('./shared');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
@@ -122,7 +130,7 @@ exports.createCheckoutSession = onRequest(
         : STRIPE_PRICE_PROFESSIONAL.value();
 
       // Initialize Stripe
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
 
       // Create Checkout Session
       const session = await stripe.checkout.sessions.create({
@@ -187,7 +195,7 @@ exports.stripeWebhook = onRequest(
       return;
     }
 
-    const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+    const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
     const sig = req.headers['stripe-signature'];
     const webhookSecret = STRIPE_WEBHOOK_SECRET.value();
 
@@ -609,7 +617,7 @@ exports.createCustomerPortalSession = onRequest(
         return;
       }
 
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
 
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: customerId,
@@ -777,7 +785,57 @@ exports.createStripePaymentLink = onRequest(
         return;
       }
 
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+      // ── Sales-tax line + total reconciliation (H3, money bug) ─────────
+      // invoice.items hold TAX-EXCLUSIVE line totals; the invoice's sales
+      // tax lives only in invoice.tax / invoice.total. Without an explicit
+      // tax line the payment link would charge the pre-tax subtotal, so the
+      // customer underpays by the entire tax and the contractor eats it.
+      // Append a dedicated tax line, then assert the link total reconciles
+      // to invoice.total to the penny before we ever create the link.
+      const productSumCents = lineItems.reduce(
+        (sum, li) => sum + li.price_data.unit_amount * li.quantity, 0);
+      const expectedTotalCents = Math.round(Number(invoice.total || 0) * 100);
+      const taxCents = Math.round(Number(invoice.tax || 0) * 100);
+
+      if (!Number.isFinite(taxCents) || taxCents < 0 || taxCents > MAX_CENTS) {
+        res.status(400).json({ error: 'Invoice tax amount out of allowed range' });
+        return;
+      }
+      if (taxCents > 0) {
+        lineItems.push({
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: 'Sales Tax',
+              description: `Invoice ${invoiceId}`,
+            },
+            unit_amount: taxCents,
+          },
+          quantity: 1,
+        });
+      }
+
+      // The charged total must equal invoice.total. Line totals from the
+      // estimate engine are full-precision floats (fractional quantities ×
+      // per-unit cents), so the sum of per-line rounding can drift a few
+      // cents from the stored total — allow a tolerance that scales with
+      // line count but stays far below any real tax amount, so a genuine
+      // mismatch (e.g. a missing tax line, or a server-recomputed line that
+      // diverges from the client total) still trips the guard and we refuse
+      // to charge rather than bill the wrong amount.
+      const linkTotalCents = lineItems.reduce(
+        (sum, li) => sum + li.price_data.unit_amount * li.quantity, 0);
+      const reconcileTolCents = Math.max(2, lineItems.length);
+      if (Math.abs(linkTotalCents - expectedTotalCents) > reconcileTolCents) {
+        logger.error('payment_link_total_mismatch', {
+          invoiceId, uid: decoded.uid,
+          productSumCents, taxCents, linkTotalCents, expectedTotalCents,
+        });
+        res.status(400).json({ error: 'Invoice total does not reconcile; refusing to create payment link' });
+        return;
+      }
+
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
       const paymentLink = await stripe.paymentLinks.create({
         line_items: lineItems,
         metadata: { invoiceId: String(invoiceId), userId: decoded.uid },
@@ -821,7 +879,7 @@ exports.invoiceWebhook = onRequest(
 
     try {
       const signature = req.headers['stripe-signature'] || '';
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value());
+      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
 
       // H-6: same rawBody requirement as stripeWebhook. The previous
       // `req.rawBody || req.body` fallback is a footgun — it gives

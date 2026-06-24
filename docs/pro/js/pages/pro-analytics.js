@@ -59,11 +59,14 @@ window.loadData = async function() {
     const db = window._db;
     if (!db) { btn.textContent = '↻ Refresh'; btn.disabled = false; renderEmpty(); return; }
 
-    // Query all api_usage docs for current user
-    const uid = window._user?.uid;
-    const q = uid
-      ? query(collection(db, 'api_usage'), where('uid', '==', uid), orderBy('timestamp', 'desc'))
-      : query(collection(db, 'api_usage'), orderBy('timestamp', 'desc'));
+    // Query all api_usage docs for current user. The old unfiltered
+    // fallback (no uid) was guaranteed to permission-deny for non-admins —
+    // the rule only allows reads of your OWN uid's docs — so during the
+    // auth-not-resolved race we now render empty and let the 60s
+    // auto-refresh retry once auth settles, instead of throwing.
+    const uid = window._user?.uid || window.auth?.currentUser?.uid || null;
+    if (!uid) { btn.textContent = '↻ Refresh'; btn.disabled = false; renderEmpty(); return; }
+    const q = query(collection(db, 'api_usage'), where('uid', '==', uid), orderBy('timestamp', 'desc'));
 
     const snap = await getDocs(q);
     allDocs = [];

@@ -53,10 +53,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://unpkg.com" crossorigin>
 <link rel="preconnect" href="https://server.arcgisonline.com" crossorigin>
 <link rel="dns-prefetch" href="https://api.anthropic.com">
-<link rel="dns-prefetch" href="https://nbd-ai-proxy.jonathandeal459.workers.dev">
 <link rel="dns-prefetch" href="https://us-central1-nobigdeal-pro.cloudfunctions.net">
 <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org">
 <link rel="dns-prefetch" href="https://api.weather.gov">
@@ -101,15 +99,15 @@
      from the critical render path while preserving execution order
      (defer scripts fire in document order before DOMContentLoaded).
      Audit B — 2026-05-13. -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="/assets/vendor/leaflet/leaflet.css"/>
+<script defer src="/assets/vendor/leaflet/leaflet.js"></script>
 <!-- Leaflet.Draw — polygon drawing for territory boundaries -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-<script defer src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
-<script defer src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<link rel="stylesheet" href="/assets/vendor/leaflet-draw/leaflet.draw.css"/>
+<script defer src="/assets/vendor/leaflet-draw/leaflet.draw.js"></script>
+<script defer src="/assets/vendor/leaflet-heat/leaflet-heat.js"></script>
+<link rel="stylesheet" href="/assets/vendor/leaflet-markercluster/MarkerCluster.css"/>
+<link rel="stylesheet" href="/assets/vendor/leaflet-markercluster/MarkerCluster.Default.css"/>
+<script defer src="/assets/vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
 <!-- Centralized Auth Gate -->
 <script type="module">
   import { NBDAuth } from '/pro/js/nbd-auth.js';
@@ -14683,13 +14681,13 @@ function switchScTab(tab, btn) {
 <!-- ADVANCED ESTIMATE BUILDER - 7-Phase System -->
 <!-- ═══════════════════════════════════════════════════════════════════════ -->
 <!-- jsPDF for advanced PDF export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="/assets/vendor/jspdf/jspdf.umd.min.js" defer></script>
 <!-- html2pdf.js — powers NBDDocViewer's in-app PDF generation.
      Bundled html2canvas + jsPDF. ~800 KB but loaded on-demand. -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+<script src="/assets/vendor/html2pdf/html2pdf.bundle.min.js" defer></script>
 <!-- ApexCharts — powers the Rep Report Generator's visual charts
      (donuts, bars, heatmaps, funnels). ~150 KB gzipped, pro-grade. -->
-<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.54.0/dist/apexcharts.min.js" defer></script>
+<script src="/assets/vendor/apexcharts/apexcharts.min.js" defer></script>
 <!-- Universal in-app document viewer — routes every generator's
      HTML through one modal so we never launch a blank popup again. -->
 <script defer src="js/nbd-doc-viewer.js?v=2"></script>

@@ -564,9 +564,13 @@ async function uploadPhotos(input){
 // renderPhotoLeads + per-lead gallery).
 //
 // Query: photos collection, where userId == current uid, ordered by
-// uploadedAt desc, limit 200. The photos rules at firestore.rules
-// L225 already allow .read for the photo's owner so no rules update
-// is needed.
+// the canonical `createdAt` desc, limit 200. Every photos write path
+// stamps createdAt with serverTimestamp(); ordering by it (not the
+// photo-engine-only `uploadedAt`) means quick-upload and annotation
+// photos are no longer silently excluded from this feed. Reuses the
+// existing composite index photos [userId, createdAt DESC]. The photos
+// rules at firestore.rules already allow .read for the owner, so no
+// rules update is needed.
 // ══════════════════════════════════════════════════════════════════════
 async function renderRecentPhotoFeed() {
   const container = document.getElementById('photoRecentFeed');
@@ -587,7 +591,7 @@ async function renderRecentPhotoFeed() {
     const q = window.query(
       window.collection(window.db, 'photos'),
       window.where('userId', '==', uid),
-      window.orderBy('uploadedAt', 'desc'),
+      window.orderBy('createdAt', 'desc'),
       window.limit(200)
     );
     const snap = await window.getDocs(q);
@@ -629,7 +633,7 @@ async function renderRecentPhotoFeed() {
       : { month:'short', day:'numeric', year:'numeric' });
   };
   for (const photo of docs) {
-    const k = dateKey(photo.uploadedAt || photo.takenAt);
+    const k = dateKey(photo.createdAt || photo.uploadedAt || photo.takenAt);
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(photo);
   }
@@ -1145,6 +1149,7 @@ function openMobileJobDetail(leadId) {
         const ts = (p.takenAt && p.takenAt.toDate) ? p.takenAt.toDate()
                  : (p.takenAt instanceof Date) ? p.takenAt
                  : (p.takenAt) ? new Date(p.takenAt)
+                 : (p.createdAt && p.createdAt.toDate) ? p.createdAt.toDate()
                  : (p.uploadedAt && p.uploadedAt.toDate) ? p.uploadedAt.toDate()
                  : null;
         const key = ts && !isNaN(ts)

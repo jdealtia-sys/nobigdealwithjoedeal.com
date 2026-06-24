@@ -2487,7 +2487,9 @@ window.vaultBulkImportSessions = async function(sessionsArray) {
    AI SESSION PARSER — Gemini-Powered Content Extraction
    ═══════════════════════════════════════════════════════════════════════════ */
 
-const GEMINI_WORKER_URL = 'https://nbd-ai-proxy.jonathandeal459.workers.dev';
+// Migrated off the nbd-ai-proxy worker to the gated, admin-authed adminAI
+// Cloud Function (Claude). Name kept generic; this is no longer Gemini.
+const NBD_ADMIN_AI_URL = 'https://us-central1-nobigdeal-pro.cloudfunctions.net/adminAI';
 
 async function parseSessionWithGemini(session) {
   const prompt = `Analyze this NBD Pro build session and extract structured data.
@@ -2562,19 +2564,16 @@ EXTRACTION RULES:
 - CRITICAL: Return ONLY the raw JSON object with no markdown formatting, no backticks, no explanatory text`;
 
   try {
-    const response = await fetch(GEMINI_WORKER_URL, {
+    const _u = window._auth?.currentUser;
+    const _tok = _u ? await _u.getIdToken() : '';
+    if (!_tok) throw new Error('Not signed in');
+    const response = await fetch(NBD_ADMIN_AI_URL, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'gemini-2.0-flash-exp',
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.1 // Low temperature for structured extraction
-      })
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + _tok
+      },
+      body: JSON.stringify({ prompt, maxTokens: 2048 })
     });
     
     if (!response.ok) {

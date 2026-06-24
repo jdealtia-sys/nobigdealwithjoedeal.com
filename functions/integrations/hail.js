@@ -23,7 +23,7 @@ const { getSecret, hasSecret, PROVIDERS, SECRETS } = require('./_shared');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app'
+  'https://nobigdeal-pro.web.app'
 ];
 
 // NOAA Storm Events CSV endpoint. Per-year files. We query by

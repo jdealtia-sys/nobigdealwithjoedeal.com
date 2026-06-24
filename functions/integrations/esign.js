@@ -40,7 +40,7 @@ const { getSecret, hasSecret, SECRETS } = require('./_shared');
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app'
+  'https://nobigdeal-pro.web.app'
 ];
 
 // ─── Callable: sendEstimateForSignature ─────────────────────
@@ -314,7 +314,9 @@ async function createStripeInvoiceForEstimate(estRef) {
     return;
   }
   const Stripe = require('stripe');
-  const stripe = new Stripe(stripeKey);
+  // Pin API version (mirrors functions/stripe.js) so an SDK bump stays
+  // behavior-neutral on the billing path.
+  const stripe = new Stripe(stripeKey, { apiVersion: '2023-10-16' });
 
   const db = admin.firestore();
   const estSnap = await estRef.get();

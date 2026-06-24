@@ -38,7 +38,7 @@ const { getSecret, hasSecret, PROVIDERS, notConfigured, SECRETS } = require('./_
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
-  'https://nbd-pro.web.app'
+  'https://nobigdeal-pro.web.app'
 ];
 
 // ─── Provider adapters ─────────────────────────────────────

@@ -11,6 +11,15 @@
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
+  // Defense-in-depth for href/src sinks: esc() neutralizes quotes/brackets but
+  // NOT URL schemes, so a non-http(s) value (e.g. javascript:) would survive
+  // intact. Only let http(s) through; everything else becomes ''. Mirrors the
+  // googleReviewUrl guard used elsewhere.
+  const safeUrl = (u) => {
+    const s = String(u == null ? '' : u).trim();
+    return /^https?:\/\//i.test(s) ? s : '';
+  };
+
   function fmtMoney(n) {
     if (n == null || isNaN(Number(n))) return '—';
     return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
@@ -128,11 +137,9 @@
       const added = nPhotos - pPhotos;
       events.push({ kind: 'photos', delta: added, msg: `📸 ${added} new photo${added === 1 ? '' : 's'} from your rep` });
     }
-    const pMsgs = (prev.messages && prev.messages.length) || 0;
-    const nMsgs = (next.messages && next.messages.length) || 0;
-    if (nMsgs > pMsgs) {
-      events.push({ kind: 'message', msg: `💬 New message from your rep` });
-    }
+    // (Removed dead "new message" banner: getHomeownerPortalView never returns
+    // a `messages` field, so this never fired. Rep replies are surfaced by the
+    // messaging card's own 30s poll instead.)
     const pEstId = (prev.estimate && prev.estimate.id) || null;
     const nEstId = (next.estimate && next.estimate.id) || null;
     if (nEstId && pEstId !== nEstId) {
@@ -337,8 +344,9 @@
       // Capture as estimate_view; resourceId = estimate doc id.
       if (e.id) _emitAuditEvent('estimate_view', e.id);
       const sig = signaturePill(e.signatureStatus || 'none');
-      const signedPdf = e.signedDocumentUrl
-        ? '<a class="btn btn-ghost" style="margin-top:12px;" href="' + esc(e.signedDocumentUrl) + '" target="_blank" rel="noopener">📄 Download Signed Contract</a>'
+      const signedHref = safeUrl(e.signedDocumentUrl);
+      const signedPdf = signedHref
+        ? '<a class="btn btn-ghost" style="margin-top:12px;" href="' + esc(signedHref) + '" target="_blank" rel="noopener">📄 Download Signed Contract</a>'
         : '';
       parts.push(
         '<div class="card">' +
@@ -401,7 +409,7 @@
           '<div class="card-title">' + esc(title) + '</div>' +
           '<p style="color:var(--muted);margin:0 0 14px;">' + esc(subtitle) + '</p>' +
           '<iframe class="cal-embed" src="' + esc(embedSrc) + '" title="Schedule" loading="lazy" referrerpolicy="no-referrer"></iframe>' +
-          '<div style="margin-top:10px;"><a class="btn" href="' + esc(view.bookingUrl) + '" target="_blank" rel="noopener">Open Booking Page →</a></div>' +
+          '<div style="margin-top:10px;"><a class="btn" href="' + esc(safeUrl(view.bookingUrl)) + '" target="_blank" rel="noopener">Open Booking Page →</a></div>' +
         '</div>'
       );
     }
@@ -423,17 +431,16 @@
 
       // Stash globally so the tab/chip filter handlers can re-render.
       window._portalPhotos = sorted;
-      window._portalPhotoFilter = { phase: 'all', location: 'all' };
+      window._portalPhotoFilter = { phase: 'all' };
 
-      // Phase + location counts for tab labels and chip set.
+      // Phase counts for tab labels. (Location chips were removed — the server
+      // redacts photo `location` from the homeowner payload, so the chips never
+      // had data and the location filter was dead code.)
       const phaseCount = { all: sorted.length, Before: 0, During: 0, After: 0 };
-      const locCount = {};
       sorted.forEach(function (p) {
         if (p.phase === 'Before' || p.phase === 'During' || p.phase === 'After') {
           phaseCount[p.phase]++;
         }
-        const loc = (p.location || (p.inferredLocation && p.inferredLocation.label) || '').trim();
-        if (loc) locCount[loc] = (locCount[loc] || 0) + 1;
       });
       const phaseTabs = ['all', 'Before', 'During', 'After']
         .filter(function (k) { return phaseCount[k] > 0; })
@@ -443,19 +450,12 @@
                    esc(label) + ' <span class="ph-tab-count">' + phaseCount[k] + '</span>' +
                  '</button>';
         }).join('');
-      const locChips = Object.keys(locCount)
-        .sort(function (a, b) { return locCount[b] - locCount[a]; })
-        .slice(0, 12)
-        .map(function (loc) {
-          return '<button class="ph-chip" data-loc="' + esc(loc) + '">' + esc(loc) + ' <span class="ph-chip-count">' + locCount[loc] + '</span></button>';
-        }).join('');
 
       parts.push(
         '<div class="card" id="portalPhotoCard">' +
           '<div class="card-label">Project Photos</div>' +
           '<div class="card-title">' + photos.length + ' photo' + (photos.length === 1 ? '' : 's') + ' from your project</div>' +
           (phaseTabs ? '<div class="ph-tabs" role="tablist" id="portalPhaseTabs">' + phaseTabs + '</div>' : '') +
-          (locChips ? '<div class="ph-chips" id="portalLocChips"><button class="ph-chip ph-chip-active" data-loc="all">All locations</button>' + locChips + '</div>' : '') +
           '<div class="ph-grid" id="portalPhotoGrid"></div>' +
           '<div class="ph-empty" id="portalPhotoEmpty" style="display:none;">No photos match these filters.</div>' +
         '</div>'
@@ -725,8 +725,8 @@
       const i = parseInt(slot.dataset.i, 10);
       const pair = view.photoPairs[i];
       if (!pair) return;
-      const beforeUrl = (pair.before && (pair.before.urls && (pair.before.urls.lg || pair.before.urls.md)) || (pair.before && pair.before.url)) || null;
-      const afterUrl  = (pair.after  && (pair.after.urls  && (pair.after.urls.lg  || pair.after.urls.md))  || (pair.after  && pair.after.url))  || null;
+      const beforeUrl = (pair.before && (pair.before.urls && (pair.before.urls.med || pair.before.urls.full)) || (pair.before && pair.before.url)) || null;
+      const afterUrl  = (pair.after  && (pair.after.urls  && (pair.after.urls.med  || pair.after.urls.full))  || (pair.after  && pair.after.url))  || null;
       if (!beforeUrl || !afterUrl) return;
       window.NBDBeforeAfter.render(slot, {
         before:   { url: beforeUrl },
@@ -780,6 +780,10 @@
     // Tile factory mirrors the original sorted-photo render so the
     // grid looks identical after a filter as it did at first paint.
     function tileHtml(p) {
+      // NOTE: photo src/href are server-origin Storage https URLs (and an
+      // <img src> can't execute script), so they keep plain esc() — the
+      // safeUrl scheme guard is applied to the click-anchors that matter
+      // (signed-contract download + booking link) above.
       const u = (p.urls && p.urls.med) ? esc(p.urls.med) : esc(p.url || '');
       const srcset = (p.urls && p.urls.thumb && p.urls.med && p.urls.full)
         ? ' srcset="' + esc(p.urls.thumb) + ' 200w, ' + esc(p.urls.med) + ' 600w, ' + esc(p.urls.full) + ' 1600w" sizes="(max-width:520px) 30vw, 160px"'
@@ -804,13 +808,9 @@
     });
 
     function renderFiltered() {
-      const f = window._portalPhotoFilter || { phase: 'all', location: 'all' };
+      const f = window._portalPhotoFilter || { phase: 'all' };
       const filtered = window._portalPhotos.filter(function (p) {
         if (f.phase !== 'all' && p.phase !== f.phase) return false;
-        if (f.location !== 'all') {
-          const loc = (p.location || (p.inferredLocation && p.inferredLocation.label) || '').trim();
-          if (loc !== f.location) return false;
-        }
         return true;
       });
       const empty = document.getElementById('portalPhotoEmpty');
@@ -834,18 +834,6 @@
           b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
         });
         window._portalPhotoFilter.phase = btn.dataset.phase || 'all';
-        renderFiltered();
-      });
-    }
-    const chips = document.getElementById('portalLocChips');
-    if (chips) {
-      chips.addEventListener('click', function (e) {
-        const btn = e.target.closest('.ph-chip');
-        if (!btn) return;
-        Array.from(chips.querySelectorAll('.ph-chip')).forEach(function (b) {
-          b.classList.toggle('ph-chip-active', b === btn);
-        });
-        window._portalPhotoFilter.location = btn.dataset.loc || 'all';
         renderFiltered();
       });
     }

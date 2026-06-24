@@ -972,7 +972,17 @@
       if (overwrite && S.photoId) {
         await window.updateDoc(window.doc(window.db, 'photos', S.photoId), { url, ...meta });
       } else {
-        await window.addDoc(window.collection(window.db, 'photos'), { url, originalPhotoId: S.photoId, leadId: S.leadId, userId: S.userId, ...meta });
+        // Use the resolved authUid (guaranteed non-empty above), not the raw
+        // S.userId — S.userId is '' when the editor was opened while
+        // auth.currentUser was momentarily null, which made the Storage upload
+        // succeed (it falls back to currentUser) while the Firestore create was
+        // denied (userId:'' != request.auth.uid), silently losing the save.
+        // Stamp the canonical `createdAt` (serverTimestamp) so this annotated
+        // copy appears in the Recent feed + per-lead gallery, which both
+        // orderBy('createdAt'). Without it the new doc had no ordering field
+        // and was silently excluded. (annotatedAt stays in `meta` as the
+        // edit timestamp — distinct from doc-create time.)
+        await window.addDoc(window.collection(window.db, 'photos'), { url, originalPhotoId: S.photoId, leadId: S.leadId, userId: authUid, createdAt: window.serverTimestamp(), ...meta });
       }
       S.hasUnsaved = false;
       toast('Saved!', 'success');

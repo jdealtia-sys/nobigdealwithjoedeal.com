@@ -104,19 +104,36 @@ These endpoints are intentionally no longer part of the platform.
 Listed here so an auditor / future dev doesn't resurrect one by
 accident:
 
-- **Cloudflare Worker `nbd-ai-proxy`** (retired 2026-04-11, repo
-  files removed 2026-04-15). The worker forwarded Anthropic calls
-  guarded only by an Origin header, which was bypassed when the
-  header was absent. All AI traffic now flows through Firebase
-  `claudeProxy` which enforces App Check + Firebase ID token +
-  subscription gate + per-uid rate limit + daily token budget.
+- **Cloudflare Worker `nbd-ai-proxy`** (all repo callers removed
+  2026-06-17 — pending deletion in the Cloudflare dashboard; repo
+  files removed 2026-04-15). The worker was a raw Anthropic/Gemini
+  passthrough guarded only by an Origin header, which is bypassed
+  when the header is absent — no auth, no rate limit, no model/token
+  cap. An earlier note that it "returns 410 Gone / attack surface
+  zero" was inaccurate: the endpoint was live and still in active use
+  until the migration below.
 
-  **Ops action still required**: delete the `nbd-ai-proxy` worker
-  in the Cloudflare dashboard (removing the repo files stops new
-  deploys but doesn't revoke the live endpoint). The deployed
-  worker returns 410 Gone today, so the attack surface is zero,
-  but leaving it live costs a named DNS entry + pollutes the
-  Cloudflare console.
+  - **Public funnels (migrated 2026-06-17):** the `estimate.html`
+    instant-estimator and the storm self-check now call the gated
+    Firebase `publicFunnelAI` (App Check + per-IP rate limit +
+    server-forced cheap Claude model + capped `max_tokens` +
+    text-only).
+  - **Admin tools (migrated 2026-06-17):** the vault session-parsers
+    (`vault.html`, `vault-page.js`) and `project-codex` now call the
+    gated `adminAI` Cloud Function (Firebase ID token + admin-tier
+    role + capped Claude). `admin/js/pages/analytics.js` only ever
+    rendered mock data — its dead worker constant was removed. (Note:
+    there is no Gemini text key server-side; these tools are Claude
+    now, not Gemini.)
+
+  No code path reaches the worker anymore and its origin has been
+  dropped from `firebase.json` `connect-src`.
+
+  **Ops action still required**: delete the `nbd-ai-proxy` worker in
+  the Cloudflare dashboard. Until that manual step is done the live
+  endpoint remains a reachable, unauthenticated AI proxy (cost-abuse
+  surface) even though nothing we ship calls it — treat its removal
+  as a priority, not cleanup.
 
 - **`imageProxy` Cloud Function** (retired 2026-04-15, R-03). The
   function streamed Storage bytes through Cloud Functions, which
@@ -134,3 +151,8 @@ accident:
 - **2026-04** — v1.0 policy published.
 - **2026-04-15** — retired-surfaces section added (nbd-ai-proxy
   Worker files removed; imageProxy function replaced with 410 stub).
+- **2026-06-17** — corrected the nbd-ai-proxy status (it was live, not
+  410) and removed every repo caller: public estimate + storm funnels
+  now use the gated `publicFunnelAI`; the vault parsers + project-codex
+  use the gated `adminAI`. Worker origin dropped from the CSP; only the
+  Cloudflare-dashboard deletion remains.

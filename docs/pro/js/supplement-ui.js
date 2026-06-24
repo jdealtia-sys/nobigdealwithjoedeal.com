@@ -106,9 +106,13 @@
   function _renderModalBody() {
     const sup = _currentSupplement;
     const parent = _parentEstimate;
-    const delta = window.EstimateSupplement.calculateDelta(sup, parent);
-    const parentTotal = (parent && (parent.grandTotal || parent.total)) || 0;
-    const newTotal = parentTotal + (delta.totalDelta || 0);
+    // Engine recomputes the added + modified rollup and stamps
+    // supplementTotal / newGrandTotal / deltaPct onto `sup`.
+    // (calculateDelta takes only the supplement — no second arg.)
+    const delta = window.EstimateSupplement.calculateDelta(sup);
+    const supTotal = Number(delta.supplementTotal) || 0;
+    const parentTotal = (parent && (parent.grandTotal || parent.total)) || Number(sup.originalTotal) || 0;
+    const newTotal = parentTotal + supTotal;
 
     const addedRows = (sup.addedItems || []).map((it, idx) =>
       '<tr style="border-top:1px solid var(--br, #2a3344);">' +
@@ -122,12 +126,12 @@
       '</tr>'
     ).join('');
 
-    const modRows = (sup.modifications || []).map((m, idx) =>
+    const modRows = (sup.modifiedItems || []).map((m, idx) =>
       '<tr style="border-top:1px solid var(--br, #2a3344);">' +
-        '<td style="padding:8px 6px;font-size:12px;font-family:monospace;">' + _esc(m.code || '') + '</td>' +
+        '<td style="padding:8px 6px;font-size:12px;font-family:monospace;">' + _esc(m.originalCode || '') + '</td>' +
         '<td style="padding:8px 6px;font-size:13px;">' + _esc(m.name || '') + '</td>' +
         '<td style="padding:8px 6px;font-size:12px;text-align:right;">' + _esc(String(m.originalQuantity)) + ' → ' + _esc(String(m.newQuantity)) + '</td>' +
-        '<td style="padding:8px 6px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums;">' + _money(m.delta || 0) + '</td>' +
+        '<td style="padding:8px 6px;font-size:12px;text-align:right;font-variant-numeric:tabular-nums;">' + _money(m.deltaLineTotal || 0) + '</td>' +
         '<td style="padding:8px 6px;text-align:right;">' +
           '<button type="button" class="nbd-sup-remove-mod" data-idx="' + idx + '" style="background:transparent;border:1px solid var(--br, #2a3344);color:#fca5a5;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;">Remove</button>' +
         '</td>' +
@@ -204,7 +208,7 @@
           '<div>' +
             '<div style="font-size:11px;color:#94a3b8;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;">Supplement delta</div>' +
             '<div style="font-size:24px;font-weight:800;color:#5eead4;font-variant-numeric:tabular-nums;">' +
-              (delta.totalDelta >= 0 ? '+' : '') + _money(delta.totalDelta || 0) +
+              (supTotal >= 0 ? '+' : '') + _money(supTotal) +
             '</div>' +
             '<div style="font-size:11px;color:#94a3b8;">' +
               'Original: ' + _money(parentTotal) + ' → Revised: ' + _money(newTotal) +
@@ -241,7 +245,7 @@
         const idx = Number(b.dataset.idx);
         const item = _currentSupplement.addedItems[idx];
         if (item) {
-          window.EstimateSupplement.removeAddedItem(_currentSupplement, item.id);
+          window.EstimateSupplement.removeAddedItem(_currentSupplement, item.code);
           _renderModal();
         }
       });
@@ -249,9 +253,9 @@
     Array.from(modal.querySelectorAll('.nbd-sup-remove-mod')).forEach(b => {
       b.addEventListener('click', () => {
         const idx = Number(b.dataset.idx);
-        const m = _currentSupplement.modifications[idx];
+        const m = _currentSupplement.modifiedItems[idx];
         if (m) {
-          window.EstimateSupplement.removeModification(_currentSupplement, m.code);
+          window.EstimateSupplement.removeModification(_currentSupplement, m.originalCode);
           _renderModal();
         }
       });
@@ -293,7 +297,7 @@
       b.addEventListener('click', () => {
         const code = b.dataset.code;
         try {
-          window.EstimateSupplement.addFromCatalog(_currentSupplement, code, qty || 1, {});
+          window.EstimateSupplement.addFromCatalog(_currentSupplement, code, { quantity: qty || 1 });
           _renderModal();
         } catch (e) {
           _toast('Could not add: ' + (e.message || 'unknown error'), 'error');
@@ -310,7 +314,7 @@
       return;
     }
     if (!(_currentSupplement.addedItems || []).length
-        && !(_currentSupplement.modifications || []).length) {
+        && !(_currentSupplement.modifiedItems || []).length) {
       _toast('Add at least one item before previewing.', 'error');
       return;
     }
@@ -343,7 +347,7 @@
       return;
     }
     if (!(_currentSupplement.addedItems || []).length
-        && !(_currentSupplement.modifications || []).length) {
+        && !(_currentSupplement.modifiedItems || []).length) {
       _toast('Add at least one item before saving.', 'error');
       return;
     }
