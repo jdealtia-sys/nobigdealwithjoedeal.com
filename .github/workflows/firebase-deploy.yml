@@ -45,7 +45,6 @@ on:
       - 'firestore.rules'
       - 'firestore.indexes.json'
       - 'storage.rules'
-      - 'marketing-site-firestore.rules'
       - 'firebase.json'
       - '.github/workflows/firebase-deploy.yml'
   workflow_dispatch:
@@ -546,15 +545,20 @@ jobs:
           fi
           exit 0
 
-      # Marketing-project deploy. Tolerant of failure — this is a
-      # SEPARATE Firebase project (nobigdealwithjoedeal) that may
-      # have been renamed, deleted, or never set up. When the
-      # project doesn't exist, the serviceusage API returns 400
-      # and we log a warning instead of failing the whole deploy.
-      # The pro-project deploys (the actual production site) are
-      # already done by this point.
+      # Marketing-project Firestore-rules deploy — MANUAL DISPATCH ONLY.
+      # The separate `nobigdealwithjoedeal` Firebase project is RETIRED: all
+      # marketing leads now flow through submitPublicLead on nobigdeal-pro
+      # (see docs/sites/js/marketing-firebase.js). This step used to run on
+      # every push, where it could only ever fail (project unreachable) — it
+      # warned-and-passed but printed a FALSE "deployed" row in the summary.
+      # It is kept (not deleted) because marketing-site-firestore.rules is the
+      # lockdown that closes the old project's public-write leads collection;
+      # if that project still exists it should still be locked down. Trigger
+      # it deliberately via "Run workflow → scope: marketing-rules" once the
+      # deploy SA has access (or confirm the project is deleted and remove
+      # this step + the rules file). Never blocks the production deploy.
       - name: Deploy marketing-project Firestore rules
-        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'marketing-rules' }}
+        if: ${{ github.event.inputs.scope == 'marketing-rules' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: |
@@ -594,7 +598,6 @@ jobs:
             echo "| Storage rules | $PRO_PROJECT | deployed |"
             echo "| Cloud Functions | $PRO_PROJECT | deployed |"
             echo "| Hosting | $PRO_PROJECT | deployed |"
-            echo "| Marketing Firestore rules | $MKT_PROJECT | deployed |"
             echo ""
             echo "Next: run \`./scripts/verify-deploy.sh\` against the live URLs to confirm the smoke tests pass."
           } >> "$GITHUB_STEP_SUMMARY"
