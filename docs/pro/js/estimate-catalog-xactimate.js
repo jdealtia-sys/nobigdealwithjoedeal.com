@@ -1180,9 +1180,15 @@
       desc:'GAF System Plus — material + workmanship system warranty, registerable by GAF Certified contractors (what NBD holds).', tier:'best',
       reason:'GAF System Plus Limited Warranty covers the full system; NBD can register it as a GAF Certified contractor.',
       tags:['warranty','gaf','system-plus','best-tier'], retailDefault:true });
-  A({ code:'WAR PP-OC', name:'OC Platinum Preferred System Warranty', sub:'warranty', cat:'warranty', unit:'JOB', mat:285, lab:85,
-      tier:'best', reason:'Owens Corning Platinum Preferred system warranty.',
-      tags:['warranty','owens-corning','platinum','best-tier'] });
+  // OC "Platinum Preferred" requires Owens Corning PLATINUM PREFERRED contractor
+  // status — Joe's OC tier is undocumented, so quoting Platinum Preferred may
+  // promise coverage NBD can't register (same risk as Golden Pledge was).
+  // Conservatively renamed off the specific cert tier pending confirmation.
+  // If Joe IS OC Platinum Preferred, restore the original name. [accuracy 2026-06-24]
+  A({ code:'WAR PP-OC', name:'OC Preferred Protection Limited Warranty', sub:'warranty', cat:'warranty', unit:'JOB', mat:285, lab:85,
+      tier:'best', desc:'Owens Corning enhanced system warranty — confirm the OC contractor tier (Preferred vs Platinum Preferred) NBD is credentialed to register.',
+      reason:'Owens Corning system warranty registered per NBD contractor tier.',
+      tags:['warranty','owens-corning','preferred','best-tier'] });
   A({ code:'WAR MFG', name:'Manufacturer Warranty Registration', sub:'warranty', cat:'warranty', unit:'JOB', mat:0, lab:65,
       tier:'any', reason:'Manufacturer warranty registration filing on customer behalf.',
       tags:['warranty','registration','documentation'], insuranceDefault:true });
