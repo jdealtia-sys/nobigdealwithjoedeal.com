@@ -29,7 +29,15 @@ function openWarrantyCertWizard(lead) {
     const owner = `${lead.firstName||''} ${lead.lastName||''}`.trim() || '';
     document.getElementById('wcOwner').value = owner;
     document.getElementById('wcAddr').value = lead.address || '';
-    document.getElementById('wcWork').value = lead.damageType ? `${lead.damageType} — GAF Timberline` : 'Roof replacement — GAF Timberline';
+    // Manufacturer pre-fill: if the lead carries estimate line items, detect the
+    // shingle (TAMKO vs GAF) via the shared resolver; else default to GAF Timberline.
+    let _mfgWork = 'GAF Timberline';
+    try {
+      const _li = lead.estimateLineItems || lead.lineItems || [];
+      const _res = window.NBDDocGen && window.NBDDocGen.resolveDocManufacturer && window.NBDDocGen.resolveDocManufacturer(_li);
+      if (_res && _res.manufacturer === 'TAMKO' && _res.manufacturerName) _mfgWork = _res.manufacturerName;
+    } catch (_) { /* default GAF */ }
+    document.getElementById('wcWork').value = lead.damageType ? `${lead.damageType} — ${_mfgWork}` : `Roof replacement — ${_mfgWork}`;
   }
   // Default date to today
   document.getElementById('wcDate').value = new Date().toISOString().split('T')[0];
@@ -277,6 +285,11 @@ async function _tryServerRender(payload) {
     email: 'jd@nobigdealwithjoedeal.com',
   };
 
+  // Detect manufacturer from the (rep-editable) work description so the server
+  // warranty PDF reflects TAMKO when applicable; defaults to GAF.
+  const _wMfg = (window.NBDDocGen && window.NBDDocGen.resolveDocManufacturer)
+    ? window.NBDDocGen.resolveDocManufacturer([{ name: payload.work }])
+    : { manufacturer: 'GAF', manufacturerWarrantyFeature: '' };
   const r = await fn({
     template: 'warranty',
     payload: {
@@ -291,6 +304,8 @@ async function _tryServerRender(payload) {
       certNumber:     payload.certNum,
       isElite:        payload.isElite,
       isPreferred:    payload.isPreferred,
+      manufacturer:                _wMfg.manufacturer,
+      manufacturerWarrantyFeature: _wMfg.manufacturerWarrantyFeature,
       // D-2.5 cover fields
       preparedFor,
       preparedBy,

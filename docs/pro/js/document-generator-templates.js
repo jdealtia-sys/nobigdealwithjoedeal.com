@@ -8,6 +8,48 @@
   const DG = window.NBDDocGen;
   if (!DG) { console.warn('NBDDocGen: document-generator.js must load first'); return; }
 
+  // ── Manufacturer resolver ──────────────────────────────────────────────
+  // Saved estimate line items carry the catalog CODE (e.g. RFG 240-TAMKO-HAIL),
+  // not a manufacturer field — so generated docs detect the shingle manufacturer
+  // from the dominant shingle line's code/name. Defaults to GAF for backward
+  // compatibility (old estimates, or leads with no estimate). Gold-safe: emits
+  // product/warranty names only, NEVER an installer-certification claim.
+  function resolveDocManufacturer(lineItems) {
+    const items = Array.isArray(lineItems) ? lineItems : [];
+    const shingle = items.find(function (li) {
+      const s = String((li && (li.code || li.name)) || '').toUpperCase();
+      return /RFG\s*240|RFG\s*ARM|SHINGLE|TIMBERLINE|TAMKO|HAILGUARD|TITAN|STORMFIGHTER|HERITAGE|DURATION|LANDMARK/.test(s);
+    });
+    const key = String((shingle && (shingle.code + ' ' + (shingle.name || ''))) || '').toUpperCase();
+    let manufacturer = 'GAF';
+    let warranty = 'the GAF Timberline limited manufacturer shingle warranty';
+    if (/TAMKO/.test(key)) {
+      manufacturer = 'TAMKO';
+      if (/HAIL/.test(key)) {
+        warranty = 'the TAMKO HailGuard Limited System Warranty — a 10-year non-prorated Full Start period plus a 7-year hail warranty (requires TAMKO Synthetic Guard and Moisture Guard)';
+      } else if (/TITAN|SFFLEX|STORMFIGHTER/.test(key)) {
+        warranty = 'the TAMKO Limited Lifetime shingle warranty (single-family), with 160 mph wind coverage when installed with TAMKO starter and hip & ridge';
+      } else {
+        warranty = 'the TAMKO Limited Lifetime shingle warranty (single-family)';
+      }
+    }
+    // Short bullet form (for the server warranty.hbs feature grid). Empty for
+    // GAF so the template keeps its existing GAF default bullet.
+    let feature = '';
+    if (manufacturer === 'TAMKO') {
+      feature = /HAIL/.test(key)
+        ? 'TAMKO HailGuard hail warranty — 10-yr Full Start + 7-yr hail'
+        : 'TAMKO Limited Lifetime manufacturer shingle warranty';
+    }
+    return {
+      manufacturer: manufacturer,
+      manufacturerName: (shingle && shingle.name) || (manufacturer + ' shingles'),
+      manufacturerWarranty: warranty,
+      manufacturerWarrantyFeature: feature,
+    };
+  }
+  DG.resolveDocManufacturer = resolveDocManufacturer;
+
   // Phase B (tenant brand): refreshed per-render by _refreshBrand() (wrapped
   // onto every render* method below) from DG._resolveCompany()/_logoSrc().
   // NBD resolves to these same values → byte-identical.
@@ -247,7 +289,7 @@
           <div class="tier-badge">${t.years} WORKMANSHIP WARRANTY — ${t.label} TIER</div>
           <p style="max-width:520px;margin:0 auto;font-size:14px;color:#444;">${warrantyText}</p>
           <p style="font-size:14px;color:#444;margin-top:8px;">
-            Additionally, all materials carry the manufacturer's warranty as specified by the product manufacturer.</p>
+            Additionally, the roofing materials carry ${esc(resolveDocManufacturer(d.estimateLineItems).manufacturerWarranty)}.</p>
         </div>
         <dl class="cert-details">
           <div><dt>Certificate #</dt><dd>${esc(d.certificateNumber)}</dd></div>
@@ -359,6 +401,16 @@
       materials:'GAF Timberline HDZ Architectural Shingles, GAF FeltBuster Synthetic Underlayment, GAF Cobra Ridge Vent',
       estimatedTimeline:'2-3 business days, weather permitting',
       exclusions:'Interior repairs, landscaping restoration beyond reasonable care, code upgrades not related to roofing, structural framing repairs.' }, data);
+
+    // If materials weren't explicitly provided and the estimate's shingle is
+    // TAMKO, reflect the TAMKO system instead of the GAF default (vents stay
+    // Roofivent per the install standard). Backward-compatible (GAF otherwise).
+    if (!(data && data.materials)) {
+      const _m = resolveDocManufacturer(d.estimateLineItems);
+      if (_m.manufacturer === 'TAMKO') {
+        d.materials = _m.manufacturerName + ', TAMKO Synthetic Guard Underlayment, TAMKO Moisture Guard Ice & Water, Roofivent ventilation';
+      }
+    }
 
     const sections = [
       { title:'1. Removal & Demolition', items:[
@@ -873,6 +925,13 @@
       workDescription:'Complete tear-off and replacement of existing roofing system with new GAF Timberline HDZ architectural shingles, including new underlayment, flashing, ventilation, and gutters.',
       highlights:['Full roof system replacement with premium materials','New ridge vent ventilation system installed',
         'All flashing replaced at walls, pipes, and chimney','Seamless gutter system installed','Complete property cleanup with magnetic nail sweep'] }, data);
+
+    if (!(data && data.workDescription)) {
+      const _m = resolveDocManufacturer(d.estimateLineItems);
+      if (_m.manufacturer === 'TAMKO') {
+        d.workDescription = 'Complete tear-off and replacement of existing roofing system with new ' + _m.manufacturerName + ' architectural shingles, including new underlayment, flashing, ventilation, and gutters.';
+      }
+    }
 
     return page('Before & After Report', `
       <style>
