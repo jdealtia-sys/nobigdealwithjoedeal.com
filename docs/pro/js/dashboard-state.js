@@ -212,7 +212,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'cdaReport', 'cdaEnrich', 'cdaPhotos', 'cdaInvoice', 'cdaInspection',
   'cdaInspectionDeep',
   // Mobile-more compound rewrites
-  'openDailyProgramFromMore', 'openCrewCalendarFromMore',
+  'openDailyProgramFromMore',
   // Mobile create-popover routing
   'mCreateFabRoute',
   // Settings page private setters (defensive — delegate's typeof
