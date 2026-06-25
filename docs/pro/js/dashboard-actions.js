@@ -72,7 +72,11 @@ window.cdaInvoice = function cdaInvoice() {
 };
 window.cdaInspection = function cdaInspection() {
   if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
-    window.InspectionReportEngine.openBuilder(window._cardDetailLeadId);
+    // openBuilder(containerId, leadId) — the containerId MUST be first. The
+    // original inline onclick passed 'inspectionBuilderContainer'; the CSP
+    // extraction dropped it, so the builder never rendered (leadId was read as
+    // the container id → getElementById miss → silent return).
+    window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._cardDetailLeadId);
   } else if (typeof showToast === 'function') {
     showToast('Inspection engine loading...', 'error');
   }
@@ -107,7 +111,10 @@ window.cdaInspectionDeep = function cdaInspectionDeep() {
     setTimeout(function(){
       const overlay = document.getElementById('inspectionBuilderOverlay');
       if (overlay) overlay.style.display = 'block';
-      window.InspectionReportEngine.openBuilder(lid);
+      // openBuilder(containerId, leadId) — container first. The CSP extraction of
+      // the original inline onclick dropped 'inspectionBuilderContainer', so the
+      // card-detail "Report" button silently never opened the builder.
+      window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', lid);
     }, 200);
   } else if (typeof showToast === 'function') {
     showToast('Inspection engine loading...', 'error');
@@ -279,7 +286,7 @@ window.openPhotoEngineCurrentLead = function openPhotoEngineCurrentLead() {
 };
 window.openInspectionBuilderCurrentLead = function openInspectionBuilderCurrentLead() {
   if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
-    window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._currentPhotoLeadId || '');
+    window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._currentPhotoLeadId || window._leadId || window._currentLeadId || '');
   } else if (typeof showToast === 'function') {
     showToast('Report engine loading…', 'error');
   }
