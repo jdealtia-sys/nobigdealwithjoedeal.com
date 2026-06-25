@@ -271,6 +271,43 @@ for (const w of WIRING) {
   for (const s of (w.absent || [])) ok(w.label + ': fabricated default GONE — "' + s + '"', html.indexOf(s) === -1);
 }
 
+// ── contract: itemized line-item table now renders the rep's required line items
+//    (was a lump-sum Contract Price only) ──
+{
+  const html = renderViaPreflight('renderContract', {
+    totalPrice: 18500,
+    lineItems: [{ description: 'CONTRACTITEM tear-off and replace', qty: 30, unit: 'SQ', rate: 50 }],
+  });
+  console.log('PREFLIGHT CONTRACT — contract (itemized table)');
+  ok('contract: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
+  ok('contract: itemized scope table present', /Itemized Scope/.test(html));
+  ok('contract: rep line-item description reaches doc', html.indexOf('CONTRACTITEM tear-off and replace') !== -1);
+  ok('contract: rep line-item total (30 x $50 = $1,500.00) reaches doc', /1,500\.00/.test(html));
+  ok('contract: rep contract price reaches doc', /18,500/.test(html));
+}
+
+// ── cert + before/after: real selected photos render as <img> (were empty
+//    placeholder grids) ──
+{
+  const html = renderViaPreflight('renderCertificateOfCompletion', {
+    scopeCompleted: 'done', afterPhotos: [{ url: 'https://photos.example/CERTAFTER1.jpg' }],
+  });
+  console.log('PREFLIGHT CONTRACT — certificate_of_completion (real photos)');
+  ok('cert: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
+  ok('cert: rep photo renders as <img src>', /<img src="https:\/\/photos\.example\/CERTAFTER1\.jpg"/.test(html));
+}
+{
+  const html = renderViaPreflight('renderBeforeAfterReport', {
+    projectDescription: 'done',
+    beforePhotos: [{ url: 'https://photos.example/BA-BEFORE.jpg' }],
+    afterPhotos: [{ url: 'https://photos.example/BA-AFTER.jpg' }],
+  });
+  console.log('PREFLIGHT CONTRACT — before_after_report (real photos)');
+  ok('before_after: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
+  ok('before_after: rep before+after photos render as <img src>',
+    /<img src="https:\/\/photos\.example\/BA-BEFORE\.jpg"/.test(html) && /<img src="https:\/\/photos\.example\/BA-AFTER\.jpg"/.test(html));
+}
+
 console.log('\n──────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILED: ' + fails.join(', ')); process.exit(1); }

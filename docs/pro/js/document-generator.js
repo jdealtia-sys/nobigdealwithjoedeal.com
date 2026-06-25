@@ -1902,6 +1902,37 @@ window.NBDDocGen = {
     // rep-entered price, never the $0.00 mergeFields placeholder.
     merged.totalPrice = merged.contractPrice || merged.totalPrice || data.total || '';
 
+    // Itemized scope & pricing: the contract collects line items (required in the
+    // pre-flight modal) — render them so the binding contract states exactly what
+    // it covers, not just a lump-sum price. Built directly (not via {{token}}) so
+    // values are _escHtml-escaped here; hidden when the rep entered no items.
+    let lineItemsTableHTML = '';
+    if (Array.isArray(merged.lineItems) && merged.lineItems.length) {
+      const _money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const rows = merged.lineItems.map((it) => {
+        const unitPrice = (it.unitPrice != null ? it.unitPrice : (it.rate != null ? it.rate : it.price)) || 0;
+        const total = (it.total != null ? it.total : (Number(it.qty) || 0) * unitPrice) || 0;
+        return `<tr>
+          <td>${this._escHtml(it.description || it.item)}</td>
+          <td style="text-align:center;">${this._escHtml(it.qty != null ? it.qty : '')}</td>
+          <td style="text-align:center;">${this._escHtml(it.unit || '')}</td>
+          <td style="text-align:right;">${_money(unitPrice)}</td>
+          <td style="text-align:right;">${_money(total)}</td>
+        </tr>`;
+      }).join('');
+      lineItemsTableHTML = `
+              <div style="margin: 0.1in 0; margin-top: 0.12in;">
+                <strong>Itemized Scope &amp; Pricing:</strong>
+                <table style="width:100%;border-collapse:collapse;margin-top:0.06in;font-size:10px;">
+                  <thead><tr style="border-bottom:1px solid #ccc;">
+                    <th style="text-align:left;">Description</th><th>Qty</th><th>Unit</th>
+                    <th style="text-align:right;">Unit Price</th><th style="text-align:right;">Total</th>
+                  </tr></thead>
+                  <tbody>${rows}</tbody>
+                </table>
+              </div>`;
+    }
+
     const contractHTML = `
       <!DOCTYPE html>
       <html lang="en">
@@ -1945,6 +1976,7 @@ window.NBDDocGen = {
                 <strong>Description of Work:</strong><br/>
                 {{projectDescription}}
               </div>
+              ${lineItemsTableHTML}
               <div style="margin: 0.1in 0; margin-top: 0.08in;">
                 <strong>Contract Price:</strong> {{totalPrice}}<br/>
                 <strong>Start Date:</strong> {{startDate}}<br/>
