@@ -545,14 +545,24 @@ exports.getHomeownerPortalView = onRequest(
         phone: rep.phone || null
       },
       company: {
-        name: rep.companyName || 'No Big Deal Home Solutions'
+        // register.js writes the company under `company` (not `companyName`),
+        // so the old `rep.companyName` read always missed and fell back to NBD —
+        // wrong-tenant branding for a non-NBD rep. Read both. (Per-tenant
+        // companyProfile sourcing is the fuller fix; this covers existing data.)
+        name: rep.companyName || rep.company || 'No Big Deal Home Solutions'
       },
       progress,
       estimate: latest ? {
         id:              latest.id,
         builder:         latest.builder || 'classic',
         grandTotal:      latest.grandTotal || latest.total || null,
-        tierName:        latest.tierName || null,
+        // V2 estimate builder persists only the tier KEY (good/better/best),
+        // not tierName, so the portal's tier-label line was dropped for all V2
+        // estimates. Derive the label from the key when tierName is absent
+        // (same map the classic builder uses).
+        tierName:        latest.tierName
+          || ({ good: 'Standard Reroof', better: 'Reroof Plus', best: 'Full Redeck' }[latest.tier])
+          || null,
         signatureStatus: latest.signatureStatus || 'none',
         signedAt:        latest.signedAt?.toDate?.()?.toISOString() || null,
         signedDocumentUrl: latest.signedDocumentUrl || null,
