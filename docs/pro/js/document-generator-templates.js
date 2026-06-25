@@ -223,6 +223,22 @@
     return html + '</div>';
   }
 
+  // Render the rep's ACTUAL selected photos (array of url strings or {url}
+  // objects). Falls back to the empty placeholder grid when none were selected,
+  // so a doc generated without photos still looks complete. The url is escaped
+  // for the src attribute (quotes + angle brackets).
+  function photoGridReal(photos, cols) {
+    cols = cols || 2;
+    const urls = (Array.isArray(photos) ? photos : [])
+      .map(p => typeof p === 'string' ? p : (p && p.url))
+      .filter(Boolean);
+    if (!urls.length) return photoGrid(cols * 2, cols);
+    const safeUrl = (u) => String(u).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    let html = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:12px;margin:16px 0;">`;
+    urls.forEach(u => { html += `<div class="photo-zone has-image" style="padding:0;overflow:hidden;"><img src="${safeUrl(u)}" alt="Photo" style="width:100%;height:100%;object-fit:cover;display:block;"/></div>`; });
+    return html + '</div>';
+  }
+
   function esc(s) { return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function money(n) { return '$' + (parseFloat(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
   function today() { return new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}); }
@@ -607,7 +623,7 @@
 
         <div class="section">
           <div class="section-title">Final Inspection Photos</div>
-          ${photoGrid(4,2)}
+          ${photoGridReal([].concat(d.afterPhotos || [], d.beforePhotos || []), 2)}
         </div>
 
         <div class="section" style="background:#f0fdf4;padding:20px;border-radius:8px;border:1px solid #bbf7d0;">
@@ -1001,7 +1017,7 @@
       <div class="section">
         <div class="ba-label ba-before">BEFORE</div>
         <div class="section-title">Pre-Project Condition</div>
-        ${photoGrid(6,3)}
+        ${photoGridReal(d.beforePhotos, 3)}
         <p style="font-size:12px;color:#666;text-align:center;margin-top:8px;">
           Add captions describing damage or existing conditions below each photo.</p>
       </div>
@@ -1014,7 +1030,7 @@
       <div class="section">
         <div class="ba-label ba-after">AFTER</div>
         <div class="section-title">Completed Project</div>
-        ${photoGrid(6,3)}
+        ${photoGridReal(d.afterPhotos, 3)}
         <p style="font-size:12px;color:#666;text-align:center;margin-top:8px;">
           Add captions highlighting improvements and quality of work.</p>
       </div>
