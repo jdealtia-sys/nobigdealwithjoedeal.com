@@ -408,7 +408,13 @@
             { key: 'authorizedBy', label: 'Authorized By', type: 'text', required: true,
               source: 'literal:', persist: PERSIST.DOCUMENT, placeholder: 'Homeowner name' },
             { key: 'authDate', label: 'Authorization Date', type: 'date',
-              source: 'computed.todayISO', persist: PERSIST.DOCUMENT, required: true }
+              source: 'computed.todayISO', persist: PERSIST.DOCUMENT, required: true },
+            { key: 'startDate', label: 'Authorized Start Date', type: 'date',
+              source: 'literal:', persist: PERSIST.DOCUMENT },
+            { key: 'emergencyContact', label: 'Emergency Contact', type: 'text',
+              source: 'literal:', persist: PERSIST.DOCUMENT, placeholder: 'Name & phone' },
+            { key: 'accessInstructions', label: 'Property Access Instructions', type: 'textarea', rows: 2,
+              source: 'literal:', persist: PERSIST.DOCUMENT, placeholder: 'Gate code, dogs, parking, etc.' }
           ]
         }
       ]
@@ -717,10 +723,14 @@
         {
           id: 'project', title: 'Project', collapsed: false,
           fields: [
+            { key: 'projectType', label: 'Project Type', type: 'text',
+              source: 'literal:', persist: PERSIST.DOCUMENT, placeholder: 'e.g. Roof Replacement, Siding, Gutters' },
             { key: 'projectDescription', label: 'Project Description', type: 'textarea', rows: 2, required: true,
               source: 'lead.scopeOfWork', persist: PERSIST.LEAD },
             { key: 'duration', label: 'Project Duration', type: 'text',
-              source: 'literal:5 business days', persist: PERSIST.DOCUMENT }
+              source: 'literal:5 business days', persist: PERSIST.DOCUMENT },
+            { key: 'highlights', label: 'Project Highlights', type: 'textarea', rows: 4,
+              source: 'literal:', persist: PERSIST.DOCUMENT, placeholder: 'One highlight per line (leave blank to omit the section)' }
           ]
         },
         {
@@ -902,6 +912,10 @@
               source: 'computed.todayISO', persist: PERSIST.DOCUMENT },
             { key: 'affectedArea', label: 'Affected Area', type: 'text', required: true,
               source: 'literal:', persist: PERSIST.DOCUMENT, placeholder: 'e.g., West Chester, OH' },
+            { key: 'neighborhoodName', label: 'Neighborhood Name', type: 'text',
+              source: 'literal:', persist: PERSIST.DOCUMENT, placeholder: 'Defaults to Affected Area' },
+            { key: 'projectAddress', label: 'Nearby Project Address', type: 'text',
+              source: 'lead.address', persist: PERSIST.DOCUMENT, placeholder: 'e.g., 123 Maple St' },
             { key: 'ctaText', label: 'Call to Action', type: 'text',
               source: 'literal:Schedule your free storm damage inspection today', persist: PERSIST.DOCUMENT }
           ]
@@ -959,6 +973,11 @@
         {
           id: 'thankyou', title: 'Thank You Details', collapsed: false,
           fields: [
+            { key: 'projectType', label: 'Project Type', type: 'text',
+              source: 'literal:', persist: PERSIST.DOCUMENT,
+              placeholder: 'e.g. roof replacement, siding install, gutter repair' },
+            { key: 'completionDate', label: 'Completion Date', type: 'date',
+              source: 'computed.todayISO', persist: PERSIST.DOCUMENT },
             { key: 'projectSummary', label: 'Project Summary', type: 'textarea', rows: 3, required: true,
               source: 'lead.scopeOfWork', persist: PERSIST.LEAD },
             { key: 'personalNote', label: 'Personal Note', type: 'textarea', rows: 3,
@@ -2095,6 +2114,7 @@
     if (data.insuranceCompany == null && data.insCarrier) data.insuranceCompany = data.insCarrier;                     // supplement_request
     if (data.issueDate == null && data.installDate) data.issueDate = data.installDate;                                 // warranty_certificate
     if (data.scopeSummary == null && data.scopeCompleted) data.scopeSummary = data.scopeCompleted;                     // certificate_of_completion
+    if (!data.neighborhoodName && data.affectedArea) data.neighborhoodName = data.affectedArea;                       // neighborhood_mailer (required Affected Area → neighborhood label)
 
     // Currency display version of totalPrice when supplied as number
     if (data.totalPrice !== undefined && data.totalPrice !== null && data.totalPrice !== '') {

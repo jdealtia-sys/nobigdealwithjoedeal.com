@@ -468,6 +468,11 @@
         <p style="font-size:14px;">${esc(d.materials)}</p>
       </div>
 
+      ${d.labor ? `<div class="section">
+        <div class="section-title">Labor & Crew</div>
+        <p style="font-size:14px;">${esc(d.labor)}</p>
+      </div>` : ''}
+
       <div class="section">
         <div class="section-title">Exclusions</div>
         <p style="font-size:14px;color:#666;">${esc(d.exclusions)}</p>
@@ -483,10 +488,13 @@
   // ═══════════════════════════════════════════════════════════════
   DG.renderWorkAuthorization = function(data) {
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      scopeSummary:'Complete roof replacement including tear-off, installation of new roofing system, and cleanup.',
-      startDate:'[Start Date]', emergencyContact:'[Emergency Contact Name & Phone]',
-      accessInstructions:'Gate code: _____ | Dogs: Yes / No | Parking: _____',
+      scopeSummary:'', startDate:'', emergencyContact:'', accessInstructions:'',
       isInsurance:false, claimNumber:'', insuranceCompany:'' }, data);
+    // Bridge: the preflight modal collects "scopeOfWork"; this renderer reads
+    // "scopeSummary". Keep the prior roof-replacement sentence as the fallback
+    // so a blank scope still yields a complete authorization.
+    const scopeSummary = d.scopeSummary || d.scopeOfWork ||
+      'Complete roof replacement including tear-off, installation of new roofing system, and cleanup.';
 
     return page('Work Authorization', `
       ${letterhead()}
@@ -504,21 +512,21 @@
 
       <div class="section">
         <div class="section-title">Scope Summary</div>
-        <p style="font-size:14px;">${esc(d.scopeSummary)}</p>
+        <p style="font-size:14px;">${esc(scopeSummary)}</p>
       </div>
 
-      <div class="section">
+      ${(d.startDate || d.emergencyContact) ? `<div class="section">
         <div class="section-title">Project Details</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:14px;">
-          <div><strong>Authorized Start Date:</strong><br>${esc(d.startDate)}</div>
-          <div><strong>Emergency Contact:</strong><br>${esc(d.emergencyContact)}</div>
+          ${d.startDate ? `<div><strong>Authorized Start Date:</strong><br>${esc(d.startDate)}</div>` : ''}
+          ${d.emergencyContact ? `<div><strong>Emergency Contact:</strong><br>${esc(d.emergencyContact)}</div>` : ''}
         </div>
-      </div>
+      </div>` : ''}
 
-      <div class="section">
+      ${d.accessInstructions ? `<div class="section">
         <div class="section-title">Property Access Instructions</div>
         <p style="font-size:14px;">${esc(d.accessInstructions)}</p>
-      </div>
+      </div>` : ''}
 
       ${d.isInsurance ? `<div class="section">
         <div class="section-title">Insurance Assignment</div>
@@ -815,14 +823,21 @@
   DG.renderCompanyIntro = function(data) {
     const d = Object.assign({}, data);
     const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
-    const services = Array.isArray(cp.services) && cp.services.length ? cp.services : [
+    // Rep-entered "Services Offered" (DocPreflight `services` textarea) overrides
+    // the companyProfile/hardcoded list. It arrives as a comma-separated string
+    // (e.g. "Roofing, Siding, Gutters") → one name-only card per entry. Fallback
+    // chain when blank: companyProfile.services → hardcoded NBD default.
+    const servicesOverride = (typeof d.services === 'string' && d.services.trim())
+      ? d.services.split(',').map(s => s.trim()).filter(Boolean).map(name => ({icon:'🔧',name:name,desc:''}))
+      : null;
+    const services = servicesOverride || (Array.isArray(cp.services) && cp.services.length ? cp.services : [
       {icon:'🏠',name:'Roofing',desc:'Full replacements, repairs, and storm damage restoration'},
       {icon:'🧱',name:'Siding',desc:'Vinyl, fiber cement, LP SmartSide, and board & batten'},
       {icon:'🌧️',name:'Gutters',desc:'Seamless gutters, guards, downspouts, and drainage'},
       {icon:'🪟',name:'Windows & Doors',desc:'Energy-efficient upgrades and storm damage replacement'},
       {icon:'🎨',name:'Interior',desc:'Water damage repair, paint, drywall, flooring'},
       {icon:'⛈️',name:'Storm Damage',desc:'Full insurance claim management from inspection to completion'}
-    ];
+    ]);
     const valueProps = Array.isArray(cp.valueProps) && cp.valueProps.length ? cp.valueProps : [
       {icon:'🛡️',title:'Warranty Protection',desc:'Up to lifetime workmanship warranty plus full manufacturer coverage on all materials.'},
       {icon:'📋',title:'Insurance Specialists',desc:'We handle the entire insurance claim process so you can focus on what matters.'},
@@ -880,9 +895,10 @@
 
       <div class="section">
         <div class="section-title">Our Services</div>
+        ${d.serviceArea ? `<p style="font-size:13px;color:#555;margin:0 0 12px;">Proudly serving <strong>${esc(d.serviceArea)}</strong>.</p>` : ''}
         <div class="svc-grid">
-          ${services.map(s => `<div class="svc-card"><div class="svc-icon">${s.icon}</div>
-            <div class="svc-name">${s.name}</div><div class="svc-desc">${s.desc}</div></div>`).join('')}
+          ${services.map(s => `<div class="svc-card"><div class="svc-icon">${esc(s.icon)}</div>
+            <div class="svc-name">${esc(s.name)}</div>${s.desc ? `<div class="svc-desc">${esc(s.desc)}</div>` : ''}</div>`).join('')}
         </div>
       </div>
 
@@ -895,19 +911,12 @@
         </div>
       </div>
 
-      <div class="section">
+      ${d.testimonialsNote ? `<div class="section">
         <div class="section-title">What Our Customers Say</div>
         <div class="testimonial">
-          <div class="testimonial-text">"They made the whole process feel like... no big deal. From filing the claim to the final cleanup,
-          everything was handled professionally."</div>
-          <div class="testimonial-name">— Satisfied Homeowner, Lexington KY</div>
+          <div class="testimonial-text">${esc(d.testimonialsNote)}</div>
         </div>
-        <div class="testimonial">
-          <div class="testimonial-text">"The crew was on time, cleaned up everything, and the roof looks amazing. Best contractor experience
-          I've ever had."</div>
-          <div class="testimonial-name">— Satisfied Homeowner, Georgetown KY</div>
-        </div>
-      </div>
+      </div>` : ''}
 
       <div class="section">
         <div class="section-title">Project Photos</div>
@@ -932,11 +941,15 @@
   // TEMPLATE 9: BEFORE & AFTER PHOTO REPORT
   // ═══════════════════════════════════════════════════════════════
   DG.renderBeforeAfterReport = function(data) {
+    // projectType has NO modal field — leave it empty by default and HIDE the
+    // row when blank rather than fabricating "Roof Replacement" on siding/gutter
+    // jobs. highlights has no fixed default either: render the section only when
+    // the rep supplies bullets (string or array) instead of inventing 5 roofing
+    // claims. duration IS collected in the preflight schema — read it below.
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      projectType:'Roof Replacement', startDate:'[Start Date]', completionDate:today(),
+      projectType:'', duration:'', startDate:'[Start Date]', completionDate:today(),
       workDescription:'Complete tear-off and replacement of existing roofing system with new GAF Timberline HDZ architectural shingles, including new underlayment, flashing, ventilation, and gutters.',
-      highlights:['Full roof system replacement with premium materials','New ridge vent ventilation system installed',
-        'All flashing replaced at walls, pipes, and chimney','Seamless gutter system installed','Complete property cleanup with magnetic nail sweep'] }, data);
+      highlights:[] }, data);
 
     if (!(data && data.workDescription)) {
       const _m = resolveDocManufacturer(d.estimateLineItems);
@@ -944,6 +957,13 @@
         d.workDescription = 'Complete tear-off and replacement of existing roofing system with new ' + _m.manufacturerName + ' architectural shingles, including new underlayment, flashing, ventilation, and gutters.';
       }
     }
+
+    // highlights may arrive as a rep-typed string (newline/bullet/semicolon
+    // separated) or an array. Normalize to a clean array; empty → hide section.
+    const highlightItems = (Array.isArray(d.highlights)
+      ? d.highlights
+      : String(d.highlights || '').split(/\r?\n|•|;/))
+      .map(h => String(h).trim()).filter(Boolean);
 
     return page('Before & After Report', `
       <style>
@@ -962,9 +982,10 @@
       <div class="section">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:14px;">
           <div><strong>Property Owner:</strong> ${esc(d.homeownerName)}</div>
-          <div><strong>Project:</strong> ${esc(d.projectType)}</div>
+          ${d.projectType ? `<div><strong>Project:</strong> ${esc(d.projectType)}</div>` : ''}
           <div><strong>Address:</strong> ${esc(d.address)}</div>
           <div><strong>Completed:</strong> ${esc(d.completionDate)}</div>
+          ${d.duration ? `<div><strong>Duration:</strong> ${esc(d.duration)}</div>` : ''}
         </div>
       </div>
 
@@ -989,12 +1010,12 @@
           Add captions highlighting improvements and quality of work.</p>
       </div>
 
-      <div class="section">
+      ${highlightItems.length ? `<div class="section">
         <div class="section-title">Project Highlights</div>
         <ul style="font-size:14px;line-height:2;padding-left:24px;">
-          ${d.highlights.map(h => `<li>${esc(h)}</li>`).join('')}
+          ${highlightItems.map(h => `<li>${esc(h)}</li>`).join('')}
         </ul>
-      </div>
+      </div>` : ''}
 
       ${sigBlock(['Homeowner Acknowledgment'])}
       ${footer('Before & After Report')}
@@ -1132,6 +1153,14 @@
   // ═══════════════════════════════════════════════════════════════
   DG.renderReferralCard = function(data) {
     const d = Object.assign({}, data);
+    // Rep-entered fields (DocPreflight keys). Keep prior hardcoded copy as the
+    // blank-field fallback so an empty modal still yields a complete card.
+    const referredBy = ((d.firstName || '') + ' ' + (d.lastName || '')).trim()
+      || (d.homeownerName || '').trim();
+    const rewardLabel = (d.bonusAmount !== undefined && d.bonusAmount !== null && d.bonusAmount !== '')
+      ? money(d.bonusAmount)
+      : 'Ask Us For Details!';
+    const terms = d.terms || 'Referral reward is paid after referred project is completed. See us for full program details and terms.';
 
     return page('Referral Card', `
       <style>
@@ -1165,8 +1194,9 @@
         <div class="ref-body">
           <div class="ref-reward">
             <div style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Referral Reward</div>
-            <div style="font-size:20px;font-weight:700;color:${A};">Ask Us For Details!</div>
+            <div style="font-size:20px;font-weight:700;color:${A};">${esc(rewardLabel)}</div>
             <div style="font-size:12px;color:#888;margin-top:4px;">Earn rewards for every referral that becomes a project</div>
+            ${d.referralCode ? `<div style="font-size:13px;color:${S};margin-top:10px;">Referral Code: <strong style="letter-spacing:0.04em;">${esc(d.referralCode)}</strong></div>` : ''}
           </div>
 
           <div class="ref-steps">
@@ -1178,7 +1208,9 @@
 
           <div class="ref-from">
             <div style="font-size:12px;color:#666;margin-bottom:8px;">Referred by:</div>
-            <div style="border-bottom:2px solid #333;height:28px;"></div>
+            ${referredBy
+              ? `<div style="border-bottom:2px solid #333;height:28px;font-size:15px;font-weight:600;color:${S};">${esc(referredBy)}</div>`
+              : `<div style="border-bottom:2px solid #333;height:28px;"></div>`}
           </div>
         </div>
         <div class="ref-contact">
@@ -1189,7 +1221,7 @@
       </div>
 
       <p style="text-align:center;font-size:10px;color:#999;margin-top:20px;">
-        Referral reward is paid after referred project is completed. See us for full program details and terms.</p>
+        ${esc(terms)}</p>
     `);
   };
 
@@ -1419,6 +1451,8 @@
       <div class="storm-hero">
         <h1 style="margin:0;color:#fff;font-size:28px;">STORM DAMAGE CHECKLIST</h1>
         <p style="color:${A};margin:12px 0 0;font-size:16px;">Free Inspection Reference Guide</p>
+        ${(d.stormType || d.stormDate) ? `<p style="margin:10px 0 0;font-size:14px;font-weight:600;color:#fff;">
+          ${d.stormType ? `${esc(d.stormType)} Storm` : 'Storm Event'}${d.stormDate ? ` &middot; ${esc(d.stormDate)}` : ''}</p>` : ''}
         <p style="margin:16px 0 0;font-size:13px;opacity:0.85;max-width:500px;margin-left:auto;margin-right:auto;">
           After a storm, use this checklist to identify potential damage to your property.
           Mark anything you notice and contact us for a professional inspection — always free, always no obligation.</p>
@@ -1437,11 +1471,16 @@
         </div>
       </div>`).join('')}
 
+      ${d.checklistNotes ? `<div class="section" style="border:1px solid #eee;border-radius:8px;padding:16px 20px;margin-bottom:24px;">
+        <h3 style="margin:0 0 8px;font-size:15px;color:${S};font-family:'Helvetica Neue',Arial,sans-serif;">Additional Notes</h3>
+        <div style="font-size:14px;color:#555;line-height:1.6;white-space:pre-wrap;">${esc(d.checklistNotes)}</div>
+      </div>` : ''}
+
       <div class="section" style="background:${A};color:#fff;padding:28px;border-radius:12px;text-align:center;">
         <div style="font-size:20px;font-weight:700;">Found Damage? We Can Help.</div>
         <div style="font-size:14px;margin-top:8px;opacity:0.9;">
           Schedule your free, no-obligation inspection today.</div>
-        <div style="font-size:22px;font-weight:700;margin-top:12px;">${C.phone}</div>
+        <div style="font-size:22px;font-weight:700;margin-top:12px;">${esc(d.emergencyPhone) || C.phone}</div>
         <div style="font-size:13px;margin-top:4px;opacity:0.8;">${C.email} | ${C.website}</div>
       </div>
 
@@ -1456,6 +1495,15 @@
   // ═══════════════════════════════════════════════════════════════
   DG.renderClaimGuide = function(data) {
     const d = Object.assign({}, data);
+
+    // Rep-entered fields (DocPreflight keys). Carrier is concrete data with a
+    // schema field but no fabricated default — show only when supplied. Timeline
+    // and the "What to Expect" notes keep their prior hardcoded copy as fallback
+    // so a blank field still yields a complete document.
+    const insCarrier = esc(d.insCarrier);
+    const timeline = esc(d.timeline) || '30-60 days from claim filing';
+    const guideNotes = esc(d.guideNotes)
+      || 'Adjuster will contact you within 48-72 hours of filing. We will meet the adjuster on-site to review damage together.';
 
     const steps = [
       { num:1, title:'Document the Damage', desc:'Take photos and video of all visible damage from multiple angles. Include wide shots and close-ups. Note the date and time of the storm.', icon:'📸' },
@@ -1490,6 +1538,17 @@
         <p style="margin:16px 0 0;font-size:14px;opacity:0.9;max-width:500px;margin-left:auto;margin-right:auto;">
           Filing an insurance claim can feel overwhelming. This guide walks you through every step
           so you know exactly what to expect. We handle the hard parts — so it really is no big deal.</p>
+        ${insCarrier ? `<div style="margin:16px 0 0;font-size:13px;color:#fff;opacity:0.92;">
+          Prepared for your claim with <strong>${insCarrier}</strong></div>` : ''}
+      </div>
+
+      <div class="section">
+        <div class="section-title">What to Expect</div>
+        <p style="font-size:14px;color:#555;line-height:1.7;margin:0 0 12px;white-space:pre-line;">${guideNotes}</p>
+        <div style="background:#f7f7fb;border-left:4px solid ${A};padding:12px 16px;border-radius:6px;">
+          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:${S};font-weight:700;">Expected Timeline</div>
+          <div style="font-size:14px;color:#333;margin-top:4px;">${timeline}</div>
+        </div>
       </div>
 
       <div class="section">
@@ -1540,17 +1599,23 @@
   DG.renderDoorHanger = function(data) {
     const d = Object.assign({}, data);
     const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
-    // Door-hanger services use a flatter "name — desc" format. Derive from
-    // the profile services list so edits in Settings propagate here.
-    const hangerServices = Array.isArray(cp.services) && cp.services.length
-      ? cp.services.map(s => `${s.name} — ${s.desc}`)
-      : [
-          'Roofing — replacements, repairs, storm damage',
-          'Siding — vinyl, fiber cement, LP SmartSide',
-          'Gutters — seamless systems and guards',
-          'Windows & Doors — energy-efficient upgrades',
-          'Insurance Claims — handled start to finish'
-        ];
+    // Door-hanger services: a per-doc override the rep types in DocPreflight
+    // (the `services` field) wins; it's a free-text list separated by bullets,
+    // newlines, or commas. When blank, derive from the profile services list so
+    // edits in Settings propagate here; falling back to a sensible default set.
+    const repServices = (typeof d.services === 'string' ? d.services : '')
+      .split(/\s*[•\n,]\s*/).map(s => s.trim()).filter(Boolean);
+    const hangerServices = repServices.length
+      ? repServices
+      : (Array.isArray(cp.services) && cp.services.length
+        ? cp.services.map(s => `${s.name} — ${s.desc}`)
+        : [
+            'Roofing — replacements, repairs, storm damage',
+            'Siding — vinyl, fiber cement, LP SmartSide',
+            'Gutters — seamless systems and guards',
+            'Windows & Doors — energy-efficient upgrades',
+            'Insurance Claims — handled start to finish'
+          ]);
 
     return page('Door Hanger', `
       <style>
@@ -1576,7 +1641,7 @@
           <img class="hanger-logo" src="${LOGO_URL}" alt="${C.name}"/>
           <div style="font-size:12px;letter-spacing:0.15em;text-transform:uppercase;color:${A};margin-bottom:8px;">
             WE'RE IN YOUR NEIGHBORHOOD</div>
-          <h2 style="margin:0;font-size:22px;color:#fff;line-height:1.3;">FREE ROOF<br>INSPECTION</h2>
+          <h2 style="margin:0;font-size:22px;color:#fff;line-height:1.3;">${d.headline ? esc(d.headline) : 'FREE ROOF<br>INSPECTION'}</h2>
           <p style="margin:12px 0 0;font-size:13px;opacity:0.85;">No cost. No obligation. No big deal.</p>
         </div>
         <div class="hanger-body">
@@ -1655,7 +1720,7 @@
           </div>
 
           <div style="text-align:center;padding:20px;background:${A};border-radius:8px;color:#fff;">
-            <div style="font-size:18px;font-weight:700;">Schedule Your Free Inspection</div>
+            <div style="font-size:18px;font-weight:700;">${esc(d.ctaText || 'Schedule Your Free Inspection')}</div>
             <div style="font-size:22px;font-weight:700;margin-top:8px;">${C.phone}</div>
             <div style="font-size:13px;margin-top:4px;opacity:0.9;">${C.email} | ${C.website}</div>
           </div>
@@ -1674,12 +1739,37 @@
   DG.renderTestimonialSheet = function(data) {
     const d = Object.assign({}, data);
 
-    const testimonials = [
+    // Curated testimonials are the FALLBACK only — shown when the rep entered
+    // none of testimonial1/2/3 in the preflight modal.
+    const curated = [
       { text:'They made the whole process feel like no big deal. From filing the claim to the final cleanup, everything was handled professionally and on time.', name:'Satisfied Homeowner', location:'Lexington, KY', project:'Roof Replacement', rating:5 },
       { text:'The crew was on time, cleaned up everything, and the roof looks amazing. Best contractor experience I have ever had. Highly recommend.', name:'Satisfied Homeowner', location:'Georgetown, KY', project:'Roof & Gutters', rating:5 },
       { text:'Joe and his team walked us through the entire insurance claim process. We did not have to stress about a single thing. The new roof looks incredible.', name:'Satisfied Homeowner', location:'Nicholasville, KY', project:'Insurance Restoration', rating:5 },
       { text:'Professional from start to finish. They showed up when they said they would, did exactly what they said they would do, and left the property cleaner than they found it.', name:'Satisfied Homeowner', location:'Versailles, KY', project:'Siding Replacement', rating:5 }
     ];
+
+    // Wire the rep-entered testimonials. Each preflight field is a free-text
+    // "Customer quote + name" textarea, so the whole entry is the displayed
+    // text; rating1/2/3 (default 5) drives the stars. Only non-blank entries
+    // are included.
+    const clampRating = function(r) { const n = parseInt(r, 10); return (n >= 1 && n <= 5) ? n : 5; };
+    const repEntries = [
+      { text: d.testimonial1, rating: clampRating(d.rating1) },
+      { text: d.testimonial2, rating: clampRating(d.rating2) },
+      { text: d.testimonial3, rating: clampRating(d.rating3) }
+    ].filter(function(t) { return t.text && String(t.text).trim(); });
+
+    const useRep = repEntries.length > 0;
+    const testimonials = useRep ? repEntries : curated;
+
+    // Hero stats: with rep data, derive the average from the entries actually
+    // shown (don't fabricate a 5.0). Without rep data, the curated set is all
+    // 5-star, so 5.0 / 100% is accurate.
+    const avgRating = testimonials.reduce(function(s, t) { return s + (t.rating || 5); }, 0) / testimonials.length;
+    const avgDisplay = avgRating.toFixed(1);
+    const recommendPct = useRep
+      ? Math.round((testimonials.filter(function(t) { return (t.rating || 5) >= 4; }).length / testimonials.length) * 100)
+      : 100;
 
     return page('Customer Testimonials', `
       <style>
@@ -1699,19 +1789,19 @@
         <h1 style="margin:0;color:#fff;font-size:28px;">WHAT OUR CUSTOMERS SAY</h1>
         <p style="color:${A};margin:12px 0 0;font-size:16px;">Real Reviews From Real Homeowners</p>
         <div style="display:flex;justify-content:center;gap:24px;margin-top:20px;">
-          <div><div style="font-size:28px;font-weight:700;">5.0</div><div style="font-size:12px;opacity:0.8;">Average Rating</div></div>
-          <div><div style="font-size:28px;font-weight:700;">100%</div><div style="font-size:12px;opacity:0.8;">Would Recommend</div></div>
+          <div><div style="font-size:28px;font-weight:700;">${avgDisplay}</div><div style="font-size:12px;opacity:0.8;">Average Rating</div></div>
+          <div><div style="font-size:28px;font-weight:700;">${recommendPct}%</div><div style="font-size:12px;opacity:0.8;">Would Recommend</div></div>
         </div>
       </div>
 
       ${testimonials.map(t => `<div class="test-card">
         <div class="test-quote">&ldquo;</div>
-        <div class="test-stars">${'★'.repeat(t.rating)}</div>
+        <div class="test-stars">${'★'.repeat(t.rating || 5)}</div>
         <div class="test-text">${esc(t.text)}</div>
-        <div class="test-meta">
-          <span><strong>${esc(t.name)}</strong> — ${esc(t.location)}</span>
+        ${(t.name || t.location || t.project) ? `<div class="test-meta">
+          <span>${(t.name || t.location) ? `<strong>${esc(t.name)}</strong>${t.location ? ' — ' + esc(t.location) : ''}` : ''}</span>
           <span>${esc(t.project)}</span>
-        </div>
+        </div>` : ''}
       </div>`).join('')}
 
       <div class="section" style="text-align:center;margin-top:28px;">
@@ -1730,19 +1820,28 @@
   // TEMPLATE 19: THANK YOU LETTER
   // ═══════════════════════════════════════════════════════════════
   DG.renderThankYou = function(data) {
+    // projectType/completionDate default to EMPTY (not a fabricated "roof
+    // replacement" / today()): the sentence and date line below adapt to
+    // whatever the rep actually entered rather than asserting a specific job.
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      projectType:'roof replacement', completionDate:today() }, data);
+      projectType:'', completionDate:'', projectSummary:'', personalNote:'', reviewLink:'' }, data);
+    // Only render a project-type phrase when the rep supplied one.
+    const projectPhrase = d.projectType ? `recent ${esc(d.projectType)} project` : 'recent project';
 
     return page('Thank You Letter', `
       ${letterhead()}
       <div style="max-width:6in;margin:24px auto;font-size:15px;line-height:2;color:#333;">
-        <p style="text-align:right;color:#666;font-size:13px;margin-bottom:28px;">${esc(d.completionDate)}</p>
+        ${d.completionDate ? `<p style="text-align:right;color:#666;font-size:13px;margin-bottom:28px;">${esc(d.completionDate)}</p>` : ''}
 
         <p>Dear ${esc(d.homeownerName)},</p>
 
         <p>On behalf of everyone at ${C.name}, I want to personally thank you for trusting us with your
-        recent ${esc(d.projectType)} project at ${esc(d.address)}. It was a privilege to work on your home,
+        ${projectPhrase} at ${esc(d.address)}. It was a privilege to work on your home,
         and we hope the experience lived up to our promise — no stress, no hassle, no big deal.</p>
+
+        ${d.projectSummary ? `<p>${esc(d.projectSummary)}</p>` : ''}
+
+        ${d.personalNote ? `<p>${esc(d.personalNote)}</p>` : ''}
 
         <p>We take enormous pride in every project we complete, and your satisfaction is the single most
         important measure of our success. If anything about your experience was less than exceptional, or
@@ -1762,7 +1861,7 @@
         <p>Once again, thank you for choosing ${C.name}. It truly means the world to our team.</p>
 
         <p>If you have a moment, we would greatly appreciate a review on Google. It helps other homeowners
-        find a contractor they can trust, and it lets our team know we are on the right track.</p>
+        find a contractor they can trust, and it lets our team know we are on the right track.${d.reviewLink ? ` You can leave a review here: <a href="${esc(d.reviewLink).replace(/"/g,'&quot;')}" style="color:${A};">${esc(d.reviewLink)}</a>.` : ''}</p>
 
         <p style="margin-top:32px;">
           With gratitude,<br><br>
