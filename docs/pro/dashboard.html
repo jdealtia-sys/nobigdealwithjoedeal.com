@@ -9793,6 +9793,7 @@ body.theme-frosted {
         <button class="stab-btn" data-action="settingsTab" data-target="team" id="stab-team">👥 Team</button>
         <button class="stab-btn" data-action="settingsTab" data-target="billing" id="stab-billing">💳 Billing</button>
         <button class="stab-btn" data-action="settingsTab" data-target="notifications" id="stab-notifications">🔔 Notifications</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="ai-texting" id="stab-ai-texting">🤖 AI Texting</button>
         <button class="stab-btn" data-action="settingsTab" data-target="access" id="stab-access">🔐 Access</button>
         <button class="stab-btn" data-action="settingsTab" data-target="help" id="stab-help">❓ Help</button>
       </div>
@@ -11101,6 +11102,12 @@ body.theme-frosted {
         </div>
         <div id="notif-save-msg" style="display:none;margin-top:10px;font-size:11px;color:#4caf82;">✓ Notification preferences saved</div>
       </div><!-- /stab-panel-notifications -->
+
+      <!-- ══ TAB: AI TEXTING (per-rep persona — rendered by ai-texting-persona.js) ══ -->
+      <div class="stab-panel dn" id="stab-panel-ai-texting">
+        <h3 style="margin:0 0 4px;font-family:'Barlow Condensed',sans-serif;font-size:18px;color:var(--t);">🤖 AI Texting Persona</h3>
+        <div id="aiPersonaMount"></div>
+      </div><!-- /stab-panel-ai-texting -->
 
       <!-- ══ TAB: HELP ══ -->
       <div class="stab-panel dn" id="stab-panel-help">
@@ -12908,6 +12915,8 @@ body.theme-frosted {
 <script defer src="js/analytics-kpi.js?v=3"></script>
 <!-- T-3: AI texting analytics card (renders on the board/analytics view) -->
 <script defer src="js/ai-texting-stats-card.js?v=1"></script>
+<!-- T-4: AI texting persona editor (Settings → AI Texting tab) -->
+<script defer src="js/ai-texting-persona.js?v=1"></script>
 <script defer src="js/lead-scoring.js?v=2"></script>
 <!-- LAZY: sales-training, academy/*, real-deal-academy/*, storm-*, decision-engine,
      close-board, rep-os loaded via ScriptLoader when the user enters those views. -->

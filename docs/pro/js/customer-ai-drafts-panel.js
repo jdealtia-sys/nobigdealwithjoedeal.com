@@ -114,6 +114,18 @@
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   }
 
+  // Friendly label for the persona that produced a draft (T-4). Falls back
+  // to the rep's identity name, then nothing, for pre-T-4 drafts.
+  const PRESET_LABELS = {
+    'joe-classic': 'Joe Classic', 'straight-shooter': 'Straight Shooter',
+    'friendly-neighbor': 'Friendly Neighbor', 'polished-pro': 'Polished Pro',
+    'custom': 'custom persona',
+  };
+  function personaLabel(draft) {
+    if (draft.personaPreset) return PRESET_LABELS[draft.personaPreset] || draft.personaPreset;
+    return draft.personaName || '';
+  }
+
   // ─── Render ──────────────────────────────────────────────────────
   function cardHtml(draft) {
     const incoming = String(draft.incomingBody || '').trim();
@@ -134,6 +146,7 @@
           <span aria-hidden="true" style="font-size:17px;">🤖</span>
           <span style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#a5b4fc;">AI reply draft</span>
           ${when ? `<span style="font-size:11px; color:var(--m,#9aa3b2); font-weight:500;">· ${escapeHtml(when)}</span>` : ''}
+          ${personaLabel(draft) ? `<span style="font-size:11px; color:var(--m,#9aa3b2); font-weight:500;" title="The AI persona that drafted this reply">· via ${escapeHtml(personaLabel(draft))}</span>` : ''}
         </div>
         ${incomingHtml}
         <label style="display:block; font-size:10px; font-weight:600; color:var(--m,#9aa3b2);
