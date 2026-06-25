@@ -14,7 +14,7 @@ document.getElementById('restartTourBtn').addEventListener('click', () => {
   // onboarding-tour.js consumes on its next boot.
   try { localStorage.setItem('nbd-tour-force', '1'); } catch (e) {}
   // Tour lives on the dashboard. Send the user there and let it auto-fire.
-  window.location.href = 'dashboard.html';
+  window.location.href = '/pro/dashboard';
 });
 
 // ── Sticky TOC active-section tracking ──
