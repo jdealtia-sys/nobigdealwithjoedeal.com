@@ -82,6 +82,7 @@ function renderViaPreflight(method, preflightData) {
   ok('payment: rep deposit date reaches doc (payment1Date→depositDue)', /2026-07-01/.test(html));
   ok('payment: rep progress $8,000 reaches doc (payment2Amount→progressAmount)', /8,000/.test(html));
   ok('payment: rep progress date reaches doc (payment2Date→progressDue)', /2026-08-01/.test(html));
+  ok('payment: fabricated $0 "3. Final Payment" row is GONE (no final entered)', !/3\. Final Payment/.test(html));
 }
 
 // ── financing_options: modal jobTotal bridges to renderer totalPrice (+ parse strip) ──
@@ -131,21 +132,35 @@ function renderViaPreflight(method, preflightData) {
   ok('invoice: line amount + subtotal total correctly (30 x 50 = 1,500)', /1,500/.test(html));
 }
 
-// ── warranty_certificate: modal installDate bridges to renderer issueDate ──
+// ── warranty_certificate: installDate→issueDate; coverageDetails + transferable
+//    wired; roof-specific workPerformed default no longer fabricated ──
 {
-  const html = renderViaPreflight('renderWarrantyCertificate', { installDate: '2026-09-15', warrantyTier: 'best' });
+  const html = renderViaPreflight('renderWarrantyCertificate', {
+    installDate: '2026-09-15', warrantyTier: 'best',
+    coverageDetails: 'SENTINELcoverage', transferable: true,
+  });
   console.log('PREFLIGHT CONTRACT — warranty_certificate');
   ok('warranty: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
   ok('warranty: rep install date reaches doc (installDate→issueDate)', /2026-09-15/.test(html));
+  ok('warranty: rep coverage details reach doc (coverageDetails wired)', html.indexOf('SENTINELcoverage') !== -1);
+  ok('warranty: transferable clause shows only when checked', /transferable to a new owner/.test(html));
+  ok('warranty: roof-specific "Complete roof replacement" workPerformed default is GONE', !/Complete roof replacement including tear-off/.test(html));
+}
+// transferable must NOT appear when the rep leaves it unchecked
+{
+  const html2 = renderViaPreflight('renderWarrantyCertificate', { installDate: '2026-09-15', warrantyTier: 'best', transferable: false });
+  ok('warranty: transferable clause absent when unchecked', !/transferable to a new owner/.test(html2));
 }
 
 // ── certificate_of_completion: modal scopeCompleted bridges to renderer scopeSummary ──
 {
   const SENT = 'SENTINELscopedoneABC';
-  const html = renderViaPreflight('renderCertificateOfCompletion', { scopeCompleted: SENT, completionDate: '2026-09-20' });
+  const html = renderViaPreflight('renderCertificateOfCompletion', { scopeCompleted: SENT, completionDate: '2026-09-20', qualitySignoff: 'SENTINELquality' });
   console.log('PREFLIGHT CONTRACT — certificate_of_completion');
   ok('cert: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
   ok('cert: rep scope reaches doc (scopeCompleted→scopeSummary)', html.indexOf(SENT) !== -1);
+  ok('cert: rep quality sign-off reaches doc (qualitySignoff wired)', html.indexOf('SENTINELquality') !== -1);
+  ok('cert: "[Start Date]" placeholder is GONE (no start date entered)', !/\[Start Date\]/.test(html));
 }
 
 // ── scope_of_work: modal projectScope/timeline bridge to projectDescription/estimatedTimeline ──

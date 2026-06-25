@@ -242,7 +242,7 @@
            data && data.warrantyTier, data && (data.issueDate || data.completionDate)], 5)
       : _wcPrefix + '-' + (Date.now() % 100000);
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      warrantyTier:'best', workPerformed:'Complete roof replacement including tear-off, underlayment, and installation of new roofing system.',
+      warrantyTier:'best', workPerformed:'', coverageDetails:'', transferable:false,
       certificateNumber: _certSeed, issueDate:today(), expirationDate:'N/A — Lifetime' }, data);
 
     const tiers = { good:{label:'GOOD',color:'#cd7f32',bg:'#fdf4e8',years:'5-Year',exp:'5 years from issue date'},
@@ -253,11 +253,13 @@
     else if (d.warrantyTier==='better') d.expirationDate = '10 years from ' + d.issueDate;
     else d.expirationDate = '5 years from ' + d.issueDate;
 
-    const warrantyText = d.warrantyTier === 'best'
-      ? 'For as long as you own your home, our installation is guaranteed. Includes priority service response, annual courtesy inspections, and transferable coverage if you sell your home.'
+    let warrantyText = d.warrantyTier === 'best'
+      ? 'For as long as you own your home, our installation is guaranteed. Includes priority service response and annual courtesy inspections.'
       : d.warrantyTier === 'better'
         ? 'Extended coverage guaranteeing installation quality for a full decade. Includes priority service response and annual courtesy inspection for the first 3 years.'
         : 'Our team guarantees the quality of installation for 5 years from the date of completion. If any defect in workmanship causes a leak or failure, we will repair it at no cost to you.';
+    // Transferability is rep-selected (checkbox) — only claim it when chosen.
+    if (d.transferable) warrantyText += ' This coverage is transferable to a new owner if you sell your home.';
 
     return page('Warranty Certificate', `
       <style>
@@ -296,9 +298,10 @@
           <div><dt>Issue Date</dt><dd>${esc(d.issueDate)}</dd></div>
           <div><dt>Coverage</dt><dd>${t.years} Workmanship</dd></div>
           <div><dt>Expiration</dt><dd>${esc(d.expirationDate)}</dd></div>
-          <div><dt>Work Performed</dt><dd>${esc(d.workPerformed)}</dd></div>
+          ${d.workPerformed ? `<div><dt>Work Performed</dt><dd>${esc(d.workPerformed)}</dd></div>` : ''}
           <div><dt>Warranty Tier</dt><dd>${t.label}</dd></div>
         </dl>
+        ${d.coverageDetails ? `<p style="max-width:520px;margin:16px auto 0;font-size:13px;color:#555;text-align:center;">${esc(d.coverageDetails)}</p>` : ''}
         <div class="cert-seal">&#10003;</div>
       </div>
       ${sigBlock(['Homeowner Acknowledgment','Authorized ' + SEAL + ' Representative'])}
@@ -542,9 +545,9 @@
   // ═══════════════════════════════════════════════════════════════
   DG.renderCertificateOfCompletion = function(data) {
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      scopeSummary:'Complete roof replacement', startDate:'[Start Date]',
+      scopeSummary:'', startDate:'', qualitySignoff:'',
       completionDate:today(), warrantyTier:'best',
-      inspectorName:'[Inspector Name]' }, data);
+      inspectorName:'' }, data);
 
     const checklist = [
       {item:'All materials installed per manufacturer specifications',checked:true},
@@ -574,7 +577,7 @@
           <div class="section-title">Project Details</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:14px;">
             <div><strong>Property Owner:</strong> ${esc(d.homeownerName)}</div>
-            <div><strong>Start Date:</strong> ${esc(d.startDate)}</div>
+            ${d.startDate ? `<div><strong>Start Date:</strong> ${esc(d.startDate)}</div>` : ''}
             <div><strong>Property:</strong> ${esc(d.address)}</div>
             <div><strong>Completion Date:</strong> ${esc(d.completionDate)}</div>
             <div style="grid-column:1/-1;"><strong>Work Performed:</strong> ${esc(d.scopeSummary)}</div>
@@ -588,6 +591,11 @@
             <span>${esc(c.item)}</span>
           </div>`).join('')}
         </div>
+
+        ${d.qualitySignoff ? `<div class="section">
+          <div class="section-title">Quality Sign-off</div>
+          <p style="font-size:14px;">${esc(d.qualitySignoff)}</p>
+        </div>` : ''}
 
         <div class="section">
           <div class="section-title">Final Inspection Photos</div>
@@ -1775,7 +1783,7 @@
       totalAmount:'0.00', depositAmount:'0.00', depositDue:'Upon contract signing',
       progressAmount:'0.00', progressDue:'Upon material delivery',
       finalAmount:'0.00', finalDue:'Upon project completion',
-      projectDescription:'Complete roof replacement per attached scope of work and contract.' }, data);
+      projectDescription:'' }, data);
     const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
     const latePaymentText = cp.latePaymentChargeText || '1.5% monthly finance charge';
     const financePartner = cp.financePartner || 'Improvifi';
@@ -1803,7 +1811,7 @@
           <div><strong>Property:</strong> ${esc(d.address)}</div>
           <div><strong>Total Contract Amount:</strong> <span style="color:${A};font-weight:700;font-size:16px;">${money(total)}</span></div>
         </div>
-        <p style="font-size:14px;margin-top:12px;">${esc(d.projectDescription)}</p>
+        ${d.projectDescription ? `<p style="font-size:14px;margin-top:12px;">${esc(d.projectDescription)}</p>` : ''}
       </div>
 
       <div class="section">
@@ -1813,10 +1821,10 @@
           <tbody>
             <tr><td><strong>1. Deposit</strong></td><td class="right">${money(deposit)}</td><td>${esc(d.depositDue)}</td>
               <td><span class="badge" style="background:#fef3c7;color:#92400e;">Pending</span></td></tr>
-            <tr><td><strong>2. Progress Payment</strong></td><td class="right">${money(progress)}</td><td>${esc(d.progressDue)}</td>
-              <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>
-            <tr><td><strong>3. Final Payment</strong></td><td class="right">${money(final)}</td><td>${esc(d.finalDue)}</td>
-              <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>
+            ${progress > 0 ? `<tr><td><strong>2. Progress Payment</strong></td><td class="right">${money(progress)}</td><td>${esc(d.progressDue)}</td>
+              <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>` : ''}
+            ${final > 0 ? `<tr><td><strong>3. Final Payment</strong></td><td class="right">${money(final)}</td><td>${esc(d.finalDue)}</td>
+              <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>` : ''}
             <tr style="font-weight:700;border-top:3px solid ${A};">
               <td>TOTAL</td><td class="right" style="color:${A};font-size:16px;">${money(scheduledTotal)}</td>
               <td colspan="2"></td></tr>
