@@ -120,20 +120,12 @@ exports.calcomWebhook = onRequest(
           updatedAt:      FieldValue.serverTimestamp()
         }, { merge: true });
 
-        // Create a reminder task 1hr before.
-        if (startTime) {
-          const remindAt = new Date(startTime.getTime() - 60 * 60 * 1000);
-          await db.collection('tasks').add({
-            userId: repUid,
-            title: 'Inspection: ' + (attendee && attendee.name || 'Homeowner'),
-            description: (payload.location || 'Cal.com booking') + ' — ' + (payload.title || ''),
-            dueAt: Timestamp.fromDate(remindAt),
-            createdAt: FieldValue.serverTimestamp(),
-            source: 'calcom',
-            bookingId,
-            done: false
-          });
-        }
+        // (Removed a dead "remind 1hr before" tasks/{id} write: its dueAt had
+        // ZERO readers and the doc landed in the top-level `tasks` collection,
+        // which no task UI (they read leads/{id}/tasks) or cron consumes. The
+        // appointment-reminder cron — push-functions.js onAppointmentReminder —
+        // now reminds off the `appointments` doc written just above, which
+        // already covers this cal.com booking.)
       } else if (trigger === 'BOOKING_CANCELLED') {
         await apptRef.set({
           status: 'cancelled',
