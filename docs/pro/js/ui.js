@@ -744,15 +744,23 @@ function showToast(msgOrOptions, typeArg) {
     `;
   }
   
+  // SECURITY: render the message as TEXT, never HTML. showToast is called from
+  // many sites with lead/customer/portal-sourced strings — e.g. a homeowner
+  // portal callback note or rating comment relayed through a task-overdue
+  // notification — so interpolating `message` into innerHTML was a stored-XSS
+  // sink executing in the rep's authenticated same-origin session. No caller
+  // passes intentional markup; mirrors the safe dashboard-ui.js showToast.
   toast.innerHTML = `
     <div class="toast-icon">${icon}</div>
     <div class="toast-content">
-      <div class="toast-message">${message}</div>
+      <div class="toast-message"></div>
       ${actionsHTML}
     </div>
     <button class="toast-close" data-ui-action="closeToast" data-ui-id="${toastId}">✕</button>
   `;
-  
+  const _msgEl = toast.querySelector('.toast-message');
+  if (_msgEl) _msgEl.textContent = (message == null ? '' : String(message));
+
   container.appendChild(toast);
   
   // Store undo action

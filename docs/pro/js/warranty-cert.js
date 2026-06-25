@@ -87,8 +87,15 @@ async function generateWarrantyCertPDF() {
     console.warn('[warranty-cert] server render failed, falling back to html2canvas:', e && e.message || e);
   }
 
+  // SECURITY: addr/owner/work originate from public lead intake. This html is
+  // rendered into a sandboxed NBDDocViewer srcdoc AND, if that fails to load,
+  // via a fallback window.open('','_blank') + document.write that is
+  // same-origin and unsandboxed — so escape every lead-sourced field to keep
+  // the fallback from being a stored-XSS in the rep's session.
+  const escCert = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>NBD Warranty Certificate — ${addr}</title>
+  <title>NBD Warranty Certificate — ${escCert(addr)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
@@ -139,10 +146,10 @@ async function generateWarrantyCertPDF() {
 
   <h2>Property &amp; Installation</h2>
   <div class="grid-2">
-    <div class="field" style="grid-column:1/-1;"><label>Property Address</label><div class="val">${addr}</div></div>
-    <div class="field"><label>Homeowner</label><div class="val">${owner}</div></div>
+    <div class="field" style="grid-column:1/-1;"><label>Property Address</label><div class="val">${escCert(addr)}</div></div>
+    <div class="field"><label>Homeowner</label><div class="val">${escCert(owner)}</div></div>
     <div class="field"><label>Installation Date</label><div class="val">${dateFormatted}</div></div>
-    <div class="field" style="grid-column:1/-1;"><label>Work Performed</label><div class="val">${work}</div></div>
+    <div class="field" style="grid-column:1/-1;"><label>Work Performed</label><div class="val">${escCert(work)}</div></div>
   </div>
 
   <h2>Guarantee Terms</h2>
