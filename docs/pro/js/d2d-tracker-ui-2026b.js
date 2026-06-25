@@ -942,7 +942,7 @@
                 <div class="d2d-street-doors">
                   ${doors.slice(0, 30).map(d => {
                     const col = d.knocked ? (DISPOSITIONS[d.disposition]?.color || '#6B7280') : 'var(--br)';
-                    return `<div class="d2d-door-chip" style="background:${col};" title="${d.address}" ${d.knockId ? `data-d2d-action="openKnockDetail" data-d2d-id="${d.knockId}"` : `data-d2d-action="openQuickKnock" data-d2d-args='{"address":"${esc(d.address)}"}'` }>${d.houseNum || ''}</div>`;
+                    return `<div class="d2d-door-chip" style="background:${col};" title="${esc(d.address).replace(/"/g, '&quot;')}" ${d.knockId ? `data-d2d-action="openKnockDetail" data-d2d-id="${d.knockId}"` : `data-d2d-action="openQuickKnock" data-d2d-args='{"address":"${esc(d.address)}"}'` }>${d.houseNum || ''}</div>`;
                   }).join('')}
                 </div>
               </div>

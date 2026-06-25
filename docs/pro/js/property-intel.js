@@ -425,7 +425,7 @@ function renderIntelCard(targetElId, intel, county, address) {
   const card = `<div class="pi-card">
     <div class="pi-header">
       <span class="pi-title">🏠 Property Intel${dataNote}</span>
-      <span class="pi-county">${county || 'OH'} County</span>
+      <span class="pi-county">${_piEsc(county || 'OH')} County</span>
     </div>
     <div class="pi-body">
       <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px;justify-content:space-between;">
@@ -449,15 +449,15 @@ function renderIntelCard(targetElId, intel, county, address) {
       </div>
       <div class="pi-grid">
         ${yr ? `<div class="pi-stat"><span class="pi-stat-val">${yr}</span><span class="pi-stat-key">Year Built</span></div>` : ''}
-        ${intel.propertyType ? `<div class="pi-stat"><span class="pi-stat-val">${intel.propertyType}</span><span class="pi-stat-key">Type</span></div>` : ''}
+        ${intel.propertyType ? `<div class="pi-stat"><span class="pi-stat-val">${_piEsc(intel.propertyType)}</span><span class="pi-stat-key">Type</span></div>` : ''}
         ${mktVal ? `<div class="pi-stat"><span class="pi-stat-val">${mktVal}</span><span class="pi-stat-key">Market Value</span></div>` : ''}
         ${lastSale ? `<div class="pi-stat"><span class="pi-stat-val">${lastSale}</span><span class="pi-stat-key">Last Sale</span></div>` : ''}
-        ${intel.lastSaleDate ? `<div class="pi-stat"><span class="pi-stat-val">${intel.lastSaleDate}</span><span class="pi-stat-key">Sale Date</span></div>` : ''}
+        ${intel.lastSaleDate ? `<div class="pi-stat"><span class="pi-stat-val">${_piEsc(intel.lastSaleDate)}</span><span class="pi-stat-key">Sale Date</span></div>` : ''}
         ${intel.bedrooms ? `<div class="pi-stat"><span class="pi-stat-val">${intel.bedrooms} bed</span><span class="pi-stat-key">Bedrooms</span></div>` : ''}
         ${intel.sqft ? `<div class="pi-stat"><span class="pi-stat-val">${parseInt(intel.sqft).toLocaleString()} sf</span><span class="pi-stat-key">Living Area</span></div>` : ''}
         ${intel.acreage ? `<div class="pi-stat"><span class="pi-stat-val">${parseFloat(intel.acreage).toFixed(3)} ac</span><span class="pi-stat-key">Acreage</span></div>` : ''}
         ${intel.homestead ? `<div class="pi-stat"><span class="pi-stat-val" style="color:var(--green);">Yes</span><span class="pi-stat-key">Homestead</span></div>` : ''}
-        ${intel.parcelId ? `<div class="pi-stat"><span class="pi-stat-val" style="font-size:10px;">${intel.parcelId}</span><span class="pi-stat-key">Parcel ID</span></div>` : ''}
+        ${intel.parcelId ? `<div class="pi-stat"><span class="pi-stat-val" style="font-size:10px;">${_piEsc(intel.parcelId)}</span><span class="pi-stat-key">Parcel ID</span></div>` : ''}
       </div>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
         ${intel.auditorUrl && /^https?:\/\//i.test(intel.auditorUrl) ? `<a class="pi-link" href="${_piEsc(intel.auditorUrl)}" target="_blank" rel="noopener" style="flex:1;">↗ View County Record</a>` : ''}
