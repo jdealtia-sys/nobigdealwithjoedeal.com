@@ -7789,10 +7789,7 @@ body.theme-frosted {
     </div>
   </template>
 
-  <!-- Phase C.3: DASHBOARD — empty mount. The inline <script> below
-       (window.toggleCrewCalendar definer) is a synchronous global
-       function definition; re-running it under _hydrateViewTemplate
-       just re-assigns the same function reference, which is safe. -->
+  <!-- Phase C.3: DASHBOARD — empty mount, hydrated from the template below. -->
   <div class="view" id="view-dash" data-view-template="tpl-view-dash"></div>
   <template id="tpl-view-dash">
     <div class="view-scroll">
@@ -7829,10 +7826,6 @@ body.theme-frosted {
           .kpi-value{font-size:16px;}
         }
       </style>
-
-      <!-- CREW CALENDAR — Scheduling view -->
-      <div id="crewCalendar" style="margin-bottom:16px;display:none;"></div>
-      <script src="js/dashboard-crew-calendar-toggle.js?v=1"></script>
 
       <!-- THIS WEEK QUICK STATS -->
       <div class="panel mb-md">

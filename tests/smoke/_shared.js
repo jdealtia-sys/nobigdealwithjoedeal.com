@@ -51,7 +51,6 @@ const DASHBOARD_EXTRACTED_SHARDS = [
   'dashboard-ui-prefs-boot.js',
   'dashboard-nav-init.js',
   'dashboard-shortcuts-tabs.js',
-  'dashboard-crew-calendar-toggle.js',
   'dashboard-accessory-panel-init.js',
   'dashboard-insurance-overlay-toggle.js',
   'dashboard-custom-theme.js',

@@ -48,8 +48,8 @@
       return;
     }
 
-    // Cross-reference leads (best-effort — appointments store no leadId, so
-    // matched by attendee email/name) AND surface today's MANUALLY scheduled
+    // Cross-reference leads (prefer the appointment's stamped leadId, else
+    // best-effort attendee email/name match) AND surface today's MANUALLY scheduled
     // jobs: a rep-typed Scheduled Date is a flat date-only string on the lead
     // (lead.scheduledDate) that never reaches the appointments collection, so it
     // showed on NO calendar. List those as their own "no set time" block,
@@ -143,18 +143,26 @@
   // ── lead matching ───────────────────────────────────────────
   function _attachLead(appt, leads) {
     if (!leads.length) return appt;
-    const email = (appt.attendeeEmail || '').toLowerCase().trim();
-    const name = (appt.attendeeName || '').toLowerCase().trim();
     let match = null;
 
-    if (email) {
-      match = leads.find(l => (l.email || '').toLowerCase().trim() === email);
+    // M-1 (PR #745): the cal.com webhook now stamps an authoritative `leadId`
+    // on the appointment. Prefer it — the fuzzy email/name fallback below can
+    // mis-link when two leads share a name or a shared/blank inbox email.
+    if (appt.leadId) {
+      match = leads.find(l => l.id === appt.leadId) || null;
     }
-    if (!match && name) {
-      match = leads.find(l => {
-        const full = `${l.firstName || ''} ${l.lastName || ''}`.toLowerCase().trim();
-        return full && full === name;
-      });
+    if (!match) {
+      const email = (appt.attendeeEmail || '').toLowerCase().trim();
+      const name = (appt.attendeeName || '').toLowerCase().trim();
+      if (email) {
+        match = leads.find(l => (l.email || '').toLowerCase().trim() === email);
+      }
+      if (!match && name) {
+        match = leads.find(l => {
+          const full = `${l.firstName || ''} ${l.lastName || ''}`.toLowerCase().trim();
+          return full && full === name;
+        });
+      }
     }
     if (!match) return appt;
 
