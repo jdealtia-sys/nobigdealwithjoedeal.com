@@ -70,6 +70,10 @@ async function run() {
     await setDoc(doc(db, 'doc_sign_tokens/SIGNTOK1'), {
       leadId: 'leadA', ownerUid: 'alice', docId: 'docA', status: 'pending'
     });
+    // Report-share tokens (this session) — admin-SDK only, same lockdown.
+    await setDoc(doc(db, 'report_share_tokens/RPTTOK1'), {
+      reportId: 'report-alice', ownerUid: 'alice', status: 'active'
+    });
     await setDoc(doc(db, 'parcel_cache/abc'), { parcel: { owner: 'Smith' } });
     // Measurements — owner read tests
     await setDoc(doc(db, 'measurements/job-alice'), {
@@ -157,6 +161,13 @@ async function run() {
   await assertFails(getDoc(doc(admin,   'doc_sign_tokens/SIGNTOK1')));
   await assertFails(setDoc(doc(alice,   'doc_sign_tokens/FORGED'), { leadId: 'x', status: 'pending' }));
   await assertFails(setDoc(doc(alice,   'doc_sign_tokens/SIGNTOK1'), { status: 'signed' }, { merge: true }));
+
+  // 14c. report_share_tokens (this session) — admin-SDK only. No client may
+  // read a token (would let anyone enumerate shared reports) or forge one.
+  await assertFails(getDoc(doc(anon,    'report_share_tokens/RPTTOK1')));
+  await assertFails(getDoc(doc(alice,   'report_share_tokens/RPTTOK1')));
+  await assertFails(getDoc(doc(admin,   'report_share_tokens/RPTTOK1')));
+  await assertFails(setDoc(doc(alice,   'report_share_tokens/FORGED'), { reportId: 'x', status: 'active' }));
 
   // 15. parcel_cache — admin-SDK only (fixture seeded above).
   await assertFails(getDoc(doc(alice, 'parcel_cache/abc')));

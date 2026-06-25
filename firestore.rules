@@ -810,6 +810,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Inspection report sharing. createReportShareToken mints these; the
+    // homeowner views the report via the public getSharedReport endpoint
+    // (token-authed, admin SDK reads the report HTML inline). No Firebase-auth
+    // client ever touches this collection — same lockdown as deal_accept_tokens.
+    match /report_share_tokens/{token} {
+      allow read, write: if false;
+    }
+
     // ── PARCEL CACHE (admin-SDK only) ──────────────────
     // Regrid lookup cache — reads are a privacy issue (address →
     // owner name). Only the Cloud Function accesses via admin SDK.

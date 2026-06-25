@@ -202,6 +202,44 @@
     },
 
     /**
+     * Mint a no-login share link for a saved report and surface it to the rep
+     * (copies to clipboard + shows the URL). The link is served by the
+     * getSharedReport Cloud Function at /report/<token>; the homeowner needs no
+     * account. See functions/report-sharing.js.
+     */
+    async _shareReport(reportId) {
+      if (!reportId) return;
+      try {
+        if (!window._functions || !window._httpsCallable) {
+          const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+          window._functions = window._functions || mod.getFunctions();
+          window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+        }
+        showToast('Creating share link…', 'info');
+        const fn = window._httpsCallable(window._functions, 'createReportShareToken');
+        const res = await fn({ reportId });
+        const url = res && res.data && res.data.shareUrl;
+        if (!url) { showToast('Could not create share link', 'error'); return; }
+        let copied = false;
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(url);
+            copied = true;
+          }
+        } catch (_) { /* clipboard blocked — fall back to prompt */ }
+        showToast(copied ? '✓ Share link copied to clipboard' : 'Share link ready', 'success');
+        // Always surface the URL so the rep can copy/send it even if the
+        // clipboard write was blocked (non-secure context / permissions).
+        if (typeof window.prompt === 'function') {
+          window.prompt('Send this report link to the homeowner (expires in 30 days):', url);
+        }
+      } catch (err) {
+        console.error('Error sharing report:', err);
+        showToast('Failed to create share link: ' + ((err && err.message) || 'unknown'), 'error');
+      }
+    },
+
+    /**
      * Generate report HTML from template and data
      */
     generateReport(leadId, templateId, data) {
@@ -1540,6 +1578,7 @@
               </div>
               <div style="display: flex; gap: 8px;">
                 <button type="button" class="btn-open-report" data-report-id="${this._escapeHtml(report.id)}" style="padding: 6px 14px; background: ${BRAND.colors.orange}; color: white; border: none; border-radius: 3px; cursor: pointer;">View</button>
+                <button type="button" class="btn-share-report" data-report-id="${this._escapeHtml(report.id)}" style="padding: 6px 14px; background: #1e3a6e; color: white; border: none; border-radius: 3px; cursor: pointer;">Share</button>
                 <button type="button" class="btn-delete-report" data-report-id="${this._escapeHtml(report.id)}" style="padding: 6px 14px; background: #eee; color: #333; border: none; border-radius: 3px; cursor: pointer;">Delete</button>
               </div>
             </div>
@@ -1549,6 +1588,9 @@
 
       host.querySelectorAll('.btn-open-report').forEach(btn => {
         btn.addEventListener('click', (e) => this._openReport(e.currentTarget.dataset.reportId));
+      });
+      host.querySelectorAll('.btn-share-report').forEach(btn => {
+        btn.addEventListener('click', (e) => this._shareReport(e.currentTarget.dataset.reportId));
       });
       host.querySelectorAll('.btn-delete-report').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -2900,6 +2942,9 @@
                     <button class="btn-open-report" data-report-id="${report.id}" style="padding: 8px 16px; background: ${BRAND.colors.orange}; color: white; border: none; border-radius: 3px; cursor: pointer;">
                       View
                     </button>
+                    <button class="btn-share-report" data-report-id="${report.id}" style="padding: 8px 16px; background: #1e3a6e; color: white; border: none; border-radius: 3px; cursor: pointer;">
+                      Share
+                    </button>
                     <button class="btn-delete-report" data-report-id="${report.id}" style="padding: 8px 16px; background: #ccc; color: #333; border: none; border-radius: 3px; cursor: pointer;">
                       Delete
                     </button>
@@ -2914,6 +2959,10 @@
       // Attach listeners
       container.querySelectorAll('.btn-open-report').forEach(btn => {
         btn.addEventListener('click', (e) => this._openReport(e.currentTarget.dataset.reportId));
+      });
+
+      container.querySelectorAll('.btn-share-report').forEach(btn => {
+        btn.addEventListener('click', (e) => this._shareReport(e.currentTarget.dataset.reportId));
       });
 
       container.querySelectorAll('.btn-delete-report').forEach(btn => {
