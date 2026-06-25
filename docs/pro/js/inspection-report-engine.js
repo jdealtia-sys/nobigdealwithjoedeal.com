@@ -155,6 +155,10 @@
           // the headline "Save to database" feature (INSP-1) never persisted.
           // Keep createdBy too for display/back-compat.
           userId: window._user.uid,
+          // companyId enables same-company team visibility (firestore.rules
+          // /reports read: sameCompanyAsResource()). Mirrors lead-creation's
+          // claim-or-uid fallback so solo owners get their own uid as the scope.
+          companyId: (window._userClaims && window._userClaims.companyId) || window._user.uid,
           createdBy: window._user.uid,
           html: reportData.html,
           data: reportData.data,

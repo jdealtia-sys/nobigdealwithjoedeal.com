@@ -361,11 +361,23 @@ async function run() {
     const db = ctx.firestore();
     await setDoc(doc(db, 'reports/report-alice'), { userId: 'alice', name: 'Alice report', template: 'pipeline-health' });
     await setDoc(doc(db, 'reports/report-bob'),   { userId: 'bob',   name: 'Bob report',   template: 'rep-monthly' });
+    // Team-visibility fixtures: alice's report carries her companyId (co-a); a
+    // legacy report has no companyId.
+    await setDoc(doc(db, 'reports/report-alice-co'),     { userId: 'alice', companyId: 'co-a', name: 'Alice co-a report', template: 'inspection' });
+    await setDoc(doc(db, 'reports/report-alice-legacy'), { userId: 'alice', name: 'Alice legacy report', template: 'inspection' });
   });
   await assertFails(updateDoc(doc(alice, 'reports/report-alice'), { name: 'renamed' })); // update still admin-only
   await assertFails(deleteDoc(doc(alice, 'reports/report-bob')));                        // cross-owner delete blocked
   await assertFails(deleteDoc(doc(anon, 'reports/report-alice')));                       // anon delete blocked
   await assertSucceeds(deleteDoc(doc(alice, 'reports/report-alice')));                   // owner deletes own report
+  // Team report visibility (this session): same-company members read a colleague's
+  // report; cross-company denied; legacy (no companyId) stays owner-only.
+  await assertSucceeds(getDoc(doc(coAdmin, 'reports/report-alice-co')));                   // carol (company_admin, co-a) reads alice's co-a report
+  await assertSucceeds(getDoc(doc(alice, 'reports/report-alice-co')));                   // owner still reads own
+  await assertFails(getDoc(doc(bob, 'reports/report-alice-co')));                        // bob (co-b) — different company, denied
+  await assertSucceeds(getDoc(doc(alice, 'reports/report-alice-legacy')));               // owner reads own legacy report
+  await assertFails(getDoc(doc(coAdmin, 'reports/report-alice-legacy')));                  // legacy has no companyId → not team-visible
+  await assertSucceeds(setDoc(doc(alice, 'reports/report-new'), { userId: 'alice', companyId: 'co-a', name: 'New', template: 'inspection' })); // create with companyId
 
   // 25. NEW-D40a: drawings. The lead-linked subcollection
   //     (leads/{leadId}/drawings) has long had owner rules, but the
