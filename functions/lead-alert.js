@@ -71,6 +71,15 @@ const KIND_LABEL = {
   estimate_leads: 'Instant Estimate',
   inspect_leads: 'Inspection / Storm tool',
   free_roof_entries: 'Free Roof entry',
+  storm_alert_subscribers: 'Storm — homeowner reports damage',
+};
+
+// Human labels for the storm form's "What are you most concerned about?" field.
+const CONCERN_LABEL = {
+  hail: 'Hail damage to roof',
+  wind: 'Wind damage',
+  general: 'General severe weather',
+  insurance: 'Already has damage — waiting on insurance',
 };
 
 function esc(s) {
@@ -85,7 +94,8 @@ function summarize(d) {
   const address = d.address || d.zip || '';
   const email = d.email || '';
   const story = d.story || d.message || d.details || '';
-  return { name, phone, address, email, story };
+  const concern = d.concern || '';
+  return { name, phone, address, email, story, concern };
 }
 
 function emailHtml(label, source, s, leadId, name) {
@@ -105,6 +115,7 @@ function emailHtml(label, source, s, leadId, name) {
         ${row('Phone', s.phone)}
         ${row('Address', s.address)}
         ${row('Email', s.email)}
+        ${row('Concern', s.concern ? (CONCERN_LABEL[s.concern] || s.concern) : '')}
         ${row('Message', s.story)}
       </table>
       ${telDigits ? `<p style="text-align:center;margin:22px 0 6px"><a href="tel:${telDigits}" style="display:inline-block;background:#C8541A;color:#fff;padding:13px 30px;border-radius:6px;text-decoration:none;font-weight:700;font-size:16px">Call ${esc(s.phone)}</a></p>` : ''}
@@ -117,6 +128,7 @@ function emailHtml(label, source, s, leadId, name) {
 function smsBody(label, source, s, seal) {
   const lines = [`🔔 ${seal} lead — ${label}${source ? ` (${source})` : ''}`, `${s.name} · ${s.phone}`];
   if (s.address) lines.push(s.address);
+  if (s.concern) lines.push('Concern: ' + (CONCERN_LABEL[s.concern] || s.concern));
   if (s.story) lines.push(String(s.story).slice(0, 200));
   return lines.join('\n').slice(0, 480);
 }
@@ -186,6 +198,28 @@ function onLeadAlert(collection) {
   };
 }
 
+// Storm-alert signups are a marketing LIST, not a CRM lead pipeline (storm is
+// intentionally NOT bridged — see lead-bridge-logic BRIDGE_KINDS), so the bulk
+// of signups must NOT page Joe. But a homeowner who deliberately selects the
+// "I already have damage — waiting on insurance" concern is a hot, ready-to-hire
+// lead that was previously dropped with zero follow-up. Alert ONLY on that
+// concern. ('hail' is the form's PRE-SELECTED default, so it isn't a deliberate
+// signal; widen STORM_ALERT_CONCERNS if Joe later wants wind/general too.)
+const STORM_ALERT_CONCERNS = ['insurance'];
+function onStormAlert() {
+  return async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const data = snap.data() || {};
+    const concern = String(data.concern || '').toLowerCase();
+    if (!STORM_ALERT_CONCERNS.includes(concern)) {
+      logger.info('leadAlert: storm signup is list-only (no high-intent concern) — no alert', { concern });
+      return;
+    }
+    await alertJoe('storm_alert_subscribers', data, event.params && event.params.leadId);
+  };
+}
+
 // IMPORTANT: each export assigns onDocumentCreated(...) DIRECTLY (not via a
 // makeTrigger() wrapper). The CI auto-deploy builds its --only allowlist by
 // grepping `^exports.<name> = (onRequest|onCall|onDocumentCreated|...)` in
@@ -197,3 +231,4 @@ exports.leadAlertContact  = onDocumentCreated({ ...TRIGGER_OPTS, document: 'cont
 exports.leadAlertEstimate = onDocumentCreated({ ...TRIGGER_OPTS, document: 'estimate_leads/{leadId}' },    onLeadAlert('estimate_leads'));
 exports.leadAlertInspect  = onDocumentCreated({ ...TRIGGER_OPTS, document: 'inspect_leads/{leadId}' },     onLeadAlert('inspect_leads'));
 exports.leadAlertFreeRoof = onDocumentCreated({ ...TRIGGER_OPTS, document: 'free_roof_entries/{leadId}' }, onLeadAlert('free_roof_entries'));
+exports.leadAlertStorm    = onDocumentCreated({ ...TRIGGER_OPTS, document: 'storm_alert_subscribers/{leadId}' }, onStormAlert());
