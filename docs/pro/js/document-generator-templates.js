@@ -318,10 +318,15 @@
 
     let suppTotal = 0;
     const rows = d.supplementItems.map(i => {
-      const lineTotal = (i.qty||0) * (i.price||0);
+      // Accept either the renderer's native {item,price} shape OR the estimate /
+      // normalized line-item shapes ({description,rate} from mapEstimateLineItems,
+      // {description,unitPrice} from hydrateDerivedFields) — otherwise supplement
+      // rows render blank descriptions and $0 prices.
+      const price = (i.price != null ? i.price : (i.unitPrice != null ? i.unitPrice : i.rate)) || 0;
+      const lineTotal = (i.qty||0) * price;
       suppTotal += lineTotal;
-      return `<tr><td>${esc(i.item)}</td><td>${esc(i.code)}</td><td class="right">${i.qty}</td>
-        <td>${esc(i.unit)}</td><td class="right">${money(i.price)}</td><td class="right">${money(lineTotal)}</td></tr>`;
+      return `<tr><td>${esc(i.item || i.description)}</td><td>${esc(i.code || '')}</td><td class="right">${i.qty}</td>
+        <td>${esc(i.unit)}</td><td class="right">${money(price)}</td><td class="right">${money(lineTotal)}</td></tr>`;
     }).join('');
 
     return page('Supplement Request', `
@@ -707,9 +712,13 @@
 
     let subtotal = 0;
     const rows = d.lineItems.map(i => {
-      const amt = (i.qty||0)*(i.rate||0); subtotal += amt;
-      return `<tr><td>${esc(i.description)}</td><td class="right">${i.qty}</td><td>${esc(i.unit)}</td>
-        <td class="right">${money(i.rate)}</td><td class="right">${money(amt)}</td></tr>`;
+      // hydrateDerivedFields normalizes lineItems to {description,unitPrice}; this
+      // loop historically read i.rate, so every normalized row priced at $0. Accept
+      // unitPrice / rate / price so the rep's amounts actually total.
+      const unitPrice = (i.unitPrice != null ? i.unitPrice : (i.rate != null ? i.rate : i.price)) || 0;
+      const amt = (i.qty||0)*unitPrice; subtotal += amt;
+      return `<tr><td>${esc(i.description || i.item)}</td><td class="right">${i.qty}</td><td>${esc(i.unit)}</td>
+        <td class="right">${money(unitPrice)}</td><td class="right">${money(amt)}</td></tr>`;
     }).join('');
     const tax = subtotal * (d.taxRate||0);
     const total = subtotal + tax;
