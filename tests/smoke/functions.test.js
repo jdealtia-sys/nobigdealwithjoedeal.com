@@ -202,8 +202,12 @@ section('Cal.com webhook');
   assert('exports calcomWebhook', /exports\.calcomWebhook\s*=/.test(src));
   assert('HMAC-verifies X-Cal-Signature-256',
     /x-cal-signature-256[\s\S]{0,300}createHmac\('sha256'/.test(src));
-  assert('creates appointments + tasks docs',
-    /appointments\/\$\{bookingId\}/.test(src) && /collection\('tasks'\)\.add/.test(src));
+  // The cal.com webhook creates the appointments doc; the appointment-reminder
+  // cron (push-functions.js) reminds off it. The old "remind 1hr before"
+  // tasks/{id} write was removed as dead code (dueAt had zero readers), so we
+  // no longer assert it.
+  assert('creates appointments doc',
+    /appointments\/\$\{bookingId\}/.test(src));
 }
 
 section('Unified client + status endpoint');
