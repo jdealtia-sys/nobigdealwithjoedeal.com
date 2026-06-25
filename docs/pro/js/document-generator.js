@@ -1886,6 +1886,10 @@ window.NBDDocGen = {
       isInsuranceJob: false,
       ...data
     };
+    // The contract form supplies `contractPrice`, but the template uses the
+    // {{totalPrice}} token — thread it through so a binding contract shows the
+    // rep-entered price, never the $0.00 mergeFields placeholder.
+    merged.totalPrice = merged.contractPrice || merged.totalPrice || data.total || '';
 
     const contractHTML = `
       <!DOCTYPE html>
@@ -1951,7 +1955,7 @@ window.NBDDocGen = {
             <!-- WARRANTY -->
             <div class="section">
               <div class="section-title">Warranty Coverage</div>
-              {{warrantyTerms}}
+              ${this.renderWarrantyBadge(merged.warrantyTier)}
             </div>
 
             <!-- CHANGE ORDERS -->

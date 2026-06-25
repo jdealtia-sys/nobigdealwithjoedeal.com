@@ -313,12 +313,7 @@
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
       claimNumber:'[Claim #]', policyNumber:'[Policy #]', insuranceCompany:'[Insurance Company]',
       dateOfLoss:'[Date of Loss]', originalApproved:'0.00',
-      supplementItems:[
-        {item:'Ridge cap — not included in original scope',code:'RSG-250',qty:120,unit:'LF',price:5.50},
-        {item:'Ice & water shield at eaves (code required)',code:'IWS-100',qty:8,unit:'SQ',price:65},
-        {item:'OSB decking replacement — hidden damage',code:'OSB-475',qty:4,unit:'SQ',price:125},
-        {item:'Additional flashing at wall tie-ins',code:'FLS-300',qty:32,unit:'LF',price:8.50}
-      ],
+      supplementItems:[],
       justification:'During the course of the approved roof replacement, additional damage was discovered that was not visible during the initial inspection. The following supplemental items are necessary to restore the roof system to its pre-loss condition and ensure compliance with local building codes.' }, data);
 
     let suppTotal = 0;
@@ -620,9 +615,9 @@
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
       originalContractNumber:'[Contract #]', originalContractDate:'[Original Date]',
       changeOrderNumber:'CO-001', changesDescription:'Additional work identified during project execution.',
-      itemsAdded:[{item:'Replace damaged fascia board (north side)',qty:24,unit:'LF',price:14}],
+      itemsAdded:[],
       itemsRemoved:[],
-      originalTotal:12500, scheduleImpact:'No change to estimated completion date.' }, data);
+      originalTotal:0, scheduleImpact:'No change to estimated completion date.' }, data);
 
     let addedTotal=0, removedTotal=0;
     const addedRows = d.itemsAdded.map(i => { const t=(i.qty||0)*(i.price||0); addedTotal+=t;
@@ -630,7 +625,7 @@
     const removedRows = d.itemsRemoved.map(i => { const t=(i.qty||0)*(i.price||0); removedTotal+=t;
       return `<tr><td>${esc(i.item)}</td><td class="right">${i.qty}</td><td>${esc(i.unit)}</td><td class="right">${money(i.price)}</td><td class="right" style="color:#dc2626;">-${money(t)}</td></tr>`; }).join('');
     const netChange = addedTotal - removedTotal;
-    const newTotal = (d.originalTotal||0) + netChange;
+    const newTotal = (parseFloat(d.originalTotal)||0) + netChange;
 
     return page('Change Order', `
       ${letterhead()}
@@ -1778,6 +1773,11 @@
     const deposit = parseFloat(d.depositAmount)||0;
     const progress = parseFloat(d.progressAmount)||0;
     const final = parseFloat(d.finalAmount)||0;
+    // Reconcile: the schedule's TOTAL row must equal the sum of its own
+    // installment rows — never a separately-entered figure that could silently
+    // contradict the line items on a binding payment agreement.
+    const scheduledTotal = deposit + progress + final;
+    const recMismatch = total > 0 && Math.abs(total - scheduledTotal) >= 0.01;
 
     return page('Payment Agreement', `
       ${letterhead()}
@@ -1807,10 +1807,11 @@
             <tr><td><strong>3. Final Payment</strong></td><td class="right">${money(final)}</td><td>${esc(d.finalDue)}</td>
               <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>
             <tr style="font-weight:700;border-top:3px solid ${A};">
-              <td>TOTAL</td><td class="right" style="color:${A};font-size:16px;">${money(total)}</td>
+              <td>TOTAL</td><td class="right" style="color:${A};font-size:16px;">${money(scheduledTotal)}</td>
               <td colspan="2"></td></tr>
           </tbody>
         </table>
+        ${recMismatch ? `<p style="margin-top:8px;font-size:12px;color:#dc2626;font-weight:600;">⚠ Payment schedule total (${money(scheduledTotal)}) does not match the contract amount (${money(total)}). Reconcile the installments before sending.</p>` : ''}
       </div>
 
       <div class="section">
