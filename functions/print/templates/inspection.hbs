@@ -163,10 +163,11 @@
   <table>
     <thead>
       <tr>
-        <th style="width:22%;">Area</th>
+        <th style="width:20%;">Area</th>
         <th>Item</th>
-        <th style="width:14%;">Severity</th>
-        <th style="width:14%;" class="num">Quantity</th>
+        <th style="width:13%;">Severity</th>
+        <th style="width:12%;" class="num">Quantity</th>
+        <th style="width:15%;" class="num">Cost</th>
       </tr>
     </thead>
     <tbody>
@@ -177,15 +178,16 @@
           <strong>{{this.item}}</strong>
           {{#if this.notes}}<div style="font-size:9.5pt;color:var(--nbd-ink-soft);margin-top:3pt;line-height:1.4;">{{this.notes}}</div>{{/if}}
         </td>
-        <td><span class="sev {{severityClass this.severity}}">{{this.severity}}</span></td>
+        <td>{{#if this.severity}}<span class="sev {{severityClass this.severity}}">{{this.severity}}</span>{{else}}<span style="color: var(--nbd-ink-muted);">—</span>{{/if}}</td>
         <td class="num">{{this.quantity}}</td>
+        <td class="num money">{{#if this.cost}}{{money this.cost}}{{else}}<span style="color: var(--nbd-ink-muted);">—</span>{{/if}}</td>
       </tr>
       {{/each}}
     </tbody>
     {{#if totalScope}}
     <tfoot>
       <tr>
-        <td colspan="3" style="text-align:right;">Estimated total scope value</td>
+        <td colspan="4" style="text-align:right;">Estimated total scope value</td>
         <td class="num money">{{money totalScope}}</td>
       </tr>
     </tfoot>

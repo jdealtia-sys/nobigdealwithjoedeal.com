@@ -288,6 +288,13 @@
         inspectorName, inspectionDate, estimatedWork = []
       } = data;
 
+      // Sum the rep-entered per-row costs (legacy drafts used `total`)
+      // for the scope footer. 0 → footer omitted.
+      const scopeTotal = (Array.isArray(estimatedWork) ? estimatedWork : []).reduce((s, it) => {
+        const c = Number(it && (it.cost != null ? it.cost : it.total));
+        return s + (isFinite(c) ? c : 0);
+      }, 0);
+
       const html = `
         <!DOCTYPE html>
         <html>
@@ -468,22 +475,35 @@
               <table class="work-table">
                 <thead>
                   <tr>
+                    <th>Area</th>
                     <th>Description</th>
+                    <th>Severity</th>
                     <th>Qty</th>
-                    <th>Unit</th>
-                    <th>Total</th>
+                    <th>Cost</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${estimatedWork.map(item => `
+                  ${estimatedWork.map(item => {
+                    const qty = item.quantity != null ? item.quantity : (item.qty != null ? item.qty : '');
+                    const cost = Number(item.cost != null ? item.cost : item.total);
+                    return `
                     <tr>
-                      <td>${this._escapeHtml(item.description || '')}</td>
-                      <td>${item.qty || '—'}</td>
-                      <td>${this._escapeHtml(item.unit || '')}</td>
-                      <td>${item.total || '—'}</td>
+                      <td>${this._escapeHtml(item.area || '')}</td>
+                      <td>${this._escapeHtml(item.description || item.item || '')}${item.notes ? `<div style="font-size:11px;color:#666;margin-top:3px;">${this._escapeHtml(item.notes)}</div>` : ''}</td>
+                      <td>${this._escapeHtml(item.severity || '')}</td>
+                      <td>${this._escapeHtml(String(qty)) || '—'}</td>
+                      <td>${isFinite(cost) ? '$' + cost.toLocaleString('en-US') : '—'}</td>
                     </tr>
-                  `).join('')}
+                  `;}).join('')}
                 </tbody>
+                ${scopeTotal > 0 ? `
+                <tfoot>
+                  <tr>
+                    <td colspan="4" style="text-align:right;font-weight:bold;">Estimated total scope value</td>
+                    <td style="font-weight:bold;">$${scopeTotal.toLocaleString('en-US')}</td>
+                  </tr>
+                </tfoot>
+                ` : ''}
               </table>
             </div>
             ` : ''}
@@ -1750,18 +1770,45 @@
           </div>
 
           <h3 style="margin-top: 30px;">Estimated Scope of Work (optional)</h3>
+          <p style="font-size:12px;color:#666;margin-bottom:10px;">Items recommended for repair or replacement. Area &amp; severity fill the inspection report's scope table; the costs total into its "Estimated total scope value".</p>
+          <div style="display:grid;grid-template-columns:1.1fr 1.8fr 0.95fr 0.8fr 0.95fr 28px;gap:6px;font-size:11px;color:#888;margin-bottom:4px;">
+            <span>Area</span><span>Item / description</span><span>Severity</span><span>Qty</span><span>Cost&nbsp;$</span><span></span>
+          </div>
           <div id="scope-items-container">
-            ${(state.data.estimatedWork || []).map((item, idx) => `
-              <div class="line-item scope-item" data-index="${idx}">
-                <input type="text" placeholder="Description" value="${this._escapeHtml(item.description || '')}" class="scope-description">
-                <input type="number" placeholder="Qty" value="${item.qty != null ? item.qty : ''}" class="scope-qty" step="0.01">
-                <input type="text" placeholder="Unit" value="${this._escapeHtml(item.unit || '')}" class="scope-unit">
-                <input type="number" placeholder="Total $" value="${item.total != null ? item.total : ''}" class="scope-total" step="0.01">
-                <button type="button" class="btn-remove-scope">×</button>
-              </div>
-            `).join('')}
+            ${(state.data.estimatedWork || []).map((item, idx) => this._renderScopeRow(item, idx)).join('')}
           </div>
           <button type="button" id="btn-add-scope" class="btn-secondary" style="margin-top: 10px;">+ Add Scope Item</button>
+        </div>
+      `;
+    },
+
+    /**
+     * One scope-of-work row. Canonical fields are
+     * {area, description, severity, quantity, cost, notes}; legacy drafts
+     * (the old Description/Qty/Unit/Total form) are read via aliases
+     * (item→description, qty→quantity, total→cost; unit is dropped) so
+     * they still round-trip on re-render. Notes sits on its own full-width
+     * line and surfaces as a sub-line under the item on the report.
+     */
+    _renderScopeRow(item, idx) {
+      item = item || {};
+      const qty  = item.quantity != null ? item.quantity : (item.qty != null ? item.qty : '');
+      const cost = item.cost != null ? item.cost : (item.total != null ? item.total : '');
+      const sev  = item.severity || '';
+      return `
+        <div class="scope-item" data-index="${idx}" style="border:1px solid #eee;border-radius:5px;padding:6px;margin-bottom:6px;">
+          <div style="display:grid;grid-template-columns:1.1fr 1.8fr 0.95fr 0.8fr 0.95fr 28px;gap:6px;align-items:center;">
+            <input type="text" placeholder="Area" value="${this._escapeHtml(item.area || '')}" class="scope-area">
+            <input type="text" placeholder="Item / description" value="${this._escapeHtml(item.description || item.item || '')}" class="scope-description">
+            <select class="scope-severity">
+              <option value="">Severity…</option>
+              ${CONDITIONS.map(c => `<option value="${c}" ${sev === c ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+            <input type="text" placeholder="Qty" value="${this._escapeHtml(String(qty))}" class="scope-quantity">
+            <input type="number" placeholder="Cost $" value="${cost !== '' ? Number(cost) : ''}" class="scope-cost" step="0.01" min="0">
+            <button type="button" class="btn-remove-scope" title="Remove item" style="background:none;border:none;color:#c00;font-size:18px;cursor:pointer;line-height:1;">×</button>
+          </div>
+          <input type="text" placeholder="Notes (optional — shown under the item on the report)" value="${this._escapeHtml(item.notes || '')}" class="scope-notes" style="width:100%;margin-top:5px;">
         </div>
       `;
     },
@@ -2503,12 +2550,15 @@
         d.components = components;
         const scope = [];
         container.querySelectorAll('#scope-items-container .scope-item').forEach(row => {
-          const description = row.querySelector('.scope-description')?.value || '';
-          const qty = row.querySelector('.scope-qty')?.value || '';
-          const unit = row.querySelector('.scope-unit')?.value || '';
-          const total = row.querySelector('.scope-total')?.value || '';
-          if (description || qty || unit || total) {
-            scope.push({ description, qty, unit, total, item: description, quantity: qty });
+          const area = (row.querySelector('.scope-area')?.value || '').trim();
+          const description = (row.querySelector('.scope-description')?.value || '').trim();
+          const severity = row.querySelector('.scope-severity')?.value || '';
+          const quantity = (row.querySelector('.scope-quantity')?.value || '').trim();
+          const costRaw = row.querySelector('.scope-cost')?.value || '';
+          const notes = (row.querySelector('.scope-notes')?.value || '').trim();
+          if (area || description || severity || quantity || costRaw || notes) {
+            const cost = costRaw === '' ? '' : Number(costRaw);
+            scope.push({ area, description, severity, quantity, cost, notes });
           }
         });
         d.estimatedWork = scope;
@@ -2835,14 +2885,25 @@
         return out.slice(0, 8);
       })();
 
-      // Scope rows from estimatedWork.
-      const scope = (Array.isArray(d.estimatedWork) ? d.estimatedWork : []).map((w) => ({
-        area:     w.area || w.location || '',
-        item:     w.item || w.description || '',
-        severity: w.severity || 'Fair',
-        quantity: w.quantity || w.qty || '',
-        notes:    w.notes || '',
-      }));
+      // Scope rows from estimatedWork. totalScope is the sum of the
+      // per-row costs the rep entered (legacy drafts used `total`);
+      // null when nothing priced so the template hides the footer.
+      const scopeItems = Array.isArray(d.estimatedWork) ? d.estimatedWork : [];
+      const scope = scopeItems.map((w) => {
+        const c = Number(w.cost != null ? w.cost : w.total);
+        return {
+          area:     w.area || w.location || '',
+          item:     w.description || w.item || '',
+          severity: w.severity || '',
+          quantity: w.quantity || w.qty || '',
+          cost:     isFinite(c) && c > 0 ? c : null,
+          notes:    w.notes || '',
+        };
+      });
+      const scopeTotal = scopeItems.reduce((sum, w) => {
+        const n = Number(w.cost != null ? w.cost : w.total);
+        return sum + (isFinite(n) ? n : 0);
+      }, 0);
 
       const summary = {
         headline: 'Inspection findings & recommended scope',
@@ -2901,7 +2962,7 @@
         findings,
         photos,
         scope,
-        totalScope: d.totalScope || null,
+        totalScope: scopeTotal > 0 ? scopeTotal : null,
         recommendations: d.recommendations || '',
         // D-2.7: paired before/after photos by location
         photoPairs,
