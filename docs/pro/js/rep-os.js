@@ -154,10 +154,14 @@
   function getDealData() {
     if (window.CloseBoard) {
       const deals = window.CloseBoard.getDeals ? window.CloseBoard.getDeals() : [];
+      // Mirror Close Board's own close definition (accepted|signed|scheduled).
+      // A remote homeowner acceptance lands as 'accepted' — this briefing used
+      // to drop it from signed AND count it as active, so a real close showed as
+      // still-open. Active = anything not closed and not expired.
       return {
-        active: deals.filter(d => d.status !== 'expired' && d.status !== 'signed').length,
+        active: deals.filter(d => !['accepted', 'signed', 'scheduled', 'expired'].includes(d.status)).length,
         pending: deals.filter(d => d.status === 'sent' || d.status === 'viewed').length,
-        signed: deals.filter(d => d.status === 'signed' || d.status === 'scheduled').length
+        signed: deals.filter(d => ['accepted', 'signed', 'scheduled'].includes(d.status)).length
       };
     }
     return { active: 0, pending: 0, signed: 0 };
