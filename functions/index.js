@@ -233,6 +233,13 @@ Object.assign(exports, remoteSigningFunctions);
 const dealAcceptanceFunctions = require('./deal-acceptance');
 Object.assign(exports, dealAcceptanceFunctions);
 
+// Inspection report sharing: no-login homeowner view of a saved report
+// (report_share_tokens + /report/<token>). View-only, reusable token model;
+// reads the report HTML inline from /reports/<id> via admin SDK. See
+// functions/report-sharing.js.
+const reportSharingFunctions = require('./report-sharing');
+Object.assign(exports, reportSharingFunctions);
+
 // L-03 cont.: Stripe handlers (createCheckoutSession, stripeWebhook,
 // createCustomerPortalSession, getSubscriptionStatus,
 // createStripePaymentLink, invoiceWebhook) live in functions/stripe.js.
