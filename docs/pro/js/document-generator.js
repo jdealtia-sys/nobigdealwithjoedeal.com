@@ -1512,7 +1512,11 @@ window.NBDDocGen = {
   renderHeader(data = {}) {
     const L = this._letterhead(data);
     const address = data.address || L.address;
-    const showAddress = address ? ` &middot; ${address}` : '';
+    // Escape: `address` originates from public lead intake and this header is
+    // rendered into an <iframe srcdoc> (allow-scripts) by NBDDocViewer — an
+    // unescaped value is stored XSS. Matches the escaped sibling at the
+    // proposal title row (this._escHtml(merged.address)).
+    const showAddress = address ? ` &middot; ${this._escHtml(address)}` : '';
 
     return `
       <div class="document-header">
