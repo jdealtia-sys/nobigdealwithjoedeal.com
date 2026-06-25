@@ -119,11 +119,14 @@
 
     const totalCost = totalMaterial + totalLabor + totalMisc + totalOverhead;
     const totalProfit = totalRevenue - totalCost;
-    const avgGrossMargin = pls.length > 0
-      ? Math.round(pls.reduce((s, p) => s + p.pl.grossMargin, 0) / pls.length)
+    // Portfolio-WEIGHTED margins, not a simple mean of per-job percentages: a
+    // $100 job at 50% and a $1M job at 5% blend to ~5%, not 27.5%. Averaging the
+    // raw percentages overstated profitability whenever job sizes varied.
+    const avgGrossMargin = totalRevenue > 0
+      ? Math.round(((totalRevenue - totalMaterial - totalLabor - totalMisc) / totalRevenue) * 100)
       : 0;
-    const avgNetMargin = pls.length > 0
-      ? Math.round(pls.reduce((s, p) => s + p.pl.netMargin, 0) / pls.length)
+    const avgNetMargin = totalRevenue > 0
+      ? Math.round((totalProfit / totalRevenue) * 100)
       : 0;
 
     pls.sort((a, b) => b.pl.grossMargin - a.pl.grossMargin);

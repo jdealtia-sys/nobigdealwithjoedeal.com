@@ -54,10 +54,12 @@
   function _computeWeeklyRevenue(weeks) {
     const ests = Array.isArray(window._estimates) ? window._estimates : [];
     const now = new Date();
-    // Snap to the start of the current week (Sunday).
+    // Snap to the start of the current week — MONDAY (ISO-8601; Jo's call
+    // 2026-06-25). getDay() is 0=Sun..6=Sat; (getDay()+6)%7 is days since Monday
+    // (Mon→0, Sun→6), so subtracting it lands on this week's Monday at 00:00 local.
     const startOfThisWeek = new Date(now);
     startOfThisWeek.setHours(0, 0, 0, 0);
-    startOfThisWeek.setDate(startOfThisWeek.getDate() - startOfThisWeek.getDay());
+    startOfThisWeek.setDate(startOfThisWeek.getDate() - ((startOfThisWeek.getDay() + 6) % 7));
     const buckets = new Array(weeks).fill(0);
     const labels = new Array(weeks);
     for (let i = 0; i < weeks; i++) {
