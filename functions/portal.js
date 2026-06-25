@@ -359,7 +359,10 @@ exports.getHomeownerPortalView = onRequest(
     if (!(await httpRateLimit(req, res, 'portal:ip', 30, 60_000))) return;
 
     const token = (req.body && req.body.token) || '';
-    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+    // Charset-validate (not just length): a token with a '/' makes an odd-segment
+    // Firestore path that throws uncaught → opaque 500 instead of a clean 400.
+    // Minted tokens are [A-Za-z0-9]; mirrors deal-acceptance.js's guard.
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
       res.status(400).json({ error: 'Invalid token' });
       return;
     }
