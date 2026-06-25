@@ -94,13 +94,17 @@ function renderViaPreflight(method, preflightData) {
   ok('financing: fabricated $10,000 default is GONE', !/10,000/.test(html));
 }
 
-// ── change_order: modal changeDescription bridges to renderer changesDescription ──
+// ── change_order: changeDescription bridges; the rep's changeAmount + newTotal
+//    are now CONSUMED (renderer previously computed $0 from empty itemsAdded) ──
 {
   const SENT = 'SENTINELchangedescXYZ';
-  const html = renderViaPreflight('renderChangeOrder', { changeDescription: SENT, originalTotal: 12000, changeAmount: 1500, newTotal: 13500 });
+  const html = renderViaPreflight('renderChangeOrder', { changeDescription: SENT, originalContractDate: '2026-01-15', originalTotal: 12000, changeAmount: 1500, newTotal: 13500 });
   console.log('PREFLIGHT CONTRACT — change_order');
   ok('change_order: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
   ok('change_order: rep change description reaches doc (changeDescription→changesDescription)', html.indexOf(SENT) !== -1);
+  ok('change_order: rep change amount $1,500 reaches doc (not $0 from empty items)', /1,500\.00/.test(html));
+  ok('change_order: rep new total $13,500 reaches doc', /13,500\.00/.test(html));
+  ok('change_order: rep original contract date reaches doc', /2026-01-15/.test(html));
 }
 
 // ── supplement_request: modal insCarrier bridges to renderer insuranceCompany;
@@ -109,6 +113,7 @@ function renderViaPreflight(method, preflightData) {
 {
   const html = renderViaPreflight('renderSupplementRequest', {
     insCarrier: 'Acme Mutual Insurance', claimNumber: 'CLM-77',
+    policyNumber: 'POL-SENT-9', dateOfLoss: '2026-03-04', originalApproved: 20000,
     supplementItems: [{ description: 'Ridge cap replacement', qty: 120, unit: 'LF', rate: 5.5 }],
   });
   console.log('PREFLIGHT CONTRACT — supplement_request');
@@ -117,6 +122,9 @@ function renderViaPreflight(method, preflightData) {
   ok('supplement: "[Insurance Company]" placeholder is GONE', !/\[Insurance Company\]/.test(html));
   ok('supplement: line-item description reaches doc (i.description shape)', /Ridge cap replacement/.test(html));
   ok('supplement: line-item price reaches doc, not $0 (i.rate shape)', /5\.50/.test(html) && /660\.00/.test(html));
+  ok('supplement: rep policy # + date of loss reach doc (new schema fields)', /POL-SENT-9/.test(html) && /2026-03-04/.test(html));
+  ok('supplement: NEW PROJECT TOTAL = original approved + supplement ($20,000 + $660 = $20,660)', /20,660\.00/.test(html));
+  ok('supplement: "[Policy #]"/"[Date of Loss]" placeholders are GONE', !/\[Policy #\]/.test(html) && !/\[Date of Loss\]/.test(html));
 }
 
 // ── invoice: lineItems are normalized to {description,unitPrice}; the renderer
