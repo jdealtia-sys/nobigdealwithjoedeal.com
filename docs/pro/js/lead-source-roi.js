@@ -16,15 +16,13 @@
 (function() {
   'use strict';
 
-  // Stage keys we treat as "closed / won". Mirrors the _closedKeys list
-  // in crm.js renderLeads. Anything in this set counts toward closed
-  // revenue + closed-deal counts.
+  // REVENUE-recognition stages only: a job counts toward closed REVENUE once it
+  // is complete/paid — NOT when merely signed or in-progress (those can still
+  // fall through). Deliberately NARROWER than crm.js's pipeline "closed" bucket:
+  // this set drives dollar ROI, so it must reflect money actually earned, not
+  // committed pipeline. (Jo's definition call, 2026-06-25.)
   const CLOSED_STAGE_KEYS = new Set([
-    'contract_signed', 'job_created', 'permit_pulled',
-    'materials_ordered', 'materials_delivered', 'crew_scheduled',
-    'install_in_progress', 'install_complete', 'final_photos',
-    'deductible_collected', 'final_payment', 'closed',
-    'Approved', 'In Progress', 'Complete'
+    'final_payment', 'deductible_collected', 'closed', 'Complete'
   ]);
   const LOST_STAGE_KEYS = new Set(['lost', 'Lost']);
 
