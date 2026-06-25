@@ -903,7 +903,9 @@
   async function saveTagsOnly() {
     if (!S.photoId) { toast('No photo ID', 'error'); return; }
     try {
-      const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags };
+      // brightness/contrast are persisted non-destructively here (the
+      // original image is untouched; openEditor re-applies them on load).
+      const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, brightness: S.brightness, contrast: S.contrast };
       await window.updateDoc(window.doc(window.db, 'photos', S.photoId), meta);
       toast('Tags saved!', 'success');
       S.hasUnsaved = false;
@@ -968,7 +970,10 @@
       const storageRef = window.ref(window.storage, `photos/${authUid}/${leadSegment}${fileName}`);
       await window.uploadBytes(storageRef, blob);
       const url = await window.getDownloadURL(storageRef);
-      const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, isAnnotated: true, annotatedAt: window.serverTimestamp() };
+      // Flatten bakes the current brightness/contrast into the pixels, so
+      // the saved copy's stored adjustments reset to 0 — otherwise reopening
+      // would double-apply them on top of the already-adjusted image.
+      const meta = { damageType: S.damageType, severity: S.severity, location: S.location, phase: S.phase, notes: S.notes, tags: S.tags, isAnnotated: true, annotatedAt: window.serverTimestamp(), brightness: 0, contrast: 0 };
       if (overwrite && S.photoId) {
         await window.updateDoc(window.doc(window.db, 'photos', S.photoId), { url, ...meta });
       } else {
@@ -1389,6 +1394,7 @@
       slider.addEventListener('input', () => {
         const field = slider.dataset.adjust;
         S[field] = parseInt(slider.value);
+        S.hasUnsaved = true;
         const valEl = root.querySelector(`[data-adjust-val="${field}"]`);
         if (valEl) valEl.textContent = S[field];
         renderImage();
@@ -1657,6 +1663,10 @@
     S.currentPhotoIndex = idx;
     const photo = S.allPhotos[idx];
     const url = typeof photo === 'string' ? photo : (photo.url || '');
+    // Load this photo's own persisted adjustments (0 if none / a bare URL),
+    // so each photo shows its own — not the previously-viewed photo's.
+    S.brightness = Number(photo && photo.brightness) || 0;
+    S.contrast = Number(photo && photo.contrast) || 0;
     try {
       S.originalImage = await loadImage(url);
       S.imgW = S.originalImage.width;
@@ -1673,6 +1683,7 @@
       render();
       fitZoom();
       refreshAnnList();
+      syncAdjustUI();
       // Update strip active
       root?.querySelectorAll('.nbd-strip-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
     } catch (err) { toast('Failed to load photo', 'error'); }
@@ -1800,6 +1811,10 @@
       S.phase = photoData.phase || 'Before';
       S.notes = photoData.notes || '';
       S.tags = photoData.tags || [];
+      // Re-apply persisted non-destructive adjustments. Set before
+      // buildEditor()/renderImage() so the sliders + first paint reflect them.
+      S.brightness = Number(photoData.brightness) || 0;
+      S.contrast = Number(photoData.contrast) || 0;
     } else {
       S.damageType = ''; S.severity = ''; S.location = ''; S.phase = 'Before'; S.notes = ''; S.tags = [];
     }
@@ -1842,8 +1857,12 @@
             S.damageType = d.damageType || ''; S.severity = d.severity || '';
             S.location = d.location || ''; S.phase = d.phase || 'Before';
             S.notes = d.notes || ''; S.tags = d.tags || [];
-            // Refresh panel fields
+            S.brightness = Number(d.brightness) || 0;
+            S.contrast = Number(d.contrast) || 0;
+            // Refresh panel fields + sliders, then repaint with the
+            // loaded adjustments (this branch runs after the first render).
             refreshPanelFields();
+            renderImage(); render();
           }
         } catch (e) { console.warn('Could not load photo metadata:', e); }
       }
@@ -1865,7 +1884,21 @@
     root.querySelectorAll('.nbd-phase-tab').forEach(t => t.classList.toggle('active', t.dataset.phase === S.phase));
     const notesTA = root.querySelector('#nbd-notes');
     if (notesTA) notesTA.value = S.notes;
+    syncAdjustUI();
     refreshTags();
+  }
+
+  // Sync the brightness/contrast slider positions + value labels from S.
+  // Used after loading persisted adjustments (openEditor doc-fetch branch,
+  // switchPhoto) since the sliders are only seeded with S at build time.
+  function syncAdjustUI() {
+    if (!root) return;
+    ['brightness', 'contrast'].forEach(field => {
+      const sl = root.querySelector(`[data-adjust="${field}"]`);
+      if (sl) sl.value = S[field];
+      const v = root.querySelector(`[data-adjust-val="${field}"]`);
+      if (v) v.textContent = S[field];
+    });
   }
 
   /* ==========================================
