@@ -101,10 +101,30 @@ exports.calcomWebhook = onRequest(
       if (trigger === 'BOOKING_CREATED' || trigger === 'BOOKING_RESCHEDULED') {
         const startTime = payload.startTime ? new Date(payload.startTime) : null;
         const endTime   = payload.endTime   ? new Date(payload.endTime)   : null;
+        // M-1: link the booking to its CRM lead so it isn't an orphan — the
+        // rep's card / smart-calendar can resolve it authoritatively instead of
+        // fuzzy attendee-NAME matching (which breaks on nicknames/typos). Best-
+        // effort: match attendee email or last-10 phone within the rep's leads.
+        let leadId = null;
+        try {
+          const email = (attendee && attendee.email || '').toLowerCase().trim();
+          const phone = (attendee && attendee.phoneNumber || '').replace(/\D/g, '');
+          if (email || phone.length >= 10) {
+            const mine = await db.collection('leads').where('userId', '==', repUid).get();
+            const hit = mine.docs.find(d => {
+              const L = d.data() || {};
+              if (email && (L.email || '').toLowerCase().trim() === email) return true;
+              if (phone.length >= 10 && (L.phone || '').replace(/\D/g, '').endsWith(phone.slice(-10))) return true;
+              return false;
+            });
+            if (hit) leadId = hit.id;
+          }
+        } catch (e) { logger.warn('calcomWebhook: lead-link lookup failed', { err: e && e.message }); }
         await apptRef.set({
           bookingId,
           userId: repUid,                 // owner scope for Firestore rules
           repUid,
+          leadId,                         // M-1: CRM lead linkage (null if no confident match)
           calcomUsername: organizerUsername,
           attendeeName:   attendee && attendee.name,
           attendeeEmail:  attendee && attendee.email,

@@ -121,13 +121,6 @@ window.openDailyProgramFromMore = function openDailyProgramFromMore() {
   if (typeof closeMobileMore === 'function') closeMobileMore();
   window.location.href = '/pro/daily-success';
 };
-window.openCrewCalendarFromMore = function openCrewCalendarFromMore() {
-  if (typeof toggleCrewCalendar === 'function') {
-    toggleCrewCalendar();
-    if (typeof mobileNav === 'function') mobileNav('home');
-  }
-  if (typeof closeMobileMore === 'function') closeMobileMore();
-};
 
 // C.4 finale — mobile FAB create routing. Replaces the ternary
 // `window.toggleMobileCreatePopover ? toggleMobileCreatePopover() : openLeadModal()`.
