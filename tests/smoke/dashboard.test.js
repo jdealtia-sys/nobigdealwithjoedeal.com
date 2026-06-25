@@ -2222,4 +2222,28 @@ section('Hardening 2026-06-09 — settings-tab renderers (post-#597 live surface
     /function toggleHotkey\(on, id\)/.test(hotkeySrc));
 }
 
+section('Routing: no relative bare-.html nav on /pro pages (404 footgun)');
+{
+  // A /pro page is served at a canonical clean URL (/pro/customer), so a
+  // relative `href="dashboard.html"` or `location.href='dashboard.html'`
+  // resolves against the current path (+ a .html→clean redirect hop) and can
+  // 404 (the customer→dashboard 404, PR #771). All /pro inter-page nav must be
+  // absolute canonical (/pro/<page>). This guard keeps the class from recurring.
+  const PRO_DIR = path.join(ROOT, 'docs/pro');
+  // Matches href=/location nav whose target is a BARE word.html (relative).
+  // Absolute "/pro/foo.html" and "https://…" don't match (the char after the
+  // quote is "/" or the word is followed by ":", not ".html").
+  const RELN = /(?:href=|location(?:\.href)?\s*=\s*|location\.(?:assign|replace)\(\s*)["'][a-z0-9_-]+\.html/g;
+  const offenders = [];
+  for (const dir of [PRO_DIR, PRO_JS]) {
+    for (const f of fs.readdirSync(dir)) {
+      if (!/\.(html|js)$/.test(f)) continue;
+      const hits = read(path.join(dir, f)).match(RELN);
+      if (hits) offenders.push(f + ' (' + hits.slice(0, 2).join(', ') + ')');
+    }
+  }
+  assert('no relative bare-.html nav on /pro (use absolute /pro/<page>)',
+    offenders.length === 0, offenders.join(' | '));
+}
+
 };
