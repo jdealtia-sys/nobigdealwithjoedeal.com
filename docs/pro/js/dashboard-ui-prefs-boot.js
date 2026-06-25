@@ -167,6 +167,12 @@ function nbdApplyLegacyFont(fontId) {
   }
   document.documentElement.style.setProperty('--nbd-font-body', font.body);
   document.documentElement.style.setProperty('--nbd-font-heading', font.heading);
+  // --nbd-font-display is the heading var nbd-brand.css's base headings actually
+  // read, so set it too — that's what makes a font choice flow to headings (not
+  // just body). The 'barlow' default's heading IS 'Barlow Condensed', so picking
+  // the default restores the brand. (Hardcoded brand-font chrome + all document/
+  // PDF/portal generators stay brand-locked by design — they don't read this var.)
+  document.documentElement.style.setProperty('--nbd-font-display', font.heading);
   document.body.style.fontFamily = font.body;
   localStorage.setItem('nbd_font', fontId);
   // Highlight active font card

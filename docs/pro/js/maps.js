@@ -244,15 +244,14 @@ function _nbdUpdateLabels(t) {
   if (badge) badge.textContent = t.name.toUpperCase();
   const nl = document.getElementById('npm-active-name');
   if (nl) nl.textContent = t.name;
+  // Fonts moved to Settings → Appearance, so the picker sub-label now just
+  // tracks the active theme (no font name).
   const ns = document.getElementById('npm-active-sub');
-  if (ns) {
-    const f = NBD_FONTS.find(f => f.id === _nbd_activeFont);
-    ns.textContent = t.name + ' · ' + (f ? f.name : 'Default') + ' font';
-  }
+  if (ns) ns.textContent = t.name;
 }
 
 /* ── PICKER MODAL ─────────────────────────────────────────────────── */
-function nbdPickerOpen()  { document.getElementById('nbd-picker-modal').classList.add('open'); _nbdSyncActiveLabels(); nbdRenderCats(); nbdRenderThemes(); nbdRenderFonts(); }
+function nbdPickerOpen()  { document.getElementById('nbd-picker-modal').classList.add('open'); _nbdSyncActiveLabels(); nbdRenderCats(); nbdRenderThemes(); }
 // Re-sync the header sub-label + footer "Active:" label to the LIVE applied
 // theme. On the dashboard (window.ThemeEngine) the saved theme is applied
 // by ThemeEngine.init()/theme-init.js, NOT via nbdApplyTheme, so _nbdUpdateLabels
