@@ -990,7 +990,9 @@
   DG.renderFinancingOptions = function(data) {
     const d = Object.assign({ homeownerName:'', totalPrice:10000 }, data);
     const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
-    const price = parseFloat(d.totalPrice) || 10000;
+    // totalPrice arrives $-formatted from the preflight bridge (jobTotal→totalPrice),
+    // so strip non-numerics before parsing or it would NaN→fabricate the $10k default.
+    const price = parseFloat(String(d.totalPrice).replace(/[^0-9.]/g, '')) || 10000;
     const financePartner = cp.financePartner || 'Improvifi';
     const tierDefaults = [
       { months:12, apr:0,    label:'12 Months', badge:'0% Intro APR', color:'#16a34a' },

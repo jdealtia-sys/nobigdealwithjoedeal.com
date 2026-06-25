@@ -2072,6 +2072,30 @@
       data.date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     }
 
+    // ─── DocPreflight → renderer key bridges (contract audit 2026-06-25) ───
+    // The preflight modal and several renderers grew divergent key vocabularies;
+    // the only prior bridge was the name/address/totalPrice aliases below. Bridge
+    // the rest here so rep-entered values actually reach the rendered document.
+    // ADDITIVE ONLY — never clobber a value the doc already supplies, so a key
+    // shared across doc types can't cross-contaminate (each fires only when its
+    // source key is present, which is doc-type-specific). NUMERIC targets are
+    // aliased HERE, before totalPrice is formatted to a "$..." string below,
+    // because their renderers parseFloat() the raw value.
+    if (data.totalAmount == null && data.totalPrice) data.totalAmount = data.totalPrice;            // payment_agreement reads d.totalAmount
+    if (data.depositAmount == null && data.payment1Amount) data.depositAmount = data.payment1Amount; // payment_agreement
+    if (data.progressAmount == null && data.payment2Amount) data.progressAmount = data.payment2Amount; // payment_agreement
+    if (data.depositDue == null && data.payment1Date) data.depositDue = data.payment1Date;          // payment_agreement
+    if (data.progressDue == null && data.payment2Date) data.progressDue = data.payment2Date;        // payment_agreement
+    if (data.totalPrice == null && data.jobTotal) data.totalPrice = data.jobTotal;                  // financing_options reads d.totalPrice
+    // Pure key renames (string/date display — no formatting dependency):
+    if (data.projectDescription == null && data.projectScope) data.projectDescription = data.projectScope;             // scope_of_work
+    if (data.workDescription == null && data.projectDescription) data.workDescription = data.projectDescription;        // before_after_report
+    if (data.estimatedTimeline == null && data.timeline) data.estimatedTimeline = data.timeline;                       // scope_of_work
+    if (data.changesDescription == null && data.changeDescription) data.changesDescription = data.changeDescription;    // change_order
+    if (data.insuranceCompany == null && data.insCarrier) data.insuranceCompany = data.insCarrier;                     // supplement_request
+    if (data.issueDate == null && data.installDate) data.issueDate = data.installDate;                                 // warranty_certificate
+    if (data.scopeSummary == null && data.scopeCompleted) data.scopeSummary = data.scopeCompleted;                     // certificate_of_completion
+
     // Currency display version of totalPrice when supplied as number
     if (data.totalPrice !== undefined && data.totalPrice !== null && data.totalPrice !== '') {
       var tp = parseFloat(data.totalPrice);
@@ -2087,6 +2111,10 @@
         data.estimatedRepairCost = '$' + rc.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       }
     }
+    // inspectionInsurance renders {{totalPrice}}, but the modal collects the
+    // figure as estimatedRepairCost — bridge it AFTER both are $-formatted so
+    // the certificate shows the rep's repair cost instead of the $0.00 default.
+    if (data.totalPrice == null && data.estimatedRepairCost) data.totalPrice = data.estimatedRepairCost;
 
     // Line items: templates expect qty/unitPrice/total on each row
     if (Array.isArray(data.lineItems)) {
@@ -2123,7 +2151,8 @@
     // Internal helpers exposed for debugging / testing only:
     _state: state,
     _resolveFieldValue: resolveFieldValue,
-    _applyDocEdits: applyDocEdits
+    _applyDocEdits: applyDocEdits,
+    _hydrateDerivedFields: hydrateDerivedFields
   };
 
 })();
