@@ -27,17 +27,42 @@
 
 'use strict';
 
-// The four high-intent public kinds that become CRM pipeline leads — the
-// same set lead-alert.js already treats as alert-worthy leads. `guide`
-// (download) and `storm` (subscriber) are list-builders, not pipeline
-// leads, so they are intentionally NOT bridged. label matches lead-alert's
-// KIND_LABEL so the CRM `source` reads the same as the alert subject.
+// Public kinds that become CRM pipeline leads. contact / estimate / inspect /
+// free_roof bridge UNCONDITIONALLY. storm bridges CONDITIONALLY — only the
+// high-intent concerns (see shouldBridgeStorm); the bulk of storm signups are
+// a marketing LIST, not pipeline leads. `guide` (download) is a list-builder,
+// never bridged. label matches lead-alert's KIND_LABEL so the CRM `source`
+// reads the same as the alert subject.
 const BRIDGE_KINDS = {
-  contact_leads:     { kind: 'contact',   label: 'Contact form' },
-  estimate_leads:    { kind: 'estimate',  label: 'Instant Estimate' },
-  inspect_leads:     { kind: 'inspect',   label: 'Inspection / Storm tool' },
-  free_roof_entries: { kind: 'free_roof', label: 'Free Roof entry' },
+  contact_leads:           { kind: 'contact',   label: 'Contact form' },
+  estimate_leads:          { kind: 'estimate',  label: 'Instant Estimate' },
+  inspect_leads:           { kind: 'inspect',   label: 'Inspection / Storm tool' },
+  free_roof_entries:       { kind: 'free_roof', label: 'Free Roof entry' },
+  storm_alert_subscribers: { kind: 'storm',     label: 'Storm Alert' },
 };
+
+// Storm-form "What are you most concerned about?" values. 'hail' is the form's
+// PRE-SELECTED default (passive newsletter intent), so it is NOT a deliberate
+// signal. The other three are an explicit pick = a homeowner reporting real
+// damage = a hot lead worth both an alert (lead-alert.js) AND a CRM pipeline
+// card (the storm bridge). Single source of truth so alert + bridge can't drift.
+const HIGH_INTENT_STORM_CONCERNS = ['insurance', 'wind', 'general'];
+
+// Human labels for the concern field (mirrors lead-alert.js CONCERN_LABEL) so
+// the bridged pipeline card's note reads in plain English.
+const STORM_CONCERN_LABEL = {
+  hail:      'Hail damage to roof',
+  wind:      'Wind damage',
+  general:   'General severe weather',
+  insurance: 'Already has damage — waiting on insurance',
+};
+
+// Should this storm_alert_subscribers doc become a CRM lead? Only when the
+// homeowner deliberately flagged real damage (not the hail default).
+function shouldBridgeStorm(data) {
+  const concern = String((data || {}).concern || '').toLowerCase();
+  return HIGH_INTENT_STORM_CONCERNS.indexOf(concern) !== -1;
+}
 
 // Firebase Auth uids are 28-char alphanumeric strings. A tenant whose
 // companyId looks like a uid is a solo operator (companyId == uid), so the
@@ -125,6 +150,12 @@ function mapPublicLeadToLead(args) {
       (data.nominatorRelation ? ' (' + data.nominatorRelation + ')' : ''));
   }
   if (collection === 'free_roof_entries') notesParts.push('"One Free Roof" giveaway entry');
+  // Storm: surface the homeowner's damage concern so the rep sees WHY this
+  // signup became a hot lead (only high-intent concerns reach the bridge).
+  if (collection === 'storm_alert_subscribers') {
+    const c = String(data.concern || '').toLowerCase();
+    notesParts.push('Storm Alert signup — concern: ' + (STORM_CONCERN_LABEL[c] || c || 'unspecified'));
+  }
   if (data.photoCount) notesParts.push('Homeowner has ' + data.photoCount + ' photo(s) to share');
   // Estimator context — so the pipeline card shows what the homeowner
   // actually asked for, not just a name and address. Fields are present
@@ -167,6 +198,9 @@ function mapPublicLeadToLead(args) {
 module.exports = {
   BRIDGE_KINDS,
   ESTIMATE_EVENT_TYPES,
+  HIGH_INTENT_STORM_CONCERNS,
+  STORM_CONCERN_LABEL,
+  shouldBridgeStorm,
   isFollowUpEvent,
   looksLikeUid,
   resolveBridgeTarget,

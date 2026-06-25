@@ -118,6 +118,24 @@ function onLeadCreated(collection) {
   };
 }
 
+// Storm bridge — CONDITIONAL. Most storm signups are a marketing list (the
+// 'hail' default), so we only mirror the deliberate high-intent concerns
+// (insurance / wind / general) into the pipeline. Mirrors onStormAlert's gate
+// in lead-alert.js via the same shared HIGH_INTENT_STORM_CONCERNS set, so the
+// lead that pages Joe is the same lead that lands in his pipeline.
+function onStormBridge() {
+  return async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const data = snap.data() || {};
+    if (!L.shouldBridgeStorm(data)) {
+      logger.info('leadBridge: storm signup is list-only (no high-intent concern) — not bridging', { concern: data.concern });
+      return;
+    }
+    await bridgeToCrm('storm_alert_subscribers', data, event.params && event.params.leadId);
+  };
+}
+
 // IMPORTANT: each export assigns onDocumentCreated(...) DIRECTLY (not via a
 // makeTrigger() wrapper). The CI auto-deploy builds its --only allowlist by
 // grepping `^exports.<name> = (onRequest|onCall|onDocumentCreated|...)` in
@@ -130,6 +148,7 @@ exports.leadBridgeContact  = onDocumentCreated({ ...TRIGGER_OPTS, document: 'con
 exports.leadBridgeEstimate = onDocumentCreated({ ...TRIGGER_OPTS, document: 'estimate_leads/{leadId}' },    onLeadCreated('estimate_leads'));
 exports.leadBridgeInspect  = onDocumentCreated({ ...TRIGGER_OPTS, document: 'inspect_leads/{leadId}' },      onLeadCreated('inspect_leads'));
 exports.leadBridgeFreeRoof = onDocumentCreated({ ...TRIGGER_OPTS, document: 'free_roof_entries/{leadId}' }, onLeadCreated('free_roof_entries'));
+exports.leadBridgeStorm    = onDocumentCreated({ ...TRIGGER_OPTS, document: 'storm_alert_subscribers/{leadId}' }, onStormBridge());
 
 // Exposed for tests / wiring sanity.
 exports._bridgeCollections = BRIDGE_COLLECTIONS;
