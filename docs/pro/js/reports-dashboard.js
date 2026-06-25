@@ -99,8 +99,15 @@
 
     const revenue = signedInWindow.reduce((sum, e) => sum + (Number(e.grandTotal || e.total) || 0), 0);
     const avgTicket = signedInWindow.length ? revenue / signedInWindow.length : 0;
+    // Close rate must be a SUBSET of its denominator or it can exceed 100%:
+    // signedInWindow filters on signedAt while estsInWindow filters on sentAt,
+    // so an estimate sent before the period but signed inside it landed in the
+    // numerator without being in the denominator. Count only estimates that were
+    // BOTH sent and signed within the window. (signedInWindow stays as-is for the
+    // period revenue / avg-ticket figures above.)
+    const signedOfSent = estsInWindow.filter(e => e.signedAt && inWindow(_toMillis(e.signedAt)));
     const closeRate = estsInWindow.length
-      ? signedInWindow.length / estsInWindow.length
+      ? signedOfSent.length / estsInWindow.length
       : 0;
 
     // Conversion funnel — uses lead.stage progression for in-window leads
@@ -121,8 +128,10 @@
       if (!leadIds.has(e.leadId)) return;
       const sentMs = _toMillis(e.sentAt);
       if (sentMs && sentMs >= start && sentMs <= end) funnel.estimateSent++;
-      if (e.viewedAt && _toMillis(e.viewedAt) >= start) funnel.estimateViewed++;
-      if (e.signedAt && _toMillis(e.signedAt) >= start) funnel.signed++;
+      // Use inWindow (both bounds) not `>= start` — a bare lower bound let
+      // views/signings AFTER a custom range's end leak into the funnel.
+      if (e.viewedAt && inWindow(_toMillis(e.viewedAt))) funnel.estimateViewed++;
+      if (e.signedAt && inWindow(_toMillis(e.signedAt))) funnel.signed++;
     });
 
     return {

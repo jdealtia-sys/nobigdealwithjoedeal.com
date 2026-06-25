@@ -288,7 +288,10 @@
       if (!d || !inRange(d, rangeStart, rangeEnd)) return;
       const lead = leads.find(l => l.id === est.leadId);
       if (!lead || !isWon(lead)) return;
-      const estVal = Number(est.grandTotal) || 0;
+      // Fall back to .total for older estimates saved before grandTotal existed
+      // (matches reports-dashboard.js) — reading grandTotal alone reported $0 for
+      // them, silently shrinking the accuracy sample.
+      const estVal = Number(est.grandTotal || est.total) || 0;
       const actualVal = Number(lead.jobValue) || 0;
       if (estVal > 0 && actualVal > 0) {
         totalEstimated += estVal;

@@ -263,6 +263,11 @@
 
     await Promise.all(fetchers);
     _analyticsCache.loaded = true;
+    // Expose knocks globally: rep-report-generator.js + reports-dashboard.js read
+    // window._knocks for knock-based metrics (knocks-to-deal, time-of-day heatmap,
+    // revenue-per-knock, top-cities). It was NEVER assigned anywhere, so every
+    // knock metric silently rendered zero/empty — the data lives only here.
+    window._knocks = _analyticsCache.knocks;
     return _analyticsCache;
   }
 
