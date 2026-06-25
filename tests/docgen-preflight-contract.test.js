@@ -102,13 +102,33 @@ function renderViaPreflight(method, preflightData) {
   ok('change_order: rep change description reaches doc (changeDescription→changesDescription)', html.indexOf(SENT) !== -1);
 }
 
-// ── supplement_request: modal insCarrier bridges to renderer insuranceCompany ──
+// ── supplement_request: modal insCarrier bridges to renderer insuranceCompany;
+//    supplementItems arrive as {description,rate} (estimate shape, not normalized)
+//    and must not render blank rows / $0 prices ──
 {
-  const html = renderViaPreflight('renderSupplementRequest', { insCarrier: 'Acme Mutual Insurance', claimNumber: 'CLM-77' });
+  const html = renderViaPreflight('renderSupplementRequest', {
+    insCarrier: 'Acme Mutual Insurance', claimNumber: 'CLM-77',
+    supplementItems: [{ description: 'Ridge cap replacement', qty: 120, unit: 'LF', rate: 5.5 }],
+  });
   console.log('PREFLIGHT CONTRACT — supplement_request');
   ok('supplement: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
   ok('supplement: rep carrier reaches doc (insCarrier→insuranceCompany)', /Acme Mutual Insurance/.test(html));
   ok('supplement: "[Insurance Company]" placeholder is GONE', !/\[Insurance Company\]/.test(html));
+  ok('supplement: line-item description reaches doc (i.description shape)', /Ridge cap replacement/.test(html));
+  ok('supplement: line-item price reaches doc, not $0 (i.rate shape)', /5\.50/.test(html) && /660\.00/.test(html));
+}
+
+// ── invoice: lineItems are normalized to {description,unitPrice}; the renderer
+//    historically read i.rate and priced every row at $0 ──
+{
+  const html = renderViaPreflight('renderInvoice', {
+    lineItems: [{ description: 'Tear off and replace shingles', qty: 30, unit: 'SQ', rate: 50 }],
+  });
+  console.log('PREFLIGHT CONTRACT — invoice');
+  ok('invoice: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
+  ok('invoice: line-item description reaches doc', /Tear off and replace shingles/.test(html));
+  ok('invoice: line-item unit price reaches doc (normalized unitPrice, not $0)', /50\.00/.test(html));
+  ok('invoice: line amount + subtotal total correctly (30 x 50 = 1,500)', /1,500/.test(html));
 }
 
 // ── warranty_certificate: modal installDate bridges to renderer issueDate ──
