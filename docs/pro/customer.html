@@ -1001,7 +1001,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   <button id="presentationModeBtn" class="back-btn" data-action="togglePresentationMode" title="Switch to light brand view for in-person walkthroughs" aria-pressed="false" style="margin-right:8px;">
     🎤 Presentation
   </button>
-  <a href="dashboard.html" class="back-btn">
+  <a href="/pro/dashboard" class="back-btn">
     ← Back to Dashboard
   </a>
 </header>
@@ -3038,7 +3038,7 @@ function showSlowLoadHint() {
   const retry = document.getElementById('slow-load-retry');
   if (retry) retry.addEventListener('click', () => window.location.reload(), { once: true });
   const back = document.getElementById('slow-load-back');
-  if (back) back.addEventListener('click', () => { window.location.href = '/pro/dashboard.html'; }, { once: true });
+  if (back) back.addEventListener('click', () => { window.location.href = '/pro/dashboard'; }, { once: true });
 }
 function hideSlowLoadHint() {
   const el = document.getElementById('slow-load-hint');
@@ -4639,7 +4639,7 @@ function showError(title, message) {
       <div style="font-size:64px; margin-bottom:20px;">⚠️</div>
       <div style="font-size:24px; font-weight:700; margin-bottom:12px;">${esc(title)}</div>
       <div style="color:var(--m); margin-bottom:24px;">${esc(message)}</div>
-      <a href="dashboard.html" class="btn btn-orange">← Back to Dashboard</a>
+      <a href="/pro/dashboard" class="btn btn-orange">← Back to Dashboard</a>
     </div>
   `;
 }
@@ -5213,7 +5213,7 @@ window.viewEstimate = function(estimateId) {
   // Wire up action buttons
   document.getElementById('editEstimateBtn').onclick = () => {
     // Navigate to dashboard estimate builder with this lead pre-loaded
-    window.location.href = `/pro/dashboard.html?edit=${window._customerId}&est=${estimateId}`;
+    window.location.href = `/pro/dashboard?edit=${window._customerId}&est=${estimateId}`;
   };
   
   document.getElementById('deleteEstimateBtn').onclick = async () => {
@@ -7541,7 +7541,7 @@ function _triggerFileInput() {
 }
 function _openInDashboardEstimate() {
   if (window._customerId) {
-    window.location.href = '/pro/dashboard.html?lead=' + window._customerId;
+    window.location.href = '/pro/dashboard?lead=' + window._customerId;
   }
 }
 function _openPhotoInEditorAndClose(idx) {
