@@ -79,6 +79,19 @@ section('H-6: Stripe webhook raw body + replay');
      /constructEvent\(req\.rawBody,\s*sig,\s*webhookSecret,\s*300\)/.test(src)));
   assert('invoiceWebhook passes explicit 300s tolerance',
     /constructEvent\(\s*req\.rawBody,\s*signature,\s*STRIPE_WEBHOOK_SECRET\.value\(\),\s*300\s*\)/.test(src));
+
+  // Shared Stripe client: one trimmed, retrying instance for all handlers.
+  // A trailing newline in the stored secret key caused ERR_INVALID_CHAR →
+  // opaque "connection to Stripe" 500s; getStripe() .trim()s it once.
+  assert('stripe.js exposes a shared getStripe() helper',
+    /function getStripe\(\)/.test(src));
+  assert('getStripe trims the secret key (kills the tainted-newline 500)',
+    /getStripe[\s\S]{0,200}STRIPE_SECRET_KEY\.value\(\)[\s\S]{0,80}\.trim\(\)/.test(src));
+  assert('getStripe sets maxNetworkRetries + timeout',
+    /getStripe[\s\S]{0,300}maxNetworkRetries[\s\S]{0,80}timeout/.test(src));
+  assert('no per-handler raw new Stripe(SECRET.value()) — all go through getStripe()',
+    !/new Stripe\(STRIPE_SECRET_KEY\.value\(\)/.test(src) &&
+    (src.match(/= getStripe\(\);/g) || []).length >= 5);
 }
 
 // ────────────────────────────────────────────────────────────
