@@ -39,7 +39,7 @@
   // ─── State ───────────────────────────────────────────────
   let currentOverlay = null;
   let currentContext = null;
-  let dirty = true;   // true if the user hasn't saved yet — triggers close warning
+  let dirty = false;  // set per-open: true only when the doc has a save/sign path
   let escHandler = null;
   // Set when finalizeSignaturesIfPresent() is awaiting a reply from
   // the widget inside the iframe. The window-level message listener
@@ -706,7 +706,13 @@
     // Toggle the remote-signature button per doc (signable docs only).
     const _signBtnEl = document.getElementById('nbdv-sign-btn');
     if (_signBtnEl) _signBtnEl.style.display = (typeof currentContext.onSendForSignature === 'function') ? '' : 'none';
-    dirty = true;
+    // Only guard against losing work when the doc actually has a save or
+    // signature path. A read-only server-PDF preview has nothing to lose, so it
+    // should close without a spurious "Close without saving?" prompt.
+    dirty = (typeof currentContext.onSave === 'function'
+      || typeof currentContext.onSendForSignature === 'function'
+      || typeof currentContext.onPersistFinalized === 'function'
+      || (typeof currentContext.html === 'string' && currentContext.html.indexOf('data-nbd-sig=') !== -1));
     ensureMessageListener();
 
     // Escape title + filename before display
@@ -738,12 +744,28 @@
             } catch (_) { /* cross-origin / not ready — non-fatal */ }
           }, { once: true });
         }
+      } else if (opts.url) {
+        // url-only caller (server-rendered PDF, no same-origin HTML — e.g.
+        // inspection report, photo report, warranty cert). A cross-origin PDF
+        // set as iframe.src is BLOCKED by Chrome/Brave and FROZE the renderer
+        // (#594). So render an honest same-origin placeholder and let the user
+        // open the PDF as a top-level navigation (never blocked) — via the
+        // button here or the toolbar Download (both go through pdfUrl).
+        iframe.removeAttribute('src');
+        const _u = esc(opts.url);
+        iframe.srcdoc = `<!doctype html><meta charset="utf-8"><body style="margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f5f7;color:#1f2937;text-align:center;">
+          <div style="max-width:440px;padding:32px;">
+            <div style="font-size:48px;margin-bottom:12px;">📄</div>
+            <h2 style="margin:0 0 8px;font-size:18px;">Your PDF is ready</h2>
+            <p style="margin:0 0 20px;font-size:14px;line-height:1.55;color:#4b5563;">This document was generated as a high-fidelity PDF. Inline preview isn't available for server PDFs — open it in a new tab to view, print, or save.</p>
+            <a href="${_u}" target="_blank" rel="noopener" style="display:inline-block;background:#1e3a6e;color:#fff;text-decoration:none;font-weight:600;padding:12px 24px;border-radius:8px;font-size:14px;">Open PDF in new tab &#8599;</a>
+            <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">You can also use Download in the toolbar above.</p>
+          </div>
+        </body>`;
       } else {
-        // No HTML available (legacy url-only caller) — last-resort embed of
-        // the url. May be blocked when cross-origin, but it is the only
-        // content we have to show.
+        // Nothing to show (neither html nor url).
         iframe.removeAttribute('srcdoc');
-        iframe.src = opts.url;
+        iframe.removeAttribute('src');
       }
     }
 
