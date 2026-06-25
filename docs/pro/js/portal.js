@@ -636,7 +636,7 @@
             '<div style="font-size:13px;color:var(--text);">' + esc(w.work) + '</div>' +
           '</div>' : '') +
 
-          '<a href="sms:?&body=' + claimBody + '" style="display:block;text-align:center;padding:12px;background:var(--accent,#c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">🛟 Start a warranty claim</a>' +
+          '<a href="sms:' + ((view.rep && view.rep.phone) ? view.rep.phone.replace(/\D/g, '') : '') + '?&body=' + claimBody + '" style="display:block;text-align:center;padding:12px;background:var(--accent,#c8541a);color:#fff;border-radius:8px;text-decoration:none;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">🛟 Start a warranty claim</a>' +
 
           '<p style="font-size:11px;color:var(--muted);margin:12px 0 0;line-height:1.5;text-align:center;">Save this page or screenshot it — your permanent warranty reference.</p>' +
         '</div>'
