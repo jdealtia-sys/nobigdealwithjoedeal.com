@@ -800,6 +800,30 @@
     }
   };
 
+  // window._knocks is published by the Analytics (Board) view's fetch — so a
+  // rep who opens Reports WITHOUT visiting Board first would otherwise get an
+  // empty array and see every knock metric (knocks-to-deal, heatmap,
+  // revenue-per-knock, top-cities) silently render zero. Load the rep's knocks
+  // on demand here (owner-scoped, unbounded — a single-field where needs no
+  // composite index) the first time, and only when not already cached.
+  async function ensureKnocks() {
+    if (Array.isArray(window._knocks)) return; // already loaded (even if empty)
+    const db = window._db || window.db;
+    const uid = window._user && window._user.uid;
+    if (!db || !uid || !window.collection || !window.query || !window.where || !window.getDocs) {
+      window._knocks = Array.isArray(window._knocks) ? window._knocks : [];
+      return;
+    }
+    try {
+      const snap = await window.getDocs(
+        window.query(window.collection(db, 'knocks'), window.where('userId', '==', uid))
+      );
+      window._knocks = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+    } catch (e) {
+      window._knocks = Array.isArray(window._knocks) ? window._knocks : [];
+    }
+  }
+
   // ─── Generate + open report ──────────────────────────────
   async function generate(template, opts) {
     opts = opts || {};
@@ -811,6 +835,7 @@
       return;
     }
 
+    await ensureKnocks();
     const leads = window._leads || [];
     const knocks = window._knocks || [];
     const estimates = window._estimates || [];
