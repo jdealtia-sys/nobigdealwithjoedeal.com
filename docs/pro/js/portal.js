@@ -145,6 +145,19 @@
     if (nEstId && pEstId !== nEstId) {
       events.push({ kind: 'estimate', msg: `📋 New estimate ready to review` });
     }
+    // Signature flip — the single highest-value moment. Without this branch,
+    // _diffView returns null on a sign completion, _pollOnce skips renderView
+    // (yet still advances _lastView), so the "Review & sign" card stays stale
+    // forever even though the signature persisted server-side. Repaint on any
+    // signatureStatus change or when the signed-document URL appears.
+    const pSig = (prev.estimate && prev.estimate.signatureStatus) || '';
+    const nSig = (next.estimate && next.estimate.signatureStatus) || '';
+    const pSignedUrl = (prev.estimate && prev.estimate.signedDocumentUrl) || '';
+    const nSignedUrl = (next.estimate && next.estimate.signedDocumentUrl) || '';
+    if (nSig !== pSig || (nSignedUrl && nSignedUrl !== pSignedUrl)) {
+      const done = !!nSignedUrl || /sign|complete|done/i.test(nSig);
+      events.push({ kind: 'signed', msg: done ? `✅ Your contract is signed — thank you!` : `✍️ Signature status updated` });
+    }
     return events.length ? events : null;
   }
 

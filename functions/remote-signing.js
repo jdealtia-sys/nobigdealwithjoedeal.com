@@ -179,7 +179,7 @@ exports.getSignDocument = onRequest(
     if (!(await httpRateLimit(req, res, 'docsign-get:ip', 30, 60_000))) return;
 
     const token = (req.body && req.body.token) || '';
-    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
       res.status(400).json({ error: 'Invalid link' }); return;
     }
 
@@ -236,7 +236,7 @@ exports.submitSignature = onRequest(
     if (!(await httpRateLimit(req, res, 'docsign-submit:ip', 20, 60_000))) return;
 
     const { token, signedHtml } = req.body || {};
-    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
       res.status(400).json({ error: 'Invalid link' }); return;
     }
     if (typeof signedHtml !== 'string' || signedHtml.length < 50) {
