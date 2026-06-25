@@ -1818,6 +1818,11 @@
       initCanvases();
       renderImage();
       wireEvents();
+      // Wire the ✕ buttons on any PRE-LOADED tags too: wireEvents() doesn't bind
+      // them and refreshTags() otherwise only runs on add/remove/Firestore-load,
+      // so tags passed in via photoData couldn't be removed until a new tag was
+      // added. refreshTags() re-renders the same chips + binds their handlers.
+      refreshTags();
       render();
 
       // Fit after layout settles — double rAF ensures DOM has painted

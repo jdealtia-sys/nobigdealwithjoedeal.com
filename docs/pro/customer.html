@@ -6779,9 +6779,22 @@ window.loadReports = async function(leadId) {
     reportListEl.querySelectorAll('.nbd-report-view').forEach(btn => {
       btn.addEventListener('click', () => {
         const r = reportDocs[Number(btn.dataset.reportIdx)];
-        const url = r && r.htmlUrl;
-        if (/^https?:/i.test(String(url || ''))) {
-          window.open(url, '_blank', 'noopener,noreferrer');
+        // Saved reports store their HTML INLINE on the doc (saveReport writes
+        // `html`), not a hosted `htmlUrl` — so this button used to silently
+        // no-op. Open a hosted URL if one is ever present, else open the inline
+        // HTML in a same-origin blob tab.
+        const hostedUrl = r && r.htmlUrl;
+        if (/^https?:/i.test(String(hostedUrl || ''))) {
+          window.open(hostedUrl, '_blank', 'noopener,noreferrer');
+          return;
+        }
+        const html = r && r.html;
+        if (html && typeof html === 'string') {
+          const blobUrl = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+          window.open(blobUrl, '_blank', 'noopener,noreferrer');
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        } else if (typeof showToast === 'function') {
+          showToast('This report has no viewable content', 'error');
         }
       });
     });
