@@ -7,10 +7,10 @@ name: Firebase deploy
 # without generating failure emails before go-live.
 #
 # Deploy order (when the secret IS set):
-#   1. Firestore rules (pro project)
-#   2. Storage rules
-#   3. Cloud Functions
-#   4. Hosting
+#   1. Hosting (FIRST — so a rules/functions auth-flake never starves content)
+#   2. Firestore rules + indexes (pro project)
+#   3. Storage rules
+#   4. Cloud Functions
 #
 # ─────────────────────────────────────────────────────────────
 # REQUIRED GITHUB ACTIONS SECRET (one-time setup to enable deploys)
