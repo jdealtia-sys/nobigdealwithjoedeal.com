@@ -218,7 +218,8 @@
         showToast('Creating share link…', 'info');
         const fn = window._httpsCallable(window._functions, 'createReportShareToken');
         const res = await fn({ reportId });
-        const url = res && res.data && res.data.shareUrl;
+        const data = (res && res.data) || {};
+        const url = data.shareUrl;
         if (!url) { showToast('Could not create share link', 'error'); return; }
         let copied = false;
         try {
@@ -227,11 +228,17 @@
             copied = true;
           }
         } catch (_) { /* clipboard blocked — fall back to prompt */ }
-        showToast(copied ? '✓ Share link copied to clipboard' : 'Share link ready', 'success');
+        // The function auto-emails the homeowner when an email is on file; tell
+        // the rep what happened so they know whether to send it manually.
+        if (data.emailed && data.sentTo) {
+          showToast('✓ Report emailed to ' + data.sentTo + (copied ? ' · link copied' : ''), 'success');
+        } else {
+          showToast(copied ? '✓ Share link copied (no email on file — send it manually)' : 'Share link ready', 'success');
+        }
         // Always surface the URL so the rep can copy/send it even if the
         // clipboard write was blocked (non-secure context / permissions).
         if (typeof window.prompt === 'function') {
-          window.prompt('Send this report link to the homeowner (expires in 30 days):', url);
+          window.prompt('Report link for the homeowner (expires in 30 days):', url);
         }
       } catch (err) {
         console.error('Error sharing report:', err);

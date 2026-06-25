@@ -32,8 +32,12 @@
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
 const { FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestore');
+const { defineSecret } = require('firebase-functions/params');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 const { callableRateLimit } = require('./shared');
+
+const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
+const EMAIL_FROM = defineSecret('EMAIL_FROM');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -41,6 +45,7 @@ const CORS_ORIGINS = [
   'https://nbd-pro.web.app',
 ];
 const REPORT_URL_BASE = 'https://nobigdealwithjoedeal.com/report/';
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 // 32-char no-confusable alphabet (no 0/O, 1/I/L) — same as deal-acceptance.js / portal.js.
 const TOKEN_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -66,6 +71,7 @@ exports.createReportShareToken = onCall(
     enforceAppCheck: true,
     timeoutSeconds: 20,
     memory: '256MiB',
+    secrets: [RESEND_API_KEY, EMAIL_FROM],
   },
   async (request) => {
     const uid = request.auth && request.auth.uid;
@@ -108,8 +114,53 @@ exports.createReportShareToken = onCall(
       expiresAt,
     });
 
-    logger.info('[createReportShareToken] minted', { reportId });
-    return { token, shareUrl: REPORT_URL_BASE + token, expiresAt: expiresAt.toMillis() };
+    const shareUrl = REPORT_URL_BASE + token;
+
+    // Optionally email the homeowner the link. The rep may pass an explicit
+    // `email`; otherwise resolve the lead's email from the report's leadId.
+    // Best-effort — the token is already minted, so a mail failure surfaces to
+    // the rep (emailed:false) without losing the link.
+    let toEmail = (typeof d.email === 'string' && EMAIL_RE.test(d.email.trim())) ? d.email.trim() : '';
+    let firstName = '';
+    if (!toEmail && report.leadId) {
+      try {
+        const leadSnap = await db.doc(`leads/${report.leadId}`).get();
+        if (leadSnap.exists) {
+          const lead = leadSnap.data();
+          firstName = String(lead.firstName || '').slice(0, 80);
+          if (typeof lead.email === 'string' && EMAIL_RE.test(lead.email.trim())) toEmail = lead.email.trim();
+        }
+      } catch (e) { logger.warn('[createReportShareToken] lead email lookup failed', { err: e.message }); }
+    }
+
+    let emailed = false;
+    if (toEmail) {
+      try {
+        const { Resend } = require('resend');
+        const resend = new Resend(RESEND_API_KEY.value());
+        const fromEmail = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
+        const reportName = escHtml(report.type || 'inspection report');
+        await resend.emails.send({
+          from: fromEmail,
+          to: toEmail,
+          subject: 'Your inspection report from No Big Deal Home Solutions',
+          html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a2e;">
+            <p>Hi ${escHtml(firstName || 'there')},</p>
+            <p>Your <strong>${reportName}</strong> is ready. Tap the button below to view it — no login needed.</p>
+            <p style="text-align:center;margin:28px 0;">
+              <a href="${escHtml(shareUrl)}" style="background:#e8720c;color:#fff;text-decoration:none;padding:13px 26px;border-radius:8px;font-weight:700;display:inline-block;">View Your Report</a>
+            </p>
+            <p style="font-size:12px;color:#666;">This secure link expires in 30 days. If you didn't expect this, you can ignore the email.</p>
+          </div>`,
+        });
+        emailed = true;
+      } catch (e) {
+        logger.warn('[createReportShareToken] email send failed', { reportId, err: e.message });
+      }
+    }
+
+    logger.info('[createReportShareToken] minted', { reportId, emailed });
+    return { token, shareUrl, expiresAt: expiresAt.toMillis(), emailed, sentTo: emailed ? toEmail : null };
   }
 );
 
