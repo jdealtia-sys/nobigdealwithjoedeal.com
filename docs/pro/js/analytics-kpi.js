@@ -509,7 +509,12 @@
   function renderDashboardHTML(el, m) {
     var stageEntries = Object.entries(m.stageMap).sort(function (a, b) { return b[1] - a[1]; });
     var sourceEntries = Object.entries(m.sourceMap).sort(function (a, b) { return b[1] - a[1]; });
-    var trendEntries = Object.entries(m.monthlyTrend);
+    // Sort by the "YYYY-MM" key (zero-padded, so lexicographic == chronological)
+    // rather than relying on object insertion order, so the trend chart is
+    // always oldest→newest left-to-right.
+    var trendEntries = Object.entries(m.monthlyTrend).sort(function (a, b) {
+      return a[0] < b[0] ? -1 : (a[0] > b[0] ? 1 : 0);
+    });
 
     var maxStage = stageEntries.length > 0 ? stageEntries[0][1] : 1;
     var maxSource = sourceEntries.length > 0 ? sourceEntries[0][1] : 1;
@@ -615,7 +620,7 @@
             '<div class="ak-sub">' + m.activeLeadCount + ' active leads</div>' +
           '</div>' +
           '<div class="ak-card orange">' +
-            '<div class="ak-lbl">Conversion Rate</div>' +
+            '<div class="ak-lbl">Conversion Rate <span style="opacity:.55;font-weight:normal;">(all-time)</span></div>' +
             '<div class="ak-val orange">' + m.conversionRate + '%</div>' +
             '<div class="ak-sub">' + m.wonCount + ' won / ' + (m.wonCount + m.lostCount) + ' decided</div>' +
           '</div>' +

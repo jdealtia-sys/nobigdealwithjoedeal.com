@@ -160,6 +160,11 @@
 
   // Time-of-day heatmap — 7-day × 24-hour grid of knock activity
   // Returns a 7×24 matrix suitable for ApexCharts heatmap series.
+  // NOTE: hours are bucketed in the REP'S LOCAL timezone — getDay()/getHours()
+  // below read the viewing browser's clock, not a fixed company TZ. A rep who
+  // travels across timezones (or whose device clock differs) will see slots
+  // relative to wherever they are. The "(local time)" label on the heatmap
+  // sections surfaces this to the reader.
   function computeTimeOfDayHeatmap(knocks, rangeStart, rangeEnd) {
     const grid = Array.from({ length: 7 }, () => Array(24).fill(0));
     const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -1332,7 +1337,7 @@ ${STATIC_CHART_CSS}
     <div class="section">
       <div class="section-label">When You Knock Best</div>
       <div class="section-title">Activity Heatmap</div>
-      <div class="section-desc">Hour × day grid showing your knocking pattern. Best slot: <strong>${esc(heatmap.bestSlot)}</strong></div>
+      <div class="section-desc">Hour × day grid showing your knocking pattern <span style="opacity:.7;">(local time)</span>. Best slot: <strong>${esc(heatmap.bestSlot)}</strong></div>
       <div class="chart-box" id="heatmap-chart">${(heatmap.series && heatmap.series.length) ? renderStaticHeatmap(heatmap.series) : '<div style="padding:40px;text-align:center;color:#999;">No activity data yet.</div>'}</div>
     </div>
 
@@ -1580,7 +1585,7 @@ ${STATIC_CHART_CSS}
     <div class="section">
       <div class="section-label">When You're Most Active</div>
       <div class="section-title">Activity Heatmap</div>
-      <div class="section-desc">Hour × day grid of your knocking pattern. Best slot: <strong>${esc(heatmap.bestSlot)}</strong></div>
+      <div class="section-desc">Hour × day grid of your knocking pattern <span style="opacity:.7;">(local time)</span>. Best slot: <strong>${esc(heatmap.bestSlot)}</strong></div>
       <div class="chart-box" id="territory-heatmap">${(heatmap.series && heatmap.series.length) ? renderStaticHeatmap(heatmap.series) : '<div style="padding:40px;text-align:center;color:#999;">No activity data yet.</div>'}</div>
     </div>
     ` + shell.footer;
