@@ -165,12 +165,39 @@ function renderViaPreflight(method, preflightData) {
   ok('before_after: rep description reaches doc (projectDescription→workDescription)', html.indexOf('SENTINELbadesc') !== -1);
 }
 
-// ── inspectionInsurance: modal estimatedRepairCost bridges to renderer {{totalPrice}} ──
+// ── inspectionInsurance: modal estimatedRepairCost bridges to renderer {{totalPrice}};
+//    damageNotes/scopeItems/photos now render; fabricated damage table is gone ──
 {
-  const html = renderViaPreflight('renderInspectionInsurance', { estimatedRepairCost: 44556, claimNumber: 'CLM-99' });
+  const html = renderViaPreflight('renderInspectionInsurance', {
+    estimatedRepairCost: 44556, claimNumber: 'CLM-99', damageType: 'Hail',
+    damageNotes: 'SENTINELdamagenotes', scopeItems: ['SENTINELscopeitem1', 'SENTINELscopeitem2'],
+  });
   console.log('PREFLIGHT CONTRACT — inspectionInsurance');
   ok('insIns: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
   ok('insIns: rep repair cost reaches doc (estimatedRepairCost→totalPrice)', /44,556/.test(html));
+  ok('insIns: rep damage notes reach doc (damageNotes wired)', html.indexOf('SENTINELdamagenotes') !== -1);
+  ok('insIns: rep scope items reach doc (scopeItems wired)', html.indexOf('SENTINELscopeitem1') !== -1 && html.indexOf('SENTINELscopeitem2') !== -1);
+  ok('insIns: fabricated "North Slope ~400 sq ft" damage table is GONE', !/North Slope/.test(html) && !/400 sq ft/.test(html));
+  ok('insIns: hardcoded 7-item restoration scope is GONE', !/Remove all damaged roofing materials/.test(html));
+}
+
+// ── inspectionHomeowner: rep condition notes / recommendations / property
+//    details render; fabricated $11,500 recs + [object Object] + uncollected
+//    siding/windows assessments are gone ──
+{
+  const html = renderViaPreflight('renderInspectionHomeowner', {
+    overallDescription: 'SENTINELoverall', roofCondition: 'SENTINELroofcond',
+    gutterCondition: 'SENTINELguttercond', recommendationsNote: 'SENTINELrecnote',
+    roofType: 'Architectural asphalt', roofAge: 12, squareFootage: 2400,
+  });
+  console.log('PREFLIGHT CONTRACT — inspectionHomeowner');
+  ok('insHome: renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
+  ok('insHome: rep overall + roof + gutter notes reach doc', html.indexOf('SENTINELoverall') !== -1 && html.indexOf('SENTINELroofcond') !== -1 && html.indexOf('SENTINELguttercond') !== -1);
+  ok('insHome: rep recommendations note reaches doc (not a fabricated table)', html.indexOf('SENTINELrecnote') !== -1);
+  ok('insHome: rep roof type / age / sqft reach doc', /Architectural asphalt/.test(html) && /12 years/.test(html) && /2400 sq ft/.test(html));
+  ok('insHome: fabricated $11,500 recommendation table is GONE', !/11,500/.test(html));
+  ok('insHome: no "[object Object]" condition rendering', !/\[object Object\]/.test(html));
+  ok('insHome: uncollected "Vinyl siding"/"Windows in good condition" assessments are GONE', !/Vinyl siding/.test(html) && !/Windows in good condition/.test(html));
 }
 
 console.log('\n──────────────────────');
