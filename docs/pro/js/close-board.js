@@ -104,6 +104,37 @@
     } catch (e) { console.error('Deal Firestore sync error:', e); }
   }
 
+  // Hydrate from Firestore so the board reflects SERVER state — most importantly
+  // a REMOTE homeowner acceptance (submitDealAcceptance flips deal_rooms/{id}.
+  // status → 'accepted'), and deals created/sent on another device. Without
+  // this the board read localStorage only, so a real remote close showed as
+  // still-open, Closed Value never moved, and the deal was invisible on any
+  // other device. Server is authoritative for the deal lifecycle; local-only
+  // drafts (never synced) are preserved. Re-renders when it returns.
+  async function hydrateFromFirestore() {
+    if (!window._db || !window._user) return;
+    try {
+      const { getDocs, query, collection, where } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const snap = await getDocs(query(
+        collection(window._db, DEAL_COLLECTION),
+        where('userId', '==', window._user.uid)
+      ));
+      if (snap.empty) return;
+      const byId = {};
+      dealRooms.forEach(d => { if (d && d.id) byId[d.id] = d; });
+      snap.forEach(docSnap => {
+        const remote = docSnap.data() || {};
+        const id = remote.id || docSnap.id;
+        // Server overrides any local copy (it has the latest status/acceptance);
+        // server-only deals get added.
+        byId[id] = Object.assign({}, byId[id] || {}, remote, { id });
+      });
+      dealRooms = Object.values(byId);
+      saveDealRooms();
+      render();
+    } catch (e) { console.error('Close Board hydrate error:', e); }
+  }
+
   // ============================================================================
   // DEAL ROOM CRUD
   // ============================================================================
@@ -658,7 +689,9 @@ async function submitDeal() {
     };
 
     const active = dealRooms.filter(d => d.status !== DEAL_STATUS.EXPIRED);
-    const signed = dealRooms.filter(d => d.status === DEAL_STATUS.SIGNED || d.status === DEAL_STATUS.SCHEDULED);
+    // A remote homeowner acceptance lands as status 'accepted' (deal-acceptance.js);
+    // count it as closed alongside signed/scheduled so Closed Value actually moves.
+    const signed = dealRooms.filter(d => d.status === DEAL_STATUS.ACCEPTED || d.status === DEAL_STATUS.SIGNED || d.status === DEAL_STATUS.SCHEDULED);
     const totalValue = signed.reduce((s, d) => s + (d.tiers[d.selectedTier || 'better']?.price || 0), 0);
 
     let html = `
@@ -848,7 +881,7 @@ async function submitDeal() {
     const total = dealRooms.length;
     const sent = dealRooms.filter(d => d.sentAt).length;
     const viewed = dealRooms.filter(d => d.viewCount > 0).length;
-    const signed = dealRooms.filter(d => d.status === DEAL_STATUS.SIGNED || d.status === DEAL_STATUS.SCHEDULED).length;
+    const signed = dealRooms.filter(d => d.status === DEAL_STATUS.ACCEPTED || d.status === DEAL_STATUS.SIGNED || d.status === DEAL_STATUS.SCHEDULED).length;
     const closeRate = sent > 0 ? Math.round(signed / sent * 100) : 0;
 
     return `
@@ -950,6 +983,9 @@ async function submitDeal() {
   function init() {
     loadDealRooms();
     render();
+    // Pull server state so remote homeowner acceptances + deals from another
+    // device appear and reflect their real status. Async; re-renders on return.
+    hydrateFromFirestore();
     // Insurance toggle is bound inside render() (it reattaches on every paint,
     // surviving tab switches); the old one-shot setTimeout bind here fired
     // before the create form existed on the default 'active' tab and is removed.
