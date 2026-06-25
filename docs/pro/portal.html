@@ -18,6 +18,22 @@
   /* Page-local styling — only structural rules. Every color/font/space
      reads from the brand token set. Adding a token would mean editing
      nbd-brand.css; the page itself stays palette-free. */
+  /* The shared portal.js component markup was authored against the rep-side
+     dark-theme token names (--bg / --br / --text / --muted / --accent /
+     --surface-2). This portal renders on the light NBD brand, which only
+     defines the --nbd-* tokens, so those refs fell back to their hard-coded
+     DARK values (e.g. --bg → #0a1424) and rendered dark-on-dark — the
+     homeowner couldn't see what they typed into the message / callback /
+     rating inputs. Alias the rep tokens to the brand tokens so inputs and
+     panels are readable and on-brand. */
+  :root {
+    --bg: var(--nbd-bg-sunken);
+    --br: var(--nbd-line);
+    --text: var(--nbd-ink);
+    --muted: var(--nbd-ink-muted);
+    --accent: var(--nbd-orange);
+    --surface-2: var(--nbd-bg-tint);
+  }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0;
