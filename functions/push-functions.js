@@ -249,22 +249,16 @@ exports.onAppointmentReminder = onSchedule(
     logger.info('[Push] Checking for appointments between', now, 'and', in30min);
 
     try {
-      // Wave 104: previously did an unbounded leads collection scan
-      // every 15 minutes. With 500+ leads that burns Firestore read
-      // quota. Now: only fetch leads that have an `appointments`
-      // field at all. The ! null filter narrows by orders of
-      // magnitude in typical accounts. Inequality filter on a
-      // potentially-array field requires Firestore composite index;
-      // if the index doesn't exist, this falls back to the full
-      // scan with a warning logged.
-      const leadsRef = db.collection('leads');
-      let leadsSnap;
-      try {
-        leadsSnap = await leadsRef.where('appointments', '!=', null).get();
-      } catch (idxErr) {
-        logger.warn('[Push] appointments index missing; fall back to full scan', { msg: idxErr.message });
-        leadsSnap = await leadsRef.get();
-      }
+      // Appointments live in the top-level `appointments` collection (written
+      // by the cal.com webhook — integrations/calcom.js). The previous query
+      // read leads.appointments[] — a shape NOTHING in the codebase writes — so
+      // this reminder fired for ZERO appointments every tick. A range on the
+      // single field `startTime` needs no composite index; `status` is filtered
+      // in code (skip cancelled).
+      const apptSnap = await db.collection('appointments')
+        .where('startTime', '>=', Timestamp.fromDate(now))
+        .where('startTime', '<=', Timestamp.fromDate(in30min))
+        .get();
 
       const sendPromises = [];
       // Wave 104: idempotency window — if we already sent the same
@@ -276,76 +270,59 @@ exports.onAppointmentReminder = onSchedule(
       const idempotencyWindowMs = 20 * 60 * 1000;
       const recentlySentSet = new Set(); // (uid|leadId|apptKey) keys
 
-      leadsSnap.forEach(leadDoc => {
-        const leadData = leadDoc.data();
-        const leadId = leadDoc.id;
+      apptSnap.forEach(apptDoc => {
+        const appt = apptDoc.data();
+        const apptId = apptDoc.id;
+        if (appt.status === 'cancelled') return;
+        const uid = appt.repUid || appt.userId;
+        if (!uid) return;
 
-        if (!leadData.assignedTo) return;
+        sendPromises.push(
+          (async () => {
+            const enabled = await isNotificationEnabled(uid, 'appointmentReminder');
+            if (!enabled) return;
 
-        // Check for appointments
-        if (leadData.appointments && Array.isArray(leadData.appointments)) {
-          leadData.appointments.forEach(appt => {
-            if (!appt.startTime) return;
+            const dedupeKey = `${uid}|${apptId}`;
+            if (recentlySentSet.has(dedupeKey)) return;
 
-            const apptTime = new Date(appt.startTime);
-
-            // Send reminder if appointment is in next 30 minutes
-            if (apptTime > now && apptTime <= in30min) {
-              sendPromises.push(
-                (async () => {
-                  const uid = leadData.assignedTo;
-                  const enabled = await isNotificationEnabled(uid, 'appointmentReminder');
-                  if (!enabled) return;
-
-                  const apptKey = appt.id || appt.title || appt.startTime;
-                  const dedupeKey = `${uid}|${leadId}|${apptKey}`;
-                  if (recentlySentSet.has(dedupeKey)) return;
-
-                  // W104: read the notification log to see if we
-                  // already sent this same reminder recently.
-                  try {
-                    const recentLog = await db
-                      .collection('users').doc(uid)
-                      .collection('notificationLogs')
-                      .where('type', '==', 'appointmentReminder')
-                      .where('details.leadId', '==', leadId)
-                      .where('sentAt', '>',
-                        Timestamp.fromDate(
-                          new Date(now.getTime() - idempotencyWindowMs)))
-                      .limit(1).get();
-                    if (!recentLog.empty) {
-                      logger.info('[Push] skip duplicate appt reminder', { uid, leadId });
-                      return;
-                    }
-                  } catch (logErr) {
-                    // Index missing or query failed — fall through
-                    // to send. Better to risk a duplicate than miss
-                    // the reminder entirely.
-                    logger.warn('[Push] appt log lookup failed', { msg: logErr.message });
-                  }
-                  recentlySentSet.add(dedupeKey);
-
-                  const title = 'Appointment Reminder';
-                  const body = `${leadData.name || 'Your appointment'} starts in 30 minutes`;
-
-                  const result = await sendPushNotification(uid, title, body, {
-                    type: 'appointmentReminder',
-                    leadId: leadId,
-                    appointmentId: appt.id || appt.title,
-                    appointmentTitle: appt.title,
-                    clickUrl: `/pro/dashboard.html?tab=calendar&leadId=${leadId}`,
-                    notificationId: `appt-${leadId}-${appt.title}`,
-                    requireInteraction: 'true'
-                  });
-
-                  if (result.sent > 0) {
-                    await logNotificationSent(uid, 'appointmentReminder', { leadId });
-                  }
-                })()
-              );
+            // Skip if we already sent this same appointment reminder recently.
+            // (Index-missing tolerant: on a query error, fall through and send —
+            // a possible duplicate beats a missed reminder.)
+            try {
+              const recentLog = await db
+                .collection('users').doc(uid)
+                .collection('notificationLogs')
+                .where('type', '==', 'appointmentReminder')
+                .where('details.appointmentId', '==', apptId)
+                .where('sentAt', '>',
+                  Timestamp.fromDate(
+                    new Date(now.getTime() - idempotencyWindowMs)))
+                .limit(1).get();
+              if (!recentLog.empty) {
+                logger.info('[Push] skip duplicate appt reminder', { uid, apptId });
+                return;
+              }
+            } catch (logErr) {
+              logger.warn('[Push] appt log lookup failed', { msg: logErr.message });
             }
-          });
-        }
+            recentlySentSet.add(dedupeKey);
+
+            const who = appt.attendeeName || appt.title || 'Your appointment';
+            const result = await sendPushNotification(uid, 'Appointment Reminder',
+              `${who} starts in 30 minutes`, {
+                type: 'appointmentReminder',
+                appointmentId: apptId,
+                appointmentTitle: appt.title || '',
+                clickUrl: `/pro/dashboard.html?tab=calendar`,
+                notificationId: `appt-${apptId}`,
+                requireInteraction: 'true'
+              });
+
+            if (result.sent > 0) {
+              await logNotificationSent(uid, 'appointmentReminder', { appointmentId: apptId });
+            }
+          })()
+        );
       });
 
       await Promise.allSettled(sendPromises);
