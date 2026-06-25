@@ -55,6 +55,16 @@ jobs:
       # as rendered. Dependency-free; extracts the real engine colour helpers.
       - name: Run theme QA
         run: node tests/theme-qa.test.js
+      # Document render + multi-tenant brand-isolation gate: every doc type renders
+      # without error and never leaks one tenant's brand into another's output.
+      - name: Run docgen render + tenant-isolation tests
+        run: node tests/docgen-render.test.js
+      # DocPreflight ↔ renderer data contract: the modal and the renderers use
+      # divergent key vocabularies; hydrateDerivedFields must bridge them so a
+      # rep's entered value (carrier, payment amounts, job total, scope, dates…)
+      # actually reaches the rendered legal document instead of a fabricated default.
+      - name: Run docgen preflight-contract tests
+        run: node tests/docgen-preflight-contract.test.js
 
   site-integrity:
     name: Site integrity
