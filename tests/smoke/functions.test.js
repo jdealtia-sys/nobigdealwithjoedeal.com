@@ -439,6 +439,46 @@ section('T-3: AI texting analytics (getAiTextingStats)');
     /name==='board'[\s\S]{0,160}AiTextingStatsCard\.render\(\)/.test(actions));
 }
 
+section('T-4: AI texting persona (per-rep customization + live preview)');
+{
+  // Pure prompt builder (no firebase imports → unit-tested separately).
+  const persona = read(path.join(FUNCTIONS, 'handlers/ai-persona.js'));
+  assert('ai-persona exports buildPersonaPrompt + presets + traits',
+    /buildPersonaPrompt/.test(persona) && /PERSONA_PRESETS/.test(persona) && /PERSONA_TRAITS/.test(persona));
+  assert('ai-persona has NO firebase imports (stays unit-testable + reusable)',
+    !/require\(['"]firebase/.test(persona));
+  assert('locked guardrails are appended and declared to override style',
+    /HARD RULES — NEVER VIOLATE/.test(persona) && /override every style preference/.test(persona));
+
+  // Draft path uses the builder + resolves persona by lead owner → company.
+  const ai = read(path.join(FUNCTIONS, 'handlers/ai-texting.js'));
+  assert('ai-texting requires the pure persona module',
+    /require\(['"]\.\/ai-persona['"]\)/.test(ai));
+  assert('generateAIDraft resolves a persona then builds the prompt',
+    /resolvePersona\(/.test(ai) && /buildPersonaPrompt\(/.test(ai));
+  assert('resolvePersona precedence: per-rep users doc → company default',
+    /users['"]\)\.doc\(String\(userId\)\)[\s\S]{0,160}aiPersona/.test(ai) &&
+    /companyProfile['"]\)\.doc\(String\(cid\)\)[\s\S]{0,160}defaultPersona/.test(ai));
+  assert('draft doc records which persona produced it',
+    /personaPreset/.test(ai));
+  assert('falls back to the original locked PERSONA_PROMPT when none configured',
+    /let systemPrompt = PERSONA_PROMPT/.test(ai));
+
+  // Live-preview callable.
+  const prev = read(path.join(FUNCTIONS, 'handlers/ai-texting-preview.js'));
+  assert('previewAiPersona is an authed, App-Check, rate-limited onCall',
+    /exports\.previewAiPersona\s*=\s*onCall/.test(prev) &&
+    /enforceAppCheck:\s*true/.test(prev) &&
+    /unauthenticated/.test(prev) &&
+    /callableRateLimit\(request,\s*'previewAiPersona'/.test(prev));
+  assert('preview builds the prompt via the shared (guardrail-locked) builder',
+    /buildPersonaPrompt\(/.test(prev));
+
+  const idx = readFunctionsIndex();
+  assert('index.js exports previewAiPersona',
+    /exports\.previewAiPersona\s*=/.test(idx));
+}
+
 section('Signatures PR4/5: remote canvas signing');
 {
   const rs = read(path.join(FUNCTIONS, 'remote-signing.js'));
