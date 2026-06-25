@@ -52,6 +52,7 @@ const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
+const { buildPersonaPrompt } = require('./ai-persona');
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 
@@ -193,6 +194,33 @@ async function buildLeadContext(db, leadId, lead, incomingBody) {
   return lines.join('\n');
 }
 
+// ─── T-4: persona resolution ───────────────────────────────────
+// Returns the persona CONFIG (structured slider/identity object) to use
+// for this lead, or null to fall back to the original PERSONA_PROMPT.
+// Precedence: the lead owner's per-rep persona, then the company default,
+// then null (→ no behavior change for an un-customized account).
+// Both reads are best-effort; any failure falls through, never blocks a draft.
+async function resolvePersona(db, userId, companyId) {
+  try {
+    if (userId) {
+      const snap = await db.collection('users').doc(String(userId)).collection('settings').doc('aiPersona').get();
+      if (snap.exists) {
+        const d = snap.data() || {};
+        if (d.enabled !== false && (d.traits || d.presetId || d.customInstructions || d.identityName)) return d;
+      }
+    }
+  } catch (e) { logger.warn('[ai-texting] persona read (user) failed', { userId, err: e.message }); }
+  try {
+    const cid = companyId || userId;
+    if (cid) {
+      const snap = await db.collection('companyProfile').doc(String(cid)).get();
+      const at = snap.exists ? (snap.data() || {}).aiTexting : null;
+      if (at && at.defaultPersona && at.defaultPersona.enabled !== false) return at.defaultPersona;
+    }
+  } catch (e) { logger.warn('[ai-texting] persona read (company) failed', { companyId, err: e.message }); }
+  return null;
+}
+
 // ─── Main entry ────────────────────────────────────────────────
 // Called by sms-functions.js's incomingSMS webhook. Generates a
 // draft + writes to /leads/{leadId}/ai_drafts. Returns the draftId
@@ -211,12 +239,33 @@ async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId,
   }
 
   const t0 = Date.now();
-  const contextBlock = await buildLeadContext(db, leadId, lead, incomingBody);
+  // Build context + resolve the persona in parallel so persona lookup adds
+  // no latency to the webhook's budget.
+  const [contextBlock, persona] = await Promise.all([
+    buildLeadContext(db, leadId, lead, incomingBody),
+    resolvePersona(db, lead.userId, lead.companyId),
+  ]);
+
+  // Use the rep/company persona when one is configured; otherwise the
+  // original locked prompt (zero behavior change for un-customized accounts).
+  let systemPrompt = PERSONA_PROMPT;
+  let personaPreset = null;
+  let personaName = null;
+  if (persona) {
+    try {
+      systemPrompt = buildPersonaPrompt(persona);
+      personaPreset = persona.presetId || 'custom';
+      personaName = (persona.identityName && String(persona.identityName).slice(0, 40)) || null;
+    } catch (e) {
+      logger.warn('[ai-texting] persona prompt build failed — using default', { err: e.message });
+      systemPrompt = PERSONA_PROMPT;
+    }
+  }
 
   // Hard 10s timeout on the Claude call so the webhook stays under
   // Twilio's 15s ceiling even if Anthropic is being slow.
   const claudePromise = callClaudeForDraft({
-    system: PERSONA_PROMPT,
+    system: systemPrompt,
     userText: contextBlock,
     maxTokens: 280, // SMS = 1-3 sentences; 280 tokens ≈ 200 words ≈ 1300 chars
     apiKey,
@@ -249,6 +298,8 @@ async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId,
       incomingPhone: incomingPhone || null,
       draftText,
       model:        'claude-haiku-4-5-20251001',
+      personaPreset, // which persona produced this draft (null = default locked prompt)
+      personaName,
       status:       'pending',
       customerName,
       customerPhone: lead.phone || incomingPhone || null,
@@ -268,6 +319,8 @@ async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId,
 module.exports = {
   generateAIDraft,
   buildLeadContext,         // exported for unit tests + T-3..T-5 reuse
+  resolvePersona,           // T-4: persona lookup (user → company → default)
+  callClaudeForDraft,       // T-4: reused by the live-preview callable
   ANTHROPIC_API_KEY,        // re-exported so sms-functions.js can declare the secret dependency
-  PERSONA_PROMPT,           // exported for future per-rep customization
+  PERSONA_PROMPT,           // the original locked prompt (default when no persona configured)
 };

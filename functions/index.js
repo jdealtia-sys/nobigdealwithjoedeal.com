@@ -100,6 +100,10 @@ exports.listTeamMembers            = adminHandlers.listTeamMembers;
 const aiTextingStatsHandlers = require('./handlers/ai-texting-stats');
 exports.getAiTextingStats          = aiTextingStatsHandlers.getAiTextingStats;
 
+// T-4: live persona preview for Settings → AI Texting.
+const aiTextingPreviewHandlers = require('./handlers/ai-texting-preview');
+exports.previewAiPersona           = aiTextingPreviewHandlers.previewAiPersona;
+
 // Auth / identity triggers + callables
 // NOTE: onRepSignup is in NBD_DEPLOY_SKIP_LIST per
 // .github/workflows/firebase-deploy.yml — DO NOT remove its export.

@@ -65,6 +65,13 @@ jobs:
       # actually reaches the rendered legal document instead of a fabricated default.
       - name: Run docgen preflight-contract tests
         run: node tests/docgen-preflight-contract.test.js
+      # T-4 AI-texting persona gate: the customizable persona (presets,
+      # trait sliders, identity, free-text notes) must NEVER strip or
+      # weaken the locked HARD-RULES guardrails — incl. against hostile
+      # custom instructions / forged section headers. Dependency-free
+      # (pure functions/handlers/ai-persona.js, no firebase imports).
+      - name: Run AI-texting persona prompt tests
+        run: node tests/ai-persona-prompt.test.js
 
   site-integrity:
     name: Site integrity
