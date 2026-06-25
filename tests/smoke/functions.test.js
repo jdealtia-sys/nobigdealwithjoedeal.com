@@ -477,6 +477,23 @@ section('T-4: AI texting persona (per-rep customization + live preview)');
   const idx = readFunctionsIndex();
   assert('index.js exports previewAiPersona',
     /exports\.previewAiPersona\s*=/.test(idx));
+
+  // Client editor (Settings → AI Texting): persists to the exact doc the
+  // server reads, calls the preview callable, and escapes dynamic text.
+  const ui = read(path.join(PRO_JS, 'ai-texting-persona.js'));
+  assert('persona editor saves to users/{uid}/settings/aiPersona (matches resolvePersona)',
+    /'users',\s*id,\s*'settings',\s*'aiPersona'/.test(ui));
+  assert('persona editor calls the previewAiPersona callable',
+    /_httpsCallable\(window\._functions,\s*'previewAiPersona'\)/.test(ui));
+  assert('persona editor escapes the Claude preview output (no XSS)',
+    /esc\(draft\)/.test(ui));
+  assert('persona editor wires controls via addEventListener (CSP-safe)',
+    /addEventListener\(/.test(ui) && !/onclick=/.test(ui));
+  const dashUi = read(path.join(PRO_JS, '..', 'dashboard.html'));
+  assert('dashboard loads the persona editor + exposes the AI Texting tab/mount',
+    /ai-texting-persona\.js/.test(dashUi) &&
+    /data-target="ai-texting"/.test(dashUi) &&
+    /id="aiPersonaMount"/.test(dashUi));
 }
 
 section('Signatures PR4/5: remote canvas signing');
