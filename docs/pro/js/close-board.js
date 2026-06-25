@@ -74,6 +74,28 @@
     return principal * r * Math.pow(1 + r, termMonths) / (Math.pow(1 + r, termMonths) - 1);
   }
 
+  // The booked dollar value of a deal. A remote acceptance writes acceptedTier +
+  // acceptedPrice (the server's price snapshot, deal-acceptance.js) — NOT
+  // selectedTier, which stays null. So reading d.selectedTier silently priced
+  // every non-'better' close at the 'better' tier. Prefer the authoritative
+  // acceptedPrice, then the accepted tier's current price, then 'better', then 0.
+  function dealValue(d) {
+    if (!d) return 0;
+    const ap = Number(d.acceptedPrice);
+    if (d.acceptedPrice != null && !isNaN(ap)) return ap;
+    const tierKey = d.acceptedTier || d.selectedTier || 'better';
+    return (d.tiers && d.tiers[tierKey] && Number(d.tiers[tierKey].price)) || 0;
+  }
+
+  // Whether the homeowner ever opened the deal link. The server stamps viewedAt
+  // (getDealRoom) on first open, then overwrites status to 'accepted' on accept —
+  // so status==='viewed' undercounts, and viewCount is never incremented at all.
+  // Treat viewedAt OR any post-sent status as evidence of a view.
+  function wasViewed(d) {
+    return !!(d && (d.viewedAt || d.viewCount > 0 ||
+      [DEAL_STATUS.VIEWED, DEAL_STATUS.ACCEPTED, DEAL_STATUS.SIGNED, DEAL_STATUS.SCHEDULED].includes(d.status)));
+  }
+
   // ============================================================================
   // STORAGE
   // ============================================================================
@@ -131,7 +153,10 @@
       });
       dealRooms = Object.values(byId);
       saveDealRooms();
-      render();
+      // Don't clobber a rep mid-typing in the New Deal form — hydrate only needs
+      // to refresh the active/analytics views (the create tab re-renders to the
+      // active list on submit anyway).
+      if (currentTab !== 'create') render();
     } catch (e) { console.error('Close Board hydrate error:', e); }
   }
 
@@ -214,9 +239,27 @@
     return deal;
   }
 
-  function deleteDeal(dealId) {
+  async function deleteDeal(dealId) {
     dealRooms = dealRooms.filter(d => d.id !== dealId);
     saveDealRooms();
+    render();
+    // Also remove the server copy — without this, hydrateFromFirestore (which
+    // queries deal_rooms by userId) merges the deal right back on the next load.
+    if (window._db && window._user) {
+      try {
+        const { deleteDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        await deleteDoc(doc(window._db, DEAL_COLLECTION, dealId));
+      } catch (e) { console.error('Deal delete (Firestore) error:', e); }
+    }
+  }
+
+  // Destructive — confirm before removing a deal room from every device.
+  function confirmDeleteDeal(dealId) {
+    const deal = dealRooms.find(d => d.id === dealId);
+    const name = (deal && deal.customerName) || 'this deal';
+    if (window.confirm('Delete the deal room for ' + name + '?\nThis removes it from all your devices and cannot be undone.')) {
+      deleteDeal(dealId);
+    }
   }
 
   // ============================================================================
@@ -661,6 +704,15 @@ async function submitDeal() {
     if (window.showToast) window.showToast('Creating accept link…', 'info');
     const url = await getDealAcceptLink(deal);
     if (!url) return; // getDealAcceptLink already surfaced the failure
+    // Mark the first share as Sent so Analytics counts a copied link like
+    // SMS/email do (sentAt is the close-rate denominator). Escalate status only
+    // from draft so a viewed/accepted deal is never regressed to 'sent'.
+    if (!deal.sentAt) {
+      updateDeal(dealId, Object.assign(
+        { sentAt: new Date().toISOString(), sentVia: 'link' },
+        deal.status === DEAL_STATUS.DRAFT ? { status: DEAL_STATUS.SENT } : {}
+      ));
+    }
     try {
       await navigator.clipboard?.writeText(url);
       if (window.showToast) window.showToast('Accept link copied!', 'success');
@@ -683,6 +735,17 @@ async function submitDeal() {
     if (!container) return;
     const scroll = container.querySelector('.view-scroll') || container;
 
+    // Lapse past-expiry, non-closed deals to 'expired' so the Active list/count
+    // stop carrying them forever — nothing else transitions them (no server
+    // cron). Display-only and idempotent on every paint.
+    const _now = Date.now();
+    dealRooms.forEach(d => {
+      if (d && d.expiresAt && new Date(d.expiresAt).getTime() < _now &&
+          ![DEAL_STATUS.ACCEPTED, DEAL_STATUS.SIGNED, DEAL_STATUS.SCHEDULED, DEAL_STATUS.EXPIRED].includes(d.status)) {
+        d.status = DEAL_STATUS.EXPIRED;
+      }
+    });
+
     const tabBtn = (id, label, icon) => {
       const active = currentTab === id;
       return `<button data-cb-action="setTab" data-cb-id="${id}" style="padding:8px 16px;border:none;border-radius:8px;background:${active ? 'var(--orange,#e8720c)' : 'var(--s2,#1e2028)'};color:${active ? '#fff' : 'var(--m,#8b8e96)'};font-size:12px;font-weight:${active ? '700' : '500'};font-family:'Barlow Condensed',sans-serif;cursor:pointer;letter-spacing:.03em;transition:all .15s;">${icon} ${label}</button>`;
@@ -692,7 +755,7 @@ async function submitDeal() {
     // A remote homeowner acceptance lands as status 'accepted' (deal-acceptance.js);
     // count it as closed alongside signed/scheduled so Closed Value actually moves.
     const signed = dealRooms.filter(d => d.status === DEAL_STATUS.ACCEPTED || d.status === DEAL_STATUS.SIGNED || d.status === DEAL_STATUS.SCHEDULED);
-    const totalValue = signed.reduce((s, d) => s + (d.tiers[d.selectedTier || 'better']?.price || 0), 0);
+    const totalValue = signed.reduce((s, d) => s + dealValue(d), 0);
 
     let html = `
       <div style="padding:16px 20px 0;">
@@ -713,7 +776,7 @@ async function submitDeal() {
             <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Active Deals</div>
           </div>
           <div style="flex:1;min-width:100px;background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:12px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:var(--orange);">${dealRooms.filter(d => d.status === DEAL_STATUS.VIEWED).length}</div>
+            <div style="font-size:22px;font-weight:700;color:var(--orange);">${dealRooms.filter(wasViewed).length}</div>
             <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Viewed</div>
           </div>
           <div style="flex:1;min-width:100px;background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:12px;text-align:center;">
@@ -799,9 +862,9 @@ async function submitDeal() {
             <div style="font-size:14px;font-weight:700;color:var(--t);">${esc(d.customerName) || 'Unnamed'}</div>
             <div style="font-size:11px;color:var(--m);margin-top:2px;">${esc(d.address) || 'No address'}</div>
             <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${STATUS_COLORS[d.status]}20;color:${STATUS_COLORS[d.status]};font-weight:600;text-transform:uppercase;">${d.status}</span>
-              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">${fmtCurrency(d.tiers.better.price)}</span>
-              ${d.viewCount > 0 ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--m);">👁 ${d.viewCount} views</span>` : ''}
+              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${STATUS_COLORS[d.status] || 'var(--m)'}20;color:${STATUS_COLORS[d.status] || 'var(--m)'};font-weight:600;text-transform:uppercase;">${esc(d.status)}</span>
+              <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">${fmtCurrency(dealValue(d))}</span>
+              ${wasViewed(d) ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--m);">👁 Viewed</span>` : ''}
               ${d.sentVia ? `<span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--m);">📤 via ${d.sentVia}</span>` : ''}
             </div>
           </div>
@@ -810,9 +873,10 @@ async function submitDeal() {
             <button data-cb-action="sendSMS" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--green,#2ECC8A);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📱 Text</button>
             <button data-cb-action="sendEmail" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📧 Email</button>
             <button data-cb-action="copyLink" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:var(--s);border:1px solid var(--br);color:var(--t);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🔗 Copy</button>
+            <button data-cb-action="remove" data-cb-id="${esc(d.id)}" style="padding:5px 10px;background:transparent;border:1px solid var(--br);color:var(--m);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🗑 Delete</button>
           </div>
         </div>
-        <div style="font-size:10px;color:var(--m);margin-top:8px;">Created ${timeAgo(d.createdAt)} · Expires ${fmtDate(d.expiresAt)}</div>
+        <div style="font-size:10px;color:var(--m);margin-top:8px;">Created ${timeAgo(d.createdAt)} · Expires ${fmtDate(d.expiresAt)}${d.scheduledInstallDate ? ' · 🔨 Install ' + esc(fmtDate(d.scheduledInstallDate)) : ''}</div>
       </div>
     `).join('');
   }
@@ -880,7 +944,7 @@ async function submitDeal() {
   function renderAnalytics() {
     const total = dealRooms.length;
     const sent = dealRooms.filter(d => d.sentAt).length;
-    const viewed = dealRooms.filter(d => d.viewCount > 0).length;
+    const viewed = dealRooms.filter(wasViewed).length;
     const signed = dealRooms.filter(d => d.status === DEAL_STATUS.ACCEPTED || d.status === DEAL_STATUS.SIGNED || d.status === DEAL_STATUS.SCHEDULED).length;
     const closeRate = sent > 0 ? Math.round(signed / sent * 100) : 0;
 
@@ -1007,6 +1071,7 @@ async function submitDeal() {
     sendSMS: sendViaSMS,
     sendEmail: sendViaEmail,
     copyLink: copyDealLink,
+    remove: confirmDeleteDeal,
     updateDeal,
     deleteDeal,
     getDeals: () => dealRooms,

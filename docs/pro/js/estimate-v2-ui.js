@@ -656,6 +656,12 @@
             <button type="button" data-action="finalize" data-arg="internal-view">🔒 Internal</button>
           </div>
 
+          <div class="v2-section">Close Board</div>
+          <button type="button" data-action="create-deal-room"
+            style="width:100%;background:#181c22;border:1px solid #4A9EFF;color:#4A9EFF;padding:12px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;margin-bottom:6px;">
+            🏠 Create Deal Room
+          </button>
+
           <div class="v2-section">Save</div>
           <button id="v2saveBtn" type="button" data-action="save"
             style="width:100%;background:#e8720c;border:none;color:#fff;padding:14px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;">
@@ -769,6 +775,9 @@
           break;
         case 'finalize':
           if (arg) finalize(arg);
+          break;
+        case 'create-deal-room':
+          createDealRoomFromEstimate();
           break;
         case 'save':
           save();
@@ -2774,6 +2783,56 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
       state._reopenedDoc = null;
       state._reopenedClean = false;
     }
+  }
+
+  // Hand the current estimate off to the Close Board as a shareable deal room.
+  // Wires the previously-orphaned CloseBoard.createFromEstimate (it had zero
+  // callers). Gated on a priced estimate (Per-SQ + Cash yields estimate.prices)
+  // and a named customer, since createFromEstimate needs the tier prices + lead.
+  function createDealRoomFromEstimate() {
+    const toast = (m, t) => { if (window.showToast) window.showToast(m, t); };
+    if (!window.CloseBoard || typeof window.CloseBoard.createFromEstimate !== 'function') {
+      toast('Close Board isn’t loaded yet — open it once, then retry.', 'error');
+      return;
+    }
+    const estimate = (typeof effectiveEstimate === 'function') ? effectiveEstimate() : null;
+    if (!estimate || !estimate.prices) {
+      toast('Price the Good/Better/Best tiers (Per-SQ · Cash) before creating a deal room.', 'error');
+      return;
+    }
+    const p = estimate.prices;
+    if (!(Number(p.good) || Number(p.better) || Number(p.best))) {
+      toast('Enter at least one tier price before creating a deal room.', 'error');
+      return;
+    }
+    const c = state.customer || {};
+    const cl = state.claim || {};
+    const leadData = {
+      id: c.leadId || null,
+      name: (c.name || '').trim(),
+      email: (c.email || '').trim(),
+      phone: c.phone || '',
+      address: c.address || '',
+      insuranceCarrier: cl.carrier || '',
+      claimNumber: cl.number || '',
+      deductible: Number(cl.deductible) || 0
+    };
+    if (!leadData.name) {
+      toast('Add the customer name (Customer section) before creating a deal room.', 'error');
+      return;
+    }
+    try {
+      window.CloseBoard.createFromEstimate(estimate, leadData);
+    } catch (e) {
+      console.error('[v2] create deal room failed:', e);
+      toast('Could not create the deal room — see console.', 'error');
+      return;
+    }
+    toast('Deal room created in Close Board ✓', 'success');
+    if (typeof close === 'function') close(); // dismiss the estimate modal
+    // Navigate to the Close Board view (robust to goTo not being a window global).
+    if (typeof window.goTo === 'function') window.goTo('closeboard');
+    else { const nav = document.querySelector('[data-action="goTo"][data-target="closeboard"]'); if (nav) nav.click(); }
   }
 
   window.EstimateV2UI = {
