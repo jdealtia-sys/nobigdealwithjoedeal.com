@@ -570,12 +570,19 @@
             { key: 'insCarrier', label: 'Carrier', type: 'text', required: true,
               source: 'lead.insCarrier', persist: PERSIST.LEAD },
             { key: 'claimNumber', label: 'Claim Number', type: 'text', required: true,
-              source: 'lead.claimNumber', persist: PERSIST.LEAD }
+              source: 'lead.claimNumber', persist: PERSIST.LEAD },
+            { key: 'policyNumber', label: 'Policy Number', type: 'text',
+              source: 'lead.policyNumber', persist: PERSIST.LEAD },
+            { key: 'dateOfLoss', label: 'Date of Loss', type: 'date',
+              source: 'lead.dateOfLoss', persist: PERSIST.LEAD }
           ]
         },
         {
           id: 'scope', title: 'Supplement Scope', collapsed: false,
           fields: [
+            { key: 'originalApproved', label: 'Original Approved Amount', type: 'currency',
+              source: 'literal:', persist: PERSIST.DOCUMENT,
+              help: 'The carrier-approved amount before this supplement (drives the New Project Total).' },
             { key: 'originalScope', label: 'Original Approved Scope', type: 'textarea', rows: 3,
               source: 'lead.scopeOfWork', persist: PERSIST.LEAD },
             { key: 'supplementItems', label: 'Supplement Line Items', type: 'line-items',
@@ -694,6 +701,10 @@
           fields: [
             { key: 'originalContractNumber', label: 'Original Contract #', type: 'text',
               source: 'literal:', persist: PERSIST.DOCUMENT, placeholder: 'e.g., CON-2026-001' },
+            { key: 'originalContractDate', label: 'Original Contract Date', type: 'date',
+              source: 'literal:', persist: PERSIST.DOCUMENT },
+            { key: 'changeOrderNumber', label: 'Change Order #', type: 'text',
+              source: 'literal:CO-001', persist: PERSIST.DOCUMENT },
             { key: 'originalTotal', label: 'Original Total', type: 'currency',
               source: 'computed.jobValue', persist: PERSIST.DOCUMENT }
           ]
@@ -708,7 +719,9 @@
               source: 'literal:0', persist: PERSIST.DOCUMENT,
               help: 'Positive for additions, negative for credits.' },
             { key: 'newTotal', label: 'New Contract Total', type: 'currency', required: true,
-              source: 'literal:0', persist: PERSIST.DOCUMENT }
+              source: 'literal:0', persist: PERSIST.DOCUMENT },
+            { key: 'scheduleImpact', label: 'Schedule Impact', type: 'textarea', rows: 2,
+              source: 'literal:No change to estimated completion date.', persist: PERSIST.DOCUMENT }
           ]
         }
       ]

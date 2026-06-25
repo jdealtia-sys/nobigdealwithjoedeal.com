@@ -634,19 +634,28 @@
   // ═══════════════════════════════════════════════════════════════
   DG.renderChangeOrder = function(data) {
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      originalContractNumber:'[Contract #]', originalContractDate:'[Original Date]',
+      originalContractNumber:'[Contract #]', originalContractDate:'',
       changeOrderNumber:'CO-001', changesDescription:'Additional work identified during project execution.',
       itemsAdded:[],
       itemsRemoved:[],
       originalTotal:0, scheduleImpact:'No change to estimated completion date.' }, data);
 
     let addedTotal=0, removedTotal=0;
-    const addedRows = d.itemsAdded.map(i => { const t=(i.qty||0)*(i.price||0); addedTotal+=t;
-      return `<tr><td>${esc(i.item)}</td><td class="right">${i.qty}</td><td>${esc(i.unit)}</td><td class="right">${money(i.price)}</td><td class="right">${money(t)}</td></tr>`; }).join('');
-    const removedRows = d.itemsRemoved.map(i => { const t=(i.qty||0)*(i.price||0); removedTotal+=t;
-      return `<tr><td>${esc(i.item)}</td><td class="right">${i.qty}</td><td>${esc(i.unit)}</td><td class="right">${money(i.price)}</td><td class="right" style="color:#dc2626;">-${money(t)}</td></tr>`; }).join('');
-    const netChange = addedTotal - removedTotal;
-    const newTotal = (parseFloat(d.originalTotal)||0) + netChange;
+    const _price = (i) => (i.price != null ? i.price : (i.unitPrice != null ? i.unitPrice : i.rate)) || 0;
+    const addedRows = d.itemsAdded.map(i => { const t=(i.qty||0)*_price(i); addedTotal+=t;
+      return `<tr><td>${esc(i.item || i.description)}</td><td class="right">${i.qty}</td><td>${esc(i.unit)}</td><td class="right">${money(_price(i))}</td><td class="right">${money(t)}</td></tr>`; }).join('');
+    const removedRows = d.itemsRemoved.map(i => { const t=(i.qty||0)*_price(i); removedTotal+=t;
+      return `<tr><td>${esc(i.item || i.description)}</td><td class="right">${i.qty}</td><td>${esc(i.unit)}</td><td class="right">${money(_price(i))}</td><td class="right" style="color:#dc2626;">-${money(t)}</td></tr>`; }).join('');
+    // The DocPreflight modal collects a single changeAmount + newTotal (no itemized
+    // add/remove rows), so when no line items were supplied reflect the rep's
+    // entered figures instead of computing 0. Itemized callers still drive the
+    // math from their own rows.
+    const _hasItems = (d.itemsAdded && d.itemsAdded.length) || (d.itemsRemoved && d.itemsRemoved.length);
+    const netChange = _hasItems ? (addedTotal - removedTotal) : (parseFloat(d.changeAmount) || 0);
+    const _repNewTotal = parseFloat(d.newTotal);
+    const newTotal = (!_hasItems && !isNaN(_repNewTotal) && String(d.newTotal).trim() !== '')
+      ? _repNewTotal
+      : (parseFloat(d.originalTotal)||0) + netChange;
 
     return page('Change Order', `
       ${letterhead()}
@@ -658,7 +667,7 @@
         <div class="section-title">Reference Information</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:14px;">
           <div><strong>Homeowner:</strong> ${esc(d.homeownerName)}</div>
-          <div><strong>Original Contract Date:</strong> ${esc(d.originalContractDate)}</div>
+          ${d.originalContractDate ? `<div><strong>Original Contract Date:</strong> ${esc(d.originalContractDate)}</div>` : ''}
           <div><strong>Property:</strong> ${esc(d.address)}</div>
           <div><strong>Change Order Date:</strong> ${today()}</div>
         </div>
