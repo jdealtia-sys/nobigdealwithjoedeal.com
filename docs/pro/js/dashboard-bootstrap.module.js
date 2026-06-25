@@ -2916,13 +2916,16 @@
       if (digestEl) digestEl.checked = d.weeklyDigestEnabled !== false;
       const dormantEl = document.getElementById('settingsDormantNudge');
       if (dormantEl) dormantEl.checked = d.dormantNudgeEnabled !== false;
-      // NOTE (deferred): the Profile tab also renders Company / Phone / Role /
-      // License inputs (#settingsCompany/#settingsPhone/#settingsRole/
-      // #settingsLicense). They are intentionally NOT wired here or in
-      // _saveSettings — they neither persist nor load. Wiring them needs a
-      // product decision (Company overlaps the tenant-wide Company Profile
-      // editor; Phone/Role/License are per-rep) and is tracked as a Tier-A
-      // follow-up — out of scope for this digest/profile-load round-trip fix.
+      // Per-rep Phone + Google review link — load both. The homeowner portal
+      // reads users/{uid}.phone (the "Call your rep" tap-to-call button + the
+      // warranty-claim SMS recipient) and users/{uid}.googleReviewUrl (the
+      // 4-5★ review nudge); without a writer those features were dead for
+      // everyone. Persisted in _saveSettings below.
+      _setVal('settingsPhone', d.phone || '');
+      _setVal('settingsGoogleReview', d.googleReviewUrl || '');
+      // NOTE (still deferred): #settingsCompany / #settingsRole / #settingsLicense
+      // remain unwired — Company overlaps the tenant-wide Company Profile editor
+      // and Role/License need a product decision (Tier-A follow-up).
     } catch (e) { /* silent — rules may deny mid-bootstrap */ }
   };
 
@@ -2944,6 +2947,13 @@
     // `=== false` skip check.
     const dormantEl = document.getElementById('settingsDormantNudge');
     const dormantNudgeEnabled = dormantEl ? !!dormantEl.checked : true;
+    // Per-rep phone (homeowner portal "Call your rep" + warranty-claim SMS) and
+    // Google review link (the 4-5★ review nudge). googleReviewUrl is stored only
+    // when it's a real http(s) URL — the portal enforces the same before
+    // rendering it as a link; an empty/invalid value clears it.
+    const phone = (document.getElementById('settingsPhone')?.value || '').trim().slice(0, 30);
+    const rawReview = (document.getElementById('settingsGoogleReview')?.value || '').trim();
+    const googleReviewUrl = /^https?:\/\//i.test(rawReview) ? rawReview.slice(0, 500) : '';
     try {
       await updateProfile(window._user, {displayName: name});
       document.getElementById('userName').textContent = name;
@@ -2953,14 +2963,18 @@
           displayName: name,
           calcomUsername,
           weeklyDigestEnabled,
-          dormantNudgeEnabled
+          dormantNudgeEnabled,
+          phone,
+          googleReviewUrl
         }, { merge: true });
       }
       // Refresh the in-memory rep shadow so the next booking SMS
       // uses the new URL immediately (no page reload needed).
       window._currentRep = Object.assign({}, window._currentRep || {}, {
         calcomUsername: calcomUsername || '',
-        displayName: name
+        displayName: name,
+        phone,
+        googleReviewUrl
       });
       showToast('Settings saved!');
     } catch(e) { showToast('Save failed','error'); }
