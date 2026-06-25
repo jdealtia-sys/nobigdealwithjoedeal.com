@@ -2036,26 +2036,20 @@ window.NBDDocGen = {
       address: '',
       inspectionDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       inspectorName: 'NBD Inspector',
-      overallConditionGrade: 'C',
-      overallDescription: 'The roof shows moderate wear and aging. Several sections require attention.',
-      roofCondition: { grade: 'C', description: 'Asphalt shingles showing wear, some cupping and loss of granules observed.' },
-      gutterCondition: { grade: 'D', description: 'Gutters clogged and sagging in places. Potential water damage risk.' },
-      sidingCondition: { grade: 'B', description: 'Vinyl siding in fair condition with some areas needing repainting.' },
-      windowCondition: { grade: 'A', description: 'Windows in good condition with no visible damage or leaks.' },
-      otherCondition: { grade: 'C', description: 'Fascia boards showing signs of rot. Downspouts misaligned.' },
-      recommendations: [
-        { item: 'Roof Replacement', urgency: 'Immediate Attention', price: '$11,500' },
-        { item: 'Gutter Repair & Cleaning', urgency: 'Immediate Attention', price: '$1,200' },
-        { item: 'Fascia Board Replacement', urgency: 'Monitor', price: '$800' },
-        { item: 'Siding Touch-up Paint', urgency: 'Monitor', price: '$300' }
-      ],
+      // No fabricated assessments/grades/prices: this report renders ONLY what the
+      // inspector entered in the pre-flight modal (overallDescription, roof &
+      // gutter notes, recommendations note, photos). Blank defaults so a field the
+      // rep left empty prints empty, never an invented condition or dollar figure.
+      overallDescription: '',
+      roofCondition: '',
+      gutterCondition: '',
+      roofAge: '',
+      roofType: '',
+      squareFootage: '',
+      recommendations: [],
+      recommendationsNote: '',
       photos: null,
       ...data
-    };
-
-    const gradeColor = (grade) => {
-      const colors = { 'A': 'grade-a', 'B': 'grade-b', 'C': 'grade-c', 'D': 'grade-d', 'F': 'grade-f' };
-      return colors[grade] || 'grade-c';
     };
 
     const urgencyClass = (urgency) => {
@@ -2064,17 +2058,26 @@ window.NBDDocGen = {
       return 'urgency-good';
     };
 
-    let recommendationsHTML = '<table><thead><tr><th>Recommended Repair</th><th>Urgency</th><th style="width: 15%;">Est. Cost</th></tr></thead><tbody>';
-    merged.recommendations.forEach(rec => {
-      recommendationsHTML += `
+    // Recommendations: prefer a structured array if a caller supplies one;
+    // otherwise render the rep's free-text recommendations note; otherwise a
+    // neutral line. Never the old hardcoded $11,500 / $1,200 / $800 / $300 table.
+    let recommendationsHTML;
+    if (Array.isArray(merged.recommendations) && merged.recommendations.length) {
+      recommendationsHTML = '<table><thead><tr><th>Recommended Repair</th><th>Urgency</th><th style="width: 15%;">Est. Cost</th></tr></thead><tbody>';
+      merged.recommendations.forEach(rec => {
+        recommendationsHTML += `
         <tr>
-          <td>${rec.item}</td>
-          <td><span class="${urgencyClass(rec.urgency)}">${rec.urgency}</span></td>
-          <td class="price-column">${rec.price}</td>
-        </tr>
-      `;
-    });
-    recommendationsHTML += '</tbody></table>';
+          <td>${this._escHtml(rec.item)}</td>
+          <td><span class="${urgencyClass(rec.urgency)}">${this._escHtml(rec.urgency)}</span></td>
+          <td class="price-column">${this._escHtml(rec.price)}</td>
+        </tr>`;
+      });
+      recommendationsHTML += '</tbody></table>';
+    } else if (merged.recommendationsNote) {
+      recommendationsHTML = `<div class="summary-text">${this._escHtml(merged.recommendationsNote)}</div>`;
+    } else {
+      recommendationsHTML = '<div class="summary-text" style="color:#888;">No specific repairs were noted during this inspection.</div>';
+    }
 
     const inspectionHTML = `
       <!DOCTYPE html>
@@ -2099,65 +2102,38 @@ window.NBDDocGen = {
             <div><strong>Property:</strong> {{address}}</div>
             <div><strong>Homeowner:</strong> {{homeownerName}}</div>
             <div><strong>Inspection Date:</strong> {{inspectionDate}}</div>
+            ${merged.roofType ? `<div><strong>Roof Type:</strong> {{roofType}}</div>` : ''}
+            ${merged.roofAge ? `<div><strong>Roof Age:</strong> {{roofAge}} years</div>` : ''}
+            ${merged.squareFootage ? `<div><strong>Square Footage:</strong> {{squareFootage}} sq ft</div>` : ''}
           </div>
 
           <div class="document-content" style="font-size: 10px;">
             <!-- OVERALL CONDITION -->
             <div class="section">
               <div class="section-title">Overall Condition</div>
-              <div style="margin: 0.1in 0;">
-                <span class="condition-grade ${gradeColor('C')}">Grade C</span>
-              </div>
               <div class="summary-text">
                 {{overallDescription}}
               </div>
             </div>
 
             <!-- ROOF CONDITION -->
-            <div class="section">
+            ${merged.roofCondition ? `<div class="section">
               <div class="section-title">Roof Assessment</div>
-              <div style="margin: 0.1in 0;">
-                <span class="condition-grade ${gradeColor('C')}">Grade C</span>
-              </div>
               <div class="summary-text">
                 {{roofCondition}}
               </div>
-              ${this.renderPhotoGrid([null, null], 2)}
-            </div>
+            </div>` : ''}
 
-            <!-- GUTTERS -->
-            <div class="section">
+            <!-- GUTTERS & DRAINAGE -->
+            ${merged.gutterCondition ? `<div class="section">
               <div class="section-title">Gutters & Drainage</div>
-              <div style="margin: 0.1in 0;">
-                <span class="condition-grade ${gradeColor('D')}">Grade D</span>
-              </div>
               <div class="summary-text">
-                Gutters clogged and sagging in places. Potential water damage risk.
+                {{gutterCondition}}
               </div>
-              ${this.renderPhotoGrid([null, null], 2)}
-            </div>
+            </div>` : ''}
 
-            <!-- SIDING -->
-            <div class="section">
-              <div class="section-title">Exterior Siding</div>
-              <div style="margin: 0.1in 0;">
-                <span class="condition-grade ${gradeColor('B')}">Grade B</span>
-              </div>
-              <div class="summary-text">
-                Vinyl siding in fair condition with some areas needing repainting.
-              </div>
-            </div>
-
-            <!-- WINDOWS -->
-            <div class="section">
-              <div class="section-title">Windows</div>
-              <div style="margin: 0.1in 0;">
-                <span class="condition-grade ${gradeColor('A')}">Grade A</span>
-              </div>
-              <div class="summary-text">
-                Windows in good condition with no visible damage or leaks.
-              </div>
-            </div>
+            <!-- INSPECTION PHOTOS -->
+            ${this.renderPhotoGrid(Array.isArray(merged.photoUrls) ? merged.photoUrls : (Array.isArray(merged.photos) ? merged.photos.map(p => typeof p === 'string' ? p : (p && p.url)).filter(Boolean) : []), 2)}
 
             <!-- RECOMMENDATIONS -->
             <div class="section">
@@ -2206,12 +2182,17 @@ window.NBDDocGen = {
     const cp = data.companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
     const merged = {
       claimantName: '',
-      claimNumber: 'CLM-2026-0001',
-      dateOfLoss: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      // Blank claim defaults — an insurance document must never print a fabricated
+      // claim number / date of loss / damage type / damage findings. Render only
+      // what the assessor entered in the pre-flight modal.
+      claimNumber: '',
+      dateOfLoss: '',
       propertyAddress: '',
       inspectionDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       inspectorName: 'NBD Damage Assessor',
-      damageType: 'Wind Damage',
+      damageType: '',
+      damageNotes: '',
+      scopeItems: [],
       estimatedRepairCost: '',
       photos: null,
       // Lead-level override wins; otherwise fall back to the shop-wide
@@ -2223,6 +2204,19 @@ window.NBDDocGen = {
     // Re-resolve after spread, in case `data` carried explicit null/empty.
     merged.codeCycle = data.codeCycle || cp.codeCycle;
     merged.codeJurisdiction = data.codeJurisdiction || cp.codeJurisdiction;
+
+    // Restoration scope — render the assessor's scope items (array or newline
+    // text); never the old hardcoded 7-item list.
+    const _scopeArr = Array.isArray(merged.scopeItems)
+      ? merged.scopeItems
+      : (merged.scopeItems ? String(merged.scopeItems).split(/\r?\n/) : []);
+    const scopeListHTML = _scopeArr.map(s => String(s).trim()).filter(Boolean)
+      .map(s => `<li>${this._escHtml(s)}</li>`).join('')
+      || '<li style="color:#888;">Restoration scope to be determined.</li>';
+    // Real damage photos the assessor selected (never the 6 empty placeholders).
+    const _insPhotos = Array.isArray(merged.photoUrls)
+      ? merged.photoUrls
+      : (Array.isArray(merged.photos) ? merged.photos.map(p => typeof p === 'string' ? p : (p && p.url)).filter(Boolean) : []);
 
     const insuranceHTML = `
       <!DOCTYPE html>
@@ -2264,73 +2258,25 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Damage Assessment & Cause</div>
               <div style="margin: 0.1in 0;">
-                <strong>Type of Damage:</strong> {{damageType}}<br/>
+                ${merged.damageType ? `<strong>Type of Damage:</strong> {{damageType}}<br/>` : ''}
                 <strong>Estimated Repair Cost:</strong> {{totalPrice}}
               </div>
-              <div class="summary-text" style="margin-top: 0.1in;">
-                Evidence of wind/impact damage to roof shingles including lifted edges, puncture marks, and missing shingles. Structural integrity compromised requiring immediate repair to prevent water infiltration and secondary damage.
-              </div>
-            </div>
-
-            <!-- ROOF DAMAGE DETAILS -->
-            <div class="section">
-              <div class="section-title">Roof Damage - Detailed Assessment</div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Area</th>
-                    <th>Damage Type</th>
-                    <th>Severity</th>
-                    <th>Measurement</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>North Slope</td>
-                    <td>Missing shingles, lifted edges</td>
-                    <td>High</td>
-                    <td>~400 sq ft</td>
-                  </tr>
-                  <tr>
-                    <td>South Slope</td>
-                    <td>Puncture marks, granule loss</td>
-                    <td>Medium</td>
-                    <td>~250 sq ft</td>
-                  </tr>
-                  <tr>
-                    <td>East Gable</td>
-                    <td>Flashing damage</td>
-                    <td>Medium</td>
-                    <td>~60 sq ft</td>
-                  </tr>
-                </tbody>
-              </table>
+              ${merged.damageNotes ? `<div class="summary-text" style="margin-top: 0.1in;">
+                {{damageNotes}}
+              </div>` : ''}
             </div>
 
             <!-- PHOTO EVIDENCE -->
             <div class="section">
               <div class="section-title">Photographic Evidence</div>
-              <div class="photo-grid three-col">
-                <div class="photo-zone">Photo 1</div>
-                <div class="photo-zone">Photo 2</div>
-                <div class="photo-zone">Photo 3</div>
-                <div class="photo-zone">Photo 4</div>
-                <div class="photo-zone">Photo 5</div>
-                <div class="photo-zone">Photo 6</div>
-              </div>
+              ${this.renderPhotoGrid(_insPhotos, 3)}
             </div>
 
             <!-- SCOPE OF RESTORATION -->
             <div class="section">
               <div class="section-title">Recommended Restoration Scope</div>
               <ul class="scope-list">
-                <li>Remove all damaged roofing materials</li>
-                <li>Inspect and repair/replace underlying decking</li>
-                <li>Install new underlayment per code</li>
-                <li>Install new architectural shingles matching existing</li>
-                <li>Repair/replace flashing</li>
-                <li>Replace damaged gutters and downspouts</li>
-                <li>Final inspection and cleanup</li>
+                ${scopeListHTML}
               </ul>
             </div>
 
