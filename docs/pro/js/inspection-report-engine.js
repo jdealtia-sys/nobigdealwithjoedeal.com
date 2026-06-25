@@ -2375,7 +2375,9 @@
       const urlOf = (p) => (p && p.urls && (p.urls.lg || p.urls.md)) || (p && p.url) || '';
       const toReportPhoto = (p) => ({
         url: urlOf(p),
-        description: p.caption || p.aiCaption || p.description || '',
+        // aiCaption is a phantom field — Claude Vision writes aiSuggestion.caption
+        // (photo-vision.js). Read the real key so AI captions reach the report.
+        description: p.caption || (p.aiSuggestion && p.aiSuggestion.caption) || p.aiCaption || p.description || '',
         aiAnalysis: p.aiAnalysis || null
       });
 
@@ -2742,7 +2744,8 @@
         if (!url) return;
         photos.push({
           url,
-          caption:  p.caption || p.aiCaption || '',
+          // aiSuggestion.caption is the real Claude-Vision field; aiCaption never written.
+          caption:  p.caption || (p.aiSuggestion && p.aiSuggestion.caption) || p.aiCaption || '',
           area:     p.location || p.area || p.phase || '',
           severity: p.severity || '',
         });

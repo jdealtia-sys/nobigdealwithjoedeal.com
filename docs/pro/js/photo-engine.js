@@ -67,6 +67,16 @@
 (function() {
   'use strict';
 
+  // Local HTML escaper for user-sourced photo fields (description, location,
+  // tags, AI text) interpolated into gallery/lightbox innerHTML. Previously these
+  // calls resolved to a top-level escHtml() that happens to be global from
+  // crm-leads.js — a fragile undeclared cross-module dependency that would throw
+  // ReferenceError on any page that loads PhotoEngine without crm-leads. Define
+  // it locally so escaping is self-contained.
+  const escHtml = (s) => String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
   // Ensure Firebase is initialized
   if (!window._storage || !window._db || !window._user || !window._auth) {
     console.warn('PhotoEngine: Firebase not fully initialized. Waiting...');
@@ -1471,12 +1481,12 @@
             ${photo.location ? `
               <div class="pe-metadata-row">
                 <div class="pe-metadata-label">Location</div>
-                <div>${photo.location}</div>
+                <div>${escHtml(photo.location)}</div>
               </div>
             ` : ''}
             <div class="pe-metadata-row">
               <div class="pe-metadata-label">Quality</div>
-              <div>${QUALITY_PRESETS[photo.quality]?.label || photo.quality}</div>
+              <div>${escHtml(QUALITY_PRESETS[photo.quality]?.label || photo.quality)}</div>
             </div>
             <div class="pe-metadata-row">
               <div class="pe-metadata-label">Size</div>
