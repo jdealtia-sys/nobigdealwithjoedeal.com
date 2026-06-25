@@ -1083,7 +1083,7 @@ section('Phase C.4 finale + C.5 — long-tail delegate + script-src tightening')
     'expected _NBD_CALL_ALLOWLIST = new Set([...]) declaration');
 
   // Spot-check that key wrappers exist as window globals.
-  for (const fn of ['cdaReport','cdaEnrich','cdaPhotos','cdaInvoice','cdaInspection','cdaInspectionDeep','cdaMjdAct','cdaEditLead','cdaOpenMobileInspection','cdaVoiceMemo','cdaSharePortalLink','cdaRevokePortalLink','cdaConfirmPromote','cdaOpenTaskModal','mCreateFabRoute','openDailyProgramFromMore','openCrewCalendarFromMore','mQuickAddRoute','restartOnboardingTour','openDecisionPicker','openD2DOrGo','clearAccentTheme','openSettingsTab','openPhotoEngineOrClickProxy','openReportGenerator','enrichReportData','openPhotoEngineCurrentLead','openInspectionBuilderCurrentLead','closeInspectionBuilder','hideFollowUpAlerts','goToD2DFromMaps','openCalBookingUrl','hardResetTest','gstaticTest','modeLineDraw']) {
+  for (const fn of ['cdaReport','cdaEnrich','cdaPhotos','cdaInvoice','cdaInspection','cdaInspectionDeep','cdaMjdAct','cdaEditLead','cdaOpenMobileInspection','cdaVoiceMemo','cdaSharePortalLink','cdaRevokePortalLink','cdaConfirmPromote','cdaOpenTaskModal','mCreateFabRoute','openDailyProgramFromMore','mQuickAddRoute','restartOnboardingTour','openDecisionPicker','openD2DOrGo','clearAccentTheme','openSettingsTab','openPhotoEngineOrClickProxy','openReportGenerator','enrichReportData','openPhotoEngineCurrentLead','openInspectionBuilderCurrentLead','closeInspectionBuilder','hideFollowUpAlerts','goToD2DFromMaps','openCalBookingUrl','hardResetTest','gstaticTest','modeLineDraw']) {
     assert('window.' + fn + ' defined',
       new RegExp('window\\.' + fn + '\\s*=\\s*function').test(mainJs),
       'expected window.' + fn + ' = function(...)');
@@ -1341,8 +1341,7 @@ section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
     closeMoreCount === 19,
     'expected 19 data-close-more flags; got ' + closeMoreCount);
 
-  // C.4 finale: every mobileNav handler is delegated. The crew-calendar
-  // compound is now routed through window.openCrewCalendarFromMore.
+  // C.4 finale: every mobileNav handler is delegated (no inline onclicks).
   const remaining = (dash.match(/onclick="mobileNav\(/g) || []).length;
   assert('zero inline mobileNav onclicks remain (all delegated)',
     remaining === 0,
