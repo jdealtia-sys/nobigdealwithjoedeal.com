@@ -22,7 +22,7 @@ const { getFirestore } = require('firebase-admin/firestore');
 // emulator. Same pattern as lead-bridge.js.
 const { FieldValue } = require('firebase-admin/firestore');
 
-const { httpRateLimit, clientIp } = require('../integrations/upstash-ratelimit');
+const { httpRateLimit, enforceRateLimit, clientIp } = require('../integrations/upstash-ratelimit');
 const { CORS_ORIGINS } = require('./_shared');
 
 // ═══════════════════════════════════════════════════════════════
@@ -172,9 +172,16 @@ const PUBLIC_LEAD_KINDS = {
   storm: {
     collection: 'storm_alert_subscribers',
     required: ['name', 'phone', 'zip', 'source'],
-    maxLen:   { name: 200, phone: 30, zip: 10, source: 200 },
+    maxLen:   { name: 200, phone: 30, zip: 10, source: 200, concern: 80 },
     exact:    { zip: 5 },
-    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS]
+    // `concern` = the homeowner's qualification answer (e.g. "already have
+    // damage — waiting on insurance") — persisted so that hot signal isn't
+    // silently dropped. `active` is set server-side via serverDefaults (never
+    // trusted from the client): the storm-alert cron in sms-functions.js
+    // queries .where('active','==',true), so a subscriber created without it
+    // would be invisible to every alert send.
+    optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'concern'],
+    serverDefaults: { active: true }
   },
   // "One Free Roof a Year" giveaway entries. Nominator can be the
   // homeowner themselves or a neighbor / family member. Story is the
@@ -207,6 +214,27 @@ const PUBLIC_LEAD_KINDS = {
 const { verifyTurnstile } = require('../integrations/turnstile');
 const { SECRETS: INT_SECRETS } = require('../integrations/_shared');
 
+// Collapse an IPv6 address to its /64 prefix for rate-limiting, so a single
+// IPv6 allocation can't rotate through its 2^64 addresses to bypass the per-IP
+// cap. IPv4 (no ':') and anything unparseable pass through unchanged — exact
+// canonicalisation isn't needed, only a stable per-customer bucket.
+function rateLimitIpKey(ip) {
+  const s = String(ip || '');
+  if (s.indexOf(':') === -1) return s; // IPv4 / empty — unchanged
+  const head = s.split('%')[0];        // strip any zone id
+  const sides = head.split('::');
+  let groups;
+  if (sides.length === 2) {
+    const left = sides[0] ? sides[0].split(':') : [];
+    const right = sides[1] ? sides[1].split(':') : [];
+    const fill = Array(Math.max(0, 8 - left.length - right.length)).fill('0');
+    groups = left.concat(fill, right);
+  } else {
+    groups = head.split(':');
+  }
+  return groups.slice(0, 4).join(':') + '::/64';
+}
+
 exports.submitPublicLead = onRequest(
   {
     cors: CORS_ORIGINS,        // same origin allowlist used by claudeProxy
@@ -222,7 +250,22 @@ exports.submitPublicLead = onRequest(
 
     // Per-IP rate limit — the single most important gate. 20/min/IP.
     // A human filling a form takes >10s; a spam script fires faster.
-    if (!(await httpRateLimit(req, res, 'publicLead:ip', 20, 60_000))) return;
+    // Key on the IPv6 /64 prefix (IPv4 unchanged) so one IPv6 allocation can't
+    // rotate addresses to bypass the cap. This gate is currently load-bearing:
+    // App Check isn't enforcing and Turnstile passes through unless both
+    // TURNSTILE_SECRET and TURNSTILE_REQUIRED=true are set (integrations/turnstile.js).
+    try {
+      await enforceRateLimit('publicLead:ip', rateLimitIpKey(clientIp(req)), 20, 60_000);
+    } catch (e) {
+      if (e && e.rateLimited) {
+        res.set('Retry-After', '60');
+        res.status(429).json({ error: 'Rate limit exceeded' });
+        return;
+      }
+      // Limiter backend error → fall back to the original helper, which fails
+      // open to the Firestore limiter rather than dropping a legitimate lead.
+      if (!(await httpRateLimit(req, res, 'publicLead:ip', 20, 60_000))) return;
+    }
 
     // Turnstile verification (if configured). Fail closed on verifier
     // error. No-op passthrough when TURNSTILE_SECRET is unset so dev
@@ -285,6 +328,10 @@ exports.submitPublicLead = onRequest(
     data.ip = clientIp(req);
     data.userAgent = String(req.headers['user-agent'] || '').slice(0, 200);
     data.createdAt = FieldValue.serverTimestamp();
+    // Per-kind server-set defaults (never trusted from the client). storm sets
+    // active:true so the storm-alert cron's .where('active','==',true) actually
+    // matches form signups — the client `active` field is intentionally dropped.
+    Object.assign(data, spec.serverDefaults || {});
 
     // Multi-tenant tag (Phase C support): a tenant microsite declares which
     // tenant a public lead belongs to via `companyId`. lead-alert.js routes

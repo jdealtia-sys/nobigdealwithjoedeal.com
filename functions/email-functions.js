@@ -479,11 +479,16 @@ exports.sendEstimateEmail = onRequest(
         return;
       }
 
-      // Wrap estimate HTML in branded template
+      // Escape lead-sourced fields (address/name originate from public lead
+      // forms) before interpolating into the email HTML — defense-in-depth,
+      // matching the sibling estimate-email.js. estimateHtml is trusted,
+      // server-built markup and is intentionally left as-is.
+      const escHtml = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const html = BRANDED_EMAIL_TEMPLATE(
         subject,
-        `<h2>Estimate for ${lead.address || 'Your Property'}</h2>
-         <p>Hi ${customerName},</p>
+        `<h2>Estimate for ${escHtml(lead.address || 'Your Property')}</h2>
+         <p>Hi ${escHtml(customerName)},</p>
          <p>Your estimate is ready for review. Please see the details below:</p>
          ${estimateHtml}
          <p>If you have any questions, please reach out!</p>`

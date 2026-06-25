@@ -23,6 +23,7 @@ const { Resend } = require('resend');
 const twilio = require('twilio');
 const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
+const L = require('./lead-bridge-logic');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
@@ -79,7 +80,7 @@ function esc(s) {
 
 // Pull the human-meaningful fields, tolerant of the per-kind field names.
 function summarize(d) {
-  const name = d.name || d.firstName || d.nomineeName || '(no name given)';
+  const name = d.name || [d.firstName, d.lastName].filter(Boolean).join(' ') || d.nomineeName || '(no name given)';
   const phone = d.phone || '(no phone)';
   const address = d.address || d.zip || '';
   const email = d.email || '';
@@ -158,25 +159,41 @@ async function alertJoe(collection, d, leadId) {
   }
 }
 
-function makeTrigger(collection) {
-  return onDocumentCreated(
-    {
-      region: 'us-central1',
-      document: `${collection}/{leadId}`,
-      secrets: SECRETS,
-      maxInstances: 10,
-      memory: '256MiB',
-      timeoutSeconds: 30,
-    },
-    async (event) => {
-      const snap = event.data;
-      if (!snap) return;
-      await alertJoe(collection, snap.data() || {}, event.params && event.params.leadId);
+const TRIGGER_OPTS = {
+  region: 'us-central1',
+  secrets: SECRETS,
+  maxInstances: 10,
+  memory: '256MiB',
+  timeoutSeconds: 30,
+};
+
+function onLeadAlert(collection) {
+  return async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const data = snap.data() || {};
+    // The /estimate funnel writes follow-up EVENT docs (results shown / CTA
+    // click / email request) into estimate_leads alongside the initial lead.
+    // Each is a fresh create → without this skip, one completed funnel fires
+    // up to 4 duplicate alert emails for the same homeowner. lead-bridge.js
+    // already skips these for the CRM mirror; mirror that here so the alert
+    // path agrees with the bridge on what counts as a new lead.
+    if (L.isFollowUpEvent(collection, data)) {
+      logger.info('leadAlert: follow-up event doc — not a new lead, skipping', { collection, type: data.type });
+      return;
     }
-  );
+    await alertJoe(collection, data, event.params && event.params.leadId);
+  };
 }
 
-exports.leadAlertContact = makeTrigger('contact_leads');
-exports.leadAlertEstimate = makeTrigger('estimate_leads');
-exports.leadAlertInspect = makeTrigger('inspect_leads');
-exports.leadAlertFreeRoof = makeTrigger('free_roof_entries');
+// IMPORTANT: each export assigns onDocumentCreated(...) DIRECTLY (not via a
+// makeTrigger() wrapper). The CI auto-deploy builds its --only allowlist by
+// grepping `^exports.<name> = (onRequest|onCall|onDocumentCreated|...)` in
+// .github/workflows/firebase-deploy.yml — a `= makeTrigger(...)` RHS does NOT
+// match, so these alert triggers were silently dropped from the deploy and a
+// fix pushed to main only shipped via a manual full `firebase deploy`. Keep the
+// RHS a literal factory call, mirroring the proven lead-bridge.js pattern.
+exports.leadAlertContact  = onDocumentCreated({ ...TRIGGER_OPTS, document: 'contact_leads/{leadId}' },     onLeadAlert('contact_leads'));
+exports.leadAlertEstimate = onDocumentCreated({ ...TRIGGER_OPTS, document: 'estimate_leads/{leadId}' },    onLeadAlert('estimate_leads'));
+exports.leadAlertInspect  = onDocumentCreated({ ...TRIGGER_OPTS, document: 'inspect_leads/{leadId}' },     onLeadAlert('inspect_leads'));
+exports.leadAlertFreeRoof = onDocumentCreated({ ...TRIGGER_OPTS, document: 'free_roof_entries/{leadId}' }, onLeadAlert('free_roof_entries'));
