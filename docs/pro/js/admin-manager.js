@@ -223,9 +223,14 @@
       deactivated: { color: 'var(--m)', label: 'Deactivated' }
     };
     const s = map[status] || { color: 'var(--m)', label: status || '—' };
+    // Escape s.label: for an unmapped status it's the raw member.status field,
+    // which a tenant owner can set to an arbitrary string (no enum validation
+    // server-side) — and it renders into this cross-tenant admin view. Mapped
+    // labels are static, so escaping them is a harmless no-op. (s.color is
+    // always a hardcoded var(--…), never tainted.)
     return '<span style="display:inline-block;padding:2px 8px;font-size:9px;font-weight:700;'
       + 'text-transform:uppercase;letter-spacing:.08em;background:rgba(255,255,255,.04);'
-      + 'color:' + s.color + ';border:1px solid ' + s.color + ';border-radius:10px;">' + s.label + '</span>';
+      + 'color:' + s.color + ';border:1px solid ' + s.color + ';border-radius:10px;">' + escapeHTML(s.label) + '</span>';
   }
 
   // ── Activity feed ────────────────────────────────────────
