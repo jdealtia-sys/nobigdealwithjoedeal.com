@@ -48,27 +48,36 @@
       return;
     }
 
-    if (!appts.length) {
+    // Cross-reference leads (best-effort — appointments store no leadId, so
+    // matched by attendee email/name) AND surface today's MANUALLY scheduled
+    // jobs: a rep-typed Scheduled Date is a flat date-only string on the lead
+    // (lead.scheduledDate) that never reaches the appointments collection, so it
+    // showed on NO calendar. List those as their own "no set time" block,
+    // deduped against any cal.com appointment already shown.
+    const leads = Array.isArray(window._leads) ? window._leads : [];
+    if (appts.length) {
+      // Sort by start time so travel-time math is meaningful.
+      appts.sort((a, b) => _toMs(a.startTime) - _toMs(b.startTime));
+      appts = appts.map(a => _attachLead(a, leads));
+    }
+    const _t = new Date();
+    const todayStr = `${_t.getFullYear()}-${String(_t.getMonth() + 1).padStart(2, '0')}-${String(_t.getDate()).padStart(2, '0')}`;
+    const apptLeadIds = new Set(appts.map(a => a._leadId).filter(Boolean));
+    const manualToday = leads.filter(l => l && l.scheduledDate === todayStr && !apptLeadIds.has(l.id));
+
+    if (!appts.length && !manualToday.length) {
       host.innerHTML = _emptyState('No appointments today. Time to knock some doors. 🚪');
       return;
     }
 
-    // Sort by start time ascending so travel-time math is meaningful.
-    appts.sort((a, b) => _toMs(a.startTime) - _toMs(b.startTime));
-
-    // Cross-reference leads to attach jobValue + lat/lng. This is
-    // best-effort: appointments don't store leadId so we match by
-    // attendee email (high confidence) or by attendee name (fuzzy).
-    const leads = Array.isArray(window._leads) ? window._leads : [];
-    appts = appts.map(a => _attachLead(a, leads));
-
-    // Compute per-segment travel data (between appt[i] and appt[i+1]).
-    const segments = _computeSegments(appts);
-
-    // Daily summary for the header.
-    const summary = _summarize(appts, segments);
-
-    host.innerHTML = _renderTimeline(appts, segments, summary);
+    let html = '';
+    if (appts.length) {
+      const segments = _computeSegments(appts);
+      const summary = _summarize(appts, segments);
+      html += _renderTimeline(appts, segments, summary);
+    }
+    if (manualToday.length) html += _renderManualScheduled(manualToday);
+    host.innerHTML = html;
   }
 
   // ── data fetch ──────────────────────────────────────────────
@@ -216,6 +225,28 @@
         <div style="font-size:28px;margin-bottom:8px;">📋</div>
         ${_esc(msg)}
       </div>`;
+  }
+
+  // Today's MANUALLY scheduled jobs (lead.scheduledDate is date-only — no set
+  // time — so they're listed as a block rather than placed on the hourly
+  // timeline). Reuses the timeline's openCardDetail delegate.
+  function _renderManualScheduled(leadsToday) {
+    const rows = leadsToday.map(l => {
+      const name = _esc(`${l.firstName || ''} ${l.lastName || ''}`.trim() || 'Lead');
+      const addr = _esc(l.address || '');
+      const open = l.id
+        ? `<button data-sc-action="openCardDetail" data-sc-id="${_esc(l.id)}" style="background:none;border:none;color:var(--orange);font-size:11px;cursor:pointer;padding:0;text-decoration:underline;white-space:nowrap;">Open →</button>`
+        : '';
+      return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid var(--br);">
+        <div style="min-width:0;"><div style="font-size:13px;font-weight:600;color:var(--t);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${name}</div>
+        ${addr ? `<div style="font-size:11px;color:var(--m);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">📍 ${addr}</div>` : ''}</div>
+        ${open}
+      </div>`;
+    }).join('');
+    return `<div style="margin-top:14px;">
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--m);margin-bottom:2px;">📅 Scheduled today · no set time</div>
+      ${rows}
+    </div>`;
   }
 
   function _renderTimeline(appts, segments, summary) {
