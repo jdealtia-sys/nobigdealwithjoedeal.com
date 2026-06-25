@@ -31,6 +31,11 @@
     submitKnock: state.handleSubmitKnock,
     openKnockDetail: state.openKnockDetail,
     closeKnockDetail: state.closeKnockDetail,
+    // These have data-d2d-action triggers in the UI (photo thumbnails in the
+    // knock-detail modal; the 📞 button in the follow-up list) but were never
+    // exported here, so the click delegate (window.D2D[action]) no-op'd them.
+    openImage: state.openImage,
+    callPhone: state.callPhone,
     convertToLead: state.convertToLead,
     convertToLeadWithEdit: state.convertToLeadWithEdit,
     deleteKnock: state.deleteKnock,
