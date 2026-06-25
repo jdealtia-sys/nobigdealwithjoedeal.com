@@ -18,13 +18,39 @@ function ok(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name); } 
 const NBD = '1phDvAVXHSg82wDLegAbQFq14Ci1';        // tenant-zero owner uid
 const SCOTT = 'ScottOaksUid000000000000abcd';      // looks-like-uid (28 chars)
 
-console.log('LEAD-BRIDGE — kinds bridged (4 high-intent only)');
+console.log('LEAD-BRIDGE — kinds bridged');
 ok('contact_leads bridged', !!L.BRIDGE_KINDS.contact_leads);
 ok('estimate_leads bridged', !!L.BRIDGE_KINDS.estimate_leads);
 ok('inspect_leads bridged', !!L.BRIDGE_KINDS.inspect_leads);
 ok('free_roof_entries bridged', !!L.BRIDGE_KINDS.free_roof_entries);
 ok('guide_leads NOT bridged (list-builder)', !L.BRIDGE_KINDS.guide_leads);
-ok('storm_alert_subscribers NOT bridged', !L.BRIDGE_KINDS.storm_alert_subscribers);
+// storm is now CONDITIONALLY bridged (high-intent concerns only) — it has a
+// BRIDGE_KINDS entry (for the source label) but the trigger gates on concern.
+ok('storm_alert_subscribers has a bridge mapping', !!L.BRIDGE_KINDS.storm_alert_subscribers);
+
+console.log('\nLEAD-BRIDGE — storm concern gate (shouldBridgeStorm)');
+ok('storm insurance → bridge', L.shouldBridgeStorm({ concern: 'insurance' }) === true);
+ok('storm wind → bridge', L.shouldBridgeStorm({ concern: 'wind' }) === true);
+ok('storm general → bridge', L.shouldBridgeStorm({ concern: 'general' }) === true);
+ok('storm hail (form default) → NOT bridged (list-only)', L.shouldBridgeStorm({ concern: 'hail' }) === false);
+ok('storm missing concern → NOT bridged', L.shouldBridgeStorm({}) === false);
+ok('storm concern case-insensitive', L.shouldBridgeStorm({ concern: 'Insurance' }) === true);
+ok('alert + bridge share one concern set (no drift)',
+  L.HIGH_INTENT_STORM_CONCERNS.join(',') === ['insurance', 'wind', 'general'].join(','));
+{
+  // Storm lead maps with the Storm Alert source + concern in notes; zip→address.
+  const sd = L.mapPublicLeadToLead({
+    collection: 'storm_alert_subscribers', sourceId: 's1',
+    ownerUid: NBD, companyId: NBD,
+    data: { name: 'Dana Homeowner', phone: '8590001111', zip: '45122', concern: 'insurance' },
+  });
+  ok('storm lead source = Website — Storm Alert', sd.source === 'Website — Storm Alert');
+  ok('storm lead splits name', sd.firstName === 'Dana' && sd.lastName === 'Homeowner');
+  ok('storm lead zip → address', sd.address === '45122');
+  ok('storm lead carries phone', sd.phone === '8590001111');
+  ok('storm lead note shows the concern', /Already has damage/.test(sd.notes));
+  ok('storm lead tagged publicLeadKind=storm', sd.publicLeadKind === 'storm');
+}
 
 console.log('\nLEAD-BRIDGE — owner/tenant resolution');
 {

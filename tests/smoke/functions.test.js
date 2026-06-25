@@ -42,7 +42,7 @@ section('Phase C: lead-bridge (H-1 intake → CRM)');
   // bridge never reaches prod. This guard replicates the exact factory regex
   // from .github/workflows/firebase-deploy.yml so the gap can't recur.
   const CI_FACTORY = '(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted)';
-  for (const fn of ['leadBridgeContact', 'leadBridgeEstimate', 'leadBridgeInspect', 'leadBridgeFreeRoof']) {
+  for (const fn of ['leadBridgeContact', 'leadBridgeEstimate', 'leadBridgeInspect', 'leadBridgeFreeRoof', 'leadBridgeStorm']) {
     assert('lead-bridge exports ' + fn + ' as a direct factory call (CI-deployable)',
       new RegExp('^exports\\.' + fn + ' *= *' + CI_FACTORY, 'm').test(bridge));
   }
@@ -55,9 +55,12 @@ section('Phase C: lead-bridge (H-1 intake → CRM)');
   const logic = read(path.join(FUNCTIONS, 'lead-bridge-logic.js'));
   assert('lead-bridge-logic exports the pure helpers',
     /resolveBridgeTarget/.test(logic) && /mapPublicLeadToLead/.test(logic) && /bridgeDocId/.test(logic));
-  assert('lead-bridge bridges only the 4 high-intent kinds (not guide/storm)',
+  assert('lead-bridge bridges the 4 unconditional kinds + conditional storm (not guide)',
     /contact_leads:/.test(logic) && /inspect_leads:/.test(logic) &&
-    !/guide_leads:/.test(logic) && !/storm_alert_subscribers:/.test(logic));
+    !/guide_leads:/.test(logic));
+  assert('lead-bridge storm is concern-gated (shouldBridgeStorm) + shares the alert concern set',
+    /shouldBridgeStorm/.test(logic) && /HIGH_INTENT_STORM_CONCERNS/.test(logic) &&
+    /shouldBridgeStorm/.test(bridge));
 
   const idx = readFunctionsIndex();
   assert('index.js wires lead-bridge', /require\('\.\/lead-bridge'\)/.test(idx));

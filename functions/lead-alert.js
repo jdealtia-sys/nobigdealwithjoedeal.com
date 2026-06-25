@@ -198,14 +198,14 @@ function onLeadAlert(collection) {
   };
 }
 
-// Storm-alert signups are a marketing LIST, not a CRM lead pipeline (storm is
-// intentionally NOT bridged — see lead-bridge-logic BRIDGE_KINDS), so the bulk
-// of signups must NOT page Joe. But a homeowner who deliberately selects the
-// "I already have damage — waiting on insurance" concern is a hot, ready-to-hire
-// lead that was previously dropped with zero follow-up. Alert ONLY on that
-// concern. ('hail' is the form's PRE-SELECTED default, so it isn't a deliberate
-// signal; widen STORM_ALERT_CONCERNS if Joe later wants wind/general too.)
-const STORM_ALERT_CONCERNS = ['insurance'];
+// Most storm-alert signups are a marketing LIST, so the bulk must NOT page
+// Joe. But a homeowner who deliberately flags real damage (insurance / wind /
+// general — anything other than the form's PRE-SELECTED 'hail' default) is a
+// hot, ready-to-hire lead. Alert on those AND mirror them into the CRM pipeline
+// (see onStormBridge in lead-bridge.js). Both gates share the SAME
+// HIGH_INTENT_STORM_CONCERNS set so the lead that pages Joe is the lead that
+// lands in his pipeline. (2026-06-25: widened from ['insurance'] per Jo.)
+const STORM_ALERT_CONCERNS = L.HIGH_INTENT_STORM_CONCERNS;
 function onStormAlert() {
   return async (event) => {
     const snap = event.data;
