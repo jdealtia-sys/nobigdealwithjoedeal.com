@@ -215,6 +215,54 @@ function renderViaPreflight(method, preflightData) {
   ok('insHome: uncollected "Vinyl siding"/"Windows in good condition" assessments are GONE', !/Vinyl siding/.test(html) && !/Windows in good condition/.test(html));
 }
 
+// ── Marketing / letter / scope renderers wired to read rep input (current
+//    hardcoded copy kept as the blank-field fallback); fabricated defaults gone ──
+const WIRING = [
+  { label: 'thank_you', method: 'renderThankYou',
+    data: { projectType: 'WIREsiding', completionDate: 'WIREcompdate', projectSummary: 'WIREsummary', personalNote: 'WIREnote', reviewLink: 'https://ex.com/WIRElink' },
+    present: ['WIREsiding', 'WIREcompdate', 'WIREsummary', 'WIREnote', 'WIRElink'], absent: ['roof replacement project'] },
+  { label: 'referral_card', method: 'renderReferralCard',
+    data: { firstName: 'WIREfirst', lastName: 'WIRElast', referralCode: 'WIRECODE9', bonusAmount: 250, terms: 'WIREterms' },
+    present: ['WIREfirst WIRElast', 'WIRECODE9', '250.00', 'WIREterms'], absent: ['Ask Us For Details!'] },
+  { label: 'storm_checklist', method: 'renderStormChecklist',
+    data: { stormType: 'WIREhail', stormDate: 'WIREdate', checklistNotes: 'WIREnotes', emergencyPhone: 'WIRE-555-0100' },
+    present: ['WIREhail', 'WIREdate', 'WIREnotes', 'WIRE-555-0100'], absent: [] },
+  { label: 'claim_guide', method: 'renderClaimGuide',
+    data: { insCarrier: 'WIREcarrier', timeline: 'WIREtimeline', guideNotes: 'WIREguide' },
+    present: ['WIREcarrier', 'WIREtimeline', 'WIREguide'], absent: [] },
+  { label: 'testimonial_sheet', method: 'renderTestimonialSheet',
+    data: { testimonial1: 'WIREtestimonial one', rating1: '4' },
+    present: ['WIREtestimonial one'], absent: ['made the whole process feel like no big deal'] },
+  { label: 'door_hanger', method: 'renderDoorHanger',
+    data: { headline: 'WIREheadline', services: 'WIREsvcA, WIREsvcB' },
+    present: ['WIREheadline', 'WIREsvcA'], absent: [] },
+  { label: 'company_intro', method: 'renderCompanyIntro',
+    data: { services: 'WIREsvc1, WIREsvc2', serviceArea: 'WIREarea', testimonialsNote: 'WIREtestnote' },
+    present: ['WIREarea', 'WIREtestnote', 'WIREsvc1'], absent: [] },
+  { label: 'neighborhood_mailer', method: 'renderNeighborhoodMailer',
+    data: { affectedArea: 'WIREaffected', ctaText: 'WIREcta', neighborhoodName: 'WIREhood', projectAddress: 'WIREaddr' },
+    present: ['WIREhood', 'WIREcta', 'WIREaddr'], absent: ['[Your Neighborhood]', '[Nearby Project Address]'] },
+  { label: 'before_after_report', method: 'renderBeforeAfterReport',
+    data: { projectType: 'WIREbatype', duration: 'WIREduration', highlights: 'WIREhl one\nWIREhl two' },
+    present: ['WIREbatype', 'WIREduration', 'WIREhl one', 'WIREhl two'], absent: ['Full roof system replacement with premium'] },
+  { label: 'scope_of_work', method: 'renderScopeOfWork',
+    data: { projectScope: 'WIREscope', labor: 'WIRElabor crew of 5' },
+    present: ['WIRElabor crew of 5'], absent: [] },
+  { label: 'work_authorization', method: 'renderWorkAuthorization',
+    data: { scopeOfWork: 'WIREwascope', startDate: 'WIREstart', emergencyContact: 'WIREemerg', accessInstructions: 'WIREaccess' },
+    present: ['WIREwascope', 'WIREstart', 'WIREemerg', 'WIREaccess'], absent: ['[Start Date]', '[Emergency Contact'] },
+  { label: 'proposal', method: 'renderProposal',
+    data: { termsNote: 'WIREtermsnote' },
+    present: ['WIREtermsnote'], absent: [] },
+];
+for (const w of WIRING) {
+  const html = renderViaPreflight(w.method, w.data);
+  console.log('PREFLIGHT CONTRACT — ' + w.label + ' (field wiring)');
+  ok(w.label + ': renders (no error)', html.indexOf('RENDER_ERROR') !== 0);
+  for (const s of w.present) ok(w.label + ': rep value reaches doc — "' + s + '"', html.indexOf(s) !== -1);
+  for (const s of (w.absent || [])) ok(w.label + ': fabricated default GONE — "' + s + '"', html.indexOf(s) === -1);
+}
+
 console.log('\n──────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILED: ' + fails.join(', ')); process.exit(1); }

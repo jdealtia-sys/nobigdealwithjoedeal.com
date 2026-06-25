@@ -1727,6 +1727,9 @@ window.NBDDocGen = {
       totalPrice: '',
       warrantyTier: 'better',
       photos: null,
+      // Rep-entered "Custom note to homeowner" (DocPreflight key: termsNote).
+      // Empty default → the note block is hidden unless the rep typed one.
+      termsNote: '',
       ...data
     };
 
@@ -1765,8 +1768,16 @@ window.NBDDocGen = {
     });
     scopeHTML += '</ul>';
 
+    // Rep-entered custom note to the homeowner (DocPreflight key: termsNote).
+    // Renders above the standard terms when present; hidden when blank so a
+    // skipped field never leaves an empty box. Escaped + newlines → <br/>.
+    const repNoteHTML = merged.termsNote
+      ? `<div style="font-size: 11px; line-height: 1.5; color: #333; margin-bottom: 12px; padding: 8px 10px; background: #f6f6f6; border-left: 3px solid #d35400;">${this._escHtml(merged.termsNote).replace(/\n/g, '<br/>')}</div>`
+      : '';
+
     // Standard terms — all rep-editable via Settings → Company Profile.
     const termsHTML = `
+      ${repNoteHTML}
       <div style="font-size: 10px; line-height: 1.4; color: #555;">
         <strong>Payment Terms:</strong> ${cp.paymentTermsProposal}
         <br/><br/>
