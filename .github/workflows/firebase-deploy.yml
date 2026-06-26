@@ -170,13 +170,27 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: |
-          set -e
           for attempt in 1 2 3; do
-            if npx firebase-tools deploy --only hosting --project "$PRO_PROJECT" --non-interactive; then
+            out=$(npx firebase-tools deploy --only hosting --project "$PRO_PROJECT" --non-interactive 2>&1)
+            rc=$?
+            echo "$out"
+            if [ $rc -eq 0 ]; then
               echo "✓ Hosting deployed (attempt $attempt)."
               exit 0
             fi
-            echo "::warning::Hosting deploy attempt $attempt failed (likely transient auth race) — retrying in 15s…"
+            # Benign concurrent-deploy race: the parallel dev worktrees push main
+            # together, so two deploy jobs run at once. The upload + finalize
+            # succeed in both; the loser's RELEASE call returns HTTP 400
+            # "supplied version ... is the current active version" because the
+            # other job already released this exact content. Hosting IS up to
+            # date — treat as success, not a flake. (Real hosting failures don't
+            # carry this string and still retry/fail below.) This stops every
+            # deploy from going false-RED, which was masking genuine failures.
+            if echo "$out" | grep -q "is the current active version"; then
+              echo "✓ Hosting already at the current version (a concurrent deploy released it) — treating as success."
+              exit 0
+            fi
+            echo "::warning::Hosting deploy attempt $attempt failed — retrying in 15s…"
             sleep 15
           done
           echo "::error::Hosting deploy failed after 3 attempts."
