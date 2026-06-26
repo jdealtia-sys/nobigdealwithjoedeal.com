@@ -430,6 +430,24 @@
     return zone;
   }
 
+  // D2D write-back: a knock (and optionally a converted lead) landed inside a
+  // storm-zone-backed territory. The D2D tracker calls this after recording a
+  // knock it attributed (point-in-polygon) to a zone's territory. Storm zones
+  // are localStorage-only, so update there directly — robust whether or not the
+  // Storm view is currently mounted (it re-reads localStorage on its next open).
+  function recordZoneKnock(stormZoneId, isLead) {
+    let zones;
+    try { zones = JSON.parse(localStorage.getItem(STORM_STORAGE_KEY) || '[]'); }
+    catch (_) { return false; }
+    const z = Array.isArray(zones) ? zones.find(x => x && x.id === stormZoneId) : null;
+    if (!z) return false;
+    z.knockCount = (Number(z.knockCount) || 0) + 1;
+    if (isLead) z.leadCount = (Number(z.leadCount) || 0) + 1;
+    try { localStorage.setItem(STORM_STORAGE_KEY, JSON.stringify(zones)); } catch (_) { return false; }
+    stormZones = zones; // keep the in-memory model in sync if Storm is loaded
+    return true;
+  }
+
   // ============================================================================
   // CANVASS PLAN GENERATION
   // ============================================================================
@@ -806,8 +824,8 @@
             <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Pipeline Value</div>
           </div>
           <div style="flex:1;min-width:120px;background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:12px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:var(--orange);">${stormZones.filter(z => z.canvassPlan).length}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Canvass Plans</div>
+            <div style="font-size:22px;font-weight:700;color:var(--orange);">${stormZones.reduce((s, z) => s + (Number(z.knockCount) || 0), 0)}</div>
+            <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Storm Knocks</div>
           </div>
         </div>
 
@@ -947,7 +965,7 @@
                   <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#e8720c' : '#2ECC8A'}20;color:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#e8720c' : '#2ECC8A'};font-weight:600;text-transform:uppercase;">${esc(z.status)}</span>
                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">🏠 ${z.estimatedRoofs} roofs</span>
-                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">⚡ ${Math.round((z.damageProb || 0) * 100)}% damage</span>
+                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">🚪 ${Number(z.knockCount) || 0} knocks</span>
                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:color-mix(in srgb, var(--green) 13%, transparent);color:var(--green);font-weight:600;">${rev.revenueFormatted} pipeline</span>
                   </div>
                 </div>
@@ -1050,35 +1068,34 @@
   }
 
   function renderAnalyticsTab() {
-    // Knock/lead counts have no data source yet (D2D doesn't write back per zone),
-    // so show metrics derived from real zone data instead of hardcoded-0 knocks.
-    const activeZones = stormZones.filter(z => z.status !== 'completed').length;
-    const zonesWithPlans = stormZones.filter(z => z.canvassPlan).length;
-    const pipeline = stormZones.reduce((s, z) => s + estimateZoneRevenue(z).revenue, 0);
+    // Live now: D2D attributes each knock to the containing storm zone's territory
+    // (submitKnock → StormCenter.recordKnock), so these reflect real canvassing.
+    const totalKnocks = stormZones.reduce((s, z) => s + (Number(z.knockCount) || 0), 0);
+    const totalLeads = stormZones.reduce((s, z) => s + (Number(z.leadCount) || 0), 0);
+    const convRate = totalKnocks > 0 ? Math.round(totalLeads / totalKnocks * 100) : 0;
 
     return `
       <div style="margin-top:14px;">
         <div style="font-size:13px;font-weight:700;color:var(--t);margin-bottom:10px;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;">📊 Storm Performance</div>
 
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;">
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;">
           <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
             <div style="font-size:28px;font-weight:700;color:var(--t);">${stormZones.length}</div>
             <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Total Zones</div>
           </div>
           <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:var(--orange);">${activeZones}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Active Zones</div>
+            <div style="font-size:28px;font-weight:700;color:var(--orange);">${totalKnocks}</div>
+            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Storm Knocks</div>
           </div>
           <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:var(--blue);">${zonesWithPlans}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Canvass Plans</div>
+            <div style="font-size:28px;font-weight:700;color:var(--blue);">${totalLeads}</div>
+            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Leads Generated</div>
           </div>
           <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:var(--green);">$${Math.round(pipeline / 1000)}k</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Est. Pipeline</div>
+            <div style="font-size:28px;font-weight:700;color:var(--green);">${convRate}%</div>
+            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Conversion Rate</div>
           </div>
         </div>
-        <div style="font-size:10px;color:var(--m);margin-bottom:16px;font-style:italic;">Knock &amp; lead conversion tracking will populate once zones are worked in the D2D Tracker.</div>
 
         <!-- Zone History -->
         <div style="font-size:11px;font-weight:700;color:var(--t);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Zone History</div>
@@ -1090,7 +1107,7 @@
                 <div style="font-size:18px;">${eventIcon(z.event)}</div>
                 <div style="flex:1;">
                   <div style="font-size:12px;font-weight:600;color:var(--t);">${esc(z.name.substring(0, 40))}</div>
-                  <div style="font-size:10px;color:var(--m);">${timeAgo(z.createdAt)} · ${esc(z.status)} · 🏠 ${z.estimatedRoofs} roofs</div>
+                  <div style="font-size:10px;color:var(--m);">${timeAgo(z.createdAt)} · ${Number(z.knockCount) || 0} knocks · ${Number(z.leadCount) || 0} leads</div>
                 </div>
                 <div style="font-size:12px;font-weight:700;color:var(--green);">${rev.revenueFormatted}</div>
               </div>
@@ -1180,6 +1197,7 @@
     deleteZone: deleteStormZone,
     remove: confirmDeleteZone,
     updateZone: updateStormZone,
+    recordKnock: recordZoneKnock,
     getAlerts: () => alerts,
     getZones: () => stormZones,
     getActiveZone: () => activeZone

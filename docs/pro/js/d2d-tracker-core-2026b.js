@@ -1131,6 +1131,12 @@
           console.warn('Auto-convert to lead failed:', err);
         });
       }
+
+      // Storm Center write-back: if this knock lands inside a storm-zone-backed
+      // territory, bump that zone's knock (and lead, for hot dispositions) count.
+      try { attributeKnockToStormZone(data.lat, data.lng, HOT_DISPOSITIONS.includes(disposition)); }
+      catch (_) {}
+
       return ref.id;
     } catch (e) {
       console.error('submitKnock failed:', e);
@@ -1702,7 +1708,41 @@
     watchLocationAndCenter();
     refreshMapMarkers();
     createLayerPanel();
+    // Load saved territories into state on entry so knocks can be attributed to a
+    // storm zone (point-in-polygon) even before the territory layer is toggled.
+    loadTerritories().catch(() => {});
     maybeFocusStormTerritory();
+  }
+
+  // Ray-casting point-in-polygon. ring = [[lng,lat],...] (GeoJSON order).
+  function pointInRing(lng, lat, ring) {
+    if (!Array.isArray(ring)) return false;
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0], yi = ring[i][1];
+      const xj = ring[j][0], yj = ring[j][1];
+      const hit = ((yi > lat) !== (yj > lat)) &&
+        (lng < (xj - xi) * (lat - yi) / ((yj - yi) || 1e-12) + xi);
+      if (hit) inside = !inside;
+    }
+    return inside;
+  }
+
+  // Attribute a knock to the first storm-zone-backed territory that contains it,
+  // then write the count back to Storm Center (whose zones are localStorage-only).
+  function attributeKnockToStormZone(lat, lng, isLead) {
+    if (lat == null || lng == null) return;
+    if (!window.StormCenter || typeof window.StormCenter.recordKnock !== 'function') return;
+    const terrs = state.territories || [];
+    for (let i = 0; i < terrs.length; i++) {
+      const t = terrs[i];
+      const ring = t && t.stormZoneId && t.geoJSON && t.geoJSON.geometry &&
+        t.geoJSON.geometry.coordinates && t.geoJSON.geometry.coordinates[0];
+      if (ring && pointInRing(lng, lat, ring)) {
+        window.StormCenter.recordKnock(t.stormZoneId, !!isLead);
+        return;
+      }
+    }
   }
 
   // When a rep arrives here from a Storm Center "Start Knocking" push, surface
