@@ -73,6 +73,12 @@ jobs:
       - name: Run AI-texting persona prompt tests
         run: node tests/ai-persona-prompt.test.js
 
+      # Locks in the high-value fixes from the 2026-06-25/26 surface sweeps
+      # (Vault #776, Close Board #777, Storm Center #778/#779, Academy #780) so
+      # a silent revert is caught. Dependency-free (vm + fake-DOM sandboxes).
+      - name: Run sweep regression tests
+        run: node tests/sweep-regression.test.js
+
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest
