@@ -1068,7 +1068,9 @@
     overlay.querySelector('[data-action="back"]').onclick = () => { overlay.remove(); _renderPicker(); };
     overlay.querySelector('[data-action="ask-joe"]').onclick = () => {
       overlay.remove();
-      // If joe view exists, navigate, drop the prompt in, and trigger send.
+      // If joe view exists, navigate and drop the prompt into the input.
+      // We do NOT auto-send: scenario prompts contain mandatory [bracketed]
+      // placeholders the rep must fill in before sending.
       const inp = document.getElementById('joeInput');
       if (typeof window.goTo === 'function' && inp) {
         window.goTo('joe');

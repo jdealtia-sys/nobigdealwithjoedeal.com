@@ -8,6 +8,35 @@
 
   const STORAGE_KEY = 'nbd_academy_progress';
 
+  // Resolve the current user id at runtime, reusing the main engine's
+  // already-resolved uid when present, then Firebase auth. Returns null
+  // when no real user is known — callers MUST treat null as "do not
+  // persist under a shared bucket" (never bleed progress between users
+  // on the same browser).
+  function getUserId() {
+    try {
+      if (window.RealDealAcademy && window.RealDealAcademy._userId) {
+        return window.RealDealAcademy._userId;
+      }
+      if (window.auth && window.auth.currentUser && window.auth.currentUser.uid) {
+        return window.auth.currentUser.uid;
+      }
+    } catch (_) { /* ignore */ }
+    return null;
+  }
+
+  // Per-user localStorage key; falls back to the uid-less legacy key only
+  // when no uid is available.
+  function progressStorageKey() {
+    var uid = getUserId();
+    return uid ? (STORAGE_KEY + '_' + uid) : STORAGE_KEY;
+  }
+
+  // In-memory cache populated by the async Firestore read so subsequent
+  // synchronous loadProgress() calls (and re-renders) see cross-device
+  // data once it arrives.
+  var _firestoreLabChapters = null;
+
   // ───────────────────────────────────
   // CHAPTER DATA — Full content from PDFs
   // ───────────────────────────────────
@@ -1361,17 +1390,80 @@
   // ───────────────────────────────────
 
   function loadProgress() {
+    var state = { completed: [] };
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      const raw = localStorage.getItem(progressStorageKey());
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.completed)) state = parsed;
+      }
     } catch (_) { /* ignore */ }
-    return { completed: [] };
+
+    // Firestore wins for cross-device: if the async read has populated the
+    // cache, merge its labChapters into the loaded state.
+    if (_firestoreLabChapters && Array.isArray(_firestoreLabChapters.completed)) {
+      state.completed = _firestoreLabChapters.completed;
+    } else {
+      // Kick off (or refresh) the async Firestore read when available.
+      _loadProgressFromFirestore();
+    }
+    return state;
+  }
+
+  // Read academy_progress/<uid>.labChapters from Firestore (v9 modular SDK
+  // via window globals). Async + fully guarded; on success it caches the
+  // result, mirrors it into per-user localStorage, and re-renders so the
+  // UI reflects cross-device progress. Never throws.
+  function _loadProgressFromFirestore() {
+    var uid = getUserId();
+    if (!uid || !window._db || !window.doc || !window.getDoc) return;
+    try {
+      const ref = window.doc(window._db, 'academy_progress', uid);
+      window.getDoc(ref)
+        .then(function(snap) {
+          if (!snap || !snap.exists()) return;
+          const data = snap.data() || {};
+          const lab = data.labChapters;
+          if (!lab || !Array.isArray(lab.completed)) return;
+          _firestoreLabChapters = { completed: lab.completed };
+          try {
+            localStorage.setItem(progressStorageKey(), JSON.stringify(_firestoreLabChapters));
+          } catch (_) { /* ignore */ }
+          // Re-render the catalog so completion state reflects Firestore.
+          try {
+            var host = _containerId ? document.getElementById(_containerId) : _lastRenderEl;
+            if (host && host.isConnected) LocalAuthorityBlueprint._renderCatalog(host);
+          } catch (_) { /* ignore */ }
+        })
+        .catch(function(err) { console.warn('Lab Firestore load failed:', err); });
+    } catch (err) {
+      console.warn('Lab Firestore load threw:', err);
+    }
   }
 
   function saveProgress(data) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(progressStorageKey(), JSON.stringify(data));
     } catch (_) { /* ignore */ }
+
+    // Keep the in-memory cache in sync so synchronous reads stay current.
+    if (data && Array.isArray(data.completed)) {
+      _firestoreLabChapters = { completed: data.completed.slice() };
+    }
+
+    // Mirror to Firestore under a labChapters field so it does NOT clobber
+    // the main engine's completedLessons/completedNodes/quizScores in the
+    // same academy_progress/<uid> doc. Fully guarded; never throws.
+    var uid = getUserId();
+    if (uid && window._db && window.doc && window.setDoc) {
+      try {
+        const ref = window.doc(window._db, 'academy_progress', uid);
+        window.setDoc(ref, { labChapters: { completed: (data && Array.isArray(data.completed)) ? data.completed : [] } }, { merge: true })
+          .catch(function(err) { console.warn('Lab Firestore save failed:', err); });
+      } catch (err) {
+        console.warn('Lab Firestore save threw:', err);
+      }
+    }
   }
 
   function isChapterComplete(id) {
@@ -1400,6 +1492,7 @@
 
   var _stylesInjected = false;
   var _containerId = null;
+  var _lastRenderEl = null;
 
   var LocalAuthorityBlueprint = {
 
@@ -1434,6 +1527,7 @@
 
     // ── Catalog View ──
     _renderCatalog: function(el) {
+      _lastRenderEl = el;
       var done = getCompletedCount();
       var total = CHAPTERS.length;
       var pct = Math.round((done / total) * 100);

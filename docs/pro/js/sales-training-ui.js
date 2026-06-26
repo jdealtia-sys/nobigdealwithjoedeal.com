@@ -215,16 +215,18 @@
 
         <div class="rv-skills-label">SKILL BREAKDOWN</div>
         <div class="rv-skills">
-          ${Object.entries(r.skillScores).filter(([,v]) => v > 0).sort((a,b) => b[1] - a[1]).map(([tag, val]) => {
-            const max = 100;
-            const pct = Math.min(100, Math.round((val / max) * 100));
+          ${(() => {
+            const maxVal = Math.max(0, ...Object.values(r.skillScores));
+            return Object.entries(r.skillScores).filter(([,v]) => v > 0).sort((a,b) => b[1] - a[1]).map(([tag, val]) => {
+            const pct = maxVal > 0 ? Math.round((val / maxVal) * 100) : 0;
             return `
               <div class="rv-skill-row">
                 <div class="rv-skill-label">${state.SKILL_TAGS[tag]?.icon || ''} ${state.SKILL_TAGS[tag]?.label || tag}</div>
                 <div class="rv-skill-bar"><div class="rv-skill-fill" style="width:${pct}%;background:${state.SKILL_TAGS[tag]?.color || '#666'};"></div></div>
-                <div class="rv-skill-val">${val}</div>
+                <div class="rv-skill-val">${val} pts</div>
               </div>`;
-          }).join('')}
+            }).join('');
+          })()}
         </div>
 
         <div class="rv-path-label">YOUR PATH</div>
@@ -260,7 +262,7 @@
           <button class="btn btn-ghost" data-st-action="backToMenu" style="font-size:11px;">← Exit</button>
           <div class="rapid-stats-bar">
             <span class="rs-item">⚡ ${progress}</span>
-            <span class="rs-item">🎯 ${state.rapidCorrect}/${state.rapidIndex}${state.rapidIndex > 0 ? '' : ''}</span>
+            <span class="rs-item">🎯 ${state.rapidCorrect}/${state.rapidIndex + (state.rapidAnswered ? 1 : 0)}</span>
             <span class="rs-item">🔥 ${state.rapidStreak}</span>
             <span class="rs-item">⏱ ${elapsed}s</span>
           </div>
@@ -277,7 +279,7 @@
             let extra = '';
             if (state.rapidAnswered) {
               if (opt.correct) optClass += ' rapid-opt-correct';
-              else if (i === state.rapidQueue[state.rapidIndex]?._selected) optClass += ' rapid-opt-wrong';
+              else if (i === state.rapidSelectedIdx) optClass += ' rapid-opt-wrong';
               extra = `<div class="rapid-opt-explain">${opt.explanation}</div>`;
             }
             return `
@@ -313,16 +315,18 @@
 
         <div class="rv-skills-label">SKILL BREAKDOWN</div>
         <div class="rv-skills">
-          ${Object.entries(r.skillScores).filter(([,v]) => v > 0).sort((a,b) => b[1] - a[1]).map(([tag, val]) => {
-            const max = 200;
-            const pct = Math.min(100, Math.round((val / max) * 100));
+          ${(() => {
+            const maxVal = Math.max(0, ...Object.values(r.skillScores));
+            return Object.entries(r.skillScores).filter(([,v]) => v > 0).sort((a,b) => b[1] - a[1]).map(([tag, val]) => {
+            const pct = maxVal > 0 ? Math.round((val / maxVal) * 100) : 0;
             return `
               <div class="rv-skill-row">
                 <div class="rv-skill-label">${state.SKILL_TAGS[tag]?.icon || ''} ${state.SKILL_TAGS[tag]?.label || tag}</div>
                 <div class="rv-skill-bar"><div class="rv-skill-fill" style="width:${pct}%;background:${state.SKILL_TAGS[tag]?.color || '#666'};"></div></div>
-                <div class="rv-skill-val">${val}</div>
+                <div class="rv-skill-val">${val} pts</div>
               </div>`;
-          }).join('')}
+            }).join('');
+          })()}
         </div>
 
         <div class="rv-actions">
@@ -351,10 +355,12 @@
 
         <div class="pv-section-label">SKILL PROFILE</div>
         <div class="pv-skills">
-          ${Object.entries(state.SKILL_TAGS).map(([tag, info]) => {
-            const data = state.skillProfile[tag] || { avg: 0, count: 0 };
-            const barWidth = Math.min(100, data.avg);
-            return `
+          ${(() => {
+            const maxAvg = Math.max(0, ...Object.keys(state.SKILL_TAGS).map(t => (state.skillProfile[t] || {}).avg || 0));
+            return Object.entries(state.SKILL_TAGS).map(([tag, info]) => {
+              const data = state.skillProfile[tag] || { avg: 0, count: 0 };
+              const barWidth = maxAvg > 0 ? Math.round(data.avg / maxAvg * 100) : 0;
+              return `
               <div class="pv-skill-row">
                 <div class="pv-skill-info">
                   <span class="pv-skill-icon">${info.icon}</span>
@@ -362,9 +368,10 @@
                   <span class="pv-skill-count">(${data.count} samples)</span>
                 </div>
                 <div class="pv-skill-bar"><div class="pv-skill-fill" style="width:${barWidth}%;background:${info.color};"></div></div>
-                <div class="pv-skill-val">${data.avg}</div>
+                <div class="pv-skill-val">${data.avg} pts</div>
               </div>`;
-          }).join('')}
+            }).join('');
+          })()}
         </div>
 
         <div class="pv-section-label">RECENT SESSIONS</div>
