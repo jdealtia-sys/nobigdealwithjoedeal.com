@@ -170,6 +170,12 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ steps.sa.outputs.sa_path }}
         run: |
+          # GitHub runs `run:` blocks with `bash -e` (errexit), which would abort
+          # the script the moment the captured `firebase deploy` command exits
+          # non-zero — BEFORE the benign-string check below runs. Disable errexit
+          # so we handle exit codes explicitly. (#781 added the check but missed
+          # this, so the step still false-RED'd on the first attempt.)
+          set +e
           for attempt in 1 2 3; do
             out=$(npx firebase-tools deploy --only hosting --project "$PRO_PROJECT" --non-interactive 2>&1)
             rc=$?
