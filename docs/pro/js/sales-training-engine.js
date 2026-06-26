@@ -8,7 +8,7 @@
  * window.SalesTraining. Behavior unchanged — public API is identical.
  *
  * Engine owns:
- *   - SKILL_TAGS, STAR_THRESHOLDS constants
+ *   - SKILL_TAGS constants
  *   - SCENARIOS array (decision-tree content, ~1300 lines)
  *   - OBJECTIONS array (rapid-fire flashcards, ~300 lines)
  *   - Shared mutable state on window._SalesTrainingState
@@ -40,8 +40,6 @@
     rapport:    { label: 'Rapport Building',    icon: '🤝', color: '#EC4899' },
     authority:  { label: 'Authority',          icon: '👔', color: '#e8720c' }
   };
-
-  const STAR_THRESHOLDS = [0, 20, 40, 60, 80]; // score % for 1-5 stars
 
   // ════════════════════════════════════════════════════════════
   // SCENARIO DATA — 5 Core Roofing Door-Knock Scenarios
@@ -1854,7 +1852,13 @@
   }
 
   function finishScenario() {
-    const totalPossible = state.scenarioPath.filter(s => s.score !== undefined && !s.terminal).length * 30;
+    const totalPossible = state.scenarioPath
+      .filter(s => s.score !== undefined && !s.terminal)
+      .reduce((sum, step) => {
+        const nodeOpts = state.currentScenario.nodes[step.nodeId]?.options || [];
+        const maxNodeScore = nodeOpts.length ? Math.max(...nodeOpts.map(o => o.score)) : 0;
+        return sum + maxNodeScore;
+      }, 0);
     const totalEarned = state.scenarioPath.filter(s => !s.terminal).reduce((s, step) => s + (step.score || 0), 0);
     const pct = totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0;
     const stars = getStarRating(pct);
@@ -1901,6 +1905,7 @@
     state.rapidBestStreak = 0;
     state.rapidStartTime = Date.now();
     state.rapidAnswered = false;
+    state.rapidSelectedIdx = -1;
     state.currentMode = 'rapid';
     state.render && state.render();
   }
@@ -1908,6 +1913,7 @@
   function rapidAnswer(optIdx) {
     if (state.rapidAnswered) return;
     state.rapidAnswered = true;
+    state.rapidSelectedIdx = optIdx;
     const objection = OBJECTIONS[state.rapidQueue[state.rapidIndex]];
     const opt = objection.options[optIdx];
     state.rapidScore += opt.score;
@@ -1925,6 +1931,7 @@
   function rapidNext() {
     state.rapidIndex++;
     state.rapidAnswered = false;
+    state.rapidSelectedIdx = -1;
     if (state.rapidIndex >= state.rapidQueue.length) {
       finishRapidFire();
     } else {

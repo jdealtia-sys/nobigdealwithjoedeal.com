@@ -3,10 +3,10 @@
   
   window.RealDealAdmin = {
     
-    renderAdminPanel: function(containerId) {
-      const container = document.getElementById(containerId);
+    renderAdminPanel: function(containerOrId) {
+      const container = (typeof containerOrId === 'string') ? document.getElementById(containerOrId) : containerOrId;
       if(!container) return;
-      
+
       const html = `
         <div class="academy-admin-panel">
           <h2>Academy Admin Dashboard</h2>
@@ -79,8 +79,8 @@
       this._loadTeamMembers(container);
     },
     
-    renderMemberDetail: function(containerId, uid) {
-      const container = document.getElementById(containerId);
+    renderMemberDetail: function(containerOrId, uid) {
+      const container = (typeof containerOrId === 'string') ? document.getElementById(containerOrId) : containerOrId;
       if(!container) return;
 
       // Real implementation will fetch member progress from Firestore
@@ -150,8 +150,8 @@
       };
     },
     
-    renderLeaderboard: function(containerId) {
-      const container = document.getElementById(containerId);
+    renderLeaderboard: function(containerOrId) {
+      const container = (typeof containerOrId === 'string') ? document.getElementById(containerOrId) : containerOrId;
       if(!container) return;
 
       // Read real team progress from localStorage + Firestore (future).

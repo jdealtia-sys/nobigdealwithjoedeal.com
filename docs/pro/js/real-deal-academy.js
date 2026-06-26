@@ -36,6 +36,8 @@
           if (user && user.uid && !this._userId) {
             this._userId = user.uid;
             this._loadProgress();
+            // Auth resolved after mount — repaint with the real user's data.
+            this._repaintCurrentTab();
           }
         });
         this._authUnsub = off;
@@ -72,6 +74,9 @@
                 this._progressData.completedLessons = new Set(data.completedLessons || []);
                 this._progressData.quizScores = data.quizScores || {};
               }
+              // Fresh device: progress arrives async — repaint the mounted
+              // tab so stats/trees reflect it without a manual tab switch.
+              this._repaintCurrentTab();
             })
             .catch(err => console.warn('Firestore load failed, using localStorage:', err));
         } catch (err) {
@@ -970,9 +975,18 @@
         this._stylesInjected = true;
       }
 
+      this._container = container;
       container.innerHTML = this._buildAcademyUI();
       this._attachEventListeners(container);
       this._renderTab('overview', container);
+    },
+
+    // Re-render the currently mounted tab after a background progress load
+    // mutates _progressData. Idempotent: the existing #rda-main-content /
+    // .rda-container DOM is reusable. No-op when the academy isn't mounted.
+    _repaintCurrentTab() {
+      if (!this._container) return;
+      this._renderTab(this._currentTab, this._container.querySelector('#rda-main-content') || this._container);
     },
 
     _buildAcademyUI() {
@@ -1031,7 +1045,11 @@
     },
 
     _renderTab(tabName, container) {
-      const contentArea = container.querySelector('#rda-main-content');
+      // Accept either the outer container (resolve #rda-main-content) or the
+      // content area itself (passed directly by background repaints).
+      const contentArea = (container.id === 'rda-main-content')
+        ? container
+        : (container.querySelector('#rda-main-content') || container);
 
       switch (tabName) {
         case 'overview':
@@ -1151,9 +1169,32 @@
       container.innerHTML = html;
     },
 
+    _escapeHtml(str) {
+      return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    },
+
     _getRecentActivity() {
-      // In a real app, track activity with timestamps
-      return [];
+      // Build from real quiz attempts. Each quizScores entry carries a
+      // .timestamp (ISO, written in submitQuiz) and .passed. Entries with
+      // no timestamp predate that field — skip them.
+      const scores = this._progressData.quizScores || {};
+      return Object.entries(scores)
+        .filter(([, result]) => result && result.timestamp)
+        .map(([key, result]) => {
+          const verb = result.passed ? 'Passed quiz' : 'Attempted quiz';
+          return {
+            timestamp: result.timestamp,
+            title: this._escapeHtml(`${verb}: ${key}`),
+            time: this._escapeHtml(new Date(result.timestamp).toLocaleString())
+          };
+        })
+        .sort((a, b) => (a.timestamp < b.timestamp ? 1 : a.timestamp > b.timestamp ? -1 : 0))
+        .slice(0, 5);
     },
 
     // ===== TAB: PROCESS TREE =====
@@ -1192,11 +1233,14 @@
         const nodes = phaseMap[phase];
         if (nodes.length === 0) return;
 
-        const phaseNum = nodes[0].phaseNumber || '';
+        // Group key (phase) stays the stable slug; render the human label.
+        // Insurance has phaseLabel; retail uses phaseTitle + numeric phase.
+        const phaseLabel = nodes[0].phaseLabel || nodes[0].phaseTitle || phase;
+        const phaseNum = nodes[0].phaseNumber || nodes[0].phase || '';
         html += `
           <div class="rda-phase-header">
             <span class="rda-phase-number">${phaseNum}</span>
-            <span class="rda-phase-title">${phase}</span>
+            <span class="rda-phase-title">${phaseLabel}</span>
           </div>
         `;
 
@@ -1305,6 +1349,19 @@
               </button>
             </div>
 
+            ${(node.isFork && node.forkOptions && node.forkOptions.length) ? `
+              <div class="rda-node-detail-section">
+                <div class="rda-node-detail-title">${node.forkLabel || 'Choose a path'}</div>
+                <div class="rda-fork-options">
+                  ${node.forkOptions.map((opt, fi) => `
+                    <button class="rda-button rda-button-secondary" data-action="fork-option" data-fork-index="${fi}">
+                      ${opt.label}
+                    </button>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
             <div class="rda-nav-buttons">
               <button class="rda-button rda-button-secondary" data-action="prev-node">
                 ← Previous
@@ -1339,6 +1396,10 @@
       // Mark complete button
       modal.querySelector('[data-action="mark-complete"]').addEventListener('click', () => {
         this.markNodeComplete(node.id);
+        // Repaint the active process tree so the node card greens out
+        // immediately instead of staying stale until a tab switch.
+        const c = document.getElementById('academyContainer')?.querySelector('#rda-main-content');
+        if (c) this.renderProcessTree(c, branch);
         modal.remove();
       });
 
@@ -1347,26 +1408,47 @@
         ? window._academyInsuranceTree
         : window._academyRetailTree;
 
+      // id -> node lookup so authored prevNodes/nextNodes/forkOptions can be
+      // resolved by id instead of relying purely on array order.
+      const nodeMap = new Map(treeData.map(n => [n.id, n]));
       const nodeIndex = treeData.findIndex(n => n.id === node.id);
 
-      if (nodeIndex <= 0) {
+      // Fork branch buttons — jump to the chosen authored path.
+      modal.querySelectorAll('[data-action="fork-option"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const fi = parseInt(btn.dataset.forkIndex, 10);
+          const opt = node.forkOptions && node.forkOptions[fi];
+          const target = opt && nodeMap.get(opt.nodeId);
+          if (target) {
+            modal.remove();
+            this._showNodeDetail(target, branch);
+          }
+        });
+      });
+
+      // Resolve authored neighbors first; fall back to array-index neighbors
+      // when prevNodes/nextNodes are empty/absent so the linear path holds.
+      const prevNode = (node.prevNodes && node.prevNodes.length && nodeMap.get(node.prevNodes[0]))
+        || (nodeIndex > 0 ? treeData[nodeIndex - 1] : null);
+      const nextNode = (node.nextNodes && node.nextNodes.length && nodeMap.get(node.nextNodes[0]))
+        || (nodeIndex >= 0 && nodeIndex < treeData.length - 1 ? treeData[nodeIndex + 1] : null);
+
+      if (!prevNode) {
         modal.querySelector('[data-action="prev-node"]').disabled = true;
         modal.querySelector('[data-action="prev-node"]').style.opacity = '0.5';
       } else {
         modal.querySelector('[data-action="prev-node"]').addEventListener('click', () => {
           modal.remove();
-          const prevNode = treeData[nodeIndex - 1];
           this._showNodeDetail(prevNode, branch);
         });
       }
 
-      if (nodeIndex >= treeData.length - 1) {
+      if (!nextNode) {
         modal.querySelector('[data-action="next-node"]').disabled = true;
         modal.querySelector('[data-action="next-node"]').style.opacity = '0.5';
       } else {
         modal.querySelector('[data-action="next-node"]').addEventListener('click', () => {
           modal.remove();
-          const nextNode = treeData[nodeIndex + 1];
           this._showNodeDetail(nextNode, branch);
         });
       }
@@ -1669,6 +1751,16 @@
           this.renderLesson(container, courseId, lessonId);
         });
       }
+
+      // Retry quiz — clear the prior result so the answerable form returns.
+      const retryBtn = container.querySelector('[data-action="retry-quiz"]');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => {
+          delete this._progressData.quizScores[quizKey];
+          this._saveProgress();
+          this.renderLesson(container, courseId, lessonId);
+        });
+      }
     },
 
     _buildQuizHtml(quiz, previousResult) {
@@ -1695,6 +1787,14 @@
             `;
           });
         }
+
+        // Retry control — without it a failed quiz strands the lesson
+        // (Mark Complete is hidden once a result exists).
+        html += `
+          <button class="rda-button" data-action="retry-quiz" style="margin-top: 20px;">
+            Retry Quiz
+          </button>
+        `;
       } else {
         quiz.questions.forEach((q, qIdx) => {
           html += `
@@ -1811,6 +1911,7 @@
 
       let totalLessons = 0;
       let lessonsComplete = 0;
+      let totalQuizzes = 0;
 
       courses.forEach(course => {
         if (course.modules) {
@@ -1818,6 +1919,9 @@
             if (mod.lessons) {
               mod.lessons.forEach(lesson => {
                 totalLessons++;
+                if (lesson.quiz) {
+                  totalQuizzes++;
+                }
                 if (this._progressData.completedLessons.has(`${course.id}_${lesson.id}`)) {
                   lessonsComplete++;
                 }
@@ -1829,12 +1933,14 @@
 
       const quizScores = Object.values(this._progressData.quizScores);
       const quizzesPassed = quizScores.filter(q => q.passed).length;
-      const totalQuizzes = quizScores.length;
 
+      // Average only over attempts with a valid denominator — a q.total of 0
+      // would make q.score / q.total a divide-by-zero (NaN/Infinity).
+      const scored = quizScores.filter(q => q.total > 0);
       let avgScore = 0;
-      if (quizScores.length > 0) {
-        const totalScore = quizScores.reduce((sum, q) => sum + (q.score / q.total * 100), 0);
-        avgScore = Math.round(totalScore / quizScores.length);
+      if (scored.length > 0) {
+        const totalScore = scored.reduce((sum, q) => sum + (q.score / q.total * 100), 0);
+        avgScore = Math.round(totalScore / scored.length);
       }
 
       return {
