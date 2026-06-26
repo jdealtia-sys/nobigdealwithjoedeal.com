@@ -1702,6 +1702,29 @@
     watchLocationAndCenter();
     refreshMapMarkers();
     createLayerPanel();
+    maybeFocusStormTerritory();
+  }
+
+  // When a rep arrives here from a Storm Center "Start Knocking" push, surface
+  // the just-pushed territory (rendered directly into the territory feature
+  // group — independent of the Leaflet.Draw control) and zoom to it. Guarded by
+  // a ONE-SHOT localStorage hint that's cleared immediately, so normal D2D entry
+  // is completely unaffected.
+  function maybeFocusStormTerritory() {
+    let bounds = null;
+    try {
+      const raw = localStorage.getItem('nbd_d2d_focus_bounds');
+      if (raw) { bounds = JSON.parse(raw); localStorage.removeItem('nbd_d2d_focus_bounds'); }
+    } catch (_) {}
+    if (!bounds || !state.d2dMap) return;
+    if (!d2dTerritoryGroup) { d2dTerritoryGroup = new L.FeatureGroup(); state.d2dMap.addLayer(d2dTerritoryGroup); }
+    d2dLayerState.territory = true;
+    try { updateLayerPanel(); } catch (_) {}
+    Promise.resolve(renderSavedTerritories()).catch(() => {}).then(() => {
+      try {
+        state.d2dMap.fitBounds([[bounds.south, bounds.west], [bounds.north, bounds.east]], { padding: [40, 40], maxZoom: 15 });
+      } catch (_) {}
+    });
   }
 
   // Tracks whether we've surfaced a GPS-denial/error toast this session —

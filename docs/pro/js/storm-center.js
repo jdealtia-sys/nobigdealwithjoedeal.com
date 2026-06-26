@@ -79,16 +79,20 @@
   let currentTab = 'alerts'; // 'alerts' | 'zones' | 'canvass' | 'analytics'
   let isLoading = false;
   let userLocation = null;
+  let savedMapView = null;      // preserved center/zoom across render() map rebuilds
+  let pendingZoneCenter = null; // focus the map on a just-opened zone after rebuild
 
   // ============================================================================
   // HELPERS
   // ============================================================================
 
   function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
-  function fmtDate(d) { if (!d) return '—'; const dt = new Date(d); return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+  function fmtDate(d) { if (!d) return '—'; const dt = new Date(d); if (isNaN(dt.getTime())) return '—'; return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
   function timeAgo(d) {
     if (!d) return '';
-    const diff = Date.now() - new Date(d).getTime();
+    const t = new Date(d).getTime();
+    if (isNaN(t)) return '';
+    const diff = Date.now() - t;
     const mins = Math.floor(diff / 60000);
     if (mins < 60) return mins + 'm ago';
     const hrs = Math.floor(mins / 60);
@@ -166,6 +170,7 @@
     const cached = getCachedAlerts();
     if (cached) {
       alerts = cached;
+      render(); // cache hit still needs a paint — init() rendered before alerts loaded
       return alerts;
     }
 
@@ -175,6 +180,7 @@
     try {
       // NWS API: fetch alerts for a point or area
       let url = NWS_ALERTS_API + '?status=actual&message_type=alert';
+      let haveLocalZone = false;
 
       // If we have coordinates, fetch by point
       if (lat && lng) {
@@ -189,14 +195,20 @@
           if (county) {
             const zoneId = county.split('/').pop();
             url += '&zone=' + zoneId;
+            haveLocalZone = true;
           }
         }
       }
 
-      // Also fetch state-level if we know the state
-      const stateCode = await getStateCode(lat, lng);
-      if (stateCode) {
-        url = NWS_ALERTS_API + '?status=actual&message_type=alert&area=' + stateCode;
+      // Fall back to a STATE-WIDE query only if we couldn't localize to a county/
+      // zone above. Previously this ran unconditionally and OVERWROTE the local
+      // url, so every rep saw all statewide alerts (and huge polygons feeding the
+      // roof/revenue estimates) instead of their own area.
+      if (!haveLocalZone) {
+        const stateCode = await getStateCode(lat, lng);
+        if (stateCode) {
+          url = NWS_ALERTS_API + '?status=actual&message_type=alert&area=' + stateCode;
+        }
       }
 
       const resp = await fetch(url, {
@@ -310,8 +322,14 @@
     };
   }
 
+  // Match on roofing-relevant KEYWORDS, not the first word of each event name.
+  // The old `split(' ')[0]` matched "Severe Thunderstorm" on "severe" and "High
+  // Wind" on "high", admitting non-roofing alerts (High Surf, Severe Weather
+  // Statement, Heat) while pretending to use the ROOFING_EVENTS list.
+  const ROOFING_KEYWORDS = ['tornado', 'thunderstorm', 'hail', 'wind', 'hurricane', 'tropical', 'flood'];
   function isRoofingRelevant(alert) {
-    return ROOFING_EVENTS.some(e => alert.event?.toLowerCase().includes(e.toLowerCase().split(' ')[0]));
+    const ev = (alert.event || '').toLowerCase();
+    return ROOFING_KEYWORDS.some(k => ev.includes(k));
   }
 
   function estimateDamageProb(hailSize, windSpeed) {
@@ -359,10 +377,13 @@
       notes: ''
     };
 
-    // Estimate roofs in area (rough: ~200 homes per sq mile in suburban areas)
+    // Estimate roofs in area (rough: ~200 homes per sq mile in suburban areas).
+    // Cap it — a large/state-wide NWS polygon would otherwise yield millions of
+    // "roofs" and $billions of fake pipeline. A single canvassable storm zone is
+    // realistically a few thousand homes at most.
     if (alert.polygon && alert.polygon.length > 2) {
       const areaSqMiles = calculatePolygonArea(alert.polygon);
-      zone.estimatedRoofs = Math.round(areaSqMiles * 200);
+      zone.estimatedRoofs = Math.min(Math.round(areaSqMiles * 200), 5000);
     }
 
     stormZones.unshift(zone);
@@ -390,6 +411,14 @@
     stormZones = stormZones.filter(z => z.id !== zoneId);
     saveStormZones();
     render();
+  }
+
+  function confirmDeleteZone(zoneId) {
+    const zone = stormZones.find(z => z.id === zoneId);
+    const name = (zone && zone.name) || 'this storm zone';
+    if (window.confirm('Delete ' + name + '?\nThis removes the zone and its canvass plan from this device.')) {
+      deleteStormZone(zoneId);
+    }
   }
 
   function updateStormZone(zoneId, updates) {
@@ -523,45 +552,53 @@
   // ============================================================================
 
   function pushZoneToD2D(zone) {
-    // Create a territory in D2D tracker from storm zone
-    if (window.D2D && zone.polygon) {
-      // The D2D tracker can accept territory data
-      const territory = {
-        name: '🌩️ ' + zone.name,
-        polygon: zone.polygon,
-        center: zone.center,
-        stormZoneId: zone.id,
-        priority: zone.canvassPlan?.priority || 'NORMAL',
-        createdAt: new Date().toISOString()
-      };
+    // Create a D2D territory from the storm zone so it actually renders on the
+    // D2D map. D2D's renderSavedTerritories only draws docs with a `geoJSON`
+    // Feature in [lng,lat] order — the old code wrote a `polygon` ([lat,lng])
+    // field D2D skips, so the pushed zone was invisible. Mirror D2D's
+    // saveTerritory shape (name/type/geoJSON/bounds). The write only needs
+    // Firestore (set at boot), so it no longer gates on window.D2D being loaded.
+    if (!zone.polygon || zone.polygon.length < 3) return null;
 
-      // Store in Firestore if available
-      if (window._db && window._user) {
-        const { addDoc, collection, serverTimestamp } = window;
-        if (addDoc && collection) {
-          addDoc(collection(window._db, 'territories'), {
-            ...territory,
-            userId: window._user.uid,
-            companyId: window._userClaims?.companyId || window._user.uid,
-            createdAt: serverTimestamp()
-          }).then(() => {
-            if (window.showToast) window.showToast('Territory pushed to D2D Tracker', 'success');
-          }).catch(e => console.error('Territory save error:', e));
-        }
+    const name = '🌩️ ' + zone.name;
+    const ring = zone.polygon.map(p => [p[1], p[0]]); // [lat,lng] -> GeoJSON [lng,lat]
+    const lats = zone.polygon.map(p => p[0]);
+    const lngs = zone.polygon.map(p => p[1]);
+    const territory = {
+      name,
+      type: 'polygon',
+      geoJSON: { type: 'Feature', properties: { name }, geometry: { type: 'Polygon', coordinates: [ring] } },
+      bounds: { north: Math.max(...lats), south: Math.min(...lats), east: Math.max(...lngs), west: Math.min(...lngs) },
+      stormZoneId: zone.id,
+      priority: zone.canvassPlan?.priority || 'NORMAL'
+    };
+
+    if (window._db && window._user) {
+      const { addDoc, collection, serverTimestamp } = window;
+      if (addDoc && collection) {
+        addDoc(collection(window._db, 'territories'), Object.assign({}, territory, {
+          userId: window._user.uid,
+          companyId: window._userClaims?.companyId || window._user.uid,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        })).then(() => {
+          if (window.showToast) window.showToast('Storm zone added to D2D as a territory', 'success');
+        }).catch(e => console.error('Territory save error:', e));
       }
-
-      return territory;
     }
-    return null;
+
+    // Hint the D2D tracker to surface + zoom to this zone when it opens.
+    try { localStorage.setItem('nbd_d2d_focus_bounds', JSON.stringify(territory.bounds)); } catch (_) {}
+
+    return territory;
   }
 
   function createLeadsFromZone(zone) {
-    // Navigate to D2D tracker with storm zone pre-loaded
-    if (window.goTo) {
-      activeZone = zone;
-      window.goTo('d2d');
-      if (window.showToast) window.showToast('Storm zone loaded in D2D Tracker — start knocking!', 'info');
-    }
+    // Navigate to the D2D tracker. The zone was already written as a territory
+    // (pushZoneToD2D), which D2D now renders + zooms to via the focus hint;
+    // activeZone is kept for any future in-app consumer.
+    activeZone = zone;
+    if (window.goTo) window.goTo('d2d');
   }
 
   // ============================================================================
@@ -644,6 +681,15 @@
     }).addTo(stormMap).bindPopup('Your Location');
 
     renderMapLayers();
+
+    // Restore the prior view (a tab switch rebuilds the map) or focus a zone the
+    // user just opened — otherwise the map snaps back to the default every paint.
+    if (pendingZoneCenter) {
+      try { stormMap.setView(pendingZoneCenter, 11); } catch (_) {}
+      pendingZoneCenter = null;
+    } else if (savedMapView) {
+      try { stormMap.setView(savedMapView.center, savedMapView.zoom); } catch (_) {}
+    }
   }
 
   function renderMapLayers() {
@@ -693,8 +739,8 @@
         poly.bindPopup(`
           <div style="font-family:'Barlow',sans-serif;max-width:250px;">
             <div style="font-weight:700;font-size:13px;">🌩️ ${esc(zone.name)}</div>
-            <div style="font-size:11px;margin-top:4px;">Status: <strong>${zone.status.toUpperCase()}</strong></div>
-            <div style="font-size:11px;">Est. roofs: ${zone.estimatedRoofs} · Knocks: ${zone.knockCount}</div>
+            <div style="font-size:11px;margin-top:4px;">Status: <strong>${esc(String(zone.status || 'active')).toUpperCase()}</strong></div>
+            <div style="font-size:11px;">Est. roofs: ${zone.estimatedRoofs} · ${Math.round((zone.damageProb || 0) * 100)}% damage</div>
             <div style="margin-top:6px;display:flex;gap:6px;">
               <button data-storm-action="openZone" data-storm-id="${zone.id}" style="padding:5px 10px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">View</button>
               <button data-storm-action="pushToD2D" data-storm-id="${zone.id}" style="padding:5px 10px;background:#e8720c;color:white;border:none;border-radius:4px;cursor:pointer;font-size:10px;">Start Knocking</button>
@@ -728,10 +774,9 @@
     // Stats bar
     const activeAlerts = alerts.length;
     const activeZones = stormZones.filter(z => z.status !== 'completed').length;
-    const totalRevenue = stormZones.reduce((s, z) => {
-      const rev = z.canvassPlan ? estimateZoneRevenue(z).revenue : 0;
-      return s + rev;
-    }, 0);
+    // Sum revenue for ALL zones (matching the per-zone + Analytics displays);
+    // the old plan-gated sum made the header undercount vs the cards below it.
+    const totalRevenue = stormZones.reduce((s, z) => s + estimateZoneRevenue(z).revenue, 0);
 
     let html = `
       <div style="padding:16px 20px 0;">
@@ -761,8 +806,8 @@
             <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Pipeline Value</div>
           </div>
           <div style="flex:1;min-width:120px;background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:12px;text-align:center;">
-            <div style="font-size:22px;font-weight:700;color:var(--orange);">${stormZones.reduce((s, z) => s + z.knockCount, 0)}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Storm Knocks</div>
+            <div style="font-size:22px;font-weight:700;color:var(--orange);">${stormZones.filter(z => z.canvassPlan).length}</div>
+            <div style="font-size:10px;color:var(--m);text-transform:uppercase;letter-spacing:.06em;">Canvass Plans</div>
           </div>
         </div>
 
@@ -815,7 +860,14 @@
       }
     };
 
-    // Re-init map after DOM update
+    // Re-init the map after the DOM update. Capture the prior view and tear down
+    // the old Leaflet instance (its #storm-map node was just replaced by the
+    // innerHTML above) so its listeners don't leak and zoom/pan survives the
+    // repaint instead of snapping back to default on every tab switch.
+    if (stormMap) {
+      try { savedMapView = { center: stormMap.getCenter(), zoom: stormMap.getZoom() }; } catch (_) {}
+      try { stormMap.remove(); } catch (_) {}
+    }
     stormMap = null;
     setTimeout(initMap, 50);
   }
@@ -893,15 +945,16 @@
                   <div style="font-size:14px;font-weight:700;color:var(--t);">🌩️ ${esc(z.name)}</div>
                   <div style="font-size:11px;color:var(--m);margin-top:3px;">Created ${timeAgo(z.createdAt)}</div>
                   <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#e8720c' : '#2ECC8A'}20;color:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#e8720c' : '#2ECC8A'};font-weight:600;text-transform:uppercase;">${z.status}</span>
+                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#e8720c' : '#2ECC8A'}20;color:${z.status === 'active' ? '#ff6d00' : z.status === 'canvassing' ? '#e8720c' : '#2ECC8A'};font-weight:600;text-transform:uppercase;">${esc(z.status)}</span>
                     <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">🏠 ${z.estimatedRoofs} roofs</span>
-                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">🚪 ${z.knockCount} knocks</span>
-                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--green)20;color:var(--green);font-weight:600;">${rev.revenueFormatted} pipeline</span>
+                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:var(--s);border:1px solid var(--br);color:var(--t);">⚡ ${Math.round((z.damageProb || 0) * 100)}% damage</span>
+                    <span style="font-size:10px;padding:2px 8px;border-radius:10px;background:color-mix(in srgb, var(--green) 13%, transparent);color:var(--green);font-weight:600;">${rev.revenueFormatted} pipeline</span>
                   </div>
                 </div>
                 <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;">
                   <button data-storm-action="generatePlan" data-storm-id="${z.id}" data-storm-stop="1" style="padding:5px 12px;background:var(--blue,#4A9EFF);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">📋 Plan</button>
                   <button data-storm-action="pushToD2D" data-storm-id="${z.id}" data-storm-stop="1" style="padding:5px 12px;background:var(--orange,#e8720c);color:white;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🚪 Knock</button>
+                  <button data-storm-action="remove" data-storm-id="${z.id}" data-storm-stop="1" style="padding:5px 12px;background:transparent;border:1px solid var(--br);color:var(--m);border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;">🗑 Delete</button>
                 </div>
               </div>
             </div>
@@ -997,33 +1050,35 @@
   }
 
   function renderAnalyticsTab() {
-    const completed = stormZones.filter(z => z.status === 'completed');
-    const totalKnocks = stormZones.reduce((s, z) => s + z.knockCount, 0);
-    const totalLeads = stormZones.reduce((s, z) => s + z.leadCount, 0);
-    const convRate = totalKnocks > 0 ? Math.round(totalLeads / totalKnocks * 100) : 0;
+    // Knock/lead counts have no data source yet (D2D doesn't write back per zone),
+    // so show metrics derived from real zone data instead of hardcoded-0 knocks.
+    const activeZones = stormZones.filter(z => z.status !== 'completed').length;
+    const zonesWithPlans = stormZones.filter(z => z.canvassPlan).length;
+    const pipeline = stormZones.reduce((s, z) => s + estimateZoneRevenue(z).revenue, 0);
 
     return `
       <div style="margin-top:14px;">
         <div style="font-size:13px;font-weight:700;color:var(--t);margin-bottom:10px;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;letter-spacing:.06em;">📊 Storm Performance</div>
 
-        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px;">
           <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
             <div style="font-size:28px;font-weight:700;color:var(--t);">${stormZones.length}</div>
             <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Total Zones</div>
           </div>
           <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:var(--orange);">${totalKnocks}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Storm Knocks</div>
+            <div style="font-size:28px;font-weight:700;color:var(--orange);">${activeZones}</div>
+            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Active Zones</div>
           </div>
           <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:var(--blue);">${totalLeads}</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Leads Generated</div>
+            <div style="font-size:28px;font-weight:700;color:var(--blue);">${zonesWithPlans}</div>
+            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Canvass Plans</div>
           </div>
           <div style="background:var(--s2);border:1px solid var(--br);border-radius:10px;padding:14px;text-align:center;">
-            <div style="font-size:28px;font-weight:700;color:var(--green);">${convRate}%</div>
-            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Conversion Rate</div>
+            <div style="font-size:28px;font-weight:700;color:var(--green);">$${Math.round(pipeline / 1000)}k</div>
+            <div style="font-size:10px;color:var(--m);text-transform:uppercase;">Est. Pipeline</div>
           </div>
         </div>
+        <div style="font-size:10px;color:var(--m);margin-bottom:16px;font-style:italic;">Knock &amp; lead conversion tracking will populate once zones are worked in the D2D Tracker.</div>
 
         <!-- Zone History -->
         <div style="font-size:11px;font-weight:700;color:var(--t);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Zone History</div>
@@ -1035,7 +1090,7 @@
                 <div style="font-size:18px;">${eventIcon(z.event)}</div>
                 <div style="flex:1;">
                   <div style="font-size:12px;font-weight:600;color:var(--t);">${esc(z.name.substring(0, 40))}</div>
-                  <div style="font-size:10px;color:var(--m);">${timeAgo(z.createdAt)} · ${z.knockCount} knocks · ${z.leadCount} leads</div>
+                  <div style="font-size:10px;color:var(--m);">${timeAgo(z.createdAt)} · ${esc(z.status)} · 🏠 ${z.estimatedRoofs} roofs</div>
                 </div>
                 <div style="font-size:12px;font-weight:700;color:var(--green);">${rev.revenueFormatted}</div>
               </div>
@@ -1086,11 +1141,10 @@
     activeZone = stormZones.find(z => z.id === zoneId);
     if (activeZone) {
       currentTab = 'zones';
+      // Stage the center BEFORE render() — the old code called setView after
+      // render() had already nulled stormMap (rebuilt async), so it was a no-op.
+      if (activeZone.center) pendingZoneCenter = activeZone.center;
       render();
-      // Center map on zone
-      if (stormMap && activeZone.center) {
-        stormMap.setView(activeZone.center, 11);
-      }
     }
   }
 
@@ -1124,6 +1178,8 @@
     generatePlan: generatePlanForZone,
     pushToD2D: pushZoneToD2DById,
     deleteZone: deleteStormZone,
+    remove: confirmDeleteZone,
+    updateZone: updateStormZone,
     getAlerts: () => alerts,
     getZones: () => stormZones,
     getActiveZone: () => activeZone
