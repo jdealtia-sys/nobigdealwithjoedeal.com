@@ -286,6 +286,62 @@ service cloud.firestore {
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 
+    // ── EXPENSES (job costs / supplier spend) ─────────
+    // Company-shared expense ledger that feeds per-job gross margin
+    // (ProfitTracker.computeJobPL) and the supplier-spend reports.
+    //
+    // Ownership: an expense is created by a rep (userId == caller) and
+    // stamped with the caller's tenant (companyId), pinned to the
+    // caller's OWN company exactly like /leads — a rep can never write
+    // an expense into a foreign tenant's rollups. Reads follow the
+    // recordings/ + leaderboard precedent: the owning rep sees their
+    // own; a company_admin or manager sees the whole team's spend (same
+    // companyId — this is the "team admin sees all reps' spend" intent);
+    // platform admin sees all. Updates/deletes stay with the owner
+    // (non-viewer) or platform admin, and the immutable audit fields
+    // (userId/companyId/createdAt/createdBy) can NEVER be mutated — IRS
+    // "adequate records" (Rev. Proc. 97-22) want a stable provenance
+    // trail and an un-rewritable original.
+    //
+    // Schema: { userId, companyId, leadId|null, category, costType
+    //   ('direct'|'overhead'), supplier, amountCents (int), taxCents?
+    //   (int), currency, date (Timestamp), note?, receiptStoragePath|null,
+    //   receiptDocRef|null, source ('manual'|'ocr'), ocr?, needsReview,
+    //   createdAt, createdBy, updatedAt }. The category→costType map and
+    //   the single revenue basis live in docs/pro/js/expense-config.js
+    //   (one source of truth shared by the form, reports, and margin
+    //   engine — prevents the metric-definition drift that lets margins
+    //   lie).
+    //
+    // Indexes (firestore.indexes.json, shipped in THIS change per the
+    // rule-mismatch-audit discipline): {companyId,date}, {userId,date},
+    // {userId,leadId,date}, {companyId,leadId,date}. A missing composite
+    // index makes the spend report SILENTLY EMPTY — static CI catches
+    // neither that nor a missing rule.
+    match /expenses/{expenseId} {
+      allow read: if isOwner(resource.data.userId)
+        || isAdmin()
+        || (isCompanyStaff()
+            && resource.data.companyId != null
+            && resource.data.companyId == myCompanyId());
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() > 0
+        && (request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
+      // .get('role','') NOT `.role != 'viewer'` — reading an ABSENT claim
+      // key with != THROWS in rules (solo operators have no role claim),
+      // which would permission-deny their own edits. Same fix as /leads.
+      allow update: if (isOwner(resource.data.userId)
+            && request.auth.token.get('role', '') != 'viewer'
+            && didNotChange(['userId', 'companyId', 'createdAt', 'createdBy']))
+        || isAdmin();
+      allow delete: if (isOwner(resource.data.userId)
+            && request.auth.token.get('role', '') != 'viewer')
+        || isAdmin();
+    }
+
     // ── PHOTOS ────────────────────────────────────────
     match /photos/{photoId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
