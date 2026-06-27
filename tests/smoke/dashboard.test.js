@@ -1328,18 +1328,19 @@ section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
     /el\.hasAttribute\('data-close-more'\)[\s\S]{0,120}closeMobileMore\(\)/.test(mainJs),
     'expected closeMobileMore() called when data-close-more present');
 
-  // 3 bottom-nav items (mn-item) plus 19 More-drawer items = 22 total
+  // 3 bottom-nav items (mn-item) plus 20 More-drawer items = 23 total
   // mobileNav data-actions in the markup. (Crew-calendar More item
   // intentionally remains inline — defensive existence check.)
+  // (Expenses More-drawer item added with the Phase 1 expense subsystem.)
   const mnCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"/g) || []).length;
-  assert('mobileNav conversions: 22 (3 bottom-nav + 19 more-drawer)',
-    mnCount === 22,
-    'expected 22 mobileNav data-actions; got ' + mnCount);
+  assert('mobileNav conversions: 23 (3 bottom-nav + 20 more-drawer)',
+    mnCount === 23,
+    'expected 23 mobileNav data-actions; got ' + mnCount);
 
   const closeMoreCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"\s+data-close-more/g) || []).length;
-  assert('19 mobileNav items carry data-close-more (More-drawer items)',
-    closeMoreCount === 19,
-    'expected 19 data-close-more flags; got ' + closeMoreCount);
+  assert('20 mobileNav items carry data-close-more (More-drawer items)',
+    closeMoreCount === 20,
+    'expected 20 data-close-more flags; got ' + closeMoreCount);
 
   // C.4 finale: every mobileNav handler is delegated (no inline onclicks).
   const remaining = (dash.match(/onclick="mobileNav\(/g) || []).length;

@@ -60,6 +60,13 @@
     closeboard: [
       'js/close-board.js?v=1'
     ],
+    // Expenses & supplier-spend view — only loaded on the Expenses tab.
+    // expense-config.js (the shared category/money source of truth) MUST load
+    // before expenses.js, which reads window.ExpenseConfig at render time.
+    expenses: [
+      'js/expense-config.js?v=1',
+      'js/expenses.js?v=1'
+    ],
     repos: [
       'js/rep-os.js?v=1'
     ],
@@ -165,6 +172,7 @@
     training:    ['training'],
     storm:       ['storm'],
     closeboard:  ['closeboard'],
+    expenses:    ['expenses'],
     repos:       ['repos'],
     aitree:      ['decision'],
     understand:  ['decision'],

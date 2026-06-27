@@ -7726,6 +7726,7 @@ body.theme-frosted {
     <div class="nav-section-content open" id="section-insights">
       <div class="ni" data-action="goTo" data-target="board" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
       <div class="ni" data-action="goTo" data-target="reports" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
+      <div class="ni" data-action="goTo" data-target="expenses" id="nav-expenses"><span class="ni-icon">🧾</span>Expenses</div>
       <div class="ni" data-action="windowOpen" data-target="/pro/daily-success/" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
       <div class="ni" data-action="goTo" data-target="storm" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
       <div class="ni" data-action="goTo" data-target="closeboard" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
@@ -9193,6 +9194,9 @@ body.theme-frosted {
   <div class="view" id="view-repos"      data-view-template="tpl-view-repos"></div>
   <!-- Talk Tank: empty mount; talk-tank.js renders into .view-scroll on init. -->
   <div class="view" id="view-talk-tank"><div class="view-scroll"></div></div>
+  <!-- Expenses: template-hydrated mount; expenses.js renders into .view-scroll on init. -->
+  <div class="view" id="view-expenses" data-view-template="tpl-view-expenses"></div>
+  <template id="tpl-view-expenses"><div class="view-scroll"></div></template>
   <template id="tpl-view-closeboard">
     <div class="view-scroll">
       <div class="page-hdr">
@@ -12273,6 +12277,9 @@ body.theme-frosted {
   </div>
   <div class="mm-item" data-action="mobileNav" data-target="board" data-close-more>
     <span class="mm-item-icon">🏆</span>Leaderboard
+  </div>
+  <div class="mm-item" data-action="mobileNav" data-target="expenses" data-close-more>
+    <span class="mm-item-icon">🧾</span>Expenses
   </div>
   <div class="mm-item" data-action="call" data-fn="openDailyProgramFromMore">
     <span class="mm-item-icon">📅</span>Daily Program
