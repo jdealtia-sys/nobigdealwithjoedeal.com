@@ -684,19 +684,27 @@ ${footer}
       `;
     }
 
-    // Deposit terms (cash: 50/50, insurance: 0)
-    const deposit = estimate.deposit || Math.round((estimate.total * 0.5) / 25) * 25;
+    // Deposit terms. Honor an EXPLICIT deposit when present (insurance estimates
+    // legitimately carry deposit:0) — only fall back to the cash 50/50 default
+    // when no deposit was set at all. `estimate.deposit || …` treated 0 as unset,
+    // so a $0-deposit insurance quote printed a phantom 50% deposit. Labels are
+    // derived from the actual split, not hardcoded "50%".
+    const deposit = (estimate.deposit != null)
+      ? Number(estimate.deposit)
+      : (estimate.mode === 'insurance' ? 0 : Math.round((estimate.total * 0.5) / 25) * 25);
     const balance = estimate.total - deposit;
+    const depositPct = (estimate.total > 0) ? Math.round((deposit / estimate.total) * 100) : 0;
+    const balancePct = 100 - depositPct;
     const depositTerms = `
       <h2>Payment Terms</h2>
       <table>
         <tbody>
           <tr>
-            <td><strong>Deposit (50% — Upon signing)</strong></td>
+            <td><strong>Deposit (${depositPct}% — Upon signing)</strong></td>
             <td class="num"><strong>${fmtMoneyBig(deposit)}</strong></td>
           </tr>
           <tr>
-            <td><strong>Balance Due (50% — Upon completion)</strong></td>
+            <td><strong>Balance Due (${balancePct}% — Upon completion)</strong></td>
             <td class="num"><strong>${fmtMoneyBig(balance)}</strong></td>
           </tr>
           <tr class="grand-row">
