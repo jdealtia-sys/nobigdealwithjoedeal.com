@@ -138,8 +138,8 @@ function fmtMonthDay(ms) {
 }
 
 function buildEmailHtml({ firstName, anniversaries }) {
-  const dashboardUrl  = 'https://nobigdeal-pro.web.app/pro/dashboard.html';
-  const customerBase  = 'https://nobigdeal-pro.web.app/pro/customer.html';
+  const dashboardUrl  = 'https://nobigdealwithjoedeal.com/pro/dashboard.html';
+  const customerBase  = 'https://nobigdealwithjoedeal.com/pro/customer.html';
   const total = anniversaries.length;
   const greeting = firstName ? `Hey ${escapeHtml(firstName)},` : 'Hey,';
 

@@ -135,7 +135,7 @@ const DRY_TEMPLATES = {
          <li>Log door-to-door activity</li>
          <li>Manage claims and insurance</li>
        </ul>
-       <p><a href="https://nobigdeal-pro.web.app/pro/dashboard" class="cta-button">Go to Dashboard</a></p>
+       <p><a href="https://nobigdealwithjoedeal.com/pro/dashboard" class="cta-button">Go to Dashboard</a></p>
        <p>If you have any questions, reply to this email or call us at (859) 420-7382.</p>`
     )
   },
@@ -683,7 +683,7 @@ exports.sendTeamInviteEmail = onRequest(
       });
 
       // Send invite email
-      const inviteUrl = `https://nobigdeal-pro.web.app/pro/register.html?invite=${token}&role=${role}`;
+      const inviteUrl = `https://nobigdealwithjoedeal.com/pro/register.html?invite=${token}&role=${role}`;
 
       const html = BRANDED_EMAIL_TEMPLATE(
         'Team Invitation',

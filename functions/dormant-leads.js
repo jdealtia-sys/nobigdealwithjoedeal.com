@@ -112,7 +112,7 @@ function timestampMillis(t) {
 }
 
 function buildEmailHtml({ firstName, dormantLeads, total }) {
-  const dashboardUrl = 'https://nobigdeal-pro.web.app/pro/dashboard.html';
+  const dashboardUrl = 'https://nobigdealwithjoedeal.com/pro/dashboard.html';
   const greeting = firstName ? `Hey ${escapeHtml(firstName)},` : 'Hey,';
   const top = dormantLeads.slice(0, 5);
   const topRowsHtml = top.map(l => {
