@@ -47,6 +47,11 @@ const FLAT_USER_COLLECTIONS = [
   // saved via EstimateSupplement.saveToFirestore() from the
   // customer-page +Supplement button.
   { name: 'supplements' },
+  // Expense ledger (Phase 1 expense subsystem). Owner-keyed on userId; a
+  // user's expenses + supplier-spend records erase/export with their account.
+  // Receipt images live in Storage under receipts/{uid}/ (see the Storage
+  // prefix cleanup); the Firestore doc only holds receiptStoragePath.
+  { name: 'expenses' },
   { name: 'photos' },
   { name: 'pins' },
   // NEW-D40a: the draw tool's unlinked-drawing fallback — drawings
@@ -144,6 +149,9 @@ const STORAGE_PREFIXES = [
   'reports',
   'shared_docs',
   'deal_rooms',
+  // receipts/{uid}/... — original receipt images/PDFs backing expense docs
+  // (Phase 1 expense subsystem). Owner-keyed like docs/; erase with the account.
+  'receipts',
 ];
 
 // ─── OWNER-KEYED UID-PATH DOCS ───────────────────────────────

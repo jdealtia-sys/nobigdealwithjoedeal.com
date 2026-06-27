@@ -432,6 +432,72 @@ async function run() {
   await assertFails(getDocs(query(collection(bob, 'leads/leadA/drawings'),
     orderBy('version', 'desc'), limit(1))));
 
+  // 26. EXPENSES (company-shared spend ledger). Feeds per-job margin +
+  //     supplier-spend reports. Ownership pins to the caller's own tenant
+  //     (like /leads); reads follow the recordings/leaderboard precedent
+  //     (owner + same-company staff + platform admin); audit fields are
+  //     immutable. Seed via the rule-respecting create path so the rules
+  //     themselves are exercised end-to-end.
+  function expDoc(uid, companyId, leadId, supplier) {
+    return {
+      userId: uid, companyId: companyId, leadId: leadId, category: 'materials',
+      costType: 'direct', supplier: supplier, amountCents: 12345, currency: 'USD',
+      date: new Date(), note: '', receiptStoragePath: null, receiptDocRef: null,
+      source: 'manual', needsReview: false,
+      createdAt: new Date(), createdBy: uid, updatedAt: new Date()
+    };
+  }
+  // ✅ rep creates her own expense, pinned to her tenant
+  await assertSucceeds(setDoc(doc(alice, 'expenses/exp-alice'), expDoc('alice', 'co-a', 'leadA', 'ABC Supply')));
+  // ✅ bob creates his own (co-b) — used for cross-tenant read assertions
+  await assertSucceeds(setDoc(doc(bob, 'expenses/exp-bob'), expDoc('bob', 'co-b', 'leadB', 'Beacon')));
+  // ❌ create stamped with someone else's userId → blocked
+  await assertFails(setDoc(doc(alice, 'expenses/forge-uid'), expDoc('bob', 'co-a', 'leadA', 'forged')));
+  // ❌ create pinned to a FOREIGN tenant → blocked (can't pollute co-b rollups)
+  await assertFails(setDoc(doc(alice, 'expenses/forge-co'), expDoc('alice', 'co-b', 'leadA', 'forged')));
+  // ❌ create with no companyId → blocked (companyId is an invariant)
+  await assertFails(setDoc(doc(alice, 'expenses/no-co'),
+    { userId: 'alice', category: 'materials', costType: 'direct', amountCents: 100, date: new Date() }));
+  // ✅ owner reads her own
+  await assertSucceeds(getDoc(doc(alice, 'expenses/exp-alice')));
+  // ✅ company_admin in the SAME tenant reads a rep's expense (team rollup)
+  await assertSucceeds(getDoc(doc(coAdmin, 'expenses/exp-alice')));
+  // ❌ a rep in ANOTHER tenant cannot read it
+  await assertFails(getDoc(doc(bob, 'expenses/exp-alice')));
+  // ❌ company_admin cannot reach across tenants (carol co-a → bob co-b)
+  await assertFails(getDoc(doc(coAdmin, 'expenses/exp-bob')));
+  // ✅ platform admin reads anything
+  await assertSucceeds(getDoc(doc(admin, 'expenses/exp-bob')));
+  // ❌ anon read blocked
+  await assertFails(getDoc(doc(anon, 'expenses/exp-alice')));
+  // ✅ owner edits a mutable field (amount correction)
+  await assertSucceeds(updateDoc(doc(alice, 'expenses/exp-alice'), { amountCents: 20000 }));
+  // ❌ owner cannot mutate immutable audit fields
+  await assertFails(updateDoc(doc(alice, 'expenses/exp-alice'), { companyId: 'co-b' }));
+  await assertFails(updateDoc(doc(alice, 'expenses/exp-alice'), { userId: 'bob' }));
+  await assertFails(updateDoc(doc(alice, 'expenses/exp-alice'), { createdBy: 'bob' }));
+  // ✅ company-wide spend query (supplier report shape): staff + companyId filter
+  await assertSucceeds(getDocs(query(collection(coAdmin, 'expenses'),
+    where('companyId', '==', 'co-a'), orderBy('date', 'desc'), limit(50))));
+  // ✅ rep queries her OWN spend (userId-scoped list)
+  await assertSucceeds(getDocs(query(collection(alice, 'expenses'),
+    where('userId', '==', 'alice'), orderBy('date', 'desc'), limit(50))));
+  // ❌ unfiltered scan by a rep → blocked
+  await assertFails(getDocs(query(collection(alice, 'expenses'),
+    orderBy('date', 'desc'), limit(50))));
+  // ❌ a rep cannot scan another tenant's spend
+  await assertFails(getDocs(query(collection(bob, 'expenses'),
+    where('companyId', '==', 'co-a'), orderBy('date', 'desc'), limit(50))));
+  // viewer can create (matches /leads) but is read-only thereafter
+  await assertSucceeds(setDoc(doc(viewer, 'expenses/exp-vic'), expDoc('vic', 'co-v', null, 'Lowes')));
+  // ❌ a viewer cannot mutate or delete (read-only role)
+  await assertFails(updateDoc(doc(viewer, 'expenses/exp-vic'), { amountCents: 999 }));
+  await assertFails(deleteDoc(doc(viewer, 'expenses/exp-vic')));
+  // ✅ solo operator (NO role claim — Joe's case) can create + edit + delete own
+  await assertSucceeds(setDoc(doc(dave, 'expenses/exp-dave'), expDoc('dave', 'co-d', null, 'Home Depot')));
+  await assertSucceeds(updateDoc(doc(dave, 'expenses/exp-dave'), { amountCents: 800 }));
+  await assertSucceeds(deleteDoc(doc(dave, 'expenses/exp-dave')));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }

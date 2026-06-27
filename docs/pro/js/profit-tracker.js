@@ -79,6 +79,42 @@
   }
 
   /**
+   * Compute P&L for a job using its EXPENSE LEDGER as the source of direct
+   * costs, instead of the manual materialCost/laborCost/miscCosts fields.
+   * This is how the expenses subsystem "feeds" the margin engine.
+   *
+   * Stays dependency-free: it reads costType/category straight off the expense
+   * docs (stamped per expense-config.js), so it needs neither ExpenseConfig nor
+   * Firestore. Overhead% + jobValue still come from the lead.
+   *   - category 'materials'      -> materialCost
+   *   - category 'direct_labor'   -> laborCost
+   *   - any other costType==='direct' (subcontractor/equipment/permits/disposal)
+   *                               -> miscCosts
+   * Overhead-type expenses are intentionally ignored here — they are company
+   * operating costs, not a single job's COGS (so gross margin excludes them,
+   * matching the "before overhead & commission" label).
+   *
+   * @param {object} lead
+   * @param {Array}  expenses  expense docs for this lead ({amountCents, category, costType})
+   */
+  function computeJobPLWithExpenses(lead, expenses) {
+    expenses = expenses || [];
+    var matCents = 0, laborCents = 0, miscCents = 0;
+    expenses.forEach(function(e) {
+      var c = parseInt(e.amountCents, 10) || 0;
+      if (e.category === 'materials') matCents += c;
+      else if (e.category === 'direct_labor') laborCents += c;
+      else if (e.costType === 'direct') miscCents += c;
+    });
+    var merged = Object.assign({}, lead, {
+      materialCost: matCents / 100,
+      laborCost: laborCents / 100,
+      miscCosts: miscCents / 100
+    });
+    return computeJobPL(merged);
+  }
+
+  /**
    * Compute aggregate margin analytics across all won jobs
    */
   function computeMarginAnalytics() {
@@ -288,6 +324,7 @@
     save: saveFromPanel,
     saveJobCosts,
     computeJobPL,
+    computeJobPLWithExpenses,
     computeMarginAnalytics,
     renderCostPanel,
     getMarginKPICard

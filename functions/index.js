@@ -448,6 +448,11 @@ exports.getGoogleReviews = googleReviews.getGoogleReviews;
 const photoVision = require('./photo-vision');
 exports.analyzePhotoVision = photoVision.analyzePhotoVision;
 
+// Receipt OCR (Phase 2 expense subsystem) — Claude-vision extraction of a
+// receipt/invoice into structured fields the expense form pre-fills.
+const receiptVision = require('./receipt-vision');
+exports.extractReceiptData = receiptVision.extractReceiptData;
+
 // Server-side plan-usage tracking (Audit A follow-up, Batch 3 of the
 // audit-driven rollups). Closes the KNOWN GAP where client-side
 // trackUsage in billing-gate.js silently 403'd because rules block

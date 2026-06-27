@@ -189,6 +189,26 @@ section('ScriptLoader contract');
     /est:\s*\['estimates'\]/.test(src) && /products:\s*\['estimates'\]/.test(src),
     "VIEW_BUNDLES must map est + products to the estimates bundle");
 
+  // Expense subsystem: the #/expenses view lazy-loads expense-config (the
+  // category/money source of truth), profit-tracker (window.ProfitTracker —
+  // NOT loaded anywhere else on dashboard.html; expenses.js's per-job margin
+  // calls computeJobPLWithExpenses at render), then expenses.js. Order is
+  // load-bearing: a missing/late profit-tracker silently degrades margin to
+  // "set Job Value" (caught only by live browser verification, not unit tests).
+  const EXPMODS = ['expense-config.js', 'profit-tracker.js', 'expenses.js'];
+  const expBundleSrc = (src.match(/expenses:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of EXPMODS) {
+    assert('expenses bundle includes ' + m, expBundleSrc.includes(m),
+      m + ' must be listed in the expenses bundle in script-loader.js');
+  }
+  assert('expenses bundle order: config + profit-tracker before expenses.js',
+    expBundleSrc.indexOf('expense-config.js') < expBundleSrc.indexOf('expenses.js') &&
+    expBundleSrc.indexOf('profit-tracker.js') < expBundleSrc.indexOf('expenses.js'),
+    'expense-config.js and profit-tracker.js must load before expenses.js');
+  assert('expenses view preloads the expenses bundle',
+    /expenses:\s*\['expenses'\]/.test(src),
+    "VIEW_BUNDLES must map expenses to the expenses bundle");
+
   // PR 2d (perf): the photo + inspection engine (~200 KB) moved off the eager
   // boot path into the lazy `photos` bundle, with load-then-run stubs at the
   // entry points (camera / gallery / inspection builder / photo report).
@@ -1328,18 +1348,19 @@ section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
     /el\.hasAttribute\('data-close-more'\)[\s\S]{0,120}closeMobileMore\(\)/.test(mainJs),
     'expected closeMobileMore() called when data-close-more present');
 
-  // 3 bottom-nav items (mn-item) plus 19 More-drawer items = 22 total
+  // 3 bottom-nav items (mn-item) plus 20 More-drawer items = 23 total
   // mobileNav data-actions in the markup. (Crew-calendar More item
   // intentionally remains inline — defensive existence check.)
+  // (Expenses More-drawer item added with the Phase 1 expense subsystem.)
   const mnCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"/g) || []).length;
-  assert('mobileNav conversions: 22 (3 bottom-nav + 19 more-drawer)',
-    mnCount === 22,
-    'expected 22 mobileNav data-actions; got ' + mnCount);
+  assert('mobileNav conversions: 23 (3 bottom-nav + 20 more-drawer)',
+    mnCount === 23,
+    'expected 23 mobileNav data-actions; got ' + mnCount);
 
   const closeMoreCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"\s+data-close-more/g) || []).length;
-  assert('19 mobileNav items carry data-close-more (More-drawer items)',
-    closeMoreCount === 19,
-    'expected 19 data-close-more flags; got ' + closeMoreCount);
+  assert('20 mobileNav items carry data-close-more (More-drawer items)',
+    closeMoreCount === 20,
+    'expected 20 data-close-more flags; got ' + closeMoreCount);
 
   // C.4 finale: every mobileNav handler is delegated (no inline onclicks).
   const remaining = (dash.match(/onclick="mobileNav\(/g) || []).length;
