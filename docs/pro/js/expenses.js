@@ -185,11 +185,22 @@
     if (!u || !window.db || !window.addDoc) { toast('Not signed in', 'error'); return false; }
     if (!c) { toast('Expense config not loaded', 'error'); return false; }
 
-    var amountCents = c.dollarsToCents(form.amount);
-    if (amountCents <= 0) { toast('Enter an amount greater than $0', 'error'); return false; }
-
     var category = (form.category && c.byKey[form.category]) ? form.category : 'materials';
     var costType = c.costTypeFor(category);
+
+    // Mileage: the amount is COMPUTED (miles x the IRS rate snapshotted by the
+    // entry's tax year), not typed.
+    var miles = null, mileageRateCents = null, amountCents;
+    if (category === 'mileage') {
+      miles = parseFloat(form.miles);
+      if (!isFinite(miles) || miles <= 0) { toast('Enter miles greater than 0', 'error'); return false; }
+      var mDate = form.date ? new Date(form.date + 'T00:00:00') : new Date();
+      mileageRateCents = c.mileageRateCents(isNaN(mDate.getTime()) ? new Date() : mDate);
+      amountCents = c.mileageAmountCents(miles, mileageRateCents);
+    } else {
+      amountCents = c.dollarsToCents(form.amount);
+    }
+    if (amountCents <= 0) { toast('Enter an amount greater than $0', 'error'); return false; }
 
     var receiptStoragePath = null;
     if (form.uploadedPath) {
@@ -219,6 +230,9 @@
       note: (form.note || '').trim().slice(0, 500),
       receiptStoragePath: receiptStoragePath,
       receiptDocRef: null,
+      miles: miles,
+      mileageRateCents: mileageRateCents,
+      marketingSource: (category === 'marketing' && form.marketingSource) ? String(form.marketingSource).trim().slice(0, 60) : null,
       source: form.source === 'ocr' ? 'ocr' : 'manual',
       ocrConfidence: typeof form.ocrConfidence === 'number' ? form.ocrConfidence : null,
       needsReview: !!form.needsReview,
@@ -535,6 +549,11 @@
           '<div><label style="' + lbl + '">Sales Tax ($)</label><input id="expTax" type="number" step="0.01" min="0" inputmode="decimal" style="' + fld + '"></div>' +
           '<div><label style="' + lbl + '">Category</label><select id="expCategory" style="' + fld + '">' + cats + '</select></div>' +
         '</div>' +
+        '<div id="expMileageRow" style="display:none;margin-top:12px;"><label style="' + lbl + '">Miles</label>' +
+          '<input id="expMiles" type="number" step="0.1" min="0" inputmode="decimal" style="' + fld + '">' +
+          '<div id="expMileageHint" style="font-size:11px;color:var(--m,#9ca3af);margin-top:4px;"></div></div>' +
+        '<div id="expSourceRow" style="display:none;margin-top:12px;"><label style="' + lbl + '">Lead Source / Campaign</label>' +
+          '<input id="expSource" type="text" maxlength="60" placeholder="e.g. Door-to-Door, Google, Storm" style="' + fld + '"></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Supplier / Vendor</label><input id="expSupplier" type="text" maxlength="120" placeholder="e.g. ABC Supply" style="' + fld + '"></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Job (optional)</label><select id="expLead" style="' + fld + '">' + leadOpts + '</select></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Note (optional)</label><input id="expNote" type="text" maxlength="500" style="' + fld + '"></div>' +
@@ -549,6 +568,38 @@
       '</div>';
     document.body.appendChild(ov);
     ov.addEventListener('click', function (ev) { if (ev.target === ov) closeForm(); });
+
+    // Mileage + marketing-source conditional fields, driven by the category.
+    var catSel = document.getElementById('expCategory');
+    var milesEl = document.getElementById('expMiles');
+    function recomputeMileage() {
+      var ecfg = EC(); if (!ecfg) return;
+      var dEl = document.getElementById('expDate');
+      var rate = ecfg.mileageRateCents(dEl && dEl.value ? new Date(dEl.value) : new Date());
+      var miles = parseFloat(milesEl && milesEl.value);
+      var amtEl = document.getElementById('expAmount');
+      var hint = document.getElementById('expMileageHint');
+      if (isFinite(miles) && miles > 0) {
+        var cents = ecfg.mileageAmountCents(miles, rate);
+        if (amtEl) amtEl.value = (cents / 100).toFixed(2);
+        if (hint) hint.textContent = miles + ' mi × ' + rate + '¢/mi = ' + ecfg.formatCents(cents);
+      } else if (hint) { hint.textContent = 'IRS rate ' + rate + '¢/mi'; }
+    }
+    function syncCategoryFields() {
+      var cat = catSel ? catSel.value : '';
+      var isMileage = cat === 'mileage';
+      var mr = document.getElementById('expMileageRow'); if (mr) mr.style.display = isMileage ? '' : 'none';
+      var sr = document.getElementById('expSourceRow'); if (sr) sr.style.display = (cat === 'marketing') ? '' : 'none';
+      var amtEl = document.getElementById('expAmount');
+      if (amtEl) { amtEl.readOnly = isMileage; amtEl.style.opacity = isMileage ? '.6' : '1'; } // mileage amount is computed
+      if (isMileage) recomputeMileage();
+    }
+    if (catSel) catSel.addEventListener('change', syncCategoryFields);
+    if (milesEl) milesEl.addEventListener('input', recomputeMileage);
+    var dateEl = document.getElementById('expDate');
+    if (dateEl) dateEl.addEventListener('change', function () { if (catSel && catSel.value === 'mileage') recomputeMileage(); });
+    syncCategoryFields();
+
     var amt = document.getElementById('expAmount');
     if (amt) amt.focus();
   }
@@ -581,6 +632,8 @@
       category: v('expCategory'),
       leadId: v('expLead'),
       note: v('expNote'),
+      miles: v('expMiles'),
+      marketingSource: v('expSource'),
       file: fileEl && fileEl.files && fileEl.files[0],
       uploadedPath: _scannedPath || null,
       source: scanned ? 'ocr' : 'manual',

@@ -126,15 +126,17 @@
   }
 
   // Marketing spend (dollars) from the expense ledger — drives a REAL ROI.
-  // null = not yet fetched. Marketing expenses carry no per-source/campaign
-  // field, so this is a TOTAL spend → an overall ROI (closedRev / spend), not
-  // per-source attribution (that would need a campaign tag on each expense).
+  // null = not yet fetched. Total drives the overall ROI; the by-source map
+  // (keyed by lowercased marketingSource) drives per-source ROI in the table
+  // for sources whose name matches a lead-source bucket.
   let _marketingSpend = null;
+  let _marketingBySource = {};   // lowercased source -> dollars
   let _marketingTargetId = null;
 
   async function _fetchMarketingSpend() {
     const db = window.db || window._db;
     const uid = window._user && window._user.uid;
+    _marketingBySource = {};
     if (!db || !uid || !window.getDocs || !window.query || !window.where || !window.collection) return 0;
     try {
       // userId-scoped (single-field auto-index); filter category client-side to
@@ -144,7 +146,11 @@
       let cents = 0;
       snap.docs.forEach(function (d) {
         const e = d.data();
-        if (e && e.category === 'marketing') cents += (parseInt(e.amountCents, 10) || 0);
+        if (!e || e.category !== 'marketing') return;
+        const c = parseInt(e.amountCents, 10) || 0;
+        cents += c;
+        const src = (e.marketingSource || '').trim().toLowerCase();
+        if (src) _marketingBySource[src] = (_marketingBySource[src] || 0) + c / 100;
       });
       return cents / 100;
     } catch (e) { return 0; }
@@ -241,9 +247,15 @@
     const maxRev = Math.max(...m.rows.map(r => r.closedRev), 1);
     const tableRows = m.rows.map(r => {
       const barPct = Math.round((r.closedRev / maxRev) * 100);
+      // Per-source marketing ROI (when this source's name matches logged
+      // marketing spend). closedRev / spend.
+      const srcSpend = _marketingBySource[(r.source || '').trim().toLowerCase()] || 0;
+      const srcRoiTag = srcSpend > 0
+        ? `<div style="font-size:10px;color:var(--m,#8892A4);">${fmtMoney(srcSpend)} spent · ROI ${Math.round((r.closedRev / srcSpend) * 100)}%</div>`
+        : '';
       return `
         <tr>
-          <td class="lsroi-source">${escHtml(r.source)}</td>
+          <td class="lsroi-source">${escHtml(r.source)}${srcRoiTag}</td>
           <td class="lsroi-num">${r.total}</td>
           <td class="lsroi-num">${r.closed}</td>
           <td class="lsroi-num">${r.lost}</td>
