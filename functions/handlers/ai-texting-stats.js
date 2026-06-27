@@ -73,7 +73,10 @@ exports.getAiTextingStats = onCall(
         case 'approved':  approved++; break;  // transient (trigger flips to sent/failed)
         default:          pending++;          // 'pending'
       }
-      if (d.editedByRep) edited++;
+      // Count an edit only when the draft was SENT — editRate's denominator is
+      // `sent`, so counting edited-then-dismissed/failed drafts here let editRate
+      // exceed 1.0.
+      if (d.editedByRep && (d.status || 'pending') === 'sent') edited++;
       // Generated → acted latency (approvedAt preferred, else sentAt).
       const gen = toMs(d.generatedAt);
       const act = toMs(d.approvedAt) || toMs(d.sentAt);

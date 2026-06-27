@@ -52,7 +52,17 @@ const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
-const { buildPersonaPrompt } = require('./ai-persona');
+const { buildPersonaPrompt, sanitizeMultiline } = require('./ai-persona');
+
+// Neutralize customer-controlled text before it goes INTO the AI prompt:
+// sanitizeMultiline kills forged "═══" section headers; the replace strips
+// forged speaker labels ([HOMEOWNER]/[JOE/ASSISTANT]) so an inbound SMS can't
+// inject a fake conversation turn or override the system instructions. Rep
+// persona input was already sanitized; the homeowner side was not.
+function cleanInbound(s, max) {
+  return sanitizeMultiline(s, max || 240)
+    .replace(/\[\s*(HOMEOWNER|JOE\s*\/\s*ASSISTANT|ASSISTANT|JOE|SYSTEM|USER)\s*\]/gi, '( )');
+}
 
 const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
 
@@ -168,7 +178,7 @@ async function buildLeadContext(db, leadId, lead, incomingBody) {
     lines.push('═══ RECENT TEXT THREAD (oldest → newest) ═══');
     for (const m of thread) {
       const dir = m.direction === 'incoming' ? 'HOMEOWNER' : 'JOE/ASSISTANT';
-      const body = String(m.body || '').slice(0, 240);
+      const body = cleanInbound(m.body, 240);
       lines.push(`[${dir}] ${body}`);
     }
   } else {
@@ -189,7 +199,7 @@ async function buildLeadContext(db, leadId, lead, incomingBody) {
 
   lines.push('');
   lines.push('═══ THE NEW INBOUND MESSAGE TO REPLY TO ═══');
-  lines.push(incomingBody);
+  lines.push(cleanInbound(incomingBody, 600));
 
   return lines.join('\n');
 }
