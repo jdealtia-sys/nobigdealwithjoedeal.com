@@ -17,4 +17,4 @@
 // dashboard-appcheck-config.js, so the global is set before the deferred
 // push-registration.js runs. Production CSP `script-src-elem 'self'` blocks
 // inline <script>, so this MUST stay an external file.
-window.__NBD_VAPID_KEY = "";
+window.__NBD_VAPID_KEY = "BJYvF-Q0rtk-LudsGjN3LPzASZtasfrzUb2_8YvurEPSg4AhjBLd0zm-OzdJKlYvJY9lwM-Kbt3NGClidcVtxw8";

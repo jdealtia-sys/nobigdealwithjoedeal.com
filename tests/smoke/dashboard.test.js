@@ -75,6 +75,10 @@ section('FCM push registration');
   assert('push-registration reads the VAPID key from config', /__NBD_VAPID_KEY/.test(pr) && /vapidKey/.test(pr));
   assert('push-registration registers the messaging service worker',
     /serviceWorker\.register\(/.test(pr) && /['"]\/pro\/firebase-messaging-sw\.js['"]/.test(pr));
+  // The messaging SW must NOT register at scope /pro/ — sw.js (offline/PWA)
+  // owns that scope, and a scope holds one SW, so /pro/ would clobber offline.
+  assert('push-registration uses a dedicated SW scope (not /pro/, avoids clobbering sw.js)',
+    /firebase-cloud-messaging-push-scope/.test(pr) && !/scope:\s*['"]\/pro\/['"]/.test(pr));
   assert('push-registration writes users/{uid}/fcmTokens', /['"]fcmTokens['"]/.test(pr) && /setDoc\s*\(/.test(pr));
   assert('push-registration only prompts on a user gesture (no page-load requestPermission)',
     /requestPermission/.test(pr) && /data-action="enable-notifications"/.test(pr));
@@ -83,8 +87,12 @@ section('FCM push registration');
 
   // The config slot exists and ships empty (so a real key is never committed).
   assert('dashboard-fcm-config sets window.__NBD_VAPID_KEY', /window\.__NBD_VAPID_KEY\s*=/.test(fcmCfg));
-  assert('dashboard-fcm-config ships with an EMPTY key (no secret committed)',
-    /window\.__NBD_VAPID_KEY\s*=\s*["']\s*["']/.test(fcmCfg));
+  // The VAPID public key (applicationServerKey) is public by design — committed,
+  // not secret. Guard that a well-formed key is present (base64url, ~87 chars):
+  // an empty/typo'd key silently disables push, and gitleaks allowlists it by
+  // exact value in .gitleaks.toml.
+  assert('dashboard-fcm-config carries a well-formed VAPID public key',
+    /window\.__NBD_VAPID_KEY\s*=\s*["'][A-Za-z0-9_-]{80,100}["']/.test(fcmCfg));
 
   // Both scripts are loaded by dashboard.html (config classic+early, engine deferred).
   assert('dashboard.html loads dashboard-fcm-config.js', /src="js\/dashboard-fcm-config\.js/.test(dash));

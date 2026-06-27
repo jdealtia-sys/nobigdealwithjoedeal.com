@@ -34,7 +34,15 @@
 
   var MESSAGING_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js';
   var SW_URL = '/pro/firebase-messaging-sw.js';
-  var SW_SCOPE = '/pro/';
+  // DEDICATED scope — NOT '/pro/'. The offline/PWA service worker (sw.js) owns
+  // scope '/pro/' (dashboard-sw-bootstrap.js / offline-manager.js), and a scope
+  // holds exactly ONE service worker: registering the messaging SW at '/pro/'
+  // would CLOBBER sw.js (killing offline caching) or, the other way, drop
+  // background pushes. FCM only needs the registration we hand to getToken — it
+  // doesn't have to control any page — so we give it the canonical
+  // firebase-cloud-messaging-push-scope under /pro/. Both SWs then coexist:
+  // sw.js keeps /pro/, the messaging SW receives push on its own scope.
+  var SW_SCOPE = '/pro/firebase-cloud-messaging-push-scope';
   var SNOOZE_KEY = 'nbd_push_optin_snoozed_until';
   var SNOOZE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 

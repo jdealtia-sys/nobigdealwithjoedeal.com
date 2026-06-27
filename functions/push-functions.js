@@ -114,8 +114,13 @@ async function sendPushNotification(uid, title, body, data = {}) {
         notification: {
           title: title,
           body: body,
-          icon: 'https://nobigdeal-pro.web.app/pro/images/icon-192x192.png',
-          badge: 'https://nobigdeal-pro.web.app/pro/images/badge-72x72.png',
+          // /pro/images/* does NOT exist — real icons live under /pro/img/.
+          // The companion SW (firebase-messaging-sw.js) already corrected this
+          // exact 404; the function payload was never updated to match, so a
+          // background push rendered with a blank/generic OS bell. No badge-72
+          // asset exists, so reuse the 192 icon (same as the SW).
+          icon: 'https://nobigdeal-pro.web.app/pro/img/nbd-icon-192.png',
+          badge: 'https://nobigdeal-pro.web.app/pro/img/nbd-icon-192.png',
           tag: data.notificationId || 'nbd-notification',
           requireInteraction: data.requireInteraction === 'true'
         },

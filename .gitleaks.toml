@@ -39,6 +39,7 @@ regexes = [
     '''sk_live_\.{3,}''',           # sk_live_... placeholder
     '''paste your sk[_-]''',        # "paste your sk_..." instructions
     '''6L[0-9A-Za-z_-]{38}''',      # reCAPTCHA v3 site key (origin-bound, public — see docs/deploy/03-app-check.md)
+    '''BJYvF-Q0rtk-LudsGjN3LPzASZtasfrzUb2_8YvurEPSg4AhjBLd0zm-OzdJKlYvJY9lwM-Kbt3NGClidcVtxw8''', # FCM VAPID public Web Push key (applicationServerKey — embedded in the client BY DESIGN, validated by the push service, not a secret; see docs/pro/js/dashboard-fcm-config.js). Exact string (not a shape pattern) so a real secret can't ride the exemption; rotating the key means updating this line.
     '''ABCDEFGHJKLMNPQRSTUVWXYZ23456789''', # no-confusable token alphabet (portal.js / remote-signing.js) — a fixed public charset, NOT a key. generic-api-key flags its entropy.
     '''1phDvAVXHSg82wDLegAbQFq14Ci1''',     # Jo's Firebase Auth UID — an identifier (not a credential), used to scope the Eternal Vault codex/codex-sessions rules in firestore.rules. generic-api-key flags its entropy.
 ]
