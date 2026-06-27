@@ -52,6 +52,12 @@ const FLAT_USER_COLLECTIONS = [
   // Receipt images live in Storage under receipts/{uid}/ (see the Storage
   // prefix cleanup); the Firestore doc only holds receiptStoragePath.
   { name: 'expenses' },
+  // Recurring-expense templates + supplier/vendor records (money-layer
+  // expansion). Owner-keyed on userId; erase/export with the account. Supplier
+  // docs hold NO tax IDs (tracking only); the locked suppliers/{id}/private/**
+  // seam is admin-SDK-only and has no client data yet.
+  { name: 'recurringExpenses' },
+  { name: 'suppliers', recursive: true },
   { name: 'photos' },
   { name: 'pins' },
   // NEW-D40a: the draw tool's unlinked-drawing fallback — drawings

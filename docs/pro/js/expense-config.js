@@ -140,6 +140,22 @@
   // schema comment). Used by the Phase-1 form validator + the OCR reconcile.
   var REQUIRED_FIELDS = ['userId', 'companyId', 'category', 'costType', 'amountCents', 'date'];
 
+  // ── A4: budget / overspend thresholds (defaults; tenant-editable later) ──
+  // directCostPctWarn: amber when a job's direct costs exceed this % of its
+  // contract value. marginFloorPct: red when projected gross margin drops below
+  // this. Industry-convention defaults — NOT hard rules; make these per-tenant
+  // (companyProfile.budgetDefaults) in a follow-up.
+  var BUDGET = { directCostPctWarn: 65, marginFloorPct: 30 };
+  // Returns null (no signal) | 'warn' | 'breach' for a job's cost health.
+  function budgetStatus(revenueDollars, directCostDollars) {
+    if (!(revenueDollars > 0) || !(directCostDollars > 0)) return null;
+    var marginPct = (revenueDollars - directCostDollars) / revenueDollars * 100;
+    var costPct = directCostDollars / revenueDollars * 100;
+    if (marginPct < BUDGET.marginFloorPct || costPct >= 100) return 'breach';
+    if (costPct >= BUDGET.directCostPctWarn) return 'warn';
+    return null;
+  }
+
   window.ExpenseConfig = {
     COST_TYPE: COST_TYPE,
     CATEGORIES: CATEGORIES,
@@ -151,6 +167,8 @@
     LATEST_MILEAGE_YEAR: LATEST_MILEAGE_YEAR,
     mileageRateCents: mileageRateCents,
     mileageAmountCents: mileageAmountCents,
+    BUDGET: BUDGET,
+    budgetStatus: budgetStatus,
     dollarsToCents: dollarsToCents,
     centsToDollars: centsToDollars,
     formatCents: formatCents,

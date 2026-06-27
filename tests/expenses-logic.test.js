@@ -207,6 +207,46 @@ ok('rejects a jpeg-ish buffer', rv.isHeicBytes(Buffer.from([0xff, 0xd8, 0xff, 0x
 ok('rejects short buffer', rv.isHeicBytes(Buffer.alloc(4)) === false);
 ok('rejects null', rv.isHeicBytes(null) === false);
 
+// ── A1b: advanceDate (recurring cadence) ─────────────────────
+console.log('EXPENSES — advanceDate');
+function ymd(d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+const baseD = new Date(2026, 0, 15); // Jan 15 2026 (local)
+eq('monthly +1mo', ymd(EX.advanceDate(baseD, 'monthly')), '2026-2-15');
+eq('weekly +7d', ymd(EX.advanceDate(baseD, 'weekly')), '2026-1-22');
+eq('biweekly +14d', ymd(EX.advanceDate(baseD, 'biweekly')), '2026-1-29');
+eq('quarterly +3mo', ymd(EX.advanceDate(baseD, 'quarterly')), '2026-4-15');
+eq('annual +1yr', ymd(EX.advanceDate(baseD, 'annual')), '2027-1-15');
+
+// ── A5: supplier YTD + 1099 eligibility ──────────────────────
+console.log('EXPENSES — supplier 1099 logic');
+const supExp = [
+  { supplier: 'Crew Co', category: 'subcontractor', amountCents: 150000, date: new Date(2026, 1, 1) },
+  { supplier: 'Crew Co', category: 'subcontractor', amountCents: 100000, date: new Date(2026, 5, 1) },
+  { supplier: 'Crew Co', category: 'materials', amountCents: 999999, date: new Date(2026, 5, 1) }, // materials don't count toward 1099
+  { supplier: 'crew co', category: 'direct_labor', amountCents: 50000, date: new Date(2025, 5, 1) }, // wrong year
+];
+eq('YTD 2026 services (subcontractor sum)', EX.supplierYtdCents('Crew Co', 2026, supExp), 250000);
+eq('YTD case-insensitive, excludes materials + other years', EX.supplierYtdCents('CREW CO', 2026, supExp), 250000);
+eq('YTD unknown supplier -> 0', EX.supplierYtdCents('Nobody', 2026, supExp), 0);
+ok('individual is 1099-eligible', EX.is1099EligibleFromClass('individual') === true);
+ok('c_corp NOT eligible', EX.is1099EligibleFromClass('c_corp') === false);
+ok('attorney eligible (corp exception)', EX.is1099EligibleFromClass('attorney') === true);
+ok('materials_only NOT eligible', EX.is1099EligibleFromClass('materials_only') === false);
+ok('needs1099 TRUE (eligible + W-9 + YTD>=$2000 2026 threshold)',
+  EX.needs1099({ displayName: 'Crew Co', taxClassification: 'individual', w9Status: 'received' }, 2026, supExp) === true);
+ok('needs1099 FALSE below 2026 $2000 threshold',
+  EX.needs1099({ displayName: 'X', taxClassification: 'individual', w9Status: 'verified' }, 2026,
+    [{ supplier: 'X', category: 'subcontractor', amountCents: 100000, date: new Date(2026, 1, 1) }]) === false);
+ok('needs1099 FALSE for a corporation', EX.needs1099({ displayName: 'Crew Co', taxClassification: 'c_corp', w9Status: 'verified' }, 2026, supExp) === false);
+ok('needs1099 FALSE without a W-9 on file', EX.needs1099({ displayName: 'Crew Co', taxClassification: 'individual', w9Status: 'requested' }, 2026, supExp) === false);
+
+// ── A4: budget status thresholds ─────────────────────────────
+console.log('EXPENSE CONFIG — budgetStatus');
+eq('breach when margin < 30% floor', EC.budgetStatus(10000, 8000), 'breach');
+eq('warn when direct cost 65-99% (margin still ok)', EC.budgetStatus(10000, 6800), 'warn');
+ok('null when healthy (cost 50%)', EC.budgetStatus(10000, 5000) === null);
+ok('null when no revenue', EC.budgetStatus(0, 5000) === null);
+
 // ── summary ──────────────────────────────────────────────────
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' expenses logic: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) { console.error('FAILED: ' + fails.join(', ')); process.exit(1); }

@@ -498,6 +498,38 @@ async function run() {
   await assertSucceeds(updateDoc(doc(dave, 'expenses/exp-dave'), { amountCents: 800 }));
   await assertSucceeds(deleteDoc(doc(dave, 'expenses/exp-dave')));
 
+  // 27. RECURRING EXPENSES (templates) — same owner/company-shared shape.
+  function recDoc(uid, companyId) {
+    return { userId: uid, companyId: companyId, name: 'Liability Insurance', amountCents: 20000,
+      category: 'insurance', costType: 'overhead', frequency: 'monthly', status: 'active',
+      nextDueDate: new Date(), createdAt: new Date(), createdBy: uid, updatedAt: new Date() };
+  }
+  await assertSucceeds(setDoc(doc(alice, 'recurringExpenses/rec-a'), recDoc('alice', 'co-a')));
+  await assertSucceeds(getDoc(doc(coAdmin, 'recurringExpenses/rec-a')));    // same-company staff read
+  await assertFails(getDoc(doc(bob, 'recurringExpenses/rec-a')));           // cross-tenant denied
+  await assertFails(setDoc(doc(alice, 'recurringExpenses/rec-forge'), recDoc('bob', 'co-a'))); // forged userId
+  await assertSucceeds(updateDoc(doc(alice, 'recurringExpenses/rec-a'), { status: 'paused' }));
+  await assertFails(updateDoc(doc(alice, 'recurringExpenses/rec-a'), { companyId: 'co-b' })); // immutable
+
+  // 28. SUPPLIERS (1099 tracking) — NO tin field allowed; private subtree locked.
+  function supDoc(uid, companyId) {
+    return { userId: uid, companyId: companyId, displayName: 'Crew Co', legalName: 'Crew Co LLC',
+      taxClassification: 'sole_prop', is1099Eligible: true, w9Status: 'received',
+      createdAt: new Date(), createdBy: uid, updatedAt: new Date() };
+  }
+  await assertSucceeds(setDoc(doc(alice, 'suppliers/sup-a'), supDoc('alice', 'co-a')));
+  await assertSucceeds(getDoc(doc(coAdmin, 'suppliers/sup-a')));            // same-company staff read
+  await assertFails(getDoc(doc(bob, 'suppliers/sup-a')));                   // cross-tenant denied
+  // ❌ a client write carrying a raw TIN/SSN/EIN is HARD-REJECTED
+  await assertFails(setDoc(doc(alice, 'suppliers/sup-tin'),
+    Object.assign(supDoc('alice', 'co-a'), { tin: '123-45-6789' })));
+  await assertFails(updateDoc(doc(alice, 'suppliers/sup-a'), { ssn: '123456789' }));
+  // ✅ a normal field update works
+  await assertSucceeds(updateDoc(doc(alice, 'suppliers/sup-a'), { w9Status: 'verified' }));
+  // ❌ the server-only private TIN subtree denies ALL client read/write
+  await assertFails(getDoc(doc(alice, 'suppliers/sup-a/private/tin')));
+  await assertFails(setDoc(doc(alice, 'suppliers/sup-a/private/tin'), { enc: 'x' }));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }
