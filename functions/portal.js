@@ -303,6 +303,28 @@ exports.revokePortalToken = onCall(
             }
             logger.info('revokePortalToken: legacy portal purge',
               { leadId: resolvedLeadId, objectsDeleted: deleted, objectsFound: paths.size });
+
+            // Remote-signing links live in an independent collection
+            // (doc_sign_tokens, own 7-day TTL). A revoke must kill them too, or
+            // an already-emailed sign link stays bindingly signable after the
+            // rep revoked the lead (QA finding). Query by leadId only (auto
+            // single-field index) + filter pending in code — no new composite.
+            try {
+              const signSnap = await db.collection('doc_sign_tokens')
+                .where('leadId', '==', resolvedLeadId).get();
+              const sbatch = db.batch();
+              let signRevoked = 0;
+              signSnap.forEach((d) => {
+                if ((d.data().status || '') === 'pending') {
+                  sbatch.update(d.ref, { status: 'revoked', revokedAt: FieldValue.serverTimestamp(), revokedBy: uid });
+                  signRevoked++;
+                }
+              });
+              if (signRevoked) await sbatch.commit();
+              logger.info('revokePortalToken: sign tokens revoked', { leadId: resolvedLeadId, count: signRevoked });
+            } catch (e) {
+              logger.warn('revokePortalToken: sign-token revoke failed', { leadId: resolvedLeadId, err: e.message });
+            }
           } else {
             logger.warn('revokePortalToken: legacy purge skipped — caller not lead owner',
               { leadId: resolvedLeadId });
@@ -366,6 +388,12 @@ exports.getHomeownerPortalView = onRequest(
       res.status(400).json({ error: 'Invalid token' });
       return;
     }
+    // The live poller (portal.js, every 30s while the tab is foreground) hits
+    // this same endpoint. A poll is a continuation of an existing open, NOT a
+    // new "use" — counting it against maxUses would brick the portal in ~50min
+    // of an open tab (QA finding). Polls therefore skip both the cap check and
+    // the use-increment; only genuine opens deplete the replay budget.
+    const isPoll = !!(req.body && req.body.poll);
 
     const db = getFirestore();
     const tokRef = db.doc(`portal_tokens/${token}`);
@@ -377,7 +405,7 @@ exports.getHomeownerPortalView = onRequest(
       res.status(410).json({ error: 'This link has expired. Contact your rep for a new one.' });
       return;
     }
-    if (typeof tok.maxUses === 'number' && (tok.uses || 0) >= tok.maxUses) {
+    if (!isPoll && typeof tok.maxUses === 'number' && (tok.uses || 0) >= tok.maxUses) {
       res.status(429).json({ error: 'This link has been opened too many times.' });
       return;
     }
@@ -630,11 +658,13 @@ exports.getHomeownerPortalView = onRequest(
       },
     };
 
-    // Bump use counter (fire-and-forget; don't fail the response).
-    tokRef.update({
-      uses: FieldValue.increment(1),
-      lastSeenAt: FieldValue.serverTimestamp()
-    }).catch(() => {});
+    // Bump use counter on a real OPEN only (fire-and-forget; don't fail the
+    // response). Polls just refresh lastSeenAt so they don't burn the replay
+    // budget (QA finding — see isPoll above).
+    tokRef.update(isPoll
+      ? { lastSeenAt: FieldValue.serverTimestamp() }
+      : { uses: FieldValue.increment(1), lastSeenAt: FieldValue.serverTimestamp() }
+    ).catch(() => {});
 
     res.status(200).json(view);
   }
@@ -683,7 +713,7 @@ exports.uploadHomeownerPhoto = onRequest(
     if (!(await httpRateLimit(req, res, 'portal-upload:ip', 20, 60_000))) return;
 
     const { token, dataUrl, caption } = req.body || {};
-    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
       res.status(400).json({ error: 'Invalid token' });
       return;
     }
@@ -892,7 +922,7 @@ exports.requestCallback = onRequest(
     if (!(await httpRateLimit(req, res, 'portal-callback:ip', 30, 60_000))) return;
 
     const { token, slot, note } = req.body || {};
-    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
       res.status(400).json({ error: 'Invalid token' });
       return;
     }
@@ -1135,7 +1165,7 @@ exports.submitCustomerRating = onRequest(
     if (!(await httpRateLimit(req, res, 'portal-rating:ip', 30, 60_000))) return;
 
     const { token, stars, comment } = req.body || {};
-    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
       res.status(400).json({ error: 'Invalid token' });
       return;
     }
@@ -1172,6 +1202,14 @@ exports.submitCustomerRating = onRequest(
         const lead = leadSnap.data();
         if (typeof lead.customerRating === 'number' && lead.customerRating > 0) {
           const e = new Error('already-rated'); e._http = 409; e._msg = 'You\'ve already rated this job. Thank you!'; throw e;
+        }
+        // Server-side 'complete' gate — the canRate hint in getHomeownerPortalView
+        // is client-only; without this a crafted POST could rate a job that
+        // isn't done (QA finding). These are exactly the stages that map to the
+        // 'complete' progress milestone in the portal view.
+        const sk = lead._stageKey || lead.stage || 'new';
+        if (['final_photos', 'deductible_collected', 'final_payment', 'closed'].indexOf(sk) === -1) {
+          const e = new Error('not-complete'); e._http = 409; e._msg = 'You can rate once the job is complete.'; throw e;
         }
         tx.update(leadRef, {
           customerRating: starsNum,
@@ -1318,7 +1356,7 @@ exports.sendPortalMessage = onRequest(
     if (!(await httpRateLimit(req, res, 'portal-msg:ip', 60, 60_000))) return;
 
     const { token, text } = req.body || {};
-    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
       res.status(400).json({ error: 'Invalid token' });
       return;
     }
@@ -1539,7 +1577,7 @@ exports.getPortalMessages = onRequest(
     if (!(await httpRateLimit(req, res, 'portal-msg-get:ip', 120, 60_000))) return;
 
     const { token } = req.body || {};
-    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
       res.status(400).json({ error: 'Invalid token' });
       return;
     }
@@ -1639,7 +1677,7 @@ exports.getEstimateForView = onRequest(
     if (!(await httpRateLimit(req, res, 'estimate-view:ip', 60, 60_000))) return;
 
     const { token, estimateId } = req.body || {};
-    if (typeof token !== 'string' || token.length < 10 || token.length > 64) {
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
       res.status(400).json({ error: 'Invalid token' });
       return;
     }
