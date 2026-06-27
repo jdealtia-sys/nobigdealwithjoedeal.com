@@ -189,6 +189,26 @@ section('ScriptLoader contract');
     /est:\s*\['estimates'\]/.test(src) && /products:\s*\['estimates'\]/.test(src),
     "VIEW_BUNDLES must map est + products to the estimates bundle");
 
+  // Expense subsystem: the #/expenses view lazy-loads expense-config (the
+  // category/money source of truth), profit-tracker (window.ProfitTracker —
+  // NOT loaded anywhere else on dashboard.html; expenses.js's per-job margin
+  // calls computeJobPLWithExpenses at render), then expenses.js. Order is
+  // load-bearing: a missing/late profit-tracker silently degrades margin to
+  // "set Job Value" (caught only by live browser verification, not unit tests).
+  const EXPMODS = ['expense-config.js', 'profit-tracker.js', 'expenses.js'];
+  const expBundleSrc = (src.match(/expenses:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of EXPMODS) {
+    assert('expenses bundle includes ' + m, expBundleSrc.includes(m),
+      m + ' must be listed in the expenses bundle in script-loader.js');
+  }
+  assert('expenses bundle order: config + profit-tracker before expenses.js',
+    expBundleSrc.indexOf('expense-config.js') < expBundleSrc.indexOf('expenses.js') &&
+    expBundleSrc.indexOf('profit-tracker.js') < expBundleSrc.indexOf('expenses.js'),
+    'expense-config.js and profit-tracker.js must load before expenses.js');
+  assert('expenses view preloads the expenses bundle',
+    /expenses:\s*\['expenses'\]/.test(src),
+    "VIEW_BUNDLES must map expenses to the expenses bundle");
+
   // PR 2d (perf): the photo + inspection engine (~200 KB) moved off the eager
   // boot path into the lazy `photos` bundle, with load-then-run stubs at the
   // entry points (camera / gallery / inspection builder / photo report).
