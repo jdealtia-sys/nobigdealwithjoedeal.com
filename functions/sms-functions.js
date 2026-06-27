@@ -561,7 +561,11 @@ exports.incomingSMS = onRequest(
       const opt = String(messageBody || '').trim().toUpperCase();
       const STOP_WORDS = new Set(['STOP', 'STOPALL', 'UNSUBSCRIBE', 'CANCEL', 'END', 'QUIT']);
       const HELP_WORDS = new Set(['HELP', 'INFO']);
-      const START_WORDS = new Set(['START', 'YES', 'UNSTOP']);
+      // CTIA-standard resume keywords ONLY. 'YES' was here too, but a customer
+      // replying "YES" to a rep's question would short-circuit the whole inbound
+      // pipeline — auto-send a "Welcome back" reply with NO rep approval and
+      // never create the AI draft / reach the rep. (TCPA resume ≠ "yes".)
+      const START_WORDS = new Set(['START', 'UNSTOP']);
       const phoneDigits = String(fromPhone).replace(/\D/g, '');
       if (phoneDigits && STOP_WORDS.has(opt)) {
         await db.doc('sms_opt_outs/' + phoneDigits).set({
@@ -598,6 +602,22 @@ exports.incomingSMS = onRequest(
           'unsubscribe.</Message></Response>'
         );
         return;
+      }
+
+      // Idempotency: Twilio retries the webhook on any non-2xx / timeout, which
+      // would otherwise create DUPLICATE inbound notes + AI drafts + push
+      // notifications. Claim the MessageSid once (mirrors the Stripe webhook's
+      // eventRef.create dedup); a retry hits the existing doc and no-ops.
+      if (messageSid) {
+        try {
+          await db.doc('sms_inbound_seen/' + messageSid)
+            .create({ from: fromPhone, at: FieldValue.serverTimestamp() });
+        } catch (e) {
+          logger.info('[incomingSMS] duplicate webhook ignored', { messageSid });
+          res.set('Content-Type', 'text/xml');
+          res.status(200).send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+          return;
+        }
       }
 
       // Match phone number to a lead in Firestore
@@ -986,7 +1006,13 @@ exports.onAiDraftApproved = onDocumentUpdated(
     try {
       const optOut = await db.doc('sms_opt_outs/' + toDigits).get();
       if (optOut.exists) { await fail('opted_out'); return; }
-    } catch (_) { /* lookup failure shouldn't block a legit send */ }
+    } catch (e) {
+      // Fail CLOSED on the AI-draft path: if the opt-out lookup errors we must
+      // NOT let an auto-generated reply reach a possibly-STOP'd number (TCPA).
+      // The draft stays unsent and the rep can retry. (Was fail-open — sent
+      // anyway — unlike sendSMS/sendD2DSMS which fail closed.)
+      await fail('optout_check_error', e && e.message); return;
+    }
 
     try {
       const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
