@@ -266,7 +266,16 @@ service cloud.firestore {
 
     // ── ESTIMATES ─────────────────────────────────────
     match /estimates/{estimateId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow read, delete: if isOwner(resource.data.userId) || isAdmin();
+      // Edit-estimate legitimately rewrites the money fields (updateDoc with the
+      // rebuilt payload), so DON'T freeze totals — but owner/provenance and the
+      // server-stamped view counters must be immutable from the client (else an
+      // owner could rewrite userId/createdBy or spoof viewCount/viewedAt to fake
+      // engagement). The edit payload (_buildSavePayload) carries none of these
+      // keys, so normal edits pass `didNotChange`. Mirrors the /expenses guard.
+      allow update: if (isOwner(resource.data.userId)
+            && didNotChange(['userId', 'createdBy', 'createdAt', 'viewedAt', 'viewCount', 'lastViewedAt', 'lastViewedVia']))
+        || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 
@@ -282,7 +291,14 @@ service cloud.firestore {
     // parentEstimateId, version, status, reason, addedItems[],
     // modifications[], createdAt, updatedAt }.
     match /supplements/{supplementId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow read, delete: if isOwner(resource.data.userId) || isAdmin();
+      // Freeze the provenance on this financial doc: a saved supplement can't be
+      // re-owned or re-pointed to a different parent estimate. Supplements are
+      // created append-only (addDoc, versioned), so a legit update keeps userId +
+      // parentEstimateId stable → passes; only tampering trips the guard.
+      allow update: if (isOwner(resource.data.userId)
+            && didNotChange(['userId', 'parentEstimateId']))
+        || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 

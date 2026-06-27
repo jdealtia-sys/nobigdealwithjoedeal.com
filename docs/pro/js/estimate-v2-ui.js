@@ -2027,6 +2027,29 @@
       eave:             ctx.eaveLf || 0,
       hip:              ctx.hipLf || 0,
       pipes:            ctx.pipes || 0,
+      // Complexity + add-on measurement inputs (sourced from state.measurements,
+      // NOT echoed in ctx). These drive the per-SQ adders (stories/access/cut-up),
+      // formula-driven line quantities (rake/valley/wall LF, chimneys/skylights),
+      // tear-off layers, deck-replace %, flashing, and the tax/permit jurisdiction.
+      // Persisting them was MISSING → reopen reset them to defaults and the first
+      // edit silently dropped the adders, corrupting the saved customer price (the
+      // V2 recurrence of the classic 'Edit-on-Classic corrupted totals' bug; see
+      // estimates.js:800-826 where the classic builder was fixed for this).
+      county:           state.county || null,
+      stories:          num(state.measurements.stories),
+      accessLevel:      state.measurements.accessLevel || 'standard',
+      cutUpRoof:        !!state.measurements.cutUpRoof,
+      tearOffLayers:    num(state.measurements.tearOffLayers),
+      deckReplacePct:   num(state.measurements.deckReplacePct),
+      rakeLf:           num(state.measurements.rakeLf),
+      valleyLf:         num(state.measurements.valleyLf),
+      wallLf:           num(state.measurements.wallLf),
+      chimneys:         num(state.measurements.chimneys),
+      skylights:        num(state.measurements.skylights),
+      hasChimneyFlash:  !!state.measurements.hasChimneyFlash,
+      hasSkylightFlash: !!state.measurements.hasSkylightFlash,
+      valleyMetalLf:    num(state.measurements.valleyMetalLf),
+      guttersLf:        num(state.measurements.guttersLf),
       // Line items in the classic builder's shape (code/desc/qty/rate/total),
       // PLUS the per-line material/labor split + units so a reopened estimate
       // can reconstruct B-8 retail line pricing without re-resolving the
@@ -2046,6 +2069,10 @@
         materialCostPerUnit: num(line.materialCostPerUnit),
         laborCostPerUnit:    num(line.laborCostPerUnit),
         unitPrice:           num(line.unitPrice),
+        // Persist a manual per-line qty override so reopen doesn't wipe it (the
+        // override lives in state.scope[].overrides.qty; without this the saved
+        // qty re-resolves from measurements on the first post-reopen edit).
+        qtyOverride:         ((state.scope || []).find(s => s.code === line.code)?.overrides?.qty ?? null),
       })),
       // Totals — grandTotal is the canonical customer total: the selected
       // per-SQ tier price for per-SQ estimates, the scope total for line-item.
@@ -2179,17 +2206,35 @@
       waste: Number(doc.wf) || 1.15,
       ridgeLf: Number(doc.ridge) || 0,
       eaveLf: Number(doc.eave) || 0,
-      rakeLf: 0, hipLf: Number(doc.hip) || 0, valleyLf: 0, wallLf: 0,
-      pipes: Number(doc.pipes) || 0, chimneys: 0, skylights: 0, stories: 1,
-      tearOffLayers: 1, deckReplacePct: 0.15, cutUpRoof: false,
-      hasChimneyFlash: false, hasSkylightFlash: false, valleyMetalLf: 0, guttersLf: 0,
-      accessLevel: 'standard',
+      hipLf: Number(doc.hip) || 0,
+      pipes: Number(doc.pipes) || 0,
+      // Restore the complexity + add-on inputs from the saved doc (now persisted
+      // by _buildSavePayload). A still-fresh object (no spread of prior state) so
+      // a previous session's values can't bleed in; docs that predate this
+      // persistence simply lack the keys and fall back to the SAME neutral
+      // defaults as before — but new saves now round-trip faithfully, so a
+      // reopen+edit no longer drops the 2-story/access/cut-up adders, flashing,
+      // or the LF-driven line quantities, and county no longer reverts.
+      rakeLf:          Number(doc.rakeLf) || 0,
+      valleyLf:        Number(doc.valleyLf) || 0,
+      wallLf:          Number(doc.wallLf) || 0,
+      chimneys:        Number(doc.chimneys) || 0,
+      skylights:       Number(doc.skylights) || 0,
+      stories:         Number(doc.stories) || 1,
+      tearOffLayers:   Number(doc.tearOffLayers) || 1,
+      deckReplacePct:  (doc.deckReplacePct != null ? Number(doc.deckReplacePct) : 0.15),
+      cutUpRoof:       !!doc.cutUpRoof,
+      hasChimneyFlash: !!doc.hasChimneyFlash,
+      hasSkylightFlash: !!doc.hasSkylightFlash,
+      valleyMetalLf:   Number(doc.valleyMetalLf) || 0,
+      guttersLf:       Number(doc.guttersLf) || 0,
+      accessLevel:     doc.accessLevel || 'standard',
     };
     // Rebuild the scope from the saved catalog codes (skip pass-through/service
     // rows, which aren't catalog items). Quantities re-resolve from measurements.
     state.scope = (doc.rows || [])
       .filter((r) => r && r.code && !/^SVC /.test(r.code) && r.source !== 'passthru')
-      .map((r) => ({ code: r.code, overrides: {} }));
+      .map((r) => ({ code: r.code, overrides: (r.qtyOverride != null ? { qty: Number(r.qtyOverride) } : {}) }));
     // Repopulate pass-through fees (measurement report, e-sign, permit upcharge)
     // from the saved SVC/passthru rows — else the FIRST edit after reopen drops
     // them from the live re-resolve (getCurrentEstimate reads state.passThru)
