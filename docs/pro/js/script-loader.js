@@ -72,6 +72,11 @@
       'js/profit-tracker.js?v=1',
       'js/expenses.js?v=1'
     ],
+    // Money / P&L capstone — self-contained (reads doc fields directly, no
+    // ExpenseConfig dependency), so it's a single-module bundle.
+    money: [
+      'js/money-dashboard.js?v=1'
+    ],
     repos: [
       'js/rep-os.js?v=1'
     ],
@@ -178,6 +183,7 @@
     storm:       ['storm'],
     closeboard:  ['closeboard'],
     expenses:    ['expenses'],
+    money:       ['money'],
     repos:       ['repos'],
     aitree:      ['decision'],
     understand:  ['decision'],

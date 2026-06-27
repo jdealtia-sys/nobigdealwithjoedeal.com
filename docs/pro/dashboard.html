@@ -7727,6 +7727,7 @@ body.theme-frosted {
       <div class="ni" data-action="goTo" data-target="board" id="nav-board"><span class="ni-icon">🏆</span>Leaderboard</div>
       <div class="ni" data-action="goTo" data-target="reports" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
       <div class="ni" data-action="goTo" data-target="expenses" id="nav-expenses"><span class="ni-icon">🧾</span>Expenses</div>
+      <div class="ni" data-action="goTo" data-target="money" id="nav-money"><span class="ni-icon">💵</span>Money</div>
       <div class="ni" data-action="windowOpen" data-target="/pro/daily-success/" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
       <div class="ni" data-action="goTo" data-target="storm" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
       <div class="ni" data-action="goTo" data-target="closeboard" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
@@ -9197,6 +9198,9 @@ body.theme-frosted {
   <!-- Expenses: template-hydrated mount; expenses.js renders into .view-scroll on init. -->
   <div class="view" id="view-expenses" data-view-template="tpl-view-expenses"></div>
   <template id="tpl-view-expenses"><div class="view-scroll"></div></template>
+  <!-- Money: template-hydrated mount; money-dashboard.js renders the P&L into .view-scroll on init. -->
+  <div class="view" id="view-money" data-view-template="tpl-view-money"></div>
+  <template id="tpl-view-money"><div class="view-scroll"></div></template>
   <template id="tpl-view-closeboard">
     <div class="view-scroll">
       <div class="page-hdr">
@@ -12280,6 +12284,9 @@ body.theme-frosted {
   </div>
   <div class="mm-item" data-action="mobileNav" data-target="expenses" data-close-more>
     <span class="mm-item-icon">🧾</span>Expenses
+  </div>
+  <div class="mm-item" data-action="mobileNav" data-target="money" data-close-more>
+    <span class="mm-item-icon">💵</span>Money
   </div>
   <div class="mm-item" data-action="call" data-fn="openDailyProgramFromMore">
     <span class="mm-item-icon">📅</span>Daily Program

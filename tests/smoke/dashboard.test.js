@@ -209,6 +209,14 @@ section('ScriptLoader contract');
     /expenses:\s*\['expenses'\]/.test(src),
     "VIEW_BUNDLES must map expenses to the expenses bundle");
 
+  // Money / P&L capstone view — lazy single-module bundle + preload mapping.
+  const moneyBundleSrc = (src.match(/money:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  assert('money bundle includes money-dashboard.js', moneyBundleSrc.includes('money-dashboard.js'),
+    'money-dashboard.js must be in the money bundle in script-loader.js');
+  assert('money view preloads the money bundle',
+    /money:\s*\['money'\]/.test(src),
+    "VIEW_BUNDLES must map money to the money bundle");
+
   // PR 2d (perf): the photo + inspection engine (~200 KB) moved off the eager
   // boot path into the lazy `photos` bundle, with load-then-run stubs at the
   // entry points (camera / gallery / inspection builder / photo report).
@@ -1348,19 +1356,19 @@ section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
     /el\.hasAttribute\('data-close-more'\)[\s\S]{0,120}closeMobileMore\(\)/.test(mainJs),
     'expected closeMobileMore() called when data-close-more present');
 
-  // 3 bottom-nav items (mn-item) plus 20 More-drawer items = 23 total
+  // 3 bottom-nav items (mn-item) plus 21 More-drawer items = 24 total
   // mobileNav data-actions in the markup. (Crew-calendar More item
   // intentionally remains inline — defensive existence check.)
-  // (Expenses More-drawer item added with the Phase 1 expense subsystem.)
+  // (Expenses + Money More-drawer items added with the expense initiative.)
   const mnCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"/g) || []).length;
-  assert('mobileNav conversions: 23 (3 bottom-nav + 20 more-drawer)',
-    mnCount === 23,
-    'expected 23 mobileNav data-actions; got ' + mnCount);
+  assert('mobileNav conversions: 24 (3 bottom-nav + 21 more-drawer)',
+    mnCount === 24,
+    'expected 24 mobileNav data-actions; got ' + mnCount);
 
   const closeMoreCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"\s+data-close-more/g) || []).length;
-  assert('20 mobileNav items carry data-close-more (More-drawer items)',
-    closeMoreCount === 20,
-    'expected 20 data-close-more flags; got ' + closeMoreCount);
+  assert('21 mobileNav items carry data-close-more (More-drawer items)',
+    closeMoreCount === 21,
+    'expected 21 data-close-more flags; got ' + closeMoreCount);
 
   // C.4 finale: every mobileNav handler is delegated (no inline onclicks).
   const remaining = (dash.match(/onclick="mobileNav\(/g) || []).length;
