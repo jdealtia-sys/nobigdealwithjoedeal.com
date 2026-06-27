@@ -289,8 +289,11 @@ exports.submitPublicLead = onRequest(
       return;
     }
 
-    // Honeypot — real humans never fill this. Pretend success.
-    if (typeof body.website === 'string' && body.website.length > 0) {
+    // Honeypot — real humans never fill this. Pretend success. Trip on ANY
+    // truthy value, not just a non-empty STRING: a bot sending website:true or
+    // website:["x"] (non-string) slipped past the old `typeof === 'string'`
+    // check and submitted as if legitimate.
+    if (body.website != null && String(body.website).length > 0) {
       logger.info('submitPublicLead: honeypot tripped', { kind, ip: clientIp(req) });
       res.status(200).json({ success: true });
       return;
