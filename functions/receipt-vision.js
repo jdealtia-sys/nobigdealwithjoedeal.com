@@ -194,10 +194,13 @@ exports.extractReceiptData = onCall({
   const storagePath = typeof request.data?.storagePath === 'string' ? request.data.storagePath : null;
   if (!storagePath) throw new HttpsError('invalid-argument', 'storagePath required');
 
-  // Owner-scope: the path MUST be this user's own receipts prefix. Blocks
-  // OCRing another user's file or an arbitrary Storage object.
+  // Owner-scope: the path MUST be under receipts/. A platform admin may OCR any
+  // user's receipt (support), but NOT an arbitrary Storage object — so admins
+  // are still confined to the receipts/ prefix, not given a blanket bypass
+  // (QA finding).
   const isAdmin = request.auth.token && request.auth.token.role === 'admin';
-  if (!isAdmin && storagePath.indexOf(`receipts/${uid}/`) !== 0) {
+  const requiredPrefix = isAdmin ? 'receipts/' : `receipts/${uid}/`;
+  if (storagePath.indexOf(requiredPrefix) !== 0) {
     throw new HttpsError('permission-denied', 'Not your receipt path');
   }
 
@@ -212,7 +215,10 @@ exports.extractReceiptData = onCall({
   ]);
   const userUsd = (userMeterSnap.exists && userMeterSnap.data().visionUsd) || 0;
   const plan = (subSnap.exists && subSnap.data().plan) || 'lite';
-  const userMonthlyCap = PER_USER_MONTHLY_USD_CAP_BY_PLAN[plan] ?? PER_USER_MONTHLY_USD_CAP;
+  // Unmapped/legacy/free plans get the most CONSERVATIVE cap, not the $50
+  // global mid-range (QA finding).
+  var planCaps = Object.values(PER_USER_MONTHLY_USD_CAP_BY_PLAN);
+  const userMonthlyCap = PER_USER_MONTHLY_USD_CAP_BY_PLAN[plan] ?? Math.min.apply(null, planCaps);
   if (userUsd >= userMonthlyCap) {
     logger.info('receipt-vision.cap.user', { uid, monthKey, userUsd, plan, cap: userMonthlyCap });
     return { skipped: true, reason: 'user-cap', userUsd, cap: userMonthlyCap };
@@ -304,7 +310,9 @@ exports.extractReceiptData = onCall({
   if (!response.ok) {
     const msg = (data && data.error && data.error.message) || ('HTTP ' + response.status);
     logger.warn('receipt-vision.api_error', { status: response.status, msg });
-    throw new HttpsError('internal', 'Receipt OCR error: ' + msg);
+    // Transient provider blip -> graceful manual-entry fallback (same path as
+    // an unsupported format), not a 500 with raw provider text (QA finding).
+    return { skipped: true, reason: 'ocr-unavailable', status: response.status };
   }
 
   // ── Parse + sanitize ──

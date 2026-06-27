@@ -81,8 +81,24 @@
     var y = yearOrDate;
     if (yearOrDate instanceof Date) y = yearOrDate.getFullYear();
     else if (typeof yearOrDate === 'string') y = new Date(yearOrDate).getFullYear();
-    if (!IRS_MILEAGE_CENTS[y]) y = LATEST_MILEAGE_YEAR;
+    if (!IRS_MILEAGE_CENTS[y]) {
+      // CLAMP to the nearest known year, don't fall FORWARD — a pre-2023 date
+      // using the 2026 rate would overstate the deduction (QA finding).
+      var ys = Object.keys(IRS_MILEAGE_CENTS).map(Number);
+      var min = Math.min.apply(null, ys), max = Math.max.apply(null, ys);
+      y = y < min ? min : max;
+    }
     return IRS_MILEAGE_CENTS[y];
+  }
+  // Canonicalize a vendor/supplier name for matching: lowercase, strip
+  // punctuation + common entity suffixes + collapse whitespace. Used to match
+  // free-text expense.supplier to supplier records for YTD/1099 rollups so
+  // 'ABC Supply', 'ABC Supply, LLC', 'abc  supply co.' all match (QA finding).
+  function normVendor(s) {
+    return String(s == null ? '' : s).toLowerCase()
+      .replace(/[.,#&]/g, ' ')
+      .replace(/\b(inc|llc|l\.l\.c|co|corp|company|ltd)\b/g, ' ')
+      .replace(/\s+/g, ' ').trim();
   }
   // miles x cents/mile -> integer cents. Round (don't truncate) the half-cent.
   function mileageAmountCents(miles, rateCents) {
@@ -167,6 +183,7 @@
     LATEST_MILEAGE_YEAR: LATEST_MILEAGE_YEAR,
     mileageRateCents: mileageRateCents,
     mileageAmountCents: mileageAmountCents,
+    normVendor: normVendor,
     BUDGET: BUDGET,
     budgetStatus: budgetStatus,
     dollarsToCents: dollarsToCents,

@@ -41,14 +41,15 @@ const data = {
   ],
   expenses: [
     { category: 'materials', costType: 'direct', amountCents: 500000, leadId: 'L1', supplier: 'ABC', date: new Date(2026, 1, 1) },
-    { category: 'subcontractor', costType: 'direct', amountCents: 300000, supplier: 'Crew Co', date: new Date(2026, 2, 1) }, // no leadId
+    { category: 'subcontractor', costType: 'direct', amountCents: 300000, supplier: 'Crew Co, LLC', date: new Date(2026, 2, 1) }, // no leadId; name VARIANT (tests normVendor)
     { category: 'marketing', costType: 'overhead', amountCents: 100000, supplier: 'Google', date: new Date(2026, 1, 1) },
     { category: 'materials', costType: 'direct', amountCents: 999, supplier: 'Old', date: new Date(2025, 1, 1) }, // prior year — excluded
   ],
   invoices: [
     { status: 'paid', paidAt: new Date(2026, 2, 1), total: 12000 },
     { status: 'paid', paidAt: new Date(2025, 2, 1), total: 5000 }, // prior year — excluded from collected
-    { status: 'sent', total: 4000, balanceDue: 4000 },             // outstanding
+    { status: 'sent', total: 4000, balanceDue: 4000 },             // fully outstanding
+    { status: 'partial', paidAt: new Date(2026, 3, 1), total: 1000, balanceDue: 400 }, // $600 collected, $400 still due
   ],
   suppliers: [
     { displayName: 'Crew Co', is1099Eligible: true, w9Status: 'received' }, // YTD sub $3000 >= $2000 -> 1099 due
@@ -58,10 +59,10 @@ const data = {
 const m = MD.computePnL(data);
 
 console.log('  cash:');
-eq('collected 2026 only ($12,000)', m.collectedCents, 1200000);
+eq('collected 2026: $12,000 + $600 partial = $12,600', m.collectedCents, 1260000);
 eq('spent 2026 only ($9,000; prior-year excluded)', m.spentCents, 900000);
-eq('net cash = collected - spent', m.netCashCents, 300000);
-eq('outstanding A/R ($4,000 unpaid)', m.outstandingCents, 400000);
+eq('net cash = collected - spent', m.netCashCents, 360000);
+eq('outstanding A/R: $4,000 + $400 partial balance', m.outstandingCents, 440000);
 console.log('  COGS / overhead:');
 eq('COGS = direct (materials+sub)', m.cogsCents, 800000);
 eq('overhead', m.overheadCents, 100000);
