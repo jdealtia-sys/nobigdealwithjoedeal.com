@@ -47,11 +47,56 @@ const syntaxFiles = [
   // Boot-path prefs (de-moji, sizing, fonts, sidebar hidden-prefs) — a
   // parse error here silently kills every boot-applied UI pref at once.
   path.join(PRO_JS, 'dashboard-ui-prefs-boot.js'),
+  // FCM Web Push token registration + its config slot — a parse error here
+  // silently disables every push notification (the backend has no recipients).
+  path.join(PRO_JS, 'push-registration.js'),
+  path.join(PRO_JS, 'dashboard-fcm-config.js'),
   path.join(FUNCTIONS, 'index.js')
 ];
 for (const f of syntaxFiles) {
   const result = syntaxCheck(f);
   assert('parses ' + path.relative(ROOT, f), result.ok, result.err && result.err.split('\n')[0]);
+}
+
+// ── FCM Web Push registration (client ↔ server contract) ─────
+// The backend (push-functions.js) sends to users/{uid}/fcmTokens, but for a
+// long time NOTHING on the client wrote that subcollection, so every push had
+// zero recipients. These guards keep the registration path wired end-to-end.
+section('FCM push registration');
+{
+  const pr = read(path.join(PRO_JS, 'push-registration.js'));
+  const fcmCfg = read(path.join(PRO_JS, 'dashboard-fcm-config.js'));
+  const dash = read(path.join(PRO_JS, '..', 'dashboard.html'));
+  const sw = read(path.join(PRO_JS, '..', 'firebase-messaging-sw.js'));
+  const pushFns = read(path.join(FUNCTIONS, 'push-functions.js'));
+
+  // Client mints + persists a token to the exact path the server reads.
+  assert('push-registration mints an FCM token (getToken)', /getToken\s*\(/.test(pr));
+  assert('push-registration reads the VAPID key from config', /__NBD_VAPID_KEY/.test(pr) && /vapidKey/.test(pr));
+  assert('push-registration registers the messaging service worker',
+    /serviceWorker\.register\(/.test(pr) && /['"]\/pro\/firebase-messaging-sw\.js['"]/.test(pr));
+  assert('push-registration writes users/{uid}/fcmTokens', /['"]fcmTokens['"]/.test(pr) && /setDoc\s*\(/.test(pr));
+  assert('push-registration only prompts on a user gesture (no page-load requestPermission)',
+    /requestPermission/.test(pr) && /data-action="enable-notifications"/.test(pr));
+  assert('push-registration wires a foreground onMessage handler', /onMessage\s*\(/.test(pr));
+  assert('push-registration no-ops without a VAPID key (graceful)', /no-vapid/.test(pr));
+
+  // The config slot exists and ships empty (so a real key is never committed).
+  assert('dashboard-fcm-config sets window.__NBD_VAPID_KEY', /window\.__NBD_VAPID_KEY\s*=/.test(fcmCfg));
+  assert('dashboard-fcm-config ships with an EMPTY key (no secret committed)',
+    /window\.__NBD_VAPID_KEY\s*=\s*["']\s*["']/.test(fcmCfg));
+
+  // Both scripts are loaded by dashboard.html (config classic+early, engine deferred).
+  assert('dashboard.html loads dashboard-fcm-config.js', /src="js\/dashboard-fcm-config\.js/.test(dash));
+  assert('dashboard.html loads push-registration.js (deferred)',
+    /defer\s+src="js\/push-registration\.js/.test(dash));
+
+  // The service worker the client registers actually handles background pushes.
+  assert('messaging SW handles background messages', /onBackgroundMessage\s*\(/.test(sw));
+
+  // Server still reads the same subcollection the client writes (contract).
+  assert('server getUserFCMTokens reads users/{uid}/fcmTokens',
+    /collection\(\s*['"]fcmTokens['"]\s*\)/.test(pushFns));
 }
 
 // ── QA sweep regression guards (Audit #4: F1/F4/F5) ──────────
