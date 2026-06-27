@@ -125,11 +125,46 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // Marketing spend (dollars) from the expense ledger — drives a REAL ROI.
+  // null = not yet fetched. Marketing expenses carry no per-source/campaign
+  // field, so this is a TOTAL spend → an overall ROI (closedRev / spend), not
+  // per-source attribution (that would need a campaign tag on each expense).
+  let _marketingSpend = null;
+  let _marketingTargetId = null;
+
+  async function _fetchMarketingSpend() {
+    const db = window.db || window._db;
+    const uid = window._user && window._user.uid;
+    if (!db || !uid || !window.getDocs || !window.query || !window.where || !window.collection) return 0;
+    try {
+      // userId-scoped (single-field auto-index); filter category client-side to
+      // avoid a new composite index.
+      const snap = await window.getDocs(window.query(
+        window.collection(db, 'expenses'), window.where('userId', '==', uid)));
+      let cents = 0;
+      snap.docs.forEach(function (d) {
+        const e = d.data();
+        if (e && e.category === 'marketing') cents += (parseInt(e.amountCents, 10) || 0);
+      });
+      return cents / 100;
+    } catch (e) { return 0; }
+  }
+
   function render(targetId) {
     const el = document.getElementById(targetId);
     if (!el) return;
     const leads = window._leads || [];
     const m = computeMetrics(leads);
+
+    // Pull marketing spend once, then re-render with the real ROI tiles.
+    _marketingTargetId = targetId;
+    if (_marketingSpend === null) {
+      _marketingSpend = 0; // guard against re-entry
+      _fetchMarketingSpend().then(function (spend) {
+        _marketingSpend = spend;
+        if (_marketingTargetId) render(_marketingTargetId);
+      });
+    }
 
     if (m.totals.total === 0) {
       el.innerHTML = `
@@ -164,6 +199,15 @@
           <div class="lsroi-tot-label">Conv. Rate</div>
           <div class="lsroi-tot-val">${m.totals.conversionRate}%</div>
         </div>
+        ${_marketingSpend > 0 ? `
+        <div class="lsroi-tot">
+          <div class="lsroi-tot-label">Marketing Spend</div>
+          <div class="lsroi-tot-val" style="color:var(--red,#E5484D);">${fmtMoney(_marketingSpend)}</div>
+        </div>
+        <div class="lsroi-tot">
+          <div class="lsroi-tot-label">Marketing ROI</div>
+          <div class="lsroi-tot-val" style="color:var(--green);">${Math.round((m.totals.closedRev / _marketingSpend) * 100)}%</div>
+        </div>` : ''}
       </div>
     `;
 

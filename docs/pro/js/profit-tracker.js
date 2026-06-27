@@ -199,14 +199,17 @@
    * @param {string} containerId - DOM element ID to inject into
    * @param {string} leadId
    */
-  function renderCostPanel(containerId, leadId) {
+  function renderCostPanel(containerId, leadId, expenses) {
     const el = document.getElementById(containerId);
     if (!el) return;
 
     const lead = (window._leads || []).find(l => l.id === leadId);
     if (!lead) return;
 
-    const pl = computeJobPL(lead);
+    // When the job has logged expenses, the margin summary reflects them
+    // (computeJobPLWithExpenses); otherwise fall back to the manual cost fields.
+    const expFed = !!(expenses && expenses.length);
+    const pl = expFed ? computeJobPLWithExpenses(lead, expenses) : computeJobPL(lead);
     const marginColor = pl.grossMargin >= 40 ? '#16a34a' : pl.grossMargin >= 25 ? '#eab308' : '#dc2626';
 
     el.innerHTML = `
@@ -215,6 +218,7 @@
           <h4 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--h,#fff);">💲 Job Costs & Profit</h4>
           ${pl.revenue > 0 ? `<span style="background:${marginColor}22;color:${marginColor};padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;">${pl.grossMargin}% margin</span>` : ''}
         </div>
+        ${expFed ? `<div style="font-size:10px;color:#16a34a;margin:-10px 0 14px;">✓ Margin reflects ${expenses.length} logged expense${expenses.length > 1 ? 's' : ''} — $${formatPT(pl.materialCost + pl.laborCost + pl.miscCosts)} direct cost from the Expenses ledger.</div>` : ''}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
           <div>
             <label style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">Material Cost</label>
@@ -266,6 +270,30 @@
         </button>
       </div>
     `;
+
+    // On the first (no-expenses) render, pull this job's logged expenses and
+    // re-render with ledger-fed margin. Non-breaking: existing 2-arg callers
+    // still work; the panel just upgrades once expenses load. Owner-scoped
+    // query (userId==uid + leadId) — falls back silently on any error.
+    if (expenses === undefined) {
+      _fetchLeadExpenses(leadId).then(function (exps) {
+        if (exps && exps.length) renderCostPanel(containerId, leadId, exps);
+      });
+    }
+  }
+
+  // Fetch a lead's expenses for the cost panel. Returns [] on any failure.
+  async function _fetchLeadExpenses(leadId) {
+    const db = window.db || window._db;
+    const uid = window._user && window._user.uid;
+    if (!db || !uid || !window.getDocs || !window.query || !window.where || !window.collection) return [];
+    try {
+      const snap = await window.getDocs(window.query(
+        window.collection(db, 'expenses'),
+        window.where('userId', '==', uid),
+        window.where('leadId', '==', leadId)));
+      return snap.docs.map(function (d) { return d.data(); });
+    } catch (e) { return []; }
   }
 
   /**

@@ -121,6 +121,67 @@ eq('jobMargin grossMargin matches', jm.grossMargin, 25);
 ok('jobMargin null when revenue 0', EX.jobMargin({ jobValue: 0 }, exp) === null);
 ok('jobMargin null when no lead', EX.jobMargin(null, exp) === null);
 
+// ── Follow-up: estVsActual (estimated-vs-actual variance) ────
+console.log('EXPENSES — estVsActual (variance)');
+EX._setEstCosts({ L1: 1000000 }); // $10,000 budgeted direct cost (V2 estimate)
+const vaOver = EX.estVsActual('L1', 1200000); // actual $12,000
+eq('estVsActual est cents', vaOver.estCents, 1000000);
+eq('estVsActual actual cents', vaOver.actualCents, 1200000);
+eq('estVsActual variance = actual-est (over)', vaOver.varianceCents, 200000);
+const vaUnder = EX.estVsActual('L1', 800000); // actual $8,000
+eq('estVsActual variance under is negative', vaUnder.varianceCents, -200000);
+ok('estVsActual null when no estimate cost basis', EX.estVsActual('L2', 5000) === null);
+EX._setEstCosts({});
+ok('estVsActual null after clearing', EX.estVsActual('L1', 5000) === null);
+
+// ── Follow-up: findDuplicate ─────────────────────────────────
+console.log('EXPENSES — findDuplicate');
+EX._setData([{ id: 'e1', supplier: 'ABC Supply', amountCents: 5000, date: new Date('2026-06-27T00:00:00') }]);
+ok('finds exact dup (vendor+amount+day)', !!EX.findDuplicate('ABC Supply', 5000, '2026-06-27'));
+ok('case-insensitive vendor match', !!EX.findDuplicate('abc supply', 5000, '2026-06-27'));
+ok('no dup when amount differs', EX.findDuplicate('ABC Supply', 5001, '2026-06-27') === null);
+ok('no dup when day differs', EX.findDuplicate('ABC Supply', 5000, '2026-06-28') === null);
+ok('no dup when vendor differs', EX.findDuplicate('Beacon', 5000, '2026-06-27') === null);
+EX._setData([]);
+
+// ── Follow-up: csvCell (CSV escaping) ────────────────────────
+console.log('EXPENSES — csvCell');
+eq('plain value unquoted', EX.csvCell('plain'), 'plain');
+eq('comma gets quoted', EX.csvCell('a,b'), '"a,b"');
+eq('quotes are doubled + wrapped', EX.csvCell('he said "hi"'), '"he said ""hi"""');
+eq('newline gets quoted', EX.csvCell('line1\nline2'), '"line1\nline2"');
+eq('null -> empty', EX.csvCell(null), '');
+
+// ── Follow-up #1: analytics-kpi expense metrics (vm sandbox) ─────
+console.log('ANALYTICS-KPI — expense metrics (COGS / margin / supplier)');
+const awin = makeWin();
+loadInto(awin, 'analytics-kpi.js');
+const AK = awin.AnalyticsKPI && awin.AnalyticsKPI._test;
+ok('AnalyticsKPI._test.computeFullAnalytics exported', !!(AK && AK.computeFullAnalytics));
+if (AK && AK.computeFullAnalytics) {
+  const data = {
+    leads: [
+      { id: 'L1', _stageKey: 'closed', jobValue: 20000 },   // won, costed
+      { id: 'L2', _stageKey: 'closed', jobValue: 10000 },   // won, NOT costed
+    ],
+    invoices: [], knocks: [], photos: [], estimates: [],
+    expenses: [
+      { amountCents: 500000, costType: 'direct', supplier: 'ABC Supply', leadId: 'L1', date: new Date() },
+      { amountCents: 100000, costType: 'overhead', supplier: 'Google', leadId: null, date: new Date() },
+    ],
+  };
+  const M = AK.computeFullAnalytics(data);
+  eq('total COGS (direct only) dollars', M.expDirectDollars, 5000);
+  eq('overhead dollars', M.expOverheadDollars, 1000);
+  eq('total spend dollars', M.expTotalDollars, 6000);
+  // gross margin: only L1 is costed → (20000-5000)/20000 = 75%
+  eq('won-job gross margin uses jobValue basis, costed jobs only', M.expGrossMargin, 75);
+  eq('costed-jobs count', M.expCostedJobs, 1);
+  eq('won-jobs count', M.expWonJobs, 2);
+  eq('top supplier in leaderboard', M.expSupplierLeaderboard[0].supplier, 'ABC Supply');
+  eq('this-month spend includes both (dated now)', M.expMonthDollars, 6000);
+}
+
 // ── summary ──────────────────────────────────────────────────
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' expenses logic: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) { console.error('FAILED: ' + fails.join(', ')); process.exit(1); }
