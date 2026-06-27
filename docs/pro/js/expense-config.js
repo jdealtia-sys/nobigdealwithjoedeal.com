@@ -55,7 +55,12 @@
     { key: 'software',          label: 'Software & Subscriptions', costType: COST_TYPE.OVERHEAD, scheduleCHint: 'Other Expenses (L27a)' },
     { key: 'phone_internet',    label: 'Phone & Internet',     costType: COST_TYPE.OVERHEAD, scheduleCHint: 'Utilities (L25)' },
     { key: 'office_supplies',   label: 'Office & Supplies',    costType: COST_TYPE.OVERHEAD, scheduleCHint: 'Office Expense (L18)' },
-    { key: 'professional_admin',label: 'Professional & Admin', costType: COST_TYPE.OVERHEAD, scheduleCHint: 'Legal & Professional (L17)' }
+    { key: 'professional_admin',label: 'Professional & Admin', costType: COST_TYPE.OVERHEAD, scheduleCHint: 'Legal & Professional (L17)' },
+    // Mileage: a vehicle deduction (miles x IRS rate). costType overhead — it's
+    // a business-vehicle cost, not a single job's COGS. amountCents is computed
+    // from miles, not typed. NOTE: standard mileage and actual-vehicle-cost
+    // methods are mutually exclusive per vehicle/year — don't claim both.
+    { key: 'mileage',           label: 'Mileage',              costType: COST_TYPE.OVERHEAD, scheduleCHint: 'Car & Truck (L9)' }
   ];
 
   var BY_KEY = {};
@@ -66,6 +71,27 @@
     return c ? c.costType : COST_TYPE.OVERHEAD; // unknown -> overhead (never silently counts as a job cost)
   }
   function isDirect(categoryKey) { return costTypeFor(categoryKey) === COST_TYPE.DIRECT; }
+
+  // ── IRS standard mileage rate (BUSINESS), cents per mile, by tax year ──
+  // Changes every January — keep this table current. Only the BUSINESS rate is
+  // exposed (medical/charitable differ + would invite mis-entry).
+  var IRS_MILEAGE_CENTS = { 2023: 65.5, 2024: 67.0, 2025: 70.0, 2026: 72.5 };
+  var LATEST_MILEAGE_YEAR = 2026;
+  function mileageRateCents(yearOrDate) {
+    var y = yearOrDate;
+    if (yearOrDate instanceof Date) y = yearOrDate.getFullYear();
+    else if (typeof yearOrDate === 'string') y = new Date(yearOrDate).getFullYear();
+    if (!IRS_MILEAGE_CENTS[y]) y = LATEST_MILEAGE_YEAR;
+    return IRS_MILEAGE_CENTS[y];
+  }
+  // miles x cents/mile -> integer cents. Round (don't truncate) the half-cent.
+  function mileageAmountCents(miles, rateCents) {
+    var m = parseFloat(miles);
+    if (!isFinite(m) || m < 0) return 0;
+    var r = parseFloat(rateCents);
+    if (!isFinite(r) || r <= 0) r = IRS_MILEAGE_CENTS[LATEST_MILEAGE_YEAR];
+    return Math.round(m * r);
+  }
   function labelFor(categoryKey) {
     var c = BY_KEY[categoryKey];
     return c ? c.label : (categoryKey || 'Uncategorized');
@@ -114,6 +140,22 @@
   // schema comment). Used by the Phase-1 form validator + the OCR reconcile.
   var REQUIRED_FIELDS = ['userId', 'companyId', 'category', 'costType', 'amountCents', 'date'];
 
+  // ── A4: budget / overspend thresholds (defaults; tenant-editable later) ──
+  // directCostPctWarn: amber when a job's direct costs exceed this % of its
+  // contract value. marginFloorPct: red when projected gross margin drops below
+  // this. Industry-convention defaults — NOT hard rules; make these per-tenant
+  // (companyProfile.budgetDefaults) in a follow-up.
+  var BUDGET = { directCostPctWarn: 65, marginFloorPct: 30 };
+  // Returns null (no signal) | 'warn' | 'breach' for a job's cost health.
+  function budgetStatus(revenueDollars, directCostDollars) {
+    if (!(revenueDollars > 0) || !(directCostDollars > 0)) return null;
+    var marginPct = (revenueDollars - directCostDollars) / revenueDollars * 100;
+    var costPct = directCostDollars / revenueDollars * 100;
+    if (marginPct < BUDGET.marginFloorPct || costPct >= 100) return 'breach';
+    if (costPct >= BUDGET.directCostPctWarn) return 'warn';
+    return null;
+  }
+
   window.ExpenseConfig = {
     COST_TYPE: COST_TYPE,
     CATEGORIES: CATEGORIES,
@@ -121,6 +163,12 @@
     costTypeFor: costTypeFor,
     isDirect: isDirect,
     labelFor: labelFor,
+    IRS_MILEAGE_CENTS: IRS_MILEAGE_CENTS,
+    LATEST_MILEAGE_YEAR: LATEST_MILEAGE_YEAR,
+    mileageRateCents: mileageRateCents,
+    mileageAmountCents: mileageAmountCents,
+    BUDGET: BUDGET,
+    budgetStatus: budgetStatus,
     dollarsToCents: dollarsToCents,
     centsToDollars: centsToDollars,
     formatCents: formatCents,

@@ -160,6 +160,16 @@ function computeNeedsReview(extracted, recon) {
   return false;
 }
 
+// HEIC/HEIF detection by ISOBMFF ftyp brand (bytes 4-8 = 'ftyp', 8-12 = brand).
+// Trust the magic bytes over the client-declared content-type (often empty/wrong
+// for camera uploads).
+function isHeicBytes(buf) {
+  if (!buf || buf.length < 12) return false;
+  if (buf.toString('ascii', 4, 8) !== 'ftyp') return false;
+  var brand = buf.toString('ascii', 8, 12).toLowerCase();
+  return ['heic', 'heix', 'mif1', 'heif', 'hevc', 'heim', 'heis', 'hevm', 'hevs'].indexOf(brand) !== -1;
+}
+
 // ─── Main handler ──────────────────────────────────────────────────
 exports.extractReceiptData = onCall({
   region: 'us-central1',
@@ -167,7 +177,7 @@ exports.extractReceiptData = onCall({
   enforceAppCheck: true,
   secrets: [ANTHROPIC_API_KEY],
   timeoutSeconds: 60,
-  memory: '512MiB',
+  memory: '1GiB', // HEIC decode inflates a 12MP image to a ~40-50MB raw buffer
   maxInstances: 20,
   concurrency: 40,
 }, withSentry('extractReceiptData', async (request) => {
@@ -224,11 +234,29 @@ exports.extractReceiptData = onCall({
     throw new HttpsError('not-found', 'Receipt file not found');
   }
 
+  // Decode HEIC/HEIF (the iPhone default) to JPEG — Claude vision only accepts
+  // jpeg/png/gif/webp. Sniff the ftyp magic bytes, since camera uploads often
+  // send an empty or wrong content-type. heic-convert is pure-JS/WASM (no
+  // system libs) so it runs in the Functions runtime; require it lazily so
+  // non-HEIC receipts don't pay the WASM init. (sharp can ENCODE jpeg but its
+  // prebuilt binary can't DECODE heic, so it's not an option here.)
+  if (/^image\/(heic|heif)$/.test(contentType) || isHeicBytes(buf)) {
+    try {
+      const convert = require('heic-convert');
+      const out = await convert({ buffer: buf, format: 'JPEG', quality: 0.85 });
+      buf = Buffer.from(out);
+      contentType = 'image/jpeg';
+    } catch (e) {
+      logger.warn('receipt-vision.heic_decode_failed', { err: e.message });
+      return { skipped: true, reason: 'unsupported-format', contentType: 'image/heic' };
+    }
+  }
+
   const isPdf = contentType === 'application/pdf';
   const isImage = /^image\//.test(contentType);
   if (!isPdf && !isImage) throw new HttpsError('invalid-argument', 'Unsupported receipt type');
   if (isImage && !CLAUDE_IMAGE_TYPES.has(contentType)) {
-    // HEIC/AVIF etc. — Claude can't read these. Tell the client to fall back.
+    // Still-unsupported (e.g. AVIF/TIFF) — Claude can't read these. Fall back.
     return { skipped: true, reason: 'unsupported-format', contentType };
   }
 
@@ -320,4 +348,4 @@ exports.extractReceiptData = onCall({
 }));
 
 // Export the pure helpers for unit testing.
-exports._test = { sanitizeReceipt, reconcile, computeNeedsReview, dollarsToCents };
+exports._test = { sanitizeReceipt, reconcile, computeNeedsReview, dollarsToCents, isHeicBytes };

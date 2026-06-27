@@ -342,6 +342,48 @@ service cloud.firestore {
         || isAdmin();
     }
 
+    // ── RECURRING EXPENSES (templates) ────────────────
+    // One-tap-add templates for recurring costs (insurance, software, etc.).
+    // Same owner + company-shared shape as /expenses. Generated occurrences are
+    // normal /expenses docs; this just holds the template + nextDueDate.
+    match /recurringExpenses/{templateId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin()
+        || (isCompanyStaff() && resource.data.companyId != null && resource.data.companyId == myCompanyId());
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.companyId is string && request.resource.data.companyId.size() > 0
+        && (request.resource.data.companyId == myCompanyId() || request.resource.data.companyId == request.auth.uid);
+      allow update: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer'
+            && didNotChange(['userId', 'companyId', 'createdAt', 'createdBy'])) || isAdmin();
+      allow delete: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer') || isAdmin();
+    }
+
+    // ── SUPPLIERS / VENDORS (1099 tracking) ───────────
+    // Vendor records for 1099 tracking. NO TIN/SSN is stored here (or anywhere,
+    // yet — product decision). Firestore rules can't hide a field, so a TIN on
+    // a readable doc would leak to every same-company reader; the create/update
+    // rules below therefore HARD-REJECT any client write carrying tin/ssn/ein.
+    // The suppliers/{id}/private/** subtree is a locked, server-only seam
+    // reserved for a future admin-SDK-encrypted TIN — clients can't touch it.
+    match /suppliers/{supplierId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin()
+        || (isCompanyStaff() && resource.data.companyId != null && resource.data.companyId == myCompanyId());
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.companyId is string && request.resource.data.companyId.size() > 0
+        && (request.resource.data.companyId == myCompanyId() || request.resource.data.companyId == request.auth.uid)
+        && !request.resource.data.keys().hasAny(['tin', 'ssn', 'ein']);
+      allow update: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer'
+            && didNotChange(['userId', 'companyId', 'createdAt', 'createdBy'])
+            && !request.resource.data.keys().hasAny(['tin', 'ssn', 'ein'])) || isAdmin();
+      allow delete: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer') || isAdmin();
+
+      // Server-only seam for a future encrypted TIN — locked to ALL clients.
+      match /private/{doc} {
+        allow read, write: if false;
+      }
+    }
+
     // ── PHOTOS ────────────────────────────────────────
     match /photos/{photoId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();

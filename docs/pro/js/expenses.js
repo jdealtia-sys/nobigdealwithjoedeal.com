@@ -63,6 +63,8 @@
   var _scanExtraction = null;    // last extraction (carries source/needsReview to save)
   var _receiptCallable = null;
   var _estCostByLead = {};       // leadId -> budgeted direct cost in CENTS (from V2 estimates)
+  var _recurring = [];           // recurringExpenses templates (A1b)
+  var _suppliers = [];           // supplier records (A5)
 
   // ── data layer ──────────────────────────────────────────────────────
   async function fetchExpenses() {
@@ -119,6 +121,162 @@
     var est = _estCostByLead[leadId];
     if (!est || est <= 0) return null;
     return { estCents: est, actualCents: actualDirectCents, varianceCents: actualDirectCents - est };
+  }
+
+  // ── A1b: recurring-expense templates (one-tap-add model) ────────────
+  var FREQUENCIES = [
+    { key: 'weekly', label: 'Weekly' }, { key: 'biweekly', label: 'Every 2 weeks' },
+    { key: 'monthly', label: 'Monthly' }, { key: 'quarterly', label: 'Quarterly' }, { key: 'annual', label: 'Annual' }
+  ];
+  // Advance a date by one cadence. Pure (exported for tests).
+  function advanceDate(date, frequency) {
+    var d = toDate(date) || new Date();
+    d = new Date(d.getTime());
+    if (frequency === 'weekly') d.setDate(d.getDate() + 7);
+    else if (frequency === 'biweekly') d.setDate(d.getDate() + 14);
+    else if (frequency === 'quarterly') d.setMonth(d.getMonth() + 3);
+    else if (frequency === 'annual') d.setFullYear(d.getFullYear() + 1);
+    else d.setMonth(d.getMonth() + 1); // monthly (default)
+    return d;
+  }
+  function isDue(template) {
+    if (!template || template.status !== 'active') return false;
+    var due = toDate(template.nextDueDate);
+    return due && due.getTime() <= Date.now();
+  }
+
+  async function fetchRecurring() {
+    _recurring = [];
+    if (!window.db || !uid() || !window.getDocs) return;
+    try {
+      // Single-equality scope (auto single-field index, no composite). Sort client-side.
+      var q = (isStaff() && claims().companyId)
+        ? window.query(window.collection(window.db, 'recurringExpenses'), window.where('companyId', '==', companyId()))
+        : window.query(window.collection(window.db, 'recurringExpenses'), window.where('userId', '==', uid()));
+      var snap = await window.getDocs(q);
+      _recurring = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    } catch (e) { console.warn('[expenses] recurring fetch failed', e); }
+  }
+
+  async function createRecurringTemplate(form, freq) {
+    var u = uid(), c = EC();
+    if (!u || !window.addDoc || !c) return;
+    var category = (form.category && c.byKey[form.category]) ? form.category : 'materials';
+    try {
+      await window.addDoc(window.collection(window.db, 'recurringExpenses'), {
+        userId: u, companyId: claims().companyId || u,
+        name: (form.supplier || c.labelFor(category)).slice(0, 80),
+        amountCents: c.dollarsToCents(form.amount), category: category, costType: c.costTypeFor(category),
+        supplier: (form.supplier || '').trim().slice(0, 120), frequency: freq, status: 'active',
+        nextDueDate: advanceDate(form.date ? new Date(form.date + 'T00:00:00') : new Date(), freq),
+        createdAt: window.serverTimestamp(), createdBy: u, updatedAt: window.serverTimestamp()
+      });
+    } catch (e) { console.warn('[expenses] recurring template create failed', e); }
+  }
+
+  // One-tap: log an expense from a due template + advance its nextDueDate.
+  async function addFromTemplate(id) {
+    var t = _recurring.find(function (r) { return r.id === id; });
+    if (!t) return;
+    var ok = await createExpense({
+      amount: ((parseInt(t.amountCents, 10) || 0) / 100).toFixed(2),
+      date: new Date().toISOString().slice(0, 10),
+      supplier: t.supplier || '', category: t.category, note: 'Recurring: ' + (t.name || ''), source: 'manual'
+    });
+    if (ok) {
+      try {
+        await window.updateDoc(window.doc(window.db, 'recurringExpenses', id), {
+          nextDueDate: advanceDate(t.nextDueDate, t.frequency), updatedAt: window.serverTimestamp()
+        });
+      } catch (e) { console.warn('[expenses] advance recurring failed', e); }
+      await refresh();
+    }
+  }
+  async function deleteTemplate(id) {
+    try { await window.deleteDoc(window.doc(window.db, 'recurringExpenses', id)); await refresh(); }
+    catch (e) { toast('Could not delete (only the owner can)', 'error'); }
+  }
+
+  // ── A5: suppliers / 1099 tracking (NO TIN stored — tracking only) ───
+  // Tax classifications and whether they're generally 1099-eligible. Derived
+  // from the W-9 tax classification, NOT guessed. Corps are exempt EXCEPT
+  // attorneys; materials-only (pure goods) is never 1099-NEC reportable.
+  var TAX_CLASSES = [
+    { key: 'individual',  label: 'Individual / Sole-prop', eligible: true },
+    { key: 'partnership', label: 'Partnership',            eligible: true },
+    { key: 'llc',         label: 'LLC (not taxed as corp)', eligible: true },
+    { key: 'attorney',    label: 'Attorney / Law firm',    eligible: true },
+    { key: 'c_corp',      label: 'C-Corporation',          eligible: false },
+    { key: 's_corp',      label: 'S-Corporation',          eligible: false },
+    { key: 'materials_only', label: 'Materials-only (goods)', eligible: false }
+  ];
+  var TAX_CLASS_BY_KEY = {};
+  TAX_CLASSES.forEach(function (t) { TAX_CLASS_BY_KEY[t.key] = t; });
+  function is1099EligibleFromClass(taxClass) {
+    var t = TAX_CLASS_BY_KEY[taxClass];
+    return t ? !!t.eligible : false;
+  }
+  // 1099-NEC reporting threshold by tax year. OBBBA raised it to $2,000 for
+  // 2026+; do NOT hardcode $600. Cents.
+  var TAX_1099_THRESHOLD_CENTS = { 2023: 60000, 2024: 60000, 2025: 60000, 2026: 200000 };
+  function thresholdCents(year) { return TAX_1099_THRESHOLD_CENTS[year] || 200000; }
+
+  async function fetchSuppliers() {
+    _suppliers = [];
+    if (!window.db || !uid() || !window.getDocs) return;
+    try {
+      var q = (isStaff() && claims().companyId)
+        ? window.query(window.collection(window.db, 'suppliers'), window.where('companyId', '==', companyId()))
+        : window.query(window.collection(window.db, 'suppliers'), window.where('userId', '==', uid()));
+      var snap = await window.getDocs(q);
+      _suppliers = snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    } catch (e) { console.warn('[expenses] suppliers fetch failed', e); }
+  }
+
+  // YTD service-payment rollup for a supplier (cents), matched by name to
+  // service-category expenses in the given year. Only services count toward a
+  // 1099 (materials/goods don't). Pure (exported for tests).
+  function supplierYtdCents(supplierName, year, expenses) {
+    var name = (supplierName || '').trim().toLowerCase();
+    if (!name) return 0;
+    return (expenses || []).reduce(function (sum, e) {
+      if (!e || (e.category !== 'subcontractor' && e.category !== 'direct_labor')) return sum;
+      if (((e.supplier || '').trim().toLowerCase()) !== name) return sum;
+      var d = toDate(e.date);
+      if (!d || d.getFullYear() !== year) return sum;
+      return sum + (parseInt(e.amountCents, 10) || 0);
+    }, 0);
+  }
+  // Is this supplier on the year-end 1099 worklist? eligible class + W-9 on file
+  // + YTD service spend at/above the year's threshold. Pure (exported).
+  function needs1099(supplier, year, expenses) {
+    if (!supplier || !is1099EligibleFromClass(supplier.taxClassification)) return false;
+    var w9ok = supplier.w9Status === 'received' || supplier.w9Status === 'verified';
+    var ytd = supplierYtdCents(supplier.displayName, year, expenses);
+    return w9ok && ytd >= thresholdCents(year);
+  }
+
+  async function createSupplier(form) {
+    var u = uid(), c = EC();
+    if (!u || !window.addDoc) { toast('Not signed in', 'error'); return false; }
+    var name = (form.displayName || '').trim();
+    if (!name) { toast('Supplier name required', 'error'); return false; }
+    var taxClass = TAX_CLASS_BY_KEY[form.taxClassification] ? form.taxClassification : 'individual';
+    try {
+      await window.addDoc(window.collection(window.db, 'suppliers'), {
+        userId: u, companyId: claims().companyId || u,
+        displayName: name.slice(0, 120),
+        legalName: (form.legalName || '').trim().slice(0, 120),
+        taxClassification: taxClass,
+        is1099Eligible: is1099EligibleFromClass(taxClass),
+        w9Status: ['not_requested', 'requested', 'received', 'verified'].indexOf(form.w9Status) !== -1 ? form.w9Status : 'not_requested',
+        contact: { phone: (form.phone || '').trim().slice(0, 40), email: (form.email || '').trim().slice(0, 120) },
+        createdAt: window.serverTimestamp(), createdBy: u, updatedAt: window.serverTimestamp()
+        // NOTE: NO tin/ssn/ein field — tracking only (rules hard-reject those keys).
+      });
+      toast('Supplier added', 'ok');
+      return true;
+    } catch (e) { console.error('[expenses] createSupplier failed', e); toast('Failed to add supplier', 'error'); return false; }
   }
 
   async function uploadReceipt(file, u) {
@@ -185,11 +343,22 @@
     if (!u || !window.db || !window.addDoc) { toast('Not signed in', 'error'); return false; }
     if (!c) { toast('Expense config not loaded', 'error'); return false; }
 
-    var amountCents = c.dollarsToCents(form.amount);
-    if (amountCents <= 0) { toast('Enter an amount greater than $0', 'error'); return false; }
-
     var category = (form.category && c.byKey[form.category]) ? form.category : 'materials';
     var costType = c.costTypeFor(category);
+
+    // Mileage: the amount is COMPUTED (miles x the IRS rate snapshotted by the
+    // entry's tax year), not typed.
+    var miles = null, mileageRateCents = null, amountCents;
+    if (category === 'mileage') {
+      miles = parseFloat(form.miles);
+      if (!isFinite(miles) || miles <= 0) { toast('Enter miles greater than 0', 'error'); return false; }
+      var mDate = form.date ? new Date(form.date + 'T00:00:00') : new Date();
+      mileageRateCents = c.mileageRateCents(isNaN(mDate.getTime()) ? new Date() : mDate);
+      amountCents = c.mileageAmountCents(miles, mileageRateCents);
+    } else {
+      amountCents = c.dollarsToCents(form.amount);
+    }
+    if (amountCents <= 0) { toast('Enter an amount greater than $0', 'error'); return false; }
 
     var receiptStoragePath = null;
     if (form.uploadedPath) {
@@ -219,6 +388,9 @@
       note: (form.note || '').trim().slice(0, 500),
       receiptStoragePath: receiptStoragePath,
       receiptDocRef: null,
+      miles: miles,
+      mileageRateCents: mileageRateCents,
+      marketingSource: (category === 'marketing' && form.marketingSource) ? String(form.marketingSource).trim().slice(0, 60) : null,
       source: form.source === 'ocr' ? 'ocr' : 'manual',
       ocrConfidence: typeof form.ocrConfidence === 'number' ? form.ocrConfidence : null,
       needsReview: !!form.needsReview,
@@ -417,11 +589,13 @@
       html += '<div style="text-align:center;padding:48px 20px;color:var(--m,#9ca3af);border:1px dashed var(--br,rgba(255,255,255,.12));border-radius:12px;">' +
         '<div style="font-size:40px;margin-bottom:10px;">🧾</div>' +
         '<div style="font-size:15px;color:var(--h,#fff);font-weight:700;margin-bottom:4px;">No expenses yet</div>' +
-        '<div style="font-size:13px;">Log your first material or supplier cost to start tracking spend and job margin.</div></div>';
-      scroll.innerHTML = html;
-      return;
+        '<div style="font-size:13px;">Log your first material or supplier cost to start tracking spend and job margin. You can also add suppliers below.</div></div>';
     }
 
+    // Expense-only analytics (spend report + per-job rollup) — only when there
+    // are expenses. The Recurring + Suppliers sections below always render so
+    // they're reachable even before the first expense is logged.
+    if (_expenses.length) {
     // Two-column: supplier spend + category breakdown
     html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-bottom:20px;">';
     // Supplier spend (the explicit ask)
@@ -461,6 +635,12 @@
       }).sort(function (a, b) { return b.jb.cents - a.jb.cents; }).forEach(function (row) {
         var mColor = !row.pl ? 'var(--m,#9ca3af)' : row.pl.grossMargin >= 40 ? '#16a34a' : row.pl.grossMargin >= 25 ? '#eab308' : '#dc2626';
         var marginTxt = row.pl ? (row.pl.grossMargin + '% margin') : (row.lead ? 'set Job Value' : 'job not found');
+        // A4: budget / margin-floor flag (direct cost vs contract value)
+        var ecB = EC();
+        var rev = (ecB && row.lead) ? ecB.getJobRevenue(row.lead) : 0;
+        var bStatus = ecB && ecB.budgetStatus ? ecB.budgetStatus(rev, row.jb.directCents / 100) : null;
+        var budgetBadge = bStatus === 'breach' ? '<span title="Over budget / margin below floor" style="color:#dc2626;">⚠ </span>'
+          : bStatus === 'warn' ? '<span title="Approaching cost budget" style="color:#eab308;">⚠ </span>' : '';
         // Estimated-vs-actual (V2 estimates only)
         var va = estVsActual(row.jid, row.jb.directCents);
         var vaTxt = '';
@@ -474,13 +654,61 @@
           '<div style="min-width:0;"><div style="font-size:13px;color:var(--h,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(leadName(row.lead)) + '</div>' +
           '<div style="font-size:11px;color:var(--m,#9ca3af);">' + row.jb.count + ' expenses · ' + money(row.jb.directCents) + ' direct</div>' + vaTxt + '</div>' +
           '<div style="text-align:right;white-space:nowrap;"><div style="font-size:14px;font-weight:700;color:var(--h,#fff);">' + money(row.jb.cents) + '</div>' +
-          '<div style="font-size:11px;font-weight:700;color:' + mColor + ';">' + marginTxt + '</div></div></div>';
+          '<div style="font-size:11px;font-weight:700;color:' + mColor + ';">' + budgetBadge + marginTxt + '</div></div></div>';
       });
       html += '<div style="font-size:10px;color:var(--m,#9ca3af);margin-top:10px;">Gross margin = Job Value − direct job costs (before overhead &amp; commission). "est" = budgeted cost from the job\'s estimate (V2 builder only).</div>';
       html += '</div>';
     }
+    } // end expense-only analytics
 
-    // Recent expense list
+    // A1b: Recurring templates + one-tap "Due" chips
+    if (_recurring.length) {
+      html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
+        '<h3 style="margin:0 0 12px;font-size:14px;color:var(--h,#fff);">🔁 Recurring</h3>';
+      _recurring.slice().sort(function (a, b) { return (toDate(a.nextDueDate) || 0) - (toDate(b.nextDueDate) || 0); }).forEach(function (t) {
+        var due = isDue(t);
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--br,rgba(255,255,255,.06));">' +
+          '<div style="min-width:0;"><div style="font-size:13px;color:var(--h,#fff);">' + esc(t.name || 'Recurring') + ' · ' + money(t.amountCents) + '</div>' +
+          '<div style="font-size:11px;color:var(--m,#9ca3af);">' + esc(t.frequency || 'monthly') + ' · ' + (t.status !== 'active' ? 'paused' : 'next ' + esc(fmtDate(t.nextDueDate))) + '</div></div>' +
+          '<div style="white-space:nowrap;">' +
+            (due ? '<button data-exp-action="add-recurring" data-rec-id="' + esc(t.id) + '" style="padding:6px 10px;background:' + accent + ';color:#fff;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer;">Due — Add</button> ' : '') +
+            '<button data-exp-action="del-recurring" data-rec-id="' + esc(t.id) + '" title="Delete template" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;">✕</button>' +
+          '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    // A5: Suppliers & 1099 tracking
+    var taxYear = new Date().getFullYear();
+    html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px;">' +
+        '<h3 style="margin:0;font-size:14px;color:var(--h,#fff);">🧑‍🔧 Suppliers &amp; 1099 (' + taxYear + ')</h3>' +
+        '<div style="display:flex;gap:8px;">' +
+          (_suppliers.length ? '<button data-exp-action="export-1099" title="Year-end 1099 worklist CSV" style="padding:8px 12px;background:var(--s2,rgba(255,255,255,.06));color:var(--h,#fff);border:1px solid var(--br,rgba(255,255,255,.15));border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">⬇ 1099 CSV</button>' : '') +
+          '<button data-exp-action="open-supplier" style="padding:8px 14px;background:' + accent + ';color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">+ Supplier</button>' +
+        '</div></div>';
+    if (!_suppliers.length) {
+      html += '<div style="font-size:12px;color:var(--m,#9ca3af);">No suppliers yet. Add subcontractors/vendors to track who needs a 1099-NEC at year-end (services ≥ ' + money(thresholdCents(taxYear)) + ' in ' + taxYear + ').</div>';
+    } else {
+      _suppliers.slice().sort(function (a, b) { return (a.displayName || '').localeCompare(b.displayName || ''); }).forEach(function (s) {
+        var ytd = supplierYtdCents(s.displayName, taxYear, _expenses);
+        var flag = needs1099(s, taxYear, _expenses);
+        var tc = TAX_CLASS_BY_KEY[s.taxClassification];
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--br,rgba(255,255,255,.06));">' +
+          '<div style="min-width:0;"><div style="font-size:13px;color:var(--h,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(s.displayName) + '</div>' +
+          '<div style="font-size:11px;color:var(--m,#9ca3af);">' + esc(tc ? tc.label : s.taxClassification || '') + ' · W-9: ' + esc(s.w9Status || 'not_requested') + (s.is1099Eligible ? ' · 1099-eligible' : ' · exempt') + '</div></div>' +
+          '<div style="text-align:right;white-space:nowrap;"><div style="font-size:13px;font-weight:700;color:var(--h,#fff);">' + money(ytd) + ' YTD</div>' +
+          (flag ? '<div style="font-size:11px;font-weight:700;color:#e8720c;">⚑ 1099 due</div>' : '') +
+          '</div>' +
+          '<button data-exp-action="del-supplier" data-sup-id="' + esc(s.id) + '" title="Delete" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:13px;">✕</button>' +
+          '</div>';
+      });
+      html += '<div style="font-size:10px;color:var(--m,#9ca3af);margin-top:10px;">YTD = subcontractor/labor payments matched by name, this year. 1099 due = eligible class + W-9 on file + YTD ≥ ' + money(thresholdCents(taxYear)) + '. No tax IDs are stored.</div>';
+    }
+    html += '</div>';
+
+    // Recent expense list (only when there are expenses)
+    if (_expenses.length) {
     html += '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;">' +
       '<h3 style="margin:0 0 12px;font-size:14px;color:var(--h,#fff);">Recent Expenses</h3>';
     _expenses.slice(0, 60).forEach(function (e) {
@@ -497,6 +725,7 @@
         '</div>';
     });
     html += '</div>';
+    } // end recent-expense list
 
     scroll.innerHTML = html;
   }
@@ -535,9 +764,16 @@
           '<div><label style="' + lbl + '">Sales Tax ($)</label><input id="expTax" type="number" step="0.01" min="0" inputmode="decimal" style="' + fld + '"></div>' +
           '<div><label style="' + lbl + '">Category</label><select id="expCategory" style="' + fld + '">' + cats + '</select></div>' +
         '</div>' +
+        '<div id="expMileageRow" style="display:none;margin-top:12px;"><label style="' + lbl + '">Miles</label>' +
+          '<input id="expMiles" type="number" step="0.1" min="0" inputmode="decimal" style="' + fld + '">' +
+          '<div id="expMileageHint" style="font-size:11px;color:var(--m,#9ca3af);margin-top:4px;"></div></div>' +
+        '<div id="expSourceRow" style="display:none;margin-top:12px;"><label style="' + lbl + '">Lead Source / Campaign</label>' +
+          '<input id="expSource" type="text" maxlength="60" placeholder="e.g. Door-to-Door, Google, Storm" style="' + fld + '"></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Supplier / Vendor</label><input id="expSupplier" type="text" maxlength="120" placeholder="e.g. ABC Supply" style="' + fld + '"></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Job (optional)</label><select id="expLead" style="' + fld + '">' + leadOpts + '</select></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Note (optional)</label><input id="expNote" type="text" maxlength="500" style="' + fld + '"></div>' +
+        '<div style="margin-top:12px;"><label style="' + lbl + '">Repeat (optional)</label><select id="expRepeat" style="' + fld + '"><option value="none">One-time</option>' +
+          FREQUENCIES.map(function (f) { return '<option value="' + f.key + '">' + f.label + '</option>'; }).join('') + '</select></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Receipt (image / PDF, optional)</label>' +
           '<div style="display:flex;gap:8px;align-items:center;">' +
             '<input id="expFile" type="file" accept="image/*,application/pdf" style="' + fld + 'flex:1;">' +
@@ -549,6 +785,38 @@
       '</div>';
     document.body.appendChild(ov);
     ov.addEventListener('click', function (ev) { if (ev.target === ov) closeForm(); });
+
+    // Mileage + marketing-source conditional fields, driven by the category.
+    var catSel = document.getElementById('expCategory');
+    var milesEl = document.getElementById('expMiles');
+    function recomputeMileage() {
+      var ecfg = EC(); if (!ecfg) return;
+      var dEl = document.getElementById('expDate');
+      var rate = ecfg.mileageRateCents(dEl && dEl.value ? new Date(dEl.value) : new Date());
+      var miles = parseFloat(milesEl && milesEl.value);
+      var amtEl = document.getElementById('expAmount');
+      var hint = document.getElementById('expMileageHint');
+      if (isFinite(miles) && miles > 0) {
+        var cents = ecfg.mileageAmountCents(miles, rate);
+        if (amtEl) amtEl.value = (cents / 100).toFixed(2);
+        if (hint) hint.textContent = miles + ' mi × ' + rate + '¢/mi = ' + ecfg.formatCents(cents);
+      } else if (hint) { hint.textContent = 'IRS rate ' + rate + '¢/mi'; }
+    }
+    function syncCategoryFields() {
+      var cat = catSel ? catSel.value : '';
+      var isMileage = cat === 'mileage';
+      var mr = document.getElementById('expMileageRow'); if (mr) mr.style.display = isMileage ? '' : 'none';
+      var sr = document.getElementById('expSourceRow'); if (sr) sr.style.display = (cat === 'marketing') ? '' : 'none';
+      var amtEl = document.getElementById('expAmount');
+      if (amtEl) { amtEl.readOnly = isMileage; amtEl.style.opacity = isMileage ? '.6' : '1'; } // mileage amount is computed
+      if (isMileage) recomputeMileage();
+    }
+    if (catSel) catSel.addEventListener('change', syncCategoryFields);
+    if (milesEl) milesEl.addEventListener('input', recomputeMileage);
+    var dateEl = document.getElementById('expDate');
+    if (dateEl) dateEl.addEventListener('change', function () { if (catSel && catSel.value === 'mileage') recomputeMileage(); });
+    syncCategoryFields();
+
     var amt = document.getElementById('expAmount');
     if (amt) amt.focus();
   }
@@ -581,19 +849,27 @@
       category: v('expCategory'),
       leadId: v('expLead'),
       note: v('expNote'),
+      miles: v('expMiles'),
+      marketingSource: v('expSource'),
       file: fileEl && fileEl.files && fileEl.files[0],
       uploadedPath: _scannedPath || null,
       source: scanned ? 'ocr' : 'manual',
       ocrConfidence: scanned && _scanExtraction.extracted ? _scanExtraction.extracted.confidence : null,
       needsReview: scanned ? !!_scanExtraction.needsReview : false
     });
-    if (ok) { closeForm(); await refresh(); }
-    else if (btn) { btn.disabled = false; btn.textContent = 'Save Expense'; }
+    if (ok) {
+      // If marked recurring, also create a template (A1b). Mileage can't recur.
+      var repeat = v('expRepeat');
+      if (repeat && repeat !== 'none' && v('expCategory') !== 'mileage') {
+        await createRecurringTemplate({ amount: v('expAmount'), date: v('expDate'), supplier: v('expSupplier'), category: v('expCategory') }, repeat);
+      }
+      closeForm(); await refresh();
+    } else if (btn) { btn.disabled = false; btn.textContent = 'Save Expense'; }
   }
 
   // ── lifecycle ───────────────────────────────────────────────────────
   async function refresh() {
-    var results = await Promise.all([fetchExpenses(), fetchEstimateCosts()]);
+    var results = await Promise.all([fetchExpenses(), fetchEstimateCosts(), fetchRecurring(), fetchSuppliers()]);
     _expenses = results[0];
     _loaded = true;
     render();
@@ -630,17 +906,86 @@
         hint
       ].map(csvCell).join(',');
     });
-    var csv = cols.join(',') + '\n' + rows.join('\n');
+    if (downloadCSV('nbd-expenses-' + new Date().toISOString().slice(0, 10) + '.csv', cols.join(',') + '\n' + rows.join('\n'))) {
+      toast('Exported ' + _expenses.length + ' expenses', 'ok');
+    } else { toast('Export failed', 'error'); }
+  }
+  function downloadCSV(filename, csv) {
     try {
       var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       var url = URL.createObjectURL(blob);
       var a = document.createElement('a');
-      a.href = url;
-      a.download = 'nbd-expenses-' + new Date().toISOString().slice(0, 10) + '.csv';
+      a.href = url; a.download = filename;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 1000);
-      toast('Exported ' + _expenses.length + ' expenses', 'ok');
-    } catch (e) { console.warn('[expenses] csv export failed', e); toast('Export failed', 'error'); }
+      return true;
+    } catch (e) { console.warn('[expenses] csv download failed', e); return false; }
+  }
+
+  // A5: year-end 1099 worklist CSV (eligible suppliers over the year's threshold).
+  function export1099() {
+    var year = new Date().getFullYear();
+    var elig = _suppliers.filter(function (s) { return needs1099(s, year, _expenses); });
+    if (!elig.length) { toast('No suppliers meet the ' + year + ' 1099 threshold yet', 'warn'); return; }
+    var cols = ['Supplier', 'Legal Name', 'Tax Classification', 'W-9 Status', 'YTD Service Payments', 'Tax Year'];
+    var rows = elig.map(function (s) {
+      var tc = TAX_CLASS_BY_KEY[s.taxClassification];
+      return [s.displayName || '', s.legalName || '', tc ? tc.label : (s.taxClassification || ''), s.w9Status || '',
+        (supplierYtdCents(s.displayName, year, _expenses) / 100).toFixed(2), String(year)].map(csvCell).join(',');
+    });
+    if (downloadCSV('nbd-1099-worklist-' + year + '.csv', cols.join(',') + '\n' + rows.join('\n'))) {
+      toast('Exported ' + elig.length + ' supplier(s) for 1099', 'ok');
+    } else { toast('Export failed', 'error'); }
+  }
+
+  // A5: add-supplier modal (NO tax-ID field — tracking only).
+  function openSupplierForm() {
+    if (document.getElementById('supFormOverlay')) return;
+    var fld = 'width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--h,#fff);font-size:14px;box-sizing:border-box;';
+    var lbl = 'font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;';
+    var classOpts = TAX_CLASSES.map(function (t) { return '<option value="' + t.key + '">' + esc(t.label) + (t.eligible ? '' : ' — exempt') + '</option>'; }).join('');
+    var w9Opts = [['not_requested', 'Not requested'], ['requested', 'Requested'], ['received', 'Received'], ['verified', 'Verified']]
+      .map(function (o) { return '<option value="' + o[0] + '">' + o[1] + '</option>'; }).join('');
+    var ov = document.createElement('div');
+    ov.id = 'supFormOverlay';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML =
+      '<div style="background:var(--s,#1a1a2e);border:1px solid var(--br,rgba(255,255,255,.12));border-radius:14px;padding:22px;max-width:440px;width:100%;max-height:90vh;overflow:auto;">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><h3 style="margin:0;color:var(--h,#fff);font-size:18px;">Add Supplier</h3>' +
+        '<button data-exp-action="close-supplier" style="background:none;border:none;color:var(--m,#9ca3af);font-size:20px;cursor:pointer;">✕</button></div>' +
+        '<div style="margin-bottom:12px;"><label style="' + lbl + '">Supplier / Vendor name</label><input id="supName" type="text" maxlength="120" placeholder="e.g. Crew Co" style="' + fld + '"></div>' +
+        '<div style="margin-bottom:12px;"><label style="' + lbl + '">Legal name (for the 1099)</label><input id="supLegal" type="text" maxlength="120" style="' + fld + '"></div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+          '<div><label style="' + lbl + '">Tax classification (from W-9)</label><select id="supClass" style="' + fld + '">' + classOpts + '</select></div>' +
+          '<div><label style="' + lbl + '">W-9 status</label><select id="supW9" style="' + fld + '">' + w9Opts + '</select></div>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">' +
+          '<div><label style="' + lbl + '">Phone</label><input id="supPhone" type="tel" maxlength="40" style="' + fld + '"></div>' +
+          '<div><label style="' + lbl + '">Email</label><input id="supEmail" type="email" maxlength="120" style="' + fld + '"></div>' +
+        '</div>' +
+        '<div style="font-size:11px;color:var(--m,#9ca3af);margin-top:10px;">1099-eligibility is derived from the tax classification. No SSN/EIN is stored — keep tax IDs in your tax software.</div>' +
+        '<button data-exp-action="save-supplier" style="width:100%;margin-top:16px;padding:12px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Save Supplier</button>' +
+      '</div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click', function (ev) { if (ev.target === ov) closeSupplierForm(); });
+    var n = document.getElementById('supName'); if (n) n.focus();
+  }
+  function closeSupplierForm() { var ov = document.getElementById('supFormOverlay'); if (ov) ov.remove(); }
+  async function saveSupplierFromForm(btn) {
+    var v = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    var ok = await createSupplier({
+      displayName: v('supName'), legalName: v('supLegal'), taxClassification: v('supClass'),
+      w9Status: v('supW9'), phone: v('supPhone'), email: v('supEmail')
+    });
+    if (ok) { closeSupplierForm(); await refresh(); }
+    else if (btn) { btn.disabled = false; btn.textContent = 'Save Supplier'; }
+  }
+  async function deleteSupplier(id) {
+    if (!id || !window.deleteDoc) return;
+    if (!window.confirm('Delete this supplier?')) return;
+    try { await window.deleteDoc(window.doc(window.db, 'suppliers', id)); await refresh(); }
+    catch (e) { toast('Could not delete (only the owner can)', 'error'); }
   }
 
   // ── CSP-safe delegated events ───────────────────────────────────────
@@ -656,6 +1001,13 @@
       else if (a === 'scan') scanReceipt(t);
       else if (a === 'save') saveFromForm(t);
       else if (a === 'receipt') openReceipt(t.dataset.expPath);
+      else if (a === 'add-recurring') addFromTemplate(t.dataset.recId);
+      else if (a === 'del-recurring') { if (window.confirm('Delete this recurring template?')) deleteTemplate(t.dataset.recId); }
+      else if (a === 'open-supplier') openSupplierForm();
+      else if (a === 'close-supplier') closeSupplierForm();
+      else if (a === 'save-supplier') saveSupplierFromForm(t);
+      else if (a === 'del-supplier') deleteSupplier(t.dataset.supId);
+      else if (a === 'export-1099') export1099();
       else if (a === 'delete') {
         var id = t.dataset.expId;
         if (id && window.confirm('Delete this expense? This cannot be undone.')) {
@@ -679,7 +1031,13 @@
     estVsActual: estVsActual,
     findDuplicate: findDuplicate,
     csvCell: csvCell,
+    advanceDate: advanceDate,
+    supplierYtdCents: supplierYtdCents,
+    needs1099: needs1099,
+    is1099EligibleFromClass: is1099EligibleFromClass,
     _setData: function (list) { _expenses = list || []; _loaded = true; }, // test/seed hook
-    _setEstCosts: function (map) { _estCostByLead = map || {}; }            // test/seed hook
+    _setEstCosts: function (map) { _estCostByLead = map || {}; },           // test/seed hook
+    _setSuppliers: function (list) { _suppliers = list || []; },            // test/seed hook
+    _setRecurring: function (list) { _recurring = list || []; }             // test/seed hook
   };
 })();
