@@ -237,7 +237,7 @@ section('F-06: getHomeownerPortalView is POST-only');
   }
   const portal = readPortal();
   assert('F-06: portal.html uses POST + JSON body',
-    /method:\s*'POST'[\s\S]{0,400}body:\s*JSON\.stringify\(\{\s*token\s*\}\)/.test(portal));
+    /method:\s*'POST'[\s\S]{0,400}body:\s*JSON\.stringify\(\{\s*token\b[\s\S]{0,40}\}\)/.test(portal));
 }
 
 section('F-09: CSP report-uri + cspReport function');

@@ -72,12 +72,15 @@
   let _pollTimer = null;
   let _pollInflight = false;
 
-  async function _fetchView(token) {
+  // isPoll=true marks a background live-poll so the server doesn't count it
+  // against the token's replay budget (only genuine opens do). See portal.js
+  // getHomeownerPortalView.
+  async function _fetchView(token, isPoll) {
     const res = await fetch(FUNCTIONS_BASE + '/getHomeownerPortalView', {
       method: 'POST',
       credentials: 'omit',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token })
+      body: JSON.stringify({ token, poll: !!isPoll })
     });
     return res;
   }
@@ -238,7 +241,7 @@
     try {
       const token = getToken().trim();
       if (!token) return;
-      const res = await _fetchView(token);
+      const res = await _fetchView(token, true); // background poll — don't burn the replay budget
       if (res.status === 410 || res.status === 404) {
         // Link revoked/expired mid-session — stop polling and surface
         // a non-destructive notice. Don't wipe the rendered view; the
@@ -706,6 +709,12 @@
 
     document.getElementById('mainWrap').innerHTML = parts.join('');
 
+    // A poll-driven re-render replaces #pm-thread, but the messaging poll
+    // interval closed over the OLD (now-detached) node — rep replies would
+    // append into an orphan and never show. Kill the stale interval so
+    // wireMessagingCard() below rebinds it to the fresh node (QA finding).
+    if (_pmPollHandle) { clearInterval(_pmPollHandle); _pmPollHandle = null; }
+
     // Wave 118: wire up the customer photo upload card.
     wireUploadCard();
     // Wave 119: wire up the callback request card.
@@ -866,6 +875,7 @@
   //     "burst" (>5 min gap from previous message)
   let _pmPollHandle = null;
   let _pmLastFetch = 0;
+  let _pmVisWired = false; // visibilitychange listener registered once, not per re-render
   // Locally-tracked outgoing messages waiting for the server roundtrip
   // to surface them in the next fetched thread. Keyed by client-side
   // pending id; cleared once the server message with matching text
@@ -1049,12 +1059,16 @@
       }
     }
     startPoll();
-    // Refresh on tab refocus — if poll was paused, do an immediate fetch.
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && Date.now() - _pmLastFetch > 10_000) {
-        fetchMessages();
-      }
-    });
+    // Refresh on tab refocus — register ONCE (wireMessagingCard re-runs on every
+    // poll-driven re-render; without this guard the listener leaks each time).
+    if (!_pmVisWired) {
+      _pmVisWired = true;
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden && Date.now() - _pmLastFetch > 10_000) {
+          fetchMessages();
+        }
+      });
+    }
     // Cleanup on pagehide so the poll doesn't run for a navigated-away tab.
     window.addEventListener('pagehide', stopPoll, { once: true });
 
