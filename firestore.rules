@@ -368,14 +368,20 @@ service cloud.firestore {
     match /suppliers/{supplierId} {
       allow read: if isOwner(resource.data.userId) || isAdmin()
         || (isCompanyStaff() && resource.data.companyId != null && resource.data.companyId == myCompanyId());
+      // ALLOWLIST (not a denylist): only these tracking fields may be written
+      // from the client, so ANY tax-ID key variant (tin/ssn/ein/taxId/social/…)
+      // is rejected, not just three spellings (QA finding). The full TIN lives
+      // only in the locked private/** subtree (server-only), never here.
       allow create: if isAuth()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string && request.resource.data.companyId.size() > 0
         && (request.resource.data.companyId == myCompanyId() || request.resource.data.companyId == request.auth.uid)
-        && !request.resource.data.keys().hasAny(['tin', 'ssn', 'ein']);
+        && request.resource.data.keys().hasOnly(['userId', 'companyId', 'displayName', 'legalName',
+             'taxClassification', 'is1099Eligible', 'w9Status', 'contact', 'createdAt', 'createdBy', 'updatedAt']);
       allow update: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer'
             && didNotChange(['userId', 'companyId', 'createdAt', 'createdBy'])
-            && !request.resource.data.keys().hasAny(['tin', 'ssn', 'ein'])) || isAdmin();
+            && request.resource.data.keys().hasOnly(['userId', 'companyId', 'displayName', 'legalName',
+                 'taxClassification', 'is1099Eligible', 'w9Status', 'contact', 'createdAt', 'createdBy', 'updatedAt'])) || isAdmin();
       allow delete: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer') || isAdmin();
 
       // Server-only seam for a future encrypted TIN — locked to ALL clients.

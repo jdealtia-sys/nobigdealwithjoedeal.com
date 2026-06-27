@@ -288,10 +288,15 @@
     const uid = window._user && window._user.uid;
     if (!db || !uid || !window.getDocs || !window.query || !window.where || !window.collection) return [];
     try {
+      // Role-scoped to match the Expenses/Money views: staff read the whole
+      // tenant's expenses for the job (companyId); everyone else their own
+      // (userId). Otherwise the same job showed different costs by role+surface
+      // (QA finding). Both shapes ride the {userId|companyId, leadId, date} index.
+      const claims = window._userClaims || {};
+      const staff = (claims.role === 'company_admin' || claims.role === 'manager' || claims.role === 'admin') && claims.companyId;
+      const scope = staff ? window.where('companyId', '==', claims.companyId) : window.where('userId', '==', uid);
       const snap = await window.getDocs(window.query(
-        window.collection(db, 'expenses'),
-        window.where('userId', '==', uid),
-        window.where('leadId', '==', leadId)));
+        window.collection(db, 'expenses'), scope, window.where('leadId', '==', leadId)));
       return snap.docs.map(function (d) { return d.data(); });
     } catch (e) { return []; }
   }

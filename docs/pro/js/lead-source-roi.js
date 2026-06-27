@@ -149,7 +149,10 @@
         if (!e || e.category !== 'marketing') return;
         const c = parseInt(e.amountCents, 10) || 0;
         cents += c;
-        const src = (e.marketingSource || '').trim().toLowerCase();
+        // Key through the SAME normalizer the table lookup uses (line ~252),
+        // so 'd2d'/'Door Knock' spend joins the normalized 'Door-to-Door'
+        // bucket instead of silently missing (QA finding).
+        const src = normalizeSource(e.marketingSource).trim().toLowerCase();
         if (src) _marketingBySource[src] = (_marketingBySource[src] || 0) + c / 100;
       });
       return cents / 100;
@@ -183,6 +186,17 @@
       return;
     }
 
+    // Marketing ROI must be ATTRIBUTED: credit only revenue from sources that
+    // actually have marketing spend, against that matched spend — not all-source
+    // revenue ÷ marketing-only spend (which overstates for referral/D2D shops).
+    // QA finding.
+    let _attribRev = 0, _attribSpend = 0;
+    m.rows.forEach(r => {
+      const sp = _marketingBySource[normalizeSource(r.source).trim().toLowerCase()];
+      if (sp > 0) { _attribRev += r.closedRev; _attribSpend += sp; }
+    });
+    const _marketingRoi = _attribSpend > 0 ? Math.round((_attribRev / _attribSpend) * 100) : null;
+
     const totalsBar = `
       <div class="lsroi-totals">
         <div class="lsroi-tot">
@@ -211,8 +225,8 @@
           <div class="lsroi-tot-val" style="color:var(--red,#E5484D);">${fmtMoney(_marketingSpend)}</div>
         </div>
         <div class="lsroi-tot">
-          <div class="lsroi-tot-label">Marketing ROI</div>
-          <div class="lsroi-tot-val" style="color:var(--green);">${Math.round((m.totals.closedRev / _marketingSpend) * 100)}%</div>
+          <div class="lsroi-tot-label">Marketing ROI <span style="opacity:.55;font-weight:normal;">(attributed)</span></div>
+          <div class="lsroi-tot-val" style="color:var(--green);">${_marketingRoi == null ? '—' : _marketingRoi + '%'}</div>
         </div>` : ''}
       </div>
     `;
@@ -303,7 +317,7 @@
       this._targetId = targetId;
       render(targetId);
       // Live-update on lead changes.
-      document.addEventListener('leadsChanged', () => render(targetId));
+      document.addEventListener('leadsChanged', () => { _marketingSpend = null; render(targetId); });
     }
   };
 

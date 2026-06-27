@@ -32,6 +32,20 @@
     return n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
   }
   function invoiceCents(inv) { return Math.round((parseFloat(inv.total) || 0) * 100); }
+  // Cash actually collected on an invoice = total - balanceDue (so a paid
+  // invoice with a residual write-off, or a partial payment, counts the real
+  // cash, not the full face value). QA finding.
+  function collectedCentsOf(inv) {
+    var total = parseFloat(inv.total) || 0;
+    var bal = (inv.balanceDue != null) ? (parseFloat(inv.balanceDue) || 0) : 0;
+    return Math.round(Math.max(0, total - bal) * 100);
+  }
+  // Canonicalize a vendor name for 1099 matching (mirrors ExpenseConfig.normVendor;
+  // inlined to keep this a dependency-free single-module bundle).
+  function normVendor(s) {
+    return String(s == null ? '' : s).toLowerCase().replace(/[.,#&]/g, ' ')
+      .replace(/\b(inc|llc|l\.l\.c|co|corp|company|ltd)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  }
 
   var WON_STAGES = ['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'Complete'];
   function isWon(l) { return WON_STAGES.indexOf(l._stageKey || l.stage || '') !== -1 && !l.deleted; }
@@ -47,9 +61,8 @@
     // Cash basis (dated): collected (paid invoices) vs spent (expenses) this year.
     var collectedCents = 0;
     invoices.forEach(function (inv) {
-      if (inv.status !== 'paid') return;
       var pd = toJSDate(inv.paidAt);
-      if (pd && pd.getFullYear() === year) collectedCents += invoiceCents(inv);
+      if (pd && pd.getFullYear() === year) collectedCents += collectedCentsOf(inv);
     });
     var outstandingCents = 0;
     invoices.forEach(function (inv) {
@@ -93,10 +106,10 @@
     suppliers.forEach(function (s) {
       if (!s.is1099Eligible) return;
       if (s.w9Status !== 'received' && s.w9Status !== 'verified') return;
-      var nm = (s.displayName || '').trim().toLowerCase();
+      var nm = normVendor(s.displayName);
       var ytd = expenses.reduce(function (sum, e) {
         if (e.category !== 'subcontractor' && e.category !== 'direct_labor') return sum;
-        if (((e.supplier || '').trim().toLowerCase()) !== nm) return sum;
+        if (normVendor(e.supplier) !== nm) return sum;
         var d = toJSDate(e.date);
         return (d && d.getFullYear() === year) ? sum + (parseInt(e.amountCents, 10) || 0) : sum;
       }, 0);

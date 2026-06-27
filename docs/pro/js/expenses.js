@@ -56,6 +56,12 @@
     var d = toDate(v);
     return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
   }
+  // LOCAL yyyy-mm-dd — toISOString() converts to UTC and shifts the day back in
+  // US timezones for local-midnight dates (QA finding). Use for date keys/CSV.
+  function ymdLocal(d) {
+    if (!d) return '';
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
 
   var _expenses = [];
   var _loaded = false;
@@ -128,16 +134,34 @@
     { key: 'weekly', label: 'Weekly' }, { key: 'biweekly', label: 'Every 2 weeks' },
     { key: 'monthly', label: 'Monthly' }, { key: 'quarterly', label: 'Quarterly' }, { key: 'annual', label: 'Annual' }
   ];
-  // Advance a date by one cadence. Pure (exported for tests).
+  // Advance a date by one cadence. Pure (exported for tests). Month-stepping
+  // cadences CLAMP the day to the target month's last day so Jan 31 + 1mo ->
+  // Feb 28/29 (not a skip to Mar 3, which setMonth would do) — QA finding.
+  function addMonthsClamped(d, n) {
+    var day = d.getDate();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + n);
+    var lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(day, lastDay));
+  }
   function advanceDate(date, frequency) {
     var d = toDate(date) || new Date();
     d = new Date(d.getTime());
     if (frequency === 'weekly') d.setDate(d.getDate() + 7);
     else if (frequency === 'biweekly') d.setDate(d.getDate() + 14);
-    else if (frequency === 'quarterly') d.setMonth(d.getMonth() + 3);
-    else if (frequency === 'annual') d.setFullYear(d.getFullYear() + 1);
-    else d.setMonth(d.getMonth() + 1); // monthly (default)
+    else if (frequency === 'quarterly') addMonthsClamped(d, 3);
+    else if (frequency === 'annual') addMonthsClamped(d, 12);
+    else addMonthsClamped(d, 1); // monthly (default)
     return d;
+  }
+  // Advance a template's nextDueDate to the first occurrence STRICTLY in the
+  // future, so a long-overdue template doesn't stay perpetually "Due" or
+  // double-log on repeated taps (QA finding).
+  function advanceToFuture(date, frequency) {
+    var nd = advanceDate(date, frequency);
+    var guard = 0;
+    while (toDate(nd) && toDate(nd).getTime() <= Date.now() && guard++ < 600) nd = advanceDate(nd, frequency);
+    return nd;
   }
   function isDue(template) {
     if (!template || template.status !== 'active') return false;
@@ -180,13 +204,13 @@
     if (!t) return;
     var ok = await createExpense({
       amount: ((parseInt(t.amountCents, 10) || 0) / 100).toFixed(2),
-      date: new Date().toISOString().slice(0, 10),
+      date: ymdLocal(new Date()),
       supplier: t.supplier || '', category: t.category, note: 'Recurring: ' + (t.name || ''), source: 'manual'
     });
     if (ok) {
       try {
         await window.updateDoc(window.doc(window.db, 'recurringExpenses', id), {
-          nextDueDate: advanceDate(t.nextDueDate, t.frequency), updatedAt: window.serverTimestamp()
+          nextDueDate: advanceToFuture(t.nextDueDate, t.frequency), updatedAt: window.serverTimestamp()
         });
       } catch (e) { console.warn('[expenses] advance recurring failed', e); }
       await refresh();
@@ -237,11 +261,12 @@
   // service-category expenses in the given year. Only services count toward a
   // 1099 (materials/goods don't). Pure (exported for tests).
   function supplierYtdCents(supplierName, year, expenses) {
-    var name = (supplierName || '').trim().toLowerCase();
+    var nv = EC() && EC().normVendor ? EC().normVendor : function (s) { return String(s || '').trim().toLowerCase(); };
+    var name = nv(supplierName);
     if (!name) return 0;
     return (expenses || []).reduce(function (sum, e) {
       if (!e || (e.category !== 'subcontractor' && e.category !== 'direct_labor')) return sum;
-      if (((e.supplier || '').trim().toLowerCase()) !== name) return sum;
+      if (nv(e.supplier) !== name) return sum;
       var d = toDate(e.date);
       if (!d || d.getFullYear() !== year) return sum;
       return sum + (parseInt(e.amountCents, 10) || 0);
@@ -326,7 +351,7 @@
       if ((parseInt(e.amountCents, 10) || 0) !== amountCents) return false;
       if (((e.supplier || '').trim().toLowerCase()) !== sup) return false;
       var ed = toDate(e.date);
-      return ed && ed.toISOString().slice(0, 10) === dateStr;
+      return ed && ymdLocal(ed) === dateStr;
     }) || null;
   }
 
@@ -447,7 +472,7 @@
     var ex = (d && d.extracted) || {};
     _scanExtraction = d || null;
     var setVal = function (id, v) { var el = document.getElementById(id); if (el && v != null && v !== '') el.value = v; };
-    if (ex.totalCents != null) setVal('expAmount', (ex.totalCents / 100).toFixed(2));
+    if (ex.totalCents) setVal('expAmount', (ex.totalCents / 100).toFixed(2)); // skip $0 — would dead-end Save
     if (ex.taxCents) setVal('expTax', (ex.taxCents / 100).toFixed(2));
     if (ex.vendor) setVal('expSupplier', ex.vendor);
     if (ex.date) setVal('expDate', ex.date);
@@ -747,7 +772,7 @@
     var leadOpts = '<option value="">— No job (overhead) —</option>' + (window._leads || []).slice(0, 500).map(function (l) {
       return '<option value="' + esc(l.id) + '">' + esc(leadName(l)) + '</option>';
     }).join('');
-    var today = new Date().toISOString().slice(0, 10);
+    var today = ymdLocal(new Date());
     var fld = 'width:100%;padding:10px;background:var(--s2,rgba(255,255,255,.04));border:1px solid var(--br,rgba(255,255,255,.1));border-radius:8px;color:var(--h,#fff);font-size:14px;box-sizing:border-box;';
     var lbl = 'font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px;';
 
@@ -769,7 +794,8 @@
           '<div id="expMileageHint" style="font-size:11px;color:var(--m,#9ca3af);margin-top:4px;"></div></div>' +
         '<div id="expSourceRow" style="display:none;margin-top:12px;"><label style="' + lbl + '">Lead Source / Campaign</label>' +
           '<input id="expSource" type="text" maxlength="60" placeholder="e.g. Door-to-Door, Google, Storm" style="' + fld + '"></div>' +
-        '<div style="margin-top:12px;"><label style="' + lbl + '">Supplier / Vendor</label><input id="expSupplier" type="text" maxlength="120" placeholder="e.g. ABC Supply" style="' + fld + '"></div>' +
+        '<div style="margin-top:12px;"><label style="' + lbl + '">Supplier / Vendor</label><input id="expSupplier" type="text" maxlength="120" list="expSupplierList" placeholder="e.g. ABC Supply" style="' + fld + '">' +
+          '<datalist id="expSupplierList">' + _suppliers.map(function (s) { return '<option value="' + esc(s.displayName) + '">'; }).join('') + '</datalist></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Job (optional)</label><select id="expLead" style="' + fld + '">' + leadOpts + '</select></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Note (optional)</label><input id="expNote" type="text" maxlength="500" style="' + fld + '"></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Repeat (optional)</label><select id="expRepeat" style="' + fld + '"><option value="none">One-time</option>' +
@@ -894,7 +920,7 @@
       var lead = e.leadId ? leadById(e.leadId) : null;
       var hint = (c && c.byKey[e.category] && c.byKey[e.category].scheduleCHint) || '';
       return [
-        d ? d.toISOString().slice(0, 10) : '',
+        d ? ymdLocal(d) : '',
         e.supplier || '',
         (c ? c.labelFor(e.category) : e.category) || '',
         e.costType || '',

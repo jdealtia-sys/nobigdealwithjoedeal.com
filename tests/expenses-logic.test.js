@@ -187,7 +187,7 @@ console.log('EXPENSE CONFIG — mileage');
 eq('mileage category is overhead', EC.costTypeFor('mileage'), 'overhead');
 eq('2026 IRS rate', EC.mileageRateCents(2026), 72.5);
 eq('2025 IRS rate', EC.mileageRateCents(2025), 70.0);
-eq('unknown year falls back to latest', EC.mileageRateCents(1999), 72.5);
+eq('pre-table year clamps to earliest (not latest)', EC.mileageRateCents(1999), 65.5);
 eq('rate from a Date', EC.mileageRateCents(new Date('2025-03-01T00:00:00')), 70.0);
 eq('10 mi x 72.5c = 725c ($7.25)', EC.mileageAmountCents(10, 72.5), 725);
 eq('100 mi x 70c = 7000c', EC.mileageAmountCents(100, 70), 7000);
@@ -246,6 +246,19 @@ eq('breach when margin < 30% floor', EC.budgetStatus(10000, 8000), 'breach');
 eq('warn when direct cost 65-99% (margin still ok)', EC.budgetStatus(10000, 6800), 'warn');
 ok('null when healthy (cost 50%)', EC.budgetStatus(10000, 5000) === null);
 ok('null when no revenue', EC.budgetStatus(0, 5000) === null);
+
+// ── QA fixes: vendor normalization, mileage clamp, month-end dates ──
+console.log('QA FIXES — normVendor / mileage clamp / advanceDate clamp');
+eq('normVendor strips suffix+punct (ABC Supply, LLC)', EC.normVendor('ABC Supply, LLC'), 'abc supply');
+eq('normVendor matches the variant (abc  supply co.)', EC.normVendor('abc  supply co.'), 'abc supply');
+eq('normVendor leaves Costco intact (co not a word)', EC.normVendor('Costco'), 'costco');
+eq('mileage clamps a pre-table year to earliest (not latest)', EC.mileageRateCents(2019), 65.5);
+eq('mileage clamps a future year to latest', EC.mileageRateCents(2099), 72.5);
+eq('mileage in-table year unaffected', EC.mileageRateCents(2025), 70.0);
+// month-end clamp: Jan 31 + 1 month -> Feb 28 (2026 non-leap), not a skip to Mar
+eq('advanceDate Jan31 +monthly -> Feb 28 (clamped)', ymd(EX.advanceDate(new Date(2026, 0, 31), 'monthly')), '2026-2-28');
+eq('advanceDate Jan31 +quarterly -> Apr 30 (clamped)', ymd(EX.advanceDate(new Date(2026, 0, 31), 'quarterly')), '2026-4-30');
+eq('advanceDate Feb29 (2028 leap) +annual -> Feb 28 2029', ymd(EX.advanceDate(new Date(2028, 1, 29), 'annual')), '2029-2-28');
 
 // ── summary ──────────────────────────────────────────────────
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' expenses logic: ' + passed + ' passed, ' + failed + ' failed');
