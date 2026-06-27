@@ -963,6 +963,14 @@ exports.invoiceWebhook = onRequest(
               status: 'paid',
               paidAt: FieldValue.serverTimestamp(),
               stripePaymentIntentId: paymentIntent.id,
+              // The payment link charges the full invoice.total, so the invoice
+              // is fully settled — converge the ledger with the manual markPaid
+              // path (zero balanceDue, mark deposit paid, stamp amountPaid) so
+              // the money-dashboard AR/collected math doesn't read a stale
+              // balanceDue and double-count this invoice as outstanding.
+              balanceDue: 0,
+              depositPaid: true,
+              amountPaid: Number(inv.total) || 0,
               updatedAt: FieldValue.serverTimestamp(),
             });
             logger.info('invoice_paid', { invoiceId });
