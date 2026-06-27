@@ -59,6 +59,9 @@
 
   var _expenses = [];
   var _loaded = false;
+  var _scannedPath = null;       // receipt uploaded during an AI scan (reused on save)
+  var _scanExtraction = null;    // last extraction (carries source/needsReview to save)
+  var _receiptCallable = null;
 
   // ── data layer ──────────────────────────────────────────────────────
   async function fetchExpenses() {
@@ -112,7 +115,10 @@
     var costType = c.costTypeFor(category);
 
     var receiptStoragePath = null;
-    if (form.file) {
+    if (form.uploadedPath) {
+      // Already uploaded during an AI scan — reuse it, don't upload twice.
+      receiptStoragePath = form.uploadedPath;
+    } else if (form.file) {
       if (!receiptTypeOk(form.file)) { toast('Receipt must be an image or PDF', 'error'); return false; }
       if (form.file.size > 25 * 1024 * 1024) { toast('Receipt is over the 25MB limit', 'error'); return false; }
       try { receiptStoragePath = await uploadReceipt(form.file, u); }
@@ -136,8 +142,9 @@
       note: (form.note || '').trim().slice(0, 500),
       receiptStoragePath: receiptStoragePath,
       receiptDocRef: null,
-      source: 'manual',
-      needsReview: false,
+      source: form.source === 'ocr' ? 'ocr' : 'manual',
+      ocrConfidence: typeof form.ocrConfidence === 'number' ? form.ocrConfidence : null,
+      needsReview: !!form.needsReview,
       createdAt: window.serverTimestamp(),
       createdBy: u,
       updatedAt: window.serverTimestamp()
@@ -164,6 +171,78 @@
       toast('Failed to delete (only the owner can)', 'error');
       return false;
     }
+  }
+
+  // ── AI receipt scan (Phase 2) ───────────────────────────────────────
+  async function ensureReceiptCallable() {
+    if (_receiptCallable) return _receiptCallable;
+    if (window._httpsCallable && window._functions) {
+      _receiptCallable = window._httpsCallable(window._functions, 'extractReceiptData');
+      return _receiptCallable;
+    }
+    var mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    window._functions = window._functions || mod.getFunctions();
+    window._httpsCallable = mod.httpsCallable;
+    _receiptCallable = mod.httpsCallable(window._functions, 'extractReceiptData');
+    return _receiptCallable;
+  }
+
+  function setScanStatus(msg, kind) {
+    var el = document.getElementById('expScanStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.color = kind === 'warn' ? '#eab308' : kind === 'error' ? '#dc2626' : kind === 'ok' ? '#16a34a' : 'var(--m,#9ca3af)';
+  }
+
+  function applyExtraction(d) {
+    var ex = (d && d.extracted) || {};
+    _scanExtraction = d || null;
+    var setVal = function (id, v) { var el = document.getElementById(id); if (el && v != null && v !== '') el.value = v; };
+    if (ex.totalCents != null) setVal('expAmount', (ex.totalCents / 100).toFixed(2));
+    if (ex.taxCents) setVal('expTax', (ex.taxCents / 100).toFixed(2));
+    if (ex.vendor) setVal('expSupplier', ex.vendor);
+    if (ex.date) setVal('expDate', ex.date);
+    if (ex.suggestedCategory) { var sel = document.getElementById('expCategory'); if (sel) sel.value = ex.suggestedCategory; }
+    var conf = Math.round((ex.confidence || 0) * 100);
+    if (d && d.needsReview) {
+      var why = (d.reconcile && !d.reconcile.matched) ? ' — line items don’t sum to the total' : '';
+      setScanStatus('⚠ Review the fields' + why + ' (confidence ' + conf + '%). Correct anything off, then Save.', 'warn');
+    } else {
+      setScanStatus('✓ Scanned (confidence ' + conf + '%). Double-check, then Save.', 'ok');
+    }
+  }
+
+  async function scanReceipt(btn) {
+    var fileEl = document.getElementById('expFile');
+    var file = fileEl && fileEl.files && fileEl.files[0];
+    if (!file) { setScanStatus('Choose a receipt image or PDF first.', 'warn'); return; }
+    if (!receiptTypeOk(file)) { setScanStatus('Receipt must be an image or PDF.', 'error'); return; }
+    if (file.size > 25 * 1024 * 1024) { setScanStatus('Receipt is over the 25MB limit.', 'error'); return; }
+    var u = uid();
+    if (!u) { setScanStatus('Sign in required.', 'error'); return; }
+    if (btn) btn.disabled = true;
+    try {
+      if (!_scannedPath) {
+        setScanStatus('Uploading…');
+        _scannedPath = await uploadReceipt(file, u);
+      }
+      setScanStatus('Reading the receipt with AI…');
+      var call = await ensureReceiptCallable();
+      var res = await call({ storagePath: _scannedPath });
+      var d = res && res.data;
+      if (!d || d.skipped) {
+        var reason = d && d.reason;
+        setScanStatus(
+          reason === 'unsupported-format' ? 'That image format can’t be auto-read — enter the details manually.'
+          : reason === 'user-cap' ? 'Monthly AI limit reached — enter the details manually.'
+          : 'Couldn’t scan this one — enter the details manually.', 'warn');
+        return;
+      }
+      applyExtraction(d);
+    } catch (e) {
+      console.warn('[expenses] scan failed', e);
+      setScanStatus('Scan failed — enter the details manually (the receipt is still attached).', 'error');
+    } finally { if (btn) btn.disabled = false; }
   }
 
   async function openReceipt(path) {
@@ -321,7 +400,8 @@
         '<div style="min-width:0;flex:1;">' +
         '<div style="font-size:13px;color:var(--h,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(e.supplier || 'Unknown') +
         ' <span style="font-size:10px;color:var(--m,#9ca3af);">· ' + esc(EC() ? EC().labelFor(e.category) : e.category) + '</span></div>' +
-        '<div style="font-size:11px;color:var(--m,#9ca3af);">' + esc(fmtDate(e.date)) + (lead ? ' · ' + esc(leadName(lead)) : '') + (e.note ? ' · ' + esc(e.note) : '') + '</div></div>' +
+        '<div style="font-size:11px;color:var(--m,#9ca3af);">' + esc(fmtDate(e.date)) + (lead ? ' · ' + esc(leadName(lead)) : '') + (e.note ? ' · ' + esc(e.note) : '') + (e.source === 'ocr' ? ' · scanned' : '') + '</div></div>' +
+        (e.needsReview ? '<span title="AI scan — review the amount/vendor" style="color:#eab308;font-size:13px;">⚠</span>' : '') +
         (e.receiptStoragePath ? '<button data-exp-action="receipt" data-exp-path="' + esc(e.receiptStoragePath) + '" title="View receipt" style="background:none;border:none;cursor:pointer;font-size:15px;">📎</button>' : '') +
         '<div style="font-size:14px;font-weight:700;color:var(--h,#fff);white-space:nowrap;">' + money(e.amountCents) + '</div>' +
         '<button data-exp-action="delete" data-exp-id="' + esc(e.id) + '" title="Delete" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;">✕</button>' +
@@ -363,12 +443,19 @@
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
           '<div><label style="' + lbl + '">Amount ($)</label><input id="expAmount" type="number" step="0.01" min="0" inputmode="decimal" style="' + fld + '"></div>' +
           '<div><label style="' + lbl + '">Date</label><input id="expDate" type="date" value="' + today + '" style="' + fld + '"></div>' +
+          '<div><label style="' + lbl + '">Sales Tax ($)</label><input id="expTax" type="number" step="0.01" min="0" inputmode="decimal" style="' + fld + '"></div>' +
+          '<div><label style="' + lbl + '">Category</label><select id="expCategory" style="' + fld + '">' + cats + '</select></div>' +
         '</div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Supplier / Vendor</label><input id="expSupplier" type="text" maxlength="120" placeholder="e.g. ABC Supply" style="' + fld + '"></div>' +
-        '<div style="margin-top:12px;"><label style="' + lbl + '">Category</label><select id="expCategory" style="' + fld + '">' + cats + '</select></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Job (optional)</label><select id="expLead" style="' + fld + '">' + leadOpts + '</select></div>' +
         '<div style="margin-top:12px;"><label style="' + lbl + '">Note (optional)</label><input id="expNote" type="text" maxlength="500" style="' + fld + '"></div>' +
-        '<div style="margin-top:12px;"><label style="' + lbl + '">Receipt (image / PDF, optional)</label><input id="expFile" type="file" accept="image/*,application/pdf" style="' + fld + '"></div>' +
+        '<div style="margin-top:12px;"><label style="' + lbl + '">Receipt (image / PDF, optional)</label>' +
+          '<div style="display:flex;gap:8px;align-items:center;">' +
+            '<input id="expFile" type="file" accept="image/*,application/pdf" style="' + fld + 'flex:1;">' +
+            '<button data-exp-action="scan" type="button" style="white-space:nowrap;padding:10px 12px;background:var(--s2,rgba(255,255,255,.06));color:var(--h,#fff);border:1px solid var(--br,rgba(255,255,255,.15));border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">📷 Scan with AI</button>' +
+          '</div>' +
+          '<div id="expScanStatus" style="font-size:11px;color:var(--m,#9ca3af);margin-top:6px;min-height:14px;"></div>' +
+        '</div>' +
         '<button data-exp-action="save" style="width:100%;margin-top:18px;padding:12px;background:#e8720c;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">Save Expense</button>' +
       '</div>';
     document.body.appendChild(ov);
@@ -379,19 +466,30 @@
   function closeForm() {
     var ov = document.getElementById('expFormOverlay');
     if (ov) ov.remove();
+    _scannedPath = null;
+    _scanExtraction = null;
   }
   async function saveFromForm(btn) {
     var v = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
     var fileEl = document.getElementById('expFile');
+    // If the receipt was scanned, the doc carries the OCR provenance + the
+    // already-uploaded path (no double upload), and the user's edits to the
+    // pre-filled fields win.
+    var scanned = _scanExtraction && _scannedPath;
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     var ok = await createExpense({
       amount: v('expAmount'),
+      tax: v('expTax'),
       date: v('expDate'),
       supplier: v('expSupplier'),
       category: v('expCategory'),
       leadId: v('expLead'),
       note: v('expNote'),
-      file: fileEl && fileEl.files && fileEl.files[0]
+      file: fileEl && fileEl.files && fileEl.files[0],
+      uploadedPath: _scannedPath || null,
+      source: scanned ? 'ocr' : 'manual',
+      ocrConfidence: scanned && _scanExtraction.extracted ? _scanExtraction.extracted.confidence : null,
+      needsReview: scanned ? !!_scanExtraction.needsReview : false
     });
     if (ok) { closeForm(); await refresh(); }
     else if (btn) { btn.disabled = false; btn.textContent = 'Save Expense'; }
@@ -418,6 +516,7 @@
       var a = t.dataset.expAction;
       if (a === 'open-form') openForm();
       else if (a === 'close-form') closeForm();
+      else if (a === 'scan') scanReceipt(t);
       else if (a === 'save') saveFromForm(t);
       else if (a === 'receipt') openReceipt(t.dataset.expPath);
       else if (a === 'delete') {
