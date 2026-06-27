@@ -75,6 +75,10 @@
   talks to the Firebase SDK.
 -->
 <script src="js/dashboard-appcheck-config.js?v=1"></script>
+<!-- FCM Web Push: sets window.__NBD_VAPID_KEY before push-registration.js
+     runs. Classic (non-deferred) so the global is set in time, same as the
+     App Check config. Paste the Web Push certificate key in the file. -->
+<script src="js/dashboard-fcm-config.js?v=1"></script>
 <!--
   Sentry (client-side): DSN now lives in js/sentry-config.js so login,
   register, customer, and any other pro page can share the same
@@ -12838,6 +12842,11 @@ body.theme-frosted {
 <script defer src="js/crm-leads.js?v=1"></script>
 <script defer src="js/crm-pipeline.js?v=1"></script>
 <script defer src="js/crm-snooze.js?v=1"></script>
+<!-- FCM Web Push token registration — registers the messaging SW, mints a
+     push token via getToken({vapidKey}), and persists it to
+     users/{uid}/fcmTokens so the backend reminder/lead pushes have recipients.
+     No-ops until window.__NBD_VAPID_KEY is set (dashboard-fcm-config.js). -->
+<script defer src="js/push-registration.js?v=1"></script>
 <script defer src="js/crm-portal-bridge.js?v=1"></script>
 <script defer src="js/crm.js?v=32"></script>
 <script defer src="js/tasks.js?v=4"></script>

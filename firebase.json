@@ -90,6 +90,13 @@
         ]
       },
       {
+        "_comment": "Same no-cache rule for the FCM messaging Service Worker (registered by push-registration.js at scope /pro/firebase-cloud-messaging-push-scope). A SW must never sit in cache — the default max-age=300 would block update-detection for 5 min per edge, exactly the Wave 127 P0 issue fixed for /pro/sw.js above.",
+        "source": "/pro/firebase-messaging-sw.js",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" }
+        ]
+      },
+      {
         "source": "/pro/dashboard",
         "headers": [
           { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
