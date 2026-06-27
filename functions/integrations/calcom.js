@@ -87,7 +87,17 @@ exports.calcomWebhook = onRequest(
       } catch (e) { /* no matching user */ }
     }
     if (!repUid) {
-      logger.warn('calcomWebhook: no matching rep', { organizerUsername, organizerEmail });
+      // Return 200 so Cal.com doesn't retry-storm an unmappable booking, but
+      // log loudly with the booking context so a missing/typo'd calcomUsername
+      // is diagnosable (the booking is otherwise dropped on the floor — the
+      // rep needs to set Settings → Profile → Cal.com username).
+      logger.warn('calcomWebhook: no matching rep — booking dropped', {
+        organizerUsername,
+        organizerEmail,
+        trigger,
+        bookingId: payload.uid || payload.id || payload.bookingId || null,
+        attendeeEmail: attendee && attendee.email,
+      });
       res.status(200).json({ ok: true, matched: false });
       return;
     }
@@ -137,8 +147,31 @@ exports.calcomWebhook = onRequest(
           status:         trigger === 'BOOKING_RESCHEDULED' ? 'rescheduled' : 'booked',
           source:         'calcom',
           createdAt:      FieldValue.serverTimestamp(),
-          updatedAt:      FieldValue.serverTimestamp()
+          updatedAt:      FieldValue.serverTimestamp(),
+          // On reschedule, clear any reminder marker so the NEW start time
+          // re-reminds. Cal.com may reuse the same booking uid, in which case
+          // this merge would otherwise keep a stale reminderSentAt and suppress
+          // the reminder for the new slot. (See push-functions.js dedup.)
+          ...(trigger === 'BOOKING_RESCHEDULED' ? { reminderSentAt: FieldValue.delete() } : {})
         }, { merge: true });
+
+        // A reschedule that mints a NEW booking uid leaves the ORIGINAL
+        // appointment doc live → a ghost reminder fires for the stale slot.
+        // Cal.com references the prior booking via rescheduleUid/rescheduleId;
+        // cancel it. (No-op when the uid is reused — priorUid === bookingId —
+        // since that path is handled by the marker clear above.)
+        if (trigger === 'BOOKING_RESCHEDULED') {
+          const priorUid = payload.rescheduleUid || payload.rescheduleId || payload.fromReschedule || null;
+          if (priorUid && String(priorUid) !== String(bookingId)) {
+            await db.doc(`appointments/${priorUid}`).update({
+              status:       'cancelled',
+              cancelledReason: 'rescheduled',
+              supersededBy: String(bookingId),
+              cancelledAt:  FieldValue.serverTimestamp(),
+              updatedAt:    FieldValue.serverTimestamp(),
+            }).catch(e => logger.warn('calcomWebhook: prior-appt cancel skipped', { priorUid, err: e && e.message }));
+          }
+        }
 
         // (Removed a dead "remind 1hr before" tasks/{id} write: its dueAt had
         // ZERO readers and the doc landed in the top-level `tasks` collection,
