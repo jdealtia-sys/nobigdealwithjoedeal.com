@@ -147,11 +147,11 @@ function buildDigestHtml(d) {
 
       ${d.topLeads.length > 0 ? `
         <p style="text-align:center; margin-top:8px;">
-          <a href="https://nobigdeal-pro.web.app/pro/dashboard.html" class="cta">Open Dashboard</a>
+          <a href="https://nobigdealwithjoedeal.com/pro/dashboard.html" class="cta">Open Dashboard</a>
         </p>` : ''}
 
       <p style="font-size:12px; color:#6b7280; margin-top:24px; text-align:center;">
-        Want fewer emails? <a href="https://nobigdeal-pro.web.app/pro/dashboard.html#settings" style="color:#C8541A;">Manage your digest preferences</a>.
+        Want fewer emails? <a href="https://nobigdealwithjoedeal.com/pro/dashboard.html#settings" style="color:#C8541A;">Manage your digest preferences</a>.
       </p>
     </div>
     <div class="footer">
