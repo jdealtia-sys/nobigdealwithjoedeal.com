@@ -62,6 +62,7 @@
   var _scannedPath = null;       // receipt uploaded during an AI scan (reused on save)
   var _scanExtraction = null;    // last extraction (carries source/needsReview to save)
   var _receiptCallable = null;
+  var _estCostByLead = {};       // leadId -> budgeted direct cost in CENTS (from V2 estimates)
 
   // ── data layer ──────────────────────────────────────────────────────
   async function fetchExpenses() {
@@ -86,13 +87,89 @@
     }
   }
 
+  // Budgeted direct cost per job for estimated-vs-actual variance. Only the V2
+  // estimate builder persists a cost basis (materialCost + laborCost); the
+  // classic builder stores only grandTotal (customer PRICE, not cost), so those
+  // jobs get no variance. Rule-safe: estimates are owner-read, so query by
+  // userId (a company_admin viewing a teammate's job won't get their estimate —
+  // variance just shows "—" there). where(userId==) needs only the auto
+  // single-field index.
+  async function fetchEstimateCosts() {
+    _estCostByLead = {};
+    if (!window.db || !uid() || !window.getDocs) return;
+    try {
+      var snap = await window.getDocs(window.query(
+        window.collection(window.db, 'estimates'),
+        window.where('userId', '==', uid()), window.limit(1000)));
+      snap.docs.forEach(function (d) {
+        var e = d.data();
+        if (!e || !e.leadId) return;
+        var mat = parseFloat(e.materialCost), lab = parseFloat(e.laborCost);
+        if (!isFinite(mat) && !isFinite(lab)) return; // classic / no cost basis
+        var cents = Math.round(((isFinite(mat) ? mat : 0) + (isFinite(lab) ? lab : 0)) * 100);
+        // Keep the largest cost-basis estimate per lead (latest revision tends
+        // to be the most complete; ties resolve to the bigger number).
+        if (cents > 0 && cents >= (_estCostByLead[e.leadId] || 0)) _estCostByLead[e.leadId] = cents;
+      });
+    } catch (err) { console.warn('[expenses] estimate-cost fetch failed', err); }
+  }
+
+  // Estimated-vs-actual for one job. Returns null if no V2 cost basis exists.
+  function estVsActual(leadId, actualDirectCents) {
+    var est = _estCostByLead[leadId];
+    if (!est || est <= 0) return null;
+    return { estCents: est, actualCents: actualDirectCents, varianceCents: actualDirectCents - est };
+  }
+
   async function uploadReceipt(file, u) {
     if (!window.storage || !window.ref || !window.uploadBytes) throw new Error('storage unavailable');
     var ts = Date.now();
     var safe = (file.name || 'receipt').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+    var body = await downscaleImage(file); // shrink huge phone photos; no-op for PDF/HEIC
     var path = 'receipts/' + u + '/' + ts + '_' + safe;
-    await window.uploadBytes(window.ref(window.storage, path), file, { contentType: file.type || 'application/octet-stream' });
+    await window.uploadBytes(window.ref(window.storage, path), body, { contentType: (body && body.type) || file.type || 'application/octet-stream' });
     return path;
+  }
+
+  // Downscale a large JPEG/PNG/WebP via canvas before upload (cuts upload size +
+  // OCR cost/latency). Returns a Blob, or the ORIGINAL file unchanged for PDFs,
+  // HEIC/other formats the browser can't decode, small images, or any failure.
+  function downscaleImage(file) {
+    return new Promise(function (resolve) {
+      try {
+        var t = file && file.type || '';
+        if (!/^image\/(jpeg|png|webp)$/.test(t) || file.size < 1200 * 1024) return resolve(file);
+        var url = URL.createObjectURL(file);
+        var img = new Image();
+        var done = false;
+        var finish = function (out) { if (done) return; done = true; try { URL.revokeObjectURL(url); } catch (e) {} resolve(out); };
+        var timer = setTimeout(function () { finish(file); }, 8000);
+        img.onload = function () {
+          try {
+            var max = 1600, scale = Math.min(1, max / Math.max(img.width, img.height));
+            if (scale >= 1) { clearTimeout(timer); return finish(file); }
+            var cv = document.createElement('canvas');
+            cv.width = Math.round(img.width * scale); cv.height = Math.round(img.height * scale);
+            cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+            cv.toBlob(function (blob) { clearTimeout(timer); finish(blob && blob.size < file.size ? blob : file); }, 'image/jpeg', 0.85);
+          } catch (e) { clearTimeout(timer); finish(file); }
+        };
+        img.onerror = function () { clearTimeout(timer); finish(file); }; // HEIC etc. → keep original
+        img.src = url;
+      } catch (e) { resolve(file); }
+    });
+  }
+
+  // Client-side duplicate guard: same supplier + amount + calendar day already
+  // logged. Returns the matching expense or null.
+  function findDuplicate(supplier, amountCents, dateStr) {
+    var sup = (supplier || '').trim().toLowerCase();
+    return _expenses.find(function (e) {
+      if ((parseInt(e.amountCents, 10) || 0) !== amountCents) return false;
+      if (((e.supplier || '').trim().toLowerCase()) !== sup) return false;
+      var ed = toDate(e.date);
+      return ed && ed.toISOString().slice(0, 10) === dateStr;
+    }) || null;
   }
 
   // file must be an image or PDF (storage rule: isDocType allows image/* + pdf)
@@ -323,7 +400,10 @@
     html += '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">' +
       '<div><h2 style="margin:0;font-family:\'Barlow Condensed\',sans-serif;font-size:26px;font-weight:800;color:var(--h,#fff);">🧾 Expenses &amp; Supplier Spend</h2>' +
       '<div style="font-size:12px;color:var(--m,#9ca3af);margin-top:2px;">' + (isStaff() && claims().companyId ? 'Team-wide (all reps)' : 'Your expenses') + ' · ' + _expenses.length + ' logged</div></div>' +
-      '<button data-exp-action="open-form" style="padding:10px 18px;background:' + accent + ';color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">+ Log Expense</button>' +
+      '<div style="display:flex;gap:8px;">' +
+        (_expenses.length ? '<button data-exp-action="export-csv" title="Download CSV for your accountant" style="padding:10px 14px;background:var(--s2,rgba(255,255,255,.06));color:var(--h,#fff);border:1px solid var(--br,rgba(255,255,255,.15));border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">⬇ Export CSV</button>' : '') +
+        '<button data-exp-action="open-form" style="padding:10px 18px;background:' + accent + ';color:#fff;border:none;border-radius:8px;font-weight:700;font-size:14px;cursor:pointer;">+ Log Expense</button>' +
+      '</div>' +
       '</div>';
 
     // Summary cards
@@ -381,13 +461,22 @@
       }).sort(function (a, b) { return b.jb.cents - a.jb.cents; }).forEach(function (row) {
         var mColor = !row.pl ? 'var(--m,#9ca3af)' : row.pl.grossMargin >= 40 ? '#16a34a' : row.pl.grossMargin >= 25 ? '#eab308' : '#dc2626';
         var marginTxt = row.pl ? (row.pl.grossMargin + '% margin') : (row.lead ? 'set Job Value' : 'job not found');
+        // Estimated-vs-actual (V2 estimates only)
+        var va = estVsActual(row.jid, row.jb.directCents);
+        var vaTxt = '';
+        if (va) {
+          var over = va.varianceCents > 0;
+          var vColor = over ? '#dc2626' : '#16a34a';
+          vaTxt = '<div style="font-size:11px;color:var(--m,#9ca3af);">est ' + money(va.estCents) + ' · ' +
+            '<span style="color:' + vColor + ';font-weight:700;">' + (over ? '+' : '') + money(va.varianceCents) + (over ? ' over' : ' under') + '</span></div>';
+        }
         html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--br,rgba(255,255,255,.06));">' +
           '<div style="min-width:0;"><div style="font-size:13px;color:var(--h,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(leadName(row.lead)) + '</div>' +
-          '<div style="font-size:11px;color:var(--m,#9ca3af);">' + row.jb.count + ' expenses · ' + money(row.jb.directCents) + ' direct</div></div>' +
+          '<div style="font-size:11px;color:var(--m,#9ca3af);">' + row.jb.count + ' expenses · ' + money(row.jb.directCents) + ' direct</div>' + vaTxt + '</div>' +
           '<div style="text-align:right;white-space:nowrap;"><div style="font-size:14px;font-weight:700;color:var(--h,#fff);">' + money(row.jb.cents) + '</div>' +
           '<div style="font-size:11px;font-weight:700;color:' + mColor + ';">' + marginTxt + '</div></div></div>';
       });
-      html += '<div style="font-size:10px;color:var(--m,#9ca3af);margin-top:10px;">Gross margin = Job Value − direct job costs (before overhead &amp; commission).</div>';
+      html += '<div style="font-size:10px;color:var(--m,#9ca3af);margin-top:10px;">Gross margin = Job Value − direct job costs (before overhead &amp; commission). "est" = budgeted cost from the job\'s estimate (V2 builder only).</div>';
       html += '</div>';
     }
 
@@ -472,6 +561,13 @@
   async function saveFromForm(btn) {
     var v = function (id) { var el = document.getElementById(id); return el ? el.value : ''; };
     var fileEl = document.getElementById('expFile');
+    var c = EC();
+    // Duplicate guard: same supplier + amount + day already logged → confirm.
+    var dupCents = c ? c.dollarsToCents(v('expAmount')) : 0;
+    var dup = findDuplicate(v('expSupplier'), dupCents, v('expDate'));
+    if (dup && !window.confirm('Looks like a possible duplicate — ' + (v('expSupplier') || 'this vendor') + ' for ' + money(dupCents) + ' on ' + v('expDate') + ' is already logged. Save it anyway?')) {
+      return;
+    }
     // If the receipt was scanned, the doc carries the OCR provenance + the
     // already-uploaded path (no double upload), and the user's edits to the
     // pre-filled fields win.
@@ -497,7 +593,8 @@
 
   // ── lifecycle ───────────────────────────────────────────────────────
   async function refresh() {
-    _expenses = await fetchExpenses();
+    var results = await Promise.all([fetchExpenses(), fetchEstimateCosts()]);
+    _expenses = results[0];
     _loaded = true;
     render();
   }
@@ -505,6 +602,45 @@
     var scroll = document.querySelector('#view-expenses .view-scroll');
     if (scroll && !_loaded) scroll.innerHTML = '<div style="padding:40px;text-align:center;color:var(--m,#9ca3af);">Loading expenses…</div>';
     refresh();
+  }
+
+  // ── CSV export (accountant-ready; do this BEFORE any QuickBooks/Xero API) ──
+  function csvCell(v) {
+    var s = String(v == null ? '' : v);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  function exportCSV() {
+    var c = EC();
+    if (!_expenses.length) { toast('No expenses to export', 'warn'); return; }
+    var cols = ['Date', 'Supplier', 'Category', 'Cost Type', 'Amount', 'Sales Tax', 'Job', 'Note', 'Source', 'Schedule C (suggested)'];
+    var rows = _expenses.map(function (e) {
+      var d = toDate(e.date);
+      var lead = e.leadId ? leadById(e.leadId) : null;
+      var hint = (c && c.byKey[e.category] && c.byKey[e.category].scheduleCHint) || '';
+      return [
+        d ? d.toISOString().slice(0, 10) : '',
+        e.supplier || '',
+        (c ? c.labelFor(e.category) : e.category) || '',
+        e.costType || '',
+        ((parseInt(e.amountCents, 10) || 0) / 100).toFixed(2),
+        ((parseInt(e.taxCents, 10) || 0) / 100).toFixed(2),
+        lead ? leadName(lead) : '',
+        e.note || '',
+        e.source || 'manual',
+        hint
+      ].map(csvCell).join(',');
+    });
+    var csv = cols.join(',') + '\n' + rows.join('\n');
+    try {
+      var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'nbd-expenses-' + new Date().toISOString().slice(0, 10) + '.csv';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 1000);
+      toast('Exported ' + _expenses.length + ' expenses', 'ok');
+    } catch (e) { console.warn('[expenses] csv export failed', e); toast('Export failed', 'error'); }
   }
 
   // ── CSP-safe delegated events ───────────────────────────────────────
@@ -516,6 +652,7 @@
       var a = t.dataset.expAction;
       if (a === 'open-form') openForm();
       else if (a === 'close-form') closeForm();
+      else if (a === 'export-csv') exportCSV();
       else if (a === 'scan') scanReceipt(t);
       else if (a === 'save') saveFromForm(t);
       else if (a === 'receipt') openReceipt(t.dataset.expPath);
@@ -535,9 +672,14 @@
     // data-layer (used by Phase 2 OCR + future surfaces)
     createExpense: createExpense,
     removeExpense: removeExpense,
+    exportCSV: exportCSV,
     // pure functions (exported for unit tests)
     aggregate: aggregate,
     jobMargin: jobMargin,
-    _setData: function (list) { _expenses = list || []; _loaded = true; } // test/seed hook
+    estVsActual: estVsActual,
+    findDuplicate: findDuplicate,
+    csvCell: csvCell,
+    _setData: function (list) { _expenses = list || []; _loaded = true; }, // test/seed hook
+    _setEstCosts: function (map) { _estCostByLead = map || {}; }            // test/seed hook
   };
 })();

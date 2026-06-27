@@ -258,7 +258,25 @@
             return Object.assign({ id: d.id }, d.data());
           });
         })
-        .catch(function () { _analyticsCache.photos = []; })
+        .catch(function () { _analyticsCache.photos = []; }),
+
+      // expenses — rule-safe scope: company_admin/manager read the whole tenant
+      // (companyId); everyone else reads their own (userId). Querying companyId
+      // as a non-staff user is permission-denied (see firestore.rules).
+      (function () {
+        var claims = window._userClaims || {};
+        var staff = claims.role === 'company_admin' || claims.role === 'manager' || claims.role === 'admin';
+        var q = (staff && claims.companyId)
+          ? qFn(colFn(db, 'expenses'), whereFn('companyId', '==', claims.companyId))
+          : qFn(colFn(db, 'expenses'), whereFn('userId', '==', uid));
+        return getDocsFn(q)
+          .then(function (snap) {
+            _analyticsCache.expenses = snap.docs.map(function (d) {
+              return Object.assign({ id: d.id }, d.data());
+            });
+          })
+          .catch(function () { _analyticsCache.expenses = []; });
+      })()
     ];
 
     await Promise.all(fetchers);
@@ -280,6 +298,7 @@
     var knocks = data.knocks || [];
     var photos = data.photos || [];
     var estimates = data.estimates || [];
+    var expenses = data.expenses || [];
 
     var now = new Date();
     var thisMonth = now.getMonth();
@@ -391,9 +410,50 @@
       return pd && pd.getMonth() === thisMonth && pd.getFullYear() === thisYear;
     }).reduce(function (sum, inv) { return sum + (parseFloat(inv.total) || 0); }, 0);
 
+    // ── Expense / supplier-spend metrics ──
+    // costType is denormalized on each expense doc, so no ExpenseConfig needed.
+    // Gross margin uses the SAME basis as the per-job Expenses view (jobValue),
+    // computed over won jobs that have logged direct costs — never paid-invoice
+    // revenue (that would be a different basis and lie).
+    var directByJob = {};       // leadId -> direct cents
+    var expTotalCents = 0, expDirectCents = 0, expOverheadCents = 0, expMonthCents = 0;
+    var supplierCents = {};
+    expenses.forEach(function (e) {
+      var c = parseInt(e.amountCents, 10) || 0;
+      expTotalCents += c;
+      var direct = e.costType === 'direct';
+      if (direct) expDirectCents += c; else expOverheadCents += c;
+      var ed = toJSDate(e.date);
+      if (ed && ed.getMonth() === thisMonth && ed.getFullYear() === thisYear) expMonthCents += c;
+      var sup = (e.supplier || '').trim() || 'Unknown';
+      supplierCents[sup] = (supplierCents[sup] || 0) + c;
+      if (direct && e.leadId) directByJob[e.leadId] = (directByJob[e.leadId] || 0) + c;
+    });
+    // Won-job gross margin (jobValue basis). ONLY count jobs that have logged
+    // direct costs — including uncosted jobs (revenue, $0 cost) would inflate
+    // the margin and lie. The sub-label shows "N of M costed" for honesty.
+    var wonRev = 0, wonDirect = 0, costedJobs = 0;
+    wonLeads.forEach(function (l) {
+      var rev = parseFloat(l.jobValue) || 0;
+      var dc = (directByJob[l.id] || 0) / 100;
+      if (rev > 0 && dc > 0) { wonRev += rev; wonDirect += dc; costedJobs += 1; }
+    });
+    var expGrossMargin = wonRev > 0 ? Math.round(((wonRev - wonDirect) / wonRev) * 100) : null;
+    var supplierLeaderboard = Object.keys(supplierCents).map(function (k) {
+      return { supplier: k, cents: supplierCents[k] };
+    }).sort(function (a, b) { return b.cents - a.cents; }).slice(0, 6);
+
     return {
       totalRevenue: totalRevenue,
       monthRevenue: monthRevenue,
+      expTotalDollars: expTotalCents / 100,
+      expDirectDollars: expDirectCents / 100,
+      expOverheadDollars: expOverheadCents / 100,
+      expMonthDollars: expMonthCents / 100,
+      expGrossMargin: expGrossMargin,
+      expCostedJobs: costedJobs,
+      expWonJobs: wonLeads.length,
+      expSupplierLeaderboard: supplierLeaderboard,
       unpaidAmount: unpaidAmount,
       pipelineValue: pipelineValue,
       conversionRate: conversionRate,
@@ -604,6 +664,51 @@
       });
     }
 
+    // ── Expense / supplier-spend section (only when expenses exist) ──
+    var marginColor = m.expGrossMargin == null ? 'var(--t,#fff)'
+      : m.expGrossMargin >= 40 ? 'var(--green,#2ECC8A)'
+      : m.expGrossMargin >= 25 ? 'var(--orange,#e8720c)' : 'var(--red,#E5484D)';
+    var supplierBarsHTML = '';
+    var maxSup = (m.expSupplierLeaderboard[0] && m.expSupplierLeaderboard[0].cents) || 1;
+    m.expSupplierLeaderboard.forEach(function (s) {
+      var w = Math.max(Math.round((s.cents / maxSup) * 100), 4);
+      var pctTotal = m.expTotalDollars > 0 ? Math.round((s.cents / 100) / m.expTotalDollars * 100) : 0;
+      supplierBarsHTML +=
+        '<div class="ak-bar-row">' +
+          '<div class="ak-bar-label" title="' + esc(s.supplier) + '">' + esc(s.supplier) + '</div>' +
+          '<div class="ak-bar-track"><div class="ak-bar-fill" style="width:' + w + '%;background:var(--orange,#e8720c);">' + formatCurrency(s.cents / 100) + '</div></div>' +
+          '<div class="ak-bar-count">' + pctTotal + '%</div>' +
+        '</div>';
+    });
+    var expenseSectionHTML = m.expTotalDollars > 0 ? (
+      '<div class="ak-grid">' +
+        '<div class="ak-card blue">' +
+          '<div class="ak-lbl">Total COGS</div>' +
+          '<div class="ak-val blue">' + formatCurrency(m.expDirectDollars) + '</div>' +
+          '<div class="ak-sub">direct job costs · ' + formatCurrency(m.expTotalDollars) + ' all spend</div>' +
+        '</div>' +
+        '<div class="ak-card">' +
+          '<div class="ak-lbl">Gross Margin <span style="opacity:.55;font-weight:normal;">(won jobs)</span></div>' +
+          '<div class="ak-val" style="color:' + marginColor + '">' + (m.expGrossMargin == null ? '—' : m.expGrossMargin + '%') + '</div>' +
+          '<div class="ak-sub">' + m.expCostedJobs + ' of ' + m.expWonJobs + ' won jobs costed · before overhead</div>' +
+        '</div>' +
+        '<div class="ak-card orange">' +
+          '<div class="ak-lbl">Spend This Month</div>' +
+          '<div class="ak-val orange">' + formatCurrency(m.expMonthDollars) + '</div>' +
+          '<div class="ak-sub">materials, subs, overhead</div>' +
+        '</div>' +
+        '<div class="ak-card">' +
+          '<div class="ak-lbl">Overhead</div>' +
+          '<div class="ak-val" style="color:var(--t,#fff)">' + formatCurrency(m.expOverheadDollars) + '</div>' +
+          '<div class="ak-sub">operating costs (not per-job)</div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="ak-panel">' +
+        '<div class="ak-panel-hdr">💰 Spend by Supplier</div>' +
+        '<div class="ak-panel-body">' + supplierBarsHTML + '</div>' +
+      '</div>'
+    ) : '';
+
     el.innerHTML =
       '<div class="ak-wrap">' +
 
@@ -655,6 +760,9 @@
           '</div>' +
         '</div>' +
 
+        // ── Expenses / supplier spend (only when expenses exist) ──
+        expenseSectionHTML +
+
         // ── Monthly Trend ──
         '<div class="ak-panel">' +
           '<div class="ak-panel-hdr">📈 Monthly Trend (6 Months)</div>' +
@@ -696,7 +804,9 @@
     refresh: function (containerId) {
       _analyticsCache.loaded = false;
       renderAnalyticsDashboard(containerId || 'analyticsContainer');
-    }
+    },
+    // Exposed for unit testing the (pure) metric computation.
+    _test: { computeFullAnalytics: computeFullAnalytics }
   };
 
 })();
