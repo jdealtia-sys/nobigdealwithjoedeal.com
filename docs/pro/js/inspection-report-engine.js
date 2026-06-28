@@ -3065,10 +3065,24 @@
         }
 
         const report = reportDoc.data();
-        const blob = new Blob([report.html], { type: 'text/html' });
-        const blobUrl = URL.createObjectURL(blob);
-        window.open(blobUrl, '_blank');
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        // Render through the sandboxed NBDDocViewer (<iframe srcdoc> WITHOUT
+        // allow-same-origin) rather than window.open(blob:), which is same-
+        // origin and lets any script in a stored report read parent.window.auth
+        // / steal an ID token. Defense-in-depth alongside the companyId-pin rule
+        // fix: even a malicious report written before that rule can't execute
+        // same-origin. Fall back to a blob tab only if the viewer isn't loaded.
+        if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
+          window.NBDDocViewer.open({
+            html:     report.html,
+            title:    report.title || ('Inspection Report' + (report.leadName ? ' — ' + report.leadName : '')),
+            filename: (report.title || 'inspection-report') + '.html',
+          });
+        } else {
+          const blob = new Blob([report.html], { type: 'text/html' });
+          const blobUrl = URL.createObjectURL(blob);
+          window.open(blobUrl, '_blank');
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+        }
       } catch (err) {
         console.error('Error opening report:', err);
         showToast('Failed to open report', 'error');
