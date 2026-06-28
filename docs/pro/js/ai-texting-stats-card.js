@@ -83,6 +83,7 @@
         ${stat('Dismissed', pct(s.dismissRate), `${esc(s.dismissed)} dropped`)}
         ${stat('Avg response', avgStr, 'draft → sent')}
         ${stat('Pending', String(s.pending), 'awaiting you')}
+        ${stat('Failed', String(s.failed || 0), 'sends that errored')}
       </div>
     </div>`;
   }
