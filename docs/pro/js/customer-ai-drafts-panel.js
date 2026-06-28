@@ -257,15 +257,53 @@
           approvedBy: currentUserRef(),
           approvedAt: stamp,
         });
-        card.remove();
-        if (window.showToast) window.showToast('Approved — reply is sending 📤', 'success');
+      } catch (e) {
+        setBusy(false); setStatus('Could not send — try again.');
+        if (window.showToast) window.showToast('Send failed: ' + (e && e.message || 'error'), 'error');
+        return;
+      }
+
+      // The write succeeded, but the actual SEND happens server-side
+      // (onAiDraftApproved flips status → 'sent' or 'failed'). Previously the
+      // card was removed here with an optimistic "sending 📤" toast, so a FAILED
+      // send was invisible to the rep — they'd think the customer got a reply
+      // that never went out. Poll for the real outcome instead (onSnapshot
+      // isn't exposed to this module) and keep the card until we know.
+      const hideHostIfEmpty = () => {
         if (!document.querySelector('#aiDraftsPanel .aidp-card')) {
           const host = document.getElementById('aiDraftsPanel');
           if (host) { host.style.display = 'none'; host.innerHTML = ''; }
         }
-      } catch (e) {
-        setBusy(false); setStatus('Could not send — try again.');
-        if (window.showToast) window.showToast('Send failed: ' + (e && e.message || 'error'), 'error');
+      };
+      setStatus('Sending… 📤');
+      let settled = false;
+      for (let i = 0; i < 9 && !settled; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        let snap;
+        try { snap = await window.getDoc(ref); } catch (_) { continue; }
+        const d = snap && snap.exists() ? (snap.data() || {}) : null;
+        const st = d ? (d.status || 'approved') : null;
+        if (st === 'sent') {
+          settled = true;
+          card.remove();
+          if (window.showToast) window.showToast('Reply sent ✅', 'success');
+          hideHostIfEmpty();
+        } else if (st === 'failed') {
+          settled = true;
+          setBusy(false);
+          const reason = d.failureReason || 'unknown error';
+          setStatus('⚠️ Did NOT send (' + reason + ') — edit and try again.');
+          // Revert to pending so the rep can re-approve after editing.
+          try { await window.updateDoc(ref, { status: 'pending' }); } catch (_) {}
+          if (window.showToast) window.showToast('AI reply did NOT send: ' + reason, 'error');
+        }
+      }
+      if (!settled) {
+        // Server trigger slow/down — never claim success; keep the card so the
+        // draft isn't silently lost.
+        setBusy(false);
+        setStatus('Still sending — verify in the lead\'s text thread.');
+        if (window.showToast) window.showToast('Send is taking longer than usual — check the thread', 'warning');
       }
     }
   }
