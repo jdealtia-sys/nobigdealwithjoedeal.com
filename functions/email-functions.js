@@ -682,17 +682,25 @@ exports.sendTeamInviteEmail = onRequest(
         used: false
       });
 
-      // Send invite email
-      const inviteUrl = `https://nobigdealwithjoedeal.com/pro/register.html?invite=${token}&role=${role}`;
+      // Send invite email. inviterName is attacker-controllable (req.body), so
+      // HTML-escape it (+ role) before interpolating into the email body, and
+      // URL-encode role in the link. Otherwise a crafted inviterName injects
+      // arbitrary HTML into Joe-branded mail.
+      const escHtml = (s) => String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        .slice(0, 200);
+      const safeInviter = escHtml(inviterName);
+      const safeRole = escHtml(role);
+      const inviteUrl = `https://nobigdealwithjoedeal.com/pro/register.html?invite=${token}&role=${encodeURIComponent(role || '')}`;
 
       const html = BRANDED_EMAIL_TEMPLATE(
         'Team Invitation',
         `<h2>You're Invited to Join NBD Pro!</h2>
          <p>Hi,</p>
-         <p>${inviterName} has invited you to join their No Big Deal Home Solutions team as a <strong>${role}</strong>.</p>
+         <p>${safeInviter} has invited you to join their No Big Deal Home Solutions team as a <strong>${safeRole}</strong>.</p>
          <p><a href="${inviteUrl}" class="cta-button">Accept Invitation</a></p>
          <p>This invitation will expire in 7 days.</p>
-         <p>If you have any questions, contact ${inviterName} or our support team.</p>`
+         <p>If you have any questions, contact ${safeInviter} or our support team.</p>`
       );
 
       const resend = new Resend(RESEND_API_KEY.value());

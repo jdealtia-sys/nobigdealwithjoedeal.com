@@ -870,7 +870,22 @@
 
   onAuthStateChanged(auth, async user => {
     if (!user) { window.location.replace("/pro/login.html"); return; }
-    
+
+    // Shared-device PII guard: if a DIFFERENT account was last active on this
+    // device, purge the prior rep's cached data (leads, filters, company
+    // profile, usage tallies) BEFORE loading this user's. Covers both account-
+    // switch and fresh-login — the sign-out controls historically bypassed
+    // NBDAuth.logout()'s purge, so the prior user's customer PII lingered.
+    // nbd_last_uid is in the purge KEEP set, so it survives the wipe.
+    try {
+      const _lastUid = localStorage.getItem('nbd_last_uid');
+      if (_lastUid && _lastUid !== user.uid
+          && window.NBDAuth && typeof window.NBDAuth.purgeAccountStorage === 'function') {
+        window.NBDAuth.purgeAccountStorage();
+      }
+      localStorage.setItem('nbd_last_uid', user.uid);
+    } catch (_) { /* best-effort; never block boot on a storage error */ }
+
     // ── SUBSCRIPTION CHECK ────────────────────────────────────
     // Owner bypass — founder/staff emails always resolve to professional.
     // Must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js so
