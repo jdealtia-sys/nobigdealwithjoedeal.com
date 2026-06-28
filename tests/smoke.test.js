@@ -37,6 +37,7 @@ const DOMAINS = [
   './smoke/maps.test.js',
   './smoke/reports.test.js',
   './smoke/security-guards.test.js',  // Audit #2: webhook-sig / billing-gate / SMS opt-out regression guards
+  './smoke/phone-digits.test.js',  // inbound-SMS phoneDigits match key — unit + write/read guards
 ];
 
 for (const mod of DOMAINS) {

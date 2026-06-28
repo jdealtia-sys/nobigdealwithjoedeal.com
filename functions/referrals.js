@@ -42,6 +42,7 @@ const { logger } = require('firebase-functions/v2');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { httpRateLimit } = require('./integrations/upstash-ratelimit');
+const { phoneDigits10 } = require('./phone-utils');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -163,6 +164,11 @@ exports.submitReferral = onRequest(
       firstName,
       lastName,
       phone,
+      // Normalized match key so an inbound SMS from this referral ties back
+      // to the lead (incomingSMS queries leads by phoneDigits). NOTE the
+      // local `phoneDigits` above is the raw 10-15 digit string used for
+      // validation — this field is the canonical last-10 transform.
+      phoneDigits: phoneDigits10(phone),
       email,
       address,
       stage: 'new',

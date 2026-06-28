@@ -62,6 +62,8 @@ async function seedDemoLeads(uid) {
         ...rest,
         userId: uid,
         companyId: window._userClaims?.companyId || uid,
+        // Normalized inbound-SMS match key — see functions/phone-utils.js.
+        phoneDigits: String(rest.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10),
         createdAt: createdAt,
         updatedAt: createdAt,
       });

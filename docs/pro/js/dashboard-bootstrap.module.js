@@ -2199,6 +2199,8 @@
           ...lead,
           userId: window._user.uid,
           companyId: window._userClaims?.companyId || window._user.uid,
+          // Normalized inbound-SMS match key — see functions/phone-utils.js.
+          phoneDigits: String(lead.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10),
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           deleted: false
@@ -2557,6 +2559,15 @@
       // Stamp duplicateOf on the payload so it persists in Firestore
       // for audit / future cleanup. Falsy values won't get written.
       if (_duplicateOf) data.duplicateOf = _duplicateOf;
+
+      // Normalized phone match key (last-10 US digits) so an inbound SMS
+      // from this lead ties back to it — incomingSMS queries leads by
+      // phoneDigits (Twilio sends E.164; reps type free-form). Stamped on
+      // `data` once here so it flows into ALL write branches below: the
+      // NBDRepos.leads.create path, both inline addDoc fallbacks, AND the
+      // edit updateDoc (so editing a lead's phone refreshes the key).
+      // Canonical transform — keep identical to functions/phone-utils.js.
+      data.phoneDigits = String(data.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10);
 
       // NEW LEAD: Geocode address and create map pin
       if (!editId || editId.startsWith('d-')) {

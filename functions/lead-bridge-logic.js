@@ -27,6 +27,8 @@
 
 'use strict';
 
+const { phoneDigits10 } = require('./phone-utils');
+
 // Public kinds that become CRM pipeline leads. contact / estimate / inspect /
 // free_roof bridge UNCONDITIONALLY. storm bridges CONDITIONALLY — only the
 // high-intent concerns (see shouldBridgeStorm); the bulk of storm signups are
@@ -174,6 +176,10 @@ function mapPublicLeadToLead(args) {
     lastName: lastName,
     address: String(data.address || data.zip || ''),
     phone: String(data.phone || ''),
+    // Normalized match key so an inbound SMS from this homeowner ties back
+    // to this lead (incomingSMS queries leads by phoneDigits). See
+    // functions/phone-utils.js.
+    phoneDigits: phoneDigits10(data.phone),
     email: String(data.email || ''),
     stage: 'New',
     status: 'new',

@@ -1288,6 +1288,10 @@
         lastName,
         address: knock.address || '',
         phone: knock.phone || '',
+        // Normalized inbound-SMS match key — see functions/phone-utils.js.
+        // Carried on leadData so it lands whether convert goes through
+        // _saveLead (which re-stamps it) or the direct-write fallback below.
+        phoneDigits: String(knock.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10),
         email: knock.email || '',
         stage,
         jobType,
