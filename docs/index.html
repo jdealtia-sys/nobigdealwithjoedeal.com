@@ -21,7 +21,8 @@
 <meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/favicon.svg">
-<link rel="preload" href="/assets/images/drone-hero-crew.webp" as="image" type="image/webp" fetchpriority="high">
+<link rel="preload" href="/assets/images/drone-hero-crew-800.webp" as="image" type="image/webp" fetchpriority="high" media="(max-width:600px)">
+<link rel="preload" href="/assets/images/drone-hero-crew.webp" as="image" type="image/webp" fetchpriority="high" media="(min-width:601px)">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
@@ -129,6 +130,7 @@ section{padding:80px 40px}
 .hero{background:var(--navy-dark);position:relative;overflow:hidden;min-height:640px;display:flex;align-items:center}
 .hero-pattern{position:absolute;top:0;right:0;bottom:0;left:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(232,114,12,.04) 40px,rgba(232,114,12,.04) 41px);z-index:0}
 .hero-bg{position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(135deg,rgba(20,42,82,.88) 0%,rgba(20,42,82,.78) 55%,rgba(232,114,12,.18) 100%),image-set(url(/assets/images/drone-hero-crew.webp) type("image/webp"), url(/assets/images/drone-hero-crew.jpg) type("image/jpeg")) center/cover no-repeat;z-index:1}
+@media(max-width:600px){.hero-bg{background:linear-gradient(135deg,rgba(20,42,82,.88) 0%,rgba(20,42,82,.78) 55%,rgba(232,114,12,.18) 100%),image-set(url(/assets/images/drone-hero-crew-800.webp) type("image/webp"), url(/assets/images/drone-hero-crew.jpg) type("image/jpeg")) center/cover no-repeat}}
 .hero-content{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:80px 40px;display:grid;grid-template-columns:1fr 400px;gap:64px;align-items:center;width:100%}
 .hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(232,114,12,.18);border:1px solid rgba(232,114,12,.4);color:var(--orange-light);padding:6px 16px;border-radius:100px;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px;animation:fadeUp .6s ease both}
 .hero-badge::before{content:'';width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite}
@@ -746,6 +748,14 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
   <script src="/assets/js/nav-faq.js" defer></script>
+<style>
+/* CSP-safe replacements for former inline hover handlers (script-src-attr 'none' blocks onmouseover=) */
+.hero-link-secondary:hover{color:var(--orange)!important}
+.ql-pledge:hover{background:#ffe8d6!important}
+.ql-tamko:hover{background:#fff4ee!important;border-color:#e8720c!important}
+.ql-guarantee:hover{background:#e8720c!important;color:#fff!important}
+.partner-logo-img:hover{filter:none!important;opacity:1!important}
+</style>
 </head>
 <body>
 
@@ -862,7 +872,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <div class="hero-btns">
         <a href="tel:8594207382" class="btn-primary"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg>Call Joe — (859) 420-7382</a>
       </div>
-      <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="hero-link-secondary" style="display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.82);font-size:.92rem;text-decoration:underline;text-underline-offset:4px;margin-top:14px;transition:color .2s ease" onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='rgba(255,255,255,.82)'"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>Or schedule a free inspection online →</a>
+      <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="hero-link-secondary" style="display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.82);font-size:.92rem;text-decoration:underline;text-underline-offset:4px;margin-top:14px;transition:color .2s ease"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>Or schedule a free inspection online →</a>
       <div class="hero-trust">
         <div class="hero-trust-item"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>Licensed &amp; Insured</div>
         <div class="hero-trust-dot"></div>
@@ -882,7 +892,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             <div style="font-size:.66rem;color:#6b7280;margin-top:2px;">System Plus Limited Warranty available · <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="color:#c45e08;font-weight:700;text-decoration:none;">Verify on GAF.com →</a></div>
           </div>
         </div>
-        <a href="/the-pledge" style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;padding:10px 12px;background:#fff4ee;border:1px solid #f7d8c2;border-left:3px solid #e8720c;border-radius:6px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='#ffe8d6'" onmouseout="this.style.background='#fff4ee'">
+        <a href="/the-pledge" style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;padding:10px 12px;background:#fff4ee;border:1px solid #f7d8c2;border-left:3px solid #e8720c;border-radius:6px;text-decoration:none;transition:all .15s" class="ql-pledge">
           <div style="flex-shrink:0;color:#e8720c"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
           <div style="flex:1;line-height:1.35">
             <div style="font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#c45e08;">On every NBD roof</div>
@@ -912,13 +922,13 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             </div>
           </div>
         </div>
-        <a href="/services/tamko-storm-series" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:9px 12px;background:#fbfaf8;border:1px dashed #d8b48a;border-radius:6px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='#fff4ee';this.style.borderColor='#e8720c'" onmouseout="this.style.background='#fbfaf8';this.style.borderColor='#d8b48a'">
+        <a href="/services/tamko-storm-series" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:9px 12px;background:#fbfaf8;border:1px dashed #d8b48a;border-radius:6px;text-decoration:none;transition:all .15s" class="ql-tamko">
           <div style="flex-shrink:0;color:#c45e08"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M13 2 L4 14 H11 L11 22 L20 10 H13 Z"/></svg></div>
           <div style="flex:1;line-height:1.35">
             <div style="font-size:.72rem;color:#1e3a6e;font-weight:600">Live in hail country? Ask about the <strong style="color:#c45e08">TAMKO Storm Series</strong> — impact-rated shingles up to a hail warranty. <strong style="color:#c45e08">See it &rarr;</strong></div>
           </div>
         </a>
-        <a href="/services/the-nbd-guarantee" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff4ee;color:#c45e08;text-decoration:none;font-weight:800;font-size:.78rem;letter-spacing:.04em;padding:11px;border-radius:6px;margin-bottom:10px;border:1px solid #f7d8c2;transition:all .15s;" onmouseover="this.style.background='#e8720c';this.style.color='#fff'" onmouseout="this.style.background='#fff4ee';this.style.color='#c45e08'">
+        <a href="/services/the-nbd-guarantee" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff4ee;color:#c45e08;text-decoration:none;font-weight:800;font-size:.78rem;letter-spacing:.04em;padding:11px;border-radius:6px;margin-bottom:10px;border:1px solid #f7d8c2;transition:all .15s;" class="ql-guarantee">
           Compare All Three Tiers →
         </a>
         <a href="tel:8594207382" class="wc-phone">
@@ -1702,13 +1712,13 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <p style="color:var(--gray);max-width:640px;margin:0 auto 24px;font-size:.95rem;line-height:1.6">We install premium materials from manufacturers that stand behind their products. If a shingle, siding panel, or trim piece fails — I want the same people backing us up as I count on.</p>
     <div class="brands-row" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:24px 40px;margin-top:12px">
       <div class="brand-mark" aria-label="GAF" style="display:inline-flex;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px">
-        <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified Contractor" width="72" height="52" loading="lazy" style="height:52px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" onmouseover="this.style.filter='none';this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%) brightness(.55)';this.style.opacity='.85'">
+        <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified Contractor" width="72" height="52" loading="lazy" style="height:52px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" class="partner-logo-img">
       </div>
       <div class="brand-mark" aria-label="TAMKO Building Products" style="display:inline-flex;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px">
-        <img src="/assets/tamko/tamko-logo-color.svg" alt="TAMKO Building Products" width="110" height="44" loading="lazy" style="height:42px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" onmouseover="this.style.filter='none';this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%) brightness(.55)';this.style.opacity='.85'">
+        <img src="/assets/tamko/tamko-logo-color.svg" alt="TAMKO Building Products" width="110" height="44" loading="lazy" style="height:42px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" class="partner-logo-img">
       </div>
       <div class="brand-mark" aria-label="James Hardie" style="display:inline-flex;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px">
-        <img src="/assets/partners/james-hardie.svg" alt="James Hardie" width="140" height="36" loading="lazy" style="height:28px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" onmouseover="this.style.filter='none';this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%) brightness(.55)';this.style.opacity='.85'">
+        <img src="/assets/partners/james-hardie.svg" alt="James Hardie" width="140" height="36" loading="lazy" style="height:28px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" class="partner-logo-img">
       </div>
       <div class="brand-mark" aria-label="Royal Building Products" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px;font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;color:#555;line-height:1">
         <span style="font-size:1.5rem;font-weight:400">ROYAL</span>

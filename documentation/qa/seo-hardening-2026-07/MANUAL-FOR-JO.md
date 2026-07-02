@@ -127,7 +127,10 @@ curl -sI https://nobigdealwithjoedeal.com/assets/fonts/montserrat-700-latin.woff
 curl -sI https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg | grep -i cache-control
 #   expect: public, max-age=2592000      (unchanged)
 curl -sI https://nobigdealwithjoedeal.com/pro/js/dashboard-app.js | grep -i cache-control
-#   expect: max-age=300                  (unchanged — CRM deliberately untouched)
+#   expect: public, max-age=0, must-revalidate
+#   (changed in the follow-up round: the Wave-127 revalidation rule's ordering
+#    was fixed, so CRM app code now revalidates per request as its author
+#    intended — see FOLLOWUP-LOG.md §4)
 ```
 New operational rule this creates: **if you hand-edit a file under
 `docs/assets/css|js/`, returning visitors can hold the old copy for up to 24 h.**
@@ -164,3 +167,23 @@ to `p=quarantine`. (SPF verified present and correct; no change needed.)
   referenced nowhere; left in place. Delete whenever, ~1.6 MB.
 - **F7 minification: skipped** on the brief's own "acceptable outcome" clause
   (~13 KiB total upside).
+
+## 7. Your non-code SEO track — GBP & reviews checklist (item 5, 2026-07-02)
+
+The technical house is now in order. For a 4-month-old local-service domain,
+these move rankings more than anything left in the code:
+
+- [ ] **Google Business Profile completeness**: every service you offer listed
+      as a GBP service, service area set, hours set, the real phone
+      (859) 420-7382, website link to the apex (not www).
+- [ ] **Photos weekly**: 2–3 job photos per week to GBP (before/after roofs
+      outperform logos/stock). You already have the pipeline — the same shots
+      that go to `our-work`.
+- [ ] **Reviews cadence**: ask every completed job, same-day, via the /r QR
+      link you already print. Target: steady trickle (2–4/month) beats bursts.
+- [ ] **Reply to every review** (including the old ones) — response rate is a
+      ranking input and social proof.
+- [ ] **GBP posts**: 1 short post/month (storm season notice, financing,
+      free-roof program). Low effort, keeps the profile "active".
+- [ ] After the www redirect is live (§2), spot-check that GBP and any
+      directories/citations point at `https://nobigdealwithjoedeal.com` (apex).
