@@ -911,8 +911,10 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
 <script defer src="/assets/js/public-lead-submit.js"></script>
 <script type="module" src="/assets/js/inline/f95015cb84.module.js"></script>
 
-<!-- ═══════════════════════ MAIN SCRIPT ═══════════════════════ -->
-<script defer  src="/assets/js/inline/4053149b2f.js"></script>
+<!-- ═══════════════════════ MAIN SCRIPT (lazy) ═══════════════════════
+     The 52KB wizard loads on first user intent (or idle <=2.5s) via the
+     loader instead of eagerly — see assets/js/estimate-wizard-loader.js. -->
+<script defer src="/assets/js/estimate-wizard-loader.js"></script>
 
 <!-- Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
