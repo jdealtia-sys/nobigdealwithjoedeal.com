@@ -187,3 +187,43 @@ these move rankings more than anything left in the code:
       free-roof program). Low effort, keeps the profile "active".
 - [ ] After the www redirect is live (§2), spot-check that GBP and any
       directories/citations point at `https://nobigdealwithjoedeal.com` (apex).
+
+## 8. LEAD ENGINE — three switches to check + what's new (2026-07-02, direction A)
+
+Audit result: your lead machine is nearly all built — but two delivery
+channels may be silently off, and one finished feature is in rehearsal mode.
+
+**a) Recovery emails are built but likely in DRY-RUN.** When someone starts
+/estimate and bails, an hourly job is supposed to email them "want me to
+finish it?" signed by you. It only SENDS when the `FUNNEL_RECOVERY_ENABLED`
+env var is `true` on the `runabandonrecovery` Cloud Run service. Check/enable:
+```
+gcloud run services update runabandonrecovery --region=us-central1 \
+  --update-env-vars=FUNNEL_RECOVERY_ENABLED=true
+```
+(or Cloud Console → Cloud Run → runabandonrecovery → edit → env vars).
+Before flipping it, look at its recent logs — `funnel_recovery_dry_run`
+entries show exactly who WOULD have been emailed; that's your preview.
+
+**b) Your lead-alert TEXTS depend on Twilio A2P 10DLC registration.** The
+code texts your cell instantly on every lead, but US carriers silently drop
+messages from unregistered numbers (error 30034). Twilio Console →
+Messaging → Regulatory Compliance: if the campaign isn't approved, emails
+are currently your only alert channel. Finish the registration.
+
+**c) Both email features need a REAL Resend key.** The deploy pipeline
+creates placeholder secrets when missing. Firebase/GCP Console → Secret
+Manager → `RESEND_API_KEY`: if the value is a stub, alerts/recovery/ack
+emails all fail quietly. Also confirm your sending domain is verified in
+Resend so mail doesn't land in spam.
+
+**d) NEW as of today: homeowners get an instant "Got it — Joe here" email**
+on every form submit (estimate, inspect, contact, free-roof, high-intent
+storm reports), with your direct number for urgent cases. NBD leads only —
+tenant leads are excluded on purpose. Test with a ZZ_QA_ lead + your own
+email after deploy.
+
+**e) Your decision, when ready:** an instant auto-TEXT to the homeowner
+("Got it — Joe will call you shortly") converts even better than email, but
+auto-texting requires express consent wording on the forms (TCPA). If you
+want it, say so — it's a small forms-copy change + ~20 lines of code.
