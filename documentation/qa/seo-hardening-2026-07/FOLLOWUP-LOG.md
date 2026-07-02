@@ -35,6 +35,24 @@ hero is visually unchanged (the photo sits under a .78–.92 gradient).
 Note for a future pass: the same treatment on `roofing-2.webp` (250 KB,
 `combo-hero-bg` on 116 service pages) is the next-biggest win.
 
+### 2b. Extended to every page with the same criteria (Jo's request)
+
+A repo-wide sweep of CSS background raster references found exactly three hero
+images: `drone-hero-crew` (homepage, done above), `roofing-2`
+(`.combo-hero-bg`, 116 service pages), and `roofing-1` (`.city-hero-bg`,
+30 area/city pages). Nothing else on the public site matches the criteria.
+
+`scripts/add-mobile-hero-variants.js` appended a `@media(max-width:600px)`
+override after each of the 146 rules, swapping in new 800×600 q72 variants:
+`roofing-1-800.webp` 55 KB (−69% vs 178 KB) and `roofing-2-800.webp` 77 KB
+(−69% vs 250 KB). The override's background value is derived from each page's
+own rule text, so gradients carry over verbatim; desktop untouched.
+
+Verified: request-log per viewport on a service + an area page (mobile fetches
+only `-800`, desktop only full-size); mobile screenshot visually unchanged;
+site integrity 0 failures; **Lighthouse on the sampled service page: LCP
+3.9 s → 3.2 s, perf 0.86 → 0.91.**
+
 ## 3. `<main>` landmark — 195 pages
 
 `scripts/add-main-landmark.js` wraps everything between the single `</nav>`
