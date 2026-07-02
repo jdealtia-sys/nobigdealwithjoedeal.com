@@ -18,8 +18,6 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Storm Alert SMS","description":"Free text message alerts when hail or severe storms hit your zip code in Greater Cincinnati.","url":"https://nobigdealwithjoedeal.com/storm-alerts","applicationCategory":"Weather","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"provider":{"@type":"RoofingContractor","name":"No Big Deal Home Solutions","telephone":"+18594207382"}}</script>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <style>
 :root { --navy:#1e3a6e; --navy-dark:#142a52; --orange:#e8720c; --orange-light:#f08030; --white:#fff; --gray:#6b7280; --success:#22a06b; --alert:#e8720c; }
@@ -67,6 +65,10 @@ nav { background:var(--navy-dark); border-bottom:3px solid var(--orange); paddin
 .signup-btn:hover { background:#fbbf24; transform:translateY(-1px); box-shadow:0 4px 16px rgba(245,158,11,.3); }
 .signup-btn:disabled { opacity:.6; cursor:wait; }
 .signup-note { font-size:.7rem; color:rgba(255,255,255,.3); text-align:center; margin-top:12px; line-height:1.5; }
+/* Inline validation error (T4f) — replaces alert() dialogs */
+.signup-err { display:none; background:rgba(220,38,38,.12); border:1px solid rgba(248,113,113,.45); color:#fca5a5; border-radius:8px; padding:11px 14px; font-size:.84rem; line-height:1.5; margin-bottom:12px; }
+.signup-err.show { display:block; }
+.field input[aria-invalid="true"] { border-color:#f87171; }
 
 /* Success */
 .success-state { display:none; text-align:center; padding:24px 0; }
@@ -145,7 +147,7 @@ footer .pro-door:hover{color:var(--orange,#e8720c)!important}
 nav.tool-nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark,#142a52);border-bottom:3px solid var(--orange,#e8720c);padding:0 40px;display:flex;align-items:center;justify-content:space-between;height:70px;box-shadow:0 2px 20px rgba(0,0,0,.4)}
 nav.tool-nav .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
 nav.tool-nav .nav-logo-text .brand{font-size:1rem;font-weight:800;color:#fff}
-nav.tool-nav .nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:500}
+nav.tool-nav .nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:600}
 nav.tool-nav .tool-nav-right{display:flex;align-items:center;gap:24px}
 nav.tool-nav .tool-nav-home{color:rgba(255,255,255,.85);font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;transition:color .2s;display:inline-flex;align-items:center}
 nav.tool-nav .tool-nav-home:hover{color:var(--orange-light,#f08030)}
@@ -259,6 +261,14 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   nav .nav-links{gap:28px!important}
 }
 </style>
+<style>
+/* a11y (T4d): mini-footer links distinguishable from text + >=24px tap
+   target. !important beats the inline color:inherit;text-decoration:none
+   on the Privacy / Free Roof Program links. Social icons keep their own
+   30px circle styling. */
+footer.foot a{text-decoration:underline!important;display:inline-block;padding:6px 4px}
+footer.foot .nbd-social a{text-decoration:none!important;padding:0}
+</style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head>
 <body>
@@ -342,16 +352,16 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="row">
       <div class="field">
         <label for="alertName">First Name</label>
-        <input type="text" id="alertName" placeholder="John" autocomplete="given-name">
+        <input type="text" id="alertName" placeholder="John" autocomplete="given-name" required>
       </div>
       <div class="field">
         <label for="alertPhone">Phone Number</label>
-        <input type="tel" id="alertPhone" placeholder="(859) 555-0123" autocomplete="tel" inputmode="tel">
+        <input type="tel" id="alertPhone" placeholder="(859) 555-0123" autocomplete="tel" inputmode="tel" required>
       </div>
     </div>
     <div class="field">
       <label for="alertZip">Zip Code</label>
-      <input type="text" id="alertZip" placeholder="45122" maxlength="5" pattern="[0-9]{5}" autocomplete="postal-code" inputmode="numeric">
+      <input type="text" id="alertZip" placeholder="45122" maxlength="5" pattern="[0-9]{5}" autocomplete="postal-code" inputmode="numeric" required>
     </div>
     <div class="field">
       <label for="alertConcern">What Are You Most Concerned About?</label>
@@ -363,6 +373,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       </select>
     </div>
     <div style="position:absolute;left:-9999px;" aria-hidden="true"><input type="text" id="alertHoneypot" tabindex="-1" autocomplete="off" aria-label="Leave this field blank"></div>
+    <div class="signup-err" id="sa-error" role="alert"></div>
     <button class="signup-btn" id="alertSignupBtn">🔔 Sign Me Up — Free</button>
     <script defer  src="/assets/js/inline/ba974607f0.js"></script>
     <div class="signup-note">We'll only text you when severe weather actually hits your zip code. Usually 2-4 times per season. Reply STOP to unsubscribe anytime.</div>

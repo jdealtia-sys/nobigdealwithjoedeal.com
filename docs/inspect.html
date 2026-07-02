@@ -20,8 +20,6 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <style>
 :root{
@@ -76,7 +74,7 @@ h1 span{color:var(--orange)}
 .form-panel .form-intro{font-size:.86rem;color:var(--gray);margin-bottom:22px;line-height:1.55}
 .form-row{margin-bottom:16px}
 .form-row label{display:block;font-size:.74rem;font-weight:700;color:var(--navy);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
-.form-row label .opt{color:var(--gray);font-weight:500;text-transform:none;letter-spacing:0;margin-left:6px}
+.form-row label .opt{color:var(--gray);font-weight:600;text-transform:none;letter-spacing:0;margin-left:6px}
 .form-row input[type=text],.form-row input[type=tel],.form-row input[type=email],.form-row textarea{width:100%;padding:12px 14px;border:1.5px solid var(--light-gray);border-radius:8px;font:inherit;font-size:.95rem;color:#1a1a1a;background:#fff;transition:border-color .15s,box-shadow .15s}
 .form-row input:focus,.form-row textarea:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(232,114,12,.12)}
 .form-row textarea{resize:vertical;min-height:90px;font-family:inherit}
@@ -99,11 +97,13 @@ h1 span{color:var(--orange)}
 /* Tagline footer */
 .tagline-bar{background:var(--navy-dark);color:#fff;text-align:center;padding:36px 5%;font-family:'Bebas Neue',sans-serif;font-size:clamp(1.1rem,2.6vw,1.55rem);letter-spacing:.04em}
 .tagline-bar span{color:var(--orange)}
-.tagline-bar .sub{display:block;font-family:'Montserrat',sans-serif;font-size:.78rem;color:rgba(255,255,255,.5);letter-spacing:.05em;margin-top:6px;font-weight:500}
+.tagline-bar .sub{display:block;font-family:'Montserrat',sans-serif;font-size:.78rem;color:rgba(255,255,255,.5);letter-spacing:.05em;margin-top:6px;font-weight:600}
 
 /* Mini footer */
 .mini-footer{background:#142a52;color:rgba(255,255,255,.5);padding:18px 5%;text-align:center;font-size:.74rem}
 .mini-footer a{color:rgba(255,255,255,.75)}
+/* a11y (T4d): links distinguishable from text + >=24px tap target */
+.mini-footer a{text-decoration:underline;display:inline-block;padding:6px 4px}
 .mini-footer a:hover{color:var(--orange)}
 
 @media(max-width:880px){
@@ -131,6 +131,7 @@ h1 span{color:var(--orange)}
   </a>
 </header>
 
+<main>
 <section class="hero">
   <div class="hero-grid">
     <div class="hero-left">
@@ -205,6 +206,7 @@ h1 span{color:var(--orange)}
   &hellip;seriously, it&rsquo;s in the <span>name</span>.
   <span class="sub">No Big Deal Home Solutions &middot; Greater Cincinnati</span>
 </section>
+</main>
 
 <footer class="mini-footer">
   <p>&copy; 2026 No Big Deal Home Solutions &middot; <a href="/">Home</a> &middot; <a href="/about">About Joe</a> &middot; <a href="/privacy">Privacy</a></p>
