@@ -7,7 +7,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, read, readDashboardMain, readCrm } = require('./_shared');
+const { ROOT, read, readCustomer, readDashboardMain, readCrm } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -15,7 +15,7 @@ module.exports.run = function run(ctx) {
 section('NBDIDBCache — IndexedDB offline-first cache');
 {
   const idb      = read(path.join(ROOT, 'docs/pro/js/idb-cache.js'));
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
 
   // Public surface — these names are the integration contract.
   assert('idb-cache exports get/put/clear/clearAll/revalidate/setActiveUid on window.NBDIDBCache',
@@ -237,7 +237,7 @@ section('JSDoc typedefs — Firestore document shapes');
 
 section('Customer overview photo strip — cap + drag reorder');
 {
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   // 25-cap on the overview photo strip (matches the dashboard's
   // PHOTO_PHASE_CAP pattern from PR #63).
   assert('overview strip caps at 25 with show-all toggle',
@@ -268,7 +268,7 @@ section('Customer overview photo strip — cap + drag reorder');
 
 section('Customer photo multi-select + batched commit');
 {
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   // writeBatch must be imported AND exposed on window so the bulk
   // handlers can invoke it.
   assert('customer.html imports writeBatch from firestore SDK',
@@ -301,7 +301,7 @@ section('Customer photo multi-select + batched commit');
 
 section('Customer photo upload — background-safe + global widget');
 {
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   // Global floating upload widget DOM exists.
   assert('customer.html ships the #nbdUploadWidget DOM',
     /id="nbdUploadWidget"[\s\S]{0,500}id="nbdUploadWidgetBarFill"/.test(customer));
@@ -328,7 +328,7 @@ section('Customer photo upload — background-safe + global widget');
 
 section('Customer photo grid — surgical render path');
 {
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   // _photoById Map for O(1) lookup (was O(n) indexOf inside the render loop).
   assert('customer.html populates window._photoById Map in loadPhotosByPhase',
     /window\._photoById\s*=\s*new Map\(\)/.test(customer));

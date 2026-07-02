@@ -8,7 +8,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboardMain, readFunctionsIndex } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readCustomer, readDashboardMain, readFunctionsIndex } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -56,7 +56,7 @@ section('R-03: photo-editor migrated off imageProxy');
     && !/const PROXY_URL\s*=\s*['"]https?:\/\/[^'"]*imageProxy/.test(src));
   assert('R-03: photo-editor uses window.NBDSignedUrl.get for image loads',
     /window\.NBDSignedUrl\s*\.\s*get\(\s*path\s*\)/.test(src));
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   assert('R-03: customer.html loads signed-image-url.js BEFORE photo-editor.js',
     (() => {
       const helper = customer.indexOf('signed-image-url.js');
@@ -70,7 +70,7 @@ section('Image pipeline (Storage trigger → WebP variants → srcset)');
   const pipeline = read(path.join(ROOT, 'functions/image-pipeline.js'));
   const idx      = read(FUNCTIONS + '/index.js');
   const pkg      = JSON.parse(read(FUNCTIONS + '/package.json'));
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   const types    = read(path.join(ROOT, 'docs/pro/js/types.js'));
 
   // Public surface: onObjectFinalized export wired into index.js.
@@ -550,7 +550,7 @@ section('Photos §3.1: three-tier before/after pairing heuristic');
 
 section('customer.html: blank-preview escape hatch on prereq warning');
 {
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
 
   // The Can't-Generate modal now has a second CTA — "Preview blank
   // template" — so a rep can render any template even when prereqs
@@ -574,7 +574,7 @@ section('customer.html: blank-preview escape hatch on prereq warning');
 
 section('doc-template cards: per-card ⓘ blank-preview button');
 {
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   const docGen = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
 
   // Every doc-template-card (currently 15) has a nested ⓘ button
@@ -693,7 +693,7 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
 section('NBDUrl helper: canonical customer URL builder');
 {
   const helper = read(path.join(ROOT, 'docs/pro/js/nbd-url.js'));
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   const dashboard = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   const dashActions = read(path.join(ROOT, 'docs/pro/js/dashboard-actions.js'));
   const photoReview = read(path.join(ROOT, 'docs/pro/photo-review.html'));
@@ -757,7 +757,7 @@ section('NBDUrl helper: canonical customer URL builder');
 
 section('customer.html: prReviewBtn reads window._customerId at click time (no defer-race)');
 {
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
 
   // Old render-time wire() raced against the auth → loadCustomerData
   // chain. After the §perf defer pass, the customer ID often wasn't
@@ -786,7 +786,7 @@ section('customer.html: prReviewBtn reads window._customerId at click time (no d
 
 section('customer.html: perf — all <script src> defers, preconnect hints present, images lazy/async');
 {
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
 
   // Every external <script src="..."> must be deferred (or async, or
   // type="module" which is deferred-by-default). Anything else blocks
@@ -870,7 +870,7 @@ section('customer.html: every inline event handler migrated to data-action deleg
   // grid; the full sweep migrates ALL inline handlers (88 onclicks +
   // 1 onmouseover + 1 onmouseout + 9 onchanges = 99 total) to data-action /
   // data-change-action delegation via a single generic dispatcher.
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
 
   // ── Zero inline event handlers remain on real markup ──
   // (Comment lines that mention "onclick" in plain text are excluded

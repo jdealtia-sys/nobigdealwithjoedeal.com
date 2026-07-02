@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readCrm, readFunctionsIndex, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readCustomer, readCrm, readFunctionsIndex, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -401,7 +401,7 @@ section('T-2: AI draft send-on-approve');
   assert('panel uses delegated data-aidp-action (no inline onclick)',
     /data-aidp-action/.test(panel) && !/onclick=/.test(panel));
 
-  const customerHtml = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customerHtml = readCustomer();
   assert('customer.html loads the AI drafts panel',
     /customer-ai-drafts-panel\.js/.test(customerHtml));
 }
@@ -932,7 +932,7 @@ section('C5: Voice Intel retention cron + monitoring + feature flag');
 
 section('C4: Voice Intel tab mounted in customer.html');
 {
-  const html = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const html = readCustomer();
   const css  = read(path.join(ROOT, 'docs/pro/css/voice-intelligence.css'));
 
   // Jump nav includes the tab

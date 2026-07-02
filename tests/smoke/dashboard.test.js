@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, readCrm, readMaps, readD2DLive, readFunctionsIndex, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readCustomer, readDashboardMain, readCrm, readMaps, readD2DLive, readFunctionsIndex, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section, bumpPassed, bumpFailed } = ctx;
@@ -343,8 +343,8 @@ section('ScriptLoader contract');
     /<script[^>]+src="js\/script-loader\.js/.test(custRaw),
     'customer.html must load script-loader.js to lazy-load the pdfexport bundle');
   assert('PR 2b3: customer.html PDF handlers load-then-run pdfexport',
-    (custRaw.match(/loadBundle\(['"]pdfexport['"]\)/g) || []).length >= 2,
-    'both inline jsPDF export handlers must ScriptLoader.loadBundle("pdfexport") before window.jspdf');
+    (readCustomer().match(/loadBundle\(['"]pdfexport['"]\)/g) || []).length >= 2,
+    'both jsPDF export handlers must ScriptLoader.loadBundle("pdfexport") before window.jspdf — they live in the extracted customer-*.js shards since the 2026-07-02 CSP extraction, hence readCustomer()');
 }
 
 // ── AdminManager public API ──────────────────────────────────
@@ -593,7 +593,7 @@ section('Visual regression baseline (Playwright pixel-diff)');
 section('NBDStore — pub/sub state store + first-slice migration');
 {
   const store    = read(path.join(ROOT, 'docs/pro/js/state-store.js'));
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   const dash     = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   const pkg      = JSON.parse(read(path.join(ROOT, 'tests/package.json')));
 
@@ -882,7 +882,7 @@ section('Wave 6b (A.2) — Pro Chrome on login.html + vault.html');
 section('Wave 6 (A.1) — Pro Chrome on customer.html via shared theme-system.css');
 {
   const themeCSS = read(path.join(ROOT, 'docs/pro/css/theme-system.css'));
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   // 1. Shared contract lives in theme-system.css now.
   assert('theme-system.css defines :root --accent-fg default #fff',
