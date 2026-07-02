@@ -59,6 +59,19 @@ is in `MANUAL-FOR-JO.md §1`.
 **Rollback:** revert the commit, or run the codemod's regex in reverse
 (`background:#B85400` → `background:var(--orange)` within `.ann-bar` rules).
 
+## F4 follow-up (Jo's decision, option "C") — tiny badge contrast
+
+**Change:** `scripts/fix-tiny-badge-contrast.js` (new, idempotent) moved the 8
+genuinely-tiny (~9.5–12.5px) white-on-orange badge/pill/ribbon elements to
+`#B85400`, matching the announcement bar: `.about-badge`, `.wc-ribbon`,
+`.sc-badge`, `.nbd-tier-pill.featured`, "MOST CHOSEN" inline span (all
+index.html), `.tc-pill` (the-nbd-guarantee), `.progress-dot.active`
+(estimate.html), `.filter-btn.active` (our-work.html). Primary CTA buttons
+(`.btn-primary`, `.nav-cta`, form submits) **keep brand orange by Jo's
+explicit decision** — the remaining 137 audit hits are that accepted set.
+Re-audit (17 templates × 2 viewports, 0 load errors): tiny badges on
+`#E8720C` → 0.
+
 ## F3 — Images
 
 **WebP (empirical result, deviates from the brief):** at the specified ~q82,

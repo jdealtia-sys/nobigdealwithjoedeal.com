@@ -5,7 +5,18 @@ brand decision that isn't mine to make. Each item is self-contained.
 
 ---
 
-## 1. DECISION NEEDED — remaining white-on-orange CTAs (F4)
+## 1. ~~DECISION NEEDED~~ DECIDED 2026-07-02 — remaining white-on-orange CTAs (F4)
+
+> **Jo's decision (option "C", recorded here):** darken only the genuinely-tiny
+> badge/pill/ribbon elements; primary CTA buttons keep brand orange `#E8720C`.
+> Implemented in `scripts/fix-tiny-badge-contrast.js` (8 elements across 4
+> pages: `.about-badge`, `.wc-ribbon`, `.sc-badge`, `.nbd-tier-pill.featured`,
+> the "MOST CHOSEN" inline span, `.tc-pill`, `.progress-dot.active`,
+> `.filter-btn.active`). Re-audit confirms 0 tiny badges remain on `#E8720C`;
+> the 137 remaining hits below the table are all deliberately-kept primary
+> CTAs (`.btn-primary`, `.nav-cta`, step numbers, CTA-panel links). Scanners
+> will keep flagging those — that is the accepted tradeoff. The table below is
+> kept for the record.
 
 The announcement bar is fixed on this branch (now `#B85400`, passes AA). But
 the headless-Chrome audit found ~35 more element patterns rendering white text
