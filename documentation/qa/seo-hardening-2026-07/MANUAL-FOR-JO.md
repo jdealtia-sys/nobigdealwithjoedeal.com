@@ -1,0 +1,155 @@
+# Manual items for Jo — SEO/Tech Hardening 2026-07
+
+Everything here either needs console/DNS access this session didn't have, or a
+brand decision that isn't mine to make. Each item is self-contained.
+
+---
+
+## 1. DECISION NEEDED — remaining white-on-orange CTAs (F4)
+
+The announcement bar is fixed on this branch (now `#B85400`, passes AA). But
+the headless-Chrome audit found ~35 more element patterns rendering white text
+on brand orange `#E8720C` at small sizes — 3.06:1, which fails WCAG AA for
+normal-size text (needs 4.5:1; only ≥24px regular or ≥18.66px bold text may be
+3:1). I did **not** change these: recoloring every primary CTA site-wide is a
+de-facto brand-palette change (locked per the ground rules), and growing them
+all to 18.66px+ bold is a redesign.
+
+Full enumeration (17 representative templates × desktop+mobile; a hit count of
+2 usually means "one element, seen in both viewports"):
+
+| Element/class | Hits (17-page sample) | Computed sizes | Weights | Example text | Already passes AA-large? |
+|---|---|---|---|---|---|
+| `btn-primary` | 46 | 13.6px, 14.72px, 14.08px, 15.2px, 14.4px, 16px, 13.12px | 700, 800 | "Call Joe — (859) 420-7382" | no |
+| `nav-cta` | 15 | 11.2px, 12.48px, 12.8px | 700 | "Free Estimate →" | no |
+| `a` (misc inline CTAs) | 12 | 13.12px, 17.6px, 14.08px, 14.4px | 800, 700 | "Explore the TAMKO Storm Series →" | no |
+| `div` (step chips) | 8 | 13.6px | 800 | "1" | no |
+| `h2` (hero display text) | 6 | 64px, 57.6px, 25.6px | 700 | "Call Joe. I'll Take Care of It." | **YES — no action needed** |
+| `p` (orange CTA panels) | 6 | 16.8px, 15.2px | 500 | "I'll come out, take a real look…" | no |
+| `q-num` | 6 | 14.4px | 800 | "1" | no |
+| `phone` | 4 | 17.6px | 700 | "Or send a message:" | no |
+| `wc-ribbon` | 2 | 10.56px | 800 | "The NBD Guarantee" | no |
+| `span` ("MOST CHOSEN" badge) | 2 | 9.6px | 800 | "MOST CHOSEN" | no |
+| `nbd-tier-pill` | 2 | 11.52px | 700 | "Preferred · Most Chosen" | no |
+| `sc-badge` | 2 | 10.4px | 800 | "Most Requested" | no |
+| `big-num` | 2 | 40px | 400 | "5★" | **YES — no action needed** |
+| `small` | 2 | 10.4px | 700 | "Google Rated" | no |
+| `form-submit` | 2 | 14.4px | 800 | "Get My Free Estimate →" | no |
+| `hs-btn` | 2 | 14.08px | 800 | "Get My Free Estimate →" | no |
+| `filter-btn.active` | 2 | 12.48px | 700 | "All Projects" | no |
+| `progress-dot.active` | 2 | 11.2px, 10.4px | 800 | "1" | no |
+| `phone-cta` | 2 | 16.32px | 800 | "Call or Text (859) 420-7382" | no |
+| `ico` | 2 | 18.4px | 800 | "☎" | no |
+| `submit-btn` | 2 | 16px | 800 | "Request Free Inspection" | no |
+| `sc-callbtn` | 2 | 13.12px | 800 | "📞 Call Joe" | no |
+| `sc-next` | 2 | 16px | 800 | "Continue →" | no |
+| `btn-arrow` | 2 | 14.4px, 13.12px | 800 | "→" | no |
+| `sig` | 2 | 28.8px | 400 | "— Joe" | **YES — no action needed** |
+| `btn-ghost-white` | 2 | 16px, 13.12px | 800 | "Text Joe Directly" | no |
+| `btn-submit` | 2 | 15.2px | 800 | "Submit Entry" | no |
+| `tc-pill` | 2 | 10.88px | 800 | "Most Chosen · ~50% of jobs" | no |
+| `tc-cta` | 2 | 13.12px | 800 | "Get a Preferred Estimate" | no |
+| `col-preferred` | 2 | 16px | 700 | "Preferred" | no |
+| `gtss-cta` | 2 | 13.12px | 800 | "Explore the TAMKO Storm Series →" | no |
+| `cta-primary` | 2 | 14.72px | 800 | "📞 Call Joe — (859) 420-7382" | no |
+| `trust-icon` | 2 | 16px | 400 | "🤝" | no |
+| `vs` | 1 | 13.12px | 800 | "VS" | no |
+| `sb-call` | 1 | 12.16px | 800 | "📞 Call Joe" | no |
+
+**Your options** (can be mixed per element):
+- **(a) Darken to `#B85400`** — same fix as the announcement bar. White text
+  passes at 4.55:1; visually a deeper, brick-ish orange. One more codemod pass
+  and it's done; I can execute on request.
+- **(b) Keep `#E8720C` but switch the text to navy `#142A52` or black** — also
+  passes; bigger visual departure for CTAs.
+- **(c) Accept the risk** — WCAG AA on marketing CTAs is a quality bar, not a
+  legal mandate for a site like this; the scan will keep flagging it.
+
+Note: the WooRank scan said "10 elements"; the real number is ~35 patterns.
+Whatever you pick, the fix mechanic is the same codemod pattern used for the
+announcement bar (`scripts/fix-ann-bar-contrast.js`).
+
+## 2. ACTION NEEDED — www → apex 301 (F1, ~2 minutes)
+
+The site is **Firebase Hosting** (not Cloudflare Pages, whatever the scan
+assumed). `firebase.json` redirects can't match hostnames, so this is a
+console step:
+
+**If www is connected as a Firebase Hosting custom domain (most likely):**
+1. [Firebase Console](https://console.firebase.google.com) → your project →
+   **Hosting** → custom domains.
+2. If `www.nobigdealwithjoedeal.com` is listed: remove it and re-add it
+   choosing **"Redirect to an existing website"** → target
+   `nobigdealwithjoedeal.com`. (Firebase's domain wizard offers redirect mode
+   during setup; an existing "serve content" domain has to be re-added to
+   switch modes.)
+
+**If DNS is proxied through Cloudflare** (the Wave-127 notes in `firebase.json`
+mention Cloudflare edge caching, so this may be your setup): a zone Redirect
+Rule is cleaner:
+1. Cloudflare dashboard → your zone → **Rules → Redirect Rules → Create rule**.
+2. Custom filter expression: `http.host eq "www.nobigdealwithjoedeal.com"`.
+3. Then: Dynamic redirect, status **301**, expression
+   `concat("https://nobigdealwithjoedeal.com", http.request.uri.path)`,
+   **Preserve query string: ON**.
+
+**Verify after (from any machine — this session's network can't reach the domain):**
+```
+curl -sI http://nobigdealwithjoedeal.com/            # → 301 https://nobigdealwithjoedeal.com/
+curl -sI http://www.nobigdealwithjoedeal.com/        # → 301 (https, apex)
+curl -sI https://www.nobigdealwithjoedeal.com/       # → 301 https://nobigdealwithjoedeal.com/
+curl -sI https://nobigdealwithjoedeal.com/           # → 200 (no loop!)
+curl -sI "https://www.nobigdealwithjoedeal.com/services/financing?utm_source=x"
+#   → 301 to https://nobigdealwithjoedeal.com/services/financing?utm_source=x (path + query preserved)
+```
+
+## 3. VERIFY AFTER MERGE+DEPLOY — cache headers (F2)
+
+Deploy happens automatically on merge to main (`firebase-deploy.yml`). Then:
+```
+curl -sI https://nobigdealwithjoedeal.com/assets/css/nbd-fonts.css | grep -i cache-control
+#   expect: public, max-age=86400        (was: max-age=300)
+curl -sI https://nobigdealwithjoedeal.com/assets/js/nav-faq.js | grep -i cache-control
+#   expect: public, max-age=86400
+curl -sI https://nobigdealwithjoedeal.com/assets/fonts/montserrat-700-latin.woff2 | grep -i cache-control
+#   expect: public, max-age=2592000
+curl -sI https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg | grep -i cache-control
+#   expect: public, max-age=2592000      (unchanged)
+curl -sI https://nobigdealwithjoedeal.com/pro/js/dashboard-app.js | grep -i cache-control
+#   expect: max-age=300                  (unchanged — CRM deliberately untouched)
+```
+New operational rule this creates: **if you hand-edit a file under
+`docs/assets/css|js/`, returning visitors can hold the old copy for up to 24 h.**
+If a change must go out instantly, add `?v=2` to that file's references.
+
+## 4. FYI — pre-existing quirk found in `firebase.json`, not changed
+
+The `**/*.@(js|css)` rule (the "Wave 127 P0" one, `max-age=0, must-revalidate`)
+never actually applies: the `**` rule after it wins per last-match-wins, so
+JS/CSS has really been shipping with `max-age=300` all along — including
+`/pro/js/**`. If the Wave-127 stale-SW symptom ever resurfaces in the CRM,
+this is why. Fixing it means moving that rule below `**` — deliberately left
+alone here because it changes CRM caching behavior (out of scope for this pass).
+
+## 5. REMINDER — DMARC (your list, 5 minutes, DNS)
+
+TXT record at `_dmarc.nobigdealwithjoedeal.com`:
+`v=DMARC1; p=none; rua=mailto:<your inbox>` — monitor 2–4 weeks, then tighten
+to `p=quarantine`. (SPF verified present and correct; no change needed.)
+
+## 6. FYI — things checked and deliberately left alone
+
+- **Phone landmine sweep:** every number other than (859) 420-7382 turned out
+  to be a form placeholder (`(859) 555-1234` etc.) or the Oaks template's own
+  contact number (`(513) 827-5297`, only under noindexed `sites/oaks/`).
+  Nothing looked like a live wrong number on the marketing pages; nothing was
+  changed.
+- **JSON-LD `"email"` fields** still carry the plain address (structured data
+  is meant to be machine-readable; encoding it would break the JSON).
+- **Sitemap** is complete and correct at 199 URLs — the scan's "~250 pages"
+  included private surfaces (pro/admin/tools/oaks). No action ever needed.
+- **Orphan images** (`roofing-3/4.{jpg,webp}`, `drone-completed-brick.{jpg,webp}`,
+  `drone-hero-curb.webp`, `projects/commercial-apartment-underlayment.jpg`) are
+  referenced nowhere; left in place. Delete whenever, ~1.6 MB.
+- **F7 minification: skipped** on the brief's own "acceptable outcome" clause
+  (~13 KiB total upside).
