@@ -279,6 +279,26 @@
           { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://maps.googleapis.com https://maps.gstatic.com https://api.weather.gov https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com https://mesonet.agron.iastate.edu https://server.arcgisonline.com https://*.arcgisonline.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://api.stripe.com https://www.google-analytics.com https://api.weather.gov https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://nominatim.openstreetmap.org https://www.gstatic.com https://fonts.gstatic.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; frame-src 'self' https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://js.stripe.com https://*.firebaseapp.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://cal.com https://*.cal.com https://app.boldsign.com; worker-src 'self' blob:;" }
         ]
+      },
+      {
+        "_comment": "SEO-hardening 2026-07 (F2): longer browser/CDN caching for PUBLIC marketing assets. Placed at the END of this array because header matching is last-match-wins per key (see line-71 comment) — the '**' rule above otherwise pins everything to max-age=300. Scoped to /assets/{css,js,fonts} only: /pro/js (CRM app code) keeps the 300s default on purpose, and /assets/vendor is shared with the pro app so it is deliberately NOT touched. 86400 (24h) rather than a 1-year immutable cache because asset filenames are NOT content-hashed (the /assets/js/inline/* names no longer match their content hashes) and there is no build step to stamp ?v= versions — a long immutable cache without cache-busting would strand users on stale code after a deploy. Tradeoff: an edit to a css/js file here can take up to 24h to reach repeat visitors; if that ever bites, append a ?v=N query string to the changed file's references and redeploy.",
+        "source": "/assets/css/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
+      },
+      {
+        "source": "/assets/js/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
+      },
+      {
+        "_comment": "Self-hosted woff2 files are stable binaries (a family change would ship under a new filename), so cache for 30 days — same policy as /assets/images/**. Previously they inherited the 300s '**' default, so every returning visitor re-validated every font five minutes after their last visit.",
+        "source": "/assets/fonts/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=2592000" }
+        ]
       }
     ]
   },
