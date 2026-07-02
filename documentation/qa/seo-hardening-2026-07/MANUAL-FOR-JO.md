@@ -127,7 +127,10 @@ curl -sI https://nobigdealwithjoedeal.com/assets/fonts/montserrat-700-latin.woff
 curl -sI https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg | grep -i cache-control
 #   expect: public, max-age=2592000      (unchanged)
 curl -sI https://nobigdealwithjoedeal.com/pro/js/dashboard-app.js | grep -i cache-control
-#   expect: max-age=300                  (unchanged — CRM deliberately untouched)
+#   expect: public, max-age=0, must-revalidate
+#   (changed in the follow-up round: the Wave-127 revalidation rule's ordering
+#    was fixed, so CRM app code now revalidates per request as its author
+#    intended — see FOLLOWUP-LOG.md §4)
 ```
 New operational rule this creates: **if you hand-edit a file under
 `docs/assets/css|js/`, returning visitors can hold the old copy for up to 24 h.**
