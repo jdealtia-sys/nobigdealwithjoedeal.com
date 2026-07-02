@@ -236,8 +236,41 @@ addrInput.addEventListener('input', function() {
   _debounceTimer = setTimeout(() => searchAddress(q), 350);
 });
 
+// Keyboard path for the autocomplete: the dropdown items are divs, so
+// without ArrowUp/Down + Enter handling a keyboard/screen-reader user could
+// only rely on the typed-top-match fallback, never an explicit pick.
+let _acKbIdx = -1;
+addrInput.setAttribute('role', 'combobox');
+addrInput.setAttribute('aria-autocomplete', 'list');
+addrInput.setAttribute('aria-expanded', 'false');
+addrInput.setAttribute('aria-controls', 'acDrop');
+acDrop.setAttribute('role', 'listbox');
+function _acMarkActive(items) {
+  for (var i = 0; i < items.length; i++) {
+    items[i].classList.toggle('kb-active', i === _acKbIdx);
+    items[i].setAttribute('aria-selected', i === _acKbIdx ? 'true' : 'false');
+  }
+  addrInput.setAttribute('aria-activedescendant', _acKbIdx >= 0 ? 'ac-opt-' + _acKbIdx : '');
+}
 addrInput.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') { e.preventDefault(); goToStep(2); }
+  var open = acDrop.style.display === 'block';
+  var items = open ? acDrop.querySelectorAll('.ac-item') : [];
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!open || !items.length) return;
+    e.preventDefault();
+    _acKbIdx = e.key === 'ArrowDown'
+      ? (_acKbIdx + 1) % items.length
+      : (_acKbIdx <= 0 ? items.length - 1 : _acKbIdx - 1);
+    _acMarkActive(items);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (open && items.length) { selectAddr(_acKbIdx >= 0 ? _acKbIdx : 0); }
+    else { goToStep(2); } // existing typed-top-match fallback via validateStep
+  } else if (e.key === 'Escape') {
+    acDrop.style.display = 'none';
+    addrInput.setAttribute('aria-expanded', 'false');
+    _acKbIdx = -1;
+  }
 });
 
 // Greater Cincinnati metro bbox (lon_min, lat_max, lon_max, lat_min — Nominatim viewbox order).
@@ -265,9 +298,11 @@ async function searchAddress(q) {
     if (!data.length) { acDrop.style.display = 'none'; return; }
     acDrop.innerHTML = data.map(function(d, i) {
       const safe = String(d.display_name || '').replace(/[<>]/g, '');
-      return '<div class="ac-item" role="option" data-idx="' + i + '">' + safe + '</div>';
+      return '<div class="ac-item" role="option" id="ac-opt-' + i + '" aria-selected="false" data-idx="' + i + '">' + safe + '</div>';
     }).join('');
     acDrop.style.display = 'block';
+    addrInput.setAttribute('aria-expanded', 'true');
+    _acKbIdx = -1;
     window._acResults = data;
   } catch(e) {
     if (myReq !== _searchSeq) return;
@@ -277,12 +312,16 @@ async function searchAddress(q) {
 
 function selectAddr(idx) {
   const d = window._acResults[idx];
+  if (!d) return;
   addrInput.value = d.display_name;
   funnelData.addressFull = d;
   funnelData.address = d.display_name;
   funnelData.lat = parseFloat(d.lat);
   funnelData.lon = parseFloat(d.lon);
   acDrop.style.display = 'none';
+  addrInput.setAttribute('aria-expanded', 'false');
+  addrInput.setAttribute('aria-activedescendant', '');
+  _acKbIdx = -1;
 }
 
 document.addEventListener('click', function(e) {
@@ -777,9 +816,19 @@ async function submitAndGetEstimate() {
     ballpark: funnelData.ballpark
   };
 
-  window._saveLead(leadData);
+  // Awaited with one retry — this used to be fire-and-forget, so a failed
+  // CRM write still showed the success screen and the lead vanished
+  // silently. _saveLead resolves to the lead id, or null on failure.
+  var _leadSaved = false;
+  try {
+    _leadSaved = !!(await window._saveLead(leadData));
+    if (!_leadSaved) _leadSaved = !!(await window._saveLead(leadData));
+  } catch (saveErr) {
+    console.error('Lead save threw:', saveErr);
+  }
 
   // Notify Joe (await so we know if it fails)
+  var _joeNotified = false;
   if (window._notifyJoe) {
     try {
       await window._notifyJoe({
@@ -791,11 +840,16 @@ async function submitAndGetEstimate() {
         timeline: funnelData.timeline,
         verified: _otpVerified
       });
+      _joeNotified = true;
       console.log('Joe notified successfully');
     } catch(notifyErr) {
       console.error('Joe notification failed:', notifyErr);
     }
   }
+
+  // Either channel landing means Joe has the lead; only if BOTH failed does
+  // the results screen show the call-Joe fallback banner.
+  window._leadDeliveryFailed = !_leadSaved && !_joeNotified;
 
   // Service-aware results: only roof-replacement gets the AI tier-table
   // call. Every other service shows a deterministic single range built
@@ -969,6 +1023,26 @@ async function fetchJoesTakeNote() {
 function showResults(est) {
   document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById('stepResults').classList.add('active');
+
+  // Lead-delivery fallback: the estimate below is computed client-side and
+  // is fine either way, but if neither the CRM write nor Joe's notification
+  // went through, Joe has no record of this homeowner — say so instead of
+  // faking success.
+  var failBanner = document.getElementById('leadDeliveryFail');
+  if (window._leadDeliveryFailed) {
+    if (!failBanner) {
+      failBanner = document.createElement('div');
+      failBanner.id = 'leadDeliveryFail';
+      failBanner.setAttribute('role', 'alert');
+      failBanner.style.cssText = 'background:#fff4ee;border:2px solid #B85400;border-radius:10px;padding:14px 16px;margin:0 0 18px;color:#142a52;font-size:.92rem;font-weight:600;line-height:1.5;text-align:left;';
+      failBanner.innerHTML = 'Heads up &#8212; our system couldn\'t send your request to Joe just now. Your estimate below still stands, but to make sure Joe gets your info, call or text <a href="tel:8594207382" style="color:#B85400;font-weight:800;white-space:nowrap">(859) 420-7382</a>.';
+      var resultsHost = document.getElementById('stepResults');
+      if (resultsHost) resultsHost.insertBefore(failBanner, resultsHost.firstChild);
+    }
+    failBanner.style.display = '';
+  } else if (failBanner) {
+    failBanner.style.display = 'none';
+  }
 
   // Personalized header
   document.getElementById('resultName').textContent = funnelData.firstName + "'s";
