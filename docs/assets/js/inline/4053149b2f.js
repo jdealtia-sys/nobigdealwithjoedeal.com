@@ -236,8 +236,41 @@ addrInput.addEventListener('input', function() {
   _debounceTimer = setTimeout(() => searchAddress(q), 350);
 });
 
+// Keyboard path for the autocomplete: the dropdown items are divs, so
+// without ArrowUp/Down + Enter handling a keyboard/screen-reader user could
+// only rely on the typed-top-match fallback, never an explicit pick.
+let _acKbIdx = -1;
+addrInput.setAttribute('role', 'combobox');
+addrInput.setAttribute('aria-autocomplete', 'list');
+addrInput.setAttribute('aria-expanded', 'false');
+addrInput.setAttribute('aria-controls', 'acDrop');
+acDrop.setAttribute('role', 'listbox');
+function _acMarkActive(items) {
+  for (var i = 0; i < items.length; i++) {
+    items[i].classList.toggle('kb-active', i === _acKbIdx);
+    items[i].setAttribute('aria-selected', i === _acKbIdx ? 'true' : 'false');
+  }
+  addrInput.setAttribute('aria-activedescendant', _acKbIdx >= 0 ? 'ac-opt-' + _acKbIdx : '');
+}
 addrInput.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') { e.preventDefault(); goToStep(2); }
+  var open = acDrop.style.display === 'block';
+  var items = open ? acDrop.querySelectorAll('.ac-item') : [];
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!open || !items.length) return;
+    e.preventDefault();
+    _acKbIdx = e.key === 'ArrowDown'
+      ? (_acKbIdx + 1) % items.length
+      : (_acKbIdx <= 0 ? items.length - 1 : _acKbIdx - 1);
+    _acMarkActive(items);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (open && items.length) { selectAddr(_acKbIdx >= 0 ? _acKbIdx : 0); }
+    else { goToStep(2); } // existing typed-top-match fallback via validateStep
+  } else if (e.key === 'Escape') {
+    acDrop.style.display = 'none';
+    addrInput.setAttribute('aria-expanded', 'false');
+    _acKbIdx = -1;
+  }
 });
 
 // Greater Cincinnati metro bbox (lon_min, lat_max, lon_max, lat_min — Nominatim viewbox order).
@@ -265,9 +298,11 @@ async function searchAddress(q) {
     if (!data.length) { acDrop.style.display = 'none'; return; }
     acDrop.innerHTML = data.map(function(d, i) {
       const safe = String(d.display_name || '').replace(/[<>]/g, '');
-      return '<div class="ac-item" role="option" data-idx="' + i + '">' + safe + '</div>';
+      return '<div class="ac-item" role="option" id="ac-opt-' + i + '" aria-selected="false" data-idx="' + i + '">' + safe + '</div>';
     }).join('');
     acDrop.style.display = 'block';
+    addrInput.setAttribute('aria-expanded', 'true');
+    _acKbIdx = -1;
     window._acResults = data;
   } catch(e) {
     if (myReq !== _searchSeq) return;
@@ -277,12 +312,16 @@ async function searchAddress(q) {
 
 function selectAddr(idx) {
   const d = window._acResults[idx];
+  if (!d) return;
   addrInput.value = d.display_name;
   funnelData.addressFull = d;
   funnelData.address = d.display_name;
   funnelData.lat = parseFloat(d.lat);
   funnelData.lon = parseFloat(d.lon);
   acDrop.style.display = 'none';
+  addrInput.setAttribute('aria-expanded', 'false');
+  addrInput.setAttribute('aria-activedescendant', '');
+  _acKbIdx = -1;
 }
 
 document.addEventListener('click', function(e) {
