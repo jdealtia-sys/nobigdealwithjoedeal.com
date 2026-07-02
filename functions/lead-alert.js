@@ -246,6 +246,43 @@ async function alertJoe(collection, d, leadId) {
 
   // Close the loop with the homeowner (independent; never blocks the alert).
   await ackHomeowner(collection, d, leadId, target);
+  await ackHomeownerSms(collection, d, leadId, target);
+}
+
+// ── Homeowner ack TEXT — gated, estimate funnel only ────────────────────
+// Same idea as the ack email but SMS converts harder. Fires ONLY when:
+//  - LEAD_ACK_SMS_ENABLED=true on the trigger services (Jo's flip, same
+//    pattern as FUNNEL_RECOVERY_ENABLED — default OFF), and
+//  - collection is estimate_leads: the /estimate funnel's submit button is
+//    hard-disabled until the TCPA consent box ("...follow-up communication
+//    ... Reply STOP to opt out") is checked, so every completed estimate
+//    lead has express written consent by construction. No other form
+//    collects texting consent yet, so no other collection texts.
+// Delivery still requires the Twilio number's A2P 10DLC approval.
+async function ackHomeownerSms(collection, d, leadId, target) {
+  if (process.env.LEAD_ACK_SMS_ENABLED !== 'true') return;
+  if (collection !== 'estimate_leads') return;
+  if (target && target.seal && target.seal !== 'NBD') return;
+  const digits = String(d.phone || d.phoneNumber || '').replace(/[^\d]/g, '');
+  if (digits.length !== 10 && !(digits.length === 11 && digits[0] === '1')) return;
+  const to = '+1' + digits.slice(-10);
+  try {
+    const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
+    const firstName = String(d.firstName || '').trim();
+    const msg = await client.messages.create({
+      to,
+      from: TWILIO_PHONE_NUMBER.value(),
+      body: `${firstName ? firstName + ' — g' : 'G'}ot your estimate request. This is Joe with No Big Deal Home Solutions — I'll call you shortly. Urgent? Call/text me at (859) 420-7382. Reply STOP to opt out.`,
+    });
+    logger.info('leadAck: sms queued', { collection, leadId, sid: msg.sid });
+    if (leadId) {
+      await getFirestore().collection(collection).doc(String(leadId))
+        .update({ ackSmsSentAt: admin.firestore.FieldValue.serverTimestamp() })
+        .catch(() => {});
+    }
+  } catch (e) {
+    logger.error('leadAck: sms failed', { collection, leadId, err: e.message });
+  }
 }
 
 const TRIGGER_OPTS = {
