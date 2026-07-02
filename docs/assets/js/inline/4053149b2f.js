@@ -777,9 +777,19 @@ async function submitAndGetEstimate() {
     ballpark: funnelData.ballpark
   };
 
-  window._saveLead(leadData);
+  // Awaited with one retry — this used to be fire-and-forget, so a failed
+  // CRM write still showed the success screen and the lead vanished
+  // silently. _saveLead resolves to the lead id, or null on failure.
+  var _leadSaved = false;
+  try {
+    _leadSaved = !!(await window._saveLead(leadData));
+    if (!_leadSaved) _leadSaved = !!(await window._saveLead(leadData));
+  } catch (saveErr) {
+    console.error('Lead save threw:', saveErr);
+  }
 
   // Notify Joe (await so we know if it fails)
+  var _joeNotified = false;
   if (window._notifyJoe) {
     try {
       await window._notifyJoe({
@@ -791,11 +801,16 @@ async function submitAndGetEstimate() {
         timeline: funnelData.timeline,
         verified: _otpVerified
       });
+      _joeNotified = true;
       console.log('Joe notified successfully');
     } catch(notifyErr) {
       console.error('Joe notification failed:', notifyErr);
     }
   }
+
+  // Either channel landing means Joe has the lead; only if BOTH failed does
+  // the results screen show the call-Joe fallback banner.
+  window._leadDeliveryFailed = !_leadSaved && !_joeNotified;
 
   // Service-aware results: only roof-replacement gets the AI tier-table
   // call. Every other service shows a deterministic single range built
@@ -969,6 +984,26 @@ async function fetchJoesTakeNote() {
 function showResults(est) {
   document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById('stepResults').classList.add('active');
+
+  // Lead-delivery fallback: the estimate below is computed client-side and
+  // is fine either way, but if neither the CRM write nor Joe's notification
+  // went through, Joe has no record of this homeowner — say so instead of
+  // faking success.
+  var failBanner = document.getElementById('leadDeliveryFail');
+  if (window._leadDeliveryFailed) {
+    if (!failBanner) {
+      failBanner = document.createElement('div');
+      failBanner.id = 'leadDeliveryFail';
+      failBanner.setAttribute('role', 'alert');
+      failBanner.style.cssText = 'background:#fff4ee;border:2px solid #B85400;border-radius:10px;padding:14px 16px;margin:0 0 18px;color:#142a52;font-size:.92rem;font-weight:600;line-height:1.5;text-align:left;';
+      failBanner.innerHTML = 'Heads up &#8212; our system couldn\'t send your request to Joe just now. Your estimate below still stands, but to make sure Joe gets your info, call or text <a href="tel:8594207382" style="color:#B85400;font-weight:800;white-space:nowrap">(859) 420-7382</a>.';
+      var resultsHost = document.getElementById('stepResults');
+      if (resultsHost) resultsHost.insertBefore(failBanner, resultsHost.firstChild);
+    }
+    failBanner.style.display = '';
+  } else if (failBanner) {
+    failBanner.style.display = 'none';
+  }
 
   // Personalized header
   document.getElementById('resultName').textContent = funnelData.firstName + "'s";
