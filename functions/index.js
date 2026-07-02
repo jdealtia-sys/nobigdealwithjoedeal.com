@@ -308,6 +308,9 @@ const funnelRecovery = require('./funnel-recovery');
 exports.saveFunnelProgress = funnelRecovery.saveFunnelProgress;
 exports.runAbandonRecovery = funnelRecovery.runAbandonRecovery;
 
+// Daily 7am ET summary of the last 24h of public leads (functions/lead-digest.js).
+exports.dailyLeadDigest = require('./lead-digest').dailyLeadDigest;
+
 // ═══════════════════════════════════════════════════════════════
 // ESTIMATE EMAIL — "Email My Estimate" homeowner copy
 // ═══════════════════════════════════════════════════════════════

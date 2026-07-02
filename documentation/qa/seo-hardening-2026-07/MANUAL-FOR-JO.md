@@ -227,3 +227,10 @@ email after deploy.
 ("Got it — Joe will call you shortly") converts even better than email, but
 auto-texting requires express consent wording on the forms (TCPA). If you
 want it, say so — it's a small forms-copy change + ~20 lines of code.
+
+**f) NEW: morning digest + gated SMS ack (2026-07-02, round 2).** Every day
+at 7am ET you'll get one email listing the last 24h of leads (skips when
+zero). And the homeowner ack now has a TEXT version, estimate-funnel only
+(that form's TCPA checkbox = express consent), default OFF. To turn on:
+set `LEAD_ACK_SMS_ENABLED=true` on the leadAlert* Cloud Run services —
+same mechanics as (a). Requires the A2P registration from (b) first.

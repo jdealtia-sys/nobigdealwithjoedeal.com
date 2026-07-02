@@ -813,6 +813,10 @@ async function submitAndGetEstimate() {
     phone: funnelData.phone,
     email: funnelData.email,
     phoneVerified: _otpVerified,
+    // Submit is hard-gated on the TCPA checkbox, so this is always true on a
+    // completed lead — stored explicitly so the record is audit-ready and the
+    // SMS-ack trigger can rely on it.
+    tcpaConsent: document.getElementById('tcpaConsent').checked,
     ballpark: funnelData.ballpark
   };
 
