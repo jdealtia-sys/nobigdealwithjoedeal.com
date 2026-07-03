@@ -121,13 +121,17 @@
           cancel:  'Cancel the invite for ' + email + '?',
           disable: 'Disable ' + email + '? Their login stops working until re-enabled. Their leads stay.',
           enable:  'Re-enable ' + email + '?',
-          remove:  'Remove ' + email + ' from the roster? (Their account stays disabled; their leads stay.)'
+          remove:  'Remove ' + email + ' from the team? Their access is revoked; their leads stay.'
         };
         if (!confirm(confirms[action] || 'Proceed?')) return;
         if (btn) { btn.disabled = true; btn.textContent = '…'; }
         try {
           if (action === 'cancel' || action === 'remove') {
-            await window.deleteDoc(window.doc(window.db, 'companies', companyId, 'members', email.toLowerCase()));
+            // removeMember (server) strips the member's companyId/role claims
+            // and revokes their tokens before deleting the roster doc — a bare
+            // client deleteDoc left a removed user with live tenant access
+            // (Firestore authorizes by claim, not roster membership).
+            await _teamCallable('removeMember', { email: email });
           } else {
             await _teamCallable('deactivateUser', { email: email, reactivate: action === 'enable' });
           }

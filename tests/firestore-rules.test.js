@@ -209,14 +209,19 @@ async function run() {
   // Carol has role: company_admin but isn't the ownerId — should fail.
   await assertFails(setDoc(doc(coAdmin, 'companies/co-a/members/new@x.com'),
     { email: 'new@x.com', role: 'sales_rep', status: 'invited' }));
-  // Pillar 4: member CREATE moved server-side (createTeamInvite callable
-  // enforces plan seat limits) — even the owner can't client-create now.
+  // Member writes are FULLY server-mediated now — create/update/delete all
+  // go through callables (createTeamInvite / deactivateUser / removeMember)
+  // so seat limits hold AND removal strips claims + revokes tokens. Even the
+  // owner cannot client-write member docs; only a platform admin can.
   await assertFails(setDoc(doc(alice, 'companies/co-a/members/new@x.com'),
     { email: 'new@x.com', role: 'sales_rep', status: 'invited' }));
-  // ...but the owner still manages EXISTING members (disable/remove flows).
-  await assertSucceeds(setDoc(doc(alice, 'companies/co-a/members/exist@x.com'),
+  await assertFails(setDoc(doc(alice, 'companies/co-a/members/exist@x.com'),
     { status: 'disabled' }, { merge: true }));
+  await assertFails(deleteDoc(doc(alice, 'companies/co-a/members/exist@x.com')));
   await assertFails(setDoc(doc(coAdmin, 'companies/co-a/members/exist@x.com'),
+    { status: 'disabled' }, { merge: true }));
+  // Platform admin retains client access (admin-SDK callables also bypass).
+  await assertSucceeds(setDoc(doc(admin, 'companies/co-a/members/exist@x.com'),
     { status: 'disabled' }, { merge: true }));
   // Pillar 4: same-company members read the company subscription (billing
   // is company-level; the doc is keyed by owner uid == companyId claim).
@@ -375,14 +380,16 @@ async function run() {
   await assertFails(setDoc(doc(bob, 'academy_progress/alice'), { completedNodes: ['x'] }));
 
   // 23d. QA 2026-06-21 #10: companies/{uid}/members keyed under the caller's
-  //      OWN uid is readable even when no /companies/{uid} doc exists
-  //      (the get(...).ownerId check denies a missing doc). The live Team tab
-  //      queries /companies/{_user.uid}/members. Cross-uid still denied.
-  //      Pillar 4: CREATE is server-only now (seat limits) — update/delete
-  //      under the caller's own uid still work for member management.
+  //      OWN uid is READABLE even when no /companies/{uid} doc exists (the
+  //      live Team tab queries /companies/{_user.uid}/members). Cross-uid
+  //      reads stay denied. Member WRITES are fully server-mediated now
+  //      (create/update/delete via callables) — even under the caller's own
+  //      uid, a client write is denied; only removeMember/deactivateUser
+  //      (admin SDK) touch these docs.
   await assertSucceeds(getDoc(doc(alice, 'companies/alice/members/m1')));
   await assertFails(setDoc(doc(alice, 'companies/alice/members/rep1'), { email: 'r@x.com', role: 'sales_rep', status: 'invited' }));
-  await assertSucceeds(setDoc(doc(alice, 'companies/alice/members/m1'), { status: 'disabled' }, { merge: true }));
+  await assertFails(setDoc(doc(alice, 'companies/alice/members/m1'), { status: 'disabled' }, { merge: true }));
+  await assertFails(deleteDoc(doc(alice, 'companies/alice/members/m1')));
   await assertFails(getDoc(doc(bob, 'companies/alice/members/m1')));
   await assertFails(setDoc(doc(bob, 'companies/alice/members/rep2'), { email: 'x@x.com', role: 'sales_rep' }));
 
