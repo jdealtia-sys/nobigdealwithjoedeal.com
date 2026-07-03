@@ -25,15 +25,21 @@ so unconfirmed items are marked.
 These are real but require transactional callables and careful re-enable-flow
 handling; batching them with the above would bloat the diff and the risk.
 
-- **CL1 / C6 — claims not cleared on deactivate/remove (MED-HIGH).** `deactivateUser`
-  disables Auth + revokes tokens but never strips the `companyId`/`role`
-  claims; "Remove" is a bare client `deleteDoc`. A removed/disabled member's
-  existing ID token still resolves tenant scope for up to ~1h (inherent
-  Firebase token lifetime), and a later re-enable restores access with no
-  roster doc. Recommended fix: make deactivate merge-clear the tenant claims
-  (preserving billing) and restore them on reactivate from the member doc;
-  make "Remove" a callable that clears claims + revokes. Own PR with rules
-  tests for the disabled→removed→re-enabled matrix.
+- **CL1 / C6 — claims not cleared on remove — ✅ FIXED (follow-up PR).**
+  New `removeMember` callable (functions/handlers/admin.js) strips the
+  member's `companyId`/`role` claims (merge-preserving billing) and revokes
+  their tokens BEFORE deleting the roster doc; the team tab's Cancel/Remove
+  now route through it instead of a client `deleteDoc`. firestore.rules
+  members block is now fully server-mediated: `create/update/delete: if
+  isAdmin()` — clients can't write member docs at all, so the bypass is
+  closed at the rules layer too. Stripping the claim also makes a removed
+  user correctly un-reactivatable without a fresh invite. Rules tests updated
+  (owner client member writes now DENIED; admin-SDK path unaffected).
+  NOTE: `deactivateUser` (temporary Disable) deliberately keeps the claim so
+  Reactivate works; its revoke+disable already blocks a disabled user from
+  minting a new token. The inherent ≤1h existing-ID-token window on disable
+  is standard Firebase and unchanged — closing it fully would require
+  claim-gating every rule (out of scope).
 - **CL4 — `createTeamInvite` seat check is TOCTOU (MED).** Count-check-write
   isn't atomic; parallel invites for distinct emails can overrun the seat cap
   by a few. A transaction alone doesn't fix it (different member docs) — needs
