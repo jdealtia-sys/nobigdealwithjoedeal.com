@@ -28,6 +28,7 @@ const db = getFirestore(app);
 const functions = getFunctions(app);
 await connectEmulatorsIfLocal({ auth, db, functions }); // Audit #3: localhost-only, no-op in prod
 const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
+const createCompanyFn = httpsCallable(functions, 'createCompany');
 
 // ─────────────────────────────────────────────────
 // PASSWORD STRENGTH METER
@@ -91,6 +92,17 @@ async function register(e) {
         firstName, lastName, company: company || '', email,
         createdAt: serverTimestamp(), onboarded: false
       });
+      // PILLAR1 Phase 2: turn the account into a real tenant (companies/{uid}
+      // + companyProfile seed + owner claims) so lead routing and per-tenant
+      // branding work without hand-seeding. Non-fatal: if it fails the
+      // account still works under the solo uid convention and the dashboard
+      // can retry later.
+      try {
+        await createCompanyFn({ name: company || `${firstName} ${lastName}`.trim() });
+        await cred.user.getIdToken(true); // pick up companyId/role claims
+      } catch (provisionErr) {
+        console.warn('createCompany failed (account still usable):', provisionErr);
+      }
       window.location.replace('/pro/dashboard.html');
       return;
     } catch (e2) {

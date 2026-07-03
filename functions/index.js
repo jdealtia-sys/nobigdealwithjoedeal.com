@@ -131,6 +131,11 @@ exports.submitPublicLead  = integrationsHandlers.submitPublicLead;
 const portalHandlersInline = require('./handlers/portal');
 exports.validateAccessCode = portalHandlersInline.validateAccessCode;
 
+// PILLAR1 Phase 2 — self-serve tenant provisioning (companies/{uid} +
+// companyProfile seed + owner claims). See handlers/provisioning.js.
+const provisioningHandlers = require('./handlers/provisioning');
+exports.createCompany = provisioningHandlers.createCompany;
+
 // Browser monitoring (CSP violation report sink)
 const monitoringHandlers = require('./handlers/monitoring');
 exports.cspReport = monitoringHandlers.cspReport;
