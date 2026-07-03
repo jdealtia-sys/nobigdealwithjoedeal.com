@@ -1424,53 +1424,22 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <h2 class="sec-title reveal">Straight Talk <span>From Real People</span></h2>
     </div>
     <div class="reviews-rating reveal">
-      <div class="reviews-stars">★★★★★</div>
       <div>
-        <div class="reviews-score">5.0 / 5.0</div>
-        <div class="reviews-score-sub">Based on Google Reviews</div>
+        <div class="reviews-score">Straight from Google</div>
+        <div class="reviews-score-sub">Real reviews from Cincinnati &amp; Northern Kentucky homeowners — not hand-picked</div>
       </div>
       <a href="/#contact" class="btn-primary" style="margin-left:auto">Get My Free Estimate →</a>
     </div>
-    <div class="reviews-grid">
-      <div class="review-card reveal">
-        <div class="review-qmark">"</div>
-        <div class="review-stars">★★★★★</div>
-        <p class="review-text">"Joe was straightforward from the start — gave me an honest assessment, didn't try to sell me anything I didn't need, and the crew knocked it out in one day. Best contractor experience I've had."</p>
-        <div class="review-author">
-          <div class="review-avatar">DH</div>
-          <div>
-            <div class="review-name">David H.</div>
-            <div class="review-loc">Milford, OH — Roof Replacement</div>
-          </div>
-        </div>
-      </div>
-      <div class="review-card reveal">
-        <div class="review-qmark">"</div>
-        <div class="review-stars">★★★★★</div>
-        <p class="review-text">"Had storm damage and wasn't sure how to deal with insurance. Joe handled literally everything — filed the claim, worked with the adjuster, and had us fixed up within a week. Couldn't believe how easy it was."</p>
-        <div class="review-author">
-          <div class="review-avatar">LR</div>
-          <div>
-            <div class="review-name">Linda R.</div>
-            <div class="review-loc">Loveland, OH — Storm Damage</div>
-          </div>
-        </div>
-      </div>
-      <div class="review-card reveal">
-        <div class="review-qmark">"</div>
-        <div class="review-stars">★★★★★</div>
-        <p class="review-text">"Got three quotes. Joe was the only one who came out, got on the roof himself, and told me what I actually needed — not what would make him the most money. Fair price, great crew, zero drama."</p>
-        <div class="review-author">
-          <div class="review-avatar">TM</div>
-          <div>
-            <div class="review-name">Tom M.</div>
-            <div class="review-loc">Goshen, OH — Siding &amp; Gutters</div>
-          </div>
-        </div>
-      </div>
+    <!-- Live Google reviews (Firebase Function → Places API). The hardcoded
+         5.0/5.0 score + 3 sample review cards here were removed 2026-07-03
+         (content audit) — same cleanup already applied to /review. -->
+    <div data-nbd-google-reviews></div>
+    <div style="text-align:center;margin-top:22px">
+      <a href="/review" class="btn-ghost">Read all our Google reviews →</a>
     </div>
   </div>
 </section>
+<script src="/assets/js/google-reviews-widget.js" defer></script>
 
 <!-- CERTIFICATIONS & BRAND PARTNERS -->
 <section style="background:var(--navy);padding:56px 5%;border-top:3px solid var(--orange)">
