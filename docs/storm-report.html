@@ -96,6 +96,7 @@ table.sr-table{width:100%;border-collapse:collapse;font-size:.84rem}
 @media print{.sr-head,.sr-intro,.sr-foot,.sr-cta,.sr-cta-row,.sr-disc{display:none!important}.sr-shell{margin:0;max-width:100%}.sr-card{box-shadow:none;border:none}#sr-map{height:340px}}
 </style>
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>/* iOS-zoom fix (conversion audit): 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
 </head>
 <body>
 <header class="sr-head">
@@ -117,7 +118,7 @@ table.sr-table{width:100%;border-collapse:collapse;font-size:.84rem}
       <h2>Check your address</h2>
       <div class="sr-sub">Verified federal storm data for your exact location.</div>
       <div class="sr-input-wrap">
-        <input type="text" class="sr-input" id="sr-address" placeholder="Start typing your property address…" autocomplete="off">
+        <input type="text" class="sr-input" id="sr-address" aria-label="Property address" placeholder="Start typing your property address…" autocomplete="off">
         <div class="sr-acdrop" id="sr-acdrop"></div>
       </div>
       <div class="sr-hint" id="sr-addr-hint"></div>
@@ -140,11 +141,11 @@ table.sr-table{width:100%;border-collapse:collapse;font-size:.84rem}
         <div class="sr-lead">See the full report — every event, a map, and whether it's worth a claim.</div>
         <div class="sr-sub">Joe sends it personally (and emails you a copy). No spam, no pressure.</div>
         <span class="sr-label">First name</span>
-        <input type="text" class="sr-input" id="sr-firstName" placeholder="John" autocomplete="given-name">
+        <input type="text" class="sr-input" id="sr-firstName" aria-label="First name" placeholder="John" autocomplete="given-name">
         <span class="sr-label">Mobile phone</span>
-        <input type="tel" class="sr-input" id="sr-phone" placeholder="(859) 420-7382" autocomplete="tel" inputmode="tel">
+        <input type="tel" class="sr-input" id="sr-phone" aria-label="Mobile phone" placeholder="(859) 420-7382" autocomplete="tel" inputmode="tel">
         <span class="sr-label">Email <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--gray)">(optional — for your copy)</span></span>
-        <input type="email" class="sr-input" id="sr-email" placeholder="you@email.com" autocomplete="email" inputmode="email">
+        <input type="email" class="sr-input" id="sr-email" aria-label="Email (optional)" placeholder="you@email.com" autocomplete="email" inputmode="email">
         <label class="sr-consent"><input type="checkbox" id="sr-consent"><span>I agree NBD can contact me about my roof at the number above. Standard rates apply; not a condition of purchase.</span></label>
         <div class="sr-err" id="sr-gate-err"></div>
         <button class="sr-btn" id="sr-unlock" data-action="unlock">Show my full report →</button>
