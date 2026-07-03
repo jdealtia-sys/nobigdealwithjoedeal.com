@@ -313,5 +313,31 @@ Test after deploy (ZZ_QA_ prefix, throwaway email):
    ZZ_QA_ Roofing, contact.alertSms = the phone), users/{uid}.onboarded
    = true; claims carry companyId + role=company_admin.
 4. To re-run the wizard on the same account: /pro/onboarding.html?redo=1.
-Remaining PILLAR1 phase when you want it: team invites (needs the
-GCIP decision from the plan's Phase 0).
+
+## 12. PILLAR1 PHASE 3 SHIPPED — team invites now actually work (2026-07-03)
+
+Until now the Team tab wrote an invite record and said "Invite sent" —
+but no email ever went out, and the function meant to join the rep to
+your company could never deploy (it needed a paid Google Cloud Identity
+Platform upgrade). Fixed WITHOUT the upgrade — the GCIP decision from
+the plan is closed, no action or cost on your side:
+- Inviting someone now emails them signup steps (same Resend key your
+  lead alerts use; reply-to goes to the inviting owner).
+- When they sign up with that email, VERIFY it (they must click the
+  verification link — that's the security gate), and open the
+  dashboard, they're joined automatically: claims + member record flip
+  to active. If they signed up before verifying, it retries on their
+  next dashboard load.
+- Safety: an invite can never grant platform-admin; your own accounts
+  can't be downgraded by an invite; someone already on another team is
+  refused.
+
+Test after deploy (throwaway email you can actually receive):
+1. Dashboard → Settings → Team → invite the throwaway email as
+   sales rep. You should RECEIVE the invite email within a minute.
+2. Follow it: register free (ZZ_QA_ names), click the verification
+   email, then open the dashboard → you should land in YOUR company's
+   team (Settings → Team on your owner account shows the member
+   active).
+3. Firestore check: companies/{your-uid}/members/{email} status
+   'active' with their uid stamped.

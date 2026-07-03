@@ -982,13 +982,47 @@
       const tokenResult = await user.getIdTokenResult();
       window._userClaims = tokenResult.claims || {};
       // If this is a newly invited rep, activate their membership
-      if (window._userClaims.companyId && !localStorage.getItem('nbd_rep_activated')) {
+      if (window._userClaims.companyId && window._userClaims.companyId !== user.uid
+          && !localStorage.getItem('nbd_rep_activated')) {
         try {
           const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
           const fn = httpsCallable(getFunctions(), 'activateInvitedRep');
           await fn({});
           localStorage.setItem('nbd_rep_activated', '1');
         } catch (e) { console.warn('Rep activation skipped:', e.message); }
+      }
+      // PILLAR1 Phase 3 (de-GCIP'd invites): a user with no team claim — or
+      // only the Phase-2 solo default (companyId == uid) — may have a pending
+      // team invite. onRepSignup (the blocking trigger that was meant to stamp
+      // these claims at signup) can never deploy without GCIP, so the claim
+      // happens here on first dashboard load instead. One callable per device
+      // (nbd_invite_checked); the flag is NOT set on transient failures (e.g.
+      // email not verified yet) so it retries on the next load.
+      else if ((!window._userClaims.companyId || window._userClaims.companyId === user.uid)
+          && !localStorage.getItem('nbd_invite_checked')) {
+        try {
+          const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+          const fn = httpsCallable(getFunctions(), 'claimInvite');
+          const res = await fn({});
+          const out = (res && res.data) || {};
+          if (out.claimed) {
+            // Claims changed → the whole tenant scope changed. Refresh the
+            // token and reboot the dashboard so every scoped query re-runs
+            // under the team's companyId.
+            localStorage.setItem('nbd_invite_checked', '1');
+            localStorage.setItem('nbd_rep_activated', '1');
+            await user.getIdToken(true);
+            window.location.reload();
+            return;
+          }
+          // Terminal answers (no invite / already member / own company):
+          // never ask again on this device.
+          localStorage.setItem('nbd_invite_checked', '1');
+        } catch (e) {
+          // failed-precondition = invite exists but email unverified — leave
+          // the flag unset so we re-check after they verify.
+          console.warn('Invite check skipped:', e.message);
+        }
       }
     } catch (e) { window._userClaims = {}; }
     // Notification permission is now opt-in via a user gesture.

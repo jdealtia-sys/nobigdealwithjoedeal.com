@@ -37,8 +37,23 @@
 - Replace the manual seed flow. New tenant is live end-to-end with NBD-default branding (they customize via Settings → Pillar 2).
 - **Verify:** a fresh signup creates an isolated tenant; its docs/leads are scoped to it (cross-tenant rules test already guards this).
 
-### Phase 3 — Team invites
+### Phase 3 — Team invites — ✅ SHIPPED 2026-07-03 (de-GCIP'd, option b)
 - Owner invites reps by email → `companies/{id}/members/{email}` (status: invited) → invite link → on first login, `activateInvitedRep` stamps `companyId`+`role` claim. (Reuse the existing invite scaffolding, de-GCIP'd per Phase 0.)
+> `functions/handlers/invites.js`. The Phase-0 GCIP question is RESOLVED by
+> refactor — no GCIP needed, `onRepSignup` stays in the skip list forever:
+> - `teamInviteEmail` (onDocumentCreated on the members subcollection) sends
+>   the invite email the team tab always claimed to send (Resend, platform-
+>   branded, reply-to the owner).
+> - `claimInvite` (onCall) replaces the blocking trigger: on first dashboard
+>   load a user with no team claim (or only the Phase-2 solo default
+>   companyId==uid) looks up their pending invite by VERIFIED email and gets
+>   `{companyId, role, plan}` merged + the member doc activated. Role
+>   allowlist re-checked server-side; platform admins refused; a self-serve
+>   solo tenant being absorbed is marked `superseded-by-invite`, not deleted.
+> - Composite index `members(email, status)` COLLECTION_GROUP added.
+> - The "brief window with no claim" trade-off from Phase 0(b) is narrower
+>   than feared: Phase 2 gives every signup `companyId==uid` immediately, so
+>   there is no claim-less window at all — just solo-scope until the claim.
 
 ### Phase 4 — Onboarding wizard — ✅ SHIPPED 2026-07-03
 - Post-signup flow: set brand (logo/colors/name — Pillar 2 schema), contact, service area, plan. Writes `companyProfile`. Makes the tenant "real" without touching code.
