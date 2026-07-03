@@ -315,6 +315,10 @@ exports.dailyLeadDigest = require('./lead-digest').dailyLeadDigest;
 // card is still untouched (functions/lead-followup.js).
 exports.leadFollowUpSweep = require('./lead-followup').leadFollowUpSweep;
 
+// Every-30min NWS storm-report watcher: alerts Joe on qualifying hail/wind/
+// tornado in the service area; subscriber texting gated (functions/storm-watch.js).
+exports.stormWatch = require('./storm-watch').stormWatch;
+
 // ═══════════════════════════════════════════════════════════════
 // ESTIMATE EMAIL — "Email My Estimate" homeowner copy
 // ═══════════════════════════════════════════════════════════════

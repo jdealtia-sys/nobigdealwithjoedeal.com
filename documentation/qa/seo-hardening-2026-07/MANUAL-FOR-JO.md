@@ -243,3 +243,23 @@ kill switch if ever needed: set LEAD_FOLLOWUP_ENABLED=false on the
 leadfollowupsweep Cloud Run service. Operational note: this makes moving
 a lead's stage in the dashboard meaningful — touch the card when you
 reach someone, and they'll never get the follow-up.
+
+## 9. STORM WATCHER (direction C, 2026-07-03)
+
+Every 30 minutes the site now checks NWS Local Storm Reports for your
+service area. When hail >=0.75", damaging wind (>=58mph or a damage
+report), or a tornado report lands within 25mi of a service city, you get
+an instant SMS + email: what fell, where, and how many /storm-alerts
+subscribers sit within 15 miles (grouped by zip).
+
+Subscriber texting ("we'll only text you when severe weather actually hits
+your zip") ships OFF. Until you flip it, every storm email shows exactly
+who WOULD have been texted — your dry-run preview. To go live (needs A2P
+from §8b first):
+```
+gcloud run services update stormwatch --region=us-central1 \
+  --update-env-vars=STORM_TEXT_ENABLED=true
+```
+Protections: max one storm text per subscriber per 24h, STOP honored by
+Twilio, unknown zips never texted (they show in your email instead).
+Every processed report is stored in the storm_events collection for audit.
