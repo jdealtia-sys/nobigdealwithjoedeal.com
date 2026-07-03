@@ -263,3 +263,26 @@ gcloud run services update stormwatch --region=us-central1 \
 Protections: max one storm text per subscriber per 24h, STOP honored by
 Twilio, unknown zips never texted (they show in your email instead).
 Every processed report is stored in the storm_events collection for audit.
+
+## 10. PRO FUNNEL — one console flip + what changed (2026-07-03)
+
+**Your 1-minute fix (audit gap #2):** the access-code signup path
+("NBD-PRO" hint on /pro/register) fails in prod because the compute
+service account can't mint custom tokens. Fix:
+```
+gcloud projects add-iam-policy-binding nobigdeal-pro \
+  --member="serviceAccount:717435841570-compute@developer.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountTokenCreator"
+```
+Then test: register with an access code from your access_codes collection.
+
+**Shipped in code (gaps #3-4):**
+- /pro/landing.html advertised stale plans at $29/$49/$79 ("Foundation/
+  Blueprint/Professional") while checkout charges $99/$299 — the cards,
+  footer, and FAQ now mirror pricing.html exactly (Free $0 / Starter $99 /
+  Growth $299, trial wording accurate).
+- The free-guide magnet's "guide is ready" screens now hand contractors to
+  /pro/register (UTM-tagged free-guide/magnet so the new monthly report
+  shows whether the magnet converts).
+- Checkout no longer 403s unverified emails — a fresh signup can pay
+  immediately (logged for visibility; Stripe re-collects receipt email).
