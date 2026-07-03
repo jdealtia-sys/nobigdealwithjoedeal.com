@@ -286,3 +286,16 @@ Then test: register with an access code from your access_codes collection.
   shows whether the magnet converts).
 - Checkout no longer 403s unverified emails — a fresh signup can pay
   immediately (logged for visibility; Stripe re-collects receipt email).
+
+## 11. PILLAR1 PHASE 2 SHIPPED — self-serve tenants (2026-07-03)
+
+New signups (free path) now self-provision: createCompany creates
+companies/{uid} + a NEUTRAL companyProfile seed (their name + their email
+as alert contact — never NBD's brand) and sets companyId/role=owner
+claims. Their public-site leads route to THEM, not you. Idempotent;
+invited reps can't accidentally spawn tenants; 5/hr rate limit + App
+Check. Test after deploy: register a fresh throwaway account with a
+company name → Firestore should show companies/{uid} + companyProfile/
+{uid}, and the account's claims should carry companyId + role.
+Remaining PILLAR1 phases when you want them: team invites (needs the
+GCIP decision from the plan's Phase 0) and the full onboarding wizard.
