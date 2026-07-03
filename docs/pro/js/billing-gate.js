@@ -102,7 +102,20 @@
         return;
       }
 
-      const snap = await window.getDoc(window.doc(window.db, 'subscriptions', uid));
+      // Pillar 4: billing is company-level — resolve the subscription from
+      // the companyId claim (== owner uid) so team members see the team
+      // plan, not a phantom 'free' under their own uid. Solo owners:
+      // companyId == uid, byte-identical behavior.
+      let billingKey = uid;
+      try {
+        if (window._userClaims && window._userClaims.companyId) {
+          billingKey = window._userClaims.companyId;
+        } else if (window._user && typeof window._user.getIdTokenResult === 'function') {
+          const tr = await window._user.getIdTokenResult();
+          billingKey = (tr && tr.claims && tr.claims.companyId) || uid;
+        }
+      } catch (_) { /* fall back to uid */ }
+      const snap = await window.getDoc(window.doc(window.db, 'subscriptions', billingKey));
       if (snap.exists()) {
         const data = snap.data();
         _plan = data.plan || 'free';

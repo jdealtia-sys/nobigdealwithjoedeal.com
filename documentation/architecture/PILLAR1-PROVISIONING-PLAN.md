@@ -68,6 +68,18 @@
 ## Sequencing for the rest of the SaaS
 Pillar 1 (this) → **Pillar 4 (company-level billing:** `subscriptions/{uid}` → per-company + seats; gate signup behind a plan) → **Pillar 5 (custom domains + templated tenant sites:** replace hand-authored `docs/sites/oaks/` with a data-driven generator + per-tenant domain routing). Billing (4) pairs naturally with Phase 2 here (charge at company creation).
 
+> **Pillar 4 phase 1 — ✅ SHIPPED 2026-07-03.** Billing now resolves at the
+> COMPANY: every subscription reader (nbd-auth, billing-gate, dashboard boot)
+> keys `subscriptions/{companyId claim || uid}`; rules let same-company
+> members READ their company's subscription; `trackUsage` pools usage on the
+> company doc (5 reps share one Growth allowance). Seat enforcement:
+> member CREATE is rules-denied client-side and moved into the
+> `createTeamInvite` callable (`functions/handlers/invites.js`) — seats =
+> PLAN_LIMITS[plan].reps (free/starter 0, growth 5, enterprise ∞), pending
+> invite re-sends don't take a new seat, owner update/delete flows keep
+> working. NOT yet done from the Pillar-4 sketch: plan-gated signup and
+> charge-at-company-creation (product decisions for Jo).
+
 ## Open decisions for Jo
 - **GCIP vs Firestore-trigger refactor** for `onRepSignup` (Phase 0).
 - **Signup gating:** open self-serve (anyone) vs invite/approval-only (curated) — affects abuse surface + whether Phase 2 needs a plan/paywall up front.

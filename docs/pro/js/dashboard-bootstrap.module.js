@@ -915,8 +915,17 @@
         // forever instead of rejecting, blocking the visibility=visible
         // flip below and leaving the dashboard invisible. Soft failure
         // here drops to free tier (billing-gate enforces real limits).
+        // Pillar 4: billing is company-level — a team member reads the
+        // company's subscription (doc keyed by owner uid == their companyId
+        // claim). Solo owners resolve to their own uid as before. Claims
+        // read is cached (no extra network on a warm token).
+        let _subKey = user.uid;
+        try {
+          const _tr = await user.getIdTokenResult();
+          _subKey = (_tr && _tr.claims && _tr.claims.companyId) || user.uid;
+        } catch (_) { /* fall back to uid */ }
         const subSnap = await Promise.race([
-          getDoc(doc(db, 'subscriptions', user.uid)),
+          getDoc(doc(db, 'subscriptions', _subKey)),
           new Promise((_, rej) => setTimeout(() => rej(new Error('Subscription check timed out')), 4000))
         ]);
         if (subSnap.exists()) {

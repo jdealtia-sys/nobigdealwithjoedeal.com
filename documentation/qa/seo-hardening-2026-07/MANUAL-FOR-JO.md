@@ -341,3 +341,26 @@ Test after deploy (throwaway email you can actually receive):
    active).
 3. Firestore check: companies/{your-uid}/members/{email} status
    'active' with their uid stamped.
+
+## 13. PILLAR 4 PHASE 1 SHIPPED — company-level billing (2026-07-03)
+
+Billing used to be per-person: a rep you invited showed up as 'free'
+(their own uid has no subscription doc) no matter what plan the company
+paid for, and each rep had their own separate usage meter. Now:
+- Reps see and share the COMPANY plan. Plan + limits resolve from the
+  owner's subscription everywhere (dashboard, feature gates, usage
+  meters). Your own accounts still bypass everything as before.
+- Usage pools company-wide: 5 reps on Growth share one 500-lead/month
+  allowance instead of each getting a phantom free meter.
+- Seat limits are real now: Free/Starter = solo (invites blocked with
+  an upgrade prompt), Growth = 5 reps, and the check happens on the
+  server so it can't be bypassed. Re-inviting a pending member re-sends
+  their email without taking a new seat.
+
+Nothing for you to flip — deploys with the merge. Quick check when you
+run the §12 invite test: after the rep joins, their dashboard should
+show your plan (not Free), and Settings → Team should reject a 6th
+active invite on Growth with a friendly seat-limit message.
+
+Still open from the Pillar-4 sketch (your product calls, not built):
+gating signup behind a paid plan, and charging at company creation.

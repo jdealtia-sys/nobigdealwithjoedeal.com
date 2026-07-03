@@ -141,6 +141,8 @@ exports.createCompany = provisioningHandlers.createCompany;
 const inviteHandlers = require('./handlers/invites');
 exports.claimInvite = inviteHandlers.claimInvite;
 exports.teamInviteEmail = inviteHandlers.teamInviteEmail;
+// Pillar 4 — invites create server-side so plan seat limits hold.
+exports.createTeamInvite = inviteHandlers.createTeamInvite;
 
 // Browser monitoring (CSP violation report sink)
 const monitoringHandlers = require('./handlers/monitoring');
