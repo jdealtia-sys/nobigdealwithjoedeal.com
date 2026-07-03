@@ -40,17 +40,29 @@ handling; batching them with the above would bloat the diff and the risk.
   minting a new token. The inherent ≤1h existing-ID-token window on disable
   is standard Firebase and unchanged — closing it fully would require
   claim-gating every rule (out of scope).
-- **CL4 — `createTeamInvite` seat check is TOCTOU (MED).** Count-check-write
-  isn't atomic; parallel invites for distinct emails can overrun the seat cap
-  by a few. A transaction alone doesn't fix it (different member docs) — needs
-  a maintained `companies/{id}.seatCount` counter incremented in a
-  transaction. Low impact (a Growth tenant gets 6 not 5 via a deliberate race).
-- **CL5 — re-invite delete+recreate races claimInvite (MED).** Non-atomic
-  delete+set on the member doc can throw a concurrent claim's `batch.update`.
-  Fold into the same PR as CL1 (member-doc writes go transactional).
-- **CL6 — re-inviting a `deactivated` member doesn't re-enable Auth (MED).**
-  Leaves a permanently-stuck `invited` row consuming a seat. Fix alongside the
-  claims-clearing PR.
+- **CL4 — `createTeamInvite` seat check is TOCTOU (MED) — ACCEPTED, won't fix.**
+  Count-check-write isn't atomic; two invites for distinct emails fired in the
+  same ~100ms window can both pass a 5-seat gate → 6 seats. A transaction alone
+  can't fix it (the two writes hit different member docs, so no write-write
+  conflict; a query read doesn't lock phantom inserts). The only correct fix is
+  a maintained `companies/{id}.seatCount` incremented in a transaction — but
+  that counter must be kept in lockstep across createTeamInvite (+1),
+  deactivateUser (−1 / +1), and removeMember (−1), plus a backfill. A drifted
+  counter fails the WRONG way: it wrongly BLOCKS legitimate invites, which is
+  worse than the bug it fixes. Given the impact (a tenant one seat over their
+  OWN cap via a deliberate race; rate-limited 30/hr; not a security/data
+  issue), the counter's cost + drift risk exceed the benefit. Documented and
+  accepted.
+- **CL5 — re-invite delete+recreate races claimInvite (MED) — ✅ FIXED.**
+  invites.js: the re-invite delete is now transaction-guarded — it re-reads the
+  member doc inside a txn and aborts if a concurrent `claimInvite` flipped it to
+  `active` (so a just-joined teammate can't be demoted back to `invited` and
+  have their seat re-consumed). The recreate stays a separate `set()` so the
+  `teamInviteEmail` onDocumentCreated resend trigger still fires.
+- **CL6 — re-inviting a `deactivated` member doesn't re-enable Auth (MED) — ✅ FIXED.**
+  invites.js: createTeamInvite now refuses a re-invite when the member is
+  `deactivated` (their Auth is disabled — a fresh `invited` row would be
+  unclaimable and stuck) and directs the owner to the Re-enable action instead.
 
 ## FLAGGED for Jo — pre-existing or product/architectural calls (not fixed)
 
@@ -70,9 +82,12 @@ handling; batching them with the above would bloat the diff and the risk.
   A homeowner whose browser autofills a "website" field gets a silent
   false-success and the lead is dropped. Renaming needs server coordination
   (the gateway checks `website` across all forms). Worth a coordinated pass.
-- **P8 — tenant sites ship NBD's favicon + roofing fallback services (LOW).**
-  Minor white-label bleed for non-roofing tenants. Needs a neutral favicon
-  asset; fallback trades are arguably fine for a roofing-focused platform.
+- **P8 — tenant sites shipped NBD's favicon (LOW) — ✅ FIXED (favicon).**
+  docs/sites/t/ now ships a neutral slate house-glyph favicon
+  (`site-icon.svg`) instead of NBD's `/favicon.svg`, closing the browser-tab
+  brand bleed. The roofing-trade FALLBACK_SERVICES are intentionally kept —
+  NBD PRO is a roofing-focused platform, so roofing defaults are appropriate
+  for an unconfigured tenant.
 - **CL8 — legacy `sendTeamInviteEmail` + `invites/{token}` collection (LOW).**
   Dead path in email-functions.js still uses the old role vocab incl. `'owner'`
   and writes an `invites` collection no current claim path consumes. Retire or

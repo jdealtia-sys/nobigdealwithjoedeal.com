@@ -352,8 +352,15 @@ exports.createTeamInvite = onCall(
     if (existingStatus === 'active') {
       return { invited: false, reason: 'already_member', seatsUsed: occupied.length, seatsLimit: seats === Infinity ? null : seats };
     }
-    // Re-inviting a pending/disabled member re-uses their seat; only a NEW
-    // seat is gated.
+    // CL6: a DEACTIVATED member's Auth account is disabled — re-inviting them
+    // would write a fresh 'invited' row they can never claim (they can't sign
+    // in), leaving a permanently-stuck invite consuming a seat. Send the owner
+    // to the Re-enable action in that member's row instead.
+    if (existingStatus === 'deactivated') {
+      throw new HttpsError('failed-precondition',
+        'That person is on your team but disabled. Use "Re-enable" in their row to restore access — no new invite needed.');
+    }
+    // Re-inviting a pending member re-uses their seat; only a NEW seat is gated.
     const takingNewSeat = !existing || (existingStatus !== 'invited' && existingStatus !== 'active');
     const seatsAfter = occupied.length + (existingStatus === 'invited' ? 0 : (takingNewSeat ? 1 : 0));
     if (seats !== Infinity && seatsAfter > seats) {
@@ -380,8 +387,27 @@ exports.createTeamInvite = onCall(
 
     // Re-invite of a pending invite: delete + recreate so the
     // teamInviteEmail onDocumentCreated trigger fires again (resend).
+    // CL5: the delete is now transaction-guarded so a claimInvite that flipped
+    // this exact doc to 'active' in the window since our seat read can't be
+    // silently clobbered back to 'invited' (which would DEMOTE a just-joined
+    // teammate and re-consume their seat). Re-read inside the txn; abort if it
+    // raced to active/deactivated. The recreate stays a separate set() so the
+    // onDocumentCreated resend trigger fires.
     const memberRef = db.doc(`companies/${companyId}/members/${email}`);
-    if (existing) await memberRef.delete();
+    if (existing) {
+      await db.runTransaction(async (tx) => {
+        const cur = await tx.get(memberRef);
+        const st = cur.exists ? (cur.data() || {}).status : null;
+        if (st === 'active') {
+          throw new HttpsError('failed-precondition', 'That person just joined your team — no invite needed.');
+        }
+        if (st === 'deactivated') {
+          throw new HttpsError('failed-precondition',
+            'That person is on your team but disabled. Use "Re-enable" in their row to restore access.');
+        }
+        tx.delete(memberRef);
+      });
+    }
     await memberRef.set({
       email,
       role,
