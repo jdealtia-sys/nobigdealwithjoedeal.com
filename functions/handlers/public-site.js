@@ -42,6 +42,15 @@ function s(v, max) {
   return typeof v === 'string' ? v.trim().slice(0, max) : '';
 }
 
+// Only serve a value that is a real hex color. The client already re-validates
+// before installing it as a CSS custom property, but validating server-side
+// too means no future consumer can be handed a `url(...)`-style payload in a
+// colors.* field. Non-hex → '' (the template falls back to its neutral default).
+function hex(v) {
+  const c = s(v, 20);
+  return /^#[0-9a-fA-F]{3,8}$/.test(c) ? c : '';
+}
+
 // Pure whitelist builder — exported for unit tests. Takes the RAW
 // companies/{id} + companyProfile/{id} docs and returns exactly the
 // public payload (no alert routing, no integrations, no pricing).
@@ -68,9 +77,8 @@ function buildPublicConfig(companyId, companyDoc, profileDoc) {
     tagline: s(b.tagline, 160),
     logoUrl: /^https:\/\//.test(String(b.logoUrl || '')) ? s(b.logoUrl, 300) : '',
     colors: {
-      primary: s(colors.primary, 20),
-      secondary: s(colors.secondary, 20),
-      accent: s(colors.accent, 20),
+      primary: hex(colors.primary),
+      accent: hex(colors.accent),
     },
     serviceArea: s(b.serviceArea, 120) || s(p.serviceArea, 120),
     contact: {
@@ -91,6 +99,12 @@ exports.getPublicSiteConfig = onRequest(
     timeoutSeconds: 15,
   },
   async (req, res) => {
+    // The global firebase.json '**' header stamps `public, max-age=300` on
+    // every hosting response, INCLUDING function rewrites. Left as-is, a 404/
+    // 429/500 from this endpoint would be edge-cached for 5 minutes — a
+    // cached 429 is a per-edge tenant-site blackout. Force no-store up front;
+    // the 200 path re-sets its own cacheable value below.
+    res.set('Cache-Control', 'no-store');
     if (req.method !== 'GET') { res.status(405).json({ ok: false }); return; }
     if (!(await httpRateLimit(req, res, 'siteConfig:ip', 60, 60_000))) return;
 
@@ -173,34 +187,54 @@ exports.setSiteSlug = onCall(
     const db = getFirestore();
     const coRef = db.doc(`companies/${companyId}`);
 
-    if (v.slug) {
-      const taken = await db.collection('companies')
-        .where('siteSlug', '==', v.slug).limit(1).get();
-      if (!taken.empty && taken.docs[0].id !== companyId) {
-        throw new HttpsError('already-exists', 'That name is taken — pick another.');
+    // Uniqueness via a claim doc `siteSlugs/{slug}` inside a transaction.
+    // A plain check-then-write on companies.siteSlug does NOT close the race:
+    // two owners claiming the same slug write DIFFERENT company docs, so
+    // Firestore sees no write-write conflict and both commit. Contending on
+    // the SAME siteSlugs/{slug} doc makes exactly one win; the loser retries,
+    // sees it occupied, and fails. companies.siteSlug stays authoritative for
+    // getPublicSiteConfig's lookup; the claim doc is admin-SDK-only (default
+    // deny) and exists purely as the lock + reverse index.
+    const slugRef = v.slug ? db.doc(`siteSlugs/${v.slug}`) : null;
+
+    await db.runTransaction(async (tx) => {
+      const coSnap = await tx.get(coRef);
+      if (!coSnap.exists && companyId !== uid) {
+        throw new HttpsError('failed-precondition', 'Company not found.');
       }
-    }
+      const prevSlug = coSnap.exists ? (coSnap.data() || {}).siteSlug : null;
 
-    const coSnap = await coRef.get();
-    if (!coSnap.exists) {
-      if (companyId !== uid) throw new HttpsError('failed-precondition', 'Company not found.');
+      if (slugRef) {
+        const claim = await tx.get(slugRef);
+        if (claim.exists && (claim.data() || {}).companyId !== companyId) {
+          throw new HttpsError('already-exists', 'That name is taken — pick another.');
+        }
+      }
+
       // Pre-Phase-2 solo owner with no company doc yet — create it.
-      await coRef.set({
-        ownerId: uid,
-        name: request.auth.token.name || 'My Company',
-        status: 'active',
-        plan: 'free',
-        source: 'slug-ensure',
-        createdAt: FieldValue.serverTimestamp(),
-      });
-    }
+      if (!coSnap.exists) {
+        tx.set(coRef, {
+          ownerId: uid,
+          name: request.auth.token.name || 'My Company',
+          status: 'active',
+          plan: 'free',
+          source: 'slug-ensure',
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
 
-    await coRef.set(
-      v.slug
+      // Release the previous slug's claim if it's changing/clearing.
+      if (prevSlug && prevSlug !== v.slug) {
+        tx.delete(db.doc(`siteSlugs/${prevSlug}`));
+      }
+      if (slugRef) {
+        tx.set(slugRef, { companyId, updatedAt: FieldValue.serverTimestamp() });
+      }
+      tx.set(coRef, v.slug
         ? { siteSlug: v.slug, siteSlugUpdatedAt: FieldValue.serverTimestamp() }
         : { siteSlug: FieldValue.delete(), siteSlugUpdatedAt: FieldValue.serverTimestamp() },
-      { merge: true }
-    );
+        { merge: true });
+    });
 
     logger.info('setSiteSlug', { companyId, slug: v.slug || '(cleared)' });
     return { ok: true, slug: v.slug, url: '/sites/t/' + (v.slug || companyId) };

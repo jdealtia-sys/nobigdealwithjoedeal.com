@@ -132,8 +132,14 @@ exports.claimInvite = onCall(
     const companySnap = await db.doc(`companies/${companyId}`).get();
     const companyName = (companySnap.exists && (companySnap.data() || {}).name) || '';
 
-    // Same claim shape onRepSignup would have produced.
-    await mergeCustomClaims(uid, { companyId, role, plan: 'growth' });
+    // Only companyId + role. Deliberately NO `plan` claim: post-Pillar-4
+    // billing resolves from subscriptions/{companyId}, so a rep inherits the
+    // company plan from the doc automatically — and hardcoding plan:'growth'
+    // here (the old onRepSignup shape) CLOBBERED a paid solo owner's real
+    // plan claim on merge (the plan claim is telemetry-only now, but the
+    // clobber still violated the merge-don't-replace invariant and mislabeled
+    // Sentry). mergeCustomClaims preserves any existing plan/billing claims.
+    await mergeCustomClaims(uid, { companyId, role });
 
     const batch = db.batch();
     batch.update(memberDoc.ref, {

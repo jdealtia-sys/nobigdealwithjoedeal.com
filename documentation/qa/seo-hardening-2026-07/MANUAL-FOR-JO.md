@@ -428,3 +428,27 @@ waiting on your edits in documentation/drafts/ (each has JO: markers) —
 say the word when edited and I'll publish them into /blog with all the
 trimmings. The GBP/reviews cadence from §7 remains the highest-leverage
 non-code SEO work.
+
+## 16. SECURITY AUDIT OF THIS WEEK'S WORK — bugs found & fixed (2026-07-03)
+
+I ran three adversarial audits over everything shipped this week and fixed
+the confirmed bugs. Full write-up:
+documentation/qa/tenant-lifecycle-audit-2026-07.md. The ones that would
+have bitten you:
+- Tenant microsite leads were misrouting to YOU instead of the tenant (a
+  casing bug in the lead tagger). Fixed.
+- The "Save Address" button in Settings was silently doing nothing —
+  the whole slug feature was dead on arrival. Fixed.
+- If a new signup's provisioning hiccuped, finishing the setup wizard
+  wiped the brand they'd just entered. Fixed.
+Plus a slug-uniqueness race, a plan-claim clobber, a wizard bug that
+stamped MY orange as every tenant's brand color, and a couple of caching/
+scope edge cases — all fixed and tested (both rules suites + 1924 smoke +
+browser tests green).
+
+Deferred to a focused follow-up PR (needs careful testing): when you
+Disable or Remove a team member, their access token can linger up to ~1
+hour (standard Firebase behavior) and their claims aren't fully cleared —
+I'll harden that with its own rules-tested change. A few low-priority
+items (public-form bot-hardening, honeypot autofill, tenant-site favicon)
+are flagged in the audit doc for your call.
