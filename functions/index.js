@@ -319,6 +319,9 @@ exports.leadFollowUpSweep = require('./lead-followup').leadFollowUpSweep;
 // tornado in the service area; subscriber texting gated (functions/storm-watch.js).
 exports.stormWatch = require('./storm-watch').stormWatch;
 
+// 1st-of-month 7am ET marketing rollup (functions/marketing-report.js).
+exports.monthlyMarketingReport = require('./marketing-report').monthlyMarketingReport;
+
 // ═══════════════════════════════════════════════════════════════
 // ESTIMATE EMAIL — "Email My Estimate" homeowner copy
 // ═══════════════════════════════════════════════════════════════
