@@ -533,7 +533,13 @@ service cloud.firestore {
     // READ-ONLY for the owner. All writes go through the Stripe webhook or
     // the hardened validateAccessCode Cloud Function (admin SDK).
     match /subscriptions/{uid} {
-      allow read: if isOwner(uid) || isAdmin();
+      // Pillar 4: billing is company-level. The doc is keyed by the OWNER's
+      // uid (== the companyId their team carries), so same-company members
+      // may READ their company's plan — billing-gate and the dashboard
+      // resolve limits from subscriptions/{companyId || uid}. Cross-tenant
+      // stays denied (myCompanyId() never equals another owner's uid).
+      allow read: if isOwner(uid) || isAdmin()
+        || (isAuth() && myCompanyId() == uid);
       allow write: if false;
     }
 
@@ -733,7 +739,12 @@ service cloud.firestore {
           || (isAuth() && request.auth.uid == companyId)
           || (isAuth() && get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid)
           || (isAuth() && request.auth.uid == memberId);
-        allow create, update, delete: if isAdmin()
+        // Pillar 4: CREATE moved server-side (createTeamInvite callable) so
+        // plan seat limits are enforceable — a client-side invite write could
+        // add unlimited reps on a solo plan. Owners keep update/delete for
+        // the disable/remove-member flows.
+        allow create: if isAdmin();
+        allow update, delete: if isAdmin()
           || (isAuth() && request.auth.uid == companyId)
           || (isAuth() && get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid);
       }

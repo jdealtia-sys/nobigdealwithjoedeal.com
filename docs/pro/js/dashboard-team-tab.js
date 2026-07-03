@@ -23,31 +23,39 @@
           return;
         }
         try {
-          // Create or get the company doc
-          var companyId = window._user.uid; // solo operator = their own company
-          await window.setDoc(window.doc(window.db, 'companies', companyId), {
-            ownerId: window._user.uid,
-            name: window._user.displayName || 'My Company',
-            createdAt: window.serverTimestamp()
-          }, { merge: true });
-          // Add the invited member
-          await window.setDoc(window.doc(window.db, 'companies', companyId, 'members', email.toLowerCase()), {
-            email: email.toLowerCase(),
-            role: role,
-            status: 'invited',
-            invitedAt: window.serverTimestamp(),
-            invitedBy: window._user.uid
-          });
+          // Pillar 4: invites go through the createTeamInvite callable —
+          // firestore.rules denies client member CREATEs now so plan seat
+          // limits are enforced server-side. The callable also ensures the
+          // companies/{uid} doc exists (the setDoc that used to live here).
+          // Self-provision the functions SDK globals (billing-gate pattern) —
+          // they're set lazily and may not exist at click time.
+          if (!(window._functions && window._httpsCallable)) {
+            var mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+            window._functions = window._functions || mod.getFunctions();
+            window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+          }
+          var inviteFn = window._httpsCallable(window._functions, 'createTeamInvite');
+          var res = await inviteFn({ email: email.toLowerCase(), role: role });
+          var out = (res && res.data) || {};
           document.getElementById('inviteRepEmail').value = '';
           // showToast (dashboard-ui.js) renders msg via innerHTML — escape
           // the typed email before it rides along.
           // Phase 3: the teamInviteEmail trigger now actually emails the
           // invitee signup steps — the old copy said "sent" when nothing was.
-          if (typeof showToast === 'function') showToast('Invite created — ' + _nbdEscHtml(email) + ' will get an email with signup steps', 'success');
+          if (typeof showToast === 'function') {
+            var seatNote = (out.seatsLimit != null) ? ' (' + out.seatsUsed + ' of ' + out.seatsLimit + ' seats)' : '';
+            showToast(
+              out.invited
+                ? (out.resent ? 'Invite re-sent to ' : 'Invite created — ') + _nbdEscHtml(email) + (out.resent ? '' : ' will get an email with signup steps') + seatNote
+                : _nbdEscHtml(email) + ' is already on your team',
+              out.invited ? 'success' : 'error'
+            );
+          }
           loadTeamMembers();
         } catch (e) {
           console.error('Invite failed:', e);
-          if (typeof showToast === 'function') showToast('Invite failed: ' + e.message, 'error');
+          // Callable errors carry a human message (seat limit, bad role…).
+          if (typeof showToast === 'function') showToast('Invite failed: ' + _nbdEscHtml(e.message || 'unknown error'), 'error');
         }
       }
       async function loadTeamMembers() {

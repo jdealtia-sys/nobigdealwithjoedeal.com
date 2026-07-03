@@ -43,8 +43,11 @@ const { logger } = require('firebase-functions/v2');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { Resend } = require('resend');
-const { CORS_ORIGINS, INVITE_ALLOWED_ROLES } = require('./_shared');
+const { CORS_ORIGINS, INVITE_ALLOWED_ROLES, PROVISION_OWNER_EMAILS, requireTeamAdmin } = require('./_shared');
 const { callableRateLimit } = require('../shared');
+// Seat caps live in billing.js PLAN_LIMITS (server source of truth for the
+// plan table; mirrors docs/pro/js/billing-gate.js PLANS).
+const { _test: { PLAN_LIMITS } } = require('../billing');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
@@ -260,4 +263,135 @@ exports.teamInviteEmail = onDocumentCreated(
   }
 );
 
-exports._test = { resolveInviteRole, inviteEmailHtml, inviteEmailText };
+// ───────────────────────────────────────────────────────────────
+// createTeamInvite — Pillar 4: invites move server-side so plan
+// seat limits are enforceable. firestore.rules now denies client
+// member CREATEs; the team tab calls this instead. The write shape
+// matches the old client write exactly, so teamInviteEmail and
+// claimInvite behave identically.
+//
+// Seat policy: (invited + active) member docs < PLAN_LIMITS[plan].reps.
+// free/starter (reps:1) → no team invites; growth (reps:5) → up to 5
+// reps besides the owner (the generous reading of the landing copy
+// "Growth allows up to 5 team reps"); enterprise → unlimited.
+// ───────────────────────────────────────────────────────────────
+
+// How many INVITED-REP seats a plan grants (besides the owner). reps:1 in
+// the plan table means "solo — 1 user total" → 0 invite seats; reps:5
+// means "up to 5 team reps" → 5 seats. Exported for unit tests.
+function seatLimitForPlan(plan) {
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+  if (limits.reps === Infinity) return Infinity;
+  return limits.reps <= 1 ? 0 : limits.reps;
+}
+
+exports.createTeamInvite = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (request) => {
+    await callableRateLimit(request, 'createTeamInvite', 30, 3_600_000);
+    // Owner (incl. solo companyId==uid convention) or platform admin only —
+    // same gate the admin team-management callables use.
+    const { uid, companyId, isGlobalAdmin } = await requireTeamAdmin(request);
+
+    const email = String((request.data && request.data.email) || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new HttpsError('invalid-argument', 'Enter a valid email address.');
+    }
+    const callerEmail = String(request.auth.token.email || '').toLowerCase();
+    if (email === callerEmail) {
+      throw new HttpsError('invalid-argument', "That's your own email — you already own this company.");
+    }
+    const role = String((request.data && request.data.role) || 'sales_rep');
+    if (!INVITE_ALLOWED_ROLES.has(role)) {
+      throw new HttpsError('invalid-argument', 'Role must be one of: company_admin, manager, sales_rep, viewer.');
+    }
+
+    const db = getFirestore();
+
+    const coRef = db.doc(`companies/${companyId}`);
+    const coSnap = await coRef.get();
+
+    // Resolve the company's plan: subscription doc first (webhook-written
+    // truth), company doc plan as fallback. Joe's owner accounts and
+    // platform admins are never seat-gated.
+    let plan = 'free';
+    if (isGlobalAdmin || PROVISION_OWNER_EMAILS.has(callerEmail)) {
+      plan = 'enterprise';
+    } else {
+      const subSnap = await db.doc(`subscriptions/${companyId}`).get();
+      const subData = subSnap.exists ? (subSnap.data() || {}) : {};
+      const subActive = subData.status === 'active' || subData.status === 'trialing';
+      if (subActive && subData.plan) {
+        plan = subData.plan;
+      } else {
+        plan = (coSnap.exists && (coSnap.data() || {}).plan) || 'free';
+      }
+    }
+
+    const seats = seatLimitForPlan(plan);
+    const membersSnap = await db.collection(`companies/${companyId}/members`).get();
+    const occupied = membersSnap.docs.filter((m) => {
+      const st = (m.data() || {}).status;
+      return st === 'invited' || st === 'active';
+    });
+    const existing = membersSnap.docs.find((m) => m.id === email);
+    const existingStatus = existing ? (existing.data() || {}).status : null;
+
+    if (existingStatus === 'active') {
+      return { invited: false, reason: 'already_member', seatsUsed: occupied.length, seatsLimit: seats === Infinity ? null : seats };
+    }
+    // Re-inviting a pending/disabled member re-uses their seat; only a NEW
+    // seat is gated.
+    const takingNewSeat = !existing || (existingStatus !== 'invited' && existingStatus !== 'active');
+    const seatsAfter = occupied.length + (existingStatus === 'invited' ? 0 : (takingNewSeat ? 1 : 0));
+    if (seats !== Infinity && seatsAfter > seats) {
+      throw new HttpsError('resource-exhausted',
+        seats === 0
+          ? 'Team invites need the Growth plan — your current plan is solo. Upgrade at /pro/landing.html#pricing.'
+          : `Your plan includes ${seats} team seat${seats === 1 ? '' : 's'} and they're all taken. Remove a member or upgrade to add more.`);
+    }
+
+    // Solo owners may not have a companies/{uid} doc yet (pre-Phase-2
+    // accounts) — create it so rules' ownerId checks and member listing
+    // work. Never touch an EXISTING doc (the old client write clobbered
+    // `name` with the rep's displayName on every invite).
+    if (!coSnap.exists && companyId === uid) {
+      await coRef.set({
+        ownerId: uid,
+        name: request.auth.token.name || 'My Company',
+        status: 'active',
+        plan: 'free',
+        source: 'invite-ensure',
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    // Re-invite of a pending invite: delete + recreate so the
+    // teamInviteEmail onDocumentCreated trigger fires again (resend).
+    const memberRef = db.doc(`companies/${companyId}/members/${email}`);
+    if (existing) await memberRef.delete();
+    await memberRef.set({
+      email,
+      role,
+      status: 'invited',
+      invitedAt: FieldValue.serverTimestamp(),
+      invitedBy: uid,
+    });
+
+    logger.info('createTeamInvite: invited', { companyId, role, plan, seatsAfter });
+    return {
+      invited: true,
+      resent: existingStatus === 'invited',
+      seatsUsed: seatsAfter,
+      seatsLimit: seats === Infinity ? null : seats,
+    };
+  }
+);
+
+exports._test = { resolveInviteRole, inviteEmailHtml, inviteEmailText, seatLimitForPlan };

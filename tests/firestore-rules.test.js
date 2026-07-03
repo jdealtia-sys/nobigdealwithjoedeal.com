@@ -92,6 +92,15 @@ async function run() {
     // Company for members-rule test
     await setDoc(doc(db, 'companies/co-a'),
       { ownerId: 'alice', name: 'Alice Roofing' });
+    // Pillar 4 fixtures: an existing member (update/delete stay owner-
+    // writable after create moved server-side) + the company subscription
+    // (team members read their own company's plan; cross-tenant denied).
+    await setDoc(doc(db, 'companies/co-a/members/exist@x.com'),
+      { email: 'exist@x.com', role: 'sales_rep', status: 'active' });
+    await setDoc(doc(db, 'companies/alice/members/m1'),
+      { email: 'm1@x.com', role: 'sales_rep', status: 'invited' });
+    await setDoc(doc(db, 'subscriptions/co-a'),
+      { plan: 'growth', status: 'active' });
   });
 
   // 1. user cannot self-promote to admin via users/{uid}.role
@@ -200,9 +209,20 @@ async function run() {
   // Carol has role: company_admin but isn't the ownerId — should fail.
   await assertFails(setDoc(doc(coAdmin, 'companies/co-a/members/new@x.com'),
     { email: 'new@x.com', role: 'sales_rep', status: 'invited' }));
-  // Alice IS the owner — should succeed.
-  await assertSucceeds(setDoc(doc(alice, 'companies/co-a/members/new@x.com'),
+  // Pillar 4: member CREATE moved server-side (createTeamInvite callable
+  // enforces plan seat limits) — even the owner can't client-create now.
+  await assertFails(setDoc(doc(alice, 'companies/co-a/members/new@x.com'),
     { email: 'new@x.com', role: 'sales_rep', status: 'invited' }));
+  // ...but the owner still manages EXISTING members (disable/remove flows).
+  await assertSucceeds(setDoc(doc(alice, 'companies/co-a/members/exist@x.com'),
+    { status: 'disabled' }, { merge: true }));
+  await assertFails(setDoc(doc(coAdmin, 'companies/co-a/members/exist@x.com'),
+    { status: 'disabled' }, { merge: true }));
+  // Pillar 4: same-company members read the company subscription (billing
+  // is company-level; the doc is keyed by owner uid == companyId claim).
+  await assertSucceeds(getDoc(doc(coAdmin, 'subscriptions/co-a')));
+  await assertSucceeds(getDoc(doc(alice, 'subscriptions/co-a')));
+  await assertFails(getDoc(doc(bob, 'subscriptions/co-a')));
 
   // 20. F-05: leads/{leadId}/activity rep-write shape guards.
   //
@@ -355,11 +375,14 @@ async function run() {
   await assertFails(setDoc(doc(bob, 'academy_progress/alice'), { completedNodes: ['x'] }));
 
   // 23d. QA 2026-06-21 #10: companies/{uid}/members keyed under the caller's
-  //      OWN uid is readable/writable even when no /companies/{uid} doc exists
+  //      OWN uid is readable even when no /companies/{uid} doc exists
   //      (the get(...).ownerId check denies a missing doc). The live Team tab
   //      queries /companies/{_user.uid}/members. Cross-uid still denied.
+  //      Pillar 4: CREATE is server-only now (seat limits) — update/delete
+  //      under the caller's own uid still work for member management.
   await assertSucceeds(getDoc(doc(alice, 'companies/alice/members/m1')));
-  await assertSucceeds(setDoc(doc(alice, 'companies/alice/members/rep1'), { email: 'r@x.com', role: 'sales_rep', status: 'invited' }));
+  await assertFails(setDoc(doc(alice, 'companies/alice/members/rep1'), { email: 'r@x.com', role: 'sales_rep', status: 'invited' }));
+  await assertSucceeds(setDoc(doc(alice, 'companies/alice/members/m1'), { status: 'disabled' }, { merge: true }));
   await assertFails(getDoc(doc(bob, 'companies/alice/members/m1')));
   await assertFails(setDoc(doc(bob, 'companies/alice/members/rep2'), { email: 'x@x.com', role: 'sales_rep' }));
 
