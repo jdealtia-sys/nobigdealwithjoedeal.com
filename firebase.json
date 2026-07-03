@@ -26,6 +26,9 @@
       { "_comment": "Bots, link previewers, and old browsers probe /favicon.ico by reflex. We don't ship a .ico file (favicon.svg covers modern browsers via <link rel=icon>). Rewriting the .ico URL to favicon.svg returns the SVG bytes with Content-Type image/svg+xml — modern browsers accept that fine. The alternative was a 404 every time a crawler hits the URL.",
         "source": "/favicon.ico", "destination": "/favicon.svg" },
       { "source": "/sites/oaks", "destination": "/sites/oaks/index.html" },
+      { "_comment": "Pillar 5 phase 1: universal tenant microsite. /sites/t/<companyId-or-slug> serves the one static template (rewrites only fire when no real file matches, so site.js/site.css still serve directly); /api/site-config is the whitelisted server-side companyProfile read behind it.",
+        "source": "/api/site-config", "function": { "functionId": "getPublicSiteConfig", "region": "us-central1" } },
+      { "source": "/sites/t/**", "destination": "/sites/t/index.html" },
       { "source": "/tools", "destination": "/tools/index.html" },
       { "source": "/privacy", "destination": "/privacy.html" },
       { "source": "/pro/account-erasure", "function": { "functionId": "confirmAccountErasure", "region": "us-central1" } },
@@ -161,6 +164,18 @@
       },
       {
         "source": "/sites/template",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
+        "source": "/sites/t",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
+        "source": "/sites/t/**",
         "headers": [
           { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
         ]

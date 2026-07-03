@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Local Contractor</title>
+<meta name="description" content="Local roofing and exteriors contractor.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/sites/t/site.css">
+<script defer src="/assets/js/public-lead-submit.js"></script>
+<script defer src="/sites/t/site.js"></script>
+</head>
+<body>
+
+<!-- Loading / not-found states -->
+<div id="siteLoading" class="site-state">Loading…</div>
+<div id="siteMissing" class="site-state" hidden>
+  <h1>This site isn't available</h1>
+  <p>The company page you're looking for doesn't exist or has moved.</p>
+</div>
+
+<div id="site" hidden>
+  <nav class="t-nav">
+    <div class="t-nav-inner">
+      <a href="#top" class="t-brand">
+        <img id="brandLogo" alt="" hidden>
+        <span id="brandName"></span>
+      </a>
+      <a id="navPhone" class="t-nav-phone" href="#quote" hidden></a>
+    </div>
+  </nav>
+
+  <header class="t-hero" id="top">
+    <h1 id="heroName"></h1>
+    <p id="heroTagline" hidden></p>
+    <p id="heroArea" hidden></p>
+    <div class="t-hero-ctas">
+      <a id="heroCall" class="t-btn t-btn-solid" href="#quote" hidden>Call now</a>
+      <a class="t-btn t-btn-ghost" href="#quote">Get a free quote</a>
+    </div>
+  </header>
+
+  <section class="t-section" id="servicesSection">
+    <h2>What we do</h2>
+    <div class="t-services" id="servicesGrid"></div>
+  </section>
+
+  <section class="t-section t-strip" id="areaSection" hidden>
+    <h2>Where we work</h2>
+    <p id="areaText"></p>
+  </section>
+
+  <section class="t-section" id="quote">
+    <h2>Request a free quote</h2>
+    <form id="quoteForm" action="#" method="post" novalidate>
+      <div class="t-err" id="formErr" role="alert"></div>
+      <div class="t-ok" id="formOk" role="status"></div>
+      <div class="t-row">
+        <label>First name *<input id="qFirst" name="given-name" type="text" autocomplete="given-name" required></label>
+        <label>Last name<input id="qLast" name="family-name" type="text" autocomplete="family-name"></label>
+      </div>
+      <div class="t-row">
+        <label>Phone *<input id="qPhone" name="tel" type="tel" autocomplete="tel" inputmode="tel" required></label>
+        <label>Email<input id="qEmail" name="email" type="email" autocomplete="email"></label>
+      </div>
+      <label>Address<input id="qAddress" name="street-address" type="text" autocomplete="street-address"></label>
+      <label>Service needed
+        <select id="qService"><option value="">Choose one (optional)</option></select>
+      </label>
+      <label>What's going on?<textarea id="qMessage" rows="4" maxlength="1400"></textarea></label>
+      <!-- Honeypot: the gateway drops any submission that fills this. -->
+      <input id="qWebsite" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" class="t-hp">
+      <button class="t-btn t-btn-solid" type="submit" id="qSubmit">Send my request</button>
+    </form>
+  </section>
+
+  <footer class="t-footer">
+    <div id="footIdentity"></div>
+    <div id="footContact"></div>
+    <div class="t-powered">Site powered by <a href="/pro/landing.html" rel="nofollow">NBD PRO</a></div>
+  </footer>
+</div>
+
+</body>
+</html>

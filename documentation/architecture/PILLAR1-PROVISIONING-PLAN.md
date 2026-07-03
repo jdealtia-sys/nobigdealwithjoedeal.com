@@ -68,6 +68,20 @@
 ## Sequencing for the rest of the SaaS
 Pillar 1 (this) → **Pillar 4 (company-level billing:** `subscriptions/{uid}` → per-company + seats; gate signup behind a plan) → **Pillar 5 (custom domains + templated tenant sites:** replace hand-authored `docs/sites/oaks/` with a data-driven generator + per-tenant domain routing). Billing (4) pairs naturally with Phase 2 here (charge at company creation).
 
+> **Pillar 5 phase 1 — ✅ SHIPPED 2026-07-03.** Universal tenant microsite:
+> `/sites/t/<companyId-or-slug>` serves ONE static template
+> (`docs/sites/t/`) rendered at runtime from `getPublicSiteConfig`
+> (`functions/handlers/public-site.js`) — a server-side, strictly
+> whitelisted read of companies/{id} + companyProfile/{id} (never
+> alert*/integrations/pricing/legal; raw-override semantics mean nothing
+> NBD-branded can bleed). Quote form posts through submitPublicLead with
+> the tenant's companyId → their pipeline + their alert inbox. Slug via
+> companies/{id}.siteSlug (equality query). Superseded/disabled tenants
+> stop resolving. noindex like /sites/oaks. NOT yet done: per-tenant
+> custom DOMAINS (needs multi-site Hosting + DNS — console work), retiring
+> the hand-authored oaks pages onto this template (Scott's call), and a
+> Settings surface for siteSlug.
+>
 > **Pillar 4 phase 1 — ✅ SHIPPED 2026-07-03.** Billing now resolves at the
 > COMPANY: every subscription reader (nbd-auth, billing-gate, dashboard boot)
 > keys `subscriptions/{companyId claim || uid}`; rules let same-company

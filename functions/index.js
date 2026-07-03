@@ -144,6 +144,10 @@ exports.teamInviteEmail = inviteHandlers.teamInviteEmail;
 // Pillar 4 — invites create server-side so plan seat limits hold.
 exports.createTeamInvite = inviteHandlers.createTeamInvite;
 
+// Pillar 5 phase 1 — data-driven tenant microsite (/sites/t/) config read.
+const publicSiteHandlers = require('./handlers/public-site');
+exports.getPublicSiteConfig = publicSiteHandlers.getPublicSiteConfig;
+
 // Browser monitoring (CSP violation report sink)
 const monitoringHandlers = require('./handlers/monitoring');
 exports.cspReport = monitoringHandlers.cspReport;

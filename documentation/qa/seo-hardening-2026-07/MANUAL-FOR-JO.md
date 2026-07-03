@@ -364,3 +364,32 @@ active invite on Growth with a friendly seat-limit message.
 
 Still open from the Pillar-4 sketch (your product calls, not built):
 gating signup behind a paid plan, and charging at company creation.
+
+## 14. PILLAR 5 PHASE 1 SHIPPED — instant tenant websites (2026-07-03)
+
+Every tenant now gets a ready-made one-page website at
+`/sites/t/<their-company-id>` — no hand-building a folder like we did
+for Oaks. It renders live from their company profile (name, tagline,
+logo, colors, phone, service area, services list), and its "Request a
+free quote" form feeds THEIR pipeline and THEIR lead alerts through the
+same hardened gateway as every other public form. What a tenant never
+set simply doesn't show (neutral fallbacks — no NBD branding can bleed
+onto their site). Pages are noindex, same as the Oaks microsite.
+
+Nice-to-know:
+- Pretty URLs: set `siteSlug: "acme-roofing"` on their companies/{id}
+  doc (Firestore console for now) → /sites/t/acme-roofing works.
+- Private data can't leak: the page reads through a server endpoint
+  that whitelists ONLY public marketing fields — alert email/SMS,
+  Twilio/Slack settings, pricing, and legal text are never served.
+- Brand edits show on the site within ~5 minutes (cached).
+
+Test after deploy: take your §11 ZZ_QA_ test tenant's uid and open
+`/sites/t/<that-uid>` — you should see their brand + colors; submit the
+form with ZZ_QA_ names and confirm the lead lands in that tenant's
+pipeline (NOT yours) and the ack/alert goes to the tenant's email.
+
+Still open for later phases (your calls): custom domains per tenant
+(console/DNS work), moving Oaks off its hand-built pages onto this
+template (ask Scott), and a Settings field so tenants set their own
+slug.
