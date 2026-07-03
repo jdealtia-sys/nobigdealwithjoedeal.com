@@ -169,6 +169,7 @@ function validateStep(step) {
     const addr = inp.value.trim();
     if (!addr || addr.length < 5) {
       inp.parentElement.classList.add('has-error');
+      inp.setAttribute('aria-invalid', 'true');
       inp.focus();
       _setAddressHint("Type your address, then pick it from the dropdown that appears.");
       return false;
@@ -230,6 +231,7 @@ const acDrop = document.getElementById('acDrop');
 
 addrInput.addEventListener('input', function() {
   this.parentElement.classList.remove('has-error');
+  this.setAttribute('aria-invalid', 'false');
   clearTimeout(_debounceTimer);
   const q = this.value.trim();
   if (q.length < 4) { acDrop.style.display = 'none'; return; }
@@ -621,9 +623,11 @@ async function sendVerificationCode() {
   const phone = document.getElementById('phoneNumber').value.replace(/\D/g, '');
   if (phone.length !== 10) {
     document.getElementById('phoneNumber').parentElement.parentElement.classList.add('has-error');
+    document.getElementById('phoneNumber').setAttribute('aria-invalid', 'true');
     return;
   }
   document.getElementById('phoneNumber').parentElement.parentElement.classList.remove('has-error');
+  document.getElementById('phoneNumber').setAttribute('aria-invalid', 'false');
 
   const btn = document.getElementById('btnSendCode');
   btn.disabled = true;

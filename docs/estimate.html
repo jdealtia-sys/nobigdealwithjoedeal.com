@@ -526,8 +526,8 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
     <div class="funnel-card-glow"></div>
     <div class="input-group">
       <label for="addressInput">Home Address</label>
-      <input type="text" id="addressInput" placeholder="Start typing your address&hellip;" autocomplete="street-address">
-      <div class="error-msg">Please enter a valid address</div>
+      <input type="text" id="addressInput" placeholder="Start typing your address&hellip;" autocomplete="street-address" required aria-required="true" aria-describedby="addressInput-err">
+      <div class="error-msg" id="addressInput-err" role="alert" aria-live="assertive">Please enter a valid address</div>
       <div class="ac-drop" id="acDrop"></div>
     </div>
   </div>
@@ -565,7 +565,7 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
   <div class="funnel-card">
     <div class="funnel-card-glow"></div>
 
-    <div class="tile-group" data-group="service">
+    <div class="tile-group" data-group="service" role="group" aria-label="Service Needed">
       <div class="tile-group-label">Service Needed</div>
       <div class="tiles">
         <div class="tile" role="button" tabindex="0" aria-pressed="false" data-value="roof-replacement">
@@ -596,7 +596,7 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
       </div>
     </div>
 
-    <div class="tile-group" id="roofTypeGroup" data-group="roofType" style="display:none;">
+    <div class="tile-group" id="roofTypeGroup" data-group="roofType" style="display:none;" role="group" aria-label="Roof Material">
       <div class="tile-group-label">Roof Material</div>
       <div class="tiles">
         <div class="tile selected" data-value="asphalt">
@@ -622,7 +622,7 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
       </div>
     </div>
 
-    <div class="tile-group" id="homeSizeGroup" data-group="homeSize">
+    <div class="tile-group" id="homeSizeGroup" data-group="homeSize" role="group" aria-label="Home Size">
       <div class="tile-group-label">Home Size</div>
       <div class="tiles">
         <div class="tile" role="button" tabindex="0" aria-pressed="false" data-value="small">
@@ -648,7 +648,7 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
       </div>
     </div>
 
-    <div class="tile-group" data-group="timeline">
+    <div class="tile-group" data-group="timeline" role="group" aria-label="Timeline">
       <div class="tile-group-label">Timeline</div>
       <div class="tiles">
         <div class="tile" role="button" tabindex="0" aria-pressed="false" data-value="asap">
@@ -734,23 +734,23 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
     <div class="input-row">
       <div class="input-group">
         <label for="firstName">First Name</label>
-        <input type="text" id="firstName" placeholder="Joe" autocomplete="given-name">
-        <div class="error-msg">Required</div>
+        <input type="text" id="firstName" placeholder="Joe" autocomplete="given-name" required aria-required="true" aria-describedby="firstName-err">
+        <div class="error-msg" id="firstName-err" role="alert" aria-live="assertive">Required</div>
       </div>
       <div class="input-group">
         <label for="lastName">Last Name</label>
-        <input type="text" id="lastName" placeholder="Deal" autocomplete="family-name">
-        <div class="error-msg">Required</div>
+        <input type="text" id="lastName" placeholder="Deal" autocomplete="family-name" required aria-required="true" aria-describedby="lastName-err">
+        <div class="error-msg" id="lastName-err" role="alert" aria-live="assertive">Required</div>
       </div>
     </div>
 
     <div class="input-group">
       <label for="phoneNumber">Phone Number</label>
       <div class="phone-input-row">
-        <input type="tel" id="phoneNumber" placeholder="(859) 555-1234" autocomplete="tel">
+        <input type="tel" id="phoneNumber" placeholder="(859) 555-1234" autocomplete="tel" required aria-required="true" aria-describedby="phoneNumber-err">
         <button class="btn-send-code" id="btnSendCode" data-action="sendCode">Send Code</button>
       </div>
-      <div class="error-msg">Valid phone number required</div>
+      <div class="error-msg" id="phoneNumber-err" role="alert" aria-live="assertive">Valid phone number required</div>
     </div>
 
     <div class="otp-section" id="otpSection">
@@ -768,8 +768,8 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
 
     <div class="input-group">
       <label for="emailAddress">Email Address</label>
-      <input type="email" id="emailAddress" placeholder="you@email.com" autocomplete="email">
-      <div class="error-msg">Valid email required</div>
+      <input type="email" id="emailAddress" placeholder="you@email.com" autocomplete="email" required aria-required="true" aria-describedby="emailAddress-err">
+      <div class="error-msg" id="emailAddress-err" role="alert" aria-live="assertive">Valid email required</div>
     </div>
 
     <div class="tcpa-check">
@@ -778,7 +778,7 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
     </div>
 
     <button class="btn-primary" id="btnSubmit" data-action="submitEstimate" disabled>Get My Free Detailed Estimate &#x2192;</button>
-    <div id="submitError" style="font-size:.78rem;color:var(--error);text-align:center;margin-top:8px;display:none;"></div>
+    <div id="submitError" role="alert" aria-live="assertive" style="font-size:.78rem;color:var(--error);text-align:center;margin-top:8px;display:none;"></div>
   </div>
   <button class="btn-back" data-step="4">&#8592; Back</button>
 </div>
