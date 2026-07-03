@@ -3,7 +3,7 @@
  * ═══════════════════════════════════════════════════════════════
  * createCompany: a freshly-signed-up owner turns their account into a real
  * tenant — `companies/{uid}` + a minimal `companyProfile/{uid}` seed + the
- * `companyId`/`role:owner` custom claims — without Jo hand-seeding Firestore
+ * `companyId`/`role:company_admin` custom claims (the rules' + requireTeamAdmin's canonical top company role — 'owner' is not in the role vocabulary) — without Jo hand-seeding Firestore
  * (previously the ONLY way; see NBD-PRO-PRODUCT-AUDIT-2026-07.md gap #1 and
  * PILLAR1-PROVISIONING-PLAN.md Phase 2).
  *
@@ -92,7 +92,7 @@ exports.createCompany = onCall(
         // the uid convention — refuse loudly rather than adopt it.
         throw new HttpsError('failed-precondition', 'Company id conflict.');
       }
-      if (!claimCompany) await mergeCustomClaims(uid, { companyId: uid, role: 'owner' });
+      if (!claimCompany) await mergeCustomClaims(uid, { companyId: uid, role: 'company_admin' });
       return { created: false, companyId: uid };
     }
 
@@ -125,7 +125,7 @@ exports.createCompany = onCall(
     });
     await batch.commit();
 
-    await mergeCustomClaims(uid, { companyId: uid, role: 'owner' });
+    await mergeCustomClaims(uid, { companyId: uid, role: 'company_admin' });
 
     logger.info('createCompany_provisioned', { uid, name: v.name });
     // Client must force-refresh the ID token to pick up the new claims.
