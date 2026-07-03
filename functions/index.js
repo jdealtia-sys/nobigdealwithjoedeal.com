@@ -136,6 +136,12 @@ exports.validateAccessCode = portalHandlersInline.validateAccessCode;
 const provisioningHandlers = require('./handlers/provisioning');
 exports.createCompany = provisioningHandlers.createCompany;
 
+// PILLAR1 Phase 3 — team invites, de-GCIP'd (claim on first dashboard
+// load instead of the never-deployable onRepSignup blocking trigger).
+const inviteHandlers = require('./handlers/invites');
+exports.claimInvite = inviteHandlers.claimInvite;
+exports.teamInviteEmail = inviteHandlers.teamInviteEmail;
+
 // Browser monitoring (CSP violation report sink)
 const monitoringHandlers = require('./handlers/monitoring');
 exports.cspReport = monitoringHandlers.cspReport;

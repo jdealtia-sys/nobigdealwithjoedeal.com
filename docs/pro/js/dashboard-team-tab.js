@@ -41,7 +41,9 @@
           document.getElementById('inviteRepEmail').value = '';
           // showToast (dashboard-ui.js) renders msg via innerHTML — escape
           // the typed email before it rides along.
-          if (typeof showToast === 'function') showToast('Invite sent to ' + _nbdEscHtml(email), 'success');
+          // Phase 3: the teamInviteEmail trigger now actually emails the
+          // invitee signup steps — the old copy said "sent" when nothing was.
+          if (typeof showToast === 'function') showToast('Invite created — ' + _nbdEscHtml(email) + ' will get an email with signup steps', 'success');
           loadTeamMembers();
         } catch (e) {
           console.error('Invite failed:', e);
