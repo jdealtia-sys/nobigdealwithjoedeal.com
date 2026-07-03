@@ -175,3 +175,30 @@ Certified ID 1162011 used consistently (never falsely "Master Elite"); no
 cross-brand mislabeling (no "TAMKO Timberline"/"GAF Storm Series"); service scope
 (exterior-only, interior→United Restore partner) consistent; free
 inspection/estimate consistently $0; no lorem/123-Main-St/fake staff.
+
+---
+
+## Bucket ③ resolved — 2026-07-03 (Jo: "Do 3")
+
+- **#8 TAMKO in the tiers — ✅ DONE.** the-nbd-guarantee: each tier card now
+  shows its TAMKO alternative (Standard→Heritage, Preferred→Titan XT,
+  Elite→StormFighter Flex + HailGuard), plus a new "TAMKO alternative (hail
+  country)" row in the comparison table. Homepage picker: each tier line now
+  reads "GAF … or TAMKO …". TAMKO is no longer just a dashed afterthought.
+- **#9 Visualizer — ✅ DONE (honest note, not fake data).** The Visualizer is
+  genuinely GAF-specific (real GAF product photos + color data per Timberline
+  line); fabricating a TAMKO palette would mean fake photos/names. Added a note
+  under the roof-color picker: colors model GAF Timberline, TAMKO shades preview
+  the same look and are matched from a physical sample. TAMKO-page copy was
+  already appropriately soft ("preview a look… confirm the exact color").
+- **#10 "Elite" tier naming — ✅ DONE (clarifier, not rename).** A rename would
+  touch ~160 references; instead added a clarifier under the tier cards: "'Elite'
+  is our top build tier — it's ours, not a manufacturer program. We're GAF
+  Certified; 'Master Elite' is a separate GAF tier and isn't what we're
+  describing." Closes the conflation risk without a risky mass rename.
+- **#16 `#f08030` orange — DOCUMENTED as approved tint (no change).** It's a
+  single design token `--orange-light: #f08030` (defined once, 439
+  `var(--orange-light)` refs, 0 hardcoded) — a deliberate lighter tint of the
+  brand orange. Retuning it is explicitly a "global color change," which the
+  locked-palette rule forbids, so it stays. If Jo ever wants it retuned toward
+  #E8720C, it's a ONE-LINE change to the token definition — just say so.
