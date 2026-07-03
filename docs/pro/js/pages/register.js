@@ -7,6 +7,7 @@
  * only the binding changed (addEventListener instead of onclick=/onsubmit=).
  */
 import { initializeApp }                                         from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider }       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 import { getAuth, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup, signInWithCustomToken, sendEmailVerification }
                                                                 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp }   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -23,6 +24,17 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+// App Check must be live before any callable runs — createCompany
+// (enforceAppCheck:true) is invoked right after signup. Key comes from
+// js/dashboard-appcheck-config.js loaded in <head> (photo-review.js pattern).
+try {
+  if (typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(window.__NBD_APP_CHECK_KEY),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+} catch (_) {}
 const auth = getAuth(app);
 const db = getFirestore(app);
 const functions = getFunctions(app);
