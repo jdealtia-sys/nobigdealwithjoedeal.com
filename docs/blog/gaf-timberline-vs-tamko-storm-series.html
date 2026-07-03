@@ -85,8 +85,9 @@ footer a{color:var(--orange-light)}
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 </head>
-<body>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
 
 <div class="ann-bar">⚡ GAF Certified Contractor — Verified on GAF.com</div>
 
@@ -106,7 +107,7 @@ footer a{color:var(--orange-light)}
     <li><a href="/#contact" class="nav-cta">Free Estimate →</a></li>
   </ul>
 </nav>
-<main>
+<main id="main">
 
 <div class="breadcrumb">
   <a href="/">Home</a> › <a href="/blog">Blog</a> › GAF Timberline vs. TAMKO Storm Series

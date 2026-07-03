@@ -109,14 +109,16 @@ a{color:inherit}
 </style>
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
 <style>/* iOS-zoom fix (conversion audit): 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>/* a11y (audit 2026-07): visible focus ring + reduced-motion */:focus-visible{outline:3px solid #e8720c;outline-offset:2px}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}</style>
 </head>
-<body>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
 <header class="sc-head">
   <a href="/" class="sc-logo"><b>NO BIG <span>DEAL</span></b><small>Home Solutions</small></a>
   <a href="tel:+18594207382" class="sc-callbtn">📞 Call Joe</a>
 </header>
 
-<main>
+<main id="main">
 <section class="sc-intro">
   <h1>Storm damage? Find out if it's <span>worth a claim</span> — free, in 60 seconds.</h1>
   <p>Answer a few quick questions. I'll cross-check official storm records for your address and tell you straight whether it's worth filing — then I document it and handle the whole claim.</p>

@@ -272,8 +272,10 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
 <style>/* iOS-zoom fix (conversion audit): 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>/* a11y (audit 2026-07): visible focus ring + reduced-motion */:focus-visible{outline:3px solid #e8720c;outline-offset:2px}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}</style>
 </head>
-<body>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
 
 <nav id="mainNav" class="nav tool-nav">
   <a href="/" class="nav-logo">
@@ -294,7 +296,7 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
   <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav"><span></span><span></span><span></span></button>
   <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
-<main>
+<main id="main">
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
   <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>

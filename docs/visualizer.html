@@ -358,8 +358,10 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>/* a11y (audit 2026-07): visible focus ring + reduced-motion */:focus-visible{outline:3px solid #e8720c;outline-offset:2px}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}</style>
 </head>
-<body>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
 
 <div class="ann-bar">⭐ <span class="ann-text" data-long="See Your New Exterior Before You Spend a Dollar — Free AI Visualizer" data-short="Free AI Exterior Visualizer">See Your New Exterior Before You Spend a Dollar — Free AI Visualizer</span></div>
 
@@ -382,7 +384,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
   <button class="hamburger" id="hamburger" aria-label="Open menu" aria-expanded="false" aria-controls="mobileNav"><span></span><span></span><span></span></button>
   <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
-<main>
+<main id="main">
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">The Guarantee</div>
   <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
