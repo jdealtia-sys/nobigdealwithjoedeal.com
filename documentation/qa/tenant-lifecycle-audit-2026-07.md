@@ -1,0 +1,85 @@
+# Tenant-lifecycle security & correctness audit — 2026-07-03
+
+Three parallel adversarial audits of everything shipped this week (self-serve
+provisioning, onboarding wizard, team invites, company billing, tenant
+microsites, Settings surfaces). Every finding below was verified against the
+code by hand before classification — auditors flag plausible-but-wrong bugs,
+so unconfirmed items are marked.
+
+## FIXED this round (PR: tenant-lifecycle hardening)
+
+| # | Sev | What | Fix |
+|---|-----|------|-----|
+| P1 | HIGH | `submitPublicLead` lowercased the `companyId` tag; `companies/{id}` is keyed by the case-sensitive Firebase uid, so every real tenant's microsite lead misrouted to Joe instead of the tenant. Never caught because the only prior caller (Oaks) used the lowercase literal `'oaks'`. | integrations.js: case-preserving `^[A-Za-z0-9_-]{1,64}$` validation (matches public-site KEY_RE); legacy `'oaks'` still works. |
+| C1 | HIGH | The **Save Address** button (microsite slug) was a silent no-op — `_saveSiteSlug` was never added to `_NBD_CALL_ALLOWLIST`, so the delegate dropped it. Whole feature inoperative. | dashboard-state.js: allowlist entry added. |
+| C2 | HIGH | `createCompany`'s profile seed used `set()` without merge. The onboarding wizard writes the brand, THEN calls createCompany as a self-heal — so the recovery path wiped everything the tenant just configured. | provisioning.js: seed is `set(..., {merge:true})` — additive, still no NBD values. |
+| CL3 | MED-HIGH | `claimInvite` hardcoded `plan:'growth'` into the merged claims, clobbering a paid solo owner's real plan claim. (Post-Pillar-4 the plan claim is telemetry-only, but the clobber still violated merge-don't-replace + mislabeled Sentry.) | invites.js: drop `plan` from the claim; billing resolves from `subscriptions/{companyId}`. |
+| P2 | MED-HIGH | `setSiteSlug` uniqueness was check-then-write on different company docs → two owners could claim the same slug (no write-write conflict). | Transactional `siteSlugs/{slug}` claim doc (racers contend on the same doc; loser fails). Admin-SDK-only, explicit deny rule added. |
+| C3 | MED | Onboarding wizard always wrote `brand.colors` (a color input always has a value), pinning the default `#E8720C` — NBD's own orange — as an explicit override on every tenant (M1 violation). | onboarding.js: `colorsTouched` flag; colors omitted unless a swatch is changed; re-run prefill preserves prior colors. |
+| C4 | MED | `claimInvite` client hook set the `nbd_invite_checked` flags BEFORE `getIdToken(true)`; a refresh failure stranded the rep in stale solo scope for ~1h with the re-check blocked. | dashboard-bootstrap.js: refresh first, then set flags + reload. |
+| P4 | MED | `getPublicSiteConfig` error responses (404/429/500) inherited the global `**` `max-age=300` header → a cached 429 = a 5-min per-edge tenant-site blackout. | public-site.js: `Cache-Control: no-store` up front; 200 path re-sets its cacheable value. |
+| P7 | LOW | `colors.*` weren't hex-validated server-side; `colors.secondary` was served but never applied. | public-site.js: `hex()` validator; dropped unused `secondary`. |
+
+## DEFERRED — needs its own focused PR + rules-test coverage
+
+These are real but require transactional callables and careful re-enable-flow
+handling; batching them with the above would bloat the diff and the risk.
+
+- **CL1 / C6 — claims not cleared on deactivate/remove (MED-HIGH).** `deactivateUser`
+  disables Auth + revokes tokens but never strips the `companyId`/`role`
+  claims; "Remove" is a bare client `deleteDoc`. A removed/disabled member's
+  existing ID token still resolves tenant scope for up to ~1h (inherent
+  Firebase token lifetime), and a later re-enable restores access with no
+  roster doc. Recommended fix: make deactivate merge-clear the tenant claims
+  (preserving billing) and restore them on reactivate from the member doc;
+  make "Remove" a callable that clears claims + revokes. Own PR with rules
+  tests for the disabled→removed→re-enabled matrix.
+- **CL4 — `createTeamInvite` seat check is TOCTOU (MED).** Count-check-write
+  isn't atomic; parallel invites for distinct emails can overrun the seat cap
+  by a few. A transaction alone doesn't fix it (different member docs) — needs
+  a maintained `companies/{id}.seatCount` counter incremented in a
+  transaction. Low impact (a Growth tenant gets 6 not 5 via a deliberate race).
+- **CL5 — re-invite delete+recreate races claimInvite (MED).** Non-atomic
+  delete+set on the member doc can throw a concurrent claim's `batch.update`.
+  Fold into the same PR as CL1 (member-doc writes go transactional).
+- **CL6 — re-inviting a `deactivated` member doesn't re-enable Auth (MED).**
+  Leaves a permanently-stuck `invited` row consuming a seat. Fix alongside the
+  claims-clearing PR.
+
+## FLAGGED for Jo — pre-existing or product/architectural calls (not fixed)
+
+- **P3 — `submitPublicLead` App Check is a no-op (MED, pre-existing).**
+  `enforceAppCheck:true` only works for `onCall`; this is `onRequest`, so the
+  public lead gateway is IP-rate-limit + honeypot only (the code comment
+  already admits it). Affects ALL public forms, not just tenant sites.
+  Hardening options: verify the App Check token manually in-handler, or turn
+  on `TURNSTILE_REQUIRED=true`. Your call — it changes the posture of the main
+  lead pipeline.
+- **P5 — slug lookup discloses the tenant's Firebase uid (LOW).** The template
+  needs `companyId` to tag leads, so the uid is returned. A uid isn't a
+  credential (claims are server-verified), so this is low-risk; a separate
+  public site-id would be a design change. Accept or ask me to add the
+  indirection.
+- **P6 — honeypot named `website` can be autofilled by browsers (LOW).**
+  A homeowner whose browser autofills a "website" field gets a silent
+  false-success and the lead is dropped. Renaming needs server coordination
+  (the gateway checks `website` across all forms). Worth a coordinated pass.
+- **P8 — tenant sites ship NBD's favicon + roofing fallback services (LOW).**
+  Minor white-label bleed for non-roofing tenants. Needs a neutral favicon
+  asset; fallback trades are arguably fine for a roofing-focused platform.
+- **CL8 — legacy `sendTeamInviteEmail` + `invites/{token}` collection (LOW).**
+  Dead path in email-functions.js still uses the old role vocab incl. `'owner'`
+  and writes an `invites` collection no current claim path consumes. Retire or
+  align. A few `'owner'` string refs also linger in prospects.js /
+  ai-texting-persona.js (cosmetic).
+
+## Verified clean (no action)
+
+`buildPublicConfig` whitelist (no alert/integrations/pricing/legal leak, object
+guards defeat prototype tricks, logoUrl https-anchored); site.js rendering
+(all textContent/.src/.value — zero innerHTML, XSS-probed); submitPublicLead
+`contact`-kind allowlist matches the template payload; CSP (no inline
+scripts/handlers in the new pages); escaping via `_nbdEscHtml`; no dead element
+ids; `purgeAccountStorage` KEEP set; `INVITE_ALLOWED_ROLES` fail-down (invite
+can't mint `admin`); claimInvite verified-email + platform-admin + foreign-company
+guards; no reload loop in the claimInvite hook.

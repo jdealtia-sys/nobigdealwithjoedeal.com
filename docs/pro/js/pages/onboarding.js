@@ -62,6 +62,7 @@ const state = {
   claims: {},
   step: 1,
   sealTouched: false, // stop auto-deriving once the rep edits the seal
+  colorsTouched: false, // only persist brand.colors if the rep picks one (M1)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -180,11 +181,20 @@ function buildOverrides() {
   const brand = {
     legalName: name,
     displayName: display,
-    colors: {
+  };
+  // M1: only write colors if the rep actually touched a swatch. An
+  // <input type="color"> ALWAYS reports a value, so writing it
+  // unconditionally pinned the default #1E3A6E/#E8720C (NBD's own orange!)
+  // as an explicit tenant override on every finisher — future platform
+  // default-color changes would never reach them, and the resolver would
+  // treat NBD's palette as "the tenant chose this". Only persist a
+  // deliberate choice.
+  if (state.colorsTouched) {
+    brand.colors = {
       primary: val('obColorPrimary') || '#1E3A6E',
       accent:  val('obColorAccent')  || '#E8720C',
-    },
-  };
+    };
+  }
   if (seal)    { brand.seal = seal; brand.docPrefix = seal; }
   if (tagline)   brand.tagline = tagline;
   if (logoUrl)   brand.logoUrl = logoUrl;
@@ -291,6 +301,13 @@ async function prefill() {
       if (b.seal && b.seal !== 'NBD') { setIfEmpty('obSeal', b.seal); state.sealTouched = true; }
       setIfEmpty('obTagline', b.tagline || '');
       setIfEmpty('obLogoUrl', b.logoUrl || '');
+      // A tenant that previously set colors: prefill + mark touched so a
+      // wizard re-run (?redo=1) preserves them instead of dropping the field.
+      if (b.colors && (b.colors.primary || b.colors.accent)) {
+        const cp = $('obColorPrimary'); if (cp && b.colors.primary) cp.value = b.colors.primary;
+        const ca = $('obColorAccent'); if (ca && b.colors.accent) ca.value = b.colors.accent;
+        state.colorsTouched = true;
+      }
     }
   } catch (_) {}
   if (!state.sealTouched && !val('obSeal')) {
@@ -326,6 +343,13 @@ function wireEvents() {
   if (sealEl) sealEl.addEventListener('input', () => {
     state.sealTouched = true;
     sealEl.value = sealEl.value.toUpperCase();
+  });
+
+  // M1: a color swatch always reports a value, so we only persist colors
+  // once the rep deliberately changes one.
+  ['obColorPrimary', 'obColorAccent'].forEach((id) => {
+    const el = $(id);
+    if (el) el.addEventListener('input', () => { state.colorsTouched = true; });
   });
 
   document.addEventListener('click', (e) => {

@@ -111,6 +111,16 @@ exports.createCompany = onCall(
       source: 'self-serve',
       createdAt: now,
     });
+    // MERGE, not overwrite. The onboarding wizard (Phase 4) writes the full
+    // brand to companyProfile/{uid} and THEN calls createCompany as a
+    // self-heal when register-time provisioning didn't land — the exact
+    // recovery path. companies/{uid} not existing (the idempotency gate above)
+    // does NOT imply companyProfile/{uid} is absent, so a plain set() here
+    // clobbered everything the tenant just configured (seal, colors, logo,
+    // contact, letterhead). Merge preserves those and only ADDS the neutral
+    // identity seed (deep-merging brand.contact.alertEmail alongside any
+    // contact the wizard set). Still no NBD values — every seed field is the
+    // tenant's own.
     batch.set(db.doc(`companyProfile/${uid}`), {
       brand: {
         legalName: v.name,
@@ -122,7 +132,7 @@ exports.createCompany = onCall(
       },
       provisionedBy: 'createCompany-v1',
       createdAt: now,
-    });
+    }, { merge: true });
     await batch.commit();
 
     await mergeCustomClaims(uid, { companyId: uid, role: 'company_admin' });

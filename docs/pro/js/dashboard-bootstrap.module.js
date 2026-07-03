@@ -1016,11 +1016,16 @@
           const out = (res && res.data) || {};
           if (out.claimed) {
             // Claims changed → the whole tenant scope changed. Refresh the
-            // token and reboot the dashboard so every scoped query re-runs
-            // under the team's companyId.
+            // token FIRST, then set the flags + reboot so every scoped query
+            // re-runs under the team's companyId. Setting the flags before the
+            // refresh stranded the rep in stale solo scope for up to ~1h if
+            // getIdToken(true) rejected (transient network) — the flags
+            // blocked the re-check while the old token still resolved billing/
+            // leads under their own uid. Order it so a refresh failure leaves
+            // the flags unset and the next load retries.
+            await user.getIdToken(true);
             localStorage.setItem('nbd_invite_checked', '1');
             localStorage.setItem('nbd_rep_activated', '1');
-            await user.getIdToken(true);
             window.location.reload();
             return;
           }

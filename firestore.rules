@@ -1101,6 +1101,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Tenant microsite slug claim docs (Pillar 5). Admin-SDK only — written
+    // transactionally by setSiteSlug as the uniqueness lock + reverse index;
+    // clients never read or write them (getPublicSiteConfig reads server-side).
+    match /siteSlugs/{slug} {
+      allow read, write: if false;
+    }
+
     // ── DEFAULT DENY ─────────────────────────────────
     match /{document=**} {
       allow read, write: if false;
