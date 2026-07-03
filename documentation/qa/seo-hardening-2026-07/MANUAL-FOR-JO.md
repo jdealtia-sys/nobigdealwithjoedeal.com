@@ -287,15 +287,31 @@ Then test: register with an access code from your access_codes collection.
 - Checkout no longer 403s unverified emails — a fresh signup can pay
   immediately (logged for visibility; Stripe re-collects receipt email).
 
-## 11. PILLAR1 PHASE 2 SHIPPED — self-serve tenants (2026-07-03)
+## 11. PILLAR1 PHASE 2 + 4 SHIPPED — self-serve tenants + onboarding wizard (2026-07-03)
 
 New signups (free path) now self-provision: createCompany creates
 companies/{uid} + a NEUTRAL companyProfile seed (their name + their email
-as alert contact — never NBD's brand) and sets companyId/role=owner
+as alert contact — never NBD's brand) and sets companyId/role=company_admin
 claims. Their public-site leads route to THEM, not you. Idempotent;
 invited reps can't accidentally spawn tenants; 5/hr rate limit + App
-Check. Test after deploy: register a fresh throwaway account with a
-company name → Firestore should show companies/{uid} + companyProfile/
-{uid}, and the account's claims should carry companyId + role.
-Remaining PILLAR1 phases when you want them: team invites (needs the
-GCIP decision from the plan's Phase 0) and the full onboarding wizard.
+Check (the register page now initializes App Check — without that the
+provisioning call was rejected in prod).
+
+Phase 4 (same day): after registering, new free owners land on
+/pro/onboarding.html — a 3-step wizard (company basics → brand → review)
+that writes their companyProfile (letterhead + brand.contact/colors/seal)
+and marks users/{uid}.onboarded. Skippable; invited reps and your own
+accounts are bounced straight to the dashboard; 'NBD' is rejected as a
+seal. If register-time provisioning failed, the wizard retries
+createCompany on finish (self-heal).
+
+Test after deploy (ZZ_QA_ prefix, throwaway email):
+1. /pro/register → free account with company name "ZZ_QA_ Roofing".
+2. You should land on /pro/onboarding.html with the name prefilled.
+   Fill a phone + pick a seal, finish → dashboard.
+3. Firestore: companies/{uid}, companyProfile/{uid} (brand.legalName =
+   ZZ_QA_ Roofing, contact.alertSms = the phone), users/{uid}.onboarded
+   = true; claims carry companyId + role=company_admin.
+4. To re-run the wizard on the same account: /pro/onboarding.html?redo=1.
+Remaining PILLAR1 phase when you want it: team invites (needs the
+GCIP decision from the plan's Phase 0).
