@@ -181,7 +181,7 @@ function ackEmailText(collection, firstName) {
 
 async function ackHomeowner(collection, d, leadId, target) {
   // NBD leads only — a configured tenant's homeowners are not ours to email.
-  if (target && target.seal && target.seal !== 'NBD') return;
+  if (!target || target.seal !== 'NBD') return; // fallback target always carries seal 'NBD'; a CONFIGURED tenant may have seal '' — treat anything non-NBD as not ours to email/text
   const email = String(d.email || '').trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
   try {
@@ -262,7 +262,7 @@ async function alertJoe(collection, d, leadId) {
 async function ackHomeownerSms(collection, d, leadId, target) {
   if (process.env.LEAD_ACK_SMS_ENABLED !== 'true') return;
   if (collection !== 'estimate_leads') return;
-  if (target && target.seal && target.seal !== 'NBD') return;
+  if (!target || target.seal !== 'NBD') return; // fallback target always carries seal 'NBD'; a CONFIGURED tenant may have seal '' — treat anything non-NBD as not ours to email/text
   const digits = String(d.phone || d.phoneNumber || '').replace(/[^\d]/g, '');
   if (digits.length !== 10 && !(digits.length === 11 && digits[0] === '1')) return;
   const to = '+1' + digits.slice(-10);
