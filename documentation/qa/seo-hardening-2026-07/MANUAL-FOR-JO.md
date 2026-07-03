@@ -234,3 +234,12 @@ zero). And the homeowner ack now has a TEXT version, estimate-funnel only
 (that form's TCPA checkbox = express consent), default OFF. To turn on:
 set `LEAD_ACK_SMS_ENABLED=true` on the leadAlert* Cloud Run services —
 same mechanics as (a). Requires the A2P registration from (b) first.
+
+**g) NEW: 24h follow-up email (2026-07-03).** Every 3 hours, leads 20-48h
+old whose CRM card you never touched (stage/status still "new") get ONE
+"we haven't connected yet" email from you — reply-able, with your direct
+number. Ships ACTIVE (it's a service message on their own open request);
+kill switch if ever needed: set LEAD_FOLLOWUP_ENABLED=false on the
+leadfollowupsweep Cloud Run service. Operational note: this makes moving
+a lead's stage in the dashboard meaningful — touch the card when you
+reach someone, and they'll never get the follow-up.
