@@ -10707,6 +10707,31 @@ body.theme-frosted {
           </div>
         </div>
 
+        <!-- Pillar 5: tenant microsite address + wizard re-run -->
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">Your free one-page site renders live from this profile. Share the link in your GBP, truck decals, and door hangers — its quote form feeds YOUR pipeline.</div><div class="panel-title">Your Website</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>Custom web address (optional)</label>
+                <input type="text" id="cp_siteSlug" placeholder="acme-roofing" autocapitalize="off" spellcheck="false">
+                <div style="font-size:10px;color:var(--m);margin-top:4px;">3–40 lowercase letters, numbers, hyphens. Leave blank to use your account id.</div>
+              </div>
+              <div class="sf" style="display:flex;flex-direction:column;justify-content:flex-end;gap:6px;">
+                <button class="btn btn-orange" style="align-self:flex-start;" data-action="call" data-fn="_saveSiteSlug">💾 Save Address</button>
+              </div>
+            </div>
+            <div style="margin-top:8px;font-size:12px;">
+              <span style="color:var(--m);">Your site:</span>
+              <a id="cp-site-link" href="#" target="_blank" rel="noopener" style="color:var(--orange);word-break:break-all;">—</a>
+            </div>
+            <div id="cp-slug-msg" style="display:none;margin-top:8px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;"></div>
+            <div style="margin-top:14px;border-top:1px solid var(--br);padding-top:12px;font-size:12px;color:var(--m);">
+              Want a guided do-over of your name, colors, seal, and contact info?
+              <a href="/pro/onboarding.html?redo=1" style="color:var(--orange);">Re-run the setup wizard →</a>
+            </div>
+          </div>
+        </div>
+
         <div style="display:flex;gap:8px;margin-top:4px;">
           <button class="btn btn-orange" data-action="call" data-fn="_saveCompanyProfileSettings">💾 Save Company Profile</button>
           <button class="btn btn-ghost fs-11" data-action="call" data-fn="_loadCompanyProfileSettings">↺ Reload</button>

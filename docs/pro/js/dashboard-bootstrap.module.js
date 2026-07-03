@@ -3420,6 +3420,66 @@
       if (typeof window._loadCompanyProfile === 'function') await window._loadCompanyProfile();
     } catch (_) {}
     _cpPopulateFormFromProfile(window._companyProfile);
+    _loadSiteSlug().catch(() => {});
+  };
+
+  // ── Pillar 5 Settings surface: tenant microsite address ──────────
+  // Reads companies/{companyId||uid}.siteSlug into the "Your Website"
+  // panel; saving goes through the setSiteSlug callable (reserved-name
+  // + uniqueness checks are server-side).
+  function _siteCompanyKey() {
+    return (window._userClaims && window._userClaims.companyId) || (window._user && window._user.uid) || '';
+  }
+  function _renderSiteLink(slug) {
+    const link = document.getElementById('cp-site-link');
+    const key = slug || _siteCompanyKey();
+    if (!link || !key) return;
+    const url = '/sites/t/' + key;
+    link.textContent = window.location.origin + url;
+    link.href = url;
+  }
+  async function _loadSiteSlug() {
+    const key = _siteCompanyKey();
+    if (!key || !db) return;
+    let slug = '';
+    try {
+      const snap = await getDoc(doc(db, 'companies', key));
+      if (snap.exists()) slug = (snap.data() || {}).siteSlug || '';
+    } catch (_) { /* solo owners may have no doc yet */ }
+    const input = document.getElementById('cp_siteSlug');
+    if (input) input.value = slug;
+    _renderSiteLink(slug);
+  }
+  window._saveSiteSlug = async function () {
+    const input = document.getElementById('cp_siteSlug');
+    const msg = document.getElementById('cp-slug-msg');
+    const slug = (input && input.value || '').trim().toLowerCase();
+    try {
+      if (!(window._functions && window._httpsCallable)) {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = window._functions || mod.getFunctions();
+        window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      }
+      const fn = window._httpsCallable(window._functions, 'setSiteSlug');
+      const res = await fn({ slug });
+      const out = (res && res.data) || {};
+      if (input) input.value = out.slug || '';
+      _renderSiteLink(out.slug);
+      if (msg) {
+        msg.textContent = out.slug ? '✓ Address saved — your site is live at the link above' : '✓ Custom address cleared — the account-id link still works';
+        msg.style.color = '#4caf82';
+        msg.style.display = 'block';
+        setTimeout(() => { msg.style.display = 'none'; }, 4000);
+      }
+    } catch (e) {
+      // Callable errors carry the human validation message (taken/reserved/format).
+      if (msg) {
+        msg.textContent = '✗ ' + ((e && e.message) || 'could not save');
+        msg.style.color = 'var(--red, #e05252)';
+        msg.style.display = 'block';
+      }
+      if (typeof showToast === 'function') showToast('Address not saved: ' + ((e && e.message) || 'error'), 'error');
+    }
   };
 
   window._saveCompanyProfileSettings = async function () {

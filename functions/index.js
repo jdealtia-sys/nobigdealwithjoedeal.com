@@ -147,6 +147,7 @@ exports.createTeamInvite = inviteHandlers.createTeamInvite;
 // Pillar 5 phase 1 — data-driven tenant microsite (/sites/t/) config read.
 const publicSiteHandlers = require('./handlers/public-site');
 exports.getPublicSiteConfig = publicSiteHandlers.getPublicSiteConfig;
+exports.setSiteSlug = publicSiteHandlers.setSiteSlug;
 
 // Browser monitoring (CSP violation report sink)
 const monitoringHandlers = require('./handlers/monitoring');
