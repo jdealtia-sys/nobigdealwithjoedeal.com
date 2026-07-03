@@ -18,7 +18,11 @@ let CODEX = {
   blockers: [],
   alerts: [],
   sessionMissions: [],
-  architecturalDecisions: []
+  architecturalDecisions: [],
+  // renderDecisions/executeSearch/parse-merge read CODEX.decisions (8 call
+  // sites) but this default never defined it — any >=2-char vault search
+  // threw a TypeError unless Firestore data happened to carry the field.
+  decisions: []
 };
 
 // Auto-save state
