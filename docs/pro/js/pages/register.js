@@ -115,7 +115,9 @@ async function register(e) {
       } catch (provisionErr) {
         console.warn('createCompany failed (account still usable):', provisionErr);
       }
-      window.location.replace('/pro/dashboard.html');
+      // PILLAR1 Phase 4: new owners land on the setup wizard, which writes
+      // their brand/companyProfile and then hands off to the dashboard.
+      window.location.replace('/pro/onboarding.html');
       return;
     } catch (e2) {
       errEl.textContent = e2.code === 'auth/email-already-in-use'
@@ -174,7 +176,8 @@ async function googleRegister() {
     const user = cred.user;
 
     const existing = await getDoc(doc(db, 'users', user.uid));
-    if (!existing.exists()) {
+    const isNewUser = !existing.exists();
+    if (isNewUser) {
       const nameParts = (user.displayName || '').split(' ');
       await setDoc(doc(db, 'users', user.uid), {
         firstName: nameParts[0] || '',
@@ -195,10 +198,24 @@ async function googleRegister() {
       if (result.data.customToken) {
         await signInWithCustomToken(auth, result.data.customToken);
       }
+    } else if (isNewUser) {
+      // PILLAR1 Phase 2 parity: Google free signups get provisioned too
+      // (the email/password path already does this). Idempotent; server
+      // refuses invited reps. Non-fatal — account works either way and
+      // the onboarding wizard retries if this didn't land.
+      try {
+        await createCompanyFn({ name: user.displayName || (user.email || '').split('@')[0] });
+        await user.getIdToken(true); // pick up companyId/role claims
+      } catch (provisionErr) {
+        console.warn('createCompany failed (account still usable):', provisionErr);
+      }
     }
 
+    // New free owners go to the setup wizard (Phase 4); code-holders and
+    // returning users go straight to the dashboard.
+    const dest = (!code && isNewUser) ? '/pro/onboarding.html' : '/pro/dashboard.html';
     document.getElementById('regOk').textContent = 'Signed in! Taking you to your dashboard...';
-    setTimeout(() => { window.location.href = '/pro/dashboard.html'; }, 1200);
+    setTimeout(() => { window.location.href = dest; }, 1200);
   } catch (err) {
     errEl.textContent = err.code === 'auth/popup-closed-by-user'
       ? 'Sign-in cancelled.'

@@ -27,7 +27,12 @@
 - Clear Phase-0 blockers (IAM grant; pick GCIP path).
 - Generalize the `_tenant()` resolver into the single server+client tenant-context read path (started in Pillar A). Retire the stale `seed-companies.js` as a source of truth.
 
-### Phase 2 — Self-serve company creation (the core)
+### Phase 2 — Self-serve company creation (the core) — ✅ SHIPPED 2026-07-03
+> `functions/handlers/provisioning.js` createCompany. Deviations from the sketch
+> below, on purpose: the seed is NEUTRAL (tenant's own name/email), NOT
+> NBD-default brand — the Pillar-2 M1 "NBD bleed" review is why; and the claim
+> role is `company_admin` (the rules' canonical top role — 'owner' was never in
+> the vocabulary). Register page initializes App Check (enforceAppCheck).
 - `createCompany` callable: a new owner signs up (email/pw or Google) → creates `companies/{newId}` + seeds `companyProfile/{newId}` (with NBD-default brand to start) → sets their `companyId` claim (= new id) + `role: owner`.
 - Replace the manual seed flow. New tenant is live end-to-end with NBD-default branding (they customize via Settings → Pillar 2).
 - **Verify:** a fresh signup creates an isolated tenant; its docs/leads are scoped to it (cross-tenant rules test already guards this).
@@ -35,8 +40,15 @@
 ### Phase 3 — Team invites
 - Owner invites reps by email → `companies/{id}/members/{email}` (status: invited) → invite link → on first login, `activateInvitedRep` stamps `companyId`+`role` claim. (Reuse the existing invite scaffolding, de-GCIP'd per Phase 0.)
 
-### Phase 4 — Onboarding wizard
+### Phase 4 — Onboarding wizard — ✅ SHIPPED 2026-07-03
 - Post-signup flow: set brand (logo/colors/name — Pillar 2 schema), contact, service area, plan. Writes `companyProfile`. Makes the tenant "real" without touching code.
+> `docs/pro/onboarding.html` + `js/pages/onboarding.js`. 3 steps (basics →
+> brand → review); writes letterhead top-levels + `brand` with unset fields
+> OMITTED (M1 raw-override semantics); rejects seal 'NBD'; skippable; owner
+> accounts + invited reps bounce to dashboard; retries createCompany on finish
+> when the companyId claim is missing (self-heal). `users.onboarded` (written
+> since forever, read by nothing) now gates the redirect. Plan selection
+> deliberately left out — Stripe checkout on /pro/landing covers it.
 
 ## Sequencing for the rest of the SaaS
 Pillar 1 (this) → **Pillar 4 (company-level billing:** `subscriptions/{uid}` → per-company + seats; gate signup behind a plan) → **Pillar 5 (custom domains + templated tenant sites:** replace hand-authored `docs/sites/oaks/` with a data-driven generator + per-tenant domain routing). Billing (4) pairs naturally with Phase 2 here (charge at company creation).
