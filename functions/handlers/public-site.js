@@ -29,10 +29,12 @@
 
 'use strict';
 
-const { onRequest } = require('firebase-functions/v2/https');
+const { onRequest, onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { httpRateLimit } = require('../integrations/upstash-ratelimit');
+const { CORS_ORIGINS, requireTeamAdmin } = require('./_shared');
+const { callableRateLimit } = require('../shared');
 
 const KEY_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -128,4 +130,81 @@ exports.getPublicSiteConfig = onRequest(
   }
 );
 
-exports._test = { buildPublicConfig };
+// ───────────────────────────────────────────────────────────────
+// setSiteSlug — Settings surface for the pretty microsite URL.
+// Server-side because slugs must be validated against a reserved
+// list and checked for uniqueness across ALL tenants — neither is
+// enforceable from a client write.
+// ───────────────────────────────────────────────────────────────
+const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/;
+// Names that collide with real routes/surfaces or the platform brand.
+const RESERVED_SLUGS = new Set([
+  't', 'oaks', 'template', 'nbd', 'nbdpro', 'api', 'admin', 'pro', 'www',
+  'sites', 'free-guide', 'blog', 'assets', 'estimate', 'storm', 'contact',
+  'index', 'site', 'app', 'help', 'support',
+]);
+
+// Exported for unit tests.
+function validateSlug(raw) {
+  const slug = String(raw || '').trim().toLowerCase();
+  if (!slug) return { slug: '' }; // empty = clear
+  if (slug.length < 3 || slug.length > 40 || !SLUG_RE.test(slug)) {
+    return { error: 'Use 3-40 lowercase letters, numbers, and hyphens (no leading/trailing hyphen).' };
+  }
+  if (RESERVED_SLUGS.has(slug)) return { error: 'That name is reserved — pick another.' };
+  return { slug };
+}
+
+exports.setSiteSlug = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (request) => {
+    await callableRateLimit(request, 'setSiteSlug', 10, 3_600_000);
+    const { uid, companyId } = await requireTeamAdmin(request);
+
+    const v = validateSlug(request.data && request.data.slug);
+    if (v.error) throw new HttpsError('invalid-argument', v.error);
+
+    const db = getFirestore();
+    const coRef = db.doc(`companies/${companyId}`);
+
+    if (v.slug) {
+      const taken = await db.collection('companies')
+        .where('siteSlug', '==', v.slug).limit(1).get();
+      if (!taken.empty && taken.docs[0].id !== companyId) {
+        throw new HttpsError('already-exists', 'That name is taken — pick another.');
+      }
+    }
+
+    const coSnap = await coRef.get();
+    if (!coSnap.exists) {
+      if (companyId !== uid) throw new HttpsError('failed-precondition', 'Company not found.');
+      // Pre-Phase-2 solo owner with no company doc yet — create it.
+      await coRef.set({
+        ownerId: uid,
+        name: request.auth.token.name || 'My Company',
+        status: 'active',
+        plan: 'free',
+        source: 'slug-ensure',
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    await coRef.set(
+      v.slug
+        ? { siteSlug: v.slug, siteSlugUpdatedAt: FieldValue.serverTimestamp() }
+        : { siteSlug: FieldValue.delete(), siteSlugUpdatedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    logger.info('setSiteSlug', { companyId, slug: v.slug || '(cleared)' });
+    return { ok: true, slug: v.slug, url: '/sites/t/' + (v.slug || companyId) };
+  }
+);
+
+exports._test = { buildPublicConfig, validateSlug };

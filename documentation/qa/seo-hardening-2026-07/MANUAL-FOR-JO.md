@@ -393,3 +393,38 @@ Still open for later phases (your calls): custom domains per tenant
 (console/DNS work), moving Oaks off its hand-built pages onto this
 template (ask Scott), and a Settings field so tenants set their own
 slug.
+
+## 15. SETTINGS SURFACES SHIPPED + THREE THINGS ON YOUR DESK (2026-07-03)
+
+**Shipped in this round (nothing to flip):**
+- Settings → Company Profile → **Your Website**: tenants set a custom
+  web address (slug) for their microsite — reserved names and
+  duplicates are rejected server-side — plus a live link to their site
+  and a "re-run the setup wizard" shortcut.
+- Settings → Team: member rows now have real actions — cancel a
+  pending invite, disable an active rep (kills their login and live
+  sessions, leads stay), re-enable, and remove from the roster.
+
+**On your desk — 1) Custom domains** (when a tenant asks): the full
+runbook is at documentation/runbooks/TENANT-CUSTOM-DOMAINS.md. Short
+version: start with a free 301 redirect at their registrar (5 minutes,
+option A); the true white-label proxy (option C) is a small build I'll
+productize when a few tenants want it.
+
+**On your desk — 2) Pillar 4 product calls** (answer whenever; I build
+after you pick):
+- **Gate signup behind a paid plan?** My recommendation: NO — keep the
+  free tier as the funnel (abuse is already contained by App Check +
+  rate limits + seat/usage caps), and let the in-app limits do the
+  selling. Alternatives: card-required signup, or a time-boxed trial.
+- **Charge at company creation?** My recommendation: NOT yet — the
+  upgrade path via /pro/landing pricing + Stripe checkout already
+  works; charging at signup pairs best with a trial decision above.
+  If you pick a paywall, I'll build the checkout-first-then-provision
+  flow.
+
+**On your desk — 3) Homeowner side:** the three blog drafts are still
+waiting on your edits in documentation/drafts/ (each has JO: markers) —
+say the word when edited and I'll publish them into /blog with all the
+trimmings. The GBP/reviews cadence from §7 remains the highest-leverage
+non-code SEO work.
