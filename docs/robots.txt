@@ -66,6 +66,7 @@ Disallow: /sites/oaks/
 Disallow: /sites/oaks.html
 
 Sitemap: https://nobigdealwithjoedeal.com/sitemap.xml
+Sitemap: https://nobigdealwithjoedeal.com/sitemap-pro.xml
 
 # LLM context file (see https://llmstxt.org)
 # Additional context: https://nobigdealwithjoedeal.com/llms.txt
