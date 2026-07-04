@@ -13,6 +13,21 @@
 const { test, expect } = require('@playwright/test');
 const { requireTestUser, loginAs, callCallableInPage, cleanupE2EData } = require('./fixtures/auth');
 
+/**
+ * Navigate to the CRM/Pipeline view. Post-login the dashboard shows
+ * view-home; the kanban view is template-stamped on first goTo('crm').
+ * Click the sidebar nav item (#nav-crm) like a real user, falling back
+ * to the global goTo() when the sidebar is hidden (narrow viewports).
+ */
+async function openCrmView(page) {
+  const nav = page.locator('#nav-crm');
+  if (await nav.isVisible().catch(() => false)) {
+    await nav.click();
+  } else {
+    await page.evaluate(() => window.goTo && window.goTo('crm'));
+  }
+}
+
 test.describe('Authenticated /pro/ shell — read-only', () => {
   let creds;
   test.beforeAll(() => {
@@ -39,9 +54,13 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
     // would bounce us back to /pro/login if auth state didn't stick.
     expect(page.url()).toMatch(/\/pro\/dashboard(\.html)?([?#]|$)/); // cleanUrls strips .html
 
-    // Kanban container loads via crm.js. Selector re-audited 2026-07-04:
-    // the CRM view now stamps <template id="tpl-view-crm"> into #view-crm,
-    // and crm.js binds against #kanbanBoard (dashboard.html:2398).
+    // Post-login the dashboard lands on view-home (re-audited 2026-07-04:
+    // boot only auto-opens CRM for ?edit=/?tasks= deep links). The kanban
+    // exists after navigating to the Pipeline view, which stamps
+    // <template id="tpl-view-crm"> into #view-crm; crm.js binds
+    // #kanbanBoard (dashboard.html:2398). Navigate like a user: the
+    // sidebar nav item.
+    await openCrmView(page);
     const kanban = page.locator('#kanbanBoard, #view-crm .kanban-board').first();
     await expect(kanban).toBeVisible({ timeout: 15_000 });
 
@@ -120,6 +139,7 @@ test.describe.serial('Authenticated destructive flows', () => {
 
     // Wait for the kanban to render before opening a modal — opening
     // before the page is hydrated can race against module load order.
+    await openCrmView(page);
     await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first()).toBeVisible({ timeout: 15_000 });
 
     // Tag with a fixed prefix per session so cleanup can reliably
@@ -191,6 +211,7 @@ test.describe.serial('Authenticated destructive flows', () => {
 
   test('move stage logs timeline activity + updates stageStartedAt', async ({ page }) => {
     await loginAs(page, creds);
+    await openCrmView(page);
     await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first()).toBeVisible({ timeout: 15_000 });
 
     const stamp = Date.now();
