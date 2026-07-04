@@ -30,7 +30,7 @@
 a{text-decoration:none}
 
 /* ANN BAR */
-.ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.05em;padding:10px 20px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-bar{background:#B85400;color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.05em;padding:10px 20px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
 .ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
 .ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
 .ann-slide.exit{opacity:0;transform:translateY(-12px)}
@@ -64,7 +64,7 @@ section{padding:56px 40px}.inner{max-width:1100px;margin:0 auto}
 .filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px}
 .filter-btn{background:white;border:1.5px solid var(--light-gray);border-radius:100px;padding:8px 18px;font-size:.78rem;font-weight:700;color:var(--navy-dark);cursor:pointer;transition:all .2s;font-family:'Montserrat',sans-serif}
 .filter-btn:hover{border-color:var(--orange);color:var(--orange)}
-.filter-btn.active{background:var(--orange);border-color:var(--orange);color:white}
+.filter-btn.active{background:#B85400;border-color:#B85400;color:white}
 
 /* GALLERY */
 .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
@@ -303,12 +303,14 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
   <script src="/assets/js/nav-faq.js" defer></script>
+<link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 </head>
-<body>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
 
 <div class="ann-bar" id="annBar">
   <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> <span class="ann-text" data-long="NBD Lifetime Pledge — Joe stands behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — Joe stands behind every install personally</span></div>
-  <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> <span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></div>
+  <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> <a href="tel:8594207382" style="color:inherit;text-decoration:none"><span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></a></div>
   <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg> <span class="ann-text" data-long="Storm Damage? I Handle the Insurance Claim for You — No Big Deal" data-short="Storm Damage? I Handle the Claim">Storm Damage? I Handle the Insurance Claim for You — No Big Deal</span></div>
   <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor →" data-short="One free roof a year →">One free roof a year — nominate a Cincinnati neighbor &rarr;</span></a></div>
 </div>
@@ -316,7 +318,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <!-- NAV -->
 <nav id="mainNav" class="nav">
   <a href="/" class="nav-logo">
-    <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
+    <img src="/assets/images/nbd-logo.png" width="240" height="160" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
     <div class="nav-logo-text">
       <div class="brand">NO BIG DEAL</div>
       <div class="sub">Home Solutions</div>
@@ -345,7 +347,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         <li><a href="/services/financing">Financing</a></li>
         <li><a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a></li>
         <li><a href="/storm-report" style="color:var(--orange-light,#f08030)">5-Year Storm Report</a></li>
-        <li><a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a></li>
+        <li><a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a></li><li><a href="/inspect" style="color:var(--orange-light,#f08030)">Free 24-Hr Inspection</a></li>
       </ul>
     </li>
     <li><a href="/about">About Joe</a></li>
@@ -362,6 +364,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   </button>
   <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
+<main id="main">
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">Featured</div>
   <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
@@ -403,7 +406,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <div class="hero-stats">
     <div class="hero-stat"><div class="hero-stat-num">150+</div><div class="hero-stat-lbl">Projects Completed</div></div>
     <div class="hero-stat"><div class="hero-stat-num">100%</div><div class="hero-stat-lbl">Drone Documented</div></div>
-    <div class="hero-stat"><div class="hero-stat-num">5★</div><div class="hero-stat-lbl">Average Rating</div></div>
+    <div class="hero-stat"><a href="/review" style="text-decoration:none;color:inherit" aria-label="See our Google reviews"><div class="hero-stat-num">5★</div><div class="hero-stat-lbl">Google Rated</div></a></div>
   </div>
 </section>
 
@@ -417,8 +420,8 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="ba-grid">
       <div class="ba-pair">
         <div class="ba-images">
-          <img src="/assets/images/projects/before-blue-tarp.jpg" alt="Before: damaged roof with blue tarp emergency cover">
-          <img src="/assets/images/projects/after-new-roof.jpg" alt="After: brand new architectural shingle roof">
+          <picture><source type="image/webp" srcset="/assets/images/projects/before-blue-tarp-640.webp 640w, /assets/images/projects/before-blue-tarp-800.webp 800w" sizes="(max-width:700px) 100vw, 534px"><img src="/assets/images/projects/before-blue-tarp.jpg" alt="Before: damaged roof with blue tarp emergency cover" width="800" height="600" loading="lazy"></picture>
+          <picture><source type="image/webp" srcset="/assets/images/projects/after-new-roof-640.webp 640w, /assets/images/projects/after-new-roof-800.webp 800w" sizes="(max-width:700px) 100vw, 534px"><img src="/assets/images/projects/after-new-roof.jpg" alt="After: brand new architectural shingle roof" width="800" height="600" loading="lazy"></picture>
           <div class="ba-divider"></div>
           <span class="ba-label before">Before</span>
           <span class="ba-label after">After</span>
@@ -431,8 +434,8 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 
       <div class="ba-pair">
         <div class="ba-images">
-          <img src="/assets/images/projects/before-brick-tearoff.jpg" alt="During: large brick home mid-tearoff with crew working">
-          <img src="/assets/images/projects/after-brick-completed.jpg" alt="After: completed multi-section roof on brick home">
+          <picture><source type="image/webp" srcset="/assets/images/projects/before-brick-tearoff-640.webp 640w, /assets/images/projects/before-brick-tearoff-800.webp 800w" sizes="(max-width:700px) 100vw, 534px"><img src="/assets/images/projects/before-brick-tearoff.jpg" alt="During: large brick home mid-tearoff with crew working" width="800" height="600" loading="lazy"></picture>
+          <picture><source type="image/webp" srcset="/assets/images/projects/after-brick-completed-640.webp 640w, /assets/images/projects/after-brick-completed-800.webp 800w" sizes="(max-width:700px) 100vw, 534px"><img src="/assets/images/projects/after-brick-completed.jpg" alt="After: completed multi-section roof on brick home" width="800" height="600" loading="lazy"></picture>
           <div class="ba-divider"></div>
           <span class="ba-label before">During</span>
           <span class="ba-label after">After</span>
@@ -466,7 +469,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 
       <!-- COMPLETED / REPLACEMENT -->
       <div class="project" data-cat="replacement">
-        <img src="/assets/images/projects/completed-colonial-spring.jpg" alt="Completed roof on brick colonial home with spring landscaping" class="project-img" loading="lazy" width="800" height="600">
+        <picture><source srcset="/assets/images/projects/completed-colonial-spring.webp" type="image/webp"><img src="/assets/images/projects/completed-colonial-spring.jpg" alt="Completed roof on brick colonial home with spring landscaping" class="project-img" loading="lazy" width="800" height="600"></picture>
         <div class="project-body">
           <span class="project-tag">Roof Replacement</span>
           <h3>Brick Colonial — Full Re-Roof</h3>
@@ -518,7 +521,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 
       <!-- ACTIVE JOBSITE -->
       <div class="project" data-cat="active">
-        <img src="/assets/images/projects/active-culdescac-crew.jpg" alt="NBD crew actively working on roof tear-off in residential neighborhood" class="project-img" loading="lazy" width="800" height="600">
+        <picture><source srcset="/assets/images/projects/active-culdescac-crew.webp" type="image/webp"><img src="/assets/images/projects/active-culdescac-crew.jpg" alt="NBD crew actively working on roof tear-off in residential neighborhood" class="project-img" loading="lazy" width="800" height="600"></picture>
         <div class="project-body">
           <span class="project-tag">Active Jobsite</span>
           <h3>Full Crew — Cul-de-Sac Tear-Off</h3>
@@ -626,6 +629,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   </div>
 </section>
 
+</main>
 <footer>
   <p>&copy; 2026 No Big Deal Home Solutions — Goshen, OH <span style="opacity:.4">·</span> <a href="/privacy" data-nbd-privacy="1" style="color:inherit;text-decoration:none">Privacy</a> <span style="opacity:.4">·</span> <a href="/free-roof/" data-nbd-freeroof-footer="v1" style="color:inherit;text-decoration:none">Free Roof Program</a> <span class="nbd-social" data-nbd-social="v1">
   <a class="s-fb" href="https://www.facebook.com/people/No-Big-Deal-Home-Solutions/61577416645584/" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 22v-8h2.6l.4-3H13V9.1c0-.9.2-1.5 1.4-1.5H16V5c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.5-4 4.1V11H7v3h2.6v8H13z"/></svg></a>
@@ -633,11 +637,16 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <a class="s-gg" href="https://share.google/dHlqknguidMfhTFS9" target="_blank" rel="noopener" aria-label="Google Business Profile"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.6 12.23c0-.68-.06-1.34-.17-1.98H12v3.75h5.4a4.62 4.62 0 0 1-2 3.03v2.52h3.24c1.9-1.74 3-4.3 3-7.32zM12 22c2.7 0 4.97-.9 6.63-2.44l-3.24-2.52c-.9.6-2.05.96-3.39.96-2.61 0-4.82-1.76-5.6-4.13H3.05v2.6A10 10 0 0 0 12 22zm-5.6-7.13A6 6 0 0 1 6.08 12c0-.99.17-1.95.44-2.87V6.53H3.05A10 10 0 0 0 2 12c0 1.6.39 3.14 1.05 4.47l3.35-2.6zM12 5.88c1.47 0 2.8.5 3.84 1.5l2.88-2.88A10 10 0 0 0 12 2 10 10 0 0 0 3.05 7.53l3.35 2.6C7.18 7.63 9.39 5.88 12 5.88z"/></svg></a>
   <a class="s-yelp" href="https://www.yelp.com/biz/no-big-deal-home-solutions-cincinnati" target="_blank" rel="noopener" aria-label="Yelp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.6 12.6c0-.4-.2-.7-.5-.8L6.5 10.1c-.5-.2-1.1.2-1.1.8l.1 5.5c0 .7.7 1.1 1.3.8l4.5-2.9c.2-.2.3-.5.3-.8v-.9zm1.8 1c-.3-.2-.6-.1-.8.1L9.4 17c-.4.4-.2 1 .3 1.1l4.4 1.2c.6.1 1.1-.5 1-1.1l-1-3.8c-.1-.3-.3-.5-.7-.8zm-2.7-5.5c.4-.2.6-.6.5-1l-.8-4.4c-.1-.6-.8-.9-1.3-.5L5.6 4.9c-.5.4-.4 1.1.1 1.4l4.4 2c.2 0 .4 0 .6-.2zm5 3.6L14.4 9c-.3-.4-.9-.3-1.1.2l-1.2 3.8c-.2.5.2 1 .7 1l4.2.3c.7.1 1-.8.5-1.3l-1.8-1.3zm-.6 3.4c-.4-.2-1 .1-1.1.6l-.5 4c-.1.6.5 1 1 .8l3.9-1.6c.6-.2.6-1 .1-1.4l-3.4-2.4z"/></svg></a>
 </span><br>
-  <a href="tel:8594207382">(859) 420-7382</a> · <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a> · <a href="/">nobigdealwithjoedeal.com</a></p>
+  <a href="tel:8594207382">(859) 420-7382</a> · <a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com">jd&#64;nobigdealwithjoedeal&#46;com</a> · <a href="/">nobigdealwithjoedeal.com</a></p>
 </footer>
 
 <script defer  src="/assets/js/inline/bc549adb9a.js"></script>
 <script defer  src="/assets/js/inline/b1d1695580.js"></script>
 <script defer src="/assets/js/ann-bar.js"></script>
+<!-- STICKY MOBILE CTA STRIP (site-wide, conversion audit 2026-07-03) -->
+<div class="mobile-cta-strip" aria-label="Quick contact options">
+  <a href="tel:+18594207382" class="mobile-cta-call"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>Call Joe</a>
+  <a href="sms:+18594207382" class="mobile-cta-text"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Text Us</a>
+</div>
 </body>
 </html>

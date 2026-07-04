@@ -58,8 +58,11 @@
   const DEFAULT_DUMP_FEE        = (_NBD_CFG && _NBD_CFG.DEFAULT_DUMP_FEE)               || 550;   // Flat default
   const CUT_UP_ROOF_WASTE_BONUS = (_NBD_CFG && _NBD_CFG.CUT_UP_ROOF_WASTE_BONUS)        || 0.03;  // +3% waste for cut-up roofs
 
-  // Permit costs by city/county (7 jurisdictions from the spec)
-  const PERMIT_COSTS = {
+  // Permit costs by county (7 jurisdictions from the spec). Canonical table
+  // is estimate-config.js PERMIT_COSTS_BY_COUNTY (PR 3b) — same slug →
+  // {name, cost} shape, read directly. Inline fallback preserves historical
+  // values if the config didn't load.
+  const PERMIT_COSTS = (_NBD_CFG && _NBD_CFG.PERMIT_COSTS_BY_COUNTY) || {
     'hamilton-oh': { name: 'Hamilton County, OH', cost: 185 },
     'butler-oh':   { name: 'Butler County, OH',   cost: 150 },
     'warren-oh':   { name: 'Warren County, OH',   cost: 165 },
@@ -75,19 +78,23 @@
   // incomplete insurance scope. Fall back to the same default the classic engine
   // uses (estimates.js DEFAULT_PERMIT_COST = 150). It is rep-overridable on the
   // estimate, so a job that genuinely needs no permit can still be zeroed out.
-  const DEFAULT_PERMIT_COST = 150;
+  const DEFAULT_PERMIT_COST = (_NBD_CFG && _NBD_CFG.DEFAULT_PERMIT_COST) || 150;
 
-  // Sales tax by county
-  const COUNTY_TAX = {
-    'hamilton-oh': 0.0780,
-    'butler-oh':   0.0725,
-    'warren-oh':   0.0675,
-    'clermont-oh': 0.0725,
-    'kenton-ky':   0.0600,
-    'boone-ky':    0.0600,
-    'campbell-ky': 0.0600
-  };
-  const FALLBACK_TAX_RATE = 0.07;
+  // Sales tax by county. Canonical table is estimate-config.js COUNTY_TAX
+  // (PR 3b, slug → {name, rate}); V2 keys rates by the same slug, so map
+  // each entry to its rate. Inline fallback preserves historical values.
+  const COUNTY_TAX = (_NBD_CFG && _NBD_CFG.COUNTY_TAX)
+    ? Object.fromEntries(Object.entries(_NBD_CFG.COUNTY_TAX).map(([slug, c]) => [slug, c.rate]))
+    : {
+        'hamilton-oh': 0.0780,
+        'butler-oh':   0.0725,
+        'warren-oh':   0.0675,
+        'clermont-oh': 0.0725,
+        'kenton-ky':   0.0600,
+        'boone-ky':    0.0600,
+        'campbell-ky': 0.0600
+      };
+  const FALLBACK_TAX_RATE = (_NBD_CFG && _NBD_CFG.DEFAULT_TAX_RATE) || 0.07;
 
   // Per-SQ mode add-on unit prices.
   // chimneyFlash + skylightFlash are unified with classic via
@@ -100,7 +107,8 @@
     skylightFlash:  (_NBD_CFG && _NBD_CFG.ADDON_SKYLIGHT_FLASH) || 350,
     valleyMetalLf:  8.50,
     guttersLf:      8.50,
-    extraPipeBoot:  85,     // When pipe count > 4
+    // When pipe count > 4. Unified with classic via config (D-4, $85).
+    extraPipeBoot:  (_NBD_CFG && _NBD_CFG.ADDON_EXTRA_PIPE_BOOT) || 85,
     // Per-SQ complexity adders (Phase 1, Joe-confirmed 2026-06-08; config-backed
     // so they don't drift via stale localStorage). Pitch tiers STACK; story +
     // access tiers REPLACE; cut-up labor is on top of the +3% material waste.

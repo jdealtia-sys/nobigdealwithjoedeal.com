@@ -530,8 +530,11 @@ function renderPills(containerId, items, opts) {
       groupHdr = `<div class="pill-group-label">${it.group}</div>`;
       lastGroup = it.group;
     }
-    return `${groupHdr}<span class="pill${sel ? ' selected' : ''}" data-val="${it.id}">${it.label}${sub}</span>`;
+    return `${groupHdr}<span class="pill${sel ? ' selected' : ''}" role="button" tabindex="0" aria-pressed="${sel ? 'true' : 'false'}" data-val="${it.id}">${it.label}${sub}</span>`;
   }).join('');
+  function syncPillPressed() {
+    c.querySelectorAll('.pill').forEach(p => p.setAttribute('aria-pressed', p.classList.contains('selected') ? 'true' : 'false'));
+  }
   c.addEventListener('click', e => {
     const pill = e.target.closest('.pill');
     if (!pill) return;
@@ -543,7 +546,14 @@ function renderPills(containerId, items, opts) {
       pill.classList.add('selected');
       state[stateKey] = pill.dataset.val;
     }
+    syncPillPressed();
     if (onChange) onChange();
+  });
+  // Keyboard activation (WCAG 2.1.1): Enter/Space on a role=button pill.
+  c.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const pill = e.target.closest('.pill');
+    if (pill) { e.preventDefault(); pill.click(); }
   });
 }
 
@@ -577,7 +587,7 @@ function renderSwatches(containerId, items, stateKey) {
   c.innerHTML = items.map(it => {
     const sel = state[stateKey] === it.id;
     const cls = 'swatch' + (sel ? ' selected' : '') + (it.light ? ' light-bg' : '');
-    return `<div class="${cls}" data-val="${it.id}" data-name="${it.name}" data-hex="${it.hex}" title="${it.name}" tabindex="0"><div class="swatch-chip" style="background:${it.hex}"></div><span class="swatch-name">${it.name}</span></div>`;
+    return `<div class="${cls}" role="button" data-val="${it.id}" data-name="${it.name}" data-hex="${it.hex}" title="${it.name}" tabindex="0" aria-pressed="${sel ? 'true' : 'false'}" aria-label="${it.name}"><div class="swatch-chip" style="background:${it.hex}"></div><span class="swatch-name">${it.name}</span></div>`;
   }).join('');
   // Initialize the selected-label header from current state
   const initial = items.find(it => it.id === state[stateKey]) || items[0];
@@ -585,10 +595,17 @@ function renderSwatches(containerId, items, stateKey) {
   c.addEventListener('click', e => {
     const sw = e.target.closest('.swatch');
     if (!sw) return;
-    c.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+    c.querySelectorAll('.swatch').forEach(s => { s.classList.remove('selected'); s.setAttribute('aria-pressed', 'false'); });
     sw.classList.add('selected');
+    sw.setAttribute('aria-pressed', 'true');
     state[stateKey] = sw.dataset.val;
     updateSelectedLabel(containerId, { id: sw.dataset.val, name: sw.dataset.name, hex: sw.dataset.hex });
+  });
+  // Keyboard activation (WCAG 2.1.1): the swatches were focusable but click-only.
+  c.addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    const sw = e.target.closest('.swatch');
+    if (sw) { e.preventDefault(); sw.click(); }
   });
 }
 

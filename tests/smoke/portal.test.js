@@ -8,7 +8,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ROOT, FUNCTIONS, read, readDashboard, readPortal } = require('./_shared');
+const { ROOT, FUNCTIONS, read, readDashboard, readCustomer, readPortal } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -91,7 +91,7 @@ section('Customer-facing portal gallery — share photos with homeowner');
 {
   const portal   = read(path.join(ROOT, 'functions/portal.js'));
   const portalUI = readPortal();
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   const types    = read(path.join(ROOT, 'docs/pro/js/types.js'));
 
   // Backend query — must constrain to the rep's own photos

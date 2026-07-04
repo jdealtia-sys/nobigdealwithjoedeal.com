@@ -134,7 +134,10 @@ function loadIIFE(file) {
   ok('tax = 7.5% of subtotal (37.5) — fallback when estimate has no rate', near(captured.tax, 37.5));
   ok('total = subtotal + tax (537.5)', near(captured.total, 537.5));
   ok('deposit = 50% of total (268.75)', near(captured.depositAmount, 268.75));
-  ok('balanceDue = total - deposit (268.75)', near(captured.balanceDue, 268.75));
+  // balanceDue = FULL total at create time — deliberately not total-deposit.
+  // invoice-pipeline.js:225 books nothing as collected until a real payment
+  // lands (recordPayment maintains balanceDue = total - amountPaid).
+  ok('balanceDue = full total until payments land (537.5)', near(captured.balanceDue, 537.5));
   ok('new invoice starts in draft, unpaid', captured.status === 'draft' && captured.depositPaid === false);
   ok('carries leadId + estimateId linkage', captured.leadId === 'L1' && captured.estimateId === 'est1');
 
@@ -155,7 +158,7 @@ function loadIIFE(file) {
   EST.deposit = { pct: 50, amount: 250, remainder: 287.5 };
   await IP.createInvoiceFromEstimate('est1');
   ok('classic deposit OBJECT → numeric depositAmount (250, not NaN)', Number.isFinite(captured.depositAmount) && near(captured.depositAmount, 250));
-  ok('classic deposit OBJECT → balanceDue finite (287.5)', Number.isFinite(captured.balanceDue) && near(captured.balanceDue, 287.5));
+  ok('classic deposit OBJECT → balanceDue finite (= full total 537.5, deposit unpaid)', Number.isFinite(captured.balanceDue) && near(captured.balanceDue, 537.5));
   delete EST.deposit;
 
   // V2-pkb: PER-SQ estimates invoice the LOCKED selected-tier grandTotal as a

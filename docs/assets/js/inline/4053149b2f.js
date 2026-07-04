@@ -169,6 +169,7 @@ function validateStep(step) {
     const addr = inp.value.trim();
     if (!addr || addr.length < 5) {
       inp.parentElement.classList.add('has-error');
+      inp.setAttribute('aria-invalid', 'true');
       inp.focus();
       _setAddressHint("Type your address, then pick it from the dropdown that appears.");
       return false;
@@ -230,14 +231,48 @@ const acDrop = document.getElementById('acDrop');
 
 addrInput.addEventListener('input', function() {
   this.parentElement.classList.remove('has-error');
+  this.setAttribute('aria-invalid', 'false');
   clearTimeout(_debounceTimer);
   const q = this.value.trim();
   if (q.length < 4) { acDrop.style.display = 'none'; return; }
   _debounceTimer = setTimeout(() => searchAddress(q), 350);
 });
 
+// Keyboard path for the autocomplete: the dropdown items are divs, so
+// without ArrowUp/Down + Enter handling a keyboard/screen-reader user could
+// only rely on the typed-top-match fallback, never an explicit pick.
+let _acKbIdx = -1;
+addrInput.setAttribute('role', 'combobox');
+addrInput.setAttribute('aria-autocomplete', 'list');
+addrInput.setAttribute('aria-expanded', 'false');
+addrInput.setAttribute('aria-controls', 'acDrop');
+acDrop.setAttribute('role', 'listbox');
+function _acMarkActive(items) {
+  for (var i = 0; i < items.length; i++) {
+    items[i].classList.toggle('kb-active', i === _acKbIdx);
+    items[i].setAttribute('aria-selected', i === _acKbIdx ? 'true' : 'false');
+  }
+  addrInput.setAttribute('aria-activedescendant', _acKbIdx >= 0 ? 'ac-opt-' + _acKbIdx : '');
+}
 addrInput.addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') { e.preventDefault(); goToStep(2); }
+  var open = acDrop.style.display === 'block';
+  var items = open ? acDrop.querySelectorAll('.ac-item') : [];
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    if (!open || !items.length) return;
+    e.preventDefault();
+    _acKbIdx = e.key === 'ArrowDown'
+      ? (_acKbIdx + 1) % items.length
+      : (_acKbIdx <= 0 ? items.length - 1 : _acKbIdx - 1);
+    _acMarkActive(items);
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (open && items.length) { selectAddr(_acKbIdx >= 0 ? _acKbIdx : 0); }
+    else { goToStep(2); } // existing typed-top-match fallback via validateStep
+  } else if (e.key === 'Escape') {
+    acDrop.style.display = 'none';
+    addrInput.setAttribute('aria-expanded', 'false');
+    _acKbIdx = -1;
+  }
 });
 
 // Greater Cincinnati metro bbox (lon_min, lat_max, lon_max, lat_min — Nominatim viewbox order).
@@ -265,9 +300,11 @@ async function searchAddress(q) {
     if (!data.length) { acDrop.style.display = 'none'; return; }
     acDrop.innerHTML = data.map(function(d, i) {
       const safe = String(d.display_name || '').replace(/[<>]/g, '');
-      return '<div class="ac-item" role="option" data-idx="' + i + '">' + safe + '</div>';
+      return '<div class="ac-item" role="option" id="ac-opt-' + i + '" aria-selected="false" data-idx="' + i + '">' + safe + '</div>';
     }).join('');
     acDrop.style.display = 'block';
+    addrInput.setAttribute('aria-expanded', 'true');
+    _acKbIdx = -1;
     window._acResults = data;
   } catch(e) {
     if (myReq !== _searchSeq) return;
@@ -277,12 +314,16 @@ async function searchAddress(q) {
 
 function selectAddr(idx) {
   const d = window._acResults[idx];
+  if (!d) return;
   addrInput.value = d.display_name;
   funnelData.addressFull = d;
   funnelData.address = d.display_name;
   funnelData.lat = parseFloat(d.lat);
   funnelData.lon = parseFloat(d.lon);
   acDrop.style.display = 'none';
+  addrInput.setAttribute('aria-expanded', 'false');
+  addrInput.setAttribute('aria-activedescendant', '');
+  _acKbIdx = -1;
 }
 
 document.addEventListener('click', function(e) {
@@ -407,8 +448,9 @@ function showSatelliteFallback() {
 function selectTile(el, group) {
   // Deselect others in same group
   const parent = el.closest('.tiles');
-  parent.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); });
+  parent.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); t.setAttribute('aria-pressed', 'false'); });
   el.classList.add('selected');
+  el.setAttribute('aria-pressed', 'true');
 
   const value = el.getAttribute('data-value');
 
@@ -581,9 +623,11 @@ async function sendVerificationCode() {
   const phone = document.getElementById('phoneNumber').value.replace(/\D/g, '');
   if (phone.length !== 10) {
     document.getElementById('phoneNumber').parentElement.parentElement.classList.add('has-error');
+    document.getElementById('phoneNumber').setAttribute('aria-invalid', 'true');
     return;
   }
   document.getElementById('phoneNumber').parentElement.parentElement.classList.remove('has-error');
+  document.getElementById('phoneNumber').setAttribute('aria-invalid', 'false');
 
   const btn = document.getElementById('btnSendCode');
   btn.disabled = true;
@@ -671,12 +715,119 @@ async function verifyOTPCode() {
     document.getElementById('btnSendCode').textContent = 'Verified &#10003;';
     document.getElementById('btnSendCode').classList.add('verified');
     document.getElementById('btnSendCode').disabled = true;
+    // Verified — the skip-verification escape hatch is now pointless.
+    var skipWrap = document.getElementById('otpSkip');
+    if (skipWrap) skipWrap.style.display = 'none';
     checkSubmitReady();
   } else {
     otpStatus.className = 'otp-status error';
     otpStatus.textContent = 'Invalid code. Please try again.';
     inputs.forEach(function(i) { i.value = ''; i.classList.remove('filled'); });
     inputs[0].focus();
+  }
+}
+
+/* ── OTP escape hatch (additive — conversion audit 2026-07-04) ──
+   "Skip verification — just have Joe call me": files the lead through the
+   same submitPublicLead('estimate') path with the details already entered.
+   The OTP itself is untouched — the computed price stays gated behind
+   verification; this only submits a callback request. The skip is flagged
+   via the allowlisted requestType field (integrations.js M-04 allowlist —
+   a bespoke otpSkipped key would be silently dropped server-side).
+   Double-submit is blocked by the busy/done guards + disabled button. */
+var _otpSkipBusy = false;
+var _otpSkipDone = false;
+
+async function skipOtpAndRequestCall(btn) {
+  if (_otpSkipBusy || _otpSkipDone || _otpVerified) return;
+
+  var status = document.getElementById('otpSkipStatus');
+  var fn = document.getElementById('firstName').value.trim();
+  var ln = document.getElementById('lastName').value.trim();
+  var phoneDigits = document.getElementById('phoneNumber').value.replace(/\D/g, '');
+  var email = document.getElementById('emailAddress').value.trim();
+  var consent = document.getElementById('tcpaConsent').checked;
+
+  if (!(fn && ln && phoneDigits.length === 10 && email.includes('@') && consent)) {
+    status.className = 'otp-skip-status error';
+    status.textContent = 'Fill in your name, phone, and email above (and check the consent box) so Joe knows how to reach you.';
+    return;
+  }
+
+  _otpSkipBusy = true;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  status.className = 'otp-skip-status';
+  status.textContent = '';
+
+  funnelData.firstName = fn;
+  funnelData.lastName = ln;
+  funnelData.phone = document.getElementById('phoneNumber').value.trim();
+  funnelData.email = email;
+
+  // Mark the funnel-recovery record completed, same as the verified path.
+  if (window._saveFunnelProgress && funnelData.email) {
+    window._saveFunnelProgress({
+      funnelId: _funnelId,
+      email: funnelData.email.toLowerCase(),
+      firstName: funnelData.firstName,
+      lastName: funnelData.lastName,
+      phoneNumber: funnelData.phone,
+      address: funnelData.address || '',
+      currentStep: currentStep,
+      completed: true
+    });
+  }
+
+  var leadData = {
+    address: funnelData.address,
+    service: funnelData.service,
+    roofType: funnelData.roofType,
+    timeline: funnelData.timeline,
+    firstName: funnelData.firstName,
+    lastName: funnelData.lastName,
+    phone: funnelData.phone,
+    email: funnelData.email,
+    phoneVerified: false,
+    requestType: 'otp_skipped_call_request'
+  };
+
+  // Same awaited-with-one-retry contract as submitAndGetEstimate.
+  var saved = false;
+  try {
+    saved = !!(await window._saveLead(leadData));
+    if (!saved) saved = !!(await window._saveLead(leadData));
+  } catch (e) { console.error('OTP-skip lead save threw:', e); }
+
+  var notified = false;
+  if (window._notifyJoe) {
+    try {
+      await window._notifyJoe({
+        name: funnelData.firstName + ' ' + funnelData.lastName,
+        phone: funnelData.phone,
+        email: funnelData.email,
+        address: funnelData.address,
+        service: funnelData.service,
+        timeline: funnelData.timeline,
+        verified: false,
+        requestType: 'otp_skipped_call_request'
+      });
+      notified = true;
+    } catch (e) { console.error('OTP-skip notify failed:', e); }
+  }
+
+  _otpSkipBusy = false;
+  if (saved || notified) {
+    _otpSkipDone = true;
+    btn.textContent = 'Request sent ✓';
+    status.className = 'otp-skip-status';
+    status.textContent = 'Got it — Joe will call you at ' + funnelData.phone + '. No code needed.';
+    trackEvent('otp_skip_call_request', { service: funnelData.service });
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Skip verification — just have Joe call me';
+    status.className = 'otp-skip-status error';
+    status.textContent = 'Couldn’t send just now — call or text Joe at (859) 420-7382.';
   }
 }
 
@@ -774,12 +925,26 @@ async function submitAndGetEstimate() {
     phone: funnelData.phone,
     email: funnelData.email,
     phoneVerified: _otpVerified,
+    // Submit is hard-gated on the TCPA checkbox, so this is always true on a
+    // completed lead — stored explicitly so the record is audit-ready and the
+    // SMS-ack trigger can rely on it.
+    tcpaConsent: document.getElementById('tcpaConsent').checked,
     ballpark: funnelData.ballpark
   };
 
-  window._saveLead(leadData);
+  // Awaited with one retry — this used to be fire-and-forget, so a failed
+  // CRM write still showed the success screen and the lead vanished
+  // silently. _saveLead resolves to the lead id, or null on failure.
+  var _leadSaved = false;
+  try {
+    _leadSaved = !!(await window._saveLead(leadData));
+    if (!_leadSaved) _leadSaved = !!(await window._saveLead(leadData));
+  } catch (saveErr) {
+    console.error('Lead save threw:', saveErr);
+  }
 
   // Notify Joe (await so we know if it fails)
+  var _joeNotified = false;
   if (window._notifyJoe) {
     try {
       await window._notifyJoe({
@@ -791,11 +956,16 @@ async function submitAndGetEstimate() {
         timeline: funnelData.timeline,
         verified: _otpVerified
       });
+      _joeNotified = true;
       console.log('Joe notified successfully');
     } catch(notifyErr) {
       console.error('Joe notification failed:', notifyErr);
     }
   }
+
+  // Either channel landing means Joe has the lead; only if BOTH failed does
+  // the results screen show the call-Joe fallback banner.
+  window._leadDeliveryFailed = !_leadSaved && !_joeNotified;
 
   // Service-aware results: only roof-replacement gets the AI tier-table
   // call. Every other service shows a deterministic single range built
@@ -969,6 +1139,26 @@ async function fetchJoesTakeNote() {
 function showResults(est) {
   document.querySelectorAll('.step').forEach(function(s) { s.classList.remove('active'); });
   document.getElementById('stepResults').classList.add('active');
+
+  // Lead-delivery fallback: the estimate below is computed client-side and
+  // is fine either way, but if neither the CRM write nor Joe's notification
+  // went through, Joe has no record of this homeowner — say so instead of
+  // faking success.
+  var failBanner = document.getElementById('leadDeliveryFail');
+  if (window._leadDeliveryFailed) {
+    if (!failBanner) {
+      failBanner = document.createElement('div');
+      failBanner.id = 'leadDeliveryFail';
+      failBanner.setAttribute('role', 'alert');
+      failBanner.style.cssText = 'background:#fff4ee;border:2px solid #B85400;border-radius:10px;padding:14px 16px;margin:0 0 18px;color:#142a52;font-size:.92rem;font-weight:600;line-height:1.5;text-align:left;';
+      failBanner.innerHTML = 'Heads up &#8212; our system couldn\'t send your request to Joe just now. Your estimate below still stands, but to make sure Joe gets your info, call or text <a href="tel:8594207382" style="color:#B85400;font-weight:800;white-space:nowrap">(859) 420-7382</a>.';
+      var resultsHost = document.getElementById('stepResults');
+      if (resultsHost) resultsHost.insertBefore(failBanner, resultsHost.firstChild);
+    }
+    failBanner.style.display = '';
+  } else if (failBanner) {
+    failBanner.style.display = 'none';
+  }
 
   // Personalized header
   document.getElementById('resultName').textContent = funnelData.firstName + "'s";
@@ -1170,16 +1360,26 @@ function resetFunnel() {
 
   // Reset tiles — then re-select the defaults so the UI matches the
   // restored state (same as a fresh page load: asphalt + typical).
-  document.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); });
+  document.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); t.setAttribute('aria-pressed', 'false'); });
   var defAsphalt = document.querySelector('#roofTypeGroup .tile[data-value="asphalt"]');
-  if (defAsphalt) defAsphalt.classList.add('selected');
+  if (defAsphalt) { defAsphalt.classList.add('selected'); defAsphalt.setAttribute('aria-pressed', 'true'); }
   var defTypical = document.querySelector('#homeSizeGroup .tile[data-value="typical"]');
-  if (defTypical) defTypical.classList.add('selected');
+  if (defTypical) { defTypical.classList.add('selected'); defTypical.setAttribute('aria-pressed', 'true'); }
   document.getElementById('roofTypeGroup').style.display = 'none';
 
   // Reset OTP inputs
   document.querySelectorAll('.otp-input').forEach(function(i) { i.value = ''; i.classList.remove('filled'); });
   document.getElementById('otpStatus').textContent = '';
+
+  // Reset the OTP escape hatch (a fresh funnel run is a new lead)
+  _otpSkipBusy = false;
+  _otpSkipDone = false;
+  var skipWrap = document.getElementById('otpSkip');
+  if (skipWrap) skipWrap.style.display = '';
+  var skipBtn = document.getElementById('btnOtpSkip');
+  if (skipBtn) { skipBtn.disabled = false; skipBtn.textContent = 'Skip verification — just have Joe call me'; }
+  var skipStatus = document.getElementById('otpSkipStatus');
+  if (skipStatus) { skipStatus.className = 'otp-skip-status'; skipStatus.textContent = ''; }
 
   // Reset loading steps
   ['ls1','ls2','ls3','ls4'].forEach(function(s) {
@@ -1199,6 +1399,15 @@ function trackEvent(name, params) {
 }
 
 /* ── Delegated click handlers (CSP disallows inline onclick=) ── */
+// Keyboard activation for the role="button" choice tiles (WCAG 2.1.1): Enter
+// or Space fires the same delegated click path so the estimate funnel can be
+// completed without a mouse. Space is preventDefault'd so the page doesn't scroll.
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  var t = e.target && e.target.closest && e.target.closest('.tile');
+  if (t) { e.preventDefault(); t.click(); }
+});
+
 document.addEventListener('click', function (e) {
   var step = e.target.closest('[data-step]');
   if (step) { goToStep(parseInt(step.dataset.step, 10)); return; }
@@ -1223,6 +1432,7 @@ document.addEventListener('click', function (e) {
     var a = act.dataset.action;
     if (a === 'sendCode') sendVerificationCode();
     else if (a === 'submitEstimate') submitAndGetEstimate();
+    else if (a === 'skipOtp') skipOtpAndRequestCall(act);
     else if (a === 'emailEstimate') emailEstimate(act);
     else if (a === 'resetFunnel') resetFunnel();
   }

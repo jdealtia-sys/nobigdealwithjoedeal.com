@@ -78,6 +78,7 @@ document.addEventListener('click', function(e) {
 });
 
 // Update buttons based on auth state
+let planIntentResumed = false;
 onAuthStateChanged(auth, function(user) {
   document.querySelectorAll('.cta-primary').forEach(function(btn) {
     if (user) {
@@ -86,4 +87,19 @@ onAuthStateChanged(auth, function(user) {
       // Still allow clicking — subscribe() will redirect to login
     }
   });
+
+  // Resume a checkout the visitor asked for before they had an account: the
+  // plan they clicked on landing/register travels here via sessionStorage
+  // (set by pages/register.js, routed via onboarding.js). One shot — the key
+  // is cleared before launching so a failed checkout doesn't loop.
+  if (!user || planIntentResumed) return;
+  let plan = null;
+  try {
+    plan = sessionStorage.getItem('nbd_plan_intent');
+    if (plan) sessionStorage.removeItem('nbd_plan_intent');
+  } catch (_) {}
+  if (plan !== 'starter' && plan !== 'growth') return;
+  planIntentResumed = true;
+  const btn = document.querySelector('[data-pr-action="subscribe"][data-plan="' + plan + '"]');
+  window.subscribe(plan, btn ? { target: btn } : undefined);
 });

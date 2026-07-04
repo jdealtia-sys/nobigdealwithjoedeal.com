@@ -31,6 +31,26 @@ await connectEmulatorsIfLocal({ auth, functions }); // Audit #3: localhost-only,
 const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
 
 // ─────────────────────────────────────────────────
+// POST-LOGIN DESTINATION
+// pricing-page.module.js sends signed-out subscribers here with
+// ?redirect=pricing&plan=starter|growth. Honor it: stash the plan so pricing
+// resumes checkout (same sessionStorage contract as pages/register.js) and
+// land back on pricing instead of silently dropping the purchase on the
+// dashboard.
+// ─────────────────────────────────────────────────
+const POST_LOGIN_DEST = (() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('redirect') === 'pricing') {
+      const plan = params.get('plan');
+      if (plan === 'starter' || plan === 'growth') sessionStorage.setItem('nbd_plan_intent', plan);
+      return '/pro/pricing.html';
+    }
+  } catch (_) {}
+  return '/pro/dashboard.html';
+})();
+
+// ─────────────────────────────────────────────────
 // TAB SWITCHING (wired via addEventListener instead of inline onclick)
 // ─────────────────────────────────────────────────
 function switchTab(tab) {
@@ -131,7 +151,7 @@ async function doLogin() {
         await navigator.credentials.store(cred);
       } catch (_) { /* silent — fallback is the form-submit save prompt */ }
     }
-    window.location.replace('/pro/dashboard.html');
+    window.location.replace(POST_LOGIN_DEST);
   } catch (err) {
     loginErrorMsg.textContent = friendlyError(err.code);
     loginError.classList.add('show');
@@ -219,7 +239,7 @@ async function doCodeLogin() {
     // ever leaves the server.
     if (data.customToken) {
       await signInWithCustomToken(auth, data.customToken);
-      window.location.replace('/pro/dashboard.html');
+      window.location.replace(POST_LOGIN_DEST);
       return;
     }
     // Transitional compat shim — DELETE after `firebase deploy --only functions`
@@ -232,7 +252,7 @@ async function doCodeLogin() {
     if (data.email && data.password) {
       console.warn('[login] Using legacy email/password path — deploy the hardened validateAccessCode and remove this shim.');
       await signInWithEmailAndPassword(auth, data.email, data.password);
-      window.location.replace('/pro/dashboard.html');
+      window.location.replace(POST_LOGIN_DEST);
       return;
     }
     codeErrorMsg.textContent = 'Server returned an unexpected response. Contact Joe.';
@@ -265,13 +285,13 @@ async function doDemoLogin() {
     // Hardened path
     if (data.customToken) {
       await signInWithCustomToken(auth, data.customToken);
-      window.location.replace('/pro/dashboard.html');
+      window.location.replace(POST_LOGIN_DEST);
       return;
     }
     // Transitional compat shim — DELETE after hardened validateAccessCode ships.
     if (data.email && data.password) {
       await signInWithEmailAndPassword(auth, data.email, data.password);
-      window.location.replace('/pro/dashboard.html');
+      window.location.replace(POST_LOGIN_DEST);
       return;
     }
     throw new Error('unexpected server response');

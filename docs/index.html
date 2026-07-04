@@ -21,9 +21,8 @@
 <meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/favicon.svg">
-<link rel="preload" href="/assets/images/drone-hero-crew.webp" as="image" type="image/webp" fetchpriority="high">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" href="/assets/images/drone-hero-crew-800.webp" as="image" type="image/webp" fetchpriority="high" media="(max-width:600px)">
+<link rel="preload" href="/assets/images/drone-hero-crew.webp" as="image" type="image/webp" fetchpriority="high" media="(min-width:601px)">
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <style>
 :root {
@@ -45,7 +44,7 @@ html{scroll-behavior:smooth}
 body{font-family:'Montserrat',sans-serif;color:var(--navy-dark);background:var(--white);overflow-x:hidden}
 
 /* ── ANNOUNCEMENT BAR ── */
-.ann-bar{background:var(--orange);color:white;text-align:center;padding:10px 20px;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-bar{background:#B85400;color:white;text-align:center;padding:10px 20px;font-size:.78rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
 .ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
 .ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
 .ann-slide.exit{opacity:0;transform:translateY(-12px)}
@@ -55,7 +54,7 @@ nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;j
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0}
 .nav-logo-badge{background:var(--orange);color:white;font-weight:800;font-size:.95rem;padding:6px 10px;border-radius:6px;letter-spacing:.05em;}
 .nav-logo-text .brand{font-size:1rem;font-weight:800;color:white;}
-.nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:500;}
+.nav-logo-text .sub{font-size:.7rem;color:rgba(255,255,255,.6);font-weight:600;}
 .logo-card{display:flex;flex-direction:column;align-items:center;background:white;border-radius:6px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.25);min-width:148px}
 .logo-card-top{background:white;padding:7px 16px 4px;display:flex;flex-direction:column;align-items:center;width:100%}
 .logo-card-top svg{width:28px;height:18px;display:block;margin-bottom:1px}
@@ -129,6 +128,7 @@ section{padding:80px 40px}
 .hero{background:var(--navy-dark);position:relative;overflow:hidden;min-height:640px;display:flex;align-items:center}
 .hero-pattern{position:absolute;top:0;right:0;bottom:0;left:0;background-image:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(232,114,12,.04) 40px,rgba(232,114,12,.04) 41px);z-index:0}
 .hero-bg{position:absolute;top:0;right:0;bottom:0;left:0;background:linear-gradient(135deg,rgba(20,42,82,.88) 0%,rgba(20,42,82,.78) 55%,rgba(232,114,12,.18) 100%),image-set(url(/assets/images/drone-hero-crew.webp) type("image/webp"), url(/assets/images/drone-hero-crew.jpg) type("image/jpeg")) center/cover no-repeat;z-index:1}
+@media(max-width:600px){.hero-bg{background:linear-gradient(135deg,rgba(20,42,82,.88) 0%,rgba(20,42,82,.78) 55%,rgba(232,114,12,.18) 100%),image-set(url(/assets/images/drone-hero-crew-800.webp) type("image/webp"), url(/assets/images/drone-hero-crew.jpg) type("image/jpeg")) center/cover no-repeat}}
 .hero-content{position:relative;z-index:2;max-width:1200px;margin:0 auto;padding:80px 40px;display:grid;grid-template-columns:1fr 400px;gap:64px;align-items:center;width:100%}
 .hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(232,114,12,.18);border:1px solid rgba(232,114,12,.4);color:var(--orange-light);padding:6px 16px;border-radius:100px;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:24px;animation:fadeUp .6s ease both}
 .hero-badge::before{content:'';width:6px;height:6px;background:var(--orange);border-radius:50%;animation:pulse 2s infinite}
@@ -145,7 +145,7 @@ section{padding:80px 40px}
 
 /* WARRANTY CARD in hero */
 .warranty-card{background:white;border-radius:14px;padding:32px 28px;box-shadow:0 24px 80px rgba(0,0,0,.4);position:relative;animation:fadeUp .7s ease .25s both}
-.wc-ribbon{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--orange);color:white;font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:5px 20px;border-radius:100px;white-space:nowrap;box-shadow:0 4px 16px rgba(232,114,12,.4)}
+.wc-ribbon{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:#B85400;color:white;font-size:.66rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;padding:5px 20px;border-radius:100px;white-space:nowrap;box-shadow:0 4px 16px rgba(232,114,12,.4)}
 .wc-title{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:.05em;color:var(--navy-dark);text-align:center;margin:14px 0 20px}
 .wc-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:22px}
 .wc-stat{background:var(--off-white);border-radius:8px;padding:16px 12px;text-align:center;border:1px solid var(--light-gray)}
@@ -177,7 +177,7 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .service-card::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--orange);transition:height .28s}
 .service-card:hover{transform:translateY(-5px);box-shadow:0 16px 48px rgba(0,0,0,.1);border-color:transparent}
 .service-card:hover::before{height:6px}
-.sc-badge{position:absolute;top:14px;right:14px;background:var(--orange);color:var(--white);font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:4px;line-height:1.2}
+.sc-badge{position:absolute;top:14px;right:14px;background:#B85400;color:var(--white);font-size:.65rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 9px;border-radius:4px;line-height:1.2}
 .sc-badge.sc-badge-storm{background:var(--navy-dark)}
 .sc-title{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;letter-spacing:.04em;color:var(--navy-dark);margin-bottom:12px;margin-top:4px}
 .sc-body{font-size:.93rem;color:var(--gray);line-height:1.7;margin-bottom:18px}
@@ -221,7 +221,7 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .about-ph{text-align:center;padding:40px;position:relative;z-index:1}
 .about-ph .ico{font-size:5rem;display:block;margin-bottom:16px}
 .about-ph p{color:rgba(255,255,255,.4);font-size:.85rem}
-.about-badge{position:absolute;bottom:-20px;right:-20px;background:var(--orange);color:white;border-radius:12px;padding:20px 24px;text-align:center;box-shadow:0 8px 32px rgba(232,114,12,.4)}
+.about-badge{position:absolute;bottom:-20px;right:-20px;background:#B85400;color:white;border-radius:12px;padding:20px 24px;text-align:center;box-shadow:0 8px 32px rgba(232,114,12,.4)}
 .about-badge .big-num{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;letter-spacing:.05em;line-height:1;display:block}
 .about-badge small{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;opacity:.85}
 .about-content p{color:var(--gray);line-height:1.75;margin-bottom:18px;font-size:.93rem}
@@ -274,7 +274,8 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .contact-method{display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:18px 20px;text-decoration:none;transition:all .2s}
 .contact-method:hover{border-color:rgba(232,114,12,.4);background:rgba(232,114,12,.06)}
 .cm-icon{width:42px;height:42px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
-.cm-text strong{display:block;font-size:.9rem;font-weight:700;color:white;letter-spacing:.02em}
+.cm-text{min-width:0;flex:1}
+.cm-text strong{display:block;font-size:.9rem;font-weight:700;color:white;letter-spacing:.02em;overflow-wrap:anywhere}
 .cm-text span{font-size:.72rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em}
 .contact-process{margin-top:36px;padding-top:28px;border-top:1px solid rgba(255,255,255,.09)}
 .contact-process .eyebrow-small{font-size:.72rem;font-weight:700;letter-spacing:.14em;color:var(--orange);text-transform:uppercase;margin-bottom:16px}
@@ -343,7 +344,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   .areas-contact{grid-template-columns:repeat(2,1fr)}
   .footer-grid{grid-template-columns:1fr 1fr;gap:32px}
 }
-@media(max-width:900px){.home-sidebar{display:none}.contact-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.home-sidebar{display:none}.contact-grid{grid-template-columns:1fr}.contact-grid>*{min-width:0}}
 @media(max-width:768px){
   section{padding:44px 20px}
   nav{padding:0 20px}
@@ -466,6 +467,14 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   "telephone": "+18594207382",
   "email": "jd@nobigdealwithjoedeal.com",
   "description": "Honest roofing, siding, gutter and storm damage repair serving Greater Cincinnati. Licensed, insured, locally owned. Call Joe directly.",
+  "image": "https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg",
+  "logo": "https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png",
+  "geo": {"@type": "GeoCoordinates", "latitude": "39.2", "longitude": "-84.15"},
+  "sameAs": [
+    "https://g.page/r/CXzIjLwvtRPdEBM",
+    "https://www.facebook.com/people/No-Big-Deal-Home-Solutions/61577416645584/",
+    "https://www.instagram.com/nbdhomesolutions"
+  ],
   "hasCredential": [
     {"@type": "EducationalOccupationalCredential", "credentialCategory": "certification", "name": "GAF Certified Residential Roofing Contractor", "recognizedBy": {"@type": "Organization", "name": "GAF Materials LLC", "url": "https://www.gaf.com"}, "identifier": "1162011", "validFrom": "2026"},
     {"@type": "EducationalOccupationalCredential", "credentialCategory": "certification", "name": "James Hardie Alliance Contractor"}
@@ -474,7 +483,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
     "Goshen, OH", "Milford, OH", "Batavia, OH", "Loveland, OH",
     "Mason, OH", "Lebanon, OH", "Maineville, OH", "Blue Ash, OH",
     "Indian Hill, OH", "Amelia, OH", "Cincinnati, OH",
-    "Anderson Township, OH", "Westchester, OH", "Fairfield, OH",
+    "Anderson Township, OH", "West Chester, OH", "Fairfield, OH",
     "Monroe, OH", "Springboro, OH", "Middletown, OH", "Florence, KY",
     "Erlanger, KY", "Covington, KY", "Fort Mitchell, KY"
   ],
@@ -746,13 +755,23 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
   <script src="/assets/js/nav-faq.js" defer></script>
+<style>
+/* CSP-safe replacements for former inline hover handlers (script-src-attr 'none' blocks onmouseover=) */
+.hero-link-secondary:hover{color:var(--orange)!important}
+.ql-pledge:hover{background:#ffe8d6!important}
+.ql-tamko:hover{background:#fff4ee!important;border-color:#e8720c!important}
+.ql-guarantee:hover{background:#e8720c!important;color:#fff!important}
+.partner-logo-img:hover{filter:none!important;opacity:1!important}
+</style>
+<style>/* iOS-zoom fix (conversion audit): 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 </head>
-<body>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
 
 <!-- ANNOUNCEMENT BAR -->
 <div class="ann-bar" id="annBar">
   <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg><span class="ann-text" data-long="NBD Lifetime Pledge — Joe stands behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — Joe stands behind every install personally</span></div>
-  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg><span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></div>
+  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg><a href="tel:8594207382" style="color:inherit;text-decoration:none"><span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></a></div>
   <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg><span class="ann-text" data-long="Storm Damage? I Handle the Insurance Claim for You — No Big Deal" data-short="Storm Damage? I Handle the Claim">Storm Damage? I Handle the Insurance Claim for You — No Big Deal</span></div>
   <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor &rarr;" data-short="One free roof a year &rarr;">One free roof a year &rarr;</span></a></div>
 </div>
@@ -762,7 +781,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <!-- NAV --><!-- NAV -->
 <nav id="mainNav" class="nav">
   <a href="/" class="nav-logo">
-    <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
+    <img src="/assets/images/nbd-logo.png" width="240" height="160" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
     <div class="nav-logo-text">
       <div class="brand">NO BIG DEAL</div>
       <div class="sub">Home Solutions</div>
@@ -793,7 +812,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         <li><a href="/services/financing">Financing</a></li>
         <li><a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a></li>
         <li><a href="/storm-report" style="color:var(--orange-light,#f08030)">5-Year Storm Report</a></li>
-        <li><a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a></li>
+        <li><a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a></li><li><a href="/inspect" style="color:var(--orange-light,#f08030)">Free 24-Hr Inspection</a></li>
       </ul>
     </li>
     <li><a href="/about">About Joe</a></li>
@@ -847,7 +866,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <a href="/storm-check" style="color:#f08030">Is It Worth a Claim?</a>
   <a href="/#contact" style="color:#e8720c;font-weight:800;">Free Estimate &rarr;</a>
 </div>
-<main>
+<main id="main">
 <!-- HERO -->
 <section class="hero" id="home">
   <div class="hero-pattern"></div>
@@ -862,7 +881,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <div class="hero-btns">
         <a href="tel:8594207382" class="btn-primary"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25c1.1.36 2.3.56 3.6.56.55 0 1 .45 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.56 3.6a1 1 0 0 1-.25 1z"/></svg>Call Joe — (859) 420-7382</a>
       </div>
-      <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="hero-link-secondary" style="display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.82);font-size:.92rem;text-decoration:underline;text-underline-offset:4px;margin-top:14px;transition:color .2s ease" onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='rgba(255,255,255,.82)'"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>Or schedule a free inspection online →</a>
+      <a href="https://cal.com/nobigdeal/roof-inspection" target="_blank" rel="noopener noreferrer" class="hero-link-secondary" style="display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,.82);font-size:.92rem;text-decoration:underline;text-underline-offset:4px;margin-top:14px;transition:color .2s ease"><svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>Or schedule a free inspection online →</a>
       <div class="hero-trust">
         <div class="hero-trust-item"><svg class="ico" viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg>Licensed &amp; Insured</div>
         <div class="hero-trust-dot"></div>
@@ -882,43 +901,43 @@ footer.foot a,.review-footer a{color:#e8720c!important}
             <div style="font-size:.66rem;color:#6b7280;margin-top:2px;">System Plus Limited Warranty available · <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="color:#c45e08;font-weight:700;text-decoration:none;">Verify on GAF.com →</a></div>
           </div>
         </div>
-        <a href="/the-pledge" style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;padding:10px 12px;background:#fff4ee;border:1px solid #f7d8c2;border-left:3px solid #e8720c;border-radius:6px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='#ffe8d6'" onmouseout="this.style.background='#fff4ee'">
+        <a href="/the-pledge" style="display:flex;align-items:center;gap:10px;margin:14px 0 10px;padding:10px 12px;background:#fff4ee;border:1px solid #f7d8c2;border-left:3px solid #e8720c;border-radius:6px;text-decoration:none;transition:all .15s" class="ql-pledge">
           <div style="flex-shrink:0;color:#e8720c"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
           <div style="flex:1;line-height:1.35">
             <div style="font-size:.7rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#c45e08;">On every NBD roof</div>
-            <div style="font-size:.78rem;color:#1e3a6e;font-weight:600">The Pledge: <span style="font-weight:400;color:#4a4a4a">you call about anything I worked on, I come look. Free. Forever.</span> <strong style="color:#c45e08">Read &rarr;</strong></div>
+            <div style="font-size:.78rem;color:#1e3a6e;font-weight:600">The Pledge: <span style="font-weight:400;color:#4a4a4a">you call about anything I worked on, I come look. Free. Forever.</span> <strong style="color:#c45e08;font-weight:800">Read &rarr;</strong></div>
           </div>
         </a>
         <div style="display:flex;flex-direction:column;gap:8px;margin:8px 0 16px;">
           <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#f8f9fb;border-radius:6px;border-left:3px solid #c8a87a;">
             <div style="flex-shrink:0;margin-top:1px;color:#1e3a6e;"><svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg></div>
             <div>
-              <div style="font-weight:700;font-size:.82rem;color:#1e3a6e;margin-bottom:2px;">Standard — GAF Timberline NS</div>
+              <div style="font-weight:700;font-size:.82rem;color:#1e3a6e;margin-bottom:2px;">Standard — GAF Timberline NS <span style="font-weight:400;color:#6b7280;">or TAMKO Heritage</span></div>
               <div style="font-size:.72rem;color:#6b7280;line-height:1.4;">Architectural shingles · Manufacturer warranty · Roofivent Pipe Flashing</div>
             </div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#f8f9fb;border-radius:6px;border-left:3px solid #e8720c;">
             <div style="flex-shrink:0;margin-top:1px;color:#e8720c;"><svg class="ico" viewBox="0 0 24 24" style="width:22px;height:22px"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg></div>
             <div>
-              <div style="font-weight:700;font-size:.82rem;color:#1e3a6e;margin-bottom:2px;">Preferred — GAF Timberline HDZ <span style="font-size:.6rem;background:#e8720c;color:#fff;padding:1px 5px;border-radius:3px;font-weight:800;letter-spacing:.04em;vertical-align:1px;">MOST CHOSEN</span></div>
+              <div style="font-weight:700;font-size:.82rem;color:#1e3a6e;margin-bottom:2px;">Preferred — GAF Timberline HDZ <span style="font-weight:400;color:#6b7280;">or TAMKO Titan XT</span> <span style="font-size:.6rem;background:#B85400;color:#fff;padding:1px 5px;border-radius:3px;font-weight:800;letter-spacing:.04em;vertical-align:1px;">MOST CHOSEN</span></div>
               <div style="font-size:.72rem;color:#6b7280;line-height:1.4;">Full system install · GAF Pivot Boot · Roofivent iVent ECO · transferable warranty</div>
             </div>
           </div>
           <div style="display:flex;align-items:flex-start;gap:12px;padding:10px 12px;background:#fff4ee;border-radius:6px;border-left:3px solid #e8720c;">
             <div style="flex-shrink:0;margin-top:1px;color:#e8720c;"><svg class="ico ico-fill" viewBox="0 0 24 24" style="width:22px;height:22px"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg></div>
             <div>
-              <div style="font-weight:700;font-size:.82rem;color:#1e3a6e;margin-bottom:2px;">Elite — UHDZ + The NBD Build bundle</div>
+              <div style="font-weight:700;font-size:.82rem;color:#1e3a6e;margin-bottom:2px;">Elite — UHDZ + The NBD Build bundle <span style="font-weight:400;color:#6b7280;">or TAMKO StormFighter Flex</span></div>
               <div style="font-size:.72rem;color:#6b7280;line-height:1.4;">LumaNail™ + Pivot Boot + Roofivent · proactive annual outreach (I call you) · signed certificate</div>
             </div>
           </div>
         </div>
-        <a href="/services/tamko-storm-series" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:9px 12px;background:#fbfaf8;border:1px dashed #d8b48a;border-radius:6px;text-decoration:none;transition:all .15s" onmouseover="this.style.background='#fff4ee';this.style.borderColor='#e8720c'" onmouseout="this.style.background='#fbfaf8';this.style.borderColor='#d8b48a'">
+        <a href="/services/tamko-storm-series" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:9px 12px;background:#fbfaf8;border:1px dashed #d8b48a;border-radius:6px;text-decoration:none;transition:all .15s" class="ql-tamko">
           <div style="flex-shrink:0;color:#c45e08"><svg class="ico" viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M13 2 L4 14 H11 L11 22 L20 10 H13 Z"/></svg></div>
           <div style="flex:1;line-height:1.35">
-            <div style="font-size:.72rem;color:#1e3a6e;font-weight:600">Live in hail country? Ask about the <strong style="color:#c45e08">TAMKO Storm Series</strong> — impact-rated shingles up to a hail warranty. <strong style="color:#c45e08">See it &rarr;</strong></div>
+            <div style="font-size:.72rem;color:#1e3a6e;font-weight:600">Live in hail country? Ask about the <strong style="color:#c45e08;font-weight:800">TAMKO Storm Series</strong> — impact-rated shingles up to a hail warranty. <strong style="color:#c45e08;font-weight:800">See it &rarr;</strong></div>
           </div>
         </a>
-        <a href="/services/the-nbd-guarantee" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff4ee;color:#c45e08;text-decoration:none;font-weight:800;font-size:.78rem;letter-spacing:.04em;padding:11px;border-radius:6px;margin-bottom:10px;border:1px solid #f7d8c2;transition:all .15s;" onmouseover="this.style.background='#e8720c';this.style.color='#fff'" onmouseout="this.style.background='#fff4ee';this.style.color='#c45e08'">
+        <a href="/services/the-nbd-guarantee" style="display:flex;align-items:center;justify-content:center;gap:8px;background:#fff4ee;color:#c45e08;text-decoration:none;font-weight:800;font-size:.78rem;letter-spacing:.04em;padding:11px;border-radius:6px;margin-bottom:10px;border:1px solid #f7d8c2;transition:all .15s;" class="ql-guarantee">
           Compare All Three Tiers →
         </a>
         <a href="tel:8594207382" class="wc-phone">
@@ -973,7 +992,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 .nbd-tier-card h3{font-family:'Bebas Neue',sans-serif;font-size:clamp(1.6rem,2.5vw,2.2rem);letter-spacing:.04em;line-height:1.1;margin-bottom:14px;color:#fff}
 .nbd-tier-card .tier-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
 .nbd-tier-pill{background:rgba(255,255,255,.1);color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.06em;padding:5px 11px;border-radius:100px;border:1px solid rgba(255,255,255,.2)}
-.nbd-tier-pill.featured{background:#e8720c;border-color:#e8720c}
+.nbd-tier-pill.featured{background:#B85400;border-color:#B85400}
 .nbd-tier-card p{font-size:.92rem;line-height:1.6;color:rgba(255,255,255,.82);margin-bottom:18px}
 .nbd-tier-cta{display:inline-flex;align-items:center;gap:6px;color:#e8720c;font-weight:800;font-size:.85rem;letter-spacing:.04em;text-transform:uppercase}
 .nbd-components-col{display:flex;flex-direction:column;gap:12px}
@@ -1289,12 +1308,12 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="about-grid">
       <div class="about-img-block reveal">
         <div class="about-img-main">
-          <img src="/assets/images/joe-hero.jpg" alt="Joe Deal — Owner &amp; Operator, No Big Deal Home Solutions" style="width:100%;height:100%;object-fit:cover;object-position:center top;border-radius:16px;display:block;">
+          <picture style="width:100%;height:100%;display:block"><source srcset="/assets/images/joe-hero.webp" type="image/webp"><img src="/assets/images/joe-hero.jpg" alt="Joe Deal — Owner &amp; Operator, No Big Deal Home Solutions" width="1024" height="1024" loading="lazy" style="width:100%;height:100%;object-fit:cover;object-position:center top;border-radius:16px;display:block;"></picture>
         </div>
-        <div class="about-badge">
+        <a class="about-badge" href="/review" style="text-decoration:none" aria-label="See our Google reviews">
           <span class="big-num">5★</span>
           <small>Google Rated</small>
-        </div>
+        </a>
       </div>
 
       <div class="about-content reveal">
@@ -1379,7 +1398,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         <div class="aci-icon" style="color:var(--orange)"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg></div>
         <div class="aci-text">
           <strong>Email Joe</strong>
-          <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a>
+          <a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com">jd&#64;nobigdealwithjoedeal&#46;com</a>
         </div>
       </div>
       <div class="areas-contact-item">
@@ -1410,51 +1429,21 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="reviews-rating reveal">
       <div class="reviews-stars">★★★★★</div>
       <div>
-        <div class="reviews-score">5.0 / 5.0</div>
-        <div class="reviews-score-sub">Based on Google Reviews</div>
+        <div class="reviews-score">5.0 on Google</div>
+        <div class="reviews-score-sub"><a href="https://g.page/r/CXzIjLwvtRPdEBM" target="_blank" rel="noopener noreferrer" style="color:inherit">Verified Google Business Profile</a> — real reviews from Cincinnati &amp; N. Kentucky homeowners</div>
       </div>
       <a href="/#contact" class="btn-primary" style="margin-left:auto">Get My Free Estimate →</a>
     </div>
-    <div class="reviews-grid">
-      <div class="review-card reveal">
-        <div class="review-qmark">"</div>
-        <div class="review-stars">★★★★★</div>
-        <p class="review-text">"Joe was straightforward from the start — gave me an honest assessment, didn't try to sell me anything I didn't need, and the crew knocked it out in one day. Best contractor experience I've had."</p>
-        <div class="review-author">
-          <div class="review-avatar">DH</div>
-          <div>
-            <div class="review-name">David H.</div>
-            <div class="review-loc">Milford, OH — Roof Replacement</div>
-          </div>
-        </div>
-      </div>
-      <div class="review-card reveal">
-        <div class="review-qmark">"</div>
-        <div class="review-stars">★★★★★</div>
-        <p class="review-text">"Had storm damage and wasn't sure how to deal with insurance. Joe handled literally everything — filed the claim, worked with the adjuster, and had us fixed up within a week. Couldn't believe how easy it was."</p>
-        <div class="review-author">
-          <div class="review-avatar">LR</div>
-          <div>
-            <div class="review-name">Linda R.</div>
-            <div class="review-loc">Loveland, OH — Storm Damage</div>
-          </div>
-        </div>
-      </div>
-      <div class="review-card reveal">
-        <div class="review-qmark">"</div>
-        <div class="review-stars">★★★★★</div>
-        <p class="review-text">"Got three quotes. Joe was the only one who came out, got on the roof himself, and told me what I actually needed — not what would make him the most money. Fair price, great crew, zero drama."</p>
-        <div class="review-author">
-          <div class="review-avatar">TM</div>
-          <div>
-            <div class="review-name">Tom M.</div>
-            <div class="review-loc">Goshen, OH — Siding &amp; Gutters</div>
-          </div>
-        </div>
-      </div>
+    <!-- Live Google reviews (Firebase Function → Places API). The hardcoded
+         5.0/5.0 score + 3 sample review cards here were removed 2026-07-03
+         (content audit) — same cleanup already applied to /review. -->
+    <div data-nbd-google-reviews></div>
+    <div style="text-align:center;margin-top:22px">
+      <a href="/review" class="btn-ghost">Read all our Google reviews →</a>
     </div>
   </div>
 </section>
+<script src="/assets/js/google-reviews-widget.js" defer></script>
 
 <!-- CERTIFICATIONS & BRAND PARTNERS -->
 <section style="background:var(--navy);padding:56px 5%;border-top:3px solid var(--orange)">
@@ -1518,10 +1507,10 @@ footer.foot a,.review-footer a{color:#e8720c!important}
               <span>Call or text Joe directly</span>
             </div>
           </a>
-          <a href="mailto:jd@nobigdealwithjoedeal.com" class="contact-method">
+          <a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com" class="contact-method">
             <div class="cm-icon" style="color:var(--orange)"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><polyline points="3 7 12 13 21 7"/></svg></div>
             <div class="cm-text">
-              <strong>jd@nobigdealwithjoedeal.com</strong>
+              <strong>jd&#64;nobigdealwithjoedeal&#46;com</strong>
               <span>Email Joe anytime</span>
             </div>
           </a>
@@ -1702,13 +1691,13 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <p style="color:var(--gray);max-width:640px;margin:0 auto 24px;font-size:.95rem;line-height:1.6">We install premium materials from manufacturers that stand behind their products. If a shingle, siding panel, or trim piece fails — I want the same people backing us up as I count on.</p>
     <div class="brands-row" style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:24px 40px;margin-top:12px">
       <div class="brand-mark" aria-label="GAF" style="display:inline-flex;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px">
-        <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified Contractor" width="72" height="52" loading="lazy" style="height:52px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" onmouseover="this.style.filter='none';this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%) brightness(.55)';this.style.opacity='.85'">
+        <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified Contractor" width="72" height="52" loading="lazy" style="height:52px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" class="partner-logo-img">
       </div>
       <div class="brand-mark" aria-label="TAMKO Building Products" style="display:inline-flex;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px">
-        <img src="/assets/tamko/tamko-logo-color.svg" alt="TAMKO Building Products" width="110" height="44" loading="lazy" style="height:42px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" onmouseover="this.style.filter='none';this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%) brightness(.55)';this.style.opacity='.85'">
+        <img src="/assets/tamko/tamko-logo-color.svg" alt="TAMKO Building Products" width="110" height="44" loading="lazy" style="height:42px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" class="partner-logo-img">
       </div>
       <div class="brand-mark" aria-label="James Hardie" style="display:inline-flex;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px">
-        <img src="/assets/partners/james-hardie.svg" alt="James Hardie" width="140" height="36" loading="lazy" style="height:28px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" onmouseover="this.style.filter='none';this.style.opacity='1'" onmouseout="this.style.filter='grayscale(100%) brightness(.55)';this.style.opacity='.85'">
+        <img src="/assets/partners/james-hardie.svg" alt="James Hardie" width="140" height="36" loading="lazy" style="height:28px;width:auto;max-width:100%;object-fit:contain;filter:grayscale(100%) brightness(.55);opacity:.85;transition:filter .3s ease,opacity .3s ease" class="partner-logo-img">
       </div>
       <div class="brand-mark" aria-label="Royal Building Products" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;height:72px;min-width:160px;padding:10px 18px;background:#fff;border:1px solid var(--light-gray);border-radius:8px;font-family:'Bebas Neue',sans-serif;letter-spacing:.06em;color:#555;line-height:1">
         <span style="font-size:1.5rem;font-weight:400">ROYAL</span>
@@ -1719,7 +1708,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         <span style="font-size:.7rem;letter-spacing:.14em;color:#888;margin-top:2px;font-family:'Montserrat',sans-serif;font-weight:600">SIDING</span>
       </div>
     </div>
-    <p style="color:var(--gray);font-size:.75rem;margin-top:22px;opacity:.7">Brand names are trademarks of their respective manufacturers. NBD Home Solutions is an independent installer.</p>
+    <p style="color:var(--gray);font-size:.75rem;margin-top:22px;opacity:.7">Brand names are trademarks of their respective manufacturers. No Big Deal Home Solutions is an independent installer.</p>
   </div>
 </section>
 </main>
@@ -1731,7 +1720,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="footer-grid">
       <div class="footer-logo-block">
         <a href="/" class="nav-logo footer-nav-logo">
-          <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
+          <img src="/assets/images/nbd-logo.png" width="240" height="160" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
           <div class="nav-logo-text">
             <div class="brand" style="color:#fff">NO BIG DEAL</div>
             <div class="sub" style="color:rgba(255,255,255,.6)">Home Solutions</div>
@@ -1782,7 +1771,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
           <li><a href="/estimate">Instant Estimate</a></li>
           <li><a href="/storm-alerts">Storm Alerts</a></li>
           <li><a href="/storm-report">5-Year Storm Report</a></li>
-          <li><a href="/storm-check">Is It Worth a Claim?</a></li>
+          <li><a href="/storm-check">Is It Worth a Claim?</a></li><li><a href="/inspect">Free 24-Hour Inspection</a></li>
           <li><a href="/areas/">All Service Areas</a></li>
         </ul>
       </div>
@@ -1791,7 +1780,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
         <div class="footer-col-title">Contact</div>
         <ul class="footer-links">
           <li><a href="tel:8594207382">(859) 420-7382</a></li>
-          <li><a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a></li>
+          <li><a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com">jd&#64;nobigdealwithjoedeal&#46;com</a></li>
           <li><a href="#areas">Goshen / Cincinnati, OH</a></li>
           <li style="color:rgba(255,255,255,.65);font-size:.78rem;margin-top:8px">Mon–Sat 7AM–6PM</li>
           <li style="color:rgba(255,255,255,.65);font-size:.78rem">Sunday available</li>
@@ -1800,9 +1789,9 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
 
     <div style="border-top:1px solid rgba(255,255,255,.08);padding:18px 0 4px;margin-top:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-      <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" aria-label="Verify on GAF.com — GAF Certified™ Contractor directory" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
+      <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
         <img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified™ Residential Roofing Contractor" width="40" height="40" loading="lazy" style="display:block">
-        <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">GAF Certified™ Contractor<br><span style="color:rgba(255,255,255,.5);font-weight:500;font-size:.65rem">Verify on GAF.com →</span></span>
+        <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">GAF Certified™ Contractor<br><span style="color:rgba(255,255,255,.5);font-weight:600;font-size:.65rem">Verify on GAF.com →</span></span>
       </a>
       <p style="font-size:.62rem;color:rgba(255,255,255,.32);line-height:1.6;flex:1;min-width:280px">Independent Contractor. Not an employee or agent of GAF Materials LLC. Contractors enrolled in GAF certification programs are not employees or agents of GAF, and GAF does not control or otherwise supervise these independent businesses. GAF® and GAF Certified™ are either registered trademarks or trademarks of BMIC LLC in the United States and/or other countries. GAF ID 1162011.</p>
     </div>
