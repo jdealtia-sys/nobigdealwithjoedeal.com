@@ -34,9 +34,12 @@ Firebase Hosting has no Host-based rewrites, so pick one:
 
 ## Open decisions for Jo
 - **Generation model:** build-time static (recommended) vs runtime renderer.
+  > **DECIDED (Jo, 2026-07-04):** runtime renderer — the `/sites/t/` runtime-rendered microsite (one static template + `getPublicSiteConfig`) is the product; no build-time generator will be built.
 - **Domain routing:** multi-site Firebase targets (recommended) vs reverse proxy.
+  > **DECIDED (Jo, 2026-07-04):** deferred — tenant sites live on `/sites/t/<slug>` under the platform domain for now; multi-site Firebase Hosting targets remain the recommended path when custom domains become a paid add-on.
 - **Who owns DNS/TLS** per tenant, and whether domains are a paid add-on (ties to Pillar 4).
 - **Oaks cutover:** when to move `oaksroofingandconstruction.com` off the parked Squarespace page.
+  > **DECIDED (Jo, 2026-07-04):** cut over now — the hand-authored `/sites/oaks` pages are being retired in favor of `/sites/t/oaks` this session.
 
 ---
 **Roadmap now fully scoped:** Backbone (shipped) · Pillar 2 Brand (shipped) · [Pillar 1 Provisioning](PILLAR1-PROVISIONING-PLAN.md) · [Pillar 4 Billing](PILLAR4-BILLING-PLAN.md) · Pillar 5 (this). Recommended build order: 1 → 4 → 5, with Pillar 3 (data tenancy) hardening folded into 1.

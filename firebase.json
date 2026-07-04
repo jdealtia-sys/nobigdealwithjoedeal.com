@@ -20,12 +20,20 @@
       { "_comment": "/free-guide is a CONTRACTOR lead magnet (not homeowner-facing). Relocated to the SaaS/contractor surface at /sites/free-guide. 301 so any printed/ad/QR links to the old /free-guide fold their equity into the new location.",
         "source": "/free-guide", "destination": "/sites/free-guide", "type": 301 },
       { "_comment": "/financing (root) was a client-side meta-refresh stub to the canonical /services/financing. Replaced with a proper server 301 (better SEO, no redirect flash); the stub file was removed.",
-        "source": "/financing", "destination": "/services/financing", "type": 301 }
+        "source": "/financing", "destination": "/services/financing", "type": 301 },
+      { "_comment": "Pillar 5 Oaks cutover (Jo, 2026-07-04): the hand-authored /sites/oaks pages are retired; the data-driven tenant microsite at /sites/t/oaks (rendered from companyProfile via getPublicSiteConfig) is canonical. Page paths are ENUMERATED rather than /sites/oaks/** because redirects outrank static files in Hosting priority and logo-orange.svg must keep serving — companyProfile/oaks brand.logoUrl (and generated documents) point at it. Trailing * catches both the .html and cleanUrls extensionless forms.",
+        "source": "/sites/oaks", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/index*", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/about*", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/contact*", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/gallery*", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/service-areas*", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/services", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/services/**", "destination": "/sites/t/oaks", "type": 301 }
     ],
     "rewrites": [
       { "_comment": "Bots, link previewers, and old browsers probe /favicon.ico by reflex. We don't ship a .ico file (favicon.svg covers modern browsers via <link rel=icon>). Rewriting the .ico URL to favicon.svg returns the SVG bytes with Content-Type image/svg+xml — modern browsers accept that fine. The alternative was a 404 every time a crawler hits the URL.",
         "source": "/favicon.ico", "destination": "/favicon.svg" },
-      { "source": "/sites/oaks", "destination": "/sites/oaks/index.html" },
       { "_comment": "Pillar 5 phase 1: universal tenant microsite. /sites/t/<companyId-or-slug> serves the one static template (rewrites only fire when no real file matches, so site.js/site.css still serve directly); /api/site-config is the whitelisted server-side companyProfile read behind it.",
         "source": "/api/site-config", "function": { "functionId": "getPublicSiteConfig", "region": "us-central1" } },
       { "source": "/sites/t/**", "destination": "/sites/t/index.html" },
