@@ -66,6 +66,34 @@ const STRIPE_WEBHOOK_SECRET     = defineSecret('STRIPE_WEBHOOK_SECRET');
 const STRIPE_PRICE_FOUNDATION   = defineSecret('STRIPE_PRICE_FOUNDATION');
 const STRIPE_PRICE_PROFESSIONAL = defineSecret('STRIPE_PRICE_PROFESSIONAL');
 
+// ── Shared Stripe client ────────────────────────────────────────────
+// Single source for the SDK instance across all 5 handlers (was a separate
+// `new Stripe(SECRET.value(), …)` in each). Two things this centralizes:
+//   1. TRIM the secret key. A stored STRIPE_SECRET_KEY with a trailing newline
+//      (how it got pasted into Secret Manager) made the SDK throw ERR_INVALID_CHAR
+//      setting the Authorization header → surfaced as an opaque "An error
+//      occurred with our connection to Stripe. Request was retried N times" 500,
+//      which looks like a Stripe outage but is purely the tainted key. .trim()
+//      kills it. (Supersedes the per-site trim in draft PR #711.)
+//   2. maxNetworkRetries + a bounded timeout so a transient network blip
+//      self-heals instead of bubbling up as a 500.
+// Memoized: the key is constant per deployment, so one client is reused across
+// warm invocations. value() is read lazily (inside the handler, where the secret
+// is bound) — never at module load.
+let _stripeClient = null;
+function getStripe() {
+  if (_stripeClient) return _stripeClient;
+  const raw = STRIPE_SECRET_KEY.value();
+  const key = String(raw == null ? '' : raw).trim();
+  if (!key) throw new Error('STRIPE_SECRET_KEY is empty/unset');
+  _stripeClient = new Stripe(key, {
+    apiVersion: STRIPE_API_VERSION,
+    maxNetworkRetries: 2,
+    timeout: 20000,
+  });
+  return _stripeClient;
+}
+
 // CORS origins — same allowlist as index.js + portal.js. Deliberately
 // duplicated for module independence (matches portal.js precedent).
 const CORS_ORIGINS = [
@@ -136,7 +164,7 @@ exports.createCheckoutSession = onRequest(
         : STRIPE_PRICE_PROFESSIONAL.value();
 
       // Initialize Stripe
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
+      const stripe = getStripe();
 
       // Create Checkout Session
       const session = await stripe.checkout.sessions.create({
@@ -201,7 +229,7 @@ exports.stripeWebhook = onRequest(
       return;
     }
 
-    const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
+    const stripe = getStripe();
     const sig = req.headers['stripe-signature'];
     const webhookSecret = STRIPE_WEBHOOK_SECRET.value();
 
@@ -623,7 +651,7 @@ exports.createCustomerPortalSession = onRequest(
         return;
       }
 
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
+      const stripe = getStripe();
 
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: customerId,
@@ -841,7 +869,7 @@ exports.createStripePaymentLink = onRequest(
         return;
       }
 
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
+      const stripe = getStripe();
       const paymentLink = await stripe.paymentLinks.create({
         line_items: lineItems,
         metadata: { invoiceId: String(invoiceId), userId: decoded.uid },
@@ -885,7 +913,7 @@ exports.invoiceWebhook = onRequest(
 
     try {
       const signature = req.headers['stripe-signature'] || '';
-      const stripe = new Stripe(STRIPE_SECRET_KEY.value(), { apiVersion: STRIPE_API_VERSION });
+      const stripe = getStripe();
 
       // H-6: same rawBody requirement as stripeWebhook. The previous
       // `req.rawBody || req.body` fallback is a footgun — it gives
