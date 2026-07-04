@@ -37,7 +37,7 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
 
     // Post-redirect URL is dashboard.html; the auth gate (nbd-auth.js)
     // would bounce us back to /pro/login if auth state didn't stick.
-    expect(page.url()).toContain('/pro/dashboard.html');
+    expect(page.url()).toMatch(/\/pro\/dashboard(\.html)?([?#]|$)/); // cleanUrls strips .html
 
     // Kanban container loads via crm.js. Selector audited 2026-04-25:
     // #crm-board is the top-level kanban wrapper rendered post-login.
@@ -64,7 +64,7 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
     // Give the 2.5-second nbd-auth.js grace window from PR #37 enough
     // headroom to settle; if we're going to bounce we'd see /login by now.
     await page.waitForTimeout(3_500);
-    expect(page.url(), 'auth-restore must keep us on dashboard, not /login').toContain('/pro/dashboard.html');
+    expect(page.url(), 'auth-restore must keep us on dashboard, not /login').toMatch(/\/pro\/dashboard(\.html)?([?#]|$)/);
   });
 });
 
