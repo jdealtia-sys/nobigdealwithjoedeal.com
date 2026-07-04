@@ -61,7 +61,7 @@ const DEFAULT_SENTRY_DSN = "";
 })();
 
 // ── Plan Hierarchy ────────────────────────────────────────
-// Canonical plan keys: free, lite, foundation, blueprint, professional.
+// Internal plan-level keys: free, lite, foundation, blueprint, professional.
 // Stripe + pricing.html historically wrote alternate names (starter,
 // growth, enterprise) directly into subscriptions/{uid}.plan. Without
 // normalization a paying "growth" user looked up as PLAN_LEVELS['growth']
@@ -119,12 +119,15 @@ const PAGE_PLANS = {
 };
 
 // ── Feature Names (for upgrade wall) ──────────────────────
+// Keys are the internal PLAN_LEVELS identifiers; values are the
+// customer-facing plan names from pricing.html (Free / Starter /
+// Growth). Legacy keys display as their canonical equivalent.
 const PLAN_NAMES = {
   free:         'Free',
-  lite:         'Lite',
-  foundation:   'Foundation',
-  blueprint:    'Blueprint',
-  professional: 'Professional'
+  lite:         'Free',
+  foundation:   'Starter',
+  blueprint:    'Starter',
+  professional: 'Growth'
 };
 
 const PLAN_FEATURES = {
@@ -136,7 +139,7 @@ const PLAN_FEATURES = {
     'Analytics & diagnostic tools'
   ],
   professional: [
-    'Everything in Foundation, plus:',
+    'Everything in Starter, plus:',
     'AI Usability Tree — score & compare your tool stack',
     'AI Selection Codex — decision engine for AI tools',
     'Understanding Tool — deep-dive any software',

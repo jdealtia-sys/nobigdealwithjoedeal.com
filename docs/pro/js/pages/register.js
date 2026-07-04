@@ -91,7 +91,12 @@ function togglePass(id, btn) {
   if (!inp) return;
   const show = inp.type === 'password';
   inp.type = show ? 'text' : 'password';
-  if (btn) btn.textContent = show ? '🙈' : '👁';
+  if (btn) {
+    btn.textContent = show ? '🙈' : '👁';
+    // a11y: keep the accessible name/state in sync with the visual glyph.
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    btn.setAttribute('aria-pressed', String(show));
+  }
 }
 
 // ─────────────────────────────────────────────────

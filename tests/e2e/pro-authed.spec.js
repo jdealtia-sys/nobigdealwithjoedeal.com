@@ -395,4 +395,261 @@ test.describe.serial('Authenticated destructive flows', () => {
     expect(saved.doc.deposit && saved.doc.deposit.remainder, 'deposit + remainder reconstructs the total')
       .toBeCloseTo(expected.total - expectedDeposit.amount, 2);
   });
+
+  test('invoice: createInvoiceFromEstimate carries totals + deposit, balanceDue is the FULL total', async ({ page }) => {
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // InvoicePipeline is an EAGER <script defer> (dashboard.html) but it runs
+    // on the window Firestore globals (_db/doc/getDoc/addDoc/collection) that
+    // dashboard-bootstrap exposes asynchronously — wait for both ends of that
+    // contract, plus the shared estimate persist path.
+    await page.waitForFunction(() =>
+      window.InvoicePipeline && typeof window.InvoicePipeline.createInvoiceFromEstimate === 'function'
+      && window._db && typeof window.addDoc === 'function'
+      && typeof window._saveEstimate === 'function', null, { timeout: 20_000 });
+
+    const stamp = Date.now();
+    // Classic row-shaped estimate with NO locked grandTotal: exercises the
+    // row-sum branch of createInvoiceFromEstimate (per-sq V2 estimates take
+    // the single-summary-line branch instead, covered by unit tests).
+    // taxRate 0 is the insurance-scope contract: an explicit 0 must be
+    // HONORED, not silently defaulted to 7.5% (Audit #3 F-3).
+    const EST = {
+      name: `[E2E] Invoice source ${stamp}`,
+      addr: '742 Invoice Test Ct, Cincinnati, OH',
+      // Linkage is copied verbatim onto the invoice; the pipeline's
+      // enrichment read of this (nonexistent) lead is best-effort and
+      // swallows the permission error.
+      leadId: `e2e-missing-lead-${stamp}`,
+      rows: [
+        { desc: 'Tear-off + disposal', qty: 20, rate: 100, total: 2000 },
+        { desc: 'Shingles (architectural)', qty: 1, rate: 1500, total: 1500 },
+      ],
+      taxRate: 0,
+      // Classic builder saves deposit as an OBJECT — the pipeline must
+      // coerce .amount, not Number() the object into NaN (review blocker).
+      deposit: { pct: 50, amount: 1750, remainder: 1750 },
+      e2eTestData: true,
+    };
+
+    const out = await page.evaluate(async (est) => {
+      // Re-check auth IN this execution context right before the write:
+      // the outer waitForFunction gate can pass against a pre-navigation
+      // document, after which _saveEstimate stamps userId from a _user the
+      // fresh dashboard context hasn't re-populated yet (CI retry flake:
+      // "Unsupported field value: undefined in field userId").
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      const estimateId = await window._saveEstimate(est);
+      const invoiceId = await window.InvoicePipeline.createInvoiceFromEstimate(estimateId);
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      // Tag the invoice for the cleanupE2ETestData callable — the pipeline
+      // writes a fixed shape with no room for test flags. Owner update is
+      // allowed while createdBy/companyId/estimateId/createdAt stay frozen.
+      await fsMod.updateDoc(fsMod.doc(db, 'invoices', invoiceId), { e2eTestData: true });
+      const snap = await fsMod.getDoc(fsMod.doc(db, 'invoices', invoiceId));
+      return { estimateId, invoiceId, inv: snap.data() };
+    }, EST);
+
+    const inv = out.inv;
+    const expectedSubtotal = EST.rows.reduce((s, r) => s + r.total, 0);
+    expect(inv.subtotal, 'subtotal = Σ row totals').toBe(expectedSubtotal);
+    expect(inv.taxRate, 'estimate taxRate 0 honored (not defaulted to 7.5%)').toBe(0);
+    expect(inv.tax, 'tax is 0 at a 0% rate').toBe(0);
+    expect(inv.total, 'total = subtotal at 0% tax').toBe(expectedSubtotal);
+    expect(inv.depositAmount, 'deposit coerced from the classic {amount} object').toBe(EST.deposit.amount);
+    // The locked AR contract: balanceDue tracks genuinely-owed money — the
+    // FULL total at create time. It was `total - depositAmount`, which booked
+    // the deposit as collected before any payment arrived, under-reporting AR.
+    expect(inv.balanceDue, 'balanceDue = full total at create').toBe(inv.total);
+    expect(inv.status, 'new invoice starts as draft').toBe('draft');
+    expect(inv.depositPaid, 'deposit not marked paid at create').toBe(false);
+    expect(inv.amountPaid, 'nothing collected at create').toBe(0);
+    expect(inv.estimateId, 'invoice → estimate linkage').toBe(out.estimateId);
+    expect(inv.leadId, 'invoice inherits the estimate leadId').toBe(EST.leadId);
+    expect(inv.createdBy, 'createdBy stamped').toBeTruthy();
+    expect(inv.companyId, 'companyId stamped (solo convention: uid)').toBeTruthy();
+    expect(inv.items.length, 'row-shaped estimate keeps its line items').toBe(EST.rows.length);
+  });
+
+  test('photo: uploadFromFile stores original + thumb, derives phase from the before tag', async ({ page }) => {
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // PhotoEngine lives in the lazy 'photos' bundle (ScriptLoader PR 2c);
+    // the upload path additionally needs the Storage handle that bootstrap
+    // exposes as window._storage (emulator-wired on localhost, line 809).
+    await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
+    await page.evaluate(() => window.ScriptLoader.loadBundle('photos'));
+    await page.waitForFunction(() =>
+      window.PhotoEngine && typeof window.PhotoEngine.uploadFromFile === 'function'
+      && window._storage && window._db, null, { timeout: 20_000 });
+
+    const stamp = Date.now();
+    const out = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey —
+      // uploadPhotoToFirebase throws without window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      // A REAL image via canvas export: generateThumbnail() re-decodes the
+      // blob as an <img>, so a hand-rolled Blob of junk bytes fails there,
+      // and storage.rules requires an image/* content type (isImage()).
+      const canvas = document.createElement('canvas');
+      canvas.width = 80; canvas.height = 60;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#d2691e'; ctx.fillRect(0, 0, 80, 60);
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.8));
+
+      const leadId = 'e2e-photo-lead-' + args.stamp;
+      const photo = await window.PhotoEngine.uploadFromFile(
+        leadId, blob, ['before'], '[E2E] photo journey ' + args.stamp);
+
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      // Tag for the cleanup callable (the upload writes a fixed doc shape).
+      // NOTE: cleanup deletes the Firestore doc; the Storage originals under
+      // photos/<uid>/<leadId>/ are only reclaimed in emulator runs (state
+      // evaporates) — a prod run leaves two tiny orphaned JPEGs per run.
+      await fsMod.updateDoc(fsMod.doc(db, 'photos', photo.id), { e2eTestData: true });
+      const snap = await fsMod.getDoc(fsMod.doc(db, 'photos', photo.id));
+      return { id: photo.id, doc: snap.data(), uid: window._user.uid, leadId };
+    }, { stamp });
+
+    const doc = out.doc;
+    expect(doc, 'photo doc persisted to Firestore').toBeTruthy();
+    // share-gallery.js buckets on photo.phase — without the derived field
+    // every photo landed in 'During' and Before/After stayed empty.
+    expect(doc.phase, "tag 'before' derives phase 'Before'").toBe('Before');
+    expect(doc.userId, 'userId stamped from window._user').toBe(out.uid);
+    expect(doc.leadId, 'photo keyed to its lead').toBe(out.leadId);
+    expect(doc.tags, 'user tags persisted').toContain('before');
+    expect(doc.url, 'download URL for the original').toBeTruthy();
+    expect(doc.thumbUrl, 'thumbnail generated + uploaded').toBeTruthy();
+    // storagePath is the future-proof deletion key — must be rooted under
+    // the owner-scoped prefix that storage.rules enforces.
+    expect(doc.storagePath, 'original rooted under photos/<uid>/<leadId>/')
+      .toMatch(new RegExp('^photos/' + out.uid + '/' + out.leadId + '/'));
+    expect(doc.thumbStoragePath, 'thumb rooted under .../thumbs/')
+      .toMatch(new RegExp('^photos/' + out.uid + '/' + out.leadId + '/thumbs/'));
+    expect(doc.createdAt, 'createdAt serverTimestamp (canonical ordering field)').toBeTruthy();
+  });
+
+  test('docgen: generate persists metadata under the lead + uploads rendered HTML', async ({ page }) => {
+    // The doc-generation persist path is fully client-side (Firestore
+    // subcollection + Storage HTML upload) — the functions emulator is only
+    // involved for server PDF render (contract/invoice/change_order/receipt,
+    // which FALLS BACK to client render) and remote signing. 'thank_you' is
+    // not in SERVER_TYPE_MAP, so this journey is hermetic without functions.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    const stamp = Date.now();
+    // The documents subcollection rule does get(leads/{leadId}).data.userId —
+    // the PARENT LEAD MUST EXIST and be ours, so seed one first (same
+    // re-fetch-by-lastName pattern as the move-stage journey; _saveLead
+    // returns null on the geocoded path).
+    const leadId = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey — _saveLead
+      // stamps userId from window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      await window._saveLead({
+        firstName: '[E2E] DocGen',
+        lastName: String(args.stamp),
+        address: `${String(args.stamp).slice(-3)} DocGen Drive, Cincinnati, OH`,
+        phone: '513' + String(args.stamp).slice(-7),
+        email: `e2e-docgen-${args.stamp}@nbd.test`,
+        stage: 'new',
+        e2eTestData: true
+      });
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      const uid = (window._auth || window.auth).currentUser.uid;
+      const snap = await fsMod.getDocs(fsMod.query(
+        fsMod.collection(db, 'leads'),
+        fsMod.where('userId', '==', uid),
+        fsMod.where('lastName', '==', String(args.stamp)),
+        fsMod.where('e2eTestData', '==', true)
+      ));
+      let id = null;
+      snap.forEach(d => { if (!id) id = d.id; });
+      return id;
+    }, { stamp });
+    expect(leadId, 'seeded [E2E] DocGen lead has an id').toBeTruthy();
+
+    // NBDDocGen is in the lazy 'docgen' bundle; NBDDocViewer is an EAGER
+    // <script defer> (dashboard.html) — generate() only persists when the
+    // viewer path is available, so gate on both.
+    await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
+    await page.evaluate(() => window.ScriptLoader.loadBundle('docgen'));
+    await page.waitForFunction(() =>
+      window.NBDDocGen && typeof window.NBDDocGen.generate === 'function'
+      && window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function'
+      && window.storage && typeof window.uploadBytes === 'function', null, { timeout: 20_000 });
+
+    await page.evaluate(async (args) => {
+      await window.NBDDocGen.generate('thank_you', {
+        leadId: args.leadId,
+        customer: { name: '[E2E] DocGen ' + args.stamp, address: '1 DocGen Drive', email: `e2e-docgen-${args.stamp}@nbd.test` },
+        homeownerName: '[E2E] DocGen ' + args.stamp,
+        projectType: 'Roof Replacement',
+        completionDate: '2026-07-04',
+      });
+    }, { leadId, stamp });
+
+    // generate() kicks persistence off in the background (_persistPromise);
+    // poll the subcollection from the TEST side. Not waitForFunction: its
+    // async-predicate result comes back as a JSHandle whose jsonValue
+    // doesn't round-trip a stringified array reliably (CI: "docs.find is
+    // not a function") — page.evaluate deserializes arrays natively.
+    let docs = [];
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+      docs = await page.evaluate(async (id) => {
+        const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const db = window.db || window._db;
+        const snap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'documents'));
+        const list = [];
+        snap.forEach(d => {
+          const data = d.data();
+          list.push({
+            id: d.id, type: data.type, typeName: data.typeName,
+            userId: data.userId, filename: data.filename,
+            htmlPath: data.htmlPath, htmlUrl: data.htmlUrl,
+          });
+        });
+        return list;
+      }, leadId);
+      if (docs.length) break;
+      await page.waitForTimeout(1_000);
+    }
+
+    const meta = docs.find(d => d.type === 'thank_you');
+    expect(meta, 'thank_you metadata doc persisted under the lead').toBeTruthy();
+    expect(meta.userId, 'userId stamped on the metadata').toBeTruthy();
+    expect(meta.typeName, 'human-readable type name recorded').toBeTruthy();
+    expect(meta.filename, 'filename recorded for the PDF flow').toMatch(/\.pdf$/);
+    // Storage leg: the rendered HTML must land under the owner-scoped
+    // documents/ prefix (storage.rules isHtmlOnly path) with a resolvable
+    // download URL — this is what the customer-page documents tab reopens.
+    expect(meta.htmlPath, 'HTML uploaded under documents/<uid>/<leadId>/')
+      .toMatch(new RegExp('^documents/[^/]+/' + leadId + '/'));
+    expect(meta.htmlUrl, 'download URL resolved for the uploaded HTML').toBeTruthy();
+
+    // Tag the metadata doc for prod-run cleanup (subcollection docs don't
+    // cascade-delete with the lead). Owner write allowed via the parent-get
+    // rule. Emulator runs don't need it — state evaporates.
+    await page.evaluate(async (args) => {
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      await fsMod.updateDoc(fsMod.doc(db, 'leads', args.leadId, 'documents', args.docId), { e2eTestData: true });
+    }, { leadId, docId: meta.id });
+  });
 });

@@ -1705,6 +1705,14 @@ section('Migration framework — versioned runner');
   assert('runner stops on first failure + records lastError',
     /lastFailedVersion:\s*m\.version/.test(runner)
     && /break;/.test(runner));
+  // 003 closes the 002 blind spot: leads with NO timestamps at all were
+  // skipped (backfillField drops null values), leaving them permanently
+  // outside every stageStartedAt range window — never re-engaged. The
+  // Timestamp.now() terminal fallback guarantees the field always lands.
+  const m003 = read(path.join(ROOT, 'functions/migrations/scripts/003-stamp-timestampless-leads.js'));
+  assert('003 stamps timestamp-less leads (Timestamp.now() terminal fallback)',
+    /exports\.version\s*=\s*3/.test(m003)
+    && /d\.updatedAt \|\| d\.createdAt \|\| Timestamp\.now\(\)/.test(m003));
 }
 
 section('Phase D.3 — integrationStatus secret-readout completeness');

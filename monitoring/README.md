@@ -140,3 +140,8 @@ deploy:
 - **Twilio Console** — Usage → last 7 days
 - **Anthropic Console** — Usage → last 7 days
 - **Stripe Dashboard** — Payments + Disputes
+
+# Tenant microsite config errors (Oaks + all /sites/t/ tenants down)
+gcloud alpha monitoring policies create \
+  --policy-from-file=monitoring/alert-tenant-microsite-errors.json \
+  --project=nobigdeal-pro

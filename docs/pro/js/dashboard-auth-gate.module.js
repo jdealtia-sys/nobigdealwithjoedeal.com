@@ -35,18 +35,18 @@ window._nbdAuth = NBDAuth.init({
         const urgency = days <= 2 ? 'trial-urgent' : 'trial-warning';
         const msg = days <= 2
           ? `⚠️ Your Pro trial ends in ${days} day${days===1?'':'s'}! Your data is safe — upgrade now to keep all features.`
-          : `Your Pro trial has ${days} days left. Upgrade to $79/mo to keep full access.`;
+          : `Your Pro trial has ${days} days left. Upgrade — plans start at $99/mo — to keep full access.`;
         const banner = document.createElement('div');
         banner.id = 'trial-banner';
         banner.className = urgency;
-        banner.innerHTML = `<span>${msg}</span><a href="/pro/register.html?plan=pro" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button data-action="call" data-fn="_nbdDismissTrial" data-pass-el style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
+        banner.innerHTML = `<span>${msg}</span><a href="/pro/pricing.html" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button data-action="call" data-fn="_nbdDismissTrial" data-pass-el style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
         document.body.prepend(banner);
       }
     } else if (NBDAuth.isTrialExpired) {
       const banner = document.createElement('div');
       banner.id = 'trial-banner';
       banner.className = 'trial-expired';
-      banner.innerHTML = `<span>⚡ Your Pro trial has ended. You're on the free Lite plan (25 leads). Upgrade to unlock everything.</span><a href="/pro/register.html?plan=pro" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Go Pro — $79/mo →</a>`;
+      banner.innerHTML = `<span>⚡ Your Pro trial has ended. You're on the Free plan (10 leads/month). Upgrade to unlock everything.</span><a href="/pro/pricing.html" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade — Starter $99/mo →</a>`;
       document.body.prepend(banner);
     }
   }

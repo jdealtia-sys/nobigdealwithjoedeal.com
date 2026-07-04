@@ -1,4 +1,5 @@
-    // FAQ Accordion
+    // FAQ Accordion. Questions are real <button>s (keyboard operable) —
+    // keep aria-expanded in sync so screen readers hear open/closed state.
     function toggleFAQ(question) {
       const answer = question.nextElementSibling;
       const toggle = question.querySelector('.faq-toggle');
@@ -7,11 +8,13 @@
         if (el !== answer) {
           el.classList.remove('active');
           el.previousElementSibling.querySelector('.faq-toggle').classList.remove('active');
+          el.previousElementSibling.setAttribute('aria-expanded', 'false');
         }
       });
 
-      answer.classList.toggle('active');
-      toggle.classList.toggle('active');
+      const open = answer.classList.toggle('active');
+      toggle.classList.toggle('active', open);
+      question.setAttribute('aria-expanded', String(open));
     }
 
     // CSP-safe data-pl-action delegate (replaces inline handlers).
