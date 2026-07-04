@@ -73,7 +73,12 @@ document.addEventListener('click', function(e) {
     e.preventDefault();
     window.subscribe(t.getAttribute('data-plan'), { target: t });
   } else if (action === 'faq-toggle') {
-    t.classList.toggle('open');
+    // a11y: the action now lives on the <button class="faq-q"> (keyboard
+    // operable); the .open class still drives the CSS on the parent item.
+    const item = t.closest('.faq-item');
+    if (!item) return;
+    const open = item.classList.toggle('open');
+    t.setAttribute('aria-expanded', String(open));
   }
 });
 

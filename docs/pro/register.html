@@ -36,7 +36,9 @@
   --s3:     #1E2229;
   --br:     rgba(255,255,255,.07);
   --t:      #E8EAF0;
-  --m:      #6B7280;
+  /* Muted text was #6B7280 — ~4.0:1 on this near-black bg, under the 4.5:1
+     AA floor for the 10-13px copy it's used on. #7C8694 clears it. */
+  --m:      #7C8694;
   --green:  #2ECC8A;
   --red:    #E05252;
   --rule:   rgba(255,255,255,.06);
@@ -416,8 +418,13 @@ body {
 /* a11y: skip-to-main link — pure CSS for strict-CSP compatibility. */
 .nbd-skip-link { position:absolute; left:-9999px; top:8px; background:#e8720c; color:#000; padding:8px 14px; font-weight:700; z-index:99999; text-decoration:none; border-radius:4px; }
 .nbd-skip-link:focus { left:8px; outline:2px solid #000; }
+/* a11y: visible keyboard focus on the controls that don't get the
+   .finput:focus border treatment. */
+.google-btn:focus-visible, .submit-btn:focus-visible, .pass-toggle:focus-visible, a:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
 </style>
-  <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/register">
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head>
 <body>
@@ -435,44 +442,44 @@ body {
     </div>
   </div>
 
-  <div class="left-headline">
+  <h1 class="left-headline">
     Built by a<br>roofer.<br><span>For roofers<br>who mean it.</span>
-  </div>
+  </h1>
   <div class="left-sub">
     I needed a CRM, a door-knock map, an AI estimate builder, and property intel that didn't cost me $500 a month. So I built one. Solo operator, 7 years in insurance restoration — every feature exists because I needed it in the field first.
   </div>
 
   <div class="feat-list">
     <div class="feat-item">
-      <div class="feat-icon">🗺️</div>
+      <div class="feat-icon" aria-hidden="true">🗺️</div>
       <div class="feat-text">
         <div class="ft-title">Door Knock CRM Map</div>
         <div class="ft-desc">Drop color-coded pins, track every door, heat map your territory activity.</div>
       </div>
     </div>
     <div class="feat-item">
-      <div class="feat-icon">🏠</div>
+      <div class="feat-icon" aria-hidden="true">🏠</div>
       <div class="feat-text">
         <div class="ft-title">Property Intel</div>
         <div class="ft-desc">Pull owner name, year built, market value and roof age from county records at any address.</div>
       </div>
     </div>
     <div class="feat-item">
-      <div class="feat-icon">📋</div>
+      <div class="feat-icon" aria-hidden="true">📋</div>
       <div class="feat-text">
         <div class="ft-title">AI Estimate Builder</div>
         <div class="ft-desc">Scope roofing jobs with guided steps, roof drawing tool, and one-click PDF export.</div>
       </div>
     </div>
     <div class="feat-item">
-      <div class="feat-icon">🤖</div>
+      <div class="feat-icon" aria-hidden="true">🤖</div>
       <div class="feat-text">
         <div class="ft-title">Ask Joe AI</div>
         <div class="ft-desc">Your AI coaching assistant trained on your live pipeline — answers questions about your own business.</div>
       </div>
     </div>
     <div class="feat-item">
-      <div class="feat-icon">⚡</div>
+      <div class="feat-icon" aria-hidden="true">⚡</div>
       <div class="feat-text">
         <div class="ft-title">Daily Success Tracker</div>
         <div class="ft-desc">Set daily door and production goals, track your reps, run your leaderboard.</div>
@@ -482,7 +489,8 @@ body {
 
   <div class="left-footer">
     Already a member? <a href="/pro/login.html">Sign in →</a><br><br>
-    Questions? <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a>
+    Questions? <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a><br><br>
+    By creating an account you agree to the <a href="/pro/terms.html">Terms of Service</a> and <a href="/privacy.html">Privacy Policy</a>.
   </div>
 </div>
 
@@ -490,12 +498,14 @@ body {
 <div class="right-panel">
   <div class="form-card">
     <div class="form-eyebrow">NBD Pro — Get Started</div>
-    <div class="form-title">Create Your Account</div>
-    <div class="form-sub">Free to start — 25 leads, basic CRM &amp; estimates, no credit card, no timer. Got an access code from me? Drop it in below for full Pro access.</div>
+    <h2 class="form-title">Create Your Account</h2>
+    <!-- Lead count must match functions/billing.js PLAN_LIMITS (free: 10/mo)
+         and /pro/pricing.html — was "25 leads", a number no plan has. -->
+    <div class="form-sub">Free to start — 10 leads a month, basic CRM &amp; estimates, no credit card, no timer. Got an access code from me? Drop it in below for full Pro access.</div>
 
     <button type="button" class="google-btn" id="googleRegBtn">
       <span class="google-icon">
-        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z"/><path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 010-3.04V5.41H1.83a8 8 0 000 7.18l2.67-2.07z"/><path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.4L4.5 7.49a4.77 4.77 0 014.48-3.3z"/></svg>
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true" focusable="false"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 002.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2a4.8 4.8 0 01-7.18-2.54H1.83v2.07A8 8 0 008.98 17z"/><path fill="#FBBC05" d="M4.5 10.52a4.8 4.8 0 010-3.04V5.41H1.83a8 8 0 000 7.18l2.67-2.07z"/><path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 001.83 5.4L4.5 7.49a4.77 4.77 0 014.48-3.3z"/></svg>
       </span>
       Continue with Google
     </button>
@@ -511,53 +521,55 @@ body {
          register) so the manager sees the submission before we hand
          off to Firebase. -->
     <form id="regForm" action="#" method="post" novalidate>
-      <div class="reg-err" id="regErr"></div>
-      <div class="reg-ok"  id="regOk"></div>
+      <!-- a11y: live regions so screen readers announce failures/success
+           written here by js/pages/register.js. -->
+      <div class="reg-err" id="regErr" role="alert"></div>
+      <div class="reg-ok"  id="regOk" role="status"></div>
 
       <!-- Access code FIRST — most important gate -->
       <div class="ffield code-field">
-        <label>Access Code <span style="font-weight:400;color:rgba(255,255,255,.3);">(optional — leave blank for free tier)</span></label>
+        <label for="regCode">Access Code <span style="font-weight:400;color:rgba(255,255,255,.55);">(optional — leave blank for free tier)</span></label>
         <input class="finput" id="regCode" name="access-code" type="text" placeholder="NBD-XXXXX or leave blank" autocomplete="off" spellcheck="false">
         <div class="code-hint">Use code <strong style="color:#e8720c;letter-spacing:.05em;">NBD-PRO</strong> to get started, or <a href="mailto:jd@nobigdealwithjoedeal.com">email Joe</a> for a custom code.</div>
       </div>
 
       <div class="frow">
         <div class="ffield">
-          <label>First Name <span>*</span></label>
-          <input class="finput" id="regFirst" name="given-name" type="text" placeholder="Joe" autocomplete="given-name" autocapitalize="words">
+          <label for="regFirst">First Name <span aria-hidden="true">*</span></label>
+          <input class="finput" id="regFirst" name="given-name" type="text" placeholder="Joe" autocomplete="given-name" autocapitalize="words" required>
         </div>
         <div class="ffield">
-          <label>Last Name</label>
+          <label for="regLast">Last Name</label>
           <input class="finput" id="regLast" name="family-name" type="text" placeholder="Deal" autocomplete="family-name" autocapitalize="words">
         </div>
       </div>
 
       <div class="ffield">
-        <label>Company Name</label>
+        <label for="regCompany">Company Name</label>
         <input class="finput" id="regCompany" name="organization" type="text" placeholder="No Big Deal Home Solutions" autocomplete="organization" autocapitalize="words">
       </div>
 
       <div class="ffield">
-        <label>Email <span>*</span></label>
+        <label for="regEmail">Email <span aria-hidden="true">*</span></label>
         <input class="finput" id="regEmail" name="email" type="email" placeholder="you@yourcompany.com" autocomplete="email" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false" required>
       </div>
 
       <div class="ffield">
-        <label>Password <span>*</span></label>
+        <label for="regPass">Password <span aria-hidden="true">*</span></label>
         <div class="finput-wrap">
           <input class="finput" id="regPass" name="new-password" type="password" placeholder="8+ characters"
             autocomplete="new-password" minlength="8" required style="padding-right:40px;">
-          <button type="button" class="pass-toggle" data-target="regPass" aria-label="Show password">👁</button>
+          <button type="button" class="pass-toggle" data-target="regPass" aria-label="Show password" aria-pressed="false">👁</button>
         </div>
-        <div class="pass-strength"><div class="pass-strength-bar" id="strengthBar"></div></div>
+        <div class="pass-strength" aria-hidden="true"><div class="pass-strength-bar" id="strengthBar"></div></div>
       </div>
 
       <div class="ffield">
-        <label>Confirm Password <span>*</span></label>
+        <label for="regConfirm">Confirm Password <span aria-hidden="true">*</span></label>
         <div class="finput-wrap">
           <input class="finput" id="regConfirm" name="new-password-confirm" type="password" placeholder="Repeat password"
             autocomplete="new-password" minlength="8" required style="padding-right:40px;">
-          <button type="button" class="pass-toggle" data-target="regConfirm" aria-label="Show password">👁</button>
+          <button type="button" class="pass-toggle" data-target="regConfirm" aria-label="Show password" aria-pressed="false">👁</button>
         </div>
       </div>
 
