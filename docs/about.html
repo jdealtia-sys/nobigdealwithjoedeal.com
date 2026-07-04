@@ -20,7 +20,6 @@
   <meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/favicon.svg">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
   <script type="application/ld+json">{
   "@context": "https://schema.org",
@@ -65,7 +64,7 @@ a { text-decoration: none; color: inherit; }
 img { max-width: 100%; height: auto; }
 
 /* ── ANN BAR ── */
-.ann-bar{background:var(--orange);color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.05em;padding:10px 20px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-bar{background:#B85400;color:var(--white);text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.05em;padding:10px 20px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
 .ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
 .ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
 .ann-slide.exit{opacity:0;transform:translateY(-12px)}
@@ -87,7 +86,7 @@ nav {
 }
 .nav-logo-text { line-height: 1.2; }
 .nav-logo-text .brand { font-size: 1rem; font-weight: 800; color: var(--white); }
-.nav-logo-text .sub { font-size: 0.7rem; color: rgba(255,255,255,0.6); font-weight: 500; }
+.nav-logo-text .sub { font-size: 0.7rem; color: rgba(255,255,255,0.6); font-weight: 600; }
 .nav-links { display: flex; align-items: center; gap: 24px; list-style: none; }
 .nav-links a { color: rgba(255,255,255,0.85); font-size: 0.76rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; transition: color 0.2s; }
 .nav-links a:hover { color: var(--orange); }
@@ -148,7 +147,7 @@ nav {
 .service-hero h1 span { color: var(--orange); }
 .hero-sub {
   font-size: 1.05rem; color: rgba(255,255,255,0.75);
-  margin-bottom: 32px; font-weight: 500; max-width: 600px; line-height: 1.6;
+  margin-bottom: 32px; font-weight: 600; max-width: 600px; line-height: 1.6;
 }
 .hero-btns { display: flex; gap: 14px; flex-wrap: wrap; }
 .btn-primary {
@@ -180,7 +179,7 @@ nav {
 .trust-item { display: flex; align-items: center; gap: 10px; }
 .trust-icon { font-size: 1.5rem; }
 .trust-label { font-weight: 700; font-size: 0.82rem; color: var(--navy); }
-.trust-label span { display: block; font-weight: 500; color: var(--gray); font-size: 0.72rem; }
+.trust-label span { display: block; font-weight: 600; color: var(--gray); font-size: 0.72rem; }
 
 /* ── SECTIONS ── */
 .section { padding: 72px 5%; }
@@ -260,7 +259,7 @@ h2.section-title.light { color: var(--white); }
 .review-stars { color: #e8720c; font-size: 1rem; margin-bottom: 12px; }
 .review-text { font-size: 0.88rem; color: var(--gray-sub); line-height: 1.65; font-style: italic; margin-bottom: 16px; }
 .review-author { font-weight: 700; font-size: 0.83rem; color: var(--navy); }
-.review-author span { font-weight: 500; color: var(--gray); }
+.review-author span { font-weight: 600; color: var(--gray); }
 
 /* ── FAQ ── */
 .faq-list { max-width: 800px; display: flex; flex-direction: column; gap: 12px; }
@@ -279,7 +278,7 @@ h2.section-title.light { color: var(--white); }
 /* ── FINAL CTA ── */
 .final-cta { background: var(--orange); padding: 72px 5%; text-align: center; }
 .final-cta h2 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.4rem, 5vw, 4rem); color: var(--white); margin-bottom: 12px; line-height: 1.05; }
-.final-cta p { color: rgba(255,255,255,0.9); font-size: 1.05rem; margin-bottom: 36px; font-weight: 500; }
+.final-cta p { color: rgba(255,255,255,0.9); font-size: 1.05rem; margin-bottom: 36px; font-weight: 600; }
 .final-cta .btn-white { background: var(--white); color: var(--orange); padding: 16px 32px; border-radius: 8px; font-weight: 800; font-size: 1rem; display: inline-flex; align-items: center; gap: 10px; transition: transform 0.15s, box-shadow 0.15s; }
 .final-cta .btn-white:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
 .final-cta .phone { margin-top: 20px; color: rgba(255,255,255,0.9); font-size: 1.1rem; font-weight: 700; }
@@ -518,18 +517,24 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
   <script src="/assets/js/nav-faq.js" defer></script>
+<style>
+/* CSP-safe replacement for former inline hover handlers */
+.gaf-badge-float:hover{transform:scale(1.05)!important}
+</style>
+<link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 </head>
-<body>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
 
 <div class="ann-bar" id="annBar">
   <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> <span class="ann-text" data-long="NBD Lifetime Pledge — Joe stands behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — Joe stands behind every install personally</span></div>
-  <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> <span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></div>
+  <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> <a href="tel:8594207382" style="color:inherit;text-decoration:none"><span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></a></div>
   <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg> <span class="ann-text" data-long="Storm Damage? I Handle the Insurance Claim for You — No Big Deal" data-short="Storm Damage? I Handle the Claim">Storm Damage? I Handle the Insurance Claim for You — No Big Deal</span></div>
 </div>
 
 <nav id="mainNav" class="nav">
   <a href="/" class="nav-logo">
-    <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
+    <img src="/assets/images/nbd-logo.png" width="240" height="160" alt="No Big Deal Home Solutions" style="height:42px;width:auto;border-radius:6px;">
     <div class="nav-logo-text">
       <div class="brand">NO BIG DEAL</div>
       <div class="sub">Home Solutions</div>
@@ -558,7 +563,7 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
         <li><a href="/services/financing">Financing</a></li>
         <li><a href="/storm-alerts" style="color:var(--orange-light,#f08030)">Storm Alerts</a></li>
         <li><a href="/storm-report" style="color:var(--orange-light,#f08030)">5-Year Storm Report</a></li>
-        <li><a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a></li>
+        <li><a href="/storm-check" style="color:var(--orange-light,#f08030)">Is It Worth a Claim?</a></li><li><a href="/inspect" style="color:var(--orange-light,#f08030)">Free 24-Hr Inspection</a></li>
       </ul>
     </li>
     <li><a href="/about">About Joe</a></li>
@@ -575,6 +580,7 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
   </button>
   <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
+<main id="main">
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">The Guarantee</div>
   <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a>
@@ -629,8 +635,8 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
     </div>
     <div class="about-photo-wrap">
       <div class="about-photo-frame">
-        <img src="/assets/images/joe-hero.jpg" alt="Joe Deal — owner and operator of No Big Deal Home Solutions, Greater Cincinnati roofer" class="about-photo" width="720" height="720" loading="eager" fetchpriority="high">
-        <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" aria-label="Verify GAF Certified™ Contractor status on GAF.com" style="position:absolute;bottom:14px;right:14px;z-index:2;background:#fff;border:2px solid rgba(0,0,0,.06);border-radius:12px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);display:block;line-height:0;transition:transform .2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+        <picture><source srcset="/assets/images/joe-hero.webp" type="image/webp"><img src="/assets/images/joe-hero.jpg" alt="Joe Deal — owner and operator of No Big Deal Home Solutions, Greater Cincinnati roofer" class="about-photo" width="720" height="720" loading="eager" fetchpriority="high"></picture>
+        <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" aria-label="Verify GAF Certified™ Contractor status on GAF.com" style="position:absolute;bottom:14px;right:14px;z-index:2;background:#fff;border:2px solid rgba(0,0,0,.06);border-radius:12px;padding:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);display:block;line-height:0;transition:transform .2s;" class="gaf-badge-float">
           <img src="/assets/gaf/gaf-certified-badge-320.png" alt="GAF Certified™ Residential Roofing Contractor" width="84" height="84" loading="lazy" style="display:block;">
         </a>
       </div>
@@ -719,7 +725,7 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
     <div class="truth-card">
       <div class="truth-icon" style="color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:1.9rem;line-height:1;">TAMKO</div>
       <div class="truth-title">TAMKO Storm Series Shingles</div>
-      <div class="truth-body">When hail and high wind are the real threat, this is the line I reach for — Titan XT, StormFighter Flex, and HailGuard, the first asphalt shingle to carry an actual hail warranty. A brand I install, chosen for impact protection, not sponsorship. <a href="/services/tamko-storm-series" style="color:var(--orange);font-weight:700;">See the lineup →</a></div>
+      <div class="truth-body">When hail and high wind are the real threat, this is the line I reach for — Heritage, Titan XT, StormFighter Flex, and HailGuard, the first asphalt shingle to carry an actual hail warranty. A brand I install, chosen for impact protection, not sponsorship. <a href="/services/tamko-storm-series" style="color:var(--orange);font-weight:700;">See the lineup →</a></div>
     </div>
     <div class="truth-card">
       <div class="truth-icon" style="color:var(--orange);font-family:'Bebas Neue',sans-serif;font-size:1.6rem;line-height:1;">Luma<br>Tuff</div>
@@ -791,6 +797,7 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
   </div>
 </section>
 
+</main>
 <footer>
   <div class="footer-grid">
     <div class="footer-brand">
@@ -832,7 +839,7 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
         <li><a href="/estimate" style="color:var(--orange);">Instant Estimate</a></li>
         <li><a href="/storm-alerts">Storm Alerts</a></li>
           <li><a href="/storm-report">5-Year Storm Report</a></li>
-          <li><a href="/storm-check">Is It Worth a Claim?</a></li>
+          <li><a href="/storm-check">Is It Worth a Claim?</a></li><li><a href="/inspect">Free 24-Hour Inspection</a></li>
         <li><a href="/#contact">Get My Free Estimate →</a></li>
         <li><a href="/pro/">NBD Pro ↗</a></li>
       </ul>
@@ -845,7 +852,7 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
       </div>
       <div class="footer-contact-item">
         <span class="label">Email</span>
-        <span class="val"><a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a></span>
+        <span class="val"><a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com">jd&#64;nobigdealwithjoedeal&#46;com</a></span>
       </div>
       <div class="footer-contact-item">
         <span class="label">Based In</span>
@@ -860,7 +867,7 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
   <div style="border-top:1px solid rgba(255,255,255,.08);padding:18px 0 0;margin-top:8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
     <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" aria-label="Verify GAF Certified™ Contractor on GAF.com" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
       <img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified™ Residential Roofing Contractor" width="40" height="40" loading="lazy" style="display:block">
-      <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">GAF Certified™ Contractor<br><span style="color:rgba(255,255,255,.5);font-weight:500;font-size:.65rem">Verify on GAF.com →</span></span>
+      <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">GAF Certified™ Contractor<br><span style="color:rgba(255,255,255,.5);font-weight:600;font-size:.65rem">Verify on GAF.com →</span></span>
     </a>
     <p style="font-size:.62rem;color:rgba(255,255,255,.32);line-height:1.6;flex:1;min-width:280px">Independent Contractor. Not an employee or agent of GAF Materials LLC. Contractors enrolled in GAF certification programs are not employees or agents of GAF, and GAF does not control or otherwise supervise these independent businesses. GAF® and GAF Certified™ are either registered trademarks or trademarks of BMIC LLC in the United States and/or other countries. GAF ID 1162011.</p>
   </div>
@@ -872,4 +879,9 @@ a.nav-cta,nav .nav-cta{font-size:.76rem!important;letter-spacing:.08em;font-weig
 
 <script defer  src="/assets/js/inline/b1d1695580.js"></script>
 <script defer src="/assets/js/ann-bar.js"></script>
+<!-- STICKY MOBILE CTA STRIP (site-wide, conversion audit 2026-07-03) -->
+<div class="mobile-cta-strip" aria-label="Quick contact options">
+  <a href="tel:+18594207382" class="mobile-cta-call"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>Call Joe</a>
+  <a href="sms:+18594207382" class="mobile-cta-text"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Text Us</a>
+</div>
 </body></html>

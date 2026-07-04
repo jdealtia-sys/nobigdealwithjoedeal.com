@@ -116,13 +116,32 @@ check \
   bash -c "echo \"$headers\" | grep -iE '^cache-control'"
 
 echo
-echo "── Oaks preview hiding ──"
+echo "── Oaks cutover + tenant microsite hiding ──"
 
+# Pillar 5 Oaks cutover (2026-07-04): the hand-authored pages 301 to the
+# tenant microsite; the logo asset must keep serving for companyProfile
+# brand.logoUrl + generated documents.
 oaks_headers="$(curl -sS -I "$SITE/sites/oaks/" 2>&1 || true)"
 check \
-  "X-Robots-Tag: noindex on /sites/oaks/" \
+  "/sites/oaks/ 301s to the tenant microsite" \
+  "301" \
+  bash -c "echo \"$oaks_headers\" | head -1"
+check \
+  "301 Location is /sites/t/oaks" \
+  "/sites/t/oaks" \
+  bash -c "echo \"$oaks_headers\" | grep -iE '^location'"
+
+logo_headers="$(curl -sS -I "$SITE/sites/oaks/logo-orange.svg" 2>&1 || true)"
+check \
+  "logo-orange.svg still serves (200, not redirected)" \
+  "200" \
+  bash -c "echo \"$logo_headers\" | head -1"
+
+t_headers="$(curl -sS -I "$SITE/sites/t/oaks" 2>&1 || true)"
+check \
+  "X-Robots-Tag: noindex on /sites/t/oaks" \
   "noindex" \
-  bash -c "echo \"$oaks_headers\" | grep -iE '^x-robots-tag'"
+  bash -c "echo \"$t_headers\" | grep -iE '^x-robots-tag'"
 
 robots="$(curl -sS "$SITE/robots.txt" 2>&1 || true)"
 check \

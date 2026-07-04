@@ -31,28 +31,37 @@ const TIER_RATES        = (_NBD_CFG && _NBD_CFG.TIER_RATES)         || { good: 5
 const JOB_MINIMUM_CENTS = (_NBD_CFG && _NBD_CFG.JOB_MINIMUM_CENTS)  || 250000; // $2,500
 const ROUND_TO_CENTS    = (_NBD_CFG && _NBD_CFG.ROUND_TO_CENTS)     || 2500;   // Nearest $25
 
-// Ohio + Northern Kentucky county sales tax rates (2026-04). Insurance
-// mode hides the line; Cash mode shows it and adds to total.
-const COUNTY_TAX_RATES = {
-  Hamilton: 0.0780, Butler: 0.0725, Warren: 0.0675, Clermont: 0.0725,
-  Kenton:   0.0600, Boone:  0.0600, Campbell: 0.0600,
-};
-const DEFAULT_TAX_RATE = 0.0700; // fallback
+// Ohio + Northern Kentucky county sales tax rates. Insurance mode hides
+// the line; Cash mode shows it and adds to total. Canonical table lives
+// in estimate-config.js keyed by county slug (PR 3b); classic keys by
+// bare county name, so derive that map from each entry's `name`. Inline
+// fallback preserves historical values if the config didn't load.
+const COUNTY_TAX_RATES = (_NBD_CFG && _NBD_CFG.COUNTY_TAX)
+  ? Object.fromEntries(Object.values(_NBD_CFG.COUNTY_TAX).map(c => [c.name, c.rate]))
+  : {
+      Hamilton: 0.0780, Butler: 0.0725, Warren: 0.0675, Clermont: 0.0725,
+      Kenton:   0.0600, Boone:  0.0600, Campbell: 0.0600,
+    };
+const DEFAULT_TAX_RATE = (_NBD_CFG && _NBD_CFG.DEFAULT_TAX_RATE) || 0.0700; // fallback
 
 // Permit cost by city. Values are editable at runtime via estData.permitCost
-// override (so these are just defaults). D-1 unify (Joe 2026-06-09): each city's
-// default now reflects its COUNTY's validated V2 permit value (V2 keys by
-// county slug; classic keys by city). City→county→V2-cost basis:
-//   Cincinnati→Hamilton $185 · Hamilton(city)/Fairfield/West Chester→Butler $150
-//   Mason→Warren $165 · Milford→Clermont $170 · Loveland→Hamilton $185 (primary
-//   county; spans Hamilton/Clermont/Warren — rep can override)
-//   Fort Thomas/Newport→Campbell KY $130 · Covington→Kenton KY $125 · Florence→Boone KY $135
-const PERMIT_COSTS = {
-  Cincinnati: 185, Hamilton: 150, Fairfield: 150, Mason: 165,
-  'West Chester': 150, Milford: 170, Loveland: 185,
-  'Fort Thomas': 130, Covington: 125, Florence: 135, Newport: 130,
-};
-const DEFAULT_PERMIT_COST = 150;
+// override (so these are just defaults). Canonical costs live in
+// estimate-config.js keyed by county slug; classic keys by CITY, so derive
+// city→cost through PERMIT_CITY_TO_COUNTY (the D-1 unify basis, Joe
+// 2026-06-09 — each city's default is its primary county's cost; Loveland
+// spans 3 counties → Hamilton primary, rep can override). Inline fallback
+// preserves historical values if the config didn't load.
+const PERMIT_COSTS = (_NBD_CFG && _NBD_CFG.PERMIT_COSTS_BY_COUNTY && _NBD_CFG.PERMIT_CITY_TO_COUNTY)
+  ? Object.fromEntries(Object.entries(_NBD_CFG.PERMIT_CITY_TO_COUNTY).map(([city, slug]) => [
+      city,
+      (_NBD_CFG.PERMIT_COSTS_BY_COUNTY[slug] || {}).cost || _NBD_CFG.DEFAULT_PERMIT_COST || 150,
+    ]))
+  : {
+      Cincinnati: 185, Hamilton: 150, Fairfield: 150, Mason: 165,
+      'West Chester': 150, Milford: 170, Loveland: 185,
+      'Fort Thomas': 130, Covington: 125, Florence: 135, Newport: 130,
+    };
+const DEFAULT_PERMIT_COST = (_NBD_CFG && _NBD_CFG.DEFAULT_PERMIT_COST) || 150;
 // Fallbacks below mirror what's in estimate-config.js — if that file
 // fails to load, the inline values preserve historical behavior.
 const DEFAULT_DUMP_FEE             = (_NBD_CFG && _NBD_CFG.DEFAULT_DUMP_FEE)              || 550;  // editable per-estimate
@@ -192,6 +201,10 @@ function startNewEstimate() {
 }
 
 function startNewEstimateOriginal() {
+  // Rock 2 PR 5: no UI path reaches this for NEW estimates anymore (V2-only
+  // per Jo, 2026-07-04). Reachable only via console/legacy bookmarks; the
+  // warn tells us if anything real still lands here before final deletion.
+  _warnDeprecatedOnce('startNewEstimateOriginal', 'openEstimateV2Builder');
   const list    = document.getElementById('est-list');
   const builder = document.getElementById('est-builder');
   if (!builder) { console.warn('Estimate builder not in DOM'); return; }
@@ -1381,7 +1394,21 @@ function collectInsuranceFields() {
 // + 50% at completion; Insurance jobs default $0 down (ACV covers the
 // first check once the carrier pays). User can override the split on
 // either mode — this is the spec's documented behavior.
+//
+// D-5 unify (Rock 2 PR 4 close-out, 2026-07-04): delegate to V2's
+// calcDeposit so both engines quote the SAME deposit for the same total.
+// The engines had drifted on rounding: classic rounded the amount to
+// cents, V2 rounds to the $25 step (matching the rounding the customer
+// already sees on the grand total) — a $16,375 cash job quoted an
+// $8,187.50 deposit on one path and $8,200 on the other. V2's is the
+// spec behavior; classic falls back to its legacy cent-rounding only if
+// the V2 engine isn't loaded.
 function calcDeposit(grandTotal, mode, overridePct) {
+  const V2 = (typeof window !== 'undefined') && window.EstimateBuilderV2;
+  if (V2 && typeof V2.calcDeposit === 'function') {
+    return V2.calcDeposit(grandTotal, mode, { overridePct });
+  }
+  _warnDeprecatedOnce('calcDeposit', 'EstimateBuilderV2.calcDeposit');
   if (grandTotal <= 0) return { pct: 0, amount: 0, remainder: grandTotal };
   const defaultPct = mode === 'insurance' ? 0 : 50;
   const pct = (overridePct != null && overridePct >= 0 && overridePct <= 100)

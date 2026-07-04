@@ -500,7 +500,7 @@
   <div class="top-banner" id="topBanner">
     <i class="fa-solid fa-gear"></i>
     Enjoy a 5-Year Labor Warranty on All Installs
-    <button class="banner-close" onclick="document.getElementById('topBanner').style.display='none'"><i class="fa-solid fa-xmark"></i></button>
+    <button class="banner-close"><i class="fa-solid fa-xmark"></i></button>
   </div>
 
   <!-- ═══ NAVIGATION ═══ -->
@@ -533,25 +533,26 @@
         <li><a href="#contact">Contact Us</a></li>
       </ul>
 
-      <button class="nav-toggle" onclick="document.getElementById('mobileMenu').classList.toggle('open')">
+      <button class="nav-toggle">
         <i class="fa-solid fa-bars"></i>
       </button>
     </div>
   </nav>
+<main>
 
   <!-- Mobile menu -->
   <div class="mobile-menu" id="mobileMenu">
-    <a href="#home" onclick="this.parentElement.classList.remove('open')">Home</a>
-    <a href="#about" onclick="this.parentElement.classList.remove('open')">About</a>
-    <a href="#services" onclick="this.parentElement.classList.remove('open')">Services</a>
-    <a href="#svc-roof-replacement" class="sub-link" onclick="this.parentElement.classList.remove('open')">Roof Replacement</a>
-    <a href="#svc-roof-repair" class="sub-link" onclick="this.parentElement.classList.remove('open')">Roof Repair</a>
-    <a href="#svc-siding-replacement" class="sub-link" onclick="this.parentElement.classList.remove('open')">Siding Replacement</a>
-    <a href="#svc-siding-repair" class="sub-link" onclick="this.parentElement.classList.remove('open')">Siding Repair</a>
-    <a href="#svc-gutters" class="sub-link" onclick="this.parentElement.classList.remove('open')">Gutter Replacement</a>
-    <a href="#gallery" onclick="this.parentElement.classList.remove('open')">Our Work</a>
-    <a href="#areas" onclick="this.parentElement.classList.remove('open')">Service Areas</a>
-    <a href="#contact" onclick="this.parentElement.classList.remove('open')">Contact Us</a>
+    <a href="#home">Home</a>
+    <a href="#about">About</a>
+    <a href="#services">Services</a>
+    <a href="#svc-roof-replacement" class="sub-link">Roof Replacement</a>
+    <a href="#svc-roof-repair" class="sub-link">Roof Repair</a>
+    <a href="#svc-siding-replacement" class="sub-link">Siding Replacement</a>
+    <a href="#svc-siding-repair" class="sub-link">Siding Repair</a>
+    <a href="#svc-gutters" class="sub-link">Gutter Replacement</a>
+    <a href="#gallery">Our Work</a>
+    <a href="#areas">Service Areas</a>
+    <a href="#contact">Contact Us</a>
   </div>
 
   <!-- ═══ HERO ═══ -->
@@ -860,7 +861,8 @@
   </div>
 
   <!-- ═══ FOOTER ═══ -->
-  <footer class="site-footer">
+  </main>
+<footer class="site-footer">
     <div class="container">
       <div class="footer-top">
         <svg width="50" height="50" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -908,5 +910,6 @@
 
   <!-- ═══ FORM SCRIPT ═══ -->
   <script defer  src="/assets/js/inline/c1372efcd5.js"></script>
+<script defer src="/sites/js/oaks-nav.js"></script>
 </body>
 </html>
