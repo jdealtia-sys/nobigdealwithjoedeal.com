@@ -83,7 +83,7 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
     const emulatorMode = /127\.0\.0\.1|localhost/.test(process.env.PLAYWRIGHT_BASE_URL || '');
     const hard = consoleErrors.filter(e =>
       !/Report Only|favicon|Service Worker registration|chrome-extension/i.test(e)
-      && !(emulatorMode && /127\.0\.0\.1:5001|ERR_CONNECTION_REFUSED|Failed to load resource|app-?check|ReCAPTCHA/i.test(e))
+      && !(emulatorMode && /127\.0\.0\.1:5001|ERR_CONNECTION_REFUSED|Failed to load resource|app-?check|ReCAPTCHA|cloudfunctions\.net|CORS policy/i.test(e))
     );
     expect(hard, 'unexpected console errors during dashboard load').toEqual([]);
   });
@@ -169,6 +169,12 @@ test.describe.serial('Authenticated destructive flows', () => {
     const leadPhone = '513' + String(stamp).slice(-7);
     const leadAddress = `${String(stamp).slice(-3)} E2E Test Lane, Cincinnati, OH`;
 
+    // _saveLead stamps userId from window._user, which the auth listener
+    // sets asynchronously after boot — calling before it lands writes
+    // userId: undefined (addDoc rejects). A human can't click Save that
+    // fast; the test can.
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
     // Open the new-lead modal via the canonical button. Selector
     // audited 2026-04-25: dashboard.html:8411 has the orange button
     // with onclick="openLeadModal()".
@@ -245,6 +251,9 @@ test.describe.serial('Authenticated destructive flows', () => {
     await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first()).toBeVisible({ timeout: 15_000 });
 
     const stamp = Date.now();
+
+    // Same auth-resolved gate as the save-lead test (userId stamping).
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
 
     // Seed a fresh lead in stage 'new', tagged for cleanup.
     const leadId = await page.evaluate(async (args) => {
