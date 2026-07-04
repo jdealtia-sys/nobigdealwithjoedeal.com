@@ -2328,4 +2328,28 @@ section('Routing: no relative bare-.html nav on /pro pages (404 footgun)');
     offenders.length === 0, offenders.join(' | '));
 }
 
+
+section('Ops P1 #4 — loadLeads completeness + kanban render cap');
+{
+  const boot = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  // Stage A contract: the fetch pages by documentId and keeps going until
+  // a short page — window._leads stays COMPLETE. 11 consumers (KPIs, money
+  // dashboard, search, export, forecasting, ROI) compute over the cache
+  // and would silently under-report if a fetch cap were introduced. Do not
+  // page-and-stop without migrating those consumers to server aggregates.
+  assert('loadLeads pages with limit(_PAGE) + startAfter', /startAfter\(cursor\)/.test(boot) && /limit\(_PAGE\)/.test(boot));
+  assert('loadLeads drains ALL pages (breaks only on short page)', /pageSnap\.size < _PAGE/.test(boot));
+  assert('loadLeads runaway guard present (page cap)', /page < 200/.test(boot));
+
+  const pipe = read(path.join(PRO_JS, 'crm-pipeline.js'));
+  // Render cap: the DOM paint is bounded even though the cache is not.
+  assert('kanban render cap defined', /KANBAN_RENDER_CAP = \d+/.test(pipe));
+  assert('both column render paths use renderColumnCards',
+    (pipe.match(/renderColumnCards\(body, cards, stage/g) || []).length >= 2,
+    'expected the new-stage AND legacy paths to route through the capped renderer');
+  assert('show-all expander mounts the remainder', /k-show-all/.test(pipe) && /_kbShowAll\[stageKey\] = true/.test(pipe));
+  // Column counts/$ totals must keep computing from the FULL array, not the slice.
+  assert('column count uses full cards array', /count\.textContent = cards\.length/.test(pipe));
+}
+
 };

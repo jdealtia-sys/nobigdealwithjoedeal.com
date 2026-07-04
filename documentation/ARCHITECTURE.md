@@ -2,6 +2,22 @@
 NBD PRO CRM - MULTI-TENANT ARCHITECTURE
 ================================================================================
 
+Last updated: 2026-07-04 (June ops-audit item 7 refresh).
+Corrections in this pass:
+  - Cloud Functions summary aligned to functions/index.js; the maintained
+    per-function catalog is functions/FUNCTIONS_INDEX.md.
+  - The claim that notifyNewLead (functions/verify-functions.js) does
+    per-company routing was removed — it never shipped that way; tenant
+    alert routing lives in functions/lead-alert.js.
+  - companyId-scoped Firestore rules enforcement is LIVE (firestore.rules),
+    no longer a planned "Phase 2".
+  - Single-tenant-era claims updated for the shipped Pillar 1-5 work:
+    createCompany self-serve provisioning, team invites, company-level
+    billing, tenant microsites at /sites/t/<slug>.
+Note: module names inside the ASCII diagrams below (company-admin.js,
+nbd-auth-enhancement.js, window._companyId = 'nbd') are historical design
+sketches — see the corrected notes inside each section for what shipped.
+
 SYSTEM OVERVIEW
 ================================================================================
 
@@ -73,9 +89,23 @@ COMPONENT ARCHITECTURE
 │                           FRONTEND COMPONENTS                                │
 └──────────────────────────────────────────────────────────────────────────────┘
 
+  [CORRECTED 2026-07-04] The two module boxes below describe a design that
+  was never shipped: pro/js/company-admin.js and pro/js/nbd-auth-enhancement.js
+  do not exist in the repo. As built:
+    - docs/pro/js/nbd-auth.js reads the Firebase Auth custom claims on login;
+      a user's tenant is claims.companyId || uid (a solo owner's uid IS the
+      companyId their invited members carry). Subscription lookups key
+      subscriptions/{companyId || uid} (company-level billing, Pillar 4).
+    - docs/pro/js/company-profile.js loads/saves per-tenant config from
+      companyProfile/{companyId} into window._companyProfile (branding,
+      contacts, document constants).
+    - There is no client-side fallback to the 'nbd' tenant; a missing claim
+      resolves to the caller's own uid.
+  The boxes are retained for historical context only.
+
   ┌─────────────────────────────────────────────────────────────────────────┐
   │                        COMPANY ADMIN MODULE                             │
-  │                  (pro/js/company-admin.js - 195 lines)                  │
+  │           (pro/js/company-admin.js — NOT SHIPPED, see note above)       │
   │─────────────────────────────────────────────────────────────────────────│
   │                                                                          │
   │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐    │
@@ -96,7 +126,7 @@ COMPONENT ARCHITECTURE
 
   ┌─────────────────────────────────────────────────────────────────────────┐
   │                    NBD AUTH ENHANCEMENT MODULE                          │
-  │              (pro/js/nbd-auth-enhancement.js - 96 lines)                │
+  │      (pro/js/nbd-auth-enhancement.js — NOT SHIPPED, see note above)     │
   │─────────────────────────────────────────────────────────────────────────│
   │                                                                          │
   │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐    │
@@ -154,7 +184,10 @@ COMPONENT ARCHITECTURE
   │  │  • ...                      │  │  • ...                       │   │
   │  └─────────────────────────────┘  └──────────────────────────────┘   │
   │                                                                          │
-  │  All data collections support companyId filtering (Phase 2)            │
+  │  All data collections carry companyId; tenant scoping is ENFORCED by   │
+  │  firestore.rules (live — see SECURITY & ISOLATION below). Companies    │
+  │  are created self-serve via the createCompany callable; a company's    │
+  │  siteSlug field drives its tenant microsite at /sites/t/<slug>.        │
   │                                                                          │
   └──────────────────────────────────────────────────────────────────────────┘
 
@@ -172,6 +205,11 @@ COMPONENT ARCHITECTURE
   │                                                                          │
   │  Status: Executable, ready to run                                       │
   │                                                                          │
+  │  [2026-07-04] Dev/bootstrap tool only. Production companies are        │
+  │  provisioned self-serve via the createCompany callable                 │
+  │  (functions/handlers/provisioning.js); team members join via           │
+  │  createTeamInvite / claimInvite (functions/handlers/invites.js).       │
+  │                                                                          │
   └──────────────────────────────────────────────────────────────────────────┘
 
 
@@ -179,122 +217,102 @@ COMPONENT ARCHITECTURE
 │                      CLOUD FUNCTIONS INTEGRATION                             │
 └──────────────────────────────────────────────────────────────────────────────┘
 
-  ┌─────────────────────────────────────────────────────────────────────────┐
-  │                    notifyNewLead Function [UPDATED]                     │
-  │              (functions/verify-functions.js)                            │
-  │─────────────────────────────────────────────────────────────────────────│
-  │                                                                          │
-  │  Receives:                                                               │
-  │  ┌───────────────────────────────────────────────────────────────────┐ │
-  │  │ {                                                                 │ │
-  │  │   name: 'John Doe',                                               │ │
-  │  │   phone: '(513) 555-1234',                                        │ │
-  │  │   email: 'john@example.com',                                      │ │
-  │  │   service: 'Roof Replacement',                                    │ │
-  │  │   companyId: 'nbd' ← [NEW]                                        │ │
-  │  │ }                                                                 │ │
-  │  └───────────────────────────────────────────────────────────────────┘ │
-  │                           │                                             │
-  │                           ▼                                             │
-  │  ┌──────────────────────────────────────────────────────────────────┐  │
-  │  │ if (companyId) {                                                 │  │
-  │  │   lookup: db.collection('companies').doc(companyId)              │  │
-  │  │   notificationPhone = company.phone                              │  │
-  │  │   notificationEmail = company.email                              │  │
-  │  │ } else {                                                         │  │
-  │  │   notificationPhone = JOE_PHONE                                  │  │
-  │  │   notificationEmail = JOE_EMAIL                                  │  │
-  │  │ }                                                                │  │
-  │  └──────────────────────────────────────────────────────────────────┘  │
-  │                           │                                             │
-  │        ┌──────────────────┼──────────────────┐                         │
-  │        │                  │                  │                         │
-  │        ▼                  ▼                  ▼                         │
-  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
-  │  │ Save lead    │  │ Send SMS     │  │ Send Email   │               │
-  │  │ + companyId  │  │ to company   │  │ to company   │               │
-  │  │ to Firestore │  │ via Twilio   │  │ via Resend   │               │
-  │  └──────────────┘  └──────────────┘  └──────────────┘               │
-  │                                                                       │
-  └──────────────────────────────────────────────────────────────────────┘
+  [Updated 2026-07-04]
+
+  functions/index.js is the single deploy entrypoint. As of 2026-07-04 it
+  exports 148 deployed Cloud Function endpoints (onCall / onRequest /
+  Firestore + Storage triggers / scheduled crons), plus a handful of
+  test-only helper exports (underscore-prefixed and push/Slack helpers).
+  The per-function catalog — with the admin/rep/public/background
+  classification and the auth gate each category requires — is maintained
+  in functions/FUNCTIONS_INDEX.md. That file is canonical; keep it updated
+  rather than duplicating the list here.
+
+  Lead notification routing (correcting an earlier version of this doc):
+
+  - notifyNewLead (functions/verify-functions.js) IS deployed, but it is
+    NBD-only: the OTP-verified estimate-funnel notifier that always alerts
+    Joe's phone/email. It takes NO companyId parameter and does no
+    per-tenant lookup — the company-routing behavior this section used to
+    describe was never shipped in that function.
+
+  - Tenant-scoped alerts are handled by the leadAlert* Firestore triggers
+    (functions/lead-alert.js): resolveAlertTarget(companyId) reads
+    companyProfile/{companyId}.brand.contact (alertEmail / alertSms) and
+    routes the alert to the tenant's own contacts. Tenants without
+    configured alert contacts — and NBD itself — fall back to Joe's
+    defaults, so notifications always go out.
+
+  - Public tenant leads enter via submitPublicLead (rate-limited,
+    honeypot-protected), stamped with the tenant's companyId, so they land
+    in that tenant's pipeline and alert inbox. This is the intake path
+    used by the /sites/t/<slug> tenant microsites (getPublicSiteConfig +
+    submitPublicLead, functions/handlers/public-site.js and
+    functions/handlers/integrations.js).
 
 
 DATA FLOW DIAGRAMS
 ================================================================================
 
-1. USER LOGIN & COMPANY INITIALIZATION
+1. USER LOGIN & COMPANY INITIALIZATION  [corrected 2026-07-04]
    ────────────────────────────────────
 
    User Logs In
         │
         ▼
-   firebase.auth().onAuthStateChanged()
+   firebase.auth().onAuthStateChanged()  (docs/pro/js/nbd-auth.js)
+        │
+        ├─→ user.getIdTokenResult() → custom claims
+        │
+        ├─→ companyId = claims.companyId || user.uid
+        │   (no default to 'nbd' — a missing claim means solo owner,
+        │    whose uid IS the tenant id)
+        │
+        ├─→ role = users/{uid}.role || claims.role
+        │
+        ├─→ subscription = subscriptions/{companyId || uid}
+        │   (company-level billing, Pillar 4)
         │
         ▼
-   NBDAuth.initializeCompanyId()
+   company-profile.js loads companyProfile/{companyId}
         │
-        ├─→ firebase.auth().currentUser
-        │
-        ├─→ db.collection('users').doc(uid).get()
-        │
-        ├─→ userData.companyId (or default 'nbd')
-        │
-        ├─→ window._companyId = 'nbd' (or 'oaks', etc.)
+        ├─→ window._companyProfile = {...} (defaults + remote overrides)
         │
         ▼
-   CompanyAdmin.getCurrentCompany()
-        │
-        ├─→ CompanyAdmin.getCompanyConfig(window._companyId)
-        │
-        ├─→ db.collection('companies').doc(companyId).get()
-        │
-        ├─→ window._companyConfig = {...}
+   Branding / contacts / document constants applied from the profile
         │
         ▼
-   CompanyAdmin.applyBranding(config)
-        │
-        ├─→ Update page title
-        ├─→ Apply CSS colors
-        ├─→ Display company logo
-        ├─→ Update navigation background
-        │
-        ▼
-   User sees branded interface
+   User sees their tenant's configuration
 
 
-2. LEAD CREATION WITH COMPANY
+2. LEAD CREATION WITH COMPANY  [corrected 2026-07-04]
    ──────────────────────────
 
-   User fills lead form
+   Tenant microsite (/sites/t/<slug>) or CRM lead form
         │
         ▼
-   Extract form data + CompanyAdmin.getCompanyId()
+   submitPublicLead (public path) or authed CRM write —
+   lead stamped with the tenant's companyId
         │
         ▼
-   Call: firebase.functions().httpsCallable('createLead')({
-     name, phone, email, service,
-     companyId: CompanyAdmin.getCompanyId()  ← Added
-   })
+   Lead document created in Firestore
+   (firestore.rules requires a non-empty companyId pinned
+    to the caller's tenant on create)
         │
         ▼
-   Cloud Function notifyNewLead()
+   leadAlert* Firestore trigger fires (functions/lead-alert.js)
         │
-        ├─→ Save to Firestore with companyId tag
-        │
-        ├─→ If companyId provided:
-        │   └─→ Load company from db.collection('companies')
-        │       ├─→ notificationPhone = company.phone
-        │       └─→ notificationEmail = company.email
-        │   else:
-        │   └─→ notificationPhone = JOE_PHONE
-        │       notificationEmail = JOE_EMAIL
-        │
-        ├─→ Send SMS to notificationPhone
-        │
-        ├─→ Send Email to notificationEmail
+        ├─→ resolveAlertTarget(companyId)
+        │   ├─→ companyProfile/{companyId}.brand.contact configured:
+        │   │   └─→ alert email/SMS to the TENANT's contacts
+        │   └─→ not configured (or no companyId):
+        │       └─→ fall back to NBD defaults (Joe)
         │
         ▼
    Company owner receives notification
+
+   (The NBD marketing funnel separately calls notifyNewLead —
+    OTP-gated, Joe-only, no tenant routing.)
 
 
 3. DATA QUERY WITH COMPANY ISOLATION
@@ -303,7 +321,7 @@ DATA FLOW DIAGRAMS
    User views leads list
         │
         ▼
-   Get companyId = CompanyAdmin.getCompanyId()
+   Get companyId (claims.companyId || uid, via nbd-auth.js)
         │
         ▼
    Query: db.collection('leads')
@@ -318,51 +336,47 @@ DATA FLOW DIAGRAMS
    Render UI with company-filtered data
 
 
-INTEGRATION SEQUENCE
+INTEGRATION SEQUENCE  [corrected 2026-07-04 — as shipped]
 ================================================================================
 
-Step 1: Load Core Modules (HTML/Index)
-  <script src="/pro/js/company-admin.js"></script>
-  <script src="/pro/js/nbd-auth-enhancement.js"></script>
+Step 1: Pages load the auth module
+  <script src="/pro/js/nbd-auth.js"></script>   (docs/pro/js/nbd-auth.js)
 
-Step 2: Initialize on Auth Change
-  firebase.auth().onAuthStateChanged(async (user) => {
-    if (user) {
-      // Company ID initialized
-      // Branding applied
-      // Ready to use
-    }
-  });
+Step 2: Initialize on auth change
+  nbd-auth reads the ID token custom claims:
+  companyId = claims.companyId || user.uid; role = claims.role
+  (solo owner: companyId == uid; team members carry the owner's uid)
 
-Step 3: Use in Application
-  const companyId = CompanyAdmin.getCompanyId();
-  const config = await CompanyAdmin.getCompanyConfig(companyId);
-  // Use config for forms, dropdowns, display
+Step 3: Per-tenant config
+  docs/pro/js/company-profile.js loads companyProfile/{companyId}
+  into window._companyProfile (branding, contacts, doc constants)
 
-Step 4: Pass with Data Operations
-  createLead({ ...data, companyId: CompanyAdmin.getCompanyId() })
+Step 4: Data operations carry companyId
+  Every lead/estimate write stamps companyId (claims.companyId || uid);
+  firestore.rules rejects creates without a valid tenant-pinned companyId
 
-Step 5: Backend Handles Company Logic
-  notifyNewLead looks up company and routes notification
+Step 5: Backend routes per tenant
+  leadAlert* triggers resolve the tenant's alert contacts from
+  companyProfile/{companyId} (functions/lead-alert.js)
 
 
 FALLBACK & ERROR HANDLING
 ================================================================================
 
-Scenario: Company ID not found
-  User doc missing companyId field
+Scenario: Company ID claim missing  [corrected 2026-07-04]
+  User's token has no companyId custom claim
     │
     ▼
-  Default to: window._companyId = 'nbd'
+  Tenant resolves to the user's OWN uid (solo-owner model)
     │
     ▼
-  No error, just use default company
+  No cross-tenant default — nothing ever falls back to 'nbd'
 
-Scenario: Company document not found
-  notifyNewLead gets unknown companyId
+Scenario: Tenant alert contact not configured  [corrected 2026-07-04]
+  leadAlert trigger finds no companyProfile alert contact for companyId
     │
     ▼
-  Fallback to: JOE_PHONE and JOE_EMAIL
+  Fallback to: NBD defaults (Joe's email + SMS)
     │
     ▼
   Notification still goes out
@@ -380,34 +394,38 @@ Scenario: Firestore read fails
   System continues to function
 
 
-SECURITY & ISOLATION (Phase 2)
+SECURITY & ISOLATION — LIVE (updated 2026-07-04)
 ================================================================================
 
-Current State (Phase 1):
+companyId-scoped Firestore rules enforcement is DEPLOYED in firestore.rules —
+this is no longer a planned "Phase 2":
   ✓ Data tagged with companyId
-  ✓ Notifications routed correctly
-  ✗ No enforcement of data isolation
-
-Phase 2 Enhancements:
-  ✓ Firestore Security Rules enforcement
+  ✓ Notifications routed per tenant (leadAlert* triggers)
+  ✓ Firestore Security Rules ENFORCE tenant isolation:
+      - reads require request.auth.token.companyId == resource.data.companyId
+        with BOTH values non-null (a user missing the claim can never match
+        a legacy doc whose companyId was never set)
+      - creates require a non-empty string companyId pinned to the caller's
+        own tenant (claims.companyId, or the caller's uid for solo owners)
   ✓ Query filters on every read
   ✓ Write restrictions per company
-  ✓ Audit logging with companyId
+  ✓ Audit logging with companyId (audit triggers)
 
-Firestore Rules Example:
-  match /leads/{leadId} {
-    allow read: if request.auth.token.companyId 
-               == resource.data.companyId;
-    allow write: if request.auth.token.companyId 
-                == request.resource.data.companyId;
-  }
+Actual rule shape (see firestore.rules for the authoritative text):
+  allow read: if request.auth.token.companyId != null
+              && resource.data.companyId != null
+              && resource.data.companyId == request.auth.token.companyId;
+  allow create: if request.resource.data.companyId is string
+              && request.resource.data.companyId.size() > 0
+              && (request.resource.data.companyId == myCompanyId()
+                  || request.resource.data.companyId == request.auth.uid);
 
 
 PERFORMANCE CONSIDERATIONS
 ================================================================================
 
 Caching Strategy:
-  • CompanyAdmin caches config in memory
+  • company-profile.js caches the merged profile (memory + localStorage)
   • Reduces Firestore reads
   • Cache invalidated on manual set
 
