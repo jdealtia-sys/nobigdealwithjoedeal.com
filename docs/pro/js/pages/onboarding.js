@@ -66,7 +66,15 @@ const state = {
 };
 
 const $ = (id) => document.getElementById(id);
-const toDashboard = () => window.location.replace('/pro/dashboard.html');
+// A visitor who clicked a paid-plan CTA before signing up carries that intent
+// in sessionStorage (set by register.js). Finish setup, then land them on
+// pricing — where pricing-page.module.js resumes checkout — instead of a free
+// dashboard with the buying intent dropped.
+const toDashboard = () => {
+  let planIntent = null;
+  try { planIntent = sessionStorage.getItem('nbd_plan_intent'); } catch (_) {}
+  window.location.replace(planIntent ? '/pro/pricing.html' : '/pro/dashboard.html');
+};
 
 function showErr(msg) { const el = $('wizErr'); if (el) el.textContent = msg || ''; }
 

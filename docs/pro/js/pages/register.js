@@ -43,6 +43,30 @@ const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
 const createCompanyFn = httpsCallable(functions, 'createCompany');
 
 // ─────────────────────────────────────────────────
+// PLAN INTENT (?plan=starter|growth)
+// Landing/pricing CTAs link here with the plan the visitor clicked. Stash it
+// so the intent survives register → onboarding → pricing, where
+// pricing-page.module.js auto-resumes checkout. Without this the "Start with
+// Growth" click dies at signup and the visitor lands on a free dashboard with
+// no path back to paying (product audit 2026-07, funnel break).
+// ─────────────────────────────────────────────────
+const PLAN_INTENTS = ['starter', 'growth'];
+try {
+  const planParam = new URLSearchParams(window.location.search).get('plan');
+  if (PLAN_INTENTS.includes(planParam)) sessionStorage.setItem('nbd_plan_intent', planParam);
+} catch (_) { /* sessionStorage unavailable — intent is best-effort */ }
+
+// Access-code failures split into two classes: the visitor's problem (typo,
+// expired, fully redeemed — fixable by re-entering) vs the server's problem
+// (e.g. the known prod IAM gap minting custom tokens). Only the first should
+// bounce back to the form; the second must NOT strand an already-created
+// account — degrade to the free tier instead.
+const CODE_USER_ERRORS = [
+  'functions/not-found', 'functions/permission-denied',
+  'functions/invalid-argument', 'functions/resource-exhausted',
+];
+
+// ─────────────────────────────────────────────────
 // PASSWORD STRENGTH METER
 // ─────────────────────────────────────────────────
 function updateStrength(val) {
@@ -131,17 +155,48 @@ async function register(e) {
   btn.disabled = true;
   btn.textContent = 'Creating account...';
   try {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName: `${firstName} ${lastName}`.trim() });
-    try { await sendEmailVerification(cred.user); } catch (_) {}
-    await setDoc(doc(db, 'users', cred.user.uid), {
-      firstName, lastName, company: company || '', email,
-      createdAt: serverTimestamp(), onboarded: false
-    });
+    // A failed code attempt leaves the visitor signed in to the account this
+    // form already created; a blind re-create would die on
+    // auth/email-already-in-use and strand them. Reuse the signed-in account
+    // when the email matches instead of creating again.
+    let cred;
+    if (auth.currentUser && auth.currentUser.email === email) {
+      cred = { user: auth.currentUser };
+    } else {
+      cred = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(cred.user, { displayName: `${firstName} ${lastName}`.trim() });
+      try { await sendEmailVerification(cred.user); } catch (_) {}
+      await setDoc(doc(db, 'users', cred.user.uid), {
+        firstName, lastName, company: company || '', email,
+        createdAt: serverTimestamp(), onboarded: false
+      });
+    }
 
-    const result = await validateAccessCodeFn({ code });
+    let result;
+    try {
+      result = await validateAccessCodeFn({ code });
+    } catch (codeErr) {
+      if (CODE_USER_ERRORS.includes(codeErr.code)) {
+        errEl.textContent = 'That access code is not valid. Your account is saved — fix the code and press Create Account again, or clear the code field to continue on the free tier.';
+        btn.disabled = false; btn.textContent = 'Create Account';
+        return;
+      }
+      // Server-side failure — not the visitor's fault. Their account already
+      // exists; give them a working free-tier tenant instead of a dead end.
+      console.warn('validateAccessCode failed server-side, continuing on free tier:', codeErr);
+      try {
+        await createCompanyFn({ name: company || `${firstName} ${lastName}`.trim() });
+        await cred.user.getIdToken(true);
+      } catch (provisionErr) {
+        console.warn('createCompany failed (account still usable):', provisionErr);
+      }
+      okEl.textContent = 'Account created on the free tier — your access code could not be applied right now. Email jd@nobigdealwithjoedeal.com and Joe will upgrade you.';
+      btn.textContent = '✓ Done';
+      setTimeout(() => { window.location.replace('/pro/onboarding.html'); }, 3000);
+      return;
+    }
     if (!result?.data?.success) {
-      errEl.textContent = (result?.data?.error) || 'That access code is not valid.';
+      errEl.textContent = (result?.data?.error) || 'That access code is not valid. Your account is saved — fix the code and press Create Account again.';
       btn.disabled = false; btn.textContent = 'Create Account';
       return;
     }
@@ -190,7 +245,29 @@ async function googleRegister() {
     }
 
     if (code) {
-      const result = await validateAccessCodeFn({ code });
+      let result;
+      try {
+        result = await validateAccessCodeFn({ code });
+      } catch (codeErr) {
+        if (CODE_USER_ERRORS.includes(codeErr.code)) {
+          errEl.textContent = 'That access code is not valid. You are signed in — fix the code and press the Google button again, or clear the code field to continue on the free tier.';
+          return;
+        }
+        // Server-side failure — degrade to the free tier rather than strand
+        // the signed-in account (mirrors the email/password path).
+        console.warn('validateAccessCode failed server-side, continuing on free tier:', codeErr);
+        if (isNewUser) {
+          try {
+            await createCompanyFn({ name: user.displayName || (user.email || '').split('@')[0] });
+            await user.getIdToken(true);
+          } catch (provisionErr) {
+            console.warn('createCompany failed (account still usable):', provisionErr);
+          }
+        }
+        document.getElementById('regOk').textContent = 'Signed in on the free tier — your access code could not be applied right now. Email jd@nobigdealwithjoedeal.com and Joe will upgrade you.';
+        setTimeout(() => { window.location.href = isNewUser ? '/pro/onboarding.html' : '/pro/dashboard.html'; }, 3000);
+        return;
+      }
       if (!result?.data?.success) {
         errEl.textContent = (result?.data?.error) || 'That access code is not valid.';
         return;
