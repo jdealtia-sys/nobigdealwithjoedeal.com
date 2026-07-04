@@ -274,7 +274,8 @@ a.trust-item:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
 .contact-method{display:flex;align-items:center;gap:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:18px 20px;text-decoration:none;transition:all .2s}
 .contact-method:hover{border-color:rgba(232,114,12,.4);background:rgba(232,114,12,.06)}
 .cm-icon{width:42px;height:42px;background:var(--orange);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
-.cm-text strong{display:block;font-size:.9rem;font-weight:700;color:white;letter-spacing:.02em}
+.cm-text{min-width:0;flex:1}
+.cm-text strong{display:block;font-size:.9rem;font-weight:700;color:white;letter-spacing:.02em;overflow-wrap:anywhere}
 .cm-text span{font-size:.72rem;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.08em}
 .contact-process{margin-top:36px;padding-top:28px;border-top:1px solid rgba(255,255,255,.09)}
 .contact-process .eyebrow-small{font-size:.72rem;font-weight:700;letter-spacing:.14em;color:var(--orange);text-transform:uppercase;margin-bottom:16px}
@@ -343,7 +344,7 @@ footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:60
   .areas-contact{grid-template-columns:repeat(2,1fr)}
   .footer-grid{grid-template-columns:1fr 1fr;gap:32px}
 }
-@media(max-width:900px){.home-sidebar{display:none}.contact-grid{grid-template-columns:1fr}}
+@media(max-width:900px){.home-sidebar{display:none}.contact-grid{grid-template-columns:1fr}.contact-grid>*{min-width:0}}
 @media(max-width:768px){
   section{padding:44px 20px}
   nav{padding:0 20px}
