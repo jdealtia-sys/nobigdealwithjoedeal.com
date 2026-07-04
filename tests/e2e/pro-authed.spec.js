@@ -314,20 +314,28 @@ test.describe.serial('Authenticated destructive flows', () => {
     await page.waitForTimeout(2_500);
 
     // Assert: stage advanced, stageStartedAt advanced, timeline note
-    // created in leads/{id}/notes (legacy) or leads/{id}/activity
-    // (Rock 3 contract). Either is acceptable for now.
+    // created. Location re-audited 2026-07-04 against moveCard
+    // (crm-pipeline.js:1661): stage-change notes live in the TOP-LEVEL
+    // `notes` collection keyed by a leadId field — not a leads/{id}
+    // subcollection. The userId filter keeps the query provable under
+    // the notes read rule (isOwner(resource.data.userId)).
     const afterMove = await page.evaluate(async (id) => {
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
       const leadSnap = await fsMod.getDoc(fsMod.doc(db, 'leads', id));
       const lead = leadSnap.data();
-      const notesSnap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'notes'));
+      const uid = (window._auth || window.auth).currentUser.uid;
+      const notesSnap = await fsMod.getDocs(fsMod.query(
+        fsMod.collection(db, 'notes'),
+        fsMod.where('userId', '==', uid),
+        fsMod.where('leadId', '==', id)
+      ));
       const notes = []; notesSnap.forEach(n => notes.push(n.data()));
       return {
         stage: lead.stage,
         stageStartedAt: lead.stageStartedAt && lead.stageStartedAt.seconds,
         notesCount: notes.length,
-        notesShapes: notes.map(n => ({ type: n.type || null, hasStageLabel: !!n.stageLabel }))
+        notesShapes: notes.map(n => ({ type: n.type || null, text: (n.text || '').slice(0, 60) }))
       };
     }, leadId);
 
