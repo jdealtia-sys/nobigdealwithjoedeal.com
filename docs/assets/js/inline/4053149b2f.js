@@ -169,6 +169,7 @@ function validateStep(step) {
     const addr = inp.value.trim();
     if (!addr || addr.length < 5) {
       inp.parentElement.classList.add('has-error');
+      inp.setAttribute('aria-invalid', 'true');
       inp.focus();
       _setAddressHint("Type your address, then pick it from the dropdown that appears.");
       return false;
@@ -230,6 +231,7 @@ const acDrop = document.getElementById('acDrop');
 
 addrInput.addEventListener('input', function() {
   this.parentElement.classList.remove('has-error');
+  this.setAttribute('aria-invalid', 'false');
   clearTimeout(_debounceTimer);
   const q = this.value.trim();
   if (q.length < 4) { acDrop.style.display = 'none'; return; }
@@ -446,8 +448,9 @@ function showSatelliteFallback() {
 function selectTile(el, group) {
   // Deselect others in same group
   const parent = el.closest('.tiles');
-  parent.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); });
+  parent.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); t.setAttribute('aria-pressed', 'false'); });
   el.classList.add('selected');
+  el.setAttribute('aria-pressed', 'true');
 
   const value = el.getAttribute('data-value');
 
@@ -620,9 +623,11 @@ async function sendVerificationCode() {
   const phone = document.getElementById('phoneNumber').value.replace(/\D/g, '');
   if (phone.length !== 10) {
     document.getElementById('phoneNumber').parentElement.parentElement.classList.add('has-error');
+    document.getElementById('phoneNumber').setAttribute('aria-invalid', 'true');
     return;
   }
   document.getElementById('phoneNumber').parentElement.parentElement.classList.remove('has-error');
+  document.getElementById('phoneNumber').setAttribute('aria-invalid', 'false');
 
   const btn = document.getElementById('btnSendCode');
   btn.disabled = true;
@@ -1248,11 +1253,11 @@ function resetFunnel() {
 
   // Reset tiles — then re-select the defaults so the UI matches the
   // restored state (same as a fresh page load: asphalt + typical).
-  document.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); });
+  document.querySelectorAll('.tile').forEach(function(t) { t.classList.remove('selected'); t.setAttribute('aria-pressed', 'false'); });
   var defAsphalt = document.querySelector('#roofTypeGroup .tile[data-value="asphalt"]');
-  if (defAsphalt) defAsphalt.classList.add('selected');
+  if (defAsphalt) { defAsphalt.classList.add('selected'); defAsphalt.setAttribute('aria-pressed', 'true'); }
   var defTypical = document.querySelector('#homeSizeGroup .tile[data-value="typical"]');
-  if (defTypical) defTypical.classList.add('selected');
+  if (defTypical) { defTypical.classList.add('selected'); defTypical.setAttribute('aria-pressed', 'true'); }
   document.getElementById('roofTypeGroup').style.display = 'none';
 
   // Reset OTP inputs
@@ -1277,6 +1282,15 @@ function trackEvent(name, params) {
 }
 
 /* ── Delegated click handlers (CSP disallows inline onclick=) ── */
+// Keyboard activation for the role="button" choice tiles (WCAG 2.1.1): Enter
+// or Space fires the same delegated click path so the estimate funnel can be
+// completed without a mouse. Space is preventDefault'd so the page doesn't scroll.
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+  var t = e.target && e.target.closest && e.target.closest('.tile');
+  if (t) { e.preventDefault(); t.click(); }
+});
+
 document.addEventListener('click', function (e) {
   var step = e.target.closest('[data-step]');
   if (step) { goToStep(parseInt(step.dataset.step, 10)); return; }

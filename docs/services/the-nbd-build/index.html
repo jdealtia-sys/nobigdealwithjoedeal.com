@@ -136,8 +136,10 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 @media(max-width:760px){.footer-grid{grid-template-columns:1fr;gap:32px}}
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+<link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 </head>
-<body>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
 
 <div class="ann-bar" id="annBar">
   <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> <span class="ann-text" data-long="NBD Lifetime Pledge — Joe stands behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — Joe stands behind every install personally</span></div>
@@ -167,7 +169,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
   </button>
   <script defer  src="/assets/js/inline/479bd49556.js"></script>
 </nav>
-<main>
+<main id="main">
 <div class="mobile-nav" id="mobileNav">
   <div class="mnav-group">The Promise</div>
   <a href="/the-pledge" style="color:#f08030;font-weight:800;">The Pledge</a>
@@ -246,7 +248,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
       <p class="pullquote">"The shingle is the part you can see from the street. The fastener, the pipe boot, and the exhaust cap are the parts that decide whether your shingle stays attached."</p>
     </div>
     <div class="system-visual">
-      <img src="/assets/lumanail/pack-web-1.jpg" alt="LumaNail orange roofing nail in install context" loading="lazy">
+      <img src="/assets/lumanail/pack-web-1.jpg" alt="LumaNail orange roofing nail in install context" width="1080" height="1350" loading="lazy">
     </div>
   </div>
 </section>
@@ -443,5 +445,10 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 
 <script defer  src="/assets/js/inline/b833f00105.js"></script>
 <script defer src="/assets/js/ann-bar.js"></script>
+<!-- STICKY MOBILE CTA STRIP (site-wide, conversion audit 2026-07-03) -->
+<div class="mobile-cta-strip" aria-label="Quick contact options">
+  <a href="tel:+18594207382" class="mobile-cta-call"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>Call Joe</a>
+  <a href="sms:+18594207382" class="mobile-cta-text"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Text Us</a>
+</div>
 </body>
 </html>

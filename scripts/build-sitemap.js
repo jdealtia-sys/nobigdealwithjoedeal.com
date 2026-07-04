@@ -69,15 +69,18 @@ const CORE_PAGES = [
   ['inspect',      'inspect.html',          '0.9',  'weekly'],
   ['storm-check',  'storm-check.html',      '0.9',  'weekly'],
   ['storm-report', 'storm-report.html',     '0.9',  'weekly'],
-  ['free-roof/',   'free-roof/index.html',  '0.85', 'monthly'],
+  ['free-roof',    'free-roof/index.html',  '0.85', 'monthly'],
   ['privacy',      'privacy.html',          '0.6',  'monthly'],
   ['review',       'review.html',           '0.6',  'monthly'],
 ];
 
-// Index hubs (trailing slash on purpose — these are directory indexes).
+// Index hubs. No trailing slash: Firebase Hosting runs trailingSlash:false,
+// so /areas/ 301-redirects to /areas — listing the slashed form points the
+// sitemap (and canonicals) at a redirect. Matches the-pledge / directory
+// service pages, which already emit the canonical no-slash form.
 const INDEX_HUBS = [
-  ['areas/', 'areas/index.html', '0.8', 'monthly'],
-  ['blog/',  'blog/index.html',  '0.7', 'weekly'],
+  ['areas', 'areas/index.html', '0.8', 'monthly'],
+  ['blog',  'blog/index.html',  '0.7', 'weekly'],
 ];
 
 // Directory-based service pages (docs/services/<slug>/index.html), curated
