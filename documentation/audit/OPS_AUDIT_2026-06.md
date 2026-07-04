@@ -38,7 +38,7 @@ runaway-cost.**
 | 3 | **Resolve the backup split-brain** (confirm canonical bucket in console → retire the duplicate export → repoint alert + `verify-backup.sh`) | **P0** | S–M | Monitored bucket isn't pruned; pruned bucket isn't monitored. Gated on a console check (failure-mode: retiring the wrong one deletes the only backup). |
 | 4 | **Client lead pagination refactor** (server-side KPIs/search + list virtualization) | P1 | L | The dashboard loads *all* of a rep's leads every visit; breaks first at scale. Needs browser-tested refactor. |
 | 5 | **Dormant/weekly digest query optimization** (introduce a reliable `lastActivityAt`/`stageStartedAt`-always-set convention → date-windowed queries) | P1 | M | Removes read-amplification + the >2000-lead silent truncation (now at least logged). |
-| 6 | **Add HSTS + `X-Content-Type-Options: nosniff`** to `firebase.json` headers | P2 | S | The two residual security-header gaps. |
+| 6 | ~~**Add HSTS + `X-Content-Type-Options: nosniff`** to `firebase.json` headers~~ **✅ DONE (verified 2026-07-04)** — both ship in the `**` header block. | P2 | S | Was: the two residual security-header gaps. |
 | 7 | **Refresh `ARCHITECTURE.md`** (drop `verify-functions.js` ref; reflect ~41 exports; mark companyId rules enforcement as live) | P2 | S | Doc currency. |
 | 8 | Code-split heavy dashboard modules behind tab activation | P2 | M | Faster first paint; needs runtime verification. |
 
