@@ -501,7 +501,7 @@ body {
     <h2 class="form-title">Create Your Account</h2>
     <!-- Lead count must match functions/billing.js PLAN_LIMITS (free: 10/mo)
          and /pro/pricing.html — was "25 leads", a number no plan has. -->
-    <div class="form-sub">Free to start — 10 leads a month, basic CRM &amp; estimates, no credit card, no timer. Got an access code from me? Drop it in below for full Pro access.</div>
+    <div class="form-sub">Free to start — 10 leads a month, basic CRM &amp; estimates, no credit card, no timer. Got an access code from me? Drop it in below to unlock your invited plan.</div>
 
     <button type="button" class="google-btn" id="googleRegBtn">
       <span class="google-icon">
@@ -530,7 +530,12 @@ body {
       <div class="ffield code-field">
         <label for="regCode">Access Code <span style="font-weight:400;color:rgba(255,255,255,.55);">(optional — leave blank for free tier)</span></label>
         <input class="finput" id="regCode" name="access-code" type="text" placeholder="NBD-XXXXX or leave blank" autocomplete="off" spellcheck="false">
-        <div class="code-hint">Use code <strong style="color:#e8720c;letter-spacing:.05em;">NBD-PRO</strong> to get started, or <a href="mailto:jd@nobigdealwithjoedeal.com">email Joe</a> for a custom code.</div>
+        <!-- 2026-07 access-code audit: the page used to print a code
+             ("NBD-PRO") to every visitor. No such code is seeded, so it
+             only produced a confusing failure — and if anyone ever created
+             that doc it would be a public paywall bypass. Codes are now
+             invitation-only. -->
+        <div class="code-hint">Codes are invitation-only — <a href="mailto:jd@nobigdealwithjoedeal.com">email Joe</a> if you were promised one. No code needed for the free tier.</div>
       </div>
 
       <div class="frow">
