@@ -26,7 +26,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
-const { FieldPath, getFirestore } = require('firebase-admin/firestore');
+const { FieldPath, getFirestore, Timestamp } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
@@ -184,10 +184,21 @@ function buildEmailHtml({ firstName, dormantLeads, total }) {
 // ─── Per-user aggregation ────────────────────────────────────────
 async function findDormantLeads(db, uid) {
   const cutoff = Date.now() - DORMANT_DAYS * DAY_MS;
-  const snap = await db.collection('leads').where('userId', '==', uid).limit(2000).get();
-  // 5.2: surface silent truncation. A rep with >2000 leads gets an incomplete
-  // dormant scan (the broad query can't be cheaply narrowed without a
-  // lastActivityAt convention — see Audit #4 Phase 5). Make it visible.
+  // Audit #4 Phase 5 (2026-07-04): date-windowed on stageStartedAt — the
+  // query now reads ONLY the dormant subset instead of the rep's whole
+  // book. stageStartedAt is written on every creation + stage transition,
+  // and migration 002 backfilled it from updatedAt||createdAt on legacy
+  // docs, so a range query can't silently drop old leads anymore. Ordered
+  // oldest-first so if the safety cap ever trips, the MOST dormant leads
+  // are the ones kept. Composite index: leads(userId ASC, stageStartedAt ASC).
+  const snap = await db.collection('leads')
+    .where('userId', '==', uid)
+    .where('stageStartedAt', '<=', Timestamp.fromMillis(cutoff))
+    .orderBy('stageStartedAt', 'asc')
+    .limit(2000)
+    .get();
+  // Backstop only — 2000+ DORMANT leads (not 2000 total) would be needed
+  // to trip this now.
   if (snap.size >= 2000) logger.warn('dormant_nudge_truncated', { uid, limit: 2000 });
   const out = [];
   for (const doc of snap.docs) {
