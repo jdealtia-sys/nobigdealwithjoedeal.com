@@ -47,6 +47,17 @@ const FLAT_USER_COLLECTIONS = [
   // saved via EstimateSupplement.saveToFirestore() from the
   // customer-page +Supplement button.
   { name: 'supplements' },
+  // Expense ledger (Phase 1 expense subsystem). Owner-keyed on userId; a
+  // user's expenses + supplier-spend records erase/export with their account.
+  // Receipt images live in Storage under receipts/{uid}/ (see the Storage
+  // prefix cleanup); the Firestore doc only holds receiptStoragePath.
+  { name: 'expenses' },
+  // Recurring-expense templates + supplier/vendor records (money-layer
+  // expansion). Owner-keyed on userId; erase/export with the account. Supplier
+  // docs hold NO tax IDs (tracking only); the locked suppliers/{id}/private/**
+  // seam is admin-SDK-only and has no client data yet.
+  { name: 'recurringExpenses' },
+  { name: 'suppliers', recursive: true },
   { name: 'photos' },
   { name: 'pins' },
   // NEW-D40a: the draw tool's unlinked-drawing fallback — drawings
@@ -144,6 +155,9 @@ const STORAGE_PREFIXES = [
   'reports',
   'shared_docs',
   'deal_rooms',
+  // receipts/{uid}/... — original receipt images/PDFs backing expense docs
+  // (Phase 1 expense subsystem). Owner-keyed like docs/; erase with the account.
+  'receipts',
 ];
 
 // ─── OWNER-KEYED UID-PATH DOCS ───────────────────────────────

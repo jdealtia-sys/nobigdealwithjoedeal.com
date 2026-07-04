@@ -57,8 +57,11 @@ async function loginAs(page, creds) {
   await page.waitForSelector('#loginBtn:not([disabled])', { timeout: 15_000 });
   await page.fill('#emailInput', creds.email);
   await page.fill('#passwordInput', creds.password);
+  // Hosting has cleanUrls:true, so the replace('/pro/dashboard.html') the
+  // login page issues gets 301'd to /pro/dashboard — match both forms or
+  // this wait can never resolve (bit the emulator run on CI, 2026-07-04).
   await Promise.all([
-    page.waitForURL('**/pro/dashboard.html', { timeout: 30_000 }),
+    page.waitForURL(/\/pro\/dashboard(\.html)?([?#]|$)/, { timeout: 30_000 }),
     page.click('#loginBtn'),
   ]);
 }

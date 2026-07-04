@@ -371,6 +371,7 @@ export const NBDAuth = {
         //   - provisioning is one-off via scripts/grant-demo-claim.js
         let demoClaim = false;
         let _claimRole = null; // F4: team-role from custom claim (fallback for client _role)
+        let _claimCompanyId = null; // Pillar 4: billing resolves from the company's subscription
         try {
           // 4-second timeout: getIdTokenResult() makes a network round-trip
           // to refresh the ID token. On iOS Safari with poor connectivity
@@ -385,6 +386,7 @@ export const NBDAuth = {
           ]);
           demoClaim = !!(tokenResult && tokenResult.claims && tokenResult.claims.demo === true);
           _claimRole = (tokenResult && tokenResult.claims && tokenResult.claims.role) || null;
+          _claimCompanyId = (tokenResult && tokenResult.claims && tokenResult.claims.companyId) || null;
         } catch (e) {
           console.warn('Could not read ID token claims:', e.message);
         }
@@ -427,9 +429,14 @@ export const NBDAuth = {
         }
 
         // Fetch subscription — 5s timeout (same rationale as user doc above).
+        // Pillar 4: billing is company-level. The sub doc is keyed by the
+        // OWNER's uid (== the companyId claim a team member carries), so a
+        // rep resolves their company's plan instead of a phantom 'free'
+        // under their own uid. Solo owners: companyId == uid, no change.
+        // If the claims read above timed out, fall back to uid (old path).
         try {
           const subSnap = await Promise.race([
-            getDoc(doc(_db, 'subscriptions', user.uid)),
+            getDoc(doc(_db, 'subscriptions', _claimCompanyId || user.uid)),
             new Promise(resolve => setTimeout(resolve, 5000))
           ]);
           if (subSnap.exists()) {
@@ -569,13 +576,15 @@ export const NBDAuth = {
   },
 
   /**
-   * Sign out and redirect
+   * Clear NBD app/account data from localStorage so a shared device doesn't
+   * leave the previous rep's cached config, filters, company profile, or usage
+   * tallies for the next user. Device-level UI prefs (theme/font/motion/
+   * onboarding/kanban) are deliberately preserved. Exposed as a method so the
+   * auth observer can also run it on an ACCOUNT SWITCH — historically every
+   * sign-out control called the raw signOut() and never logout(), so this purge
+   * never ran (prior rep's customer PII lingered for the next user).
    */
-  async logout(redirect = '/pro/login.html') {
-    // Phase-2.5: clear NBD app/account data from localStorage on logout so a
-    // shared device doesn't leave the previous rep's cached config, filters,
-    // company profile, or usage tallies for the next user. Device-level UI
-    // prefs (theme/font/motion/onboarding/kanban) are deliberately preserved.
+  purgeAccountStorage() {
     try {
       const KEEP = new Set([
         'nbd-theme', 'nbd_theme', 'nbd_custom_theme', 'nbd-theme-sound',
@@ -583,6 +592,7 @@ export const NBDAuth = {
         'nbd_ds_config', 'nbd-crm-autocollapse', 'nbd_kanban_view',
         'nbd-onboarding-complete', 'nbd_maps_redirect_seen',
         'nbd_draw_hint_shown', 'nbd_notif_settings', 'cmd-recents',
+        'nbd_last_uid',
       ]);
       const drop = [];
       for (let i = 0; i < localStorage.length; i++) {
@@ -590,7 +600,14 @@ export const NBDAuth = {
         if (k && !KEEP.has(k) && /^(nbd[_-]|nav-)/.test(k)) drop.push(k);
       }
       drop.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
-    } catch (_) { /* best-effort; never block logout on a storage error */ }
+    } catch (_) { /* best-effort; never block on a storage error */ }
+  },
+
+  /**
+   * Sign out and redirect
+   */
+  async logout(redirect = '/pro/login.html') {
+    this.purgeAccountStorage();
     try {
       await signOut(_auth);
     } catch(e) { console.warn('Logout error:', e.message); }

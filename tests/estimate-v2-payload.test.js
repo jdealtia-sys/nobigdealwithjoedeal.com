@@ -205,6 +205,68 @@ st._reopenedClean = true;   // restore for later assertions
 ok('3B rehydrate: unknown id → false', T.rehydrateFromSaved('nope') === false);
 
 // ════════════════════════════════════════════════════════════════════
+// REGRESSION — complexity/add-on measurement block + county + per-line
+// qty overrides must SURVIVE save→rehydrate. Before this fix the save
+// payload dropped them and rehydrate reset them to defaults, so the FIRST
+// edit after reopen silently changed the customer's price (the V2 recurrence
+// of the classic "Edit-on-Classic corrupted totals" bug).
+// ════════════════════════════════════════════════════════════════════
+console.log('\nV2 PAYLOAD — complexity/add-on + county + qty-override round-trip');
+const cxState = Object.assign(stateFixture(), {
+  county: 'boone-ky',
+  scope: [{ code: 'A', overrides: { qty: 7 } }, { code: 'B', overrides: {} }],
+  measurements: {
+    pitch: 8, rawSqft: 3000, waste: 1.17, ridgeLf: 60, eaveLf: 120, hipLf: 10, pipes: 3,
+    rakeLf: 90, valleyLf: 40, wallLf: 25, chimneys: 1, skylights: 2, stories: 2,
+    tearOffLayers: 2, deckReplacePct: 0.30, cutUpRoof: true,
+    hasChimneyFlash: true, hasSkylightFlash: true, valleyMetalLf: 40, guttersLf: 150,
+    accessLevel: 'difficult',
+  },
+});
+const cxSaved = T.buildSavePayload(estimateFixtureFixed(), cxState);
+ok('save: county persisted (boone-ky)', cxSaved.county === 'boone-ky');
+ok('save: stories persisted (2)', cxSaved.stories === 2);
+ok('save: accessLevel persisted (difficult)', cxSaved.accessLevel === 'difficult');
+ok('save: cutUpRoof persisted (true)', cxSaved.cutUpRoof === true);
+ok('save: tearOffLayers persisted (2)', cxSaved.tearOffLayers === 2);
+ok('save: deckReplacePct persisted (0.30)', cxSaved.deckReplacePct === 0.30);
+ok('save: rake/valley/wall LF persisted', cxSaved.rakeLf === 90 && cxSaved.valleyLf === 40 && cxSaved.wallLf === 25);
+ok('save: chimneys/skylights persisted', cxSaved.chimneys === 1 && cxSaved.skylights === 2);
+ok('save: flashing flags persisted', cxSaved.hasChimneyFlash === true && cxSaved.hasSkylightFlash === true);
+ok('save: valleyMetalLf/guttersLf persisted', cxSaved.valleyMetalLf === 40 && cxSaved.guttersLf === 150);
+ok('save: per-line qty override persisted on row A (7)', (cxSaved.rows.find(r => r.code === 'A') || {}).qtyOverride === 7);
+ok('save: row B with no override → null', (cxSaved.rows.find(r => r.code === 'B') || {}).qtyOverride === null);
+
+const cxDoc = Object.assign({}, cxSaved, { id: 'est_cx', builder: 'v2' });
+V2WIN._estimates = [cxDoc];
+ok('rehydrate(cx): returns true', T.rehydrateFromSaved('est_cx') === true);
+const cxSt = T.getState();
+ok('rehydrate: county restored (not default)', cxSt.county === 'boone-ky');
+ok('rehydrate: stories restored (2, not reset to 1)', cxSt.measurements.stories === 2);
+ok('rehydrate: accessLevel restored (difficult, not standard)', cxSt.measurements.accessLevel === 'difficult');
+ok('rehydrate: cutUpRoof restored (true, not false)', cxSt.measurements.cutUpRoof === true);
+ok('rehydrate: tearOffLayers restored (2, not 1)', cxSt.measurements.tearOffLayers === 2);
+ok('rehydrate: deckReplacePct restored (0.30, not 0.15)', cxSt.measurements.deckReplacePct === 0.30);
+ok('rehydrate: rake/valley/wall LF restored', cxSt.measurements.rakeLf === 90 && cxSt.measurements.valleyLf === 40 && cxSt.measurements.wallLf === 25);
+ok('rehydrate: chimneys/skylights restored', cxSt.measurements.chimneys === 1 && cxSt.measurements.skylights === 2);
+ok('rehydrate: flashing flags restored', cxSt.measurements.hasChimneyFlash === true && cxSt.measurements.hasSkylightFlash === true);
+ok('rehydrate: valleyMetal/gutters restored', cxSt.measurements.valleyMetalLf === 40 && cxSt.measurements.guttersLf === 150);
+ok('rehydrate: per-line qty override restored on A (7)', ((cxSt.scope.find(s => s.code === 'A') || {}).overrides || {}).qty === 7);
+ok('rehydrate: row B keeps empty overrides', !!cxSt.scope.find(s => s.code === 'B') && Object.keys(cxSt.scope.find(s => s.code === 'B').overrides).length === 0);
+
+// Backward-compat: an OLD doc lacking the block rehydrates to safe defaults
+// (graceful — no NaN, no crash) rather than corrupting.
+const oldDoc = { id: 'est_old', builder: 'v2', mode: 'insurance', tier: 'better', grandTotal: 5000,
+  raw: 2000, pl: '6/12', rows: [{ code: 'A', desc: 'X', total: 1500 }] };
+V2WIN._estimates = [oldDoc];
+T.rehydrateFromSaved('est_old');
+const oldSt = T.getState();
+ok('rehydrate(old doc): stories defaults to 1', oldSt.measurements.stories === 1);
+ok('rehydrate(old doc): cutUpRoof defaults to false', oldSt.measurements.cutUpRoof === false);
+ok('rehydrate(old doc): accessLevel defaults to standard', oldSt.measurements.accessLevel === 'standard');
+ok('rehydrate(old doc): deckReplacePct defaults to 0.15', oldSt.measurements.deckReplacePct === 0.15);
+
+// ════════════════════════════════════════════════════════════════════
 // Round-trip — production reconstruct → render → reconcile + markup honored.
 // ════════════════════════════════════════════════════════════════════
 console.log('\nV2 PAYLOAD — persistence round-trip reconciles formatInsuranceScope');

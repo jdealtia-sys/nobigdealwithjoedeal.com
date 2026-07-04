@@ -167,6 +167,48 @@ async function run() {
     { contentType: 'image/jpeg' }
   ));
 
+  // ── EXPENSE RECEIPTS (receipts/{uid}/) ─────────────────────────────
+  // 16. alice can upload a receipt photo (camera capture)
+  await assertSucceeds(uploadBytes(
+    ref(alice, 'receipts/alice/2026-06-27_abc.jpg'),
+    buf(1024),
+    { contentType: 'image/jpeg' }
+  ));
+  // 17. alice can upload a receipt PDF (emailed/scanned receipt)
+  await assertSucceeds(uploadBytes(
+    ref(alice, 'receipts/alice/beacon-invoice.pdf'),
+    buf(8 * 1024),
+    { contentType: 'application/pdf' }
+  ));
+  // 18. executables/archives stay blocked
+  await assertFails(uploadBytes(
+    ref(alice, 'receipts/alice/mal.exe'),
+    buf(1024),
+    { contentType: 'application/x-msdownload' }
+  ));
+  // 19. over the 25MB cap → blocked
+  await assertFails(uploadBytes(
+    ref(alice, 'receipts/alice/huge.pdf'),
+    buf(26 * 1024 * 1024),
+    { contentType: 'application/pdf' }
+  ));
+  // 20. bob CANNOT upload into alice's receipts (cross-user)
+  await assertFails(uploadBytes(
+    ref(bob, 'receipts/alice/sneak.jpg'),
+    buf(1024),
+    { contentType: 'image/jpeg' }
+  ));
+  // 21. bob CANNOT read alice's receipts; admin CAN (support context)
+  await assertFails(getBytes(ref(bob, 'receipts/alice/2026-06-27_abc.jpg')));
+  await assertSucceeds(getBytes(ref(admin, 'receipts/alice/2026-06-27_abc.jpg')));
+  // 22. owner can delete; legacy flat receipts/<file> path always denies
+  await assertSucceeds(deleteObject(ref(alice, 'receipts/alice/2026-06-27_abc.jpg')));
+  await assertFails(uploadBytes(
+    ref(alice, 'receipts/hash123.jpg'),
+    buf(1024),
+    { contentType: 'image/jpeg' }
+  ));
+
   console.log('✓ All storage rules tests passed');
   await env.cleanup();
 }

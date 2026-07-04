@@ -60,6 +60,23 @@
     closeboard: [
       'js/close-board.js?v=1'
     ],
+    // Expenses & supplier-spend view — only loaded on the Expenses tab.
+    // expense-config.js (the shared category/money source of truth) MUST load
+    // before expenses.js, which reads window.ExpenseConfig at render time.
+    // profit-tracker.js is NOT loaded anywhere else on dashboard.html (only
+    // customer.html loads it), and expenses.js's per-job margin calls
+    // window.ProfitTracker.computeJobPLWithExpenses at render — so it must ride
+    // this bundle or the margin silently degrades to "set Job Value".
+    expenses: [
+      'js/expense-config.js?v=1',
+      'js/profit-tracker.js?v=1',
+      'js/expenses.js?v=1'
+    ],
+    // Money / P&L capstone — self-contained (reads doc fields directly, no
+    // ExpenseConfig dependency), so it's a single-module bundle.
+    money: [
+      'js/money-dashboard.js?v=1'
+    ],
     repos: [
       'js/rep-os.js?v=1'
     ],
@@ -165,6 +182,8 @@
     training:    ['training'],
     storm:       ['storm'],
     closeboard:  ['closeboard'],
+    expenses:    ['expenses'],
+    money:       ['money'],
     repos:       ['repos'],
     aitree:      ['decision'],
     understand:  ['decision'],

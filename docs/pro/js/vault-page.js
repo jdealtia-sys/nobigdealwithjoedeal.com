@@ -29,6 +29,32 @@ const AUTOSAVE_DELAY = 60000; // 60s debounce
 // Firebase references (set by module script)
 let db, firestore;
 
+// Module-scope HTML-escape helper. Every CODEX.* field is either admin-authored
+// or AI-extracted from pasted session content, so all render paths escape as
+// defence-in-depth per the house render-safety rule (CSP already blocks script
+// execution; this stops markup injection into the admin's own view).
+const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+
+// loadFromFirestore() does a full-object replace (`CODEX = snapshot.data()`),
+// which drops the in-memory array defaults — a stored doc written under an older
+// schema (e.g. pre-V2 docs lack `blockers`) would then crash every renderer that
+// does .filter/.map/.forEach/spread. Backfill every list field after a load.
+// Also reconcile the decisions field: the model/seed persist
+// `architecturalDecisions`, but render/search/parse all read `CODEX.architecturalDecisions`;
+// canonicalize on `architecturalDecisions` and absorb any legacy `decisions` key.
+function ensureCodexShape() {
+  CODEX.sessions = CODEX.sessions || [];
+  CODEX.tasks = CODEX.tasks || [];
+  CODEX.debt = CODEX.debt || [];
+  CODEX.directives = CODEX.directives || [];
+  CODEX.versions = CODEX.versions || [];
+  CODEX.blockers = CODEX.blockers || [];
+  CODEX.alerts = CODEX.alerts || [];
+  CODEX.sessionMissions = CODEX.sessionMissions || [];
+  CODEX.architecturalDecisions = CODEX.architecturalDecisions || CODEX.architecturalDecisions || [];
+  if ('decisions' in CODEX) delete CODEX.architecturalDecisions; // legacy alias — single canonical field
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    INITIALIZATION
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -69,6 +95,7 @@ async function loadFromFirestore() {
     
     if (snapshot.exists()) {
       CODEX = snapshot.data();
+      ensureCodexShape();
       console.log('✓ Loaded from Firestore:', CODEX.sessions.length, 'sessions');
       updateSaveIndicator(true);
       return true;
@@ -153,7 +180,7 @@ function updateSaveIndicator(saved) {
   
   if (saved) {
     const now = new Date().toLocaleTimeString('en-US', {hour: 'numeric', minute: '2-digit'});
-    indicator.textContent = `✓ Auto-saved at ${now}`;
+    indicator.textContent = `✓ Saved at ${now}`;
     indicator.className = 'save-indicator saved';
   } else {
     indicator.textContent = '💾 Unsaved changes';
@@ -181,7 +208,7 @@ document.addEventListener('click', (e) => {
   const noArg = {
     manualSave, manualSaveToFirestore, startNextSession, analyzeSessionsWithAI,
     generateSessionStarter, copySessionStarter, importSessionPayload,
-    parseSessionTest, parseAllSessions, closeSessionDetail,
+    parseSessionTest, parseAllSessions, closeSessionDetail, toggleSidebar,
   };
   if (action === 'navTo') {
     if (t.tagName === 'A') e.preventDefault();
@@ -203,7 +230,18 @@ document.addEventListener('click', (e) => {
    NAVIGATION
    ═══════════════════════════════════════════════════════════════════════════ */
 
+// Mobile: the sidebar lives off-screen (left:-240px) and only slides in via
+// `.sidebar.open`; the hamburger in the topbar toggles it. Top-level fn = global,
+// dispatched through the data-v-action click delegate (script-src-attr 'none'
+// blocks inline onclick).
+function toggleSidebar() {
+  document.getElementById('sidebar')?.classList.toggle('open');
+}
+
 function navTo(page) {
+  // Close the mobile slide-in nav after a selection.
+  document.getElementById('sidebar')?.classList.remove('open');
+
   // Update nav items
   document.querySelectorAll('.nav-item').forEach(item => {
     item.classList.remove('active');
@@ -321,13 +359,13 @@ function extractNextMission(latestSession, nextSessionNum) {
   // Look for common mission patterns (e.g., "Session 31: Fix the thing")
   const missionMatch = content.match(new RegExp(`Session ${nextSessionNum}[^:]*:([^\\n]+)`, 'i'));
   if (missionMatch) {
-    return `<strong style="color:var(--gold)">Mission:</strong> ${missionMatch[1].trim()}`;
+    return `<strong style="color:var(--gold)">Mission:</strong> ${esc(missionMatch[1].trim())}`;
   }
   
   // Fallback: extract from blockers
   const openBlockers = CODEX.blockers.filter(b => b.status === 'open');
   if (openBlockers.length > 0) {
-    return `<strong style="color:var(--gold)">Priority:</strong> Resolve ${openBlockers.length} standing blocker(s)<br><ul style="margin-top:8px; color:var(--text3)">${openBlockers.map(b => `<li>${b.title}</li>`).join('')}</ul>`;
+    return `<strong style="color:var(--gold)">Priority:</strong> Resolve ${openBlockers.length} standing blocker(s)<br><ul style="margin-top:8px; color:var(--text3)">${openBlockers.map(b => `<li>${esc(b.title)}</li>`).join('')}</ul>`;
   }
   
   return '<em style="color:var(--text3)">Continue build momentum — no specific mission locked</em>';
@@ -389,8 +427,8 @@ function renderSessions() {
       <div class="session-card" data-v-action="viewSessionDetail" data-arg="${s.num}">
         <div class="session-num">S${s.num}</div>
         <div class="session-info">
-          <div class="session-title">${s.meta?.title || s.title || 'Untitled'}</div>
-          <div class="session-meta">${s.meta?.date || s.date || 'No date'}</div>
+          <div class="session-title">${esc(s.meta?.title || s.title || 'Untitled')}</div>
+          <div class="session-meta">${esc(s.meta?.date || s.date || 'No date')}</div>
         </div>
         <div class="session-arrow">→</div>
       </div>
@@ -515,17 +553,17 @@ function renderTasks() {
       <div class="card-header">
         <div style="flex:1;">
           <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
-            ${task.title}
+            ${esc(task.title)}
           </div>
           <div style="font-size:12px; color:var(--text3);">
-            Session ${task.session} ${task.assignedTo ? `• Assigned: ${task.assignedTo}` : ''}
+            Session ${esc(task.session)} ${task.assignedTo ? `• Assigned: ${esc(task.assignedTo)}` : ''}
           </div>
         </div>
         <span class="btn-xs ${task.priority === 'critical' ? 'btn-red' : task.priority === 'high' ? 'btn-outline' : 'btn-ghost'}">
           ${task.priority || 'normal'}
         </span>
       </div>
-      ${task.description ? `<div class="card-body">${task.description}</div>` : ''}
+      ${task.description ? `<div class="card-body">${esc(task.description)}</div>` : ''}
     </div>
   `;
   
@@ -616,11 +654,11 @@ function renderDebt() {
       <div class="card-header">
         <div style="flex:1;">
           <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
-            ${debt.title}
+            ${esc(debt.title)}
           </div>
           <div style="font-size:12px; color:var(--text3);">
-            Session ${debt.session} • Open ${debt.sessionsOpen || 1} sessions
-            ${debt.category ? ` • ${debt.category}` : ''}
+            Session ${esc(debt.session)} • Open ${Number(debt.sessionsOpen) || 1} sessions
+            ${debt.category ? ` • ${esc(debt.category)}` : ''}
           </div>
         </div>
         <div style="display:flex; gap:8px; align-items:center;">
@@ -636,10 +674,10 @@ function renderDebt() {
           </span>
         </div>
       </div>
-      ${debt.description ? `<div class="card-body">${debt.description}</div>` : ''}
+      ${debt.description ? `<div class="card-body">${esc(debt.description)}</div>` : ''}
       ${debt.impact ? `
         <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
-          <strong style="color:var(--text2);">Impact:</strong> ${debt.impact}
+          <strong style="color:var(--text2);">Impact:</strong> ${esc(debt.impact)}
         </div>
       ` : ''}
     </div>
@@ -730,13 +768,13 @@ function renderBlockers() {
   const blockersHTML = CODEX.blockers.map(b => `
     <div class="card">
       <div class="card-header">
-        <div class="card-title">${b.severity === 'critical' ? '🚫' : '⚠️'} ${b.title}</div>
-        <span class="btn-sm ${b.status === 'open' ? 'btn-red' : 'btn-ghost'}">${b.status.toUpperCase()}</span>
+        <div class="card-title">${b.severity === 'critical' ? '🚫' : '⚠️'} ${esc(b.title)}</div>
+        <span class="btn-sm ${b.status === 'open' ? 'btn-red' : 'btn-ghost'}">${esc(String(b.status || 'open')).toUpperCase()}</span>
       </div>
       <div class="card-body">
-        <strong>Severity:</strong> ${b.severity}<br>
-        <strong>Open for:</strong> ${b.sessionsOpen} sessions<br>
-        <strong>First mentioned:</strong> Session ${b.firstMentioned || 'Unknown'}
+        <strong>Severity:</strong> ${esc(b.severity)}<br>
+        <strong>Open for:</strong> ${Number(b.sessionsOpen) || 0} sessions<br>
+        <strong>First mentioned:</strong> Session ${esc(b.firstMentioned || 'Unknown')}
       </div>
     </div>
   `).join('');
@@ -765,7 +803,7 @@ function renderDirectives() {
       <div class="card-header">
         <div style="flex:1;">
           <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
-            ${directive.binding ? '⚖️' : '💡'} ${directive.text}
+            ${directive.binding ? '⚖️' : '💡'} ${esc(directive.text)}
           </div>
           <div style="font-size:12px; color:var(--text3);">
             Session ${directive.session}
@@ -775,7 +813,7 @@ function renderDirectives() {
       </div>
       ${directive.rationale ? `
         <div class="card-body">
-          <strong style="color:var(--text2);">Rationale:</strong> ${directive.rationale}
+          <strong style="color:var(--text2);">Rationale:</strong> ${esc(directive.rationale)}
         </div>
       ` : ''}
     </div>
@@ -848,7 +886,7 @@ function renderDecisions() {
   const page = document.getElementById('page-decisions');
   
   // Sort decisions by session number (most recent first)
-  const sortedDecisions = [...CODEX.decisions].sort((a, b) => b.session - a.session);
+  const sortedDecisions = [...CODEX.architecturalDecisions].sort((a, b) => b.session - a.session);
   
   // Group by binding status
   const bindingDecisions = sortedDecisions.filter(d => d.binding);
@@ -859,28 +897,28 @@ function renderDecisions() {
       <div class="card-header">
         <div style="flex:1;">
           <div style="font-size:15px; font-weight:600; color:var(--text); margin-bottom:4px;">
-            ${decision.binding ? '🏛️' : '📋'} ${decision.decision}
+            ${decision.binding ? '🏛️' : '📋'} ${esc(decision.decision)}
           </div>
           <div style="font-size:12px; color:var(--text3);">
-            Session ${decision.session}
+            Session ${esc(decision.session)}
             ${decision.binding ? ' • <strong style="color:var(--gold)">BINDING</strong>' : ' • Advisory'}
-            ${decision.category ? ` • ${decision.category}` : ''}
+            ${decision.category ? ` • ${esc(decision.category)}` : ''}
           </div>
         </div>
       </div>
       ${decision.rationale ? `
         <div class="card-body">
-          <strong style="color:var(--text2);">Rationale:</strong> ${decision.rationale}
+          <strong style="color:var(--text2);">Rationale:</strong> ${esc(decision.rationale)}
         </div>
       ` : ''}
       ${decision.alternatives ? `
         <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
-          <strong style="color:var(--text2);">Alternatives Considered:</strong> ${decision.alternatives}
+          <strong style="color:var(--text2);">Alternatives Considered:</strong> ${esc(decision.alternatives)}
         </div>
       ` : ''}
       ${decision.implications ? `
         <div style="padding:0 24px 16px; font-size:13px; color:var(--text3);">
-          <strong style="color:var(--text2);">Implications:</strong> ${decision.implications}
+          <strong style="color:var(--text2);">Implications:</strong> ${esc(decision.implications)}
         </div>
       ` : ''}
     </div>
@@ -890,7 +928,7 @@ function renderDecisions() {
     <div class="page-header">
       <div class="page-eyebrow">Architecture</div>
       <div class="page-title">Binding Decisions</div>
-      <div class="page-subtitle">${CODEX.decisions.length} total decisions • ${bindingDecisions.length} binding</div>
+      <div class="page-subtitle">${CODEX.architecturalDecisions.length} total decisions • ${bindingDecisions.length} binding</div>
     </div>
     
     <!-- Stats -->
@@ -904,11 +942,11 @@ function renderDecisions() {
         <div class="stat-lbl">Advisory</div>
       </div>
       <div class="stat-chip">
-        <div class="stat-val ok">${CODEX.decisions.length}</div>
+        <div class="stat-val ok">${CODEX.architecturalDecisions.length}</div>
         <div class="stat-lbl">Total</div>
       </div>
       <div class="stat-chip">
-        <div class="stat-val gold">${CODEX.decisions.length > 0 ? Math.max(...CODEX.decisions.map(d => d.session)) : 0}</div>
+        <div class="stat-val gold">${CODEX.architecturalDecisions.length > 0 ? Math.max(...CODEX.architecturalDecisions.map(d => d.session)) : 0}</div>
         <div class="stat-lbl">Latest Session</div>
       </div>
     </div>
@@ -938,7 +976,7 @@ function renderDecisions() {
       </div>
     ` : ''}
     
-    ${CODEX.decisions.length === 0 ? `
+    ${CODEX.architecturalDecisions.length === 0 ? `
       <div class="card">
         <div class="card-body" style="text-align:center; padding:48px;">
           <div style="font-size:48px; margin-bottom:16px; opacity:0.3;">🏛️</div>
@@ -1017,7 +1055,7 @@ function executeSearch() {
   });
   
   // Search decisions
-  CODEX.decisions.forEach(decision => {
+  CODEX.architecturalDecisions.forEach(decision => {
     const searchableText = `${decision.decision} ${decision.rationale || ''} ${decision.alternatives || ''}`.toLowerCase();
     if (searchableText.includes(query)) {
       results.decisions.push(decision);
@@ -1066,7 +1104,7 @@ function executeSearch() {
   let html = `
     <div style="margin-top:24px;">
       <div style="font-size:14px; color:var(--text2); margin-bottom:16px;">
-        Found <strong style="color:var(--gold)">${totalResults}</strong> results for "<strong>${query}</strong>"
+        Found <strong style="color:var(--gold)">${totalResults}</strong> results for "<strong>${esc(query)}</strong>"
       </div>
   `;
   
@@ -1082,10 +1120,10 @@ function executeSearch() {
             <div class="card-header">
               <div style="flex:1;">
                 <div style="font-size:15px; font-weight:600; color:var(--text);">
-                  Session ${s.num} — ${s.meta?.title || 'Untitled'}
+                  Session ${esc(s.num)} — ${esc(s.meta?.title || 'Untitled')}
                 </div>
                 <div style="font-size:12px; color:var(--text3);">
-                  ${s.meta?.date || 'Date unknown'}
+                  ${esc(s.meta?.date || 'Date unknown')}
                 </div>
               </div>
             </div>
@@ -1107,7 +1145,7 @@ function executeSearch() {
             <div class="card-header">
               <div style="flex:1;">
                 <div style="font-size:15px; font-weight:600; color:var(--text);">
-                  ${d.text}
+                  ${esc(d.text)}
                 </div>
                 <div style="font-size:12px; color:var(--text3);">
                   Session ${d.session} ${d.binding ? '• BINDING' : ''}
@@ -1132,7 +1170,7 @@ function executeSearch() {
             <div class="card-header">
               <div style="flex:1;">
                 <div style="font-size:15px; font-weight:600; color:var(--text);">
-                  ${d.decision}
+                  ${esc(d.decision)}
                 </div>
                 <div style="font-size:12px; color:var(--text3);">
                   Session ${d.session} ${d.binding ? '• BINDING' : ''}
@@ -1157,7 +1195,7 @@ function executeSearch() {
             <div class="card-header">
               <div style="flex:1;">
                 <div style="font-size:15px; font-weight:600; color:var(--text);">
-                  ${t.title}
+                  ${esc(t.title)}
                 </div>
                 <div style="font-size:12px; color:var(--text3);">
                   Session ${t.session} • ${t.status}
@@ -1182,7 +1220,7 @@ function executeSearch() {
             <div class="card-header">
               <div style="flex:1;">
                 <div style="font-size:15px; font-weight:600; color:var(--text);">
-                  ${d.title}
+                  ${esc(d.title)}
                 </div>
                 <div style="font-size:12px; color:var(--text3);">
                   Session ${d.session} • ${d.severity} • ${d.status}
@@ -1207,7 +1245,7 @@ function executeSearch() {
             <div class="card-header">
               <div style="flex:1;">
                 <div style="font-size:15px; font-weight:600; color:var(--text);">
-                  ${b.title}
+                  ${esc(b.title)}
                 </div>
                 <div style="font-size:12px; color:var(--text3);">
                   ${b.severity} • ${b.status} • ${b.sessionsOpen} sessions open
@@ -1256,10 +1294,10 @@ function renderAdmin() {
         <div class="card-title">📥 Import Session from Claude</div>
       </div>
       <div class="card-body">
-        <p style="margin-bottom:12px; color:var(--text3)">Paste the JavaScript payload Claude gives you at session close:</p>
+        <p style="margin-bottom:12px; color:var(--text3)">Paste the session payload Claude gives you at session close (JSON, a <code>vaultImportSession({…})</code> call, or markdown):</p>
         <textarea id="sessionImportPayload" style="width:100%; min-height:200px; background:var(--void); border:1px solid var(--border); border-radius:var(--r); padding:12px; color:var(--text); font-family:monospace; font-size:13px" placeholder="Paste anything: JavaScript payload, JSON, markdown, or plain text..."></textarea>
         <div style="font-size:11px; color:var(--text3); margin-top:8px;">
-          ✓ Accepts: JavaScript code, JSON objects, markdown with Session #, or any text (auto-creates session)
+          ✓ Accepts: JSON objects, a vaultImportSession({…}) call, markdown with Session #, or any text (auto-creates session)
         </div>
         <button class="btn-gold btn-sm" style="margin-top:12px" data-v-action="importSessionPayload">Import to Firestore</button>
       </div>
@@ -1271,7 +1309,7 @@ function renderAdmin() {
         <div class="card-title">💾 Export Codex to Firestore</div>
       </div>
       <div class="card-body">
-        <p style="margin-bottom:12px; color:var(--text3)">Manually save current Codex state to Firestore (auto-saves every 5 minutes):</p>
+        <p style="margin-bottom:12px; color:var(--text3)">Force a manual save of the current Codex state to Firestore (imports and AI analysis already save automatically):</p>
         <button class="btn-gold btn-sm" data-v-action="manualSaveToFirestore">💾 Save to Firestore Now</button>
         <div id="manualSaveStatus" style="margin-top:12px; font-size:13px; color:var(--text3)"></div>
       </div>
@@ -1360,7 +1398,7 @@ function generateSessionStarter() {
 
 **Last Session:** v${latestSession?.num || 0} (${latestSession?.meta?.title || latestSession?.title || 'Untitled'} — ${latestSession?.meta?.date || latestSession?.date || 'Unknown date'})
 
-**Mission Locked:** ${extractNextMission(latestSession)}
+**Mission Locked:** ${extractNextMission(latestSession, nextSessionNum)}
 
 ## CRITICAL BLOCKERS (Verify Before New Work)
 
@@ -1406,11 +1444,20 @@ Codex loaded. Mission locked. Standing by for instructions.
   toast(`Session ${nextSessionNum} starter prompt generated`, 'success');
 }
 
-function copySessionStarter() {
+async function copySessionStarter() {
   const textarea = document.getElementById('sessionStarterOutput');
+  const text = textarea ? textarea.value : '';
+  // Prefer the modern async clipboard API; fall back to execCommand and only
+  // report success when the copy actually reports success (the old code toasted
+  // "Copied" unconditionally even when execCommand returned false).
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Copied to clipboard', 'success');
+    return;
+  } catch (_) { /* fall through to legacy path */ }
   textarea.select();
-  document.execCommand('copy');
-  toast('Copied to clipboard', 'success');
+  const ok = document.execCommand('copy');
+  toast(ok ? 'Copied to clipboard' : 'Copy failed — press Ctrl+C', ok ? 'success' : 'error');
 }
 
 function importSessionPayload() {
@@ -1421,13 +1468,23 @@ function importSessionPayload() {
   }
   
   try {
-    // TRY FORMAT 1: JavaScript code that calls vaultImportSession()
+    // FORMAT 1: a `vaultImportSession({...})` call (the payload the session-close
+    // prompt emits). eval() is blocked by CSP (no unsafe-eval) — so instead of
+    // executing the string, extract the object-literal argument and parse it as
+    // JSON. No code execution. If the arg isn't strict JSON, fall through to the
+    // generic parsers below.
     if (payload.includes('vaultImportSession')) {
-      eval(payload);
-      toast('Session imported successfully', 'success');
-      return;
+      const m = payload.match(/vaultImportSession\s*\(\s*(\{[\s\S]*\})\s*\)\s*;?\s*$/);
+      if (m) {
+        try {
+          vaultImportSession(JSON.parse(m[1]));
+          return;
+        } catch (e) {
+          console.warn('[vault] vaultImportSession() arg not strict JSON, trying fallbacks:', e.message);
+        }
+      }
     }
-    
+
     // TRY FORMAT 2: Direct JSON object
     let sessionData;
     try {
@@ -1668,13 +1725,13 @@ function showDuplicateModal(sessionData, suggestedNum, versionSuffix, callback) 
         ⚠️ Duplicate Session Detected
       </div>
       <div style="font-size: 14px; color: var(--text3); margin-bottom: 24px;">
-        Session ${sessionData.num} already exists in the vault.
+        Session ${esc(sessionData.num)} already exists in the vault.
       </div>
       
       <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; margin-bottom: 24px;">
         <div style="font-size: 13px; color: var(--text3); margin-bottom: 8px;">Existing Session:</div>
         <div style="font-size: 15px; font-weight: 600; color: var(--text);">
-          Session ${sessionData.num} — ${CODEX.sessions.find(s => s.num === sessionData.num)?.meta?.title || 'Untitled'}
+          Session ${esc(sessionData.num)} — ${esc(CODEX.sessions.find(s => s.num === sessionData.num)?.meta?.title || 'Untitled')}
         </div>
       </div>
       
@@ -1692,7 +1749,7 @@ function showDuplicateModal(sessionData, suggestedNum, versionSuffix, callback) 
         
         <button class="btn-outline" data-v-action="handleDuplicateAction" data-arg="version" style="width: 100%; margin-bottom: 12px; justify-content: flex-start;">
           <span style="flex: 1; text-align: left;">
-            <strong>Keep as Session ${sessionData.num}${versionSuffix}</strong><br>
+            <strong>Keep as Session ${esc(sessionData.num)}${versionSuffix}</strong><br>
             <span style="font-size: 12px; opacity: 0.7;">Adds version suffix, preserves original number</span>
           </span>
         </button>
@@ -1955,9 +2012,9 @@ async function parseAllSessions() {
     
     // Merge decisions (avoid duplicates by decision text)
     extracted.decisions.forEach(decision => {
-      const exists = CODEX.decisions.find(d => d.decision === decision.decision);
+      const exists = CODEX.architecturalDecisions.find(d => d.decision === decision.decision);
       if (!exists) {
-        CODEX.decisions.push(decision);
+        CODEX.architecturalDecisions.push(decision);
         totalExtracted.decisions++;
       }
     });
@@ -2112,19 +2169,22 @@ Return this exact JSON structure:
 
     statusDiv.innerHTML = '<span style="color:var(--blue)">🧠 Sending to AI for analysis...</span>';
     
-    // Call Gemini API
-    const currentUser = window._currentUser || window._auth?.currentUser;
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    // Route through the admin-gated adminAI Cloud Function, same as
+    // parseSessionWithGemini. A direct browser fetch to api.anthropic.com is
+    // CSP-blocked (connect-src omits it), unauthenticated, and CORS-refused —
+    // so this button was 100% dead. NBD_ADMIN_AI_URL is in connect-src + gated.
+    const _u = window._currentUser || window._auth?.currentUser;
+    const _tok = _u ? await _u.getIdToken() : '';
+    if (!_tok) throw new Error('Not signed in');
+    const response = await fetch(NBD_ADMIN_AI_URL, {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001', max_tokens: 2048, messages: [{role: 'user', content: prompt}]
-      })
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _tok},
+      body: JSON.stringify({ prompt, maxTokens: 2048 })
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Gemini error ${response.status}: ${errorText}`);
+      throw new Error(`adminAI error ${response.status}: ${errorText}`);
     }
     
     const data = await response.json();
@@ -2150,10 +2210,19 @@ Return this exact JSON structure:
     
     const parsed = JSON.parse(jsonText);
     
-    // OVERWRITE existing backlog with AI analysis
-    CODEX.blockers = parsed.blockers || [];
-    CODEX.debt = parsed.debt || [];
-    CODEX.tasks = parsed.tasks || [];
+    // Replace the backlog with the AI analysis, but never let a thin/empty/
+    // malformed response wipe a hand-curated category — saveToFirestore does a
+    // full-doc overwrite with no undo. Stash a one-deep backup, then only
+    // overwrite categories the AI actually returned items for.
+    CODEX.previousBacklog = {
+      blockers: CODEX.blockers,
+      debt: CODEX.debt,
+      tasks: CODEX.tasks,
+      savedAt: new Date().toISOString()
+    };
+    if (Array.isArray(parsed.blockers) && parsed.blockers.length) CODEX.blockers = parsed.blockers;
+    if (Array.isArray(parsed.debt) && parsed.debt.length) CODEX.debt = parsed.debt;
+    if (Array.isArray(parsed.tasks) && parsed.tasks.length) CODEX.tasks = parsed.tasks;
     
     // Store insights in CODEX
     CODEX.aiInsights = {
@@ -2213,7 +2282,7 @@ Return this exact JSON structure:
       ${parsed.insights && parsed.insights.length > 0 ? `
         <div style="background:var(--void); border:1px solid var(--border2); border-radius:var(--r); padding:12px;">
           <div style="font-size:12px; font-weight:600; color:var(--gold); margin-bottom:8px;">💡 AI Insights:</div>
-          ${parsed.insights.map(insight => `<div style="font-size:12px; color:var(--text2); margin-bottom:4px;">• ${insight}</div>`).join('')}
+          ${parsed.insights.map(insight => `<div style="font-size:12px; color:var(--text2); margin-bottom:4px;">• ${esc(insight)}</div>`).join('')}
         </div>
       ` : ''}
     `;

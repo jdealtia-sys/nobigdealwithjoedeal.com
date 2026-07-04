@@ -667,8 +667,14 @@ exports.confirmAccountErasure = onRequest(
     }
 
     // ── (5) owner-keyed `{uid}`-path docs ──
+    // recursiveDelete (not a plain .delete()) — `users/{uid}` carries
+    // SUBCOLLECTIONS (notificationLogs/{id}, fcmTokens/{id} — both personal
+    // data), and a plain doc delete leaves a subcollection's documents
+    // ORPHANED in Firestore. recursiveDelete walks the doc + every child
+    // collection; on the flat owner docs (subscriptions/userSettings/…) with
+    // no subcollections it's just a doc delete, so it's safe across the board.
     for (const coll of OWNER_KEYED_DOCS) {
-      try { await db.doc(coll + '/' + uid).delete(); }
+      try { await db.recursiveDelete(db.doc(coll + '/' + uid)); }
       catch (e) { logger.warn('erasure: owner-doc delete failed for ' + coll, { err: e.message }); }
     }
 

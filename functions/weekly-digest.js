@@ -24,7 +24,7 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const admin = require('firebase-admin');
-const { FieldPath, getFirestore } = require('firebase-admin/firestore');
+const { FieldPath, getFirestore, Timestamp } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 
@@ -147,11 +147,11 @@ function buildDigestHtml(d) {
 
       ${d.topLeads.length > 0 ? `
         <p style="text-align:center; margin-top:8px;">
-          <a href="https://nobigdeal-pro.web.app/pro/dashboard.html" class="cta">Open Dashboard</a>
+          <a href="https://nobigdealwithjoedeal.com/pro/dashboard.html" class="cta">Open Dashboard</a>
         </p>` : ''}
 
       <p style="font-size:12px; color:#6b7280; margin-top:24px; text-align:center;">
-        Want fewer emails? <a href="https://nobigdeal-pro.web.app/pro/dashboard.html#settings" style="color:#C8541A;">Manage your digest preferences</a>.
+        Want fewer emails? <a href="https://nobigdealwithjoedeal.com/pro/dashboard.html#settings" style="color:#C8541A;">Manage your digest preferences</a>.
       </p>
     </div>
     <div class="footer">
@@ -175,35 +175,72 @@ function timestampMillis(t) {
 }
 
 // ─── Per-user aggregation ───────────────────────────────────────
+// Audit #4 Phase 5 (2026-07-04): the single whole-book scan (2000-doc cap,
+// silent truncation for big reps) is split into three bounded reads:
+//   1. createdAt >= cutoff   — this week's NEW leads (existing index
+//      leads(userId ASC, createdAt DESC) covers it)
+//   2. updatedAt >= cutoff   — candidates for won/lost-this-week (stage
+//      filtered in memory; new index leads(userId ASC, updatedAt DESC))
+//   3. a paginated PROJECTION (stage, jobValue, deleted only) over the
+//      full book for activePipelineValue — that number genuinely needs
+//      every open lead, but 3 small fields per doc instead of whole
+//      documents, and paginated with no truncation cap.
+// The weekly deltas can no longer be wrong for reps with >2000 leads.
 async function aggregateUserMetrics(db, uid) {
   const now = Date.now();
   const cutoff = now - ONE_WEEK_MS;
-  const snap = await db.collection('leads').where('userId', '==', uid).limit(2000).get();
-  // 5.2: surface silent truncation — a rep with >2000 leads gets metrics
-  // computed over a truncated set (weekly digest genuinely needs a broad
-  // read; the real fix is a date-windowed query, see Audit #4 Phase 5).
-  if (snap.size >= 2000) logger.warn('weekly_digest_truncated', { uid, limit: 2000 });
-  const allLeads = snap.docs
+  const cutoffTs = Timestamp.fromMillis(cutoff);
+
+  const [createdSnap, updatedSnap] = await Promise.all([
+    db.collection('leads')
+      .where('userId', '==', uid)
+      .where('createdAt', '>=', cutoffTs)
+      .orderBy('createdAt', 'desc')
+      .limit(2000)
+      .get(),
+    db.collection('leads')
+      .where('userId', '==', uid)
+      .where('updatedAt', '>=', cutoffTs)
+      .orderBy('updatedAt', 'desc')
+      .limit(2000)
+      .get(),
+  ]);
+
+  const newLeads = createdSnap.docs
     .map(d => ({ id: d.id, ...d.data() }))
     .filter(l => !l.deleted);
 
-  const newLeads = allLeads.filter(l => timestampMillis(l.createdAt) >= cutoff);
+  const touchedThisWeek = updatedSnap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(l => !l.deleted);
 
-  const wonThisWeek = allLeads.filter(l => {
-    const stage = (l.stage || '').toLowerCase();
-    if (!WON_STAGES.has(stage)) return false;
-    return timestampMillis(l.updatedAt) >= cutoff;
-  });
+  const wonThisWeek = touchedThisWeek.filter(l => WON_STAGES.has((l.stage || '').toLowerCase()));
   const wonRevenue = wonThisWeek.reduce((s, l) => s + (Number(l.jobValue) || 0), 0);
 
-  const lostThisWeek = allLeads.filter(l => {
-    if ((l.stage || '').toLowerCase() !== 'lost') return false;
-    return timestampMillis(l.updatedAt) >= cutoff;
-  });
+  const lostThisWeek = touchedThisWeek.filter(l => (l.stage || '').toLowerCase() === 'lost');
 
-  const activePipelineValue = allLeads
-    .filter(l => !TERMINAL_STAGES.has((l.stage || '').toLowerCase()))
-    .reduce((s, l) => s + (Number(l.jobValue) || 0), 0);
+  // Active pipeline = every non-terminal lead regardless of recency.
+  // Paginated field-mask read: ~3 fields/doc instead of full documents,
+  // and no truncation cap — big books just take more (cheap) pages.
+  let activePipelineValue = 0;
+  let cursor = null;
+  for (let page = 0; page < 200; page++) {
+    let q = db.collection('leads')
+      .where('userId', '==', uid)
+      .orderBy(FieldPath.documentId())
+      .select('stage', 'jobValue', 'deleted')
+      .limit(1000);
+    if (cursor) q = q.startAfter(cursor);
+    const pageSnap = await q.get();
+    for (const d of pageSnap.docs) {
+      const l = d.data();
+      if (l.deleted) continue;
+      if (TERMINAL_STAGES.has((l.stage || '').toLowerCase())) continue;
+      activePipelineValue += Number(l.jobValue) || 0;
+    }
+    if (pageSnap.size < 1000) break;
+    cursor = pageSnap.docs[pageSnap.docs.length - 1];
+  }
 
   // Sort new leads by creation time desc, take top 5 for display.
   const topLeads = [...newLeads]

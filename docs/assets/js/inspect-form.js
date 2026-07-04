@@ -110,7 +110,10 @@
         if (res && res.ok) {
           showSuccess();
         } else {
-          var msg = (res && res.error) ? String(res.error) : '';
+          // The gateway client returns the server's message as `res.reason`
+          // (not `res.error`), so the real rejection text was never surfaced —
+          // read reason first, fall back to error for safety.
+          var msg = (res && (res.reason || res.error)) ? String(res.reason || res.error) : '';
           console.warn('[inspect-form] submission rejected', res);
           showError(btn, msg && /[a-z]/i.test(msg) ? msg : null);
         }

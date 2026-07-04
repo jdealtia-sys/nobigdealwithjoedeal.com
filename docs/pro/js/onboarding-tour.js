@@ -78,7 +78,7 @@
       title:     "You're set 🚀",
       body:      "Go build pipeline. Want the deep version? The how-to walks every feature step by step — open it anytime from the menu or the connection dot.",
       ctaLabel:  '📖 Open the full How-To',
-      ctaAction: () => { window.location.href = 'how-to.html'; },
+      ctaAction: () => { window.location.href = '/pro/how-to'; },
       placement: 'center'
     }
   ];

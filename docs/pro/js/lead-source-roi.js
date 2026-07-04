@@ -125,11 +125,55 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  // Marketing spend (dollars) from the expense ledger — drives a REAL ROI.
+  // null = not yet fetched. Total drives the overall ROI; the by-source map
+  // (keyed by lowercased marketingSource) drives per-source ROI in the table
+  // for sources whose name matches a lead-source bucket.
+  let _marketingSpend = null;
+  let _marketingBySource = {};   // lowercased source -> dollars
+  let _marketingTargetId = null;
+
+  async function _fetchMarketingSpend() {
+    const db = window.db || window._db;
+    const uid = window._user && window._user.uid;
+    _marketingBySource = {};
+    if (!db || !uid || !window.getDocs || !window.query || !window.where || !window.collection) return 0;
+    try {
+      // userId-scoped (single-field auto-index); filter category client-side to
+      // avoid a new composite index.
+      const snap = await window.getDocs(window.query(
+        window.collection(db, 'expenses'), window.where('userId', '==', uid)));
+      let cents = 0;
+      snap.docs.forEach(function (d) {
+        const e = d.data();
+        if (!e || e.category !== 'marketing') return;
+        const c = parseInt(e.amountCents, 10) || 0;
+        cents += c;
+        // Key through the SAME normalizer the table lookup uses (line ~252),
+        // so 'd2d'/'Door Knock' spend joins the normalized 'Door-to-Door'
+        // bucket instead of silently missing (QA finding).
+        const src = normalizeSource(e.marketingSource).trim().toLowerCase();
+        if (src) _marketingBySource[src] = (_marketingBySource[src] || 0) + c / 100;
+      });
+      return cents / 100;
+    } catch (e) { return 0; }
+  }
+
   function render(targetId) {
     const el = document.getElementById(targetId);
     if (!el) return;
     const leads = window._leads || [];
     const m = computeMetrics(leads);
+
+    // Pull marketing spend once, then re-render with the real ROI tiles.
+    _marketingTargetId = targetId;
+    if (_marketingSpend === null) {
+      _marketingSpend = 0; // guard against re-entry
+      _fetchMarketingSpend().then(function (spend) {
+        _marketingSpend = spend;
+        if (_marketingTargetId) render(_marketingTargetId);
+      });
+    }
 
     if (m.totals.total === 0) {
       el.innerHTML = `
@@ -141,6 +185,17 @@
       `;
       return;
     }
+
+    // Marketing ROI must be ATTRIBUTED: credit only revenue from sources that
+    // actually have marketing spend, against that matched spend — not all-source
+    // revenue ÷ marketing-only spend (which overstates for referral/D2D shops).
+    // QA finding.
+    let _attribRev = 0, _attribSpend = 0;
+    m.rows.forEach(r => {
+      const sp = _marketingBySource[normalizeSource(r.source).trim().toLowerCase()];
+      if (sp > 0) { _attribRev += r.closedRev; _attribSpend += sp; }
+    });
+    const _marketingRoi = _attribSpend > 0 ? Math.round((_attribRev / _attribSpend) * 100) : null;
 
     const totalsBar = `
       <div class="lsroi-totals">
@@ -164,6 +219,15 @@
           <div class="lsroi-tot-label">Conv. Rate</div>
           <div class="lsroi-tot-val">${m.totals.conversionRate}%</div>
         </div>
+        ${_marketingSpend > 0 ? `
+        <div class="lsroi-tot">
+          <div class="lsroi-tot-label">Marketing Spend</div>
+          <div class="lsroi-tot-val" style="color:var(--red,#E5484D);">${fmtMoney(_marketingSpend)}</div>
+        </div>
+        <div class="lsroi-tot">
+          <div class="lsroi-tot-label">Marketing ROI <span style="opacity:.55;font-weight:normal;">(attributed)</span></div>
+          <div class="lsroi-tot-val" style="color:var(--green);">${_marketingRoi == null ? '—' : _marketingRoi + '%'}</div>
+        </div>` : ''}
       </div>
     `;
 
@@ -197,9 +261,15 @@
     const maxRev = Math.max(...m.rows.map(r => r.closedRev), 1);
     const tableRows = m.rows.map(r => {
       const barPct = Math.round((r.closedRev / maxRev) * 100);
+      // Per-source marketing ROI (when this source's name matches logged
+      // marketing spend). closedRev / spend.
+      const srcSpend = _marketingBySource[(r.source || '').trim().toLowerCase()] || 0;
+      const srcRoiTag = srcSpend > 0
+        ? `<div style="font-size:10px;color:var(--m,#8892A4);">${fmtMoney(srcSpend)} spent · ROI ${Math.round((r.closedRev / srcSpend) * 100)}%</div>`
+        : '';
       return `
         <tr>
-          <td class="lsroi-source">${escHtml(r.source)}</td>
+          <td class="lsroi-source">${escHtml(r.source)}${srcRoiTag}</td>
           <td class="lsroi-num">${r.total}</td>
           <td class="lsroi-num">${r.closed}</td>
           <td class="lsroi-num">${r.lost}</td>
@@ -247,7 +317,7 @@
       this._targetId = targetId;
       render(targetId);
       // Live-update on lead changes.
-      document.addEventListener('leadsChanged', () => render(targetId));
+      document.addEventListener('leadsChanged', () => { _marketingSpend = null; render(targetId); });
     }
   };
 

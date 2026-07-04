@@ -79,6 +79,42 @@
   }
 
   /**
+   * Compute P&L for a job using its EXPENSE LEDGER as the source of direct
+   * costs, instead of the manual materialCost/laborCost/miscCosts fields.
+   * This is how the expenses subsystem "feeds" the margin engine.
+   *
+   * Stays dependency-free: it reads costType/category straight off the expense
+   * docs (stamped per expense-config.js), so it needs neither ExpenseConfig nor
+   * Firestore. Overhead% + jobValue still come from the lead.
+   *   - category 'materials'      -> materialCost
+   *   - category 'direct_labor'   -> laborCost
+   *   - any other costType==='direct' (subcontractor/equipment/permits/disposal)
+   *                               -> miscCosts
+   * Overhead-type expenses are intentionally ignored here — they are company
+   * operating costs, not a single job's COGS (so gross margin excludes them,
+   * matching the "before overhead & commission" label).
+   *
+   * @param {object} lead
+   * @param {Array}  expenses  expense docs for this lead ({amountCents, category, costType})
+   */
+  function computeJobPLWithExpenses(lead, expenses) {
+    expenses = expenses || [];
+    var matCents = 0, laborCents = 0, miscCents = 0;
+    expenses.forEach(function(e) {
+      var c = parseInt(e.amountCents, 10) || 0;
+      if (e.category === 'materials') matCents += c;
+      else if (e.category === 'direct_labor') laborCents += c;
+      else if (e.costType === 'direct') miscCents += c;
+    });
+    var merged = Object.assign({}, lead, {
+      materialCost: matCents / 100,
+      laborCost: laborCents / 100,
+      miscCosts: miscCents / 100
+    });
+    return computeJobPL(merged);
+  }
+
+  /**
    * Compute aggregate margin analytics across all won jobs
    */
   function computeMarginAnalytics() {
@@ -163,14 +199,17 @@
    * @param {string} containerId - DOM element ID to inject into
    * @param {string} leadId
    */
-  function renderCostPanel(containerId, leadId) {
+  function renderCostPanel(containerId, leadId, expenses) {
     const el = document.getElementById(containerId);
     if (!el) return;
 
     const lead = (window._leads || []).find(l => l.id === leadId);
     if (!lead) return;
 
-    const pl = computeJobPL(lead);
+    // When the job has logged expenses, the margin summary reflects them
+    // (computeJobPLWithExpenses); otherwise fall back to the manual cost fields.
+    const expFed = !!(expenses && expenses.length);
+    const pl = expFed ? computeJobPLWithExpenses(lead, expenses) : computeJobPL(lead);
     const marginColor = pl.grossMargin >= 40 ? '#16a34a' : pl.grossMargin >= 25 ? '#eab308' : '#dc2626';
 
     el.innerHTML = `
@@ -179,6 +218,7 @@
           <h4 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--h,#fff);">💲 Job Costs & Profit</h4>
           ${pl.revenue > 0 ? `<span style="background:${marginColor}22;color:${marginColor};padding:4px 12px;border-radius:20px;font-size:13px;font-weight:700;">${pl.grossMargin}% margin</span>` : ''}
         </div>
+        ${expFed ? `<div style="font-size:10px;color:#16a34a;margin:-10px 0 14px;">✓ Margin reflects ${expenses.length} logged expense${expenses.length > 1 ? 's' : ''} — $${formatPT(pl.materialCost + pl.laborCost + pl.miscCosts)} direct cost from the Expenses ledger.</div>` : ''}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
           <div>
             <label style="font-size:11px;color:var(--m,#9ca3af);text-transform:uppercase;letter-spacing:.05em;">Material Cost</label>
@@ -230,6 +270,35 @@
         </button>
       </div>
     `;
+
+    // On the first (no-expenses) render, pull this job's logged expenses and
+    // re-render with ledger-fed margin. Non-breaking: existing 2-arg callers
+    // still work; the panel just upgrades once expenses load. Owner-scoped
+    // query (userId==uid + leadId) — falls back silently on any error.
+    if (expenses === undefined) {
+      _fetchLeadExpenses(leadId).then(function (exps) {
+        if (exps && exps.length) renderCostPanel(containerId, leadId, exps);
+      });
+    }
+  }
+
+  // Fetch a lead's expenses for the cost panel. Returns [] on any failure.
+  async function _fetchLeadExpenses(leadId) {
+    const db = window.db || window._db;
+    const uid = window._user && window._user.uid;
+    if (!db || !uid || !window.getDocs || !window.query || !window.where || !window.collection) return [];
+    try {
+      // Role-scoped to match the Expenses/Money views: staff read the whole
+      // tenant's expenses for the job (companyId); everyone else their own
+      // (userId). Otherwise the same job showed different costs by role+surface
+      // (QA finding). Both shapes ride the {userId|companyId, leadId, date} index.
+      const claims = window._userClaims || {};
+      const staff = (claims.role === 'company_admin' || claims.role === 'manager' || claims.role === 'admin') && claims.companyId;
+      const scope = staff ? window.where('companyId', '==', claims.companyId) : window.where('userId', '==', uid);
+      const snap = await window.getDocs(window.query(
+        window.collection(db, 'expenses'), scope, window.where('leadId', '==', leadId)));
+      return snap.docs.map(function (d) { return d.data(); });
+    } catch (e) { return []; }
   }
 
   /**
@@ -288,6 +357,7 @@
     save: saveFromPanel,
     saveJobCosts,
     computeJobPL,
+    computeJobPLWithExpenses,
     computeMarginAnalytics,
     renderCostPanel,
     getMarginKPICard

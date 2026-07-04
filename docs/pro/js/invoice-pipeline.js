@@ -221,7 +221,12 @@
         total: total,
         depositAmount: depositAmount,
         depositPaid: false,
-        balanceDue: total - depositAmount,
+        amountPaid: 0,
+        // balanceDue tracks GENUINELY-OWED money: the full total until real
+        // payments arrive (markPaid / the Stripe webhook). It was `total -
+        // depositAmount`, which booked the deposit as collected at create time —
+        // so AR/outstanding under-reported by the (uncollected) deposit.
+        balanceDue: total,
         stripeInvoiceId: null,
         stripePaymentLink: null,
         dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
@@ -232,7 +237,11 @@
         terms: 'Net 14. 50% deposit due upon scheduling.',
         createdAt: new Date(),
         updatedAt: new Date(),
-        createdBy: window._auth?.currentUser?.uid || 'system'
+        createdBy: window._auth?.currentUser?.uid || 'system',
+        // Tenant key (mirrors /expenses): lets same-company staff read team
+        // invoices and is required by the hardened /invoices create rule. Solo
+        // operators key by uid (companyId == uid convention).
+        companyId: window._userClaims?.companyId || window._auth?.currentUser?.uid || null
       };
 
       const invoiceRef = await window.addDoc(window.collection(db, 'invoices'), invoiceData);
@@ -432,11 +441,18 @@
       if (!invSnap.exists()) throw new Error('Invoice not found');
 
       const invoice = invSnap.data();
-      const newBalanceDue = Math.max(0, (invoice.balanceDue || 0) - amount);
+      // Cumulative paid ledger: balanceDue = total − amountPaid, so multiple
+      // partial payments accumulate correctly. The old `balanceDue - amount`
+      // plus a heuristic depositPaid (flips on ANY payment ≥ depositAmount) lost
+      // track across payments and couldn't tell a deposit from a final payment.
+      const total = Number(invoice.total) || 0;
+      const newPaid = Math.round(((Number(invoice.amountPaid) || 0) + (Number(amount) || 0)) * 100) / 100;
+      const newBalanceDue = Math.max(0, Math.round((total - newPaid) * 100) / 100);
 
       // Update invoice
       await window.updateDoc(invRef, {
-        depositPaid: amount >= (invoice.depositAmount || 0) || invoice.depositPaid,
+        amountPaid: newPaid,
+        depositPaid: newPaid >= (Number(invoice.depositAmount) || 0),
         balanceDue: newBalanceDue,
         status: newBalanceDue === 0 ? 'paid' : invoice.status,
         paidAt: newBalanceDue === 0 ? new Date() : invoice.paidAt,

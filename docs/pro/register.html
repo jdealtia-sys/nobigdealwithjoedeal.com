@@ -14,6 +14,12 @@
 <script src="js/sentry-config.js?v=1"></script>
 <script src="js/sentry-init.js?v=2"></script>
 <script src="js/standalone-compat.js"></script>
+<!-- App Check site key MUST be set before the register module runs —
+     createCompany (PILLAR1 Phase 2) declares enforceAppCheck:true, so
+     without this the provisioning call is rejected in production and the
+     new account never becomes a tenant. Same key/pattern as dashboard.html
+     and customer.html. -->
+<script src="js/dashboard-appcheck-config.js?v=1"></script>
 <title>Join NBD Pro — Start Your Free Trial</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script type="module" src="js/pages/register.js"></script>

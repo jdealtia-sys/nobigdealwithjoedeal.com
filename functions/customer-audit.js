@@ -70,7 +70,7 @@ exports.recordCustomerEvent = onRequest({
     ? body.resourceId.slice(0, 200)
     : null;
 
-  if (!token || token.length < 10 || token.length > 64) {
+  if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
     res.status(400).json({ error: 'Invalid token' });
     return;
   }
@@ -85,6 +85,11 @@ exports.recordCustomerEvent = onRequest({
   const tok = tokSnap.data();
   if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
     res.status(410).json({ error: 'Token expired' });
+    return;
+  }
+  // Honor the replay cap like the other token endpoints (QA finding).
+  if (typeof tok.maxUses === 'number' && (tok.uses || 0) >= tok.maxUses) {
+    res.status(410).json({ error: 'Link exhausted' });
     return;
   }
 

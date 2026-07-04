@@ -23,29 +23,39 @@
           return;
         }
         try {
-          // Create or get the company doc
-          var companyId = window._user.uid; // solo operator = their own company
-          await window.setDoc(window.doc(window.db, 'companies', companyId), {
-            ownerId: window._user.uid,
-            name: window._user.displayName || 'My Company',
-            createdAt: window.serverTimestamp()
-          }, { merge: true });
-          // Add the invited member
-          await window.setDoc(window.doc(window.db, 'companies', companyId, 'members', email.toLowerCase()), {
-            email: email.toLowerCase(),
-            role: role,
-            status: 'invited',
-            invitedAt: window.serverTimestamp(),
-            invitedBy: window._user.uid
-          });
+          // Pillar 4: invites go through the createTeamInvite callable —
+          // firestore.rules denies client member CREATEs now so plan seat
+          // limits are enforced server-side. The callable also ensures the
+          // companies/{uid} doc exists (the setDoc that used to live here).
+          // Self-provision the functions SDK globals (billing-gate pattern) —
+          // they're set lazily and may not exist at click time.
+          if (!(window._functions && window._httpsCallable)) {
+            var mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+            window._functions = window._functions || mod.getFunctions();
+            window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+          }
+          var inviteFn = window._httpsCallable(window._functions, 'createTeamInvite');
+          var res = await inviteFn({ email: email.toLowerCase(), role: role });
+          var out = (res && res.data) || {};
           document.getElementById('inviteRepEmail').value = '';
           // showToast (dashboard-ui.js) renders msg via innerHTML — escape
           // the typed email before it rides along.
-          if (typeof showToast === 'function') showToast('Invite sent to ' + _nbdEscHtml(email), 'success');
+          // Phase 3: the teamInviteEmail trigger now actually emails the
+          // invitee signup steps — the old copy said "sent" when nothing was.
+          if (typeof showToast === 'function') {
+            var seatNote = (out.seatsLimit != null) ? ' (' + out.seatsUsed + ' of ' + out.seatsLimit + ' seats)' : '';
+            showToast(
+              out.invited
+                ? (out.resent ? 'Invite re-sent to ' : 'Invite created — ') + _nbdEscHtml(email) + (out.resent ? '' : ' will get an email with signup steps') + seatNote
+                : _nbdEscHtml(email) + ' is already on your team',
+              out.invited ? 'success' : 'error'
+            );
+          }
           loadTeamMembers();
         } catch (e) {
           console.error('Invite failed:', e);
-          if (typeof showToast === 'function') showToast('Invite failed: ' + e.message, 'error');
+          // Callable errors carry a human message (seat limit, bad role…).
+          if (typeof showToast === 'function') showToast('Invite failed: ' + _nbdEscHtml(e.message || 'unknown error'), 'error');
         }
       }
       async function loadTeamMembers() {
@@ -67,15 +77,81 @@
             // roleColors lookups stay unescaped: unknown keys fall back to
             // a fixed CSS-var literal, so the output set is closed.
             var roleColors = { sales_rep:'var(--green)', manager:'var(--blue)', viewer:'var(--m)' };
-            return '<div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:6px;display:flex;align-items:center;gap:12px;">'
+            // Per-status management actions (Pillar 5 settings round). Invite
+            // cancel = client delete (rules allow owner update/delete on
+            // members; only CREATE is server-only). Disable/re-enable route
+            // through the deactivateUser callable so the rep's Auth account
+            // and sessions actually flip, not just the roster row.
+            var status = m.status || 'invited';
+            var email = String(m.email || d.id || '');
+            var btnBase = 'background:none;border:1px solid var(--br);color:var(--m);border-radius:6px;padding:4px 9px;font-size:10px;cursor:pointer;';
+            var actions = '';
+            if (status === 'invited') {
+              actions = '<button style="' + btnBase + '" data-team-action="cancel" data-email="' + _nbdEscHtml(email) + '">Cancel invite</button>';
+            } else if (status === 'active') {
+              actions = '<button style="' + btnBase + '" data-team-action="disable" data-email="' + _nbdEscHtml(email) + '">Disable</button>';
+            } else {
+              actions = '<button style="' + btnBase + '" data-team-action="enable" data-email="' + _nbdEscHtml(email) + '">Re-enable</button>'
+                + '<button style="' + btnBase + 'margin-left:6px;color:var(--red,#e05252);border-color:var(--red,#e05252);" data-team-action="remove" data-email="' + _nbdEscHtml(email) + '">Remove</button>';
+            }
+            return '<div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
               + '<div style="width:36px;height:36px;border-radius:18px;background:var(--s3);color:var(--m);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">' + _nbdEscHtml((m.email||'?')[0].toUpperCase()) + '</div>'
               + '<div class="f1"><div style="font-size:13px;font-weight:600;color:var(--t);">' + _nbdEscHtml(m.email||'') + '</div>'
               + '<div class="meta-10">' + _nbdEscHtml((m.role||'rep').replace(/_/g,' ')) + ' · ' + _nbdEscHtml(m.status||'invited') + '</div></div>'
               + '<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:10px;border:1px solid ' + (roleColors[m.role]||'var(--br)') + ';color:' + (roleColors[m.role]||'var(--m)') + ';text-transform:uppercase;letter-spacing:.06em;">' + _nbdEscHtml((m.role||'rep').replace(/_/g,' ')) + '</span>'
+              + '<div>' + actions + '</div>'
               + '</div>';
           }).join('');
         } catch(e) { console.warn('loadTeamMembers:', e.message); }
       }
+
+      // ── Member row actions (delegated; no inline handlers under strict CSP) ──
+      async function _teamCallable(name, payload) {
+        if (!(window._functions && window._httpsCallable)) {
+          var mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+          window._functions = window._functions || mod.getFunctions();
+          window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+        }
+        return window._httpsCallable(window._functions, name)(payload);
+      }
+      async function handleTeamAction(action, email, btn) {
+        var companyId = window._user && window._user.uid;
+        if (!companyId || !email) return;
+        var confirms = {
+          cancel:  'Cancel the invite for ' + email + '?',
+          disable: 'Disable ' + email + '? Their login stops working until re-enabled. Their leads stay.',
+          enable:  'Re-enable ' + email + '?',
+          remove:  'Remove ' + email + ' from the team? Their access is revoked; their leads stay.'
+        };
+        if (!confirm(confirms[action] || 'Proceed?')) return;
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
+        try {
+          if (action === 'cancel' || action === 'remove') {
+            // removeMember (server) strips the member's companyId/role claims
+            // and revokes their tokens before deleting the roster doc — a bare
+            // client deleteDoc left a removed user with live tenant access
+            // (Firestore authorizes by claim, not roster membership).
+            await _teamCallable('removeMember', { email: email });
+          } else {
+            await _teamCallable('deactivateUser', { email: email, reactivate: action === 'enable' });
+          }
+          if (typeof showToast === 'function') showToast('✓ Done', 'success');
+        } catch (e) {
+          console.warn('team action failed:', e);
+          if (typeof showToast === 'function') showToast('Failed: ' + _nbdEscHtml(e.message || 'unknown error'), 'error');
+        }
+        loadTeamMembers();
+      }
+      (function _wireTeamActions() {
+        var list = document.getElementById('teamMembersList');
+        if (!list || list._nbdTeamActionsWired) return;
+        list._nbdTeamActionsWired = true;
+        list.addEventListener('click', function (e) {
+          var btn = e.target && e.target.closest && e.target.closest('[data-team-action]');
+          if (!btn) return;
+          handleTeamAction(btn.getAttribute('data-team-action'), btn.getAttribute('data-email') || '', btn);
+        });
+      })();
       // Load team when tab opens. This script ships INSIDE the lazily-
       // hydrated tpl-view-settings template, so it is re-executed by
       // _hydrateViewTemplate() on the first goTo('settings') — AFTER

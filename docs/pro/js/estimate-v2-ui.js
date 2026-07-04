@@ -656,6 +656,12 @@
             <button type="button" data-action="finalize" data-arg="internal-view">🔒 Internal</button>
           </div>
 
+          <div class="v2-section">Close Board</div>
+          <button type="button" data-action="create-deal-room"
+            style="width:100%;background:#181c22;border:1px solid #4A9EFF;color:#4A9EFF;padding:12px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;margin-bottom:6px;">
+            🏠 Create Deal Room
+          </button>
+
           <div class="v2-section">Save</div>
           <button id="v2saveBtn" type="button" data-action="save"
             style="width:100%;background:#e8720c;border:none;color:#fff;padding:14px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;border-radius:4px;font-family:inherit;">
@@ -769,6 +775,9 @@
           break;
         case 'finalize':
           if (arg) finalize(arg);
+          break;
+        case 'create-deal-room':
+          createDealRoomFromEstimate();
           break;
         case 'save':
           save();
@@ -2018,6 +2027,29 @@
       eave:             ctx.eaveLf || 0,
       hip:              ctx.hipLf || 0,
       pipes:            ctx.pipes || 0,
+      // Complexity + add-on measurement inputs (sourced from state.measurements,
+      // NOT echoed in ctx). These drive the per-SQ adders (stories/access/cut-up),
+      // formula-driven line quantities (rake/valley/wall LF, chimneys/skylights),
+      // tear-off layers, deck-replace %, flashing, and the tax/permit jurisdiction.
+      // Persisting them was MISSING → reopen reset them to defaults and the first
+      // edit silently dropped the adders, corrupting the saved customer price (the
+      // V2 recurrence of the classic 'Edit-on-Classic corrupted totals' bug; see
+      // estimates.js:800-826 where the classic builder was fixed for this).
+      county:           state.county || null,
+      stories:          num(state.measurements.stories),
+      accessLevel:      state.measurements.accessLevel || 'standard',
+      cutUpRoof:        !!state.measurements.cutUpRoof,
+      tearOffLayers:    num(state.measurements.tearOffLayers),
+      deckReplacePct:   num(state.measurements.deckReplacePct),
+      rakeLf:           num(state.measurements.rakeLf),
+      valleyLf:         num(state.measurements.valleyLf),
+      wallLf:           num(state.measurements.wallLf),
+      chimneys:         num(state.measurements.chimneys),
+      skylights:        num(state.measurements.skylights),
+      hasChimneyFlash:  !!state.measurements.hasChimneyFlash,
+      hasSkylightFlash: !!state.measurements.hasSkylightFlash,
+      valleyMetalLf:    num(state.measurements.valleyMetalLf),
+      guttersLf:        num(state.measurements.guttersLf),
       // Line items in the classic builder's shape (code/desc/qty/rate/total),
       // PLUS the per-line material/labor split + units so a reopened estimate
       // can reconstruct B-8 retail line pricing without re-resolving the
@@ -2037,6 +2069,10 @@
         materialCostPerUnit: num(line.materialCostPerUnit),
         laborCostPerUnit:    num(line.laborCostPerUnit),
         unitPrice:           num(line.unitPrice),
+        // Persist a manual per-line qty override so reopen doesn't wipe it (the
+        // override lives in state.scope[].overrides.qty; without this the saved
+        // qty re-resolves from measurements on the first post-reopen edit).
+        qtyOverride:         ((state.scope || []).find(s => s.code === line.code)?.overrides?.qty ?? null),
       })),
       // Totals — grandTotal is the canonical customer total: the selected
       // per-SQ tier price for per-SQ estimates, the scope total for line-item.
@@ -2170,17 +2206,35 @@
       waste: Number(doc.wf) || 1.15,
       ridgeLf: Number(doc.ridge) || 0,
       eaveLf: Number(doc.eave) || 0,
-      rakeLf: 0, hipLf: Number(doc.hip) || 0, valleyLf: 0, wallLf: 0,
-      pipes: Number(doc.pipes) || 0, chimneys: 0, skylights: 0, stories: 1,
-      tearOffLayers: 1, deckReplacePct: 0.15, cutUpRoof: false,
-      hasChimneyFlash: false, hasSkylightFlash: false, valleyMetalLf: 0, guttersLf: 0,
-      accessLevel: 'standard',
+      hipLf: Number(doc.hip) || 0,
+      pipes: Number(doc.pipes) || 0,
+      // Restore the complexity + add-on inputs from the saved doc (now persisted
+      // by _buildSavePayload). A still-fresh object (no spread of prior state) so
+      // a previous session's values can't bleed in; docs that predate this
+      // persistence simply lack the keys and fall back to the SAME neutral
+      // defaults as before — but new saves now round-trip faithfully, so a
+      // reopen+edit no longer drops the 2-story/access/cut-up adders, flashing,
+      // or the LF-driven line quantities, and county no longer reverts.
+      rakeLf:          Number(doc.rakeLf) || 0,
+      valleyLf:        Number(doc.valleyLf) || 0,
+      wallLf:          Number(doc.wallLf) || 0,
+      chimneys:        Number(doc.chimneys) || 0,
+      skylights:       Number(doc.skylights) || 0,
+      stories:         Number(doc.stories) || 1,
+      tearOffLayers:   Number(doc.tearOffLayers) || 1,
+      deckReplacePct:  (doc.deckReplacePct != null ? Number(doc.deckReplacePct) : 0.15),
+      cutUpRoof:       !!doc.cutUpRoof,
+      hasChimneyFlash: !!doc.hasChimneyFlash,
+      hasSkylightFlash: !!doc.hasSkylightFlash,
+      valleyMetalLf:   Number(doc.valleyMetalLf) || 0,
+      guttersLf:       Number(doc.guttersLf) || 0,
+      accessLevel:     doc.accessLevel || 'standard',
     };
     // Rebuild the scope from the saved catalog codes (skip pass-through/service
     // rows, which aren't catalog items). Quantities re-resolve from measurements.
     state.scope = (doc.rows || [])
       .filter((r) => r && r.code && !/^SVC /.test(r.code) && r.source !== 'passthru')
-      .map((r) => ({ code: r.code, overrides: {} }));
+      .map((r) => ({ code: r.code, overrides: (r.qtyOverride != null ? { qty: Number(r.qtyOverride) } : {}) }));
     // Repopulate pass-through fees (measurement report, e-sign, permit upcharge)
     // from the saved SVC/passthru rows — else the FIRST edit after reopen drops
     // them from the live re-resolve (getCurrentEstimate reads state.passThru)
@@ -2774,6 +2828,56 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
       state._reopenedDoc = null;
       state._reopenedClean = false;
     }
+  }
+
+  // Hand the current estimate off to the Close Board as a shareable deal room.
+  // Wires the previously-orphaned CloseBoard.createFromEstimate (it had zero
+  // callers). Gated on a priced estimate (Per-SQ + Cash yields estimate.prices)
+  // and a named customer, since createFromEstimate needs the tier prices + lead.
+  function createDealRoomFromEstimate() {
+    const toast = (m, t) => { if (window.showToast) window.showToast(m, t); };
+    if (!window.CloseBoard || typeof window.CloseBoard.createFromEstimate !== 'function') {
+      toast('Close Board isn’t loaded yet — open it once, then retry.', 'error');
+      return;
+    }
+    const estimate = (typeof effectiveEstimate === 'function') ? effectiveEstimate() : null;
+    if (!estimate || !estimate.prices) {
+      toast('Price the Good/Better/Best tiers (Per-SQ · Cash) before creating a deal room.', 'error');
+      return;
+    }
+    const p = estimate.prices;
+    if (!(Number(p.good) || Number(p.better) || Number(p.best))) {
+      toast('Enter at least one tier price before creating a deal room.', 'error');
+      return;
+    }
+    const c = state.customer || {};
+    const cl = state.claim || {};
+    const leadData = {
+      id: c.leadId || null,
+      name: (c.name || '').trim(),
+      email: (c.email || '').trim(),
+      phone: c.phone || '',
+      address: c.address || '',
+      insuranceCarrier: cl.carrier || '',
+      claimNumber: cl.number || '',
+      deductible: Number(cl.deductible) || 0
+    };
+    if (!leadData.name) {
+      toast('Add the customer name (Customer section) before creating a deal room.', 'error');
+      return;
+    }
+    try {
+      window.CloseBoard.createFromEstimate(estimate, leadData);
+    } catch (e) {
+      console.error('[v2] create deal room failed:', e);
+      toast('Could not create the deal room — see console.', 'error');
+      return;
+    }
+    toast('Deal room created in Close Board ✓', 'success');
+    if (typeof close === 'function') close(); // dismiss the estimate modal
+    // Navigate to the Close Board view (robust to goTo not being a window global).
+    if (typeof window.goTo === 'function') window.goTo('closeboard');
+    else { const nav = document.querySelector('[data-action="goTo"][data-target="closeboard"]'); if (nav) nav.click(); }
   }
 
   window.EstimateV2UI = {

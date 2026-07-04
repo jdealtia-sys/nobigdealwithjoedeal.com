@@ -173,6 +173,27 @@ service firebase.storage {
       allow delete: if isOwner(uid) || isAdmin();
     }
 
+    // ── EXPENSE RECEIPTS ──────────────────────────────
+    // Path: receipts/{uid}/{file}
+    // The original receipt image or PDF backing an expenses/{id} doc.
+    // Owner-keyed like docs/ — accepts images (phone camera capture) and
+    // PDFs (emailed/scanned receipts), rejects executables/archives.
+    // 25MB cap matches docs/. Customer/team display goes through a
+    // short-lived signed URL (signImageUrl), never a direct public read.
+    // Kept immutable in spirit: filenames are unique (uid + timestamp) so
+    // uploads never overwrite a prior original — the IRS recordkeeping
+    // (Rev. Proc. 97-22) non-alteration expectation.
+    match /receipts/{uid}/{allPaths=**} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid)
+        && request.resource.size < 25 * 1024 * 1024
+        && isDocType();
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+    match /receipts/{file} {
+      allow read, write: if false;
+    }
+
     // ── DEFAULT DENY ──────────────────────────────────
     match /{allPaths=**} {
       allow read, write: if false;

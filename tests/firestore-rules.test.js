@@ -92,6 +92,15 @@ async function run() {
     // Company for members-rule test
     await setDoc(doc(db, 'companies/co-a'),
       { ownerId: 'alice', name: 'Alice Roofing' });
+    // Pillar 4 fixtures: an existing member (update/delete stay owner-
+    // writable after create moved server-side) + the company subscription
+    // (team members read their own company's plan; cross-tenant denied).
+    await setDoc(doc(db, 'companies/co-a/members/exist@x.com'),
+      { email: 'exist@x.com', role: 'sales_rep', status: 'active' });
+    await setDoc(doc(db, 'companies/alice/members/m1'),
+      { email: 'm1@x.com', role: 'sales_rep', status: 'invited' });
+    await setDoc(doc(db, 'subscriptions/co-a'),
+      { plan: 'growth', status: 'active' });
   });
 
   // 1. user cannot self-promote to admin via users/{uid}.role
@@ -200,9 +209,25 @@ async function run() {
   // Carol has role: company_admin but isn't the ownerId — should fail.
   await assertFails(setDoc(doc(coAdmin, 'companies/co-a/members/new@x.com'),
     { email: 'new@x.com', role: 'sales_rep', status: 'invited' }));
-  // Alice IS the owner — should succeed.
-  await assertSucceeds(setDoc(doc(alice, 'companies/co-a/members/new@x.com'),
+  // Member writes are FULLY server-mediated now — create/update/delete all
+  // go through callables (createTeamInvite / deactivateUser / removeMember)
+  // so seat limits hold AND removal strips claims + revokes tokens. Even the
+  // owner cannot client-write member docs; only a platform admin can.
+  await assertFails(setDoc(doc(alice, 'companies/co-a/members/new@x.com'),
     { email: 'new@x.com', role: 'sales_rep', status: 'invited' }));
+  await assertFails(setDoc(doc(alice, 'companies/co-a/members/exist@x.com'),
+    { status: 'disabled' }, { merge: true }));
+  await assertFails(deleteDoc(doc(alice, 'companies/co-a/members/exist@x.com')));
+  await assertFails(setDoc(doc(coAdmin, 'companies/co-a/members/exist@x.com'),
+    { status: 'disabled' }, { merge: true }));
+  // Platform admin retains client access (admin-SDK callables also bypass).
+  await assertSucceeds(setDoc(doc(admin, 'companies/co-a/members/exist@x.com'),
+    { status: 'disabled' }, { merge: true }));
+  // Pillar 4: same-company members read the company subscription (billing
+  // is company-level; the doc is keyed by owner uid == companyId claim).
+  await assertSucceeds(getDoc(doc(coAdmin, 'subscriptions/co-a')));
+  await assertSucceeds(getDoc(doc(alice, 'subscriptions/co-a')));
+  await assertFails(getDoc(doc(bob, 'subscriptions/co-a')));
 
   // 20. F-05: leads/{leadId}/activity rep-write shape guards.
   //
@@ -355,11 +380,16 @@ async function run() {
   await assertFails(setDoc(doc(bob, 'academy_progress/alice'), { completedNodes: ['x'] }));
 
   // 23d. QA 2026-06-21 #10: companies/{uid}/members keyed under the caller's
-  //      OWN uid is readable/writable even when no /companies/{uid} doc exists
-  //      (the get(...).ownerId check denies a missing doc). The live Team tab
-  //      queries /companies/{_user.uid}/members. Cross-uid still denied.
+  //      OWN uid is READABLE even when no /companies/{uid} doc exists (the
+  //      live Team tab queries /companies/{_user.uid}/members). Cross-uid
+  //      reads stay denied. Member WRITES are fully server-mediated now
+  //      (create/update/delete via callables) — even under the caller's own
+  //      uid, a client write is denied; only removeMember/deactivateUser
+  //      (admin SDK) touch these docs.
   await assertSucceeds(getDoc(doc(alice, 'companies/alice/members/m1')));
-  await assertSucceeds(setDoc(doc(alice, 'companies/alice/members/rep1'), { email: 'r@x.com', role: 'sales_rep', status: 'invited' }));
+  await assertFails(setDoc(doc(alice, 'companies/alice/members/rep1'), { email: 'r@x.com', role: 'sales_rep', status: 'invited' }));
+  await assertFails(setDoc(doc(alice, 'companies/alice/members/m1'), { status: 'disabled' }, { merge: true }));
+  await assertFails(deleteDoc(doc(alice, 'companies/alice/members/m1')));
   await assertFails(getDoc(doc(bob, 'companies/alice/members/m1')));
   await assertFails(setDoc(doc(bob, 'companies/alice/members/rep2'), { email: 'x@x.com', role: 'sales_rep' }));
 
@@ -431,6 +461,104 @@ async function run() {
   // ❌ same query from a non-owner of the lead → blocked
   await assertFails(getDocs(query(collection(bob, 'leads/leadA/drawings'),
     orderBy('version', 'desc'), limit(1))));
+
+  // 26. EXPENSES (company-shared spend ledger). Feeds per-job margin +
+  //     supplier-spend reports. Ownership pins to the caller's own tenant
+  //     (like /leads); reads follow the recordings/leaderboard precedent
+  //     (owner + same-company staff + platform admin); audit fields are
+  //     immutable. Seed via the rule-respecting create path so the rules
+  //     themselves are exercised end-to-end.
+  function expDoc(uid, companyId, leadId, supplier) {
+    return {
+      userId: uid, companyId: companyId, leadId: leadId, category: 'materials',
+      costType: 'direct', supplier: supplier, amountCents: 12345, currency: 'USD',
+      date: new Date(), note: '', receiptStoragePath: null, receiptDocRef: null,
+      source: 'manual', needsReview: false,
+      createdAt: new Date(), createdBy: uid, updatedAt: new Date()
+    };
+  }
+  // ✅ rep creates her own expense, pinned to her tenant
+  await assertSucceeds(setDoc(doc(alice, 'expenses/exp-alice'), expDoc('alice', 'co-a', 'leadA', 'ABC Supply')));
+  // ✅ bob creates his own (co-b) — used for cross-tenant read assertions
+  await assertSucceeds(setDoc(doc(bob, 'expenses/exp-bob'), expDoc('bob', 'co-b', 'leadB', 'Beacon')));
+  // ❌ create stamped with someone else's userId → blocked
+  await assertFails(setDoc(doc(alice, 'expenses/forge-uid'), expDoc('bob', 'co-a', 'leadA', 'forged')));
+  // ❌ create pinned to a FOREIGN tenant → blocked (can't pollute co-b rollups)
+  await assertFails(setDoc(doc(alice, 'expenses/forge-co'), expDoc('alice', 'co-b', 'leadA', 'forged')));
+  // ❌ create with no companyId → blocked (companyId is an invariant)
+  await assertFails(setDoc(doc(alice, 'expenses/no-co'),
+    { userId: 'alice', category: 'materials', costType: 'direct', amountCents: 100, date: new Date() }));
+  // ✅ owner reads her own
+  await assertSucceeds(getDoc(doc(alice, 'expenses/exp-alice')));
+  // ✅ company_admin in the SAME tenant reads a rep's expense (team rollup)
+  await assertSucceeds(getDoc(doc(coAdmin, 'expenses/exp-alice')));
+  // ❌ a rep in ANOTHER tenant cannot read it
+  await assertFails(getDoc(doc(bob, 'expenses/exp-alice')));
+  // ❌ company_admin cannot reach across tenants (carol co-a → bob co-b)
+  await assertFails(getDoc(doc(coAdmin, 'expenses/exp-bob')));
+  // ✅ platform admin reads anything
+  await assertSucceeds(getDoc(doc(admin, 'expenses/exp-bob')));
+  // ❌ anon read blocked
+  await assertFails(getDoc(doc(anon, 'expenses/exp-alice')));
+  // ✅ owner edits a mutable field (amount correction)
+  await assertSucceeds(updateDoc(doc(alice, 'expenses/exp-alice'), { amountCents: 20000 }));
+  // ❌ owner cannot mutate immutable audit fields
+  await assertFails(updateDoc(doc(alice, 'expenses/exp-alice'), { companyId: 'co-b' }));
+  await assertFails(updateDoc(doc(alice, 'expenses/exp-alice'), { userId: 'bob' }));
+  await assertFails(updateDoc(doc(alice, 'expenses/exp-alice'), { createdBy: 'bob' }));
+  // ✅ company-wide spend query (supplier report shape): staff + companyId filter
+  await assertSucceeds(getDocs(query(collection(coAdmin, 'expenses'),
+    where('companyId', '==', 'co-a'), orderBy('date', 'desc'), limit(50))));
+  // ✅ rep queries her OWN spend (userId-scoped list)
+  await assertSucceeds(getDocs(query(collection(alice, 'expenses'),
+    where('userId', '==', 'alice'), orderBy('date', 'desc'), limit(50))));
+  // ❌ unfiltered scan by a rep → blocked
+  await assertFails(getDocs(query(collection(alice, 'expenses'),
+    orderBy('date', 'desc'), limit(50))));
+  // ❌ a rep cannot scan another tenant's spend
+  await assertFails(getDocs(query(collection(bob, 'expenses'),
+    where('companyId', '==', 'co-a'), orderBy('date', 'desc'), limit(50))));
+  // viewer can create (matches /leads) but is read-only thereafter
+  await assertSucceeds(setDoc(doc(viewer, 'expenses/exp-vic'), expDoc('vic', 'co-v', null, 'Lowes')));
+  // ❌ a viewer cannot mutate or delete (read-only role)
+  await assertFails(updateDoc(doc(viewer, 'expenses/exp-vic'), { amountCents: 999 }));
+  await assertFails(deleteDoc(doc(viewer, 'expenses/exp-vic')));
+  // ✅ solo operator (NO role claim — Joe's case) can create + edit + delete own
+  await assertSucceeds(setDoc(doc(dave, 'expenses/exp-dave'), expDoc('dave', 'co-d', null, 'Home Depot')));
+  await assertSucceeds(updateDoc(doc(dave, 'expenses/exp-dave'), { amountCents: 800 }));
+  await assertSucceeds(deleteDoc(doc(dave, 'expenses/exp-dave')));
+
+  // 27. RECURRING EXPENSES (templates) — same owner/company-shared shape.
+  function recDoc(uid, companyId) {
+    return { userId: uid, companyId: companyId, name: 'Liability Insurance', amountCents: 20000,
+      category: 'insurance', costType: 'overhead', frequency: 'monthly', status: 'active',
+      nextDueDate: new Date(), createdAt: new Date(), createdBy: uid, updatedAt: new Date() };
+  }
+  await assertSucceeds(setDoc(doc(alice, 'recurringExpenses/rec-a'), recDoc('alice', 'co-a')));
+  await assertSucceeds(getDoc(doc(coAdmin, 'recurringExpenses/rec-a')));    // same-company staff read
+  await assertFails(getDoc(doc(bob, 'recurringExpenses/rec-a')));           // cross-tenant denied
+  await assertFails(setDoc(doc(alice, 'recurringExpenses/rec-forge'), recDoc('bob', 'co-a'))); // forged userId
+  await assertSucceeds(updateDoc(doc(alice, 'recurringExpenses/rec-a'), { status: 'paused' }));
+  await assertFails(updateDoc(doc(alice, 'recurringExpenses/rec-a'), { companyId: 'co-b' })); // immutable
+
+  // 28. SUPPLIERS (1099 tracking) — NO tin field allowed; private subtree locked.
+  function supDoc(uid, companyId) {
+    return { userId: uid, companyId: companyId, displayName: 'Crew Co', legalName: 'Crew Co LLC',
+      taxClassification: 'sole_prop', is1099Eligible: true, w9Status: 'received',
+      createdAt: new Date(), createdBy: uid, updatedAt: new Date() };
+  }
+  await assertSucceeds(setDoc(doc(alice, 'suppliers/sup-a'), supDoc('alice', 'co-a')));
+  await assertSucceeds(getDoc(doc(coAdmin, 'suppliers/sup-a')));            // same-company staff read
+  await assertFails(getDoc(doc(bob, 'suppliers/sup-a')));                   // cross-tenant denied
+  // ❌ a client write carrying a raw TIN/SSN/EIN is HARD-REJECTED
+  await assertFails(setDoc(doc(alice, 'suppliers/sup-tin'),
+    Object.assign(supDoc('alice', 'co-a'), { tin: '123-45-6789' })));
+  await assertFails(updateDoc(doc(alice, 'suppliers/sup-a'), { ssn: '123456789' }));
+  // ✅ a normal field update works
+  await assertSucceeds(updateDoc(doc(alice, 'suppliers/sup-a'), { w9Status: 'verified' }));
+  // ❌ the server-only private TIN subtree denies ALL client read/write
+  await assertFails(getDoc(doc(alice, 'suppliers/sup-a/private/tin')));
+  await assertFails(setDoc(doc(alice, 'suppliers/sup-a/private/tin'), { enc: 'x' }));
 
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();

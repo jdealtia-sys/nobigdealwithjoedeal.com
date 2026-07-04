@@ -232,6 +232,39 @@ exports.estimateEmail = onDocumentCreated(
       return;
     }
 
+    // Per-recipient daily cap. The public estimate funnel lets anyone create an
+    // estimate_leads doc with ANY email, so without a cap it could be used to
+    // repeatedly send Joe-branded mail to a victim (phishing laundering via a
+    // trusted domain). The per-doc idempotency above stops re-sends of the SAME
+    // request; this bounds DISTINCT requests to one address (3/day). Fails OPEN
+    // on a throttle error so a transient blip never drops a legitimate estimate.
+    const emailKey = String(data.email).toLowerCase().replace(/[^a-z0-9]/g, '_').slice(0, 200);
+    try {
+      const db2 = getFirestore();
+      const allowed = await db2.runTransaction(async (tx) => {
+        const ref = db2.doc('estimate_email_throttle/' + emailKey);
+        const cur = await tx.get(ref);
+        const now = Date.now();
+        const DAY = 86400000, CAP = 3;
+        let count = 0, windowStartMs = now;
+        if (cur.exists) {
+          const d = cur.data() || {};
+          windowStartMs = Number(d.windowStartMs) || now;
+          if (now - windowStartMs < DAY) count = Number(d.count) || 0;
+          else windowStartMs = now;
+        }
+        if (count >= CAP) return false;
+        tx.set(ref, { count: count + 1, windowStartMs, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+        return true;
+      });
+      if (!allowed) {
+        logger.warn('estimate_email_recipient_throttled', { leadId });
+        return;
+      }
+    } catch (e) {
+      logger.warn('estimate_email_throttle_failed', { leadId, err: e && e.message });
+    }
+
     const resend = new Resend(apiKey);
     let fromAddress = 'Joe Deal <jd@nobigdealwithjoedeal.com>';
     if (process.env.EMAIL_FROM) fromAddress = process.env.EMAIL_FROM;

@@ -95,7 +95,14 @@ function hasSecret(name) {
 }
 
 function getSecret(name) {
-  try { return SECRETS[name].value(); } catch (e) { return null; }
+  // Trim — a secret pasted with a trailing newline (the Stripe \r\r\n bug
+  // class) silently breaks exact-match consumers: HMAC compares (Cal.com
+  // webhook) and bearer headers fail with no signal. No secret we store has
+  // meaningful leading/trailing whitespace, so trimming is universally safe.
+  try {
+    const v = SECRETS[name].value();
+    return typeof v === 'string' ? v.trim() : v;
+  } catch (e) { return null; }
 }
 
 // Structured "integration not configured" response. Adapters return

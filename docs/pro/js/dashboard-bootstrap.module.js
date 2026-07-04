@@ -870,7 +870,22 @@
 
   onAuthStateChanged(auth, async user => {
     if (!user) { window.location.replace("/pro/login.html"); return; }
-    
+
+    // Shared-device PII guard: if a DIFFERENT account was last active on this
+    // device, purge the prior rep's cached data (leads, filters, company
+    // profile, usage tallies) BEFORE loading this user's. Covers both account-
+    // switch and fresh-login — the sign-out controls historically bypassed
+    // NBDAuth.logout()'s purge, so the prior user's customer PII lingered.
+    // nbd_last_uid is in the purge KEEP set, so it survives the wipe.
+    try {
+      const _lastUid = localStorage.getItem('nbd_last_uid');
+      if (_lastUid && _lastUid !== user.uid
+          && window.NBDAuth && typeof window.NBDAuth.purgeAccountStorage === 'function') {
+        window.NBDAuth.purgeAccountStorage();
+      }
+      localStorage.setItem('nbd_last_uid', user.uid);
+    } catch (_) { /* best-effort; never block boot on a storage error */ }
+
     // ── SUBSCRIPTION CHECK ────────────────────────────────────
     // Owner bypass — founder/staff emails always resolve to professional.
     // Must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js so
@@ -900,8 +915,17 @@
         // forever instead of rejecting, blocking the visibility=visible
         // flip below and leaving the dashboard invisible. Soft failure
         // here drops to free tier (billing-gate enforces real limits).
+        // Pillar 4: billing is company-level — a team member reads the
+        // company's subscription (doc keyed by owner uid == their companyId
+        // claim). Solo owners resolve to their own uid as before. Claims
+        // read is cached (no extra network on a warm token).
+        let _subKey = user.uid;
+        try {
+          const _tr = await user.getIdTokenResult();
+          _subKey = (_tr && _tr.claims && _tr.claims.companyId) || user.uid;
+        } catch (_) { /* fall back to uid */ }
         const subSnap = await Promise.race([
-          getDoc(doc(db, 'subscriptions', user.uid)),
+          getDoc(doc(db, 'subscriptions', _subKey)),
           new Promise((_, rej) => setTimeout(() => rej(new Error('Subscription check timed out')), 4000))
         ]);
         if (subSnap.exists()) {
@@ -967,13 +991,56 @@
       const tokenResult = await user.getIdTokenResult();
       window._userClaims = tokenResult.claims || {};
       // If this is a newly invited rep, activate their membership
-      if (window._userClaims.companyId && !localStorage.getItem('nbd_rep_activated')) {
+      if (window._userClaims.companyId && window._userClaims.companyId !== user.uid
+          && !localStorage.getItem('nbd_rep_activated')) {
         try {
           const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
-          const fn = httpsCallable(getFunctions(), 'activateInvitedRep');
+          const fns = getFunctions();
+          await connectEmulatorsIfLocal({ functions: fns }); // no-op in prod
+          const fn = httpsCallable(fns, 'activateInvitedRep');
           await fn({});
           localStorage.setItem('nbd_rep_activated', '1');
         } catch (e) { console.warn('Rep activation skipped:', e.message); }
+      }
+      // PILLAR1 Phase 3 (de-GCIP'd invites): a user with no team claim — or
+      // only the Phase-2 solo default (companyId == uid) — may have a pending
+      // team invite. onRepSignup (the blocking trigger that was meant to stamp
+      // these claims at signup) can never deploy without GCIP, so the claim
+      // happens here on first dashboard load instead. One callable per device
+      // (nbd_invite_checked); the flag is NOT set on transient failures (e.g.
+      // email not verified yet) so it retries on the next load.
+      else if ((!window._userClaims.companyId || window._userClaims.companyId === user.uid)
+          && !localStorage.getItem('nbd_invite_checked')) {
+        try {
+          const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+          const fns = getFunctions();
+          await connectEmulatorsIfLocal({ functions: fns }); // no-op in prod
+          const fn = httpsCallable(fns, 'claimInvite');
+          const res = await fn({});
+          const out = (res && res.data) || {};
+          if (out.claimed) {
+            // Claims changed → the whole tenant scope changed. Refresh the
+            // token FIRST, then set the flags + reboot so every scoped query
+            // re-runs under the team's companyId. Setting the flags before the
+            // refresh stranded the rep in stale solo scope for up to ~1h if
+            // getIdToken(true) rejected (transient network) — the flags
+            // blocked the re-check while the old token still resolved billing/
+            // leads under their own uid. Order it so a refresh failure leaves
+            // the flags unset and the next load retries.
+            await user.getIdToken(true);
+            localStorage.setItem('nbd_invite_checked', '1');
+            localStorage.setItem('nbd_rep_activated', '1');
+            window.location.reload();
+            return;
+          }
+          // Terminal answers (no invite / already member / own company):
+          // never ask again on this device.
+          localStorage.setItem('nbd_invite_checked', '1');
+        } catch (e) {
+          // failed-precondition = invite exists but email unverified — leave
+          // the flag unset so we re-check after they verify.
+          console.warn('Invite check skipped:', e.message);
+        }
       }
     } catch (e) { window._userClaims = {}; }
     // Notification permission is now opt-in via a user gesture.
@@ -1092,6 +1159,12 @@
       });
     }
     loadLeads().then(() => {
+      // Stage B slice 1 (2026-07-04): flag-gated SHADOW comparison of a
+      // server-side count() against the just-fetched cache. Fire-and-forget,
+      // logs only, no UI reads it — see docs/pro/js/server-aggregates.js.
+      try {
+        if (window.NBDServerAggregates) window.NBDServerAggregates.shadowCompare();
+      } catch (_) { /* shadow must never affect boot */ }
       // ── Wave 120: stuck-skeleton reliability fix ────────────────────
       // Previously this gated render on `window._leads?.length` — which
       // meant any user with ZERO leads (brand-new accounts, or leads
@@ -1262,22 +1335,17 @@
           }
           if (typeof viewEstimate === 'function') viewEstimate(estParam);
         } else {
-          if (typeof startNewEstimateOriginal === 'function') startNewEstimateOriginal();
-          else if (typeof startNewEstimate === 'function') startNewEstimate();
-          // Pre-fill address from lead if leadParam provided
-          if (leadParam && window._leads) {
-            const lead = window._leads.find(l => l.id === leadParam);
-            if (lead) {
-              const addrEl = document.getElementById('estAddr');
-              const ownerEl = document.getElementById('estOwner');
-              if (addrEl && lead.address) addrEl.value = lead.address;
-              if (ownerEl) ownerEl.value = `${lead.firstName||''} ${lead.lastName||''}`.trim();
-              // Store linked leadId so saveEstimate can attach it
-              window._estLinkedLeadId = leadParam;
-              updateEstCalc();
-              const note = document.getElementById('drawImportNote');
-              if (note) { note.textContent = '✓ Pre-filled from customer record — estimate will auto-link on save'; note.style.display='block'; }
-            }
+          // Rock 2 PR 5 (Jo, 2026-07-04: V2-only for NEW estimates): the
+          // deep-link new-estimate path opens the V2 builder directly —
+          // { leadId } drives V2's own prefillFromLead + save linkage, so
+          // the old classic-DOM pre-fill (estAddr/estOwner + updateEstCalc)
+          // is gone with it. startNewEstimate() remains the fallback and
+          // itself routes to V2 (or the picker if V2 failed to load).
+          if (typeof window.openEstimateV2Builder === 'function') {
+            window.openEstimateV2Builder(leadParam ? { leadId: leadParam } : {});
+          } else if (typeof startNewEstimate === 'function') {
+            if (leadParam) window._estLinkedLeadId = leadParam;
+            startNewEstimate();
           }
         }
         window.history.replaceState({}, '', '/pro/dashboard.html');
@@ -1702,6 +1770,10 @@
           if (pageSnap.size < _PAGE) break;   // last (partial) page
           cursor = pageSnap.docs[pageSnap.docs.length - 1];
         }
+        // Stage B shadow: stash the PRE-filter page-union total so
+        // server-aggregates.js can compare count() against the same
+        // population (window._leads itself is post-filter).
+        window._leadsRawCount = allDocs.length;
         // Return a snapshot-shaped object so downstream code is untouched.
         return { docs: allDocs, size: allDocs.length };
       };
@@ -3362,6 +3434,67 @@
       if (typeof window._loadCompanyProfile === 'function') await window._loadCompanyProfile();
     } catch (_) {}
     _cpPopulateFormFromProfile(window._companyProfile);
+    _loadSiteSlug().catch(() => {});
+  };
+
+  // ── Pillar 5 Settings surface: tenant microsite address ──────────
+  // Reads companies/{companyId||uid}.siteSlug into the "Your Website"
+  // panel; saving goes through the setSiteSlug callable (reserved-name
+  // + uniqueness checks are server-side).
+  function _siteCompanyKey() {
+    return (window._userClaims && window._userClaims.companyId) || (window._user && window._user.uid) || '';
+  }
+  function _renderSiteLink(slug) {
+    const link = document.getElementById('cp-site-link');
+    const key = slug || _siteCompanyKey();
+    if (!link || !key) return;
+    const url = '/sites/t/' + key;
+    link.textContent = window.location.origin + url;
+    link.href = url;
+  }
+  async function _loadSiteSlug() {
+    const key = _siteCompanyKey();
+    if (!key || !db) return;
+    let slug = '';
+    try {
+      const snap = await getDoc(doc(db, 'companies', key));
+      if (snap.exists()) slug = (snap.data() || {}).siteSlug || '';
+    } catch (_) { /* solo owners may have no doc yet */ }
+    const input = document.getElementById('cp_siteSlug');
+    if (input) input.value = slug;
+    _renderSiteLink(slug);
+  }
+  window._saveSiteSlug = async function () {
+    const input = document.getElementById('cp_siteSlug');
+    const msg = document.getElementById('cp-slug-msg');
+    const slug = (input && input.value || '').trim().toLowerCase();
+    try {
+      if (!(window._functions && window._httpsCallable)) {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = window._functions || mod.getFunctions();
+        await connectEmulatorsIfLocal({ functions: window._functions }); // no-op in prod
+        window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      }
+      const fn = window._httpsCallable(window._functions, 'setSiteSlug');
+      const res = await fn({ slug });
+      const out = (res && res.data) || {};
+      if (input) input.value = out.slug || '';
+      _renderSiteLink(out.slug);
+      if (msg) {
+        msg.textContent = out.slug ? '✓ Address saved — your site is live at the link above' : '✓ Custom address cleared — the account-id link still works';
+        msg.style.color = '#4caf82';
+        msg.style.display = 'block';
+        setTimeout(() => { msg.style.display = 'none'; }, 4000);
+      }
+    } catch (e) {
+      // Callable errors carry the human validation message (taken/reserved/format).
+      if (msg) {
+        msg.textContent = '✗ ' + ((e && e.message) || 'could not save');
+        msg.style.color = 'var(--red, #e05252)';
+        msg.style.display = 'block';
+      }
+      if (typeof showToast === 'function') showToast('Address not saved: ' + ((e && e.message) || 'error'), 'error');
+    }
   };
 
   window._saveCompanyProfileSettings = async function () {

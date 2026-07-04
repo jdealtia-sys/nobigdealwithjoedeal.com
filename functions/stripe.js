@@ -131,9 +131,13 @@ exports.createCheckoutSession = onRequest(
     if (authResult.error) { res.status(authResult.error.status).json(authResult.error.body); return; }
     const { decoded } = authResult;
     if (!decoded.email) { res.status(401).json({ error: 'Account has no email' }); return; }
+    // Unverified email no longer blocks checkout: the ID token already proves
+    // account ownership, Stripe's hosted checkout re-collects the receipt
+    // email, and the hard 403 sat exactly at the moment of buying intent — a
+    // fresh signup couldn't pay until they went hunting for the verification
+    // email (product audit 2026-07, funnel break #3). Logged for visibility.
     if (!decoded.email_verified) {
-      res.status(403).json({ error: 'Please verify your email before starting a paid subscription.' });
-      return;
+      logger.info('createCheckoutSession_unverified_email_proceeding', { uid: decoded.uid });
     }
 
     try {
@@ -991,6 +995,14 @@ exports.invoiceWebhook = onRequest(
               status: 'paid',
               paidAt: FieldValue.serverTimestamp(),
               stripePaymentIntentId: paymentIntent.id,
+              // The payment link charges the full invoice.total, so the invoice
+              // is fully settled — converge the ledger with the manual markPaid
+              // path (zero balanceDue, mark deposit paid, stamp amountPaid) so
+              // the money-dashboard AR/collected math doesn't read a stale
+              // balanceDue and double-count this invoice as outstanding.
+              balanceDue: 0,
+              depositPaid: true,
+              amountPaid: Number(inv.total) || 0,
               updatedAt: FieldValue.serverTimestamp(),
             });
             logger.info('invoice_paid', { invoiceId });

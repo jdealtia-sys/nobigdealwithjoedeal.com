@@ -13,7 +13,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readCrm, readFunctionsIndex, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readCustomer, readCrm, readFunctionsIndex, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -414,7 +414,7 @@ section('T-2: AI draft send-on-approve');
   assert('panel uses delegated data-aidp-action (no inline onclick)',
     /data-aidp-action/.test(panel) && !/onclick=/.test(panel));
 
-  const customerHtml = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customerHtml = readCustomer();
   assert('customer.html loads the AI drafts panel',
     /customer-ai-drafts-panel\.js/.test(customerHtml));
 }
@@ -945,7 +945,7 @@ section('C5: Voice Intel retention cron + monitoring + feature flag');
 
 section('C4: Voice Intel tab mounted in customer.html');
 {
-  const html = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const html = readCustomer();
   const css  = read(path.join(ROOT, 'docs/pro/css/voice-intelligence.css'));
 
   // Jump nav includes the tab
@@ -1586,7 +1586,16 @@ section('SEO: every /docs/blog/*.html has a sitemap entry');
       .filter(f => f.endsWith('.html') && f !== 'index.html');
     for (const file of posts) {
       const slug = file.replace(/\.html$/, '');
-      assert('sitemap has /blog/' + slug, sitemap.includes('/blog/' + slug));
+      const html = fs.readFileSync(path.join(blogDir, file), 'utf8');
+      // A noindexed post (e.g. the field-notes placeholder) must be OUT of
+      // the sitemap — listing a page you tell crawlers not to index is a
+      // mixed signal Search Console flags. build-sitemap.js enforces the
+      // same rule via isNoindexed().
+      if (/<meta[^>]+name=["']robots["'][^>]+noindex/i.test(html)) {
+        assert('sitemap EXCLUDES noindexed /blog/' + slug, !sitemap.includes('/blog/' + slug));
+      } else {
+        assert('sitemap has /blog/' + slug, sitemap.includes('/blog/' + slug));
+      }
     }
   } else {
     assert('sitemap.xml exists at docs/sitemap.xml', false);

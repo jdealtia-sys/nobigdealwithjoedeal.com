@@ -114,8 +114,13 @@ async function sendPushNotification(uid, title, body, data = {}) {
         notification: {
           title: title,
           body: body,
-          icon: 'https://nobigdeal-pro.web.app/pro/images/icon-192x192.png',
-          badge: 'https://nobigdeal-pro.web.app/pro/images/badge-72x72.png',
+          // /pro/images/* does NOT exist — real icons live under /pro/img/.
+          // The companion SW (firebase-messaging-sw.js) already corrected this
+          // exact 404; the function payload was never updated to match, so a
+          // background push rendered with a blank/generic OS bell. No badge-72
+          // asset exists, so reuse the 192 icon (same as the SW).
+          icon: 'https://nobigdealwithjoedeal.com/pro/img/nbd-icon-192.png',
+          badge: 'https://nobigdealwithjoedeal.com/pro/img/nbd-icon-192.png',
           tag: data.notificationId || 'nbd-notification',
           requireInteraction: data.requireInteraction === 'true'
         },
@@ -135,25 +140,43 @@ async function sendPushNotification(uid, title, body, data = {}) {
     
     // Log results
     logger.info('[Push] Sent:', response.successCount, 'Failed:', response.failureCount);
-    
+
     // Handle failures and clean up invalid tokens
     const failureErrors = [];
+    const pruneDeletes = [];
+    const userRef = db.collection('users').doc(uid);
     response.responses.forEach((resp, idx) => {
       if (!resp.success) {
         failureErrors.push(resp.error.message);
-        
-        // Remove invalid tokens
+
+        // Remove invalid tokens. AWAIT these (collected below) — they were
+        // fire-and-forget, so a delete could be cut off when the function
+        // froze post-return, leaving dead tokens to fail every cycle.
         const token = tokens[idx];
         if (resp.error.code === 'messaging/invalid-registration-token' ||
             resp.error.code === 'messaging/registration-token-not-registered') {
-          
-          const userRef = db.collection('users').doc(uid);
-          userRef.collection('fcmTokens').doc(token.docId).delete()
-            .catch(err => logger.error('push_delete_token_failed', { err: err.message }));
+          pruneDeletes.push(
+            userRef.collection('fcmTokens').doc(token.docId).delete()
+              .catch(err => logger.error('push_delete_token_failed', { err: err.message }))
+          );
         }
       }
     });
-    
+    if (pruneDeletes.length) await Promise.allSettled(pruneDeletes);
+
+    // Surface delivery failures at WARN so they show up in alerting — an
+    // all-fail send (e.g. every token dead/unregistered) used to look
+    // identical to a healthy send in the logs.
+    if (response.failureCount > 0) {
+      logger.warn('[Push] delivery failures', {
+        uid,
+        sent: response.successCount,
+        failed: response.failureCount,
+        pruned: pruneDeletes.length,
+        sampleErrors: failureErrors.slice(0, 3),
+      });
+    }
+
     return {
       sent: response.successCount,
       failed: response.failureCount,
@@ -261,14 +284,10 @@ exports.onAppointmentReminder = onSchedule(
         .get();
 
       const sendPromises = [];
-      // Wave 104: idempotency window — if we already sent the same
-      // appointment reminder to this user within the last 20 minutes,
-      // skip the second send. The notification log was being
-      // *written* but never *read* before sending. With a 15-min
-      // schedule + 30-min lookahead, a single appointment overlaps
-      // multiple ticks and would fire 2-3 times without this check.
-      const idempotencyWindowMs = 20 * 60 * 1000;
-      const recentlySentSet = new Set(); // (uid|leadId|apptKey) keys
+      // Within-tick dedup (a 15-min schedule + 30-min lookahead overlaps
+      // ticks; cross-tick dedup is the reminderSentAt marker set per appt
+      // below — see the comment at the send site).
+      const recentlySentSet = new Set(); // uid|apptId keys
 
       apptSnap.forEach(apptDoc => {
         const appt = apptDoc.data();
@@ -285,42 +304,38 @@ exports.onAppointmentReminder = onSchedule(
             const dedupeKey = `${uid}|${apptId}`;
             if (recentlySentSet.has(dedupeKey)) return;
 
-            // Skip if we already sent this same appointment reminder recently.
-            // (Index-missing tolerant: on a query error, fall through and send —
-            // a possible duplicate beats a missed reminder.)
-            try {
-              const recentLog = await db
-                .collection('users').doc(uid)
-                .collection('notificationLogs')
-                .where('type', '==', 'appointmentReminder')
-                .where('details.appointmentId', '==', apptId)
-                .where('sentAt', '>',
-                  Timestamp.fromDate(
-                    new Date(now.getTime() - idempotencyWindowMs)))
-                .limit(1).get();
-              if (!recentLog.empty) {
-                logger.info('[Push] skip duplicate appt reminder', { uid, apptId });
-                return;
-              }
-            } catch (logErr) {
-              logger.warn('[Push] appt log lookup failed', { msg: logErr.message });
-            }
+            // Cross-tick idempotency via a deterministic marker on the
+            // appointment doc. The old dedup queried notificationLogs with
+            // type==+details.appointmentId==+sentAt> — equality+range on
+            // different fields needs a composite index that was NEVER created,
+            // so the query threw, the catch swallowed it, and the dedup fell
+            // through, firing the same reminder on 2-3 overlapping ticks (QA
+            // finding). The marker is index-free, survives across ticks, and
+            // is set on ATTEMPT (not delivery success) so a delivery failure
+            // doesn't re-spam every 15 min. A reschedule mints a fresh
+            // appointment doc (no marker) so it correctly re-reminds.
+            if (appt.reminderSentAt) return;
             recentlySentSet.add(dedupeKey);
+            await apptDoc.ref.update({ reminderSentAt: FieldValue.serverTimestamp() }).catch(() => {});
 
             const who = appt.attendeeName || appt.title || 'Your appointment';
-            const result = await sendPushNotification(uid, 'Appointment Reminder',
-              `${who} starts in 30 minutes`, {
+            // Real lead time, not a hardcoded "30 minutes" — the lookahead is
+            // UP TO 30 min, so an appt 5 min out was mislabeled "30 minutes".
+            const startMs = (appt.startTime && appt.startTime.toMillis) ? appt.startTime.toMillis() : 0;
+            const mins = startMs ? Math.max(1, Math.round((startMs - now.getTime()) / 60000)) : 30;
+            await sendPushNotification(uid, 'Appointment Reminder',
+              `${who} starts in ${mins} minute${mins === 1 ? '' : 's'}`, {
                 type: 'appointmentReminder',
                 appointmentId: apptId,
                 appointmentTitle: appt.title || '',
-                clickUrl: `/pro/dashboard.html?tab=calendar`,
+                clickUrl: `/pro/dashboard`,
                 notificationId: `appt-${apptId}`,
                 requireInteraction: 'true'
               });
-
-            if (result.sent > 0) {
-              await logNotificationSent(uid, 'appointmentReminder', { appointmentId: apptId });
-            }
+            // Always record the attempt for the audit trail (was logged only on
+            // sent>0, so a zero-token attempt left no trace — masking the
+            // FCM-registration HIGH below).
+            await logNotificationSent(uid, 'appointmentReminder', { appointmentId: apptId });
           })()
         );
       });

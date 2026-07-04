@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, readCrm, readMaps, readD2DLive, readFunctionsIndex, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardStyles, readCustomer, readDashboardMain, readCrm, readMaps, readD2DLive, readFunctionsIndex, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section, bumpPassed, bumpFailed } = ctx;
@@ -47,11 +47,64 @@ const syntaxFiles = [
   // Boot-path prefs (de-moji, sizing, fonts, sidebar hidden-prefs) — a
   // parse error here silently kills every boot-applied UI pref at once.
   path.join(PRO_JS, 'dashboard-ui-prefs-boot.js'),
+  // FCM Web Push token registration + its config slot — a parse error here
+  // silently disables every push notification (the backend has no recipients).
+  path.join(PRO_JS, 'push-registration.js'),
+  path.join(PRO_JS, 'dashboard-fcm-config.js'),
   path.join(FUNCTIONS, 'index.js')
 ];
 for (const f of syntaxFiles) {
   const result = syntaxCheck(f);
   assert('parses ' + path.relative(ROOT, f), result.ok, result.err && result.err.split('\n')[0]);
+}
+
+// ── FCM Web Push registration (client ↔ server contract) ─────
+// The backend (push-functions.js) sends to users/{uid}/fcmTokens, but for a
+// long time NOTHING on the client wrote that subcollection, so every push had
+// zero recipients. These guards keep the registration path wired end-to-end.
+section('FCM push registration');
+{
+  const pr = read(path.join(PRO_JS, 'push-registration.js'));
+  const fcmCfg = read(path.join(PRO_JS, 'dashboard-fcm-config.js'));
+  const dash = read(path.join(PRO_JS, '..', 'dashboard.html'));
+  const sw = read(path.join(PRO_JS, '..', 'firebase-messaging-sw.js'));
+  const pushFns = read(path.join(FUNCTIONS, 'push-functions.js'));
+
+  // Client mints + persists a token to the exact path the server reads.
+  assert('push-registration mints an FCM token (getToken)', /getToken\s*\(/.test(pr));
+  assert('push-registration reads the VAPID key from config', /__NBD_VAPID_KEY/.test(pr) && /vapidKey/.test(pr));
+  assert('push-registration registers the messaging service worker',
+    /serviceWorker\.register\(/.test(pr) && /['"]\/pro\/firebase-messaging-sw\.js['"]/.test(pr));
+  // The messaging SW must NOT register at scope /pro/ — sw.js (offline/PWA)
+  // owns that scope, and a scope holds one SW, so /pro/ would clobber offline.
+  assert('push-registration uses a dedicated SW scope (not /pro/, avoids clobbering sw.js)',
+    /firebase-cloud-messaging-push-scope/.test(pr) && !/scope:\s*['"]\/pro\/['"]/.test(pr));
+  assert('push-registration writes users/{uid}/fcmTokens', /['"]fcmTokens['"]/.test(pr) && /setDoc\s*\(/.test(pr));
+  assert('push-registration only prompts on a user gesture (no page-load requestPermission)',
+    /requestPermission/.test(pr) && /data-action="enable-notifications"/.test(pr));
+  assert('push-registration wires a foreground onMessage handler', /onMessage\s*\(/.test(pr));
+  assert('push-registration no-ops without a VAPID key (graceful)', /no-vapid/.test(pr));
+
+  // The config slot exists and ships empty (so a real key is never committed).
+  assert('dashboard-fcm-config sets window.__NBD_VAPID_KEY', /window\.__NBD_VAPID_KEY\s*=/.test(fcmCfg));
+  // The VAPID public key (applicationServerKey) is public by design — committed,
+  // not secret. Guard that a well-formed key is present (base64url, ~87 chars):
+  // an empty/typo'd key silently disables push, and gitleaks allowlists it by
+  // exact value in .gitleaks.toml.
+  assert('dashboard-fcm-config carries a well-formed VAPID public key',
+    /window\.__NBD_VAPID_KEY\s*=\s*["'][A-Za-z0-9_-]{80,100}["']/.test(fcmCfg));
+
+  // Both scripts are loaded by dashboard.html (config classic+early, engine deferred).
+  assert('dashboard.html loads dashboard-fcm-config.js', /src="js\/dashboard-fcm-config\.js/.test(dash));
+  assert('dashboard.html loads push-registration.js (deferred)',
+    /defer\s+src="js\/push-registration\.js/.test(dash));
+
+  // The service worker the client registers actually handles background pushes.
+  assert('messaging SW handles background messages', /onBackgroundMessage\s*\(/.test(sw));
+
+  // Server still reads the same subcollection the client writes (contract).
+  assert('server getUserFCMTokens reads users/{uid}/fcmTokens',
+    /collection\(\s*['"]fcmTokens['"]\s*\)/.test(pushFns));
 }
 
 // ── QA sweep regression guards (Audit #4: F1/F4/F5) ──────────
@@ -189,6 +242,34 @@ section('ScriptLoader contract');
     /est:\s*\['estimates'\]/.test(src) && /products:\s*\['estimates'\]/.test(src),
     "VIEW_BUNDLES must map est + products to the estimates bundle");
 
+  // Expense subsystem: the #/expenses view lazy-loads expense-config (the
+  // category/money source of truth), profit-tracker (window.ProfitTracker —
+  // NOT loaded anywhere else on dashboard.html; expenses.js's per-job margin
+  // calls computeJobPLWithExpenses at render), then expenses.js. Order is
+  // load-bearing: a missing/late profit-tracker silently degrades margin to
+  // "set Job Value" (caught only by live browser verification, not unit tests).
+  const EXPMODS = ['expense-config.js', 'profit-tracker.js', 'expenses.js'];
+  const expBundleSrc = (src.match(/expenses:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  for (const m of EXPMODS) {
+    assert('expenses bundle includes ' + m, expBundleSrc.includes(m),
+      m + ' must be listed in the expenses bundle in script-loader.js');
+  }
+  assert('expenses bundle order: config + profit-tracker before expenses.js',
+    expBundleSrc.indexOf('expense-config.js') < expBundleSrc.indexOf('expenses.js') &&
+    expBundleSrc.indexOf('profit-tracker.js') < expBundleSrc.indexOf('expenses.js'),
+    'expense-config.js and profit-tracker.js must load before expenses.js');
+  assert('expenses view preloads the expenses bundle',
+    /expenses:\s*\['expenses'\]/.test(src),
+    "VIEW_BUNDLES must map expenses to the expenses bundle");
+
+  // Money / P&L capstone view — lazy single-module bundle + preload mapping.
+  const moneyBundleSrc = (src.match(/money:\s*\[([\s\S]*?)\]/) || [])[1] || '';
+  assert('money bundle includes money-dashboard.js', moneyBundleSrc.includes('money-dashboard.js'),
+    'money-dashboard.js must be in the money bundle in script-loader.js');
+  assert('money view preloads the money bundle',
+    /money:\s*\['money'\]/.test(src),
+    "VIEW_BUNDLES must map money to the money bundle");
+
   // PR 2d (perf): the photo + inspection engine (~200 KB) moved off the eager
   // boot path into the lazy `photos` bundle, with load-then-run stubs at the
   // entry points (camera / gallery / inspection builder / photo report).
@@ -262,8 +343,8 @@ section('ScriptLoader contract');
     /<script[^>]+src="js\/script-loader\.js/.test(custRaw),
     'customer.html must load script-loader.js to lazy-load the pdfexport bundle');
   assert('PR 2b3: customer.html PDF handlers load-then-run pdfexport',
-    (custRaw.match(/loadBundle\(['"]pdfexport['"]\)/g) || []).length >= 2,
-    'both inline jsPDF export handlers must ScriptLoader.loadBundle("pdfexport") before window.jspdf');
+    (readCustomer().match(/loadBundle\(['"]pdfexport['"]\)/g) || []).length >= 2,
+    'both jsPDF export handlers must ScriptLoader.loadBundle("pdfexport") before window.jspdf — they live in the extracted customer-*.js shards since the 2026-07-02 CSP extraction, hence readCustomer()');
 }
 
 // ── AdminManager public API ──────────────────────────────────
@@ -512,7 +593,7 @@ section('Visual regression baseline (Playwright pixel-diff)');
 section('NBDStore — pub/sub state store + first-slice migration');
 {
   const store    = read(path.join(ROOT, 'docs/pro/js/state-store.js'));
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   const dash     = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   const pkg      = JSON.parse(read(path.join(ROOT, 'tests/package.json')));
 
@@ -801,7 +882,7 @@ section('Wave 6b (A.2) — Pro Chrome on login.html + vault.html');
 section('Wave 6 (A.1) — Pro Chrome on customer.html via shared theme-system.css');
 {
   const themeCSS = read(path.join(ROOT, 'docs/pro/css/theme-system.css'));
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   // 1. Shared contract lives in theme-system.css now.
   assert('theme-system.css defines :root --accent-fg default #fff',
@@ -838,7 +919,7 @@ section('Wave 6 (A.1) — Pro Chrome on customer.html via shared theme-system.cs
 
 section('Wave 5c — .crm-hdr-actions side-scroller affordance');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 1. Fade gradient + snap-type — search whole file since there are
   //    multiple .crm-hdr-actions rule blocks (one outer, one inside an
   //    @media), and the new behavior lives in the wider block.
@@ -867,7 +948,7 @@ section('Wave 5c — .crm-hdr-actions side-scroller affordance');
 
 section('Wave 5b — Gradient flatten + bulk accent-fg migration');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 1. .btn-orange no longer uses a linear-gradient for its base fill.
   const btnStart = dash.indexOf('.btn-orange {');
   const btnBlock = dash.slice(btnStart, btnStart + 600);
@@ -892,7 +973,7 @@ section('Wave 5 — Theme-aware accent + contrast tokens');
   // Wave 6 (A.1) moved the tokens themselves into the shared
   // theme-system.css — the Wave 6 section above asserts that. Here we
   // only check that dashboard.html still CONSUMES the contract.
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 3. .btn-orange consumes the tokens.
   assert('.btn-orange uses var(--accent-fg) for color',
     /\.btn-orange\s*\{[\s\S]{0,400}color:\s*var\(--accent-fg\)/.test(dash),
@@ -928,7 +1009,7 @@ section('Wave 5 — Theme-aware accent + contrast tokens');
 
 section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 1. Type scale.
   for (const tok of ['--fs-2xs','--fs-xs','--fs-sm','--fs-md','--fs-base','--fs-lg','--fs-xl','--fs-2xl','--fs-3xl','--fs-4xl']) {
     assert('type token ' + tok + ' defined at :root',
@@ -966,7 +1047,7 @@ section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
 
 section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 1. Column header was tightened (padding 7px 12px + 1px border).
   assert('.kcol-header padding tightened to 7px 12px',
     /\.kcol-header\{\s*padding:\s*7px\s+12px\s*!important/.test(dash),
@@ -1328,18 +1409,19 @@ section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
     /el\.hasAttribute\('data-close-more'\)[\s\S]{0,120}closeMobileMore\(\)/.test(mainJs),
     'expected closeMobileMore() called when data-close-more present');
 
-  // 3 bottom-nav items (mn-item) plus 19 More-drawer items = 22 total
+  // 3 bottom-nav items (mn-item) plus 21 More-drawer items = 24 total
   // mobileNav data-actions in the markup. (Crew-calendar More item
   // intentionally remains inline — defensive existence check.)
+  // (Expenses + Money More-drawer items added with the expense initiative.)
   const mnCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"/g) || []).length;
-  assert('mobileNav conversions: 22 (3 bottom-nav + 19 more-drawer)',
-    mnCount === 22,
-    'expected 22 mobileNav data-actions; got ' + mnCount);
+  assert('mobileNav conversions: 24 (3 bottom-nav + 21 more-drawer)',
+    mnCount === 24,
+    'expected 24 mobileNav data-actions; got ' + mnCount);
 
   const closeMoreCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"\s+data-close-more/g) || []).length;
-  assert('19 mobileNav items carry data-close-more (More-drawer items)',
-    closeMoreCount === 19,
-    'expected 19 data-close-more flags; got ' + closeMoreCount);
+  assert('21 mobileNav items carry data-close-more (More-drawer items)',
+    closeMoreCount === 21,
+    'expected 21 data-close-more flags; got ' + closeMoreCount);
 
   // C.4 finale: every mobileNav handler is delegated (no inline onclicks).
   const remaining = (dash.match(/onclick="mobileNav\(/g) || []).length;
@@ -1705,7 +1787,7 @@ section('Wave 5e (A.5) — second-pass theme contrast audit');
 
 section('Wave 5d (A.4) — accent contract on remaining toggle-active states');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // Step 4b: search-highlight + saveBtn cssText assertions cross
   // the split — concat via readCrm() so the regexes match
   // regardless of which split file the inline-style strings landed in.
@@ -1826,7 +1908,7 @@ section('Wave 2E.2 — m-modal-bar applied to task / photo / propertyIntel');
 
 section('Wave 2E — m-modal-bar standardization');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 1. Pattern CSS exists.
   for (const cls of ['m-modal-bar','m-modal-bar-x','m-modal-bar-titles','m-modal-bar-eyebrow','m-modal-bar-title','m-modal-bar-action','m-modal-has-bar']) {
     assert('CSS class .' + cls + ' is defined',
@@ -1856,7 +1938,7 @@ section('Wave 2E — m-modal-bar standardization');
 
 section('Wave 2D — Mobile inspection overlay');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   const mainJs = readDashboardMain();
   // 1. Overlay DOM exists.
   assert('m-inspection overlay element exists',
@@ -1892,7 +1974,7 @@ section('Wave 2D — Mobile inspection overlay');
 
 section('Wave 2C.2 — Camera FAB + native share');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   const mainJs = readDashboardMain();
   // 1. Sprite has the new shutter + share glyphs.
   assert('sprite has nbd-icon-shutter',
@@ -1928,7 +2010,7 @@ section('Wave 2C.2 — Camera FAB + native share');
 
 section('Wave 2C.1 — Mobile create popover');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   const mainJs = readDashboardMain();
   // 1. Popover DOM + backdrop exist.
   assert('mCreatePopover element exists',
@@ -1967,7 +2049,7 @@ section('Wave 2C.1 — Mobile create popover');
 
 section('Wave 2B — Mobile job-detail screen');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   const mainJs = readDashboardMain();
   // Step 4b: handleCardClick (asserted below) lives in crm-pipeline.js
   // post-split — concat via readCrm() so the assertion finds it.
@@ -2220,6 +2302,54 @@ section('Hardening 2026-06-09 — settings-tab renderers (post-#597 live surface
     /function toggleSidebarItem\(on, navId\)/.test(sidebarSrc));
   assert('toggleHotkey signature matches delegate (on, id)',
     /function toggleHotkey\(on, id\)/.test(hotkeySrc));
+}
+
+section('Routing: no relative bare-.html nav on /pro pages (404 footgun)');
+{
+  // A /pro page is served at a canonical clean URL (/pro/customer), so a
+  // relative `href="dashboard.html"` or `location.href='dashboard.html'`
+  // resolves against the current path (+ a .html→clean redirect hop) and can
+  // 404 (the customer→dashboard 404, PR #771). All /pro inter-page nav must be
+  // absolute canonical (/pro/<page>). This guard keeps the class from recurring.
+  const PRO_DIR = path.join(ROOT, 'docs/pro');
+  // Matches href=/location nav whose target is a BARE word.html (relative).
+  // Absolute "/pro/foo.html" and "https://…" don't match (the char after the
+  // quote is "/" or the word is followed by ":", not ".html").
+  const RELN = /(?:href=|location(?:\.href)?\s*=\s*|location\.(?:assign|replace)\(\s*)["'][a-z0-9_-]+\.html/g;
+  const offenders = [];
+  for (const dir of [PRO_DIR, PRO_JS]) {
+    for (const f of fs.readdirSync(dir)) {
+      if (!/\.(html|js)$/.test(f)) continue;
+      const hits = read(path.join(dir, f)).match(RELN);
+      if (hits) offenders.push(f + ' (' + hits.slice(0, 2).join(', ') + ')');
+    }
+  }
+  assert('no relative bare-.html nav on /pro (use absolute /pro/<page>)',
+    offenders.length === 0, offenders.join(' | '));
+}
+
+
+section('Ops P1 #4 — loadLeads completeness + kanban render cap');
+{
+  const boot = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  // Stage A contract: the fetch pages by documentId and keeps going until
+  // a short page — window._leads stays COMPLETE. 11 consumers (KPIs, money
+  // dashboard, search, export, forecasting, ROI) compute over the cache
+  // and would silently under-report if a fetch cap were introduced. Do not
+  // page-and-stop without migrating those consumers to server aggregates.
+  assert('loadLeads pages with limit(_PAGE) + startAfter', /startAfter\(cursor\)/.test(boot) && /limit\(_PAGE\)/.test(boot));
+  assert('loadLeads drains ALL pages (breaks only on short page)', /pageSnap\.size < _PAGE/.test(boot));
+  assert('loadLeads runaway guard present (page cap)', /page < 200/.test(boot));
+
+  const pipe = read(path.join(PRO_JS, 'crm-pipeline.js'));
+  // Render cap: the DOM paint is bounded even though the cache is not.
+  assert('kanban render cap defined', /KANBAN_RENDER_CAP = \d+/.test(pipe));
+  assert('both column render paths use renderColumnCards',
+    (pipe.match(/renderColumnCards\(body, cards, stage/g) || []).length >= 2,
+    'expected the new-stage AND legacy paths to route through the capped renderer');
+  assert('show-all expander mounts the remainder', /k-show-all/.test(pipe) && /_kbShowAll\[stageKey\] = true/.test(pipe));
+  // Column counts/$ totals must keep computing from the FULL array, not the slice.
+  assert('column count uses full cards array', /count\.textContent = cards\.length/.test(pipe));
 }
 
 };
