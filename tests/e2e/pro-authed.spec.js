@@ -434,6 +434,14 @@ test.describe.serial('Authenticated destructive flows', () => {
     };
 
     const out = await page.evaluate(async (est) => {
+      // Re-check auth IN this execution context right before the write:
+      // the outer waitForFunction gate can pass against a pre-navigation
+      // document, after which _saveEstimate stamps userId from a _user the
+      // fresh dashboard context hasn't re-populated yet (CI retry flake:
+      // "Unsupported field value: undefined in field userId").
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
       const estimateId = await window._saveEstimate(est);
       const invoiceId = await window.InvoicePipeline.createInvoiceFromEstimate(estimateId);
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
@@ -482,6 +490,11 @@ test.describe.serial('Authenticated destructive flows', () => {
 
     const stamp = Date.now();
     const out = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey —
+      // uploadPhotoToFirebase throws without window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
       // A REAL image via canvas export: generateThumbnail() re-decodes the
       // blob as an <img>, so a hand-rolled Blob of junk bytes fails there,
       // and storage.rules requires an image/* content type (isImage()).
@@ -542,6 +555,11 @@ test.describe.serial('Authenticated destructive flows', () => {
     // re-fetch-by-lastName pattern as the move-stage journey; _saveLead
     // returns null on the geocoded path).
     const leadId = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey — _saveLead
+      // stamps userId from window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
       await window._saveLead({
         firstName: '[E2E] DocGen',
         lastName: String(args.stamp),
@@ -587,16 +605,31 @@ test.describe.serial('Authenticated destructive flows', () => {
     }, { leadId, stamp });
 
     // generate() kicks persistence off in the background (_persistPromise);
-    // poll the subcollection rather than sleeping a fixed interval.
-    const persisted = await page.waitForFunction(async (id) => {
-      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-      const db = window.db || window._db;
-      const snap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'documents'));
-      const docs = [];
-      snap.forEach(d => docs.push(Object.assign({ id: d.id }, d.data())));
-      return docs.length ? JSON.stringify(docs) : false;
-    }, leadId, { timeout: 20_000, polling: 1_000 });
-    const docs = JSON.parse(await persisted.jsonValue());
+    // poll the subcollection from the TEST side. Not waitForFunction: its
+    // async-predicate result comes back as a JSHandle whose jsonValue
+    // doesn't round-trip a stringified array reliably (CI: "docs.find is
+    // not a function") — page.evaluate deserializes arrays natively.
+    let docs = [];
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+      docs = await page.evaluate(async (id) => {
+        const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const db = window.db || window._db;
+        const snap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'documents'));
+        const list = [];
+        snap.forEach(d => {
+          const data = d.data();
+          list.push({
+            id: d.id, type: data.type, typeName: data.typeName,
+            userId: data.userId, filename: data.filename,
+            htmlPath: data.htmlPath, htmlUrl: data.htmlUrl,
+          });
+        });
+        return list;
+      }, leadId);
+      if (docs.length) break;
+      await page.waitForTimeout(1_000);
+    }
 
     const meta = docs.find(d => d.type === 'thank_you');
     expect(meta, 'thank_you metadata doc persisted under the lead').toBeTruthy();
