@@ -524,4 +524,99 @@ test.describe.serial('Authenticated destructive flows', () => {
       .toMatch(new RegExp('^photos/' + out.uid + '/' + out.leadId + '/thumbs/'));
     expect(doc.createdAt, 'createdAt serverTimestamp (canonical ordering field)').toBeTruthy();
   });
+
+  test('docgen: generate persists metadata under the lead + uploads rendered HTML', async ({ page }) => {
+    // The doc-generation persist path is fully client-side (Firestore
+    // subcollection + Storage HTML upload) — the functions emulator is only
+    // involved for server PDF render (contract/invoice/change_order/receipt,
+    // which FALLS BACK to client render) and remote signing. 'thank_you' is
+    // not in SERVER_TYPE_MAP, so this journey is hermetic without functions.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    const stamp = Date.now();
+    // The documents subcollection rule does get(leads/{leadId}).data.userId —
+    // the PARENT LEAD MUST EXIST and be ours, so seed one first (same
+    // re-fetch-by-lastName pattern as the move-stage journey; _saveLead
+    // returns null on the geocoded path).
+    const leadId = await page.evaluate(async (args) => {
+      await window._saveLead({
+        firstName: '[E2E] DocGen',
+        lastName: String(args.stamp),
+        address: `${String(args.stamp).slice(-3)} DocGen Drive, Cincinnati, OH`,
+        phone: '513' + String(args.stamp).slice(-7),
+        email: `e2e-docgen-${args.stamp}@nbd.test`,
+        stage: 'new',
+        e2eTestData: true
+      });
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      const uid = (window._auth || window.auth).currentUser.uid;
+      const snap = await fsMod.getDocs(fsMod.query(
+        fsMod.collection(db, 'leads'),
+        fsMod.where('userId', '==', uid),
+        fsMod.where('lastName', '==', String(args.stamp)),
+        fsMod.where('e2eTestData', '==', true)
+      ));
+      let id = null;
+      snap.forEach(d => { if (!id) id = d.id; });
+      return id;
+    }, { stamp });
+    expect(leadId, 'seeded [E2E] DocGen lead has an id').toBeTruthy();
+
+    // NBDDocGen is in the lazy 'docgen' bundle; NBDDocViewer is an EAGER
+    // <script defer> (dashboard.html) — generate() only persists when the
+    // viewer path is available, so gate on both.
+    await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
+    await page.evaluate(() => window.ScriptLoader.loadBundle('docgen'));
+    await page.waitForFunction(() =>
+      window.NBDDocGen && typeof window.NBDDocGen.generate === 'function'
+      && window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function'
+      && window.storage && typeof window.uploadBytes === 'function', null, { timeout: 20_000 });
+
+    await page.evaluate(async (args) => {
+      await window.NBDDocGen.generate('thank_you', {
+        leadId: args.leadId,
+        customer: { name: '[E2E] DocGen ' + args.stamp, address: '1 DocGen Drive', email: `e2e-docgen-${args.stamp}@nbd.test` },
+        homeownerName: '[E2E] DocGen ' + args.stamp,
+        projectType: 'Roof Replacement',
+        completionDate: '2026-07-04',
+      });
+    }, { leadId, stamp });
+
+    // generate() kicks persistence off in the background (_persistPromise);
+    // poll the subcollection rather than sleeping a fixed interval.
+    const persisted = await page.waitForFunction(async (id) => {
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      const snap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'documents'));
+      const docs = [];
+      snap.forEach(d => docs.push(Object.assign({ id: d.id }, d.data())));
+      return docs.length ? JSON.stringify(docs) : false;
+    }, leadId, { timeout: 20_000, polling: 1_000 });
+    const docs = JSON.parse(await persisted.jsonValue());
+
+    const meta = docs.find(d => d.type === 'thank_you');
+    expect(meta, 'thank_you metadata doc persisted under the lead').toBeTruthy();
+    expect(meta.userId, 'userId stamped on the metadata').toBeTruthy();
+    expect(meta.typeName, 'human-readable type name recorded').toBeTruthy();
+    expect(meta.filename, 'filename recorded for the PDF flow').toMatch(/\.pdf$/);
+    // Storage leg: the rendered HTML must land under the owner-scoped
+    // documents/ prefix (storage.rules isHtmlOnly path) with a resolvable
+    // download URL — this is what the customer-page documents tab reopens.
+    expect(meta.htmlPath, 'HTML uploaded under documents/<uid>/<leadId>/')
+      .toMatch(new RegExp('^documents/[^/]+/' + leadId + '/'));
+    expect(meta.htmlUrl, 'download URL resolved for the uploaded HTML').toBeTruthy();
+
+    // Tag the metadata doc for prod-run cleanup (subcollection docs don't
+    // cascade-delete with the lead). Owner write allowed via the parent-get
+    // rule. Emulator runs don't need it — state evaporates.
+    await page.evaluate(async (args) => {
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      await fsMod.updateDoc(fsMod.doc(db, 'leads', args.leadId, 'documents', args.docId), { e2eTestData: true });
+    }, { leadId, docId: meta.id });
+  });
 });
