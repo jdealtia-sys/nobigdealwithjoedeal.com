@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://challenges.cloudflare.com https://us-central1-nobigdeal-pro.cloudfunctions.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://us-central1-nobigdeal-pro.cloudfunctions.net https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>One Free Roof a Year — NBD Home Solutions, Cincinnati</title>
+<title>One Free Roof a Year in Cincinnati | No Big Deal</title>
 <meta name="description" content="Every year, NBD gives one Cincinnati-area homeowner a complete roof replacement — free. Nominate yourself or a neighbor who needs it.">
 <meta name="robots" content="index,follow">
-<link rel="canonical" href="https://nobigdealwithjoedeal.com/free-roof/">
-<meta property="og:title" content="One Free Roof a Year — NBD Home Solutions">
+<link rel="canonical" href="https://nobigdealwithjoedeal.com/free-roof">
+<meta property="og:title" content="One Free Roof a Year — No Big Deal Home Solutions">
 <meta property="og:description" content="Every year, NBD gives one Cincinnati-area homeowner a complete roof replacement — free. Nominate yourself or a neighbor who needs it.">
 <meta property="og:url" content="https://nobigdealwithjoedeal.com/free-roof/">
 <meta property="og:type" content="website">
@@ -16,8 +16,6 @@
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/drone-hero-crew.jpg">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <style>
 :root{
@@ -173,9 +171,12 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+<link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>/* iOS-zoom fix (conversion audit): 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 </head>
-<body>
-
+<body><a class="nbd-skip" href="#main">Skip to content</a>
+<main id="main">
 <section class="hero">
   <div class="hero-inner">
     <span class="hero-kicker">NBD Gives Back</span>
@@ -343,12 +344,17 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <div class="section-inner" style="max-width:640px">
     <div class="eyebrow">Questions?</div>
     <h2 class="sec-title">Text me directly.</h2>
-    <p class="sec-body" style="margin:0 auto">I'm the one reading every entry. If something in this program doesn't fit your situation or you want to double-check eligibility, just text or call — <a href="tel:8594207382">(859) 420-7382</a> — or email <a href="mailto:jd@nobigdealwithjoedeal.com">jd@nobigdealwithjoedeal.com</a>.</p>
+    <p class="sec-body" style="margin:0 auto">I'm the one reading every entry. If something in this program doesn't fit your situation or you want to double-check eligibility, just text or call — <a href="tel:8594207382">(859) 420-7382</a> — or email <a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com">jd&#64;nobigdealwithjoedeal&#46;com</a>.</p>
     <p style="margin-top:28px"><a href="/">← Back to nobigdealwithjoedeal.com</a></p>
   </div>
 </section>
-
+</main>
 <script src="/assets/js/public-lead-submit.js"></script>
 <script defer  src="/assets/js/inline/0a394536a8.js"></script>
+<!-- STICKY MOBILE CTA STRIP (site-wide, conversion audit 2026-07-03) -->
+<div class="mobile-cta-strip" aria-label="Quick contact options">
+  <a href="tel:+18594207382" class="mobile-cta-call"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>Call Joe</a>
+  <a href="sms:+18594207382" class="mobile-cta-text"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Text Us</a>
+</div>
 </body>
 </html>

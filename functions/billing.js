@@ -75,7 +75,13 @@ exports.trackUsage = onCall({
   }
 
   const db = getFirestore();
-  const subRef = db.doc(`subscriptions/${uid}`);
+  // Pillar 4: usage pools on the COMPANY subscription (doc keyed by owner
+  // uid == the companyId claim team members carry) so five reps share one
+  // Growth allowance instead of each getting a phantom free-tier meter.
+  // Solo owners: companyId == uid — byte-identical to the old behavior.
+  const claimCompany = request.auth.token && request.auth.token.companyId;
+  const billingKey = (typeof claimCompany === 'string' && claimCompany) ? claimCompany : uid;
+  const subRef = db.doc(`subscriptions/${billingKey}`);
 
   // Atomically increment + read back. Transaction so concurrent
   // increments (e.g. bulk-import 50 leads in parallel) tally correctly.

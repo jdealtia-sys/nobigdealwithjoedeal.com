@@ -223,6 +223,10 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Company Profile tab (doc-constants editable from UI)
   '_loadCompanyProfileSettings', '_saveCompanyProfileSettings',
   '_resetCompanyProfileSettings',
+  // Pillar 5 Settings surface: "Save Address" (microsite slug). Missing this
+  // entry made the button a silent no-op — the delegate gate at
+  // dashboard-ui.js:492 returns for any data-fn not listed here.
+  '_saveSiteSlug',
   // Card-detail action wrappers (defined below)
   'cdaMjdAct', 'cdaEditLead', 'cdaOpenMobileInspection', 'cdaVoiceMemo',
   // Draw / misc

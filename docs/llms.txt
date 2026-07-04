@@ -80,7 +80,7 @@ Joe Deal also built **NBD Pro** — a roofing business management SaaS platform 
 - [LumaNail™](https://nobigdealwithjoedeal.com/services/lumanail): Visible orange roofing fasteners (Build component)
 - [GAF Master Flow Pivot Boot](https://nobigdealwithjoedeal.com/services/gaf-pivot-boot): All-metal pipe boot (Build component)
 - [Roofivent](https://nobigdealwithjoedeal.com/services/roofivent): Polypropylene exhaust + pipe flashing (Build component)
-- [Service Areas](https://nobigdealwithjoedeal.com/#areas): All 25+ cities served
+- [Service Areas](https://nobigdealwithjoedeal.com/areas/): All 25+ cities served
 - [Blog](https://nobigdealwithjoedeal.com/blog): Homeowner-focused roofing and insurance-claim guides
 - [Reviews](https://nobigdealwithjoedeal.com/review): Customer testimonials
 

@@ -6,7 +6,7 @@
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-8PG7N9Q3DL"></script>
 <script defer src="/assets/js/storm-check-ga.js"></script>
 <title>Free 5-Year Storm History Report for Your Address | NBD</title>
-<meta name="description" content="See your Greater Cincinnati property's 5-year hail & storm history from verified NOAA/NWS data — free. Joe documents any damage and handles the insurance claim. (859) 420-7382.">
+<meta name="description" content="See your Greater Cincinnati property&#39;s 5-year hail &amp; storm history from verified NOAA/NWS data — free. Joe documents any damage and handles the insurance claim.">
 <link rel="canonical" href="https://nobigdealwithjoedeal.com/storm-report">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Your Property's 5-Year Storm History — Free Report | NBD">
@@ -17,8 +17,6 @@
 <meta name="twitter:title" content="Your Property's 5-Year Storm History — Free Report | NBD">
 <meta name="twitter:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <script type="application/ld+json">
 {"@context":"https://schema.org","@type":"WebApplication","name":"NBD Storm History Report","applicationCategory":"BusinessApplication","operatingSystem":"Web","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"provider":{"@type":"RoofingContractor","name":"No Big Deal Home Solutions","telephone":"+18594207382","areaServed":"Greater Cincinnati, OH & Northern Kentucky"}}
@@ -97,13 +95,17 @@ table.sr-table{width:100%;border-collapse:collapse;font-size:.84rem}
 @media(max-width:480px){.sr-intro h1{font-size:1.7rem}.sr-card{padding:22px 16px}}
 @media print{.sr-head,.sr-intro,.sr-foot,.sr-cta,.sr-cta-row,.sr-disc{display:none!important}.sr-shell{margin:0;max-width:100%}.sr-card{box-shadow:none;border:none}#sr-map{height:340px}}
 </style>
+<link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>/* iOS-zoom fix (conversion audit): 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>/* a11y (audit 2026-07): visible focus ring + reduced-motion */:focus-visible{outline:3px solid #e8720c;outline-offset:2px}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}</style>
 </head>
-<body>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
 <header class="sr-head">
   <a href="/" class="sr-logo"><b>NO BIG <span>DEAL</span></b><small>Home Solutions</small></a>
   <a href="tel:+18594207382" class="sr-callbtn">📞 Call Joe</a>
 </header>
-
+<main id="main">
 <section class="sr-intro">
   <h1>Your property's <span>5-year storm history</span> — free, in seconds.</h1>
   <p>Enter your address and I'll pull verified NOAA / NWS storm records for your area — hail, wind, tornado. Then I document any damage and handle the insurance claim start to finish.</p>
@@ -118,7 +120,7 @@ table.sr-table{width:100%;border-collapse:collapse;font-size:.84rem}
       <h2>Check your address</h2>
       <div class="sr-sub">Verified federal storm data for your exact location.</div>
       <div class="sr-input-wrap">
-        <input type="text" class="sr-input" id="sr-address" placeholder="Start typing your property address…" autocomplete="off">
+        <input type="text" class="sr-input" id="sr-address" aria-label="Property address" placeholder="Start typing your property address…" autocomplete="off">
         <div class="sr-acdrop" id="sr-acdrop"></div>
       </div>
       <div class="sr-hint" id="sr-addr-hint"></div>
@@ -141,11 +143,11 @@ table.sr-table{width:100%;border-collapse:collapse;font-size:.84rem}
         <div class="sr-lead">See the full report — every event, a map, and whether it's worth a claim.</div>
         <div class="sr-sub">Joe sends it personally (and emails you a copy). No spam, no pressure.</div>
         <span class="sr-label">First name</span>
-        <input type="text" class="sr-input" id="sr-firstName" placeholder="John" autocomplete="given-name">
+        <input type="text" class="sr-input" id="sr-firstName" aria-label="First name" placeholder="John" autocomplete="given-name">
         <span class="sr-label">Mobile phone</span>
-        <input type="tel" class="sr-input" id="sr-phone" placeholder="(859) 420-7382" autocomplete="tel" inputmode="tel">
-        <span class="sr-label">Email <span style="font-weight:500;text-transform:none;letter-spacing:0;color:var(--gray)">(optional — for your copy)</span></span>
-        <input type="email" class="sr-input" id="sr-email" placeholder="you@email.com" autocomplete="email" inputmode="email">
+        <input type="tel" class="sr-input" id="sr-phone" aria-label="Mobile phone" placeholder="(859) 420-7382" autocomplete="tel" inputmode="tel">
+        <span class="sr-label">Email <span style="font-weight:600;text-transform:none;letter-spacing:0;color:var(--gray)">(optional — for your copy)</span></span>
+        <input type="email" class="sr-input" id="sr-email" aria-label="Email (optional)" placeholder="you@email.com" autocomplete="email" inputmode="email">
         <label class="sr-consent"><input type="checkbox" id="sr-consent"><span>I agree NBD can contact me about my roof at the number above. Standard rates apply; not a condition of purchase.</span></label>
         <div class="sr-err" id="sr-gate-err"></div>
         <button class="sr-btn" id="sr-unlock" data-action="unlock">Show my full report →</button>
@@ -173,7 +175,7 @@ table.sr-table{width:100%;border-collapse:collapse;font-size:.84rem}
 
   </div>
 </div>
-
+</main>
 <footer class="sr-foot">
   <span class="ph"><a href="tel:+18594207382" style="color:#fff">(859) 420-7382</a></span>
   Owner-operated roofing &amp; storm restoration · Greater Cincinnati &amp; N. Kentucky<br>
@@ -182,5 +184,10 @@ table.sr-table{width:100%;border-collapse:collapse;font-size:.84rem}
 
 <script src="/assets/js/public-lead-submit.js"></script>
 <script defer src="/assets/js/storm-report-page.js"></script>
+<!-- STICKY MOBILE CTA STRIP (site-wide, conversion audit 2026-07-03) -->
+<div class="mobile-cta-strip" aria-label="Quick contact options">
+  <a href="tel:+18594207382" class="mobile-cta-call"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>Call Joe</a>
+  <a href="sms:+18594207382" class="mobile-cta-text"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Text Us</a>
+</div>
 </body>
 </html>

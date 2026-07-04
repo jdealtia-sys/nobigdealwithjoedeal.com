@@ -345,8 +345,16 @@ exports.submitPublicLead = onRequest(
     // companyId was supplied — NBD's path is unchanged, no extra read).
     // Follow-on: migrate the Oaks microsite off the separate marketing
     // project so its leads flow through here too.
-    let _cid = String((body.companyId != null ? body.companyId : '') || '')
-      .trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 64);
+    // Case-PRESERVING validation. companies/{id} is keyed by the Firebase
+    // Auth uid (createCompany/provisioning.js), which is case-sensitive
+    // mixed-case alphanumerics — lowercasing here mangled every real tenant
+    // id so the registry read below missed, the tag was dropped, and the
+    // lead misrouted to Joe instead of the tenant. Match the same charset
+    // as public-site.js KEY_RE; the legacy 'oaks' slug is already lowercase
+    // so it still matches. Reject (clear) anything with disallowed chars
+    // rather than silently stripping them into a different, wrong id.
+    let _cid = String((body.companyId != null ? body.companyId : '') || '').trim();
+    if (_cid && !/^[A-Za-z0-9_-]{1,64}$/.test(_cid)) _cid = '';
     if (_cid) {
       try {
         const known = await getFirestore().collection('companies').doc(_cid).get();

@@ -33,7 +33,16 @@
   }
   function validate(step) {
     if (step === 1) {
-      if (!S.addressFull) { hint('Type your address and pick it from the dropdown.'); return false; }
+      if (!S.addressFull) {
+        // Typed but never picked (mouse or keyboard) — resolve the top match
+        // instead of dead-ending; pickAddr fills S.addressFull so the next
+        // Continue press advances.
+        var typedInp = $('sc-address');
+        var typed = typedInp ? typedInp.value.trim() : '';
+        if (typed.length >= 5) { resolveTyped(typed); }
+        else { hint('Type your address and pick it from the dropdown.'); }
+        return false;
+      }
       return true;
     }
     if (step === 2) return !!(S.stormWhen && S.stormType);
@@ -50,16 +59,72 @@
   function wireAddress() {
     var inp = $('sc-address'), drop = $('sc-acdrop');
     if (!inp) return;
+    inp.setAttribute('role', 'combobox');
+    inp.setAttribute('aria-autocomplete', 'list');
+    inp.setAttribute('aria-expanded', 'false');
+    inp.setAttribute('aria-controls', 'sc-acdrop');
+    if (drop) drop.setAttribute('role', 'listbox');
     inp.addEventListener('input', function () {
       S.addressFull = null;
       clearTimeout(debTimer);
       var q = this.value.trim();
-      if (q.length < 4) { drop.style.display = 'none'; return; }
+      if (q.length < 4) { closeDrop(); return; }
       debTimer = setTimeout(function () { searchAddr(q); }, 350);
     });
-    document.addEventListener('click', function (e) {
-      if (!e.target.closest('.sc-input-wrap')) drop.style.display = 'none';
+    // Keyboard path: the dropdown items are divs, so without this a
+    // keyboard/screen-reader user could type but never select — and step 1
+    // hard-gates on S.addressFull, leaving them stuck on the first screen.
+    inp.addEventListener('keydown', function (e) {
+      var open = drop && drop.style.display === 'block';
+      var items = open ? drop.querySelectorAll('.sc-ac-item') : [];
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        if (!open || !items.length) return;
+        e.preventDefault();
+        kbIdx = e.key === 'ArrowDown'
+          ? (kbIdx + 1) % items.length
+          : (kbIdx <= 0 ? items.length - 1 : kbIdx - 1);
+        markActive(items);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (open && items.length) { pickAddr(kbIdx >= 0 ? kbIdx : 0); }
+        else if (!S.addressFull) { resolveTyped(inp.value.trim()); }
+      } else if (e.key === 'Escape') {
+        closeDrop();
+      }
     });
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('.sc-input-wrap')) closeDrop();
+    });
+  }
+  var kbIdx = -1;
+  function markActive(items) {
+    for (var i = 0; i < items.length; i++) {
+      items[i].classList.toggle('kb-active', i === kbIdx);
+      items[i].setAttribute('aria-selected', i === kbIdx ? 'true' : 'false');
+    }
+    var inp = $('sc-address');
+    if (inp) inp.setAttribute('aria-activedescendant', kbIdx >= 0 ? 'sc-ac-opt-' + kbIdx : '');
+  }
+  function closeDrop() {
+    var drop = $('sc-acdrop'), inp = $('sc-address');
+    if (drop) drop.style.display = 'none';
+    if (inp) { inp.setAttribute('aria-expanded', 'false'); inp.setAttribute('aria-activedescendant', ''); }
+    kbIdx = -1;
+  }
+  // Typed-without-picking fallback (same pattern as the estimate funnel's
+  // _resolveAddressInline): resolve the top geocoder match so typing alone
+  // is enough to proceed.
+  function resolveTyped(q) {
+    if (!q || q.length < 5) { hint('Type your address and pick it from the dropdown.'); return; }
+    hint('Looking up that address…');
+    var url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) +
+      '&format=json&addressdetails=1&countrycodes=us&limit=1' +
+      '&viewbox=' + encodeURIComponent('-85.2,39.5,-83.6,38.6') + '&bounded=0';
+    fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data || !data.length) { hint("Couldn't find that address. Please type more of it."); return; }
+      window._scAc = data;
+      pickAddr(0);
+    }).catch(function () { hint('Address lookup failed. Check your connection and try again.'); });
   }
   function searchAddr(q) {
     var drop = $('sc-acdrop'), my = ++seq;
@@ -71,9 +136,12 @@
       if (!data.length) { drop.style.display = 'none'; return; }
       window._scAc = data;
       drop.innerHTML = data.map(function (d, i) {
-        return '<div class="sc-ac-item" data-idx="' + i + '">' + String(d.display_name).replace(/[<>]/g, '') + '</div>';
+        return '<div class="sc-ac-item" role="option" id="sc-ac-opt-' + i + '" aria-selected="false" data-idx="' + i + '">' + String(d.display_name).replace(/[<>]/g, '') + '</div>';
       }).join('');
       drop.style.display = 'block';
+      kbIdx = -1;
+      var kin = $('sc-address');
+      if (kin) kin.setAttribute('aria-expanded', 'true');
     }).catch(function () { if (my === seq) drop.style.display = 'none'; });
   }
   function pickAddr(i) {
@@ -81,7 +149,7 @@
     S.addressFull = d; S.address = d.display_name;
     S.lat = parseFloat(d.lat); S.lon = parseFloat(d.lon);
     $('sc-address').value = d.display_name;
-    $('sc-acdrop').style.display = 'none';
+    closeDrop();
     hint('');
   }
 

@@ -133,6 +133,80 @@ function smsBody(label, source, s, seal) {
   return lines.join('\n').slice(0, 480);
 }
 
+// ── Homeowner acknowledgment (speed-to-lead, half of the loop) ──────────
+// Joe gets paged the second a lead lands; until now the HOMEOWNER got
+// nothing — no confirmation their request went anywhere, which is exactly
+// when they keep shopping and fill out a competitor's form. This sends a
+// short "got it — here's what happens next" email signed by Joe.
+//
+// V1 is EMAIL-ONLY by design: an auto-SMS to the homeowner needs express
+// texting consent on the forms (TCPA) — that's Jo's call and a copy change,
+// not a code constraint. Guards: valid email required; NBD leads only
+// (configured tenants must opt in with their own copy before we speak to
+// their customers); independent try/catch so a failure never touches lead
+// capture or Joe's alert.
+const ACK_FIRST_LINE = {
+  contact_leads: 'Got your message.',
+  estimate_leads: 'Got your estimate request.',
+  inspect_leads: 'Got your inspection request.',
+  free_roof_entries: 'Your Free Roof entry is in.',
+  storm_alert_subscribers: 'Got your storm damage report.',
+};
+
+function ackEmailHtml(collection, firstName) {
+  const hi = firstName ? `Hi ${esc(firstName)},` : 'Hi,';
+  const first = ACK_FIRST_LINE[collection] || 'Got your request.';
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="font-family:'Barlow','Segoe UI',Roboto,sans-serif;background:#f5f5f5;margin:0;color:#333">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)">
+    <div style="background:linear-gradient(135deg,#1e3a6e,#142a52);color:#fff;padding:22px 20px;text-align:center">
+      <div style="font-size:22px;font-weight:700">${esc(first)}</div>
+      <div style="font-size:13px;opacity:.85;margin-top:4px">No Big Deal Home Solutions</div>
+    </div>
+    <div style="padding:24px 22px;font-size:15px;line-height:1.65">
+      <p style="margin:0 0 14px">${hi}</p>
+      <p style="margin:0 0 14px">This is Joe. Your request just hit my phone — not a call center, not a queue. I personally look at every one and I'll reach out shortly (same day during work hours).</p>
+      <p style="margin:0 0 14px">If it's urgent — active leak, storm damage getting worse — don't wait on me:</p>
+      <p style="text-align:center;margin:20px 0"><a href="tel:8594207382" style="display:inline-block;background:#e8720c;color:#fff;padding:13px 30px;border-radius:6px;text-decoration:none;font-weight:700;font-size:16px">Call or text (859) 420-7382</a></p>
+      <p style="margin:0">— Joe Deal<br><span style="color:#6b7280;font-size:13px">Owner &amp; Operator, No Big Deal Home Solutions</span></p>
+    </div>
+  </div>
+</body></html>`;
+}
+
+function ackEmailText(collection, firstName) {
+  const first = ACK_FIRST_LINE[collection] || 'Got your request.';
+  return `${first}\n\n${firstName ? 'Hi ' + firstName + ',' : 'Hi,'}\n\nThis is Joe. Your request just hit my phone — not a call center, not a queue. I personally look at every one and I'll reach out shortly (same day during work hours).\n\nIf it's urgent — active leak, storm damage getting worse — call or text me directly: (859) 420-7382.\n\n— Joe Deal\nOwner & Operator, No Big Deal Home Solutions`;
+}
+
+async function ackHomeowner(collection, d, leadId, target) {
+  // NBD leads only — a configured tenant's homeowners are not ours to email.
+  if (!target || target.seal !== 'NBD') return; // fallback target always carries seal 'NBD'; a CONFIGURED tenant may have seal '' — treat anything non-NBD as not ours to email/text
+  const email = String(d.email || '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+  try {
+    const resend = new Resend(RESEND_API_KEY.value());
+    const firstName = String(d.firstName || d.name || '').trim().split(/\s+/)[0] || '';
+    await resend.emails.send({
+      from: 'Joe Deal <jd@nobigdealwithjoedeal.com>',
+      to: email,
+      reply_to: 'jd@nobigdealwithjoedeal.com',
+      subject: "Got it — Joe here. What happens next",
+      html: ackEmailHtml(collection, firstName),
+      text: ackEmailText(collection, firstName),
+      headers: { 'X-NBD-Campaign': 'lead-ack-v1' },
+    });
+    logger.info('leadAck: email sent', { collection, leadId });
+    if (leadId) {
+      await getFirestore().collection(collection).doc(String(leadId))
+        .update({ ackEmailSentAt: admin.firestore.FieldValue.serverTimestamp() })
+        .catch(() => {});
+    }
+  } catch (e) {
+    logger.error('leadAck: email failed', { collection, leadId, err: e.message });
+  }
+}
+
 async function alertJoe(collection, d, leadId) {
   const label = KIND_LABEL[collection] || collection;
   const source = d.source || '';
@@ -168,6 +242,46 @@ async function alertJoe(collection, d, leadId) {
     logger.info('leadAlert: email sent', { collection, leadId, id: (resp && resp.data && resp.data.id) || null });
   } catch (e) {
     logger.error('leadAlert: email failed', { collection, leadId, err: e.message });
+  }
+
+  // Close the loop with the homeowner (independent; never blocks the alert).
+  await ackHomeowner(collection, d, leadId, target);
+  await ackHomeownerSms(collection, d, leadId, target);
+}
+
+// ── Homeowner ack TEXT — gated, estimate funnel only ────────────────────
+// Same idea as the ack email but SMS converts harder. Fires ONLY when:
+//  - LEAD_ACK_SMS_ENABLED=true on the trigger services (Jo's flip, same
+//    pattern as FUNNEL_RECOVERY_ENABLED — default OFF), and
+//  - collection is estimate_leads: the /estimate funnel's submit button is
+//    hard-disabled until the TCPA consent box ("...follow-up communication
+//    ... Reply STOP to opt out") is checked, so every completed estimate
+//    lead has express written consent by construction. No other form
+//    collects texting consent yet, so no other collection texts.
+// Delivery still requires the Twilio number's A2P 10DLC approval.
+async function ackHomeownerSms(collection, d, leadId, target) {
+  if (process.env.LEAD_ACK_SMS_ENABLED !== 'true') return;
+  if (collection !== 'estimate_leads') return;
+  if (!target || target.seal !== 'NBD') return; // fallback target always carries seal 'NBD'; a CONFIGURED tenant may have seal '' — treat anything non-NBD as not ours to email/text
+  const digits = String(d.phone || d.phoneNumber || '').replace(/[^\d]/g, '');
+  if (digits.length !== 10 && !(digits.length === 11 && digits[0] === '1')) return;
+  const to = '+1' + digits.slice(-10);
+  try {
+    const client = twilio(TWILIO_ACCOUNT_SID.value(), TWILIO_AUTH_TOKEN.value());
+    const firstName = String(d.firstName || '').trim();
+    const msg = await client.messages.create({
+      to,
+      from: TWILIO_PHONE_NUMBER.value(),
+      body: `${firstName ? firstName + ' — g' : 'G'}ot your estimate request. This is Joe with No Big Deal Home Solutions — I'll call you shortly. Urgent? Call/text me at (859) 420-7382. Reply STOP to opt out.`,
+    });
+    logger.info('leadAck: sms queued', { collection, leadId, sid: msg.sid });
+    if (leadId) {
+      await getFirestore().collection(collection).doc(String(leadId))
+        .update({ ackSmsSentAt: admin.firestore.FieldValue.serverTimestamp() })
+        .catch(() => {});
+    }
+  } catch (e) {
+    logger.error('leadAck: sms failed', { collection, leadId, err: e.message });
   }
 }
 

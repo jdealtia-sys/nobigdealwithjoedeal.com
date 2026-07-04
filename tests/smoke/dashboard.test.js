@@ -10,7 +10,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
-const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardMain, readCrm, readMaps, readD2DLive, readFunctionsIndex, syntaxCheck } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readDashboard, readDashboardStyles, readCustomer, readDashboardMain, readCrm, readMaps, readD2DLive, readFunctionsIndex, syntaxCheck } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section, bumpPassed, bumpFailed } = ctx;
@@ -343,8 +343,8 @@ section('ScriptLoader contract');
     /<script[^>]+src="js\/script-loader\.js/.test(custRaw),
     'customer.html must load script-loader.js to lazy-load the pdfexport bundle');
   assert('PR 2b3: customer.html PDF handlers load-then-run pdfexport',
-    (custRaw.match(/loadBundle\(['"]pdfexport['"]\)/g) || []).length >= 2,
-    'both inline jsPDF export handlers must ScriptLoader.loadBundle("pdfexport") before window.jspdf');
+    (readCustomer().match(/loadBundle\(['"]pdfexport['"]\)/g) || []).length >= 2,
+    'both jsPDF export handlers must ScriptLoader.loadBundle("pdfexport") before window.jspdf — they live in the extracted customer-*.js shards since the 2026-07-02 CSP extraction, hence readCustomer()');
 }
 
 // ── AdminManager public API ──────────────────────────────────
@@ -593,7 +593,7 @@ section('Visual regression baseline (Playwright pixel-diff)');
 section('NBDStore — pub/sub state store + first-slice migration');
 {
   const store    = read(path.join(ROOT, 'docs/pro/js/state-store.js'));
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   const dash     = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   const pkg      = JSON.parse(read(path.join(ROOT, 'tests/package.json')));
 
@@ -882,7 +882,7 @@ section('Wave 6b (A.2) — Pro Chrome on login.html + vault.html');
 section('Wave 6 (A.1) — Pro Chrome on customer.html via shared theme-system.css');
 {
   const themeCSS = read(path.join(ROOT, 'docs/pro/css/theme-system.css'));
-  const customer = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const customer = readCustomer();
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
   // 1. Shared contract lives in theme-system.css now.
   assert('theme-system.css defines :root --accent-fg default #fff',
@@ -919,7 +919,7 @@ section('Wave 6 (A.1) — Pro Chrome on customer.html via shared theme-system.cs
 
 section('Wave 5c — .crm-hdr-actions side-scroller affordance');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 1. Fade gradient + snap-type — search whole file since there are
   //    multiple .crm-hdr-actions rule blocks (one outer, one inside an
   //    @media), and the new behavior lives in the wider block.
@@ -948,7 +948,7 @@ section('Wave 5c — .crm-hdr-actions side-scroller affordance');
 
 section('Wave 5b — Gradient flatten + bulk accent-fg migration');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 1. .btn-orange no longer uses a linear-gradient for its base fill.
   const btnStart = dash.indexOf('.btn-orange {');
   const btnBlock = dash.slice(btnStart, btnStart + 600);
@@ -973,7 +973,7 @@ section('Wave 5 — Theme-aware accent + contrast tokens');
   // Wave 6 (A.1) moved the tokens themselves into the shared
   // theme-system.css — the Wave 6 section above asserts that. Here we
   // only check that dashboard.html still CONSUMES the contract.
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 3. .btn-orange consumes the tokens.
   assert('.btn-orange uses var(--accent-fg) for color',
     /\.btn-orange\s*\{[\s\S]{0,400}color:\s*var\(--accent-fg\)/.test(dash),
@@ -1009,7 +1009,7 @@ section('Wave 5 — Theme-aware accent + contrast tokens');
 
 section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 1. Type scale.
   for (const tok of ['--fs-2xs','--fs-xs','--fs-sm','--fs-md','--fs-base','--fs-lg','--fs-xl','--fs-2xl','--fs-3xl','--fs-4xl']) {
     assert('type token ' + tok + ' defined at :root',
@@ -1047,7 +1047,7 @@ section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
 
 section('Wave 3 — Kanban polish (column header + hover-reveal arrows)');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 1. Column header was tightened (padding 7px 12px + 1px border).
   assert('.kcol-header padding tightened to 7px 12px',
     /\.kcol-header\{\s*padding:\s*7px\s+12px\s*!important/.test(dash),
@@ -1787,7 +1787,7 @@ section('Wave 5e (A.5) — second-pass theme contrast audit');
 
 section('Wave 5d (A.4) — accent contract on remaining toggle-active states');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // Step 4b: search-highlight + saveBtn cssText assertions cross
   // the split — concat via readCrm() so the regexes match
   // regardless of which split file the inline-style strings landed in.
@@ -1908,7 +1908,7 @@ section('Wave 2E.2 — m-modal-bar applied to task / photo / propertyIntel');
 
 section('Wave 2E — m-modal-bar standardization');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   // 1. Pattern CSS exists.
   for (const cls of ['m-modal-bar','m-modal-bar-x','m-modal-bar-titles','m-modal-bar-eyebrow','m-modal-bar-title','m-modal-bar-action','m-modal-has-bar']) {
     assert('CSS class .' + cls + ' is defined',
@@ -1938,7 +1938,7 @@ section('Wave 2E — m-modal-bar standardization');
 
 section('Wave 2D — Mobile inspection overlay');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   const mainJs = readDashboardMain();
   // 1. Overlay DOM exists.
   assert('m-inspection overlay element exists',
@@ -1974,7 +1974,7 @@ section('Wave 2D — Mobile inspection overlay');
 
 section('Wave 2C.2 — Camera FAB + native share');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   const mainJs = readDashboardMain();
   // 1. Sprite has the new shutter + share glyphs.
   assert('sprite has nbd-icon-shutter',
@@ -2010,7 +2010,7 @@ section('Wave 2C.2 — Camera FAB + native share');
 
 section('Wave 2C.1 — Mobile create popover');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   const mainJs = readDashboardMain();
   // 1. Popover DOM + backdrop exist.
   assert('mCreatePopover element exists',
@@ -2049,7 +2049,7 @@ section('Wave 2C.1 — Mobile create popover');
 
 section('Wave 2B — Mobile job-detail screen');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   const mainJs = readDashboardMain();
   // Step 4b: handleCardClick (asserted below) lives in crm-pipeline.js
   // post-split — concat via readCrm() so the assertion finds it.
@@ -2326,6 +2326,30 @@ section('Routing: no relative bare-.html nav on /pro pages (404 footgun)');
   }
   assert('no relative bare-.html nav on /pro (use absolute /pro/<page>)',
     offenders.length === 0, offenders.join(' | '));
+}
+
+
+section('Ops P1 #4 — loadLeads completeness + kanban render cap');
+{
+  const boot = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  // Stage A contract: the fetch pages by documentId and keeps going until
+  // a short page — window._leads stays COMPLETE. 11 consumers (KPIs, money
+  // dashboard, search, export, forecasting, ROI) compute over the cache
+  // and would silently under-report if a fetch cap were introduced. Do not
+  // page-and-stop without migrating those consumers to server aggregates.
+  assert('loadLeads pages with limit(_PAGE) + startAfter', /startAfter\(cursor\)/.test(boot) && /limit\(_PAGE\)/.test(boot));
+  assert('loadLeads drains ALL pages (breaks only on short page)', /pageSnap\.size < _PAGE/.test(boot));
+  assert('loadLeads runaway guard present (page cap)', /page < 200/.test(boot));
+
+  const pipe = read(path.join(PRO_JS, 'crm-pipeline.js'));
+  // Render cap: the DOM paint is bounded even though the cache is not.
+  assert('kanban render cap defined', /KANBAN_RENDER_CAP = \d+/.test(pipe));
+  assert('both column render paths use renderColumnCards',
+    (pipe.match(/renderColumnCards\(body, cards, stage/g) || []).length >= 2,
+    'expected the new-stage AND legacy paths to route through the capped renderer');
+  assert('show-all expander mounts the remainder', /k-show-all/.test(pipe) && /_kbShowAll\[stageKey\] = true/.test(pipe));
+  // Column counts/$ totals must keep computing from the FULL array, not the slice.
+  assert('column count uses full cards array', /count\.textContent = cards\.length/.test(pipe));
 }
 
 };
