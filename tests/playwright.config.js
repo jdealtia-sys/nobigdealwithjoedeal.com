@@ -22,6 +22,22 @@ module.exports = defineConfig({
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://nobigdealwithjoedeal.com',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // Escape hatches for sandboxed environments (no effect when unset):
+    // - PLAYWRIGHT_CHROMIUM_PATH: use a pre-installed Chromium when the
+    //   pinned browser build can't be downloaded.
+    // - PLAYWRIGHT_PROXY_SERVER: route browser traffic through an egress
+    //   proxy (with 127.0.0.1 bypassed so emulator traffic stays direct).
+    //   Implies ignoreHTTPSErrors because such proxies MITM TLS with a CA
+    //   Chromium doesn't trust — never set this against production.
+    ...(process.env.PLAYWRIGHT_CHROMIUM_PATH
+      ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } }
+      : {}),
+    ...(process.env.PLAYWRIGHT_PROXY_SERVER
+      ? {
+          proxy: { server: process.env.PLAYWRIGHT_PROXY_SERVER, bypass: '127.0.0.1,localhost' },
+          ignoreHTTPSErrors: true,
+        }
+      : {}),
   },
   projects: [
     {

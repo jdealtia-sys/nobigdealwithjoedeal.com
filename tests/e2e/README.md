@@ -42,11 +42,34 @@ npm run test:e2e:authed   # authed-only, skips if creds missing
 npm run test:e2e          # everything; authed suite skips cleanly w/o creds
 ```
 
-## Authed suite — Path A test-user provisioning
+## Authed suite — Path B: hermetic emulator mode (preferred)
 
-We hit live production with a dedicated test user. Path B (Firebase
-Auth Emulator) is the safer long-term option; this doc covers Path A
-because it's what's wired today. Only read journeys land in PR 1
+No secrets, no prod traffic. `emulators:exec` boots the Auth + Firestore +
+Hosting emulators, `e2e/fixtures/seed-emulator.js` provisions a known tenant
+(user + companies/companyProfile/subscriptions docs + companyId claim,
+mirroring what `createCompany` writes), and the suite runs against
+`http://127.0.0.1:5000` — where `nbd-emulator-connect.js` makes every page's
+client SDK talk to the emulators automatically:
+
+```bash
+cd tests
+npm run test:e2e:authed:emu
+```
+
+Cleanup is skipped in this mode (state dies with the emulators). CI runs this
+in the `e2e-authed-emulator` job (continue-on-error until proven stable).
+
+Sandboxed environments: if the pinned Playwright browser isn't installable,
+set `PLAYWRIGHT_CHROMIUM_PATH=/path/to/chromium`; behind an egress proxy set
+`PLAYWRIGHT_PROXY_SERVER=$HTTPS_PROXY` (never against production — it implies
+ignoreHTTPSErrors). Note the pages load the Firebase SDK from
+`www.gstatic.com`, so that host must be reachable.
+
+## Authed suite — Path A test-user provisioning (live prod)
+
+We hit live production with a dedicated test user. Path B above is the safer
+default; Path A additionally exercises the real deploy + real functions.
+Only read journeys land in PR 1
 (login + auth-persistence). Destructive journeys (save lead, move
 stage, send invoice) come in a later PR with proper cleanup.
 

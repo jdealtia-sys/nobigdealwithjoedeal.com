@@ -93,6 +93,10 @@ test.describe.serial('Authenticated destructive flows', () => {
 
   test.afterAll(async ({ browser }) => {
     if (!creds) return;
+    // Emulator mode (test:e2e:authed:emu): all state lives in the Firestore
+    // emulator and evaporates when emulators:exec exits, and the functions
+    // emulator (which would host the cleanup callable) isn't running. Skip.
+    if (/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) return;
     // Spin up a fresh page so afterAll has its own auth context
     // independent of any test that may have navigated mid-flight.
     const context = await browser.newContext();
