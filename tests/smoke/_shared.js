@@ -71,6 +71,28 @@ function readDashboard() {
   return parts.join('\n');
 }
 
+// Rock 4 Phase 2b-d (2026-07-04): dashboard.html's three big inline
+// <style> blocks (main app CSS, kanban-force-css, nbd-theme-bridge —
+// ~6,600 lines) moved to docs/pro/css/*.css, following theme-system.css
+// (Phase 2). Assertions that grep dashboard.html for CSS rules need the
+// concatenated style surface, same pattern as readDashboard() above.
+// Keep this list in load order (matches the <link> order in <head>).
+const DASHBOARD_EXTRACTED_CSS = [
+  'theme-system.css',
+  'dashboard-app.css',
+  'kanban-force.css',
+  'theme-bridge.css',
+];
+function readDashboardStyles() {
+  const html = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const parts = [html];
+  for (const sheet of DASHBOARD_EXTRACTED_CSS) {
+    const p = path.join(ROOT, 'docs/pro/css', sheet);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
+  return parts.join('\n');
+}
+
 // CSP extraction (2026-07-02): customer.html's 11 inline <script>
 // blocks (~6.5k lines incl. the critical Firebase bootstrap module)
 // moved to docs/pro/js/customer-*.js, mirroring the dashboard #398
@@ -281,6 +303,7 @@ module.exports = {
   FUNCTIONS,
   read,
   readDashboard,
+  readDashboardStyles,
   readCustomer,
   readDashboardMain,
   readPortal,
