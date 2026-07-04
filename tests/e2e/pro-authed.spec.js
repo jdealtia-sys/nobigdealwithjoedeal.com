@@ -23,8 +23,20 @@ async function openCrmView(page) {
   // Wait for the nav plumbing itself (dashboard-ui.js defines window.goTo)
   // rather than clicking #nav-crm — the click delegate binds asynchronously
   // and a fast retry can click before it listens, silently going nowhere.
-  await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 15_000 });
-  await page.evaluate(() => window.goTo('crm'));
+  // Retry through context teardowns: login lands via a 301 hop
+  // (dashboard.html → cleanUrls → dashboard), and a wait that latched onto
+  // the provisional document dies with "Execution context was destroyed".
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await page.waitForLoadState('load');
+      await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 15_000 });
+      await page.evaluate(() => window.goTo('crm'));
+      return;
+    } catch (e) {
+      if (!/Execution context was destroyed|navigation|not a function/i.test(String(e))) throw e;
+    }
+  }
+  throw new Error('openCrmView: dashboard never settled with a working goTo()');
 }
 
 test.describe('Authenticated /pro/ shell — read-only', () => {
@@ -134,6 +146,12 @@ test.describe.serial('Authenticated destructive flows', () => {
   });
 
   test('save lead writes companyId + customerId, lead appears in kanban', async ({ page }) => {
+    // _saveLead geocodes new-lead addresses via nominatim.openstreetmap.org,
+    // which has no client timeout and rate-limits CI egress IPs — the save
+    // then hangs the full test timeout. E2E must not depend on OSM: answer
+    // the geocode with an empty result so the save proceeds without lat/lng.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
     await loginAs(page, creds);
 
     // Wait for the kanban to render before opening a modal — opening
@@ -145,7 +163,11 @@ test.describe.serial('Authenticated destructive flows', () => {
     // find every test lead even if a test crashes mid-write.
     const stamp = Date.now();
     const leadName = `[E2E] Smith ${stamp}`;
-    const leadAddress = '999 E2E Test Lane, Cincinnati, OH';
+    // Unique per attempt: a retry re-runs against the same emulator session,
+    // and a same-phone/same-address payload trips LeadDedup.checkAndPrompt's
+    // modal, which awaits a human click forever.
+    const leadPhone = '513' + String(stamp).slice(-7);
+    const leadAddress = `${String(stamp).slice(-3)} E2E Test Lane, Cincinnati, OH`;
 
     // Open the new-lead modal via the canonical button. Selector
     // audited 2026-04-25: dashboard.html:8411 has the orange button
@@ -155,7 +177,7 @@ test.describe.serial('Authenticated destructive flows', () => {
     await page.fill('#lFname', '[E2E] Smith');
     await page.fill('#lLname', String(stamp));
     await page.fill('#lAddr', leadAddress);
-    await page.fill('#lPhone', '5135550199');
+    await page.fill('#lPhone', leadPhone);
     await page.fill('#lEmail', `e2e-${stamp}@nbd.test`);
 
     // Bypass the UI's `saveLead()` so we can stamp e2eTestData:true
@@ -167,11 +189,11 @@ test.describe.serial('Authenticated destructive flows', () => {
       firstName: '[E2E] Smith',
       lastName: String(args.stamp),
       address: args.leadAddress,
-      phone: '5135550199',
+      phone: args.leadPhone,
       email: `e2e-${args.stamp}@nbd.test`,
       stage: 'new',
       e2eTestData: true
-    }), { stamp, leadAddress });
+    }), { stamp, leadAddress, leadPhone });
 
     // Give the optimistic insert + Firestore round-trip a moment to
     // settle. The kanban refresh is debounced; 4s is generous.
@@ -214,6 +236,10 @@ test.describe.serial('Authenticated destructive flows', () => {
   });
 
   test('move stage logs timeline activity + updates stageStartedAt', async ({ page }) => {
+    // Same nominatim stub as the save-lead test — _saveLead geocodes new
+    // addresses and OSM rate-limits CI IPs with no client timeout.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
     await loginAs(page, creds);
     await openCrmView(page);
     await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first()).toBeVisible({ timeout: 15_000 });
@@ -225,8 +251,10 @@ test.describe.serial('Authenticated destructive flows', () => {
       const ref = await window._saveLead({
         firstName: '[E2E] Move',
         lastName: String(args.stamp),
-        address: '888 Stage-Move Way, Cincinnati, OH',
-        phone: '5135550288',
+        // Unique per attempt so LeadDedup's blocking prompt never fires
+        // against leftovers from an earlier attempt in the same session.
+        address: `${String(args.stamp).slice(-3)} Stage-Move Way, Cincinnati, OH`,
+        phone: '513' + String(args.stamp).slice(-7),
         email: `e2e-move-${args.stamp}@nbd.test`,
         stage: 'new',
         e2eTestData: true
@@ -235,9 +263,13 @@ test.describe.serial('Authenticated destructive flows', () => {
       // loadLeads refresh), so re-fetch by lastName to grab the id.
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
+      // userId filter keeps the query provable under the leads read rule
+      // (isOwner(resource.data.userId)) — see the save-lead test.
+      const uid = (window._auth || window.auth).currentUser.uid;
       const snap = await fsMod.getDocs(
         fsMod.query(
           fsMod.collection(db, 'leads'),
+          fsMod.where('userId', '==', uid),
           fsMod.where('lastName', '==', String(args.stamp)),
           fsMod.where('e2eTestData', '==', true)
         )
