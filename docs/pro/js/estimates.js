@@ -1390,7 +1390,21 @@ function collectInsuranceFields() {
 // + 50% at completion; Insurance jobs default $0 down (ACV covers the
 // first check once the carrier pays). User can override the split on
 // either mode — this is the spec's documented behavior.
+//
+// D-5 unify (Rock 2 PR 4 close-out, 2026-07-04): delegate to V2's
+// calcDeposit so both engines quote the SAME deposit for the same total.
+// The engines had drifted on rounding: classic rounded the amount to
+// cents, V2 rounds to the $25 step (matching the rounding the customer
+// already sees on the grand total) — a $16,375 cash job quoted an
+// $8,187.50 deposit on one path and $8,200 on the other. V2's is the
+// spec behavior; classic falls back to its legacy cent-rounding only if
+// the V2 engine isn't loaded.
 function calcDeposit(grandTotal, mode, overridePct) {
+  const V2 = (typeof window !== 'undefined') && window.EstimateBuilderV2;
+  if (V2 && typeof V2.calcDeposit === 'function') {
+    return V2.calcDeposit(grandTotal, mode, { overridePct });
+  }
+  _warnDeprecatedOnce('calcDeposit', 'EstimateBuilderV2.calcDeposit');
   if (grandTotal <= 0) return { pct: 0, amount: 0, remainder: grandTotal };
   const defaultPct = mode === 'insurance' ? 0 : 50;
   const pct = (overridePct != null && overridePct >= 0 && overridePct <= 100)

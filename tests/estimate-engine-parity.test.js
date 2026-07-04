@@ -109,6 +109,33 @@ ok('D-1 fallback Cincinnati $185 present', /Cincinnati:\s*185/.test(permitBlock)
 ok('D-1 fallback Covington $125 present', /Covington:\s*125/.test(permitBlock));
 ok('D-1 legacy Cincinnati $175 is gone', !/Cincinnati:\s*175/.test(permitBlock));
 
+// ════════════════════════════════════════════════════════════════════
+// D-5 — deposit math unified (Rock 2 PR 4 close-out).
+// Classic delegates to V2.calcDeposit; the engines had drifted on
+// rounding (classic → cents, V2 → the $25 step the spec calls for).
+// ════════════════════════════════════════════════════════════════════
+console.log('\nENGINE PARITY — D-5 deposit unified via V2.calcDeposit');
+const near = (a, b) => Math.abs(a - b) < 0.005;
+ok('V2 exposes calcDeposit', typeof V2.calcDeposit === 'function');
+{
+  // Cash default: 50%, amount rounded to the $25 step.
+  const cash = V2.calcDeposit(16375, 'cash', {});
+  ok('D-5 cash 50% of $16,375 rounds to $8,200 (not $8,187.50)', cash.pct === 50 && cash.amount === 8200);
+  ok('D-5 remainder = total − amount', near(cash.remainder, 16375 - 8200));
+  // Insurance default: $0 down.
+  const ins = V2.calcDeposit(16375, 'insurance', {});
+  ok('D-5 insurance defaults to $0 down', ins.pct === 0 && ins.amount === 0);
+  // Override honored on either mode.
+  const ovr = V2.calcDeposit(10000, 'insurance', { overridePct: 25 });
+  ok('D-5 override 25% honored on insurance', ovr.pct === 25 && ovr.amount === 2500);
+  // Zero/invalid totals never produce a deposit.
+  const zero = V2.calcDeposit(0, 'cash', {});
+  ok('D-5 zero total → zero deposit', zero.pct === 0 && zero.amount === 0);
+  // Classic source delegates (same pattern as D-2's waste delegation).
+  ok('D-5 classic calcDeposit delegates to V2', /V2\.calcDeposit\(grandTotal, mode, \{ overridePct \}\)/.test(ESTSRC_D5()));
+}
+function ESTSRC_D5(){ return fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/estimates.js'), 'utf8'); }
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILED: ' + fails.join(', ')); process.exit(1); }
