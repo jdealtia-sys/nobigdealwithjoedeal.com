@@ -39,17 +39,21 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
     // would bounce us back to /pro/login if auth state didn't stick.
     expect(page.url()).toMatch(/\/pro\/dashboard(\.html)?([?#]|$)/); // cleanUrls strips .html
 
-    // Kanban container loads via crm.js. Selector audited 2026-04-25:
-    // #crm-board is the top-level kanban wrapper rendered post-login.
-    // Fall back to any "crm" or "kanban" id if the selector drifts.
-    const kanban = page.locator('#crm-board, #crm-kanban, [data-view="crm"]').first();
+    // Kanban container loads via crm.js. Selector re-audited 2026-07-04:
+    // the CRM view now stamps <template id="tpl-view-crm"> into #view-crm,
+    // and crm.js binds against #kanbanBoard (dashboard.html:2398).
+    const kanban = page.locator('#kanbanBoard, #view-crm .kanban-board').first();
     await expect(kanban).toBeVisible({ timeout: 15_000 });
 
     // Sanity: no hard runtime errors during the dashboard's first paint.
     // Allow CSP Report-Only + Service Worker registration warnings — those
-    // are expected on first visit and don't break the app.
+    // are expected on first visit and don't break the app. Emulator mode
+    // additionally runs without the functions emulator, so callable fetches
+    // to 127.0.0.1:5001 log connection-refused errors that aren't app bugs.
+    const emulatorMode = /127\.0\.0\.1|localhost/.test(process.env.PLAYWRIGHT_BASE_URL || '');
     const hard = consoleErrors.filter(e =>
       !/Report Only|favicon|Service Worker registration|chrome-extension/i.test(e)
+      && !(emulatorMode && /127\.0\.0\.1:5001|ERR_CONNECTION_REFUSED|Failed to load resource/i.test(e))
     );
     expect(hard, 'unexpected console errors during dashboard load').toEqual([]);
   });
@@ -116,7 +120,7 @@ test.describe.serial('Authenticated destructive flows', () => {
 
     // Wait for the kanban to render before opening a modal — opening
     // before the page is hydrated can race against module load order.
-    await expect(page.locator('#crm-board, #crm-kanban').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first()).toBeVisible({ timeout: 15_000 });
 
     // Tag with a fixed prefix per session so cleanup can reliably
     // find every test lead even if a test crashes mid-write.
@@ -187,7 +191,7 @@ test.describe.serial('Authenticated destructive flows', () => {
 
   test('move stage logs timeline activity + updates stageStartedAt', async ({ page }) => {
     await loginAs(page, creds);
-    await expect(page.locator('#crm-board, #crm-kanban').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first()).toBeVisible({ timeout: 15_000 });
 
     const stamp = Date.now();
 
