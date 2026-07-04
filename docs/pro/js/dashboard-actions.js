@@ -338,7 +338,7 @@ window.modeLineDraw = function modeLineDraw() {
 function goTo(name, params = {}) {
   // ── Lite tier gate: block Pro-only views ──
   if (window._userPlan === 'lite' && PRO_ONLY_VIEWS.includes(name)) {
-    showToast('Upgrade to Pro to access this feature — $79/mo', 'error');
+    showToast('Upgrade to access this feature — plans start at $99/mo', 'error');
     return;
   }
 

@@ -962,8 +962,8 @@
         banner.id = 'liteBanner';
         banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,var(--s),var(--s2));border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
         banner.innerHTML = `
-          <span>🚀 You're on <strong class="fg-orange">NBD Pro Lite</strong> (25 leads max)</span>
-          <a href="/pro/landing.html#pricing" style="background:var(--orange);color:var(--accent-fg);padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
+          <span>🚀 You're on the <strong class="fg-orange">NBD Pro Free plan</strong> (10 leads/month)</span>
+          <a href="/pro/pricing.html" style="background:var(--orange);color:var(--accent-fg);padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade — Starter $99/mo →</a>
           <button data-action="removeParent" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
         `;
         document.body.appendChild(banner);
@@ -2420,7 +2420,7 @@
       if ((!editId || editId.startsWith('d-')) && window._userPlan === 'lite') {
         const currentCount = (window._leads || []).length;
         if (currentCount >= 25) {
-          showToast('Free tier limit: 25 leads. Upgrade to Pro for unlimited leads.', 'error');
+          showToast('Free plan lead limit reached. Upgrade to Starter ($99/mo) for more leads.', 'error');
           return null;
         }
       }
