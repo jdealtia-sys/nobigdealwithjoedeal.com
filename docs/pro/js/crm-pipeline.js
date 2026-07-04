@@ -31,6 +31,37 @@
 // KANBAN CRM — renderLeads / drag-drop / filter
 // ══════════════════════════════════════════════
 
+// ── Ops P1 #4 increment (2026-07-04): per-column render cap ──────
+// The fetch keeps the COMPLETE book in window._leads (KPIs, money
+// dashboard, search, export all assume completeness — see the ops
+// audit), but the DOM paint was unbounded: every lead in every column
+// became a card node + listeners on every render, which is the half
+// of the "breaks first at scale" P1 we can fix without a consumer
+// migration. Cap the initial paint per column; a "Show all" row
+// mounts the remainder on demand. Column counts and $ totals are
+// computed from the FULL array above, so nothing under-reports.
+const KANBAN_RENDER_CAP = 75;
+const _kbShowAll = {}; // stageKey -> true once the rep expands the column
+
+function renderColumnCards(body, cards, stageKey) {
+  const showAll = _kbShowAll[stageKey] || cards.length <= KANBAN_RENDER_CAP;
+  const slice = showAll ? cards : cards.slice(0, KANBAN_RENDER_CAP);
+  let html = slice.map(l => buildCard(l)).join('');
+  if (!showAll) {
+    html += '<button type="button" class="k-show-all">Show all '
+      + cards.length + ' cards (+' + (cards.length - slice.length) + ' hidden)</button>';
+  }
+  body.innerHTML = html;
+  if (!showAll) {
+    const btn = body.querySelector('.k-show-all');
+    if (btn) btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      _kbShowAll[stageKey] = true;
+      if (typeof renderLeads === 'function') renderLeads();
+    });
+  }
+}
+
 function renderLeads(leads, filtered){
   const all   = (leads  || window._leads || []);
   let list    = (filtered !== undefined && filtered !== null) ? filtered : all;
@@ -385,7 +416,7 @@ function renderLeads(leads, filtered){
         }
       }
       if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="k-empty-line">Drop leads here</div></div>'; return; }
-      body.innerHTML = cards.map(l=>buildCard(l)).join('');
+      renderColumnCards(body, cards, stageKey);
       _highlightCardMatches(body); // CO-M-1: highlight after parse, text nodes only
       wireKanbanCardListeners(body);
       // attach drag events to cards
@@ -454,7 +485,7 @@ function renderLeads(leads, filtered){
       const cards = byStage[stage]||[];
       if(count) count.textContent = cards.length;
       if(!cards.length){ body.innerHTML='<div class="k-empty"><div class="k-empty-line">Drop leads here</div></div>'; return; }
-      body.innerHTML = cards.map(l=>buildCard(l)).join('');
+      renderColumnCards(body, cards, stage);
       _highlightCardMatches(body); // CO-M-1: highlight after parse, text nodes only
       body.querySelectorAll('.k-card').forEach(card=>{
         card.addEventListener('dragstart', e=>{ _dragId=card.dataset.id; card.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', card.dataset.id); });
