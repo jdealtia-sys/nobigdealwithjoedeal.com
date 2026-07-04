@@ -38,6 +38,7 @@
 - **Subscription key:** `subscriptions/{companyId}` (recommended) vs `companies/{companyId}.billing`.
 - **Pricing model:** flat per-plan, or per-seat (e.g. "Growth $249/mo incl. 5 seats, +$49/seat"). Defines the Stripe product setup.
 - **Trial / free tier** for new self-serve companies, and whether signup is paywalled up front (ties to Pillar 1's open/curated decision).
+  > **DECIDED (Jo, 2026-07-04):** stay open self-serve — free tier with soft limits; no plan-gate/paywall at company creation (Phase 4 signup paywall is off the table).
 - **Migration window:** existing per-uid subs are NBD-only today (solo) → low-risk; confirm before re-keying.
 
 ## Risk notes

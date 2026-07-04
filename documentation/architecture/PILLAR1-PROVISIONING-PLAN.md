@@ -97,4 +97,5 @@ Pillar 1 (this) → **Pillar 4 (company-level billing:** `subscriptions/{uid}` �
 ## Open decisions for Jo
 - **GCIP vs Firestore-trigger refactor** for `onRepSignup` (Phase 0).
 - **Signup gating:** open self-serve (anyone) vs invite/approval-only (curated) — affects abuse surface + whether Phase 2 needs a plan/paywall up front.
+  > **DECIDED (Jo, 2026-07-04):** stay open self-serve — free tier with soft limits; no plan-gate/paywall at company creation.
 - **Owner auth method:** email+password, Google SSO, or both.
