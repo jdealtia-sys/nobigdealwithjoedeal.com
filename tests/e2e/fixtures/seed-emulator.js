@@ -19,7 +19,11 @@
 //                              solo owner ⇒ companyId == uid)
 //   - custom claims          — { companyId: uid, role: 'company_admin' }
 
-const admin = require('firebase-admin');
+// Modular admin API (firebase-admin >= 12; REQUIRED as of 14, which removed
+// the legacy namespaced admin.auth()/admin.firestore() entry points).
+const { initializeApp } = require('firebase-admin/app');
+const { getAuth } = require('firebase-admin/auth');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 
 const EMAIL = process.env.PLAYWRIGHT_TEST_USER_EMAIL || 'playwright-e2e@nbd.test';
 const PASSWORD = process.env.PLAYWRIGHT_TEST_USER_PASSWORD || 'nbd-e2e-password-1';
@@ -37,9 +41,9 @@ async function main() {
     process.exit(1);
   }
 
-  admin.initializeApp({ projectId: PROJECT_ID });
-  const auth = admin.auth();
-  const db = admin.firestore();
+  initializeApp({ projectId: PROJECT_ID });
+  const auth = getAuth();
+  const db = getFirestore();
 
   // Idempotent: emulators usually start empty, but a re-run inside one
   // emulators:exec session shouldn't fail.
@@ -58,7 +62,7 @@ async function main() {
 
   await auth.setCustomUserClaims(uid, { companyId: uid, role: 'company_admin' });
 
-  const now = admin.firestore.FieldValue.serverTimestamp();
+  const now = FieldValue.serverTimestamp();
   const batch = db.batch();
   batch.set(db.doc(`users/${uid}`), {
     firstName: 'Playwright',
