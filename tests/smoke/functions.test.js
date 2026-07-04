@@ -1573,7 +1573,16 @@ section('SEO: every /docs/blog/*.html has a sitemap entry');
       .filter(f => f.endsWith('.html') && f !== 'index.html');
     for (const file of posts) {
       const slug = file.replace(/\.html$/, '');
-      assert('sitemap has /blog/' + slug, sitemap.includes('/blog/' + slug));
+      const html = fs.readFileSync(path.join(blogDir, file), 'utf8');
+      // A noindexed post (e.g. the field-notes placeholder) must be OUT of
+      // the sitemap — listing a page you tell crawlers not to index is a
+      // mixed signal Search Console flags. build-sitemap.js enforces the
+      // same rule via isNoindexed().
+      if (/<meta[^>]+name=["']robots["'][^>]+noindex/i.test(html)) {
+        assert('sitemap EXCLUDES noindexed /blog/' + slug, !sitemap.includes('/blog/' + slug));
+      } else {
+        assert('sitemap has /blog/' + slug, sitemap.includes('/blog/' + slug));
+      }
     }
   } else {
     assert('sitemap.xml exists at docs/sitemap.xml', false);
