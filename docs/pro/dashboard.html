@@ -1456,7 +1456,10 @@
                consolidated config (estimate-config.js) instead of
                the parallel Classic constants. -->
           <button class="btn btn-orange" data-action="call" data-fn="openEstimateV2Builder" title="Build a new estimate with the V2 builder (270 line items, presets, tier comparison, BoldSign signing)">＋ New Estimate</button>
-          <button class="btn btn-ghost" data-action="call" data-fn="startNewEstimateOriginal" title="Classic 4-step wizard (legacy — V2 has full feature parity)" style="font-size:11px;padding:6px 12px;color:var(--m);">Classic</button>
+          <!-- Rock 2 PR 5 (Jo, 2026-07-04): the "Classic" ghost button is gone —
+               new estimates are V2-only. The classic wizard code stays loaded
+               solely so viewEstimate() can still open LEGACY classic-format
+               docs for editing (deleting it would strand old estimates). -->
         </div>
       </div>
       <div id="estListWrap"><div class="empty">
@@ -6043,6 +6046,8 @@
 <script defer src="js/whats-new.js?v=1"></script>
 <!-- Feature flags (F9) — window.NBDFlags for kill switches + gradual rollout -->
 <script defer src="js/feature-flags.js?v=1"></script>
+<!-- Stage B slice 1: flag-gated shadow server aggregates (no UI reads) -->
+<script defer src="js/server-aggregates.js?v=1"></script>
 <!-- Help-icon helper: window.HelpIcon.attach(el, anchor) drops a "?"
      next to any element that opens how-to.html at the right section. -->
 <script defer src="js/help-icon.js?v=1"></script>

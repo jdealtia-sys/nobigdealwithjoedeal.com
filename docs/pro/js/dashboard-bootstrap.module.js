@@ -1159,6 +1159,12 @@
       });
     }
     loadLeads().then(() => {
+      // Stage B slice 1 (2026-07-04): flag-gated SHADOW comparison of a
+      // server-side count() against the just-fetched cache. Fire-and-forget,
+      // logs only, no UI reads it — see docs/pro/js/server-aggregates.js.
+      try {
+        if (window.NBDServerAggregates) window.NBDServerAggregates.shadowCompare();
+      } catch (_) { /* shadow must never affect boot */ }
       // ── Wave 120: stuck-skeleton reliability fix ────────────────────
       // Previously this gated render on `window._leads?.length` — which
       // meant any user with ZERO leads (brand-new accounts, or leads
@@ -1329,22 +1335,17 @@
           }
           if (typeof viewEstimate === 'function') viewEstimate(estParam);
         } else {
-          if (typeof startNewEstimateOriginal === 'function') startNewEstimateOriginal();
-          else if (typeof startNewEstimate === 'function') startNewEstimate();
-          // Pre-fill address from lead if leadParam provided
-          if (leadParam && window._leads) {
-            const lead = window._leads.find(l => l.id === leadParam);
-            if (lead) {
-              const addrEl = document.getElementById('estAddr');
-              const ownerEl = document.getElementById('estOwner');
-              if (addrEl && lead.address) addrEl.value = lead.address;
-              if (ownerEl) ownerEl.value = `${lead.firstName||''} ${lead.lastName||''}`.trim();
-              // Store linked leadId so saveEstimate can attach it
-              window._estLinkedLeadId = leadParam;
-              updateEstCalc();
-              const note = document.getElementById('drawImportNote');
-              if (note) { note.textContent = '✓ Pre-filled from customer record — estimate will auto-link on save'; note.style.display='block'; }
-            }
+          // Rock 2 PR 5 (Jo, 2026-07-04: V2-only for NEW estimates): the
+          // deep-link new-estimate path opens the V2 builder directly —
+          // { leadId } drives V2's own prefillFromLead + save linkage, so
+          // the old classic-DOM pre-fill (estAddr/estOwner + updateEstCalc)
+          // is gone with it. startNewEstimate() remains the fallback and
+          // itself routes to V2 (or the picker if V2 failed to load).
+          if (typeof window.openEstimateV2Builder === 'function') {
+            window.openEstimateV2Builder(leadParam ? { leadId: leadParam } : {});
+          } else if (typeof startNewEstimate === 'function') {
+            if (leadParam) window._estLinkedLeadId = leadParam;
+            startNewEstimate();
           }
         }
         window.history.replaceState({}, '', '/pro/dashboard.html');
@@ -1769,6 +1770,10 @@
           if (pageSnap.size < _PAGE) break;   // last (partial) page
           cursor = pageSnap.docs[pageSnap.docs.length - 1];
         }
+        // Stage B shadow: stash the PRE-filter page-union total so
+        // server-aggregates.js can compare count() against the same
+        // population (window._leads itself is post-filter).
+        window._leadsRawCount = allDocs.length;
         // Return a snapshot-shaped object so downstream code is untouched.
         return { docs: allDocs, size: allDocs.length };
       };

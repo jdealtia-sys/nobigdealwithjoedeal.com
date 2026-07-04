@@ -201,6 +201,10 @@ function startNewEstimate() {
 }
 
 function startNewEstimateOriginal() {
+  // Rock 2 PR 5: no UI path reaches this for NEW estimates anymore (V2-only
+  // per Jo, 2026-07-04). Reachable only via console/legacy bookmarks; the
+  // warn tells us if anything real still lands here before final deletion.
+  _warnDeprecatedOnce('startNewEstimateOriginal', 'openEstimateV2Builder');
   const list    = document.getElementById('est-list');
   const builder = document.getElementById('est-builder');
   if (!builder) { console.warn('Estimate builder not in DOM'); return; }
