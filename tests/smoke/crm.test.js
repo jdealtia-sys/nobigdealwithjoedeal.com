@@ -7,7 +7,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, read, readCustomer, readDashboardMain, readCrm } = require('./_shared');
+const { ROOT, read, readCustomer, readDashboardMain, readDashboardStyles, readCrm } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -359,7 +359,7 @@ section('Customer photo grid — surgical render path');
 
 section('Phase D.2 — Cross-lead Recent Photo Feed');
 {
-  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
   const mainJs = readDashboardMain();
 
   // 1. Mode toggle present in tpl-view-photos.

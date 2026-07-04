@@ -81,15 +81,32 @@ ok('D-4 V2 extraPipeBoot agrees with config ($85)', !V2.ADDON_PRICES || V2.ADDON
 
 // ════════════════════════════════════════════════════════════════════
 // D-1 — classic per-city permit defaults realigned to county V2 values.
-// (Asserted against the committed estimates.js source so a regression is caught.)
+// PR 3b: the canonical tables now live in estimate-config.js
+// (PERMIT_COSTS_BY_COUNTY + PERMIT_CITY_TO_COUNTY); classic derives its
+// city map from them at load. Assert the derivation (config → city cost)
+// AND that estimates.js still carries the correct inline fallback for the
+// config-didn't-load path.
 // ════════════════════════════════════════════════════════════════════
 console.log('\nENGINE PARITY — D-1 permit defaults realigned to county values');
+const cityCost = (city) => {
+  const slug = CFG.PERMIT_CITY_TO_COUNTY && CFG.PERMIT_CITY_TO_COUNTY[city];
+  const entry = slug && CFG.PERMIT_COSTS_BY_COUNTY && CFG.PERMIT_COSTS_BY_COUNTY[slug];
+  return entry && entry.cost;
+};
+ok('D-1 Cincinnati → Hamilton county $185', cityCost('Cincinnati') === 185);
+ok('D-1 Mason → Warren county $165', cityCost('Mason') === 165);
+ok('D-1 Milford → Clermont county $170', cityCost('Milford') === 170);
+ok('D-1 Covington → Kenton county $125', cityCost('Covington') === 125);
+// V2 reads the same canonical table (drift between engines now impossible
+// unless a fallback path is running).
+ok('D-1 V2 permit table agrees with config', !V2.PERMIT_COSTS ||
+  Object.keys(CFG.PERMIT_COSTS_BY_COUNTY).every(s => V2.PERMIT_COSTS[s] && V2.PERMIT_COSTS[s].cost === CFG.PERMIT_COSTS_BY_COUNTY[s].cost));
+// Classic's inline fallback literals must stay correct too — they're what
+// prices a job if estimate-config.js ever fails to load.
 const ESTSRC = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/estimates.js'), 'utf8');
-const permitBlock = (ESTSRC.match(/const PERMIT_COSTS = \{[\s\S]*?\};/) || [''])[0];
-ok('D-1 Cincinnati → Hamilton county $185', /Cincinnati:\s*185/.test(permitBlock));
-ok('D-1 Mason → Warren county $165', /Mason:\s*165/.test(permitBlock));
-ok('D-1 Milford → Clermont county $170', /Milford:\s*170/.test(permitBlock));
-ok('D-1 Covington → Kenton county $125', /Covington:\s*125/.test(permitBlock));
+const permitBlock = (ESTSRC.match(/const PERMIT_COSTS = [\s\S]*?\};/) || [''])[0];
+ok('D-1 fallback Cincinnati $185 present', /Cincinnati:\s*185/.test(permitBlock));
+ok('D-1 fallback Covington $125 present', /Covington:\s*125/.test(permitBlock));
 ok('D-1 legacy Cincinnati $175 is gone', !/Cincinnati:\s*175/.test(permitBlock));
 
 console.log('\n──────────────────────────────────────────────────');

@@ -144,6 +144,15 @@ const PRO_FOOTNOTE = [
 
 /* ── Filesystem discovery ────────────────────────────────────────────────── */
 
+// Pages whose <head> carries a robots noindex meta must never be in the
+// sitemap (e.g. the field-notes placeholder post, noindexed 2026-07-04).
+const NOINDEX_RE = /<meta[^>]+name=["']robots["'][^>]*content=["'][^"']*noindex/i;
+const isNoindexed = (file) => {
+  const html = fs.readFileSync(file, 'utf8');
+  const headEnd = html.indexOf('</head>');
+  return NOINDEX_RE.test(headEnd === -1 ? html : html.slice(0, headEnd));
+};
+
 const listHtml = (dir) =>
   fs.existsSync(dir)
     ? fs.readdirSync(dir)
@@ -205,9 +214,21 @@ function generate(prevLastmod, warn) {
     }
   };
 
+  // Drop noindexed pages from every discovered list (see NOINDEX_RE above).
+  const dropNoindexed = (slugs, fileFor, label) =>
+    slugs.filter((slug) => {
+      if (!isNoindexed(fileFor(slug))) return true;
+      warn('robots noindex meta found, excluded from sitemap: ' + label + slug);
+      return false;
+    });
+
   // Directory-based service pages: discovered from docs/services/*/index.html,
   // then matched against the curated section map.
-  const dirServicesOnDisk = listDirServices();
+  const dirServicesOnDisk = dropNoindexed(
+    listDirServices(),
+    (slug) => path.join(DOCS, 'services', slug, 'index.html'),
+    'services/'
+  );
   const knownDirSlugs = new Set([
     ...PREMIUM_DIR_SERVICES.map(([s]) => s),
     GAF_TIMBERLINE_SERVICE[0],
@@ -227,20 +248,28 @@ function generate(prevLastmod, warn) {
 
   // Blog posts: specials are pinned to their sections; the rest go to the
   // main homeowner blog section at 0.6.
-  const blogOnDisk = listHtml(path.join(DOCS, 'blog'));
+  const blogOnDisk = dropNoindexed(
+    listHtml(path.join(DOCS, 'blog')),
+    (slug) => path.join(DOCS, 'blog', slug + '.html'),
+    'blog/'
+  );
   const specialBlogSlugs = new Set([
     ...PREMIUM_BLOG_POSTS.map(([s]) => s),
     GAF_TIMBERLINE_BLOG[0],
   ]);
   const premiumBlogEntries = PREMIUM_BLOG_POSTS.filter(([slug]) => {
     if (blogOnDisk.includes(slug)) return true;
-    warn('premium blog post missing on disk, dropped: blog/' + slug);
+    warn('premium blog post missing on disk (or noindexed), dropped: blog/' + slug);
     return false;
   });
   const mainBlogSlugs = blogOnDisk.filter((s) => !specialBlogSlugs.has(s));
 
   // Services: plain pages + city combos from docs/services/*.html.
-  const serviceHtmlSlugs = listHtml(path.join(DOCS, 'services'));
+  const serviceHtmlSlugs = dropNoindexed(
+    listHtml(path.join(DOCS, 'services')),
+    (slug) => path.join(DOCS, 'services', slug + '.html'),
+    'services/'
+  );
   const plainOnDisk = [...PLAIN_SERVICES].sort().filter((slug) => {
     if (serviceHtmlSlugs.includes(slug)) return true;
     warn('plain service page missing on disk, dropped: services/' + slug);
@@ -249,7 +278,11 @@ function generate(prevLastmod, warn) {
   const comboSlugs = serviceHtmlSlugs.filter((s) => !PLAIN_SERVICES.has(s));
 
   // Areas: tier 1 first (0.9), then the rest (0.8), each alphabetical.
-  const areaSlugs = listHtml(path.join(DOCS, 'areas'));
+  const areaSlugs = dropNoindexed(
+    listHtml(path.join(DOCS, 'areas')),
+    (slug) => path.join(DOCS, 'areas', slug + '.html'),
+    'areas/'
+  );
   const tier1Areas = areaSlugs.filter((s) => TIER_1_AREAS.has(s));
   const tier2Areas = areaSlugs.filter((s) => !TIER_1_AREAS.has(s));
 

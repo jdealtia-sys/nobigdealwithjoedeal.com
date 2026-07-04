@@ -13,6 +13,32 @@
 const { test, expect } = require('@playwright/test');
 const { requireTestUser, loginAs, callCallableInPage, cleanupE2EData } = require('./fixtures/auth');
 
+/**
+ * Navigate to the CRM/Pipeline view. Post-login the dashboard shows
+ * view-home; the kanban view is template-stamped on first goTo('crm').
+ * Click the sidebar nav item (#nav-crm) like a real user, falling back
+ * to the global goTo() when the sidebar is hidden (narrow viewports).
+ */
+async function openCrmView(page) {
+  // Wait for the nav plumbing itself (dashboard-ui.js defines window.goTo)
+  // rather than clicking #nav-crm — the click delegate binds asynchronously
+  // and a fast retry can click before it listens, silently going nowhere.
+  // Retry through context teardowns: login lands via a 301 hop
+  // (dashboard.html → cleanUrls → dashboard), and a wait that latched onto
+  // the provisional document dies with "Execution context was destroyed".
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await page.waitForLoadState('load');
+      await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 15_000 });
+      await page.evaluate(() => window.goTo('crm'));
+      return;
+    } catch (e) {
+      if (!/Execution context was destroyed|navigation|not a function/i.test(String(e))) throw e;
+    }
+  }
+  throw new Error('openCrmView: dashboard never settled with a working goTo()');
+}
+
 test.describe('Authenticated /pro/ shell — read-only', () => {
   let creds;
   test.beforeAll(() => {
@@ -37,19 +63,27 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
 
     // Post-redirect URL is dashboard.html; the auth gate (nbd-auth.js)
     // would bounce us back to /pro/login if auth state didn't stick.
-    expect(page.url()).toContain('/pro/dashboard.html');
+    expect(page.url()).toMatch(/\/pro\/dashboard(\.html)?([?#]|$)/); // cleanUrls strips .html
 
-    // Kanban container loads via crm.js. Selector audited 2026-04-25:
-    // #crm-board is the top-level kanban wrapper rendered post-login.
-    // Fall back to any "crm" or "kanban" id if the selector drifts.
-    const kanban = page.locator('#crm-board, #crm-kanban, [data-view="crm"]').first();
+    // Post-login the dashboard lands on view-home (re-audited 2026-07-04:
+    // boot only auto-opens CRM for ?edit=/?tasks= deep links). The kanban
+    // exists after navigating to the Pipeline view, which stamps
+    // <template id="tpl-view-crm"> into #view-crm; crm.js binds
+    // #kanbanBoard (dashboard.html:2398). Navigate like a user: the
+    // sidebar nav item.
+    await openCrmView(page);
+    const kanban = page.locator('#kanbanBoard, #view-crm .kanban-board').first();
     await expect(kanban).toBeVisible({ timeout: 15_000 });
 
     // Sanity: no hard runtime errors during the dashboard's first paint.
     // Allow CSP Report-Only + Service Worker registration warnings — those
-    // are expected on first visit and don't break the app.
+    // are expected on first visit and don't break the app. Emulator mode
+    // additionally runs without the functions emulator, so callable fetches
+    // to 127.0.0.1:5001 log connection-refused errors that aren't app bugs.
+    const emulatorMode = /127\.0\.0\.1|localhost/.test(process.env.PLAYWRIGHT_BASE_URL || '');
     const hard = consoleErrors.filter(e =>
       !/Report Only|favicon|Service Worker registration|chrome-extension/i.test(e)
+      && !(emulatorMode && /127\.0\.0\.1:5001|ERR_CONNECTION_REFUSED|Failed to load resource|app-?check|ReCAPTCHA|cloudfunctions\.net|CORS policy/i.test(e))
     );
     expect(hard, 'unexpected console errors during dashboard load').toEqual([]);
   });
@@ -64,7 +98,7 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
     // Give the 2.5-second nbd-auth.js grace window from PR #37 enough
     // headroom to settle; if we're going to bounce we'd see /login by now.
     await page.waitForTimeout(3_500);
-    expect(page.url(), 'auth-restore must keep us on dashboard, not /login').toContain('/pro/dashboard.html');
+    expect(page.url(), 'auth-restore must keep us on dashboard, not /login').toMatch(/\/pro\/dashboard(\.html)?([?#]|$)/);
   });
 });
 
@@ -93,6 +127,10 @@ test.describe.serial('Authenticated destructive flows', () => {
 
   test.afterAll(async ({ browser }) => {
     if (!creds) return;
+    // Emulator mode (test:e2e:authed:emu): all state lives in the Firestore
+    // emulator and evaporates when emulators:exec exits, and the functions
+    // emulator (which would host the cleanup callable) isn't running. Skip.
+    if (/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) return;
     // Spin up a fresh page so afterAll has its own auth context
     // independent of any test that may have navigated mid-flight.
     const context = await browser.newContext();
@@ -108,17 +146,34 @@ test.describe.serial('Authenticated destructive flows', () => {
   });
 
   test('save lead writes companyId + customerId, lead appears in kanban', async ({ page }) => {
+    // _saveLead geocodes new-lead addresses via nominatim.openstreetmap.org,
+    // which has no client timeout and rate-limits CI egress IPs — the save
+    // then hangs the full test timeout. E2E must not depend on OSM: answer
+    // the geocode with an empty result so the save proceeds without lat/lng.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
     await loginAs(page, creds);
 
     // Wait for the kanban to render before opening a modal — opening
     // before the page is hydrated can race against module load order.
-    await expect(page.locator('#crm-board, #crm-kanban').first()).toBeVisible({ timeout: 15_000 });
+    await openCrmView(page);
+    await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first()).toBeVisible({ timeout: 15_000 });
 
     // Tag with a fixed prefix per session so cleanup can reliably
     // find every test lead even if a test crashes mid-write.
     const stamp = Date.now();
     const leadName = `[E2E] Smith ${stamp}`;
-    const leadAddress = '999 E2E Test Lane, Cincinnati, OH';
+    // Unique per attempt: a retry re-runs against the same emulator session,
+    // and a same-phone/same-address payload trips LeadDedup.checkAndPrompt's
+    // modal, which awaits a human click forever.
+    const leadPhone = '513' + String(stamp).slice(-7);
+    const leadAddress = `${String(stamp).slice(-3)} E2E Test Lane, Cincinnati, OH`;
+
+    // _saveLead stamps userId from window._user, which the auth listener
+    // sets asynchronously after boot — calling before it lands writes
+    // userId: undefined (addDoc rejects). A human can't click Save that
+    // fast; the test can.
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
 
     // Open the new-lead modal via the canonical button. Selector
     // audited 2026-04-25: dashboard.html:8411 has the orange button
@@ -128,7 +183,7 @@ test.describe.serial('Authenticated destructive flows', () => {
     await page.fill('#lFname', '[E2E] Smith');
     await page.fill('#lLname', String(stamp));
     await page.fill('#lAddr', leadAddress);
-    await page.fill('#lPhone', '5135550199');
+    await page.fill('#lPhone', leadPhone);
     await page.fill('#lEmail', `e2e-${stamp}@nbd.test`);
 
     // Bypass the UI's `saveLead()` so we can stamp e2eTestData:true
@@ -140,11 +195,11 @@ test.describe.serial('Authenticated destructive flows', () => {
       firstName: '[E2E] Smith',
       lastName: String(args.stamp),
       address: args.leadAddress,
-      phone: '5135550199',
+      phone: args.leadPhone,
       email: `e2e-${args.stamp}@nbd.test`,
       stage: 'new',
       e2eTestData: true
-    }), { stamp, leadAddress });
+    }), { stamp, leadAddress, leadPhone });
 
     // Give the optimistic insert + Firestore round-trip a moment to
     // settle. The kanban refresh is debounced; 4s is generous.
@@ -161,9 +216,14 @@ test.describe.serial('Authenticated destructive flows', () => {
     const dbCheck = await page.evaluate(async (n) => {
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
+      // The leads read rule is isOwner(resource.data.userId) — a query
+      // must carry the userId filter or Firestore can't prove it complies
+      // and rejects it outright (empty-message FirebaseError).
+      const uid = (window._auth || window.auth).currentUser.uid;
       const snap = await fsMod.getDocs(
         fsMod.query(
           fsMod.collection(db, 'leads'),
+          fsMod.where('userId', '==', uid),
           fsMod.where('e2eTestData', '==', true),
           fsMod.where('lastName', '==', String(n))
         )
@@ -182,18 +242,28 @@ test.describe.serial('Authenticated destructive flows', () => {
   });
 
   test('move stage logs timeline activity + updates stageStartedAt', async ({ page }) => {
+    // Same nominatim stub as the save-lead test — _saveLead geocodes new
+    // addresses and OSM rate-limits CI IPs with no client timeout.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
     await loginAs(page, creds);
-    await expect(page.locator('#crm-board, #crm-kanban').first()).toBeVisible({ timeout: 15_000 });
+    await openCrmView(page);
+    await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first()).toBeVisible({ timeout: 15_000 });
 
     const stamp = Date.now();
+
+    // Same auth-resolved gate as the save-lead test (userId stamping).
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
 
     // Seed a fresh lead in stage 'new', tagged for cleanup.
     const leadId = await page.evaluate(async (args) => {
       const ref = await window._saveLead({
         firstName: '[E2E] Move',
         lastName: String(args.stamp),
-        address: '888 Stage-Move Way, Cincinnati, OH',
-        phone: '5135550288',
+        // Unique per attempt so LeadDedup's blocking prompt never fires
+        // against leftovers from an earlier attempt in the same session.
+        address: `${String(args.stamp).slice(-3)} Stage-Move Way, Cincinnati, OH`,
+        phone: '513' + String(args.stamp).slice(-7),
         email: `e2e-move-${args.stamp}@nbd.test`,
         stage: 'new',
         e2eTestData: true
@@ -202,9 +272,13 @@ test.describe.serial('Authenticated destructive flows', () => {
       // loadLeads refresh), so re-fetch by lastName to grab the id.
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
+      // userId filter keeps the query provable under the leads read rule
+      // (isOwner(resource.data.userId)) — see the save-lead test.
+      const uid = (window._auth || window.auth).currentUser.uid;
       const snap = await fsMod.getDocs(
         fsMod.query(
           fsMod.collection(db, 'leads'),
+          fsMod.where('userId', '==', uid),
           fsMod.where('lastName', '==', String(args.stamp)),
           fsMod.where('e2eTestData', '==', true)
         )
@@ -240,20 +314,28 @@ test.describe.serial('Authenticated destructive flows', () => {
     await page.waitForTimeout(2_500);
 
     // Assert: stage advanced, stageStartedAt advanced, timeline note
-    // created in leads/{id}/notes (legacy) or leads/{id}/activity
-    // (Rock 3 contract). Either is acceptable for now.
+    // created. Location re-audited 2026-07-04 against moveCard
+    // (crm-pipeline.js:1661): stage-change notes live in the TOP-LEVEL
+    // `notes` collection keyed by a leadId field — not a leads/{id}
+    // subcollection. The userId filter keeps the query provable under
+    // the notes read rule (isOwner(resource.data.userId)).
     const afterMove = await page.evaluate(async (id) => {
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
       const leadSnap = await fsMod.getDoc(fsMod.doc(db, 'leads', id));
       const lead = leadSnap.data();
-      const notesSnap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'notes'));
+      const uid = (window._auth || window.auth).currentUser.uid;
+      const notesSnap = await fsMod.getDocs(fsMod.query(
+        fsMod.collection(db, 'notes'),
+        fsMod.where('userId', '==', uid),
+        fsMod.where('leadId', '==', id)
+      ));
       const notes = []; notesSnap.forEach(n => notes.push(n.data()));
       return {
         stage: lead.stage,
         stageStartedAt: lead.stageStartedAt && lead.stageStartedAt.seconds,
         notesCount: notes.length,
-        notesShapes: notes.map(n => ({ type: n.type || null, hasStageLabel: !!n.stageLabel }))
+        notesShapes: notes.map(n => ({ type: n.type || null, text: (n.text || '').slice(0, 60) }))
       };
     }, leadId);
 

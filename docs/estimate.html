@@ -156,6 +156,14 @@ body{font-family:'Montserrat',sans-serif;background:var(--navy-dark);color:var(-
 .btn-send-code:disabled{opacity:.5;cursor:not-allowed;}
 .btn-send-code.verified{background:rgba(34,160,107,.15);border-color:var(--success);color:var(--success);}
 
+/* ── OTP escape hatch (additive — conversion audit 2026-07-04) ── */
+.otp-skip{margin-top:14px;text-align:center;}
+.otp-skip-btn{background:none;border:none;padding:4px;color:rgba(255,255,255,.55);font-family:'Montserrat',sans-serif;font-size:.8rem;font-weight:600;text-decoration:underline;cursor:pointer;}
+.otp-skip-btn:hover:not(:disabled){color:var(--white);}
+.otp-skip-btn:disabled{cursor:default;text-decoration:none;color:var(--success);}
+.otp-skip-status{font-size:.78rem;margin-top:6px;color:rgba(255,255,255,.6);}
+.otp-skip-status.error{color:var(--error);}
+
 /* ── TCPA ── */
 .tcpa-check{display:flex;gap:10px;align-items:flex-start;margin:20px 0 8px;}
 .tcpa-check input[type="checkbox"]{width:18px;height:18px;margin-top:2px;accent-color:var(--orange);flex-shrink:0;}
@@ -781,6 +789,11 @@ footer.foot .nbd-social a{text-decoration:none!important;padding:0}
 
     <button class="btn-primary" id="btnSubmit" data-action="submitEstimate" disabled>Get My Free Detailed Estimate &#x2192;</button>
     <div id="submitError" role="alert" aria-live="assertive" style="font-size:.78rem;color:var(--error);text-align:center;margin-top:8px;display:none;"></div>
+
+    <div class="otp-skip" id="otpSkip">
+      <button type="button" class="otp-skip-btn" id="btnOtpSkip" data-action="skipOtp">Skip verification &#8212; just have Joe call me</button>
+      <div class="otp-skip-status" id="otpSkipStatus" role="status" aria-live="polite"></div>
+    </div>
   </div>
   <button class="btn-back" data-step="4">&#8592; Back</button>
 </div>

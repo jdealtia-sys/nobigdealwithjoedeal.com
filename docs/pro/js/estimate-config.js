@@ -24,20 +24,18 @@
 // values and a console.warn surfaces the misload to Sentry.
 //
 // ─── WHAT'S NOT UNIFIED YET (drift risks remaining) ──────────
-// These exist in both engines but with different SHAPES, not
-// just different values, so a PR 3b will need to reconcile the
-// data model before they can share a source:
-//
-//   • COUNTY_TAX_RATES (classic)  vs COUNTY_TAX (V2)
-//       Classic keys are bare county names ("Hamilton")
-//       V2 keys are county-state slugs ("hamilton-oh")
-//   • PERMIT_COSTS (classic)      vs PERMIT_COSTS (V2)
-//       Classic keys are city names + bare numeric values
-//       V2 keys are county-state slugs + {name, cost} objects
-//   • recommendedWasteForPitch (classic) vs wasteFactorForPitch (V2)
-//       Classic input is pitch FACTOR (1.054, 1.118, ...)
-//       V2 input is pitch RATIO (0.33, 0.50, ...)
-//       Different bucket cutoffs AND different output values.
+// ─── SHAPE-RECONCILED TABLES (PR 3b) ─────────────────────────
+// COUNTY_TAX and the permit tables are canonically keyed here by
+// county-state slug (V2's shape). Each engine derives the shape
+// it historically used:
+//   • V2 reads COUNTY_TAX rates / PERMIT_COSTS_BY_COUNTY directly.
+//   • Classic derives its bare-county-name tax map via each
+//     entry's `name`, and its city-keyed permit map via
+//     PERMIT_CITY_TO_COUNTY (the D-1 unify basis, Joe 2026-06-09:
+//     every city's default is its primary county's cost).
+// The waste-for-pitch divergence is already resolved in code:
+// classic's recommendedWasteForPitch delegates to V2's
+// wasteFactorForPitch (D-2 unify), converting factor → ratio.
 //
 // Migration tracker: docs/dev/estimate-engines-audit.md
 // ============================================================
@@ -75,6 +73,50 @@
     // +3% waste added on top of pitch-based waste when the
     // "cut-up roof" checkbox is on.
     CUT_UP_ROOF_WASTE_BONUS: 0.03,
+
+    // ── County sales tax (PR 3b) ─────────────────────────────
+    // Canonical key: county-state slug (V2's shape). `name` is the
+    // bare county name classic keys by — estimates.js derives its
+    // COUNTY_TAX_RATES map from it, estimate-builder-v2.js reads
+    // the rates directly. Edit a rate HERE and both engines move.
+    // Rates validated 2026-04 (OH DOT / KY DOR).
+    COUNTY_TAX: Object.freeze({
+      'hamilton-oh': Object.freeze({ name: 'Hamilton', rate: 0.0780 }),
+      'butler-oh':   Object.freeze({ name: 'Butler',   rate: 0.0725 }),
+      'warren-oh':   Object.freeze({ name: 'Warren',   rate: 0.0675 }),
+      'clermont-oh': Object.freeze({ name: 'Clermont', rate: 0.0725 }),
+      'kenton-ky':   Object.freeze({ name: 'Kenton',   rate: 0.0600 }),
+      'boone-ky':    Object.freeze({ name: 'Boone',    rate: 0.0600 }),
+      'campbell-ky': Object.freeze({ name: 'Campbell', rate: 0.0600 })
+    }),
+    DEFAULT_TAX_RATE: 0.07,
+
+    // ── Permit costs (PR 3b) ─────────────────────────────────
+    // Canonical key: county-state slug with {name, cost} (V2's
+    // shape). Classic keys by CITY — PERMIT_CITY_TO_COUNTY maps
+    // each city to its primary county (D-1 unify, Joe 2026-06-09;
+    // Loveland spans 3 counties → Hamilton primary, rep-overridable
+    // per estimate). estimates.js derives its city→cost map from
+    // these two tables.
+    PERMIT_COSTS_BY_COUNTY: Object.freeze({
+      'hamilton-oh': Object.freeze({ name: 'Hamilton County, OH', cost: 185 }),
+      'butler-oh':   Object.freeze({ name: 'Butler County, OH',   cost: 150 }),
+      'warren-oh':   Object.freeze({ name: 'Warren County, OH',   cost: 165 }),
+      'clermont-oh': Object.freeze({ name: 'Clermont County, OH', cost: 170 }),
+      'kenton-ky':   Object.freeze({ name: 'Kenton County, KY',   cost: 125 }),
+      'boone-ky':    Object.freeze({ name: 'Boone County, KY',    cost: 135 }),
+      'campbell-ky': Object.freeze({ name: 'Campbell County, KY', cost: 130 })
+    }),
+    PERMIT_CITY_TO_COUNTY: Object.freeze({
+      Cincinnati: 'hamilton-oh', Loveland: 'hamilton-oh',
+      Hamilton: 'butler-oh', Fairfield: 'butler-oh', 'West Chester': 'butler-oh',
+      Mason: 'warren-oh',
+      Milford: 'clermont-oh',
+      Covington: 'kenton-ky',
+      Florence: 'boone-ky',
+      'Fort Thomas': 'campbell-ky', Newport: 'campbell-ky'
+    }),
+    DEFAULT_PERMIT_COST: 150,
 
     // Add-on flat charges (Rock 2 PR 4b — Joe-confirmed prices).
     // Classic and V2 had divergent values for these:

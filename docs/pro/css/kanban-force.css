@@ -1,0 +1,1518 @@
+/* Extracted from docs/pro/dashboard.html (Rock 4 Phase 2 continuation).
+   Load order matters: this file replaces the inline <style> block that sat
+   at the same position in <head>; keep the <link> tags in dashboard.html in
+   their original slots relative to theme-system.css and each other. */
+/* ── THEME PICKER ── */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.theme-card {
+  background: var(--s2);
+  border: 2px solid var(--br);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color .2s, transform .15s;
+  position: relative;
+  min-height: 100px;
+  max-height: 120px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.theme-card:hover { border-color: var(--orange); transform: translateY(-2px); }
+.theme-card.active { border-color: var(--orange); background: var(--og); }
+.tc-dots { display: flex; gap: 5px; margin-bottom: 10px; }
+.tc-dot { width: 12px; height: 12px; border-radius: 50%; }
+.tc-bars { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.tc-bar { height: 4px; border-radius: 2px; }
+.tc-name { font-size: 12px; font-weight: 700; color: var(--t); letter-spacing: .04em; }
+.tc-active-badge {
+  display: none;
+  position: absolute; top: 8px; right: 8px;
+  background: var(--orange); color:var(--accent-fg);
+  font-size: 9px; font-weight: 700; letter-spacing: .06em;
+  padding: 2px 7px; border-radius: 20px; text-transform: uppercase;
+}
+.theme-card.active .tc-active-badge { display: block; }
+
+  #view-crm{display:none!important;flex-direction:column!important;height:100%;height:calc(100dvh - 60px);overflow:hidden!important;padding:0!important;}
+  #view-crm.active{display:flex!important;}
+  #kanbanBoard{display:flex!important;flex-direction:row!important;gap:10px;padding:0 16px 16px;overflow-x:auto!important;overflow-y:hidden;flex:1;min-height:0;scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-x;}
+  #kanbanBoard::-webkit-scrollbar{height:6px;}
+  #kanbanBoard::-webkit-scrollbar-thumb{background:var(--br);border-radius:3px;}
+  .kanban-col{display:flex!important;flex-direction:column!important;min-width:240px!important;max-width:240px!important;flex-shrink:0!important;background:var(--s2);border:1px solid var(--br);border-radius:10px;overflow:hidden;}
+  .kcol-header{display:flex!important;justify-content:space-between;align-items:center;padding:10px 12px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;flex-shrink:0;border-bottom:2px solid currentColor;}
+  .kcol-count{background:color-mix(in srgb, currentColor 18%, transparent);border-radius:20px;padding:2px 8px;font-size:11px;font-weight:700;color:var(--t);}
+  /* R5.5: per-column $ total alongside the count badge. Tabular nums
+     so '$18K' and '$120K' line up across columns when scanning. */
+  .kcol-meta{display:flex;align-items:center;gap:6px;}
+  .kcol-total{
+    font-size:10px; font-weight:800; color:var(--orange);
+    font-family:'Barlow Condensed', ui-monospace, sans-serif;
+    letter-spacing:.02em;
+    font-variant-numeric:tabular-nums;
+    cursor:help;
+  }
+  /* Stage header: semantic identity color + tinted bg derived from that color.
+     Works against any themed surface — light or dark — because we mix
+     against the theme's own surface variable.                              */
+  .kcol-header{
+    background: color-mix(in srgb, currentColor 14%, var(--s2));
+  }
+  /* Per-stage hue lives entirely in `color:` — bg + border-bottom auto-adapt. */
+  .kh-new{color:#94a3b8;}
+  .kh-contacted{color:#60a5fa;}
+  .kh-insp{color:#38bdf8;}
+  .kh-claim{color:#a78bfa;}
+  .kh-adj{color:#c084fc;}
+  .kh-adjdone{color:#a78bfa;}
+  .kh-scope{color:#fbbf24;}
+  .kh-est{color:#eab308;}
+  .kh-supp{color:#fb923c;}
+  .kh-suppok{color:#4ade80;}
+  .kh-neg{color:#fb923c;}
+  .kh-prequal{color:#22d3ee;}
+  .kh-loanok{color:#4ade80;}
+  .kh-contract{color:#22c55e;}
+  .kh-appr{color:#a78bfa;}
+  .kh-prog{color:#22c55e;}
+  .kh-done{color:#4ade80;}
+  .kh-lost{color:#f87171;}
+  /* Job board header colors */
+  .kh-jobcr{color:#38bdf8;}
+  .kh-permit{color:#818cf8;}
+  .kh-matord{color:#fbbf24;}
+  .kh-matdel{color:#facc15;}
+  .kh-crew{color:#2dd4bf;}
+  .kh-install{color:#34d399;}
+  .kh-instdone{color:#4ade80;}
+  .kh-photos{color:#6ee7b7;}
+  .kh-deduct{color:#5eead4;}
+  .kh-finpay{color:#2dd4bf;}
+  .kh-closed{color:#4ade80;}
+  /* Light-mode: deepen stage colors for legibility on light surfaces. */
+  :root[data-mode="light"] .kh-new      { color:#475569; }
+  :root[data-mode="light"] .kh-contacted{ color:#1d4ed8; }
+  :root[data-mode="light"] .kh-insp     { color:#0369a1; }
+  :root[data-mode="light"] .kh-claim    { color:#6d28d9; }
+  :root[data-mode="light"] .kh-adj      { color:#7e22ce; }
+  :root[data-mode="light"] .kh-adjdone  { color:#6d28d9; }
+  :root[data-mode="light"] .kh-scope    { color:#b45309; }
+  :root[data-mode="light"] .kh-est      { color:#a16207; }
+  :root[data-mode="light"] .kh-supp     { color:#c2410c; }
+  :root[data-mode="light"] .kh-suppok   { color:#15803d; }
+  :root[data-mode="light"] .kh-neg      { color:#c2410c; }
+  :root[data-mode="light"] .kh-prequal  { color:#0e7490; }
+  :root[data-mode="light"] .kh-loanok   { color:#15803d; }
+  :root[data-mode="light"] .kh-contract { color:#15803d; }
+  :root[data-mode="light"] .kh-appr     { color:#6d28d9; }
+  :root[data-mode="light"] .kh-prog     { color:#15803d; }
+  :root[data-mode="light"] .kh-done     { color:#15803d; }
+  :root[data-mode="light"] .kh-lost     { color:#b91c1c; }
+  :root[data-mode="light"] .kh-jobcr    { color:#0369a1; }
+  :root[data-mode="light"] .kh-permit   { color:#4338ca; }
+  :root[data-mode="light"] .kh-matord   { color:#b45309; }
+  :root[data-mode="light"] .kh-matdel   { color:#a16207; }
+  :root[data-mode="light"] .kh-crew     { color:#0f766e; }
+  :root[data-mode="light"] .kh-install  { color:#047857; }
+  :root[data-mode="light"] .kh-instdone { color:#15803d; }
+  :root[data-mode="light"] .kh-photos   { color:#047857; }
+  :root[data-mode="light"] .kh-deduct   { color:#0f766e; }
+  :root[data-mode="light"] .kh-finpay   { color:#0f766e; }
+  :root[data-mode="light"] .kh-closed   { color:#15803d; }
+  /* View switcher buttons */
+  .kview-btn{font-size:10px;padding:3px 10px;border-radius:12px;border:1px solid var(--br);background:var(--s2);color:var(--m);cursor:pointer;transition:all .15s;font-family:'Barlow Condensed',sans-serif;letter-spacing:.04em;text-transform:uppercase;}
+  /* R5.4: per-track count badge inline on each view-switcher button.
+     Empty string when 0 leads → no badge rendered. Same-color as the
+     button so it doesn't fight for attention; orange when active. */
+  .kview-count{
+    margin-left:5px; font-size:9px; font-weight:800;
+    padding:1px 5px; border-radius:8px;
+    background:color-mix(in srgb, currentColor 18%, transparent);
+    font-variant-numeric:tabular-nums; letter-spacing:0;
+  }
+  .kview-count:empty{ display:none; }
+  .kview-btn:hover{border-color:var(--orange);color:var(--t);}
+  /* Wave 5b: --accent-fg replaces var(--t) so the active label reads
+     on every theme (var(--t) on forest/neon was green-text-on-green-
+     fill). --accent-ring on the border for boundary clarity. */
+  .kview-btn.active{background:var(--orange);color:var(--accent-fg);border-color:var(--accent-ring);}
+  .kcol-body{flex:1!important;overflow-y:auto!important;overflow-x:hidden;padding:10px;display:flex!important;flex-direction:column!important;gap:8px;min-height:200px;max-height:calc(100vh - 170px);max-height:calc(100dvh - 170px);scrollbar-width:thin;scrollbar-color:var(--br) transparent;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain;}
+  .kcol-body::-webkit-scrollbar{width:4px;}
+  .kcol-body::-webkit-scrollbar-thumb{background:var(--br);border-radius:2px;}
+  .kcol-body.drag-over{background:color-mix(in srgb, var(--orange) 6%, transparent);outline:2px dashed var(--orange);}
+  /* T3.d: slim empty-column state. The old version had a centered SVG
+     tombstone + 'Drop leads here' that ate ~80px of vertical real
+     estate. New version is a single thin dashed line of muted text. */
+  .k-empty{text-align:center;padding:10px 8px;border:1px dashed color-mix(in srgb, var(--br) 65%, transparent);border-radius:6px;}
+  .k-empty-line{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--m);opacity:.6;}
+  /* T3.b: NBD-ID hover-reveal. Moved off the name face to keep the
+     name from wrapping on long surnames; the customer ID surfaces as
+     a small monospace badge above the card on hover, plus the
+     browser-native title tooltip on every device. */
+  .kc-name[data-customer-id]{position:relative;}
+  .kc-name[data-customer-id]:hover::after{
+    content: attr(data-customer-id);
+    position: absolute; top: -16px; right: 0;
+    font-family: ui-monospace, 'SF Mono', Menlo, Monaco, monospace;
+    font-size: 9px; font-weight: 700; letter-spacing: .04em;
+    color: var(--orange, #e8720c);
+    background: var(--s2, rgba(0,0,0,.6));
+    padding: 1px 5px; border-radius: 3px;
+    pointer-events: none; opacity: 0.9;
+  }
+  /* T2: ⋮ overflow button — slightly larger tap target than the .kc-btn
+     it replaces (44pt+ on touch via padding) and louder visual weight
+     so reps notice it. */
+  .kc-overflow{
+    font-size: 16px; font-weight: 800; line-height: 1;
+    padding: 4px 8px; min-width: 26px; min-height: 26px;
+    color: var(--m); cursor: pointer;
+    background: transparent; border: 1px solid var(--br);
+    border-radius: 4px;
+    /* Was `transition: all .15s` — animated EVERY property change
+       including any focus-recompute, which produced sub-pixel jiggle
+       when the cursor sat on the button edge. Pinned to paint-only
+       props so size/position never animate. */
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .kc-overflow:hover{color: var(--orange); border-color: var(--orange); background: color-mix(in srgb, var(--orange) 8%, transparent);}
+  @media (pointer: coarse) { .kc-overflow{ min-width: 32px; min-height: 32px; padding: 6px 10px; } }
+  /* T1.c support: kc-carrier visual weight. The previous treatment was
+     subtle (var(--s3) background) which lost visually next to the loud
+     green .kct-claim pill. Adding a left tick of orange so the carrier
+     reads as 'who's paying' at a glance. */
+  .kc-carrier{ border-left: 3px solid color-mix(in srgb, var(--orange) 70%, transparent); }
+  /* Kanban card density tokens — set per data-density on <html>. */
+  :root{
+    --kcard-pad:    var(--kcard-pad-comfy);
+    --kcard-name-fz: var(--kcard-name-fz-comfy);
+    --kcard-meta-fz: var(--kcard-meta-fz-comfy);
+    --kcard-tag-fz:  var(--kcard-tag-fz-comfy);
+    --kcard-val-fz:  var(--kcard-val-fz-comfy);
+    --kcard-gap:     var(--kcard-gap-comfy);
+    /* Compact preset */
+    --kcard-pad-compact: 9px 10px 7px;
+    --kcard-name-fz-compact: 13px;
+    --kcard-meta-fz-compact: 10px;
+    --kcard-tag-fz-compact: 9px;
+    --kcard-val-fz-compact: 14px;
+    --kcard-gap-compact: 3px;
+    /* Comfortable preset (DEFAULT — was current 'compact-feeling' bumped up) */
+    --kcard-pad-comfy: 12px 14px 10px;
+    --kcard-name-fz-comfy: 14px;
+    --kcard-meta-fz-comfy: 11px;
+    --kcard-tag-fz-comfy: 10px;
+    --kcard-val-fz-comfy: 16px;
+    --kcard-gap-comfy: 5px;
+    /* Spacious preset */
+    --kcard-pad-spacious: 14px 16px 12px;
+    --kcard-name-fz-spacious: 15px;
+    --kcard-meta-fz-spacious: 12px;
+    --kcard-tag-fz-spacious: 11px;
+    --kcard-val-fz-spacious: 17px;
+    --kcard-gap-spacious: 7px;
+  }
+  :root[data-density="compact"]  { --kcard-pad: var(--kcard-pad-compact);  --kcard-name-fz: var(--kcard-name-fz-compact);  --kcard-meta-fz: var(--kcard-meta-fz-compact);  --kcard-tag-fz: var(--kcard-tag-fz-compact);  --kcard-val-fz: var(--kcard-val-fz-compact);  --kcard-gap: var(--kcard-gap-compact); }
+  :root[data-density="spacious"] { --kcard-pad: var(--kcard-pad-spacious); --kcard-name-fz: var(--kcard-name-fz-spacious); --kcard-meta-fz: var(--kcard-meta-fz-spacious); --kcard-tag-fz: var(--kcard-tag-fz-spacious); --kcard-val-fz: var(--kcard-val-fz-spacious); --kcard-gap: var(--kcard-gap-spacious); }
+  /* Bold hierarchy: scale up name + value, dim everything else. */
+  :root[data-bold="true"] .kc-name      { font-size: calc(var(--kcard-name-fz) + 2px); font-weight: 900; }
+  :root[data-bold="true"] .kc-val-badge { font-size: calc(var(--kcard-val-fz)  + 2px); font-weight: 900; }
+  :root[data-bold="true"] .kc-addr,
+  :root[data-bold="true"] .kc-email-line,
+  :root[data-bold="true"] .kc-phone,
+  :root[data-bold="true"] .kc-claim-num,
+  :root[data-bold="true"] .kc-carrier   { opacity: .72; }
+  :root[data-bold="true"] .kc-tag       { opacity: .85; }
+
+  .k-card{
+    background:var(--paper);
+    border:1px solid var(--rule);
+    border-radius:9px;
+    padding:var(--kcard-pad);
+    cursor:grab;
+    transition:box-shadow .15s,transform .1s,background .15s;
+    position:relative;
+    color:var(--ink);
+    border-left:3px solid transparent;
+  }
+  /* Stage-colored left border per card */
+
+/* Wave 28: kanban column width — corrective cascade for mobile.
+   Five earlier `.kanban-col` width rules (at @media 768/600/480/400/900)
+   conflicted because source-order broke specificity ties — the 240px rule
+   at line ~4520 always won, leaving only ~1.5 cols visible at 375px. This
+   block sits AFTER all of them and re-establishes a progressive width
+   schedule by viewport. Smaller phones get narrower columns so reps can
+   see 2-3 stages per scroll, dramatically improving horizontal scannability. */
+@media (max-width:600px){
+  .kanban-col{ min-width:215px!important; max-width:215px!important; }
+}
+@media (max-width:430px){
+  .kanban-col{ min-width:180px!important; max-width:180px!important; }
+}
+@media (max-width:360px){
+  .kanban-col{ min-width:160px!important; max-width:160px!important; }
+}
+
+/* Bulk selection mode */
+.bulk-mode-active .k-card {
+  cursor: pointer;
+}
+.k-card-checkbox {
+  position: absolute;
+  top: 8px;
+  /* Moved to LEFT side to avoid collision with the price badge
+     which sits at top-right. Previously both were at right:8px,
+     making the checkbox unclickable when a price was displayed. */
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  background: var(--s);
+  border: 2px solid var(--br);
+  border-radius: 4px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .2s;
+  z-index: 10;
+}
+.bulk-mode-active .k-card-checkbox {
+  display: flex;
+}
+.k-card.bulk-selected .k-card-checkbox {
+  background: var(--orange);
+  border-color: var(--orange);
+}
+.k-card.bulk-selected {
+  background: var(--og);
+  box-shadow: 0 0 0 2px var(--orange);
+}
+.k-card-checkbox-icon {
+  font-size: 12px;
+  color:var(--t);
+  display: none;
+}
+.k-card.bulk-selected .k-card-checkbox-icon {
+  display: block;
+}
+#bulkActionBar {
+  display: none;
+}
+#bulkActionBar.active {
+  display: flex;
+}
+.bulk-mode-active .k-card {
+  position: relative;
+}
+
+  /* Card border colors — dynamic stage keys */
+  #kbody-new .k-card{border-left-color:#374151;}
+  #kbody-contacted .k-card{border-left-color:#2563eb;}
+  #kbody-inspected .k-card{border-left-color:#2d5a8e;}
+  #kbody-claim_filed .k-card{border-left-color:#7c3aed;}
+  #kbody-adjuster_meeting_scheduled .k-card{border-left-color:#a855f7;}
+  #kbody-adjuster_inspection_done .k-card{border-left-color:#8b5cf6;}
+  #kbody-scope_received .k-card{border-left-color:#d97706;}
+  #kbody-estimate_submitted .k-card{border-left-color:var(--gold);}
+  #kbody-supplement_requested .k-card{border-left-color:#ea580c;}
+  #kbody-supplement_approved .k-card{border-left-color:#16a34a;}
+  #kbody-estimate_sent_cash .k-card{border-left-color:var(--gold);}
+  #kbody-negotiating .k-card{border-left-color:#ea580c;}
+  #kbody-prequal_sent .k-card{border-left-color:#0891b2;}
+  #kbody-loan_approved .k-card{border-left-color:#16a34a;}
+  #kbody-contract_signed .k-card{border-left-color:#16a34a;}
+  #kbody-job_created .k-card{border-left-color:#0369a1;}
+  #kbody-permit_pulled .k-card{border-left-color:#4338ca;}
+  #kbody-materials_ordered .k-card{border-left-color:#b45309;}
+  #kbody-materials_delivered .k-card{border-left-color:#a16207;}
+  #kbody-crew_scheduled .k-card{border-left-color:#0d9488;}
+  #kbody-install_in_progress .k-card{border-left-color:#059669;}
+  #kbody-install_complete .k-card{border-left-color:#22c55e;}
+  #kbody-final_photos .k-card{border-left-color:#10b981;}
+  #kbody-deductible_collected .k-card{border-left-color:#14b8a6;}
+  #kbody-final_payment .k-card{border-left-color:#0d9488;}
+  #kbody-closed .k-card{border-left-color:#22C55E;}
+  #kbody-lost .k-card{border-left-color:var(--m);opacity:.75;}
+  /* Legacy compat selectors removed (W159 sweep): the kbody-* IDs in
+     today's DOM are snake_case stage keys; the capitalized legacy
+     IDs (kbody-New, kbody-Estimate Sent, …) never exist anymore so
+     these rules were dead. */
+  /* Hover-jiggle final: removed the duplicate `.k-card:hover` rule
+     that lived here — it was setting a SECOND box-shadow value
+     (6px 20px) that cascaded on top of the canonical hover rule
+     above (10px 30px), making the shadow flicker between the two
+     during the transition. The canonical rule at ~line 2806 owns
+     the hover state now. Light-mode override still scoped below. */
+  :root[data-mode="light"] .k-card:hover{box-shadow:0 6px 20px rgba(0,0,0,.10);}
+  .k-card.dragging{opacity:.45;cursor:grabbing;}
+  /* Ink-soft = muted text on the card surface, derived from theme. */
+  .k-card{ --ink-soft: color-mix(in srgb, var(--ink) 60%, var(--paper)); }
+  /* Job value — flows inside .kc-val-row (text-align:right) instead of
+     position:absolute top:10px right:12px. The absolute placement caused
+     the orange price to land on top of the est/photo count chips in the
+     top-right corner — the R6 layout (see comment near rule above at
+     line 2911) deliberately gave the value its OWN row to avoid that
+     collision, but the absolute positioning here was overriding that
+     intent (later rule wins). Removing position/top/right lets the
+     wrapping row right-align the badge as designed.
+     padding-right:64px on .kc-name below (line 4767) was companion
+     scaffolding to clear the absolute badge; it's now dead weight but
+     I'm leaving it for now — removing it changes truncation behavior on
+     long names and that's a separate visual call. */
+  .kc-val-badge{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:var(--kcard-val-fz);
+    font-weight:800;
+    color:var(--orange);
+    letter-spacing:.02em;
+    line-height:1;
+  }
+  .kc-name{font-weight:800;font-size:var(--kcard-name-fz);margin-bottom:2px;color:var(--ink);line-height:1.2;padding-right:64px;}
+  .kc-addr{font-size:var(--kcard-meta-fz);color:var(--ink-soft);margin-bottom:var(--kcard-gap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* Phone tap-to-call */
+  .kc-phone-row{display:flex;align-items:center;gap:5px;margin-bottom:var(--kcard-gap);}
+  .kc-phone-link{font-size:var(--kcard-meta-fz);color:var(--blue);text-decoration:none;font-weight:600;display:flex;align-items:center;gap:3px;}
+  .kc-phone-link:hover{filter:brightness(1.15);}
+  .kc-email-line{font-size:var(--kcard-meta-fz);color:var(--ink-soft);margin-bottom:var(--kcard-gap);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* Carrier + claim row */
+  .kc-ins-row{display:flex;align-items:center;gap:5px;margin-bottom:var(--kcard-gap);flex-wrap:wrap;}
+  .kc-carrier{font-size:var(--kcard-tag-fz);font-weight:700;color:var(--ink-soft);background:color-mix(in srgb, var(--ink) 8%, transparent);border-radius:4px;padding:2px 7px;}
+  .kc-claim-num{font-size:9px;color:var(--ink-soft);font-family:'DM Mono','Courier New',monospace;opacity:.7;}
+  /* Days since contact */
+  .kc-days{font-size:var(--kcard-tag-fz);font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:2px 6px;border-radius:3px;display:inline-flex;align-items:center;gap:3px;}
+  .kc-days-fresh{background:color-mix(in srgb, var(--green) 18%, transparent);color:var(--green);}
+  .kc-days-warm{background:color-mix(in srgb, var(--gold) 18%, transparent);color:var(--gold);}
+  .kc-days-cold{background:color-mix(in srgb, var(--red) 18%, transparent);color:var(--red);}
+  /* Photo thumbnail strip */
+  .kc-photos{display:flex;gap:3px;margin-bottom:var(--kcard-gap);}
+  .kc-photo-thumb{width:32px;height:32px;border-radius:4px;object-fit:cover;border:1px solid var(--rule);cursor:pointer;}
+  .kc-photo-more{width:32px;height:32px;border-radius:4px;background:color-mix(in srgb, var(--ink) 8%, transparent);border:1px solid var(--rule);
+    display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--ink-soft);cursor:pointer;}
+  .kc-tags{display:flex!important;gap:3px;flex-wrap:wrap;margin-bottom:var(--kcard-gap);}
+  .kc-tag{font-size:var(--kcard-tag-fz);font-weight:700;letter-spacing:.06em;padding:2px 7px;border-radius:10px;text-transform:uppercase;}
+  .kct-dmg{background:color-mix(in srgb, var(--blue) 18%, transparent);color:var(--blue);}
+  .kct-claim{background:color-mix(in srgb, var(--green) 18%, transparent);color:var(--green);}
+  .kct-val{background:color-mix(in srgb, var(--orange) 18%, transparent);color:var(--orange);font-weight:800;}
+  .kct-due{background:color-mix(in srgb, var(--red) 18%, transparent);color:var(--red);}
+  /* Needs-X badge — surfaces required fields blocking stage advancement. */
+  .kct-needs{
+    background:color-mix(in srgb, var(--gold, #F59E0B) 18%, transparent);
+    color:var(--gold, #F59E0B);
+    border:1px solid color-mix(in srgb, var(--gold, #F59E0B) 40%, transparent);
+    cursor:help;
+  }
+  /* Sweep R3: next-best-action hint chips. Three flavors mirror the
+     STAGE_ACTIONS kinds: 'doc' (generates a document, warm orange),
+     'stage' (advances pipeline, blue/green), 'action' (everything
+     else, neutral). Tinted just enough to read as "do this next"
+     without competing visually with the louder Due / Needs chips. */
+  .kct-action,
+  .kct-action-doc,
+  .kct-action-stage{
+    font-weight: 700;
+    letter-spacing: .02em;
+    border-style: solid;
+    border-width: 1px;
+    cursor: default;
+  }
+  .kct-action{
+    background: color-mix(in srgb, var(--ink-soft, #888) 16%, transparent);
+    color: var(--ink, #d4d4d4);
+    border-color: color-mix(in srgb, var(--ink-soft, #888) 38%, transparent);
+  }
+  .kct-action-doc{
+    background: color-mix(in srgb, var(--orange, #e8720c) 14%, transparent);
+    color: var(--orange, #e8720c);
+    border-color: color-mix(in srgb, var(--orange, #e8720c) 40%, transparent);
+  }
+  .kct-action-stage{
+    background: color-mix(in srgb, var(--blue, #2563eb) 14%, transparent);
+    color: var(--blue, #93c5fd);
+    border-color: color-mix(in srgb, var(--blue, #2563eb) 40%, transparent);
+  }
+  /* Sweep R3: strengthen carrier pill visibility. Before this round
+     'USAA' rendered as a quiet dark pill that visually lost against
+     the loud green 'CLAIM FILED' chip next to it. Now it picks up
+     a faint orange tint + the left-tick from #306 so the carrier
+     reads with comparable weight to the claim status. */
+  .kc-carrier{
+    background: color-mix(in srgb, var(--orange, #e8720c) 14%, var(--s3, #1a1a2e)) !important;
+    color: color-mix(in srgb, var(--orange, #e8720c) 60%, #fff) !important;
+    border: 1px solid color-mix(in srgb, var(--orange, #e8720c) 30%, transparent) !important;
+  }
+  /* Sweep R3: .kc-name 2-line clamp. 'Morgan-McCane' and other long
+     surnames were wrapping unbounded and pushing the rest of the
+     card down. Cap at 2 lines with ellipsis so card heights stay
+     more uniform across the column. */
+  .kc-name{
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* Sweep R3: header pill row 'HOT F...' truncation fix. The
+     existing rule (:root[data-density="compact"] .crm-hdr-btn-label
+     { display:none; }) only kicks in on compact density. Reps on
+     standard 1366/1440px laptops at default density were seeing
+     'HOT F...' clipped. Two responsive breakpoints: tighten the
+     labels under 1400px, hide them entirely under 1200px. */
+  @media (max-width: 1400px) {
+    .crm-hdr-actions .crm-hdr-btn-label{
+      font-size: 10px;
+      letter-spacing: 0;
+    }
+  }
+  @media (max-width: 1200px) {
+    .crm-hdr-actions .crm-hdr-btn-label{
+      display: none;
+    }
+  }
+  .kc-footer{display:flex!important;justify-content:space-between;align-items:center;padding-top:6px;border-top:1px solid color-mix(in srgb, var(--ink) 12%, transparent);margin-top:2px;}
+  .kc-phone{font-size:var(--kcard-meta-fz);color:var(--ink-soft);}
+  .kc-actions{display:flex!important;gap:4px;}
+  .kc-btn{background:transparent;border:1px solid color-mix(in srgb, var(--ink) 14%, transparent);border-radius:4px;padding:3px 7px;font-size:var(--kcard-tag-fz);cursor:pointer;color:var(--ink-soft);font-family:inherit;}
+  .kc-btn:hover{background:color-mix(in srgb, var(--ink) 8%, transparent);color:var(--ink);}
+  .kc-btn.edit:hover{border-color:var(--orange);color:var(--orange);}
+  .kc-btn.del:hover{border-color:var(--red);color:var(--red);}
+  .kc-move{display:flex!important;gap:3px;}
+  .kc-arrow{background:transparent;border:none;font-size:14px;cursor:pointer;color:var(--ink-soft);padding:0 3px;line-height:1;transition:color .15s;}
+  .kc-arrow:hover{color:var(--orange);}
+
+  /* ══ CARD DETAIL MODAL — cohesive button system ══════════════════
+     Uniform sizing, ghost styling with subtle hover states. The stage
+     chip pulls its color dynamically from stageColor() so it matches
+     the kanban column tint. Eliminates the giant orange + harsh red
+     buttons that were fighting the dark theme.                       */
+  .cd-stage-chip{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:10px; font-weight:700; letter-spacing:.08em;
+    padding:4px 10px; border-radius:12px;
+    text-transform:uppercase; white-space:nowrap;
+    background:var(--s2); color:var(--m); border:1px solid var(--br);
+    transition:all .15s;
+  }
+  /* Wave 28: chip cluster in the cardDetailModal title bar. Default layout
+     puts both chips inline next to the name. On narrow widths the bar
+     wraps and the cluster takes a full row of its own so the name is no
+     longer fighting for ~50px of horizontal space. */
+  .cd-bar-chips{
+    display:flex; align-items:center; gap:6px;
+    flex-shrink:0; flex-wrap:wrap; justify-content:flex-end;
+  }
+  @media (max-width:600px){
+    .m-modal-bar{ flex-wrap:wrap; }
+    .cd-bar-chips{
+      flex-basis:100%; justify-content:center;
+      order:2; /* below the title row */
+    }
+  }
+  /* Info grid — slightly tighter */
+  .cd-info-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:10px;
+    margin-bottom:18px;
+  }
+  .cd-info-cell{
+    background:var(--s2); border:1px solid var(--br);
+    border-radius:8px; padding:10px 12px;
+  }
+  .cd-info-label{
+    font-size:9px; color:var(--m);
+    text-transform:uppercase; letter-spacing:.08em;
+    margin-bottom:4px; font-weight:700;
+  }
+  .cd-info-value{
+    font-size:13px; color:var(--t); line-height:1.3;
+  }
+  .cd-info-value-num{
+    font-family:'Barlow Condensed',sans-serif; font-weight:800;
+    font-size:15px; color:var(--orange);
+  }
+
+  /* Action grid — auto-fill so it adapts: 2 cols on phone, 3 on tablet,
+     6 on wide modal. All buttons identical sizing for symmetry.        */
+  .cd-actions{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(90px, 1fr));
+    gap:8px; margin-bottom:14px;
+  }
+  .cd-action-btn{
+    display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:4px;
+    background:var(--s2); border:1px solid var(--br); border-radius:8px;
+    padding:10px 6px; min-height:62px;
+    cursor:pointer; transition:all .15s;
+    color:var(--t); font-family:inherit;
+    font-size:11px; font-weight:600; letter-spacing:.02em;
+  }
+  .cd-action-btn:hover{
+    border-color:var(--orange); color:var(--orange);
+    transform:translateY(-1px);
+  }
+  .cd-action-btn:active{ transform:translateY(0); }
+  .cd-action-icon{
+    font-size:20px; line-height:1;
+  }
+
+  /* Sharing row — portal link + voice memo + revoke icon.
+     Subtle accent borders instead of full-bg color so they integrate. */
+  .cd-share-row{
+    display:flex; gap:8px; margin-bottom:18px;
+    align-items:stretch;
+  }
+  .cd-share-btn{
+    flex:1; display:flex; align-items:center; justify-content:center;
+    gap:8px; padding:10px 12px;
+    background:color-mix(in srgb, var(--orange) 10%, transparent);
+    border:1px solid color-mix(in srgb, var(--orange) 35%, var(--br));
+    border-radius:8px; cursor:pointer;
+    color:var(--orange); font-family:inherit;
+    font-size:12px; font-weight:600;
+    transition:all .15s;
+  }
+  .cd-share-btn:hover{
+    background:color-mix(in srgb, var(--orange) 18%, transparent);
+    border-color:var(--orange);
+  }
+  .cd-share-btn.cd-voice-btn{
+    color:var(--blue);
+    background:color-mix(in srgb, var(--blue) 10%, transparent);
+    border-color:color-mix(in srgb, var(--blue) 35%, var(--br));
+  }
+  .cd-share-btn.cd-voice-btn:hover{
+    background:color-mix(in srgb, var(--blue) 18%, transparent);
+    border-color:var(--blue);
+  }
+  .cd-icon-btn{
+    width:42px; height:42px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:var(--s2); border:1px solid var(--br); border-radius:8px;
+    cursor:pointer; transition:all .15s;
+    font-size:14px; color:var(--m); font-family:inherit;
+  }
+  .cd-icon-btn:hover{
+    color:var(--t); border-color:var(--t);
+  }
+  .cd-icon-btn-danger:hover{
+    color:var(--red); border-color:var(--red);
+    background:color-mix(in srgb, var(--red) 10%, transparent);
+  }
+
+  /* Primary CTA — full-width orange but compact (was "shouting" before) */
+  .cd-cta-btn{
+    width:100%; display:flex; align-items:center; justify-content:center;
+    padding:11px 14px; border-radius:8px;
+    background:var(--orange); color:var(--accent-fg); border:none;
+    font-family:inherit; font-size:13px; font-weight:700;
+    letter-spacing:.02em; cursor:pointer;
+    transition:all .15s;
+    box-shadow:0 2px 8px color-mix(in srgb, var(--orange) 30%, transparent);
+  }
+  .cd-cta-btn:hover{
+    filter:brightness(1.08);
+    box-shadow:0 4px 14px color-mix(in srgb, var(--orange) 45%, transparent);
+    transform:translateY(-1px);
+  }
+  .cd-cta-btn:active{ transform:translateY(0); }
+
+  /* Edit link — small, subtle, link-style */
+  .cd-edit-link{
+    background:transparent; border:none;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:11px; font-weight:600; letter-spacing:.06em;
+    color:var(--m); cursor:pointer;
+    padding:6px 10px; border-radius:4px;
+    transition:color .15s;
+  }
+  .cd-edit-link:hover{ color:var(--orange); }
+
+  /* Mobile — stack the share row vertically so buttons don't squish.
+     Also collapse the 2-col info grid to 1-col so address/phone/damage/
+     value rows are full-width and readable, and keep the action grid
+     at a reasonable density. */
+  @media (max-width:540px){
+    .cd-share-row{ flex-direction:column; }
+    .cd-icon-btn{ width:100%; height:38px; }
+    .cd-info-grid{ grid-template-columns:1fr; gap:8px; }
+    .cd-actions{ grid-template-columns:repeat(3, 1fr); }
+    .cd-action-btn{ min-height:56px; padding:8px 4px; font-size:10px; }
+    .cd-action-icon{ font-size:18px; }
+  }
+  /* ══ END CARD DETAIL MODAL ══ */
+
+  /* ══ LEAD SOURCE ROI PANEL ═══════════════════════════════════════
+     Source breakdown table + KPI strip. Theme-aware via var(--*).      */
+  .lsroi-totals{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
+    gap:10px; margin-bottom:14px;
+  }
+  .lsroi-tot{
+    background:var(--s2); border:1px solid var(--br); border-radius:8px;
+    padding:10px 12px;
+  }
+  .lsroi-tot-label{
+    font-size:9px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--m); margin-bottom:4px;
+  }
+  .lsroi-tot-val{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:22px; font-weight:800; line-height:1; color:var(--t);
+  }
+  .lsroi-callouts{
+    display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;
+  }
+  .lsroi-callout{
+    flex:1; min-width:200px;
+    display:flex; align-items:center; gap:10px;
+    padding:10px 14px; border-radius:8px;
+    background:color-mix(in srgb, var(--orange) 10%, var(--s2));
+    border:1px solid color-mix(in srgb, var(--orange) 30%, var(--br));
+  }
+  .lsroi-callout-icon{ font-size:20px; flex-shrink:0; }
+  .lsroi-callout-label{
+    font-size:9px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--m); margin-bottom:2px;
+  }
+  .lsroi-callout-value{ font-size:13px; font-weight:700; color:var(--t); }
+  .lsroi-table-wrap{ overflow-x:auto; }
+  .lsroi-table{
+    width:100%; border-collapse:collapse; font-size:12px;
+  }
+  .lsroi-table th{
+    text-align:left; padding:10px 12px;
+    font-size:9px; font-weight:700; letter-spacing:.1em;
+    text-transform:uppercase; color:var(--m);
+    border-bottom:1px solid var(--br);
+  }
+  .lsroi-table td{
+    padding:10px 12px; border-bottom:1px solid color-mix(in srgb, var(--br) 50%, transparent);
+    color:var(--t);
+  }
+  .lsroi-table tr:last-child td{ border-bottom:none; }
+  .lsroi-source{ font-weight:700; }
+  .lsroi-num{ text-align:right; font-variant-numeric:tabular-nums; }
+  .lsroi-rate{ color:var(--green); font-weight:700; }
+  .lsroi-rev{ font-weight:700; }
+  .lsroi-bar{
+    margin-top:4px; height:3px; background:var(--s); border-radius:2px;
+    overflow:hidden;
+  }
+  .lsroi-bar-fill{
+    height:100%; background:var(--green); transition:width .25s;
+  }
+  .lsroi-empty{
+    text-align:center; padding:32px 16px;
+  }
+  .lsroi-empty-icon{ font-size:32px; margin-bottom:8px; }
+  .lsroi-empty-title{
+    font-size:14px; font-weight:700; color:var(--t); margin-bottom:4px;
+  }
+  .lsroi-empty-sub{ font-size:12px; color:var(--m); max-width:380px; margin:0 auto; }
+  /* Mobile: hide low-priority columns (Lost, Avg Deal) so the
+     remaining 6 fit without forcing a horizontal scroll. */
+  @media (max-width:600px) {
+    .lsroi-table th:nth-child(4), .lsroi-table td:nth-child(4),  /* Lost */
+    .lsroi-table th:nth-child(8), .lsroi-table td:nth-child(8) { /* Avg Deal */
+      display:none;
+    }
+    .lsroi-table th, .lsroi-table td { padding:8px 7px; font-size:11px; }
+    .lsroi-bar{ display:none; }
+  }
+  /* ══ END LEAD SOURCE ROI ══ */
+
+  /* ══ PIPELINE FORECAST ════════════════════════════════════════════ */
+  .fc-scenarios{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));
+    gap:10px; margin-bottom:14px;
+  }
+  .fc-scenario{
+    padding:14px 16px; border-radius:8px;
+    background:var(--s2); border:1px solid var(--br);
+    text-align:center;
+  }
+  .fc-scenario-likely{
+    background:color-mix(in srgb, var(--orange) 12%, var(--s2));
+    border-color:color-mix(in srgb, var(--orange) 40%, var(--br));
+  }
+  .fc-scenario-best{
+    background:color-mix(in srgb, var(--green) 10%, var(--s2));
+    border-color:color-mix(in srgb, var(--green) 30%, var(--br));
+  }
+  .fc-scenario-worst{
+    background:color-mix(in srgb, var(--red) 10%, var(--s2));
+    border-color:color-mix(in srgb, var(--red) 30%, var(--br));
+  }
+  .fc-scen-label{
+    font-size:10px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--m); margin-bottom:6px;
+  }
+  .fc-scen-val{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:28px; font-weight:800; line-height:1; color:var(--t);
+  }
+  .fc-scenario-likely .fc-scen-val{ color:var(--orange); }
+  .fc-scenario-best   .fc-scen-val{ color:var(--green); }
+  .fc-scenario-worst  .fc-scen-val{ color:var(--red); }
+  .fc-scen-sub{ font-size:10px; color:var(--m); margin-top:4px; }
+
+  .fc-breakdown{
+    display:flex; flex-direction:column; gap:4px;
+    background:var(--s2); border:1px solid var(--br); border-radius:8px;
+    padding:10px 14px; margin-bottom:14px;
+  }
+  .fc-bd-row{
+    display:flex; justify-content:space-between;
+    font-size:12px; color:var(--m);
+    padding:3px 0;
+  }
+  .fc-bd-emphasis{
+    border-top:1px solid var(--br);
+    padding-top:8px; margin-top:4px;
+    font-size:14px; font-weight:700; color:var(--t);
+  }
+  .fc-bd-emphasis .fc-bd-val{ color:var(--orange); }
+  .fc-bd-val{
+    font-family:'Barlow Condensed',sans-serif;
+    font-weight:700; color:var(--t);
+  }
+
+  .fc-section{ margin-top:14px; }
+  .fc-section-title{
+    font-size:11px; font-weight:700; letter-spacing:.06em;
+    text-transform:uppercase; color:var(--m);
+    margin-bottom:8px;
+  }
+  .fc-deal-list{
+    border:1px solid var(--br); border-radius:8px; overflow:hidden;
+  }
+  .fc-deal-row{
+    display:grid; grid-template-columns:2fr 1.2fr 60px 90px 90px;
+    gap:8px; align-items:center;
+    padding:8px 12px; font-size:12px;
+    border-bottom:1px solid color-mix(in srgb, var(--br) 50%, transparent);
+    cursor:pointer; transition:background .12s;
+  }
+  .fc-deal-row:hover{ background:var(--s2); }
+  .fc-deal-row:last-child{ border-bottom:none; }
+  .fc-deal-row.fc-deal-head{
+    background:var(--s2); cursor:default;
+    font-size:9px; font-weight:700; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--m);
+  }
+  .fc-deal-row.fc-deal-head:hover{ background:var(--s2); }
+  .fc-deal-name{ font-weight:600; color:var(--t); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fc-deal-stage{ color:var(--m); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .fc-deal-prob{ text-align:right; color:var(--m); }
+  .fc-deal-value{ text-align:right; color:var(--t); font-variant-numeric:tabular-nums; }
+  .fc-deal-expected{ text-align:right; color:var(--orange); font-weight:700; font-variant-numeric:tabular-nums; }
+  .fc-deal-row.fc-risk{
+    background:color-mix(in srgb, var(--red) 6%, transparent);
+  }
+  .fc-deal-row.fc-risk:hover{
+    background:color-mix(in srgb, var(--red) 12%, transparent);
+  }
+
+  .fc-empty{ text-align:center; padding:32px 16px; }
+  .fc-empty-icon{ font-size:32px; margin-bottom:8px; }
+  .fc-empty-title{ font-size:14px; font-weight:700; color:var(--t); margin-bottom:4px; }
+  .fc-empty-sub{ font-size:12px; color:var(--m); max-width:380px; margin:0 auto; }
+
+  @media (max-width:600px){
+    .fc-deal-row{ grid-template-columns:1.5fr 60px 80px; }
+    .fc-deal-row > :nth-child(2),
+    .fc-deal-row > :nth-child(4){ display:none; }
+    .fc-deal-row.fc-deal-head > :nth-child(2),
+    .fc-deal-row.fc-deal-head > :nth-child(4){ display:none; }
+  }
+  /* ══ END PIPELINE FORECAST ══ */
+  /* ════ Compact CRM header (Pipeline page-breathe redesign 2026-05-05) ════
+     Single row with three slots: label · search/filters · actions.
+     Header padding/font scales with the existing data-density attribute
+     (compact / comfortable / spacious) so the same toggle that runs the
+     kanban cards also drives the chrome.                                  */
+  .crm-header{
+    display:flex!important;
+    justify-content:space-between;
+    align-items:center;
+    padding:6px 14px;          /* Pro Chrome: was 8px 14px — claws back 4px of vertical */
+    flex-shrink:0;
+    /* On desktop force one row; mobile media query below allows wrapping. */
+    flex-wrap:nowrap;
+    gap:6px;                   /* Pro Chrome: was 8px */
+    border-bottom:1px solid var(--br);
+  }
+  /* Allow the search/filter cluster to shrink if buttons need room */
+  .crm-hdr-search{ min-width:180px; }
+  .crm-hdr-actions{ flex-shrink:0; }
+  :root[data-density="compact"]   .crm-header{ padding:4px 12px; gap:4px; }
+  :root[data-density="spacious"]  .crm-header{ padding:10px 18px; gap:8px; }
+
+  /* LEFT: tiny label + inline stat */
+  .crm-hdr-label{ display:flex; align-items:baseline; gap:10px; flex-shrink:0; }
+  .crm-hdr-title{
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:14px; font-weight:800;
+    letter-spacing:.08em; text-transform:uppercase;
+    color:var(--orange);
+  }
+  .crm-hdr-stat{
+    font-size:11px; color:var(--m);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    max-width:280px;
+  }
+  /* Default: hide the K-abbreviated dollar amount; show only on mobile
+     (the @media block in the mobile section flips this). The wordy
+     `.crm-stat-word` spans render inline by default — only hidden on
+     phones — so desktop reads "13 customers · $126,043 pipeline". */
+  .crm-stat-money-short{ display:none; }
+
+  /* CENTER: search + type filter + view switcher */
+  .crm-hdr-search{
+    display:flex; align-items:center; gap:8px;
+    flex:1; min-width:240px; flex-wrap:wrap;
+  }
+  .crm-hdr-input{
+    background:var(--s2); border:1px solid var(--br); border-radius:5px;
+    padding:6px 28px 6px 28px; font-size:12px; color:var(--t);
+    width:100%; outline:none; transition:border-color .15s;
+  }
+  .crm-hdr-input:focus{ border-color:var(--orange); }
+  .crm-hdr-search-clear{
+    position:absolute; right:4px; top:50%; transform:translateY(-50%);
+    background:none; border:none; color:var(--m); cursor:pointer;
+    width:22px; height:22px; display:none; font-size:13px;
+    border-radius:4px; transition:all .15s;
+  }
+  .crm-hdr-search-clear:hover{ color:var(--t); background:var(--s); }
+  .crm-hdr-select{
+    background:var(--s2); border:1px solid var(--br); border-radius:5px;
+    padding:6px 8px; font-size:11px; color:var(--t);
+    cursor:pointer; outline:none;
+    max-width:120px;
+  }
+
+  /* Inline view switcher pills — replaces the old VIEW: row */
+  .crm-hdr-views{
+    display:inline-flex;
+    background:var(--s2); border:1px solid var(--br); border-radius:6px;
+    overflow:hidden;
+  }
+  .crm-hdr-views .kview-btn{
+    border:none!important; border-radius:0;
+    padding:6px 10px; font-size:10px;
+  }
+  .crm-hdr-views .kview-btn + .kview-btn{ border-left:1px solid var(--br)!important; }
+
+  /* RIGHT: action icon row.
+     R5.1: previous attempts to hide labels at narrow breakpoints
+     didn't catch every viewport. Real fix: when the row genuinely
+     can't fit on one line, allow horizontal scrolling so no button
+     ever clips. Combined with the existing wrap behavior we get a
+     two-tier graceful degradation: wrap → scroll → never truncate. */
+  .crm-hdr-actions{
+    display:flex; align-items:center; gap:2px;     /* Pro Chrome: was 4px — tighter clusters */
+    margin-left:auto;
+    /* Wave 5c 2026-05-14: dedicated side-scroller treatment.
+       The action row carries 12-15 buttons by the time you count
+       Filters + Bulk + CSV — at any viewport narrower than ~1440px it
+       overflows the .crm-header right edge. Users couldn't tell the
+       row was scrollable, so we add three discoverability cues:
+         1. mask-image fade — the rightmost ~24px of the row fades to
+            transparent, communicating "more content this way →" even
+            when stationary.
+         2. Beefier scrollbar (6px high, accent-tinted thumb) so the
+            scroll affordance is visible on hover/scroll.
+         3. scroll-padding-inline-end so a momentum-scroll glides past
+            the last button into the fade-out gracefully.
+       The fade is purely visual — events still hit the underlying
+       buttons because mask-image doesn't intercept pointer-events. */
+    flex-wrap:nowrap;
+    min-width:0;
+    max-width:100%;
+    padding-right:8px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    scrollbar-width:thin;
+    scrollbar-color:color-mix(in srgb, var(--orange) 60%, var(--br)) transparent;
+    -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 24px), transparent);
+            mask-image:linear-gradient(to right, #000 calc(100% - 24px), transparent);
+    scroll-padding-inline-end:24px;
+    scroll-snap-type:x proximity;
+  }
+  /* Buttons themselves become snap targets so momentum-scroll lands
+     mid-button instead of slicing one in half. */
+  .crm-hdr-actions > .crm-icon-btn,
+  .crm-hdr-actions > .crm-hdr-btn,
+  .crm-hdr-actions > .crm-tools-wrap{ scroll-snap-align:start; }
+  /* Beefier scrollbar on WebKit for affordance visibility. */
+  .crm-hdr-actions::-webkit-scrollbar{ height:6px; }
+  .crm-hdr-actions::-webkit-scrollbar-track{ background:transparent; }
+  .crm-hdr-actions::-webkit-scrollbar-thumb{
+    background:color-mix(in srgb, var(--orange) 55%, var(--br));
+    border-radius:3px;
+  }
+  .crm-hdr-actions::-webkit-scrollbar-thumb:hover{
+    background:var(--orange);
+  }
+  /* Prevent label truncation inside individual buttons — long
+     labels like 'Stale Shares' / 'Hot first' wrap-as-no-wrap so the
+     button grows or scrolls instead of '...' on the label text. */
+  .crm-hdr-actions .crm-hdr-btn{ flex-shrink:0; white-space:nowrap; }
+  .crm-hdr-actions .crm-hdr-btn-label{ white-space:nowrap; }
+  /* Pro Chrome: hairline dividers between functional clusters in the
+     action row (icon-controls | filters | bulk-tools). Used by inserting
+     <span class="crm-hdr-sep"></span> between groups in the markup. */
+  .crm-hdr-sep{
+    display:inline-block; width:1px; height:18px;
+    background:var(--br); opacity:.5;
+    margin:0 4px; flex-shrink:0;
+  }
+  .crm-icon-btn{
+    background:transparent; border:1px solid var(--br); border-radius:5px;
+    width:30px; height:30px;
+    display:inline-flex; align-items:center; justify-content:center;
+    color:var(--m); cursor:pointer; transition:all .15s;
+    padding:0; font-family:inherit;
+  }
+  .crm-icon-btn:hover{ color:var(--t); border-color:var(--t); }
+  /* Wave 5d (A.4): icon-toggle active state. The fill is intentionally
+     subtle (--og is a semi-transparent --orange wash) so this reads as
+     "indicator" not "primary CTA" — but on themes where --orange has
+     near-surface luminance, the bg + border alone didn't pop. The
+     inset ring borrowed from .btn-orange's contract gives a visible
+     boundary regardless of theme. */
+  .crm-icon-btn.active{
+    color:var(--orange); border-color:var(--orange);
+    background:var(--og);
+    box-shadow:inset 0 0 0 1px var(--accent-ring);
+  }
+
+  /* Compact action buttons in the header — half the size of regular .btn */
+  .crm-hdr-btn{
+    font-size:11px!important;
+    padding:5px 9px!important;   /* Pro Chrome: was 6px 10px — claws back ~12% per button */
+    min-height:28px!important;   /* was 30px */
+    line-height:1!important;
+  }
+  /* Compact density: hide button labels, leave just the icon emoji */
+  :root[data-density="compact"] .crm-hdr-btn-label{ display:none; }
+
+  /* Tools dropdown */
+  .crm-tools-wrap{ position:relative; display:inline-block; }
+  .crm-tools-menu{
+    display:none; position:absolute; top:calc(100% + 6px); right:0;
+    min-width:200px; padding:6px;
+    background:var(--s2); border:1px solid var(--br); border-radius:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,.35);
+    z-index:200;
+  }
+  .crm-tools-menu.open{ display:block; }
+  .crm-tools-menu button{
+    display:block; width:100%; text-align:left;
+    background:transparent; border:none; border-radius:5px;
+    padding:8px 12px; font-size:12px; color:var(--t);
+    cursor:pointer; font-family:inherit;
+    border-left:3px solid transparent;
+  }
+  .crm-tools-menu button:hover{ background:var(--s3); color:var(--orange); }
+  /* Active-state for mobile filter items — mirrors the orange-border
+     treatment the inline source buttons get when their filter is ON.
+     Synced by syncMobileToolsMenuActive() (dashboard-ui.js). */
+  .crm-tools-menu-mobile button.active{
+    color:var(--orange);
+    border-left-color:var(--orange);
+    background:color-mix(in srgb, var(--orange) 12%, transparent);
+    font-weight:600;
+  }
+
+  /* Sidebar-collapsed mode — narrows the rail to icons only.
+     The sidebar markup ships labels as TEXT NODES inside .ni
+     (e.g. <div class="ni"><span class="ni-icon">🏠</span>Home</div>)
+     which means :not(.ni-icon) never matches them. We hide them via
+     font-size:0 on .ni and restore size only on the icon span. Badges
+     and connection indicators inside .ni also get explicitly restored. */
+  body.sidebar-collapsed .sidebar{
+    width:60px!important; min-width:60px!important;
+    overflow:hidden;
+  }
+  body.sidebar-collapsed .sidebar .ni{
+    padding:8px 0!important;
+    justify-content:center; align-items:center;
+    font-size:0!important;          /* nukes raw text nodes */
+    white-space:nowrap;
+    text-align:center;
+    gap:0!important;
+    line-height:1;
+  }
+  body.sidebar-collapsed .sidebar .ni .ni-icon{
+    font-size:18px!important;
+    margin:0!important;
+    line-height:1;
+  }
+  /* Hide nav-section labels + their toggle arrows */
+  body.sidebar-collapsed .sidebar .nav-section-header,
+  body.sidebar-collapsed .sidebar .nav-divider{ display:none!important; }
+  body.sidebar-collapsed .sidebar .nav-section-content{ padding:0!important; }
+  /* Hide all element children except the icon (badges, indicators get tiny floating dots instead) */
+  body.sidebar-collapsed .sidebar .ni > *:not(.ni-icon){ display:none!important; }
+  /* But keep the small connection indicator visible as a colored corner dot */
+  body.sidebar-collapsed .sidebar #nav-crm .health-indicator{
+    display:block!important;
+    position:absolute; top:6px; right:6px;
+    width:6px; height:6px; padding:0!important; margin:0!important;
+  }
+  body.sidebar-collapsed .sidebar #nav-crm{ position:relative; }
+  /* Active state on the toggle button */
+  body.sidebar-collapsed #sidebarToggleBtn{
+    color:var(--orange); border-color:var(--orange);
+  }
+
+  /* Kanban fullscreen — hide everything chrome and let the board fill */
+  body.kanban-fullscreen header,
+  body.kanban-fullscreen .sidebar,
+  body.kanban-fullscreen #mobile-nav,
+  body.kanban-fullscreen .crm-header,
+  body.kanban-fullscreen .crm-secondary-header,
+  body.kanban-fullscreen #dailyCommandCenter,
+  body.kanban-fullscreen #followUpAlertsWrap,
+  body.kanban-fullscreen #bulkActionBar{
+    display:none!important;
+  }
+  body.kanban-fullscreen .view#view-crm{
+    position:fixed!important; inset:0!important;
+    width:100vw!important; height:100vh!important; height:100dvh!important;
+    margin:0!important; padding:0!important;
+    z-index:990;
+  }
+  /* Pin the kanban board to fill the entire viewport in fullscreen mode.
+     The default .kcol-body max-height is calc(100dvh - 260px) which assumed
+     a header above; without it the columns finished short and left a big
+     dead band at the bottom of the viewport. Override to use full height. */
+  body.kanban-fullscreen #kanbanBoard{
+    height:100vh!important; height:100dvh!important;
+    padding:48px 16px 16px!important;  /* top padding clears the floating Exit button */
+  }
+  body.kanban-fullscreen .kcol-body{
+    max-height:none!important;
+    height:calc(100vh - 110px)!important;
+    height:calc(100dvh - 110px)!important;
+  }
+  /* Add a small floating "Pipeline" label top-left for context */
+  body.kanban-fullscreen #view-crm::before{
+    content:'Pipeline';
+    position:fixed; top:14px; left:18px; z-index:1000;
+    font-family:'Barlow Condensed',sans-serif;
+    font-size:14px; font-weight:800; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--orange);
+    pointer-events:none;
+  }
+  body.kanban-fullscreen #kanbanFullscreenExit{ display:flex!important; }
+  /* FAB still visible in fullscreen so the rep can still add a lead */
+  body.kanban-fullscreen #addLeadFab{ z-index:1001; }
+
+  /* Floating exit button (only shown in fullscreen mode) */
+  #kanbanFullscreenExit{
+    display:none; position:fixed; top:14px; right:14px; z-index:1000;
+    background:var(--s2); border:1px solid var(--br); border-radius:6px;
+    padding:8px 14px; color:var(--t); cursor:pointer;
+    font-family:inherit; font-size:12px; font-weight:600;
+    box-shadow:0 4px 14px rgba(0,0,0,.25);
+    align-items:center; gap:6px;
+  }
+  #kanbanFullscreenExit:hover{ border-color:var(--orange); color:var(--orange); }
+
+  /* Floating ADD LEAD FAB
+     R5.12: softened. Was 56×56 bright orange with a 20px shadow blur
+     at 45% opacity — a constant attention-grabber on a populated
+     dashboard. Now 48×48, lighter shadow (12px, 30% opacity), and a
+     thin outline so it reads as 'available action' rather than
+     'PRIMARY CTA'. Hover restores the prominent treatment. */
+  /* Wave 5: theme-aware. --accent-fg replaces hard-coded #fff, and
+     --accent-ring replaces the white inner border that disappeared
+     on light themes. Glow uses --og (which IS per-theme tinted), so
+     the FAB reads on any theme without per-theme overrides. */
+  #addLeadFab{
+    position:fixed; bottom:24px; right:24px; z-index:900;
+    width:48px; height:48px; border-radius:50%;
+    background:var(--orange); color:var(--accent-fg);
+    border:1px solid var(--accent-ring); cursor:pointer;
+    font-size:24px; font-weight:300; line-height:1;
+    box-shadow:0 3px 12px var(--og);
+    opacity:0.88;
+    display:none; align-items:center; justify-content:center;
+    transition:transform .15s, box-shadow .15s, opacity .15s;
+  }
+  #addLeadFab:hover{ opacity:1; transform:scale(1.06); box-shadow:0 6px 20px var(--og); }
+  #addLeadFab:active{ transform:scale(.96); }
+  /* FAB is shown only on the CRM page (Prospects has its own + button) */
+  body.show-add-lead-fab #addLeadFab{ display:flex; }
+  /* Keep clear of the mobile bottom nav */
+  @media (max-width:768px){
+    #addLeadFab{ bottom:80px; right:16px; width:52px; height:52px; }
+  }
+
+  /* Scroll-collapse: when the user is actively scrolling/dragging the
+     kanban board, shrink the header further. The .crm-scrolling class
+     is toggled by JS; CSS does the visual transition.                    */
+  body.crm-scrolling .crm-header{ padding-top:4px!important; padding-bottom:4px!important; }
+  body.crm-scrolling .crm-hdr-stat,
+  body.crm-scrolling .crm-hdr-btn-label{ display:none!important; }
+
+  /* Mobile — let the header rows wrap to two lines and tighten everything */
+  @media (max-width:768px){
+    .crm-header{ padding:6px 10px; gap:5px; }
+    .crm-hdr-label{ width:100%; justify-content:space-between; }
+    .crm-hdr-search{ width:100%; min-width:0; }
+    .crm-hdr-actions{ width:100%; justify-content:flex-start; }
+    .crm-hdr-views .kview-btn{ padding:5px 8px; font-size:10px; }
+  }
+
+  /* ════ END compact CRM header ════ */
+
+  .crm-rev-strip{display:flex!important;gap:0;padding:4px 20px 10px;flex-shrink:0;align-items:center;border-bottom:1px solid var(--br);margin-bottom:4px;}
+  .rev-pill{display:flex!important;flex-direction:column;align-items:center;padding:6px 18px;border-right:1px solid var(--br);}
+  .rev-pill:first-child{padding-left:0;}
+  .rev-pill:last-child{border-right:none;}
+  .rev-num{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;color:var(--t);line-height:1;}
+  .rev-lbl{font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.08em;margin-top:2px;}
+  .follow-up-alert{background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.3);border-radius:8px;padding:10px 14px;margin-bottom:8px;display:flex!important;align-items:center;gap:10px;font-size:12px;}
+  .fa-name{font-weight:700;color:var(--t);}
+  .fa-date{color:var(--orange);font-size:11px;}
+  .fa-btn{margin-left:auto;background:var(--orange);color:var(--accent-fg);border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;}
+
+/* ══════════════════════════════════════════════════════════════
+   PROSPECTS PAGE — D2D knocks awaiting promotion
+   Mobile-first; flex up to multi-column kanban on wide screens.
+   ══════════════════════════════════════════════════════════════ */
+#view-prospects { display:none; flex-direction:column; height:100%; padding:0!important; overflow:hidden; }
+#view-prospects.active { display:flex; }
+#view-prospects .view-scroll { flex:1; overflow-y:auto; padding:14px 16px 80px; }
+#view-prospects .page-hdr { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; flex-wrap:wrap; margin-bottom:14px; padding:0; }
+
+/* Stats strip — flex row of clickable tiles */
+.prosp-stats { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.prosp-stat { font-family:inherit; -webkit-tap-highlight-color:transparent; }
+.prosp-stat:hover { transform:translateY(-1px); }
+.prosp-stat:active { transform:translateY(0); }
+
+/* Filters + view toggle — wraps cleanly on mobile */
+.prosp-filters { margin-bottom:14px; }
+.prosp-filter-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.prosp-sel {
+  background:var(--s2); border:1px solid var(--br); border-radius:6px;
+  padding:7px 10px; font-size:12px; color:var(--t); font-family:inherit;
+  outline:none; cursor:pointer;
+}
+.prosp-sel:focus { border-color:var(--orange); }
+.prosp-check {
+  display:inline-flex; align-items:center; gap:6px; padding:7px 12px;
+  background:var(--s2); border:1px solid var(--br); border-radius:6px;
+  font-size:12px; color:var(--m); cursor:pointer; user-select:none;
+}
+.prosp-check input { accent-color:var(--orange); margin:0; }
+.prosp-check:has(input:checked) { color:var(--t); border-color:var(--orange); background:color-mix(in srgb, var(--orange) 12%, var(--s2)); }
+.prosp-view-toggle {
+  margin-left:auto; display:inline-flex; background:var(--s2);
+  border:1px solid var(--br); border-radius:6px; overflow:hidden;
+}
+.prosp-view-toggle button {
+  background:transparent; border:none; color:var(--m);
+  font-family:inherit; font-size:11px; font-weight:700; letter-spacing:.05em;
+  padding:7px 12px; cursor:pointer; transition:all .15s;
+}
+.prosp-view-toggle button.active { background:var(--orange); color:var(--accent-fg); }
+
+/* Board wrapper */
+.prosp-board-wrap { width:100%; }
+
+/* Kanban — horizontal scroll on mobile, multi-col on wide */
+.prosp-board {
+  display:flex; gap:10px; overflow-x:auto; overflow-y:hidden;
+  -webkit-overflow-scrolling:touch; touch-action:pan-x;
+  padding-bottom:8px;
+  scrollbar-width:thin; scrollbar-color:var(--br) transparent;
+}
+.prosp-board::-webkit-scrollbar { height:6px; }
+.prosp-board::-webkit-scrollbar-thumb { background:var(--br); border-radius:3px; }
+
+.prosp-col {
+  flex:0 0 240px; max-width:280px;
+  background:var(--s2); border:1px solid var(--br); border-radius:10px;
+  display:flex; flex-direction:column; overflow:hidden;
+  min-height:180px;
+}
+.prosp-col-hdr {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 12px; font-size:11px; letter-spacing:.08em;
+  text-transform:uppercase; border-bottom:1px solid var(--br);
+}
+.prosp-col-count {
+  background:color-mix(in srgb, currentColor 18%, transparent);
+  border-radius:10px; padding:2px 8px; font-size:11px; font-weight:700;
+  color:var(--t);
+}
+.prosp-col-body {
+  flex:1; overflow-y:auto; overflow-x:hidden;
+  padding:10px; display:flex; flex-direction:column; gap:8px;
+  max-height:calc(100vh - 320px); max-height:calc(100dvh - 320px);
+  scrollbar-width:thin; scrollbar-color:var(--br) transparent;
+  -webkit-overflow-scrolling:touch; touch-action:pan-y;
+}
+.prosp-col-body::-webkit-scrollbar { width:4px; }
+.prosp-col-body::-webkit-scrollbar-thumb { background:var(--br); border-radius:2px; }
+
+/* Card */
+.prosp-card {
+  background:var(--paper); color:var(--ink);
+  border:1px solid var(--rule); border-radius:9px;
+  padding:11px 12px; cursor:pointer; transition:all .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.prosp-card:hover { transform:translateY(-2px); box-shadow:0 4px 14px rgba(0,0,0,.18); }
+:root[data-mode="light"] .prosp-card:hover { box-shadow:0 4px 14px rgba(0,0,0,.08); }
+.prosp-card-hdr {
+  display:flex; justify-content:space-between; align-items:flex-start; gap:8px;
+  margin-bottom:4px;
+}
+.prosp-addr {
+  font-weight:800; font-size:13px; line-height:1.25;
+  color:var(--ink);
+  overflow:hidden; text-overflow:ellipsis;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;
+}
+.prosp-attempt {
+  flex-shrink:0; font-family:'Barlow Condensed',sans-serif;
+  font-size:11px; font-weight:800; padding:1px 7px; border-radius:4px;
+  background:color-mix(in srgb, var(--ink) 10%, transparent);
+  color:color-mix(in srgb, var(--ink) 70%, var(--paper));
+  letter-spacing:.04em;
+}
+.prosp-name {
+  font-size:11px; color:color-mix(in srgb, var(--ink) 60%, var(--paper));
+  margin-bottom:5px;
+}
+.prosp-meta { display:flex; gap:5px; flex-wrap:wrap; align-items:center; margin-bottom:6px; }
+.prosp-disp {
+  font-size:9px; font-weight:700; letter-spacing:.06em;
+  padding:2px 7px; border-radius:10px; text-transform:uppercase;
+}
+.prosp-age {
+  font-size:9px; font-weight:700; letter-spacing:.05em; text-transform:uppercase;
+  color:color-mix(in srgb, var(--ink) 55%, var(--paper));
+}
+.prosp-fu-due {
+  font-size:9px; font-weight:800; letter-spacing:.05em;
+  padding:2px 6px; border-radius:3px;
+  background:color-mix(in srgb, var(--red) 18%, transparent);
+  color:var(--red);
+}
+.prosp-photos { display:flex; gap:3px; margin-top:4px; }
+.prosp-photo-thumb {
+  width:32px; height:32px; border-radius:4px; object-fit:cover;
+  border:1px solid var(--rule);
+}
+.prosp-photo-more {
+  width:32px; height:32px; border-radius:4px;
+  background:color-mix(in srgb, var(--ink) 8%, transparent);
+  border:1px solid var(--rule);
+  display:flex; align-items:center; justify-content:center;
+  font-size:9px; font-weight:700;
+  color:color-mix(in srgb, var(--ink) 65%, var(--paper));
+}
+.prosp-empty {
+  text-align:center; padding:18px 8px; font-size:11px;
+  color:var(--m); border:1px dashed var(--br); border-radius:6px;
+}
+.prosp-empty-full {
+  text-align:center; padding:48px 16px; font-size:14px;
+  color:var(--m);
+}
+
+/* List view */
+.prosp-list { display:flex; flex-direction:column; gap:6px; }
+.prosp-row {
+  background:var(--paper); color:var(--ink);
+  border:1px solid var(--rule); border-radius:8px;
+  padding:11px 13px; cursor:pointer; transition:all .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.prosp-row:hover { transform:translateY(-1px); border-color:var(--orange); }
+.prosp-row-main { display:flex; flex-direction:column; gap:4px; }
+.prosp-row-sub { display:flex; gap:8px; flex-wrap:wrap; align-items:center; font-size:11px; }
+.prosp-attempt-inline {
+  font-family:'Barlow Condensed',sans-serif; font-size:11px; font-weight:700;
+  color:color-mix(in srgb, var(--ink) 65%, var(--paper));
+  letter-spacing:.04em;
+}
+
+/* Stale-prospect cleanup banner */
+.prosp-stale {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:11px 14px; margin-bottom:14px;
+  background:color-mix(in srgb, var(--orange) 12%, var(--s2));
+  border:1px solid color-mix(in srgb, var(--orange) 35%, transparent);
+  border-radius:8px;
+}
+.prosp-stale-icon { font-size:18px; flex-shrink:0; }
+.prosp-stale-text { flex:1; min-width:200px; font-size:13px; color:var(--t); }
+.prosp-stale-actions { display:flex; gap:6px; }
+.prosp-stale-btn {
+  background:transparent; border:1px solid var(--br); border-radius:6px;
+  padding:6px 12px; font-size:11px; font-weight:700; color:var(--m);
+  cursor:pointer; font-family:inherit; letter-spacing:.04em;
+}
+.prosp-stale-btn:hover { color:var(--t); border-color:var(--t); }
+.prosp-stale-btn.primary { background:var(--orange); color:var(--accent-fg); border-color:var(--orange); }
+
+/* Conversion analytics */
+.prosp-analytics-wrap { margin-top:18px; }
+.prosp-analytics {
+  background:var(--s2); border:1px solid var(--br); border-radius:10px;
+  padding:0; overflow:hidden;
+}
+.prosp-analytics > summary {
+  padding:12px 14px; cursor:pointer; user-select:none;
+  font-size:13px; font-weight:700; color:var(--t);
+  display:flex; align-items:center; flex-wrap:wrap;
+  list-style:none;
+}
+.prosp-analytics > summary::-webkit-details-marker { display:none; }
+.prosp-analytics > summary::before {
+  content:'▸'; margin-right:8px; transition:transform .15s;
+  font-size:11px; color:var(--m);
+}
+.prosp-analytics[open] > summary::before { transform:rotate(90deg); }
+.prosp-an-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:14px;
+  padding:6px 14px 14px;
+}
+.prosp-an-block { display:flex; flex-direction:column; gap:6px; }
+.prosp-an-title {
+  font-size:10px; font-weight:700; color:var(--m);
+  letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px;
+}
+.prosp-an-row {
+  display:grid; grid-template-columns:90px 1fr 36px 50px;
+  align-items:center; gap:8px; font-size:11px;
+}
+.prosp-an-row-label { font-weight:700; color:var(--t); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.prosp-an-bar {
+  height:6px; background:var(--s); border-radius:3px; overflow:hidden;
+}
+.prosp-an-bar-fill { height:100%; transition:width .25s; }
+.prosp-an-row-pct { text-align:right; font-weight:700; color:var(--green); }
+.prosp-an-row-count { text-align:right; color:var(--m); font-family:'DM Mono','Courier New',monospace; font-size:10px; }
+.prosp-an-empty { color:var(--m); font-size:11px; padding:8px 0; }
+
+/* Mobile-tighter */
+@media (max-width: 600px) {
+  .prosp-stat { min-width:64px!important; padding:8px 10px!important; }
+  .prosp-stat > div:first-child { font-size:9px!important; }
+  .prosp-stat > div:nth-child(2) { font-size:18px!important; }
+  .prosp-col { flex:0 0 220px; }
+  .prosp-view-toggle { margin-left:0!important; width:100%; }
+  .prosp-view-toggle button { flex:1; }
+  .prosp-filter-row > .prosp-sel,
+  .prosp-filter-row > .prosp-check { flex:1; min-width:130px; }
+  .prosp-an-grid { grid-template-columns:1fr; }
+  .prosp-an-row { grid-template-columns:80px 1fr 30px 44px; font-size:10px; }
+  .prosp-stale-actions { width:100%; }
+  .prosp-stale-btn { flex:1; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   COMMAND PALETTE (Cmd+K)
+   ══════════════════════════════════════════════════════════════ */
+.cmd-palette-overlay{
+  display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0.75);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+  z-index:10000;align-items:flex-start;justify-content:center;
+  padding-top:min(15vh,80px);animation:cmdFadeIn .15s ease;
+}
+.cmd-palette-overlay.active{display:flex;}
+@keyframes cmdFadeIn{from{opacity:0;} to{opacity:1;}}
+.cmd-palette{
+  width:90%;max-width:600px;background:var(--s);
+  border:1px solid var(--br);border-radius:12px;
+  box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  animation:cmdSlideDown .2s cubic-bezier(0.16, 1, 0.3, 1);
+  display:flex;flex-direction:column;max-height:70vh;
+}
+@keyframes cmdSlideDown{from{opacity:0;transform:translateY(-20px);} to{opacity:1;transform:translateY(0);}}
+.cmd-search-box{
+  display:flex;align-items:center;gap:10px;
+  padding:14px 18px;border-bottom:1px solid var(--br);
+}
+.cmd-search-icon{font-size:18px;opacity:0.6;}
+.cmd-search-input{
+  flex:1;background:transparent;border:none;outline:none;
+  font-size:15px;color:var(--t);font-family:'Barlow',sans-serif;
+}
+.cmd-search-input::placeholder{color:var(--m);opacity:0.6;}
+.cmd-kbd{
+  font-size:10px;font-family:'Barlow Condensed',sans-serif;
+  font-weight:700;letter-spacing:.08em;
+  padding:4px 8px;background:var(--s2);
+  border:1px solid var(--br);border-radius:4px;
+  color:var(--m);
+}
+.cmd-results{
+  flex:1;overflow-y:auto;padding:6px 0;
+  max-height:400px;
+}
+.cmd-results::-webkit-scrollbar{width:4px;}
+.cmd-results::-webkit-scrollbar-thumb{background:var(--br);}
+.cmd-empty{
+  padding:60px 20px;text-align:center;
+  font-size:13px;color:var(--m);line-height:1.6;
+}
+.cmd-section{
+  padding:8px 0;
+}
+.cmd-section-label{
+  font-size:9px;font-weight:700;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--orange);
+  padding:8px 18px 6px;
+}
+.cmd-item{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 18px;cursor:pointer;
+  transition:background .15s;position:relative;
+}
+.cmd-item:hover,
+.cmd-item.selected{
+  background:var(--s2);
+}
+.cmd-item.selected::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:var(--orange);
+}
+.cmd-icon{
+  font-size:20px;width:32px;height:32px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:6px;background:var(--s2);
+  flex-shrink:0;
+}
+.cmd-content{flex:1;min-width:0;}
+.cmd-title{
+  font-size:13px;font-weight:600;color:var(--t);
+  margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.cmd-subtitle{
+  font-size:11px;color:var(--m);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.cmd-badge{
+  font-size:9px;font-weight:700;letter-spacing:.06em;
+  padding:3px 8px;border-radius:10px;
+  text-transform:uppercase;flex-shrink:0;
+}
+.cmd-badge.recent{background:color-mix(in srgb, var(--orange) 12%, transparent);color:var(--orange);}
+.cmd-badge.new{background:rgba(74,158,255,.12);color:var(--blue);}
+.cmd-badge.action{background:rgba(155,109,255,.12);color:var(--purple);}
