@@ -281,7 +281,11 @@ RETURN ONLY THE JSON OBJECT. No explanation, no markdown, no preamble.`;
 // ══════════════════════════════════════════════
 async function geocode(q){
   try{
-    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&addressdetails=1`);
+    // 5s cap: _saveLead awaits this on every new lead with an address, and
+    // Nominatim rate-limits/black-holes some IPs with no response — without
+    // a timeout the whole save hangs in the field (found via the authed E2E
+    // suite, 2026-07-04). Abort → the catch below → save proceeds pin-less.
+    const res=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1&addressdetails=1`,{signal:AbortSignal.timeout(5000)});
     const d=await res.json();
     if(!d.length){showToast('Address not found','error');return null;}
     return d[0];

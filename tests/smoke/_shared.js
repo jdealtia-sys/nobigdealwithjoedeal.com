@@ -71,6 +71,58 @@ function readDashboard() {
   return parts.join('\n');
 }
 
+// Rock 4 Phase 2b-d (2026-07-04): dashboard.html's three big inline
+// <style> blocks (main app CSS, kanban-force-css, nbd-theme-bridge —
+// ~6,600 lines) moved to docs/pro/css/*.css, following theme-system.css
+// (Phase 2). Assertions that grep dashboard.html for CSS rules need the
+// concatenated style surface, same pattern as readDashboard() above.
+// Keep this list in load order (matches the <link> order in <head>).
+const DASHBOARD_EXTRACTED_CSS = [
+  'theme-system.css',
+  'dashboard-app.css',
+  'kanban-force.css',
+  'theme-bridge.css',
+];
+function readDashboardStyles() {
+  const html = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const parts = [html];
+  for (const sheet of DASHBOARD_EXTRACTED_CSS) {
+    const p = path.join(ROOT, 'docs/pro/css', sheet);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
+  return parts.join('\n');
+}
+
+// CSP extraction (2026-07-02): customer.html's 11 inline <script>
+// blocks (~6.5k lines incl. the critical Firebase bootstrap module)
+// moved to docs/pro/js/customer-*.js, mirroring the dashboard #398
+// work above, so the /pro/customer unsafe-inline CSP carve-out could
+// be retired. readCustomer() concatenates customer.html + the
+// extracted files in document load order so existing assertions keep
+// finding patterns regardless of which file the code ended up in.
+const CUSTOMER_EXTRACTED_SHARDS = [
+  'customer-presentation-theme.js',
+  'customer-photo-review-links.js',
+  'customer-photo-report-generator.js',
+  'customer-bootstrap.module.js',
+  'customer-tasks-ui.js',
+  'customer-gallery-share.js',
+  'customer-signed-doc-upload.js',
+  'customer-photo-report-picker.js',
+  'customer-edit-modal.js',
+  'customer-voice-intelligence.module.js',
+  'customer-realtime.module.js',
+];
+function readCustomer() {
+  const html = read(path.join(ROOT, 'docs/pro/customer.html'));
+  const parts = [html];
+  for (const shard of CUSTOMER_EXTRACTED_SHARDS) {
+    const p = path.join(ROOT, 'docs/pro/js', shard);
+    if (fs.existsSync(p)) parts.push(read(p));
+  }
+  return parts.join('\n');
+}
+
 // Step 4a (2026-05-16): dashboard-main.js got split into 5 sibling
 // modules + a thin shim. Assertions that historically grep'd a single
 // dashboard-main.js for delegate branches, allowlist entries, window
@@ -251,6 +303,8 @@ module.exports = {
   FUNCTIONS,
   read,
   readDashboard,
+  readDashboardStyles,
+  readCustomer,
   readDashboardMain,
   readPortal,
   readCrm,

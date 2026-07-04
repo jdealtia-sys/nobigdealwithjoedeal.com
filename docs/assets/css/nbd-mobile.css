@@ -463,3 +463,16 @@ img, video {
     font-size: .78rem !important;
   }
 }
+
+/* ─── FOOTER LINK TAP TARGETS (a11y T4d, 2026-07) ───────────────────────── */
+/* Footer text links rendered only ~13-22px tall — below the 24px minimum
+   tap-target size (WCAG 2.5.8). inline-block + padding grows the hit area
+   without moving the text baseline. Social icon circles size themselves
+   (30px, already compliant) so their padding is reset. */
+footer a {
+  display: inline-block;
+  padding: 4px 2px;
+}
+footer .nbd-social a {
+  padding: 0;
+}

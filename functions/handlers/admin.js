@@ -711,6 +711,87 @@ exports.deactivateUser = onCall(
   }
 );
 
+// ── removeMember ─────────────────────────────────────────────
+// Fully removes a team member: STRIPS their companyId/role claims
+// (merge-preserving billing), revokes their refresh tokens, and deletes
+// the roster doc. Replaces the old client-side `deleteDoc(members/...)`,
+// which left the removed user's Auth account enabled and their companyId
+// claim intact — so Firestore (which authorizes tenant data by claim, not
+// roster membership) still granted them full same-tenant read/write until
+// the claim happened to change. Stripping the claim also makes a removed
+// user correctly un-reactivatable without a fresh invite (deactivateUser's
+// callerMayManageTarget gate keys on the now-absent claim).
+//
+// Handles both member states:
+//   - invited (no uid yet — never signed up): just delete the roster doc.
+//   - active/deactivated (has a uid): clear claims + revoke, then delete.
+// Guards mirror deactivateUser: not the owner, not yourself, same company.
+exports.removeMember = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const { uid: callerUid, companyId, companyRef } = await requireTeamAdmin(request);
+    await callableRateLimit(request, 'removeMember', 20, 60_000);
+
+    const targetEmail = normalizeEmail(request.data && request.data.email);
+    if (!targetEmail) throw new HttpsError('invalid-argument', 'Target email required');
+
+    const db = getFirestore();
+    const memberRef = db.doc(`companies/${companyId}/members/${targetEmail}`);
+    const memberSnap = await memberRef.get();
+    if (!memberSnap.exists) {
+      // Idempotent: nothing to remove.
+      return { success: true, removed: false, reason: 'not_found' };
+    }
+    const member = memberSnap.data() || {};
+
+    // Resolve the Auth account (member doc may carry uid; else look up by
+    // email). A pending invite has neither → claim-clearing is a no-op.
+    let userRecord = null;
+    const lookupUid = typeof member.uid === 'string' ? member.uid : null;
+    try {
+      userRecord = lookupUid
+        ? await getAuth().getUser(lookupUid)
+        : await getAuth().getUserByEmail(targetEmail);
+    } catch (_) { userRecord = null; } // invited-but-never-signed-up → no account
+
+    if (userRecord) {
+      // Never remove the owner or yourself.
+      const companySnap = await companyRef.get();
+      const ownerId = companySnap.exists ? companySnap.data().ownerId : null;
+      if (ownerId && userRecord.uid === ownerId) {
+        throw new HttpsError('failed-precondition', 'Cannot remove the company owner');
+      }
+      if (userRecord.uid === callerUid) {
+        throw new HttpsError('failed-precondition', 'Cannot remove your own account');
+      }
+      // Only touch a user actually scoped to THIS company (fail closed for a
+      // stale/foreign claim), unless global admin.
+      const existingClaims = userRecord.customClaims || {};
+      const isGlobalAdmin = request.auth.token.role === 'admin';
+      if (!callerMayManageTarget(existingClaims, companyId, isGlobalAdmin)) {
+        throw new HttpsError('permission-denied', 'User belongs to another company');
+      }
+      // Strip companyId + role; PRESERVE everything else (plan/subscription/
+      // billing claims the Stripe webhook maintains).
+      const stripped = { ...existingClaims };
+      delete stripped.companyId;
+      delete stripped.role;
+      await getAuth().setCustomUserClaims(userRecord.uid, stripped);
+      await getAuth().revokeRefreshTokens(userRecord.uid);
+    }
+
+    await memberRef.delete();
+    logger.info('removeMember', { companyId, targetEmail, hadAccount: !!userRecord });
+    return { success: true, removed: true, hadAccount: !!userRecord };
+  }
+);
+
 // ── listTeamMembers ──────────────────────────────────────────
 // Returns the team roster enriched with Auth data (lastSignInTime,
 // disabled) and a lead count per member. The member doc by itself

@@ -94,6 +94,7 @@ exports.rotateAccessCodes          = adminHandlers.rotateAccessCodes;
 exports.createTeamMember           = adminHandlers.createTeamMember;
 exports.updateUserRole             = adminHandlers.updateUserRole;
 exports.deactivateUser             = adminHandlers.deactivateUser;
+exports.removeMember               = adminHandlers.removeMember;
 exports.listTeamMembers            = adminHandlers.listTeamMembers;
 
 // T-3: per-rep AI texting analytics (collectionGroup scan over ai_drafts).
@@ -130,6 +131,24 @@ exports.submitPublicLead  = integrationsHandlers.submitPublicLead;
 // getHomeownerPortalView and is loaded below via Object.assign).
 const portalHandlersInline = require('./handlers/portal');
 exports.validateAccessCode = portalHandlersInline.validateAccessCode;
+
+// PILLAR1 Phase 2 — self-serve tenant provisioning (companies/{uid} +
+// companyProfile seed + owner claims). See handlers/provisioning.js.
+const provisioningHandlers = require('./handlers/provisioning');
+exports.createCompany = provisioningHandlers.createCompany;
+
+// PILLAR1 Phase 3 — team invites, de-GCIP'd (claim on first dashboard
+// load instead of the never-deployable onRepSignup blocking trigger).
+const inviteHandlers = require('./handlers/invites');
+exports.claimInvite = inviteHandlers.claimInvite;
+exports.teamInviteEmail = inviteHandlers.teamInviteEmail;
+// Pillar 4 — invites create server-side so plan seat limits hold.
+exports.createTeamInvite = inviteHandlers.createTeamInvite;
+
+// Pillar 5 phase 1 — data-driven tenant microsite (/sites/t/) config read.
+const publicSiteHandlers = require('./handlers/public-site');
+exports.getPublicSiteConfig = publicSiteHandlers.getPublicSiteConfig;
+exports.setSiteSlug = publicSiteHandlers.setSiteSlug;
 
 // Browser monitoring (CSP violation report sink)
 const monitoringHandlers = require('./handlers/monitoring');
@@ -307,6 +326,20 @@ exports.shareSSR = _shareSSR.shareSSR;
 const funnelRecovery = require('./funnel-recovery');
 exports.saveFunnelProgress = funnelRecovery.saveFunnelProgress;
 exports.runAbandonRecovery = funnelRecovery.runAbandonRecovery;
+
+// Daily 7am ET summary of the last 24h of public leads (functions/lead-digest.js).
+exports.dailyLeadDigest = require('./lead-digest').dailyLeadDigest;
+
+// Every-3h sweep: one follow-up email to 20-48h-old leads whose bridged CRM
+// card is still untouched (functions/lead-followup.js).
+exports.leadFollowUpSweep = require('./lead-followup').leadFollowUpSweep;
+
+// Every-30min NWS storm-report watcher: alerts Joe on qualifying hail/wind/
+// tornado in the service area; subscriber texting gated (functions/storm-watch.js).
+exports.stormWatch = require('./storm-watch').stormWatch;
+
+// 1st-of-month 7am ET marketing rollup (functions/marketing-report.js).
+exports.monthlyMarketingReport = require('./marketing-report').monthlyMarketingReport;
 
 // ═══════════════════════════════════════════════════════════════
 // ESTIMATE EMAIL — "Email My Estimate" homeowner copy

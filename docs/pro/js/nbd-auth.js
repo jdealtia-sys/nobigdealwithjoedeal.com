@@ -371,6 +371,7 @@ export const NBDAuth = {
         //   - provisioning is one-off via scripts/grant-demo-claim.js
         let demoClaim = false;
         let _claimRole = null; // F4: team-role from custom claim (fallback for client _role)
+        let _claimCompanyId = null; // Pillar 4: billing resolves from the company's subscription
         try {
           // 4-second timeout: getIdTokenResult() makes a network round-trip
           // to refresh the ID token. On iOS Safari with poor connectivity
@@ -385,6 +386,7 @@ export const NBDAuth = {
           ]);
           demoClaim = !!(tokenResult && tokenResult.claims && tokenResult.claims.demo === true);
           _claimRole = (tokenResult && tokenResult.claims && tokenResult.claims.role) || null;
+          _claimCompanyId = (tokenResult && tokenResult.claims && tokenResult.claims.companyId) || null;
         } catch (e) {
           console.warn('Could not read ID token claims:', e.message);
         }
@@ -427,9 +429,14 @@ export const NBDAuth = {
         }
 
         // Fetch subscription — 5s timeout (same rationale as user doc above).
+        // Pillar 4: billing is company-level. The sub doc is keyed by the
+        // OWNER's uid (== the companyId claim a team member carries), so a
+        // rep resolves their company's plan instead of a phantom 'free'
+        // under their own uid. Solo owners: companyId == uid, no change.
+        // If the claims read above timed out, fall back to uid (old path).
         try {
           const subSnap = await Promise.race([
-            getDoc(doc(_db, 'subscriptions', user.uid)),
+            getDoc(doc(_db, 'subscriptions', _claimCompanyId || user.uid)),
             new Promise(resolve => setTimeout(resolve, 5000))
           ]);
           if (subSnap.exists()) {

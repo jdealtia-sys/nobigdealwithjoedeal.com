@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="nbd-original">
+<head>
+<link rel="stylesheet" href="css/theme-system.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0A0C0F">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
+<meta name="robots" content="noindex, nofollow">
+<!-- Sentry must register before any other script that might throw. -->
+<script src="js/sentry-config.js?v=1"></script>
+<script src="js/sentry-init.js?v=2"></script>
+<script src="js/standalone-compat.js"></script>
+<!-- App Check site key before the module runs — createCompany retry on
+     this page is enforceAppCheck:true. Same key file as dashboard.html. -->
+<script src="js/dashboard-appcheck-config.js?v=1"></script>
+<title>Set Up Your Company — NBD Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script type="module" src="js/pages/onboarding.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --orange: #e8720c;
+  --ob:     #f08030;
+  --og:     rgba(232,114,12,.18);
+  --bg:     #0A0C0F;
+  --s:      #111418;
+  --s2:     #181C22;
+  --s3:     #1E2229;
+  --br:     rgba(255,255,255,.07);
+  --t:      #E8EAF0;
+  --m:      #6B7280;
+  --green:  #2ECC8A;
+  --red:    #E05252;
+  --rule:   rgba(255,255,255,.06);
+}
+
+html, body {
+  min-height: 100vh; min-height: 100dvh;
+  background: var(--bg);
+  color: var(--t);
+  font-family: 'Barlow', sans-serif;
+}
+
+body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px;
+}
+
+.wizard-card {
+  width: 100%;
+  max-width: 620px;
+  background: var(--s);
+  border: 1px solid var(--br);
+  border-radius: 12px;
+  padding: 36px 34px;
+}
+
+.brand-mark { display: flex; align-items: center; gap: 12px; margin-bottom: 26px; }
+.brand-badge {
+  background: var(--orange); color: #fff;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 900; font-size: 18px;
+  padding: 8px 12px; border-radius: 7px; letter-spacing: .02em;
+}
+.brand-text .name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 800; font-size: 15px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--t); line-height: 1;
+}
+.brand-text .sub { font-size: 11px; color: var(--m); margin-top: 2px; letter-spacing: .04em; }
+
+.form-eyebrow {
+  font-size: 10px; font-weight: 700; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--orange); margin-bottom: 6px;
+}
+.form-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 28px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .02em; margin-bottom: 6px; color: var(--t);
+}
+.form-sub { font-size: 13px; color: var(--m); margin-bottom: 24px; line-height: 1.5; }
+
+/* Step indicator */
+.steps { display: flex; gap: 8px; margin-bottom: 26px; }
+.step-dot {
+  flex: 1; height: 4px; border-radius: 2px;
+  background: var(--br); transition: background .2s;
+}
+.step-dot.active { background: var(--orange); }
+.step-label { font-size: 11px; color: var(--m); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 18px; }
+.step-label strong { color: var(--t); }
+
+/* Panels */
+.step-panel { display: none; }
+.step-panel.active { display: block; }
+
+.frow { display: flex; gap: 12px; }
+.frow .ffield { flex: 1; }
+
+.ffield { margin-bottom: 14px; }
+.ffield label {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--m); margin-bottom: 6px;
+}
+.ffield label span { color: var(--red); margin-left: 2px; }
+.ffield .fhint { font-size: 10px; color: var(--m); margin-top: 5px; line-height: 1.4; }
+
+.finput {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--br);
+  border-radius: 7px;
+  color: var(--t);
+  font-family: 'Barlow', sans-serif;
+  font-size: 13px;
+  padding: 10px 14px;
+  transition: border-color .15s;
+  outline: none;
+}
+.finput:focus { border-color: var(--orange); }
+.finput::placeholder { color: var(--m); }
+
+input[type="color"].finput { padding: 4px 6px; height: 40px; cursor: pointer; }
+
+/* Buttons */
+.btn-row { display: flex; gap: 12px; margin-top: 22px; align-items: center; }
+.step-btn {
+  flex: 1;
+  padding: 13px;
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 15px; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase;
+  cursor: pointer; transition: all .15s;
+}
+.step-btn:hover:not(:disabled) { background: var(--ob); transform: translateY(-1px); box-shadow: 0 4px 20px var(--og); }
+.step-btn:disabled { opacity: .6; cursor: not-allowed; }
+.step-btn.ghost {
+  flex: 0 0 auto;
+  background: var(--s2);
+  border: 1px solid var(--br);
+  color: var(--m);
+  padding: 13px 20px;
+}
+.step-btn.ghost:hover { color: var(--t); border-color: rgba(255,255,255,.18); box-shadow: none; transform: none; background: var(--s3); }
+
+.skip-link {
+  display: block; text-align: center; margin-top: 18px;
+  font-size: 12px; color: var(--m);
+  background: none; border: none; cursor: pointer; width: 100%;
+  font-family: 'Barlow', sans-serif;
+}
+.skip-link:hover { color: var(--t); text-decoration: underline; }
+
+/* Messages */
+.wiz-err {
+  background: rgba(224,82,82,.1);
+  border: 1px solid rgba(224,82,82,.25);
+  border-radius: 6px; padding: 9px 12px;
+  font-size: 12px; color: var(--red);
+  margin-bottom: 14px; display: none;
+}
+.wiz-err:not(:empty) { display: block; }
+
+/* Review list */
+.review-list { border: 1px solid var(--br); border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+.review-row {
+  display: flex; justify-content: space-between; gap: 16px;
+  padding: 10px 14px; font-size: 12px;
+  border-bottom: 1px solid var(--rule);
+}
+.review-row:last-child { border-bottom: none; }
+.review-row .rk { color: var(--m); letter-spacing: .06em; text-transform: uppercase; font-size: 10px; font-weight: 700; padding-top: 1px; }
+.review-row .rv { color: var(--t); text-align: right; word-break: break-word; }
+.review-row .rv .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-left: 6px; border: 1px solid var(--br); }
+
+.boot-msg { text-align: center; color: var(--m); font-size: 13px; padding: 60px 0; }
+
+@media (max-width: 560px) {
+  body { padding: 16px 10px; }
+  .wizard-card { padding: 24px 18px; }
+  .frow { flex-direction: column; gap: 0; }
+  input, select { font-size: 16px !important; min-height: 48px; } /* prevent iOS zoom */
+  .step-btn { min-height: 52px; font-size: 14px; touch-action: manipulation; }
+  a, button { touch-action: manipulation; }
+}
+/* a11y: skip-to-main link — pure CSS for strict-CSP compatibility. */
+.nbd-skip-link { position:absolute; left:-9999px; top:8px; background:#e8720c; color:#000; padding:8px 14px; font-weight:700; z-index:99999; text-decoration:none; border-radius:4px; }
+.nbd-skip-link:focus { left:8px; outline:2px solid #000; }
+</style>
+  <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/onboarding">
+<link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+</head>
+<body>
+<!-- a11y: skip link + main landmark. Hidden visually until focused. -->
+<a href="#main" class="nbd-skip-link">Skip to main content</a>
+<main id="main">
+
+<div class="wizard-card">
+  <div class="brand-mark">
+    <div class="brand-badge">NBD</div>
+    <div class="brand-text">
+      <div class="name"><span style="color:#E8EAF0;">NBD</span> <span style="color:#e8720c;">PRO</span></div>
+      <div class="sub">Contractor Platform</div>
+    </div>
+  </div>
+
+  <div class="form-eyebrow">Welcome aboard</div>
+  <div class="form-title">Set Up Your Company</div>
+  <div class="form-sub">Two minutes now puts your own name, phone, and colors on every estimate, contract, and customer page you send. You can change any of this later in Settings.</div>
+
+  <div class="steps" aria-hidden="true">
+    <div class="step-dot active" id="dot1"></div>
+    <div class="step-dot" id="dot2"></div>
+    <div class="step-dot" id="dot3"></div>
+  </div>
+  <div class="step-label" id="stepLabel"><strong>Step 1 of 3</strong> — Company basics</div>
+
+  <div class="wiz-err" id="wizErr" role="alert"></div>
+
+  <div class="boot-msg" id="bootMsg">Loading your account…</div>
+
+  <!-- STEP 1 — company basics -->
+  <form class="step-panel" id="step1" novalidate>
+    <div class="ffield">
+      <label for="obName">Company Name <span>*</span></label>
+      <input class="finput" id="obName" type="text" maxlength="80" placeholder="Summit Roofing &amp; Exteriors" autocomplete="organization" autocapitalize="words">
+      <div class="fhint">Shown on your documents, customer pages, and lead alerts.</div>
+    </div>
+    <div class="frow">
+      <div class="ffield">
+        <label for="obPhone">Business Phone</label>
+        <input class="finput" id="obPhone" type="tel" placeholder="(555) 123-4567" autocomplete="tel" inputmode="tel">
+      </div>
+      <div class="ffield">
+        <label for="obEmail">Business Email</label>
+        <input class="finput" id="obEmail" type="email" placeholder="you@yourcompany.com" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false">
+      </div>
+    </div>
+    <div class="ffield">
+      <label for="obWebsite">Website</label>
+      <input class="finput" id="obWebsite" type="text" placeholder="yourcompany.com" autocomplete="url" autocapitalize="off" spellcheck="false">
+    </div>
+    <div class="ffield">
+      <label for="obAddress">Business Address</label>
+      <input class="finput" id="obAddress" type="text" placeholder="123 Main St, Cincinnati, OH" autocomplete="street-address">
+    </div>
+    <div class="ffield">
+      <label for="obServiceArea">Service Area</label>
+      <input class="finput" id="obServiceArea" type="text" maxlength="120" placeholder="Greater Cincinnati &amp; Northern Kentucky">
+    </div>
+    <div class="btn-row">
+      <button type="submit" class="step-btn" id="next1">Next: Your Brand →</button>
+    </div>
+    <button type="button" class="skip-link" data-action="skip">Skip for now — I'll set this up later in Settings</button>
+  </form>
+
+  <!-- STEP 2 — brand -->
+  <form class="step-panel" id="step2" novalidate>
+    <div class="ffield">
+      <label for="obDisplayName">Display Name</label>
+      <input class="finput" id="obDisplayName" type="text" maxlength="80" placeholder="Summit Roofing">
+      <div class="fhint">The short name on headers and text messages. Defaults to your company name.</div>
+    </div>
+    <div class="frow">
+      <div class="ffield">
+        <label for="obSeal">Initials / Seal</label>
+        <input class="finput" id="obSeal" type="text" maxlength="4" placeholder="SRE" autocapitalize="characters" spellcheck="false">
+        <div class="fhint">2–4 letters. Used on document seals and as your customer-ID prefix (e.g. SRE-0001).</div>
+      </div>
+      <div class="ffield">
+        <label for="obTagline">Tagline</label>
+        <input class="finput" id="obTagline" type="text" maxlength="120" placeholder="Quality roofs, zero drama.">
+      </div>
+    </div>
+    <div class="ffield">
+      <label for="obLogoUrl">Logo URL</label>
+      <input class="finput" id="obLogoUrl" type="url" placeholder="https://yourcompany.com/logo.png" autocapitalize="off" spellcheck="false">
+      <div class="fhint">Optional — a direct link to your logo image. You can add this later.</div>
+    </div>
+    <div class="frow">
+      <div class="ffield">
+        <label for="obColorPrimary">Primary Color</label>
+        <input class="finput" id="obColorPrimary" type="color" value="#1E3A6E">
+      </div>
+      <div class="ffield">
+        <label for="obColorAccent">Accent Color</label>
+        <input class="finput" id="obColorAccent" type="color" value="#E8720C">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button type="button" class="step-btn ghost" data-action="back" data-to="1">← Back</button>
+      <button type="submit" class="step-btn" id="next2">Next: Review →</button>
+    </div>
+    <button type="button" class="skip-link" data-action="skip">Skip for now — I'll set this up later in Settings</button>
+  </form>
+
+  <!-- STEP 3 — review -->
+  <div class="step-panel" id="step3">
+    <div class="review-list" id="reviewList"></div>
+    <div class="fhint" style="margin-bottom:10px;">Everything here can be changed any time in Settings → Company Profile.</div>
+    <div class="btn-row">
+      <button type="button" class="step-btn ghost" data-action="back" data-to="2">← Back</button>
+      <button type="button" class="step-btn" id="finishBtn" data-action="finish">Finish Setup →</button>
+    </div>
+  </div>
+</div>
+</main>
+
+</body>
+</html>
