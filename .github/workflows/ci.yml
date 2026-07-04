@@ -241,6 +241,12 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+      # The Firestore emulator runs on the JVM; firebase-tools 15+ (the tests
+      # devDependency) requires JDK 21 — same setup as firebase-deploy.yml.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
       - name: Install test deps
         run: |
           cd tests
