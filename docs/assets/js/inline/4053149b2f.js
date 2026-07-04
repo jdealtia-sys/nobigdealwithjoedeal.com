@@ -715,12 +715,119 @@ async function verifyOTPCode() {
     document.getElementById('btnSendCode').textContent = 'Verified &#10003;';
     document.getElementById('btnSendCode').classList.add('verified');
     document.getElementById('btnSendCode').disabled = true;
+    // Verified — the skip-verification escape hatch is now pointless.
+    var skipWrap = document.getElementById('otpSkip');
+    if (skipWrap) skipWrap.style.display = 'none';
     checkSubmitReady();
   } else {
     otpStatus.className = 'otp-status error';
     otpStatus.textContent = 'Invalid code. Please try again.';
     inputs.forEach(function(i) { i.value = ''; i.classList.remove('filled'); });
     inputs[0].focus();
+  }
+}
+
+/* ── OTP escape hatch (additive — conversion audit 2026-07-04) ──
+   "Skip verification — just have Joe call me": files the lead through the
+   same submitPublicLead('estimate') path with the details already entered.
+   The OTP itself is untouched — the computed price stays gated behind
+   verification; this only submits a callback request. The skip is flagged
+   via the allowlisted requestType field (integrations.js M-04 allowlist —
+   a bespoke otpSkipped key would be silently dropped server-side).
+   Double-submit is blocked by the busy/done guards + disabled button. */
+var _otpSkipBusy = false;
+var _otpSkipDone = false;
+
+async function skipOtpAndRequestCall(btn) {
+  if (_otpSkipBusy || _otpSkipDone || _otpVerified) return;
+
+  var status = document.getElementById('otpSkipStatus');
+  var fn = document.getElementById('firstName').value.trim();
+  var ln = document.getElementById('lastName').value.trim();
+  var phoneDigits = document.getElementById('phoneNumber').value.replace(/\D/g, '');
+  var email = document.getElementById('emailAddress').value.trim();
+  var consent = document.getElementById('tcpaConsent').checked;
+
+  if (!(fn && ln && phoneDigits.length === 10 && email.includes('@') && consent)) {
+    status.className = 'otp-skip-status error';
+    status.textContent = 'Fill in your name, phone, and email above (and check the consent box) so Joe knows how to reach you.';
+    return;
+  }
+
+  _otpSkipBusy = true;
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  status.className = 'otp-skip-status';
+  status.textContent = '';
+
+  funnelData.firstName = fn;
+  funnelData.lastName = ln;
+  funnelData.phone = document.getElementById('phoneNumber').value.trim();
+  funnelData.email = email;
+
+  // Mark the funnel-recovery record completed, same as the verified path.
+  if (window._saveFunnelProgress && funnelData.email) {
+    window._saveFunnelProgress({
+      funnelId: _funnelId,
+      email: funnelData.email.toLowerCase(),
+      firstName: funnelData.firstName,
+      lastName: funnelData.lastName,
+      phoneNumber: funnelData.phone,
+      address: funnelData.address || '',
+      currentStep: currentStep,
+      completed: true
+    });
+  }
+
+  var leadData = {
+    address: funnelData.address,
+    service: funnelData.service,
+    roofType: funnelData.roofType,
+    timeline: funnelData.timeline,
+    firstName: funnelData.firstName,
+    lastName: funnelData.lastName,
+    phone: funnelData.phone,
+    email: funnelData.email,
+    phoneVerified: false,
+    requestType: 'otp_skipped_call_request'
+  };
+
+  // Same awaited-with-one-retry contract as submitAndGetEstimate.
+  var saved = false;
+  try {
+    saved = !!(await window._saveLead(leadData));
+    if (!saved) saved = !!(await window._saveLead(leadData));
+  } catch (e) { console.error('OTP-skip lead save threw:', e); }
+
+  var notified = false;
+  if (window._notifyJoe) {
+    try {
+      await window._notifyJoe({
+        name: funnelData.firstName + ' ' + funnelData.lastName,
+        phone: funnelData.phone,
+        email: funnelData.email,
+        address: funnelData.address,
+        service: funnelData.service,
+        timeline: funnelData.timeline,
+        verified: false,
+        requestType: 'otp_skipped_call_request'
+      });
+      notified = true;
+    } catch (e) { console.error('OTP-skip notify failed:', e); }
+  }
+
+  _otpSkipBusy = false;
+  if (saved || notified) {
+    _otpSkipDone = true;
+    btn.textContent = 'Request sent ✓';
+    status.className = 'otp-skip-status';
+    status.textContent = 'Got it — Joe will call you at ' + funnelData.phone + '. No code needed.';
+    trackEvent('otp_skip_call_request', { service: funnelData.service });
+  } else {
+    btn.disabled = false;
+    btn.textContent = 'Skip verification — just have Joe call me';
+    status.className = 'otp-skip-status error';
+    status.textContent = 'Couldn’t send just now — call or text Joe at (859) 420-7382.';
   }
 }
 
@@ -1264,6 +1371,16 @@ function resetFunnel() {
   document.querySelectorAll('.otp-input').forEach(function(i) { i.value = ''; i.classList.remove('filled'); });
   document.getElementById('otpStatus').textContent = '';
 
+  // Reset the OTP escape hatch (a fresh funnel run is a new lead)
+  _otpSkipBusy = false;
+  _otpSkipDone = false;
+  var skipWrap = document.getElementById('otpSkip');
+  if (skipWrap) skipWrap.style.display = '';
+  var skipBtn = document.getElementById('btnOtpSkip');
+  if (skipBtn) { skipBtn.disabled = false; skipBtn.textContent = 'Skip verification — just have Joe call me'; }
+  var skipStatus = document.getElementById('otpSkipStatus');
+  if (skipStatus) { skipStatus.className = 'otp-skip-status'; skipStatus.textContent = ''; }
+
   // Reset loading steps
   ['ls1','ls2','ls3','ls4'].forEach(function(s) {
     document.getElementById(s).classList.remove('active', 'done');
@@ -1315,6 +1432,7 @@ document.addEventListener('click', function (e) {
     var a = act.dataset.action;
     if (a === 'sendCode') sendVerificationCode();
     else if (a === 'submitEstimate') submitAndGetEstimate();
+    else if (a === 'skipOtp') skipOtpAndRequestCall(act);
     else if (a === 'emailEstimate') emailEstimate(act);
     else if (a === 'resetFunnel') resetFunnel();
   }
