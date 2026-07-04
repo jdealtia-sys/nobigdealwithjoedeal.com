@@ -995,7 +995,9 @@
           && !localStorage.getItem('nbd_rep_activated')) {
         try {
           const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
-          const fn = httpsCallable(getFunctions(), 'activateInvitedRep');
+          const fns = getFunctions();
+          await connectEmulatorsIfLocal({ functions: fns }); // no-op in prod
+          const fn = httpsCallable(fns, 'activateInvitedRep');
           await fn({});
           localStorage.setItem('nbd_rep_activated', '1');
         } catch (e) { console.warn('Rep activation skipped:', e.message); }
@@ -1011,7 +1013,9 @@
           && !localStorage.getItem('nbd_invite_checked')) {
         try {
           const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
-          const fn = httpsCallable(getFunctions(), 'claimInvite');
+          const fns = getFunctions();
+          await connectEmulatorsIfLocal({ functions: fns }); // no-op in prod
+          const fn = httpsCallable(fns, 'claimInvite');
           const res = await fn({});
           const out = (res && res.data) || {};
           if (out.claimed) {
@@ -3463,6 +3467,7 @@
       if (!(window._functions && window._httpsCallable)) {
         const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
         window._functions = window._functions || mod.getFunctions();
+        await connectEmulatorsIfLocal({ functions: window._functions }); // no-op in prod
         window._httpsCallable = window._httpsCallable || mod.httpsCallable;
       }
       const fn = window._httpsCallable(window._functions, 'setSiteSlug');

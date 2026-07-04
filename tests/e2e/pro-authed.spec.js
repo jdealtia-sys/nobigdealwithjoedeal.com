@@ -346,4 +346,53 @@ test.describe.serial('Authenticated destructive flows', () => {
     }
     expect(afterMove.notesCount, 'at least one timeline note created on move').toBeGreaterThan(0);
   });
+  test('estimate: browser V2 math matches the Node engine, doc persists with stamping + deposit', async ({ page }) => {
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // The estimate engine is lazy (ScriptLoader PR 2c bundle) — pull it in
+    // exactly the way goTo('est') would, then wait for the engine + the
+    // shared persist path.
+    await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
+    await page.evaluate(() => window.ScriptLoader.loadBundle('estimates'));
+    await page.waitForFunction(() =>
+      window.EstimateBuilderV2 && typeof window.EstimateBuilderV2.calculateEstimate === 'function'
+      && typeof window._saveEstimate === 'function', null, { timeout: 20_000 });
+
+    // Same locked scenario shape as tests/estimate-pricing.test.js — the
+    // Node engine is the spec reference; the browser engine must agree to
+    // the penny, and the persisted doc must carry the same numbers.
+    const INPUT = {
+      method: 'per-sq', tier: 'better', mode: 'cash',
+      rawSqft: 3900, pitch: '6/12', county: 'hamilton-oh', wasteFactorOverride: 1.0,
+    };
+    // eslint-disable-next-line global-require
+    const EBv2 = require('../../docs/pro/js/estimate-builder-v2.js');
+    const expected = EBv2.calculateEstimate(INPUT);
+    const expectedDeposit = EBv2.calcDeposit(expected.total, INPUT.mode, {});
+
+    const saved = await page.evaluate(async (input) => {
+      const r = window.EstimateBuilderV2.calculateEstimate(input);
+      const dep = window.EstimateBuilderV2.calcDeposit(r.total, input.mode, {});
+      const id = await window._saveEstimate({
+        name: '[E2E] V2 parity ' + Date.now(),
+        addr: '999 E2E Test Lane, Cincinnati, OH',
+        mode: input.mode, tier: input.tier, engine: 'v2',
+        grandTotal: r.total, deposit: dep,
+        e2eTestData: true,
+      });
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      const snap = await fsMod.getDoc(fsMod.doc(db, 'estimates', id));
+      return { id, browserTotal: r.total, browserDeposit: dep, doc: snap.data() };
+    }, INPUT);
+
+    expect(saved.browserTotal, 'browser V2 total == Node V2 total (engine parity across runtimes)').toBe(expected.total);
+    expect(saved.doc.grandTotal, 'persisted grandTotal matches the engine').toBe(expected.total);
+    expect(saved.doc.userId, '_saveEstimate stamps userId').toBeTruthy();
+    expect(saved.browserDeposit.amount, 'deposit follows spec (cash 50%, $25-rounded — D-5)').toBe(expectedDeposit.amount);
+    expect(saved.doc.deposit && saved.doc.deposit.amount, 'persisted deposit matches').toBe(expectedDeposit.amount);
+    expect(saved.doc.deposit && saved.doc.deposit.remainder, 'deposit + remainder reconstructs the total')
+      .toBeCloseTo(expected.total - expectedDeposit.amount, 2);
+  });
 });
