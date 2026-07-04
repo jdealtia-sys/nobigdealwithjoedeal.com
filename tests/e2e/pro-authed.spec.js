@@ -395,4 +395,133 @@ test.describe.serial('Authenticated destructive flows', () => {
     expect(saved.doc.deposit && saved.doc.deposit.remainder, 'deposit + remainder reconstructs the total')
       .toBeCloseTo(expected.total - expectedDeposit.amount, 2);
   });
+
+  test('invoice: createInvoiceFromEstimate carries totals + deposit, balanceDue is the FULL total', async ({ page }) => {
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // InvoicePipeline is an EAGER <script defer> (dashboard.html) but it runs
+    // on the window Firestore globals (_db/doc/getDoc/addDoc/collection) that
+    // dashboard-bootstrap exposes asynchronously — wait for both ends of that
+    // contract, plus the shared estimate persist path.
+    await page.waitForFunction(() =>
+      window.InvoicePipeline && typeof window.InvoicePipeline.createInvoiceFromEstimate === 'function'
+      && window._db && typeof window.addDoc === 'function'
+      && typeof window._saveEstimate === 'function', null, { timeout: 20_000 });
+
+    const stamp = Date.now();
+    // Classic row-shaped estimate with NO locked grandTotal: exercises the
+    // row-sum branch of createInvoiceFromEstimate (per-sq V2 estimates take
+    // the single-summary-line branch instead, covered by unit tests).
+    // taxRate 0 is the insurance-scope contract: an explicit 0 must be
+    // HONORED, not silently defaulted to 7.5% (Audit #3 F-3).
+    const EST = {
+      name: `[E2E] Invoice source ${stamp}`,
+      addr: '742 Invoice Test Ct, Cincinnati, OH',
+      // Linkage is copied verbatim onto the invoice; the pipeline's
+      // enrichment read of this (nonexistent) lead is best-effort and
+      // swallows the permission error.
+      leadId: `e2e-missing-lead-${stamp}`,
+      rows: [
+        { desc: 'Tear-off + disposal', qty: 20, rate: 100, total: 2000 },
+        { desc: 'Shingles (architectural)', qty: 1, rate: 1500, total: 1500 },
+      ],
+      taxRate: 0,
+      // Classic builder saves deposit as an OBJECT — the pipeline must
+      // coerce .amount, not Number() the object into NaN (review blocker).
+      deposit: { pct: 50, amount: 1750, remainder: 1750 },
+      e2eTestData: true,
+    };
+
+    const out = await page.evaluate(async (est) => {
+      const estimateId = await window._saveEstimate(est);
+      const invoiceId = await window.InvoicePipeline.createInvoiceFromEstimate(estimateId);
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      // Tag the invoice for the cleanupE2ETestData callable — the pipeline
+      // writes a fixed shape with no room for test flags. Owner update is
+      // allowed while createdBy/companyId/estimateId/createdAt stay frozen.
+      await fsMod.updateDoc(fsMod.doc(db, 'invoices', invoiceId), { e2eTestData: true });
+      const snap = await fsMod.getDoc(fsMod.doc(db, 'invoices', invoiceId));
+      return { estimateId, invoiceId, inv: snap.data() };
+    }, EST);
+
+    const inv = out.inv;
+    const expectedSubtotal = EST.rows.reduce((s, r) => s + r.total, 0);
+    expect(inv.subtotal, 'subtotal = Σ row totals').toBe(expectedSubtotal);
+    expect(inv.taxRate, 'estimate taxRate 0 honored (not defaulted to 7.5%)').toBe(0);
+    expect(inv.tax, 'tax is 0 at a 0% rate').toBe(0);
+    expect(inv.total, 'total = subtotal at 0% tax').toBe(expectedSubtotal);
+    expect(inv.depositAmount, 'deposit coerced from the classic {amount} object').toBe(EST.deposit.amount);
+    // The locked AR contract: balanceDue tracks genuinely-owed money — the
+    // FULL total at create time. It was `total - depositAmount`, which booked
+    // the deposit as collected before any payment arrived, under-reporting AR.
+    expect(inv.balanceDue, 'balanceDue = full total at create').toBe(inv.total);
+    expect(inv.status, 'new invoice starts as draft').toBe('draft');
+    expect(inv.depositPaid, 'deposit not marked paid at create').toBe(false);
+    expect(inv.amountPaid, 'nothing collected at create').toBe(0);
+    expect(inv.estimateId, 'invoice → estimate linkage').toBe(out.estimateId);
+    expect(inv.leadId, 'invoice inherits the estimate leadId').toBe(EST.leadId);
+    expect(inv.createdBy, 'createdBy stamped').toBeTruthy();
+    expect(inv.companyId, 'companyId stamped (solo convention: uid)').toBeTruthy();
+    expect(inv.items.length, 'row-shaped estimate keeps its line items').toBe(EST.rows.length);
+  });
+
+  test('photo: uploadFromFile stores original + thumb, derives phase from the before tag', async ({ page }) => {
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // PhotoEngine lives in the lazy 'photos' bundle (ScriptLoader PR 2c);
+    // the upload path additionally needs the Storage handle that bootstrap
+    // exposes as window._storage (emulator-wired on localhost, line 809).
+    await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
+    await page.evaluate(() => window.ScriptLoader.loadBundle('photos'));
+    await page.waitForFunction(() =>
+      window.PhotoEngine && typeof window.PhotoEngine.uploadFromFile === 'function'
+      && window._storage && window._db, null, { timeout: 20_000 });
+
+    const stamp = Date.now();
+    const out = await page.evaluate(async (args) => {
+      // A REAL image via canvas export: generateThumbnail() re-decodes the
+      // blob as an <img>, so a hand-rolled Blob of junk bytes fails there,
+      // and storage.rules requires an image/* content type (isImage()).
+      const canvas = document.createElement('canvas');
+      canvas.width = 80; canvas.height = 60;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#d2691e'; ctx.fillRect(0, 0, 80, 60);
+      const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.8));
+
+      const leadId = 'e2e-photo-lead-' + args.stamp;
+      const photo = await window.PhotoEngine.uploadFromFile(
+        leadId, blob, ['before'], '[E2E] photo journey ' + args.stamp);
+
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      // Tag for the cleanup callable (the upload writes a fixed doc shape).
+      // NOTE: cleanup deletes the Firestore doc; the Storage originals under
+      // photos/<uid>/<leadId>/ are only reclaimed in emulator runs (state
+      // evaporates) — a prod run leaves two tiny orphaned JPEGs per run.
+      await fsMod.updateDoc(fsMod.doc(db, 'photos', photo.id), { e2eTestData: true });
+      const snap = await fsMod.getDoc(fsMod.doc(db, 'photos', photo.id));
+      return { id: photo.id, doc: snap.data(), uid: window._user.uid, leadId };
+    }, { stamp });
+
+    const doc = out.doc;
+    expect(doc, 'photo doc persisted to Firestore').toBeTruthy();
+    // share-gallery.js buckets on photo.phase — without the derived field
+    // every photo landed in 'During' and Before/After stayed empty.
+    expect(doc.phase, "tag 'before' derives phase 'Before'").toBe('Before');
+    expect(doc.userId, 'userId stamped from window._user').toBe(out.uid);
+    expect(doc.leadId, 'photo keyed to its lead').toBe(out.leadId);
+    expect(doc.tags, 'user tags persisted').toContain('before');
+    expect(doc.url, 'download URL for the original').toBeTruthy();
+    expect(doc.thumbUrl, 'thumbnail generated + uploaded').toBeTruthy();
+    // storagePath is the future-proof deletion key — must be rooted under
+    // the owner-scoped prefix that storage.rules enforces.
+    expect(doc.storagePath, 'original rooted under photos/<uid>/<leadId>/')
+      .toMatch(new RegExp('^photos/' + out.uid + '/' + out.leadId + '/'));
+    expect(doc.thumbStoragePath, 'thumb rooted under .../thumbs/')
+      .toMatch(new RegExp('^photos/' + out.uid + '/' + out.leadId + '/thumbs/'));
+    expect(doc.createdAt, 'createdAt serverTimestamp (canonical ordering field)').toBeTruthy();
+  });
 });
