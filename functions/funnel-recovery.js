@@ -40,6 +40,7 @@ const admin = require('firebase-admin');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
+const { httpRateLimit } = require('./integrations/upstash-ratelimit');
 
 // ───────────────────────────────────────────────────────────────
 // Config
@@ -173,6 +174,13 @@ exports.saveFunnelProgress = onRequest(
       res.status(405).json({ success: false, error: 'POST only' });
       return;
     }
+
+    // Per-IP cap. A legit funnel session posts one progress update per step
+    // (~6-8 per visit, debounced); 30/min/IP swallows that with room to
+    // spare. Without this, the endpoint was the only unthrottled public
+    // writer — and every doc it creates is a future outbound recovery email
+    // to an attacker-supplied address via runAbandonRecovery.
+    if (!(await httpRateLimit(req, res, 'funnelProgress:ip', 30, 60_000))) return;
 
     try {
       const body = req.body || {};

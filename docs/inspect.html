@@ -20,8 +20,6 @@
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
 <style>
 :root{
@@ -76,7 +74,7 @@ h1 span{color:var(--orange)}
 .form-panel .form-intro{font-size:.86rem;color:var(--gray);margin-bottom:22px;line-height:1.55}
 .form-row{margin-bottom:16px}
 .form-row label{display:block;font-size:.74rem;font-weight:700;color:var(--navy);letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
-.form-row label .opt{color:var(--gray);font-weight:500;text-transform:none;letter-spacing:0;margin-left:6px}
+.form-row label .opt{color:var(--gray);font-weight:600;text-transform:none;letter-spacing:0;margin-left:6px}
 .form-row input[type=text],.form-row input[type=tel],.form-row input[type=email],.form-row textarea{width:100%;padding:12px 14px;border:1.5px solid var(--light-gray);border-radius:8px;font:inherit;font-size:.95rem;color:#1a1a1a;background:#fff;transition:border-color .15s,box-shadow .15s}
 .form-row input:focus,.form-row textarea:focus{outline:none;border-color:var(--orange);box-shadow:0 0 0 3px rgba(232,114,12,.12)}
 .form-row textarea{resize:vertical;min-height:90px;font-family:inherit}
@@ -99,11 +97,13 @@ h1 span{color:var(--orange)}
 /* Tagline footer */
 .tagline-bar{background:var(--navy-dark);color:#fff;text-align:center;padding:36px 5%;font-family:'Bebas Neue',sans-serif;font-size:clamp(1.1rem,2.6vw,1.55rem);letter-spacing:.04em}
 .tagline-bar span{color:var(--orange)}
-.tagline-bar .sub{display:block;font-family:'Montserrat',sans-serif;font-size:.78rem;color:rgba(255,255,255,.5);letter-spacing:.05em;margin-top:6px;font-weight:500}
+.tagline-bar .sub{display:block;font-family:'Montserrat',sans-serif;font-size:.78rem;color:rgba(255,255,255,.5);letter-spacing:.05em;margin-top:6px;font-weight:600}
 
 /* Mini footer */
 .mini-footer{background:#142a52;color:rgba(255,255,255,.5);padding:18px 5%;text-align:center;font-size:.74rem}
 .mini-footer a{color:rgba(255,255,255,.75)}
+/* a11y (T4d): links distinguishable from text + >=24px tap target */
+.mini-footer a{text-decoration:underline;display:inline-block;padding:6px 4px}
 .mini-footer a:hover{color:var(--orange)}
 
 @media(max-width:880px){
@@ -115,12 +115,15 @@ h1 span{color:var(--orange)}
   .topbar .call-btn{font-size:.74rem;padding:6px 10px}
 }
 </style>
+<link rel="stylesheet" href="/assets/css/mobile-cta.css">
+<style>/* iOS-zoom fix (conversion audit): 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 </head>
-<body>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
 
 <header class="topbar">
   <a href="/" class="logo">
-    <img src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions">
+    <img src="/assets/images/nbd-logo.png" width="240" height="160" alt="No Big Deal Home Solutions">
     <div>
       <div class="brand">NO BIG DEAL</div>
       <div class="sub">Home Solutions</div>
@@ -131,6 +134,7 @@ h1 span{color:var(--orange)}
   </a>
 </header>
 
+<main id="main">
 <section class="hero">
   <div class="hero-grid">
     <div class="hero-left">
@@ -205,6 +209,7 @@ h1 span{color:var(--orange)}
   &hellip;seriously, it&rsquo;s in the <span>name</span>.
   <span class="sub">No Big Deal Home Solutions &middot; Greater Cincinnati</span>
 </section>
+</main>
 
 <footer class="mini-footer">
   <p>&copy; 2026 No Big Deal Home Solutions &middot; <a href="/">Home</a> &middot; <a href="/about">About Joe</a> &middot; <a href="/privacy">Privacy</a></p>
@@ -212,5 +217,10 @@ h1 span{color:var(--orange)}
 
 <script src="/assets/js/public-lead-submit.js" defer></script>
 <script src="/assets/js/inspect-form.js" defer></script>
+<!-- STICKY MOBILE CTA STRIP (site-wide, conversion audit 2026-07-03) -->
+<div class="mobile-cta-strip" aria-label="Quick contact options">
+  <a href="tel:+18594207382" class="mobile-cta-call"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>Call Joe</a>
+  <a href="sms:+18594207382" class="mobile-cta-text"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>Text Us</a>
+</div>
 </body>
 </html>

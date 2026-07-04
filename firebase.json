@@ -20,12 +20,23 @@
       { "_comment": "/free-guide is a CONTRACTOR lead magnet (not homeowner-facing). Relocated to the SaaS/contractor surface at /sites/free-guide. 301 so any printed/ad/QR links to the old /free-guide fold their equity into the new location.",
         "source": "/free-guide", "destination": "/sites/free-guide", "type": 301 },
       { "_comment": "/financing (root) was a client-side meta-refresh stub to the canonical /services/financing. Replaced with a proper server 301 (better SEO, no redirect flash); the stub file was removed.",
-        "source": "/financing", "destination": "/services/financing", "type": 301 }
+        "source": "/financing", "destination": "/services/financing", "type": 301 },
+      { "_comment": "Pillar 5 Oaks cutover (Jo, 2026-07-04): the hand-authored /sites/oaks pages are retired; the data-driven tenant microsite at /sites/t/oaks (rendered from companyProfile via getPublicSiteConfig) is canonical. Page paths are ENUMERATED rather than /sites/oaks/** because redirects outrank static files in Hosting priority and logo-orange.svg must keep serving — companyProfile/oaks brand.logoUrl (and generated documents) point at it. Trailing * catches both the .html and cleanUrls extensionless forms.",
+        "source": "/sites/oaks", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/index*", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/about*", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/contact*", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/gallery*", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/service-areas*", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/services", "destination": "/sites/t/oaks", "type": 301 },
+      { "source": "/sites/oaks/services/**", "destination": "/sites/t/oaks", "type": 301 }
     ],
     "rewrites": [
       { "_comment": "Bots, link previewers, and old browsers probe /favicon.ico by reflex. We don't ship a .ico file (favicon.svg covers modern browsers via <link rel=icon>). Rewriting the .ico URL to favicon.svg returns the SVG bytes with Content-Type image/svg+xml — modern browsers accept that fine. The alternative was a 404 every time a crawler hits the URL.",
         "source": "/favicon.ico", "destination": "/favicon.svg" },
-      { "source": "/sites/oaks", "destination": "/sites/oaks/index.html" },
+      { "_comment": "Pillar 5 phase 1: universal tenant microsite. /sites/t/<companyId-or-slug> serves the one static template (rewrites only fire when no real file matches, so site.js/site.css still serve directly); /api/site-config is the whitelisted server-side companyProfile read behind it.",
+        "source": "/api/site-config", "function": { "functionId": "getPublicSiteConfig", "region": "us-central1" } },
+      { "source": "/sites/t/**", "destination": "/sites/t/index.html" },
       { "source": "/tools", "destination": "/tools/index.html" },
       { "source": "/privacy", "destination": "/privacy.html" },
       { "source": "/pro/account-erasure", "function": { "functionId": "confirmAccountErasure", "region": "us-central1" } },
@@ -42,16 +53,7 @@
     ],
     "headers": [
       {
-        "_comment": "Wave 127 P0: JS/CSS must-revalidate on every request via ETag. Previously max-age=300 meant the browser HTTP cache served stale assets for 5 minutes after each deploy — even with the W124 network-first Service Worker, the SW's fetch() would hit browser HTTP cache and get stale code. Symptom: 'every other reload stuck on loading' because each load's background HTTP-cache update set up the NEXT load to work, then a deploy could break it again. New: max-age=0 + must-revalidate makes the browser send If-None-Match (ETag) on every request. 99% of the time the file is unchanged and the server returns 304 Not Modified (~5KB total, ~50ms). When it does change (deploy), the user gets fresh content immediately. Third-party libraries (Leaflet, Font Awesome, jsPDF, ApexCharts, Chart.js) are vendored same-origin under /assets/vendor/ and version-pinned by their directory path, so they fall under this same JS/CSS revalidation rule.",
-        "source": "**/*.@(js|css)",
-        "headers": [
-          { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
-          { "key": "X-Content-Type-Options", "value": "nosniff" },
-          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
-        ]
-      },
-      {
-        "_comment": "Source is '**' not '**/*.html' because cleanUrls:true rewrites incoming /pro/foo.html requests to /pro/foo BEFORE header matching runs. With **/*.html only the JS/CSS rule above matched anything; HTML responses got HSTS only. '**' applies these headers to every response. CSP/X-Frame are no-ops on non-HTML responses (browsers ignore), so the over-application is safe; Cache-Control is overridden per-path below for dashboard/customer/etc.",
+        "_comment": "Source is '**' not '**/*.html' because cleanUrls:true rewrites incoming /pro/foo.html requests to /pro/foo BEFORE header matching runs. With **/*.html only the JS/CSS rule matched anything; HTML responses got HSTS only. '**' applies these headers to every response. CSP/X-Frame are no-ops on non-HTML responses (browsers ignore), so the over-application is safe; Cache-Control is overridden per-path below for js/css and dashboard/customer/etc.",
         "source": "**",
         "headers": [
           { "key": "Cache-Control", "value": "public, max-age=300" },
@@ -65,6 +67,15 @@
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://maps.googleapis.com https://maps.gstatic.com https://api.weather.gov https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com https://mesonet.agron.iastate.edu https://server.arcgisonline.com https://*.arcgisonline.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; connect-src 'self' https://formsubmit.co https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://api.stripe.com https://www.google-analytics.com https://api.weather.gov https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://nominatim.openstreetmap.org https://www.gstatic.com https://fonts.gstatic.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; frame-src 'self' https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://js.stripe.com https://*.firebaseapp.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://cal.com https://*.cal.com https://app.boldsign.com; worker-src 'self' blob:;" },
           { "key": "Content-Security-Policy-Report-Only", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://maps.googleapis.com https://maps.gstatic.com https://api.weather.gov https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com https://mesonet.agron.iastate.edu https://server.arcgisonline.com https://*.arcgisonline.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; connect-src 'self' https://formsubmit.co https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://api.stripe.com https://www.google-analytics.com https://api.weather.gov https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://nominatim.openstreetmap.org https://www.gstatic.com https://fonts.gstatic.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; frame-src 'self' https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://js.stripe.com https://*.firebaseapp.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://cal.com https://*.cal.com https://app.boldsign.com; worker-src 'self' blob:; report-uri /cspReport; report-to csp-endpoint;" },
           { "key": "Report-To", "value": "{\"group\":\"csp-endpoint\",\"max_age\":10886400,\"endpoints\":[{\"url\":\"/cspReport\"}]}" }
+        ]
+      },
+      {
+        "_comment": "Wave 127 P0: JS/CSS must-revalidate on every request via ETag. Previously max-age=300 meant the browser HTTP cache served stale assets for 5 minutes after each deploy — even with the W124 network-first Service Worker, the SW's fetch() would hit browser HTTP cache and get stale code. Symptom: 'every other reload stuck on loading' because each load's background HTTP-cache update set up the NEXT load to work, then a deploy could break it again. max-age=0 + must-revalidate makes the browser send If-None-Match (ETag) on every request. 99% of the time the file is unchanged and the server returns 304 Not Modified (~5KB total, ~50ms). When it does change (deploy), the user gets fresh content immediately. Third-party libraries (Leaflet, Font Awesome, jsPDF, ApexCharts, Chart.js) are vendored same-origin under /assets/vendor/ and version-pinned by their directory path, so they fall under this same JS/CSS revalidation rule. ORDERING FIX 2026-07: this rule originally sat BEFORE '**', and since header matching is last-match-wins per key, '**' max-age=300 silently overrode it — the Wave-127 fix never actually shipped. It now sits after '**' so it applies as intended; the /assets/{css,js} rules at the END of this array still override it for public marketing assets (24h), and the sw.js rules below still pin service workers to no-cache.",
+        "source": "**/*.@(js|css)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
+          { "key": "X-Content-Type-Options", "value": "nosniff" },
+          { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }
         ]
       },
       {
@@ -109,11 +120,10 @@
         ]
       },
       {
-        "_comment": "FIXME(csp): customer.html still has inline <script> blocks (incl. the critical module at line 2710 that runs Firebase init + onAuthStateChanged + loadCustomerData). The strict ** CSP at line 44 blocks them and the page hangs on 'Loading...' forever. Re-allow 'unsafe-inline' for script-src JUST for /pro/customer until customer.html's inline scripts are extracted to external .js files (mirror of #398 dashboard.html work). Last-match-wins per the line-50 comment, so this overrides the ** block CSP for this route only.",
+        "_comment": "RESOLVED 2026-07-02 (was FIXME(csp)): customer.html's 11 inline <script> blocks (~6.5k lines, incl. the critical Firebase-init module) were extracted to docs/pro/js/customer-*.js (mirror of the #398 dashboard work), verified byte-for-byte with zero CSP refusals under the strict '**' policy and zero inline on*= handlers. The unsafe-inline script-src override is therefore gone; the page now rides the global CSP. Only the no-store Cache-Control stays (lead PII page).",
         "source": "/pro/customer",
         "headers": [
-          { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" },
-          { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://maps.googleapis.com https://maps.gstatic.com https://api.weather.gov https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com https://mesonet.agron.iastate.edu https://server.arcgisonline.com https://*.arcgisonline.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; script-src-attr 'none'; script-src-elem 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://api.stripe.com https://www.google-analytics.com https://api.weather.gov https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://nominatim.openstreetmap.org https://www.gstatic.com https://fonts.gstatic.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; frame-src 'self' https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://js.stripe.com https://*.firebaseapp.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://cal.com https://*.cal.com https://app.boldsign.com; worker-src 'self' blob:;" }
+          { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }
         ]
       },
       {
@@ -162,6 +172,18 @@
       },
       {
         "source": "/sites/template",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
+        "source": "/sites/t",
+        "headers": [
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
+        ]
+      },
+      {
+        "source": "/sites/t/**",
         "headers": [
           { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
         ]
@@ -278,6 +300,26 @@
         "headers": [
           { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'self'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://maps.googleapis.com https://maps.gstatic.com https://api.weather.gov https://*.tile.openstreetmap.org https://mt0.google.com https://mt1.google.com https://mt2.google.com https://mt3.google.com https://mesonet.agron.iastate.edu https://server.arcgisonline.com https://*.arcgisonline.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com https://js.stripe.com https://www.googletagmanager.com https://www.google-analytics.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://api.stripe.com https://www.google-analytics.com https://api.weather.gov https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://nominatim.openstreetmap.org https://www.gstatic.com https://fonts.gstatic.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; frame-src 'self' https://firebasestorage.googleapis.com https://*.firebasestorage.app https://storage.googleapis.com https://js.stripe.com https://*.firebaseapp.com https://www.google.com https://www.recaptcha.net https://challenges.cloudflare.com https://cal.com https://*.cal.com https://app.boldsign.com; worker-src 'self' blob:;" }
+        ]
+      },
+      {
+        "_comment": "SEO-hardening 2026-07 (F2): longer browser/CDN caching for PUBLIC marketing assets. Placed at the END of this array because header matching is last-match-wins per key (see line-71 comment) — the '**' rule above otherwise pins everything to max-age=300. Scoped to /assets/{css,js,fonts} only: /pro/js (CRM app code) keeps the 300s default on purpose, and /assets/vendor is shared with the pro app so it is deliberately NOT touched. 86400 (24h) rather than a 1-year immutable cache because asset filenames are NOT content-hashed (the /assets/js/inline/* names no longer match their content hashes) and there is no build step to stamp ?v= versions — a long immutable cache without cache-busting would strand users on stale code after a deploy. Tradeoff: an edit to a css/js file here can take up to 24h to reach repeat visitors; if that ever bites, append a ?v=N query string to the changed file's references and redeploy.",
+        "source": "/assets/css/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
+      },
+      {
+        "source": "/assets/js/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=86400" }
+        ]
+      },
+      {
+        "_comment": "Self-hosted woff2 files are stable binaries (a family change would ship under a new filename), so cache for 30 days — same policy as /assets/images/**. Previously they inherited the 300s '**' default, so every returning visitor re-validated every font five minutes after their last visit.",
+        "source": "/assets/fonts/**",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=2592000" }
         ]
       }
     ]

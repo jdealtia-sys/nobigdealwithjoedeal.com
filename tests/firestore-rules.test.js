@@ -92,6 +92,15 @@ async function run() {
     // Company for members-rule test
     await setDoc(doc(db, 'companies/co-a'),
       { ownerId: 'alice', name: 'Alice Roofing' });
+    // Pillar 4 fixtures: an existing member (update/delete stay owner-
+    // writable after create moved server-side) + the company subscription
+    // (team members read their own company's plan; cross-tenant denied).
+    await setDoc(doc(db, 'companies/co-a/members/exist@x.com'),
+      { email: 'exist@x.com', role: 'sales_rep', status: 'active' });
+    await setDoc(doc(db, 'companies/alice/members/m1'),
+      { email: 'm1@x.com', role: 'sales_rep', status: 'invited' });
+    await setDoc(doc(db, 'subscriptions/co-a'),
+      { plan: 'growth', status: 'active' });
   });
 
   // 1. user cannot self-promote to admin via users/{uid}.role
@@ -200,9 +209,25 @@ async function run() {
   // Carol has role: company_admin but isn't the ownerId — should fail.
   await assertFails(setDoc(doc(coAdmin, 'companies/co-a/members/new@x.com'),
     { email: 'new@x.com', role: 'sales_rep', status: 'invited' }));
-  // Alice IS the owner — should succeed.
-  await assertSucceeds(setDoc(doc(alice, 'companies/co-a/members/new@x.com'),
+  // Member writes are FULLY server-mediated now — create/update/delete all
+  // go through callables (createTeamInvite / deactivateUser / removeMember)
+  // so seat limits hold AND removal strips claims + revokes tokens. Even the
+  // owner cannot client-write member docs; only a platform admin can.
+  await assertFails(setDoc(doc(alice, 'companies/co-a/members/new@x.com'),
     { email: 'new@x.com', role: 'sales_rep', status: 'invited' }));
+  await assertFails(setDoc(doc(alice, 'companies/co-a/members/exist@x.com'),
+    { status: 'disabled' }, { merge: true }));
+  await assertFails(deleteDoc(doc(alice, 'companies/co-a/members/exist@x.com')));
+  await assertFails(setDoc(doc(coAdmin, 'companies/co-a/members/exist@x.com'),
+    { status: 'disabled' }, { merge: true }));
+  // Platform admin retains client access (admin-SDK callables also bypass).
+  await assertSucceeds(setDoc(doc(admin, 'companies/co-a/members/exist@x.com'),
+    { status: 'disabled' }, { merge: true }));
+  // Pillar 4: same-company members read the company subscription (billing
+  // is company-level; the doc is keyed by owner uid == companyId claim).
+  await assertSucceeds(getDoc(doc(coAdmin, 'subscriptions/co-a')));
+  await assertSucceeds(getDoc(doc(alice, 'subscriptions/co-a')));
+  await assertFails(getDoc(doc(bob, 'subscriptions/co-a')));
 
   // 20. F-05: leads/{leadId}/activity rep-write shape guards.
   //
@@ -355,11 +380,16 @@ async function run() {
   await assertFails(setDoc(doc(bob, 'academy_progress/alice'), { completedNodes: ['x'] }));
 
   // 23d. QA 2026-06-21 #10: companies/{uid}/members keyed under the caller's
-  //      OWN uid is readable/writable even when no /companies/{uid} doc exists
-  //      (the get(...).ownerId check denies a missing doc). The live Team tab
-  //      queries /companies/{_user.uid}/members. Cross-uid still denied.
+  //      OWN uid is READABLE even when no /companies/{uid} doc exists (the
+  //      live Team tab queries /companies/{_user.uid}/members). Cross-uid
+  //      reads stay denied. Member WRITES are fully server-mediated now
+  //      (create/update/delete via callables) — even under the caller's own
+  //      uid, a client write is denied; only removeMember/deactivateUser
+  //      (admin SDK) touch these docs.
   await assertSucceeds(getDoc(doc(alice, 'companies/alice/members/m1')));
-  await assertSucceeds(setDoc(doc(alice, 'companies/alice/members/rep1'), { email: 'r@x.com', role: 'sales_rep', status: 'invited' }));
+  await assertFails(setDoc(doc(alice, 'companies/alice/members/rep1'), { email: 'r@x.com', role: 'sales_rep', status: 'invited' }));
+  await assertFails(setDoc(doc(alice, 'companies/alice/members/m1'), { status: 'disabled' }, { merge: true }));
+  await assertFails(deleteDoc(doc(alice, 'companies/alice/members/m1')));
   await assertFails(getDoc(doc(bob, 'companies/alice/members/m1')));
   await assertFails(setDoc(doc(bob, 'companies/alice/members/rep2'), { email: 'x@x.com', role: 'sales_rep' }));
 

@@ -2,9 +2,41 @@
    1. FAQ accordion: <div class="faq-q"> toggles its parent's `open` class
    2. Services nav dropdown: top-level <a> inside <ul class="nav-links"> > <li class="dropdown"> toggles on desktop */
 (function () {
+  function toggleFaq(q) {
+    if (!q.parentElement) return;
+    var open = q.parentElement.classList.toggle('open');
+    q.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  // A11y (T4b): the .faq-q headers are <div>s — expose them as buttons so
+  // keyboard users can Tab to them and toggle with Enter/Space.
+  function initFaqA11y() {
+    var qs = document.querySelectorAll('.faq-q');
+    for (var i = 0; i < qs.length; i++) {
+      var q = qs[i];
+      if (!q.hasAttribute('role')) q.setAttribute('role', 'button');
+      if (!q.hasAttribute('tabindex')) q.setAttribute('tabindex', '0');
+      q.setAttribute('aria-expanded',
+        q.parentElement && q.parentElement.classList.contains('open') ? 'true' : 'false');
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initFaqA11y);
+  } else {
+    initFaqA11y();
+  }
+
   document.addEventListener('click', function (e) {
     var q = e.target.closest && e.target.closest('.faq-q');
-    if (q && q.parentElement) q.parentElement.classList.toggle('open');
+    if (q) toggleFaq(q);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+    var q = e.target.closest && e.target.closest('.faq-q');
+    if (!q) return;
+    e.preventDefault(); // stop Space from scrolling the page
+    toggleFaq(q);
   });
 
   document.addEventListener('click', function (e) {

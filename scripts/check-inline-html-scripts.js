@@ -48,7 +48,16 @@ const { execFileSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const DOCS = path.join(ROOT, 'docs');
 
-const SKIP_DIRS = ['sites', 'pro', 'admin', 'assets', 'tools'];
+// Default scope is the homeowner marketing surface. --all additionally
+// scans pro/ and admin/ — the pages where a stray inline <script> is
+// SILENTLY blocked by the strict CSP (that exact gap is how admin/vault
+// and admin/project-codex shipped broken; see the FIXME in firebase.json).
+// pro/admin currently have known carve-outs, so --all is informational
+// until those are extracted; run it before adding any new pro/admin page.
+const SCAN_ALL = process.argv.includes('--all');
+const SKIP_DIRS = SCAN_ALL
+  ? ['sites', 'assets', 'tools']
+  : ['sites', 'pro', 'admin', 'assets', 'tools'];
 
 // ──────────────────────────────────────────────────────────────────
 // File walker
