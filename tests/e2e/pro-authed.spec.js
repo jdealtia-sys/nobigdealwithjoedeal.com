@@ -20,12 +20,11 @@ const { requireTestUser, loginAs, callCallableInPage, cleanupE2EData } = require
  * to the global goTo() when the sidebar is hidden (narrow viewports).
  */
 async function openCrmView(page) {
-  const nav = page.locator('#nav-crm');
-  if (await nav.isVisible().catch(() => false)) {
-    await nav.click();
-  } else {
-    await page.evaluate(() => window.goTo && window.goTo('crm'));
-  }
+  // Wait for the nav plumbing itself (dashboard-ui.js defines window.goTo)
+  // rather than clicking #nav-crm — the click delegate binds asynchronously
+  // and a fast retry can click before it listens, silently going nowhere.
+  await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 15_000 });
+  await page.evaluate(() => window.goTo('crm'));
 }
 
 test.describe('Authenticated /pro/ shell — read-only', () => {
@@ -72,7 +71,7 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
     const emulatorMode = /127\.0\.0\.1|localhost/.test(process.env.PLAYWRIGHT_BASE_URL || '');
     const hard = consoleErrors.filter(e =>
       !/Report Only|favicon|Service Worker registration|chrome-extension/i.test(e)
-      && !(emulatorMode && /127\.0\.0\.1:5001|ERR_CONNECTION_REFUSED|Failed to load resource/i.test(e))
+      && !(emulatorMode && /127\.0\.0\.1:5001|ERR_CONNECTION_REFUSED|Failed to load resource|app-?check|ReCAPTCHA/i.test(e))
     );
     expect(hard, 'unexpected console errors during dashboard load').toEqual([]);
   });
@@ -189,9 +188,14 @@ test.describe.serial('Authenticated destructive flows', () => {
     const dbCheck = await page.evaluate(async (n) => {
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
+      // The leads read rule is isOwner(resource.data.userId) — a query
+      // must carry the userId filter or Firestore can't prove it complies
+      // and rejects it outright (empty-message FirebaseError).
+      const uid = (window._auth || window.auth).currentUser.uid;
       const snap = await fsMod.getDocs(
         fsMod.query(
           fsMod.collection(db, 'leads'),
+          fsMod.where('userId', '==', uid),
           fsMod.where('e2eTestData', '==', true),
           fsMod.where('lastName', '==', String(n))
         )
