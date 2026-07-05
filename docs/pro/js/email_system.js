@@ -1,4 +1,3 @@
-let _NBD_ES_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 // ═══════════════════════════════════════════════════════════════════════
 // EMAIL INTEGRATION SYSTEM - Send estimates, reports, and follow-ups
 // ═══════════════════════════════════════════════════════════════════════
@@ -7,6 +6,7 @@ let _NBD_ES_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 // For now, we'll use mailto: links with pre-populated content
 // In production, integrate with SendGrid, Mailgun, or AWS SES
 
+let _NBD_ES_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 window.emailSystem = {
   // Template library
   templates: {

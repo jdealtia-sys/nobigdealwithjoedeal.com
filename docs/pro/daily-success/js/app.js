@@ -1,3 +1,4 @@
+let _di; // module-local (globals Tranche 1 — was window.*)
 const STORE='nbd_dsp_v1';
 const GT_KEY='nbd_gt';
 const NBD_CFG='nbd_user_config';
@@ -1382,7 +1383,6 @@ window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full 
 
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {
-let _di; // module-local (globals Tranche 1 — was window.*)
   // Prefer the canonical engine key (nbd_pro_theme) so a theme picked on the
   // dashboard carries to this page; fall back to the legacy keys. Map the
   // engine's 'nbd-original' back to this surface's legacy 'default' (PR #557 F-1).

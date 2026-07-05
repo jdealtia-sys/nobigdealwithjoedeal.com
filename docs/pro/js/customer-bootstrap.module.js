@@ -1,5 +1,5 @@
-let toggleCustomerPhotoReorder; // module-local (globals Tranche 1 — was window.*)
 
+let toggleCustomerPhotoReorder; // module-local (globals Tranche 1 — was window.*)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";

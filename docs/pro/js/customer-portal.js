@@ -10,9 +10,9 @@
  * Exposes: window.CustomerPortal
  */
 
+let _NBD_CP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function() {
   'use strict';
-let _NBD_CP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
   const PORTAL_COLLECTION = 'portals';
   const BRAND = {

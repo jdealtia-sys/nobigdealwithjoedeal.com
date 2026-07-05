@@ -37,6 +37,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── THEME REGISTRY (100 themes) ──────────────────────────────────── */
+let _NBD_MP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 const NBD_THEMES = [
   // STANDARD
   {id:'default',          name:'NBD Default',       cat:'standard', plan:'blueprint', accent:'#e8720c', bg:'#0A0C0F', s:'#13171d', jp:true},
@@ -477,7 +478,6 @@ window.goToMyLocation = goToMyLocation;
 
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {
-let _NBD_MP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   // On surfaces with the modern ThemeEngine (dashboard sets window.NBD_THEME_ENGINE),
   // the engine owns appearance (data-theme + injected vars). Skip the legacy
   // body-class + inline-var forcing here — it ran on EVERY load and overrode the

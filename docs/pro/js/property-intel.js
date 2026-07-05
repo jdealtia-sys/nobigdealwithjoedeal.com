@@ -1,4 +1,3 @@
-let _NBD_PI_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 // ══════════════════════════════════════════════════════════════
 // NBD Pro — property-intel.js (ENHANCED)
 // Property Intel: auditor lookup, intel cards, modal display
@@ -6,6 +5,7 @@ let _NBD_PI_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 // ══════════════════════════════════════════════════════════════
 
 // Use var to avoid redeclaration collision with dashboard.html inline script
+let _NBD_PI_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 var _piCache = _piCache || {};
 
 // HTML escape helper — prevents XSS when interpolating user data

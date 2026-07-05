@@ -4,9 +4,9 @@
 // Connects estimates to Stripe for invoicing and payment collection
 // ═══════════════════════════════════════════════════════════════════════════
 
+let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 (function() {
   'use strict';
-let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 
   const CLOUD_FUNCTION_BASE = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
 

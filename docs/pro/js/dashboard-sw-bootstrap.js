@@ -1,4 +1,3 @@
-let nbdDiag; // module-local (globals Tranche 1 — was window.*)
 // ── Service Worker registration (offline + PWA) ──
 // E4: two kill-switches in case a bad SW ships:
 //   1. ?nosw=1 on the URL → skips registration + unregisters existing.
@@ -6,6 +5,7 @@ let nbdDiag; // module-local (globals Tranche 1 — was window.*)
 //   2. Remote kill — if any GET to /pro/nosw.txt returns non-404, we
 //      unregister and refuse to register. Deploy that file to kill
 //      SW for every user in the next reload.
+let nbdDiag; // module-local (globals Tranche 1 — was window.*)
 (async function swBootstrap() {
   if (!('serviceWorker' in navigator)) return;
   const params = new URLSearchParams(location.search);

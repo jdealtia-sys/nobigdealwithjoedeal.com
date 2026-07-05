@@ -30,6 +30,7 @@
 // ══════════════════════════════════════════════
 // DRAWING TOOL v2 — multi-facet, save/restore, drag, snap, shortcuts
 // ══════════════════════════════════════════════
+let _NBD_MR_DELEGATE_BOUND, _presentSteps; // module-local (globals Tranche 1 — was window.*)
 let drawMap, drawOn=false, drawStart=null, drawLT=0, drawnLines=[], tempLine=null, tempLbl=null;
 let drawMode = 'line'; // 'line' | 'perim' | 'er' | 'gutter'
 
@@ -3381,7 +3382,6 @@ td{font-size:12px;}.note{background:#fff8f0;border-left:4px solid #e8720c;paddin
 // present-mode nav, supplement-comparison overlay). The line-list got
 // its own delegate in PR #453; this catches everything else.
 (function () {
-let _NBD_MR_DELEGATE_BOUND, _presentSteps; // module-local (globals Tranche 1 — was window.*)
   if (_NBD_MR_DELEGATE_BOUND) return;
   _NBD_MR_DELEGATE_BOUND = true;
 

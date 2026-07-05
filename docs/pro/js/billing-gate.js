@@ -19,9 +19,9 @@
 // Exposes: window.NBDBilling
 // ═══════════════════════════════════════════════════════════════
 
+let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function () {
   'use strict';
-let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   if (window.NBDBilling) return;
 
   // ── Plan definitions ──

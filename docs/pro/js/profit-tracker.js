@@ -7,9 +7,9 @@
  * Exposes: window.ProfitTracker
  */
 
+let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function() {
   'use strict';
-let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
   // Default overhead % applied to all jobs (configurable)
   const DEFAULT_OVERHEAD_PCT = 10;

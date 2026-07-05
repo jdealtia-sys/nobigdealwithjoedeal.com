@@ -1,4 +1,3 @@
-let _NBD_DA_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 /**
  * dashboard-actions.js — action handlers, lead / prospect ops, zone
  * draw, daily program logic, mobile-action wrappers, card-detail
@@ -41,6 +40,7 @@ let _NBD_DA_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 // `window._cardDetailLeadId` global (set when a card-detail modal
 // opens) and the defensive module-load fallback into single named
 // globals that the `call` delegate dispatches.
+let _NBD_DA_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 window.cdaReport = function cdaReport() {
   if (window.NBDReports && typeof window.NBDReports.openGenerator === 'function') {
     window.NBDReports.openGenerator(window._cardDetailLeadId);

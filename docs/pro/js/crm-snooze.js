@@ -36,6 +36,7 @@
 // NOTIFICATION SYSTEM
 // ═══════════════════════════════════════════════════════════════
 
+let _dismissedNotifications; // module-local (globals Tranche 1 — was window.*)
 window._notifications = [];
 window._notifDropdownOpen = false;
 window._notifUnsub = null; // onSnapshot unsubscribe handle
@@ -725,7 +726,6 @@ window.toggleDismissedNotifications = toggleDismissedNotifications;
 // It deliberately doesn't block navigation — the protocol handler fires
 // as normal; we just fire-and-forget the Firestore write alongside.
 (function setupCommLogDelegate() {
-let _dismissedNotifications; // module-local (globals Tranche 1 — was window.*)
   if (window.__NBD_COMM_LOG_DELEGATE) return;
   window.__NBD_COMM_LOG_DELEGATE = true;
 

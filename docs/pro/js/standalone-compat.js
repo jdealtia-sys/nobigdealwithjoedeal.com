@@ -9,9 +9,9 @@
  *
  * Load EARLY — before any other scripts that might call alert/confirm/prompt.
  */
+let nbdAlert; // module-local (globals Tranche 1 — was window.*)
 (function() {
   'use strict';
-let nbdAlert; // module-local (globals Tranche 1 — was window.*)
 
   const isStandalone = window.navigator.standalone === true ||
     window.matchMedia('(display-mode: standalone)').matches;

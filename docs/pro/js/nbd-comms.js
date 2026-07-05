@@ -34,9 +34,9 @@
  * crm.js / email_system.js so by the time those modules look up
  * window.NBDComms / window.EmailDrip the bindings exist.
  */
+let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function () {
   'use strict';
-let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
   // ── Helpers ─────────────────────────────────────────────────────
   const escHtml = (s) => String(s == null ? '' : s)

@@ -9,9 +9,9 @@
 // Drop-in replacement for the placeholder #calUpcoming panel.
 // ============================================================
 
+let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function () {
   'use strict';
-let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
   // ── tunables ────────────────────────────────────────────────
   // Roofing reps average ~35 mph including stops + traffic in mixed

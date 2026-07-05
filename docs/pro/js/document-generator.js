@@ -11,6 +11,7 @@
  * Core NBD Document Generator
  * @namespace window.NBDDocGen
  */
+let _NBD_DG_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 window.NBDDocGen = {
   // ============================================================================
   // SECTION 1: CONSTANTS & CONFIGURATION
@@ -2982,7 +2983,6 @@ if (typeof module !== 'undefined' && module.exports) {
 // ── CSP-safe delegation for 9 data-dg-action attrs in document-generator.js
 //    (close window, print, dismiss fill modal, submit doc gen).
 (function () {
-let _NBD_DG_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   if (_NBD_DG_DELEGATE_BOUND) return;
   _NBD_DG_DELEGATE_BOUND = true;
   document.addEventListener('click', function (ev) {

@@ -6,9 +6,9 @@
  * workflow tracking, checklist management, and Firestore integration.
  */
 
+let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function() {
   'use strict';
-let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
   // Claim workflow stages in order
   const CLAIM_STAGES = [

@@ -1,4 +1,3 @@
-let _NBD_DW_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 /**
  * dashboard-widgets.js — render-heavy widgets: estimates list, photo
  * gallery, storm map init, property-intel card, kanban card-detail
@@ -18,6 +17,7 @@ let _NBD_DW_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 // ══════════════════════════════════════════════
 // ESTIMATES LIST + builder open
 // ══════════════════════════════════════════════
+let _NBD_DW_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 function renderEstimatesList(ests) {
   // Null-guard the analytics stat tiles AND the list wrapper. After the
   // Step 4a split (PR #400), this function gets called on every dashboard

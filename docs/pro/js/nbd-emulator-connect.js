@@ -1,4 +1,3 @@
-let __NBD_EMU_LOGGED; // module-local (globals Tranche 1 — was window.*)
 // nbd-emulator-connect.js — local-only Firebase Emulator wiring (Audit #3).
 //
 // PURPOSE
@@ -27,6 +26,7 @@ let __NBD_EMU_LOGGED; // module-local (globals Tranche 1 — was window.*)
 //     Firestore throws on) while still allowing a FRESH instance from another
 //     initializeApp() site to connect independently.
 
+let __NBD_EMU_LOGGED; // module-local (globals Tranche 1 — was window.*)
 const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]', '::1'];
 
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2';

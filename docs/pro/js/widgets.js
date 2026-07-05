@@ -3,9 +3,9 @@
 // ║  30 customizable widgets • drag grid • localStorage persistence  ║
 // ╚═══════════════════════════════════════════════════════════════════╝
 
+let _NBD_WIDGETS_DELEGATE_BOUND, _wAddTask, _wAskJoe, _wMiniHeat, _wQuickAddLead, _wQuickDraw, _wQuickEst; // module-local (globals Tranche 1 — was window.*)
 (function(){
 'use strict';
-let _NBD_WIDGETS_DELEGATE_BOUND, _wAddTask, _wAskJoe, _wMiniHeat, _wQuickAddLead, _wQuickDraw, _wQuickEst; // module-local (globals Tranche 1 — was window.*)
 
 // Wave 102: HIGH XSS fix. Every widget that renders lead names /
 // addresses / stages was interpolating Firestore strings directly

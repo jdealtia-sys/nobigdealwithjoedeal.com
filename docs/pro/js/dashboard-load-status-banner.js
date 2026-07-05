@@ -14,8 +14,8 @@
  * Self-recovery globals stay on window so the user can fire them from
  * devtools if the on-page UI isn't reachable.
  */
-(function _loadStatusBanner() {
 let _bootStartedAt; // module-local (globals Tranche 1 — was window.*)
+(function _loadStatusBanner() {
   const VERSION = 'v159.8';
   const FAIL_GRACE_MS = 6000;         // wait this long before assuming "stuck"
   const AUTO_DISMISS_MS = 30000;      // hide the banner after 30s of being shown

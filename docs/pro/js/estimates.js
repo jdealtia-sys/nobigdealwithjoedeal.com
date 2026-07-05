@@ -23,6 +23,7 @@
 // the same place. Inline fallbacks preserve historical values if
 // estimate-config.js fails to load — the page still prices, and
 // the warn surfaces a Sentry breadcrumb.
+let _NBD_EST_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 const _NBD_CFG = (typeof window !== 'undefined' && window.NBD_ESTIMATE_CONFIG) || null;
 if (!_NBD_CFG && typeof console !== 'undefined') {
   try { console.warn('[estimates.js] NBD_ESTIMATE_CONFIG missing — using inline fallbacks. Check that estimate-config.js loaded before estimates.js.'); } catch (_) {}
@@ -1460,7 +1461,6 @@ window.nextRevisionVersion    = nextRevisionVersion;
 // data-action="call" delegate because these handlers fire on dynamic
 // HTML injected by buildReview() and need no allowlist gate.
 (function(){
-let _NBD_EST_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   if(_NBD_EST_DELEGATE) return;
   _NBD_EST_DELEGATE = true;
   document.addEventListener('click', function(ev){

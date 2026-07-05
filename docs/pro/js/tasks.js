@@ -3,6 +3,7 @@
 // Task system: load, save, toggle, delete, render, modal
 // Extracted from dashboard.html
 // ============================================================
+let _NBD_TK_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 function _escTask(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 // ══ Module State ══════════════════════════════════════════
@@ -192,7 +193,6 @@ async function addTask(){
 // Wave 28: Enter-key submit on the task input. Replaces the inline
 // onkeydown="" handler in dashboard.html for CSP cleanliness.
 (function(){
-let _NBD_TK_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   const bind = () => {
     const inp = document.getElementById('taskInput');
     if (!inp || inp.dataset.taskEnterBound) return;
