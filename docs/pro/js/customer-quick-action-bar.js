@@ -115,9 +115,20 @@
            normally scrolls so the bar overlapping a few pixels of
            content is harmless. */
         body.nbd-qab-active { padding-bottom:64px; }
+        /* The bottom-right FAB stack (W128 mic / W130 quick-capture /
+           W132 inbox) anchors at bottom 20/84/142px — the mic FAB sat
+           UNDER this bar (z 99985 vs the FABs' 9999) on phones, so its
+           tap point hit the bar and dictation was unreachable. While
+           the bar is active, lift the whole stack by the bar height. */
+        body.nbd-qab-active #nbd-whisper-fab { bottom:calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
+        body.nbd-qab-active #nbd-qc-fab      { bottom:calc(148px + env(safe-area-inset-bottom, 0px)) !important; }
+        body.nbd-qab-active #nbd-qci-fab     { bottom:calc(206px + env(safe-area-inset-bottom, 0px)) !important; }
         @media (min-width:641px) {
           #nbd-quick-action-bar { display:none !important; }
           body.nbd-qab-active   { padding-bottom:0 !important; }
+          body.nbd-qab-active #nbd-whisper-fab { bottom:calc(20px + env(safe-area-inset-bottom, 0px)) !important; }
+          body.nbd-qab-active #nbd-qc-fab      { bottom:calc(84px + env(safe-area-inset-bottom, 0px)) !important; }
+          body.nbd-qab-active #nbd-qci-fab     { bottom:calc(142px + env(safe-area-inset-bottom, 0px)) !important; }
         }`;
       document.head.appendChild(style);
     }
