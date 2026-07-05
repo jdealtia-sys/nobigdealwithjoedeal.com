@@ -449,6 +449,15 @@ function goTo(name, params = {}) {
     // frequently in normal use (task/snooze/lead-load), so no new churn.
     try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'dash-enter' } })); } catch (e) {}
   }
+  if(name==='est') {
+    // Same QA #9b pattern as view-dash above: the estimate-analytics band
+    // (#estStats, estimate-analytics.js) renders off 'nbd:data-refreshed',
+    // which mostly fires during boot — before the est template is hydrated
+    // (Rock 4 Phase 4 templated the last raw view). Re-emit post-hydration
+    // so the band renders on first open instead of waiting for the next
+    // natural data event. Idempotent; the renderer null-guards #estStats.
+    try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'est-enter' } })); } catch (e) {}
+  }
   if(name==='map') {
     if (!mapInited.map) {
       waitForLeaflet(()=>{ waitForMapFn('initMainMap', ()=>{
