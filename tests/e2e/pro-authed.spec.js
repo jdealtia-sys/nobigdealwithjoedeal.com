@@ -957,6 +957,10 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
   });
 
   test('expense: ledger stores integer cents + config-derived costType; mileage amount computed from the IRS rate', async ({ page }) => {
+    // createExpense swallows write failures to a bare `false` (toast +
+    // return) — the page console is the only witness to WHAT failed.
+    const pageLog = [];
+    page.on('console', msg => pageLog.push(`[${msg.type()}] ${msg.text()}`));
     await loginAs(page, creds);
     await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
 
@@ -989,18 +993,41 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
       // the form layer), so a retry never collides or blocks.
       const supplierMat = '[E2E] Supply Co ' + args.stamp;
       const supplierMi = '[E2E] Mileage ' + args.stamp;
-      const okMat = await window.Expenses.createExpense({
+
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const dbEarly = window.db || window._db;
+      const uidEarly = (window._auth || window.auth).currentUser.uid;
+      // Rapid back-to-back addDocs trip the emulator's commit-retry bug
+      // (ALREADY_EXISTS / transient rejection — the same class docgen's
+      // lead-create flakes on), and createExpense swallows that to `false`.
+      // 2026-07-05 shard2 run: the SECOND create (mileage) failed 4/4 while
+      // the first succeeded 4/4. Retry once after a beat — but probe the
+      // unique supplier first: a retry-ambiguous failure may have actually
+      // landed the doc, and blind re-create would break the exactly-one
+      // assertion.
+      async function createOnce(payload, supplier) {
+        let ok = await window.Expenses.createExpense(payload);
+        if (!ok) {
+          await new Promise(r => setTimeout(r, 1500));
+          const probe = await fsMod.getDocs(fsMod.query(
+            fsMod.collection(dbEarly, 'expenses'),
+            fsMod.where('userId', '==', uidEarly),
+            fsMod.where('supplier', '==', supplier)
+          ));
+          ok = probe.empty ? await window.Expenses.createExpense(payload) : true;
+        }
+        return ok;
+      }
+      const okMat = await createOnce({
         amount: '1234.56', tax: '7.89', date: args.dateStr,
         supplier: supplierMat, category: 'materials', leadId: '',
         note: '[E2E] expenses journey', source: 'manual'
-      });
-      const okMi = await window.Expenses.createExpense({
+      }, supplierMat);
+      const okMi = await createOnce({
         category: 'mileage', miles: '10.5', date: args.dateStr,
         supplier: supplierMi, leadId: '',
         note: '[E2E] expenses journey (mileage)', source: 'manual'
-      });
-
-      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      }, supplierMi);
       const db = window.db || window._db;
       const uid = (window._auth || window.auth).currentUser.uid;
       // The expenses read rule is isOwner(resource.data.userId) — the query
@@ -1047,8 +1074,12 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
       };
     }, { stamp, dateStr: DATE_STR });
 
-    expect(out.okMat, 'materials createExpense reported success').toBe(true);
-    expect(out.okMi, 'mileage createExpense reported success').toBe(true);
+    if (!out.okMat || !out.okMi) {
+      const interesting = pageLog.filter(l =>
+        /expenses|expense|firestore|offline|denied|ALREADY_EXISTS|failed/i.test(l)).slice(-10);
+      throw new Error(`createExpense failed (materials ok=${out.okMat}, mileage ok=${out.okMi}) even after the probe-retry. Page console (filtered):\n`
+        + (interesting.join('\n') || '(nothing relevant logged)'));
+    }
     expect(out.matCount, 'exactly one materials expense for the unique supplier').toBe(1);
     expect(out.miCount, 'exactly one mileage expense for the unique supplier').toBe(1);
 
