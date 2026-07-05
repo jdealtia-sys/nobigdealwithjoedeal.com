@@ -3795,7 +3795,16 @@ body {
   .view-scroll{overflow:visible!important;height:auto!important;}
   /* ── END MOBILE SCROLL FIX ── */
   .sidebar{display:none!important;}
-  header{padding:0 12px;height:48px;}
+  /* Safe-area header height (2026-07): global *{box-sizing:border-box}
+     means a fixed height:48px INCLUDES padding. On a notched iPhone the
+     later `header{padding-top:env(safe-area-inset-top)}` rule (~50px)
+     then left negative content space, so the logo / icons / PIPELINE
+     spilled out the bottom of the 48px black bar onto the page ("top
+     cut off"). Headless Chrome has inset:0 so this was invisible to CI.
+     Fix: reserve the inset ABOVE a 48px content row — min-height grows
+     the black bar to 48px + inset, padding-top pushes content clear of
+     the Dynamic Island, height:auto lets it grow if content is taller. */
+  header{padding:env(safe-area-inset-top, 0px) 12px 0;height:auto;min-height:calc(48px + env(safe-area-inset-top, 0px));}
   .logo{font-size:14px;}
   /* Header collision fix (2026-07): the header drops to 48px and the
      wordmark to 14px on mobile, but the mark stayed 36×36 with a fixed

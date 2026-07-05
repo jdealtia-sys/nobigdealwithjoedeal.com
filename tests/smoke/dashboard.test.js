@@ -2488,6 +2488,21 @@ section('Globals Tranches 0+1: converted names stay off window');
   const da = read(path.join(FUNCTIONS, 'deal-acceptance.js'));
   assert('getDealRoom injects CSP-safe meta tags for token + submit URL',
     /meta name="nbd-deal-token"/.test(da) && /meta name="nbd-deal-submit"/.test(da));
+
+  // Mobile header safe-area (2026-07): global box-sizing:border-box means
+  // a fixed height:48px INCLUDES the padding-top:env(safe-area-inset-top)
+  // added for the notch — leaving negative content space so the logo/
+  // icons/title spilled below the black bar on real iPhones (invisible to
+  // headless CI, which has inset:0). The mobile header rule must reserve
+  // the inset via min-height, never a bare fixed height.
+  const appCss = read(path.join(PRO_JS, '..', 'css', 'dashboard-app.css'));
+  const mobileHeader = (appCss.match(/@media\(max-width:768px\)\{[\s\S]*?\n\}/) || [''])[0];
+  // Pull the specific header{...} declaration inside the 768 block.
+  const hdrRule = (appCss.match(/  header\{padding:env\(safe-area-inset-top[^}]*\}/) || [''])[0];
+  assert('mobile header reserves the notch inset via min-height calc (not a bare fixed height)',
+    /min-height:calc\(48px \+ env\(safe-area-inset-top/.test(hdrRule)
+    && /padding:env\(safe-area-inset-top/.test(hdrRule)
+    && !/height:48px/.test(hdrRule));
 }
 
 };
