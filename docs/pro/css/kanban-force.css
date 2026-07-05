@@ -239,6 +239,14 @@
     position:relative;
     color:var(--ink);
     border-left:3px solid transparent;
+    /* .kcol-body is a bounded flex COLUMN (max-height + overflow-y:auto).
+       Without this, cards default to flex-shrink:1 and get squeezed BELOW
+       their content height when a column is full — the border draws short
+       and the last rows (phone number, chip row, footer) spill past the
+       shrunken edge, i.e. the phone number looks sliced off. Every sibling
+       that must not shrink (.kcol-header, .kanban-col) already sets this;
+       the card was the one place it was missing. Cards scroll, never squash. */
+    flex-shrink:0;
   }
   /* Stage-colored left border per card */
 
@@ -853,8 +861,13 @@
   :root[data-density="compact"]   .crm-header{ padding:4px 12px; gap:4px; }
   :root[data-density="spacious"]  .crm-header{ padding:10px 18px; gap:8px; }
 
-  /* LEFT: tiny label + inline stat */
-  .crm-hdr-label{ display:flex; align-items:baseline; gap:10px; flex-shrink:0; }
+  /* LEFT: tiny label + inline stat.
+     align-items:center (was :baseline) — a 14px uppercase title and an
+     11px stat on a shared BASELINE, on a full-width space-between row that
+     wraps on mobile, made the stat visually tuck under the title (the
+     "stat bleeding through PIPELINE"). Center-align + the mobile row rules
+     below keep them on one clean line, title left / stat right. */
+  .crm-hdr-label{ display:flex; align-items:center; gap:10px; flex-shrink:0; min-width:0; }
   .crm-hdr-title{
     font-family:'Barlow Condensed',sans-serif;
     font-size:14px; font-weight:800;
@@ -1167,7 +1180,14 @@
   /* Mobile — let the header rows wrap to two lines and tighten everything */
   @media (max-width:768px){
     .crm-header{ padding:6px 10px; gap:5px; }
-    .crm-hdr-label{ width:100%; justify-content:space-between; }
+    /* Title + stat share ONE clean row: title fixed-width on the left,
+       stat takes the rest and ellipses on the right. No wrap = no tuck-
+       under. flex-wrap:nowrap defeats the ancestor .crm-header wrap so
+       these two never stack onto each other. Pairs with the
+       dashboard-app.css mobile rule that gives the label flex:1 1 100%. */
+    .crm-hdr-label{ width:100%; flex-wrap:nowrap; align-items:center; gap:8px; justify-content:space-between; }
+    .crm-hdr-title{ flex:0 0 auto; }
+    .crm-hdr-stat{ flex:1 1 auto; min-width:0; max-width:none; text-align:right; }
     .crm-hdr-search{ width:100%; min-width:0; }
     .crm-hdr-actions{ width:100%; justify-content:flex-start; }
     .crm-hdr-views .kview-btn{ padding:5px 8px; font-size:10px; }
