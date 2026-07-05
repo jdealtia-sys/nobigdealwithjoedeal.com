@@ -232,7 +232,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: ['@shard1', '@shard2']
+        # '@audit' = tests/e2e/dashboard-actions-audit.spec.js — full
+        # data-action wiring + mobile tap audit (2026-07-05). Its own
+        # emulator session, same flake-isolation rationale as the shards.
+        shard: ['@shard1', '@shard2', '@audit']
     # Rock 3: hermetic authed journey — seed a tenant in the Auth/Firestore
     # emulators, serve docs/ from the hosting emulator (the client SDK
     # auto-connects to emulators on localhost via nbd-emulator-connect.js),
