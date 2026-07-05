@@ -1084,6 +1084,122 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
     expect(mi.amountCents, '10.5 mi × 72.5¢ = 761 cents (rounded)').toBe(Math.round(10.5 * 72.5));
     expect(mi.costType, 'mileage is overhead, never a job cost').toBe('overhead');
   });
+
+  test('customer page: /pro/customer?id= hydrates the lead detail surface', async ({ page }) => {
+    // Same nominatim stub as the save-lead journey — _saveLead geocodes new
+    // addresses and OSM rate-limits CI IPs with no client timeout.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    const stamp = Date.now();
+    // Seed on the dashboard (the only surface exposing _saveLead), then
+    // open the detail page. Same re-fetch-by-lastName pattern as the
+    // docgen journey (_saveLead returns null on the geocoded path); the
+    // read-back also hands us the address the page must render.
+    const seeded = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey — _saveLead
+      // stamps userId from window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      await window._saveLead({
+        firstName: '[E2E] Cust',
+        lastName: String(args.stamp),
+        // Unique per attempt so LeadDedup's blocking prompt never fires.
+        address: `${String(args.stamp).slice(-3)} Customer Detail Ct, Cincinnati, OH`,
+        phone: '513' + String(args.stamp).slice(-7),
+        email: `e2e-cust-${args.stamp}@nbd.test`,
+        stage: 'new',
+        e2eTestData: true
+      });
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      // userId filter keeps the query provable under the leads read rule
+      // (isOwner(resource.data.userId)) — see the save-lead journey.
+      const uid = (window._auth || window.auth).currentUser.uid;
+      const snap = await fsMod.getDocs(fsMod.query(
+        fsMod.collection(db, 'leads'),
+        fsMod.where('userId', '==', uid),
+        fsMod.where('lastName', '==', String(args.stamp)),
+        fsMod.where('e2eTestData', '==', true)
+      ));
+      let out = null;
+      snap.forEach(d => { if (!out) out = { id: d.id, address: d.data().address }; });
+      return out;
+    }, { stamp });
+    expect(seeded && seeded.id, 'seeded [E2E] Cust lead has an id').toBeTruthy();
+
+    // Navigate to the per-lead detail surface. Console cleanliness is
+    // deliberately NOT asserted: customer.html defers ~60 companion
+    // modules, several of which may hit callables that connection-refuse
+    // without the functions emulator. customer-bootstrap itself is
+    // Firestore-only on the load path (every sub-loader — timeline/
+    // photos/documents/estimates/notes — is individually try/caught and
+    // non-fatal), so hydration of the header + data bridge is the signal.
+    await page.goto(`/pro/customer.html?id=${seeded.id}`);
+
+    // Hydration: loadCustomerData writes #customerName, then the auth
+    // handler flips documentElement opacity to '1'. The failure paths are
+    // an auth bounce to /pro/login (onAuthStateChanged without a user) or
+    // showError replacing .container ("Customer not found") — surface
+    // WHICH ONE happened instead of an opaque timeout.
+    const expectedName = `[E2E] Cust ${stamp}`;
+    try {
+      await page.waitForFunction((n) => {
+        const el = document.getElementById('customerName');
+        return !!el && el.textContent === n;
+      }, expectedName, { timeout: 20_000 });
+    } catch (e) {
+      const state = await page.evaluate(() => ({
+        url: location.href,
+        opacity: document.documentElement.style.opacity || '(unset)',
+        nameEl: (document.getElementById('customerName') || { textContent: '(el missing — showError nuked .container?)' }).textContent,
+        containerText: ((document.querySelector('.container') || {}).innerText || '(no .container)').slice(0, 200),
+      })).catch(() => ({ note: 'evaluate failed — page context gone (auth bounce mid-wait?)', url: page.url() }));
+      throw new Error('customer page never hydrated lead ' + seeded.id + ' — ' + JSON.stringify(state));
+    }
+
+    // No auth bounce: still on the customer page, not kicked to /login.
+    expect(page.url(), 'stayed on the customer detail page (no auth bounce)')
+      .toMatch(/\/pro\/customer(\.html)?\?/);
+    // No upgrade wall. customer.html ships no billing gate today — this
+    // locks in that the detail surface stays reachable if one is added.
+    await expect(page.locator('#nbd-upgrade-wall'), 'customer page must not be upgrade-walled')
+      .toHaveCount(0);
+
+    // Header contract: the seeded values render verbatim, and the boot
+    // module reports hydration complete (the opacity flip happens only
+    // after loadCustomerData resolves without throwing).
+    await expect(page.locator('#customerName')).toHaveText(expectedName);
+    await expect(page.locator('#customerAddress')).toHaveText(seeded.address);
+    const hydrated = await page.evaluate(() => document.documentElement.style.opacity === '1');
+    expect(hydrated, 'documentElement opacity flipped to 1 (loadCustomerData resolved)').toBe(true);
+
+    // THE contract: stage key → display label mapping plus the external-
+    // module data bridge. Every companion module on this page (photo-
+    // report, profit-tracker, document-generator, customer-portal) reads
+    // window._leads/_currentLead instead of re-fetching — a hydration
+    // regression here breaks all of them at once.
+    const bridge = await page.evaluate(() => ({
+      currentLeadId: (window._currentLead && window._currentLead.id) || null,
+      leadsBridge: (Array.isArray(window._leads) && window._leads.length === 1 && window._leads[0].id) || null,
+      customerIdOnLead: (window._currentLead && window._currentLead.customerId) || null,
+      stageBadge: (document.getElementById('customerStage') || {}).textContent,
+      stageClass: (document.getElementById('customerStage') || {}).className,
+      customerIdBadge: (document.getElementById('customerIdDisplay') || {}).textContent,
+    }));
+    expect(bridge.currentLeadId, 'window._currentLead hydrated with this lead').toBe(seeded.id);
+    expect(bridge.leadsBridge, 'window._leads bridge holds exactly this lead').toBe(seeded.id);
+    expect(bridge.stageBadge, "stage key 'new' renders its display label").toBe('New Lead');
+    expect(bridge.stageClass, 'stage badge carries the stage-keyed class').toContain('stage-new');
+    // Cross-surface contract: the NBD-#### customerId minted at save time
+    // (dashboard counter transaction; auto-assigned by the page itself
+    // for pre-counter legacy leads) is what the detail header badges.
+    expect(bridge.customerIdOnLead, 'customerId on the hydrated lead follows NBD-####').toMatch(/^NBD-\d{4,}$/);
+    expect(bridge.customerIdBadge, 'customer ID badge renders the minted id').toBe(bridge.customerIdOnLead);
+  });
 });
 
 
