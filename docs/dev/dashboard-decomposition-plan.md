@@ -400,3 +400,94 @@ grep -nE '<div[^>]+class="modal-bg"[^>]*id="[^"]+"|id="(comparisonModal|adminCre
 
 **No code changes.** Phase 2 (theme CSS extract) opens after Joe signs
 off on this manifest.
+
+---
+
+## Per-view globals refactor — caveat 4 execution plan (2026-07-05)
+
+First actual enumeration of the global surface (the "221+" figure above
+was `window.*` REFERENCES in the pre-decomposition monolith; this is
+post-split ASSIGNMENTS across `docs/pro/**/*.js`).
+
+### Inventory
+
+| Metric | Value |
+|---|---|
+| Distinct `window.<name> =` assignments under docs/pro/js | **~950** |
+| Self-contained (assigned + consumed in ONE file) | **280 (~29%)** |
+| Consumed from 2–5 files | ~515 |
+| Consumed from 10+ files (shared infrastructure) | ~60 |
+| Inline `window.X =` assignments left in HTML | **0** |
+
+Top assigners: `dashboard-actions.js` (182), `dashboard-bootstrap.module.js`
+(157), `customer-bootstrap.module.js` (76), `customer-tasks-ui.js` (62),
+`crm.js` (39), `dashboard-ui.js` (37), `estimates.js` (31), `ui.js` (30),
+`maps.js` (28).
+
+Structural cause: `dashboard.html` loads ~131 scripts of which only 3 are
+`type="module"` (`dom-safe.js`, `dashboard-auth-gate.module.js`,
+`dashboard-bootstrap.module.js`). Everything else is a classic
+`<script defer>` sharing one global scope, so cross-file wiring goes
+through `window.*`. The house pattern for module-scoped state is the
+NBD-prefixed singleton (`NBDStore`, `NBDIDBCache`, `NBDAuth`, …): one
+API object per module, registered once.
+
+### No-touch list (first tranches must NOT rename these)
+
+- **SDK re-export bridge** (bootstrap → classic scripts): `doc`, `db`,
+  `auth`, `where`, `query`, `collection`, `getDocs`, `getDoc`, `addDoc`,
+  `setDoc`, `updateDoc`, `orderBy`, `limit`, `serverTimestamp`, `ref`,
+  `storage`, `uploadBytes` + native-dialog overrides (`confirm`,
+  `prompt`, `alert`, `open`). 30–125 consumer files each; several pinned
+  by tests/e2e fixtures (`window.addDoc` patch in fixtures/auth.js).
+- **Core app state** (caveat-4 set): `_leads`, `_estimates`, `_user`,
+  `_db`, `_userClaims`, `_userPlan`, `_subscription`, `_saveLead`,
+  `_saveEstimate`, `_currentLead`, `_customerId`, `_functions`,
+  `_httpsCallable` — high fan-out AND e2e-pinned.
+- **Engine singletons pinned by e2e specs**: `ScriptLoader`, `D2D`,
+  `_D2DState`, `EstimateBuilderV2`, `EstimateV2UI`, `EstimateLogic`,
+  `EstimateFinalization`, `PhotoEngine`, `Expenses`, `InvoicePipeline`,
+  `NBDDocGen`, `NBD_PRODUCTS`, `NBD_XACT_CATALOG`, `__nbdAddDocPatched`.
+- Cross-view actions: `goTo`, `loadLeads`, `openLeadModal`, `moveCard`,
+  `startNewEstimate`, `NBDDocViewer`, `showToast`.
+
+### Tranche plan (safest first)
+
+**⚠ Wrinkle found during scoping:** several "self-contained" clusters
+(e.g. the 14 `_ncm*` globals in `mobile-nav-customizer.js`) are consumed
+via **generated inline HTML attributes** (`ontouchstart="window._ncmTouchStart(…)"`),
+which evaluate in global scope at event time. `consumers=1` by file-grep
+does NOT mean module-scopable as-is — each such cluster first needs its
+inline handlers migrated to `data-action` delegation (the H-1 house
+pattern), THEN its globals can go module-local. Tranche order below is
+adjusted accordingly.
+
+1. **Tranche 0 — singleton IIFE conversions (trivial, ~25 globals).**
+   The one-global self-registering widgets (`ActivityFeed`, `HotLeads`,
+   `PipelineBottleneck`, `GlobalSearch`, `AlmostThere`,
+   `EngagementCohortWidget`, `PWAInstallNudge`, `NBDThemeAudit`,
+   `NBDWhatsNew`, `OfflineManager`, …): each assigned + consumed in one
+   file. Per widget: verify zero HTML/inline references (grep
+   dashboard.html + generated-markup strings), then keep the object
+   IIFE-local and drop the `window.` prefix. Mechanical; one PR.
+2. **Tranche 1 — pure-JS single-file clusters.** The subsets of
+   `ui.js` (~18 theme-engine/toast locals), `dashboard-ui.js` (~17),
+   `claude-proxy.js` (3) that are referenced ONLY from JS (no inline
+   attribute strings). Same verify-then-scope treatment.
+3. **Tranche 2 — delegate-then-scope clusters.** `mobile-nav-customizer.js`
+   (14), `widgets.js` (9), `tasks.js` (8), `email_system.js` (8),
+   `crm-snooze.js` (11): first convert their generated inline handlers
+   to `data-action` delegation (each already owns a
+   `_NBD_<XX>_DELEGATE(_BOUND)` guard from Phase 5 — extend that
+   delegate), then move the globals into module scope. One module per
+   PR, E2E advisory suite green required per PR.
+4. **Tranche 3+ — the 2–5-consumer middle band (~515 globals).**
+   Needs a dependency-ordered plan of its own once Tranches 0–2 prove
+   the pattern; candidates convert to NBD-prefixed singleton APIs
+   (house convention) rather than ad-hoc cross-file globals.
+
+Verification per tranche: full smoke battery + the sharded authed E2E
+matrix in CI (advisory job must be green, not just "ran") + a manual
+click-through of the touched view. Raw per-global xref (955 rows) from
+the 2026-07-05 inventory run is reproducible with:
+`grep -rnoE "window\.[A-Za-z_$][A-Za-z0-9_$]* *=" docs/pro --include=*.js`.
