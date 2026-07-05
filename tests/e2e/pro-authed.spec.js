@@ -144,16 +144,38 @@ test.describe('Signup funnel — free tier reaches the dashboard', () => {
 
     // Free path: createUser → users/{uid} (onboarded:false) → createCompany
     // (fails silently in emulator — non-fatal by design) → onboarding.
-    await page.waitForURL(/\/pro\/onboarding(\.html)?([?#]|$)/, { timeout: 20_000 });
+    // A validation/auth failure writes to #regErr and never navigates —
+    // surface THAT text instead of an opaque waitForURL timeout.
+    try {
+      await page.waitForURL(/\/pro\/onboarding(\.html)?([?#]|$)/, { timeout: 20_000 });
+    } catch (e) {
+      const regErr = await page.locator('#regErr').textContent().catch(() => '');
+      throw new Error('register never navigated to onboarding'
+        + (regErr ? ` — #regErr: "${regErr.trim()}"` : ' — #regErr empty (silent hang)'));
+    }
 
-    // The wizard needs its auth state + module boot before the delegate
-    // listens; the skip link is in the step-1 markup.
+    // The skip link is STATIC markup — visible before onboarding.js binds
+    // its click delegate (inside onAuthStateChanged, after prefill), and
+    // skip() also needs state.user. A too-fast click silently no-ops (the
+    // openCrmView race class; this exact race failed CI 2026-07-05).
+    // prefill() stamps #obEmail with the signed-in user's email right
+    // around delegate binding — wait for it as the module-ready signal,
+    // then retry-click until the URL actually moves.
+    await page.waitForFunction((expected) => {
+      const el = document.getElementById('obEmail');
+      return !!el && el.value === expected;
+    }, email, { timeout: 20_000 });
     const skipBtn = page.locator('[data-action="skip"]').first();
-    await skipBtn.waitFor({ state: 'visible', timeout: 15_000 });
-    await skipBtn.click();
-
-    // skip() writes onboarded:true (+ onboardingSkipped) then toDashboard().
-    await page.waitForURL(/\/pro\/dashboard(\.html)?([?#]|$)/, { timeout: 20_000 });
+    let onDashboard = false;
+    for (let attempt = 0; attempt < 5 && !onDashboard; attempt++) {
+      await skipBtn.click();
+      // skip() writes onboarded:true (+ onboardingSkipped) then toDashboard().
+      onDashboard = await page
+        .waitForURL(/\/pro\/dashboard(\.html)?([?#]|$)/, { timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false);
+    }
+    expect(onDashboard, 'onboarding skip handed off to the dashboard').toBe(true);
 
     // Let the auth gate fully resolve (goTo is defined by dashboard-ui after
     // the gate's onReady path un-hides the page).
@@ -576,8 +598,15 @@ test.describe.serial('Authenticated destructive flows', () => {
     // exposes as window._storage (emulator-wired on localhost, line 809).
     await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
     await page.evaluate(() => window.ScriptLoader.loadBundle('photos'));
+    // CRITICAL: exclude the lazy stub. dashboard-actions.js installs a
+    // PhotoEngine placeholder whose uploadFromFile is a fire-and-forget
+    // bundle loader that resolves undefined — it satisfies a bare typeof
+    // check, and on a slow run the evaluate below wins the race against
+    // photo-engine.js overwriting the global ('photo.id of undefined',
+    // CI 2026-07-05). Gate on the REAL engine only.
     await page.waitForFunction(() =>
-      window.PhotoEngine && typeof window.PhotoEngine.uploadFromFile === 'function'
+      window.PhotoEngine && !window.PhotoEngine.__nbdLazyPhotosStub
+      && typeof window.PhotoEngine.uploadFromFile === 'function'
       && window._storage && window._db, null, { timeout: 20_000 });
 
     const stamp = Date.now();

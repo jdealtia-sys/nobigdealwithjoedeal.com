@@ -1,5 +1,27 @@
 # NBD PRO — Product Audit (2026-07-03, read-only)
 
+> **ADDENDUM (2026-07-05):** this is a dated snapshot — several findings
+> below have since been fixed by the 2026-07-04→05 merges (PRs #839–#841);
+> the text is left as written for the record. Superseded items:
+> - **Access-code path:** the register UI no longer advertises the dead
+>   "NBD-PRO" hint, and `validateAccessCode` redemption is now atomic
+>   (transactional reserve + release-on-failure). Code-granted trials are
+>   expiry-enforced at read time in both the server meter and the client
+>   gate. (The IAM `serviceAccountTokenCreator` grant in Break #2 is a
+>   console action, tracked separately.)
+> - **Plan vocabulary (§4 divergence, Gap 3):** swept — canonical keys
+>   free/starter/growth/enterprise are now the internal representation on
+>   every surface; "blueprint"/"foundation"/"professional" survive only as
+>   permanent read-boundary aliases for legacy docs and Stripe metadata.
+> - **Trial confusion:** reconciled — Stripe trialers get a real countdown
+>   derived from `currentPeriodEnd`; expired access-code trials degrade to
+>   free instead of walling. The free tier can actually reach the dashboard
+>   (`requiredPlan:'free'`).
+> - **Funnel honesty:** app-wide pricing sweep + a real Terms of Service
+>   page at /pro/terms; the B2B funnel has its own /sitemap-pro.xml.
+> - Self-serve provisioning (`createCompany`, Gap 1) shipped separately —
+>   see documentation/ARCHITECTURE.md (refreshed 2026-07-04/05).
+
 **Verdict up front:** The daily-use app is rich and largely real; the
 money-and-onboarding plumbing is where it's still a single-tenant tool wearing
 a SaaS costume. Stripe is genuinely wired. But **no stranger can
