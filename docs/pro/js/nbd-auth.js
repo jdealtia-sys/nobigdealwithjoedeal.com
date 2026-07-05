@@ -100,21 +100,12 @@ function _normalizePlan(raw) {
 // (functions/handlers/auth.js) from the single server-side email list in
 // functions/handlers/_shared.js OWNER_EMAILS.
 //
-// DEPRECATED transition fallback: the email list below is kept ONLY so
-// the founder accounts can never be locked out before the claim has
-// been minted (first login after this ships, claim-read timeout, etc.).
-// When an owner email matches but the claim is missing, we call
-// mintOwnerClaims (fire-and-forget) so the claim exists on the next
-// token refresh. REMOVE this list (and _requestOwnerClaimMint's
-// email-triggered call) after owner claims are confirmed in prod —
-// sign in with both accounts and verify
-// getIdTokenResult().claims.owner === true.
-//
-// Keep this list tight — it's the SaaS equivalent of a root user.
-const OWNER_EMAILS = new Set([
-  'jd@nobigdealwithjoedeal.com',
-  'jonathandeal459@gmail.com'
-]);
+// Claim-ONLY since Phase 2 (2026-07): the transition email fallback and
+// its mint trigger were removed after owner claims were verified minted
+// on both founder accounts. Email matching never grants owner. If a
+// founder token ever loses the claim, re-mint by calling the
+// mintOwnerClaims callable while signed in, then refresh the token
+// (getIdToken(true)).
 
 // ── Page → Required Plan Mapping ──────────────────────────
 const PAGE_PLANS = {
@@ -215,13 +206,7 @@ export const NBDAuth = {
   get userPlan()     { return _userPlan; },
   get role()         { return _role; },
   get isAdmin()      { return _role === 'admin'; },
-  get isOwner()      {
-    // Claim first; email list is the DEPRECATED transition fallback
-    // (also covers a failed/timed-out claims read) — see OWNER_EMAILS.
-    if (_claims.owner === true) return true;
-    const email = (_user?.email || '').trim().toLowerCase();
-    return !!email && OWNER_EMAILS.has(email);
-  },
+  get isOwner()      { return _claims.owner === true; },
   get planLevel()    { return PLAN_LEVELS[_userPlan] || 0; },
   get trialDaysLeft(){ return _trialDaysLeft; },
   get isTrialUser()  { return _isTrialUser; },
@@ -388,8 +373,8 @@ export const NBDAuth = {
         // this call can hang indefinitely, keeping the page invisible
         // (visibility:hidden) until the network stack times out (~60s).
         // Racing against a 4s resolve (not reject) means we proceed with
-        // empty claims on timeout — the owner check below falls back to
-        // the OWNER_EMAILS list and the subscription check still runs
+        // empty claims on timeout — no owner bypass on that load (claim-
+        // only, fail closed) and the subscription check below still runs
         // and grants the correct plan from Firestore.
         _claims = {};
         try {
@@ -399,28 +384,22 @@ export const NBDAuth = {
           ]);
           _claims = (tokenResult && tokenResult.claims) || {};
         } catch (e) {
-          // Claims read failure → fall back to the email checks below.
+          // Claims read failure → no owner bypass (claim-only, fail
+          // closed); normal subscription/plan resolution still runs.
           console.warn('Could not read ID token claims:', e.message);
         }
 
         // ── Owner bypass ──
         // Short-circuit plan/role resolution for the founder/staff
-        // accounts. Keyed on the { owner: true } custom claim (minted
-        // server-side by mintOwnerClaims); the OWNER_EMAILS check is the
-        // DEPRECATED transition fallback so a claims-read failure — or a
-        // not-yet-minted claim — can never lock the founder out. This
-        // fixes the case where Joe signs in as admin but the UI says
-        // "upgrade to use some features" because the subscriptions/ doc
-        // is missing, stale, or unreadable. No Firestore round-trip =
-        // no fail-closed to 'free' for the only account that can never
-        // be on a plan.
-        const emailLower = (user.email || '').trim().toLowerCase();
+        // accounts. Keyed EXCLUSIVELY on the { owner: true } custom claim
+        // (minted server-side by mintOwnerClaims — Phase 2 removed the
+        // email fallback). This fixes the case where Joe signs in as
+        // admin but the UI says "upgrade to use some features" because
+        // the subscriptions/ doc is missing, stale, or unreadable. No
+        // Firestore round-trip = no fail-closed to 'free' for the only
+        // account that can never be on a plan.
         const _ownerClaim = _claims.owner === true;
-        if (_ownerClaim || (emailLower && OWNER_EMAILS.has(emailLower))) {
-          // Email matched but the claim isn't on the token yet — ask the
-          // server to mint it (idempotent, fire-and-forget; never blocks
-          // page load). Next token refresh carries owner:true.
-          if (!_ownerClaim) _requestOwnerClaimMint(user);
+        if (_ownerClaim) {
           // Note: assignment order is deliberate — the H-02 smoke test
           // guards against `_role = 'admin'` being followed immediately
           // by a `_subscription = { plan: ...` assignment, which was
@@ -650,13 +629,11 @@ export const NBDAuth = {
   /**
    * Check if user has access to a specific plan level.
    * Owner accounts always return true — they bypass plan gates.
-   * Owner = { owner: true } claim; the OWNER_EMAILS check is the
-   * deprecated transition fallback (see the OWNER_EMAILS comment).
+   * Owner = { owner: true } claim, claim-only (Phase 2 removed the
+   * email fallback).
    */
   hasAccess(plan) {
     if (_claims.owner === true) return true;
-    const email = (_user?.email || '').trim().toLowerCase();
-    if (email && OWNER_EMAILS.has(email)) return true;
     // Normalize the requested plan so legacy callers (e.g. academy
     // course tiers passing 'foundation') resolve to the canonical
     // level. Unknown values normalize to 'free' (level 0) — same
@@ -844,36 +821,6 @@ export const NBDAuth = {
 };
 
 // ── Internal Helpers ──────────────────────────────────────
-// Ask the server to stamp { owner: true, role: 'admin' } on this account
-// (mintOwnerClaims callable — see functions/handlers/auth.js). Called only
-// when the signed-in email matched the deprecated OWNER_EMAILS fallback
-// but the token has no owner claim yet. Fire-and-forget: page load never
-// waits on it; the email fallback keeps this session working regardless.
-// Idempotent server-side; the per-page guard just avoids repeat calls.
-// REMOVE together with the OWNER_EMAILS fallback once owner claims are
-// confirmed in prod.
-async function _requestOwnerClaimMint(user) {
-  if (window.__NBD_OWNER_MINT_ATTEMPTED) return;
-  window.__NBD_OWNER_MINT_ATTEMPTED = true;
-  try {
-    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
-    const fns = mod.getFunctions(_app);
-    await connectEmulatorsIfLocal({ functions: fns }); // no-op in prod
-    const res = await mod.httpsCallable(fns, 'mintOwnerClaims')({});
-    const out = (res && res.data) || {};
-    if (out.owner === true && (out.minted || out.refresh)) {
-      // Claims changed (or the token predates them) — force-refresh so
-      // the NEXT claims read carries owner:true. Deliberately no reload:
-      // this session already runs on the email fallback.
-      await user.getIdToken(true);
-      console.info('[nbd-auth] owner claim minted — token refreshed');
-    }
-  } catch (e) {
-    // Never fatal: the deprecated email fallback already granted access.
-    console.warn('[nbd-auth] owner-claim mint skipped:', e && e.message);
-  }
-}
-
 function _exposeGlobals() {
   window._user = _user;
   window._userPlan = _userPlan;

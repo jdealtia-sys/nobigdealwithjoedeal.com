@@ -27,11 +27,10 @@ const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { callableRateLimit } = require('./shared');
-// Owner check: claims-based (token.owner === true) with the deprecated
-// email fallback, both inside isOwnerCaller. The email list itself lives
-// ONLY in handlers/_shared.js (single server-side source — it exists to
-// mint claims, not to authorize; the fallback goes away after owner
-// claims are confirmed in prod).
+// Owner check: claims-based (token.owner === true), claim-only inside
+// isOwnerCaller. The email list itself lives ONLY in handlers/_shared.js
+// (single server-side source — it exists to mint claims, not to
+// authorize; the transition email fallback was removed in Phase 2).
 const { isOwnerCaller } = require('./handlers/_shared');
 
 const CORS_ORIGINS = [
@@ -117,8 +116,7 @@ exports.trackUsage = onCall({
 
     // Server-side cap check. Owner accounts bypass entirely — keyed on
     // the { owner: true } custom claim (minted by mintOwnerClaims);
-    // isOwnerCaller keeps the deprecated email fallback during the
-    // rollout (remove after owner claims are confirmed in prod).
+    // isOwnerCaller is claim-only (Phase 2 removed the email fallback).
     const isOwner = isOwnerCaller(request.auth.token);
     const isAdmin = request.auth.token && request.auth.token.role === 'admin';
     const overage = !isOwner && !isAdmin && cap !== Infinity && nextUsage > cap;

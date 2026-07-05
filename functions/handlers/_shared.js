@@ -139,13 +139,13 @@ const E2E_TEST_USER_EMAIL = 'playwright-e2e@nobigdealwithjoedeal.com';
 // beforeUserSignedIn was never exported; see .github/workflows/
 // firebase-deploy.yml + handlers/auth.js Q3 header).
 //
-// It is NOT a per-request authorization list. Server authorization must
-// key on `request.auth.token.owner === true` (the minted claim). During
-// the claims rollout, isOwnerCaller() below still falls back to this
-// list so Jo can never be locked out before the claim has been minted —
-// that fallback is DEPRECATED: remove it (make isOwnerCaller claim-only)
-// after owner claims are confirmed in prod (sign in with both accounts,
-// verify getIdTokenResult().claims.owner === true).
+// It is NOT a per-request authorization list. Server authorization keys
+// on `request.auth.token.owner === true` (the minted claim) —
+// isOwnerCaller() below is claim-only. This list exists solely as the
+// MINT INPUT for mintOwnerClaims: which verified emails may have the
+// owner claim stamped. Phase 2 (2026-07) removed the transition-era
+// email fallbacks (client + server) after owner claims were verified
+// minted on both founder accounts.
 //
 // Entries MUST be lowercase; compare against a lowercased caller email.
 // Was previously named PROVISION_OWNER_EMAILS (E2E-provision gate only).
@@ -154,14 +154,12 @@ const OWNER_EMAILS = new Set([
   'jonathandeal459@gmail.com'
 ]);
 
-// Transition-period owner check for callables. Claim first — the email
-// fallback is DEPRECATED (remove after owner claims confirmed in prod;
-// see OWNER_EMAILS comment above).
+// Owner check for callables — claim-only. OWNER_EMAILS above is mint
+// input for mintOwnerClaims, never an authorization source: an owner
+// whose token lacks the claim re-mints (mintOwnerClaims while signed in,
+// then token refresh) rather than slipping through on an email match.
 function isOwnerCaller(token) {
-  if (!token) return false;
-  if (token.owner === true) return true;
-  const email = typeof token.email === 'string' ? token.email.trim().toLowerCase() : '';
-  return !!email && OWNER_EMAILS.has(email);
+  return !!(token && token.owner === true);
 }
 
 function _generateE2EPassword() {

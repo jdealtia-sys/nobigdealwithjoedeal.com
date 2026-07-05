@@ -58,7 +58,6 @@ await connectEmulatorsIfLocal({ auth, db, functions });
 // (claims.owner === true, minted by mintOwnerClaims); this email list is
 // the DEPRECATED transition fallback — remove after owner claims are
 // confirmed in prod.
-const OWNER_EMAILS = ['jd@nobigdealwithjoedeal.com', 'jonathandeal459@gmail.com'];
 
 const state = {
   user: null,
@@ -385,8 +384,8 @@ onAuthStateChanged(auth, async (user) => {
     state.claims = (tokenResult && tokenResult.claims) || {};
   } catch (_) { state.claims = {}; }
 
-  const emailLower = (user.email || '').trim().toLowerCase();
-  if (state.claims.owner === true || OWNER_EMAILS.includes(emailLower)) { toDashboard(); return; }
+  // Owner redirect is claim-only (Phase 2 removed the email fallback).
+  if (state.claims.owner === true) { toDashboard(); return; }
 
   // Invited rep — their owner configures the brand, not them.
   if (state.claims.companyId && state.claims.companyId !== user.uid) { toDashboard(); return; }

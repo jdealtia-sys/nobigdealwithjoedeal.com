@@ -77,9 +77,8 @@ exports.provisionE2ETestUser = onCall(
     const callerEmail = (request.auth.token && request.auth.token.email || '').toLowerCase();
     const callerRole  = request.auth.token && request.auth.token.role;
     // Claims-based owner check (token.owner === true, minted by
-    // mintOwnerClaims below) with the deprecated OWNER_EMAILS fallback
-    // — remove the email fallback (inside isOwnerCaller) after owner
-    // claims are confirmed in prod.
+    // mintOwnerClaims below). isOwnerCaller is claim-only — Phase 2
+    // removed the transition email fallback.
     const isOwner = isOwnerCaller(request.auth.token);
     const isPlatformAdmin = callerRole === 'admin';
     if (!isOwner && !isPlatformAdmin) {
@@ -602,8 +601,8 @@ exports.activateInvitedRep = onCall(
 // Stamps { owner: true, role: 'admin' } custom claims on the two
 // founder accounts listed in _shared.js OWNER_EMAILS — the ONLY
 // server-side owner email list. Every other owner check (client
-// and server) keys on the `owner` claim, with a deprecated email
-// fallback during the rollout.
+// and server) keys on the `owner` claim exclusively — Phase 2
+// removed the transition email fallbacks.
 //
 // WHY A CALLABLE AND NOT A BLOCKING AUTH TRIGGER: minting must run
 // on a code path that actually DEPLOYS.

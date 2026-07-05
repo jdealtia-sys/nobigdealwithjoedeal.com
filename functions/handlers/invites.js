@@ -327,9 +327,8 @@ exports.createTeamInvite = onCall(
     // truth), company doc plan as fallback. Joe's owner accounts and
     // platform admins are never seat-gated.
     let plan = 'free';
-    // Owner seat-cap bypass: claims-based (token.owner === true) with the
-    // deprecated email fallback inside isOwnerCaller (remove fallback after
-    // owner claims confirmed in prod).
+    // Owner seat-cap bypass: claims-based (token.owner === true);
+    // isOwnerCaller is claim-only (Phase 2 removed the email fallback).
     if (isGlobalAdmin || isOwnerCaller(request.auth.token)) {
       plan = 'enterprise';
     } else {
