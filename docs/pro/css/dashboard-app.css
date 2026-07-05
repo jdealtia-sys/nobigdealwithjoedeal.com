@@ -1477,8 +1477,16 @@ body:has(#view-prospects.active) .breadcrumb-container{
 }
 
 @media (hover: none) {
-  /* Disable transforms on :hover (scale / translate / lift) */
-  *:hover {
+  /* Disable transforms on :hover (scale / translate / lift).
+     :not([style*="transform"]) exempts elements POSITIONED by an inline
+     transform — the PWA install banners, bottom sheets, and other overlays
+     center themselves with style="transform:translateX(-50%)". Touch taps
+     leave :hover stuck on the tapped element, and the unqualified rule
+     stripped their centering transform: the overlay jumped into a displaced
+     slab covering the bottom nav and swallowed every tap ("buttons do
+     nothing"). Hover-lift transforms live in stylesheets, not inline, so
+     they are still neutralized. */
+  *:hover:not([style*="transform"]) {
     transform: none !important;
   }
   /* Most app buttons and cards rely on transform:translateY() or

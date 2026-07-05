@@ -74,6 +74,12 @@ let heatLayer = null, jobMarkers = [], weatherLayer = null, stormTileLayer = nul
 let pendingPin = null; // { lat, lng, status, color } — waiting for confirm
 
 function initMainMap() {
+  // Re-entry guard: calling L.map() on an already-initialized container
+  // throws "Map container is already initialized", which left the Maps view
+  // broken when a second init raced the first (rapid tab taps — the caller's
+  // mapInited flag is only set after an async waitForLeaflet → rAF chain).
+  // The existing instance is fine; just remeasure it.
+  if (mainMap) { try { mainMap.invalidateSize(); } catch (e) {} return; }
   mainMap = L.map('mainMap').setView([39.07,-84.17],14);
   // Esri World Imagery primary. Native z=19, upscale to 22. Esri free tier
   // returns sporadic 503s in burst conditions — on tileerror we swap the

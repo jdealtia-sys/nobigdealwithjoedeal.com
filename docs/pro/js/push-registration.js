@@ -176,6 +176,20 @@
       'border-radius:12px', 'box-shadow:0 8px 28px rgba(0,0,0,.18)',
       'padding:14px 16px', 'font-family:inherit', 'font-size:14px', 'line-height:1.4'
     ].join(';');
+    // Anchor the card ABOVE the fixed bottom tab bar on phones. At
+    // bottom:16px / z-index:9999 it sat directly on top of #mobile-nav
+    // (z-index 1900) and, being ~320px wide on a ~390px viewport, silently
+    // swallowed every tap on the nav — "buttons do nothing" until the card
+    // was dismissed.
+    try {
+      var nav = document.getElementById('mobile-nav');
+      if (nav) {
+        var r = nav.getBoundingClientRect();
+        if (r.height > 0 && getComputedStyle(nav).display !== 'none' && r.top < window.innerHeight) {
+          card.style.bottom = (Math.round(window.innerHeight - r.top) + 12) + 'px';
+        }
+      }
+    } catch (e) { /* keep the default offset */ }
 
     var title = document.createElement('div');
     title.style.cssText = 'font-weight:700;margin-bottom:4px;';

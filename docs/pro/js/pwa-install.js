@@ -57,13 +57,22 @@
   function _isInstalled() {
     if (_isStandalone()) return true;
     const s = _readState();
-    return !!s.installedAt;
+    if (s.installedAt) return true;
+    // Cross-honor pwa-install-nudge.js's permanent dismiss (its × button).
+    // The two systems previously kept separate flags, so dismissing one
+    // banner left the other free to pop up on the next surface/load.
+    try { if (localStorage.getItem('nbd_pwa_dismissed_v1') === '1') return true; } catch (_) {}
+    return false;
   }
   function _isDismissed() {
     const s = _readState();
-    if (!s.dismissedAt) return false;
-    const ageMs = Date.now() - s.dismissedAt;
-    return ageMs < DISMISS_DAYS * 86_400_000;
+    if (s.dismissedAt && Date.now() - s.dismissedAt < DISMISS_DAYS * 86_400_000) return true;
+    // Cross-honor pwa-install-nudge.js's 7-day snooze ("Not now").
+    try {
+      const until = Number(localStorage.getItem('nbd_pwa_snooze_until') || 0);
+      if (until > Date.now()) return true;
+    } catch (_) {}
+    return false;
   }
   function _isIOS() {
     const ua = window.navigator.userAgent || '';
@@ -98,6 +107,18 @@
         '<button type="button" id="nbd-pwa-install-btn" style="background:var(--orange, #c8541a);color:#fff;border:none;border-radius:5px;padding:7px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;">' + (opts.cta || 'Install') + '</button>' +
         '<button type="button" id="nbd-pwa-dismiss-btn" style="background:transparent;color:#94a3b8;border:none;padding:3px 8px;font:inherit;font-size:11px;cursor:pointer;text-decoration:underline;">Not now</button>' +
       '</div>';
+    // Anchor the banner ABOVE the fixed bottom tab bar. At bottom:20px /
+    // z-index:10004 it overlapped #mobile-nav (z-index 1900) on phone
+    // viewports and swallowed taps on the nav until dismissed.
+    try {
+      const nav = document.getElementById('mobile-nav');
+      if (nav) {
+        const r = nav.getBoundingClientRect();
+        if (r.height > 0 && getComputedStyle(nav).display !== 'none' && r.top < window.innerHeight) {
+          banner.style.bottom = (Math.round(window.innerHeight - r.top) + 12) + 'px';
+        }
+      }
+    } catch (_) { /* keep the default offset */ }
     document.body.appendChild(banner);
     if (!document.getElementById('nbd-pwa-css')) {
       const css = document.createElement('style');

@@ -153,9 +153,13 @@
 
     var k = computeKPIs();
 
+    // Every card routes somewhere (data-ak-action="goTo" + data-ak-target,
+    // dispatched by the delegate at the bottom of this file). These cards
+    // shipped with no click handler at all — on mobile they're the primary
+    // dashboard surface, and tapping them silently did nothing.
     container.innerHTML =
       '<div class="kpi-grid">' +
-        '<div class="kpi-card kpi-primary">' +
+        '<div class="kpi-card kpi-primary" data-ak-action="goTo" data-ak-target="crm" role="button" title="Open pipeline" style="cursor:pointer;">' +
           '<div class="kpi-icon">💰</div>' +
           '<div class="kpi-data">' +
             '<div class="kpi-value">$' + formatNum(k.pipelineValue) + '</div>' +
@@ -163,7 +167,7 @@
             '<div class="kpi-sub">' + k.activeLeadCount + ' active leads</div>' +
           '</div>' +
         '</div>' +
-        '<div class="kpi-card kpi-green">' +
+        '<div class="kpi-card kpi-green" data-ak-action="goTo" data-ak-target="money" role="button" title="Open Money dashboard" style="cursor:pointer;">' +
           '<div class="kpi-icon">📈</div>' +
           '<div class="kpi-data">' +
             '<div class="kpi-value">$' + formatNum(k.monthlyRevenue) + '</div>' +
@@ -171,7 +175,7 @@
             '<div class="kpi-sub">' + k.closedThisMonthCount + ' closed</div>' +
           '</div>' +
         '</div>' +
-        '<div class="kpi-card">' +
+        '<div class="kpi-card" data-ak-action="goTo" data-ak-target="board" role="button" title="Open analytics" style="cursor:pointer;">' +
           '<div class="kpi-icon">🎯</div>' +
           '<div class="kpi-data">' +
             '<div class="kpi-value">' + k.closeRate + '%</div>' +
@@ -179,7 +183,7 @@
             '<div class="kpi-sub">Avg deal $' + formatNum(k.avgDealSize) + '</div>' +
           '</div>' +
         '</div>' +
-        '<div class="kpi-card">' +
+        '<div class="kpi-card" data-ak-action="goTo" data-ak-target="crm" role="button" title="Open pipeline" style="cursor:pointer;">' +
           '<div class="kpi-icon">🆕</div>' +
           '<div class="kpi-data">' +
             '<div class="kpi-value">' + k.leadsThisMonth + '</div>' +
@@ -812,4 +816,30 @@
 })();
 
 
-(function(){if(window._NBD_AK_DELEGATE)return;window._NBD_AK_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-ak-action]');if(!t)return;if(t.dataset.akAction==='scrollToFollowUps'&&typeof scrollToFollowUps==='function')scrollToFollowUps();});})();
+(function () {
+  if (window._NBD_AK_DELEGATE) return;
+  window._NBD_AK_DELEGATE = true;
+  document.addEventListener('click', function (ev) {
+    var t = ev.target.closest && ev.target.closest('[data-ak-action]');
+    if (!t) return;
+    var action = t.dataset.akAction;
+    if (action === 'goTo') {
+      var target = t.dataset.akTarget;
+      if (target && typeof window.goTo === 'function') window.goTo(target);
+      return;
+    }
+    if (action === 'scrollToFollowUps') {
+      // The follow-up alerts live inside the CRM view (#followUpAlertsWrap,
+      // rendered by renderLeads) — scrolling in place from the dash view
+      // targeted an element in a hidden (or not-yet-hydrated) view and did
+      // nothing. Navigate to the CRM first; clear the session dismiss flag
+      // because this tap is an explicit "show me" request; then scroll once
+      // the kanban render has run (same 200ms-class delay as filterByStage).
+      try { localStorage.removeItem('nbd_crm_followup_hidden'); } catch (e) {}
+      if (typeof window.goTo === 'function') window.goTo('crm');
+      setTimeout(function () {
+        if (typeof window.scrollToFollowUps === 'function') window.scrollToFollowUps();
+      }, 300);
+    }
+  });
+})();

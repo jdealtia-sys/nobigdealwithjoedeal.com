@@ -39,9 +39,13 @@
   __NBD_LOADED['pwa-install-nudge'] = true;
 
   // Only nudge on the dashboard; the homeowner portal etc. should not
-  // promote "install our app" to non-rep users.
+  // promote "install our app" to non-rep users. Hosting has cleanUrls:true,
+  // so the canonical URL is /pro/dashboard (no .html) — the old regex only
+  // matched the .html form (and bare /pro/), so this module silently never
+  // ran on the URL reps actually land on and the W150 pwa-install.js banner
+  // showed instead. Match both forms.
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/(dashboard\.html)?$/.test(PATH)) return;
+  if (!/\/pro\/dashboard(\.html)?$/.test(PATH)) return;
 
   const STORAGE_KEY_SESSIONS  = 'nbd_pwa_sessions';
   const STORAGE_KEY_DISMISSED = 'nbd_pwa_dismissed_v1';
@@ -93,8 +97,17 @@
   }
 
   function isDismissedForever() {
-    try { return localStorage.getItem(STORAGE_KEY_DISMISSED) === '1'; }
-    catch (e) { return false; }
+    try {
+      if (localStorage.getItem(STORAGE_KEY_DISMISSED) === '1') return true;
+      // Cross-honor the W150 pwa-install.js state (still live on
+      // customer.html, and previously double-mounted on the dashboard —
+      // dismissing one banner immediately surfaced the other because each
+      // system only read its own flag). installedAt is permanent; a
+      // dismissedAt there is its 7-day "not now", treated below as a snooze.
+      const legacy = JSON.parse(localStorage.getItem('nbd_pwa_install_state_v1') || '{}');
+      if (legacy.installedAt) return true;
+    } catch (e) { /* fall through */ }
+    return false;
   }
   function dismissForever() {
     try { localStorage.setItem(STORAGE_KEY_DISMISSED, '1'); } catch (e) {}
@@ -103,8 +116,12 @@
   function isSnoozed() {
     try {
       const until = Number(localStorage.getItem(STORAGE_KEY_SNOOZE) || 0);
-      return until > Date.now();
-    } catch (e) { return false; }
+      if (until > Date.now()) return true;
+      // W150 pwa-install.js "Not now" = dismissedAt + 7 days — honor it.
+      const legacy = JSON.parse(localStorage.getItem('nbd_pwa_install_state_v1') || '{}');
+      if (legacy.dismissedAt && Date.now() - legacy.dismissedAt < 7 * 86400000) return true;
+    } catch (e) { /* fall through */ }
+    return false;
   }
   function snooze() {
     try {
@@ -124,6 +141,9 @@
 
   // ─── Banner UI ──────────────────────────────────────────────────
   function buildBanner() {
+    // Both install systems share this element id (fab-stack-coordinator keys
+    // on it). If one is already mounted, never stack a second banner.
+    if (document.getElementById('nbd-pwa-install-banner')) return null;
     const banner = document.createElement('div');
     banner.id = 'nbd-pwa-install-banner';
     banner.setAttribute('role', 'dialog');
@@ -167,6 +187,19 @@
           background:transparent; border:none; color:#64748b;
           cursor:pointer; padding:4px 6px; line-height:1;
           font-size:14px; -webkit-tap-highlight-color:transparent;">×</button>`;
+    // Anchor the banner ABOVE the fixed bottom tab bar. At bottom:14px /
+    // z-index:99990 the ~420px-wide banner sat directly on top of
+    // #mobile-nav (z-index 1900) on phone viewports and silently swallowed
+    // every tap on the nav until dismissed — "buttons do nothing".
+    try {
+      const nav = document.getElementById('mobile-nav');
+      if (nav) {
+        const r = nav.getBoundingClientRect();
+        if (r.height > 0 && getComputedStyle(nav).display !== 'none' && r.top < window.innerHeight) {
+          banner.style.bottom = (Math.round(window.innerHeight - r.top) + 12) + 'px';
+        }
+      }
+    } catch (e) { /* keep the default offset */ }
     document.body.appendChild(banner);
     requestAnimationFrame(() => {
       banner.style.transform = 'translateX(-50%) translateY(0)';
@@ -279,6 +312,7 @@
       if (_shown || isStandalone()) return;
       _shown = true;
       const banner = buildBanner();
+      if (!banner) return; // another install banner already mounted
       const installBtn = banner.querySelector('#nbd-pwa-install-action');
       const laterBtn   = banner.querySelector('#nbd-pwa-install-later');
       const xBtn       = banner.querySelector('#nbd-pwa-install-x');

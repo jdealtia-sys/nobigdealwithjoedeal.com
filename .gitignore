@@ -46,3 +46,4 @@ Thumbs.db
 .firebase/*.cache
 .firebase/hosting.*.cache
 firebase-debug.log
+tests/e2e/.audit-report.json

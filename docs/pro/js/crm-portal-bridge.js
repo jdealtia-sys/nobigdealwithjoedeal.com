@@ -420,8 +420,16 @@ function restoreCrmSearch(){
 }
 
 function scrollToFollowUps(){
+  // #followUpAlerts is the inner list; the element renderLeads() shows/hides
+  // is its container #followUpAlertsWrap (dashboard.html). Unhiding only the
+  // inner div left the wrap display:none, so this scrolled to an invisible
+  // target and the click appeared dead. Show + scroll the wrap when it has
+  // rendered alerts.
+  const wrap=document.getElementById('followUpAlertsWrap');
   const el=document.getElementById('followUpAlerts');
-  if(el){ el.style.display='block'; el.scrollIntoView({behavior:'smooth'}); }
+  if(!wrap||!el) return;
+  if(el.children.length) wrap.style.display='block';
+  if(wrap.style.display!=='none') wrap.scrollIntoView({behavior:'smooth'});
 }
 
 function isOverdue(d){ if(!d) return false; const dt=new Date(d); dt.setHours(0,0,0,0); const t=new Date(); t.setHours(0,0,0,0); return dt<t; }
