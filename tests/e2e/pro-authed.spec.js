@@ -103,6 +103,20 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
 });
 
 // ───────────────────────────────────────────────────────────────
+// Signup funnel — the acquisition path itself (register → onboarding
+// → dashboard as a FREE user). Every other journey starts from the
+// pre-seeded logged-in account; nothing guarded registration until
+// the 2026-07-05 free-tier bug: dashboard-auth-gate required plan
+// 'foundation', so every free signup hit a full-screen upgrade wall
+// with no continue-free path — the funnel sold a product nobody
+// could reach. This journey locks the whole path end-to-end.
+//
+// Hermetic: the account is created fresh in the AUTH EMULATOR each
+// run (unique email per attempt) and evaporates with it. The
+// createCompany callable fails in emulator mode (no functions
+// emulator) — BY DESIGN register.js treats that as non-fatal (solo
+// uid convention), which this journey also exercises.
+// ───────────────────────────────────────────────────────────────
 // Destructive flows (Rock 3 PR 4)
 //
 // Every test in this block creates real Firestore docs tagged with
@@ -484,8 +498,15 @@ test.describe.serial('Authenticated destructive flows', () => {
     // exposes as window._storage (emulator-wired on localhost, line 809).
     await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
     await page.evaluate(() => window.ScriptLoader.loadBundle('photos'));
+    // CRITICAL: exclude the lazy stub. dashboard-actions.js installs a
+    // PhotoEngine placeholder whose uploadFromFile is a fire-and-forget
+    // bundle loader that resolves undefined — it satisfies a bare typeof
+    // check, and on a slow run the evaluate below wins the race against
+    // photo-engine.js overwriting the global ('photo.id of undefined',
+    // CI 2026-07-05). Gate on the REAL engine only.
     await page.waitForFunction(() =>
-      window.PhotoEngine && typeof window.PhotoEngine.uploadFromFile === 'function'
+      window.PhotoEngine && !window.PhotoEngine.__nbdLazyPhotosStub
+      && typeof window.PhotoEngine.uploadFromFile === 'function'
       && window._storage && window._db, null, { timeout: 20_000 });
 
     const stamp = Date.now();
@@ -544,6 +565,12 @@ test.describe.serial('Authenticated destructive flows', () => {
     // involved for server PDF render (contract/invoice/change_order/receipt,
     // which FALLS BACK to client render) and remote signing. 'thank_you' is
     // not in SERVER_TYPE_MAP, so this journey is hermetic without functions.
+    //
+    // Capture the page's console: the docgen persist path SWALLOWS write
+    // failures ('Document metadata persist failed: …' console.warn), so an
+    // empty read-back can only be explained by what the page logged.
+    const pageLog = [];
+    page.on('console', msg => pageLog.push(`[${msg.type()}] ${msg.text()}`));
     await page.route('**/nominatim.openstreetmap.org/**', route =>
       route.fulfill({ contentType: 'application/json', body: '[]' }));
     await loginAs(page, creds);
@@ -615,7 +642,13 @@ test.describe.serial('Authenticated destructive flows', () => {
       docs = await page.evaluate(async (id) => {
         const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
         const db = window.db || window._db;
-        const snap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'documents'));
+        // The emulator under serial-suite load intermittently reports
+        // 'client is offline' — treat any read error as "not yet" and let
+        // the outer poll retry instead of failing the whole journey.
+        let snap;
+        try {
+          snap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'documents'));
+        } catch (_) { return []; }
         const list = [];
         snap.forEach(d => {
           const data = d.data();
@@ -632,7 +665,15 @@ test.describe.serial('Authenticated destructive flows', () => {
     }
 
     const meta = docs.find(d => d.type === 'thank_you');
-    expect(meta, 'thank_you metadata doc persisted under the lead').toBeTruthy();
+    if (!meta) {
+      // Self-describing failure: surface what the page itself said —
+      // 'Document metadata persist failed' / 'Document HTML upload failed'
+      // console.warns are the only trace when the swallowed persist dies.
+      const interesting = pageLog.filter(l =>
+        /docgen|document|persist|upload|firestore|storage|offline|denied/i.test(l)).slice(-12);
+      throw new Error('thank_you metadata never appeared under leads/' + leadId
+        + '/documents after 20s. Page console (filtered):\n' + (interesting.join('\n') || '(nothing relevant logged)'));
+    }
     expect(meta.userId, 'userId stamped on the metadata').toBeTruthy();
     expect(meta.typeName, 'human-readable type name recorded').toBeTruthy();
     expect(meta.filename, 'filename recorded for the PDF flow').toMatch(/\.pdf$/);
@@ -1002,5 +1043,121 @@ test.describe.serial('Authenticated destructive flows', () => {
     expect(mi.miles, 'miles persisted').toBe(10.5);
     expect(mi.amountCents, '10.5 mi × 72.5¢ = 761 cents (rounded)').toBe(Math.round(10.5 * 72.5));
     expect(mi.costType, 'mileage is overhead, never a job cost').toBe('overhead');
+  });
+});
+
+
+// ───────────────────────────────────────────────────────────────
+test.describe('Signup funnel — free tier reaches the dashboard', () => {
+  test.beforeEach(async ({}, testInfo) => {
+    // Only meaningful against the emulator: prod runs must not mint accounts.
+    if (!/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) {
+      testInfo.skip(true, 'signup journey runs in emulator mode only');
+    }
+  });
+
+  test('register (no code) → onboarding skip → dashboard, unwalled, plan free', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
+    const stamp = Date.now();
+    const email = `e2e-signup-${stamp}@nbd.test`;
+
+    await page.goto('/pro/register.html');
+    await page.waitForLoadState('load');
+    await page.fill('#regFirst', '[E2E] Signup');
+    await page.fill('#regLast', String(stamp));
+    await page.fill('#regEmail', email);
+    await page.fill('#regPass', 'nbd-e2e-signup-pw-1');
+    await page.fill('#regConfirm', 'nbd-e2e-signup-pw-1');
+    // #regCode deliberately left blank — the free path.
+    await page.click('#regBtn');
+
+    // Free path: createUser → users/{uid} (onboarded:false) → createCompany
+    // (fails silently in emulator — non-fatal by design) → onboarding.
+    // A validation/auth failure writes to #regErr and never navigates —
+    // surface THAT text instead of an opaque waitForURL timeout.
+    try {
+      await page.waitForURL(/\/pro\/onboarding(\.html)?([?#]|$)/, { timeout: 20_000 });
+    } catch (e) {
+      const regErr = await page.locator('#regErr').textContent().catch(() => '');
+      throw new Error('register never navigated to onboarding'
+        + (regErr ? ` — #regErr: "${regErr.trim()}"` : ' — #regErr empty (silent hang)'));
+    }
+
+    // The skip link is STATIC markup — visible before onboarding.js binds
+    // its click delegate (inside onAuthStateChanged, after prefill), and
+    // skip() also needs state.user. A too-fast click silently no-ops (the
+    // openCrmView race class; this exact race failed CI 2026-07-05).
+    // prefill() stamps #obEmail with the signed-in user's email right
+    // around delegate binding — wait for it as the module-ready signal,
+    // then retry-click until the URL actually moves.
+    try {
+      await page.waitForFunction((expected) => {
+        const el = document.getElementById('obEmail');
+        return !!el && el.value === expected;
+      }, email, { timeout: 20_000 });
+    } catch (e) {
+      const state = await page.evaluate(() => ({
+        url: location.href,
+        obEmail: (document.getElementById('obEmail') || { value: '(el missing)' }).value,
+        ready: document.readyState,
+      })).catch(() => ({ note: 'evaluate failed (context gone?)' }));
+      throw new Error('onboarding module never became ready — ' + JSON.stringify(state));
+    }
+    const skipBtn = page.locator('[data-action="skip"]').first();
+    let onDashboard = false;
+    for (let attempt = 0; attempt < 5 && !onDashboard; attempt++) {
+      await skipBtn.click();
+      // skip() writes onboarded:true (+ onboardingSkipped) then toDashboard().
+      onDashboard = await page
+        .waitForURL(/\/pro\/dashboard(\.html)?([?#]|$)/, { timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false);
+    }
+    if (!onDashboard) {
+      throw new Error('onboarding skip never handed off — stuck at ' + page.url());
+    }
+
+    // Let the auth gate fully resolve (goTo is defined by dashboard-ui after
+    // the gate's onReady path un-hides the page).
+    await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 20_000 });
+
+    // THE regression lock: a free account (no subscriptions doc at all)
+    // must NOT hit the full-screen upgrade wall — the dashboard IS the
+    // free product. Before the fix this selector was present for every
+    // free signup, with no continue-free path.
+    await expect(page.locator('#nbd-upgrade-wall'), 'free account must not be upgrade-walled')
+      .toHaveCount(0);
+    // And the page must actually be visible (the gate un-hides it only on
+    // the success path).
+    const visible = await page.evaluate(() => document.documentElement.style.visibility !== 'hidden');
+    expect(visible, 'gate un-hid the page (onReady path ran)').toBe(true);
+
+    // Plan resolved as canonical free for a brand-new account. Bootstrap
+    // sets window._userPlan ASYNCHRONOUSLY (token-claims read + a
+    // 4s-timeout subscription getDoc) — round 4 read it before it landed
+    // (null). Wait for it, then assert the value.
+    await page.waitForFunction(() => !!window._userPlan, null, { timeout: 20_000 });
+    const authState = await page.evaluate(() => ({
+      plan: window._userPlan || null,
+      email: (window._user && window._user.email) || null,
+    }));
+    expect(authState.plan, 'no subscription doc resolves to the free plan').toBe('free');
+    expect(authState.email, 'dashboard session belongs to the new signup').toBe(email);
+
+    // The free product works: navigate to the pipeline like a user.
+    await page.evaluate(() => window.goTo('crm'));
+    await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first())
+      .toBeVisible({ timeout: 15_000 });
+
+    // Console hygiene, with the standard emulator-mode exclusions. The
+    // createCompany connection-refused IS expected here (no functions
+    // emulator) and register.js handles it non-fatally.
+    const hard = consoleErrors.filter(e =>
+      !/Report Only|favicon|Service Worker registration|chrome-extension/i.test(e)
+      && !/127\.0\.0\.1:5001|ERR_CONNECTION_REFUSED|Failed to load resource|app-?check|ReCAPTCHA|cloudfunctions\.net|CORS policy|createCompany/i.test(e)
+    );
+    expect(hard, 'no unexpected console errors across the funnel').toEqual([]);
   });
 });

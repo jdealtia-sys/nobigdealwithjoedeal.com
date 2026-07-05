@@ -16,7 +16,12 @@ module.exports = defineConfig({
   timeout: 30_000,
   expect: { timeout: 5_000 },
   fullyParallel: true,
-  retries: process.env.CI ? 2 : 0,
+  // 3 (was 2): with 16 serial journeys in one emulator session, the Java
+  // Firestore emulator intermittently drops reads ('client is offline')
+  // under load and a rotating single test loses all its attempts while
+  // everything else passes (rounds of 2026-07-05). One more attempt per
+  // test costs seconds and converts most of those rounds to flaky-pass.
+  retries: process.env.CI ? 3 : 0,
   reporter: process.env.CI ? 'line' : 'list',
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://nobigdealwithjoedeal.com',
