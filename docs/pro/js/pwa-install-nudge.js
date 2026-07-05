@@ -39,9 +39,13 @@
   __NBD_LOADED['pwa-install-nudge'] = true;
 
   // Only nudge on the dashboard; the homeowner portal etc. should not
-  // promote "install our app" to non-rep users.
+  // promote "install our app" to non-rep users. Hosting has cleanUrls:true,
+  // so the canonical URL is /pro/dashboard (no .html) — the old regex only
+  // matched the .html form (and bare /pro/), so this module silently never
+  // ran on the URL reps actually land on and the W150 pwa-install.js banner
+  // showed instead. Match both forms.
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/(dashboard\.html)?$/.test(PATH)) return;
+  if (!/\/pro\/dashboard(\.html)?$/.test(PATH)) return;
 
   const STORAGE_KEY_SESSIONS  = 'nbd_pwa_sessions';
   const STORAGE_KEY_DISMISSED = 'nbd_pwa_dismissed_v1';
@@ -93,8 +97,17 @@
   }
 
   function isDismissedForever() {
-    try { return localStorage.getItem(STORAGE_KEY_DISMISSED) === '1'; }
-    catch (e) { return false; }
+    try {
+      if (localStorage.getItem(STORAGE_KEY_DISMISSED) === '1') return true;
+      // Cross-honor the W150 pwa-install.js state (still live on
+      // customer.html, and previously double-mounted on the dashboard —
+      // dismissing one banner immediately surfaced the other because each
+      // system only read its own flag). installedAt is permanent; a
+      // dismissedAt there is its 7-day "not now", treated below as a snooze.
+      const legacy = JSON.parse(localStorage.getItem('nbd_pwa_install_state_v1') || '{}');
+      if (legacy.installedAt) return true;
+    } catch (e) { /* fall through */ }
+    return false;
   }
   function dismissForever() {
     try { localStorage.setItem(STORAGE_KEY_DISMISSED, '1'); } catch (e) {}
@@ -103,8 +116,12 @@
   function isSnoozed() {
     try {
       const until = Number(localStorage.getItem(STORAGE_KEY_SNOOZE) || 0);
-      return until > Date.now();
-    } catch (e) { return false; }
+      if (until > Date.now()) return true;
+      // W150 pwa-install.js "Not now" = dismissedAt + 7 days — honor it.
+      const legacy = JSON.parse(localStorage.getItem('nbd_pwa_install_state_v1') || '{}');
+      if (legacy.dismissedAt && Date.now() - legacy.dismissedAt < 7 * 86400000) return true;
+    } catch (e) { /* fall through */ }
+    return false;
   }
   function snooze() {
     try {
@@ -124,6 +141,9 @@
 
   // ─── Banner UI ──────────────────────────────────────────────────
   function buildBanner() {
+    // Both install systems share this element id (fab-stack-coordinator keys
+    // on it). If one is already mounted, never stack a second banner.
+    if (document.getElementById('nbd-pwa-install-banner')) return null;
     const banner = document.createElement('div');
     banner.id = 'nbd-pwa-install-banner';
     banner.setAttribute('role', 'dialog');
@@ -292,6 +312,7 @@
       if (_shown || isStandalone()) return;
       _shown = true;
       const banner = buildBanner();
+      if (!banner) return; // another install banner already mounted
       const installBtn = banner.querySelector('#nbd-pwa-install-action');
       const laterBtn   = banner.querySelector('#nbd-pwa-install-later');
       const xBtn       = banner.querySelector('#nbd-pwa-install-x');

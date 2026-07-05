@@ -57,13 +57,22 @@
   function _isInstalled() {
     if (_isStandalone()) return true;
     const s = _readState();
-    return !!s.installedAt;
+    if (s.installedAt) return true;
+    // Cross-honor pwa-install-nudge.js's permanent dismiss (its × button).
+    // The two systems previously kept separate flags, so dismissing one
+    // banner left the other free to pop up on the next surface/load.
+    try { if (localStorage.getItem('nbd_pwa_dismissed_v1') === '1') return true; } catch (_) {}
+    return false;
   }
   function _isDismissed() {
     const s = _readState();
-    if (!s.dismissedAt) return false;
-    const ageMs = Date.now() - s.dismissedAt;
-    return ageMs < DISMISS_DAYS * 86_400_000;
+    if (s.dismissedAt && Date.now() - s.dismissedAt < DISMISS_DAYS * 86_400_000) return true;
+    // Cross-honor pwa-install-nudge.js's 7-day snooze ("Not now").
+    try {
+      const until = Number(localStorage.getItem('nbd_pwa_snooze_until') || 0);
+      if (until > Date.now()) return true;
+    } catch (_) {}
+    return false;
   }
   function _isIOS() {
     const ua = window.navigator.userAgent || '';

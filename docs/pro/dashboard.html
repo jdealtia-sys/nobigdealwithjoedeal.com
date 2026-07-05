@@ -5898,7 +5898,7 @@
 <script defer src="js/lead-dedup.js?v=1"></script>
 <script defer src="js/global-search.js?v=1"></script>
 <script defer src="js/bottleneck-widget.js?v=1"></script>
-<script defer src="js/pwa-install-nudge.js?v=2"></script>
+<script defer src="js/pwa-install-nudge.js?v=3"></script>
 <script defer src="js/data-export.js?v=1"></script>
 <script defer src="js/shortcuts-help.js?v=1"></script>
 <script defer src="js/data-import.js?v=1"></script>
@@ -6043,9 +6043,15 @@
 <!-- W149: FAB stack coordinator — hides voice/inbox FABs when a
      modal is open so they don't float over the modal content. -->
 <script defer src="js/fab-stack-coordinator.js?v=1"></script>
-<!-- W150: PWA install prompt — beforeinstallprompt for Android +
-     manual Add-to-Home-Screen card for iOS. -->
-<script defer src="js/pwa-install.js?v=2"></script>
+<!-- W150 pwa-install.js REMOVED from the dashboard (2026-07-05): it and
+     pwa-install-nudge.js are two complete install-prompt systems that were
+     BOTH loaded here. They share the #nbd-pwa-install-banner element id but
+     kept separate dismissal flags, so dismissing one banner immediately
+     surfaced the other. The nudge (session-gated, snooze + forever-dismiss,
+     iOS/Android walkthroughs) is the dashboard's single system now; W150
+     stays on customer.html, and both scripts cross-honor each other's
+     dismissal state so "Not now" on either surface silences both. -->
+
 <!-- W151: offline banner — shows a yellow strip across the top
      when navigator.onLine === false. -->
 <script defer src="js/offline-banner.js?v=1"></script>
