@@ -88,7 +88,22 @@ exports.trackUsage = onCall({
   const result = await db.runTransaction(async (tx) => {
     const snap = await tx.get(subRef);
     const data = snap.exists ? snap.data() : {};
-    const plan = data.plan || 'free';
+    let plan = data.plan || 'free';
+    // Access-code trial expiry — enforced at READ time (2026-07-05 product
+    // decision). validateAccessCode writes trialEndsAt when a code carries
+    // trialDays, but nothing ever downgraded the plan afterward — a
+    // "14-day trial" code granted its tier forever. A code-granted sub past
+    // its trialEndsAt now meters as free. Stripe-billed subs are untouched
+    // (Stripe owns their lifecycle); code grants WITHOUT trialDays remain
+    // indefinite comps.
+    if (
+      data.source === 'access_code'
+      && data.trialEndsAt
+      && typeof data.trialEndsAt.toMillis === 'function'
+      && data.trialEndsAt.toMillis() < Date.now()
+    ) {
+      plan = 'free';
+    }
     const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
     const cap = limits[feature];
 
