@@ -1442,3 +1442,118 @@ test.describe('Signup funnel — free tier reaches the dashboard @shard2', () =>
     expect(hard, 'no unexpected console errors across the funnel').toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// CSP-fix regressions (2026-07-05). Every fix in PRs #847/#850
+// shipped because NO journey exercised the surface: the shards were
+// green while quick-add save crashed, kanban drop was inert, the nav
+// customizer couldn't respond, and the theme fonts never applied
+// (all victims of script-src-attr 'none' / stale selectors). These
+// journeys close each blind spot so the next regression fails CI
+// instead of shipping silently.
+test.describe.serial('CSP-fix regressions @shard2', () => {
+  let creds;
+  test.beforeAll(() => {
+    try { creds = requireTestUser(); }
+    catch (e) { console.warn('[csp-regressions] ' + e.message); }
+  });
+
+  test.beforeEach(async ({}, testInfo) => {
+    if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
+  });
+
+  test('theme-font link flips to rel=stylesheet via script-loader (was a CSP-dead inline onload)', async ({ page }) => {
+    await loginAs(page, creds);
+    // script-loader.js flips on the link load event, with a 3s failsafe —
+    // either path must land well inside this timeout.
+    await page.waitForFunction(() => {
+      const l = document.querySelector('link[data-nbd-font-swap]');
+      return !!l && l.rel === 'stylesheet';
+    }, null, { timeout: 15_000 });
+  });
+
+  test('kanban board delegation: a synthetic column drop reaches moveCard', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    await page.waitForFunction(() => {
+      const b = document.getElementById('kanbanBoard');
+      return !!b && b.dataset.nbdDndBound === '1' && !!b.querySelector('.kcol-body');
+    }, null, { timeout: 15_000 });
+    // End-to-end wiring check without mutating data: spy moveCard, set the
+    // drag id the real dragstart would set, dispatch a bubbling drop on a
+    // column body, and confirm the board-level delegate routed it through.
+    const calls = await page.evaluate(() => {
+      const board = document.getElementById('kanbanBoard');
+      const body = board.querySelector('.kcol-body');
+      const stage = body.id.replace(/^kbody-/, '');
+      const orig = window.moveCard;
+      const seen = [];
+      window.moveCard = (id, st) => { seen.push([id, st]); };
+      try {
+        window._dragId = 'e2e-synthetic-drag';
+        body.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true }));
+      } finally {
+        window.moveCard = orig;
+        window._dragId = null;
+      }
+      return { seen, stage };
+    });
+    expect(calls.seen).toEqual([['e2e-synthetic-drag', calls.stage]]);
+  });
+
+  test('nav customizer opens and addTab responds through the delegate (no inline handlers)', async ({ page }) => {
+    await loginAs(page, creds);
+    // The customizer entry points are mobile-menu / settings items; drive
+    // the document-level data-mnc-action delegate directly with a temp
+    // trigger — exactly the dispatch path real entry points use.
+    await page.waitForLoadState('load');
+    await page.evaluate(() => {
+      const b = document.createElement('button');
+      b.id = 'e2e-open-customizer';
+      b.dataset.mncAction = 'openCustomizer';
+      document.body.appendChild(b);
+      b.click();
+    });
+    const modal = page.locator('#navCustomizeModal');
+    await expect(modal).toBeVisible({ timeout: 10_000 });
+    await expect(modal.locator('#ncm-slots .ncm-slot').first()).toBeVisible();
+    // Click a pool item not already in the bar — the addTab delegate must
+    // mark it in-bar (renderModal re-render), proving the whole
+    // data-mnc-action path works with the module-scoped handlers.
+    const pool = modal.locator('.ncm-pool-item:not(.in-bar)').first();
+    const tabId = await pool.getAttribute('data-tab-id');
+    await pool.click();
+    await expect(modal.locator(`.ncm-pool-item[data-tab-id="${tabId}"].in-bar`))
+      .toBeVisible({ timeout: 5_000 });
+    // Close WITHOUT saving — zero persisted state, journey stays read-only.
+    await modal.locator('[data-mnc-action="close"]').first().click();
+    await expect(modal).toBeHidden({ timeout: 5_000 });
+    await page.evaluate(() => document.getElementById('e2e-open-customizer')?.remove());
+  });
+
+  test('quick-add lead saves without throwing (was: null-selector TypeError before the write)', async ({ page }, testInfo) => {
+    // Creates a real (untagged) lead — emulator-only so prod-mode manual
+    // runs never orphan data. Emulator state evaporates with emulators:exec.
+    if (!/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) {
+      testInfo.skip(true, 'creates an untagged lead — emulator runs only');
+    }
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
+    const consoleErrors = [];
+    page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+    await loginAs(page, creds);
+    await page.waitForFunction(() => typeof window.openQuickAddLead === 'function'
+      && typeof window._saveLead === 'function', null, { timeout: 15_000 });
+    await page.evaluate(() => window.openQuickAddLead());
+    const modal = page.locator('#quickAddModal');
+    await expect(modal).toHaveClass(/open/, { timeout: 5_000 });
+    await page.fill('#qaAddr', '123 E2E Quick Add St, Lexington, KY');
+    await page.fill('#qaPhone', '8595550123');
+    await page.click('#quickAddModal button[data-fn="saveQuickLead"]');
+    // The old bug: btn lookup returned null and btn.textContent THREW before
+    // _saveLead ran — the modal stayed open forever. Fixed = modal closes.
+    await expect(modal).not.toHaveClass(/open/, { timeout: 20_000 });
+    const saveErrors = consoleErrors.filter(e => /saveQuickLead|TypeError.*textContent/i.test(e));
+    expect(saveErrors, 'no saveQuickLead dispatch errors').toEqual([]);
+  });
+});
