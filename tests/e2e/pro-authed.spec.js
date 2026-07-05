@@ -1502,6 +1502,13 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
   });
 
   test('nav customizer opens and addTab responds through the delegate (no inline handlers)', async ({ page }) => {
+    // Full console capture: when this journey fails in CI the modal is
+    // simply absent, which means the module-tail delegate never bound —
+    // i.e. init() threw somewhere after assigning window.mobileNav. The
+    // console trail is the only way to see WHERE from a CI log.
+    const consoleMsgs = [];
+    page.on('console', m => consoleMsgs.push(m.type() + ': ' + m.text()));
+    page.on('pageerror', e => consoleMsgs.push('pageerror: ' + e.message));
     await loginAs(page, creds);
     // The customizer entry points are mobile-menu / settings items; drive
     // the document-level data-mnc-action delegate directly with a temp
@@ -1512,6 +1519,23 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     // race the first CI run won and the second lost.
     await page.waitForFunction(() => typeof window.mobileNav === 'function',
       null, { timeout: 15_000 });
+    // Binary probe: dispatch a bogus action first. The delegate answers
+    // every unknown action with a console.warn — if that warn never
+    // arrives, the delegate is NOT bound (init() died before the module
+    // tail) and no amount of waiting will summon the modal.
+    await page.evaluate(() => {
+      const probe = document.createElement('button');
+      probe.dataset.mncAction = 'e2eDelegateProbe';
+      document.body.appendChild(probe);
+      probe.click();
+      probe.remove();
+    });
+    await expect
+      .poll(() => consoleMsgs.some(m => m.includes('no dispatch for e2eDelegateProbe')),
+        { timeout: 10_000, message: 'data-mnc-action delegate never answered the probe — '
+          + 'init() likely threw before the delegate bound. Console: '
+          + consoleMsgs.filter(m => /error|warn/.test(m)).slice(-15).join(' | ') })
+      .toBe(true);
     await page.evaluate(() => {
       const b = document.createElement('button');
       b.id = 'e2e-open-customizer';
@@ -1520,7 +1544,12 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
       b.click();
     });
     const modal = page.locator('#navCustomizeModal');
-    await expect(modal).toBeVisible({ timeout: 10_000 });
+    try {
+      await expect(modal).toBeVisible({ timeout: 15_000 });
+    } catch (e) {
+      console.log('[customizer-diag] console trail:\n' + consoleMsgs.slice(-40).join('\n'));
+      throw e;
+    }
     await expect(modal.locator('#ncm-slots .ncm-slot').first()).toBeVisible();
     // Click a pool item not already in the bar — the addTab delegate must
     // mark it in-bar (renderModal re-render), proving the whole
