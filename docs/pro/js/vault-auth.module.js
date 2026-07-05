@@ -16,7 +16,7 @@ import { doc, getDoc, setDoc, collection, getDocs, query, where, orderBy, limit 
   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 window._nbdAuth = NBDAuth.init({
-  requiredPlan: 'professional',
+  requiredPlan: 'growth',
   requireAdmin: true,
   onReady: (user) => {
     window._authUser = user;

@@ -612,6 +612,51 @@ section('H-03: nbd-auth fails closed to free on network error');
     /_userPlan\s*=\s*'free';[\s\S]{0,160}_failOpen:\s*false/.test(src));
 }
 
+section('Free tier + trial-state integrity (2026-07-05)');
+{
+  // 1. The dashboard IS the free-tier product. requiredPlan 'foundation'
+  //    put every free signup (no subscriptions doc) and every expired
+  //    code-trial behind a full-screen upgrade wall with no continue-free
+  //    path — the funnel sold a product nobody could reach.
+  const gate = read(path.join(ROOT, 'docs/pro/js/dashboard-auth-gate.module.js'));
+  assert('dashboard auth gate requires free, not a paid tier',
+    /requiredPlan:\s*'free'/.test(gate) && !/requiredPlan:\s*'foundation'/.test(gate));
+
+  // 2. isTrialExpired must require a KNOWN trial end. The webhook writes
+  //    status 'trialing' verbatim with NO trialEndsAt, so the bare
+  //    `daysLeft <= 0` check read the -1 sentinel as "expired" and told
+  //    active card-backed Stripe trialers their trial had ended.
+  const auth = read(path.join(ROOT, 'docs/pro/js/nbd-auth.js'));
+  assert('isTrialExpired gated on _trialEndKnown (no -1 sentinel misread)',
+    /isTrialExpired\(\)\s*\{\s*return\s+_isTrialUser\s*&&\s*_trialEndKnown\s*&&\s*_trialDaysLeft\s*<=\s*0/.test(auth));
+  assert('Stripe trialing subs derive countdown from currentPeriodEnd',
+    /status === 'trialing' && _subscription\.currentPeriodEnd/.test(auth));
+
+  // 3. trialEndsAt single-writer invariant: only validateAccessCode
+  //    (portal.js) writes it. nbd-auth's trialEndsAt downgrade and the
+  //    read-time expiry gates in billing.js/billing-gate.js all assume
+  //    this — a second writer (e.g. the Stripe webhook) would make
+  //    converted paid subs downgrade. Scan every functions/ source for
+  //    trialEndsAt ASSIGNMENTS (key or property writes), not reads.
+  const fnFiles = [];
+  (function walk(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.js')) fnFiles.push(p);
+    }
+  })(FUNCTIONS);
+  const writers = fnFiles.filter((p) =>
+    /(?:\btrialEndsAt\s*[:=](?!==))/.test(
+      // strip line comments so documentation mentions don't count
+      read(p).split('\n').filter((l) => !/^\s*(\/\/|\*)/.test(l)).join('\n')
+    ));
+  assert('trialEndsAt has exactly one functions-side writer (portal.js)',
+    writers.length === 1 && /handlers[\\/]portal\.js$/.test(writers[0]),
+    'writers found: ' + writers.map((w) => path.relative(ROOT, w)).join(', '));
+}
+
 section('M-01 + M-02: GDPR completeness — canonical user-owned registry');
 {
   const regPath = path.join(FUNCTIONS, 'integrations/user-owned.js');

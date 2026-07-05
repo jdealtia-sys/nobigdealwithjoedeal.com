@@ -902,9 +902,9 @@
                         || _emailLower === 'jonathandeal459@gmail.com';
 
     if (isOwnerAccount) {
-      window._userPlan = 'professional';
-      window._subscription = { plan: 'professional', status: 'active', _owner: true };
-      console.log('✓ Owner account — professional plan granted');
+      window._userPlan = 'growth';
+      window._subscription = { plan: 'growth', status: 'active', _owner: true };
+      console.log('✓ Owner account — growth plan granted');
     } else {
       // Subscription check — SOFT. Never block the dashboard load.
       // The billing-gate module handles limits via soft gates.
@@ -931,7 +931,12 @@
         if (subSnap.exists()) {
           const subscription = subSnap.data();
           window._subscription = subscription;
-          window._userPlan = subscription.plan || 'free';
+          // Read-boundary alias resolution — production docs carry
+          // legacy plan keys forever (mirrors PLAN_ALIASES in
+          // nbd-auth.js); window._userPlan is always canonical.
+          const _planAliases = { foundation: 'starter', blueprint: 'starter', professional: 'growth' };
+          const _rawPlan = subscription.plan || 'free';
+          window._userPlan = _planAliases[_rawPlan] || _rawPlan;
           // H-03: do NOT persist plan in localStorage — it reintroduces
           // the fail-open hole that nbd-auth.js explicitly removed.
           console.log('✓ Subscription:', subscription.plan, subscription.status);
@@ -2416,10 +2421,16 @@
       const editId = data.id;
       delete data.id;
 
-      // LITE PLAN: enforce 25-lead limit on new leads
+      // LITE (trial-expired free): hard-cap new leads at the free-tier
+      // allowance. 10 matches PLAN_LIMITS.free.leads in
+      // functions/billing.js / billing-gate.js PLANS.free (was a stale
+      // hardcoded 25 that predated the canonical tier table). Note this
+      // counts TOTAL loaded leads, not this-cycle usage — the server
+      // meter (trackUsage) is the real monthly gate; this is a blunt
+      // client-side stop for lapsed trials.
       if ((!editId || editId.startsWith('d-')) && window._userPlan === 'lite') {
         const currentCount = (window._leads || []).length;
-        if (currentCount >= 25) {
+        if (currentCount >= 10) {
           showToast('Free plan lead limit reached. Upgrade to Starter ($99/mo) for more leads.', 'error');
           return null;
         }

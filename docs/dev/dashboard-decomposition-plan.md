@@ -1,6 +1,19 @@
 # `dashboard.html` Decomposition Plan — Rock 4 Phase 1 Inventory
 
-> **Status:** Phase 1 (inventory only). **Zero code changes** in this PR.
+> **Status (updated 2026-07-05):** Phases 1–5 are COMPLETE. The file is
+> down from 14,425 to ~6,080 lines; every view — including view-est, the
+> deliberate last holdout (it waited for Rock 2 PR 5, per the Phase 4
+> table's own advice) — is an empty mount + `<template>` hydrated on first
+> `goTo()`; the inline-onclick count is ZERO (416 → data-action delegate);
+> CSS and the boot/body scripts moved to `docs/pro/js/*.js` +
+> `dashboard-*.module.js`. `?legacy=1` still serves the pre-decomposition
+> rollback snapshot (refreshed 2026-07-04). Remaining: Phase 6 (drop
+> `'unsafe-inline'` from script-src — blocked on Rock 1 DNS cutover) and
+> the aspirational per-view module pattern for globals (caveat 4).
+> Everything below this note is the ORIGINAL Phase 1 inventory, kept as
+> the historical manifest; line numbers refer to the 14,425-line file.
+
+> Original status: Phase 1 (inventory only). **Zero code changes** in this PR.
 > The numbers below are a snapshot of `docs/pro/dashboard.html` at HEAD on
 > branch `claude/rock4-phase1-dashboard-inventory`. Re-run the awk
 > commands in [Methodology](#methodology) to refresh.

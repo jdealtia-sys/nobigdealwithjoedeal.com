@@ -125,7 +125,15 @@ exports.validateAccessCode = onCall(
 
       // Create subscription doc via admin SDK. Trust only the fields from the
       // Firestore-stored access code record.
-      const planFromCode = code.plan === 'professional' ? 'professional' : 'foundation';
+      // NEW grants write CANONICAL plan keys (starter/growth — see
+      // functions/stripe.js VALID_PLANS). Code docs may still carry the
+      // legacy names ('professional'/'foundation'), so accept both on
+      // input; existing subscription docs written with legacy values
+      // keep working via read-side alias resolution (billing.js,
+      // billing-gate.js, nbd-auth.js) — that resolution is permanent.
+      const planFromCode = (code.plan === 'professional' || code.plan === 'growth')
+        ? 'growth'
+        : 'starter';
       const subData = {
         plan: planFromCode,
         status: 'active',

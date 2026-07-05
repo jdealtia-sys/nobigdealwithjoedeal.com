@@ -7,13 +7,16 @@
  * USAGE (in any page):
  *   <script type="module">
  *     import { NBDAuth } from '/pro/js/nbd-auth.js';
- *     NBDAuth.init({ requiredPlan: 'foundation' });
+ *     NBDAuth.init({ requiredPlan: 'starter' });
  *   </script>
  *
- * Plan hierarchy: free < foundation < professional
- * - free:         Daily Success (no login required)
- * - foundation:   CRM Dashboard, Daily Success (cloud), Project Codex
- * - professional:  AI Tree, AI Selection Codex, Understanding Tool, Ask Joe, Vault
+ * Plan hierarchy: free < starter < growth < enterprise
+ * - free:    Daily Success (no login required), CRM Dashboard (free tier)
+ * - starter: Daily Success (cloud), Project Codex, analytics
+ * - growth:  AI Tree, AI Selection Codex, Understanding Tool, Ask Joe, Vault
+ * Legacy keys (foundation/blueprint/professional) still exist in production
+ * Firestore docs + Stripe metadata FOREVER; they resolve to the canonical
+ * keys via PLAN_ALIASES at this read boundary.
  */
 
 // ── Firebase SDK Imports ──────────────────────────────────
@@ -61,17 +64,28 @@ const DEFAULT_SENTRY_DSN = "";
 })();
 
 // ── Plan Hierarchy ────────────────────────────────────────
-// Internal plan-level keys: free, lite, foundation, blueprint, professional.
-// Stripe + pricing.html historically wrote alternate names (starter,
-// growth, enterprise) directly into subscriptions/{uid}.plan. Without
-// normalization a paying "growth" user looked up as PLAN_LEVELS['growth']
-// = undefined → 0 → gated at free tier, the exact upgrade-wall bug Joe
-// kept seeing on his own admin account.
-const PLAN_LEVELS = { free: 0, lite: 1, foundation: 2, blueprint: 3, professional: 4, enterprise: 5 };
+// Internal plan-level keys are the CANONICAL pricing tiers: free ($0),
+// starter ($99), growth ($299), enterprise (custom) — matching
+// functions/stripe.js VALID_PLANS + functions/billing.js PLAN_LIMITS.
+// 'lite' is a distinct internal state meaning "free because an
+// access-code trial expired" — it is never written to Firestore; the
+// trial-expiry branch below sets it in-memory so the dashboard can key
+// trial-lapsed UX (banner, lead cap, pro-view gates) on it.
+//
+// Legacy keys — foundation (=starter), blueprint (=starter),
+// professional (=growth) — live in production Firestore subscription
+// docs and Stripe metadata FOREVER (access-code grants wrote them for
+// years). They resolve to canonical exactly once, here, via
+// PLAN_ALIASES. Without normalization a legacy "professional" doc would
+// look up as PLAN_LEVELS['professional'] = undefined → 0 → gated at
+// free tier — the exact upgrade-wall bug Joe kept seeing on his own
+// admin account (historically with 'growth', same failure mode).
+const PLAN_LEVELS = { free: 0, lite: 1, starter: 2, growth: 3, enterprise: 4 };
 const PLAN_ALIASES = {
-  starter:    'foundation',
-  growth:     'professional',
-  // 'enterprise' stays itself — above professional in PLAN_LEVELS.
+  foundation:   'starter',
+  blueprint:    'starter',
+  professional: 'growth',
+  // 'enterprise' stays itself — above growth in PLAN_LEVELS.
 };
 function _normalizePlan(raw) {
   const k = (raw || '').toLowerCase().trim();
@@ -102,43 +116,48 @@ const PAGE_PLANS = {
   'login':            'free',
   'register':         'free',
 
-  // Foundation — requires login + active subscription
-  'dashboard':        'foundation',
-  'project-codex':    'foundation',
+  // Starter — requires login + active subscription
+  'dashboard':        'starter',
+  'project-codex':    'starter',
 
-  // Professional — requires login + professional plan
-  'ai-tree':          'professional',
-  'ai-tool-finder':   'professional',
-  'understand':       'professional',
-  'ask-joe':          'professional',
-  'vault':            'professional',
-  'analytics':        'foundation',
-  'leaderboard':      'foundation',
-  'diagnostic':       'foundation',
-  'features':         'foundation',
+  // Growth — requires login + growth plan
+  'ai-tree':          'growth',
+  'ai-tool-finder':   'growth',
+  'understand':       'growth',
+  'ask-joe':          'growth',
+  'vault':            'growth',
+  'analytics':        'starter',
+  'leaderboard':      'starter',
+  'diagnostic':       'starter',
+  'features':         'starter',
 };
 
 // ── Feature Names (for upgrade wall) ──────────────────────
-// Keys are the internal PLAN_LEVELS identifiers; values are the
-// customer-facing plan names from pricing.html (Free / Starter /
-// Growth). Legacy keys display as their canonical equivalent.
+// Keys are the canonical PLAN_LEVELS identifiers; values are the
+// customer-facing plan names from pricing.html. Legacy alias keys are
+// kept so a raw legacy value that slips past normalization still
+// displays as its canonical equivalent.
 const PLAN_NAMES = {
   free:         'Free',
   lite:         'Free',
+  starter:      'Starter',
+  growth:       'Growth',
+  enterprise:   'Enterprise',
+  // Legacy aliases (read-boundary defense — see PLAN_ALIASES):
   foundation:   'Starter',
   blueprint:    'Starter',
   professional: 'Growth'
 };
 
 const PLAN_FEATURES = {
-  foundation: [
+  starter: [
     'CRM Dashboard with full pipeline management',
     'Daily Success with cloud sync & leaderboard',
     'Project Codex build tracking',
     'Storm intel map & estimate builder',
     'Analytics & diagnostic tools'
   ],
-  professional: [
+  growth: [
     'Everything in Starter, plus:',
     'AI Usability Tree — score & compare your tool stack',
     'AI Selection Codex — decision engine for AI tools',
@@ -160,6 +179,13 @@ let _initPromise = null;
 let _options = {};
 let _trialDaysLeft = -1; // -1 = no trial, 0+ = days remaining
 let _isTrialUser = false;
+// True only when we resolved a REAL trial end date (trialEndsAt, or
+// currentPeriodEnd for a Stripe 'trialing' sub). Without this,
+// isTrialExpired's `daysLeft <= 0` treated the -1 "unknown" sentinel as
+// expired — a Stripe sub in an ACTIVE trial (status 'trialing', which the
+// webhook writes verbatim, with no trialEndsAt) showed the "your trial has
+// ended, you're on Free" banner to a card-backed paying trialer.
+let _trialEndKnown = false;
 
 // ── Core Module ───────────────────────────────────────────
 export const NBDAuth = {
@@ -180,7 +206,7 @@ export const NBDAuth = {
   get planLevel()    { return PLAN_LEVELS[_userPlan] || 0; },
   get trialDaysLeft(){ return _trialDaysLeft; },
   get isTrialUser()  { return _isTrialUser; },
-  get isTrialExpired(){ return _isTrialUser && _trialDaysLeft <= 0; },
+  get isTrialExpired(){ return _isTrialUser && _trialEndKnown && _trialDaysLeft <= 0; },
   PLAN_LEVELS,
   PAGE_PLANS,
   PLAN_NAMES,
@@ -189,7 +215,7 @@ export const NBDAuth = {
   /**
    * Initialize auth system.
    * @param {Object} opts
-   * @param {string} opts.requiredPlan - 'free' | 'foundation' | 'professional'
+   * @param {string} opts.requiredPlan - 'free' | 'starter' | 'growth' (legacy 'foundation'/'professional' accepted via PLAN_ALIASES)
    * @param {boolean} opts.requireAdmin - if true, also check for admin role
    * @param {string} opts.redirectLogin - where to redirect if not logged in (default: /pro/login.html)
    * @param {string} opts.redirectUpgrade - where to redirect for upgrades (default: shows wall)
@@ -347,12 +373,12 @@ export const NBDAuth = {
         if (emailLower && OWNER_EMAILS.has(emailLower)) {
           // Note: assignment order is deliberate — the H-02 smoke test
           // guards against `_role = 'admin'` being followed immediately
-          // by `_subscription = { plan: 'professional' ...`, which was
+          // by a `_subscription = { plan: ...` assignment, which was
           // the signature of the old email-literal demo-admin bypass.
           // Setting the subscription (and plan) before the role keeps
           // this owner path structurally distinct from that footgun.
-          _subscription = { plan: 'professional', status: 'active', _owner: true };
-          _userPlan = 'professional';
+          _subscription = { plan: 'growth', status: 'active', _owner: true };
+          _userPlan = 'growth';
           _role = 'admin';
           _exposeGlobals();
           _showPage();
@@ -367,7 +393,7 @@ export const NBDAuth = {
         // control of that address) appear to the client as
         // `_role === 'admin'`, unlocking admin-only UI. The new
         // behaviour:
-        //   - demo:true claim holders get professional-tier features
+        //   - demo:true claim holders get growth-tier features
         //   - _role is fixed at 'demo_viewer' — NEVER 'admin', so no
         //     admin screens render even if an admin-only page is
         //     visited directly
@@ -395,9 +421,9 @@ export const NBDAuth = {
         }
 
         if (demoClaim) {
-          _userPlan = 'professional';
+          _userPlan = 'growth';
           _role = 'demo_viewer';
-          _subscription = { plan: 'professional', status: 'active', _demo: true };
+          _subscription = { plan: 'growth', status: 'active', _demo: true };
           _exposeGlobals();
           _showPage();
           if (_options.onReady) _options.onReady(user);
@@ -455,7 +481,7 @@ export const NBDAuth = {
             const _isActiveStatus = _subscription.status === 'active'
               || _subscription.status === 'trialing';
             if (_isActiveStatus) {
-              _userPlan = _normalizePlan(_subscription.plan || 'foundation');
+              _userPlan = _normalizePlan(_subscription.plan || 'starter');
 
               // ── Trial expiration check ──
               // Mark trial users explicitly when status === 'trialing'
@@ -466,18 +492,44 @@ export const NBDAuth = {
               if (_subscription.status === 'trialing') {
                 _isTrialUser = true;
               }
+              // trialEndsAt has exactly ONE writer: validateAccessCode
+              // (functions/handlers/portal.js) — Stripe trials never carry
+              // it (the webhook writes status 'trialing' + currentPeriodEnd
+              // instead). So the downgrade below only ever fires for
+              // access-code trials, matching the read-time expiry gates in
+              // functions/billing.js and billing-gate.js. If the Stripe
+              // webhook ever starts writing trialEndsAt, scope this to
+              // source === 'access_code' or converted subs will downgrade.
               if (_subscription.trialEndsAt) {
                 const trialEnd = _subscription.trialEndsAt.toDate ? _subscription.trialEndsAt.toDate() : new Date(_subscription.trialEndsAt);
                 const now = new Date();
                 const msLeft = trialEnd.getTime() - now.getTime();
                 _trialDaysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
                 _isTrialUser = true;
+                _trialEndKnown = true;
 
                 if (_trialDaysLeft <= 0) {
-                  // Trial expired — downgrade to lite
+                  // Trial expired — downgrade to 'lite', the internal
+                  // "free because the trial ended" state (see the
+                  // PLAN_LEVELS comment). Kept distinct from 'free' so
+                  // dashboard-bootstrap / dashboard-actions can key
+                  // trial-lapsed UX on it. Never persisted to Firestore.
                   _userPlan = 'lite';
                   _subscription = { ..._subscription, _trialExpired: true };
                   console.info('Trial expired — downgraded to lite');
+                }
+              } else if (_subscription.status === 'trialing' && _subscription.currentPeriodEnd) {
+                // Stripe trial: the trial end IS the current period end
+                // (Stripe reports trial_end == current_period_end while
+                // trialing). Gives the countdown banner a real number —
+                // without this, trialDaysLeft stayed at the -1 sentinel and
+                // the banner either showed nothing or (pre-_trialEndKnown)
+                // falsely said the trial had ended. NO plan downgrade here:
+                // Stripe owns that lifecycle via webhook status changes.
+                const periodEnd = new Date(_subscription.currentPeriodEnd);
+                if (!Number.isNaN(periodEnd.getTime())) {
+                  _trialDaysLeft = Math.ceil((periodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  _trialEndKnown = true;
                 }
               }
             } else {
@@ -508,8 +560,10 @@ export const NBDAuth = {
         // subscriptions doc; caching it only re-creates the fail-open
         // attack surface above. logout() clears any stale entry.
 
-        // Plan check
-        const requiredLevel = PLAN_LEVELS[_options.requiredPlan] || 0;
+        // Plan check. requiredPlan is normalized so pages that still
+        // pass a legacy key ('foundation'/'professional') gate at the
+        // correct canonical level instead of undefined → 0 → open.
+        const requiredLevel = PLAN_LEVELS[_normalizePlan(_options.requiredPlan)] || 0;
         const userLevel = PLAN_LEVELS[_userPlan] || 0;
 
         if (userLevel < requiredLevel) {
@@ -568,14 +622,18 @@ export const NBDAuth = {
   hasAccess(plan) {
     const email = (_user?.email || '').trim().toLowerCase();
     if (email && OWNER_EMAILS.has(email)) return true;
-    return (PLAN_LEVELS[_userPlan] || 0) >= (PLAN_LEVELS[plan] || 0);
+    // Normalize the requested plan so legacy callers (e.g. academy
+    // course tiers passing 'foundation') resolve to the canonical
+    // level. Unknown values normalize to 'free' (level 0) — same
+    // permissive fallback as the old `PLAN_LEVELS[plan] || 0`.
+    return (PLAN_LEVELS[_userPlan] || 0) >= (PLAN_LEVELS[_normalizePlan(plan)] || 0);
   },
 
   /**
    * Get the required plan for a page slug
    */
   getPagePlan(slug) {
-    return PAGE_PLANS[slug] || 'foundation';
+    return PAGE_PLANS[slug] || 'starter';
   },
 
   /**
@@ -624,6 +682,10 @@ export const NBDAuth = {
     // Don't double-inject
     if (document.getElementById('nbd-upgrade-wall')) return;
 
+    // Resolve legacy aliases so the wall (and the checkout button's
+    // data-na-id, which feeds StripeBilling.checkout) always carries a
+    // canonical plan key.
+    requiredPlan = _normalizePlan(requiredPlan);
     const planName = PLAN_NAMES[requiredPlan] || requiredPlan;
     const features = PLAN_FEATURES[requiredPlan] || [];
     const currentName = PLAN_NAMES[_userPlan] || 'Free';
@@ -736,8 +798,8 @@ export const NBDAuth = {
     const el = document.getElementById(containerId);
     if (!el) return;
     const name = PLAN_NAMES[_userPlan] || 'Free';
-    const color = _userPlan === 'professional' ? '#e8720c' :
-                  _userPlan === 'foundation' ? '#3fb950' : '#4a5568';
+    const color = _userPlan === 'growth' ? '#e8720c' :
+                  _userPlan === 'starter' ? '#3fb950' : '#4a5568';
     el.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;
       padding:3px 10px;border-radius:20px;font-size:9px;font-weight:700;
       letter-spacing:1.5px;text-transform:uppercase;
