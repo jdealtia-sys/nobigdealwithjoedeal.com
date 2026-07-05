@@ -636,7 +636,13 @@ test.describe.serial('Authenticated destructive flows', () => {
       docs = await page.evaluate(async (id) => {
         const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
         const db = window.db || window._db;
-        const snap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'documents'));
+        // The emulator under serial-suite load intermittently reports
+        // 'client is offline' — treat any read error as "not yet" and let
+        // the outer poll retry instead of failing the whole journey.
+        let snap;
+        try {
+          snap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'documents'));
+        } catch (_) { return []; }
         const list = [];
         snap.forEach(d => {
           const data = d.data();
@@ -1114,7 +1120,11 @@ test.describe('Signup funnel — free tier reaches the dashboard', () => {
     const visible = await page.evaluate(() => document.documentElement.style.visibility !== 'hidden');
     expect(visible, 'gate un-hid the page (onReady path ran)').toBe(true);
 
-    // Plan resolved as canonical free for a brand-new account.
+    // Plan resolved as canonical free for a brand-new account. Bootstrap
+    // sets window._userPlan ASYNCHRONOUSLY (token-claims read + a
+    // 4s-timeout subscription getDoc) — round 4 read it before it landed
+    // (null). Wait for it, then assert the value.
+    await page.waitForFunction(() => !!window._userPlan, null, { timeout: 20_000 });
     const authState = await page.evaluate(() => ({
       plan: window._userPlan || null,
       email: (window._user && window._user.email) || null,
