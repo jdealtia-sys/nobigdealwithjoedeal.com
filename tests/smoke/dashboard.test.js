@@ -2391,7 +2391,12 @@ section('Globals Tranches 0+1: converted names stay off window');
     // Tranche 1b — the 7 deferred multi-assign state vars, now converted:
     '_searchQuery', '_notifDropdownOpen', '_dismissedDrawerOpen',
     '_lightboxIndex', '_perimClosing', '_needsAttentionActive',
-    'handleQMFile'];
+    'handleQMFile',
+    // Tranche 2a — mobile-nav-customizer delegate-then-scope rewrite:
+    '_ncmAddTab', '_ncmRemoveTab', '_ncmSave', '_ncmReset', '_ncmClose',
+    '_ncmDragStart', '_ncmDragOver', '_ncmDrop', '_ncmDragEnd',
+    '_ncmTouchStart', '_ncmTouchMove', '_ncmTouchEnd',
+    'openNavCustomizer', '_NBD_MNC_DELEGATE_BOUND'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -2432,6 +2437,16 @@ section('Globals Tranches 0+1: converted names stay off window');
   const sig = read(path.join(PRO_JS, 'signature-widget.js'));
   assert('signature-widget.js migrated its bespoke sentinel to the registry',
     /__NBD_LOADED\['signature-widget'\]/.test(sig) && !/__NBDSig__sentinel/.test(sig));
+
+  // Tranche 2a: mobile-nav-customizer's drag/touch handlers were wired
+  // through GENERATED inline attributes (ontouchstart="window._ncm...").
+  // script-src-attr 'none' in the prod CSP blocks those — reorder was
+  // silently dead until the delegation rewrite. They must never return.
+  const mnc = read(path.join(PRO_JS, 'mobile-nav-customizer.js'));
+  assert('mobile-nav-customizer generates NO inline handler attributes (CSP script-src-attr none)',
+    !/on(touchstart|touchmove|touchend|dragstart|dragover|drop|dragend|click)\s*=\s*"/.test(mnc));
+  assert('mobile-nav-customizer binds drag/touch via modal-level delegation',
+    /_bindDnd\(modal\)/.test(mnc) && /addEventListener\('touchmove'[\s\S]{0,80}passive: false/.test(mnc));
 }
 
 };

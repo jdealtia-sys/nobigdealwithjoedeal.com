@@ -6,6 +6,7 @@
 
 (function() {
 'use strict';
+let _delegateBound = false; // click-delegate bind-once (formerly a window-level _NBD_MNC flag)
 
 // ── MASTER TAB REGISTRY ──────────────────────────────────────
 const TAB_REGISTRY = [
@@ -411,14 +412,7 @@ function renderModal(modal) {
   _pendingTabs.forEach((id, i) => {
     const tab = TAB_REGISTRY.find(t => t.id === id);
     if (!tab) return;
-    slotsHTML += `<div class="ncm-slot" draggable="true" data-slot="${i}" data-tab-id="${id}"
-      ontouchstart="window._ncmTouchStart(event, ${i})"
-      ontouchmove="window._ncmTouchMove(event)"
-      ontouchend="window._ncmTouchEnd(event)"
-      ondragstart="window._ncmDragStart(event, ${i})"
-      ondragover="window._ncmDragOver(event, ${i})"
-      ondrop="window._ncmDrop(event, ${i})"
-      ondragend="window._ncmDragEnd(event)">
+    slotsHTML += `<div class="ncm-slot" draggable="true" data-slot="${i}" data-tab-id="${id}">
       <span class="ncm-slot-num">${i+1}</span>
       <span class="ncm-slot-remove" data-mnc-action="removeTab" data-mnc-id="${i}" data-mnc-stop="1">✕</span>
       <span class="ncm-slot-icon">${tab.icon}</span>
@@ -427,9 +421,7 @@ function renderModal(modal) {
   });
 
   for (let i = _pendingTabs.length; i < MAX_TABS; i++) {
-    slotsHTML += `<div class="ncm-slot" data-slot="${i}" style="border-style:dashed;opacity:.4;"
-      ondragover="window._ncmDragOver(event, ${i})"
-      ondrop="window._ncmDrop(event, ${i})">
+    slotsHTML += `<div class="ncm-slot" data-slot="${i}" style="border-style:dashed;opacity:.4;">
       <span class="ncm-slot-num">${i+1}</span>
       <span class="ncm-slot-icon" style="opacity:.3;">+</span>
       <span class="ncm-slot-label" style="opacity:.3;">Tap below</span>
@@ -464,7 +456,45 @@ function renderModal(modal) {
     </div>
   `;
 
-  modal.onclick = function(e) { if (e.target === modal) window._ncmClose(); };
+  modal.onclick = function(e) { if (e.target === modal) closeCustomizeModal(); };
+
+  // Drag/touch wiring is DELEGATED on the modal element (not inline
+  // attributes — script-src-attr 'none' blocks those in prod, which is
+  // why reorder was silently dead until this rewrite). The modal node
+  // survives renderModal's innerHTML replacement, so bind exactly once.
+  if (!modal.dataset.ncmDndBound) {
+    modal.dataset.ncmDndBound = '1';
+    _bindDnd(modal);
+  }
+}
+
+// Resolve the .ncm-slot index for a delegated drag/touch event.
+// realOnly: restrict to filled slots (data-tab-id) — placeholders only
+// participate as dragover/drop targets, matching the old per-slot wiring.
+function _slotIdx(ev, realOnly) {
+  const slot = ev.target.closest && ev.target.closest('.ncm-slot');
+  if (!slot || slot.dataset.slot === undefined) return null;
+  if (realOnly && !slot.dataset.tabId) return null;
+  return parseInt(slot.dataset.slot, 10);
+}
+
+function _bindDnd(modal) {
+  modal.addEventListener('dragstart', function (e) {
+    const i = _slotIdx(e, true); if (i !== null) _ncmDragStart(e, i);
+  });
+  modal.addEventListener('dragover', function (e) {
+    const i = _slotIdx(e); if (i !== null) _ncmDragOver(e, i);
+  });
+  modal.addEventListener('drop', function (e) {
+    const i = _slotIdx(e); if (i !== null) _ncmDrop(e, i);
+  });
+  modal.addEventListener('dragend', function (e) { _ncmDragEnd(e); });
+  modal.addEventListener('touchstart', function (e) {
+    const i = _slotIdx(e, true); if (i !== null) _ncmTouchStart(e, i);
+  }, { passive: true });
+  // touchmove preventDefaults while reordering — must be non-passive.
+  modal.addEventListener('touchmove', function (e) { _ncmTouchMove(e); }, { passive: false });
+  modal.addEventListener('touchend', function (e) { _ncmTouchEnd(e); });
 }
 
 function _syncPending() {
@@ -479,18 +509,18 @@ function _syncPending() {
 
 let _dragIdx = null;
 
-window._ncmDragStart = function(e, idx) {
+function _ncmDragStart(e, idx) {
   _dragIdx = idx;
   e.target.closest('.ncm-slot').classList.add('dragging');
   e.dataTransfer.effectAllowed = 'move';
-};
-window._ncmDragOver = function(e, idx) {
+}
+function _ncmDragOver(e, idx) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   document.querySelectorAll('.ncm-slot').forEach(s => s.classList.remove('drag-over'));
   e.target.closest('.ncm-slot')?.classList.add('drag-over');
-};
-window._ncmDrop = function(e, targetIdx) {
+}
+function _ncmDrop(e, targetIdx) {
   e.preventDefault();
   if (_dragIdx === null || _dragIdx === targetIdx) return;
   if (_dragIdx < _pendingTabs.length && targetIdx < _pendingTabs.length) {
@@ -500,11 +530,11 @@ window._ncmDrop = function(e, targetIdx) {
     _syncPending();
   }
   _dragIdx = null;
-};
-window._ncmDragEnd = function(e) {
+}
+function _ncmDragEnd(e) {
   document.querySelectorAll('.ncm-slot').forEach(s => s.classList.remove('dragging','drag-over'));
   _dragIdx = null;
-};
+}
 
 
 // ══════════════════════════════════════════════════════════════
@@ -514,15 +544,15 @@ window._ncmDragEnd = function(e) {
 let _touchIdx = null;
 let _touchStartX = 0;
 
-window._ncmTouchStart = function(e, idx) {
+function _ncmTouchStart(e, idx) {
   _touchIdx = idx;
   _touchStartX = e.touches[0].clientX;
   e.target.closest('.ncm-slot')?.classList.add('dragging');
-};
-window._ncmTouchMove = function(e) {
+}
+function _ncmTouchMove(e) {
   if (_touchIdx !== null) e.preventDefault();
-};
-window._ncmTouchEnd = function(e) {
+}
+function _ncmTouchEnd(e) {
   if (_touchIdx === null) return;
   const endX = e.changedTouches[0].clientX;
   const diff = endX - _touchStartX;
@@ -542,14 +572,14 @@ window._ncmTouchEnd = function(e) {
 
   document.querySelectorAll('.ncm-slot').forEach(s => s.classList.remove('dragging'));
   _touchIdx = null;
-};
+}
 
 
 // ══════════════════════════════════════════════════════════════
 //  ADD / REMOVE / SAVE / RESET
 // ══════════════════════════════════════════════════════════════
 
-window._ncmAddTab = function(tabId) {
+function _ncmAddTab(tabId) {
   if (_pendingTabs.includes(tabId)) return;
   if (_pendingTabs.length >= MAX_TABS) {
     _pendingTabs[MAX_TABS - 1] = tabId;
@@ -557,15 +587,15 @@ window._ncmAddTab = function(tabId) {
     _pendingTabs.push(tabId);
   }
   _syncPending();
-};
+}
 
-window._ncmRemoveTab = function(idx) {
+function _ncmRemoveTab(idx) {
   if (_pendingTabs.length <= 1) return;
   _pendingTabs.splice(idx, 1);
   _syncPending();
-};
+}
 
-window._ncmSave = async function() {
+async function _ncmSave() {
   const btn = document.getElementById('ncm-save-btn');
   if (btn) { btn.classList.add('saving'); btn.textContent = 'Saving…'; }
 
@@ -580,14 +610,13 @@ window._ncmSave = async function() {
   if (typeof showToast === 'function') {
     showToast(ok ? 'Tab bar saved & synced!' : 'Tab bar saved locally!', ok ? 'success' : 'info');
   }
-};
+}
 
-window._ncmReset = function() {
+function _ncmReset() {
   _pendingTabs = [...DEFAULT_TABS];
   _syncPending();
-};
+}
 
-window._ncmClose = closeCustomizeModal;
 
 
 // ══════════════════════════════════════════════════════════════
@@ -663,7 +692,6 @@ function init() {
     setTimeout(() => clearInterval(poll), 10000);
   }
 
-  window.openNavCustomizer = openCustomizeModal;
 }
 
 if (document.readyState === 'loading') {
@@ -672,13 +700,13 @@ if (document.readyState === 'loading') {
   init();
 }
 
-})();
 
-
-// ── CSP-safe delegation for 9 data-mnc-action attrs (mobile nav customizer)
-(function () {
-  if (window._NBD_MNC_DELEGATE_BOUND) return;
-  window._NBD_MNC_DELEGATE_BOUND = true;
+// ── CSP-safe delegation for the data-mnc-action attrs. Lives INSIDE the
+// module IIFE since the Tranche 2a rewrite: the handlers are module-local
+// now (no window.* hop), which is the whole reason they used to be
+// exported. mobileNav/toggleMobileMore stay bare cross-file lookups.
+if (!_delegateBound) {
+  _delegateBound = true;
   document.addEventListener('click', function (ev) {
     const t = ev.target.closest && ev.target.closest('[data-mnc-action]');
     if (!t) return;
@@ -689,14 +717,16 @@ if (document.readyState === 'loading') {
       switch (action) {
         case 'mobileNav':     if (typeof mobileNav === 'function') mobileNav(id); break;
         case 'toggleMore':    if (typeof toggleMobileMore === 'function') toggleMobileMore(); break;
-        case 'addTab':        if (typeof window._ncmAddTab === 'function') window._ncmAddTab(id); break;
-        case 'removeTab':     if (typeof window._ncmRemoveTab === 'function') window._ncmRemoveTab(parseInt(id, 10)); break;
-        case 'close':         if (typeof window._ncmClose === 'function') window._ncmClose(); break;
-        case 'reset':         if (typeof window._ncmReset === 'function') window._ncmReset(); break;
-        case 'save':          if (typeof window._ncmSave === 'function') window._ncmSave(); break;
-        case 'openCustomizer': if (typeof openNavCustomizer === 'function') openNavCustomizer(); break;
+        case 'addTab':        _ncmAddTab(id); break;
+        case 'removeTab':     _ncmRemoveTab(parseInt(id, 10)); break;
+        case 'close':         closeCustomizeModal(); break;
+        case 'reset':         _ncmReset(); break;
+        case 'save':          _ncmSave(); break;
+        case 'openCustomizer': openCustomizeModal(); break;
         default: console.warn('[mobile-nav-customizer] no dispatch for', action);
       }
     } catch (e) { console.error('[mobile-nav-customizer] dispatch ' + action + ' failed:', e); }
   });
+}
+
 })();
