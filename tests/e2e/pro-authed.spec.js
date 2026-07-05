@@ -205,15 +205,21 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
     // window._saveLead, which is the same code path the UI uses,
     // so the companyId/customerId/userId stamping is exercised end
     // to end. Cleanup callable filters on this flag.
-    await page.evaluate((args) => window._saveLead({
-      firstName: '[E2E] Smith',
-      lastName: String(args.stamp),
-      address: args.leadAddress,
-      phone: args.leadPhone,
-      email: `e2e-${args.stamp}@nbd.test`,
-      stage: 'new',
-      e2eTestData: true
-    }), { stamp, leadAddress, leadPhone });
+    await page.evaluate(async (args) => {
+      // ALREADY_EXISTS tolerance: emulator commit-retry bug — the lead
+      // landed; the kanban render + read-back below find it.
+      try {
+        await window._saveLead({
+          firstName: '[E2E] Smith',
+          lastName: String(args.stamp),
+          address: args.leadAddress,
+          phone: args.leadPhone,
+          email: `e2e-${args.stamp}@nbd.test`,
+          stage: 'new',
+          e2eTestData: true
+        });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+    }, { stamp, leadAddress, leadPhone });
 
     // Give the optimistic insert + Firestore round-trip a moment to
     // settle. The kanban refresh is debounced; 4s is generous.
@@ -271,7 +277,11 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
 
     // Seed a fresh lead in stage 'new', tagged for cleanup.
     const leadId = await page.evaluate(async (args) => {
-      const ref = await window._saveLead({
+      // ALREADY_EXISTS = the emulator commit-retry bug (see the addDoc
+      // patch in fixtures/auth.js — _saveLead holds a closure addDoc the
+      // patch can't reach). The lead LANDED; the re-fetch below finds it.
+      try {
+        await window._saveLead({
         firstName: '[E2E] Move',
         lastName: String(args.stamp),
         // Unique per attempt so LeadDedup's blocking prompt never fires
@@ -282,6 +292,7 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
         stage: 'new',
         e2eTestData: true
       });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
       // _saveLead returns null on the geocoded path (it does its own
       // loadLeads refresh), so re-fetch by lastName to grab the id.
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
@@ -627,6 +638,9 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
       for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
         await new Promise(r => setTimeout(r, 200));
       }
+      // ALREADY_EXISTS tolerance (emulator commit-retry; see fixtures/auth.js
+      // addDoc patch note) — the lead landed; the re-fetch below finds it.
+      try {
       await window._saveLead({
         firstName: '[E2E] DocGen',
         lastName: String(args.stamp),
@@ -636,6 +650,7 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
         stage: 'new',
         e2eTestData: true
       });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
       const uid = (window._auth || window.auth).currentUser.uid;
@@ -901,7 +916,12 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
       // different calendar day around midnight.
       const t = new Date();
       const todayStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-      const leadId = await window._saveLead({
+      // ALREADY_EXISTS tolerance (emulator commit-retry; see fixtures/auth.js
+      // addDoc patch note): the lead landed but the returned id is lost —
+      // fall back to the same re-fetch-by-lastName the other journeys use.
+      let leadId = null;
+      try {
+        leadId = await window._saveLead({
         firstName: '[E2E] Sched',
         lastName: String(args.stamp),
         // Unique per attempt so LeadDedup's blocking prompt never fires.
@@ -912,6 +932,19 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
         scheduledDate: todayStr,
         e2eTestData: true
       });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+      if (!leadId) {
+        const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const db = window.db || window._db;
+        const uid = (window._auth || window.auth).currentUser.uid;
+        const snap = await fsMod.getDocs(fsMod.query(
+          fsMod.collection(db, 'leads'),
+          fsMod.where('userId', '==', uid),
+          fsMod.where('lastName', '==', String(args.stamp)),
+          fsMod.where('e2eTestData', '==', true)
+        ));
+        snap.forEach(d => { if (!leadId) leadId = d.id; });
+      }
       return { leadId, todayStr };
     }, { stamp });
     // With the OSM stub answering [], _saveLead takes the no-geocode fallback
@@ -1135,6 +1168,9 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
       for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
         await new Promise(r => setTimeout(r, 200));
       }
+      // ALREADY_EXISTS tolerance (emulator commit-retry; see fixtures/auth.js
+      // addDoc patch note) — the lead landed; the re-fetch below finds it.
+      try {
       await window._saveLead({
         firstName: '[E2E] Cust',
         lastName: String(args.stamp),
@@ -1145,6 +1181,7 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
         stage: 'new',
         e2eTestData: true
       });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
       // userId filter keeps the query provable under the leads read rule
