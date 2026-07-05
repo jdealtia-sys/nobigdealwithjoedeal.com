@@ -24,10 +24,14 @@
   if (window.NBDBilling) return;
 
   // ── Plan definitions ──
-  // Canonical keys match the Stripe price tiers. `foundation`/`professional`
-  // are alias entries so billing-gate stays in sync with nbd-auth.js when
-  // a user doc happens to carry those names (the two modules developed
-  // independently and diverged — see _normalizePlan in nbd-auth.js).
+  // Canonical keys match the Stripe price tiers (functions/stripe.js
+  // VALID_PLANS / functions/billing.js PLAN_LIMITS). Legacy doc values
+  // (foundation/blueprint/professional — written forever by old
+  // access-code grants and Stripe metadata) are resolved to canonical
+  // ONCE, in loadSubscription() via PLAN_ALIASES, so `_plan` (and
+  // getPlan().plan) is always a canonical key. The foundation/
+  // professional alias rows below are belt-and-braces for any code
+  // that indexes PLANS with a raw doc value directly.
   const PLANS = {
     free:         { label: 'Free',         leads: 10,  reports: 0,        aiCalls: 0,        reps: 1,        price: 0 },
     starter:      { label: 'Starter',      leads: 50,  reports: 2,        aiCalls: 20,       reps: 1,        price: 99 },
@@ -36,6 +40,15 @@
     professional: { label: 'Growth',       leads: 500, reports: Infinity, aiCalls: Infinity, reps: 5,        price: 299 },
     enterprise:   { label: 'Enterprise',   leads: Infinity, reports: Infinity, aiCalls: Infinity, reps: Infinity, price: null }
   };
+
+  // Read-boundary alias resolution — mirrors PLAN_ALIASES in
+  // nbd-auth.js. Production subscription docs carry legacy values
+  // FOREVER; this map can never be removed.
+  const PLAN_ALIASES = { foundation: 'starter', blueprint: 'starter', professional: 'growth' };
+  function _normalizePlan(raw) {
+    const k = (typeof raw === 'string' ? raw : '').toLowerCase().trim();
+    return PLAN_ALIASES[k] || k || 'free';
+  }
 
   let _plan = 'free';
   let _status = 'none';  // none | active | trialing | past_due | cancelled
@@ -118,7 +131,7 @@
       const snap = await window.getDoc(window.doc(window.db, 'subscriptions', billingKey));
       if (snap.exists()) {
         const data = snap.data();
-        _plan = data.plan || 'free';
+        _plan = _normalizePlan(data.plan || 'free');
         _status = data.status || 'none';
         _usage = data.usage || { leads: 0, reports: 0, aiCalls: 0 };
         _trialEndsAt = data.trialEndsAt || null;

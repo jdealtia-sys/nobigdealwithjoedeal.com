@@ -35,7 +35,7 @@ await connectEmulatorsIfLocal({ auth, db }); // Audit #3: localhost-only, no-op 
 
 const params  = new URLSearchParams(window.location.search);
 const session = params.get('session_id') || '';
-const plan    = params.get('plan') || 'professional';
+const plan    = params.get('plan') || 'growth';
 
 const show = id => { const el = document.getElementById(id); if (el) el.style.display = 'block'; };
 const hide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };

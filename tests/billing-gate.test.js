@@ -60,16 +60,19 @@ function makeBilling({ user, subDoc, subExists = true } = {}) {
     assert('free default getPlan(): plan=free, not active', B.getPlan().plan === 'free' && B.getPlan().isActive === false);
   }
 
-  // 2. Active professional subscription → unlocks team/reports/aiCalls.
+  // 2. Active subscription with the LEGACY 'professional' doc value →
+  //    resolves to canonical 'growth' at the read boundary and unlocks
+  //    team/reports/aiCalls. Production docs carry legacy keys forever,
+  //    so this alias path can never be removed.
   {
     const B = makeBilling({ user: { uid: 'u2', email: 'admin@demo.test' }, subDoc: { plan: 'professional', status: 'active' } });
     await B.loadSubscription();
     const p = B.getPlan();
-    assert('professional: getPlan().plan === professional', p.plan === 'professional');
-    assert('professional: isActive === true', p.isActive === true);
-    assert('professional: team unlocked (reps 5 > 1)', B.canUse('team') === true);
-    assert('professional: reports unlocked (Infinity)', B.canUse('reports') === true);
-    assert('professional: aiCalls unlocked (Infinity)', B.canUse('aiCalls') === true);
+    assert('legacy professional doc: getPlan().plan === growth (canonical)', p.plan === 'growth');
+    assert('legacy professional doc: isActive === true', p.isActive === true);
+    assert('legacy professional doc: team unlocked (reps 5 > 1)', B.canUse('team') === true);
+    assert('legacy professional doc: reports unlocked (Infinity)', B.canUse('reports') === true);
+    assert('legacy professional doc: aiCalls unlocked (Infinity)', B.canUse('aiCalls') === true);
   }
 
   // 3. Owner email bypass → enterprise, never gated (short-circuits Firestore).
@@ -107,12 +110,14 @@ function makeBilling({ user, subDoc, subExists = true } = {}) {
     const live = makeBilling({ user: { uid: 'u6', email: 'trial2@demo.test' },
       subDoc: { plan: 'foundation', status: 'active', source: 'access_code', trialEndsAt: future } });
     await live.loadSubscription();
-    assert('unexpired code trial: keeps its plan', live.getPlan().plan === 'foundation');
+    assert('unexpired code trial: keeps its tier (legacy foundation → canonical starter)',
+      live.getPlan().plan === 'starter');
 
     const comp = makeBilling({ user: { uid: 'u7', email: 'comp@demo.test' },
       subDoc: { plan: 'foundation', status: 'active', source: 'access_code' } });
     await comp.loadSubscription();
-    assert('untimed code grant: indefinite comp, keeps its plan', comp.getPlan().plan === 'foundation');
+    assert('untimed code grant: indefinite comp, keeps its tier (legacy foundation → canonical starter)',
+      comp.getPlan().plan === 'starter');
 
     const stripe = makeBilling({ user: { uid: 'u8', email: 'paying@demo.test' },
       subDoc: { plan: 'growth', status: 'active', source: 'stripe', trialEndsAt: past } });

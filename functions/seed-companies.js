@@ -47,7 +47,7 @@ const companiesData = [
     serviceAreas: ['Cincinnati', 'Northern Kentucky', 'Southwest Ohio'],
     warranty: '10-Year Labor Warranty on All Installs',
     subscription: {
-      plan: 'professional',
+      plan: 'growth',
       status: 'active'
     },
     siteUrl: '/sites/nbd.html',
@@ -78,7 +78,7 @@ const companiesData = [
     serviceAreas: ['Goshen', 'Milford', 'Batavia'],
     warranty: '5-Year Labor Warranty on All Installs',
     subscription: {
-      plan: 'professional',
+      plan: 'growth',
       status: 'active'
     },
     siteUrl: '/sites/oaks.html',

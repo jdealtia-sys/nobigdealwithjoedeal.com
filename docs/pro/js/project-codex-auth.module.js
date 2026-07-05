@@ -3,7 +3,7 @@
 // so the strict CSP (script-src 'self' with no unsafe-inline) lets it run.
 import { NBDAuth } from '/pro/js/nbd-auth.js';
 window._nbdAuth = NBDAuth.init({
-  requiredPlan: 'foundation',
+  requiredPlan: 'starter',
   onReady: (user) => {
     window._authUser = user;
     window._db = NBDAuth.db;

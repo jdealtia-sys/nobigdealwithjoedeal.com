@@ -1643,8 +1643,9 @@ section('Phase C.3 finish-finish — crm + map + docs');
       new RegExp('<template id="tpl-view-' + v + '">').test(dash),
       'expected tpl-view-' + v + ' template element');
   }
-  // Sanity: only view-est should remain as an inline (non-template) view.
-  const inlineMatches = dash.match(/class="view"[^>]*id="view-[a-z]+"[^>]*>(?!<\/div>)/g) || [];
+  // Sanity: NO view remains inline. view-est was the last raw view and
+  // was templated by Rock 4 Phase 4 (commit b6cb61da) once the Rock 2
+  // dep landed; this assertion previously allowed exactly ['est'].
   // Strict count of "still-inline" views = those whose mount doesn't
   // carry data-view-template attribute.
   const stillInline = [];
@@ -1653,9 +1654,9 @@ section('Phase C.3 finish-finish — crm + map + docs');
   while ((m = reAll.exec(dash)) !== null) {
     if (!/data-view-template/.test(m[2])) stillInline.push(m[1]);
   }
-  assert('only view-est remains inline (Rock 2 dep deferred)',
-    stillInline.length === 1 && stillInline[0] === 'est',
-    'expected only view-est inline; got: ' + stillInline.join(','));
+  assert('no view remains inline (Rock 4 Phase 4: view-est templated)',
+    stillInline.length === 0,
+    'expected zero inline views; got: ' + stillInline.join(','));
 }
 
 section('Phase C.3 finish — view-prospects + D.1 plumbing');
