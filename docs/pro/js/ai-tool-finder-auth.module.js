@@ -3,7 +3,7 @@
 // (script-src 'self') can execute it.
 import { NBDAuth } from '/pro/js/nbd-auth.js';
 window._nbdAuth = NBDAuth.init({
-  requiredPlan: 'professional',
+  requiredPlan: 'growth',
   onReady: (user) => {
     console.log('NBD Auth ready — plan:', NBDAuth.userPlan);
   }

@@ -17,6 +17,7 @@
 // ══════════════════════════════════════════════
 // ESTIMATES LIST + builder open
 // ══════════════════════════════════════════════
+let _NBD_DW_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 function renderEstimatesList(ests) {
   // Null-guard the analytics stat tiles AND the list wrapper. After the
   // Step 4a split (PR #400), this function gets called on every dashboard
@@ -1256,7 +1257,7 @@ function populateProspectQuickActions(lead) {
 
 
 // CSP-safe delegation (2 inline onclicks).
-(function(){if(window._NBD_DW_DELEGATE)return;window._NBD_DW_DELEGATE=true;
+(function(){if(_NBD_DW_DELEGATE)return;_NBD_DW_DELEGATE=true;
 document.addEventListener('click',function(ev){
   var t=ev.target.closest&&ev.target.closest('[data-dw-action]');
   if(!t)return;

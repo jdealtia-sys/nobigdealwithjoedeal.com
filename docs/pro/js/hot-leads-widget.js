@@ -26,7 +26,9 @@
 (function () {
   'use strict';
 
-  if (window.HotLeads && window.HotLeads.__sentinel === 'nbd-hot-leads-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['hot-leads-widget']) return;
+  __NBD_LOADED['hot-leads-widget'] = true;
 
   const TOP_N = 5;
   const RECENT_TOUCH_DAYS = 3;
@@ -324,8 +326,7 @@
     setInterval(render, 5 * 60_000);
   }
 
-  window.HotLeads = {
-    __sentinel: 'nbd-hot-leads-v1',
+  const HotLeads = {
     render,
     compute,
   };

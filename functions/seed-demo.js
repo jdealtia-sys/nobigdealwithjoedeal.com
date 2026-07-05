@@ -568,7 +568,7 @@ async function seed() {
   console.log('[7/7] Setting subscription & user settings...');
 
   await db.doc(`subscriptions/${uid}`).set({
-    plan: 'professional',
+    plan: 'growth',
     status: 'active',
     email: 'demo@nobigdeal.pro',
     createdAt: fromDate(daysAgo(90)),
@@ -584,7 +584,7 @@ async function seed() {
     createdAt: fromDate(daysAgo(90)),
   }, { merge: true });
 
-  console.log('  Subscription: professional (active)');
+  console.log('  Subscription: growth (active)');
   console.log('  User settings: NBD Demo Co\n');
 
   // ── Summary ────────────────────────────────────

@@ -1423,7 +1423,15 @@
   </template>
 
   <!-- ══ ESTIMATES ══ -->
-  <div class="view" id="view-est">
+  <!-- Rock 4 Phase 4 (final view): ESTIMATES — empty mount. The last raw
+       view, deliberately deferred until Rock 2 PR 5 (V2-only entry) landed.
+       Every external writer reaches this DOM through goTo('est') first
+       (maps-routing import, bootstrap ?est= deep link, recent-estimates
+       widget), and goTo hydrates synchronously before use. The inline
+       insurance-overlay-toggle <script src> inside re-executes via the
+       _hydrateViewTemplate clone-script swap. -->
+  <div class="view" id="view-est" data-view-template="tpl-view-est"></div>
+  <template id="tpl-view-est">
     <!-- Step 0: List -->
     <div id="est-list" class="view-scroll">
       <div class="page-hdr">
@@ -1722,7 +1730,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </template>
 
   <!-- ══ CRM ══ -->
   <!-- Phase C.3-finish: CRM (PIPELINE / KANBAN) — empty mount. This is

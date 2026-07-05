@@ -35,7 +35,6 @@
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { getSecret, hasSecret, SECRETS } = require('./_shared');

@@ -11,7 +11,7 @@
  * Then in DevTools:
  *   NBDThemeAudit.run().then(NBDThemeAudit.download)
  *
- * IIFE pattern, exposed as window.NBDThemeAudit. No external deps.
+ * IIFE pattern, exposed as NBDThemeAudit. No external deps.
  */
 
 (function() {
@@ -376,6 +376,6 @@
     }
   };
 
-  window.NBDThemeAudit = api;
+  const NBDThemeAudit = api;
 
 })();

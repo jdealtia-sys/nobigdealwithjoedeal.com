@@ -26,7 +26,9 @@
 (function () {
   'use strict';
 
-  if (window.ShortcutsHelp && window.ShortcutsHelp.__sentinel === 'nbd-shortcuts-help-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['shortcuts-help']) return;
+  __NBD_LOADED['shortcuts-help'] = true;
 
   // Map key '1'-'7' to the stage key (matching the cheat sheet copy).
   // The kanban renders columns with id="kcol-${stageKey}", so we
@@ -185,8 +187,7 @@
   window.openShortcutsPanel = openPanel;
   window.closeShortcutsPanel = closePanel;
 
-  window.ShortcutsHelp = {
-    __sentinel: 'nbd-shortcuts-help-v1',
+  const ShortcutsHelp = {
     open: openPanel,
     close: closePanel,
   };

@@ -6,6 +6,9 @@
  *   - activateInvitedRep    (onCall, first-login profile finalize)
  *   - provisionE2ETestUser  (onCall owner-only, Playwright setup)
  *   - cleanupE2ETestData    (onCall caller-scoped, Playwright teardown)
+ *   - mintOwnerClaims       (onCall, stamps { owner:true, role:'admin' }
+ *                            on the OWNER_EMAILS founder accounts —
+ *                            added 2026-07, not part of the Step 4c move)
  *
  * NOTE: onRepSignup is in NBD_DEPLOY_SKIP_LIST per .github/workflows/
  * firebase-deploy.yml — DO NOT remove its export. The skip-list is
@@ -19,7 +22,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { beforeUserCreated, beforeUserSignedIn } = require('firebase-functions/v2/identity');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
+const { getStorage } = require('firebase-admin/storage');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
@@ -27,10 +30,12 @@ const { FieldValue } = require('firebase-admin/firestore');
 const {
   CORS_ORIGINS,
   E2E_TEST_USER_EMAIL,
-  PROVISION_OWNER_EMAILS,
+  OWNER_EMAILS,
+  isOwnerCaller,
   _generateE2EPassword,
   INVITE_ALLOWED_ROLES,
 } = require('./_shared');
+const { callableRateLimit } = require('../shared');
 
 // ═════════════════════════════════════════════════════════════
 // provisionE2ETestUser (Rock 3 PR 3)
@@ -71,7 +76,11 @@ exports.provisionE2ETestUser = onCall(
 
     const callerEmail = (request.auth.token && request.auth.token.email || '').toLowerCase();
     const callerRole  = request.auth.token && request.auth.token.role;
-    const isOwner = PROVISION_OWNER_EMAILS.has(callerEmail);
+    // Claims-based owner check (token.owner === true, minted by
+    // mintOwnerClaims below) with the deprecated OWNER_EMAILS fallback
+    // — remove the email fallback (inside isOwnerCaller) after owner
+    // claims are confirmed in prod.
+    const isOwner = isOwnerCaller(request.auth.token);
     const isPlatformAdmin = callerRole === 'admin';
     if (!isOwner && !isPlatformAdmin) {
       logger.warn('provisionE2ETestUser: rejected non-owner', { uid, callerEmail });
@@ -153,8 +162,25 @@ exports.provisionE2ETestUser = onCall(
 //     estimatesDeleted: <int>,
 //     activityDeleted: <int>,
 //     notesDeleted: <int>,
-//     documentsDeleted: <int>
+//     documentsDeleted: <int>,
+//     flatDeleted: { invoices, photos, knocks, expenses },
+//     topLevelNotesDeleted: <int>,
+//     storageDeleted: <int>
 //   }
+//
+// 2026-07-05 expansion: the journeys added this week (invoice, photo,
+// docgen, D2D knock, expenses) tag their docs e2eTestData but the
+// sweep only covered leads + estimates — a prod-mode run left orphans
+// (three commits acknowledged the tradeoff). Now also swept:
+//   - flat tagged collections: invoices (owner field createdBy),
+//     photos / knocks / expenses (userId)
+//   - Storage objects referenced by swept docs (photo originals +
+//     thumbs via storagePath/thumbStoragePath; docgen HTML via the
+//     lead documents-subcollection htmlPath) — best-effort deletes
+//   - leads/{id}/signatures subcollection (docgen PR3a reuse store)
+//   - TOP-LEVEL notes by leadId of swept leads: moveCard's stage-
+//     change notes are auto-created and never carry the tag, so they
+//     can only be found through their parent lead
 // ═════════════════════════════════════════════════════════════
 exports.cleanupE2ETestData = onCall(
   {
@@ -182,10 +208,23 @@ exports.cleanupE2ETestData = onCall(
 
     let leadsDeleted = 0, estimatesDeleted = 0;
     let activityDeleted = 0, notesDeleted = 0, documentsDeleted = 0;
+    let topLevelNotesDeleted = 0, storageDeleted = 0;
+    const flatDeleted = { invoices: 0, photos: 0, knocks: 0, expenses: 0 };
+
+    // Best-effort Storage object delete — a missing object (already
+    // cleaned, emulator restart, manual delete) must never fail the sweep.
+    const bucket = getStorage().bucket();
+    const deleteStorageObject = async (objectPath) => {
+      if (!objectPath || typeof objectPath !== 'string') return;
+      try {
+        await bucket.file(objectPath).delete();
+        storageDeleted++;
+      } catch (e) { /* best-effort — 404s expected */ }
+    };
 
     // Lead deletion: scoped to userId == caller AND e2eTestData == true.
-    // Subcollections (activity, notes, documents) get walked and
-    // deleted before the parent so we never orphan children.
+    // Subcollections (activity, notes, documents, signatures) get walked
+    // and deleted before the parent so we never orphan children.
     const leadsSnap = await db.collection('leads')
       .where('userId', '==', uid)
       .where('e2eTestData', '==', true)
@@ -194,17 +233,22 @@ exports.cleanupE2ETestData = onCall(
 
     for (const leadDoc of leadsSnap.docs) {
       // Subcollections — admin SDK reaches under leads/{leadId}/*
-      for (const subPath of ['activity', 'notes', 'documents']) {
+      for (const subPath of ['activity', 'notes', 'documents', 'signatures']) {
         const subSnap = await leadDoc.ref.collection(subPath).limit(500).get();
         if (subSnap.empty) continue;
         let subBatch = db.batch();
         let subBatchCount = 0;
         for (const subDoc of subSnap.docs) {
+          // Docgen persists the rendered HTML to Storage and records the
+          // path on the metadata doc — reap the object with the doc.
+          if (subPath === 'documents') {
+            await deleteStorageObject((subDoc.data() || {}).htmlPath);
+          }
           subBatch.delete(subDoc.ref);
           subBatchCount++;
           if (subPath === 'activity') activityDeleted++;
           else if (subPath === 'notes') notesDeleted++;
-          else documentsDeleted++;
+          else documentsDeleted++; // documents + signatures (both doc artifacts)
           if (subBatchCount >= 400) {
             await subBatch.commit();
             subBatch = db.batch();
@@ -213,6 +257,62 @@ exports.cleanupE2ETestData = onCall(
         }
         if (subBatchCount > 0) await subBatch.commit();
       }
+    }
+
+    // TOP-LEVEL notes keyed to swept leads. moveCard's stage-change notes
+    // live in the flat /notes collection with a leadId field and are
+    // auto-created — they never carry e2eTestData, so the only way to find
+    // them is through their parent lead. 'in' queries cap at 30 values.
+    const sweptLeadIds = leadsSnap.docs.map((d) => d.id);
+    for (let i = 0; i < sweptLeadIds.length; i += 30) {
+      const chunk = sweptLeadIds.slice(i, i + 30);
+      const notesSnap = await db.collection('notes')
+        .where('userId', '==', uid)
+        .where('leadId', 'in', chunk)
+        .limit(500)
+        .get();
+      if (notesSnap.empty) continue;
+      let nBatch = db.batch();
+      let nCount = 0;
+      for (const n of notesSnap.docs) {
+        nBatch.delete(n.ref);
+        nCount++;
+        topLevelNotesDeleted++;
+        if (nCount >= 400) { await nBatch.commit(); nBatch = db.batch(); nCount = 0; }
+      }
+      if (nCount > 0) await nBatch.commit();
+    }
+
+    // Flat tagged collections from the newer journeys. Owner field varies:
+    // invoices stamp createdBy (see createInvoiceFromEstimate); the rest
+    // stamp userId. Photos also own Storage objects (original + thumb).
+    const FLAT_SWEEPS = [
+      { coll: 'invoices', ownerField: 'createdBy', key: 'invoices' },
+      { coll: 'photos',   ownerField: 'userId',    key: 'photos' },
+      { coll: 'knocks',   ownerField: 'userId',    key: 'knocks' },
+      { coll: 'expenses', ownerField: 'userId',    key: 'expenses' },
+    ];
+    for (const { coll, ownerField, key } of FLAT_SWEEPS) {
+      const snap = await db.collection(coll)
+        .where(ownerField, '==', uid)
+        .where('e2eTestData', '==', true)
+        .limit(1000)
+        .get();
+      if (snap.empty) continue;
+      let fBatch = db.batch();
+      let fCount = 0;
+      for (const d of snap.docs) {
+        if (coll === 'photos') {
+          const data = d.data() || {};
+          await deleteStorageObject(data.storagePath);
+          await deleteStorageObject(data.thumbStoragePath);
+        }
+        fBatch.delete(d.ref);
+        fCount++;
+        flatDeleted[key]++;
+        if (fCount >= 400) { await fBatch.commit(); fBatch = db.batch(); fCount = 0; }
+      }
+      if (fCount > 0) await fBatch.commit();
     }
 
     // Now batch-delete the leads themselves.
@@ -252,7 +352,8 @@ exports.cleanupE2ETestData = onCall(
     if (estBatchCount > 0) await estBatch.commit();
 
     logger.info('cleanupE2ETestData: done', {
-      uid, leadsDeleted, estimatesDeleted, activityDeleted, notesDeleted, documentsDeleted
+      uid, leadsDeleted, estimatesDeleted, activityDeleted, notesDeleted,
+      documentsDeleted, topLevelNotesDeleted, flatDeleted, storageDeleted
     });
 
     return {
@@ -260,7 +361,10 @@ exports.cleanupE2ETestData = onCall(
       estimatesDeleted,
       activityDeleted,
       notesDeleted,
-      documentsDeleted
+      documentsDeleted,
+      topLevelNotesDeleted,
+      flatDeleted,
+      storageDeleted
     };
   }
 );
@@ -489,5 +593,112 @@ exports.activateInvitedRep = onCall(
       logger.error('activateInvitedRep error', { uid, err: e.message });
       throw new HttpsError('internal', 'Activation failed');
     }
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// mintOwnerClaims — owner-role claim minting (claims-based root).
+//
+// Stamps { owner: true, role: 'admin' } custom claims on the two
+// founder accounts listed in _shared.js OWNER_EMAILS — the ONLY
+// server-side owner email list. Every other owner check (client
+// and server) keys on the `owner` claim, with a deprecated email
+// fallback during the rollout.
+//
+// WHY A CALLABLE AND NOT A BLOCKING AUTH TRIGGER: minting must run
+// on a code path that actually DEPLOYS.
+//   - beforeUserCreated (onRepSignup) is in NBD_DEPLOY_SKIP_LIST
+//     (.github/workflows/firebase-deploy.yml — the deploy SA lacks
+//     identityplatform.admin, so the strict pass skips it and the
+//     tolerant retry fails). It also only fires at account CREATION
+//     — Joe's accounts already exist.
+//   - beforeUserSignedIn was never exported (see the Q3 header on
+//     _beforeAdminSignInHandler above): registering a new blocking-
+//     trigger TYPE needs a one-time Identity Platform config change
+//     the deploy SA can't make. If/when that trigger is re-enabled,
+//     this minting can move into it (return { sessionClaims } /
+//     { customClaims } from the handler) and this callable becomes
+//     a no-op safety net.
+// A plain onCall in handlers/*.js IS deployed: the workflow greps
+// `^exports.<name> = onCall` across functions/handlers/*.js, and
+// mintOwnerClaims is not in NBD_DEPLOY_SKIP_LIST, so it ships in
+// the strict deploy pass (index.js re-exports it — required for
+// deploy-by-name; see the AUDIT #2 FIX note in the workflow).
+//
+// CALLER: docs/pro/js/nbd-auth.js fires this (fire-and-forget) when
+// a signed-in user matches the client OWNER_EMAILS fallback but the
+// token doesn't carry owner:true yet, then forces a token refresh.
+// Same de-GCIP'd claim-at-login pattern as claimInvite
+// (handlers/invites.js) — mergeCustomClaims read-merge-write, since
+// setCustomUserClaims REPLACES the whole claim set and we must not
+// drop companyId/plan/billing claims.
+//
+// SECURITY:
+//   - Non-owner callers get a benign { owner: false } no-op — the
+//     email list never authorizes anything by itself here, it only
+//     selects who gets the claim.
+//   - email_verified is required (checked on the Auth USER RECORD,
+//     not just the token) so an unverified account squatting on an
+//     owner address can never mint root. If an owner account is
+//     unverified, minting is refused but the client email fallback
+//     keeps Jo working — no lockout, just no claim yet.
+//   - Idempotent: re-calls when claims already present are no-ops.
+// ═════════════════════════════════════════════════════════════
+exports.mintOwnerClaims = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+    await callableRateLimit(request, 'mintOwnerClaims', 10, 3_600_000);
+
+    const token = request.auth.token || {};
+    const tokenEmail = (token.email || '').trim().toLowerCase();
+
+    // Cheap pre-checks on the token (case-insensitive email match).
+    if (!tokenEmail || !OWNER_EMAILS.has(tokenEmail)) {
+      return { owner: false };
+    }
+    if (token.owner === true && token.role === 'admin') {
+      return { owner: true, minted: false }; // already stamped — no-op
+    }
+
+    // Authoritative checks against the Auth user record: the email on
+    // the record must (still) be an owner email AND be verified.
+    const auth = getAuth();
+    let userRecord;
+    try {
+      userRecord = await auth.getUser(uid);
+    } catch (e) {
+      logger.error('mintOwnerClaims: getUser failed', { uid, err: e.message });
+      throw new HttpsError('internal', 'Could not read account');
+    }
+    const recordEmail = (userRecord.email || '').trim().toLowerCase();
+    if (!recordEmail || !OWNER_EMAILS.has(recordEmail)) {
+      return { owner: false };
+    }
+    if (userRecord.emailVerified !== true) {
+      // Refuse to mint root off an unverified address. The client-side
+      // OWNER_EMAILS fallback keeps the account usable meanwhile.
+      logger.warn('mintOwnerClaims: owner email unverified — not minting', { uid });
+      return { owner: false, reason: 'email_unverified' };
+    }
+
+    const existing = userRecord.customClaims || {};
+    if (existing.owner === true && existing.role === 'admin') {
+      // Claims already on the record; the caller's token is just stale.
+      return { owner: true, minted: false, refresh: true };
+    }
+
+    // Read-merge-write (mergeCustomClaims pattern — stripe.js /
+    // provisioning.js / invites.js): keep companyId/plan/etc. intact.
+    await auth.setCustomUserClaims(uid, { ...existing, owner: true, role: 'admin' });
+    logger.info('mintOwnerClaims: minted owner claims', { uid });
+    return { owner: true, minted: true, refresh: true };
   }
 );

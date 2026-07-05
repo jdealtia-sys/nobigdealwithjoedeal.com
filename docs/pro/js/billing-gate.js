@@ -19,15 +19,20 @@
 // Exposes: window.NBDBilling
 // ═══════════════════════════════════════════════════════════════
 
+let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function () {
   'use strict';
   if (window.NBDBilling) return;
 
   // ── Plan definitions ──
-  // Canonical keys match the Stripe price tiers. `foundation`/`professional`
-  // are alias entries so billing-gate stays in sync with nbd-auth.js when
-  // a user doc happens to carry those names (the two modules developed
-  // independently and diverged — see _normalizePlan in nbd-auth.js).
+  // Canonical keys match the Stripe price tiers (functions/stripe.js
+  // VALID_PLANS / functions/billing.js PLAN_LIMITS). Legacy doc values
+  // (foundation/blueprint/professional — written forever by old
+  // access-code grants and Stripe metadata) are resolved to canonical
+  // ONCE, in loadSubscription() via PLAN_ALIASES, so `_plan` (and
+  // getPlan().plan) is always a canonical key. The foundation/
+  // professional alias rows below are belt-and-braces for any code
+  // that indexes PLANS with a raw doc value directly.
   const PLANS = {
     free:         { label: 'Free',         leads: 10,  reports: 0,        aiCalls: 0,        reps: 1,        price: 0 },
     starter:      { label: 'Starter',      leads: 50,  reports: 2,        aiCalls: 20,       reps: 1,        price: 99 },
@@ -37,21 +42,43 @@
     enterprise:   { label: 'Enterprise',   leads: Infinity, reports: Infinity, aiCalls: Infinity, reps: Infinity, price: null }
   };
 
+  // Read-boundary alias resolution — mirrors PLAN_ALIASES in
+  // nbd-auth.js. Production subscription docs carry legacy values
+  // FOREVER; this map can never be removed.
+  const PLAN_ALIASES = { foundation: 'starter', blueprint: 'starter', professional: 'growth' };
+  function _normalizePlan(raw) {
+    const k = (typeof raw === 'string' ? raw : '').toLowerCase().trim();
+    return PLAN_ALIASES[k] || k || 'free';
+  }
+
   let _plan = 'free';
   let _status = 'none';  // none | active | trialing | past_due | cancelled
   let _usage = { leads: 0, reports: 0, aiCalls: 0, cycleStart: null };
   let _trialEndsAt = null;
   let _loaded = false;
 
-  // Owner bypass — mirrors nbd-auth.js OWNER_EMAILS. The two modules
-  // stay independent so a single import change doesn't pull in the
-  // firestore SDK at billing-gate.js load time.
+  // Owner bypass — claims-based: keyed on the { owner: true } custom
+  // claim minted server-side by mintOwnerClaims (functions/handlers/
+  // auth.js) from the single server-side list in handlers/_shared.js.
+  //
+  // DEPRECATED transition fallback: the email list below (mirrors
+  // nbd-auth.js OWNER_EMAILS) stays so the founder can never be gated
+  // if the claim hasn't minted yet or the claims read fails. Remove it
+  // after owner claims are confirmed in prod. The two modules stay
+  // independent so a single import change doesn't pull in the firestore
+  // SDK at billing-gate.js load time.
   const OWNER_EMAILS = new Set([
     'jd@nobigdealwithjoedeal.com',
     'jonathandeal459@gmail.com'
   ]);
 
   function _isOwner() {
+    // Claim first — window._userClaims is populated by nbd-auth.js /
+    // dashboard-bootstrap (and by loadSubscription below).
+    try {
+      if (window._userClaims && window._userClaims.owner === true) return true;
+    } catch (_) { /* fall through to the email fallback */ }
+    // DEPRECATED email fallback — remove after claims confirmed in prod.
     const email = (window._user?.email || '').trim().toLowerCase();
     return !!email && OWNER_EMAILS.has(email);
   }
@@ -80,6 +107,19 @@
     try {
       const uid = window._user?.uid;
       if (!uid) return;
+
+      // Resolve token claims once, up front, so the owner short-circuit
+      // below can key on claims.owner === true (an owner claim without a
+      // listed email must still bypass). A failed claims read leaves
+      // window._userClaims unset and _isOwner() falls back to the
+      // deprecated OWNER_EMAILS check — the founder is never locked out.
+      try {
+        if (!window._userClaims && window._user
+            && typeof window._user.getIdTokenResult === 'function') {
+          const tr = await window._user.getIdTokenResult();
+          if (tr && tr.claims) window._userClaims = tr.claims;
+        }
+      } catch (_) { /* claims read failed — email fallback covers owners */ }
 
       // Owner short-circuit: always enterprise, never gated, never
       // warned about usage. Skip the Firestore read entirely so an
@@ -118,10 +158,24 @@
       const snap = await window.getDoc(window.doc(window.db, 'subscriptions', billingKey));
       if (snap.exists()) {
         const data = snap.data();
-        _plan = data.plan || 'free';
+        _plan = _normalizePlan(data.plan || 'free');
         _status = data.status || 'none';
         _usage = data.usage || { leads: 0, reports: 0, aiCalls: 0 };
         _trialEndsAt = data.trialEndsAt || null;
+        // Access-code trial expiry — mirror of the read-time check in
+        // functions/billing.js trackUsage (the server meter is the real
+        // gate; this keeps the UI honest). A code-granted subscription
+        // past its trialEndsAt gates as the free plan. Stripe subs and
+        // untimed code comps are untouched.
+        if (
+          data.source === 'access_code'
+          && _trialEndsAt
+          && typeof _trialEndsAt.toMillis === 'function'
+          && _trialEndsAt.toMillis() < Date.now()
+        ) {
+          _plan = 'free';
+          _status = 'trial_expired';
+        }
       } else {
         _plan = 'free';
         _status = 'none';
@@ -307,4 +361,4 @@
 
 
 // CSP-safe delegation (replaces 2 inline onclicks).
-(function(){if(window._NBD_BG_DELEGATE)return;window._NBD_BG_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-bg-action]');if(!t)return;var a=t.dataset.bgAction;try{var m=document.getElementById('nbd-upgrade-modal');if(m)m.remove();if(a==='closeUpgradeAndGoBilling'&&typeof goTo==='function')goTo('billing');}catch(e){console.error('[billing-gate]',e);}});})();
+(function(){if(_NBD_BG_DELEGATE)return;_NBD_BG_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-bg-action]');if(!t)return;var a=t.dataset.bgAction;try{var m=document.getElementById('nbd-upgrade-modal');if(m)m.remove();if(a==='closeUpgradeAndGoBilling'&&typeof goTo==='function')goTo('billing');}catch(e){console.error('[billing-gate]',e);}});})();

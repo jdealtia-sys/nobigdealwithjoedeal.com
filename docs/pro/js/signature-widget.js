@@ -27,8 +27,9 @@
  */
 (function () {
   'use strict';
-  if (window.__NBDSig__sentinel === 'v1') return;
-  window.__NBDSig__sentinel = 'v1';
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['signature-widget']) return;
+  __NBD_LOADED['signature-widget'] = true;
 
   var pads = []; // [{block, canvas, pad, role, required}]
   // PR3b: role -> saved PNG dataURL, pushed in by the parent viewer via
@@ -343,7 +344,7 @@
   } catch (_) {}
 
   // Surface a tiny API for in-doc callers (rare) and tests.
-  window.NBDSig = {
+  const NBDSig = {
     initAll: initAll,
     getStatus: getStatus,
     finalize: finalize,

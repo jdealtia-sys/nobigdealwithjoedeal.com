@@ -139,4 +139,3 @@ async function seedDemoEstimates(uid) {
 // ══ Window Scope Exposures ══════════════════════════════════
 window.maybeSeedDemoData = maybeSeedDemoData;
 window.seedDemoLeads = seedDemoLeads;
-window.seedDemoEstimates = seedDemoEstimates;

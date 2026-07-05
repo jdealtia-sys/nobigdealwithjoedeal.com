@@ -21,8 +21,7 @@ const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
 const { Resend } = require('resend');
 const twilio = require('twilio');
-const admin = require('firebase-admin');
-const { getFirestore } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const L = require('./lead-bridge-logic');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -199,7 +198,7 @@ async function ackHomeowner(collection, d, leadId, target) {
     logger.info('leadAck: email sent', { collection, leadId });
     if (leadId) {
       await getFirestore().collection(collection).doc(String(leadId))
-        .update({ ackEmailSentAt: admin.firestore.FieldValue.serverTimestamp() })
+        .update({ ackEmailSentAt: FieldValue.serverTimestamp() })
         .catch(() => {});
     }
   } catch (e) {
@@ -277,7 +276,7 @@ async function ackHomeownerSms(collection, d, leadId, target) {
     logger.info('leadAck: sms queued', { collection, leadId, sid: msg.sid });
     if (leadId) {
       await getFirestore().collection(collection).doc(String(leadId))
-        .update({ ackSmsSentAt: admin.firestore.FieldValue.serverTimestamp() })
+        .update({ ackSmsSentAt: FieldValue.serverTimestamp() })
         .catch(() => {});
     }
   } catch (e) {

@@ -1,5 +1,19 @@
 # Pillar 4 — Company-level billing & seats
 
+> **STATUS (2026-07-05):** company-level billing shipped (subscriptions
+> resolve at `subscriptions/{companyId || uid}` — see
+> [ARCHITECTURE.md](../ARCHITECTURE.md), which now carries the maintained
+> BILLING, PLANS & TRIALS section). Since this doc was written: plan keys
+> are canonical internally (free/starter/growth/enterprise) with permanent
+> read-boundary aliases for legacy foundation/blueprint/professional docs;
+> access-code trials are expiry-enforced at read time (server `trackUsage`
+> + client gate); `trialEndsAt` has exactly one writer
+> (`validateAccessCode`); the dashboard gates at `requiredPlan:'free'`
+> (the dashboard IS the free product — Jo's 2026-07-04 no-paywall decision
+> below stands). NOT yet done from Phase 1: the hardcoded owner-email
+> bypass (`OWNER_EMAILS` in functions/billing.js + billing-gate.js) is
+> still live. The "Current state" below is the 2026-06-07 snapshot.
+
 > Scoping doc, 2026-06-07. Companion to [MULTI-TENANT-ARCHITECTURE.md](MULTI-TENANT-ARCHITECTURE.md)
 > and [PILLAR1-PROVISIONING-PLAN.md](PILLAR1-PROVISIONING-PLAN.md). Pairs with
 > Pillar 1 Phase 2 (charge at company creation). Goal: **one subscription per

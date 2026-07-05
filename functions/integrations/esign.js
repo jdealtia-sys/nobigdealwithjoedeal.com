@@ -28,7 +28,6 @@
 
 const { onCall, HttpsError, onRequest } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 // Modular FieldValue import: the namespaced FieldValue is
 // undefined inside the Functions emulator runtime (firebase-admin v12 +

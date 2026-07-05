@@ -35,12 +35,14 @@
  *   - nbd_crm_followup_hidden  alert dismissal — per-device
  *   - any other key not in the allowlist
  *
- * Exposes: window.PrefsSync (debug/manual flush)
+ * Exposes: PrefsSync (debug/manual flush)
  */
 (function () {
   'use strict';
 
-  if (window.PrefsSync && window.PrefsSync.__sentinel === 'nbd-prefs-sync-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['prefs-sync']) return;
+  __NBD_LOADED['prefs-sync'] = true;
 
   const SYNCED_KEYS = ['nbd_kanban_view', 'nbd_crm_show_prospects', 'nbd_crm_show_snoozed'];
   const POLL_INTERVAL_MS = 10_000;
@@ -283,8 +285,7 @@
     });
   }
 
-  window.PrefsSync = {
-    __sentinel: 'nbd-prefs-sync-v1',
+  const PrefsSync = {
     SYNCED_KEYS,
     flush: () => {
       if (writeTimer) clearTimeout(writeTimer);

@@ -21,12 +21,14 @@
  *      stageStartedAt so Wave 17 / 19 aging cues work right
  *      away. Progress shown live ("Importing 12 of 47…").
  *
- * Exposes: window.openLeadImport / window.LeadImport.{open}
+ * Exposes: window.openLeadImport / LeadImport.{open}
  */
 (function () {
   'use strict';
 
-  if (window.LeadImport && window.LeadImport.__sentinel === 'nbd-lead-import-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['data-import']) return;
+  __NBD_LOADED['data-import'] = true;
 
   // ─── Header aliases (case-insensitive) ──────────────────────────
   // Maps any incoming column name to the canonical lead field. The
@@ -507,8 +509,7 @@
   }
 
   // ─── Public API ─────────────────────────────────────────────────
-  window.LeadImport = {
-    __sentinel: 'nbd-lead-import-v1',
+  const LeadImport = {
     open: openImport,
     parseCsv,
     detectMapping,

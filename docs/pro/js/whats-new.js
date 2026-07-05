@@ -19,12 +19,14 @@
  * small and rotates: items older than 30 days drop off.
  *
  * Usage:
- *   window.NBDWhatsNew.open()      — open the panel manually
- *   window.NBDWhatsNew.markAllSeen() — clear the bell
+ *   NBDWhatsNew.open()      — open the panel manually
+ *   NBDWhatsNew.markAllSeen() — clear the bell
  */
 (function () {
   'use strict';
-  if (window.NBDWhatsNew && window.NBDWhatsNew.__sentinel === 'nbd-whats-new-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['whats-new']) return;
+  __NBD_LOADED['whats-new'] = true;
 
   const STORAGE_KEY = 'nbd_whats_new_seen_v1';
   const PANEL_ID = 'nbd-whats-new-panel';
@@ -319,8 +321,7 @@
     setTimeout(_bootstrap, 0);
   }
 
-  window.NBDWhatsNew = {
-    __sentinel: 'nbd-whats-new-v1',
+  const NBDWhatsNew = {
     open,
     markAllSeen,
     unseenCount: _unseenCount,

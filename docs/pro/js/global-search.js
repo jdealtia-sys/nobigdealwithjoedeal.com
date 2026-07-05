@@ -22,12 +22,14 @@
  *   - Enter            — navigate to selected
  *
  * Exposes: window.openCmdPalette, window.closeCmdPalette,
- *          window.GlobalSearch.{search, focus}
+ *          GlobalSearch.{search, focus}
  */
 (function () {
   'use strict';
 
-  if (window.GlobalSearch && window.GlobalSearch.__sentinel === 'nbd-global-search-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['global-search']) return;
+  __NBD_LOADED['global-search'] = true;
 
   const MAX_RESULTS_PER_GROUP = 8;
   const MIN_QUERY = 1;
@@ -695,8 +697,7 @@
   window.openCmdPalette = openPalette;
   window.closeCmdPalette = closePalette;
 
-  window.GlobalSearch = {
-    __sentinel: 'nbd-global-search-v1',
+  const GlobalSearch = {
     open: openPalette,
     close: closePalette,
     search: (q) => {

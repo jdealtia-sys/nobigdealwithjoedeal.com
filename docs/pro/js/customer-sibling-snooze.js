@@ -36,8 +36,9 @@
 (function () {
   'use strict';
 
-  if (window.CustomerSiblingSnooze
-      && window.CustomerSiblingSnooze.__sentinel === 'nbd-customer-sibling-snooze-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['customer-sibling-snooze']) return;
+  __NBD_LOADED['customer-sibling-snooze'] = true;
 
   const PATH = window.location.pathname || '';
   if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
@@ -137,8 +138,7 @@
     window.addEventListener('nbd:data-refreshed', update);
   }
 
-  window.CustomerSiblingSnooze = {
-    __sentinel: 'nbd-customer-sibling-snooze-v1',
+  const CustomerSiblingSnooze = {
     update,
     computeSiblings,
   };

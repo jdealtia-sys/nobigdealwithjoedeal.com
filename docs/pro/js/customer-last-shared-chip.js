@@ -22,8 +22,9 @@
 (function () {
   'use strict';
 
-  if (window.CustomerLastSharedChip
-      && window.CustomerLastSharedChip.__sentinel === 'nbd-customer-last-shared-chip-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['customer-last-shared-chip']) return;
+  __NBD_LOADED['customer-last-shared-chip'] = true;
 
   const PATH = window.location.pathname || '';
   if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
@@ -96,8 +97,7 @@
   }
   window.addEventListener('pagehide', destroy);
 
-  window.CustomerLastSharedChip = {
-    __sentinel: 'nbd-customer-last-shared-chip-v1',
+  const CustomerLastSharedChip = {
     update,
     destroy,
   };

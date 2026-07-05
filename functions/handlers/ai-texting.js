@@ -50,7 +50,6 @@
 
 const { defineSecret } = require('firebase-functions/params');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { FieldValue } = require('firebase-admin/firestore');
 const { buildPersonaPrompt, sanitizeMultiline } = require('./ai-persona');
 

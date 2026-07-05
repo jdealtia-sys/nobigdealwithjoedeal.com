@@ -26,8 +26,9 @@
  */
 (function () {
   'use strict';
-  if (window.NBDLeadAlert
-      && window.NBDLeadAlert.__sentinel === 'nbd-lead-alert-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['lead-score-alert']) return;
+  __NBD_LOADED['lead-score-alert'] = true;
 
   const HOT_THRESHOLD = 80;
   const ALERT_FLAG_KEY = 'nbd_lead_alert_fired_v1';
@@ -204,8 +205,7 @@
     setTimeout(_check, 4000);
   }
 
-  window.NBDLeadAlert = {
-    __sentinel: 'nbd-lead-alert-v1',
+  const NBDLeadAlert = {
     check: _check,
     threshold: HOT_THRESHOLD,
   };

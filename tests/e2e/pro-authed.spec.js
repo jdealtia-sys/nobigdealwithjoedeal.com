@@ -39,7 +39,7 @@ async function openCrmView(page) {
   throw new Error('openCrmView: dashboard never settled with a working goTo()');
 }
 
-test.describe('Authenticated /pro/ shell — read-only', () => {
+test.describe('Authenticated /pro/ shell — read-only @shard1', () => {
   let creds;
   test.beforeAll(() => {
     try { creds = requireTestUser(); }
@@ -103,6 +103,20 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
 });
 
 // ───────────────────────────────────────────────────────────────
+// Signup funnel — the acquisition path itself (register → onboarding
+// → dashboard as a FREE user). Every other journey starts from the
+// pre-seeded logged-in account; nothing guarded registration until
+// the 2026-07-05 free-tier bug: dashboard-auth-gate required plan
+// 'foundation', so every free signup hit a full-screen upgrade wall
+// with no continue-free path — the funnel sold a product nobody
+// could reach. This journey locks the whole path end-to-end.
+//
+// Hermetic: the account is created fresh in the AUTH EMULATOR each
+// run (unique email per attempt) and evaporates with it. The
+// createCompany callable fails in emulator mode (no functions
+// emulator) — BY DESIGN register.js treats that as non-fatal (solo
+// uid convention), which this journey also exercises.
+// ───────────────────────────────────────────────────────────────
 // Destructive flows (Rock 3 PR 4)
 //
 // Every test in this block creates real Firestore docs tagged with
@@ -114,7 +128,7 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
 // These tests run sequentially (not parallel) because they share
 // the test user account and would race on document writes otherwise.
 // ───────────────────────────────────────────────────────────────
-test.describe.serial('Authenticated destructive flows', () => {
+test.describe.serial('Authenticated destructive flows @shard1', () => {
   let creds;
   test.beforeAll(() => {
     try { creds = requireTestUser(); }
@@ -191,15 +205,21 @@ test.describe.serial('Authenticated destructive flows', () => {
     // window._saveLead, which is the same code path the UI uses,
     // so the companyId/customerId/userId stamping is exercised end
     // to end. Cleanup callable filters on this flag.
-    await page.evaluate((args) => window._saveLead({
-      firstName: '[E2E] Smith',
-      lastName: String(args.stamp),
-      address: args.leadAddress,
-      phone: args.leadPhone,
-      email: `e2e-${args.stamp}@nbd.test`,
-      stage: 'new',
-      e2eTestData: true
-    }), { stamp, leadAddress, leadPhone });
+    await page.evaluate(async (args) => {
+      // ALREADY_EXISTS tolerance: emulator commit-retry bug — the lead
+      // landed; the kanban render + read-back below find it.
+      try {
+        await window._saveLead({
+          firstName: '[E2E] Smith',
+          lastName: String(args.stamp),
+          address: args.leadAddress,
+          phone: args.leadPhone,
+          email: `e2e-${args.stamp}@nbd.test`,
+          stage: 'new',
+          e2eTestData: true
+        });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+    }, { stamp, leadAddress, leadPhone });
 
     // Give the optimistic insert + Firestore round-trip a moment to
     // settle. The kanban refresh is debounced; 4s is generous.
@@ -257,7 +277,11 @@ test.describe.serial('Authenticated destructive flows', () => {
 
     // Seed a fresh lead in stage 'new', tagged for cleanup.
     const leadId = await page.evaluate(async (args) => {
-      const ref = await window._saveLead({
+      // ALREADY_EXISTS = the emulator commit-retry bug (see the addDoc
+      // patch in fixtures/auth.js — _saveLead holds a closure addDoc the
+      // patch can't reach). The lead LANDED; the re-fetch below finds it.
+      try {
+        await window._saveLead({
         firstName: '[E2E] Move',
         lastName: String(args.stamp),
         // Unique per attempt so LeadDedup's blocking prompt never fires
@@ -268,6 +292,7 @@ test.describe.serial('Authenticated destructive flows', () => {
         stage: 'new',
         e2eTestData: true
       });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
       // _saveLead returns null on the geocoded path (it does its own
       // loadLeads refresh), so re-fetch by lastName to grab the id.
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
@@ -374,7 +399,29 @@ test.describe.serial('Authenticated destructive flows', () => {
     const saved = await page.evaluate(async (input) => {
       const r = window.EstimateBuilderV2.calculateEstimate(input);
       const dep = window.EstimateBuilderV2.calcDeposit(r.total, input.mode, {});
-      const id = await window._saveEstimate({
+      // ALREADY_EXISTS tolerance for _saveEstimate (closure-held addDoc —
+      // the fixtures/auth.js window.addDoc patch can't reach it; bit the
+      // invoice journey on CI 2026-07-05). The estimate LANDED but the id
+      // was lost — recover it via the unique name (userId filter keeps the
+      // query provable under the estimates read rule).
+      async function saveEstimateTolerant(payload) {
+        try { return await window._saveEstimate(payload); }
+        catch (e) {
+          if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e;
+          const fsMod2 = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          const db2 = window.db || window._db;
+          const uid2 = (window._auth || window.auth).currentUser.uid;
+          const snap2 = await fsMod2.getDocs(fsMod2.query(
+            fsMod2.collection(db2, 'estimates'),
+            fsMod2.where('userId', '==', uid2),
+            fsMod2.where('name', '==', payload.name)
+          ));
+          let rid = null; snap2.forEach(d => { if (!rid) rid = d.id; });
+          if (!rid) throw e;
+          return rid;
+        }
+      }
+      const id = await saveEstimateTolerant({
         name: '[E2E] V2 parity ' + Date.now(),
         addr: '999 E2E Test Lane, Cincinnati, OH',
         mode: input.mode, tier: input.tier, engine: 'v2',
@@ -442,7 +489,29 @@ test.describe.serial('Authenticated destructive flows', () => {
       for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
         await new Promise(r => setTimeout(r, 200));
       }
-      const estimateId = await window._saveEstimate(est);
+      // ALREADY_EXISTS tolerance for _saveEstimate (closure-held addDoc —
+      // the fixtures/auth.js window.addDoc patch can't reach it; bit the
+      // invoice journey on CI 2026-07-05). The estimate LANDED but the id
+      // was lost — recover it via the unique name (userId filter keeps the
+      // query provable under the estimates read rule).
+      async function saveEstimateTolerant(payload) {
+        try { return await window._saveEstimate(payload); }
+        catch (e) {
+          if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e;
+          const fsMod2 = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          const db2 = window.db || window._db;
+          const uid2 = (window._auth || window.auth).currentUser.uid;
+          const snap2 = await fsMod2.getDocs(fsMod2.query(
+            fsMod2.collection(db2, 'estimates'),
+            fsMod2.where('userId', '==', uid2),
+            fsMod2.where('name', '==', payload.name)
+          ));
+          let rid = null; snap2.forEach(d => { if (!rid) rid = d.id; });
+          if (!rid) throw e;
+          return rid;
+        }
+      }
+      const estimateId = await saveEstimateTolerant(est);
       const invoiceId = await window.InvoicePipeline.createInvoiceFromEstimate(estimateId);
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
@@ -484,8 +553,15 @@ test.describe.serial('Authenticated destructive flows', () => {
     // exposes as window._storage (emulator-wired on localhost, line 809).
     await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
     await page.evaluate(() => window.ScriptLoader.loadBundle('photos'));
+    // CRITICAL: exclude the lazy stub. dashboard-actions.js installs a
+    // PhotoEngine placeholder whose uploadFromFile is a fire-and-forget
+    // bundle loader that resolves undefined — it satisfies a bare typeof
+    // check, and on a slow run the evaluate below wins the race against
+    // photo-engine.js overwriting the global ('photo.id of undefined',
+    // CI 2026-07-05). Gate on the REAL engine only.
     await page.waitForFunction(() =>
-      window.PhotoEngine && typeof window.PhotoEngine.uploadFromFile === 'function'
+      window.PhotoEngine && !window.PhotoEngine.__nbdLazyPhotosStub
+      && typeof window.PhotoEngine.uploadFromFile === 'function'
       && window._storage && window._db, null, { timeout: 20_000 });
 
     const stamp = Date.now();
@@ -538,12 +614,58 @@ test.describe.serial('Authenticated destructive flows', () => {
     expect(doc.createdAt, 'createdAt serverTimestamp (canonical ordering field)').toBeTruthy();
   });
 
+});
+
+// ───────────────────────────────────────────────────────────────
+// Destructive flows, second emulator shard. Same account, same
+// serial discipline — split from @shard1 so CI runs each half in its
+// OWN emulator session (the Java Firestore emulator degrades under a
+// 16-journey single-session load and a rotating test lost its retries
+// each run — see the KNOWN FLAKE CLASS note in .github/workflows/
+// ci.yml). Scaffolding (creds gate + prod-mode cleanup) is duplicated
+// deliberately: each shard must be self-sufficient.
+// ───────────────────────────────────────────────────────────────
+test.describe.serial('Authenticated destructive flows @shard2', () => {
+  let creds;
+  test.beforeAll(() => {
+    try { creds = requireTestUser(); }
+    catch (e) { console.warn('[pro-authed-destructive-2] ' + e.message); }
+  });
+
+  test.beforeEach(async ({}, testInfo) => {
+    if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
+  });
+
+  test.afterAll(async ({ browser }) => {
+    if (!creds) return;
+    // Emulator mode: state evaporates with the emulator session and the
+    // cleanup callable's functions emulator isn't running. Skip (same as
+    // shard 1 — the callable is idempotent if both shards ever run it).
+    if (/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await loginAs(page, creds);
+      const result = await cleanupE2EData(page);
+      // eslint-disable-next-line no-console
+      console.log('[pro-authed-cleanup-2]', JSON.stringify(result));
+    } finally {
+      await context.close();
+    }
+  });
+
   test('docgen: generate persists metadata under the lead + uploads rendered HTML', async ({ page }) => {
     // The doc-generation persist path is fully client-side (Firestore
     // subcollection + Storage HTML upload) — the functions emulator is only
     // involved for server PDF render (contract/invoice/change_order/receipt,
     // which FALLS BACK to client render) and remote signing. 'thank_you' is
     // not in SERVER_TYPE_MAP, so this journey is hermetic without functions.
+    //
+    // Capture the page's console: the docgen persist path SWALLOWS write
+    // failures ('Document metadata persist failed: …' console.warn), so an
+    // empty read-back can only be explained by what the page logged.
+    const pageLog = [];
+    page.on('console', msg => pageLog.push(`[${msg.type()}] ${msg.text()}`));
     await page.route('**/nominatim.openstreetmap.org/**', route =>
       route.fulfill({ contentType: 'application/json', body: '[]' }));
     await loginAs(page, creds);
@@ -560,6 +682,9 @@ test.describe.serial('Authenticated destructive flows', () => {
       for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
         await new Promise(r => setTimeout(r, 200));
       }
+      // ALREADY_EXISTS tolerance (emulator commit-retry; see fixtures/auth.js
+      // addDoc patch note) — the lead landed; the re-fetch below finds it.
+      try {
       await window._saveLead({
         firstName: '[E2E] DocGen',
         lastName: String(args.stamp),
@@ -569,6 +694,7 @@ test.describe.serial('Authenticated destructive flows', () => {
         stage: 'new',
         e2eTestData: true
       });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
       const uid = (window._auth || window.auth).currentUser.uid;
@@ -615,7 +741,13 @@ test.describe.serial('Authenticated destructive flows', () => {
       docs = await page.evaluate(async (id) => {
         const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
         const db = window.db || window._db;
-        const snap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'documents'));
+        // The emulator under serial-suite load intermittently reports
+        // 'client is offline' — treat any read error as "not yet" and let
+        // the outer poll retry instead of failing the whole journey.
+        let snap;
+        try {
+          snap = await fsMod.getDocs(fsMod.collection(db, 'leads', id, 'documents'));
+        } catch (_) { return []; }
         const list = [];
         snap.forEach(d => {
           const data = d.data();
@@ -632,7 +764,15 @@ test.describe.serial('Authenticated destructive flows', () => {
     }
 
     const meta = docs.find(d => d.type === 'thank_you');
-    expect(meta, 'thank_you metadata doc persisted under the lead').toBeTruthy();
+    if (!meta) {
+      // Self-describing failure: surface what the page itself said —
+      // 'Document metadata persist failed' / 'Document HTML upload failed'
+      // console.warns are the only trace when the swallowed persist dies.
+      const interesting = pageLog.filter(l =>
+        /docgen|document|persist|upload|firestore|storage|offline|denied/i.test(l)).slice(-12);
+      throw new Error('thank_you metadata never appeared under leads/' + leadId
+        + '/documents after 20s. Page console (filtered):\n' + (interesting.join('\n') || '(nothing relevant logged)'));
+    }
     expect(meta.userId, 'userId stamped on the metadata').toBeTruthy();
     expect(meta.typeName, 'human-readable type name recorded').toBeTruthy();
     expect(meta.filename, 'filename recorded for the PDF flow').toMatch(/\.pdf$/);
@@ -651,5 +791,654 @@ test.describe.serial('Authenticated destructive flows', () => {
       const db = window.db || window._db;
       await fsMod.updateDoc(fsMod.doc(db, 'leads', args.leadId, 'documents', args.docId), { e2eTestData: true });
     }, { leadId, docId: meta.id });
+  });
+
+  test('d2d: appointment knock persists the disposition contract + auto-converts to exactly one linked lead', async ({ page }) => {
+    // The hot-disposition auto-convert funnels into _saveLead, which geocodes
+    // new addresses via nominatim — same OSM stub as the save-lead journey so
+    // the knock→lead promotion never depends on OSM rate limits.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // The D2D tracker is the lazy 'd2d' bundle (ScriptLoader PR 2e): core
+    // publishes the data layer on window._D2DState (submitKnock is the exact
+    // write path the QuickKnock modal's handleSubmitKnock funnels into —
+    // d2d-tracker-core-2026b.js:1051, exported at :2599), ui + shim compose
+    // window.D2D on top. The write additionally needs the Firestore globals
+    // bootstrap exposes asynchronously, plus _saveLead for the auto-convert.
+    // renderD2D/refreshMapMarkers/updateNavBadge all guard on their DOM/map
+    // hosts, so calling submitKnock without ever opening the D2D view is safe.
+    await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
+    await page.evaluate(() => window.ScriptLoader.loadBundle('d2d'));
+    await page.waitForFunction(() =>
+      window._D2DState && typeof window._D2DState.submitKnock === 'function'
+      && window._db && typeof window.addDoc === 'function'
+      && typeof window.serverTimestamp === 'function'
+      && typeof window._saveLead === 'function', null, { timeout: 20_000 });
+
+    const stamp = Date.now();
+    const knockId = await page.evaluate(async (args) => {
+      // Re-check auth IN this execution context right before the write:
+      // the outer waitForFunction gate can pass against a pre-navigation
+      // document, after which _saveLead stamps userId from a _user the
+      // fresh dashboard context hasn't re-populated yet (CI retry flake:
+      // "Unsupported field value: undefined in field userId").
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      // Unique per attempt on BOTH axes: address drives getAttemptCount
+      // (attemptNumber would exceed 1 against leftovers — knocks have no
+      // cleanup sweep, so prod runs accumulate) and phone/address drive
+      // LeadDedup's blocking modal inside the auto-convert's _saveLead.
+      return window._D2DState.submitKnock({
+        address: `${String(args.stamp).slice(-6)} D2D Knock Way, Cincinnati, OH`,
+        homeowner: '[E2E] Knock ' + args.stamp,
+        phone: '513' + String(args.stamp).slice(-7),
+        email: `e2e-knock-${args.stamp}@nbd.test`,
+        disposition: 'appointment',
+        notes: '[E2E] d2d journey',
+        lat: null,
+        lng: null
+      });
+    }, { stamp });
+    expect(knockId, 'submitKnock persisted the knock and returned its id').toBeTruthy();
+
+    // submitKnock fires convertToLead NON-blocking (a .catch()ed background
+    // promise), so poll from the TEST side for the promoted lead + the
+    // convertedToLead flip. page.evaluate, not waitForFunction — see the
+    // docgen journey's note on async-predicate JSHandle round-tripping.
+    let out = null;
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+      out = await page.evaluate(async (id) => {
+        const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const db = window.db || window._db;
+        const uid = (window._auth || window.auth).currentUser.uid;
+        const knockSnap = await fsMod.getDoc(fsMod.doc(db, 'knocks', id));
+        const knock = knockSnap.exists() ? knockSnap.data() : null;
+        // The knocks/leads read rules are isOwner(resource.data.userId) —
+        // the query must carry the userId filter or Firestore can't prove
+        // compliance and rejects it (see the save-lead journey).
+        const leadsSnap = await fsMod.getDocs(fsMod.query(
+          fsMod.collection(db, 'leads'),
+          fsMod.where('userId', '==', uid),
+          fsMod.where('d2dKnockId', '==', id)
+        ));
+        const leads = [];
+        leadsSnap.forEach(d => leads.push(Object.assign({ id: d.id }, d.data())));
+        return {
+          uid,
+          knock: knock && {
+            userId: knock.userId, companyId: knock.companyId,
+            disposition: knock.disposition, stage: knock.stage,
+            attemptNumber: knock.attemptNumber,
+            convertedToLead: knock.convertedToLead, leadId: knock.leadId || null
+          },
+          leads: leads.map(l => ({
+            id: l.id, userId: l.userId, source: l.source, stage: l.stage,
+            isProspect: l.isProspect, disposition: l.disposition
+          }))
+        };
+      }, knockId);
+      if (out && out.knock && out.knock.convertedToLead === true && out.leads.length) break;
+      await page.waitForTimeout(1_000);
+    }
+
+    // Knock-side contract (submitKnock, d2d-tracker-core-2026b.js:1082):
+    // owner stamping + the disposition→stage derivation the D2D metrics,
+    // heat map and follow-up engine all bucket on.
+    expect(out && out.knock, 'knock doc readable after write').toBeTruthy();
+    expect(out.knock.userId, 'knock userId stamped from window._user').toBe(out.uid);
+    expect(out.knock.companyId, 'knock companyId stamped (solo convention: uid)').toBeTruthy();
+    expect(out.knock.disposition, 'disposition persisted').toBe('appointment');
+    expect(out.knock.stage, "disposition 'appointment' derives knock stage 'appointment'").toBe('appointment');
+    expect(out.knock.attemptNumber, 'first knock at a fresh address is attempt #1').toBe(1);
+
+    // Promotion contract (convertToLead): an appointment is a QUALIFIED
+    // customer — it lands in the kanban immediately (isProspect false, stage
+    // 'inspected'), tagged with the D2D source + structured disposition key,
+    // and the runTransaction double-convert guard means EXACTLY ONE lead per
+    // knock (the two-pins/two-customer-IDs regression).
+    expect(out.knock.convertedToLead, 'knock flagged convertedToLead after auto-promote').toBe(true);
+    expect(out.leads.length, 'exactly ONE lead per hot knock (transaction dedup guard)').toBe(1);
+    const lead = out.leads[0];
+    expect(out.knock.leadId, 'knock → lead back-link stamped by _saveLead').toBe(lead.id);
+    expect(lead.userId, 'lead userId stamped').toBe(out.uid);
+    expect(lead.source, 'lead source attributed to Door-to-Door').toBe('Door-to-Door');
+    expect(lead.stage, "appointment knock maps to CRM stage 'inspected'").toBe('inspected');
+    expect(lead.isProspect, 'appointment lead is a full customer, NOT a hidden prospect').toBe(false);
+    expect(lead.disposition, 'structured disposition key persisted for the Prospects bucketer').toBe('appointment');
+
+    // Tag both docs for prod-run cleanup — submitKnock/convertToLead write
+    // fixed shapes with no room for the flag (post-hoc owner update, same as
+    // the invoice journey). NOTE: the cleanup callable currently sweeps only
+    // leads/estimates, so the [E2E] prefix keeps any stragglers obvious.
+    await page.evaluate(async (args) => {
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      await fsMod.updateDoc(fsMod.doc(db, 'knocks', args.knockId), { e2eTestData: true });
+      await fsMod.updateDoc(fsMod.doc(db, 'leads', args.leadId), { e2eTestData: true });
+    }, { knockId, leadId: lead.id });
+  });
+
+  test('scheduling: rep-typed scheduledDate persists date-only and surfaces on the Smart Calendar', async ({ page }) => {
+    // Same nominatim stub as the save-lead test — _saveLead geocodes new
+    // addresses and OSM rate-limits CI IPs with no client timeout.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // smart-calendar.js is EAGER (<script defer>, dashboard.html:5941) —
+    // no bundle to load — but it renders into #calUpcoming, which lives in
+    // <template id="tpl-view-schedule"> and only exists after goTo('schedule')
+    // stamps it. Its appointment reads run on the window Firestore globals
+    // bootstrap exposes asynchronously; /appointments itself is webhook-
+    // written (rules: write false), so the client-writable scheduling path —
+    // and the one this journey locks in — is the lead's date-only
+    // scheduledDate, which historically reached NO calendar (the motivating
+    // bug in smart-calendar.js's manual-scheduled block).
+    await page.waitForFunction(() =>
+      typeof window.goTo === 'function'
+      && typeof window.loadSmartCalendar === 'function'
+      && window._db && typeof window.getDocs === 'function'
+      && typeof window.orderBy === 'function'
+      && typeof window._saveLead === 'function', null, { timeout: 20_000 });
+
+    const stamp = Date.now();
+    const seeded = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey — _saveLead
+      // stamps userId from window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      // "Today" must be computed in PAGE-LOCAL time: smart-calendar buckets
+      // manual jobs by comparing lead.scheduledDate to the browser's local
+      // yyyy-mm-dd, and a UTC-derived date in the TEST process can be a
+      // different calendar day around midnight.
+      const t = new Date();
+      const todayStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+      // ALREADY_EXISTS tolerance (emulator commit-retry; see fixtures/auth.js
+      // addDoc patch note): the lead landed but the returned id is lost —
+      // fall back to the same re-fetch-by-lastName the other journeys use.
+      let leadId = null;
+      try {
+        leadId = await window._saveLead({
+        firstName: '[E2E] Sched',
+        lastName: String(args.stamp),
+        // Unique per attempt so LeadDedup's blocking prompt never fires.
+        address: `${String(args.stamp).slice(-3)} Schedule Street, Cincinnati, OH`,
+        phone: '513' + String(args.stamp).slice(-7),
+        email: `e2e-sched-${args.stamp}@nbd.test`,
+        stage: 'new',
+        scheduledDate: todayStr,
+        e2eTestData: true
+      });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+      if (!leadId) {
+        const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const db = window.db || window._db;
+        const uid = (window._auth || window.auth).currentUser.uid;
+        const snap = await fsMod.getDocs(fsMod.query(
+          fsMod.collection(db, 'leads'),
+          fsMod.where('userId', '==', uid),
+          fsMod.where('lastName', '==', String(args.stamp)),
+          fsMod.where('e2eTestData', '==', true)
+        ));
+        snap.forEach(d => { if (!leadId) leadId = d.id; });
+      }
+      return { leadId, todayStr };
+    }, { stamp });
+    // With the OSM stub answering [], _saveLead takes the no-geocode fallback
+    // branch, which returns the new lead id (the null return the move-stage
+    // journey works around is the geocoded branch only).
+    expect(seeded.leadId, 'seeded [E2E] Sched lead has an id').toBeTruthy();
+
+    // Persistence contract: scheduledDate is a DATE-ONLY string that must
+    // round-trip verbatim — not be coerced to a Timestamp or shifted a day
+    // by a UTC conversion (customer portal + smart calendar + docgen all
+    // read it as yyyy-mm-dd).
+    const persisted = await page.evaluate(async (id) => {
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      const snap = await fsMod.getDoc(fsMod.doc(db, 'leads', id));
+      const d = snap.data() || {};
+      return { scheduledDate: d.scheduledDate, type: typeof d.scheduledDate, userId: d.userId };
+    }, seeded.leadId);
+    expect(persisted.type, 'scheduledDate stored as a string').toBe('string');
+    expect(persisted.scheduledDate, 'date-only value round-trips verbatim').toBe(seeded.todayStr);
+
+    // Surface contract: navigate to the Schedule view (stamps the template)
+    // and render. The rep-typed date never reaches /appointments, so it must
+    // appear via the "Scheduled today · no set time" block, wired to open
+    // the lead card. _leads should already hold the lead (_saveLead awaits
+    // loadLeads), but poll briefly to absorb a slow refresh.
+    await page.evaluate(() => window.goTo('schedule'));
+    await expect(page.locator('#calUpcoming')).toBeAttached({ timeout: 10_000 });
+    const inLeads = await page.waitForFunction(
+      (id) => (window._leads || []).some(l => l && l.id === id), seeded.leadId, { timeout: 15_000 });
+    expect(inLeads).toBeTruthy();
+    await page.evaluate(async () => { await window.loadSmartCalendar(); });
+
+    const host = page.locator('#calUpcoming');
+    await expect(host, 'manual-scheduled block rendered').toContainText('Scheduled today', { timeout: 10_000 });
+    await expect(host, 'the scheduled lead is listed by name').toContainText(`[E2E] Sched ${stamp}`);
+    // The Open → button must carry the REAL lead id — that's what the
+    // openCardDetail click delegate dispatches on.
+    await expect(
+      page.locator(`#calUpcoming [data-sc-action="openCardDetail"][data-sc-id="${seeded.leadId}"]`),
+      'Open → button wired to the lead id'
+    ).toHaveCount(1);
+  });
+
+  test('expense: ledger stores integer cents + config-derived costType; mileage amount computed from the IRS rate', async ({ page }) => {
+    // createExpense swallows write failures to a bare `false` (toast +
+    // return) — the page console is the only witness to WHAT failed.
+    const pageLog = [];
+    page.on('console', msg => pageLog.push(`[${msg.type()}] ${msg.text()}`));
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // Expenses ship in the lazy 'expenses' bundle (expense-config first —
+    // the category→costType source of truth expenses.js reads at save time).
+    // createExpense is the exact write path the Log Expense modal's Save
+    // button funnels into (saveFromForm → createExpense). It runs on
+    // window.db (bootstrap line 812), not _db — gate on both ends.
+    await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
+    await page.evaluate(() => window.ScriptLoader.loadBundle('expenses'));
+    await page.waitForFunction(() =>
+      window.Expenses && typeof window.Expenses.createExpense === 'function'
+      && window.ExpenseConfig && typeof window.ExpenseConfig.costTypeFor === 'function'
+      && window.db && typeof window.addDoc === 'function', null, { timeout: 20_000 });
+
+    const stamp = Date.now();
+    // Fixed 2026 entry date: the mileage amount is COMPUTED (miles × the IRS
+    // rate snapshotted by the entry's tax YEAR — expense-config.js table:
+    // 2026 = 72.5¢/mi), so pinning the year keeps the expected cents stable
+    // when the table gains future years.
+    const DATE_STR = '2026-07-01';
+    const out = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey —
+      // createExpense stamps userId/createdBy from window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      // Unique supplier per doc per attempt: it's the read-back key, and
+      // createExpense itself has no duplicate guard to trip (that lives in
+      // the form layer), so a retry never collides or blocks.
+      const supplierMat = '[E2E] Supply Co ' + args.stamp;
+      const supplierMi = '[E2E] Mileage ' + args.stamp;
+
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const dbEarly = window.db || window._db;
+      const uidEarly = (window._auth || window.auth).currentUser.uid;
+      // Rapid back-to-back addDocs trip the emulator's commit-retry bug
+      // (ALREADY_EXISTS / transient rejection — the same class docgen's
+      // lead-create flakes on), and createExpense swallows that to `false`.
+      // 2026-07-05 shard2 run: the SECOND create (mileage) failed 4/4 while
+      // the first succeeded 4/4. Retry once after a beat — but probe the
+      // unique supplier first: a retry-ambiguous failure may have actually
+      // landed the doc, and blind re-create would break the exactly-one
+      // assertion.
+      async function createOnce(payload, supplier) {
+        let ok = await window.Expenses.createExpense(payload);
+        if (!ok) {
+          await new Promise(r => setTimeout(r, 1500));
+          const probe = await fsMod.getDocs(fsMod.query(
+            fsMod.collection(dbEarly, 'expenses'),
+            fsMod.where('userId', '==', uidEarly),
+            fsMod.where('supplier', '==', supplier)
+          ));
+          ok = probe.empty ? await window.Expenses.createExpense(payload) : true;
+        }
+        return ok;
+      }
+      const okMat = await createOnce({
+        amount: '1234.56', tax: '7.89', date: args.dateStr,
+        supplier: supplierMat, category: 'materials', leadId: '',
+        note: '[E2E] expenses journey', source: 'manual'
+      }, supplierMat);
+      const okMi = await createOnce({
+        category: 'mileage', miles: '10.5', date: args.dateStr,
+        supplier: supplierMi, leadId: '',
+        note: '[E2E] expenses journey (mileage)', source: 'manual'
+      }, supplierMi);
+      const db = window.db || window._db;
+      const uid = (window._auth || window.auth).currentUser.uid;
+      // The expenses read rule is isOwner(resource.data.userId) — the query
+      // must carry the userId filter or rules reject it as unprovable.
+      async function fetchAndTag(supplier) {
+        const snap = await fsMod.getDocs(fsMod.query(
+          fsMod.collection(db, 'expenses'),
+          fsMod.where('userId', '==', uid),
+          fsMod.where('supplier', '==', supplier)
+        ));
+        const docs = [];
+        snap.forEach(d => docs.push(Object.assign({ id: d.id }, d.data())));
+        // Tag for cleanup — createExpense writes a fixed schema with no room
+        // for the flag. Owner update is allowed while userId/companyId/
+        // createdAt/createdBy stay frozen (didNotChange rule).
+        for (const dc of docs) {
+          await fsMod.updateDoc(fsMod.doc(db, 'expenses', dc.id), { e2eTestData: true });
+        }
+        return docs;
+      }
+      const mats = await fetchAndTag(supplierMat);
+      const mis = await fetchAndTag(supplierMi);
+      // Page-local yyyy-mm-dd of the persisted Timestamp — createExpense
+      // parses form.date as LOCAL midnight, so comparing in-page avoids any
+      // test-process timezone skew (and Timestamp doesn't serialize anyway).
+      const ymd = (t) => {
+        const d = t && typeof t.toDate === 'function' ? t.toDate() : new Date(t);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      };
+      const pick = (e) => e && {
+        userId: e.userId, companyId: e.companyId, createdBy: e.createdBy,
+        category: e.category, costType: e.costType,
+        amountCents: e.amountCents, taxCents: e.taxCents, currency: e.currency,
+        leadId: e.leadId, source: e.source, needsReview: e.needsReview,
+        miles: e.miles, mileageRateCents: e.mileageRateCents,
+        dateYmd: e.date ? ymd(e.date) : null,
+        hasCreatedAt: !!e.createdAt
+      };
+      return {
+        uid, okMat, okMi,
+        matCount: mats.length, miCount: mis.length,
+        mat: pick(mats[0]), mi: pick(mis[0]),
+        configRate: window.ExpenseConfig.mileageRateCents(new Date(args.dateStr + 'T00:00:00'))
+      };
+    }, { stamp, dateStr: DATE_STR });
+
+    if (!out.okMat || !out.okMi) {
+      const interesting = pageLog.filter(l =>
+        /expenses|expense|firestore|offline|denied|ALREADY_EXISTS|failed/i.test(l)).slice(-10);
+      throw new Error(`createExpense failed (materials ok=${out.okMat}, mileage ok=${out.okMi}) even after the probe-retry. Page console (filtered):\n`
+        + (interesting.join('\n') || '(nothing relevant logged)'));
+    }
+    expect(out.matCount, 'exactly one materials expense for the unique supplier').toBe(1);
+    expect(out.miCount, 'exactly one mileage expense for the unique supplier').toBe(1);
+
+    // Money contract: amounts live as INTEGER CENTS (never float dollars) —
+    // the drift-proofing rule the whole subsystem is built on.
+    const mat = out.mat;
+    expect(mat.amountCents, "'1234.56' → 123456 integer cents").toBe(123456);
+    expect(mat.taxCents, "tax '7.89' → 789 cents").toBe(789);
+    expect(mat.currency, 'currency clamped to USD').toBe('USD');
+    // Category taxonomy contract: materials is a DIRECT job cost — this
+    // single field is what aggregate()/jobMargin() bucket COGS on, so a
+    // wrong costType silently corrupts every margin readout.
+    expect(mat.category).toBe('materials');
+    expect(mat.costType, "category 'materials' stamps costType 'direct'").toBe('direct');
+    expect(mat.leadId, "empty job select persists leadId null (overhead-style unassigned)").toBeNull();
+    expect(mat.userId, 'userId stamped').toBe(out.uid);
+    expect(mat.createdBy, 'createdBy stamped').toBe(out.uid);
+    expect(mat.companyId, 'companyId stamped (solo convention: uid)').toBeTruthy();
+    expect(mat.source, 'manual entry recorded as manual').toBe('manual');
+    expect(mat.needsReview, 'manual entry needs no OCR review').toBe(false);
+    expect(mat.dateYmd, 'entry date round-trips to the same LOCAL day').toBe(DATE_STR);
+    expect(mat.hasCreatedAt, 'createdAt serverTimestamp present').toBe(true);
+
+    // Mileage contract: the amount is COMPUTED, not typed — miles × the IRS
+    // business rate for the entry's tax year (2026 = 72.5¢/mi), rounded to
+    // the cent, and the rate is SNAPSHOTTED on the doc so a future table
+    // change can't rewrite history. costType overhead (vehicle cost, not a
+    // single job's COGS).
+    const mi = out.mi;
+    expect(out.configRate, '2026 IRS business rate is 72.5¢/mi').toBe(72.5);
+    expect(mi.mileageRateCents, 'rate snapshotted on the doc').toBe(72.5);
+    expect(mi.miles, 'miles persisted').toBe(10.5);
+    expect(mi.amountCents, '10.5 mi × 72.5¢ = 761 cents (rounded)').toBe(Math.round(10.5 * 72.5));
+    expect(mi.costType, 'mileage is overhead, never a job cost').toBe('overhead');
+  });
+
+  test('customer page: /pro/customer?id= hydrates the lead detail surface', async ({ page }) => {
+    // Same nominatim stub as the save-lead journey — _saveLead geocodes new
+    // addresses and OSM rate-limits CI IPs with no client timeout.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    const stamp = Date.now();
+    // Seed on the dashboard (the only surface exposing _saveLead), then
+    // open the detail page. Same re-fetch-by-lastName pattern as the
+    // docgen journey (_saveLead returns null on the geocoded path); the
+    // read-back also hands us the address the page must render.
+    const seeded = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey — _saveLead
+      // stamps userId from window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      // ALREADY_EXISTS tolerance (emulator commit-retry; see fixtures/auth.js
+      // addDoc patch note) — the lead landed; the re-fetch below finds it.
+      try {
+      await window._saveLead({
+        firstName: '[E2E] Cust',
+        lastName: String(args.stamp),
+        // Unique per attempt so LeadDedup's blocking prompt never fires.
+        address: `${String(args.stamp).slice(-3)} Customer Detail Ct, Cincinnati, OH`,
+        phone: '513' + String(args.stamp).slice(-7),
+        email: `e2e-cust-${args.stamp}@nbd.test`,
+        stage: 'new',
+        e2eTestData: true
+      });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      // userId filter keeps the query provable under the leads read rule
+      // (isOwner(resource.data.userId)) — see the save-lead journey.
+      const uid = (window._auth || window.auth).currentUser.uid;
+      const snap = await fsMod.getDocs(fsMod.query(
+        fsMod.collection(db, 'leads'),
+        fsMod.where('userId', '==', uid),
+        fsMod.where('lastName', '==', String(args.stamp)),
+        fsMod.where('e2eTestData', '==', true)
+      ));
+      let out = null;
+      snap.forEach(d => { if (!out) out = { id: d.id, address: d.data().address }; });
+      return out;
+    }, { stamp });
+    expect(seeded && seeded.id, 'seeded [E2E] Cust lead has an id').toBeTruthy();
+
+    // Navigate to the per-lead detail surface. Console cleanliness is
+    // deliberately NOT asserted: customer.html defers ~60 companion
+    // modules, several of which may hit callables that connection-refuse
+    // without the functions emulator. customer-bootstrap itself is
+    // Firestore-only on the load path (every sub-loader — timeline/
+    // photos/documents/estimates/notes — is individually try/caught and
+    // non-fatal), so hydration of the header + data bridge is the signal.
+    // One retry on ERR_ABORTED: a cold goto can race an in-page redirect
+    // (SW registration / auth-restore) that cancels the navigation —
+    // observed on CI retry 2026-07-05. The second attempt lands normally.
+    try {
+      await page.goto(`/pro/customer.html?id=${seeded.id}`);
+    } catch (e) {
+      if (!/ERR_ABORTED/.test(String(e))) throw e;
+      await page.waitForTimeout(1_000);
+      await page.goto(`/pro/customer.html?id=${seeded.id}`);
+    }
+
+    // Hydration: loadCustomerData writes #customerName, then the auth
+    // handler flips documentElement opacity to '1'. The failure paths are
+    // an auth bounce to /pro/login (onAuthStateChanged without a user) or
+    // showError replacing .container ("Customer not found") — surface
+    // WHICH ONE happened instead of an opaque timeout.
+    const expectedName = `[E2E] Cust ${stamp}`;
+    try {
+      await page.waitForFunction((n) => {
+        const el = document.getElementById('customerName');
+        return !!el && el.textContent === n;
+      }, expectedName, { timeout: 20_000 });
+    } catch (e) {
+      const state = await page.evaluate(() => ({
+        url: location.href,
+        opacity: document.documentElement.style.opacity || '(unset)',
+        nameEl: (document.getElementById('customerName') || { textContent: '(el missing — showError nuked .container?)' }).textContent,
+        containerText: ((document.querySelector('.container') || {}).innerText || '(no .container)').slice(0, 200),
+      })).catch(() => ({ note: 'evaluate failed — page context gone (auth bounce mid-wait?)', url: page.url() }));
+      throw new Error('customer page never hydrated lead ' + seeded.id + ' — ' + JSON.stringify(state));
+    }
+
+    // No auth bounce: still on the customer page, not kicked to /login.
+    expect(page.url(), 'stayed on the customer detail page (no auth bounce)')
+      .toMatch(/\/pro\/customer(\.html)?\?/);
+    // No upgrade wall. customer.html ships no billing gate today — this
+    // locks in that the detail surface stays reachable if one is added.
+    await expect(page.locator('#nbd-upgrade-wall'), 'customer page must not be upgrade-walled')
+      .toHaveCount(0);
+
+    // Header contract: the seeded values render verbatim, and the boot
+    // module reports hydration complete (the opacity flip happens only
+    // after loadCustomerData resolves without throwing).
+    await expect(page.locator('#customerName')).toHaveText(expectedName);
+    await expect(page.locator('#customerAddress')).toHaveText(seeded.address);
+    // The opacity flip is the LAST line of loadCustomerData — the header
+    // fields above render mid-function, so a one-shot check here raced the
+    // function's tail (CI 2026-07-05: name+address green, opacity still
+    // '0'). Wait for it like any other async completion signal.
+    await page.waitForFunction(() => document.documentElement.style.opacity === '1',
+      null, { timeout: 15_000 });
+
+    // THE contract: stage key → display label mapping plus the external-
+    // module data bridge. Every companion module on this page (photo-
+    // report, profit-tracker, document-generator, customer-portal) reads
+    // window._leads/_currentLead instead of re-fetching — a hydration
+    // regression here breaks all of them at once.
+    const bridge = await page.evaluate(() => ({
+      currentLeadId: (window._currentLead && window._currentLead.id) || null,
+      leadsBridge: (Array.isArray(window._leads) && window._leads.length === 1 && window._leads[0].id) || null,
+      customerIdOnLead: (window._currentLead && window._currentLead.customerId) || null,
+      stageBadge: (document.getElementById('customerStage') || {}).textContent,
+      stageClass: (document.getElementById('customerStage') || {}).className,
+      customerIdBadge: (document.getElementById('customerIdDisplay') || {}).textContent,
+    }));
+    expect(bridge.currentLeadId, 'window._currentLead hydrated with this lead').toBe(seeded.id);
+    expect(bridge.leadsBridge, 'window._leads bridge holds exactly this lead').toBe(seeded.id);
+    expect(bridge.stageBadge, "stage key 'new' renders its display label").toBe('New Lead');
+    expect(bridge.stageClass, 'stage badge carries the stage-keyed class').toContain('stage-new');
+    // Cross-surface contract: the NBD-#### customerId minted at save time
+    // (dashboard counter transaction; auto-assigned by the page itself
+    // for pre-counter legacy leads) is what the detail header badges.
+    expect(bridge.customerIdOnLead, 'customerId on the hydrated lead follows NBD-####').toMatch(/^NBD-\d{4,}$/);
+    expect(bridge.customerIdBadge, 'customer ID badge renders the minted id').toBe(bridge.customerIdOnLead);
+  });
+});
+
+
+// ───────────────────────────────────────────────────────────────
+test.describe('Signup funnel — free tier reaches the dashboard @shard2', () => {
+  test.beforeEach(async ({}, testInfo) => {
+    // Only meaningful against the emulator: prod runs must not mint accounts.
+    if (!/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) {
+      testInfo.skip(true, 'signup journey runs in emulator mode only');
+    }
+  });
+
+  test('register (no code) → onboarding skip → dashboard, unwalled, plan free', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
+    const stamp = Date.now();
+    const email = `e2e-signup-${stamp}@nbd.test`;
+
+    await page.goto('/pro/register.html');
+    await page.waitForLoadState('load');
+    await page.fill('#regFirst', '[E2E] Signup');
+    await page.fill('#regLast', String(stamp));
+    await page.fill('#regEmail', email);
+    await page.fill('#regPass', 'nbd-e2e-signup-pw-1');
+    await page.fill('#regConfirm', 'nbd-e2e-signup-pw-1');
+    // #regCode deliberately left blank — the free path.
+    await page.click('#regBtn');
+
+    // Free path: createUser → users/{uid} (onboarded:false) → createCompany
+    // (fails silently in emulator — non-fatal by design) → onboarding.
+    // A validation/auth failure writes to #regErr and never navigates —
+    // surface THAT text instead of an opaque waitForURL timeout.
+    try {
+      await page.waitForURL(/\/pro\/onboarding(\.html)?([?#]|$)/, { timeout: 20_000 });
+    } catch (e) {
+      const regErr = await page.locator('#regErr').textContent().catch(() => '');
+      throw new Error('register never navigated to onboarding'
+        + (regErr ? ` — #regErr: "${regErr.trim()}"` : ' — #regErr empty (silent hang)'));
+    }
+
+    // The skip link is STATIC markup — visible before onboarding.js binds
+    // its click delegate (inside onAuthStateChanged, after prefill), and
+    // skip() also needs state.user. A too-fast click silently no-ops (the
+    // openCrmView race class; this exact race failed CI 2026-07-05).
+    // prefill() stamps #obEmail with the signed-in user's email right
+    // around delegate binding — wait for it as the module-ready signal,
+    // then retry-click until the URL actually moves.
+    try {
+      await page.waitForFunction((expected) => {
+        const el = document.getElementById('obEmail');
+        return !!el && el.value === expected;
+      }, email, { timeout: 20_000 });
+    } catch (e) {
+      const state = await page.evaluate(() => ({
+        url: location.href,
+        obEmail: (document.getElementById('obEmail') || { value: '(el missing)' }).value,
+        ready: document.readyState,
+      })).catch(() => ({ note: 'evaluate failed (context gone?)' }));
+      throw new Error('onboarding module never became ready — ' + JSON.stringify(state));
+    }
+    const skipBtn = page.locator('[data-action="skip"]').first();
+    let onDashboard = false;
+    for (let attempt = 0; attempt < 5 && !onDashboard; attempt++) {
+      await skipBtn.click();
+      // skip() writes onboarded:true (+ onboardingSkipped) then toDashboard().
+      onDashboard = await page
+        .waitForURL(/\/pro\/dashboard(\.html)?([?#]|$)/, { timeout: 5_000 })
+        .then(() => true)
+        .catch(() => false);
+    }
+    if (!onDashboard) {
+      throw new Error('onboarding skip never handed off — stuck at ' + page.url());
+    }
+
+    // Let the auth gate fully resolve (goTo is defined by dashboard-ui after
+    // the gate's onReady path un-hides the page).
+    await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 20_000 });
+
+    // THE regression lock: a free account (no subscriptions doc at all)
+    // must NOT hit the full-screen upgrade wall — the dashboard IS the
+    // free product. Before the fix this selector was present for every
+    // free signup, with no continue-free path.
+    await expect(page.locator('#nbd-upgrade-wall'), 'free account must not be upgrade-walled')
+      .toHaveCount(0);
+    // And the page must actually be visible (the gate un-hides it only on
+    // the success path).
+    const visible = await page.evaluate(() => document.documentElement.style.visibility !== 'hidden');
+    expect(visible, 'gate un-hid the page (onReady path ran)').toBe(true);
+
+    // Plan resolved as canonical free for a brand-new account. Bootstrap
+    // sets window._userPlan ASYNCHRONOUSLY (token-claims read + a
+    // 4s-timeout subscription getDoc) — round 4 read it before it landed
+    // (null). Wait for it, then assert the value.
+    await page.waitForFunction(() => !!window._userPlan, null, { timeout: 20_000 });
+    const authState = await page.evaluate(() => ({
+      plan: window._userPlan || null,
+      email: (window._user && window._user.email) || null,
+    }));
+    expect(authState.plan, 'no subscription doc resolves to the free plan').toBe('free');
+    expect(authState.email, 'dashboard session belongs to the new signup').toBe(email);
+
+    // The free product works: navigate to the pipeline like a user.
+    await page.evaluate(() => window.goTo('crm'));
+    await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first())
+      .toBeVisible({ timeout: 15_000 });
+
+    // Console hygiene, with the standard emulator-mode exclusions. The
+    // createCompany connection-refused IS expected here (no functions
+    // emulator) and register.js handles it non-fatally.
+    const hard = consoleErrors.filter(e =>
+      !/Report Only|favicon|Service Worker registration|chrome-extension/i.test(e)
+      && !/127\.0\.0\.1:5001|ERR_CONNECTION_REFUSED|Failed to load resource|app-?check|ReCAPTCHA|cloudfunctions\.net|CORS policy|createCompany/i.test(e)
+    );
+    expect(hard, 'no unexpected console errors across the funnel').toEqual([]);
   });
 });

@@ -21,13 +21,15 @@
  * — a number reps can glance at across the day to know if their
  * pipeline is on the rails or going stale.
  *
- * Exposes: window.NeedsAttention.{compute, isActive, toggle, recount}
+ * Exposes: NeedsAttention.{compute, isActive, toggle, recount}
  *          window.toggleNeedsAttention (for inline onclick)
  */
 (function () {
   'use strict';
 
-  if (window.NeedsAttention && window.NeedsAttention.__sentinel === 'nbd-needs-attention-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['needs-attention-filter']) return;
+  __NBD_LOADED['needs-attention-filter'] = true;
 
   const STAGE_AGE_DAYS    = 7;     // matches Wave 17 'stale' threshold
   const ESTIMATE_STALE_DAYS = 3;   // matches Wave 13 stale-estimate
@@ -159,7 +161,6 @@
     if (!active) {
       // Restore default rendering (no filter override).
       window._filteredLeads = null;
-      window._needsAttentionActive = false;
       if (typeof window.renderLeads === 'function') {
         window.renderLeads(window._leads, null);
       }
@@ -168,7 +169,6 @@
     }
     const subset = compute();
     window._filteredLeads = subset;
-    window._needsAttentionActive = true;
     if (typeof window.renderLeads === 'function') {
       window.renderLeads(window._leads, subset);
     }
@@ -198,8 +198,7 @@
   }
 
   // Expose API
-  window.NeedsAttention = {
-    __sentinel: 'nbd-needs-attention-v1',
+  const NeedsAttention = {
     compute,
     count,
     isActive: () => active,

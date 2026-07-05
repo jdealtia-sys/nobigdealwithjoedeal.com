@@ -4,6 +4,7 @@
 // PHOTO REPORT GENERATOR
 // ============================================
 
+let removeDocFromQueue; // module-local (globals Tranche 1 — was window.*)
 window.generatePhotoReport = async function() {
   if (!window._customerPhotos || window._customerPhotos.length === 0) {
     alert('No photos to generate report from');
@@ -337,7 +338,7 @@ function updateDocUploadPreview() {
   });
 }
 
-window.removeDocFromQueue = function(index) {
+removeDocFromQueue = function(index) {
   window._docUploadQueue.splice(index, 1);
   updateDocUploadPreview();
 };

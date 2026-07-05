@@ -33,6 +33,111 @@ section('Cloud Functions exports');
     /TEAM_ROLES = \['company_admin'[^\]]*\]/.test(src));
 }
 
+// ── firebase-admin v14 readiness: no legacy namespace accessors ──
+// v14 removed the service accessors from require('firebase-admin')
+// (admin.firestore / admin.auth() / admin.storage() / FieldValue via
+// the namespace). Only initializeApp/getApps/cert survive there. These
+// break at RUNTIME, not import time, so a grep guard is the only cheap
+// tripwire. Modular imports (firebase-admin/firestore etc.) are the rule.
+section('firebase-admin v14: legacy namespace is dead');
+{
+  const LEGACY = /\badmin\s*\.\s*(firestore|auth|storage|messaging|database|credential|appCheck|remoteConfig|instanceId|projectManagement|securityRules|machineLearning)\b/;
+  // Files allowed to keep `const admin = require('firebase-admin')` —
+  // they only call admin.initializeApp(), which v14 still exports.
+  const REQUIRE_ALLOWLIST = new Set([
+    'index.js', 'seed-demo.js', 'seed-companies.js', 'rate-limit-policy.js',
+    'migrations/runner.js', 'migrate-companyprofile-per-tenant.js',
+    'migrate-companyid-backfill.js',
+  ]);
+  const offendersLegacy = [];
+  const offendersRequire = [];
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      if (name === 'node_modules' || name.startsWith('.')) continue;
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) { walk(p); continue; }
+      if (!name.endsWith('.js')) continue;
+      const rel = path.relative(FUNCTIONS, p).replace(/\\/g, '/');
+      const src = fs.readFileSync(p, 'utf8');
+      // Strip line comments so prose like "platform admin. The..." can't trip it.
+      const code = src.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+      if (LEGACY.test(code)) offendersLegacy.push(rel);
+      if (/require\(['"]firebase-admin['"]\)/.test(code) && !REQUIRE_ALLOWLIST.has(rel)) {
+        offendersRequire.push(rel);
+      }
+    }
+  };
+  walk(FUNCTIONS);
+  assert('no legacy admin.<service> accessors anywhere under functions/ — ' +
+    (offendersLegacy.join(', ') || 'clean'), offendersLegacy.length === 0);
+  assert('bare require(firebase-admin) only in initializeApp allowlist — ' +
+    (offendersRequire.join(', ') || 'clean'), offendersRequire.length === 0);
+}
+
+// ── rotateAccessCodes: opt-in revocation cascade (2026-07 audit) ──
+// Deactivating a code only blocks FUTURE redemptions; accounts that
+// already redeemed keep their subscriptions/{uid} plan forever unless
+// { revokeGrants: true } cascades the rotation to those grants. The
+// cascade must stay OPT-IN (default false) — rotating to stop new
+// signups must never silently downgrade existing customers.
+section('rotateAccessCodes: access-code revocation cascade');
+{
+  const adminSrc = read(path.join(FUNCTIONS, 'handlers/admin.js'));
+  const bodyMatch = adminSrc.match(/exports\.rotateAccessCodes\s*=\s*onCall\([\s\S]*?\n\);/);
+  assert('rotateAccessCodes export body found', !!bodyMatch);
+  const body = bodyMatch ? bodyMatch[0] : '';
+
+  // Auth guards unchanged: signed-in + platform admin only.
+  assert('still requires auth (unauthenticated guard)',
+    /unauthenticated/.test(body));
+  assert('still platform-admin only (role !== admin → permission-denied)',
+    /request\.auth\.token\.role !== 'admin'[\s\S]{0,120}permission-denied/.test(body));
+
+  // Opt-in contract: strict-boolean true, defaults false.
+  assert('revokeGrants parsed as strict === true (opt-in, default false)',
+    /revokeGrants\s*=\s*!!\(request\.data && request\.data\.revokeGrants === true\)/.test(body));
+  assert('cascade only runs behind the revokeGrants flag',
+    /if \(revokeGrants\) \{[\s\S]*?where\('source', '==', 'access_code'\)/.test(body));
+
+  // Query shape: source == access_code AND accessCode in <legacy codes>,
+  // chunked to the Firestore 'in' cap of 30.
+  assert('cascade queries subscriptions by source + accessCode-in',
+    /collection\('subscriptions'\)[\s\S]{0,120}where\('source', '==', 'access_code'\)[\s\S]{0,80}where\('accessCode', 'in', chunk\)/.test(body));
+  assert("chunks the 'in' filter at Firestore's cap of 30",
+    /IN_CAP = 30/.test(body) && /LEGACY_ACCESS_CODES\.slice\(i, i \+ IN_CAP\)/.test(body));
+
+  // Downgrade contract: plan free + status revoked + audit trail on the doc.
+  assert('downgrade writes plan:free + status:revoked',
+    /plan:\s*'free',\s*\n\s*status:\s*'revoked'/.test(body));
+  assert('audit trail fields kept on the subscription doc',
+    /revokedAt: FieldValue\.serverTimestamp\(\)/.test(body)
+    && /revokedBy: uid/.test(body)
+    && /revokedFromCode:/.test(body));
+  assert('idempotent: already-revoked grants are skipped',
+    /status === 'revoked' && sub\.plan === 'free'\) continue/.test(body));
+
+  // Counts surface in the response + audit_log entry.
+  assert('response returns cascade counts',
+    /return \{ success: true, deactivated, revokeGrants, revokedGrants \}/.test(body));
+  assert('audit_log entry records revokeGrants + revokedGrants',
+    /audit_log[\s\S]{0,400}revokeGrants,\s*\n\s*revokedGrants/.test(body));
+
+  // Client safety: the admin-manager button must NOT opt in — rotating
+  // from the UI stays deactivate-only unless someone deliberately wires
+  // (and confirms) the cascade.
+  const adminUi = read(path.join(PRO_JS, 'admin-manager.js'));
+  assert('admin-manager UI does not pass revokeGrants (default-false path)',
+    !/revokeGrants/.test(adminUi));
+
+  // The cascade's premise: plan is doc-resolved, not claim-resolved —
+  // validateAccessCode stamps only a role claim at redemption, so a doc
+  // downgrade is sufficient (no claims surgery on revoke).
+  const portalSrc = read(path.join(FUNCTIONS, 'handlers/portal.js'));
+  assert('validateAccessCode sets only a role claim (plan lives in the subscriptions doc)',
+    /setCustomUserClaims\(userRecord\.uid, \{ role \}\)/.test(portalSrc));
+}
+
 // ── Phase C: public-lead → CRM pipeline bridge (H-1) ─────────
 section('Phase C: lead-bridge (H-1 intake → CRM)');
 {

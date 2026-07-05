@@ -30,8 +30,9 @@
 (function () {
   'use strict';
 
-  if (window.CustomerQuickActionBar
-      && window.CustomerQuickActionBar.__sentinel === 'nbd-quick-action-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['customer-quick-action-bar']) return;
+  __NBD_LOADED['customer-quick-action-bar'] = true;
 
   const PATH = window.location.pathname || '';
   if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
@@ -202,8 +203,7 @@
     window.addEventListener('nbd:data-refreshed', () => setTimeout(ensureBar, 60));
   }
 
-  window.CustomerQuickActionBar = {
-    __sentinel: 'nbd-quick-action-v1',
+  const CustomerQuickActionBar = {
     refresh: ensureBar,
   };
 

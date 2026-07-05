@@ -2,8 +2,19 @@
 NBD PRO CRM - MULTI-TENANT ARCHITECTURE
 ================================================================================
 
-Last updated: 2026-07-04 (June ops-audit item 7 refresh).
-Corrections in this pass:
+Last updated: 2026-07-05 (post-merge refresh: PRs #839/#840/#841 + the
+functions dependency majors).
+Added in this pass (2026-07-05) — new sections at the end of this doc:
+  - BILLING, PLANS & TRIALS: canonical plan keys (free/starter/growth/
+    enterprise) with permanent read-boundary aliases for the legacy
+    vocabulary; access-code lifecycle (atomic redemption, read-time trial
+    expiry, single-writer trialEndsAt); the dashboard's requiredPlan:'free'
+    gate; Stripe trial countdown from currentPeriodEnd.
+  - TESTING & CI: 16 hermetic authed E2E journeys (incl. the signup funnel itself) on emulators.
+  - DASHBOARD SHELL (ROCK 4): Phases 1-5 complete, ~6,080 lines, zero
+    inline onclick handlers.
+  - DATA MIGRATIONS, PUBLIC B2B SURFACE & SEO, OPS & DEPENDENCY BASELINE.
+Previous pass (2026-07-04, June ops-audit item 7 refresh):
   - Cloud Functions summary aligned to functions/index.js; the maintained
     per-function catalog is functions/FUNCTIONS_INDEX.md.
   - The claim that notifyNewLead (functions/verify-functions.js) does
@@ -446,6 +457,154 @@ Recommendations:
   • Monitor Firestore usage in Firebase Console
   • Add metrics per company (Phase 3)
   • Consider read-only replicas for reports
+
+
+BILLING, PLANS & TRIALS (added 2026-07-05)
+================================================================================
+
+Plan keys — canonical internally, aliased at read boundaries:
+
+  The internal plan vocabulary is CANONICAL everywhere as of PR #841:
+  free / starter / growth / enterprise. The legacy vocabulary
+  (lite / foundation / blueprint / professional) survives ONLY as
+  read-boundary aliases:
+    - docs/pro/js/nbd-auth.js — PLAN_ALIASES + _normalizePlan(); PLAN_LEVELS
+      is canonical; requiredPlan / hasAccess() / showUpgradeWall() normalize
+      their input so legacy callers still gate correctly.
+    - docs/pro/js/billing-gate.js — its own PLAN_ALIASES mirror; `_plan` and
+      getPlan().plan are always canonical after loadSubscription(); legacy
+      alias rows are kept in PLANS as belt-and-braces.
+    - functions/billing.js — PLAN_LIMITS carries alias rows
+      (foundation == starter caps, professional == growth caps) so the
+      server meter accepts legacy plan values.
+  Resolution happens ONCE, at these read boundaries. New writes emit
+  canonical keys only — including access-code grants in
+  functions/handlers/portal.js (code docs may carry either vocabulary on
+  input; the grant writes starter/growth). The alias maps are PERMANENT by
+  design: production subscriptions/* docs and Stripe metadata carry the
+  legacy values forever, so never "clean up" the alias resolution.
+  'lite' is kept as a distinct internal state ("free because a code trial
+  expired", never persisted) — see PLAN_LEVELS in nbd-auth.js.
+
+Access-code lifecycle (validateAccessCode, functions/handlers/portal.js):
+
+  - Redemption is TRANSACTIONAL: validate + reserve a use atomically
+    (db.runTransaction checks active/expiry/maxUses and increments useCount
+    in one shot — closes the TOCTOU double-redeem of one-time codes); if
+    the downstream side effects fail, the catch releases the reservation.
+  - The register page no longer advertises a public code (the old UI
+    printed "NBD-PRO" to every visitor; no such code is seeded).
+  - Codes NEVER grant admin (role clamped to manager/member).
+  - Trial expiry is enforced at READ time: a subscription doc with
+    source:'access_code' whose trialEndsAt is in the past gates as the
+    FREE plan in both the server meter (functions/billing.js trackUsage)
+    and the client gate (billing-gate.js). Nothing rewrites the doc.
+  - trialEndsAt has exactly ONE writer: validateAccessCode. The Stripe
+    webhook never writes it. This is a documented invariant with a
+    smoke-test lock (single-writer scan across functions/).
+
+Free tier & the dashboard gate:
+
+  - The dashboard IS the free product. docs/pro/js/dashboard-auth-gate.module.js
+    runs NBDAuth.init with requiredPlan:'free' (auth still required — the
+    signed-out branch redirects regardless). Before PR #841 it required
+    'foundation', which full-screen-walled every fresh free signup.
+  - Feature limits are billing-gate.js's SOFT gate (warn at 80%, modal at
+    100%); the server-authoritative monthly meter is trackUsage
+    (functions/billing.js). Premium pages (vault, AI tools, analytics)
+    keep higher requiredPlan gates ('starter'/'growth').
+  - Stripe trialers get a REAL countdown: the webhook writes status
+    'trialing' verbatim plus currentPeriodEnd (never trialEndsAt);
+    nbd-auth derives trial days from currentPeriodEnd (trial_end ==
+    current_period_end while trialing) and isTrialExpired requires a
+    KNOWN end — an unknown end never renders as "trial ended".
+
+Stripe plumbing:
+
+  - All Stripe calls go through a shared getStripe() client
+    (functions/stripe.js, PR #774): trims the secret key (a trailing
+    newline in the secret looked like a Stripe outage) and configures
+    retries. Handlers never instantiate their own client.
+  - Subscription docs live at subscriptions/{companyId || uid}
+    (company-level billing, Pillar 4 — see the login flow above).
+
+
+TESTING & CI (added 2026-07-05)
+================================================================================
+
+  - Authed E2E (Rock 3): 16 hermetic journeys (money paths + the signup funnel) in
+    tests/e2e/pro-authed.spec.js — login/persistence, save-lead
+    (companyId + customerId), stage move (timeline + stageStartedAt),
+    estimate parity (browser V2 math vs the Node engine), invoice
+    (totals + deposit + balanceDue), photo upload (original + thumb via
+    the STORAGE emulator), doc generation (metadata + rendered HTML),
+    D2D knock (transaction-guarded auto-convert: exactly one linked
+    lead), scheduling (date-only scheduledDate, no UTC day-shift), and
+    expenses (integer cents + IRS-rate mileage).
+  - The suite is hermetic: CI job e2e-authed-emulator
+    (.github/workflows/ci.yml) runs `npm run test:e2e:authed:emu`, which
+    boots the auth + firestore + storage + hosting emulators, seeds a
+    known tenant (tests/e2e/fixtures/seed-emulator.js — mirrors what
+    createCompany writes), and drives http://127.0.0.1:5000. No prod
+    credentials; nbd-emulator-connect.js points the client SDK at the
+    emulators automatically. continue-on-error until proven stable.
+  - Rules tests (firestore + cross-tenant + storage) run against
+    emulators in the same workflow and remain authoritative for the
+    security boundaries described above.
+
+
+DASHBOARD SHELL — ROCK 4 DECOMPOSITION (status 2026-07-05)
+================================================================================
+
+  docs/pro/dashboard.html is DECOMPOSED: Phases 1-5 of the Rock 4 plan are
+  complete. ~6,080 lines (from 14,425); every view — including view-est,
+  the deliberate last holdout — is an empty mount + <template> hydrated on
+  first goTo(); inline onclick count is ZERO (416 → a body-level
+  data-action delegate); CSS and boot/body scripts moved to
+  docs/pro/js/*.js + dashboard-*.module.js. `?legacy=1` still serves the
+  pre-decomposition rollback snapshot (refreshed 2026-07-04).
+  Remaining: Phase 6 (drop 'unsafe-inline' from script-src — blocked on
+  the Rock 1 DNS cutover being authoritative for CSP) and the per-view
+  module pattern for window.* globals. The maintained status + manifest is
+  docs/dev/dashboard-decomposition-plan.md — that file is canonical.
+
+
+DATA MIGRATIONS
+================================================================================
+
+  Versioned migration runner: functions/migrations/runner.js with scripts
+  in functions/migrations/scripts/ (001 noop-init, 002 backfill
+  stageStartedAt, 003 stamp timestamp-less leads so they join the dormant
+  window). A stale-migrations-tick alert policy exists in monitoring/.
+
+
+PUBLIC B2B SURFACE & SEO (added 2026-07-05)
+================================================================================
+
+  - Terms of Service page at /pro/terms (docs/pro/terms.html), linked from
+    the register page alongside the privacy policy.
+  - /sitemap-pro.xml (docs/sitemap-pro.xml) is a separate B2B sitemap for
+    the SaaS front door, referenced from docs/robots.txt alongside the
+    homeowner sitemap.
+  - Canonical + og:url tags on the funnel pages (landing, pricing,
+    register, …) point at the SERVED extensionless URLs
+    (e.g. https://nobigdealwithjoedeal.com/pro/pricing).
+
+
+OPS & DEPENDENCY BASELINE (added 2026-07-05)
+================================================================================
+
+  - Tenant-microsite alert policy: monitoring/alert-tenant-microsite-errors.json
+    pages on getPublicSiteConfig 500s (> 3 in 15m) — every /sites/t/<slug>
+    microsite renders from that endpoint, and since the 2026-07-04 Oaks
+    cutover that includes a live paying-tenant site.
+  - functions/ dependency majors move TOGETHER: firebase-admin ^13 +
+    firebase-functions ^7 + twilio ^6. firebase-admin 14 is peer-blocked
+    by every published firebase-functions release — do not bump admin
+    alone (supersedes the single-package dependabot PRs).
+  - /tests fixtures use the MODULAR firebase-admin API (admin ^14 in
+    tests/package.json) — the tests tree and functions tree intentionally
+    differ on admin majors.
 
 
 ================================================================================

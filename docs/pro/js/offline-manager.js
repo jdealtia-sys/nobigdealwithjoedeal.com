@@ -234,7 +234,7 @@
   // ─────────────────────────────────────────────────────────
   // Audit F: re-entry guard. flushQueue() is invoked from three places —
   // init() on boot, handleOnline() on every 'online' event, and the
-  // public window.OfflineManager.flushQueue export. A user toggling
+  // public OfflineManager.flushQueue export. A user toggling
   // airplane mode rapidly (or a flaky cellular handoff) fires multiple
   // 'online' events in quick succession; without a guard each call
   // reads the same getAll() snapshot and sends every queued PATCH to
@@ -750,7 +750,7 @@
   // ─────────────────────────────────────────────────────────
   // Expose public API
   // ─────────────────────────────────────────────────────────
-  window.OfflineManager = {
+  const OfflineManager = {
     init,
     queueWrite,
     flushQueue,
