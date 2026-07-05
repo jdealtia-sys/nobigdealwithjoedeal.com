@@ -7,8 +7,10 @@
 > `goTo()`; the inline-onclick count is ZERO (416 → data-action delegate);
 > CSS and the boot/body scripts moved to `docs/pro/js/*.js` +
 > `dashboard-*.module.js`. `?legacy=1` still serves the pre-decomposition
-> rollback snapshot (refreshed 2026-07-04). Remaining: Phase 6 (drop
-> `'unsafe-inline'` from script-src — blocked on Rock 1 DNS cutover) and
+> rollback snapshot (refreshed 2026-07-04). Phase 6 (CSP tightening) is
+> ALSO done — verified 2026-07-05: script-src is already inline-free in
+> firebase.json and Rock 1 (DNS) landed in June, so the strict policy is
+> what production serves (see the Phase 6 section below). Remaining: only
 > the aspirational per-view module pattern for globals (caveat 4).
 > Everything below this note is the ORIGINAL Phase 1 inventory, kept as
 > the historical manifest; line numbers refer to the 14,425-line file.
@@ -277,11 +279,19 @@ In risk order from least → most painful:
 `data-args`. Can be done incrementally per view as Phase 4 progresses, OR
 as a single sweep after all views are in template fragments.
 
-### Phase 6 — Tighten CSP (after DNS cutover lands; Rock 1)
+### Phase 6 — Tighten CSP — ✅ DONE (verified 2026-07-05)
 
-Once handlers are gone, drop `'unsafe-inline'` from `script-src` in
-`firebase.json`. Requires Hosting to be authoritative — that's blocked on
-Rock 1 (DNS swap on Joe).
+Investigated 2026-07-05: this had ALREADY shipped. Rock 1 is done (the
+apex serves firebase.json's headers — `scripts/verify-deploy.sh` asserts
+them on the live site), and `script-src` / `script-src-elem` contain NO
+`'unsafe-inline'` anywhere in firebase.json; `script-src-attr` is
+`'none'`; no `'unsafe-eval'` (estimate-logic-engine's safeEvalFormula
+replaced `new Function`). Every template `<script>` is src-only, so
+`_hydrateViewTemplate`'s clone-and-re-execute never creates an inline
+script. The `'unsafe-inline'` tokens remaining in firebase.json are all
+`style-src` (required — the dashboard injects <style> elements and uses
+inline style attributes). The /cspReport sink is live for ongoing
+violation monitoring.
 
 ---
 
