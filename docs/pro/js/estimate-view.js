@@ -1,6 +1,14 @@
 (function () {
   'use strict';
-  const FUNCTIONS_BASE = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
+  // Localhost-only emulator switch (same Audit #3 rule as
+  // nbd-emulator-connect.js): the rep-side pages already point their SDK at
+  // the emulators when served from localhost, but the public token pages
+  // hardcoded prod — leaving the homeowner surface untestable in the
+  // hermetic e2e harness. Any hostname other than localhost/127.0.0.1
+  // keeps prod.
+  const FUNCTIONS_BASE = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)
+    ? 'http://127.0.0.1:5001/nobigdeal-pro/us-central1'
+    : 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
   const params = new URLSearchParams(window.location.search);
   const token = (params.get('token') || '').trim();
   const estimateId = (params.get('estimateId') || params.get('id') || '').trim();

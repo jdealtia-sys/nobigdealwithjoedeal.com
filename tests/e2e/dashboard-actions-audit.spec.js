@@ -35,7 +35,7 @@ test.use({
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
 });
 
-test('dashboard-actions-audit', async ({ page }) => {
+test('dashboard-actions-audit @audit', async ({ page }) => {
   test.setTimeout(300_000);
   let creds;
   try { creds = requireTestUser(); } catch (e) { test.skip(true, String(e.message)); return; }

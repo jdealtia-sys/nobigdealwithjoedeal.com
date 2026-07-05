@@ -2178,8 +2178,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <!-- W149: FAB stack coordinator — hides voice/inbox FABs when a
      modal is open so they don't float over the modal content. -->
 <script defer src="/pro/js/fab-stack-coordinator.js?v=1"></script>
-<!-- W150: PWA install prompt -->
-<script defer src="/pro/js/pwa-install.js?v=2"></script>
+<!-- Install prompt — consolidated to pwa-install-nudge.js (2026-07-05).
+     W150 pwa-install.js is deleted: two complete install-prompt systems
+     shared the #nbd-pwa-install-banner id with separate dismissal flags,
+     so dismissing one immediately surfaced the other. The nudge honors
+     W150's stored dismiss/install state, so nobody gets re-nagged. -->
+<script defer src="/pro/js/pwa-install-nudge.js?v=4"></script>
 <!-- W151: offline banner -->
 <script defer src="/pro/js/offline-banner.js?v=1"></script>
 <!-- W144: Supplement engine + UI entry point. Estimate-supplement.js
