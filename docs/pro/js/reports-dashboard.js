@@ -22,8 +22,9 @@
  */
 (function () {
   'use strict';
-  if (window.NBDReportsDashboard
-      && window.NBDReportsDashboard.__sentinel === 'nbd-reports-dash-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['reports-dashboard']) return;
+  __NBD_LOADED['reports-dashboard'] = true;
 
   const TARGET_ID = 'reportsDashboardPanel';
   const STORAGE_KEY = 'nbd_reports_period_v1';
@@ -274,8 +275,7 @@
     setTimeout(_bootstrap, 0);
   }
 
-  window.NBDReportsDashboard = {
-    __sentinel: 'nbd-reports-dash-v1',
+  const NBDReportsDashboard = {
     render,
   };
 })();

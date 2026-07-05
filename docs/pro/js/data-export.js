@@ -20,7 +20,7 @@
  * Filename pattern: nbd-{type}-YYYY-MM-DD.csv (date in local TZ
  * so the rep recognizes it).
  *
- * Exposes: window.DataExport.{exportLeads, exportEstimates,
+ * Exposes: DataExport.{exportLeads, exportEstimates,
  *                              csvEscape, toCsv}
  *          window.exportLeadsCsv / window.exportEstimatesCsv
  *          (legacy onclick names mirroring the bell + cmd-palette
@@ -29,7 +29,9 @@
 (function () {
   'use strict';
 
-  if (window.DataExport && window.DataExport.__sentinel === 'nbd-data-export-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['data-export']) return;
+  __NBD_LOADED['data-export'] = true;
 
   // ─── CSV serialization ───────────────────────────────────────────
   function csvEscape(v) {
@@ -187,8 +189,7 @@
   }
 
   // ─── Public API ─────────────────────────────────────────────────
-  window.DataExport = {
-    __sentinel: 'nbd-data-export-v1',
+  const DataExport = {
     exportLeads,
     exportEstimates,
     csvEscape,

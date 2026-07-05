@@ -20,7 +20,7 @@
 //   3. Notification queue — unified queue for both proactive
 //      briefings and reactive alerts, surfaced by the UI
 //
-// Exposes window.AskJoeProactive.
+// Exposes AskJoeProactive.
 // ============================================================
 
 (function () {
@@ -632,7 +632,7 @@
   // Public API
   // ═════════════════════════════════════════════════════════
 
-  window.AskJoeProactive = {
+  const AskJoeProactive = {
     // Preferences
     loadPrefs,
     savePrefs,

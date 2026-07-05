@@ -2353,4 +2353,53 @@ section('Ops P1 #4 — loadLeads completeness + kanban render cap');
   assert('column count uses full cards array', /count\.textContent = cards\.length/.test(pipe));
 }
 
+// ── Globals refactor Tranche 0 (2026-07-05) — singleton widgets off window ──
+// 40 one-global self-registering widgets moved their API objects to module
+// scope; double-load idempotency moved from per-widget window objects
+// (__sentinel convention) to one shared window.__NBD_LOADED registry keyed
+// by file slug. These names must never be reassigned onto window — that
+// silently re-grows the global surface the tranche removed. See
+// docs/dev/dashboard-decomposition-plan.md, caveat 4 execution plan.
+section('Globals Tranche 0: widget singletons stay off window');
+{
+  const NAMES = ['ActivityFeed', 'AlmostThere', 'AskJoeProactive',
+    'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
+    'CustomerQuickActionBar', 'CustomerSiblingSnooze',
+    'CustomerSmartFollowupPanel', 'CustomerSnoozeBanner', 'CustomerViewedChip',
+    'DataExport', 'EngagementCohortWidget', 'GlobalSearch', 'HotLeads',
+    'LeadImport', 'NBDFabStackCoordinator', 'NBDLeadAlert', 'NBDLeadScorePanel',
+    'NBDOfflineBanner', 'NBDPush', 'NBDPwaInstall', 'NBDReportsDashboard',
+    'NBDReportsTrends', 'NBDSig', 'NBDSupplementUI', 'NBDThemeAudit',
+    'NBDWhatsNew', 'NBD_ICONS', 'NbdAiPersona', 'NeedsAttention', 'NotifBell',
+    'OfflineManager', 'PWAInstallNudge', 'PipelineBottleneck', 'PrefsSync',
+    'ROOFIVENT_CATALOG', 'ShortcutsHelp', 'SmartFollowupBriefing',
+    'StaleSharesWidget'];
+  const offenders = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fp = path.join(dir, entry.name);
+      if (entry.isDirectory()) { walk(fp); continue; }
+      if (!/\.(js|html)$/.test(entry.name)) continue;
+      const src = fs.readFileSync(fp, 'utf8');
+      for (const n of NAMES) {
+        if (new RegExp('window\\.' + n + '\\b').test(src)) {
+          offenders.push(path.relative(ROOT, fp) + ':' + n);
+        }
+      }
+    }
+  };
+  walk(path.join(ROOT, 'docs'));
+  assert('no window.<TrancheZeroName> references anywhere under docs/ — '
+      + (offenders.slice(0, 5).join(', ') || 'clean'), offenders.length === 0);
+
+  // The replacement idempotency convention: guarded widgets key into the
+  // shared __NBD_LOADED registry instead of testing their own window object.
+  const af = read(path.join(PRO_JS, 'activity-feed.js'));
+  assert('activity-feed.js uses the __NBD_LOADED registry guard',
+    /__NBD_LOADED\['activity-feed'\]/.test(af));
+  const sig = read(path.join(PRO_JS, 'signature-widget.js'));
+  assert('signature-widget.js migrated its bespoke sentinel to the registry',
+    /__NBD_LOADED\['signature-widget'\]/.test(sig) && !/__NBDSig__sentinel/.test(sig));
+}
+
 };

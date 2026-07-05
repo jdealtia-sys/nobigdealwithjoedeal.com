@@ -29,13 +29,15 @@
  *   window.toggleNotificationDropdown()
  *   window.markAllNotificationsRead()
  *   window.clearAllNotifications()
- *   window.NotifBell.render()        — force re-render
- *   window.NotifBell.getCount()      — current badge count
+ *   NotifBell.render()        — force re-render
+ *   NotifBell.getCount()      — current badge count
  */
 (function () {
   'use strict';
 
-  if (window.NotifBell && window.NotifBell.__sentinel === 'nbd-notif-bell-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['notif-bell']) return;
+  __NBD_LOADED['notif-bell'] = true;
 
   // ─── Constants ───────────────────────────────────────────────────
   const STALE_ESTIMATE_DAYS = 3;
@@ -723,8 +725,7 @@
   }
 
   // Expose API
-  window.NotifBell = {
-    __sentinel: 'nbd-notif-bell-v1',
+  const NotifBell = {
     render,
     getCount: () => buildNotifications().filter(n => !isDismissed(n.id) && !isRead(n.id)).length,
     _handleClick: handleClick,
@@ -764,7 +765,7 @@
     if (t.dataset.nbStop === '1') ev.stopPropagation();
     const action = t.dataset.nbAction;
     const id = t.dataset.nbId;
-    const NB = window.NotifBell || {};
+    const NB = NotifBell || {};
     const internal = '_' + action; // _actionSms, _handleClick, _dismiss, etc.
     const fn = NB[internal];
     if (typeof fn !== 'function') { console.warn('[notif-bell] no dispatch for', action); return; }

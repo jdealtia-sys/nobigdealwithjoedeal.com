@@ -23,7 +23,9 @@
 (function () {
   'use strict';
 
-  if (window.PipelineBottleneck && window.PipelineBottleneck.__sentinel === 'nbd-bottleneck-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['bottleneck-widget']) return;
+  __NBD_LOADED['bottleneck-widget'] = true;
 
   // Stages that we DON'T flag as bottlenecks — terminal or trivial.
   const SKIP_STAGES = new Set([
@@ -250,8 +252,7 @@
     setInterval(render, 5 * 60_000);
   }
 
-  window.PipelineBottleneck = {
-    __sentinel: 'nbd-bottleneck-v1',
+  const PipelineBottleneck = {
     render,
     compute,
   };

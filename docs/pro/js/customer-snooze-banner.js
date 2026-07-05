@@ -27,8 +27,9 @@
 (function () {
   'use strict';
 
-  if (window.CustomerSnoozeBanner
-      && window.CustomerSnoozeBanner.__sentinel === 'nbd-customer-snooze-banner-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['customer-snooze-banner']) return;
+  __NBD_LOADED['customer-snooze-banner'] = true;
 
   const PATH = window.location.pathname || '';
   if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
@@ -239,8 +240,7 @@
   // beforeunload sometimes doesn't on mobile).
   window.addEventListener('pagehide', destroy);
 
-  window.CustomerSnoozeBanner = {
-    __sentinel: 'nbd-customer-snooze-banner-v1',
+  const CustomerSnoozeBanner = {
     update,
     destroy,
   };

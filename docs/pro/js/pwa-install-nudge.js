@@ -34,7 +34,9 @@
 (function () {
   'use strict';
 
-  if (window.PWAInstallNudge && window.PWAInstallNudge.__sentinel === 'nbd-pwa-nudge-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['pwa-install-nudge']) return;
+  __NBD_LOADED['pwa-install-nudge'] = true;
 
   // Only nudge on the dashboard; the homeowner portal etc. should not
   // promote "install our app" to non-rep users.
@@ -347,8 +349,7 @@
   }
 
   // Debug helpers exposed for support / QA — clearable via console.
-  window.PWAInstallNudge = {
-    __sentinel: 'nbd-pwa-nudge-v1',
+  const PWAInstallNudge = {
     isStandalone,
     isIOSSafari,
     reset() {

@@ -20,8 +20,9 @@
  */
 (function () {
   'use strict';
-  if (window.NBDFabStackCoordinator
-      && window.NBDFabStackCoordinator.__sentinel === 'nbd-fab-coord-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['fab-stack-coordinator']) return;
+  __NBD_LOADED['fab-stack-coordinator'] = true;
 
   const FAB_IDS = [
     'nbd-whisper-fab',          // W128
@@ -129,8 +130,7 @@
     setTimeout(_bootstrap, 0);
   }
 
-  window.NBDFabStackCoordinator = {
-    __sentinel: 'nbd-fab-coord-v1',
+  const NBDFabStackCoordinator = {
     check: _check,
   };
 })();

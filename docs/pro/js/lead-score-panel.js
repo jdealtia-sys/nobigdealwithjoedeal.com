@@ -25,8 +25,9 @@
  */
 (function () {
   'use strict';
-  if (window.NBDLeadScorePanel
-      && window.NBDLeadScorePanel.__sentinel === 'nbd-score-panel-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['lead-score-panel']) return;
+  __NBD_LOADED['lead-score-panel'] = true;
 
   const PANEL_ID = 'leadScorePanel';
   let _currentBreakdown = null;
@@ -236,8 +237,7 @@
     setTimeout(_attach, 0);
   }
 
-  window.NBDLeadScorePanel = {
-    __sentinel: 'nbd-score-panel-v1',
+  const NBDLeadScorePanel = {
     refresh,
     togglePanel,
     closePanel,

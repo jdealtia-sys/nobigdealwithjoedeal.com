@@ -46,8 +46,9 @@
 (function () {
   'use strict';
 
-  if (window.CustomerSmartFollowupPanel
-      && window.CustomerSmartFollowupPanel.__sentinel === 'nbd-customer-smart-followup-panel-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['customer-smart-followup-panel']) return;
+  __NBD_LOADED['customer-smart-followup-panel'] = true;
 
   const PATH = window.location.pathname || '';
   if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
@@ -275,8 +276,7 @@
     window.addEventListener('nbd:data-refreshed', update);
   }
 
-  window.CustomerSmartFollowupPanel = {
-    __sentinel: 'nbd-customer-smart-followup-panel-v1',
+  const CustomerSmartFollowupPanel = {
     update,
     dismiss: (id) => { _dismissedThisSession.add(id); update(); },
   };
