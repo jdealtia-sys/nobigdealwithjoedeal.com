@@ -399,7 +399,29 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
     const saved = await page.evaluate(async (input) => {
       const r = window.EstimateBuilderV2.calculateEstimate(input);
       const dep = window.EstimateBuilderV2.calcDeposit(r.total, input.mode, {});
-      const id = await window._saveEstimate({
+      // ALREADY_EXISTS tolerance for _saveEstimate (closure-held addDoc —
+      // the fixtures/auth.js window.addDoc patch can't reach it; bit the
+      // invoice journey on CI 2026-07-05). The estimate LANDED but the id
+      // was lost — recover it via the unique name (userId filter keeps the
+      // query provable under the estimates read rule).
+      async function saveEstimateTolerant(payload) {
+        try { return await window._saveEstimate(payload); }
+        catch (e) {
+          if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e;
+          const fsMod2 = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          const db2 = window.db || window._db;
+          const uid2 = (window._auth || window.auth).currentUser.uid;
+          const snap2 = await fsMod2.getDocs(fsMod2.query(
+            fsMod2.collection(db2, 'estimates'),
+            fsMod2.where('userId', '==', uid2),
+            fsMod2.where('name', '==', payload.name)
+          ));
+          let rid = null; snap2.forEach(d => { if (!rid) rid = d.id; });
+          if (!rid) throw e;
+          return rid;
+        }
+      }
+      const id = await saveEstimateTolerant({
         name: '[E2E] V2 parity ' + Date.now(),
         addr: '999 E2E Test Lane, Cincinnati, OH',
         mode: input.mode, tier: input.tier, engine: 'v2',
@@ -467,7 +489,29 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
       for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
         await new Promise(r => setTimeout(r, 200));
       }
-      const estimateId = await window._saveEstimate(est);
+      // ALREADY_EXISTS tolerance for _saveEstimate (closure-held addDoc —
+      // the fixtures/auth.js window.addDoc patch can't reach it; bit the
+      // invoice journey on CI 2026-07-05). The estimate LANDED but the id
+      // was lost — recover it via the unique name (userId filter keeps the
+      // query provable under the estimates read rule).
+      async function saveEstimateTolerant(payload) {
+        try { return await window._saveEstimate(payload); }
+        catch (e) {
+          if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e;
+          const fsMod2 = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          const db2 = window.db || window._db;
+          const uid2 = (window._auth || window.auth).currentUser.uid;
+          const snap2 = await fsMod2.getDocs(fsMod2.query(
+            fsMod2.collection(db2, 'estimates'),
+            fsMod2.where('userId', '==', uid2),
+            fsMod2.where('name', '==', payload.name)
+          ));
+          let rid = null; snap2.forEach(d => { if (!rid) rid = d.id; });
+          if (!rid) throw e;
+          return rid;
+        }
+      }
+      const estimateId = await saveEstimateTolerant(est);
       const invoiceId = await window.InvoicePipeline.createInvoiceFromEstimate(estimateId);
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
@@ -1206,7 +1250,16 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
     // Firestore-only on the load path (every sub-loader — timeline/
     // photos/documents/estimates/notes — is individually try/caught and
     // non-fatal), so hydration of the header + data bridge is the signal.
-    await page.goto(`/pro/customer.html?id=${seeded.id}`);
+    // One retry on ERR_ABORTED: a cold goto can race an in-page redirect
+    // (SW registration / auth-restore) that cancels the navigation —
+    // observed on CI retry 2026-07-05. The second attempt lands normally.
+    try {
+      await page.goto(`/pro/customer.html?id=${seeded.id}`);
+    } catch (e) {
+      if (!/ERR_ABORTED/.test(String(e))) throw e;
+      await page.waitForTimeout(1_000);
+      await page.goto(`/pro/customer.html?id=${seeded.id}`);
+    }
 
     // Hydration: loadCustomerData writes #customerName, then the auth
     // handler flips documentElement opacity to '1'. The failure paths are
@@ -1242,8 +1295,12 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
     // after loadCustomerData resolves without throwing).
     await expect(page.locator('#customerName')).toHaveText(expectedName);
     await expect(page.locator('#customerAddress')).toHaveText(seeded.address);
-    const hydrated = await page.evaluate(() => document.documentElement.style.opacity === '1');
-    expect(hydrated, 'documentElement opacity flipped to 1 (loadCustomerData resolved)').toBe(true);
+    // The opacity flip is the LAST line of loadCustomerData — the header
+    // fields above render mid-function, so a one-shot check here raced the
+    // function's tail (CI 2026-07-05: name+address green, opacity still
+    // '0'). Wait for it like any other async completion signal.
+    await page.waitForFunction(() => document.documentElement.style.opacity === '1',
+      null, { timeout: 15_000 });
 
     // THE contract: stage key → display label mapping plus the external-
     // module data bridge. Every companion module on this page (photo-
