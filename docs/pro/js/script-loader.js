@@ -23,6 +23,20 @@
  *   ScriptLoader.markLoaded(src)      → void — mark a src as pre-loaded
  *                                     (for files already in the defer list)
  */
+// CSP fix: the Google Fonts preload->stylesheet swap lived in an inline
+// onload attribute, which script-src-attr 'none' blocks — so the 14 theme
+// font families NEVER applied in prod (every themed surface fell back to
+// system fonts). Flip rel from JS instead; load-listener plus a short
+// failsafe covers the already-loaded race.
+(function () {
+  var l = document.querySelector('link[data-nbd-font-swap]');
+  if (!l) return;
+  var done = false;
+  var flip = function () { if (done) return; done = true; l.rel = 'stylesheet'; };
+  l.addEventListener('load', flip, { once: true });
+  setTimeout(flip, 3000);
+})();
+
 (function () {
   'use strict';
 

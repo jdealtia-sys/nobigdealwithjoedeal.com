@@ -2447,6 +2447,23 @@ section('Globals Tranches 0+1: converted names stay off window');
     !/on(touchstart|touchmove|touchend|dragstart|dragover|drop|dragend|click)\s*=\s*"/.test(mnc));
   assert('mobile-nav-customizer binds drag/touch via modal-level delegation',
     /_bindDnd\(modal\)/.test(mnc) && /addEventListener\('touchmove'[\s\S]{0,80}passive: false/.test(mnc));
+
+  // CSP-dead handler audit (2026-07-05, post-2a sweep). Three more prod
+  // breakages of the same class, all pinned here so they can't return:
+  const bootSrc = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  assert('kanban columns: no inline ondragover/ondrop (CSP-dead) — board-level delegation instead',
+    !/on(dragover|drop)\s*=\s*"/.test(bootSrc) && /nbdDndBound/.test(bootSrc));
+  // Raw HTML only — readDashboard() concatenates extracted JS shards whose
+  // comments legitimately mention historical onclick="" patterns.
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard.html: ZERO inline handler attributes (incl. the old font-swap onload)',
+    !/ on(load|click|change|error|input|submit|keydown)\s*=\s*"/.test(dashHtml));
+  const sl = read(path.join(PRO_JS, 'script-loader.js'));
+  assert('script-loader performs the CSP-safe font-swap for link[data-nbd-font-swap]',
+    /data-nbd-font-swap/.test(sl) && /data-nbd-font-swap/.test(dashHtml));
+  const toolsSrc = read(path.join(PRO_JS, 'tools.js'));
+  assert('tools.js saveQuickLead selects the save button by data-fn (old [onclick=] selector crashed every save)',
+    /button\[data-fn="saveQuickLead"\]/.test(toolsSrc) && !/button\[onclick="saveQuickLead/.test(toolsSrc));
 }
 
 };
