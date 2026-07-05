@@ -49,7 +49,7 @@
 <link rel="preload" href="js/crm-leads.js?v=1" as="script">
 <link rel="preload" href="js/crm-pipeline.js?v=1" as="script">
 <link rel="preload" href="js/crm-snooze.js?v=1" as="script">
-<link rel="preload" href="js/crm-portal-bridge.js?v=1" as="script">
+<link rel="preload" href="js/crm-portal-bridge.js?v=2" as="script">
 <link rel="preload" href="js/crm.js?v=32" as="script">
 <link rel="preload" href="js/maps.js?v=10" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -121,7 +121,7 @@
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
      /pro/css revalidation policy instead of shipping in every HTML load. -->
-<link rel="stylesheet" href="css/dashboard-app.css?v=1">
+<link rel="stylesheet" href="css/dashboard-app.css?v=2">
 <!-- Kanban force CSS — extracted to css/kanban-force.css (Rock 4 Phase 2c). -->
 <link rel="stylesheet" href="css/kanban-force.css?v=1" id="kanban-force-css-link">
 <!-- v5→DS theme bridge — extracted to css/theme-bridge.css (Rock 4 Phase 2d). -->
@@ -5890,15 +5890,15 @@
      push token via getToken({vapidKey}), and persists it to
      users/{uid}/fcmTokens so the backend reminder/lead pushes have recipients.
      No-ops until window.__NBD_VAPID_KEY is set (dashboard-fcm-config.js). -->
-<script defer src="js/push-registration.js?v=1"></script>
-<script defer src="js/crm-portal-bridge.js?v=1"></script>
+<script defer src="js/push-registration.js?v=2"></script>
+<script defer src="js/crm-portal-bridge.js?v=2"></script>
 <script defer src="js/crm.js?v=32"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>
 <script defer src="js/global-search.js?v=1"></script>
 <script defer src="js/bottleneck-widget.js?v=1"></script>
-<script defer src="js/pwa-install-nudge.js?v=1"></script>
+<script defer src="js/pwa-install-nudge.js?v=2"></script>
 <script defer src="js/data-export.js?v=1"></script>
 <script defer src="js/shortcuts-help.js?v=1"></script>
 <script defer src="js/data-import.js?v=1"></script>
@@ -5937,7 +5937,7 @@
      loaded in order before the thin maps.js shim. See maps.js
      header for the full split rationale. Each module is a classic
      <script> (non-ESM) and shares sibling-scope globals. -->
-<script defer src="js/maps-core.js?v=2"></script>
+<script defer src="js/maps-core.js?v=3"></script>
 <script defer src="js/maps-overlays.js?v=2"></script>
 <script defer src="js/maps-routing.js?v=3"></script>
 <script defer src="js/maps.js?v=10"></script>
@@ -5972,7 +5972,7 @@
      window._leadDoc / _customerId / _customerEstimates / _allPhotos, which
      the dashboard stages just-in-time in _stageWindowStateForLead. -->
 <script defer src="js/share-gallery.js?v=2"></script>
-<script defer src="js/analytics-kpi.js?v=3"></script>
+<script defer src="js/analytics-kpi.js?v=4"></script>
 <!-- T-3: AI texting analytics card (renders on the board/analytics view) -->
 <script defer src="js/ai-texting-stats-card.js?v=1"></script>
 <!-- T-4: AI texting persona editor (Settings → AI Texting tab) -->
@@ -6045,7 +6045,7 @@
 <script defer src="js/fab-stack-coordinator.js?v=1"></script>
 <!-- W150: PWA install prompt — beforeinstallprompt for Android +
      manual Add-to-Home-Screen card for iOS. -->
-<script defer src="js/pwa-install.js?v=1"></script>
+<script defer src="js/pwa-install.js?v=2"></script>
 <!-- W151: offline banner — shows a yellow strip across the top
      when navigator.onLine === false. -->
 <script defer src="js/offline-banner.js?v=1"></script>

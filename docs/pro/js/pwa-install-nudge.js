@@ -167,6 +167,19 @@
           background:transparent; border:none; color:#64748b;
           cursor:pointer; padding:4px 6px; line-height:1;
           font-size:14px; -webkit-tap-highlight-color:transparent;">×</button>`;
+    // Anchor the banner ABOVE the fixed bottom tab bar. At bottom:14px /
+    // z-index:99990 the ~420px-wide banner sat directly on top of
+    // #mobile-nav (z-index 1900) on phone viewports and silently swallowed
+    // every tap on the nav until dismissed — "buttons do nothing".
+    try {
+      const nav = document.getElementById('mobile-nav');
+      if (nav) {
+        const r = nav.getBoundingClientRect();
+        if (r.height > 0 && getComputedStyle(nav).display !== 'none' && r.top < window.innerHeight) {
+          banner.style.bottom = (Math.round(window.innerHeight - r.top) + 12) + 'px';
+        }
+      }
+    } catch (e) { /* keep the default offset */ }
     document.body.appendChild(banner);
     requestAnimationFrame(() => {
       banner.style.transform = 'translateX(-50%) translateY(0)';

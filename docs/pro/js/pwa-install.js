@@ -98,6 +98,18 @@
         '<button type="button" id="nbd-pwa-install-btn" style="background:var(--orange, #c8541a);color:#fff;border:none;border-radius:5px;padding:7px 12px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;">' + (opts.cta || 'Install') + '</button>' +
         '<button type="button" id="nbd-pwa-dismiss-btn" style="background:transparent;color:#94a3b8;border:none;padding:3px 8px;font:inherit;font-size:11px;cursor:pointer;text-decoration:underline;">Not now</button>' +
       '</div>';
+    // Anchor the banner ABOVE the fixed bottom tab bar. At bottom:20px /
+    // z-index:10004 it overlapped #mobile-nav (z-index 1900) on phone
+    // viewports and swallowed taps on the nav until dismissed.
+    try {
+      const nav = document.getElementById('mobile-nav');
+      if (nav) {
+        const r = nav.getBoundingClientRect();
+        if (r.height > 0 && getComputedStyle(nav).display !== 'none' && r.top < window.innerHeight) {
+          banner.style.bottom = (Math.round(window.innerHeight - r.top) + 12) + 'px';
+        }
+      }
+    } catch (_) { /* keep the default offset */ }
     document.body.appendChild(banner);
     if (!document.getElementById('nbd-pwa-css')) {
       const css = document.createElement('style');

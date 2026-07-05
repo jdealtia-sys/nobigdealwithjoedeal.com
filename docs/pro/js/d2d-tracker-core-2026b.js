@@ -931,6 +931,11 @@
   // FIRESTORE CRUD
   // ============================================================================
   async function loadRepProfile() {
+    // Signed-out / auth-not-restored guard: every branch below (including
+    // the old catch) dereferenced window._user.uid, so a missing user threw
+    // straight through initD2D's Promise.race. Degrade to no profile — the
+    // shell still renders and the next tab entry retries.
+    if (!window._user || !window._user.uid) { state.currentRep = null; return; }
     try {
       const docSnap = await window.getDoc(window.doc(window._db, 'reps', window._user.uid));
       if (docSnap.exists()) {
@@ -958,7 +963,7 @@
       }
     } catch (e) {
       console.error('loadRepProfile failed:', e);
-      state.currentRep = { userId: window._user.uid, name: window._user.displayName || 'Rep', role: window._userClaims?.role || 'rep', companyId: window._userClaims?.companyId || window._user.uid };
+      state.currentRep = { userId: window._user?.uid, name: window._user?.displayName || 'Rep', role: window._userClaims?.role || 'rep', companyId: window._userClaims?.companyId || window._user?.uid };
     }
   }
 
@@ -970,6 +975,9 @@
   const KNOCK_PAGE_SIZE = 500;
 
   async function loadKnocks() {
+    // Same signed-out guard as loadRepProfile — the rep-scoped query below
+    // reads window._user.uid.
+    if (!window._user || !window._user.uid) { state.knocks = state.knocks || []; return; }
     try {
       let q;
       // orderBy + limit require the composite index at
@@ -2534,6 +2542,19 @@
     // loadRepProfile have what they need.
     if (!window._user && window._auth && window._auth.currentUser) {
       window._user = window._auth.currentUser;
+    }
+    // Auth restore can lag the first D2D tap (cold PWA start, iOS ITP
+    // IndexedDB delay) — loadRepProfile/loadKnocks dereference
+    // window._user.uid and crashed with a TypeError when the tap won the
+    // race, leaving an error toast + empty tracker. Wait up to 5s for the
+    // bootstrap to publish the user before reading Firestore.
+    if (!window._user) {
+      for (let i = 0; i < 50 && !window._user; i++) {
+        await new Promise(r => setTimeout(r, 100));
+        if (!window._user && window._auth && window._auth.currentUser) {
+          window._user = window._auth.currentUser;
+        }
+      }
     }
 
     try {
