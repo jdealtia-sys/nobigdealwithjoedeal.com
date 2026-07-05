@@ -101,7 +101,16 @@
 }
 body{font-family:'Barlow',sans-serif;background:var(--bg);color:var(--t);height:100vh;height:100dvh;overflow:hidden;display:flex;flex-direction:column;touch-action:pan-x pan-y pinch-zoom;-webkit-overflow-scrolling:touch;-webkit-tap-highlight-color:transparent;}
 
-/* HEADER */
+/* HEADER
+   OWNERSHIP (2026-07 Phase 2): dashboard-app.css owns the GLOBAL <header>
+   (logo lockup + .hright chrome tools) and the per-view .page-hdr. The CRM
+   pipeline's secondary .crm-header is owned by kanban-force.css — do not add
+   .crm-header rules here (that split is being retired, see kanban-force.css
+   header + docs/dev/crm-responsive-map.md). Canonical mobile breakpoints for
+   the header: 768px (tablet/phone) and 480px (phone). The mobile header
+   height MUST stay min-height:calc(48px + env(safe-area-inset-top)) — a bare
+   fixed height + the notch inset padding = content spilling out (smoke-
+   guarded). */
 header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--br);display:flex;align-items:center;justify-content:space-between;padding:0 18px;height:52px;z-index:1000;}
 /* Brand lockup wrapper (was an untagged inline-styled div — classed
    2026-07 so mobile can shrink the mark + tighten the gap in lockstep;
