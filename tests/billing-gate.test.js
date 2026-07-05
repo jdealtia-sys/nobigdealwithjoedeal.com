@@ -90,6 +90,36 @@ function makeBilling({ user, subDoc, subExists = true } = {}) {
     assert('past_due: isPastDue === true', p.isPastDue === true);
   }
 
+  // 5. Access-code trial expiry — read-time enforcement (2026-07-05
+  //    decision). A code-granted sub past trialEndsAt gates as free;
+  //    an unexpired or untimed code grant keeps its plan; Stripe subs
+  //    are never touched by this check.
+  {
+    const past = { toMillis: () => Date.now() - 24 * 60 * 60 * 1000 };
+    const future = { toMillis: () => Date.now() + 24 * 60 * 60 * 1000 };
+
+    const expired = makeBilling({ user: { uid: 'u5', email: 'trial@demo.test' },
+      subDoc: { plan: 'foundation', status: 'active', source: 'access_code', trialEndsAt: past } });
+    await expired.loadSubscription();
+    assert('expired code trial: gates as free', expired.getPlan().plan === 'free');
+    assert('expired code trial: reports locked again', expired.canUse('reports') === false);
+
+    const live = makeBilling({ user: { uid: 'u6', email: 'trial2@demo.test' },
+      subDoc: { plan: 'foundation', status: 'active', source: 'access_code', trialEndsAt: future } });
+    await live.loadSubscription();
+    assert('unexpired code trial: keeps its plan', live.getPlan().plan === 'foundation');
+
+    const comp = makeBilling({ user: { uid: 'u7', email: 'comp@demo.test' },
+      subDoc: { plan: 'foundation', status: 'active', source: 'access_code' } });
+    await comp.loadSubscription();
+    assert('untimed code grant: indefinite comp, keeps its plan', comp.getPlan().plan === 'foundation');
+
+    const stripe = makeBilling({ user: { uid: 'u8', email: 'paying@demo.test' },
+      subDoc: { plan: 'growth', status: 'active', source: 'stripe', trialEndsAt: past } });
+    await stripe.loadSubscription();
+    assert('stripe sub with stale trialEndsAt: untouched (Stripe owns lifecycle)', stripe.getPlan().plan === 'growth');
+  }
+
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);
   if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }

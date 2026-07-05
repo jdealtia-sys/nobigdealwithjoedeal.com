@@ -14,7 +14,9 @@
  */
 'use strict';
 
-const admin = require('firebase-admin');
+const { initializeApp: initializeAdminApp } = require('firebase-admin/app');
+const { getAuth: getAdminAuth } = require('firebase-admin/auth');
+const { getFirestore: getAdminFirestore } = require('firebase-admin/firestore');
 const { initializeApp } = require('firebase/app');
 const { getAuth, connectAuthEmulator, signInWithEmailAndPassword } = require('firebase/auth');
 const {
@@ -41,14 +43,14 @@ async function denied(name, p) {
   catch (e) { ok(name, e && (e.code === 'permission-denied' || /PERMISSION_DENIED|insufficient/i.test(e.message))); }
 }
 
-admin.initializeApp({ projectId: PROJECT });
+initializeAdminApp({ projectId: PROJECT });
 
 async function run() {
   // Provision the signing-in rep.
   let rec;
-  try { rec = await admin.auth().getUserByEmail(EMAIL); }
-  catch { rec = await admin.auth().createUser({ email: EMAIL, password: PASSWORD, emailVerified: true }); }
-  await admin.auth().setCustomUserClaims(rec.uid, { role: 'sales_rep', companyId: COMPANY_ID });
+  try { rec = await getAdminAuth().getUserByEmail(EMAIL); }
+  catch { rec = await getAdminAuth().createUser({ email: EMAIL, password: PASSWORD, emailVerified: true }); }
+  await getAdminAuth().setCustomUserClaims(rec.uid, { role: 'sales_rep', companyId: COMPANY_ID });
 
   const app = initializeApp({ projectId: PROJECT, apiKey: 'fake-emulator-key' }, 'lifecycle');
   const auth = getAuth(app);
@@ -100,7 +102,7 @@ async function run() {
   // and resource is null) — an expected rules detail, not a bug — so we confirm
   // removal with the admin SDK, which bypasses rules.
   await deleteDoc(doc(db, 'leads', ref.id));
-  const adminSnap = await admin.firestore().doc(`leads/${ref.id}`).get();
+  const adminSnap = await getAdminFirestore().doc(`leads/${ref.id}`).get();
   ok('hard delete removes the doc (admin-confirmed)', !adminSnap.exists);
 
   // ── TASK lifecycle (Phase 5) — tasks/{id}, owner-scoped by userId ──
@@ -117,7 +119,7 @@ async function run() {
   await denied('cannot create a task owned by another uid', // create rule: userId == auth.uid
     addDoc(collection(db, 'tasks'), { userId: 'not-me', leadId: 'lead_x', title: 'x', done: false }));
   await deleteDoc(doc(db, 'tasks', tRef.id));
-  const tGone = await admin.firestore().doc(`tasks/${tRef.id}`).get();
+  const tGone = await getAdminFirestore().doc(`tasks/${tRef.id}`).get();
   ok('delete task removes the doc (admin-confirmed)', !tGone.exists);
 
   console.log('\n──────────────────────────────────────────────────');

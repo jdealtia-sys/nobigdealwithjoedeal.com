@@ -122,6 +122,20 @@
         _status = data.status || 'none';
         _usage = data.usage || { leads: 0, reports: 0, aiCalls: 0 };
         _trialEndsAt = data.trialEndsAt || null;
+        // Access-code trial expiry — mirror of the read-time check in
+        // functions/billing.js trackUsage (the server meter is the real
+        // gate; this keeps the UI honest). A code-granted subscription
+        // past its trialEndsAt gates as the free plan. Stripe subs and
+        // untimed code comps are untouched.
+        if (
+          data.source === 'access_code'
+          && _trialEndsAt
+          && typeof _trialEndsAt.toMillis === 'function'
+          && _trialEndsAt.toMillis() < Date.now()
+        ) {
+          _plan = 'free';
+          _status = 'trial_expired';
+        }
       } else {
         _plan = 'free';
         _status = 'none';

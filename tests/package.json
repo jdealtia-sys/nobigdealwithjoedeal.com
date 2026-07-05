@@ -55,7 +55,7 @@
     "test:security": "node ./security-headers-gdpr.test.js"
   },
   "dependencies": {
-    "firebase-admin": "^12.0.0"
+    "firebase-admin": "^14.1.0"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",
