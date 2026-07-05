@@ -565,6 +565,12 @@ test.describe.serial('Authenticated destructive flows', () => {
     // involved for server PDF render (contract/invoice/change_order/receipt,
     // which FALLS BACK to client render) and remote signing. 'thank_you' is
     // not in SERVER_TYPE_MAP, so this journey is hermetic without functions.
+    //
+    // Capture the page's console: the docgen persist path SWALLOWS write
+    // failures ('Document metadata persist failed: …' console.warn), so an
+    // empty read-back can only be explained by what the page logged.
+    const pageLog = [];
+    page.on('console', msg => pageLog.push(`[${msg.type()}] ${msg.text()}`));
     await page.route('**/nominatim.openstreetmap.org/**', route =>
       route.fulfill({ contentType: 'application/json', body: '[]' }));
     await loginAs(page, creds);
@@ -659,7 +665,15 @@ test.describe.serial('Authenticated destructive flows', () => {
     }
 
     const meta = docs.find(d => d.type === 'thank_you');
-    expect(meta, 'thank_you metadata doc persisted under the lead').toBeTruthy();
+    if (!meta) {
+      // Self-describing failure: surface what the page itself said —
+      // 'Document metadata persist failed' / 'Document HTML upload failed'
+      // console.warns are the only trace when the swallowed persist dies.
+      const interesting = pageLog.filter(l =>
+        /docgen|document|persist|upload|firestore|storage|offline|denied/i.test(l)).slice(-12);
+      throw new Error('thank_you metadata never appeared under leads/' + leadId
+        + '/documents after 20s. Page console (filtered):\n' + (interesting.join('\n') || '(nothing relevant logged)'));
+    }
     expect(meta.userId, 'userId stamped on the metadata').toBeTruthy();
     expect(meta.typeName, 'human-readable type name recorded').toBeTruthy();
     expect(meta.filename, 'filename recorded for the PDF flow').toMatch(/\.pdf$/);
