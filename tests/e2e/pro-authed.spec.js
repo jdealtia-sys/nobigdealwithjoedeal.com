@@ -1602,3 +1602,91 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     expect(saveErrors, 'no saveQuickLead dispatch errors').toEqual([]);
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// Mobile layout geometry (2026-07 CRM mobile pass). These assert the
+// FOUR structural fixes objectively, by measuring bounding boxes at a
+// real phone viewport — no eyeballing. They are the regression guard
+// so the header collision, stat-bleed, card clip, and column overflow
+// can't silently come back. iPhone-13 logical width = 390px.
+// ─────────────────────────────────────────────────────────────
+test.describe('CRM mobile layout geometry @shard1', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  let creds;
+  test.beforeAll(() => {
+    try { creds = requireTestUser(); }
+    catch (e) { console.warn('[mobile-geometry] ' + e.message); }
+  });
+  test.beforeEach(async ({}, testInfo) => {
+    if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
+  });
+
+  // Small helper: two rects overlap iff they intersect on both axes.
+  const overlaps = (a, b) =>
+    a && b && a.x < b.x + b.width && a.x + a.width > b.x &&
+    a.y < b.y + b.height && a.y + a.height > b.y;
+
+  test('header: NBD square and PRO wordmark do not overlap', async ({ page }) => {
+    await loginAs(page, creds);
+    await page.waitForSelector('header .logo-mark', { timeout: 15_000 });
+    const mark = await page.locator('header .logo-mark').boundingBox();
+    const word = await page.locator('header .logo').boundingBox();
+    expect(mark, 'logo mark rendered').toBeTruthy();
+    expect(word, 'wordmark rendered').toBeTruthy();
+    // The square must sit fully left of the wordmark with a real gap.
+    expect(overlaps(mark, word),
+      `logo-mark ${JSON.stringify(mark)} overlaps wordmark ${JSON.stringify(word)}`).toBe(false);
+    expect(word.x, 'wordmark starts after the mark').toBeGreaterThanOrEqual(mark.x + mark.width - 0.5);
+  });
+
+  test('pipeline header: title and stat share a row without overlapping', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    await page.waitForSelector('.crm-hdr-title', { timeout: 15_000 });
+    const title = await page.locator('.crm-hdr-title').boundingBox();
+    const stat = await page.locator('#crmSubLine').boundingBox();
+    // Stat may be display:none while scrolling; only assert when both show.
+    if (title && stat && stat.width > 0 && stat.height > 0) {
+      expect(overlaps(title, stat),
+        `title ${JSON.stringify(title)} overlaps stat ${JSON.stringify(stat)}`).toBe(false);
+    }
+  });
+
+  test('kanban cards: phone row stays within its card (no bottom clip)', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    await page.waitForFunction(() => {
+      const b = document.getElementById('kanbanBoard');
+      return b && b.querySelector('.k-card');
+    }, null, { timeout: 15_000 });
+    // Check every card that has a phone row: its bottom edge must sit at
+    // or above the card's bottom edge (the flex-shrink:0 fix). A 1px
+    // sub-pixel tolerance absorbs rounding.
+    const clipped = await page.evaluate(() => {
+      const bad = [];
+      document.querySelectorAll('.k-card').forEach((card, i) => {
+        const phone = card.querySelector('.kc-phone-row, .kc-footer');
+        if (!phone) return;
+        const c = card.getBoundingClientRect();
+        const p = phone.getBoundingClientRect();
+        if (p.bottom > c.bottom + 1) bad.push({ i, cardBottom: c.bottom, rowBottom: p.bottom });
+      });
+      return bad;
+    });
+    expect(clipped, 'no card has its phone/footer row spilling past its own bottom edge').toEqual([]);
+  });
+
+  test('kanban board: columns do not overflow the viewport width unclipped', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    await page.waitForSelector('#kanbanBoard .kanban-col', { timeout: 15_000 });
+    // The board must be the horizontal scroller (overflow-x:auto), so its
+    // scrollWidth can exceed clientWidth — that's correct. What must NOT
+    // happen: the board itself pushing the document wider than the viewport
+    // (a card/column escaping its scroll container → ragged body overflow).
+    const docOverflow = await page.evaluate(() =>
+      document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(docOverflow, 'document does not scroll horizontally past the viewport').toBeLessThanOrEqual(1);
+  });
+});
