@@ -652,4 +652,355 @@ test.describe.serial('Authenticated destructive flows', () => {
       await fsMod.updateDoc(fsMod.doc(db, 'leads', args.leadId, 'documents', args.docId), { e2eTestData: true });
     }, { leadId, docId: meta.id });
   });
+
+  test('d2d: appointment knock persists the disposition contract + auto-converts to exactly one linked lead', async ({ page }) => {
+    // The hot-disposition auto-convert funnels into _saveLead, which geocodes
+    // new addresses via nominatim — same OSM stub as the save-lead journey so
+    // the knock→lead promotion never depends on OSM rate limits.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // The D2D tracker is the lazy 'd2d' bundle (ScriptLoader PR 2e): core
+    // publishes the data layer on window._D2DState (submitKnock is the exact
+    // write path the QuickKnock modal's handleSubmitKnock funnels into —
+    // d2d-tracker-core-2026b.js:1051, exported at :2599), ui + shim compose
+    // window.D2D on top. The write additionally needs the Firestore globals
+    // bootstrap exposes asynchronously, plus _saveLead for the auto-convert.
+    // renderD2D/refreshMapMarkers/updateNavBadge all guard on their DOM/map
+    // hosts, so calling submitKnock without ever opening the D2D view is safe.
+    await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
+    await page.evaluate(() => window.ScriptLoader.loadBundle('d2d'));
+    await page.waitForFunction(() =>
+      window._D2DState && typeof window._D2DState.submitKnock === 'function'
+      && window._db && typeof window.addDoc === 'function'
+      && typeof window.serverTimestamp === 'function'
+      && typeof window._saveLead === 'function', null, { timeout: 20_000 });
+
+    const stamp = Date.now();
+    const knockId = await page.evaluate(async (args) => {
+      // Re-check auth IN this execution context right before the write:
+      // the outer waitForFunction gate can pass against a pre-navigation
+      // document, after which _saveLead stamps userId from a _user the
+      // fresh dashboard context hasn't re-populated yet (CI retry flake:
+      // "Unsupported field value: undefined in field userId").
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      // Unique per attempt on BOTH axes: address drives getAttemptCount
+      // (attemptNumber would exceed 1 against leftovers — knocks have no
+      // cleanup sweep, so prod runs accumulate) and phone/address drive
+      // LeadDedup's blocking modal inside the auto-convert's _saveLead.
+      return window._D2DState.submitKnock({
+        address: `${String(args.stamp).slice(-6)} D2D Knock Way, Cincinnati, OH`,
+        homeowner: '[E2E] Knock ' + args.stamp,
+        phone: '513' + String(args.stamp).slice(-7),
+        email: `e2e-knock-${args.stamp}@nbd.test`,
+        disposition: 'appointment',
+        notes: '[E2E] d2d journey',
+        lat: null,
+        lng: null
+      });
+    }, { stamp });
+    expect(knockId, 'submitKnock persisted the knock and returned its id').toBeTruthy();
+
+    // submitKnock fires convertToLead NON-blocking (a .catch()ed background
+    // promise), so poll from the TEST side for the promoted lead + the
+    // convertedToLead flip. page.evaluate, not waitForFunction — see the
+    // docgen journey's note on async-predicate JSHandle round-tripping.
+    let out = null;
+    const deadline = Date.now() + 20_000;
+    while (Date.now() < deadline) {
+      out = await page.evaluate(async (id) => {
+        const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const db = window.db || window._db;
+        const uid = (window._auth || window.auth).currentUser.uid;
+        const knockSnap = await fsMod.getDoc(fsMod.doc(db, 'knocks', id));
+        const knock = knockSnap.exists() ? knockSnap.data() : null;
+        // The knocks/leads read rules are isOwner(resource.data.userId) —
+        // the query must carry the userId filter or Firestore can't prove
+        // compliance and rejects it (see the save-lead journey).
+        const leadsSnap = await fsMod.getDocs(fsMod.query(
+          fsMod.collection(db, 'leads'),
+          fsMod.where('userId', '==', uid),
+          fsMod.where('d2dKnockId', '==', id)
+        ));
+        const leads = [];
+        leadsSnap.forEach(d => leads.push(Object.assign({ id: d.id }, d.data())));
+        return {
+          uid,
+          knock: knock && {
+            userId: knock.userId, companyId: knock.companyId,
+            disposition: knock.disposition, stage: knock.stage,
+            attemptNumber: knock.attemptNumber,
+            convertedToLead: knock.convertedToLead, leadId: knock.leadId || null
+          },
+          leads: leads.map(l => ({
+            id: l.id, userId: l.userId, source: l.source, stage: l.stage,
+            isProspect: l.isProspect, disposition: l.disposition
+          }))
+        };
+      }, knockId);
+      if (out && out.knock && out.knock.convertedToLead === true && out.leads.length) break;
+      await page.waitForTimeout(1_000);
+    }
+
+    // Knock-side contract (submitKnock, d2d-tracker-core-2026b.js:1082):
+    // owner stamping + the disposition→stage derivation the D2D metrics,
+    // heat map and follow-up engine all bucket on.
+    expect(out && out.knock, 'knock doc readable after write').toBeTruthy();
+    expect(out.knock.userId, 'knock userId stamped from window._user').toBe(out.uid);
+    expect(out.knock.companyId, 'knock companyId stamped (solo convention: uid)').toBeTruthy();
+    expect(out.knock.disposition, 'disposition persisted').toBe('appointment');
+    expect(out.knock.stage, "disposition 'appointment' derives knock stage 'appointment'").toBe('appointment');
+    expect(out.knock.attemptNumber, 'first knock at a fresh address is attempt #1').toBe(1);
+
+    // Promotion contract (convertToLead): an appointment is a QUALIFIED
+    // customer — it lands in the kanban immediately (isProspect false, stage
+    // 'inspected'), tagged with the D2D source + structured disposition key,
+    // and the runTransaction double-convert guard means EXACTLY ONE lead per
+    // knock (the two-pins/two-customer-IDs regression).
+    expect(out.knock.convertedToLead, 'knock flagged convertedToLead after auto-promote').toBe(true);
+    expect(out.leads.length, 'exactly ONE lead per hot knock (transaction dedup guard)').toBe(1);
+    const lead = out.leads[0];
+    expect(out.knock.leadId, 'knock → lead back-link stamped by _saveLead').toBe(lead.id);
+    expect(lead.userId, 'lead userId stamped').toBe(out.uid);
+    expect(lead.source, 'lead source attributed to Door-to-Door').toBe('Door-to-Door');
+    expect(lead.stage, "appointment knock maps to CRM stage 'inspected'").toBe('inspected');
+    expect(lead.isProspect, 'appointment lead is a full customer, NOT a hidden prospect').toBe(false);
+    expect(lead.disposition, 'structured disposition key persisted for the Prospects bucketer').toBe('appointment');
+
+    // Tag both docs for prod-run cleanup — submitKnock/convertToLead write
+    // fixed shapes with no room for the flag (post-hoc owner update, same as
+    // the invoice journey). NOTE: the cleanup callable currently sweeps only
+    // leads/estimates, so the [E2E] prefix keeps any stragglers obvious.
+    await page.evaluate(async (args) => {
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      await fsMod.updateDoc(fsMod.doc(db, 'knocks', args.knockId), { e2eTestData: true });
+      await fsMod.updateDoc(fsMod.doc(db, 'leads', args.leadId), { e2eTestData: true });
+    }, { knockId, leadId: lead.id });
+  });
+
+  test('scheduling: rep-typed scheduledDate persists date-only and surfaces on the Smart Calendar', async ({ page }) => {
+    // Same nominatim stub as the save-lead test — _saveLead geocodes new
+    // addresses and OSM rate-limits CI IPs with no client timeout.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // smart-calendar.js is EAGER (<script defer>, dashboard.html:5941) —
+    // no bundle to load — but it renders into #calUpcoming, which lives in
+    // <template id="tpl-view-schedule"> and only exists after goTo('schedule')
+    // stamps it. Its appointment reads run on the window Firestore globals
+    // bootstrap exposes asynchronously; /appointments itself is webhook-
+    // written (rules: write false), so the client-writable scheduling path —
+    // and the one this journey locks in — is the lead's date-only
+    // scheduledDate, which historically reached NO calendar (the motivating
+    // bug in smart-calendar.js's manual-scheduled block).
+    await page.waitForFunction(() =>
+      typeof window.goTo === 'function'
+      && typeof window.loadSmartCalendar === 'function'
+      && window._db && typeof window.getDocs === 'function'
+      && typeof window.orderBy === 'function'
+      && typeof window._saveLead === 'function', null, { timeout: 20_000 });
+
+    const stamp = Date.now();
+    const seeded = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey — _saveLead
+      // stamps userId from window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      // "Today" must be computed in PAGE-LOCAL time: smart-calendar buckets
+      // manual jobs by comparing lead.scheduledDate to the browser's local
+      // yyyy-mm-dd, and a UTC-derived date in the TEST process can be a
+      // different calendar day around midnight.
+      const t = new Date();
+      const todayStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
+      const leadId = await window._saveLead({
+        firstName: '[E2E] Sched',
+        lastName: String(args.stamp),
+        // Unique per attempt so LeadDedup's blocking prompt never fires.
+        address: `${String(args.stamp).slice(-3)} Schedule Street, Cincinnati, OH`,
+        phone: '513' + String(args.stamp).slice(-7),
+        email: `e2e-sched-${args.stamp}@nbd.test`,
+        stage: 'new',
+        scheduledDate: todayStr,
+        e2eTestData: true
+      });
+      return { leadId, todayStr };
+    }, { stamp });
+    // With the OSM stub answering [], _saveLead takes the no-geocode fallback
+    // branch, which returns the new lead id (the null return the move-stage
+    // journey works around is the geocoded branch only).
+    expect(seeded.leadId, 'seeded [E2E] Sched lead has an id').toBeTruthy();
+
+    // Persistence contract: scheduledDate is a DATE-ONLY string that must
+    // round-trip verbatim — not be coerced to a Timestamp or shifted a day
+    // by a UTC conversion (customer portal + smart calendar + docgen all
+    // read it as yyyy-mm-dd).
+    const persisted = await page.evaluate(async (id) => {
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      const snap = await fsMod.getDoc(fsMod.doc(db, 'leads', id));
+      const d = snap.data() || {};
+      return { scheduledDate: d.scheduledDate, type: typeof d.scheduledDate, userId: d.userId };
+    }, seeded.leadId);
+    expect(persisted.type, 'scheduledDate stored as a string').toBe('string');
+    expect(persisted.scheduledDate, 'date-only value round-trips verbatim').toBe(seeded.todayStr);
+
+    // Surface contract: navigate to the Schedule view (stamps the template)
+    // and render. The rep-typed date never reaches /appointments, so it must
+    // appear via the "Scheduled today · no set time" block, wired to open
+    // the lead card. _leads should already hold the lead (_saveLead awaits
+    // loadLeads), but poll briefly to absorb a slow refresh.
+    await page.evaluate(() => window.goTo('schedule'));
+    await expect(page.locator('#calUpcoming')).toBeAttached({ timeout: 10_000 });
+    const inLeads = await page.waitForFunction(
+      (id) => (window._leads || []).some(l => l && l.id === id), seeded.leadId, { timeout: 15_000 });
+    expect(inLeads).toBeTruthy();
+    await page.evaluate(async () => { await window.loadSmartCalendar(); });
+
+    const host = page.locator('#calUpcoming');
+    await expect(host, 'manual-scheduled block rendered').toContainText('Scheduled today', { timeout: 10_000 });
+    await expect(host, 'the scheduled lead is listed by name').toContainText(`[E2E] Sched ${stamp}`);
+    // The Open → button must carry the REAL lead id — that's what the
+    // openCardDetail click delegate dispatches on.
+    await expect(
+      page.locator(`#calUpcoming [data-sc-action="openCardDetail"][data-sc-id="${seeded.leadId}"]`),
+      'Open → button wired to the lead id'
+    ).toHaveCount(1);
+  });
+
+  test('expense: ledger stores integer cents + config-derived costType; mileage amount computed from the IRS rate', async ({ page }) => {
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    // Expenses ship in the lazy 'expenses' bundle (expense-config first —
+    // the category→costType source of truth expenses.js reads at save time).
+    // createExpense is the exact write path the Log Expense modal's Save
+    // button funnels into (saveFromForm → createExpense). It runs on
+    // window.db (bootstrap line 812), not _db — gate on both ends.
+    await page.waitForFunction(() => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', null, { timeout: 15_000 });
+    await page.evaluate(() => window.ScriptLoader.loadBundle('expenses'));
+    await page.waitForFunction(() =>
+      window.Expenses && typeof window.Expenses.createExpense === 'function'
+      && window.ExpenseConfig && typeof window.ExpenseConfig.costTypeFor === 'function'
+      && window.db && typeof window.addDoc === 'function', null, { timeout: 20_000 });
+
+    const stamp = Date.now();
+    // Fixed 2026 entry date: the mileage amount is COMPUTED (miles × the IRS
+    // rate snapshotted by the entry's tax YEAR — expense-config.js table:
+    // 2026 = 72.5¢/mi), so pinning the year keeps the expected cents stable
+    // when the table gains future years.
+    const DATE_STR = '2026-07-01';
+    const out = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey —
+      // createExpense stamps userId/createdBy from window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      // Unique supplier per doc per attempt: it's the read-back key, and
+      // createExpense itself has no duplicate guard to trip (that lives in
+      // the form layer), so a retry never collides or blocks.
+      const supplierMat = '[E2E] Supply Co ' + args.stamp;
+      const supplierMi = '[E2E] Mileage ' + args.stamp;
+      const okMat = await window.Expenses.createExpense({
+        amount: '1234.56', tax: '7.89', date: args.dateStr,
+        supplier: supplierMat, category: 'materials', leadId: '',
+        note: '[E2E] expenses journey', source: 'manual'
+      });
+      const okMi = await window.Expenses.createExpense({
+        category: 'mileage', miles: '10.5', date: args.dateStr,
+        supplier: supplierMi, leadId: '',
+        note: '[E2E] expenses journey (mileage)', source: 'manual'
+      });
+
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      const uid = (window._auth || window.auth).currentUser.uid;
+      // The expenses read rule is isOwner(resource.data.userId) — the query
+      // must carry the userId filter or rules reject it as unprovable.
+      async function fetchAndTag(supplier) {
+        const snap = await fsMod.getDocs(fsMod.query(
+          fsMod.collection(db, 'expenses'),
+          fsMod.where('userId', '==', uid),
+          fsMod.where('supplier', '==', supplier)
+        ));
+        const docs = [];
+        snap.forEach(d => docs.push(Object.assign({ id: d.id }, d.data())));
+        // Tag for cleanup — createExpense writes a fixed schema with no room
+        // for the flag. Owner update is allowed while userId/companyId/
+        // createdAt/createdBy stay frozen (didNotChange rule).
+        for (const dc of docs) {
+          await fsMod.updateDoc(fsMod.doc(db, 'expenses', dc.id), { e2eTestData: true });
+        }
+        return docs;
+      }
+      const mats = await fetchAndTag(supplierMat);
+      const mis = await fetchAndTag(supplierMi);
+      // Page-local yyyy-mm-dd of the persisted Timestamp — createExpense
+      // parses form.date as LOCAL midnight, so comparing in-page avoids any
+      // test-process timezone skew (and Timestamp doesn't serialize anyway).
+      const ymd = (t) => {
+        const d = t && typeof t.toDate === 'function' ? t.toDate() : new Date(t);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      };
+      const pick = (e) => e && {
+        userId: e.userId, companyId: e.companyId, createdBy: e.createdBy,
+        category: e.category, costType: e.costType,
+        amountCents: e.amountCents, taxCents: e.taxCents, currency: e.currency,
+        leadId: e.leadId, source: e.source, needsReview: e.needsReview,
+        miles: e.miles, mileageRateCents: e.mileageRateCents,
+        dateYmd: e.date ? ymd(e.date) : null,
+        hasCreatedAt: !!e.createdAt
+      };
+      return {
+        uid, okMat, okMi,
+        matCount: mats.length, miCount: mis.length,
+        mat: pick(mats[0]), mi: pick(mis[0]),
+        configRate: window.ExpenseConfig.mileageRateCents(new Date(args.dateStr + 'T00:00:00'))
+      };
+    }, { stamp, dateStr: DATE_STR });
+
+    expect(out.okMat, 'materials createExpense reported success').toBe(true);
+    expect(out.okMi, 'mileage createExpense reported success').toBe(true);
+    expect(out.matCount, 'exactly one materials expense for the unique supplier').toBe(1);
+    expect(out.miCount, 'exactly one mileage expense for the unique supplier').toBe(1);
+
+    // Money contract: amounts live as INTEGER CENTS (never float dollars) —
+    // the drift-proofing rule the whole subsystem is built on.
+    const mat = out.mat;
+    expect(mat.amountCents, "'1234.56' → 123456 integer cents").toBe(123456);
+    expect(mat.taxCents, "tax '7.89' → 789 cents").toBe(789);
+    expect(mat.currency, 'currency clamped to USD').toBe('USD');
+    // Category taxonomy contract: materials is a DIRECT job cost — this
+    // single field is what aggregate()/jobMargin() bucket COGS on, so a
+    // wrong costType silently corrupts every margin readout.
+    expect(mat.category).toBe('materials');
+    expect(mat.costType, "category 'materials' stamps costType 'direct'").toBe('direct');
+    expect(mat.leadId, "empty job select persists leadId null (overhead-style unassigned)").toBeNull();
+    expect(mat.userId, 'userId stamped').toBe(out.uid);
+    expect(mat.createdBy, 'createdBy stamped').toBe(out.uid);
+    expect(mat.companyId, 'companyId stamped (solo convention: uid)').toBeTruthy();
+    expect(mat.source, 'manual entry recorded as manual').toBe('manual');
+    expect(mat.needsReview, 'manual entry needs no OCR review').toBe(false);
+    expect(mat.dateYmd, 'entry date round-trips to the same LOCAL day').toBe(DATE_STR);
+    expect(mat.hasCreatedAt, 'createdAt serverTimestamp present').toBe(true);
+
+    // Mileage contract: the amount is COMPUTED, not typed — miles × the IRS
+    // business rate for the entry's tax year (2026 = 72.5¢/mi), rounded to
+    // the cent, and the rate is SNAPSHOTTED on the doc so a future table
+    // change can't rewrite history. costType overhead (vehicle cost, not a
+    // single job's COGS).
+    const mi = out.mi;
+    expect(out.configRate, '2026 IRS business rate is 72.5¢/mi').toBe(72.5);
+    expect(mi.mileageRateCents, 'rate snapshotted on the doc').toBe(72.5);
+    expect(mi.miles, 'miles persisted').toBe(10.5);
+    expect(mi.amountCents, '10.5 mi × 72.5¢ = 761 cents (rounded)').toBe(Math.round(10.5 * 72.5));
+    expect(mi.costType, 'mileage is overhead, never a job cost').toBe('overhead');
+  });
 });
