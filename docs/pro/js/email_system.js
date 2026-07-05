@@ -6,7 +6,7 @@
 // For now, we'll use mailto: links with pre-populated content
 // In production, integrate with SendGrid, Mailgun, or AWS SES
 
-let _NBD_ES_DELEGATE; // module-local (globals Tranche 1 — was window.*)
+let _NBD_ES_DELEGATE, openEmailModal, closeEmailModal, emailEstimatePDF, emailFollowUp, _emailAttachment, _emailContext, _emailLeadId; // module-local (globals Tranche 1 — was window.*)
 window.emailSystem = {
   // Template library
   templates: {
@@ -126,7 +126,7 @@ jd@nobigdealwithjoedeal.com`
 // EMAIL MODAL - Compose and send emails
 // ═══════════════════════════════════════════════════════════════════════
 
-window.openEmailModal = function(options = {}) {
+openEmailModal = function(options = {}) {
   const {
     to = '',
     subject = '',
@@ -138,9 +138,9 @@ window.openEmailModal = function(options = {}) {
   } = options;
   
   // Store attachment data globally for access
-  window._emailAttachment = attachmentData;
-  window._emailLeadId = leadId;
-  window._emailContext = context;
+  _emailAttachment = attachmentData;
+  _emailLeadId = leadId;
+  _emailContext = context;
   
   const modal = document.createElement('div');
   modal.id = 'emailModal';
@@ -210,11 +210,11 @@ window.openEmailModal = function(options = {}) {
   document.getElementById('emailTo').focus();
 };
 
-window.closeEmailModal = function() {
+closeEmailModal = function() {
   const modal = document.getElementById('emailModal');
   if (modal) modal.remove();
-  window._emailAttachment = null;
-  window._emailLeadId = null;
+  _emailAttachment = null;
+  _emailLeadId = null;
 };
 
 window.sendEmail = async function() {
@@ -238,7 +238,7 @@ window.sendEmail = async function() {
     // If NBDComms is available, use Cloud Function to send
     if (window.NBDComms && typeof window.NBDComms.sendEmail === 'function') {
       const result = await window.NBDComms.sendEmail(to, subject, body, {
-        leadId: window._emailLeadId,
+        leadId: _emailLeadId,
         html: null
       });
 
@@ -250,15 +250,15 @@ window.sendEmail = async function() {
     }
 
     // Fallback: Log and use mailto
-    if (window._emailLeadId && window.db) {
+    if (_emailLeadId && window.db) {
       const _eu = window.auth?.currentUser;
       await window.addDoc(window.collection(window.db, 'emails'), {
-        leadId: window._emailLeadId,
+        leadId: _emailLeadId,
         to: to,
         subject: subject,
         body: body,
-        context: window._emailContext || 'general',
-        hasAttachment: !!window._emailAttachment,
+        context: _emailContext || 'general',
+        hasAttachment: !!_emailAttachment,
         sentAt: window.serverTimestamp(),
         sentBy: _eu?.email || 'Unknown',
         // Bind ownership to the immutable uid (rules prefer this over the
@@ -269,10 +269,10 @@ window.sendEmail = async function() {
     }
 
     // If attachment exists, download it
-    if (window._emailAttachment) {
+    if (_emailAttachment) {
       alert('⚠️ Email will open with message pre-filled.\n\nThe PDF has been downloaded to your computer.\nPlease attach it manually before sending.');
       const link = document.createElement('a');
-      link.href = URL.createObjectURL(window._emailAttachment);
+      link.href = URL.createObjectURL(_emailAttachment);
       link.download = `attachment_${Date.now()}.pdf`;
       link.click();
       URL.revokeObjectURL(link.href);
@@ -303,7 +303,7 @@ window.sendEmail = async function() {
 // ═══════════════════════════════════════════════════════════════════════
 
 // Email estimate PDF
-window.emailEstimatePDF = async function(estimateData, pdfBlob) {
+emailEstimatePDF = async function(estimateData, pdfBlob) {
   const lead = estimateData.customerId ? await getLeadData(estimateData.customerId) : null;
   
   const customerName = lead ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Customer';
@@ -316,7 +316,7 @@ window.emailEstimatePDF = async function(estimateData, pdfBlob) {
     total: `$${(estimateData.total || 0).toLocaleString()}`
   });
   
-  window.openEmailModal({
+  openEmailModal({
     to: email,
     subject: emailData.subject,
     body: emailData.body,
@@ -342,7 +342,7 @@ window.emailPhotoReport = async function(pdfBlob, leadId) {
     photoCount: photoCount
   });
   
-  window.openEmailModal({
+  openEmailModal({
     to: email,
     subject: emailData.subject,
     body: emailData.body,
@@ -354,7 +354,7 @@ window.emailPhotoReport = async function(pdfBlob, leadId) {
 };
 
 // Quick follow-up email
-window.emailFollowUp = async function(leadId) {
+emailFollowUp = async function(leadId) {
   const lead = await getLeadData(leadId);
   
   const customerName = lead ? `${lead.firstName || ''} ${lead.lastName || ''}`.trim() : 'Customer';
@@ -366,7 +366,7 @@ window.emailFollowUp = async function(leadId) {
     address: lead?.address || 'your property'
   });
   
-  window.openEmailModal({
+  openEmailModal({
     to: email,
     subject: emailData.subject,
     body: emailData.body,
@@ -645,7 +645,7 @@ window.emailByStage = async function(leadId) {
   const template = window.emailSystem.stageTemplates[stage];
   if (!template) {
     // Fallback to generic follow-up
-    window.emailFollowUp(leadId);
+    emailFollowUp(leadId);
     return;
   }
 
@@ -670,7 +670,7 @@ window.emailByStage = async function(leadId) {
     body = body.replace(new RegExp(`\\{${key}\\}`, 'g'), data[key]);
   });
 
-  window.openEmailModal({
+  openEmailModal({
     to: email,
     subject,
     body,
