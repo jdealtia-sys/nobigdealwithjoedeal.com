@@ -1506,7 +1506,12 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     // The customizer entry points are mobile-menu / settings items; drive
     // the document-level data-mnc-action delegate directly with a temp
     // trigger — exactly the dispatch path real entry points use.
-    await page.waitForLoadState('load');
+    // Readiness gate: window.mobileNav is assigned by mobile-nav-
+    // customizer.js's init(), which runs strictly after the module (and
+    // therefore its click delegate) loaded — clicking before that is a
+    // race the first CI run won and the second lost.
+    await page.waitForFunction(() => typeof window.mobileNav === 'function',
+      null, { timeout: 15_000 });
     await page.evaluate(() => {
       const b = document.createElement('button');
       b.id = 'e2e-open-customizer';
