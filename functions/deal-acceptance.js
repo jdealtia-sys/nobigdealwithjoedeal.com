@@ -183,7 +183,17 @@ exports.getDealRoom = onRequest(
     // Inject the token + same-origin submit endpoint so the page's ACCEPT
     // button can record the acceptance. The deal-room's submitDeal() reads
     // window.__NBD_DEAL_TOKEN / __NBD_DEAL_SUBMIT_URL. Injected before </head>.
-    const inject = `<script>window.__NBD_DEAL_TOKEN=${JSON.stringify(token)};window.__NBD_DEAL_SUBMIT_URL=${JSON.stringify(SUBMIT_PATH)};</script>`;
+    // Meta tags FIRST: the hosting-layer CSP (script-src-elem 'self' ...,
+    // script-src-attr 'none') blocks the legacy inline <script> inject, so
+    // token + submit URL never reached the page and the customer's ACCEPT
+    // was inert. deal-room.js (external, CSP-allowed) reads the metas. The
+    // inline script is kept as a fallback for any serving path without the
+    // strict CSP (it is simply ignored where the CSP applies). Tokens are
+    // hex, but escape for the attribute anyway.
+    const escAttr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    const inject = `<meta name="nbd-deal-token" content="${escAttr(token)}">`
+      + `<meta name="nbd-deal-submit" content="${escAttr(SUBMIT_PATH)}">`
+      + `<script>window.__NBD_DEAL_TOKEN=${JSON.stringify(token)};window.__NBD_DEAL_SUBMIT_URL=${JSON.stringify(SUBMIT_PATH)};</script>`;
     html = html.includes('</head>') ? html.replace('</head>', inject + '</head>') : inject + html;
 
     res.status(200)
