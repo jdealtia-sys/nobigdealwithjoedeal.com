@@ -26,7 +26,6 @@
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
-const admin = require('firebase-admin');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 

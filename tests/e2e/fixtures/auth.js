@@ -64,6 +64,46 @@ async function loginAs(page, creds) {
     page.waitForURL(/\/pro\/dashboard(\.html)?([?#]|$)/, { timeout: 30_000 }),
     page.click('#loginBtn'),
   ]);
+
+  // ── Emulator-only: absorb the Java Firestore emulator's commit-retry
+  // bug. Under load the SDK retries a commit whose FIRST attempt actually
+  // landed, and the emulator (unlike prod) doesn't dedupe — the retry
+  // rejects with ALREADY_EXISTS naming the doc that DID get written
+  // (firebase-tools long-standing issue; bit docgen/expense/d2d as a
+  // rotating victim across #842-#843 CI runs, each module swallowing the
+  // rejection differently). Since the write SUCCEEDED, the correct
+  // handling is to return a reference to the doc the error names.
+  // Patched on window.addDoc after every login (fresh page per test), so
+  // every consumer of the exposed global (submitKnock, createExpense,
+  // createInvoiceFromEstimate, ...) is covered in one place.
+  // dashboard-bootstrap's closure-held addDoc (_saveLead/_saveEstimate)
+  // can't be patched from here — those call sites in the spec tolerate
+  // ALREADY_EXISTS locally and re-fetch by lastName.
+  if (/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) {
+    await page.evaluate(() => {
+      const install = () => {
+        if (window.__nbdAddDocPatched || typeof window.addDoc !== 'function'
+            || typeof window.doc !== 'function') return false;
+        const orig = window.addDoc;
+        window.addDoc = async (collRef, data) => {
+          try { return await orig(collRef, data); }
+          catch (e) {
+            const m = /ALREADY_EXISTS[^\n]*path=\/(?:[^/]+)\/([A-Za-z0-9_-]+)/.exec(String(e && e.message || e));
+            if (!m) throw e;
+            return window.doc(collRef, m[1]); // the write landed at this id
+          }
+        };
+        window.__nbdAddDocPatched = true;
+        return true;
+      };
+      // window.addDoc is exposed asynchronously by dashboard-bootstrap —
+      // poll briefly; journeys that need it also gate on it themselves.
+      if (!install()) {
+        let tries = 0;
+        const t = setInterval(() => { if (install() || ++tries > 100) clearInterval(t); }, 100);
+      }
+    });
+  }
 }
 
 /**

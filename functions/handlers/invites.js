@@ -43,7 +43,7 @@ const { logger } = require('firebase-functions/v2');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { Resend } = require('resend');
-const { CORS_ORIGINS, INVITE_ALLOWED_ROLES, PROVISION_OWNER_EMAILS, requireTeamAdmin } = require('./_shared');
+const { CORS_ORIGINS, INVITE_ALLOWED_ROLES, isOwnerCaller, requireTeamAdmin } = require('./_shared');
 const { callableRateLimit } = require('../shared');
 // Seat caps live in billing.js PLAN_LIMITS (server source of truth for the
 // plan table; mirrors docs/pro/js/billing-gate.js PLANS).
@@ -327,7 +327,10 @@ exports.createTeamInvite = onCall(
     // truth), company doc plan as fallback. Joe's owner accounts and
     // platform admins are never seat-gated.
     let plan = 'free';
-    if (isGlobalAdmin || PROVISION_OWNER_EMAILS.has(callerEmail)) {
+    // Owner seat-cap bypass: claims-based (token.owner === true) with the
+    // deprecated email fallback inside isOwnerCaller (remove fallback after
+    // owner claims confirmed in prod).
+    if (isGlobalAdmin || isOwnerCaller(request.auth.token)) {
       plan = 'enterprise';
     } else {
       const subSnap = await db.doc(`subscriptions/${companyId}`).get();

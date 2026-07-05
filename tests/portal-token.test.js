@@ -24,7 +24,8 @@
  */
 'use strict';
 
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore, Timestamp } = require('firebase-admin/firestore');
 
 const PROJECT = process.env.GCLOUD_PROJECT || 'nobigdeal-pro';
 const COMPANY_ID = 'demo-co';
@@ -36,9 +37,9 @@ if (!process.env.FIRESTORE_EMULATOR_HOST) {
   process.exit(1);
 }
 
-admin.initializeApp({ projectId: PROJECT });
-const db = admin.firestore();
-const TS = admin.firestore.Timestamp;
+initializeApp({ projectId: PROJECT });
+const db = getFirestore();
+const TS = Timestamp;
 
 let passed = 0, failed = 0; const fails = [];
 function ok(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name); } else { failed++; fails.push(name); console.log('  ✗ ' + name); } }

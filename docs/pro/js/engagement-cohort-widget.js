@@ -39,8 +39,9 @@
 (function () {
   'use strict';
 
-  if (window.EngagementCohortWidget
-      && window.EngagementCohortWidget.__sentinel === 'nbd-engagement-cohort-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['engagement-cohort-widget']) return;
+  __NBD_LOADED['engagement-cohort-widget'] = true;
 
   const PATH = window.location.pathname || '';
   if (!/\/pro\/dashboard(?:\.html)?$/.test(PATH)) return;
@@ -127,8 +128,7 @@
     window.addEventListener('nbd:data-refreshed', render);
   }
 
-  window.EngagementCohortWidget = {
-    __sentinel: 'nbd-engagement-cohort-v1',
+  const EngagementCohortWidget = {
     render,
     computeCounts,
   };

@@ -393,5 +393,5 @@
     boot();
   }
 
-  window.NbdAiPersona = { onTabOpen: onTabOpen, render: render };
+  const NbdAiPersona = { onTabOpen: onTabOpen, render: render };
 })();

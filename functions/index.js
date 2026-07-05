@@ -17,7 +17,8 @@
  *                             updateUserRole, deactivateUser, listTeamMembers,
  *                             rotateAccessCodes
  *   handlers/auth.js        — onRepSignup, activateInvitedRep,
- *                             provisionE2ETestUser, cleanupE2ETestData
+ *                             provisionE2ETestUser, cleanupE2ETestData,
+ *                             mintOwnerClaims
  *   handlers/migrations.js  — backfillAnalytics, migratePinsToKnocks
  *   handlers/integrations.js— integrationStatus, submitPublicLead
  *   handlers/portal.js      — validateAccessCode (the inline access-code
@@ -27,7 +28,7 @@
  *                             helpers, requireTeamAdmin, normalizeRole,
  *                             normalizeEmail, parseAddress, reverseGeocode,
  *                             _generateE2EPassword, E2E_TEST_USER_EMAIL,
- *                             PROVISION_OWNER_EMAILS, INVITE_ALLOWED_ROLES,
+ *                             OWNER_EMAILS, isOwnerCaller, INVITE_ALLOWED_ROLES,
  *                             TEAM_ROLES, LEGACY_ACCESS_CODES
  *
  * Sibling modules that already lived in their own files (portal.js,
@@ -114,6 +115,10 @@ exports.onRepSignup          = authHandlers.onRepSignup;
 exports.activateInvitedRep   = authHandlers.activateInvitedRep;
 exports.provisionE2ETestUser = authHandlers.provisionE2ETestUser;
 exports.cleanupE2ETestData   = authHandlers.cleanupE2ETestData;
+// Owner-role claim minting (claims-based root — see handlers/auth.js).
+// Deployed via the strict pass (NOT skip-listed); this re-export is
+// load-bearing for deploy-by-name, same as every handler above.
+exports.mintOwnerClaims      = authHandlers.mintOwnerClaims;
 
 // Owner-callable migrations (NOT the versioned admin runner — that
 // stays in functions/migrations/runner.js, re-exported below).

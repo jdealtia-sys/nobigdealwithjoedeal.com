@@ -14,7 +14,6 @@
 
 const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 // Modular FieldValue import — FieldValue is undefined under the
 // emulator runtime, so submitPublicLead 500'd on a valid write (see

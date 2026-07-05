@@ -25,6 +25,7 @@
 // Process-scoped cache so toggling the overlay on/off doesn't re-geocode
 // every active job; keyed by normalised address. Null entries mean
 // "Nominatim returned nothing" so we don't retry on each toggle.
+let _NBD_MO_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 const _jobsGeocodeCache = new Map();
 const _JOBS_GEOCODE_CAP = 20; // hard cap per buildJobsLayer() run
 async function buildJobsLayer() {
@@ -476,8 +477,8 @@ function damagNearMe() {
 
 // CSP-safe delegation for 5 data-mo-action attrs (maps overlays — pin popups).
 (function () {
-  if (window._NBD_MO_DELEGATE_BOUND) return;
-  window._NBD_MO_DELEGATE_BOUND = true;
+  if (_NBD_MO_DELEGATE_BOUND) return;
+  _NBD_MO_DELEGATE_BOUND = true;
   document.addEventListener('click', function (ev) {
     const t = ev.target.closest && ev.target.closest('[data-mo-action]');
     if (!t) return;

@@ -887,10 +887,16 @@
     } catch (_) { /* best-effort; never block boot on a storage error */ }
 
     // ── SUBSCRIPTION CHECK ────────────────────────────────────
-    // Owner bypass — founder/staff emails always resolve to professional.
-    // Must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js so
-    // a missing/stale subscriptions/ doc never flips Joe to 'free' and
-    // triggers the "upgrade to unlock" wall for his own product.
+    // Owner bypass — claims-based: keyed on the { owner: true } custom
+    // claim minted server-side by mintOwnerClaims (single email list in
+    // functions/handlers/_shared.js). Ensures a missing/stale
+    // subscriptions/ doc never flips Joe to 'free' and triggers the
+    // "upgrade to unlock" wall for his own product.
+    //
+    // The email literals below are the DEPRECATED transition fallback
+    // (must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js)
+    // so a not-yet-minted claim or a failed claims read can't lock the
+    // founder out — remove them after owner claims are confirmed in prod.
     //
     // NOTE: the previous `isDemoAccount = user.email === 'demo@nobigdeal.pro'`
     // hardcoded bypass was REMOVED (2026-04-23). Demo accounts now flow
@@ -898,13 +904,19 @@
     // literal here was a second auth surface that could diverge from the
     // claim-based path and silently grant professional-tier access.
     const _emailLower = (user.email || '').trim().toLowerCase();
-    const isOwnerAccount = _emailLower === 'jd@nobigdealwithjoedeal.com'
+    let _bootClaims = null;
+    try {
+      const _tr = await user.getIdTokenResult();
+      _bootClaims = (_tr && _tr.claims) || null;
+    } catch (_) { /* claims read failed — email fallback below covers owners */ }
+    const isOwnerAccount = (_bootClaims && _bootClaims.owner === true)
+                        || _emailLower === 'jd@nobigdealwithjoedeal.com'
                         || _emailLower === 'jonathandeal459@gmail.com';
 
     if (isOwnerAccount) {
-      window._userPlan = 'professional';
-      window._subscription = { plan: 'professional', status: 'active', _owner: true };
-      console.log('✓ Owner account — professional plan granted');
+      window._userPlan = 'growth';
+      window._subscription = { plan: 'growth', status: 'active', _owner: true };
+      console.log('✓ Owner account — growth plan granted');
     } else {
       // Subscription check — SOFT. Never block the dashboard load.
       // The billing-gate module handles limits via soft gates.
@@ -920,10 +932,15 @@
         // claim). Solo owners resolve to their own uid as before. Claims
         // read is cached (no extra network on a warm token).
         let _subKey = user.uid;
-        try {
-          const _tr = await user.getIdTokenResult();
-          _subKey = (_tr && _tr.claims && _tr.claims.companyId) || user.uid;
-        } catch (_) { /* fall back to uid */ }
+        if (_bootClaims) {
+          // Reuse the claims read hoisted above the owner check.
+          _subKey = _bootClaims.companyId || user.uid;
+        } else {
+          try {
+            const _tr = await user.getIdTokenResult();
+            _subKey = (_tr && _tr.claims && _tr.claims.companyId) || user.uid;
+          } catch (_) { /* fall back to uid */ }
+        }
         const subSnap = await Promise.race([
           getDoc(doc(db, 'subscriptions', _subKey)),
           new Promise((_, rej) => setTimeout(() => rej(new Error('Subscription check timed out')), 4000))
@@ -931,7 +948,12 @@
         if (subSnap.exists()) {
           const subscription = subSnap.data();
           window._subscription = subscription;
-          window._userPlan = subscription.plan || 'free';
+          // Read-boundary alias resolution — production docs carry
+          // legacy plan keys forever (mirrors PLAN_ALIASES in
+          // nbd-auth.js); window._userPlan is always canonical.
+          const _planAliases = { foundation: 'starter', blueprint: 'starter', professional: 'growth' };
+          const _rawPlan = subscription.plan || 'free';
+          window._userPlan = _planAliases[_rawPlan] || _rawPlan;
           // H-03: do NOT persist plan in localStorage — it reintroduces
           // the fail-open hole that nbd-auth.js explicitly removed.
           console.log('✓ Subscription:', subscription.plan, subscription.status);
@@ -962,8 +984,8 @@
         banner.id = 'liteBanner';
         banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,var(--s),var(--s2));border-top:2px solid var(--orange);padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.8);';
         banner.innerHTML = `
-          <span>🚀 You're on <strong class="fg-orange">NBD Pro Lite</strong> (25 leads max)</span>
-          <a href="/pro/landing.html#pricing" style="background:var(--orange);color:var(--accent-fg);padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade to Pro →</a>
+          <span>🚀 You're on the <strong class="fg-orange">NBD Pro Free plan</strong> (10 leads/month)</span>
+          <a href="/pro/pricing.html" style="background:var(--orange);color:var(--accent-fg);padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;">Upgrade — Starter $99/mo →</a>
           <button data-action="removeParent" style="background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;">✕</button>
         `;
         document.body.appendChild(banner);
@@ -1365,7 +1387,6 @@
   window._db      = db;
   window._storage = storage;
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
-  window.firebase_onAuthStateChanged = onAuthStateChanged;
 
   // (Removed the window.activateMyAccount console helper: it setDoc'd directly
   // to /subscriptions, which is admin-SDK-write-only — `allow write: if false`
@@ -1452,7 +1473,6 @@
     `;
     document.body.insertAdjacentHTML('beforeend', helpHTML);
   }
-  window.showShortcutsHelp = showShortcutsHelp;
 
   // ── RECENTLY VIEWED CUSTOMERS ──
   function toggleRecentDropdown() {
@@ -2416,11 +2436,17 @@
       const editId = data.id;
       delete data.id;
 
-      // LITE PLAN: enforce 25-lead limit on new leads
+      // LITE (trial-expired free): hard-cap new leads at the free-tier
+      // allowance. 10 matches PLAN_LIMITS.free.leads in
+      // functions/billing.js / billing-gate.js PLANS.free (was a stale
+      // hardcoded 25 that predated the canonical tier table). Note this
+      // counts TOTAL loaded leads, not this-cycle usage — the server
+      // meter (trackUsage) is the real monthly gate; this is a blunt
+      // client-side stop for lapsed trials.
       if ((!editId || editId.startsWith('d-')) && window._userPlan === 'lite') {
         const currentCount = (window._leads || []).length;
-        if (currentCount >= 25) {
-          showToast('Free tier limit: 25 leads. Upgrade to Pro for unlimited leads.', 'error');
+        if (currentCount >= 10) {
+          showToast('Free plan lead limit reached. Upgrade to Starter ($99/mo) for more leads.', 'error');
           return null;
         }
       }

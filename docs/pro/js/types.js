@@ -281,7 +281,7 @@
  * @property {string=} phone
  * @property {string=} companyName
  * @property {('admin'|'company_admin'|'manager'|'sales_rep'|'viewer'|string)=} role
- * @property {string=} plan         'free' | 'starter' | 'professional' | 'team'
+ * @property {string=} plan         'free' | 'starter' | 'growth' | 'enterprise' (legacy docs may carry 'foundation'/'blueprint'/'professional')
  * @property {string=} companyId
  * @property {boolean=} isAdmin
  * @property {TimestampLike=} createdAt

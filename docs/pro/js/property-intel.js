@@ -5,6 +5,7 @@
 // ══════════════════════════════════════════════════════════════
 
 // Use var to avoid redeclaration collision with dashboard.html inline script
+let _NBD_PI_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 var _piCache = _piCache || {};
 
 // HTML escape helper — prevents XSS when interpolating user data
@@ -747,4 +748,4 @@ window.executePullPropertyIntel = executePullPropertyIntel;
 window.fetchPropertyIntelModal = fetchPropertyIntelModal;
 
 
-(function(){if(window._NBD_PI_DELEGATE)return;window._NBD_PI_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-pi-action]');if(!t)return;if(t.dataset.piAction==='createLead'&&typeof createLeadFromProperty==='function')createLeadFromProperty(t.dataset.piAddress,t.dataset.piOwner);});})();
+(function(){if(_NBD_PI_DELEGATE)return;_NBD_PI_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-pi-action]');if(!t)return;if(t.dataset.piAction==='createLead'&&typeof createLeadFromProperty==='function')createLeadFromProperty(t.dataset.piAddress,t.dataset.piOwner);});})();

@@ -54,7 +54,10 @@ await connectEmulatorsIfLocal({ auth, db, functions });
 
 // Mirror of dashboard-bootstrap's owner bypass — Joe's accounts ARE the NBD
 // default brand; the wizard would only tempt an accidental brand override
-// onto the production NBD profile.
+// onto the production NBD profile. Owner status is claims-based
+// (claims.owner === true, minted by mintOwnerClaims); this email list is
+// the DEPRECATED transition fallback — remove after owner claims are
+// confirmed in prod.
 const OWNER_EMAILS = ['jd@nobigdealwithjoedeal.com', 'jonathandeal459@gmail.com'];
 
 const state = {
@@ -374,13 +377,16 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.replace('/pro/login.html'); return; }
   state.user = user;
 
-  const emailLower = (user.email || '').trim().toLowerCase();
-  if (OWNER_EMAILS.includes(emailLower)) { toDashboard(); return; }
-
+  // Claims first so the owner check below can key on claims.owner === true;
+  // a failed read leaves {} and the deprecated email fallback still catches
+  // the founder accounts.
   try {
     const tokenResult = await user.getIdTokenResult();
     state.claims = (tokenResult && tokenResult.claims) || {};
   } catch (_) { state.claims = {}; }
+
+  const emailLower = (user.email || '').trim().toLowerCase();
+  if (state.claims.owner === true || OWNER_EMAILS.includes(emailLower)) { toDashboard(); return; }
 
   // Invited rep — their owner configures the brand, not them.
   if (state.claims.companyId && state.claims.companyId !== user.uid) { toDashboard(); return; }

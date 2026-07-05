@@ -9,7 +9,7 @@
  * (estimateInputTokens, reserveClaudeBudget, adjustClaudeBudget,
  * reverseGeocode, parseAddress, _generateE2EPassword,
  * requireTeamAdmin, normalizeRole, normalizeEmail, INVITE_ALLOWED_ROLES,
- * TEAM_ROLES, PROVISION_OWNER_EMAILS, E2E_TEST_USER_EMAIL,
+ * TEAM_ROLES, OWNER_EMAILS, isOwnerCaller, E2E_TEST_USER_EMAIL,
  * LEGACY_ACCESS_CODES).
  *
  * Imports nothing from ../index.js (no circular dep).
@@ -17,7 +17,6 @@
 
 'use strict';
 
-const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { HttpsError } = require('firebase-functions/v2/https');
@@ -129,10 +128,40 @@ function parseAddress(addr) {
 
 // ── E2E test helpers (used by handlers/auth.js → provisionE2ETestUser) ─
 const E2E_TEST_USER_EMAIL = 'playwright-e2e@nobigdealwithjoedeal.com';
-const PROVISION_OWNER_EMAILS = new Set([
+
+// ── Owner (root) accounts — THE single server-side email list ────────
+// This is the ONLY place in functions/ where the owner emails may be
+// written down. It exists for exactly one purpose: MINTING the
+// { owner: true, role: 'admin' } custom claims via mintOwnerClaims in
+// handlers/auth.js (a deployed onCall — the blocking auth triggers are
+// NOT deployable: onRepSignup is in NBD_DEPLOY_SKIP_LIST and
+// beforeUserSignedIn was never exported; see .github/workflows/
+// firebase-deploy.yml + handlers/auth.js Q3 header).
+//
+// It is NOT a per-request authorization list. Server authorization must
+// key on `request.auth.token.owner === true` (the minted claim). During
+// the claims rollout, isOwnerCaller() below still falls back to this
+// list so Jo can never be locked out before the claim has been minted —
+// that fallback is DEPRECATED: remove it (make isOwnerCaller claim-only)
+// after owner claims are confirmed in prod (sign in with both accounts,
+// verify getIdTokenResult().claims.owner === true).
+//
+// Entries MUST be lowercase; compare against a lowercased caller email.
+// Was previously named PROVISION_OWNER_EMAILS (E2E-provision gate only).
+const OWNER_EMAILS = new Set([
   'jd@nobigdealwithjoedeal.com',
   'jonathandeal459@gmail.com'
 ]);
+
+// Transition-period owner check for callables. Claim first — the email
+// fallback is DEPRECATED (remove after owner claims confirmed in prod;
+// see OWNER_EMAILS comment above).
+function isOwnerCaller(token) {
+  if (!token) return false;
+  if (token.owner === true) return true;
+  const email = typeof token.email === 'string' ? token.email.trim().toLowerCase() : '';
+  return !!email && OWNER_EMAILS.has(email);
+}
 
 function _generateE2EPassword() {
   const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@$%';
@@ -281,7 +310,9 @@ module.exports = {
   parseAddress,
   // E2E test
   E2E_TEST_USER_EMAIL,
-  PROVISION_OWNER_EMAILS,
+  // Owner-role (claims-based root; email list only mints claims)
+  OWNER_EMAILS,
+  isOwnerCaller,
   _generateE2EPassword,
   // Invite/Team
   INVITE_ALLOWED_ROLES,

@@ -29,7 +29,6 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { logger } = require('firebase-functions/v2');
 const { defineSecret } = require('firebase-functions/params');
-const admin = require('firebase-admin');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
 const { FieldValue } = require('firebase-admin/firestore');

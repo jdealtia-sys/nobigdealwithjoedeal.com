@@ -16,7 +16,9 @@
 'use strict';
 
 const assert = require('assert');
-const admin = require('firebase-admin');
+const { initializeApp: initializeAdminApp } = require('firebase-admin/app');
+const { getAuth: getAdminAuth } = require('firebase-admin/auth');
+const { getFirestore: getAdminFirestore } = require('firebase-admin/firestore');
 const { initializeApp } = require('firebase/app');
 const { getAuth, connectAuthEmulator, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } = require('firebase/auth');
 const {
@@ -53,16 +55,16 @@ async function allowed(name, p) {
 }
 
 // ── admin-side provisioning ──────────────────────────────────
-admin.initializeApp({ projectId: PROJECT });
-const adb = admin.firestore();
+initializeAdminApp({ projectId: PROJECT });
+const adb = getAdminFirestore();
 
 async function provision() {
   const uid = {};
   for (const r of ROLES) {
     let rec;
-    try { rec = await admin.auth().getUserByEmail(r.email); }
-    catch { rec = await admin.auth().createUser({ email: r.email, password: PASSWORD, emailVerified: true }); }
-    await admin.auth().setCustomUserClaims(rec.uid, r.claims);
+    try { rec = await getAdminAuth().getUserByEmail(r.email); }
+    catch { rec = await getAdminAuth().createUser({ email: r.email, password: PASSWORD, emailVerified: true }); }
+    await getAdminAuth().setCustomUserClaims(rec.uid, r.claims);
     await adb.doc(`users/${rec.uid}`).set({ role: r.claims.role, companyId: COMPANY_ID }, { merge: true });
     uid[r.key] = rec.uid;
   }

@@ -27,11 +27,21 @@
         document.getElementById('billingReportsBar').style.width = Math.min(100, window.NBDBilling.usagePct('reports') * 100) + '%';
         document.getElementById('billingAIBar').style.width = Math.min(100, window.NBDBilling.usagePct('aiCalls') * 100) + '%';
 
-        // Plan cards
+        // Plan cards — show the four canonical tiers (Free / Starter /
+        // Growth / Enterprise). foundation/professional are legacy alias
+        // keys of starter/growth in NBDBilling.PLANS; render the alias
+        // entry only when it's the user's current plan (and hide its
+        // canonical twin) so the grid never shows duplicate cards.
         var plans = window.NBDBilling.PLANS;
+        var aliasOf = { foundation: 'starter', professional: 'growth' };
         var cards = document.getElementById('billingPlanCards');
         if (cards) {
-          cards.innerHTML = Object.entries(plans).map(function(entry) {
+          cards.innerHTML = Object.entries(plans).filter(function(entry) {
+            var key = entry[0];
+            if (aliasOf[key]) return key === info.plan;
+            if (aliasOf[info.plan] === key) return false;
+            return true;
+          }).map(function(entry) {
             var key = entry[0], p = entry[1];
             var isCurrent = key === info.plan;
             return '<div style="background:' + (isCurrent ? 'color-mix(in srgb, var(--orange) 8%, transparent)' : 'var(--s2)') + ';border:2px solid ' + (isCurrent ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:14px;text-align:center;">'

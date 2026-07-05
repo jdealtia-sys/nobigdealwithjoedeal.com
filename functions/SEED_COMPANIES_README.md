@@ -80,7 +80,7 @@ If you don't have a service account key:
   ],
   serviceAreas: ['Cincinnati', 'Northern Kentucky', 'Southwest Ohio'],
   warranty: '10-Year Labor Warranty on All Installs',
-  subscription: { plan: 'professional', status: 'active' }
+  subscription: { plan: 'growth', status: 'active' }
 }
 ```
 
@@ -109,7 +109,7 @@ If you don't have a service account key:
   ],
   serviceAreas: ['Goshen', 'Milford', 'Batavia'],
   warranty: '5-Year Labor Warranty on All Installs',
-  subscription: { plan: 'professional', status: 'active' }
+  subscription: { plan: 'growth', status: 'active' }
 }
 ```
 
@@ -136,7 +136,7 @@ const companiesData = [
     serviceAreas: ['Area 1', 'Area 2', 'Area 3'],
     warranty: 'Warranty description',
     subscription: {
-      plan: 'professional',
+      plan: 'growth',
       status: 'active'
     },
     siteUrl: '/sites/company-id.html'

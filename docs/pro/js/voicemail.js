@@ -26,6 +26,7 @@
  * Auth + AppCheck enforced by the dictate callable. Per-uid rate limit
  * is 30/hr (same pool as cmd palette voice + Quick Capture).
  */
+let _NBD_VM_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function () {
   'use strict';
   if (window.NBDVoicemail && window.NBDVoicemail.__sentinel === 'nbd-voicemail-v1') return;
@@ -455,4 +456,4 @@
 })();
 
 
-(function(){if(window._NBD_VM_DELEGATE)return;window._NBD_VM_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-vm-action]');if(!t)return;if(t.dataset.vmAction==='close'&&window.NBDVoicemail&&window.NBDVoicemail.close)window.NBDVoicemail.close();});})();
+(function(){if(_NBD_VM_DELEGATE)return;_NBD_VM_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-vm-action]');if(!t)return;if(t.dataset.vmAction==='close'&&window.NBDVoicemail&&window.NBDVoicemail.close)window.NBDVoicemail.close();});})();

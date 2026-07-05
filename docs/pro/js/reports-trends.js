@@ -23,8 +23,9 @@
  */
 (function () {
   'use strict';
-  if (window.NBDReportsTrends
-      && window.NBDReportsTrends.__sentinel === 'nbd-reports-trends-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['reports-trends']) return;
+  __NBD_LOADED['reports-trends'] = true;
 
   const TARGET_ID = 'reportsTrendsPanel';
   const TREND_WEEKS = 12;
@@ -288,8 +289,7 @@
     setTimeout(_bootstrap, 0);
   }
 
-  window.NBDReportsTrends = {
-    __sentinel: 'nbd-reports-trends-v1',
+  const NBDReportsTrends = {
     render,
   };
 })();

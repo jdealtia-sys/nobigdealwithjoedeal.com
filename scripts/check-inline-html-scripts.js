@@ -98,6 +98,12 @@ function walkHtml(dir, out = []) {
 const SCRIPT_RE = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
 
 function extractInlineScripts(html) {
+  // Strip HTML comments FIRST — dashboard.html documents its own history
+  // in comments that mention literal "<script>" (e.g. "The inline <script>
+  // below ..."), and matching inside <!-- --> fed prose to node --check as
+  // false-positive failures (--all runs, 2026-07-05). Replace with an
+  // equal number of newlines so reported line numbers stay accurate.
+  html = html.replace(/<!--[\s\S]*?-->/g, (c) => c.replace(/[^\n]/g, ''));
   const blocks = [];
   let m;
   while ((m = SCRIPT_RE.exec(html)) !== null) {

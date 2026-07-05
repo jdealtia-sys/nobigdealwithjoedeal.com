@@ -27,6 +27,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `validateAccessCode` | onCall | Login flow — exchanges access code for trial access |
 | `activateInvitedRep` | onCall | Team-invite acceptance (legacy access-code path) |
 | `claimInvite` | onCall | Pillar 1 phase 3 — claim a team invite on first dashboard load (replaces the never-deployable onRepSignup blocking trigger) |
+| `mintOwnerClaims` | onCall | Stamps `{ owner: true, role: 'admin' }` on the founder accounts in `handlers/_shared.js` `OWNER_EMAILS` (the single server-side owner list); called by nbd-auth.js at login when the owner claim is missing |
 | `createCompany` | onCall | Pillar 1 phase 2 — self-serve tenant provisioning (companies/{uid} + companyProfile seed + owner claims) |
 | `setSiteSlug` | onCall | Pillar 5 — tenant sets a human slug for their public microsite (validated + reserved-word list) |
 | `createPortalToken` | onCall | Mints a portal-share token for a lead |
@@ -132,7 +133,7 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 ## E2E TEST HELPERS (deployed, but env-gated)
 | Export | Type | Gate |
 |---|---|---|
-| `provisionE2ETestUser` | onCall | E2E env gate + `PROVISION_OWNER_EMAILS` allowlist |
+| `provisionE2ETestUser` | onCall | E2E env gate + owner claim (`token.owner === true`) with deprecated `OWNER_EMAILS` fallback |
 | `cleanupE2ETestData` | onCall | E2E env gate — deletes only the fixed E2E test account's data |
 
 ## GDPR / MIGRATIONS (M-01 / M-02)

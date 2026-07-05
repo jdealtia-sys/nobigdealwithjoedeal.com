@@ -26,12 +26,14 @@
  * to trigger one.
  *
  * Public API:
- *   window.NBDSupplementUI.openForEstimate(estimateId, parentEstimateData)
- *   window.NBDSupplementUI.attachButtons()  // re-attaches on refresh
+ *   NBDSupplementUI.openForEstimate(estimateId, parentEstimateData)
+ *   NBDSupplementUI.attachButtons()  // re-attaches on refresh
  */
 (function () {
   'use strict';
-  if (window.NBDSupplementUI && window.NBDSupplementUI.__sentinel === 'nbd-sup-ui-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['supplement-ui']) return;
+  __NBD_LOADED['supplement-ui'] = true;
 
   const MODAL_ID = 'nbd-supplement-modal';
   let _currentSupplement = null;
@@ -464,8 +466,7 @@
     setTimeout(_bootstrap, 0);
   }
 
-  window.NBDSupplementUI = {
-    __sentinel: 'nbd-sup-ui-v1',
+  const NBDSupplementUI = {
     openForEstimate,
     attachButtons,
   };

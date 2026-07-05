@@ -25,8 +25,9 @@
  */
 (function () {
   'use strict';
-  if (window.NBDPwaInstall
-      && window.NBDPwaInstall.__sentinel === 'nbd-pwa-install-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['pwa-install']) return;
+  __NBD_LOADED['pwa-install'] = true;
 
   const STORAGE_KEY = 'nbd_pwa_install_state_v1';
   const DISMISS_DAYS = 7;
@@ -202,8 +203,7 @@
     setTimeout(_bootstrap, 0);
   }
 
-  window.NBDPwaInstall = {
-    __sentinel: 'nbd-pwa-install-v1',
+  const NBDPwaInstall = {
     isStandalone: _isStandalone,
     isInstalled: _isInstalled,
     forceShow: () => {

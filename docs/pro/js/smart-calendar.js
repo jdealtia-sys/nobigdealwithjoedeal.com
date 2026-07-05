@@ -9,6 +9,7 @@
 // Drop-in replacement for the placeholder #calUpcoming panel.
 // ============================================================
 
+let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function () {
   'use strict';
 
@@ -415,4 +416,4 @@
 })();
 
 
-(function(){if(window._NBD_SC_DELEGATE)return;window._NBD_SC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-sc-action]');if(!t)return;if(t.dataset.scAction==='openCardDetail'&&typeof openCardDetailModal==='function')openCardDetailModal(t.dataset.scId);});})();
+(function(){if(_NBD_SC_DELEGATE)return;_NBD_SC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-sc-action]');if(!t)return;if(t.dataset.scAction==='openCardDetail'&&typeof openCardDetailModal==='function')openCardDetailModal(t.dataset.scId);});})();

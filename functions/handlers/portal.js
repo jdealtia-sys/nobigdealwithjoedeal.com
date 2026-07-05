@@ -14,7 +14,6 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
@@ -66,22 +65,35 @@ exports.validateAccessCode = onCall(
 
     const db = getFirestore();
     const codeRef = db.collection('access_codes').doc(normalized);
-    const codeSnap = await codeRef.get();
-    if (!codeSnap.exists) {
-      logger.warn('access_code_invalid', { ip, normalized });
-      throw new HttpsError('not-found', 'Code not recognized');
-    }
-    const code = codeSnap.data();
-    if (code.active !== true) {
-      logger.warn('access_code_inactive', { ip, normalized });
-      throw new HttpsError('permission-denied', 'Code not recognized');
-    }
-    if (code.expiresAt && code.expiresAt.toMillis && code.expiresAt.toMillis() < Date.now()) {
-      throw new HttpsError('permission-denied', 'Code expired');
-    }
-    if (typeof code.maxUses === 'number' && typeof code.useCount === 'number' && code.useCount >= code.maxUses) {
-      throw new HttpsError('resource-exhausted', 'Code fully redeemed');
-    }
+    // Validate + reserve a use ATOMICALLY. The previous flow checked
+    // useCount and incremented it several async hops apart, so two
+    // concurrent redemptions of a one-time code could both pass the cap
+    // (TOCTOU — flagged in the 2026-07 access-code audit). The transaction
+    // serializes check + increment; if the side effects below fail, the
+    // catch releases the reservation.
+    const code = await db.runTransaction(async (tx) => {
+      const codeSnap = await tx.get(codeRef);
+      if (!codeSnap.exists) {
+        logger.warn('access_code_invalid', { ip, normalized });
+        throw new HttpsError('not-found', 'Code not recognized');
+      }
+      const c = codeSnap.data();
+      if (c.active !== true) {
+        logger.warn('access_code_inactive', { ip, normalized });
+        throw new HttpsError('permission-denied', 'Code not recognized');
+      }
+      if (c.expiresAt && c.expiresAt.toMillis && c.expiresAt.toMillis() < Date.now()) {
+        throw new HttpsError('permission-denied', 'Code expired');
+      }
+      if (typeof c.maxUses === 'number' && typeof c.useCount === 'number' && c.useCount >= c.maxUses) {
+        throw new HttpsError('resource-exhausted', 'Code fully redeemed');
+      }
+      tx.update(codeRef, {
+        useCount: FieldValue.increment(1),
+        lastUsedAt: FieldValue.serverTimestamp(),
+      });
+      return c;
+    });
     // Hard rule: access codes NEVER grant admin.
     const role = code.role === 'manager' ? 'manager' : 'member';
     const email = typeof code.email === 'string' && code.email.includes('@') ? code.email : null;
@@ -112,7 +124,15 @@ exports.validateAccessCode = onCall(
 
       // Create subscription doc via admin SDK. Trust only the fields from the
       // Firestore-stored access code record.
-      const planFromCode = code.plan === 'professional' ? 'professional' : 'foundation';
+      // NEW grants write CANONICAL plan keys (starter/growth — see
+      // functions/stripe.js VALID_PLANS). Code docs may still carry the
+      // legacy names ('professional'/'foundation'), so accept both on
+      // input; existing subscription docs written with legacy values
+      // keep working via read-side alias resolution (billing.js,
+      // billing-gate.js, nbd-auth.js) — that resolution is permanent.
+      const planFromCode = (code.plan === 'professional' || code.plan === 'growth')
+        ? 'growth'
+        : 'starter';
       const subData = {
         plan: planFromCode,
         status: 'active',
@@ -142,11 +162,7 @@ exports.validateAccessCode = onCall(
         });
       }
 
-      // Increment usage counter.
-      await codeRef.update({
-        useCount: FieldValue.increment(1),
-        lastUsedAt: FieldValue.serverTimestamp(),
-      });
+      // (useCount already reserved atomically in the transaction above.)
 
       // Mint a short-lived custom token. Client exchanges via signInWithCustomToken.
       const customToken = await getAuth().createCustomToken(userRecord.uid, { role });
@@ -154,6 +170,11 @@ exports.validateAccessCode = onCall(
       return { success: true, customToken, role };
     } catch (e) {
       if (e instanceof HttpsError) throw e;
+      // The use was reserved up front — release it so a transient failure
+      // (e.g. token mint) doesn't burn a one-time code. Best-effort only.
+      try {
+        await codeRef.update({ useCount: FieldValue.increment(-1) });
+      } catch (_) { /* release is advisory; the audit trail has lastUsedAt */ }
       logger.error('validateAccessCode error', { normalized, err: e.message });
       throw new HttpsError('internal', 'Authentication error. Please try again.');
     }

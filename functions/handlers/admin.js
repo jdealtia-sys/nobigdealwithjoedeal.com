@@ -18,7 +18,6 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
@@ -378,13 +377,32 @@ exports.backfillCustomerData = onCall(
 //
 // Platform admin only. Intentionally very loud in logs — every
 // call creates an audit_log entry.
+//
+// 2026-07 access-code audit: deactivating a code only blocks FUTURE
+// redemptions — validateAccessCode already wrote subscriptions/{uid}
+// (plan/status/source:'access_code'/accessCode:<CODE>) at redemption,
+// so accounts that redeemed a now-dead code keep their plan forever.
+// Passing { revokeGrants: true } OPT-IN cascades the rotation to those
+// grants: every subscription with source == 'access_code' whose
+// accessCode is one of the legacy codes is downgraded to
+// { plan: 'free', status: 'revoked' } with an audit trail
+// (revokedAt/revokedBy/revokedFromCode) kept on the doc. Default is
+// FALSE — killing a code to stop new signups must never silently nuke
+// existing customers.
+//
+// The cascade needs no claims surgery: validateAccessCode stamps only
+// a `role` custom claim — plan lives in the subscriptions doc, which
+// billing-gate.js / nbd-auth.js / functions/billing.js re-read per
+// session, so the downgrade takes effect on the next gate read
+// (nbd-auth additionally treats any status other than
+// active/trialing as free).
 // ═════════════════════════════════════════════════════════════
 exports.rotateAccessCodes = onCall(
   {
     region: 'us-central1',
     cors: CORS_ORIGINS,
     enforceAppCheck: true,
-    timeoutSeconds: 30,
+    timeoutSeconds: 60,
     memory: '256MiB'
   },
   async (request) => {
@@ -393,6 +411,8 @@ exports.rotateAccessCodes = onCall(
     if (request.auth.token.role !== 'admin') {
       throw new HttpsError('permission-denied', 'Platform admin required');
     }
+    // Opt-in cascade — strict boolean true only, default false.
+    const revokeGrants = !!(request.data && request.data.revokeGrants === true);
 
     const db = getFirestore();
     const deactivated = [];
@@ -410,16 +430,58 @@ exports.rotateAccessCodes = onCall(
       });
       deactivated.push(codeId);
     }
-    logger.warn('rotateAccessCodes: legacy codes disabled', { by: uid, deactivated });
+
+    // Cascade sweeps the WHOLE legacy set, not just codes flipped on
+    // this call — after the loop above every legacy code is inactive
+    // regardless of whether this run, a prior run, or the seed
+    // script's sweep killed it, and the grants it minted are equally
+    // stale. (A "this call only" cascade would no-op when an admin
+    // rotates first and opts into the cascade on a second call.)
+    let revokedGrants = 0;
+    const revokedUids = [];
+    if (revokeGrants) {
+      const IN_CAP = 30; // Firestore 'in' filter cap
+      for (let i = 0; i < LEGACY_ACCESS_CODES.length; i += IN_CAP) {
+        const chunk = LEGACY_ACCESS_CODES.slice(i, i + IN_CAP);
+        const snap = await db.collection('subscriptions')
+          .where('source', '==', 'access_code')
+          .where('accessCode', 'in', chunk)
+          .get();
+        for (const subSnap of snap.docs) {
+          const sub = subSnap.data() || {};
+          // Idempotent: re-running the cascade skips already-revoked grants.
+          if (sub.status === 'revoked' && sub.plan === 'free') continue;
+          await subSnap.ref.set({
+            plan: 'free',
+            status: 'revoked',
+            revokedAt: FieldValue.serverTimestamp(),
+            revokedBy: uid,
+            revokedFromCode: sub.accessCode || null,
+            updatedAt: FieldValue.serverTimestamp()
+          }, { merge: true });
+          revokedGrants++;
+          revokedUids.push(subSnap.id);
+        }
+      }
+    }
+
+    logger.warn('rotateAccessCodes: legacy codes disabled', {
+      by: uid, deactivated, revokeGrants, revokedGrants
+    });
     // Write an audit_log entry explicitly — this predates the audit
     // triggers, so we record it here too.
     await db.collection('audit_log').add({
       type: 'rotate_access_codes',
       actorUid: uid,
       deactivated,
+      revokeGrants,
+      revokedGrants,
+      // Cap the uid list so a pathological cascade can't blow the 1MiB
+      // doc limit; the count above is always exact.
+      revokedUids: revokedUids.slice(0, 200),
       ts: FieldValue.serverTimestamp()
     });
-    return { success: true, deactivated };
+    return { success: true, deactivated, revokeGrants, revokedGrants };
   }
 );
 

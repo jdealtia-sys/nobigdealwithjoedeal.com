@@ -23,8 +23,9 @@
 (function () {
   'use strict';
 
-  if (window.StaleSharesWidget
-      && window.StaleSharesWidget.__sentinel === 'nbd-stale-shares-widget-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['stale-shares-widget']) return;
+  __NBD_LOADED['stale-shares-widget'] = true;
 
   const TOP_N = 5;
 
@@ -284,8 +285,7 @@
     setInterval(render, 5 * 60_000);
   }
 
-  window.StaleSharesWidget = {
-    __sentinel: 'nbd-stale-shares-widget-v1',
+  const StaleSharesWidget = {
     render,
     compute,
   };

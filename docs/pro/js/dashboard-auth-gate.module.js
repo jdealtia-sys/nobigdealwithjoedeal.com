@@ -9,7 +9,17 @@
 import { NBDAuth } from '/pro/js/nbd-auth.js';
 
 window._nbdAuth = NBDAuth.init({
-  requiredPlan: 'foundation',
+  // 'free', NOT 'foundation' (2026-07-05): the dashboard IS the free-tier
+  // product — pricing.html sells Free as "basic CRM pipeline + D2D tracker
+  // + drawing tool", and billing-gate.js soft-gates features/limits inside
+  // it. With 'foundation' here, every free signup (no subscriptions doc ⇒
+  // plan 'free') and every expired code-trial (plan 'lite') hit the
+  // full-screen upgrade wall — which has no "continue on free" path — and
+  // could never reach the product they were promised. Auth is still
+  // required: the not-signed-in branch redirects to login regardless of
+  // requiredPlan. Premium-only pages (vault, AI tools, analytics) keep
+  // their own higher gates.
+  requiredPlan: 'free',
   onReady: (user) => {
     console.log('NBDAuth gate passed — plan:', NBDAuth.userPlan);
     // ── Trial countdown banner ──
@@ -30,23 +40,25 @@ window._nbdAuth = NBDAuth.init({
     if (NBDAuth.isTrialUser && !NBDAuth.isTrialExpired) {
       const days = NBDAuth.trialDaysLeft;
       // Always show when ≤ 2 days, regardless of dismissal — too critical
-      // to suppress. Otherwise honour the per-day dismissal.
-      if (days <= 7 && (days <= 2 || !_trialDismissedToday)) {
+      // to suppress. Otherwise honour the per-day dismissal. days >= 0
+      // guards the "trial end unknown" sentinel (-1): a trialing sub whose
+      // end date couldn't be resolved must not render "-1 days left".
+      if (days >= 0 && days <= 7 && (days <= 2 || !_trialDismissedToday)) {
         const urgency = days <= 2 ? 'trial-urgent' : 'trial-warning';
         const msg = days <= 2
           ? `⚠️ Your Pro trial ends in ${days} day${days===1?'':'s'}! Your data is safe — upgrade now to keep all features.`
-          : `Your Pro trial has ${days} days left. Upgrade to $79/mo to keep full access.`;
+          : `Your Pro trial has ${days} days left. Upgrade — plans start at $99/mo — to keep full access.`;
         const banner = document.createElement('div');
         banner.id = 'trial-banner';
         banner.className = urgency;
-        banner.innerHTML = `<span>${msg}</span><a href="/pro/register.html?plan=pro" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button data-action="call" data-fn="_nbdDismissTrial" data-pass-el style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
+        banner.innerHTML = `<span>${msg}</span><a href="/pro/pricing.html" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade Now →</a><button data-action="call" data-fn="_nbdDismissTrial" data-pass-el style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:0 4px;">✕</button>`;
         document.body.prepend(banner);
       }
     } else if (NBDAuth.isTrialExpired) {
       const banner = document.createElement('div');
       banner.id = 'trial-banner';
       banner.className = 'trial-expired';
-      banner.innerHTML = `<span>⚡ Your Pro trial has ended. You're on the free Lite plan (25 leads). Upgrade to unlock everything.</span><a href="/pro/register.html?plan=pro" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Go Pro — $79/mo →</a>`;
+      banner.innerHTML = `<span>⚡ Your Pro trial has ended. You're on the Free plan (10 leads/month). Upgrade to unlock everything.</span><a href="/pro/pricing.html" style="color:var(--t);background:var(--orange);padding:5px 14px;border-radius:5px;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap;">Upgrade — Starter $99/mo →</a>`;
       document.body.prepend(banner);
     }
   }

@@ -6,6 +6,17 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#e8720c">
 <title>NBD Pro Pricing — Contractor-Built, Contractor-Priced</title>
+<!-- SEO: this page is crawlable (robots.txt disallows most /pro/* app pages
+     but not /pro/pricing.html), so it gets the standard marketing meta the
+     homeowner audit required. /pro/register.html stays noindex. -->
+<meta name="description" content="NBD Pro pricing: free tier forever, Starter $99/mo, Growth $299/mo with a 14-day free trial. Roofing CRM at one-third what the big guys charge.">
+<link rel="canonical" href="https://nobigdealwithjoedeal.com/pro/pricing">
+<meta property="og:type" content="website">
+<meta property="og:title" content="NBD Pro Pricing — Contractor-Built, Contractor-Priced">
+<meta property="og:description" content="Free tier forever, Starter $99/mo, Growth $299/mo with a 14-day free trial. Always one-third of what the big guys charge.">
+<meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/pricing">
+<meta property="og:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
+<meta name="twitter:card" content="summary_large_image">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <!-- Audit #30: pricing page now joins the shared theme system. Hex values are
@@ -41,7 +52,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 .features{list-style:none;flex:1;margin-bottom:24px;}
 .features li{font-size:12px;padding:6px 0;border-bottom:1px solid #1e2228;display:flex;align-items:center;gap:8px;color:#c7cad1;}
 .features li::before{content:'✓';color:#e8720c;font-weight:800;font-size:14px;}
-.features li.disabled{color:#555;text-decoration:line-through;}
+.features li.disabled{color:#8b9bb4;text-decoration:line-through;} /* was #555 — ~2.6:1, under AA */
 .features li.disabled::before{content:'—';color:#444;}
 
 .cta{display:block;width:100%;padding:14px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;text-align:center;cursor:pointer;transition:all .15s;border:none;text-decoration:none;}
@@ -53,11 +64,14 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 .faq{max-width:700px;margin:60px auto;padding:0 20px 60px;}
 .faq-title{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;text-transform:uppercase;text-align:center;margin-bottom:24px;}
 .faq-item{border-bottom:1px solid #1e2228;padding:16px 0;}
-.faq-q{font-size:14px;font-weight:700;color:#f0f0f0;cursor:pointer;}
+/* a11y: .faq-q is a real <button> (keyboard operable) — reset the chrome. */
+.faq-q{font-size:14px;font-weight:700;color:#f0f0f0;cursor:pointer;display:block;width:100%;text-align:left;background:none;border:0;padding:0;font-family:'Barlow',sans-serif;}
+.faq-q:focus-visible{outline:2px solid #e8720c;outline-offset:4px;}
+.cta:focus-visible{outline:2px solid #fff;outline-offset:3px;}
 .faq-a{font-size:13px;color:#8b9bb4;margin-top:8px;line-height:1.5;display:none;}
 .faq-item.open .faq-a{display:block;}
 
-.footer{text-align:center;padding:30px 20px;color:#555;font-size:11px;}
+.footer{text-align:center;padding:30px 20px;color:#8b9bb4;font-size:11px;} /* was #555 — ~2.6:1, under AA */
 .footer a{color:#e8720c;text-decoration:none;}
 /* a11y: skip-to-main link — pure CSS for strict-CSP compatibility. */
 .nbd-skip-link { position:absolute; left:-9999px; top:8px; background:#e8720c; color:#000; padding:8px 14px; font-weight:700; z-index:99999; text-decoration:none; border-radius:4px; }
@@ -72,7 +86,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 
 <div class="header">
   <div class="brand">NBD PRO</div>
-  <div class="headline">Contractor-Built.<br><span>Contractor-Priced.</span></div>
+  <h1 class="headline">Contractor-Built.<br><span>Contractor-Priced.</span></h1>
   <div class="subhead">I built this because I couldn't justify paying $400–$500 a month for software designed by people who've never worked a roof. NBD Pro is one-third the price of JobNimbus or AccuLynx — and every feature exists because I needed it in the field first.</div>
   <div class="north-star">ALWAYS 1/3 OF WHAT THE BIG GUYS CHARGE</div>
 </div>
@@ -80,8 +94,8 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 <div class="grid">
   <!-- FREE -->
   <div class="card">
-    <div class="tier-icon">🆓</div>
-    <div class="tier-name">Free</div>
+    <div class="tier-icon" aria-hidden="true">🆓</div>
+    <h3 class="tier-name">Free</h3>
     <div class="tier-price">$0 <span class="mo">forever</span></div>
     <div class="tier-desc">Kick the tires. No credit card, no pressure, no timer.</div>
     <ul class="features">
@@ -99,8 +113,8 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 
   <!-- STARTER -->
   <div class="card">
-    <div class="tier-icon">🚀</div>
-    <div class="tier-name">Starter</div>
+    <div class="tier-icon" aria-hidden="true">🚀</div>
+    <h3 class="tier-name">Starter</h3>
     <div class="tier-price">$99 <span class="mo">/mo</span></div>
     <div class="tier-desc">Solo operator. The exact setup I run my business on every day.</div>
     <ul class="features">
@@ -119,8 +133,8 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 
   <!-- GROWTH -->
   <div class="card popular">
-    <div class="tier-icon">📈</div>
-    <div class="tier-name">Growth</div>
+    <div class="tier-icon" aria-hidden="true">📈</div>
+    <h3 class="tier-name">Growth</h3>
     <div class="tier-price">$299 <span class="mo">/mo</span></div>
     <div class="tier-desc">Growing a crew. Real visibility into who's closing, who's burning gas, and where your pipeline actually stands.</div>
     <ul class="features">
@@ -139,8 +153,8 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 
   <!-- ENTERPRISE -->
   <div class="card">
-    <div class="tier-icon">🏢</div>
-    <div class="tier-name">Enterprise</div>
+    <div class="tier-icon" aria-hidden="true">🏢</div>
+    <h3 class="tier-name">Enterprise</h3>
     <div class="tier-price">Custom</div>
     <div class="tier-desc">Multi-location, white-label, or enterprise rollout. Call me directly — we'll figure out what you need.</div>
     <ul class="features">
@@ -154,30 +168,34 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
       <li>SLA guarantee</li>
       <li>On-site training</li>
     </ul>
-    <a href="mailto:info@nobigdealwithjoedeal.com?subject=Enterprise%20Inquiry" class="cta cta-ghost">Contact Sales</a>
+    <a href="mailto:jd@nobigdealwithjoedeal.com?subject=Enterprise%20Inquiry" class="cta cta-ghost">Contact Sales</a>
   </div>
 </div>
 
 <div class="faq">
-  <div class="faq-title">Frequently Asked Questions</div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">Can I switch plans anytime?</div>
+  <h2 class="faq-title">Frequently Asked Questions</h2>
+  <div class="faq-item">
+    <button type="button" class="faq-q" data-pr-action="faq-toggle" aria-expanded="false">Can I switch plans anytime?</button>
     <div class="faq-a">Yes. Upgrade or downgrade at any time. Changes take effect immediately and Stripe prorates the difference — you only pay for what you use.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">What happens when I hit my lead limit?</div>
+  <div class="faq-item">
+    <button type="button" class="faq-q" data-pr-action="faq-toggle" aria-expanded="false">What happens when I hit my lead limit?</button>
     <div class="faq-a">We warn you at 80% and show a friendly upgrade prompt at 100%. We never lock you out mid-cycle — you can finish the month and upgrade when ready.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">Is there a contract or commitment?</div>
+  <div class="faq-item">
+    <button type="button" class="faq-q" data-pr-action="faq-toggle" aria-expanded="false">Is there a contract or commitment?</button>
     <div class="faq-a">No contracts. Monthly billing, cancel anytime. Your data stays yours even if you cancel.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">What's the 14-day free trial?</div>
-    <div class="faq-a">New users get 14 days of Growth-tier access with no credit card required. After 14 days, you choose a plan or continue on Free.</div>
+  <div class="faq-item">
+    <button type="button" class="faq-q" data-pr-action="faq-toggle" aria-expanded="false">What's the 14-day free trial?</button>
+    <!-- Reworded 2026-07-04: the old copy claimed every new user automatically
+         gets 14 days of Growth with "no credit card required". In the code the
+         trial only exists on the Growth Stripe Checkout (functions/stripe.js
+         trial_period_days:14), which collects a card by default. -->
+    <div class="faq-a">Start the Growth plan and your first 14 days are free — cancel before the trial ends and you won't be billed. Not ready for a trial? The Free tier has no timer and no credit card at all.</div>
   </div>
-  <div class="faq-item" data-pr-action="faq-toggle">
-    <div class="faq-q">Why are you 1/3 the price of competitors?</div>
+  <div class="faq-item">
+    <button type="button" class="faq-q" data-pr-action="faq-toggle" aria-expanded="false">Why are you 1/3 the price of competitors?</button>
     <div class="faq-a">Because I built this for myself first. No VC money to pay back. No sales team commissions to cover. No enterprise overhead. Every dollar goes into tools I actually use in the field — not features that look good in a demo.</div>
   </div>
 </div>
@@ -185,7 +203,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 </main>
 
 <div class="footer">
-  <a href="/pro/dashboard.html">Back to Dashboard</a> · <a href="/pro/">NBD Pro Home</a><br>
+  <a href="/pro/dashboard.html">Back to Dashboard</a> · <a href="/pro/">NBD Pro Home</a> · <a href="/pro/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a><br>
   No Big Deal Home Solutions · nobigdealwithjoedeal.com
 </div>
 

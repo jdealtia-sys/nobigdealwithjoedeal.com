@@ -1944,7 +1944,6 @@ function closeHdrMobileMenu() {
   document.getElementById('hdrMobileBtn')?.setAttribute('aria-expanded', 'false');
 }
 window.toggleHdrMobileMenu = toggleHdrMobileMenu;
-window.closeHdrMobileMenu = closeHdrMobileMenu;
 
 // Mobile Tools menu — mirror filter active-state from the (hidden-on-mobile)
 // inline source buttons into the dropdown menu items. PR #508 hid the inline
@@ -2278,7 +2277,6 @@ function restoreCrmSecondary() {
   header.classList.remove('hidden');
   restoreBtn.style.display = 'none';
 }
-window.restoreCrmSecondary = restoreCrmSecondary;
 
 // Auto-hide on scroll within kanban board
 const kanbanBoard = document.getElementById('kanbanBoard');

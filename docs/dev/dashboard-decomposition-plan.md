@@ -1,6 +1,21 @@
 # `dashboard.html` Decomposition Plan — Rock 4 Phase 1 Inventory
 
-> **Status:** Phase 1 (inventory only). **Zero code changes** in this PR.
+> **Status (updated 2026-07-05):** Phases 1–5 are COMPLETE. The file is
+> down from 14,425 to ~6,080 lines; every view — including view-est, the
+> deliberate last holdout (it waited for Rock 2 PR 5, per the Phase 4
+> table's own advice) — is an empty mount + `<template>` hydrated on first
+> `goTo()`; the inline-onclick count is ZERO (416 → data-action delegate);
+> CSS and the boot/body scripts moved to `docs/pro/js/*.js` +
+> `dashboard-*.module.js`. `?legacy=1` still serves the pre-decomposition
+> rollback snapshot (refreshed 2026-07-04). Phase 6 (CSP tightening) is
+> ALSO done — verified 2026-07-05: script-src is already inline-free in
+> firebase.json and Rock 1 (DNS) landed in June, so the strict policy is
+> what production serves (see the Phase 6 section below). Remaining: only
+> the aspirational per-view module pattern for globals (caveat 4).
+> Everything below this note is the ORIGINAL Phase 1 inventory, kept as
+> the historical manifest; line numbers refer to the 14,425-line file.
+
+> Original status: Phase 1 (inventory only). **Zero code changes** in this PR.
 > The numbers below are a snapshot of `docs/pro/dashboard.html` at HEAD on
 > branch `claude/rock4-phase1-dashboard-inventory`. Re-run the awk
 > commands in [Methodology](#methodology) to refresh.
@@ -264,11 +279,19 @@ In risk order from least → most painful:
 `data-args`. Can be done incrementally per view as Phase 4 progresses, OR
 as a single sweep after all views are in template fragments.
 
-### Phase 6 — Tighten CSP (after DNS cutover lands; Rock 1)
+### Phase 6 — Tighten CSP — ✅ DONE (verified 2026-07-05)
 
-Once handlers are gone, drop `'unsafe-inline'` from `script-src` in
-`firebase.json`. Requires Hosting to be authoritative — that's blocked on
-Rock 1 (DNS swap on Joe).
+Investigated 2026-07-05: this had ALREADY shipped. Rock 1 is done (the
+apex serves firebase.json's headers — `scripts/verify-deploy.sh` asserts
+them on the live site), and `script-src` / `script-src-elem` contain NO
+`'unsafe-inline'` anywhere in firebase.json; `script-src-attr` is
+`'none'`; no `'unsafe-eval'` (estimate-logic-engine's safeEvalFormula
+replaced `new Function`). Every template `<script>` is src-only, so
+`_hydrateViewTemplate`'s clone-and-re-execute never creates an inline
+script. The `'unsafe-inline'` tokens remaining in firebase.json are all
+`style-src` (required — the dashboard injects <style> elements and uses
+inline style attributes). The /cspReport sink is live for ongoing
+violation monitoring.
 
 ---
 
@@ -377,3 +400,94 @@ grep -nE '<div[^>]+class="modal-bg"[^>]*id="[^"]+"|id="(comparisonModal|adminCre
 
 **No code changes.** Phase 2 (theme CSS extract) opens after Joe signs
 off on this manifest.
+
+---
+
+## Per-view globals refactor — caveat 4 execution plan (2026-07-05)
+
+First actual enumeration of the global surface (the "221+" figure above
+was `window.*` REFERENCES in the pre-decomposition monolith; this is
+post-split ASSIGNMENTS across `docs/pro/**/*.js`).
+
+### Inventory
+
+| Metric | Value |
+|---|---|
+| Distinct `window.<name> =` assignments under docs/pro/js | **~950** |
+| Self-contained (assigned + consumed in ONE file) | **280 (~29%)** |
+| Consumed from 2–5 files | ~515 |
+| Consumed from 10+ files (shared infrastructure) | ~60 |
+| Inline `window.X =` assignments left in HTML | **0** |
+
+Top assigners: `dashboard-actions.js` (182), `dashboard-bootstrap.module.js`
+(157), `customer-bootstrap.module.js` (76), `customer-tasks-ui.js` (62),
+`crm.js` (39), `dashboard-ui.js` (37), `estimates.js` (31), `ui.js` (30),
+`maps.js` (28).
+
+Structural cause: `dashboard.html` loads ~131 scripts of which only 3 are
+`type="module"` (`dom-safe.js`, `dashboard-auth-gate.module.js`,
+`dashboard-bootstrap.module.js`). Everything else is a classic
+`<script defer>` sharing one global scope, so cross-file wiring goes
+through `window.*`. The house pattern for module-scoped state is the
+NBD-prefixed singleton (`NBDStore`, `NBDIDBCache`, `NBDAuth`, …): one
+API object per module, registered once.
+
+### No-touch list (first tranches must NOT rename these)
+
+- **SDK re-export bridge** (bootstrap → classic scripts): `doc`, `db`,
+  `auth`, `where`, `query`, `collection`, `getDocs`, `getDoc`, `addDoc`,
+  `setDoc`, `updateDoc`, `orderBy`, `limit`, `serverTimestamp`, `ref`,
+  `storage`, `uploadBytes` + native-dialog overrides (`confirm`,
+  `prompt`, `alert`, `open`). 30–125 consumer files each; several pinned
+  by tests/e2e fixtures (`window.addDoc` patch in fixtures/auth.js).
+- **Core app state** (caveat-4 set): `_leads`, `_estimates`, `_user`,
+  `_db`, `_userClaims`, `_userPlan`, `_subscription`, `_saveLead`,
+  `_saveEstimate`, `_currentLead`, `_customerId`, `_functions`,
+  `_httpsCallable` — high fan-out AND e2e-pinned.
+- **Engine singletons pinned by e2e specs**: `ScriptLoader`, `D2D`,
+  `_D2DState`, `EstimateBuilderV2`, `EstimateV2UI`, `EstimateLogic`,
+  `EstimateFinalization`, `PhotoEngine`, `Expenses`, `InvoicePipeline`,
+  `NBDDocGen`, `NBD_PRODUCTS`, `NBD_XACT_CATALOG`, `__nbdAddDocPatched`.
+- Cross-view actions: `goTo`, `loadLeads`, `openLeadModal`, `moveCard`,
+  `startNewEstimate`, `NBDDocViewer`, `showToast`.
+
+### Tranche plan (safest first)
+
+**⚠ Wrinkle found during scoping:** several "self-contained" clusters
+(e.g. the 14 `_ncm*` globals in `mobile-nav-customizer.js`) are consumed
+via **generated inline HTML attributes** (`ontouchstart="window._ncmTouchStart(…)"`),
+which evaluate in global scope at event time. `consumers=1` by file-grep
+does NOT mean module-scopable as-is — each such cluster first needs its
+inline handlers migrated to `data-action` delegation (the H-1 house
+pattern), THEN its globals can go module-local. Tranche order below is
+adjusted accordingly.
+
+1. **Tranche 0 — singleton IIFE conversions (trivial, ~25 globals).**
+   The one-global self-registering widgets (`ActivityFeed`, `HotLeads`,
+   `PipelineBottleneck`, `GlobalSearch`, `AlmostThere`,
+   `EngagementCohortWidget`, `PWAInstallNudge`, `NBDThemeAudit`,
+   `NBDWhatsNew`, `OfflineManager`, …): each assigned + consumed in one
+   file. Per widget: verify zero HTML/inline references (grep
+   dashboard.html + generated-markup strings), then keep the object
+   IIFE-local and drop the `window.` prefix. Mechanical; one PR.
+2. **Tranche 1 — pure-JS single-file clusters.** The subsets of
+   `ui.js` (~18 theme-engine/toast locals), `dashboard-ui.js` (~17),
+   `claude-proxy.js` (3) that are referenced ONLY from JS (no inline
+   attribute strings). Same verify-then-scope treatment.
+3. **Tranche 2 — delegate-then-scope clusters.** `mobile-nav-customizer.js`
+   (14), `widgets.js` (9), `tasks.js` (8), `email_system.js` (8),
+   `crm-snooze.js` (11): first convert their generated inline handlers
+   to `data-action` delegation (each already owns a
+   `_NBD_<XX>_DELEGATE(_BOUND)` guard from Phase 5 — extend that
+   delegate), then move the globals into module scope. One module per
+   PR, E2E advisory suite green required per PR.
+4. **Tranche 3+ — the 2–5-consumer middle band (~515 globals).**
+   Needs a dependency-ordered plan of its own once Tranches 0–2 prove
+   the pattern; candidates convert to NBD-prefixed singleton APIs
+   (house convention) rather than ad-hoc cross-file globals.
+
+Verification per tranche: full smoke battery + the sharded authed E2E
+matrix in CI (advisory job must be green, not just "ran") + a manual
+click-through of the touched view. Raw per-global xref (955 rows) from
+the 2026-07-05 inventory run is reproducible with:
+`grep -rnoE "window\.[A-Za-z_$][A-Za-z0-9_$]* *=" docs/pro --include=*.js`.

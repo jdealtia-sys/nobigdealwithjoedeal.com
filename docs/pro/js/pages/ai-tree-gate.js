@@ -5,7 +5,7 @@
 import { NBDAuth } from '/pro/js/nbd-auth.js';
 
 window._nbdAuth = NBDAuth.init({
-  requiredPlan: 'professional',
+  requiredPlan: 'growth',
   onReady: () => {
     document.documentElement.style.visibility = 'visible';
   }

@@ -25,7 +25,15 @@ const fails = [];
 function assert(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name); } else { failed++; fails.push(name); console.log('  ✗ ' + name); } }
 
 // Build a fresh sandboxed NBDBilling whose Firestore getDoc returns `subDoc`.
-function makeBilling({ user, subDoc, subExists = true } = {}) {
+// `claims` wires user.getIdTokenResult() to resolve { claims } (the owner-
+// claim path); `claimsError` makes that read throw (fallback path).
+function makeBilling({ user, subDoc, subExists = true, claims, claimsError } = {}) {
+  if (user && (claims || claimsError)) {
+    user.getIdTokenResult = async () => {
+      if (claimsError) throw new Error('claims read failed (simulated)');
+      return { claims: claims || {} };
+    };
+  }
   const noopEl = () => ({ style: {}, appendChild() {}, addEventListener() {}, remove() {}, dataset: {} });
   const documentStub = {
     addEventListener() {}, removeEventListener() {},
@@ -60,16 +68,19 @@ function makeBilling({ user, subDoc, subExists = true } = {}) {
     assert('free default getPlan(): plan=free, not active', B.getPlan().plan === 'free' && B.getPlan().isActive === false);
   }
 
-  // 2. Active professional subscription → unlocks team/reports/aiCalls.
+  // 2. Active subscription with the LEGACY 'professional' doc value →
+  //    resolves to canonical 'growth' at the read boundary and unlocks
+  //    team/reports/aiCalls. Production docs carry legacy keys forever,
+  //    so this alias path can never be removed.
   {
     const B = makeBilling({ user: { uid: 'u2', email: 'admin@demo.test' }, subDoc: { plan: 'professional', status: 'active' } });
     await B.loadSubscription();
     const p = B.getPlan();
-    assert('professional: getPlan().plan === professional', p.plan === 'professional');
-    assert('professional: isActive === true', p.isActive === true);
-    assert('professional: team unlocked (reps 5 > 1)', B.canUse('team') === true);
-    assert('professional: reports unlocked (Infinity)', B.canUse('reports') === true);
-    assert('professional: aiCalls unlocked (Infinity)', B.canUse('aiCalls') === true);
+    assert('legacy professional doc: getPlan().plan === growth (canonical)', p.plan === 'growth');
+    assert('legacy professional doc: isActive === true', p.isActive === true);
+    assert('legacy professional doc: team unlocked (reps 5 > 1)', B.canUse('team') === true);
+    assert('legacy professional doc: reports unlocked (Infinity)', B.canUse('reports') === true);
+    assert('legacy professional doc: aiCalls unlocked (Infinity)', B.canUse('aiCalls') === true);
   }
 
   // 3. Owner email bypass → enterprise, never gated (short-circuits Firestore).
@@ -81,6 +92,60 @@ function makeBilling({ user, subDoc, subExists = true } = {}) {
     assert('owner bypass: canUse(leads) true', B.canUse('leads') === true);
   }
 
+  // 3b. Owner CLAIM bypass (claims-based root) — an { owner: true } custom
+  //     claim must bypass gating even when the email is NOT in the
+  //     deprecated OWNER_EMAILS fallback list. This is the post-transition
+  //     path: once the email list is removed, the claim is the only key.
+  {
+    const B = makeBilling({
+      user: { uid: 'claim-owner', email: 'not-in-the-list@demo.test' },
+      claims: { owner: true },
+      subDoc: { plan: 'free', status: 'none' },
+    });
+    await B.loadSubscription();
+    assert('owner claim (email NOT listed): getPlan().plan === enterprise', B.getPlan().plan === 'enterprise');
+    assert('owner claim (email NOT listed): canUse(team) true', B.canUse('team') === true);
+    assert('owner claim (email NOT listed): canUse(reports) true', B.canUse('reports') === true);
+  }
+
+  // 3c. Claims read FAILURE + listed owner email → the deprecated email
+  //     fallback still bypasses (transition safety: Jo can never be locked
+  //     out by a claims-read hiccup or a not-yet-minted claim).
+  {
+    const B = makeBilling({
+      user: { uid: 'owner-fallback', email: 'jd@nobigdealwithjoedeal.com' },
+      claimsError: true,
+      subDoc: { plan: 'free', status: 'none' },
+    });
+    await B.loadSubscription();
+    assert('claims read fails + listed email: still enterprise (fallback)', B.getPlan().plan === 'enterprise');
+    assert('claims read fails + listed email: canUse(team) true', B.canUse('team') === true);
+  }
+
+  // 3d. Claims read failure + NON-owner email → NO bypass (the fallback
+  //     must not fail open for regular users).
+  {
+    const B = makeBilling({
+      user: { uid: 'rep-fail', email: 'rep@demo.test' },
+      claimsError: true,
+      subDoc: { plan: 'free', status: 'none' },
+    });
+    await B.loadSubscription();
+    assert('claims read fails + non-owner email: stays free (no bypass)', B.getPlan().plan === 'free');
+    assert('claims read fails + non-owner email: team still locked', B.canUse('team') === false);
+  }
+
+  // 3e. Non-owner claims (owner flag absent) + non-listed email → no bypass.
+  {
+    const B = makeBilling({
+      user: { uid: 'rep-claims', email: 'rep2@demo.test' },
+      claims: { companyId: 'rep-claims', role: 'sales_rep' },
+      subDoc: { plan: 'free', status: 'none' },
+    });
+    await B.loadSubscription();
+    assert('non-owner claims: stays free (owner requires owner === true)', B.getPlan().plan === 'free');
+  }
+
   // 4. past_due subscription → plan set but NOT active.
   {
     const B = makeBilling({ user: { uid: 'u4', email: 'late@demo.test' }, subDoc: { plan: 'professional', status: 'past_due' } });
@@ -88,6 +153,38 @@ function makeBilling({ user, subDoc, subExists = true } = {}) {
     const p = B.getPlan();
     assert('past_due: getPlan().isActive === false', p.isActive === false);
     assert('past_due: isPastDue === true', p.isPastDue === true);
+  }
+
+  // 5. Access-code trial expiry — read-time enforcement (2026-07-05
+  //    decision). A code-granted sub past trialEndsAt gates as free;
+  //    an unexpired or untimed code grant keeps its plan; Stripe subs
+  //    are never touched by this check.
+  {
+    const past = { toMillis: () => Date.now() - 24 * 60 * 60 * 1000 };
+    const future = { toMillis: () => Date.now() + 24 * 60 * 60 * 1000 };
+
+    const expired = makeBilling({ user: { uid: 'u5', email: 'trial@demo.test' },
+      subDoc: { plan: 'foundation', status: 'active', source: 'access_code', trialEndsAt: past } });
+    await expired.loadSubscription();
+    assert('expired code trial: gates as free', expired.getPlan().plan === 'free');
+    assert('expired code trial: reports locked again', expired.canUse('reports') === false);
+
+    const live = makeBilling({ user: { uid: 'u6', email: 'trial2@demo.test' },
+      subDoc: { plan: 'foundation', status: 'active', source: 'access_code', trialEndsAt: future } });
+    await live.loadSubscription();
+    assert('unexpired code trial: keeps its tier (legacy foundation → canonical starter)',
+      live.getPlan().plan === 'starter');
+
+    const comp = makeBilling({ user: { uid: 'u7', email: 'comp@demo.test' },
+      subDoc: { plan: 'foundation', status: 'active', source: 'access_code' } });
+    await comp.loadSubscription();
+    assert('untimed code grant: indefinite comp, keeps its tier (legacy foundation → canonical starter)',
+      comp.getPlan().plan === 'starter');
+
+    const stripe = makeBilling({ user: { uid: 'u8', email: 'paying@demo.test' },
+      subDoc: { plan: 'growth', status: 'active', source: 'stripe', trialEndsAt: past } });
+    await stripe.loadSubscription();
+    assert('stripe sub with stale trialEndsAt: untouched (Stripe owns lifecycle)', stripe.getPlan().plan === 'growth');
   }
 
   console.log('\n──────────────────────────────────────────────────');

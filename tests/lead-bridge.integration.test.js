@@ -16,15 +16,16 @@
  */
 'use strict';
 
-const admin = require('firebase-admin');
+const { initializeApp } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
 
 const PROJECT = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT || 'demo-nbd-pl';
 if (!process.env.FIRESTORE_EMULATOR_HOST) {
   console.error('✗ emulator env not set — run via emulators:exec --only functions,firestore');
   process.exit(1);
 }
-admin.initializeApp({ projectId: PROJECT });
-const db = admin.firestore();
+initializeApp({ projectId: PROJECT });
+const db = getFirestore();
 
 // Must match lead-bridge.js NBD_OWNER_UID default (overridable via env there).
 const NBD_OWNER = process.env.NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';

@@ -91,7 +91,12 @@ function togglePass(id, btn) {
   if (!inp) return;
   const show = inp.type === 'password';
   inp.type = show ? 'text' : 'password';
-  if (btn) btn.textContent = show ? '🙈' : '👁';
+  if (btn) {
+    btn.textContent = show ? '🙈' : '👁';
+    // a11y: keep the accessible name/state in sync with the visual glyph.
+    btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+    btn.setAttribute('aria-pressed', String(show));
+  }
 }
 
 // ─────────────────────────────────────────────────
@@ -303,7 +308,15 @@ async function googleRegister() {
 // ─────────────────────────────────────────────────
 // WIRE DOM EVENTS
 // ─────────────────────────────────────────────────
-document.addEventListener('DOMContentLoaded', () => {
+// readyState guard, NOT a bare DOMContentLoaded listener: this module has a
+// top-level `await connectEmulatorsIfLocal(...)` above, and a module
+// suspended on top-level await does NOT hold back DOMContentLoaded. In
+// emulator mode the await dynamically imports three SDK chunks — slow
+// enough that the event fires BEFORE this line runs, the listener never
+// fires, and the Create Account button is silently dead (caught by the
+// signup-funnel E2E journey, 2026-07-05). Prod won the race only because
+// the connect is a no-op there. Same pattern as tpl-view-draw's bootstrap.
+function wireRegisterDom() {
   const form = document.getElementById('regForm');
   if (form) form.addEventListener('submit', register);
 
@@ -322,4 +335,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (target) togglePass(target, btn);
     });
   });
-});
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', wireRegisterDom, { once: true });
+} else {
+  wireRegisterDom();
+}

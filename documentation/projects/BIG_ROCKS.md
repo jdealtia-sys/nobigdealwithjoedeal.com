@@ -182,6 +182,16 @@ MEDIUM. Pricing math is high-stakes. Each PR must:
 
 ## ROCK 3 — Authenticated E2E test suite
 
+> ✅ **DONE — 2026-07-05 (PRs #839–#841).** The authed suite covers **15
+> hermetic journeys** in `tests/e2e/pro-authed.spec.js`: login/persistence,
+> save lead, stage move, estimate parity (browser V2 vs Node engine),
+> invoice, photo upload (Storage emulator), doc generation, D2D knock
+> auto-convert, scheduling, and expenses. It runs in CI
+> (`e2e-authed-emulator` job) against the auth/firestore/storage/hosting
+> emulators with a seeded tenant (`tests/e2e/fixtures/seed-emulator.js`) —
+> no prod credentials. Still `continue-on-error` until proven stable; flip
+> to required after ~2 weeks green. The "What's left" below is historical.
+
 ### Goal
 Stand up a real Playwright test suite that exercises authenticated flows end
 to end: login → save lead → save estimate → move kanban card → generate doc →
@@ -271,6 +281,21 @@ MEDIUM. E2E tests are notoriously flaky. Mitigations:
 
 ## ROCK 4 — `dashboard.html` decomposition
 
+> ✅ **Phases 1–5 DONE — 2026-07-05 (PR #841).** `dashboard.html` is down
+> to **~6,080 lines** (from 14,425); every view — including `view-est`,
+> the deliberate last holdout — is an empty mount + `<template>` hydrated
+> on first `goTo()`; inline `onclick` count is **zero** (416 → body-level
+> `data-action` delegate); CSS + boot scripts extracted to
+> `docs/pro/js/*.js` / `dashboard-*.module.js`. `?legacy=1` still serves
+> the pre-decomposition rollback snapshot (refreshed 2026-07-04).
+> **Remaining:** only the per-view module pattern for `window.*` globals.
+> Phase 6 (CSP) verified ALREADY DONE 2026-07-05 — `script-src` in
+> firebase.json carries no `'unsafe-inline'`, `script-src-attr` is
+> `'none'`, and Rock 1 being done means production serves that strict
+> policy. Canonical status + manifest:
+> `docs/dev/dashboard-decomposition-plan.md`. The phase plan below is
+> historical.
+
 ### Goal
 Break the 14,751-line `docs/pro/dashboard.html` god file into focused modules.
 
@@ -343,11 +368,12 @@ been individually verified on iPhone Safari in the field.
 - Convert to `data-action="$NAME" data-args='{"id":"$ID"}'` with a single
   delegate at body level
 
-#### Phase 6: Tighten CSP (1 session)
-- Once inline handlers are gone, drop `'unsafe-inline'` from `script-src` in
-  `firebase.json` (Hosting must be authoritative — see Rock 1)
-- Use a per-request nonce or hash-based allowlist for the few remaining
-  inline `<script>` blocks
+#### Phase 6: Tighten CSP (1 session) — ✅ DONE (verified 2026-07-05)
+- `script-src` / `script-src-elem` in firebase.json already carry no
+  `'unsafe-inline'`; `script-src-attr 'none'`; no `'unsafe-eval'`. All
+  formerly-inline blocks were externalized (`/assets/js/inline/` sink),
+  so no nonce/hash scheme was needed. /cspReport sink live for ongoing
+  violation monitoring.
 
 ### Risk
 HIGH. This codebase is the daily driver — every regression hits Joe on his

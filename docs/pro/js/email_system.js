@@ -6,6 +6,7 @@
 // For now, we'll use mailto: links with pre-populated content
 // In production, integrate with SendGrid, Mailgun, or AWS SES
 
+let _NBD_ES_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 window.emailSystem = {
   // Template library
   templates: {
@@ -751,4 +752,4 @@ console.log('✓ Email system loaded (with stage templates + EmailJS support)');
 
 
 // CSP-safe delegation (replaces 3 inline onclicks killed by script-src-attr 'none')
-(function(){if(window._NBD_ES_DELEGATE)return;window._NBD_ES_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-es-action]');if(!t)return;var a=t.dataset.esAction;try{if(a==='closeEmailModal'&&typeof closeEmailModal==='function')closeEmailModal();else if(a==='sendEmail'&&typeof sendEmail==='function')sendEmail();}catch(e){console.error('[email_system]',e);}});})();
+(function(){if(_NBD_ES_DELEGATE)return;_NBD_ES_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-es-action]');if(!t)return;var a=t.dataset.esAction;try{if(a==='closeEmailModal'&&typeof closeEmailModal==='function')closeEmailModal();else if(a==='sendEmail'&&typeof sendEmail==='function')sendEmail();}catch(e){console.error('[email_system]',e);}});})();

@@ -29,13 +29,12 @@ const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 
-// Known platform-owner emails (mirrors PROVISION_OWNER_EMAILS in
-// functions/handlers/_shared.js). The owner's companyId claim — or uid when
-// they run solo (companyId == uid convention) — is the per-tenant key.
-const OWNER_EMAILS = [
-  'jd@nobigdealwithjoedeal.com',
-  'jonathandeal459@gmail.com',
-];
+// Known platform-owner emails — imported from the single server-side
+// list in functions/handlers/_shared.js (do NOT re-hardcode a copy here).
+// The owner's companyId claim — or uid when they run solo (companyId ==
+// uid convention) — is the per-tenant key. OWNER_EMAILS is a Set; the
+// for...of iteration below works unchanged.
+const { OWNER_EMAILS } = require('./handlers/_shared');
 
 function parseArgs(argv) {
   const out = { dryRun: false, companyId: null };

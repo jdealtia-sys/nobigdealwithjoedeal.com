@@ -7,7 +7,7 @@
 import { NBDAuth } from '/pro/js/nbd-auth.js';
 
 window._nbdAuth = NBDAuth.init({
-  requiredPlan: 'foundation',
+  requiredPlan: 'starter',
   onReady: () => {
     document.getElementById('authGate').style.display = 'none';
     document.getElementById('app').style.display = 'block';

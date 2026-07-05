@@ -90,6 +90,5 @@ function nbdIcon(name, size, className, color) {
   return `<span${cls}${col} aria-hidden="true" style="display:inline-flex;align-items:center;justify-content:center;width:${s}px;height:${s}px;flex-shrink:0;${color ? 'color:'+color+';' : ''}">${svg}</span>`;
 }
 
-// Expose globally
-window.NBD_ICONS = NBD_ICONS;
-window.nbdIcon = nbdIcon;
+// Expose globally (NBD_ICONS itself stays module-local — nothing outside
+// this file reads it; nbdIcon is the public rendering API)

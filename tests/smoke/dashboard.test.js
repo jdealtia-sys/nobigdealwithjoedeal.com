@@ -1643,8 +1643,9 @@ section('Phase C.3 finish-finish — crm + map + docs');
       new RegExp('<template id="tpl-view-' + v + '">').test(dash),
       'expected tpl-view-' + v + ' template element');
   }
-  // Sanity: only view-est should remain as an inline (non-template) view.
-  const inlineMatches = dash.match(/class="view"[^>]*id="view-[a-z]+"[^>]*>(?!<\/div>)/g) || [];
+  // Sanity: NO view remains inline. view-est was the last raw view and
+  // was templated by Rock 4 Phase 4 (commit b6cb61da) once the Rock 2
+  // dep landed; this assertion previously allowed exactly ['est'].
   // Strict count of "still-inline" views = those whose mount doesn't
   // carry data-view-template attribute.
   const stillInline = [];
@@ -1653,9 +1654,9 @@ section('Phase C.3 finish-finish — crm + map + docs');
   while ((m = reAll.exec(dash)) !== null) {
     if (!/data-view-template/.test(m[2])) stillInline.push(m[1]);
   }
-  assert('only view-est remains inline (Rock 2 dep deferred)',
-    stillInline.length === 1 && stillInline[0] === 'est',
-    'expected only view-est inline; got: ' + stillInline.join(','));
+  assert('no view remains inline (Rock 4 Phase 4: view-est templated)',
+    stillInline.length === 0,
+    'expected zero inline views; got: ' + stillInline.join(','));
 }
 
 section('Phase C.3 finish — view-prospects + D.1 plumbing');
@@ -2350,6 +2351,87 @@ section('Ops P1 #4 — loadLeads completeness + kanban render cap');
   assert('show-all expander mounts the remainder', /k-show-all/.test(pipe) && /_kbShowAll\[stageKey\] = true/.test(pipe));
   // Column counts/$ totals must keep computing from the FULL array, not the slice.
   assert('column count uses full cards array', /count\.textContent = cards\.length/.test(pipe));
+}
+
+// ── Globals refactor Tranches 0+1 (2026-07-05) — provably-private globals off window ──
+// Tranche 0: 40 one-global self-registering widgets moved their API objects
+// to module scope; double-load idempotency moved from per-widget window
+// objects (__sentinel convention) to one shared window.__NBD_LOADED registry
+// keyed by file slug. Tranche 1: repo-wide safe frontier — 18 vestigial
+// window.X = X alias exports deleted, 47 single-assignment globals (mostly
+// bind-once _NBD_*_DELEGATE flags) made module-local, 13 of them deleted
+// outright as write-only dead exports. Every name passed the three-way
+// proof (no external refs incl. tests, no in-string refs in own file, not
+// window[fnName]-dispatchable). These names must never be reassigned onto
+// window — that silently re-grows the surface the tranches removed. See
+// docs/dev/dashboard-decomposition-plan.md, caveat 4 execution plan.
+section('Globals Tranches 0+1: converted names stay off window');
+{
+  const T1_NAMES = ['dismissNotification', 'notifAction',
+    'renderDismissedNotifications', 'renderNotifications',
+    'restoreNotification', 'showShortcutsHelp', 'closeHdrMobileMenu',
+    'restoreCrmSecondary', 'seedDemoEstimates', '$id', 'nbdIcon',
+    '_deleteTask', '_loadTasks', '_saveTask', '_toggleTask',
+    'renderTodayTasks', 'toggleTodayTask', 'handleQMDrop',
+    '_di', '_NBD_BG_DELEGATE', 'isClaudeProxyAvailable',
+    'nbdCopyToClipboard', '_dismissedNotifications',
+    'toggleCustomerPhotoReorder', '_galleryUrl', 'removeDocFromQueue',
+    '_NBD_CP_DELEGATE', '_NBD_DA_DELEGATE', 'firebase_onAuthStateChanged',
+    '_bootStartedAt', 'nbdDiag', '_NBD_DW_DELEGATE',
+    '_NBD_DG_DELEGATE_BOUND', '$addClass', '$html', '$removeClass',
+    '$text', '$val', 'nbdSafeHTML', 'nbdSetText', '_NBD_ES_DELEGATE',
+    'calculateEstimateV2', '_NBD_EST_DELEGATE', '_NBD_IC_DELEGATE',
+    '_NBD_IP_DELEGATE_BOUND', '_NBD_MO_DELEGATE_BOUND',
+    '_NBD_MR_DELEGATE_BOUND', '_presentSteps', '_NBD_MP_DELEGATE',
+    '__NBD_SENTRY_BOOTSTRAPPED', '_NBD_NC_DELEGATE', '__NBD_EMU_LOGGED',
+    '_NBD_PT_DELEGATE', '_NBD_PI_DELEGATE', '_NBD_SC_DELEGATE', 'nbdAlert',
+    '_NBD_TK_DELEGATE', '_NBD_VM_DELEGATE', '_NBD_WIDGETS_DELEGATE_BOUND',
+    '_wAddTask', '_wAskJoe', '_wMiniHeat', '_wQuickAddLead', '_wQuickDraw',
+    '_wQuickEst',
+    // Tranche 1b — the 7 deferred multi-assign state vars, now converted:
+    '_searchQuery', '_notifDropdownOpen', '_dismissedDrawerOpen',
+    '_lightboxIndex', '_perimClosing', '_needsAttentionActive',
+    'handleQMFile'];
+  const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
+    'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
+    'CustomerQuickActionBar', 'CustomerSiblingSnooze',
+    'CustomerSmartFollowupPanel', 'CustomerSnoozeBanner', 'CustomerViewedChip',
+    'DataExport', 'EngagementCohortWidget', 'GlobalSearch', 'HotLeads',
+    'LeadImport', 'NBDFabStackCoordinator', 'NBDLeadAlert', 'NBDLeadScorePanel',
+    'NBDOfflineBanner', 'NBDPush', 'NBDPwaInstall', 'NBDReportsDashboard',
+    'NBDReportsTrends', 'NBDSig', 'NBDSupplementUI', 'NBDThemeAudit',
+    'NBDWhatsNew', 'NBD_ICONS', 'NbdAiPersona', 'NeedsAttention', 'NotifBell',
+    'OfflineManager', 'PWAInstallNudge', 'PipelineBottleneck', 'PrefsSync',
+    'ROOFIVENT_CATALOG', 'ShortcutsHelp', 'SmartFollowupBriefing',
+    'StaleSharesWidget'];
+  const offenders = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const fp = path.join(dir, entry.name);
+      if (entry.isDirectory()) { walk(fp); continue; }
+      if (!/\.(js|html)$/.test(entry.name)) continue;
+      const src = fs.readFileSync(fp, 'utf8');
+      for (const n of NAMES) {
+        // $-prefixed names must be escaped or the RegExp reads them as anchors
+        const esc = n.replace(/\$/g, '\\$');
+        if (new RegExp('window\\.' + esc + '\\b').test(src)) {
+          offenders.push(path.relative(ROOT, fp) + ':' + n);
+        }
+      }
+    }
+  };
+  walk(path.join(ROOT, 'docs'));
+  assert('no window.<TrancheZeroName> references anywhere under docs/ — '
+      + (offenders.slice(0, 5).join(', ') || 'clean'), offenders.length === 0);
+
+  // The replacement idempotency convention: guarded widgets key into the
+  // shared __NBD_LOADED registry instead of testing their own window object.
+  const af = read(path.join(PRO_JS, 'activity-feed.js'));
+  assert('activity-feed.js uses the __NBD_LOADED registry guard',
+    /__NBD_LOADED\['activity-feed'\]/.test(af));
+  const sig = read(path.join(PRO_JS, 'signature-widget.js'));
+  assert('signature-widget.js migrated its bespoke sentinel to the registry',
+    /__NBD_LOADED\['signature-widget'\]/.test(sig) && !/__NBDSig__sentinel/.test(sig));
 }
 
 };

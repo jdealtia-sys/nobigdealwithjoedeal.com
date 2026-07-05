@@ -21,7 +21,6 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { callableRateLimit } = require('../shared');
 const { CORS_ORIGINS } = require('./_shared');

@@ -26,8 +26,9 @@
 (function () {
   'use strict';
 
-  if (window.SmartFollowupBriefing
-      && window.SmartFollowupBriefing.__sentinel === 'nbd-smart-followup-briefing-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['smart-followup-briefing']) return;
+  __NBD_LOADED['smart-followup-briefing'] = true;
 
   const PATH = window.location.pathname || '';
   if (!/\/pro\/dashboard(?:\.html)?$/.test(PATH)) return;
@@ -223,8 +224,7 @@
   }
   window.addEventListener('pagehide', destroy);
 
-  window.SmartFollowupBriefing = {
-    __sentinel: 'nbd-smart-followup-briefing-v1',
+  const SmartFollowupBriefing = {
     render,
     computeTopCandidates,
     destroy,
