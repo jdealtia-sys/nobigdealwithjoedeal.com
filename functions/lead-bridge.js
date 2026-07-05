@@ -28,7 +28,6 @@
 
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 // Modular FieldValue import — FieldValue is undefined under
 // the emulator runtime (see emulator-qa notes); the modular path works in

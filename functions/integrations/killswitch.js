@@ -20,7 +20,6 @@
  */
 'use strict';
 
-const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 
 const TTL_MS = 60_000;
