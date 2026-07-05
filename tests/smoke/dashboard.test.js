@@ -2451,6 +2451,43 @@ section('Globals Tranches 0+1: converted names stay off window');
     !/on(touchstart|touchmove|touchend|dragstart|dragover|drop|dragend|click)\s*=\s*"/.test(mnc));
   assert('mobile-nav-customizer binds drag/touch via modal-level delegation',
     /_bindDnd\(modal\)/.test(mnc) && /addEventListener\('touchmove'[\s\S]{0,80}passive: false/.test(mnc));
+
+  // CSP-dead handler audit (2026-07-05, post-2a sweep). Three more prod
+  // breakages of the same class, all pinned here so they can't return:
+  const bootSrc = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  assert('kanban columns: no inline ondragover/ondrop (CSP-dead) — board-level delegation instead',
+    !/on(dragover|drop)\s*=\s*"/.test(bootSrc) && /nbdDndBound/.test(bootSrc));
+  // Raw HTML only — readDashboard() concatenates extracted JS shards whose
+  // comments legitimately mention historical onclick="" patterns.
+  const dashHtml = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard.html: ZERO inline handler attributes (incl. the old font-swap onload)',
+    !/ on(load|click|change|error|input|submit|keydown)\s*=\s*"/.test(dashHtml));
+  const sl = read(path.join(PRO_JS, 'script-loader.js'));
+  assert('script-loader performs the CSP-safe font-swap for link[data-nbd-font-swap]',
+    /data-nbd-font-swap/.test(sl) && /data-nbd-font-swap/.test(dashHtml));
+  const toolsSrc = read(path.join(PRO_JS, 'tools.js'));
+  assert('tools.js saveQuickLead selects the save button by data-fn (old [onclick=] selector crashed every save)',
+    /button\[data-fn="saveQuickLead"\]/.test(toolsSrc) && !/button\[onclick="saveQuickLead/.test(toolsSrc));
+
+  // Deal-room strict rewrite (option B): the generated customer page must
+  // carry NO executable inline script and NO inline handlers — its logic
+  // lives in the external /pro/deal-room.js, config in a JSON data island,
+  // token/submit-URL in serve-time meta tags (deal-acceptance.js).
+  const cb = read(path.join(PRO_JS, 'close-board.js'));
+  assert('close-board deal template: zero inline handler attributes', !/on(click|touchstart|drag)\w*\s*=\s*"/.test(cb));
+  assert('close-board deal template: config rides the nbd-deal-data JSON island (with < escaped)',
+    /nbd-deal-data/.test(cb) && /u003c/.test(cb));
+  assert('close-board deal template: references the external deal-room.js absolutely',
+    /https:\/\/nobigdealwithjoedeal\.com\/pro\/deal-room\.js/.test(cb));
+  assert('close-board deal template: the old inline logic <script> is gone',
+    !/<script>\s*let selectedTier/.test(cb));
+  const dr = read(path.join(ROOT, 'docs/pro/deal-room.js'));
+  assert('deal-room.js wires tiers/financing/signature via delegation + reads meta token',
+    /data-deal-tier/.test(dr) && /data-deal-action/.test(dr)
+    && /nbd-deal-token/.test(dr) && /nbd-deal-data/.test(dr));
+  const da = read(path.join(FUNCTIONS, 'deal-acceptance.js'));
+  assert('getDealRoom injects CSP-safe meta tags for token + submit URL',
+    /meta name="nbd-deal-token"/.test(da) && /meta name="nbd-deal-submit"/.test(da));
 }
 
 };

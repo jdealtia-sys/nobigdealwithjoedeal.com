@@ -405,19 +405,19 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 <div class="container">
   <div class="section-title">Choose Your Roof Package</div>
   <div class="tier-cards">
-    <div class="tier" id="tier-good" onclick="selectTier('good')">
+    <div class="tier" id="tier-good" data-deal-tier="good">
       <div class="tier-name">☆ Good</div>
       <div class="tier-price">${fmtCurrency(deal.tiers.good.price)}</div>
       <div class="tier-monthly">or ~${fmtCurrency(goodPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.good.description)}</div>
     </div>
-    <div class="tier recommended" id="tier-better" onclick="selectTier('better')">
+    <div class="tier recommended" id="tier-better" data-deal-tier="better">
       <div class="tier-name">★★ Better</div>
       <div class="tier-price">${fmtCurrency(deal.tiers.better.price)}</div>
       <div class="tier-monthly">or ~${fmtCurrency(betterPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.better.description)}</div>
     </div>
-    <div class="tier" id="tier-best" onclick="selectTier('best')">
+    <div class="tier" id="tier-best" data-deal-tier="best">
       <div class="tier-name">★★★ Best</div>
       <div class="tier-price">${fmtCurrency(deal.tiers.best.price)}</div>
       <div class="tier-monthly">or ~${fmtCurrency(bestPay)}/mo with financing</div>
@@ -443,13 +443,13 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     <p style="font-size:13px;color:#8b8e96;margin-bottom:8px;">By signing below, you authorize No Big Deal Home Solutions to proceed with the selected roof package.</p>
     <div class="sign-canvas-wrap">
       <canvas id="sigCanvas" class="sign-canvas"></canvas>
-      <button class="sign-clear" onclick="clearSig()">Clear</button>
+      <button class="sign-clear" data-deal-action="clearSig">Clear</button>
     </div>
     <div class="schedule-section">
       <p style="font-size:12px;color:#8b8e96;margin-bottom:8px;">Preferred installation date:</p>
       <input type="date" id="schedDate" class="schedule-input" min="${new Date().toISOString().split('T')[0]}">
     </div>
-    <button class="sign-btn" id="submitBtn" onclick="submitDeal()" disabled>✓ ACCEPT & SCHEDULE</button>
+    <button class="sign-btn" id="submitBtn" data-deal-action="submit" disabled>✓ ACCEPT & SCHEDULE</button>
   </div>
 
   <div class="footer">
@@ -464,106 +464,15 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
   <div class="success-sub">We've received your selection and signature. Your rep ${esc(deal.repName)} will be in touch shortly to confirm your installation date.</div>
 </div>
 
-<script>
-let selectedTier = null;
-let selectedFinance = null;
-let sigDrawing = false;
-let sigHasContent = false;
-
-function selectTier(tier) {
-  selectedTier = tier;
-  document.querySelectorAll('.tier').forEach(t => t.classList.remove('selected'));
-  document.getElementById('tier-' + tier).classList.add('selected');
-  updateFinancing();
-  checkReady();
-}
-
-function updateFinancing() {
-  if (!selectedTier) return;
-  const prices = ${JSON.stringify({ good: deal.tiers.good.price, better: deal.tiers.better.price, best: deal.tiers.best.price })};
-  const price = prices[selectedTier];
-  const rates = ${JSON.stringify(FINANCING_RATES)};
-  const container = document.getElementById('financeOpts');
-  container.innerHTML = '<div class="finance-opt selected" onclick="selectFinancing(-1,this)" data-idx="-1"><span class="finance-label">💰 Pay in Full</span><span class="finance-payment">' + formatCurrency(price) + '</span></div>' +
-    rates.map((r, i) => {
-      const monthly = r.rate === 0 ? price / r.term : price * (r.rate/100/12) * Math.pow(1+r.rate/100/12, r.term) / (Math.pow(1+r.rate/100/12, r.term) - 1);
-      return '<div class="finance-opt" onclick="selectFinancing('+i+',this)" data-idx="'+i+'"><span class="finance-label">' + r.label + '</span><span class="finance-payment">' + formatCurrency(monthly) + '/mo</span></div>';
-    }).join('');
-  selectedFinance = -1;
-}
-
-function selectFinancing(idx, el) {
-  document.querySelectorAll('.finance-opt').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  selectedFinance = idx;
-  checkReady();
-}
-
-function formatCurrency(n) { return '$' + n.toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}); }
-
-function checkReady() {
-  const btn = document.getElementById('submitBtn');
-  btn.disabled = !(selectedTier && sigHasContent);
-}
-
-// Signature canvas
-const canvas = document.getElementById('sigCanvas');
-const ctx = canvas.getContext('2d');
-canvas.width = canvas.offsetWidth * 2;
-canvas.height = canvas.offsetHeight * 2;
-ctx.scale(2, 2);
-ctx.strokeStyle = '#333';
-ctx.lineWidth = 2;
-ctx.lineCap = 'round';
-
-function getPos(e) {
-  const rect = canvas.getBoundingClientRect();
-  const t = e.touches ? e.touches[0] : e;
-  return { x: t.clientX - rect.left, y: t.clientY - rect.top };
-}
-
-canvas.addEventListener('mousedown', e => { sigDrawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); });
-canvas.addEventListener('mousemove', e => { if (!sigDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); sigHasContent = true; checkReady(); });
-canvas.addEventListener('mouseup', () => { sigDrawing = false; });
-canvas.addEventListener('touchstart', e => { e.preventDefault(); sigDrawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); }, {passive:false});
-canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!sigDrawing) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); sigHasContent = true; checkReady(); }, {passive:false});
-canvas.addEventListener('touchend', () => { sigDrawing = false; });
-
-function clearSig() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  sigHasContent = false;
-  checkReady();
-}
-
-async function submitDeal() {
-  if (!selectedTier || !sigHasContent) return;
-  const sigData = canvas.toDataURL('image/png');
-  const schedDate = document.getElementById('schedDate').value;
-  const btn = document.getElementById('submitBtn');
-  // When this page is served via /deal/<token> (the shared link), getDealRoom
-  // injects a token + same-origin submit URL — record the acceptance for real.
-  // With no token (the rep's in-app preview) it's a visual walkthrough only.
-  var token = window.__NBD_DEAL_TOKEN, url = window.__NBD_DEAL_SUBMIT_URL;
-  if (token && url) {
-    var orig = btn.textContent; btn.disabled = true; btn.textContent = 'Submitting...';
-    try {
-      var r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token, tier: selectedTier, financing: selectedFinance, signature: sigData, scheduledDate: schedDate }) });
-      if (!r.ok) {
-        var j = await r.json().catch(function () { return {}; });
-        btn.disabled = false; btn.textContent = orig;
-        alert((j && j.error) || 'Could not submit your acceptance. Please try again.');
-        return;
-      }
-    } catch (e) {
-      btn.disabled = false; btn.textContent = orig;
-      alert('Network error. Please check your connection and try again.');
-      return;
-    }
-  }
-  document.getElementById('successOverlay').classList.add('show');
-}
-<\/script>
+<script type="application/json" id="nbd-deal-data">${
+    // Data island, not executable script — CSP does not block JSON blocks.
+    // Escape < so lead-sourced strings can never close the tag early.
+    JSON.stringify({
+      prices: { good: deal.tiers.good.price, better: deal.tiers.better.price, best: deal.tiers.best.price },
+      rates: FINANCING_RATES,
+    }).replace(/</g, '\\u003c')
+  }</script>
+<script src="https://nobigdealwithjoedeal.com/pro/deal-room.js?v=1"><\/script>
 </body></html>`;
   }
 

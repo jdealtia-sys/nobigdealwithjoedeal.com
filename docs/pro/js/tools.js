@@ -387,10 +387,13 @@ async function saveQuickLead() {
   }
   errEl.style.display = 'none';
 
-  const btn = document.querySelector('#quickAddModal button[onclick="saveQuickLead()"]');
-  const orig = btn.textContent;
-  btn.textContent = 'Saving...';
-  btn.disabled = true;
+  // The save button moved to data-action="call" data-fn long ago; the old
+  // [onclick=...] selector matched nothing and btn.textContent THREW here,
+  // killing every quick-add save before the write. Null-guarded so a future
+  // markup change degrades to a missing spinner, never a dead save.
+  const btn = document.querySelector('#quickAddModal button[data-fn="saveQuickLead"]');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = 'Saving...'; btn.disabled = true; }
 
   try {
     const leadId = await window._saveLead({
@@ -415,8 +418,7 @@ async function saveQuickLead() {
     // Bail quietly if _saveLead short-circuited (over plan limit, dedup
     // declined). It surfaced its own toast already.
     if (!leadId) {
-      btn.textContent = orig;
-      btn.disabled = false;
+      if (btn) { btn.textContent = orig; btn.disabled = false; }
       return;
     }
 
@@ -432,8 +434,7 @@ async function saveQuickLead() {
   } catch(e) {
     errEl.textContent = 'Save failed. Check connection.';
     errEl.style.display = 'block';
-    btn.textContent = orig;
-    btn.disabled = false;
+    if (btn) { btn.textContent = orig; btn.disabled = false; }
   }
 }
 

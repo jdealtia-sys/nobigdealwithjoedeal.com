@@ -76,6 +76,20 @@
     const stages = view.stages;
     const board = document.getElementById('kanbanBoard');
     if (!board) return;
+    // Delegated column DnD — the old per-column inline ondragover/ondrop
+    // attributes are dead under the prod CSP (script-src-attr 'none'), so
+    // dropping a lead card on a column silently did nothing. The board node
+    // persists across innerHTML rebuilds; bind exactly once.
+    if (!board.dataset.nbdDndBound) {
+      board.dataset.nbdDndBound = '1';
+      board.addEventListener('dragover', (ev) => {
+        if (ev.target.closest && ev.target.closest('.kcol-body')) ev.preventDefault();
+      });
+      board.addEventListener('drop', (ev) => {
+        const body = ev.target.closest && ev.target.closest('.kcol-body');
+        if (body) window.drop(ev, body.id.replace(/^kbody-/, ''));
+      });
+    }
     board.innerHTML = stages.map(stageKey => {
       const meta = STAGE_META[stageKey] || {};
       const label = meta.label || stageKey;
@@ -89,8 +103,7 @@
             <div class="kcol-total dn" id="ktotal-${stageKey}"></div>
           </div>
         </div>
-        <div class="kcol-body" id="kbody-${stageKey}"
-          ondragover="event.preventDefault()" ondrop="drop(event,'${stageKey}')">
+        <div class="kcol-body" id="kbody-${stageKey}">
           <div class="k-empty">No leads</div>
         </div>
       </div>`;
@@ -716,7 +729,9 @@
   // ── Global drop handler for kanban columns ──
   window.drop = function(event, stageKey) {
     event.preventDefault();
-    const el = event.currentTarget || event.target.closest('.kcol-body');
+    // closest first: under board-level delegation currentTarget is the
+    // board itself; the drag-over highlight lives on the column body.
+    const el = (event.target.closest && event.target.closest('.kcol-body')) || event.currentTarget;
     if (el) el.classList.remove('drag-over');
     const dragId = window._dragId || event.dataTransfer?.getData('text/plain');
     if (!dragId) return;
