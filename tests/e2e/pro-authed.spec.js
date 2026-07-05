@@ -1610,8 +1610,13 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
 // so the header collision, stat-bleed, card clip, and column overflow
 // can't silently come back. iPhone-13 logical width = 390px.
 // ─────────────────────────────────────────────────────────────
-test.describe('CRM mobile layout geometry @shard1', () => {
-  test.use({ viewport: { width: 390, height: 844 } });
+// Phase 2 foundation (2026-07): run the geometry guard at BOTH canonical
+// phone widths — 390 (iPhone 13) and 480 (the canonical phone breakpoint) —
+// so the eventual breakpoint consolidation is verifiable at two points, not
+// one. A regression that only shows at one width can't slip through.
+for (const VW of [390, 480]) {
+test.describe(`CRM mobile layout geometry @${VW}px @shard1`, () => {
+  test.use({ viewport: { width: VW, height: 844 } });
 
   let creds;
   test.beforeAll(() => {
@@ -1689,4 +1694,23 @@ test.describe('CRM mobile layout geometry @shard1', () => {
       document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(docOverflow, 'document does not scroll horizontally past the viewport').toBeLessThanOrEqual(1);
   });
+  test('pipeline header: title and stat stay inside the crm-header box', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    await page.waitForSelector('.crm-header .crm-hdr-title', { timeout: 15_000 });
+    // Both the title and the stat must render WITHIN the crm-header's own
+    // rectangle — neither escaping above (into the global header) nor below.
+    // This is the containment guard the eventual file-merge consolidation
+    // needs: move rules between files all you like, these must stay boxed.
+    const box = await page.locator('.crm-header').boundingBox();
+    const title = await page.locator('.crm-header .crm-hdr-title').boundingBox();
+    const stat = await page.locator('#crmSubLine').boundingBox();
+    expect(box, 'crm-header rendered').toBeTruthy();
+    const within = (r) => !r || (r.y >= box.y - 1 && r.y + r.height <= box.y + box.height + 1);
+    expect(within(title), `title ${JSON.stringify(title)} escapes crm-header ${JSON.stringify(box)}`).toBe(true);
+    if (stat && stat.width > 0 && stat.height > 0) {
+      expect(within(stat), `stat ${JSON.stringify(stat)} escapes crm-header ${JSON.stringify(box)}`).toBe(true);
+    }
+  });
 });
+}

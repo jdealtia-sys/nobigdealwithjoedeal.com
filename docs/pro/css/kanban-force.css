@@ -2,6 +2,29 @@
    Load order matters: this file replaces the inline <style> block that sat
    at the same position in <head>; keep the <link> tags in dashboard.html in
    their original slots relative to theme-system.css and each other. */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   OWNERSHIP + RESPONSIVE MAP (2026-07 Phase 2 foundation)
+   Full map: docs/dev/crm-responsive-map.md
+
+   This file OWNS: the kanban board/columns/cards (.k-card, .kcol-*,
+   .kanban-*) AND the compact CRM header (.crm-header, .crm-hdr-*).
+   Loads AFTER dashboard-app.css, so same-specificity rules here WIN.
+
+   CANONICAL MOBILE BREAKPOINTS (use ONLY these for NEW header/kanban rules):
+     • 768px  — tablet / phone boundary (sidebar drops, single-column)
+     • 480px  — phone
+   INTENTIONAL, DO NOT "consolidate away": the kanban COLUMN-WIDTH micro-
+   breakpoints (600 / 430 / 360px) — these progressively narrow the column
+   so ~1.5 columns stay visible as the phone narrows; they are tuned to real
+   device widths, not cascade accidents.
+
+   KNOWN SPLIT (being consolidated with device-in-the-loop, not blind):
+   .crm-header mobile rules currently live BOTH here (@768 block below) and
+   in dashboard-app.css (its @768 block, several !important). When merging,
+   move INTO this file (it owns the selector + wins load order) and delete
+   the dashboard-app duplicates — verify each step on device.
+   ═══════════════════════════════════════════════════════════════════════ */
 /* ── THEME PICKER ── */
 .theme-grid {
   display: grid;
