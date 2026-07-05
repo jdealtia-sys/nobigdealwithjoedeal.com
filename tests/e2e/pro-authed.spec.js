@@ -103,6 +103,98 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
 });
 
 // ───────────────────────────────────────────────────────────────
+// Signup funnel — the acquisition path itself (register → onboarding
+// → dashboard as a FREE user). Every other journey starts from the
+// pre-seeded logged-in account; nothing guarded registration until
+// the 2026-07-05 free-tier bug: dashboard-auth-gate required plan
+// 'foundation', so every free signup hit a full-screen upgrade wall
+// with no continue-free path — the funnel sold a product nobody
+// could reach. This journey locks the whole path end-to-end.
+//
+// Hermetic: the account is created fresh in the AUTH EMULATOR each
+// run (unique email per attempt) and evaporates with it. The
+// createCompany callable fails in emulator mode (no functions
+// emulator) — BY DESIGN register.js treats that as non-fatal (solo
+// uid convention), which this journey also exercises.
+// ───────────────────────────────────────────────────────────────
+test.describe('Signup funnel — free tier reaches the dashboard', () => {
+  test.beforeEach(async ({}, testInfo) => {
+    // Only meaningful against the emulator: prod runs must not mint accounts.
+    if (!/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) {
+      testInfo.skip(true, 'signup journey runs in emulator mode only');
+    }
+  });
+
+  test('register (no code) → onboarding skip → dashboard, unwalled, plan free', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+
+    const stamp = Date.now();
+    const email = `e2e-signup-${stamp}@nbd.test`;
+
+    await page.goto('/pro/register.html');
+    await page.waitForLoadState('load');
+    await page.fill('#regFirst', '[E2E] Signup');
+    await page.fill('#regLast', String(stamp));
+    await page.fill('#regEmail', email);
+    await page.fill('#regPass', 'nbd-e2e-signup-pw-1');
+    await page.fill('#regConfirm', 'nbd-e2e-signup-pw-1');
+    // #regCode deliberately left blank — the free path.
+    await page.click('#regBtn');
+
+    // Free path: createUser → users/{uid} (onboarded:false) → createCompany
+    // (fails silently in emulator — non-fatal by design) → onboarding.
+    await page.waitForURL(/\/pro\/onboarding(\.html)?([?#]|$)/, { timeout: 20_000 });
+
+    // The wizard needs its auth state + module boot before the delegate
+    // listens; the skip link is in the step-1 markup.
+    const skipBtn = page.locator('[data-action="skip"]').first();
+    await skipBtn.waitFor({ state: 'visible', timeout: 15_000 });
+    await skipBtn.click();
+
+    // skip() writes onboarded:true (+ onboardingSkipped) then toDashboard().
+    await page.waitForURL(/\/pro\/dashboard(\.html)?([?#]|$)/, { timeout: 20_000 });
+
+    // Let the auth gate fully resolve (goTo is defined by dashboard-ui after
+    // the gate's onReady path un-hides the page).
+    await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 20_000 });
+
+    // THE regression lock: a free account (no subscriptions doc at all)
+    // must NOT hit the full-screen upgrade wall — the dashboard IS the
+    // free product. Before the fix this selector was present for every
+    // free signup, with no continue-free path.
+    await expect(page.locator('#nbd-upgrade-wall'), 'free account must not be upgrade-walled')
+      .toHaveCount(0);
+    // And the page must actually be visible (the gate un-hides it only on
+    // the success path).
+    const visible = await page.evaluate(() => document.documentElement.style.visibility !== 'hidden');
+    expect(visible, 'gate un-hid the page (onReady path ran)').toBe(true);
+
+    // Plan resolved as canonical free for a brand-new account.
+    const authState = await page.evaluate(() => ({
+      plan: window._userPlan || null,
+      email: (window._user && window._user.email) || null,
+    }));
+    expect(authState.plan, 'no subscription doc resolves to the free plan').toBe('free');
+    expect(authState.email, 'dashboard session belongs to the new signup').toBe(email);
+
+    // The free product works: navigate to the pipeline like a user.
+    await page.evaluate(() => window.goTo('crm'));
+    await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first())
+      .toBeVisible({ timeout: 15_000 });
+
+    // Console hygiene, with the standard emulator-mode exclusions. The
+    // createCompany connection-refused IS expected here (no functions
+    // emulator) and register.js handles it non-fatally.
+    const hard = consoleErrors.filter(e =>
+      !/Report Only|favicon|Service Worker registration|chrome-extension/i.test(e)
+      && !/127\.0\.0\.1:5001|ERR_CONNECTION_REFUSED|Failed to load resource|app-?check|ReCAPTCHA|cloudfunctions\.net|CORS policy|createCompany/i.test(e)
+    );
+    expect(hard, 'no unexpected console errors across the funnel').toEqual([]);
+  });
+});
+
+// ───────────────────────────────────────────────────────────────
 // Destructive flows (Rock 3 PR 4)
 //
 // Every test in this block creates real Firestore docs tagged with
