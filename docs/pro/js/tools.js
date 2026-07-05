@@ -536,7 +536,6 @@ window.exportLeadsCSV = exportLeadsCSV;
 
 window.openQMImportModal = openQMImportModal;
 window.closeQMImportModal = closeQMImportModal;
-window.handleQMFile = handleQMFile;
 window.applyQMData = applyQMData;
 // ══ END QUICK MEASURE IMPORT ═══════════════════════════════════════════════
 
@@ -547,7 +546,6 @@ window.applyQMData = applyQMData;
 // (duplicate onboarding flow removed — canonical definition is in dashboard.html)
 
 // Window scope exposures for tools
-if (typeof handleQMFile === 'function') window.handleQMFile = handleQMFile;
 if (typeof applyQMData === 'function') window.applyQMData = applyQMData;
 if (typeof openQMImportModal === 'function') window.openQMImportModal = openQMImportModal;
 if (typeof closeQMImportModal === 'function') window.closeQMImportModal = closeQMImportModal;

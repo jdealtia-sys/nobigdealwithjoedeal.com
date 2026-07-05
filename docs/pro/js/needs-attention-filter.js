@@ -161,7 +161,6 @@
     if (!active) {
       // Restore default rendering (no filter override).
       window._filteredLeads = null;
-      window._needsAttentionActive = false;
       if (typeof window.renderLeads === 'function') {
         window.renderLeads(window._leads, null);
       }
@@ -170,7 +169,6 @@
     }
     const subset = compute();
     window._filteredLeads = subset;
-    window._needsAttentionActive = true;
     if (typeof window.renderLeads === 'function') {
       window.renderLeads(window._leads, subset);
     }

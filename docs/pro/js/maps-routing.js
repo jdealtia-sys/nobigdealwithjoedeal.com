@@ -30,7 +30,7 @@
 // ══════════════════════════════════════════════
 // DRAWING TOOL v2 — multi-facet, save/restore, drag, snap, shortcuts
 // ══════════════════════════════════════════════
-let _NBD_MR_DELEGATE_BOUND, _presentSteps; // module-local (globals Tranche 1 — was window.*)
+let _NBD_MR_DELEGATE_BOUND, _presentSteps, _perimClosing; // module-local (globals Tranche 1 — was window.*)
 let drawMap, drawOn=false, drawStart=null, drawLT=0, drawnLines=[], tempLine=null, tempLbl=null;
 let drawMode = 'line'; // 'line' | 'perim' | 'er' | 'gutter'
 
@@ -712,10 +712,10 @@ function perimChooseType(subtype) {
   const p1 = perimPendingP1;
   const p2 = perimPendingP2;
   addPerimSegment(p1, p2, subtype);
-  if(!window._perimClosing) {
+  if(!_perimClosing) {
     perimPoints.push(p2);
   } else {
-    window._perimClosing = false;
+    _perimClosing = false;
     perimClosed = true;
     const facetColor = FACET_COLORS[facets.length % FACET_COLORS.length];
     if(perimPolygon) drawMap.removeLayer(perimPolygon);
@@ -764,7 +764,7 @@ function closePerimeter() {
   const first = perimPoints[0];
   perimPendingP1 = last;
   perimPendingP2 = first;
-  window._perimClosing = true;
+  _perimClosing = true;
   showReChooser();
 }
 
@@ -786,7 +786,7 @@ function resetPerimState() {
   perimPoints = []; perimDots = []; perimSegments = [];
   perimClosed = false; perimPendingP1 = null; perimPendingP2 = null;
   perimPolygon = null; perimBaseArea = 0; perimCloseRing = null;
-  window._perimClosing = false;
+  _perimClosing = false;
   const bar = document.getElementById('perimBar');
   if(bar) bar.textContent = '⬡ Perimeter mode — click to trace Facet '+(facets.length+1)+'. Click first dot to close.';
 }

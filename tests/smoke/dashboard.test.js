@@ -2387,7 +2387,11 @@ section('Globals Tranches 0+1: converted names stay off window');
     '_NBD_PT_DELEGATE', '_NBD_PI_DELEGATE', '_NBD_SC_DELEGATE', 'nbdAlert',
     '_NBD_TK_DELEGATE', '_NBD_VM_DELEGATE', '_NBD_WIDGETS_DELEGATE_BOUND',
     '_wAddTask', '_wAskJoe', '_wMiniHeat', '_wQuickAddLead', '_wQuickDraw',
-    '_wQuickEst'];
+    '_wQuickEst',
+    // Tranche 1b — the 7 deferred multi-assign state vars, now converted:
+    '_searchQuery', '_notifDropdownOpen', '_dismissedDrawerOpen',
+    '_lightboxIndex', '_perimClosing', '_needsAttentionActive',
+    'handleQMFile'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',

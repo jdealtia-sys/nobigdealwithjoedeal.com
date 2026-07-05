@@ -36,9 +36,9 @@
 // NOTIFICATION SYSTEM
 // ═══════════════════════════════════════════════════════════════
 
-let _dismissedNotifications; // module-local (globals Tranche 1 — was window.*)
+let _dismissedNotifications, _notifDropdownOpen, _dismissedDrawerOpen; // module-local (globals Tranche 1 — was window.*)
 window._notifications = [];
-window._notifDropdownOpen = false;
+_notifDropdownOpen = false;
 window._notifUnsub = null; // onSnapshot unsubscribe handle
 
 function _renderNotifBadgeAndList(allNotifs) {
@@ -54,7 +54,7 @@ function _renderNotifBadgeAndList(allNotifs) {
       badge.style.display = 'none';
     }
   }
-  if (window._notifDropdownOpen) {
+  if (_notifDropdownOpen) {
     renderNotifications();
   }
 }
@@ -235,9 +235,9 @@ window.toggleNotificationDropdown = function() {
   const dropdown = document.getElementById('notifDropdown');
   if (!dropdown) return;
   
-  window._notifDropdownOpen = !window._notifDropdownOpen;
+  _notifDropdownOpen = !_notifDropdownOpen;
   
-  if (window._notifDropdownOpen) {
+  if (_notifDropdownOpen) {
     dropdown.style.display = 'flex';
     renderNotifications();
   } else {
@@ -249,9 +249,9 @@ window.toggleNotificationDropdown = function() {
 document.addEventListener('click', (e) => {
   const notifBtn = document.getElementById('notifBtn');
   const dropdown = document.getElementById('notifDropdown');
-  if (notifBtn && dropdown && window._notifDropdownOpen) {
+  if (notifBtn && dropdown && _notifDropdownOpen) {
     if (!notifBtn.contains(e.target) && !dropdown.contains(e.target)) {
-      window._notifDropdownOpen = false;
+      _notifDropdownOpen = false;
       dropdown.style.display = 'none';
     }
   }
@@ -269,7 +269,7 @@ async function notifAction(notifId, leadId, isDismissed) {
   // Navigate to the lead if we have one
   if (leadId && !leadId.startsWith('d-')) {
     // Close dropdown
-    window._notifDropdownOpen = false;
+    _notifDropdownOpen = false;
     const dropdown = document.getElementById('notifDropdown');
     if (dropdown) dropdown.style.display = 'none';
     // Go to CRM and open the lead
@@ -380,23 +380,23 @@ async function restoreNotification(notifId) {
 }
 
 // ── Toggle dismissed notifications drawer ──
-window._dismissedDrawerOpen = false;
+_dismissedDrawerOpen = false;
 function toggleDismissedNotifications() {
-  window._dismissedDrawerOpen = !window._dismissedDrawerOpen;
+  _dismissedDrawerOpen = !_dismissedDrawerOpen;
   const dismissedList = document.getElementById('notifDismissedList');
   const toggleLabel = document.getElementById('dismissedToggleLabel');
   if (dismissedList) {
-    dismissedList.style.display = window._dismissedDrawerOpen ? 'block' : 'none';
+    dismissedList.style.display = _dismissedDrawerOpen ? 'block' : 'none';
   }
   if (toggleLabel) {
-    toggleLabel.textContent = window._dismissedDrawerOpen ? 'Hide dismissed' : 'Show dismissed';
+    toggleLabel.textContent = _dismissedDrawerOpen ? 'Hide dismissed' : 'Show dismissed';
   }
-  if (window._dismissedDrawerOpen) renderDismissedNotifications();
+  if (_dismissedDrawerOpen) renderDismissedNotifications();
 }
 
 function renderDismissedNotifications() {
   const list = document.getElementById('notifDismissedList');
-  if (!list || !window._dismissedDrawerOpen) return;
+  if (!list || !_dismissedDrawerOpen) return;
   const dismissed = _dismissedNotifications || [];
   if (!dismissed.length) {
     list.innerHTML = `<div style="padding:16px;text-align:center;font-size:11px;color:var(--m);">No dismissed notifications</div>`;
