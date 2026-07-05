@@ -1,3 +1,4 @@
+let _NBD_DA_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 /**
  * dashboard-actions.js — action handlers, lead / prospect ops, zone
  * draw, daily program logic, mobile-action wrappers, card-detail
@@ -1628,4 +1629,4 @@ function editCardDetails() {
 window.editCardDetails = editCardDetails;
 
 
-(function(){if(window._NBD_DA_DELEGATE)return;window._NBD_DA_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-da-action]');if(!t)return;if(t.dataset.daAction==='reload')window.location.reload();});})();
+(function(){if(_NBD_DA_DELEGATE)return;_NBD_DA_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-da-action]');if(!t)return;if(t.dataset.daAction==='reload')window.location.reload();});})();

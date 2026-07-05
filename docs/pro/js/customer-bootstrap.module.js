@@ -1,3 +1,4 @@
+let toggleCustomerPhotoReorder; // module-local (globals Tranche 1 — was window.*)
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
@@ -1085,7 +1086,7 @@ window.toggleCustomerPhotosExpanded = function() {
   renderCustomerPhotoStrip();
 };
 
-window.toggleCustomerPhotoReorder = function() {
+toggleCustomerPhotoReorder = function() {
   var on = document.body.classList.toggle('nbd-photo-reorder');
   var btn = document.getElementById('nbdReorderToggle');
   if (btn) {

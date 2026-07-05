@@ -5,7 +5,6 @@
 // The URL is stored on the lead doc as 'portalUrl' for instant
 // retrieval on next page load (no re-generation needed).
 
-window._galleryUrl = null;
 
 // ── Dual Portal Functions (April 2026) ──
 // Supports both Photo Gallery (photos-only) and Full Project Portal.

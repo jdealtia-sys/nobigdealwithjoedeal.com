@@ -1460,8 +1460,9 @@ window.nextRevisionVersion    = nextRevisionVersion;
 // data-action="call" delegate because these handlers fire on dynamic
 // HTML injected by buildReview() and need no allowlist gate.
 (function(){
-  if(window._NBD_EST_DELEGATE) return;
-  window._NBD_EST_DELEGATE = true;
+let _NBD_EST_DELEGATE; // module-local (globals Tranche 1 — was window.*)
+  if(_NBD_EST_DELEGATE) return;
+  _NBD_EST_DELEGATE = true;
   document.addEventListener('click', function(ev){
     const t = ev.target.closest && ev.target.closest('[data-est-action]');
     if (!t) return;

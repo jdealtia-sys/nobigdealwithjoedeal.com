@@ -1,3 +1,4 @@
+let nbdDiag; // module-local (globals Tranche 1 — was window.*)
 // ── Service Worker registration (offline + PWA) ──
 // E4: two kill-switches in case a bad SW ships:
 //   1. ?nosw=1 on the URL → skips registration + unregisters existing.
@@ -129,8 +130,8 @@ window.addEventListener('online', () => {
   }
 });
 
-// ── Runtime Diagnostic — call window.nbdDiag() from console ──
-window.nbdDiag = function() {
+// ── Runtime Diagnostic — call nbdDiag() from console ──
+nbdDiag = function() {
   const r = {};
   // Auth
   r.user = window._user ? { uid: window._user.uid, email: window._user.email } : null;

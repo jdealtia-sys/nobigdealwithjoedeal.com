@@ -9,6 +9,7 @@
 
 (function() {
   'use strict';
+let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
   // Default overhead % applied to all jobs (configurable)
   const DEFAULT_OVERHEAD_PCT = 10;
@@ -366,4 +367,4 @@
 })();
 
 
-(function(){if(window._NBD_PT_DELEGATE)return;window._NBD_PT_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-pt-action]');if(!t)return;if(t.dataset.ptAction==='save'&&window.ProfitTracker&&window.ProfitTracker.save)window.ProfitTracker.save(t.dataset.ptId);});})();
+(function(){if(_NBD_PT_DELEGATE)return;_NBD_PT_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-pt-action]');if(!t)return;if(t.dataset.ptAction==='save'&&window.ProfitTracker&&window.ProfitTracker.save)window.ProfitTracker.save(t.dataset.ptId);});})();

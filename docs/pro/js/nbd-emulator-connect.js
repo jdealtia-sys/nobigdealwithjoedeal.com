@@ -1,3 +1,4 @@
+let __NBD_EMU_LOGGED; // module-local (globals Tranche 1 — was window.*)
 // nbd-emulator-connect.js — local-only Firebase Emulator wiring (Audit #3).
 //
 // PURPOSE
@@ -69,8 +70,8 @@ export async function connectEmulatorsIfLocal(svc = {}) {
       connectStorageEmulator(storage, '127.0.0.1', 9199);
       _connected.st.add(storage);
     }
-    if (!window.__NBD_EMU_LOGGED) {
-      window.__NBD_EMU_LOGGED = true;
+    if (!__NBD_EMU_LOGGED) {
+      __NBD_EMU_LOGGED = true;
       console.info('[nbd-emulator-connect] LOCAL emulator mode — client wired to 127.0.0.1 (auth/firestore/functions/storage). This NEVER runs in production.');
     }
   } catch (e) {

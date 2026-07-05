@@ -477,6 +477,7 @@ window.goToMyLocation = goToMyLocation;
 
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {
+let _NBD_MP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   // On surfaces with the modern ThemeEngine (dashboard sets window.NBD_THEME_ENGINE),
   // the engine owns appearance (data-theme + injected vars). Skip the legacy
   // body-class + inline-var forcing here — it ran on EVERY load and overrode the
@@ -517,4 +518,4 @@ window.goToMyLocation = goToMyLocation;
 
 
 
-(function(){if(window._NBD_MP_DELEGATE)return;window._NBD_MP_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-mp-action]');if(!t)return;if(t.dataset.mpAction==='setCat'&&typeof nbdSetCat==='function')nbdSetCat(t.dataset.mpId,t);});})();
+(function(){if(_NBD_MP_DELEGATE)return;_NBD_MP_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-mp-action]');if(!t)return;if(t.dataset.mpAction==='setCat'&&typeof nbdSetCat==='function')nbdSetCat(t.dataset.mpId,t);});})();

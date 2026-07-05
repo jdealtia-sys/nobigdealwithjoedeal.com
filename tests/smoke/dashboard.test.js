@@ -2353,16 +2353,42 @@ section('Ops P1 #4 — loadLeads completeness + kanban render cap');
   assert('column count uses full cards array', /count\.textContent = cards\.length/.test(pipe));
 }
 
-// ── Globals refactor Tranche 0 (2026-07-05) — singleton widgets off window ──
-// 40 one-global self-registering widgets moved their API objects to module
-// scope; double-load idempotency moved from per-widget window objects
-// (__sentinel convention) to one shared window.__NBD_LOADED registry keyed
-// by file slug. These names must never be reassigned onto window — that
-// silently re-grows the global surface the tranche removed. See
+// ── Globals refactor Tranches 0+1 (2026-07-05) — provably-private globals off window ──
+// Tranche 0: 40 one-global self-registering widgets moved their API objects
+// to module scope; double-load idempotency moved from per-widget window
+// objects (__sentinel convention) to one shared window.__NBD_LOADED registry
+// keyed by file slug. Tranche 1: repo-wide safe frontier — 18 vestigial
+// window.X = X alias exports deleted, 47 single-assignment globals (mostly
+// bind-once _NBD_*_DELEGATE flags) made module-local, 13 of them deleted
+// outright as write-only dead exports. Every name passed the three-way
+// proof (no external refs incl. tests, no in-string refs in own file, not
+// window[fnName]-dispatchable). These names must never be reassigned onto
+// window — that silently re-grows the surface the tranches removed. See
 // docs/dev/dashboard-decomposition-plan.md, caveat 4 execution plan.
-section('Globals Tranche 0: widget singletons stay off window');
+section('Globals Tranches 0+1: converted names stay off window');
 {
-  const NAMES = ['ActivityFeed', 'AlmostThere', 'AskJoeProactive',
+  const T1_NAMES = ['dismissNotification', 'notifAction',
+    'renderDismissedNotifications', 'renderNotifications',
+    'restoreNotification', 'showShortcutsHelp', 'closeHdrMobileMenu',
+    'restoreCrmSecondary', 'seedDemoEstimates', '$id', 'nbdIcon',
+    '_deleteTask', '_loadTasks', '_saveTask', '_toggleTask',
+    'renderTodayTasks', 'toggleTodayTask', 'handleQMDrop',
+    '_di', '_NBD_BG_DELEGATE', 'isClaudeProxyAvailable',
+    'nbdCopyToClipboard', '_dismissedNotifications',
+    'toggleCustomerPhotoReorder', '_galleryUrl', 'removeDocFromQueue',
+    '_NBD_CP_DELEGATE', '_NBD_DA_DELEGATE', 'firebase_onAuthStateChanged',
+    '_bootStartedAt', 'nbdDiag', '_NBD_DW_DELEGATE',
+    '_NBD_DG_DELEGATE_BOUND', '$addClass', '$html', '$removeClass',
+    '$text', '$val', 'nbdSafeHTML', 'nbdSetText', '_NBD_ES_DELEGATE',
+    'calculateEstimateV2', '_NBD_EST_DELEGATE', '_NBD_IC_DELEGATE',
+    '_NBD_IP_DELEGATE_BOUND', '_NBD_MO_DELEGATE_BOUND',
+    '_NBD_MR_DELEGATE_BOUND', '_presentSteps', '_NBD_MP_DELEGATE',
+    '__NBD_SENTRY_BOOTSTRAPPED', '_NBD_NC_DELEGATE', '__NBD_EMU_LOGGED',
+    '_NBD_PT_DELEGATE', '_NBD_PI_DELEGATE', '_NBD_SC_DELEGATE', 'nbdAlert',
+    '_NBD_TK_DELEGATE', '_NBD_VM_DELEGATE', '_NBD_WIDGETS_DELEGATE_BOUND',
+    '_wAddTask', '_wAskJoe', '_wMiniHeat', '_wQuickAddLead', '_wQuickDraw',
+    '_wQuickEst'];
+  const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
     'CustomerSmartFollowupPanel', 'CustomerSnoozeBanner', 'CustomerViewedChip',
@@ -2382,7 +2408,9 @@ section('Globals Tranche 0: widget singletons stay off window');
       if (!/\.(js|html)$/.test(entry.name)) continue;
       const src = fs.readFileSync(fp, 'utf8');
       for (const n of NAMES) {
-        if (new RegExp('window\\.' + n + '\\b').test(src)) {
+        // $-prefixed names must be escaped or the RegExp reads them as anchors
+        const esc = n.replace(/\$/g, '\\$');
+        if (new RegExp('window\\.' + esc + '\\b').test(src)) {
           offenders.push(path.relative(ROOT, fp) + ':' + n);
         }
       }

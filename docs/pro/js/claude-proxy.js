@@ -230,7 +230,6 @@ function resetProxyCheck() {
 
 // Expose globally
 window.callClaude = callClaude;
-window.isClaudeProxyAvailable = isProxyAvailable;
 window.resetClaudeProxyCheck = resetProxyCheck;
 
 // Load marker removed — no console spam in production. The direct-browser

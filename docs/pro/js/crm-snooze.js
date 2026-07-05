@@ -42,7 +42,7 @@ window._notifUnsub = null; // onSnapshot unsubscribe handle
 
 function _renderNotifBadgeAndList(allNotifs) {
   window._notifications = allNotifs.filter(n => !n.dismissed);
-  window._dismissedNotifications = allNotifs.filter(n => n.dismissed);
+  _dismissedNotifications = allNotifs.filter(n => n.dismissed);
   const unreadCount = window._notifications.filter(n => !n.read).length;
   const badge = document.getElementById('notifBadge');
   if (badge) {
@@ -189,7 +189,7 @@ function renderNotifications() {
   if (!list) return;
 
   const unreadCount = window._notifications.filter(n => !n.read).length;
-  const dismissedCount = (window._dismissedNotifications||[]).length;
+  const dismissedCount = (_dismissedNotifications||[]).length;
 
   // Show/hide header buttons
   const markAllBtn = document.querySelector('[onclick="markAllNotificationsRead()"]');
@@ -396,7 +396,7 @@ function toggleDismissedNotifications() {
 function renderDismissedNotifications() {
   const list = document.getElementById('notifDismissedList');
   if (!list || !window._dismissedDrawerOpen) return;
-  const dismissed = window._dismissedNotifications || [];
+  const dismissed = _dismissedNotifications || [];
   if (!dismissed.length) {
     list.innerHTML = `<div style="padding:16px;text-align:center;font-size:11px;color:var(--m);">No dismissed notifications</div>`;
     return;
@@ -705,13 +705,8 @@ window.checkAndCreateNeedsFieldNotifications = checkAndCreateNeedsFieldNotificat
 window.markNotificationRead = markNotificationRead;
 window.markAllNotificationsRead = markAllNotificationsRead;
 window.loadNotifications = loadNotifications;
-window.renderNotifications = renderNotifications;
-window.notifAction = notifAction;
-window.dismissNotification = dismissNotification;
 window.clearAllNotifications = clearAllNotifications;
-window.restoreNotification = restoreNotification;
 window.toggleDismissedNotifications = toggleDismissedNotifications;
-window.renderDismissedNotifications = renderDismissedNotifications;
 
 // ═══════════════════════════════════════════════════════════
 // Auto-log communications from tel:/sms:/mailto: clicks
@@ -730,6 +725,7 @@ window.renderDismissedNotifications = renderDismissedNotifications;
 // It deliberately doesn't block navigation — the protocol handler fires
 // as normal; we just fire-and-forget the Firestore write alongside.
 (function setupCommLogDelegate() {
+let _dismissedNotifications; // module-local (globals Tranche 1 — was window.*)
   if (window.__NBD_COMM_LOG_DELEGATE) return;
   window.__NBD_COMM_LOG_DELEGATE = true;
 

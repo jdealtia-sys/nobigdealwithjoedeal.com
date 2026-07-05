@@ -2780,7 +2780,7 @@ function startPresentation() {
   document.getElementById('view-draw').appendChild(overlay);
 
   // Build presentation steps
-  window._presentSteps = buildPresentationSteps();
+  _presentSteps = buildPresentationSteps();
   showPresentationStep(0);
 }
 
@@ -2834,7 +2834,7 @@ function buildPresentationSteps() {
 }
 
 function showPresentationStep(idx) {
-  const steps = window._presentSteps;
+  const steps = _presentSteps;
   if(!steps || idx < 0 || idx >= steps.length) return;
   presentationStep = idx;
   const step = steps[idx];
@@ -2845,7 +2845,7 @@ function showPresentationStep(idx) {
 }
 
 function presentNext() {
-  if(presentationStep < (window._presentSteps?.length||1) - 1) {
+  if(presentationStep < (_presentSteps?.length||1) - 1) {
     showPresentationStep(presentationStep + 1);
   } else {
     endPresentation();
@@ -3381,8 +3381,9 @@ td{font-size:12px;}.note{background:#fff8f0;border-left:4px solid #e8720c;paddin
 // present-mode nav, supplement-comparison overlay). The line-list got
 // its own delegate in PR #453; this catches everything else.
 (function () {
-  if (window._NBD_MR_DELEGATE_BOUND) return;
-  window._NBD_MR_DELEGATE_BOUND = true;
+let _NBD_MR_DELEGATE_BOUND, _presentSteps; // module-local (globals Tranche 1 — was window.*)
+  if (_NBD_MR_DELEGATE_BOUND) return;
+  _NBD_MR_DELEGATE_BOUND = true;
 
   function closeDrawMapPopup() {
     if (typeof drawMap !== 'undefined' && drawMap && typeof drawMap.closePopup === 'function') {

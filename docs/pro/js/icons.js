@@ -92,4 +92,3 @@ function nbdIcon(name, size, className, color) {
 
 // Expose globally (NBD_ICONS itself stays module-local — nothing outside
 // this file reads it; nbdIcon is the public rendering API)
-window.nbdIcon = nbdIcon;

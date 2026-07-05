@@ -2982,8 +2982,9 @@ if (typeof module !== 'undefined' && module.exports) {
 // ── CSP-safe delegation for 9 data-dg-action attrs in document-generator.js
 //    (close window, print, dismiss fill modal, submit doc gen).
 (function () {
-  if (window._NBD_DG_DELEGATE_BOUND) return;
-  window._NBD_DG_DELEGATE_BOUND = true;
+let _NBD_DG_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
+  if (_NBD_DG_DELEGATE_BOUND) return;
+  _NBD_DG_DELEGATE_BOUND = true;
   document.addEventListener('click', function (ev) {
     const t = ev.target.closest && ev.target.closest('[data-dg-action]');
     if (!t) return;

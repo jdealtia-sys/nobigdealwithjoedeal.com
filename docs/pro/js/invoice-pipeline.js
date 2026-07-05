@@ -6,6 +6,7 @@
 
 (function() {
   'use strict';
+let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
 
   const CLOUD_FUNCTION_BASE = 'https://us-central1-nobigdeal-pro.cloudfunctions.net';
 
@@ -1059,8 +1060,8 @@
 
 // CSP-safe delegation for 7 data-ip-action attrs (invoice pipeline).
 (function () {
-  if (window._NBD_IP_DELEGATE_BOUND) return;
-  window._NBD_IP_DELEGATE_BOUND = true;
+  if (_NBD_IP_DELEGATE_BOUND) return;
+  _NBD_IP_DELEGATE_BOUND = true;
   document.addEventListener('click', function (ev) {
     const t = ev.target.closest && ev.target.closest('[data-ip-action]');
     if (!t) return;

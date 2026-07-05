@@ -11,6 +11,7 @@
  */
 (function() {
   'use strict';
+let nbdAlert; // module-local (globals Tranche 1 — was window.*)
 
   const isStandalone = window.navigator.standalone === true ||
     window.matchMedia('(display-mode: standalone)').matches;
@@ -171,7 +172,7 @@
   };
 
   // Also provide async versions for code that CAN use them
-  window.nbdAlert = function(msg) {
+  nbdAlert = function(msg) {
     return createModal(msg, { type: 'alert' });
   };
   window.nbdConfirm = function(msg) {

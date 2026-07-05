@@ -192,6 +192,7 @@ async function addTask(){
 // Wave 28: Enter-key submit on the task input. Replaces the inline
 // onkeydown="" handler in dashboard.html for CSP cleanliness.
 (function(){
+let _NBD_TK_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   const bind = () => {
     const inp = document.getElementById('taskInput');
     if (!inp || inp.dataset.taskEnterBound) return;
@@ -207,13 +208,7 @@ window.addEventListener('load',()=>{setTimeout(loadAllTasks,1800);});
 // ══ END TASK SYSTEM ══════════════════════════════
 
 // ══ Window Scope Exposures ══════════════════════════════════
-window._loadTasks = _loadTasks;
-window._saveTask = _saveTask;
-window._toggleTask = _toggleTask;
-window._deleteTask = _deleteTask;
 window.loadAllTasks = loadAllTasks;
-window.renderTodayTasks = renderTodayTasks;
-window.toggleTodayTask = toggleTodayTask;
 window.openTaskModal = openTaskModal;
 window.closeTaskModal = closeTaskModal;
 window.addTask = addTask;
@@ -222,4 +217,4 @@ window.removeTask = removeTask;
 window.createNotification = createNotification;
 
 
-(function(){if(window._NBD_TK_DELEGATE)return;window._NBD_TK_DELEGATE=true;function dispatch(ev){var t=ev.target.closest&&ev.target.closest('[data-tk-action]');if(!t)return;var a=t.dataset.tkAction;var id=t.dataset.tkId;var leadId=t.dataset.tkLead;try{if(a==='toggleToday'&&typeof toggleTodayTask==='function')toggleTodayTask(leadId,id,ev.target.checked);else if(a==='openModal'&&typeof openTaskModal==='function')openTaskModal(id,null);else if(a==='goToCrm'&&typeof goTo==='function')goTo('crm');else if(a==='checkTask'&&typeof checkTask==='function')checkTask(id,ev.target.checked);else if(a==='removeTask'&&typeof removeTask==='function')removeTask(id);}catch(e){console.error('[tasks]',e);}}document.addEventListener('click',dispatch);document.addEventListener('change',dispatch);})();
+(function(){if(_NBD_TK_DELEGATE)return;_NBD_TK_DELEGATE=true;function dispatch(ev){var t=ev.target.closest&&ev.target.closest('[data-tk-action]');if(!t)return;var a=t.dataset.tkAction;var id=t.dataset.tkId;var leadId=t.dataset.tkLead;try{if(a==='toggleToday'&&typeof toggleTodayTask==='function')toggleTodayTask(leadId,id,ev.target.checked);else if(a==='openModal'&&typeof openTaskModal==='function')openTaskModal(id,null);else if(a==='goToCrm'&&typeof goTo==='function')goTo('crm');else if(a==='checkTask'&&typeof checkTask==='function')checkTask(id,ev.target.checked);else if(a==='removeTask'&&typeof removeTask==='function')removeTask(id);}catch(e){console.error('[tasks]',e);}}document.addEventListener('click',dispatch);document.addEventListener('change',dispatch);})();

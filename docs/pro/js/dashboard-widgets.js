@@ -1,3 +1,4 @@
+let _NBD_DW_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 /**
  * dashboard-widgets.js — render-heavy widgets: estimates list, photo
  * gallery, storm map init, property-intel card, kanban card-detail
@@ -1256,7 +1257,7 @@ function populateProspectQuickActions(lead) {
 
 
 // CSP-safe delegation (2 inline onclicks).
-(function(){if(window._NBD_DW_DELEGATE)return;window._NBD_DW_DELEGATE=true;
+(function(){if(_NBD_DW_DELEGATE)return;_NBD_DW_DELEGATE=true;
 document.addEventListener('click',function(ev){
   var t=ev.target.closest&&ev.target.closest('[data-dw-action]');
   if(!t)return;

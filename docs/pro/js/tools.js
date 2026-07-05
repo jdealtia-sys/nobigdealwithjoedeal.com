@@ -536,7 +536,6 @@ window.exportLeadsCSV = exportLeadsCSV;
 
 window.openQMImportModal = openQMImportModal;
 window.closeQMImportModal = closeQMImportModal;
-window.handleQMDrop = handleQMDrop;
 window.handleQMFile = handleQMFile;
 window.applyQMData = applyQMData;
 // ══ END QUICK MEASURE IMPORT ═══════════════════════════════════════════════

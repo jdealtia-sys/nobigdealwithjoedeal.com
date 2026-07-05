@@ -1,3 +1,4 @@
+let removeDocFromQueue; // module-local (globals Tranche 1 — was window.*)
 
 
 // ============================================
@@ -337,7 +338,7 @@ function updateDocUploadPreview() {
   });
 }
 
-window.removeDocFromQueue = function(index) {
+removeDocFromQueue = function(index) {
   window._docUploadQueue.splice(index, 1);
   updateDocUploadPreview();
 };

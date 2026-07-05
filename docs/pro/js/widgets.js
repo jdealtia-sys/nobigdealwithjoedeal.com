@@ -5,6 +5,7 @@
 
 (function(){
 'use strict';
+let _NBD_WIDGETS_DELEGATE_BOUND, _wAddTask, _wAskJoe, _wMiniHeat, _wQuickAddLead, _wQuickDraw, _wQuickEst; // module-local (globals Tranche 1 — was window.*)
 
 // Wave 102: HIGH XSS fix. Every widget that renders lead names /
 // addresses / stages was interpolating Firestore strings directly
@@ -574,12 +575,12 @@ const WIDGETS = [
         <button class="w-mini-btn" style="width:100%;margin-top:6px;" data-w-goto="map">Open Full Map →</button>`;
       setTimeout(() => {
         if(!window.L) return;
-        if(window._wMiniHeat){try{window._wMiniHeat.remove();}catch(e){}}
+        if(_wMiniHeat){try{_wMiniHeat.remove();}catch(e){}}
         const leads = window._leads || [];
         const pts = leads.filter(l=>l.lat&&l.lng).map(l=>[l.lat,l.lng]);
         const center = pts.length ? [pts.reduce((s,p)=>s+p[0],0)/pts.length, pts.reduce((s,p)=>s+p[1],0)/pts.length] : [39.07,-84.17];
         const map = L.map('w-mini-heat',{zoomControl:false,attributionControl:false}).setView(center, pts.length>0?11:7);
-        window._wMiniHeat = map;
+        _wMiniHeat = map;
         L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:18}).addTo(map);
         if(pts.length && window.L.heatLayer) L.heatLayer(pts,{radius:20,blur:15,maxZoom:15}).addTo(map);
       }, 100);
@@ -784,7 +785,7 @@ window._wToggleTask = function(idx, done) {
   renderWidgetHome();
 };
 
-window._wAddTask = function() {
+_wAddTask = function() {
   const input = document.getElementById('w-task-input');
   if(!input || !input.value.trim()) return;
   let tasks = JSON.parse(localStorage.getItem('nbd_home_tasks') || '[]');
@@ -793,7 +794,7 @@ window._wAddTask = function() {
   renderWidgetHome();
 };
 
-window._wQuickEst = function() {
+_wQuickEst = function() {
   const sqft = parseFloat(document.getElementById('w-qe-sqft')?.value || 0);
   const rate = parseFloat(document.getElementById('w-qe-rate')?.value || 350);
   const squares = sqft / 100;
@@ -802,7 +803,7 @@ window._wQuickEst = function() {
   if(el) el.textContent = '$' + total.toLocaleString(undefined, {maximumFractionDigits:0});
 };
 
-window._wQuickAddLead = function() {
+_wQuickAddLead = function() {
   const name = document.getElementById('w-ql-name')?.value?.trim();
   const addr = document.getElementById('w-ql-addr')?.value?.trim();
   const damage = document.getElementById('w-ql-damage')?.value;
@@ -828,7 +829,7 @@ window._wQuickAddLead = function() {
   showToast('Opening lead form...','info');
 };
 
-window._wQuickDraw = function() {
+_wQuickDraw = function() {
   const addr = document.getElementById('w-qd-addr')?.value?.trim();
   if(window.goTo) goTo('draw');
   if(addr) {
@@ -839,7 +840,7 @@ window._wQuickDraw = function() {
   }
 };
 
-window._wAskJoe = function() {
+_wAskJoe = function() {
   const input = document.getElementById('w-joe-input');
   if(!input || !input.value.trim()) return;
   const q = input.value.trim();
@@ -880,10 +881,10 @@ window.NBDWidgets = {
 // `data-w-action="X"` / `data-w-goto="X"` / `data-w-id="..."` attrs.
 
 const _wActions = {
-  addTask:        () => { if (typeof window._wAddTask === 'function') window._wAddTask(); },
-  quickAddLead:   () => { if (typeof window._wQuickAddLead === 'function') window._wQuickAddLead(); },
-  quickDraw:      () => { if (typeof window._wQuickDraw === 'function') window._wQuickDraw(); },
-  askJoe:         () => { if (typeof window._wAskJoe === 'function') window._wAskJoe(); },
+  addTask:        () => { if (typeof _wAddTask === 'function') _wAddTask(); },
+  quickAddLead:   () => { if (typeof _wQuickAddLead === 'function') _wQuickAddLead(); },
+  quickDraw:      () => { if (typeof _wQuickDraw === 'function') _wQuickDraw(); },
+  askJoe:         () => { if (typeof _wAskJoe === 'function') _wAskJoe(); },
   copyToClipboard: (url) => { if (url) { navigator.clipboard.writeText(url); if (typeof showToast === 'function') showToast('Copied!','ok'); } },
   smsBookLink:    (url) => { if (url) window.open('sms:?body=' + encodeURIComponent('Book here: ' + url)); },
   openDailyTracker: () => window.open('/pro/daily-success/', '_self'),
@@ -902,14 +903,14 @@ const _wChange = {
   toggleWidget: (id, ev, target) => { window.NBDWidgets.toggleWidget(id, target.checked); },
 };
 const _wInput = {
-  quickEst:     () => { if (typeof window._wQuickEst === 'function') window._wQuickEst(); },
+  quickEst:     () => { if (typeof _wQuickEst === 'function') _wQuickEst(); },
 };
 const _wKeydown = {
-  askJoe:       (_id, ev) => { if (ev && ev.key === 'Enter') { ev.preventDefault(); if (typeof window._wAskJoe === 'function') window._wAskJoe(); } },
+  askJoe:       (_id, ev) => { if (ev && ev.key === 'Enter') { ev.preventDefault(); if (typeof _wAskJoe === 'function') _wAskJoe(); } },
 };
 
-if (!window._NBD_WIDGETS_DELEGATE_BOUND) {
-  window._NBD_WIDGETS_DELEGATE_BOUND = true;
+if (!_NBD_WIDGETS_DELEGATE_BOUND) {
+  _NBD_WIDGETS_DELEGATE_BOUND = true;
   document.addEventListener('click', function (ev) {
     const t = ev.target.closest && ev.target.closest('[data-w-action], [data-w-goto]');
     if (!t) return;

@@ -48,9 +48,10 @@ const DEFAULT_SENTRY_DSN = "";
 // Bootstrap Sentry early — BEFORE Firebase init — so any error during
 // config or auth also reaches Sentry. Load once per page; guarded.
 (function _bootstrapSentry() {
+let __NBD_SENTRY_BOOTSTRAPPED; // module-local (globals Tranche 1 — was window.*)
   if (typeof window === 'undefined') return;
-  if (window.__NBD_SENTRY_BOOTSTRAPPED) return;
-  window.__NBD_SENTRY_BOOTSTRAPPED = true;
+  if (__NBD_SENTRY_BOOTSTRAPPED) return;
+  __NBD_SENTRY_BOOTSTRAPPED = true;
   if (!window.__NBD_SENTRY_DSN) window.__NBD_SENTRY_DSN = DEFAULT_SENTRY_DSN;
   // Idempotency: if the page already loaded sentry-init.js via a <script>
   // tag, NBDSentry exists and we skip re-loading.

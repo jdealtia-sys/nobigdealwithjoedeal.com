@@ -476,8 +476,9 @@ function damagNearMe() {
 
 // CSP-safe delegation for 5 data-mo-action attrs (maps overlays — pin popups).
 (function () {
-  if (window._NBD_MO_DELEGATE_BOUND) return;
-  window._NBD_MO_DELEGATE_BOUND = true;
+let _NBD_MO_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
+  if (_NBD_MO_DELEGATE_BOUND) return;
+  _NBD_MO_DELEGATE_BOUND = true;
   document.addEventListener('click', function (ev) {
     const t = ev.target.closest && ev.target.closest('[data-mo-action]');
     if (!t) return;

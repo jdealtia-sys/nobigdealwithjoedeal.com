@@ -1387,7 +1387,6 @@
   window._db      = db;
   window._storage = storage;
   window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
-  window.firebase_onAuthStateChanged = onAuthStateChanged;
 
   // (Removed the window.activateMyAccount console helper: it setDoc'd directly
   // to /subscriptions, which is admin-SDK-write-only — `allow write: if false`
@@ -1474,7 +1473,6 @@
     `;
     document.body.insertAdjacentHTML('beforeend', helpHTML);
   }
-  window.showShortcutsHelp = showShortcutsHelp;
 
   // ── RECENTLY VIEWED CUSTOMERS ──
   function toggleRecentDropdown() {
