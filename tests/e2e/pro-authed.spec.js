@@ -39,7 +39,7 @@ async function openCrmView(page) {
   throw new Error('openCrmView: dashboard never settled with a working goTo()');
 }
 
-test.describe('Authenticated /pro/ shell — read-only', () => {
+test.describe('Authenticated /pro/ shell — read-only @shard1', () => {
   let creds;
   test.beforeAll(() => {
     try { creds = requireTestUser(); }
@@ -128,7 +128,7 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
 // These tests run sequentially (not parallel) because they share
 // the test user account and would race on document writes otherwise.
 // ───────────────────────────────────────────────────────────────
-test.describe.serial('Authenticated destructive flows', () => {
+test.describe.serial('Authenticated destructive flows @shard1', () => {
   let creds;
   test.beforeAll(() => {
     try { creds = requireTestUser(); }
@@ -557,6 +557,46 @@ test.describe.serial('Authenticated destructive flows', () => {
     expect(doc.thumbStoragePath, 'thumb rooted under .../thumbs/')
       .toMatch(new RegExp('^photos/' + out.uid + '/' + out.leadId + '/thumbs/'));
     expect(doc.createdAt, 'createdAt serverTimestamp (canonical ordering field)').toBeTruthy();
+  });
+
+});
+
+// ───────────────────────────────────────────────────────────────
+// Destructive flows, second emulator shard. Same account, same
+// serial discipline — split from @shard1 so CI runs each half in its
+// OWN emulator session (the Java Firestore emulator degrades under a
+// 16-journey single-session load and a rotating test lost its retries
+// each run — see the KNOWN FLAKE CLASS note in .github/workflows/
+// ci.yml). Scaffolding (creds gate + prod-mode cleanup) is duplicated
+// deliberately: each shard must be self-sufficient.
+// ───────────────────────────────────────────────────────────────
+test.describe.serial('Authenticated destructive flows @shard2', () => {
+  let creds;
+  test.beforeAll(() => {
+    try { creds = requireTestUser(); }
+    catch (e) { console.warn('[pro-authed-destructive-2] ' + e.message); }
+  });
+
+  test.beforeEach(async ({}, testInfo) => {
+    if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
+  });
+
+  test.afterAll(async ({ browser }) => {
+    if (!creds) return;
+    // Emulator mode: state evaporates with the emulator session and the
+    // cleanup callable's functions emulator isn't running. Skip (same as
+    // shard 1 — the callable is idempotent if both shards ever run it).
+    if (/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await loginAs(page, creds);
+      const result = await cleanupE2EData(page);
+      // eslint-disable-next-line no-console
+      console.log('[pro-authed-cleanup-2]', JSON.stringify(result));
+    } finally {
+      await context.close();
+    }
   });
 
   test('docgen: generate persists metadata under the lead + uploads rendered HTML', async ({ page }) => {
@@ -1048,7 +1088,7 @@ test.describe.serial('Authenticated destructive flows', () => {
 
 
 // ───────────────────────────────────────────────────────────────
-test.describe('Signup funnel — free tier reaches the dashboard', () => {
+test.describe('Signup funnel — free tier reaches the dashboard @shard2', () => {
   test.beforeEach(async ({}, testInfo) => {
     // Only meaningful against the emulator: prod runs must not mint accounts.
     if (!/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) {
