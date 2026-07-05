@@ -880,7 +880,7 @@
   window.NBD_PRODUCTS.push.apply(window.NBD_PRODUCTS, toAdd);
 
   // Expose a handle for debugging / direct access
-  window.ROOFIVENT_CATALOG = {
+  const ROOFIVENT_CATALOG = {
     families: FAMILIES,
     installVariants: INSTALL_VARIANTS,
     colorCodes: COLOR_CODE,

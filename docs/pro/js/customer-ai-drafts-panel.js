@@ -38,8 +38,9 @@
 (function () {
   'use strict';
 
-  if (window.CustomerAiDraftsPanel
-      && window.CustomerAiDraftsPanel.__sentinel === 'nbd-customer-ai-drafts-panel-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['customer-ai-drafts-panel']) return;
+  __NBD_LOADED['customer-ai-drafts-panel'] = true;
 
   const PATH = window.location.pathname || '';
   if (!/\/pro\/customer(?:\.html)?$/.test(PATH)) return;
@@ -324,8 +325,7 @@
     window.addEventListener('nbd:data-refreshed', update);
   }
 
-  window.CustomerAiDraftsPanel = {
-    __sentinel: 'nbd-customer-ai-drafts-panel-v1',
+  const CustomerAiDraftsPanel = {
     update,
   };
 

@@ -10,6 +10,7 @@
  * Exposes: window.CustomerPortal
  */
 
+let _NBD_CP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function() {
   'use strict';
 
@@ -595,4 +596,4 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
 })();
 
 
-(function(){if(window._NBD_CP_DELEGATE)return;window._NBD_CP_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-cp-action]');if(!t)return;if(t.dataset.cpAction==='toggleImgFullscreen'){var s=t.style;s.position=s.position==='fixed'?'':'fixed';s.inset='0';s.width=s.width==='100vw'?'100%':'100vw';s.height=s.height==='100vh'?'100%':'100vh';s.zIndex=s.zIndex==='9999'?'':'9999';s.objectFit='contain';s.background='rgba(0,0,0,0.95)';}});})();
+(function(){if(_NBD_CP_DELEGATE)return;_NBD_CP_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-cp-action]');if(!t)return;if(t.dataset.cpAction==='toggleImgFullscreen'){var s=t.style;s.position=s.position==='fixed'?'':'fixed';s.inset='0';s.width=s.width==='100vw'?'100%':'100vw';s.height=s.height==='100vh'?'100%':'100vh';s.zIndex=s.zIndex==='9999'?'':'9999';s.objectFit='contain';s.background='rgba(0,0,0,0.95)';}});})();

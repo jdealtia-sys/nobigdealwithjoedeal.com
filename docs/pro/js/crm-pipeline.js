@@ -40,6 +40,7 @@
 // migration. Cap the initial paint per column; a "Show all" row
 // mounts the remainder on demand. Column counts and $ totals are
 // computed from the FULL array above, so nothing under-reports.
+let _searchQuery; // module-local (globals Tranche 1 — was window.*)
 const KANBAN_RENDER_CAP = 75;
 const _kbShowAll = {}; // stageKey -> true once the rep expands the column
 
@@ -1199,10 +1200,10 @@ function buildCard(l){
 // node splitting (no innerHTML reassignment of any element that holds
 // markup). Skips text inside <mark>/<script>/<style> and inside elements
 // whose text is structural (svg). Reversible by construction: clearing the
-// search sets window._searchQuery = null and renderLeads() rebuilds the
+// search sets _searchQuery = null and renderLeads() rebuilds the
 // columns from clean buildCard() output, so no un-highlight pass is needed.
 function _highlightCardMatches(rootEl){
-  const q = window._searchQuery;
+  const q = _searchQuery;
   if(!rootEl || !q || q.length < 2) return;
   // Case-insensitive literal match — escape regex metachars in the query.
   const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -1903,14 +1904,14 @@ function kanbanFilter(){
   if(clearBtn) clearBtn.style.display = search ? 'flex' : 'none';
   
   if(!search && !dmg){ 
-    window._searchQuery = null;
+    _searchQuery = null;
     const countSpan = document.getElementById('crmSearchCount');
     if(countSpan) countSpan.textContent = '';
     renderLeads(window._leads); 
     return; 
   }
   
-  window._searchQuery = search;
+  _searchQuery = search;
   
   // Filter with email + notes included
   const filtered = (window._leads||[]).filter(l=>{
@@ -1940,7 +1941,7 @@ function clearCrmSearch(){
   if(searchInput) searchInput.value = '';
   if(dmgFilter) dmgFilter.value = '';
   localStorage.removeItem('nbd_crm_search');
-  window._searchQuery = null;
+  _searchQuery = null;
   kanbanFilter();
 }
 

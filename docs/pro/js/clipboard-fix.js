@@ -52,7 +52,6 @@
   }
 
   // Expose globally for other scripts
-  window.nbdCopyToClipboard = copyToClipboard;
 
 
   // ── Patch Share Portal button ───────────────────────────

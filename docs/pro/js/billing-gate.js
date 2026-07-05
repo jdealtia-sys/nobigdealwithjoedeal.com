@@ -19,6 +19,7 @@
 // Exposes: window.NBDBilling
 // ═══════════════════════════════════════════════════════════════
 
+let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function () {
   'use strict';
   if (window.NBDBilling) return;
@@ -360,4 +361,4 @@
 
 
 // CSP-safe delegation (replaces 2 inline onclicks).
-(function(){if(window._NBD_BG_DELEGATE)return;window._NBD_BG_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-bg-action]');if(!t)return;var a=t.dataset.bgAction;try{var m=document.getElementById('nbd-upgrade-modal');if(m)m.remove();if(a==='closeUpgradeAndGoBilling'&&typeof goTo==='function')goTo('billing');}catch(e){console.error('[billing-gate]',e);}});})();
+(function(){if(_NBD_BG_DELEGATE)return;_NBD_BG_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-bg-action]');if(!t)return;var a=t.dataset.bgAction;try{var m=document.getElementById('nbd-upgrade-modal');if(m)m.remove();if(a==='closeUpgradeAndGoBilling'&&typeof goTo==='function')goTo('billing');}catch(e){console.error('[billing-gate]',e);}});})();

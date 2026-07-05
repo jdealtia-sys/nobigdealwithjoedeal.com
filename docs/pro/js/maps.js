@@ -37,6 +37,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── THEME REGISTRY (100 themes) ──────────────────────────────────── */
+let _NBD_MP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 const NBD_THEMES = [
   // STANDARD
   {id:'default',          name:'NBD Default',       cat:'standard', plan:'blueprint', accent:'#e8720c', bg:'#0A0C0F', s:'#13171d', jp:true},
@@ -517,4 +518,4 @@ window.goToMyLocation = goToMyLocation;
 
 
 
-(function(){if(window._NBD_MP_DELEGATE)return;window._NBD_MP_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-mp-action]');if(!t)return;if(t.dataset.mpAction==='setCat'&&typeof nbdSetCat==='function')nbdSetCat(t.dataset.mpId,t);});})();
+(function(){if(_NBD_MP_DELEGATE)return;_NBD_MP_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-mp-action]');if(!t)return;if(t.dataset.mpAction==='setCat'&&typeof nbdSetCat==='function')nbdSetCat(t.dataset.mpId,t);});})();

@@ -34,6 +34,7 @@
  * crm.js / email_system.js so by the time those modules look up
  * window.NBDComms / window.EmailDrip the bindings exist.
  */
+let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 (function () {
   'use strict';
 
@@ -249,4 +250,4 @@
 })();
 
 
-(function(){if(window._NBD_NC_DELEGATE)return;window._NBD_NC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-nc-action]');if(!t)return;var a=t.dataset.ncAction;var id=t.dataset.ncId;if(a==='emailByStage'&&typeof window.emailByStage==='function')window.emailByStage(id);else if(a==='gotoCustomerEmail')window.location.href='/pro/customer.html?id='+id+'&action=email-stage';});})();
+(function(){if(_NBD_NC_DELEGATE)return;_NBD_NC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-nc-action]');if(!t)return;var a=t.dataset.ncAction;var id=t.dataset.ncId;if(a==='emailByStage'&&typeof window.emailByStage==='function')window.emailByStage(id);else if(a==='gotoCustomerEmail')window.location.href='/pro/customer.html?id='+id+'&action=email-stage';});})();

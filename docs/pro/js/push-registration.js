@@ -21,7 +21,7 @@
  * Permission UX: a page-load requestPermission() is auto-denied by modern
  * browsers and poisons the permission state, so we only request inside a USER
  * GESTURE — a one-time opt-in card, any [data-action="enable-notifications"]
- * control, or window.NBDPush.enable(). When permission is already granted we
+ * control, or NBDPush.enable(). When permission is already granted we
  * silently refresh the token on load (FCM tokens rotate).
  *
  * Uses the modular Firebase globals dashboard-bootstrap.module.js exposes
@@ -230,7 +230,7 @@
 
   // Public API + the shared gesture convention (also honored by crm-snooze.js,
   // which requests browser permission + toasts; both are idempotent).
-  window.NBDPush = {
+  const NBDPush = {
     enable: function () { return registerAndMint({ requestPermission: true }); },
     isSupported: supported,
     _registerAndMint: registerAndMint

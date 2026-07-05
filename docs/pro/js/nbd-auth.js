@@ -20,6 +20,7 @@
  */
 
 // ── Firebase SDK Imports ──────────────────────────────────
+let __NBD_SENTRY_BOOTSTRAPPED; // module-local (globals Tranche 1 — was window.*)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, initializeFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -49,8 +50,8 @@ const DEFAULT_SENTRY_DSN = "";
 // config or auth also reaches Sentry. Load once per page; guarded.
 (function _bootstrapSentry() {
   if (typeof window === 'undefined') return;
-  if (window.__NBD_SENTRY_BOOTSTRAPPED) return;
-  window.__NBD_SENTRY_BOOTSTRAPPED = true;
+  if (__NBD_SENTRY_BOOTSTRAPPED) return;
+  __NBD_SENTRY_BOOTSTRAPPED = true;
   if (!window.__NBD_SENTRY_DSN) window.__NBD_SENTRY_DSN = DEFAULT_SENTRY_DSN;
   // Idempotency: if the page already loaded sentry-init.js via a <script>
   // tag, NBDSentry exists and we skip re-loading.

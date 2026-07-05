@@ -1,3 +1,4 @@
+let _di; // module-local (globals Tranche 1 — was window.*)
 const STORE='nbd_dsp_v1';
 const GT_KEY='nbd_gt';
 const NBD_CFG='nbd_user_config';
@@ -149,8 +150,8 @@ function mkPage(dk){const suf=pages.filter(p=>p.dk===dk).length+1;return{id:Date
 function loadPages(){try{pages=JSON.parse(localStorage.getItem(STORE))||[];}catch{pages=[];}if(!pages.length){pages=[mkPage(todayKey())];savePages();}}
 function savePages(){localStorage.setItem(STORE,JSON.stringify(pages));}
 function smartNewPage(){const tk=todayKey(),idx=pages.findIndex(p=>p.dk===tk&&!p.name);if(idx>=0){collectPage(true);cur=idx;renderTabs();renderPage();markSaved();toast('Jumped to today');return;}collectPage(true);pages.push(mkPage(todayKey()));savePages();cur=pages.length-1;renderTabs();renderPage();markSaved();toast('New page created');}
-function triggerDel(idx){idx=idx??cur;if(pages.length<=1){toast('Cannot delete the only page');return;}window._di=idx;document.getElementById('mDelMsg').textContent=`Delete "${tlbl(pages[idx])}"? This cannot be undone.`;openM('mDel');}
-function doDelete(){closeM('mDel');const i=window._di??cur;pages.splice(i,1);savePages();cur=Math.min(i>0?i-1:0,pages.length-1);renderTabs();killCharts();if(cur===-1)renderDash();else renderPage();toast('Page deleted');}
+function triggerDel(idx){idx=idx??cur;if(pages.length<=1){toast('Cannot delete the only page');return;}_di=idx;document.getElementById('mDelMsg').textContent=`Delete "${tlbl(pages[idx])}"? This cannot be undone.`;openM('mDel');}
+function doDelete(){closeM('mDel');const i=_di??cur;pages.splice(i,1);savePages();cur=Math.min(i>0?i-1:0,pages.length-1);renderTabs();killCharts();if(cur===-1)renderDash();else renderPage();toast('Page deleted');}
 function openRename(){if(cur<0)return;document.getElementById('renInp').value=pages[cur].name||'';openM('mRen');setTimeout(()=>document.getElementById('renInp').focus(),80);}
 function applyRen(){pages[cur].name=document.getElementById('renInp').value.trim();savePages();closeM('mRen');renderTabs();toast('Renamed');}
 

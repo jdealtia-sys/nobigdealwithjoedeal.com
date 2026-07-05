@@ -1,4 +1,5 @@
 
+let toggleCustomerPhotoReorder, _lightboxIndex; // module-local (globals Tranche 1 — was window.*)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
@@ -1085,7 +1086,7 @@ window.toggleCustomerPhotosExpanded = function() {
   renderCustomerPhotoStrip();
 };
 
-window.toggleCustomerPhotoReorder = function() {
+toggleCustomerPhotoReorder = function() {
   var on = document.body.classList.toggle('nbd-photo-reorder');
   var btn = document.getElementById('nbdReorderToggle');
   if (btn) {
@@ -1530,10 +1531,10 @@ window.exportCustomerEstimate = function(estId) {
 
 // Lightbox functionality
 window._customerPhotos = [];
-window._lightboxIndex = 0;
+_lightboxIndex = 0;
 
 window.openLightbox = function(index) {
-  window._lightboxIndex = index;
+  _lightboxIndex = index;
   const photo = window._customerPhotos[index];
   document.getElementById('lightboxImg').src = photo.url;
   document.getElementById('lightbox').classList.add('active');
@@ -1546,13 +1547,13 @@ window.closeLightbox = function() {
 };
 
 window.nextPhoto = function() {
-  window._lightboxIndex = (window._lightboxIndex + 1) % window._customerPhotos.length;
-  document.getElementById('lightboxImg').src = window._customerPhotos[window._lightboxIndex].url;
+  _lightboxIndex = (_lightboxIndex + 1) % window._customerPhotos.length;
+  document.getElementById('lightboxImg').src = window._customerPhotos[_lightboxIndex].url;
 };
 
 window.prevPhoto = function() {
-  window._lightboxIndex = (window._lightboxIndex - 1 + window._customerPhotos.length) % window._customerPhotos.length;
-  document.getElementById('lightboxImg').src = window._customerPhotos[window._lightboxIndex].url;
+  _lightboxIndex = (_lightboxIndex - 1 + window._customerPhotos.length) % window._customerPhotos.length;
+  document.getElementById('lightboxImg').src = window._customerPhotos[_lightboxIndex].url;
 };
 
 // Keyboard navigation for lightbox

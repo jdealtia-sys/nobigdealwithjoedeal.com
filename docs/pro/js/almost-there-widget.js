@@ -23,7 +23,9 @@
 (function () {
   'use strict';
 
-  if (window.AlmostThere && window.AlmostThere.__sentinel === 'nbd-almost-there-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['almost-there-widget']) return;
+  __NBD_LOADED['almost-there-widget'] = true;
 
   const TOP_N = 5;
   // Skip estimates viewed >30 days ago — past that window the lead
@@ -324,8 +326,7 @@
     setInterval(render, 5 * 60_000);
   }
 
-  window.AlmostThere = {
-    __sentinel: 'nbd-almost-there-v1',
+  const AlmostThere = {
     render,
     compute,
   };

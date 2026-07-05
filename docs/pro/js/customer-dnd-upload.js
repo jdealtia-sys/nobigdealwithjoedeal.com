@@ -25,12 +25,14 @@
  * intercept legitimate drag/drop in components like the kanban
  * card reordering.
  *
- * Exposes: window.CustomerDnDUpload (debug helpers)
+ * Exposes: CustomerDnDUpload (debug helpers)
  */
 (function () {
   'use strict';
 
-  if (window.CustomerDnDUpload && window.CustomerDnDUpload.__sentinel === 'nbd-customer-dnd-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['customer-dnd-upload']) return;
+  __NBD_LOADED['customer-dnd-upload'] = true;
 
   // Path-gate: customer detail page only.
   const PATH = window.location.pathname || '';
@@ -249,8 +251,7 @@
     document.addEventListener('drop',      onDrop);
   }
 
-  window.CustomerDnDUpload = {
-    __sentinel: 'nbd-customer-dnd-v1',
+  const CustomerDnDUpload = {
     handleFiles,
   };
 

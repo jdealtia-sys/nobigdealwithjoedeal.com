@@ -22,8 +22,9 @@
  */
 (function () {
   'use strict';
-  if (window.NBDOfflineBanner
-      && window.NBDOfflineBanner.__sentinel === 'nbd-offline-banner-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['offline-banner']) return;
+  __NBD_LOADED['offline-banner'] = true;
 
   const BANNER_ID = 'nbd-offline-banner';
 
@@ -84,8 +85,7 @@
     setTimeout(_check, 0);
   }
 
-  window.NBDOfflineBanner = {
-    __sentinel: 'nbd-offline-banner-v1',
+  const NBDOfflineBanner = {
     check: _check,
   };
 })();

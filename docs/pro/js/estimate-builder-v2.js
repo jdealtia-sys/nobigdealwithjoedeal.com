@@ -1095,7 +1095,6 @@
 
   if (typeof window !== 'undefined') {
     window.EstimateBuilderV2 = EstimateBuilderV2;
-    window.calculateEstimateV2 = calculateEstimate;
   }
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = EstimateBuilderV2;

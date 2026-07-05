@@ -5,6 +5,7 @@
 //   2. Remote kill — if any GET to /pro/nosw.txt returns non-404, we
 //      unregister and refuse to register. Deploy that file to kill
 //      SW for every user in the next reload.
+let nbdDiag; // module-local (globals Tranche 1 — was window.*)
 (async function swBootstrap() {
   if (!('serviceWorker' in navigator)) return;
   const params = new URLSearchParams(location.search);
@@ -129,8 +130,8 @@ window.addEventListener('online', () => {
   }
 });
 
-// ── Runtime Diagnostic — call window.nbdDiag() from console ──
-window.nbdDiag = function() {
+// ── Runtime Diagnostic — call nbdDiag() from console ──
+nbdDiag = function() {
   const r = {};
   // Auth
   r.user = window._user ? { uid: window._user.uid, email: window._user.email } : null;

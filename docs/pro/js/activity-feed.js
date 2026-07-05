@@ -25,7 +25,9 @@
 (function () {
   'use strict';
 
-  if (window.ActivityFeed && window.ActivityFeed.__sentinel === 'nbd-activity-feed-v1') return;
+  const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+  if (__NBD_LOADED['activity-feed']) return;
+  __NBD_LOADED['activity-feed'] = true;
 
   const MAX_EVENTS = 20;
 
@@ -463,8 +465,7 @@
     setInterval(render, 60_000);
   }
 
-  window.ActivityFeed = {
-    __sentinel: 'nbd-activity-feed-v1',
+  const ActivityFeed = {
     render,
     collectEvents,
   };

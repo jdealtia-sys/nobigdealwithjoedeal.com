@@ -40,6 +40,7 @@
 // `window._cardDetailLeadId` global (set when a card-detail modal
 // opens) and the defensive module-load fallback into single named
 // globals that the `call` delegate dispatches.
+let _NBD_DA_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 window.cdaReport = function cdaReport() {
   if (window.NBDReports && typeof window.NBDReports.openGenerator === 'function') {
     window.NBDReports.openGenerator(window._cardDetailLeadId);
@@ -1628,4 +1629,4 @@ function editCardDetails() {
 window.editCardDetails = editCardDetails;
 
 
-(function(){if(window._NBD_DA_DELEGATE)return;window._NBD_DA_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-da-action]');if(!t)return;if(t.dataset.daAction==='reload')window.location.reload();});})();
+(function(){if(_NBD_DA_DELEGATE)return;_NBD_DA_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-da-action]');if(!t)return;if(t.dataset.daAction==='reload')window.location.reload();});})();

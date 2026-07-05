@@ -14,6 +14,7 @@
  * Self-recovery globals stay on window so the user can fire them from
  * devtools if the on-page UI isn't reachable.
  */
+let _bootStartedAt; // module-local (globals Tranche 1 — was window.*)
 (function _loadStatusBanner() {
   const VERSION = 'v159.8';
   const FAIL_GRACE_MS = 6000;         // wait this long before assuming "stuck"
@@ -116,7 +117,7 @@
   function _render() {
     if (_dismissedByUser) return;
     const s = _state();
-    const ageMs = Date.now() - (window._bootStartedAt || Date.now());
+    const ageMs = Date.now() - (_bootStartedAt || Date.now());
 
     // Success path: silently remove if we'd been showing.
     if (s.hasData) {
@@ -201,7 +202,7 @@
   document.head.appendChild(_styleEl);
 
   function _start() {
-    if (!window._bootStartedAt) window._bootStartedAt = Date.now();
+    if (!_bootStartedAt) _bootStartedAt = Date.now();
     setTimeout(_render, FAIL_GRACE_MS);
     setInterval(_render, 1000);
   }

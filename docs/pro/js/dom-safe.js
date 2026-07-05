@@ -80,12 +80,4 @@ export function removeClass(id, cls) {
 // Global shim so legacy inline scripts can use it without modules.
 if (typeof window !== 'undefined') {
   window.nbdEsc = esc;
-  window.nbdSafeHTML = safeHTML;
-  window.nbdSetText = setText;
-  window.$id = $id;
-  window.$val = setVal;
-  window.$html = setHtml;
-  window.$text = setTextById;
-  window.$addClass = addClass;
-  window.$removeClass = removeClass;
 }
