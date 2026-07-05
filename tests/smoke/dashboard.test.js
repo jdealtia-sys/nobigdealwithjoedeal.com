@@ -2396,7 +2396,11 @@ section('Globals Tranches 0+1: converted names stay off window');
     '_ncmAddTab', '_ncmRemoveTab', '_ncmSave', '_ncmReset', '_ncmClose',
     '_ncmDragStart', '_ncmDragOver', '_ncmDrop', '_ncmDragEnd',
     '_ncmTouchStart', '_ncmTouchMove', '_ncmTouchEnd',
-    'openNavCustomizer', '_NBD_MNC_DELEGATE_BOUND'];
+    'openNavCustomizer', '_NBD_MNC_DELEGATE_BOUND',
+    // Tranche 2b — email_system + crm-snooze own-file-wired remnants:
+    'openEmailModal', 'closeEmailModal', 'emailEstimatePDF',
+    'emailFollowUp', '_emailAttachment', '_emailContext', '_emailLeadId',
+    '__NBD_COMM_LOG_DELEGATE', '_notifUnsub', 'loadNotifications'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',

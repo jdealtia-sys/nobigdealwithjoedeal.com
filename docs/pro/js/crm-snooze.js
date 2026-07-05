@@ -36,10 +36,10 @@
 // NOTIFICATION SYSTEM
 // ═══════════════════════════════════════════════════════════════
 
-let _dismissedNotifications, _notifDropdownOpen, _dismissedDrawerOpen; // module-local (globals Tranche 1 — was window.*)
+let _dismissedNotifications, _notifDropdownOpen, _dismissedDrawerOpen, __NBD_COMM_LOG_DELEGATE, _notifUnsub; // module-local (globals Tranche 1 — was window.*)
 window._notifications = [];
 _notifDropdownOpen = false;
-window._notifUnsub = null; // onSnapshot unsubscribe handle
+_notifUnsub = null; // onSnapshot unsubscribe handle
 
 function _renderNotifBadgeAndList(allNotifs) {
   window._notifications = allNotifs.filter(n => !n.dismissed);
@@ -84,12 +84,12 @@ async function loadNotifications() {
     // onSnapshot so the badge + list update in real time. We keep a
     // single subscription per session (re-arming bails the old one)
     // and tear down on sign-out.
-    if (typeof window._notifUnsub === 'function') {
-      try { window._notifUnsub(); } catch(_) {}
-      window._notifUnsub = null;
+    if (typeof _notifUnsub === 'function') {
+      try { _notifUnsub(); } catch(_) {}
+      _notifUnsub = null;
     }
     if (typeof _onSnap === 'function') {
-      window._notifUnsub = _onSnap(q, (snap) => {
+      _notifUnsub = _onSnap(q, (snap) => {
         const allNotifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         _renderNotifBadgeAndList(allNotifs);
       }, (err) => {
@@ -705,7 +705,6 @@ async function checkAndCreateNeedsFieldNotifications(leads) {
 window.checkAndCreateNeedsFieldNotifications = checkAndCreateNeedsFieldNotifications;
 window.markNotificationRead = markNotificationRead;
 window.markAllNotificationsRead = markAllNotificationsRead;
-window.loadNotifications = loadNotifications;
 window.clearAllNotifications = clearAllNotifications;
 window.toggleDismissedNotifications = toggleDismissedNotifications;
 
@@ -726,8 +725,8 @@ window.toggleDismissedNotifications = toggleDismissedNotifications;
 // It deliberately doesn't block navigation — the protocol handler fires
 // as normal; we just fire-and-forget the Firestore write alongside.
 (function setupCommLogDelegate() {
-  if (window.__NBD_COMM_LOG_DELEGATE) return;
-  window.__NBD_COMM_LOG_DELEGATE = true;
+  if (__NBD_COMM_LOG_DELEGATE) return;
+  __NBD_COMM_LOG_DELEGATE = true;
 
   function resolveLeadId(anchor) {
     // Walk up from the clicked anchor looking for a data-lead-id,
@@ -826,13 +825,13 @@ let _notifInterval = null;
 // 2-min poll running with a now-stale auth context — calls would
 // briefly hit `window._user` from the previous session before the
 // auth state propagation cleared it. The onSnapshot listener was
-// already torn down via window._notifUnsub; the polling fallback
+// already torn down via _notifUnsub; the polling fallback
 // was the asymmetric leak.
 window.addEventListener('nbd:auth-signed-out', () => {
   if (_notifInterval) { clearInterval(_notifInterval); _notifInterval = null; }
-  if (typeof window._notifUnsub === 'function') {
-    try { window._notifUnsub(); } catch(_) {}
-    window._notifUnsub = null;
+  if (typeof _notifUnsub === 'function') {
+    try { _notifUnsub(); } catch(_) {}
+    _notifUnsub = null;
   }
 });
 window.addEventListener('pagehide', () => {
