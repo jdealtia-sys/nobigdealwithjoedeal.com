@@ -887,10 +887,16 @@
     } catch (_) { /* best-effort; never block boot on a storage error */ }
 
     // ── SUBSCRIPTION CHECK ────────────────────────────────────
-    // Owner bypass — founder/staff emails always resolve to professional.
-    // Must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js so
-    // a missing/stale subscriptions/ doc never flips Joe to 'free' and
-    // triggers the "upgrade to unlock" wall for his own product.
+    // Owner bypass — claims-based: keyed on the { owner: true } custom
+    // claim minted server-side by mintOwnerClaims (single email list in
+    // functions/handlers/_shared.js). Ensures a missing/stale
+    // subscriptions/ doc never flips Joe to 'free' and triggers the
+    // "upgrade to unlock" wall for his own product.
+    //
+    // The email literals below are the DEPRECATED transition fallback
+    // (must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js)
+    // so a not-yet-minted claim or a failed claims read can't lock the
+    // founder out — remove them after owner claims are confirmed in prod.
     //
     // NOTE: the previous `isDemoAccount = user.email === 'demo@nobigdeal.pro'`
     // hardcoded bypass was REMOVED (2026-04-23). Demo accounts now flow
@@ -898,7 +904,13 @@
     // literal here was a second auth surface that could diverge from the
     // claim-based path and silently grant professional-tier access.
     const _emailLower = (user.email || '').trim().toLowerCase();
-    const isOwnerAccount = _emailLower === 'jd@nobigdealwithjoedeal.com'
+    let _bootClaims = null;
+    try {
+      const _tr = await user.getIdTokenResult();
+      _bootClaims = (_tr && _tr.claims) || null;
+    } catch (_) { /* claims read failed — email fallback below covers owners */ }
+    const isOwnerAccount = (_bootClaims && _bootClaims.owner === true)
+                        || _emailLower === 'jd@nobigdealwithjoedeal.com'
                         || _emailLower === 'jonathandeal459@gmail.com';
 
     if (isOwnerAccount) {
@@ -920,10 +932,15 @@
         // claim). Solo owners resolve to their own uid as before. Claims
         // read is cached (no extra network on a warm token).
         let _subKey = user.uid;
-        try {
-          const _tr = await user.getIdTokenResult();
-          _subKey = (_tr && _tr.claims && _tr.claims.companyId) || user.uid;
-        } catch (_) { /* fall back to uid */ }
+        if (_bootClaims) {
+          // Reuse the claims read hoisted above the owner check.
+          _subKey = _bootClaims.companyId || user.uid;
+        } else {
+          try {
+            const _tr = await user.getIdTokenResult();
+            _subKey = (_tr && _tr.claims && _tr.claims.companyId) || user.uid;
+          } catch (_) { /* fall back to uid */ }
+        }
         const subSnap = await Promise.race([
           getDoc(doc(db, 'subscriptions', _subKey)),
           new Promise((_, rej) => setTimeout(() => rej(new Error('Subscription check timed out')), 4000))

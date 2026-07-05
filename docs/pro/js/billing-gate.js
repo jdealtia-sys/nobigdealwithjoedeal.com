@@ -56,15 +56,28 @@
   let _trialEndsAt = null;
   let _loaded = false;
 
-  // Owner bypass — mirrors nbd-auth.js OWNER_EMAILS. The two modules
-  // stay independent so a single import change doesn't pull in the
-  // firestore SDK at billing-gate.js load time.
+  // Owner bypass — claims-based: keyed on the { owner: true } custom
+  // claim minted server-side by mintOwnerClaims (functions/handlers/
+  // auth.js) from the single server-side list in handlers/_shared.js.
+  //
+  // DEPRECATED transition fallback: the email list below (mirrors
+  // nbd-auth.js OWNER_EMAILS) stays so the founder can never be gated
+  // if the claim hasn't minted yet or the claims read fails. Remove it
+  // after owner claims are confirmed in prod. The two modules stay
+  // independent so a single import change doesn't pull in the firestore
+  // SDK at billing-gate.js load time.
   const OWNER_EMAILS = new Set([
     'jd@nobigdealwithjoedeal.com',
     'jonathandeal459@gmail.com'
   ]);
 
   function _isOwner() {
+    // Claim first — window._userClaims is populated by nbd-auth.js /
+    // dashboard-bootstrap (and by loadSubscription below).
+    try {
+      if (window._userClaims && window._userClaims.owner === true) return true;
+    } catch (_) { /* fall through to the email fallback */ }
+    // DEPRECATED email fallback — remove after claims confirmed in prod.
     const email = (window._user?.email || '').trim().toLowerCase();
     return !!email && OWNER_EMAILS.has(email);
   }
@@ -93,6 +106,19 @@
     try {
       const uid = window._user?.uid;
       if (!uid) return;
+
+      // Resolve token claims once, up front, so the owner short-circuit
+      // below can key on claims.owner === true (an owner claim without a
+      // listed email must still bypass). A failed claims read leaves
+      // window._userClaims unset and _isOwner() falls back to the
+      // deprecated OWNER_EMAILS check — the founder is never locked out.
+      try {
+        if (!window._userClaims && window._user
+            && typeof window._user.getIdTokenResult === 'function') {
+          const tr = await window._user.getIdTokenResult();
+          if (tr && tr.claims) window._userClaims = tr.claims;
+        }
+      } catch (_) { /* claims read failed — email fallback covers owners */ }
 
       // Owner short-circuit: always enterprise, never gated, never
       // warned about usage. Skip the Firestore read entirely so an

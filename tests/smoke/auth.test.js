@@ -575,8 +575,11 @@ section('H-02: nbd-auth demo bypass keyed on custom claim, not email');
   const src = read(path.join(ROOT, 'docs/pro/js/nbd-auth.js'));
   assert('H-02: demo@nobigdeal.pro literal removed',
     !/demo@nobigdeal\.pro/.test(src));
+  // Owner-claims transition (2026-07): the token read was hoisted into a
+  // single `_claims` object shared by the owner/demo/role checks — accept
+  // either shape, the invariant is "demo keyed on the claim, not an email".
   assert('H-02: demo bypass now reads token.claims.demo',
-    /tokenResult\.claims\.demo\s*===\s*true/.test(src));
+    /(_claims|tokenResult\.claims)\.demo\s*===\s*true/.test(src));
   assert('H-02: demo accounts never receive admin role client-side',
     /_role\s*=\s*'demo_viewer'/.test(src) && !/_role\s*=\s*'admin';\s*\n\s*_subscription\s*=\s*\{\s*plan:\s*'professional'/.test(src));
 }
@@ -848,6 +851,129 @@ section('login + register pages are autofill / password-manager friendly');
     || /<button[^>]*type="submit"[^>]*id="regBtn"/.test(register));
   assert('register.js binds form.addEventListener("submit", register)',
     /form\.addEventListener\(\s*['"]submit['"]\s*,\s*register\s*\)/.test(regJs));
+}
+
+// ── OWNER-ROLE: claims-based owner (root) — single server list + client
+// claim checks. The { owner: true, role: 'admin' } claims are minted by
+// the mintOwnerClaims callable from the ONE server-side email list in
+// functions/handlers/_shared.js; every other owner check (server + client)
+// keys on the claim, keeping the email literals only as the DEPRECATED
+// transition fallback. These assertions lock:
+//   (a) the email list exists in exactly one server-side location,
+//   (b) the minting callable exists AND actually deploys (not skip-listed,
+//       discoverable by the deploy grep, re-exported from index.js),
+//   (c) client + server checks key on the owner claim.
+section('OWNER-ROLE: single server-side email list (_shared.js only)');
+{
+  const OWNER_EMAIL_RE = /jonathandeal459@gmail\.com|jd@nobigdealwithjoedeal\.com/;
+  // A "definition" is an assignment of an owner-email list literal
+  // (Set or array). Imports/destructures of OWNER_EMAILS don't match.
+  const DEF_RE = /OWNER_EMAILS\s*=\s*(new Set\(|\[)/;
+
+  // Sweep every functions/ .js file (top level + one level of subdirs).
+  const fnFiles = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== 'node_modules') walk(p);
+      } else if (entry.name.endsWith('.js')) fnFiles.push(p);
+    }
+  };
+  walk(FUNCTIONS);
+
+  const defFiles = fnFiles.filter((f) => {
+    const src = read(f);
+    return DEF_RE.test(src) && OWNER_EMAIL_RE.test(src);
+  }).map((f) => path.relative(FUNCTIONS, f));
+  assert('exactly one OWNER_EMAILS definition under functions/ (handlers/_shared.js), got: '
+      + JSON.stringify(defFiles),
+    defFiles.length === 1 && defFiles[0] === path.join('handlers', '_shared.js'));
+
+  const shared = read(path.join(FUNCTIONS, 'handlers/_shared.js'));
+  assert('_shared.js OWNER_EMAILS carries both founder emails',
+    /OWNER_EMAILS = new Set\(\[[\s\S]{0,120}'jd@nobigdealwithjoedeal\.com',[\s\S]{0,80}'jonathandeal459@gmail\.com'/.test(shared));
+  assert('_shared.js exports isOwnerCaller with claim-first check (token.owner === true)',
+    /function isOwnerCaller\(token\)[\s\S]{0,200}token\.owner === true/.test(shared));
+  assert('old PROVISION_OWNER_EMAILS name is gone from _shared.js exports',
+    !/PROVISION_OWNER_EMAILS\s*[,:]/.test(shared));
+
+  // No other server-side authorization file re-hardcodes the emails.
+  for (const f of ['billing.js', 'handlers/auth.js', 'handlers/invites.js',
+                   'migrate-companyprofile-per-tenant.js']) {
+    assert(f + ' contains no owner-email literals (imports from _shared.js)',
+      !OWNER_EMAIL_RE.test(read(path.join(FUNCTIONS, f))));
+  }
+}
+
+section('OWNER-ROLE: mintOwnerClaims exists and DEPLOYS');
+{
+  const authSrc = read(path.join(FUNCTIONS, 'handlers/auth.js'));
+  // Must be a line-start `exports.mintOwnerClaims = onCall` — that exact
+  // shape is what the deploy workflow's discovery grep matches
+  // (.github/workflows/firebase-deploy.yml, Deploy Cloud Functions step).
+  assert('handlers/auth.js exports mintOwnerClaims as a line-start onCall (deploy-grep shape)',
+    /^exports\.mintOwnerClaims *= *onCall\(/m.test(authSrc));
+  assert('mintOwnerClaims requires a verified email before minting',
+    /mintOwnerClaims[\s\S]{0,4000}emailVerified !== true/.test(authSrc));
+  assert('mintOwnerClaims mints owner + admin role via merged setCustomUserClaims',
+    /setCustomUserClaims\(uid, \{ \.\.\.existing, owner: true, role: 'admin' \}\)/.test(authSrc));
+  assert('provisionE2ETestUser gate is claim-first via isOwnerCaller',
+    /const isOwner = isOwnerCaller\(request\.auth\.token\)/.test(authSrc));
+
+  const idx = read(path.join(FUNCTIONS, 'index.js'));
+  assert('index.js re-exports mintOwnerClaims (required for deploy-by-name)',
+    /^exports\.mintOwnerClaims\s*=\s*authHandlers\.mintOwnerClaims;/m.test(idx));
+
+  // The deploy skip-list must NOT grow to include mintOwnerClaims — if it
+  // did, owner-claim minting would silently stop shipping (the exact trap
+  // that killed the blocking-trigger approach).
+  const wf = read(path.join(ROOT, '.github/workflows/firebase-deploy.yml'));
+  const skipLists = wf.match(/NBD_DEPLOY_SKIP_LIST:\s*"([^"]*)"/g) || [];
+  assert('firebase-deploy.yml has NBD_DEPLOY_SKIP_LIST entries to inspect', skipLists.length > 0);
+  assert('mintOwnerClaims is NOT in any NBD_DEPLOY_SKIP_LIST',
+    skipLists.every((s) => !s.includes('mintOwnerClaims')));
+
+  const billing = read(path.join(FUNCTIONS, 'billing.js'));
+  assert('billing.js cap bypass keys on isOwnerCaller (claim-first)',
+    /const isOwner = isOwnerCaller\(request\.auth\.token\)/.test(billing));
+  const invites = read(path.join(FUNCTIONS, 'handlers/invites.js'));
+  assert('invites.js seat-cap bypass keys on isOwnerCaller (claim-first)',
+    /isGlobalAdmin \|\| isOwnerCaller\(request\.auth\.token\)/.test(invites));
+}
+
+section('OWNER-ROLE: client checks key on the owner claim (email = deprecated fallback)');
+{
+  const nbdAuth = read(path.join(PRO_JS, 'nbd-auth.js'));
+  assert('nbd-auth.js owner bypass checks claims.owner === true',
+    /_ownerClaim = _claims\.owner === true/.test(nbdAuth));
+  assert('nbd-auth.js keeps the OWNER_EMAILS fallback during transition',
+    /OWNER_EMAILS = new Set\(\[[\s\S]{0,120}'jd@nobigdealwithjoedeal\.com'/.test(nbdAuth));
+  assert('nbd-auth.js fallback is marked deprecated with a removal note',
+    /DEPRECATED[\s\S]{0,400}(remove|REMOVE)[\s\S]{0,200}claims are confirmed in prod/i.test(nbdAuth));
+  assert('nbd-auth.js calls mintOwnerClaims when email matched but claim missing',
+    /if \(!_ownerClaim\) _requestOwnerClaimMint\(user\)/.test(nbdAuth)
+    && /httpsCallable\(fns, 'mintOwnerClaims'\)/.test(nbdAuth));
+  assert('nbd-auth.js hasAccess() honors the owner claim',
+    /hasAccess\(plan\)\s*\{[\s\S]{0,200}_claims\.owner === true/.test(nbdAuth));
+
+  const gate = read(path.join(PRO_JS, 'billing-gate.js'));
+  assert('billing-gate.js _isOwner checks window._userClaims.owner === true first',
+    /_isOwner\(\)\s*\{[\s\S]{0,400}window\._userClaims\.owner === true/.test(gate));
+  assert('billing-gate.js keeps the deprecated email fallback',
+    /DEPRECATED[\s\S]{0,600}OWNER_EMAILS/.test(gate) || /OWNER_EMAILS[\s\S]{0,600}DEPRECATED/.test(gate));
+
+  const boot = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  assert('dashboard-bootstrap owner check is claim-first (claims.owner === true)',
+    /isOwnerAccount = \(_bootClaims && _bootClaims\.owner === true\)/.test(boot));
+
+  const onboarding = read(path.join(PRO_JS, 'pages/onboarding.js'));
+  assert('onboarding.js owner redirect is claim-first',
+    /state\.claims\.owner === true \|\| OWNER_EMAILS\.includes\(emailLower\)/.test(onboarding));
+
+  const academy = read(path.join(PRO_JS, 'real-deal-academy.js'));
+  assert('real-deal-academy.js tier unlock honors the owner claim',
+    /window\._userClaims\?\.owner === true/.test(academy));
 }
 
 };
