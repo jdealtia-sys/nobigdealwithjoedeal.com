@@ -25,7 +25,15 @@ const fails = [];
 function assert(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name); } else { failed++; fails.push(name); console.log('  ✗ ' + name); } }
 
 // Build a fresh sandboxed NBDBilling whose Firestore getDoc returns `subDoc`.
-function makeBilling({ user, subDoc, subExists = true } = {}) {
+// `claims` wires user.getIdTokenResult() to resolve { claims } (the owner-
+// claim path); `claimsError` makes that read throw (fallback path).
+function makeBilling({ user, subDoc, subExists = true, claims, claimsError } = {}) {
+  if (user && (claims || claimsError)) {
+    user.getIdTokenResult = async () => {
+      if (claimsError) throw new Error('claims read failed (simulated)');
+      return { claims: claims || {} };
+    };
+  }
   const noopEl = () => ({ style: {}, appendChild() {}, addEventListener() {}, remove() {}, dataset: {} });
   const documentStub = {
     addEventListener() {}, removeEventListener() {},
@@ -82,6 +90,60 @@ function makeBilling({ user, subDoc, subExists = true } = {}) {
     assert('owner bypass: getPlan().plan === enterprise', B.getPlan().plan === 'enterprise');
     assert('owner bypass: canUse(team) true despite free sub doc', B.canUse('team') === true);
     assert('owner bypass: canUse(leads) true', B.canUse('leads') === true);
+  }
+
+  // 3b. Owner CLAIM bypass (claims-based root) — an { owner: true } custom
+  //     claim must bypass gating even when the email is NOT in the
+  //     deprecated OWNER_EMAILS fallback list. This is the post-transition
+  //     path: once the email list is removed, the claim is the only key.
+  {
+    const B = makeBilling({
+      user: { uid: 'claim-owner', email: 'not-in-the-list@demo.test' },
+      claims: { owner: true },
+      subDoc: { plan: 'free', status: 'none' },
+    });
+    await B.loadSubscription();
+    assert('owner claim (email NOT listed): getPlan().plan === enterprise', B.getPlan().plan === 'enterprise');
+    assert('owner claim (email NOT listed): canUse(team) true', B.canUse('team') === true);
+    assert('owner claim (email NOT listed): canUse(reports) true', B.canUse('reports') === true);
+  }
+
+  // 3c. Claims read FAILURE + listed owner email → the deprecated email
+  //     fallback still bypasses (transition safety: Jo can never be locked
+  //     out by a claims-read hiccup or a not-yet-minted claim).
+  {
+    const B = makeBilling({
+      user: { uid: 'owner-fallback', email: 'jd@nobigdealwithjoedeal.com' },
+      claimsError: true,
+      subDoc: { plan: 'free', status: 'none' },
+    });
+    await B.loadSubscription();
+    assert('claims read fails + listed email: still enterprise (fallback)', B.getPlan().plan === 'enterprise');
+    assert('claims read fails + listed email: canUse(team) true', B.canUse('team') === true);
+  }
+
+  // 3d. Claims read failure + NON-owner email → NO bypass (the fallback
+  //     must not fail open for regular users).
+  {
+    const B = makeBilling({
+      user: { uid: 'rep-fail', email: 'rep@demo.test' },
+      claimsError: true,
+      subDoc: { plan: 'free', status: 'none' },
+    });
+    await B.loadSubscription();
+    assert('claims read fails + non-owner email: stays free (no bypass)', B.getPlan().plan === 'free');
+    assert('claims read fails + non-owner email: team still locked', B.canUse('team') === false);
+  }
+
+  // 3e. Non-owner claims (owner flag absent) + non-listed email → no bypass.
+  {
+    const B = makeBilling({
+      user: { uid: 'rep-claims', email: 'rep2@demo.test' },
+      claims: { companyId: 'rep-claims', role: 'sales_rep' },
+      subDoc: { plan: 'free', status: 'none' },
+    });
+    await B.loadSubscription();
+    assert('non-owner claims: stays free (owner requires owner === true)', B.getPlan().plan === 'free');
   }
 
   // 4. past_due subscription → plan set but NOT active.

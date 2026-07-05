@@ -1549,9 +1549,13 @@
           return window.NBDAuth.hasAccess(tier);
         }
       } catch (e) { /* fall through */ }
-      // Owner-email bypass — mirrors nbd-auth.js OWNER_EMAILS so the
-      // academy respects the founder account even if NBDAuth hasn't
+      // Owner bypass — claims-based (owner claim minted by mintOwnerClaims;
+      // window._userClaims is populated by nbd-auth/dashboard-bootstrap) so
+      // the academy respects the founder account even if NBDAuth hasn't
       // attached yet on a cold-load sequence.
+      if (window._userClaims?.owner === true) return true;
+      // DEPRECATED email fallback — mirrors nbd-auth.js OWNER_EMAILS;
+      // remove after owner claims are confirmed in prod.
       const email = (window._user?.email || '').trim().toLowerCase();
       if (email === 'jd@nobigdealwithjoedeal.com' || email === 'jonathandeal459@gmail.com') return true;
       return tier === 'foundation';

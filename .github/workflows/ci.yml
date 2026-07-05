@@ -227,8 +227,12 @@ jobs:
           GITLEAKS_ENABLE_SUMMARY: "true"
 
   e2e-authed-emulator:
-    name: Authed E2E (emulators)
+    name: Authed E2E (emulators, ${{ matrix.shard }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ['@shard1', '@shard2']
     # Rock 3: hermetic authed journey — seed a tenant in the Auth/Firestore
     # emulators, serve docs/ from the hosting emulator (the client SDK
     # auto-connects to emulators on localhost via nbd-emulator-connect.js),
@@ -236,16 +240,16 @@ jobs:
     # continue-on-error while the suite proves itself green; flip to required
     # after ~2 weeks of stable runs (BIG_ROCKS Rock 3 plan).
     #
-    # KNOWN FLAKE CLASS (2026-07-05, #842 rounds 4-8): with 16 serial
-    # journeys in one emulator session, the Java Firestore emulator
-    # intermittently drops reads ('client is offline') under load and ONE
-    # rotating test (docgen, then expense, then d2d - a different victim
-    # each run) exhausts its retries while the other 15 pass. Every
-    # deterministic failure in those rounds was a real bug and was fixed;
-    # what remains is load-bound. Before flipping this job to required,
-    # either shard the destructive serial block into two emulator sessions
-    # or slim the per-test dashboard boot. Do NOT chase the rotating victim
-    # test-by-test - the evidence says it's the emulator, not the tests.
+    # FLAKE CLASS + FIX (2026-07-05): with 16 serial journeys in ONE
+    # emulator session, the Java Firestore emulator intermittently dropped
+    # reads ('client is offline') and a rotating single test exhausted its
+    # retries each run (#842 rounds 4-9; every deterministic failure found
+    # in those rounds was a real bug and was fixed separately). The fix is
+    # THIS matrix: the suite is split into @shard1/@shard2 title tags
+    # (tests/e2e/pro-authed.spec.js), each shard running in its own
+    # emulator session at roughly half load, selected via PLAYWRIGHT_GREP.
+    # If a rotating victim reappears, split further or slim the per-test
+    # dashboard boot - do NOT chase individual tests.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v7
@@ -267,6 +271,8 @@ jobs:
           cd tests
           npx playwright install --with-deps chromium
       - name: Run authed E2E against emulators
+        env:
+          PLAYWRIGHT_GREP: ${{ matrix.shard }}
         run: |
           cd tests
           npm run test:e2e:authed:emu
@@ -274,6 +280,6 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-authed-traces
+          name: playwright-authed-traces-${{ strategy.job-index }}
           path: tests/test-results/
           retention-days: 7

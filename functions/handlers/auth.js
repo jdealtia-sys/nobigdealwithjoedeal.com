@@ -6,6 +6,9 @@
  *   - activateInvitedRep    (onCall, first-login profile finalize)
  *   - provisionE2ETestUser  (onCall owner-only, Playwright setup)
  *   - cleanupE2ETestData    (onCall caller-scoped, Playwright teardown)
+ *   - mintOwnerClaims       (onCall, stamps { owner:true, role:'admin' }
+ *                            on the OWNER_EMAILS founder accounts —
+ *                            added 2026-07, not part of the Step 4c move)
  *
  * NOTE: onRepSignup is in NBD_DEPLOY_SKIP_LIST per .github/workflows/
  * firebase-deploy.yml — DO NOT remove its export. The skip-list is
@@ -27,10 +30,12 @@ const { FieldValue } = require('firebase-admin/firestore');
 const {
   CORS_ORIGINS,
   E2E_TEST_USER_EMAIL,
-  PROVISION_OWNER_EMAILS,
+  OWNER_EMAILS,
+  isOwnerCaller,
   _generateE2EPassword,
   INVITE_ALLOWED_ROLES,
 } = require('./_shared');
+const { callableRateLimit } = require('../shared');
 
 // ═════════════════════════════════════════════════════════════
 // provisionE2ETestUser (Rock 3 PR 3)
@@ -71,7 +76,11 @@ exports.provisionE2ETestUser = onCall(
 
     const callerEmail = (request.auth.token && request.auth.token.email || '').toLowerCase();
     const callerRole  = request.auth.token && request.auth.token.role;
-    const isOwner = PROVISION_OWNER_EMAILS.has(callerEmail);
+    // Claims-based owner check (token.owner === true, minted by
+    // mintOwnerClaims below) with the deprecated OWNER_EMAILS fallback
+    // — remove the email fallback (inside isOwnerCaller) after owner
+    // claims are confirmed in prod.
+    const isOwner = isOwnerCaller(request.auth.token);
     const isPlatformAdmin = callerRole === 'admin';
     if (!isOwner && !isPlatformAdmin) {
       logger.warn('provisionE2ETestUser: rejected non-owner', { uid, callerEmail });
@@ -584,5 +593,112 @@ exports.activateInvitedRep = onCall(
       logger.error('activateInvitedRep error', { uid, err: e.message });
       throw new HttpsError('internal', 'Activation failed');
     }
+  }
+);
+
+// ═════════════════════════════════════════════════════════════
+// mintOwnerClaims — owner-role claim minting (claims-based root).
+//
+// Stamps { owner: true, role: 'admin' } custom claims on the two
+// founder accounts listed in _shared.js OWNER_EMAILS — the ONLY
+// server-side owner email list. Every other owner check (client
+// and server) keys on the `owner` claim, with a deprecated email
+// fallback during the rollout.
+//
+// WHY A CALLABLE AND NOT A BLOCKING AUTH TRIGGER: minting must run
+// on a code path that actually DEPLOYS.
+//   - beforeUserCreated (onRepSignup) is in NBD_DEPLOY_SKIP_LIST
+//     (.github/workflows/firebase-deploy.yml — the deploy SA lacks
+//     identityplatform.admin, so the strict pass skips it and the
+//     tolerant retry fails). It also only fires at account CREATION
+//     — Joe's accounts already exist.
+//   - beforeUserSignedIn was never exported (see the Q3 header on
+//     _beforeAdminSignInHandler above): registering a new blocking-
+//     trigger TYPE needs a one-time Identity Platform config change
+//     the deploy SA can't make. If/when that trigger is re-enabled,
+//     this minting can move into it (return { sessionClaims } /
+//     { customClaims } from the handler) and this callable becomes
+//     a no-op safety net.
+// A plain onCall in handlers/*.js IS deployed: the workflow greps
+// `^exports.<name> = onCall` across functions/handlers/*.js, and
+// mintOwnerClaims is not in NBD_DEPLOY_SKIP_LIST, so it ships in
+// the strict deploy pass (index.js re-exports it — required for
+// deploy-by-name; see the AUDIT #2 FIX note in the workflow).
+//
+// CALLER: docs/pro/js/nbd-auth.js fires this (fire-and-forget) when
+// a signed-in user matches the client OWNER_EMAILS fallback but the
+// token doesn't carry owner:true yet, then forces a token refresh.
+// Same de-GCIP'd claim-at-login pattern as claimInvite
+// (handlers/invites.js) — mergeCustomClaims read-merge-write, since
+// setCustomUserClaims REPLACES the whole claim set and we must not
+// drop companyId/plan/billing claims.
+//
+// SECURITY:
+//   - Non-owner callers get a benign { owner: false } no-op — the
+//     email list never authorizes anything by itself here, it only
+//     selects who gets the claim.
+//   - email_verified is required (checked on the Auth USER RECORD,
+//     not just the token) so an unverified account squatting on an
+//     owner address can never mint root. If an owner account is
+//     unverified, minting is refused but the client email fallback
+//     keeps Jo working — no lockout, just no claim yet.
+//   - Idempotent: re-calls when claims already present are no-ops.
+// ═════════════════════════════════════════════════════════════
+exports.mintOwnerClaims = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB'
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+    await callableRateLimit(request, 'mintOwnerClaims', 10, 3_600_000);
+
+    const token = request.auth.token || {};
+    const tokenEmail = (token.email || '').trim().toLowerCase();
+
+    // Cheap pre-checks on the token (case-insensitive email match).
+    if (!tokenEmail || !OWNER_EMAILS.has(tokenEmail)) {
+      return { owner: false };
+    }
+    if (token.owner === true && token.role === 'admin') {
+      return { owner: true, minted: false }; // already stamped — no-op
+    }
+
+    // Authoritative checks against the Auth user record: the email on
+    // the record must (still) be an owner email AND be verified.
+    const auth = getAuth();
+    let userRecord;
+    try {
+      userRecord = await auth.getUser(uid);
+    } catch (e) {
+      logger.error('mintOwnerClaims: getUser failed', { uid, err: e.message });
+      throw new HttpsError('internal', 'Could not read account');
+    }
+    const recordEmail = (userRecord.email || '').trim().toLowerCase();
+    if (!recordEmail || !OWNER_EMAILS.has(recordEmail)) {
+      return { owner: false };
+    }
+    if (userRecord.emailVerified !== true) {
+      // Refuse to mint root off an unverified address. The client-side
+      // OWNER_EMAILS fallback keeps the account usable meanwhile.
+      logger.warn('mintOwnerClaims: owner email unverified — not minting', { uid });
+      return { owner: false, reason: 'email_unverified' };
+    }
+
+    const existing = userRecord.customClaims || {};
+    if (existing.owner === true && existing.role === 'admin') {
+      // Claims already on the record; the caller's token is just stale.
+      return { owner: true, minted: false, refresh: true };
+    }
+
+    // Read-merge-write (mergeCustomClaims pattern — stripe.js /
+    // provisioning.js / invites.js): keep companyId/plan/etc. intact.
+    await auth.setCustomUserClaims(uid, { ...existing, owner: true, role: 'admin' });
+    logger.info('mintOwnerClaims: minted owner claims', { uid });
+    return { owner: true, minted: true, refresh: true };
   }
 );

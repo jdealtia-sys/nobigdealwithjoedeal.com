@@ -27,6 +27,12 @@ const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { callableRateLimit } = require('./shared');
+// Owner check: claims-based (token.owner === true) with the deprecated
+// email fallback, both inside isOwnerCaller. The email list itself lives
+// ONLY in handlers/_shared.js (single server-side source — it exists to
+// mint claims, not to authorize; the fallback goes away after owner
+// claims are confirmed in prod).
+const { isOwnerCaller } = require('./handlers/_shared');
 
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
@@ -47,12 +53,9 @@ const PLAN_LIMITS = {
 
 const ALLOWED_FEATURES = new Set(['leads', 'reports', 'aiCalls']);
 
-// Owner-email allowlist mirrors billing-gate.js OWNER_EMAILS — owner
-// accounts bypass plan caps entirely. Keep the lists in sync.
-const OWNER_EMAILS = new Set([
-  'jd@nobigdealwithjoedeal.com',
-  'jonathandeal459@gmail.com',
-]);
+// Owner cap bypass is claims-based (token.owner === true) via
+// isOwnerCaller — no local email list. The single server-side owner
+// email list lives in handlers/_shared.js and only mints claims.
 
 exports.trackUsage = onCall({
   region: 'us-central1',
@@ -112,9 +115,11 @@ exports.trackUsage = onCall({
       : 0;
     const nextUsage = prevUsage + 1;
 
-    // Server-side cap check. Owner accounts bypass entirely.
-    const email = (request.auth.token && request.auth.token.email) || '';
-    const isOwner = OWNER_EMAILS.has(email.toLowerCase());
+    // Server-side cap check. Owner accounts bypass entirely — keyed on
+    // the { owner: true } custom claim (minted by mintOwnerClaims);
+    // isOwnerCaller keeps the deprecated email fallback during the
+    // rollout (remove after owner claims are confirmed in prod).
+    const isOwner = isOwnerCaller(request.auth.token);
     const isAdmin = request.auth.token && request.auth.token.role === 'admin';
     const overage = !isOwner && !isAdmin && cap !== Infinity && nextUsage > cap;
 

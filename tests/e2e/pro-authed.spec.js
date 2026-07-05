@@ -39,7 +39,7 @@ async function openCrmView(page) {
   throw new Error('openCrmView: dashboard never settled with a working goTo()');
 }
 
-test.describe('Authenticated /pro/ shell — read-only', () => {
+test.describe('Authenticated /pro/ shell — read-only @shard1', () => {
   let creds;
   test.beforeAll(() => {
     try { creds = requireTestUser(); }
@@ -128,7 +128,7 @@ test.describe('Authenticated /pro/ shell — read-only', () => {
 // These tests run sequentially (not parallel) because they share
 // the test user account and would race on document writes otherwise.
 // ───────────────────────────────────────────────────────────────
-test.describe.serial('Authenticated destructive flows', () => {
+test.describe.serial('Authenticated destructive flows @shard1', () => {
   let creds;
   test.beforeAll(() => {
     try { creds = requireTestUser(); }
@@ -205,15 +205,21 @@ test.describe.serial('Authenticated destructive flows', () => {
     // window._saveLead, which is the same code path the UI uses,
     // so the companyId/customerId/userId stamping is exercised end
     // to end. Cleanup callable filters on this flag.
-    await page.evaluate((args) => window._saveLead({
-      firstName: '[E2E] Smith',
-      lastName: String(args.stamp),
-      address: args.leadAddress,
-      phone: args.leadPhone,
-      email: `e2e-${args.stamp}@nbd.test`,
-      stage: 'new',
-      e2eTestData: true
-    }), { stamp, leadAddress, leadPhone });
+    await page.evaluate(async (args) => {
+      // ALREADY_EXISTS tolerance: emulator commit-retry bug — the lead
+      // landed; the kanban render + read-back below find it.
+      try {
+        await window._saveLead({
+          firstName: '[E2E] Smith',
+          lastName: String(args.stamp),
+          address: args.leadAddress,
+          phone: args.leadPhone,
+          email: `e2e-${args.stamp}@nbd.test`,
+          stage: 'new',
+          e2eTestData: true
+        });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+    }, { stamp, leadAddress, leadPhone });
 
     // Give the optimistic insert + Firestore round-trip a moment to
     // settle. The kanban refresh is debounced; 4s is generous.
@@ -271,7 +277,11 @@ test.describe.serial('Authenticated destructive flows', () => {
 
     // Seed a fresh lead in stage 'new', tagged for cleanup.
     const leadId = await page.evaluate(async (args) => {
-      const ref = await window._saveLead({
+      // ALREADY_EXISTS = the emulator commit-retry bug (see the addDoc
+      // patch in fixtures/auth.js — _saveLead holds a closure addDoc the
+      // patch can't reach). The lead LANDED; the re-fetch below finds it.
+      try {
+        await window._saveLead({
         firstName: '[E2E] Move',
         lastName: String(args.stamp),
         // Unique per attempt so LeadDedup's blocking prompt never fires
@@ -282,6 +292,7 @@ test.describe.serial('Authenticated destructive flows', () => {
         stage: 'new',
         e2eTestData: true
       });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
       // _saveLead returns null on the geocoded path (it does its own
       // loadLeads refresh), so re-fetch by lastName to grab the id.
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
@@ -388,7 +399,29 @@ test.describe.serial('Authenticated destructive flows', () => {
     const saved = await page.evaluate(async (input) => {
       const r = window.EstimateBuilderV2.calculateEstimate(input);
       const dep = window.EstimateBuilderV2.calcDeposit(r.total, input.mode, {});
-      const id = await window._saveEstimate({
+      // ALREADY_EXISTS tolerance for _saveEstimate (closure-held addDoc —
+      // the fixtures/auth.js window.addDoc patch can't reach it; bit the
+      // invoice journey on CI 2026-07-05). The estimate LANDED but the id
+      // was lost — recover it via the unique name (userId filter keeps the
+      // query provable under the estimates read rule).
+      async function saveEstimateTolerant(payload) {
+        try { return await window._saveEstimate(payload); }
+        catch (e) {
+          if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e;
+          const fsMod2 = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          const db2 = window.db || window._db;
+          const uid2 = (window._auth || window.auth).currentUser.uid;
+          const snap2 = await fsMod2.getDocs(fsMod2.query(
+            fsMod2.collection(db2, 'estimates'),
+            fsMod2.where('userId', '==', uid2),
+            fsMod2.where('name', '==', payload.name)
+          ));
+          let rid = null; snap2.forEach(d => { if (!rid) rid = d.id; });
+          if (!rid) throw e;
+          return rid;
+        }
+      }
+      const id = await saveEstimateTolerant({
         name: '[E2E] V2 parity ' + Date.now(),
         addr: '999 E2E Test Lane, Cincinnati, OH',
         mode: input.mode, tier: input.tier, engine: 'v2',
@@ -456,7 +489,29 @@ test.describe.serial('Authenticated destructive flows', () => {
       for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
         await new Promise(r => setTimeout(r, 200));
       }
-      const estimateId = await window._saveEstimate(est);
+      // ALREADY_EXISTS tolerance for _saveEstimate (closure-held addDoc —
+      // the fixtures/auth.js window.addDoc patch can't reach it; bit the
+      // invoice journey on CI 2026-07-05). The estimate LANDED but the id
+      // was lost — recover it via the unique name (userId filter keeps the
+      // query provable under the estimates read rule).
+      async function saveEstimateTolerant(payload) {
+        try { return await window._saveEstimate(payload); }
+        catch (e) {
+          if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e;
+          const fsMod2 = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          const db2 = window.db || window._db;
+          const uid2 = (window._auth || window.auth).currentUser.uid;
+          const snap2 = await fsMod2.getDocs(fsMod2.query(
+            fsMod2.collection(db2, 'estimates'),
+            fsMod2.where('userId', '==', uid2),
+            fsMod2.where('name', '==', payload.name)
+          ));
+          let rid = null; snap2.forEach(d => { if (!rid) rid = d.id; });
+          if (!rid) throw e;
+          return rid;
+        }
+      }
+      const estimateId = await saveEstimateTolerant(est);
       const invoiceId = await window.InvoicePipeline.createInvoiceFromEstimate(estimateId);
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
@@ -559,6 +614,46 @@ test.describe.serial('Authenticated destructive flows', () => {
     expect(doc.createdAt, 'createdAt serverTimestamp (canonical ordering field)').toBeTruthy();
   });
 
+});
+
+// ───────────────────────────────────────────────────────────────
+// Destructive flows, second emulator shard. Same account, same
+// serial discipline — split from @shard1 so CI runs each half in its
+// OWN emulator session (the Java Firestore emulator degrades under a
+// 16-journey single-session load and a rotating test lost its retries
+// each run — see the KNOWN FLAKE CLASS note in .github/workflows/
+// ci.yml). Scaffolding (creds gate + prod-mode cleanup) is duplicated
+// deliberately: each shard must be self-sufficient.
+// ───────────────────────────────────────────────────────────────
+test.describe.serial('Authenticated destructive flows @shard2', () => {
+  let creds;
+  test.beforeAll(() => {
+    try { creds = requireTestUser(); }
+    catch (e) { console.warn('[pro-authed-destructive-2] ' + e.message); }
+  });
+
+  test.beforeEach(async ({}, testInfo) => {
+    if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
+  });
+
+  test.afterAll(async ({ browser }) => {
+    if (!creds) return;
+    // Emulator mode: state evaporates with the emulator session and the
+    // cleanup callable's functions emulator isn't running. Skip (same as
+    // shard 1 — the callable is idempotent if both shards ever run it).
+    if (/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) return;
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    try {
+      await loginAs(page, creds);
+      const result = await cleanupE2EData(page);
+      // eslint-disable-next-line no-console
+      console.log('[pro-authed-cleanup-2]', JSON.stringify(result));
+    } finally {
+      await context.close();
+    }
+  });
+
   test('docgen: generate persists metadata under the lead + uploads rendered HTML', async ({ page }) => {
     // The doc-generation persist path is fully client-side (Firestore
     // subcollection + Storage HTML upload) — the functions emulator is only
@@ -587,6 +682,9 @@ test.describe.serial('Authenticated destructive flows', () => {
       for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
         await new Promise(r => setTimeout(r, 200));
       }
+      // ALREADY_EXISTS tolerance (emulator commit-retry; see fixtures/auth.js
+      // addDoc patch note) — the lead landed; the re-fetch below finds it.
+      try {
       await window._saveLead({
         firstName: '[E2E] DocGen',
         lastName: String(args.stamp),
@@ -596,6 +694,7 @@ test.describe.serial('Authenticated destructive flows', () => {
         stage: 'new',
         e2eTestData: true
       });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
       const uid = (window._auth || window.auth).currentUser.uid;
@@ -861,7 +960,12 @@ test.describe.serial('Authenticated destructive flows', () => {
       // different calendar day around midnight.
       const t = new Date();
       const todayStr = `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}-${String(t.getDate()).padStart(2, '0')}`;
-      const leadId = await window._saveLead({
+      // ALREADY_EXISTS tolerance (emulator commit-retry; see fixtures/auth.js
+      // addDoc patch note): the lead landed but the returned id is lost —
+      // fall back to the same re-fetch-by-lastName the other journeys use.
+      let leadId = null;
+      try {
+        leadId = await window._saveLead({
         firstName: '[E2E] Sched',
         lastName: String(args.stamp),
         // Unique per attempt so LeadDedup's blocking prompt never fires.
@@ -872,6 +976,19 @@ test.describe.serial('Authenticated destructive flows', () => {
         scheduledDate: todayStr,
         e2eTestData: true
       });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+      if (!leadId) {
+        const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const db = window.db || window._db;
+        const uid = (window._auth || window.auth).currentUser.uid;
+        const snap = await fsMod.getDocs(fsMod.query(
+          fsMod.collection(db, 'leads'),
+          fsMod.where('userId', '==', uid),
+          fsMod.where('lastName', '==', String(args.stamp)),
+          fsMod.where('e2eTestData', '==', true)
+        ));
+        snap.forEach(d => { if (!leadId) leadId = d.id; });
+      }
       return { leadId, todayStr };
     }, { stamp });
     // With the OSM stub answering [], _saveLead takes the no-geocode fallback
@@ -917,6 +1034,10 @@ test.describe.serial('Authenticated destructive flows', () => {
   });
 
   test('expense: ledger stores integer cents + config-derived costType; mileage amount computed from the IRS rate', async ({ page }) => {
+    // createExpense swallows write failures to a bare `false` (toast +
+    // return) — the page console is the only witness to WHAT failed.
+    const pageLog = [];
+    page.on('console', msg => pageLog.push(`[${msg.type()}] ${msg.text()}`));
     await loginAs(page, creds);
     await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
 
@@ -949,18 +1070,41 @@ test.describe.serial('Authenticated destructive flows', () => {
       // the form layer), so a retry never collides or blocks.
       const supplierMat = '[E2E] Supply Co ' + args.stamp;
       const supplierMi = '[E2E] Mileage ' + args.stamp;
-      const okMat = await window.Expenses.createExpense({
+
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const dbEarly = window.db || window._db;
+      const uidEarly = (window._auth || window.auth).currentUser.uid;
+      // Rapid back-to-back addDocs trip the emulator's commit-retry bug
+      // (ALREADY_EXISTS / transient rejection — the same class docgen's
+      // lead-create flakes on), and createExpense swallows that to `false`.
+      // 2026-07-05 shard2 run: the SECOND create (mileage) failed 4/4 while
+      // the first succeeded 4/4. Retry once after a beat — but probe the
+      // unique supplier first: a retry-ambiguous failure may have actually
+      // landed the doc, and blind re-create would break the exactly-one
+      // assertion.
+      async function createOnce(payload, supplier) {
+        let ok = await window.Expenses.createExpense(payload);
+        if (!ok) {
+          await new Promise(r => setTimeout(r, 1500));
+          const probe = await fsMod.getDocs(fsMod.query(
+            fsMod.collection(dbEarly, 'expenses'),
+            fsMod.where('userId', '==', uidEarly),
+            fsMod.where('supplier', '==', supplier)
+          ));
+          ok = probe.empty ? await window.Expenses.createExpense(payload) : true;
+        }
+        return ok;
+      }
+      const okMat = await createOnce({
         amount: '1234.56', tax: '7.89', date: args.dateStr,
         supplier: supplierMat, category: 'materials', leadId: '',
         note: '[E2E] expenses journey', source: 'manual'
-      });
-      const okMi = await window.Expenses.createExpense({
+      }, supplierMat);
+      const okMi = await createOnce({
         category: 'mileage', miles: '10.5', date: args.dateStr,
         supplier: supplierMi, leadId: '',
         note: '[E2E] expenses journey (mileage)', source: 'manual'
-      });
-
-      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      }, supplierMi);
       const db = window.db || window._db;
       const uid = (window._auth || window.auth).currentUser.uid;
       // The expenses read rule is isOwner(resource.data.userId) — the query
@@ -1007,8 +1151,12 @@ test.describe.serial('Authenticated destructive flows', () => {
       };
     }, { stamp, dateStr: DATE_STR });
 
-    expect(out.okMat, 'materials createExpense reported success').toBe(true);
-    expect(out.okMi, 'mileage createExpense reported success').toBe(true);
+    if (!out.okMat || !out.okMi) {
+      const interesting = pageLog.filter(l =>
+        /expenses|expense|firestore|offline|denied|ALREADY_EXISTS|failed/i.test(l)).slice(-10);
+      throw new Error(`createExpense failed (materials ok=${out.okMat}, mileage ok=${out.okMi}) even after the probe-retry. Page console (filtered):\n`
+        + (interesting.join('\n') || '(nothing relevant logged)'));
+    }
     expect(out.matCount, 'exactly one materials expense for the unique supplier').toBe(1);
     expect(out.miCount, 'exactly one mileage expense for the unique supplier').toBe(1);
 
@@ -1044,11 +1192,144 @@ test.describe.serial('Authenticated destructive flows', () => {
     expect(mi.amountCents, '10.5 mi × 72.5¢ = 761 cents (rounded)').toBe(Math.round(10.5 * 72.5));
     expect(mi.costType, 'mileage is overhead, never a job cost').toBe('overhead');
   });
+
+  test('customer page: /pro/customer?id= hydrates the lead detail surface', async ({ page }) => {
+    // Same nominatim stub as the save-lead journey — _saveLead geocodes new
+    // addresses and OSM rate-limits CI IPs with no client timeout.
+    await page.route('**/nominatim.openstreetmap.org/**', route =>
+      route.fulfill({ contentType: 'application/json', body: '[]' }));
+    await loginAs(page, creds);
+    await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
+
+    const stamp = Date.now();
+    // Seed on the dashboard (the only surface exposing _saveLead), then
+    // open the detail page. Same re-fetch-by-lastName pattern as the
+    // docgen journey (_saveLead returns null on the geocoded path); the
+    // read-back also hands us the address the page must render.
+    const seeded = await page.evaluate(async (args) => {
+      // Same in-context auth re-check as the invoice journey — _saveLead
+      // stamps userId from window._user.
+      for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
+        await new Promise(r => setTimeout(r, 200));
+      }
+      // ALREADY_EXISTS tolerance (emulator commit-retry; see fixtures/auth.js
+      // addDoc patch note) — the lead landed; the re-fetch below finds it.
+      try {
+      await window._saveLead({
+        firstName: '[E2E] Cust',
+        lastName: String(args.stamp),
+        // Unique per attempt so LeadDedup's blocking prompt never fires.
+        address: `${String(args.stamp).slice(-3)} Customer Detail Ct, Cincinnati, OH`,
+        phone: '513' + String(args.stamp).slice(-7),
+        email: `e2e-cust-${args.stamp}@nbd.test`,
+        stage: 'new',
+        e2eTestData: true
+      });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+      const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      // userId filter keeps the query provable under the leads read rule
+      // (isOwner(resource.data.userId)) — see the save-lead journey.
+      const uid = (window._auth || window.auth).currentUser.uid;
+      const snap = await fsMod.getDocs(fsMod.query(
+        fsMod.collection(db, 'leads'),
+        fsMod.where('userId', '==', uid),
+        fsMod.where('lastName', '==', String(args.stamp)),
+        fsMod.where('e2eTestData', '==', true)
+      ));
+      let out = null;
+      snap.forEach(d => { if (!out) out = { id: d.id, address: d.data().address }; });
+      return out;
+    }, { stamp });
+    expect(seeded && seeded.id, 'seeded [E2E] Cust lead has an id').toBeTruthy();
+
+    // Navigate to the per-lead detail surface. Console cleanliness is
+    // deliberately NOT asserted: customer.html defers ~60 companion
+    // modules, several of which may hit callables that connection-refuse
+    // without the functions emulator. customer-bootstrap itself is
+    // Firestore-only on the load path (every sub-loader — timeline/
+    // photos/documents/estimates/notes — is individually try/caught and
+    // non-fatal), so hydration of the header + data bridge is the signal.
+    // One retry on ERR_ABORTED: a cold goto can race an in-page redirect
+    // (SW registration / auth-restore) that cancels the navigation —
+    // observed on CI retry 2026-07-05. The second attempt lands normally.
+    try {
+      await page.goto(`/pro/customer.html?id=${seeded.id}`);
+    } catch (e) {
+      if (!/ERR_ABORTED/.test(String(e))) throw e;
+      await page.waitForTimeout(1_000);
+      await page.goto(`/pro/customer.html?id=${seeded.id}`);
+    }
+
+    // Hydration: loadCustomerData writes #customerName, then the auth
+    // handler flips documentElement opacity to '1'. The failure paths are
+    // an auth bounce to /pro/login (onAuthStateChanged without a user) or
+    // showError replacing .container ("Customer not found") — surface
+    // WHICH ONE happened instead of an opaque timeout.
+    const expectedName = `[E2E] Cust ${stamp}`;
+    try {
+      await page.waitForFunction((n) => {
+        const el = document.getElementById('customerName');
+        return !!el && el.textContent === n;
+      }, expectedName, { timeout: 20_000 });
+    } catch (e) {
+      const state = await page.evaluate(() => ({
+        url: location.href,
+        opacity: document.documentElement.style.opacity || '(unset)',
+        nameEl: (document.getElementById('customerName') || { textContent: '(el missing — showError nuked .container?)' }).textContent,
+        containerText: ((document.querySelector('.container') || {}).innerText || '(no .container)').slice(0, 200),
+      })).catch(() => ({ note: 'evaluate failed — page context gone (auth bounce mid-wait?)', url: page.url() }));
+      throw new Error('customer page never hydrated lead ' + seeded.id + ' — ' + JSON.stringify(state));
+    }
+
+    // No auth bounce: still on the customer page, not kicked to /login.
+    expect(page.url(), 'stayed on the customer detail page (no auth bounce)')
+      .toMatch(/\/pro\/customer(\.html)?\?/);
+    // No upgrade wall. customer.html ships no billing gate today — this
+    // locks in that the detail surface stays reachable if one is added.
+    await expect(page.locator('#nbd-upgrade-wall'), 'customer page must not be upgrade-walled')
+      .toHaveCount(0);
+
+    // Header contract: the seeded values render verbatim, and the boot
+    // module reports hydration complete (the opacity flip happens only
+    // after loadCustomerData resolves without throwing).
+    await expect(page.locator('#customerName')).toHaveText(expectedName);
+    await expect(page.locator('#customerAddress')).toHaveText(seeded.address);
+    // The opacity flip is the LAST line of loadCustomerData — the header
+    // fields above render mid-function, so a one-shot check here raced the
+    // function's tail (CI 2026-07-05: name+address green, opacity still
+    // '0'). Wait for it like any other async completion signal.
+    await page.waitForFunction(() => document.documentElement.style.opacity === '1',
+      null, { timeout: 15_000 });
+
+    // THE contract: stage key → display label mapping plus the external-
+    // module data bridge. Every companion module on this page (photo-
+    // report, profit-tracker, document-generator, customer-portal) reads
+    // window._leads/_currentLead instead of re-fetching — a hydration
+    // regression here breaks all of them at once.
+    const bridge = await page.evaluate(() => ({
+      currentLeadId: (window._currentLead && window._currentLead.id) || null,
+      leadsBridge: (Array.isArray(window._leads) && window._leads.length === 1 && window._leads[0].id) || null,
+      customerIdOnLead: (window._currentLead && window._currentLead.customerId) || null,
+      stageBadge: (document.getElementById('customerStage') || {}).textContent,
+      stageClass: (document.getElementById('customerStage') || {}).className,
+      customerIdBadge: (document.getElementById('customerIdDisplay') || {}).textContent,
+    }));
+    expect(bridge.currentLeadId, 'window._currentLead hydrated with this lead').toBe(seeded.id);
+    expect(bridge.leadsBridge, 'window._leads bridge holds exactly this lead').toBe(seeded.id);
+    expect(bridge.stageBadge, "stage key 'new' renders its display label").toBe('New Lead');
+    expect(bridge.stageClass, 'stage badge carries the stage-keyed class').toContain('stage-new');
+    // Cross-surface contract: the NBD-#### customerId minted at save time
+    // (dashboard counter transaction; auto-assigned by the page itself
+    // for pre-counter legacy leads) is what the detail header badges.
+    expect(bridge.customerIdOnLead, 'customerId on the hydrated lead follows NBD-####').toMatch(/^NBD-\d{4,}$/);
+    expect(bridge.customerIdBadge, 'customer ID badge renders the minted id').toBe(bridge.customerIdOnLead);
+  });
 });
 
 
 // ───────────────────────────────────────────────────────────────
-test.describe('Signup funnel — free tier reaches the dashboard', () => {
+test.describe('Signup funnel — free tier reaches the dashboard @shard2', () => {
   test.beforeEach(async ({}, testInfo) => {
     // Only meaningful against the emulator: prod runs must not mint accounts.
     if (!/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) {
