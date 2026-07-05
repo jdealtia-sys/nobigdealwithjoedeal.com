@@ -26,7 +26,6 @@
 
 const { onDocumentWritten } = require('firebase-functions/v2/firestore');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 // Modular FieldValue import — FieldValue is undefined under the
 // emulator runtime, so every audit_log write threw and was swallowed by the

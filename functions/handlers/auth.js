@@ -22,7 +22,7 @@
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { beforeUserCreated, beforeUserSignedIn } = require('firebase-functions/v2/identity');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
+const { getStorage } = require('firebase-admin/storage');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
@@ -213,7 +213,7 @@ exports.cleanupE2ETestData = onCall(
 
     // Best-effort Storage object delete — a missing object (already
     // cleaned, emulator restart, manual delete) must never fail the sweep.
-    const bucket = admin.storage().bucket();
+    const bucket = getStorage().bucket();
     const deleteStorageObject = async (objectPath) => {
       if (!objectPath || typeof objectPath !== 'string') return;
       try {

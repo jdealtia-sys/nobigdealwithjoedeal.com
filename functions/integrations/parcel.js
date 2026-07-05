@@ -20,7 +20,6 @@
 
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const crypto = require('crypto');

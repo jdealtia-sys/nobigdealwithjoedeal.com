@@ -33,6 +33,48 @@ section('Cloud Functions exports');
     /TEAM_ROLES = \['company_admin'[^\]]*\]/.test(src));
 }
 
+// ── firebase-admin v14 readiness: no legacy namespace accessors ──
+// v14 removed the service accessors from require('firebase-admin')
+// (admin.firestore / admin.auth() / admin.storage() / FieldValue via
+// the namespace). Only initializeApp/getApps/cert survive there. These
+// break at RUNTIME, not import time, so a grep guard is the only cheap
+// tripwire. Modular imports (firebase-admin/firestore etc.) are the rule.
+section('firebase-admin v14: legacy namespace is dead');
+{
+  const LEGACY = /\badmin\s*\.\s*(firestore|auth|storage|messaging|database|credential|appCheck|remoteConfig|instanceId|projectManagement|securityRules|machineLearning)\b/;
+  // Files allowed to keep `const admin = require('firebase-admin')` —
+  // they only call admin.initializeApp(), which v14 still exports.
+  const REQUIRE_ALLOWLIST = new Set([
+    'index.js', 'seed-demo.js', 'seed-companies.js', 'rate-limit-policy.js',
+    'migrations/runner.js', 'migrate-companyprofile-per-tenant.js',
+    'migrate-companyid-backfill.js',
+  ]);
+  const offendersLegacy = [];
+  const offendersRequire = [];
+  const walk = (dir) => {
+    for (const name of fs.readdirSync(dir)) {
+      if (name === 'node_modules' || name.startsWith('.')) continue;
+      const p = path.join(dir, name);
+      const st = fs.statSync(p);
+      if (st.isDirectory()) { walk(p); continue; }
+      if (!name.endsWith('.js')) continue;
+      const rel = path.relative(FUNCTIONS, p).replace(/\\/g, '/');
+      const src = fs.readFileSync(p, 'utf8');
+      // Strip line comments so prose like "platform admin. The..." can't trip it.
+      const code = src.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
+      if (LEGACY.test(code)) offendersLegacy.push(rel);
+      if (/require\(['"]firebase-admin['"]\)/.test(code) && !REQUIRE_ALLOWLIST.has(rel)) {
+        offendersRequire.push(rel);
+      }
+    }
+  };
+  walk(FUNCTIONS);
+  assert('no legacy admin.<service> accessors anywhere under functions/ — ' +
+    (offendersLegacy.join(', ') || 'clean'), offendersLegacy.length === 0);
+  assert('bare require(firebase-admin) only in initializeApp allowlist — ' +
+    (offendersRequire.join(', ') || 'clean'), offendersRequire.length === 0);
+}
+
 // ── rotateAccessCodes: opt-in revocation cascade (2026-07 audit) ──
 // Deactivating a code only blocks FUTURE redemptions; accounts that
 // already redeemed keep their subscriptions/{uid} plan forever unless

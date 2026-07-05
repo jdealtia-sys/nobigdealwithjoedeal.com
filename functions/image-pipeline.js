@@ -60,7 +60,6 @@
 
 const { onObjectFinalized } = require('firebase-functions/v2/storage');
 const { logger } = require('firebase-functions/v2');
-const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
 const { FieldValue } = require('firebase-admin/firestore');
