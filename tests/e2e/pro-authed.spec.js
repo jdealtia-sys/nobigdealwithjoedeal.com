@@ -1517,24 +1517,32 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     // customizer.js's init(), which runs strictly after the module (and
     // therefore its click delegate) loaded — clicking before that is a
     // race the first CI run won and the second lost.
-    await page.waitForFunction(() => typeof window.mobileNav === 'function',
-      null, { timeout: 15_000 });
-    // Binary probe: dispatch a bogus action first. The delegate answers
-    // every unknown action with a console.warn — if that warn never
-    // arrives, the delegate is NOT bound (init() died before the module
-    // tail) and no amount of waiting will summon the modal.
-    await page.evaluate(() => {
-      const probe = document.createElement('button');
-      probe.dataset.mncAction = 'e2eDelegateProbe';
-      document.body.appendChild(probe);
-      probe.click();
-      probe.remove();
-    });
-    await expect
-      .poll(() => consoleMsgs.some(m => m.includes('no dispatch for e2eDelegateProbe')),
-        { timeout: 10_000, message: 'data-mnc-action delegate never answered the probe — '
-          + 'init() likely threw before the delegate bound. Console: '
-          + consoleMsgs.filter(m => /error|warn/.test(m)).slice(-15).join(' | ') })
+    // Binary probe with one reload retry: the instrumented CI run showed
+    // that on flaky attempts the delegate genuinely is not bound and the
+    // console carries a resource 404 — an emulator/service-worker load
+    // race, not a module bug (no pageerror). Same medicine as
+    // openCrmView: retry through the unstable load once.
+    let delegateBound = false;
+    for (let attempt = 0; attempt < 2 && !delegateBound; attempt++) {
+      if (attempt > 0) await page.reload({ waitUntil: 'load' });
+      await page.waitForFunction(() => typeof window.mobileNav === 'function',
+        null, { timeout: 20_000 }).catch(() => {});
+      const marker = 'e2eDelegateProbe' + attempt;
+      await page.evaluate((m) => {
+        const probe = document.createElement('button');
+        probe.dataset.mncAction = m;
+        document.body.appendChild(probe);
+        probe.click();
+        probe.remove();
+      }, marker);
+      const t0 = Date.now();
+      while (Date.now() - t0 < 10_000) {
+        if (consoleMsgs.some(x => x.includes('no dispatch for ' + marker))) { delegateBound = true; break; }
+        await page.waitForTimeout(250);
+      }
+    }
+    expect(delegateBound, 'data-mnc-action delegate never answered the probe (2 loads) — '
+      + 'console: ' + consoleMsgs.filter(m => /error|warn|pageerror/.test(m)).slice(-15).join(' | '))
       .toBe(true);
     await page.evaluate(() => {
       const b = document.createElement('button');
@@ -1566,6 +1574,9 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
   });
 
   test('quick-add lead saves without throwing (was: null-selector TypeError before the write)', async ({ page }, testInfo) => {
+    // Emulator storms make _saveLead crawl (ALREADY_EXISTS retry loops);
+    // triple the budget rather than rotate into the flake statistics.
+    testInfo.setTimeout(testInfo.timeout * 3);
     // Creates a real (untagged) lead — emulator-only so prod-mode manual
     // runs never orphan data. Emulator state evaporates with emulators:exec.
     if (!/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) {
@@ -1586,7 +1597,7 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     await page.click('#quickAddModal button[data-fn="saveQuickLead"]');
     // The old bug: btn lookup returned null and btn.textContent THREW before
     // _saveLead ran — the modal stayed open forever. Fixed = modal closes.
-    await expect(modal).not.toHaveClass(/open/, { timeout: 20_000 });
+    await expect(modal).not.toHaveClass(/open/, { timeout: 45_000 });
     const saveErrors = consoleErrors.filter(e => /saveQuickLead|TypeError.*textContent/i.test(e));
     expect(saveErrors, 'no saveQuickLead dispatch errors').toEqual([]);
   });
