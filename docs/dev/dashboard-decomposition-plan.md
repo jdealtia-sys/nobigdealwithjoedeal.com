@@ -451,6 +451,32 @@ API object per module, registered once.
 - Cross-view actions: `goTo`, `loadLeads`, `openLeadModal`, `moveCard`,
   `startNewEstimate`, `NBDDocViewer`, `showToast`.
 
+### Execution status (2026-07-05, same-day update)
+
+| Tranche | Scope | Status |
+|---|---|---|
+| 0 | 40 widget singletons → module scope, `__NBD_LOADED` registry | ✅ merged (PR #846) |
+| 1 | Repo-wide safe frontier: 18 alias exports deleted, 47 singles module-local, 13 dead exports deleted | ✅ merged (PR #846) — see hotfix note below |
+| 1b | The 7 deferred multi-assign state vars | ✅ merged (PR #846) |
+| 2a | mobile-nav-customizer: inline handlers → delegation, 14 globals off window | ✅ merged (PR #847) — **was a prod bug fix**: `script-src-attr 'none'` had drag/touch reorder silently dead |
+| 2b+ | widgets/tasks/email_system/crm-snooze remnants; dashboard-ui `_NBD_CALL_ALLOWLIST` cluster | ⏳ next |
+| 3 | 2–5-consumer middle band (~515 globals) | ⏳ after 2 |
+
+**Hard-won lessons, binding on future tranches:**
+1. `let` declarations go at FILE TOP LEVEL, verified by comment-stripped
+   brace-depth = 0 — the first Tranche 1 pass anchored some inside
+   nested IIFEs and strict-mode ReferenceErrors killed dashboard boot.
+   Both E2E shards caught it (commit 8feee39); no static check did.
+2. `consumers=1` by file-grep is NOT sufficient. The three-way proof is
+   mandatory: zero external bare-name refs (docs/ + tests/), zero
+   in-string refs in the own file, and immunity to the window[fnName]
+   dispatchers (`data-action="call"` in dashboard-ui.js dispatches
+   window[data-fn] behind `_NBD_CALL_ALLOWLIST` — anything on that
+   allowlist stays on window until its delegate is rewritten).
+3. The smoke battery pins all 126 converted names off window
+   (tests/smoke/dashboard.test.js, "Globals Tranches 0+1" section) —
+   extend the list with every future tranche.
+
 ### Tranche plan (safest first)
 
 **⚠ Wrinkle found during scoping:** several "self-contained" clusters
