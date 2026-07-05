@@ -38,14 +38,15 @@
   if (__NBD_LOADED['pwa-install-nudge']) return;
   __NBD_LOADED['pwa-install-nudge'] = true;
 
-  // Only nudge on the dashboard; the homeowner portal etc. should not
-  // promote "install our app" to non-rep users. Hosting has cleanUrls:true,
-  // so the canonical URL is /pro/dashboard (no .html) — the old regex only
-  // matched the .html form (and bare /pro/), so this module silently never
-  // ran on the URL reps actually land on and the W150 pwa-install.js banner
-  // showed instead. Match both forms.
+  // Only nudge on rep-side surfaces (dashboard + customer detail); the
+  // homeowner portal etc. should not promote "install our app" to non-rep
+  // users. Hosting has cleanUrls:true, so match both URL forms — the old
+  // regex only matched /pro/dashboard.html, so this module silently never
+  // ran on the clean URL reps actually land on and the (since-retired) W150
+  // pwa-install.js banner showed instead. This module is the single
+  // install-prompt system as of 2026-07-05 — W150 pwa-install.js is deleted.
   const PATH = window.location.pathname || '';
-  if (!/\/pro\/dashboard(\.html)?$/.test(PATH)) return;
+  if (!/\/pro\/(dashboard|customer)(\.html)?$/.test(PATH)) return;
 
   const STORAGE_KEY_SESSIONS  = 'nbd_pwa_sessions';
   const STORAGE_KEY_DISMISSED = 'nbd_pwa_dismissed_v1';
@@ -187,17 +188,24 @@
           background:transparent; border:none; color:#64748b;
           cursor:pointer; padding:4px 6px; line-height:1;
           font-size:14px; -webkit-tap-highlight-color:transparent;">×</button>`;
-    // Anchor the banner ABOVE the fixed bottom tab bar. At bottom:14px /
+    // Anchor the banner ABOVE any fixed bottom bar. At bottom:14px /
     // z-index:99990 the ~420px-wide banner sat directly on top of
-    // #mobile-nav (z-index 1900) on phone viewports and silently swallowed
-    // every tap on the nav until dismissed — "buttons do nothing".
+    // #mobile-nav (dashboard tab bar, z 1900) on phone viewports and
+    // silently swallowed every tap on the nav until dismissed — "buttons
+    // do nothing". customer.html has #nbd-quick-action-bar instead; clear
+    // whichever visible bar reaches highest.
     try {
-      const nav = document.getElementById('mobile-nav');
-      if (nav) {
-        const r = nav.getBoundingClientRect();
-        if (r.height > 0 && getComputedStyle(nav).display !== 'none' && r.top < window.innerHeight) {
-          banner.style.bottom = (Math.round(window.innerHeight - r.top) + 12) + 'px';
+      let barTop = window.innerHeight;
+      ['mobile-nav', 'nbd-quick-action-bar'].forEach((id) => {
+        const bar = document.getElementById(id);
+        if (!bar) return;
+        const r = bar.getBoundingClientRect();
+        if (r.height > 0 && getComputedStyle(bar).display !== 'none' && r.top < window.innerHeight) {
+          barTop = Math.min(barTop, r.top);
         }
+      });
+      if (barTop < window.innerHeight) {
+        banner.style.bottom = (Math.round(window.innerHeight - barTop) + 12) + 'px';
       }
     } catch (e) { /* keep the default offset */ }
     document.body.appendChild(banner);
