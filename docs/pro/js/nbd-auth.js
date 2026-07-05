@@ -160,6 +160,13 @@ let _initPromise = null;
 let _options = {};
 let _trialDaysLeft = -1; // -1 = no trial, 0+ = days remaining
 let _isTrialUser = false;
+// True only when we resolved a REAL trial end date (trialEndsAt, or
+// currentPeriodEnd for a Stripe 'trialing' sub). Without this,
+// isTrialExpired's `daysLeft <= 0` treated the -1 "unknown" sentinel as
+// expired — a Stripe sub in an ACTIVE trial (status 'trialing', which the
+// webhook writes verbatim, with no trialEndsAt) showed the "your trial has
+// ended, you're on Free" banner to a card-backed paying trialer.
+let _trialEndKnown = false;
 
 // ── Core Module ───────────────────────────────────────────
 export const NBDAuth = {
@@ -180,7 +187,7 @@ export const NBDAuth = {
   get planLevel()    { return PLAN_LEVELS[_userPlan] || 0; },
   get trialDaysLeft(){ return _trialDaysLeft; },
   get isTrialUser()  { return _isTrialUser; },
-  get isTrialExpired(){ return _isTrialUser && _trialDaysLeft <= 0; },
+  get isTrialExpired(){ return _isTrialUser && _trialEndKnown && _trialDaysLeft <= 0; },
   PLAN_LEVELS,
   PAGE_PLANS,
   PLAN_NAMES,
@@ -466,18 +473,40 @@ export const NBDAuth = {
               if (_subscription.status === 'trialing') {
                 _isTrialUser = true;
               }
+              // trialEndsAt has exactly ONE writer: validateAccessCode
+              // (functions/handlers/portal.js) — Stripe trials never carry
+              // it (the webhook writes status 'trialing' + currentPeriodEnd
+              // instead). So the downgrade below only ever fires for
+              // access-code trials, matching the read-time expiry gates in
+              // functions/billing.js and billing-gate.js. If the Stripe
+              // webhook ever starts writing trialEndsAt, scope this to
+              // source === 'access_code' or converted subs will downgrade.
               if (_subscription.trialEndsAt) {
                 const trialEnd = _subscription.trialEndsAt.toDate ? _subscription.trialEndsAt.toDate() : new Date(_subscription.trialEndsAt);
                 const now = new Date();
                 const msLeft = trialEnd.getTime() - now.getTime();
                 _trialDaysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
                 _isTrialUser = true;
+                _trialEndKnown = true;
 
                 if (_trialDaysLeft <= 0) {
                   // Trial expired — downgrade to lite
                   _userPlan = 'lite';
                   _subscription = { ..._subscription, _trialExpired: true };
                   console.info('Trial expired — downgraded to lite');
+                }
+              } else if (_subscription.status === 'trialing' && _subscription.currentPeriodEnd) {
+                // Stripe trial: the trial end IS the current period end
+                // (Stripe reports trial_end == current_period_end while
+                // trialing). Gives the countdown banner a real number —
+                // without this, trialDaysLeft stayed at the -1 sentinel and
+                // the banner either showed nothing or (pre-_trialEndKnown)
+                // falsely said the trial had ended. NO plan downgrade here:
+                // Stripe owns that lifecycle via webhook status changes.
+                const periodEnd = new Date(_subscription.currentPeriodEnd);
+                if (!Number.isNaN(periodEnd.getTime())) {
+                  _trialDaysLeft = Math.ceil((periodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+                  _trialEndKnown = true;
                 }
               }
             } else {
