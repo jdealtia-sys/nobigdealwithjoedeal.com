@@ -136,7 +136,17 @@ async function createAndActivate() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// readyState guard, NOT a bare DOMContentLoaded listener: this module has a
+// top-level await above, and a module suspended on top-level await does not
+// hold back DOMContentLoaded — the event can fire before this line runs and
+// the activate button would be silently dead (register.js had exactly this
+// bug, caught by the signup-funnel E2E journey 2026-07-05).
+function wireStripeSuccessDom() {
   const btn = document.getElementById('createAndActivateBtn');
   if (btn) btn.addEventListener('click', createAndActivate);
-});
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', wireStripeSuccessDom, { once: true });
+} else {
+  wireStripeSuccessDom();
+}
