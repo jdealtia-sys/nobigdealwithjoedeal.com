@@ -395,9 +395,28 @@ async function bulkSnoozeLeads() {
 // partial-failure error. Joe's manual selections (~30) fit in one
 // chunk; the loop is defense for someday-larger sweeps.
 async function commitBulkLeadOp(ids, applyToBatch) {
+  // Team visibility (2026-07): staff kanbans can now SELECT teammate-owned
+  // cards, but lead writes are rules-denied for non-owners — and a
+  // writeBatch is atomic, so a single denied teammate doc would void the
+  // whole chunk INCLUDING the caller's own leads. Filter to mutable leads
+  // up front and say what was skipped instead of failing everything.
+  const _me = window._user && window._user.uid;
+  const _isPlatformAdmin = ((window._userClaims && window._userClaims.role) || '') === 'admin';
+  const _byId = new Map((window._leads || []).map(l => [l.id, l]));
+  const mutable = ids.filter((id) => {
+    const l = _byId.get(id);
+    // Unknown-to-cache ids and legacy docs without userId keep the old
+    // behavior — they only reach a non-owner's selection via cache
+    // states the fetch already scopes.
+    return _isPlatformAdmin || !l || !l.userId || !_me || l.userId === _me;
+  });
+  const skipped = ids.length - mutable.length;
+  if (skipped > 0 && typeof window.showToast === 'function') {
+    window.showToast(`Skipped ${skipped} teammate-owned lead${skipped === 1 ? '' : 's'} — only the owner can change them.`, 'info');
+  }
   const CHUNK = 450; // Firestore hard limit is 500; leave headroom.
-  for (let i = 0; i < ids.length; i += CHUNK) {
-    const slice = ids.slice(i, i + CHUNK);
+  for (let i = 0; i < mutable.length; i += CHUNK) {
+    const slice = mutable.slice(i, i + CHUNK);
     const batch = window.writeBatch(window.db);
     for (const id of slice) {
       const ref = window.doc(window.db, 'leads', id);
@@ -405,6 +424,7 @@ async function commitBulkLeadOp(ids, applyToBatch) {
     }
     await batch.commit();
   }
+  return { applied: mutable.length, skipped };
 }
 
 

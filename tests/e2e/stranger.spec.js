@@ -402,22 +402,38 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
       // directly), plus the write boundary: seeing is not editing.
       const strangerLeadId = (await db.collection('leads')
         .where('lastName', '==', LEAD_LAST).limit(1).get()).docs[0].id;
-      const managerRead = await repPage.evaluate(async (id) => {
-        const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-        try {
-          const snap = await fs.getDoc(fs.doc(window.db || window._db, 'leads', id));
-          return { ok: snap.exists() };
-        } catch (e) { return { ok: false, err: String(e && (e.code || e.message)) }; }
-      }, strangerLeadId);
+      // Both probes retry the documented client-is-offline emulator drop
+      // (non-permission errors only) so a dropped read can't masquerade
+      // as a rules verdict — same mitigation as the isolation test.
+      let managerRead;
+      for (let i = 0; i < 3; i++) {
+        managerRead = await repPage.evaluate(async (id) => {
+          const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          try {
+            const snap = await fs.getDoc(fs.doc(window.db || window._db, 'leads', id));
+            return { ok: snap.exists() };
+          } catch (e) { return { ok: false, err: String(e && (e.code || e.message)) }; }
+        }, strangerLeadId);
+        if (managerRead.ok || /permission|insufficient/i.test(String(managerRead.err || ''))) break;
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
       expect(managerRead.ok, `manager reads the owner's lead (err: ${managerRead.err || 'none'})`).toBe(true);
-      const managerWrite = await repPage.evaluate(async (id) => {
-        const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-        try {
-          await fs.updateDoc(fs.doc(window.db || window._db, 'leads', id), { stage: 'hijacked' });
-          return { denied: false };
-        } catch (e) { return { denied: /permission|insufficient/i.test(String(e && (e.code || e.message))) }; }
-      }, strangerLeadId);
-      expect(managerWrite.denied, 'manager cannot MUTATE the owner\'s lead (writes stay owner-only)').toBe(true);
+      let managerWrite;
+      for (let i = 0; i < 3; i++) {
+        managerWrite = await repPage.evaluate(async (id) => {
+          const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          try {
+            await fs.updateDoc(fs.doc(window.db || window._db, 'leads', id), { stage: 'hijacked' });
+            return { denied: false, wrote: true };
+          } catch (e) {
+            const err = String(e && (e.code || e.message));
+            return { denied: /permission|insufficient/i.test(err), err };
+          }
+        }, strangerLeadId);
+        if (managerWrite.wrote || managerWrite.denied) break;
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
+      expect(managerWrite.denied, `manager cannot MUTATE the owner's lead (writes stay owner-only; err: ${managerWrite.err || 'none'})`).toBe(true);
     } finally {
       await repContext.close();
     }

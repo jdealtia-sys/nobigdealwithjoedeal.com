@@ -1530,8 +1530,13 @@ async function moveCard(id, newStage){
   // move client-side with a clear message instead of letting the
   // optimistic UI move a card the rules will silently bounce back.
   const _meUid = window._user && window._user.uid;
-  const _isPlatformAdmin = ((window._userClaims && window._userClaims.role) || '') === 'admin';
-  if (lead.userId && _meUid && lead.userId !== _meUid && !_isPlatformAdmin) {
+  const _myRole = (window._userClaims && window._userClaims.role) || '';
+  if (_myRole === 'viewer') {
+    // Viewer writes are rules-denied even on leads they own (Audit #3 F-1).
+    if (typeof showToast === 'function') showToast('Your role is read-only — ask the lead owner to move it.', 'info');
+    return;
+  }
+  if (lead.userId && _meUid && lead.userId !== _meUid && _myRole !== 'admin') {
     if (typeof showToast === 'function') showToast("This lead belongs to a teammate — only its owner can move it.", 'info');
     return;
   }
@@ -1809,6 +1814,18 @@ async function changeLeadType(id, newType){
   const lead = (window._leads||[]).find(l=>l.id===id);
   if(!lead) return;
   if(lead._pending){ if(typeof showToast==='function') showToast('Change in progress...','info'); return; }
+
+  // Same non-owner guard as moveCard (team visibility, 2026-07): staff can
+  // SEE teammate cards but lead writes stay owner-only at the rules layer.
+  const _clRole = (window._userClaims && window._userClaims.role) || '';
+  const _clMe = window._user && window._user.uid;
+  if (_clRole === 'viewer'
+      || (lead.userId && _clMe && lead.userId !== _clMe && _clRole !== 'admin')) {
+    if (typeof showToast === 'function') showToast(_clRole === 'viewer'
+      ? 'Your role is read-only.'
+      : "This lead belongs to a teammate — only its owner can change it.", 'info');
+    return;
+  }
 
   const oldType = lead.jobType || (typeof window.inferJobType==='function' ? window.inferJobType(lead) : null) || '';
   if(oldType === newType){ return; }

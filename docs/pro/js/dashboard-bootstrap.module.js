@@ -1818,24 +1818,36 @@
       const _claims = window._userClaims || {};
       const _teamReader = ['company_admin', 'manager', 'viewer'].includes(_claims.role || '')
         && !!_claims.companyId;
-      const _leadScope = _teamReader
-        ? where('companyId', '==', _claims.companyId)
-        : where('userId', '==', finalUid);
+      // Team readers fetch the tenant book AND their own leads. The second
+      // scope is load-bearing for claimed-in members (review finding,
+      // 2026-07-06): their pre-invite solo leads carry companyId == their
+      // OWN uid, not the tenant's — a company-only fetch made a member's
+      // entire pre-invite book vanish from the dashboard. It also keeps an
+      // owner's legacy no-companyId docs visible. For provisioned solo
+      // owners both scopes return the same set and the dedupe collapses it.
+      const _leadScopes = _teamReader && _claims.companyId !== finalUid
+        ? [where('companyId', '==', _claims.companyId), where('userId', '==', finalUid)]
+        : [_teamReader ? where('companyId', '==', _claims.companyId) : where('userId', '==', finalUid)];
       const _runQuery = async () => {
         const allDocs = [];
-        let cursor = null;
-        // Hard ceiling so a pathological/corrupt cursor can't loop forever:
-        // 200 pages × 500 = 100k leads, far beyond any real rep.
-        for (let page = 0; page < 200; page++) {
-          let q = query(collection(db,'leads'), _leadScope, limit(_PAGE));
-          if (cursor) q = query(collection(db,'leads'), _leadScope, startAfter(cursor), limit(_PAGE));
-          const pageSnap = await Promise.race([
-            getDocs(q),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('getDocs(leads) timeout after 10000ms')), 10000))
-          ]);
-          for (const d of pageSnap.docs) allDocs.push(d);
-          if (pageSnap.size < _PAGE) break;   // last (partial) page
-          cursor = pageSnap.docs[pageSnap.docs.length - 1];
+        const seenIds = new Set();
+        for (const scope of _leadScopes) {
+          let cursor = null;
+          // Hard ceiling so a pathological/corrupt cursor can't loop forever:
+          // 200 pages × 500 = 100k leads, far beyond any real rep.
+          for (let page = 0; page < 200; page++) {
+            let q = query(collection(db,'leads'), scope, limit(_PAGE));
+            if (cursor) q = query(collection(db,'leads'), scope, startAfter(cursor), limit(_PAGE));
+            const pageSnap = await Promise.race([
+              getDocs(q),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('getDocs(leads) timeout after 10000ms')), 10000))
+            ]);
+            for (const d of pageSnap.docs) {
+              if (!seenIds.has(d.id)) { seenIds.add(d.id); allDocs.push(d); }
+            }
+            if (pageSnap.size < _PAGE) break;   // last (partial) page
+            cursor = pageSnap.docs[pageSnap.docs.length - 1];
+          }
         }
         // Stage B shadow: stash the PRE-filter page-union total so
         // server-aggregates.js can compare count() against the same
@@ -2050,8 +2062,15 @@
       // The outer loadLeads().then() block runs its own 30s poll loop.
       // Don't double-poll here — single source of truth for the retry.
     }
-    // Fire follow-up notifications after leads are fresh
-    setTimeout(() => checkAndCreateFollowUpNotifications(window._leads), 1200);
+    // Fire follow-up notifications after leads are fresh — over OWN leads
+    // only (team visibility, 2026-07): staff caches now hold the whole
+    // tenant book, and running the nag engines over teammates' leads
+    // spammed every staff member with follow-ups they can't act on (the
+    // review engine even tried lead writes the rules deny). Actionability
+    // follows ownership, so the engines keep the pre-team scope.
+    const _ownLeads = () => (window._leads || []).filter(l =>
+      !l.userId || l.userId === (window._user && window._user.uid));
+    setTimeout(() => checkAndCreateFollowUpNotifications(_ownLeads()), 1200);
     // Needs-field auto-notifier — flags leads stuck without a required
     // field for their current stage so the rep doesn't discover it
     // mid-drag. Delayed slightly past the follow-up check so the
@@ -2059,7 +2078,7 @@
     // any fresh follow-ups before deciding what to add on top.
     setTimeout(() => {
       if (typeof window.checkAndCreateNeedsFieldNotifications === 'function') {
-        window.checkAndCreateNeedsFieldNotifications(window._leads);
+        window.checkAndCreateNeedsFieldNotifications(_ownLeads());
       }
     }, 2400);
     // Render KPI analytics row on home dashboard (with margin card)

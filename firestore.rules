@@ -183,13 +183,15 @@ service cloud.firestore {
       }
       match /tasks/{taskId} {
         allow read:   if isAuth() && (isAdmin()
-          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
         allow write:  if isAuth()
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
       }
       match /notes/{noteId} {
         allow read:   if isAuth() && (isAdmin()
-          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
         allow write:  if isAuth()
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
       }

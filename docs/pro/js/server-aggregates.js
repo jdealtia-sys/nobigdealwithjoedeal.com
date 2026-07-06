@@ -35,10 +35,27 @@
     const fs = await import(SDK);
     const db = window._db || window.db;
     if (!db || typeof fs.getCountFromServer !== 'function') return null;
-    const snap = await fs.getCountFromServer(
-      fs.query(fs.collection(db, 'leads'), fs.where('userId', '==', uid))
-    );
-    return snap.data().count;
+    // Mirror loadLeads' role-branched scope EXACTLY (team pipeline
+    // visibility, 2026-07) or the shadow fires a guaranteed false
+    // MISMATCH for staff: the cache holds the tenant book (+ own leads,
+    // deduped) while a userId-only count sees one rep's slice. Team
+    // readers count company + own and subtract the overlap.
+    const claims = window._userClaims || {};
+    const teamReader = ['company_admin', 'manager', 'viewer'].includes(claims.role || '')
+      && !!claims.companyId;
+    const countOf = async (...filters) => {
+      const snap = await fs.getCountFromServer(
+        fs.query(fs.collection(db, 'leads'), ...filters));
+      return snap.data().count;
+    };
+    if (!teamReader) return countOf(fs.where('userId', '==', uid));
+    if (claims.companyId === uid) return countOf(fs.where('companyId', '==', uid));
+    const [companyN, ownN, overlapN] = await Promise.all([
+      countOf(fs.where('companyId', '==', claims.companyId)),
+      countOf(fs.where('userId', '==', uid)),
+      countOf(fs.where('companyId', '==', claims.companyId), fs.where('userId', '==', uid)),
+    ]);
+    return companyN + ownN - overlapN;
   }
 
   async function shadowCompare() {

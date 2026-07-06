@@ -162,10 +162,15 @@ future session; none blocked the journey itself.
    (dashboard-bootstrap loadLeads), moveCard blocks non-owner drags with
    a toast, and the Stranger Test's team journey now invites a MANAGER
    and asserts the shared kanban + rules-level read/write boundary.
-   Remaining polish (deliberately deferred): a read-only affordance on
-   the customer page when staff open a teammate's lead (writes correctly
-   fail at rules today), and Jo's product call on whether managers should
-   EDIT team leads (would widen update rules — separate decision).
+   Remaining polish (deliberately deferred, from the adversarial review):
+   a read-only affordance on the customer page when staff open a
+   teammate's lead (writes correctly fail at rules today); Jo's product
+   call on whether managers should EDIT team leads (would widen update
+   rules — separate decision); teammate kanban cards render without photo
+   thumbnails (the photo cache stays userId-scoped — cosmetic); and the
+   estimate address-match can silently auto-link a staff member's
+   estimate to a teammate's lead (estimates.js:774 — plausibly desired
+   for teams, but silent; Jo to confirm or we add a confirm prompt).
 
 2. **`submitPublicLead`'s App Check claim is dead config.** The handler
    sets `enforceAppCheck: true` with the comment "required; App Check sits

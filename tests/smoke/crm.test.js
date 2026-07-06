@@ -126,8 +126,12 @@ section('Bulk lead operations — writeBatch + NBDStore + new fields');
   // single place batches are formed.
   assert('bulkDelete routes through commitBulkLeadOp (writeBatch)',
     /async function bulkDelete\(\)[\s\S]{0,1500}commitBulkLeadOp/.test(crm));
+  // Window widened 500→1600 (2026-07-06): the ownership pre-filter for
+  // team visibility (staff kanbans can select teammate-owned cards whose
+  // writes are rules-denied — one denied doc voids an atomic batch) sits
+  // between the function head and the writeBatch call.
   assert('commitBulkLeadOp uses writeBatch + chunk cap < 500',
-    /async function commitBulkLeadOp[\s\S]{0,500}window\.writeBatch\(window\.db\)/.test(crm)
+    /async function commitBulkLeadOp[\s\S]{0,1600}window\.writeBatch\(window\.db\)/.test(crm)
     && /CHUNK\s*=\s*450/.test(crm));
 
   // New bulk capabilities — carrier + damage. These are the

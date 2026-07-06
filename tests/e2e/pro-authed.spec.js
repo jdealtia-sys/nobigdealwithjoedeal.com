@@ -1251,15 +1251,25 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
     // Firestore-only on the load path (every sub-loader — timeline/
     // photos/documents/estimates/notes — is individually try/caught and
     // non-fatal), so hydration of the header + data bridge is the signal.
-    // One retry on ERR_ABORTED: a cold goto can race an in-page redirect
-    // (SW registration / auth-restore) that cancels the navigation —
-    // observed on CI retry 2026-07-05. The second attempt lands normally.
-    try {
-      await page.goto(`/pro/customer.html?id=${seeded.id}`);
-    } catch (e) {
-      if (!/ERR_ABORTED/.test(String(e))) throw e;
-      await page.waitForTimeout(1_000);
-      await page.goto(`/pro/customer.html?id=${seeded.id}`);
+    // Retries for the cold-goto race: an in-page redirect (SW
+    // registration reload / auth-restore) can cancel or interrupt the
+    // navigation — observed as ERR_ABORTED (CI 2026-07-05) and as
+    // "interrupted by another navigation to /pro/dashboard" (the SW
+    // controllerchange reload; CI 2026-07-06, where it outlived the
+    // single retry). Both signatures settle within a beat — retry them,
+    // rethrow anything else.
+    {
+      let _navved = false;
+      for (let attempt = 0; attempt < 3 && !_navved; attempt++) {
+        try {
+          await page.goto(`/pro/customer.html?id=${seeded.id}`);
+          _navved = true;
+        } catch (e) {
+          if (!/ERR_ABORTED|interrupted by another navigation/.test(String(e))) throw e;
+          await page.waitForTimeout(1_500);
+        }
+      }
+      if (!_navved) await page.goto(`/pro/customer.html?id=${seeded.id}`);
     }
 
     // Hydration: loadCustomerData writes #customerName, then the auth

@@ -574,6 +574,10 @@ async function run() {
     await setDoc(doc(db, 'leads/leadCar2'), { userId: 'carol', name: 'Carol Lead 2', companyId: 'co-a' });
     await setDoc(doc(db, 'leads/leadA2/activity/act1'),
       { userId: 'alice', type: 'note', source: 'rep', note: 'seeded' });
+    await setDoc(doc(db, 'leads/leadA2/tasks/task1'),
+      { userId: 'alice', title: 'call back', done: false });
+    await setDoc(doc(db, 'leads/leadA2/notes/note1'),
+      { userId: 'alice', text: 'roof notes' });
     await setDoc(doc(db, 'leads/leadA/activity/legacy-act'),
       { userId: 'alice', type: 'note', source: 'rep', note: 'legacy parent' });
   });
@@ -606,11 +610,23 @@ async function run() {
   await assertFails(updateDoc(doc(coAdmin, 'leads/leadA2'), { stage: 'contacted' }));
   await assertFails(deleteDoc(doc(viewerA, 'leads/leadA2')));
 
+  // ❌ the review's load-bearing probe: a STAFF role in the WRONG tenant
+  // must not make the company LIST query provable — role alone never
+  // crosses the companyId wall.
+  const mgrB = env.authenticatedContext('mob', { role: 'manager', companyId: 'co-b' }).firestore();
+  await assertFails(getDocs(query(collection(mgrB, 'leads'), where('companyId', '==', 'co-a'))));
+  await assertFails(getDoc(doc(mgrB, 'leads/leadA2')));
+
   // ✅ subcollections follow the parent: staff/viewer read a teammate
-  // lead's activity; cross-tenant + legacy-parent stay denied.
+  // lead's activity AND tasks/notes (the two blocks a whitespace-variant
+  // edit initially missed — pinned here so they can't drift apart again);
+  // cross-tenant + legacy-parent stay denied.
   await assertSucceeds(getDoc(doc(mgrA, 'leads/leadA2/activity/act1')));
   await assertSucceeds(getDoc(doc(viewerA, 'leads/leadA2/activity/act1')));
+  await assertSucceeds(getDoc(doc(mgrA, 'leads/leadA2/tasks/task1')));
+  await assertSucceeds(getDoc(doc(viewerA, 'leads/leadA2/notes/note1')));
   await assertFails(getDoc(doc(bob, 'leads/leadA2/activity/act1')));
+  await assertFails(getDoc(doc(mgrB, 'leads/leadA2/tasks/task1')));
   await assertFails(getDoc(doc(mgrA, 'leads/leadA/activity/legacy-act')));
   // ❌ subcollection writes stay owner-only (manager can't forge activity)
   await assertFails(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-forge'),
