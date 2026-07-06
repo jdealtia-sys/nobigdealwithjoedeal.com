@@ -5,7 +5,7 @@
 > (PRs #839–#858). Self-contained: a fresh agent can pick this up cold.
 >
 > **STATUS: EXECUTED — and the whole punch list + bench cleared the
-> same day.** 2026-07-06 final ledger, eleven merged PRs: #862 (this
+> same day.** 2026-07-06 final ledger, thirteen PRs: #862 (this
 > brief's Stranger Test), #863 team pipeline visibility, #864 manager
 > edit rights, #865 team UX trio, #866 photos companyId + backfill,
 > #867 submitPublicLead truth-telling, #868 OWNER_EMAILS retirement,
@@ -13,11 +13,11 @@
 > Wave-149 death), #870 one-row pipeline toolbar + lean triage list
 > (+ filter active-state fixed at the source), #871 alert-outbox
 > ledger (notification routing now CI-asserted), #872 globals Tranche
-> 2b (+ crm-snooze de-NUL'd). Remaining queue: mobile FAB
-> SPEED-DIAL (Jo's pick from his phone screenshots — collapse the three
-> field-tool FABs into one fan-out button with ＋ Add Lead above it;
-> interim shipped 2026-07-06: phones float only the lifted ＋, field
-> tools mobile-hidden); globals Tranche 2c
+> 2b (+ crm-snooze de-NUL'd), #873 wind-down (legacy snapshot + interim
+> mobile FAB slimming), #874 mobile FAB SPEED-DIAL (Jo's pick from his
+> phone screenshots — the three field-tool FABs collapse behind one ⋯
+> launcher with ＋ Add Lead above it; fan-out is recording-safe and
+> E2E'd at a phone viewport). Remaining queue: globals Tranche 2c
 > (delegate rewrites — fresh session) and Tranche 3; Rock 2 PR 6
 > ~Jul 18; flip e2e-authed-emulator to required ~Jul 19; Jo console
 > IAM grant (serviceAccountTokenCreator). Original brief follows. The rig now boots the Functions

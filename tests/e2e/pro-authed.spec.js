@@ -1553,6 +1553,80 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     }, { timeout: 5_000 });
   });
 
+  // Mobile FAB speed-dial (2026-07-06, Jo's pick): phones collapse the
+  // field-tool FABs behind one ⋯ launcher. This runs the whole open /
+  // dismiss / recording-guard lifecycle at a real phone viewport — the
+  // interim display:none slimming shipped same-day, so without this the
+  // fan-out could regress to either extreme (four-button pile-up or
+  // permanently hidden tools) with every desktop test still green.
+  test('mobile speed-dial: launcher fans the field tools out; dismiss is recording-safe', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await loginAs(page, creds);
+    await openCrmView(page);
+    // Launcher is built by fab-speed-dial.js at DOM-ready; the mic FAB
+    // needs MediaRecorder (present in headless Chromium).
+    await safeWaitForFunction(page, () => {
+      const dial = document.getElementById('nbd-fab-dial');
+      const mic = document.getElementById('nbd-whisper-fab');
+      return !!dial && !!mic && getComputedStyle(dial).display === 'flex';
+    }, { timeout: 15_000 });
+    const parked = await safeEvaluate(page, () => {
+      const mic = getComputedStyle(document.getElementById('nbd-whisper-fab'));
+      const lead = document.getElementById('addLeadFab');
+      return {
+        micOpacity: mic.opacity,
+        micPointer: mic.pointerEvents,
+        leadBottom: lead ? getComputedStyle(lead).bottom : 'missing',
+      };
+    });
+    expect(parked.micOpacity, 'closed dial parks the mic faded').toBe('0');
+    expect(parked.micPointer, 'parked mic is untappable').toBe('none');
+    expect(parked.leadBottom, '＋ Add Lead floats above the launcher slot').toBe('138px');
+
+    // Open: click-until-open with the class checked BEFORE clicking so
+    // an already-open dial is never toggled shut (same pattern as the
+    // Filters-menu test).
+    await safeWaitForFunction(page, () => {
+      if (document.body.classList.contains('nbd-dial-open')) return true;
+      document.getElementById('nbd-fab-dial').click();
+      return document.body.classList.contains('nbd-dial-open');
+    }, { timeout: 10_000 });
+    // Fan-out: opacity transitions over 160ms — poll to the settled state.
+    await safeWaitForFunction(page, () => {
+      const s = getComputedStyle(document.getElementById('nbd-whisper-fab'));
+      return s.opacity === '1' && s.pointerEvents === 'auto';
+    }, { timeout: 5_000 });
+    const open = await safeEvaluate(page, () => ({
+      expanded: document.getElementById('nbd-fab-dial').getAttribute('aria-expanded'),
+      glyph: document.getElementById('nbd-fab-dial').textContent,
+    }));
+    expect(open.expanded, 'launcher reports expanded').toBe('true');
+    expect(open.glyph, 'launcher glyph flips to close').toBe('✕');
+
+    // Recording guard: while the mic shows ⏹ (recording), an outside
+    // tap must NOT fold the dial — folding would strand a recording
+    // the rep can't stop. Simulate the glyph state directly; the guard
+    // reads the DOM, not the recorder.
+    await safeEvaluate(page, () => {
+      document.getElementById('nbd-whisper-fab').innerHTML = '⏹';
+      document.body.click();
+    });
+    const dialState = await safeEvaluate(page, () => document.body.classList.contains('nbd-dial-open'));
+    expect(dialState, 'outside tap ignored while recording').toBe(true);
+
+    // Restore the idle glyph — now the same outside tap folds the dial
+    // and the tools park again.
+    await safeEvaluate(page, () => {
+      document.getElementById('nbd-whisper-fab').innerHTML = '🎤';
+      document.body.click();
+    });
+    await safeWaitForFunction(page, () => !document.body.classList.contains('nbd-dial-open'), { timeout: 5_000 });
+    await safeWaitForFunction(page, () => {
+      const s = getComputedStyle(document.getElementById('nbd-whisper-fab'));
+      return s.opacity === '0' && s.pointerEvents === 'none';
+    }, { timeout: 5_000 });
+  });
+
   // One-row toolbar (2026-07-06): the filter pills moved into the
   // Filters dropdown; this locks the menu lifecycle + the active-count
   // badge so a collapsed filter can never silently hide leads again.
