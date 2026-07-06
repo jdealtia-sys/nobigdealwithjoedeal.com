@@ -560,6 +560,62 @@ async function run() {
   await assertFails(getDoc(doc(alice, 'suppliers/sup-a/private/tin')));
   await assertFails(setDoc(doc(alice, 'suppliers/sup-a/private/tin'), { enc: 'x' }));
 
+  // ── TEAM PIPELINE VISIBILITY (2026-07-06) ─────────────────────
+  // Leads reads are company-scoped for company_admin/manager/viewer
+  // (the /expenses shape); sales_rep stays own-only and writes are NOT
+  // widened. Fresh contexts + fixtures here because earlier tests
+  // hard-delete leadCar and the legacy leadA/leadB deliberately carry
+  // NO companyId (they now double as the legacy-doc protection probe).
+  const mgrA     = env.authenticatedContext('mia',  { role: 'manager', companyId: 'co-a' }).firestore();
+  const viewerA  = env.authenticatedContext('vera', { role: 'viewer',  companyId: 'co-a' }).firestore();
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'leads/leadA2'), { userId: 'alice', name: 'Alice Team Lead', companyId: 'co-a' });
+    await setDoc(doc(db, 'leads/leadCar2'), { userId: 'carol', name: 'Carol Lead 2', companyId: 'co-a' });
+    await setDoc(doc(db, 'leads/leadA2/activity/act1'),
+      { userId: 'alice', type: 'note', source: 'rep', note: 'seeded' });
+    await setDoc(doc(db, 'leads/leadA/activity/legacy-act'),
+      { userId: 'alice', type: 'note', source: 'rep', note: 'legacy parent' });
+  });
+
+  // ✅ company_admin / manager / viewer read a teammate's lead in THEIR company
+  await assertSucceeds(getDoc(doc(coAdmin, 'leads/leadA2')));
+  await assertSucceeds(getDoc(doc(mgrA, 'leads/leadA2')));
+  await assertSucceeds(getDoc(doc(viewerA, 'leads/leadA2')));
+  // ❌ sales_rep does NOT read a teammate's lead (own-only — Wave 110)
+  await assertFails(getDoc(doc(alice, 'leads/leadCar2')));
+  // ❌ cross-tenant stays dead for every role
+  await assertFails(getDoc(doc(bob, 'leads/leadA2')));
+  await assertFails(getDoc(doc(viewer, 'leads/leadA2'))); // viewer of co-v
+  // ❌ LEGACY doc without companyId: company clause must NOT widen it —
+  // owner-only forever (absent-key access errors to deny).
+  await assertFails(getDoc(doc(coAdmin, 'leads/leadA')));
+  await assertFails(getDoc(doc(mgrA, 'leads/leadA')));
+
+  // ✅ the team kanban LIST query is provable: where('companyId','==',claim)
+  await assertSucceeds(getDocs(query(collection(mgrA, 'leads'), where('companyId', '==', 'co-a'))));
+  await assertSucceeds(getDocs(query(collection(viewerA, 'leads'), where('companyId', '==', 'co-a'))));
+  // ❌ …but not for sales_rep (rule excludes the role) nor cross-tenant
+  await assertFails(getDocs(query(collection(alice, 'leads'), where('companyId', '==', 'co-a'))));
+  await assertFails(getDocs(query(collection(bob, 'leads'), where('companyId', '==', 'co-a'))));
+  // ✅ the classic own-leads query stays provable for everyone
+  await assertSucceeds(getDocs(query(collection(alice, 'leads'), where('userId', '==', 'alice'))));
+
+  // ❌ visibility does NOT widen writes: non-owner staff cannot mutate
+  await assertFails(updateDoc(doc(mgrA, 'leads/leadA2'), { stage: 'contacted' }));
+  await assertFails(updateDoc(doc(coAdmin, 'leads/leadA2'), { stage: 'contacted' }));
+  await assertFails(deleteDoc(doc(viewerA, 'leads/leadA2')));
+
+  // ✅ subcollections follow the parent: staff/viewer read a teammate
+  // lead's activity; cross-tenant + legacy-parent stay denied.
+  await assertSucceeds(getDoc(doc(mgrA, 'leads/leadA2/activity/act1')));
+  await assertSucceeds(getDoc(doc(viewerA, 'leads/leadA2/activity/act1')));
+  await assertFails(getDoc(doc(bob, 'leads/leadA2/activity/act1')));
+  await assertFails(getDoc(doc(mgrA, 'leads/leadA/activity/legacy-act')));
+  // ❌ subcollection writes stay owner-only (manager can't forge activity)
+  await assertFails(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-forge'),
+    { userId: 'mia', type: 'note', source: 'rep', note: 'nope' }));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }

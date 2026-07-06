@@ -733,8 +733,12 @@ section('D2: Storage rules — content-type + size guards');
 section('D3: leads/*/activity subcollection rules');
 {
   const src = read(path.join(ROOT, 'firestore.rules'));
+  // Window widened 400→700 (2026-07-06): the activity READ rule gained the
+  // team-visibility parentLeadInMyCompany clause, pushing `allow create`
+  // further into the block — same reason the update/delete window below
+  // sits at 2000 (F-05 growth).
   assert('flat-path activity subcollection rule present',
-    /match \/activity\/\{activityId\}[\s\S]{0,400}allow create: if isAuth\(\)/.test(src));
+    /match \/activity\/\{activityId\}[\s\S]{0,700}allow create: if isAuth\(\)/.test(src));
   // F-05: rule body grew to include type allowlist + financial-field
   // reject list, so the window widened. `allow update, delete: if false`
   // is still the terminal statement of the match block.

@@ -153,16 +153,19 @@ the code that shipped this week.
 What the journey flushed out, in priority order. Each is a candidate for a
 future session; none blocked the journey itself.
 
-1. **Invited reps cannot see the tenant's pipeline.** `firestore.rules`
-   scopes `leads` reads to `isOwner(resource.data.userId)` — there is no
-   company-scoped read, and the rules comment (firestore.rules:70) says the
-   claim-based ownership match is "intentionally NOT enforced yet". So a
-   rep who claims into a team gets the claims, the member doc, and the
-   shared brand — but an EMPTY kanban. The team feature is
-   invite-complete, visibility-incomplete. (The Stranger Test asserts
-   what's true today: claims + activation + solo-supersede; it does NOT
-   assert shared-pipeline visibility. When the rules follow-up lands, add
-   that assertion.)
+1. **Invited members cannot see the tenant's pipeline.** ✅ **EXECUTED
+   2026-07-06 (the session after the Stranger Test).** Lead READS are now
+   company-scoped for company_admin/manager/viewer via the /expenses rule
+   shape (sales_rep stays own-only per the Wave-110 privacy decision;
+   writes stay owner-only). Subcollection reads follow the parent
+   (parentLeadInMyCompany). The kanban fetch is role-branched
+   (dashboard-bootstrap loadLeads), moveCard blocks non-owner drags with
+   a toast, and the Stranger Test's team journey now invites a MANAGER
+   and asserts the shared kanban + rules-level read/write boundary.
+   Remaining polish (deliberately deferred): a read-only affordance on
+   the customer page when staff open a teammate's lead (writes correctly
+   fail at rules today), and Jo's product call on whether managers should
+   EDIT team leads (would widen update rules — separate decision).
 
 2. **`submitPublicLead`'s App Check claim is dead config.** The handler
    sets `enforceAppCheck: true` with the comment "required; App Check sits

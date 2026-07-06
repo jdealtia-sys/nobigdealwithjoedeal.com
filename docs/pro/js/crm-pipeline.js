@@ -129,8 +129,11 @@ function renderLeads(leads, filtered){
   // When a user has a 'role' custom claim that is NOT 'admin' or
   // 'owner', they only see their own leads. Managers see all leads
   // in their company. Owners/admins see everything (no filter).
-  // The claims are set by the onRepSignup blocking auth trigger
-  // and are available on window._userClaims after login.
+  // The claims are set by claimInvite on first dashboard load (the
+  // de-GCIP'd Pillar 1 Phase 3 path; onRepSignup never deploys) and
+  // are available on window._userClaims after login. Since 2026-07
+  // the FETCH itself is role-branched too (dashboard-bootstrap
+  // loadLeads) — this render filter is defense-in-depth for reps.
   const _userRole = (window._userClaims && window._userClaims.role) || null;
   if (_userRole === 'sales_rep') {
     // Sales reps see only their own leads
@@ -1520,6 +1523,18 @@ async function moveCard(id, newStage){
   if(!lead) return;
   // Prevent concurrent moves on the same card
   if(lead._pending){ if(typeof showToast==='function') showToast('Move in progress...','info'); return; }
+
+  // Team visibility (2026-07): company_admin/manager/viewer now SEE
+  // teammates' cards on the shared board, but lead mutation stays
+  // owner-only at the rules layer (update requires isOwner). Block the
+  // move client-side with a clear message instead of letting the
+  // optimistic UI move a card the rules will silently bounce back.
+  const _meUid = window._user && window._user.uid;
+  const _isPlatformAdmin = ((window._userClaims && window._userClaims.role) || '') === 'admin';
+  if (lead.userId && _meUid && lead.userId !== _meUid && !_isPlatformAdmin) {
+    if (typeof showToast === 'function') showToast("This lead belongs to a teammate — only its owner can move it.", 'info');
+    return;
+  }
 
   // ─── Prospect status-change trap ───
   // If the user tries to move a prospect (which shouldn't normally

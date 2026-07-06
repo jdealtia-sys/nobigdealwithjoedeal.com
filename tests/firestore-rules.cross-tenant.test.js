@@ -103,6 +103,20 @@ async function run() {
   await check('leads: B reads A lead',                'deny',  getDoc(doc(bob, 'leads/leadA')));
   await check('leads: B updates A lead',              'deny',  updateDoc(doc(bob, 'leads/leadA'), { name: 'hijacked' }));
   await check('leads: B deletes A lead',              'deny',  deleteDoc(doc(bob, 'leads/leadA')));
+  // Team pipeline visibility (2026-07-06): lead READS are now company-
+  // scoped for company_admin/manager/viewer (sales_rep stays own-only),
+  // so leads no longer fit this section's "per-user-owned" framing for
+  // reads — writes remain owner-only. The load-bearing new probes are
+  // the cross-tenant attackers WITH staff roles: a role claim alone must
+  // never cross the companyId wall.
+  await check('leads: same-tenant MANAGER reads A lead',        'allow', getDoc(doc(eveMgr, 'leads/leadA')));
+  await check('leads: same-tenant sales_rep peer still denied', 'deny',  getDoc(doc(dave,   'leads/leadA')));
+  await check('leads: cross-tenant MANAGER still denied',       'deny',  getDoc(doc(bobMgr, 'leads/leadA')));
+  await check('leads: cross-tenant company_admin still denied', 'deny',  getDoc(doc(bobCA,  'leads/leadA')));
+  await check('leads: claim-less user still denied',            'deny',  getDoc(doc(noClaim,'leads/leadA')));
+  await check('leads: same-tenant manager still cannot WRITE',  'deny',  updateDoc(doc(eveMgr, 'leads/leadA'), { stage: 'hijacked' }));
+  await check('lead documents: same-tenant manager reads',      'allow', getDoc(doc(eveMgr, 'leads/leadA/documents/docA')));
+  await check('ai_drafts: same-tenant manager still denied',    'deny',  getDoc(doc(eveMgr, 'leads/leadA/ai_drafts/draftA')));
   await check('estimates: B reads A estimate',        'deny',  getDoc(doc(bob, 'estimates/estA')));
   await check('photos: B reads A photo',              'deny',  getDoc(doc(bob, 'photos/photoA')));
   await check('subscriptions: B reads A subscription','deny',  getDoc(doc(bob, 'subscriptions/alice')));

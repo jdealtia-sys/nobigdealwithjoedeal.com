@@ -1803,14 +1803,32 @@
       // needs no composite index for a single equality filter. Verified in
       // the emulator: identical set, no dupes/gaps across pages.
       const _PAGE = 500;
+      // Team pipeline visibility (2026-07): company_admin/manager/viewer
+      // fetch the whole tenant book — firestore.rules now allows the
+      // company-scoped read (the /expenses pattern) and this single
+      // equality filter is what makes the list query provable under it.
+      // Provisioned SOLO owners are company_admin with companyId == uid,
+      // so their company fetch returns the identical set as the old
+      // userId fetch (every lead carries companyId per the Rock 3
+      // backfill). sales_rep keeps the own-leads fetch — the Wave-110
+      // privacy decision (teammates' data must never reach their
+      // browser) — as do legacy claim-less accounts and platform-admin
+      // (role 'admin') sessions. Same implicit __name__ paging either
+      // way — no composite index needed.
+      const _claims = window._userClaims || {};
+      const _teamReader = ['company_admin', 'manager', 'viewer'].includes(_claims.role || '')
+        && !!_claims.companyId;
+      const _leadScope = _teamReader
+        ? where('companyId', '==', _claims.companyId)
+        : where('userId', '==', finalUid);
       const _runQuery = async () => {
         const allDocs = [];
         let cursor = null;
         // Hard ceiling so a pathological/corrupt cursor can't loop forever:
         // 200 pages × 500 = 100k leads, far beyond any real rep.
         for (let page = 0; page < 200; page++) {
-          let q = query(collection(db,'leads'), where('userId','==',finalUid), limit(_PAGE));
-          if (cursor) q = query(collection(db,'leads'), where('userId','==',finalUid), startAfter(cursor), limit(_PAGE));
+          let q = query(collection(db,'leads'), _leadScope, limit(_PAGE));
+          if (cursor) q = query(collection(db,'leads'), _leadScope, startAfter(cursor), limit(_PAGE));
           const pageSnap = await Promise.race([
             getDocs(q),
             new Promise((_, reject) => setTimeout(() => reject(new Error('getDocs(leads) timeout after 10000ms')), 10000))

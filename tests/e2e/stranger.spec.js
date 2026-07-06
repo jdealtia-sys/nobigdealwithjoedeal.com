@@ -302,7 +302,7 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
       'microsite lead card visible in tenant kanban').toBeVisible({ timeout: 15_000 });
   });
 
-  test('team: free plan is seat-gated; upgraded tenant invites a rep who claims in', async ({ page, browser }) => {
+  test('team: free plan is seat-gated; upgraded tenant invites a MANAGER who claims in and sees the shared pipeline', async ({ page, browser }) => {
     expect(STRANGER.uid, 'provision test must have run').toBeTruthy();
     const { db, auth, FieldValue } = admin();
 
@@ -310,7 +310,7 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
     await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 20_000 });
 
     // Free plan → zero seats. The gate must refuse BEFORE any member doc.
-    const gated = await callFromPage(page, 'createTeamInvite', { email: REP.email, role: 'sales_rep' });
+    const gated = await callFromPage(page, 'createTeamInvite', { email: REP.email, role: 'manager' });
     expect(gated.ok, 'free-plan invite refused').toBe(false);
     expect(gated.message, 'refusal names the upgrade path').toMatch(/growth plan/i);
 
@@ -321,7 +321,11 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    const invited = await callFromPage(page, 'createTeamInvite', { email: REP.email, role: 'sales_rep' });
+    // Invite as MANAGER — the role the product promises "sees all reps'
+    // leads" (team pipeline visibility, 2026-07). sales_rep own-only
+    // semantics are pinned by the rules suites; this journey proves the
+    // staff experience end to end.
+    const invited = await callFromPage(page, 'createTeamInvite', { email: REP.email, role: 'manager' });
     expect(invited.ok, `growth-plan invite succeeds (got: ${invited.message || ''})`).toBe(true);
     expect(invited.data && invited.data.invited).toBe(true);
     const memberRef = db.doc(`companies/${STRANGER.uid}/members/${REP.email}`);
@@ -361,14 +365,46 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
       expect(activated.uid, 'member doc records the claiming uid').toBe(REP.uid);
       expect(activated.activatedVia).toBe('claimInvite-v1');
 
-      // Claims re-pointed to the team; the rep's register-time solo tenant is
-      // absorbed, not deleted.
+      // Claims re-pointed to the team; the member's register-time solo
+      // tenant is absorbed, not deleted.
       const repUser = await auth.getUser(REP.uid);
-      expect((repUser.customClaims || {}).companyId, 'rep claims re-pointed to the tenant').toBe(STRANGER.uid);
-      expect((repUser.customClaims || {}).role).toBe('sales_rep');
+      expect((repUser.customClaims || {}).companyId, 'member claims re-pointed to the tenant').toBe(STRANGER.uid);
+      expect((repUser.customClaims || {}).role).toBe('manager');
       const repSolo = (await db.doc(`companies/${REP.uid}`).get()).data();
-      expect(repSolo && repSolo.status, 'rep solo tenant superseded-by-invite').toBe('superseded-by-invite');
+      expect(repSolo && repSolo.status, 'member solo tenant superseded-by-invite').toBe('superseded-by-invite');
       expect(repSolo && repSolo.supersededBy).toBe(STRANGER.uid);
+
+      // THE TEAM PAYOFF (2026-07): the manager's dashboard reboots into
+      // team scope and the role-branched loadLeads fetches the TENANT
+      // book — the owner's lead from the 'operate' test appears on the
+      // manager's kanban. Before company-scoped reads this was the
+      // punch-list #1 empty-kanban bug: invite-complete,
+      // visibility-incomplete.
+      await repPage.waitForURL(/\/pro\/dashboard(\.html)?([?#]|$)/, { timeout: 30_000 });
+      await openCrm(repPage);
+      await expect(repPage.locator(`text=/\\[E2E\\] Homeowner.*${stamp}/i`).first(),
+        "owner's lead card visible on the manager's shared kanban").toBeVisible({ timeout: 30_000 });
+
+      // Rules-level proof of the same thing (read the owner's lead doc
+      // directly), plus the write boundary: seeing is not editing.
+      const strangerLeadId = (await db.collection('leads')
+        .where('lastName', '==', LEAD_LAST).limit(1).get()).docs[0].id;
+      const managerRead = await repPage.evaluate(async (id) => {
+        const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        try {
+          const snap = await fs.getDoc(fs.doc(window.db || window._db, 'leads', id));
+          return { ok: snap.exists() };
+        } catch (e) { return { ok: false, err: String(e && (e.code || e.message)) }; }
+      }, strangerLeadId);
+      expect(managerRead.ok, `manager reads the owner's lead (err: ${managerRead.err || 'none'})`).toBe(true);
+      const managerWrite = await repPage.evaluate(async (id) => {
+        const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        try {
+          await fs.updateDoc(fs.doc(window.db || window._db, 'leads', id), { stage: 'hijacked' });
+          return { denied: false };
+        } catch (e) { return { denied: /permission|insufficient/i.test(String(e && (e.code || e.message))) }; }
+      }, strangerLeadId);
+      expect(managerWrite.denied, 'manager cannot MUTATE the owner\'s lead (writes stay owner-only)').toBe(true);
     } finally {
       await repContext.close();
     }
