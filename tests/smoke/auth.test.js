@@ -54,10 +54,23 @@ section('C-3: public form gate');
       new RegExp('match /' + col + '/\\{[^}]+\\}\\s*\\{[\\s\\S]{0,200}allow create, update, delete: if false').test(rules));
   }
   const fn = readFunctionsIndex();
+  // Window widened 2000→3500 (2026-07-06): the truth-telling comment on
+  // the config block (why enforceAppCheck is deliberately absent) sits
+  // between the export and the rate-limit call.
   assert('submitPublicLead uses httpRateLimit',
-    /submitPublicLead[\s\S]{0,2000}httpRateLimit\(req, res, 'publicLead:ip'/.test(fn));
+    /submitPublicLead[\s\S]{0,3500}httpRateLimit\(req, res, 'publicLead:ip'/.test(fn));
   assert('submitPublicLead has honeypot field',
     /honeypot tripped/.test(fn));
+  // Truth-telling contract (2026-07-06 punch item 2): the endpoint must
+  // NOT carry enforceAppCheck — v2 onRequest IGNORES the option, so its
+  // presence is dead config that reads as a protection which isn't there.
+  // The real gates (rate limit, Turnstile, honeypot, M-04 allowlist) are
+  // asserted above/below; this pins that the false claim can't return.
+  {
+    const m = fn.match(/exports\.submitPublicLead\s*=\s*onRequest\(([\s\S]{0,2500}?)async \(req, res\)/);
+    assert('submitPublicLead does NOT claim enforceAppCheck (dead config on onRequest)',
+      !!m && !/enforceAppCheck\s*:/.test(m[1].replace(/\/\/[^\n]*/g, '')));
+  }
 }
 
 // ── C-4: App Check init in dashboard ────────────────────────

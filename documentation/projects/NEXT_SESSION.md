@@ -15,7 +15,7 @@ Almost everything the planning docs list as "next" has already shipped:
 
 | Project | Status |
 |---|---|
-| Rock 1 — Firebase hosting cutover | ✅ done (Audit #4). Small tail: no HSTS / nosniff headers |
+| Rock 1 — Firebase hosting cutover | ✅ done (Audit #4). ~~Small tail: no HSTS / nosniff headers~~ — stale; both shipped in PR #813 (see bench item 3) |
 | Rock 2 — estimate engines 3→1 | PRs 1–5 ✅ (audit, deprecation telemetry, shared config, add-ons+deposit in V2, entry point). **PR 6 (delete classic) gated on warning bake until ~Jul 18+** |
 | Rock 3 — authed E2E suite | ✅ done (15 journeys, emulator CI). Flip to required ~Jul 19 after 2 weeks green |
 | Rock 4 — dashboard decomposition | ✅ Phases 1–6 done. Tail: globals Tranche 2b+ (`docs/dev/dashboard-decomposition-plan.md:462`) |
@@ -134,8 +134,12 @@ the code that shipped this week.
 2. **Retire `OWNER_EMAILS`** — `docs/pro/js/billing-gate.js:70` +
    `functions/billing.js` (Pillar 4 Phase 1 leftover); replace with a
    claim/config, keep the founder-never-gated invariant.
-3. **HSTS + `X-Content-Type-Options: nosniff`** in `firebase.json`
-   (Rock 1 tail).
+3. ~~**HSTS + `X-Content-Type-Options: nosniff`** in `firebase.json`
+   (Rock 1 tail).~~ **STALE — already shipped** (verified 2026-07-06):
+   the `source: "**"` header rule has carried both since PR #813
+   (`Strict-Transport-Security: max-age=63072000; includeSubDomains;
+   preload` + nosniff, plus X-Frame-Options/Referrer-Policy/COOP/CORP).
+   The "State of the board" row above predates that merge.
 
 ## Calendar-gated queue
 
@@ -194,15 +198,18 @@ future session; none blocked the journey itself.
    load. Review stats: 16 confirmed / 4 rejected across 23 agents; every
    confirmed finding is fixed or recorded here.
 
-2. **`submitPublicLead`'s App Check claim is dead config.** The handler
-   sets `enforceAppCheck: true` with the comment "required; App Check sits
-   in front" (functions/handlers/integrations.js:240) — but firebase-functions
-   v2 `onRequest` **ignores** `enforceAppCheck` (it is an `onCall`-only
-   option; verified in the SDK source). The endpoint's real protections
-   are Turnstile (when configured), per-IP rate limits, honeypot, and
-   validation — which may well be the right posture for a public homeowner
-   endpoint, but the code should say what's true: either implement manual
-   App Check verification or fix the comment/option.
+2. **`submitPublicLead`'s App Check claim is dead config.** ✅ **EXECUTED
+   2026-07-06 (hardening-tail follow-up).** The handler set
+   `enforceAppCheck: true` with the comment "required; App Check sits in
+   front" — but firebase-functions v2 `onRequest` **ignores**
+   `enforceAppCheck` (onCall-only; verified in the SDK source). Resolved
+   by TRUTH-TELLING, not manual verification: the option is removed and
+   the config now documents why App Check is deliberately absent — it
+   would be dead config on onRequest AND wrong for a public homeowner
+   quote form (anonymous browsers, no App Check provider). The real
+   posture is stated in place: per-IP rate limit (IPv6 /64-keyed),
+   Turnstile fail-closed when configured, honeypot, M-04 field
+   allowlist, CORS origin allowlist.
 
 3. **App Check enforcement blocks the emulator rig by design** — enforced
    callables reject a MISSING token even in the Functions emulator, while
