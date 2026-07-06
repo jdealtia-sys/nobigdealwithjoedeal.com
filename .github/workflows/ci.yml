@@ -273,10 +273,11 @@ jobs:
         run: |
           cd tests
           npm install --silent --no-audit --no-fund
-      # The rig now boots the FUNCTIONS emulator too (Stranger Test,
-      # 2026-07-06) — the emulated runtime loads functions/index.js, so its
-      # dependencies must be installed in every shard.
+      # The Stranger Test shard boots the FUNCTIONS emulator — the emulated
+      # runtime loads functions/index.js, so its dependencies must be
+      # installed there (and only there; legacy shards run functions-less).
       - name: Install functions deps (functions emulator runtime)
+        if: matrix.shard == '@stranger'
         run: |
           cd functions
           npm install --silent --no-audit --no-fund
@@ -287,6 +288,14 @@ jobs:
       - name: Run authed E2E against emulators
         env:
           PLAYWRIGHT_GREP: ${{ matrix.shard }}
+          # The FUNCTIONS emulator boots only for the Stranger Test shard —
+          # its ~140-function runtime measurably slows dashboard settle and
+          # widened the documented 301-hop "execution context destroyed"
+          # race in the legacy shards on the first full-rig run. The legacy
+          # shards keep their tuned functions-less environment (callable
+          # connection-refusals are allowlisted there); widening functions
+          # to all shards is future work once boot cost is addressed.
+          NBD_EMU_FUNCTIONS: ${{ matrix.shard == '@stranger' && '1' || '' }}
         run: |
           cd tests
           npm run test:e2e:authed:emu

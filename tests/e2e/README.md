@@ -145,8 +145,11 @@ password, set it as the GitHub Secret, done.
 ## The Stranger Test (`stranger.spec.js`, `@stranger` shard)
 
 The full second-contractor lifecycle against the FULL emulator rig —
-functions included (the `--only` list in `test:e2e:authed:emu` boots
-auth, firestore, functions, storage, hosting):
+functions included. Set `NBD_EMU_FUNCTIONS=1` to add the Functions
+emulator to the `test:e2e:authed:emu` `--only` list; the `@stranger` CI
+shard sets it, the legacy shards deliberately do NOT (the ~140-function
+runtime slows dashboard settle enough to widen the documented 301-hop
+"execution context destroyed" race those shards were tuned against):
 
 register → `createCompany` → onboarding completed for real → dashboard
 unwalled on the free plan → save a lead → the tenant microsite

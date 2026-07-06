@@ -48,6 +48,27 @@ function admin() {
   return _admin;
 }
 
+/**
+ * Navigate to the CRM view, surviving the login 301 hop (dashboard.html →
+ * cleanUrls → dashboard) that destroys the provisional execution context —
+ * same retry pattern as pro-authed.spec.js openCrmView, which exists
+ * because a wait latched onto the pre-hop document dies with
+ * "Execution context was destroyed".
+ */
+async function openCrm(page) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await page.waitForLoadState('load');
+      await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 20_000 });
+      await page.evaluate(() => window.goTo('crm'));
+      return;
+    } catch (e) {
+      if (!/Execution context was destroyed|navigation|not a function/i.test(String(e))) throw e;
+    }
+  }
+  throw new Error('openCrm: dashboard never settled with a working goTo()');
+}
+
 /** Poll an async predicate until truthy or timeout. Returns the value. */
 async function eventually(fn, { timeout = 30_000, interval = 1_000, label = 'condition' } = {}) {
   const deadline = Date.now() + timeout;
@@ -214,8 +235,7 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
     await page.route('**/nominatim.openstreetmap.org/**', route =>
       route.fulfill({ contentType: 'application/json', body: '[]' }));
     await loginAs(page, { email: STRANGER.email, password: STRANGER.password });
-    await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 20_000 });
-    await page.evaluate(() => window.goTo('crm'));
+    await openCrm(page);
     await expect(page.locator('#kanbanBoard, #view-crm .kanban-board').first()).toBeVisible({ timeout: 15_000 });
     await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 15_000 });
 
@@ -277,8 +297,7 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
 
     // …and their card shows up in THEIR kanban like any other lead.
     await loginAs(page, { email: STRANGER.email, password: STRANGER.password });
-    await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 20_000 });
-    await page.evaluate(() => window.goTo('crm'));
+    await openCrm(page);
     await expect(page.locator(`text=/Micro.*Site${stamp}/i`).first(),
       'microsite lead card visible in tenant kanban').toBeVisible({ timeout: 15_000 });
   });

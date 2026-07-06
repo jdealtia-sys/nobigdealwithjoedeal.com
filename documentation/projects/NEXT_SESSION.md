@@ -206,7 +206,17 @@ future session; none blocked the journey itself.
    covered (lead-bridge writes are asserted); the notification half needs
    either a Resend sandbox key in CI or an email-queue assertion seam.
 
-6. **Emulator seat-of-the-pants notes** for whoever extends the rig:
+6. **Functions emulator is scoped to the `@stranger` shard for now.** The
+   first full-rig CI run showed the legacy shards' documented 301-hop
+   "execution context destroyed" flake widening under the ~140-function
+   runtime's boot load (rotating single victims: d2d, docgen — the exact
+   pattern the shard-split comment predicts). `NBD_EMU_FUNCTIONS=1` gates
+   the functions emulator; only the Stranger shard sets it, so the legacy
+   shards keep the environment they were tuned against. Future work:
+   widen functions to all shards once boot cost is addressed (scope the
+   loaded codebase, or split the destructive shard further).
+
+7. **Emulator seat-of-the-pants notes** for whoever extends the rig:
    the functions emulator needs `functions/node_modules` in CI (step
    added); secrets warnings are expected noise; scheduled functions don't
    fire; `admin.firestore.FieldValue` namespaced statics are broken
