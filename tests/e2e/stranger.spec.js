@@ -135,9 +135,22 @@ async function callFromPageOnce(page, fnName, payload) {
  */
 async function callFromPage(page, fnName, payload) {
   let last;
-  for (let i = 0; i < 3; i++) {
-    last = await callFromPageOnce(page, fnName, payload);
-    const internal = !last.ok && /(^|\/)internal$/.test(last.code || '') ||
+  for (let i = 0; i < 4; i++) {
+    try {
+      // Re-anchor on a settled document each attempt: the login 301 hop
+      // (dashboard.html → cleanUrls → dashboard) can tear down the page
+      // between a wait and the evaluate — the fresh document has no
+      // Firebase app yet, so getFunctions() throws app/no-app (the same
+      // race class openCrm retries).
+      await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 20_000 });
+      last = await callFromPageOnce(page, fnName, payload);
+    } catch (e) {
+      if (!/No Firebase App|app\/no-app|Execution context was destroyed|navigation/i.test(String(e))) throw e;
+      last = { ok: false, code: 'transient/navigation', message: String(e) };
+      await new Promise((r) => setTimeout(r, 2_000));
+      continue;
+    }
+    const internal = (!last.ok && /(^|\/)internal$/.test(last.code || '')) ||
       (!last.ok && String(last.message).trim().toLowerCase() === 'internal');
     if (!internal) return last;
     await new Promise((r) => setTimeout(r, 2_000));
