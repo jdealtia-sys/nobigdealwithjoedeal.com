@@ -949,7 +949,10 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
       && typeof window._saveLead === 'function', null, { timeout: 20_000 });
 
     const stamp = Date.now();
-    const seeded = await page.evaluate(async (args) => {
+    // safeEvaluate: this test was tonight's most frequent SW-reload
+    // victim (failed 3 CI runs at these evaluates before the fixture
+    // hardening existed).
+    const seeded = await safeEvaluate(page, async (args) => {
       // Same in-context auth re-check as the invoice journey — _saveLead
       // stamps userId from window._user.
       for (let i = 0; i < 75 && !(window._user && window._user.uid); i++) {
@@ -1001,7 +1004,7 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
     // round-trip verbatim — not be coerced to a Timestamp or shifted a day
     // by a UTC conversion (customer portal + smart calendar + docgen all
     // read it as yyyy-mm-dd).
-    const persisted = await page.evaluate(async (id) => {
+    const persisted = await safeEvaluate(page, async (id) => {
       const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const db = window.db || window._db;
       const snap = await fsMod.getDoc(fsMod.doc(db, 'leads', id));
