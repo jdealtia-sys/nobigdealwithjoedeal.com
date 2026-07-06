@@ -1,0 +1,142 @@
+# Next Session — The Stranger Test
+
+> Planning brief, 2026-07-06. Written after a full sweep of BIG_ROCKS.md, the
+> pillar plans, the 2026-07 product audit, and the last 72 hours of merges
+> (PRs #839–#858). Self-contained: a fresh agent can pick this up cold.
+
+## State of the board (why this pick)
+
+Almost everything the planning docs list as "next" has already shipped:
+
+| Project | Status |
+|---|---|
+| Rock 1 — Firebase hosting cutover | ✅ done (Audit #4). Small tail: no HSTS / nosniff headers |
+| Rock 2 — estimate engines 3→1 | PRs 1–5 ✅ (audit, deprecation telemetry, shared config, add-ons+deposit in V2, entry point). **PR 6 (delete classic) gated on warning bake until ~Jul 18+** |
+| Rock 3 — authed E2E suite | ✅ done (15 journeys, emulator CI). Flip to required ~Jul 19 after 2 weeks green |
+| Rock 4 — dashboard decomposition | ✅ Phases 1–6 done. Tail: globals Tranche 2b+ (`docs/dev/dashboard-decomposition-plan.md:462`) |
+| Pillar 1 — provisioning | ✅ createCompany, invites (de-GCIP'd), onboarding wizard — shipped 2026-07-03 |
+| Pillar 4 — company billing | ✅ shipped. Tail: hardcoded `OWNER_EMAILS` bypass still live |
+| Pillar 5 — tenant sites | ✅ Phase 1 universal microsite `/sites/t/<slug>` + Oaks cutover (2026-07-04). Custom domains **deferred by Jo 2026-07-04** — do not revisit |
+| Funnel breaks (audit §1) | #1 free-guide dead-end ✅ fixed; #3 unverified-email 403 ✅ fixed (`functions/stripe.js:132`); #2 IAM grant = Jo console action, not code |
+| CRM mobile | Phase 1 + Phase 2 *foundation* merged (#854–#858). Aggressive consolidation needs Jo device-in-the-loop — can't be done unattended |
+
+The one thing that has **never been proven** is the product audit's central
+verdict (`documentation/architecture/NBD-PRO-PRODUCT-AUDIT-2026-07.md`):
+
+> "No stranger can self-provision a usable tenant today… Second contractor
+> tomorrow, unbabysat? **No.**"
+
+Every piece needed to flip that verdict shipped in the last 72 hours —
+`createCompany` (Jul 3), team invites (Jul 3), onboarding wizard (Jul 3),
+the tenant microsite (Jul 4), the funnel fixes (Jul 4–5). But **no test
+exercises them together**, and structurally none *can*: the authed E2E rig
+boots `--only auth,firestore,storage,hosting` (`tests/package.json:48`) —
+**no Functions emulator** — so the existing signup journey deliberately
+treats `createCompany` failing as non-fatal (`tests/e2e/pro-authed.spec.js:116`).
+The newest, least-tested, most product-critical code in the repo has zero
+end-to-end coverage.
+
+## The session: prove the SaaS, end to end
+
+**Goal:** add the Functions emulator to the authed E2E rig and write the
+**Stranger Journey** — the full second-contractor lifecycle running in CI on
+every PR, forever. This converts a month of shipped plumbing into a
+permanently enforced guarantee, and will flush out every remaining seam in
+the code that shipped this week.
+
+### Plan of attack
+
+1. **Functions emulator into the rig.** `firebase.json:355` already
+   configures it (port 5001); the work is extending
+   `test:e2e:authed:emu`'s `--only` list and making `functions/` boot clean
+   in emulator mode. Expect friction here — this IS the session's value:
+   - secrets/env the functions expect (Stripe, Resend, etc.) — provide
+     emulator-safe defaults, never real keys;
+   - `NBD_DEPLOY_SKIP_LIST` semantics under emulation (`onRepSignup` must
+     stay skipped);
+   - App Check: register/onboarding init it with enforcement — the rig
+     needs the emulator debug-token path;
+   - CI boot cost — if heavy, make it a 4th matrix entry (the tap-audit
+     already proved the extra-shard pattern).
+
+2. **Journey: provision.** Register (no access code) → `createCompany`
+   *actually succeeds* → `companyId` claim + `company_admin` role → complete
+   the onboarding wizard **for real** (brand name, color, contact — not the
+   skip link the existing journey uses) → land on the dashboard unwalled at
+   plan `free` → assert `companyProfile/{id}` is seeded NEUTRAL (the
+   Pillar-2 "NBD bleed" rule: the tenant's own name, not Joe's defaults).
+
+3. **Journey: operate.** Save a lead as the new tenant; assert it's scoped
+   to their `companyId`.
+
+4. **Journey: public face.** Load `/sites/t/<companyId>` → assert
+   `getPublicSiteConfig` renders THEIR name/colors → submit the quote form →
+   `submitPublicLead` routes the lead into THEIR pipeline (and the alert
+   target resolves to them — never Joe; `resolveAlertTarget`). Assert the
+   lead appears in their kanban and does NOT appear in the seeded NBD
+   tenant's.
+
+5. **Journey: team.** Owner invites a rep by email → member doc `invited` →
+   second browser context signs up with that (verified) email →
+   `claimInvite` merges `{companyId, role}` → rep sees the same pipeline;
+   the rep's superseded solo tenant is marked `superseded-by-invite`, not
+   deleted.
+
+6. **Isolation.** UI-level cross-tenant probes (complementing the existing
+   `firestore-rules.cross-tenant.test.js`): the stranger cannot read NBD
+   leads, and vice versa.
+
+7. **Punch list.** Every seam the journey flushes out gets recorded in a
+   findings section appended to this doc (or a `documentation/qa/` log) —
+   that list is the agenda for the session after this one.
+
+### Explicitly out of scope
+
+- **Stripe checkout in-emulator** — hosted checkout can't be emulated;
+  assert up to the `createCheckoutSession` request shape at most. The free
+  plan IS the provable product path (Jo's 2026-07-04 no-paywall decision).
+- **Custom domains** — deferred by Jo 2026-07-04.
+- **CRM Phase 2 consolidation** — device-in-the-loop with Jo only
+  (`docs/dev/crm-responsive-map.md`).
+- **Rock 2 PR 6** — deprecation warnings only started baking ~Jul 4; the
+  plan requires 14–30 days of field logs first.
+
+### Risks
+
+- Functions emulator flake/boot-weight in CI — mitigate with a dedicated
+  matrix shard and scoped seeds; keep the new journey `continue-on-error`
+  alongside the rest until it's proven stable.
+- The journey mutates auth users + multiple tenants — seeds must stay
+  idempotent (`tests/e2e/fixtures/seed-emulator.js` is the pattern).
+
+### Definition of done
+
+- CI boots the emulator rig **with functions** and runs the Stranger
+  Journey green.
+- Coverage: register → createCompany → onboard (real, not skipped) → save
+  lead → microsite renders tenant brand → public lead routes to tenant →
+  invite → claimInvite → shared pipeline.
+- Cross-tenant isolation assertions pass at the UI level.
+- Findings punch list recorded.
+- The audit's "second contractor tomorrow, unbabysat?" gets a dated,
+  evidence-backed answer in this doc.
+
+## The bench (if blocked, or the session finishes early)
+
+1. **Globals Tranche 2b+** — widgets/tasks/email_system/crm-snooze
+   remnants + the `_NBD_CALL_ALLOWLIST` cluster
+   (`docs/dev/dashboard-decomposition-plan.md:462`).
+2. **Retire `OWNER_EMAILS`** — `docs/pro/js/billing-gate.js:70` +
+   `functions/billing.js` (Pillar 4 Phase 1 leftover); replace with a
+   claim/config, keep the founder-never-gated invariant.
+3. **HSTS + `X-Content-Type-Options: nosniff`** in `firebase.json`
+   (Rock 1 tail).
+
+## Calendar-gated queue
+
+| When | What |
+|---|---|
+| ~Jul 18+ | Rock 2 PR 6 — read the deprecation field logs first, then delete/stub `estimates.js` classic paths |
+| ~Jul 19 | Flip `e2e-authed-emulator` from `continue-on-error` to required (needs 2 weeks green from Jul 5) |
+| With Jo on device | CRM Phase 2 aggressive breakpoint consolidation |
+| Jo console action | IAM grant `roles/iam.serviceAccountTokenCreator` (access-code login, audit Break #2) |
