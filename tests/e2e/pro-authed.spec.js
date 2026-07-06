@@ -1556,9 +1556,21 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
   test('pipeline one-row toolbar: Filters menu toggles a filter and badges the count', async ({ page }) => {
     await loginAs(page, creds);
     await openCrmView(page);
-    await safeWaitForFunction(page, () => !!document.getElementById('crmFiltersBtn'), { timeout: 15_000 });
-    await safeEvaluate(page, () => document.getElementById('crmFiltersBtn').click());
-    await safeWaitForFunction(page, () => document.getElementById('crmFiltersMenu')?.classList.contains('open'), { timeout: 5_000 });
+    // Gate on the delegate's module actually executing (not just the
+    // markup existing): a click during the SW-reload storm can land
+    // before dashboard-ui.js binds, silently doing nothing — the exact
+    // 2026-07-06 first-CI-run failure. Then click-until-open: the
+    // predicate re-clicks each poll until the class appears, checking
+    // BEFORE clicking so an already-open menu is never toggled shut.
+    await safeWaitForFunction(page, () => typeof window.toggleCrmFiltersMenu === 'function'
+      && !!document.getElementById('crmFiltersBtn'), { timeout: 15_000 });
+    await safeWaitForFunction(page, () => {
+      const menu = document.getElementById('crmFiltersMenu');
+      if (!menu) return false;
+      if (menu.classList.contains('open')) return true;
+      document.getElementById('crmFiltersBtn').click();
+      return menu.classList.contains('open');
+    }, { timeout: 10_000 });
     await safeEvaluate(page, () => document.getElementById('needsAttentionBtn').click());
     await safeWaitForFunction(page, () => {
       const b = document.getElementById('needsAttentionBtn');

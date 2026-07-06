@@ -873,8 +873,13 @@
     align-items:center;
     padding:6px 14px;          /* Pro Chrome: was 8px 14px — claws back 4px of vertical */
     flex-shrink:0;
-    /* On desktop force one row; mobile media query below allows wrapping. */
-    flex-wrap:nowrap;
+    /* One-row toolbar (2026-07-06): wrap at every width — the toolbar
+       row stays one line by itself (three controls can't overflow) and
+       the .crm-hdr-viewrow's flex-basis:100% NEEDS wrap to break onto
+       its own line. The visual-QA screenshots caught the old nowrap
+       squeezing the chips row inline and pushing the Board/List toggle
+       off-viewport. */
+    flex-wrap:wrap;
     gap:6px;                   /* Pro Chrome: was 8px */
     border-bottom:1px solid var(--br);
   }
