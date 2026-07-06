@@ -49,7 +49,7 @@
 <link rel="preload" href="js/crm-leads.js?v=1" as="script">
 <link rel="preload" href="js/crm-pipeline.js?v=1" as="script">
 <link rel="preload" href="js/crm-snooze.js?v=1" as="script">
-<link rel="preload" href="js/crm-portal-bridge.js?v=1" as="script">
+<link rel="preload" href="js/crm-portal-bridge.js?v=2" as="script">
 <link rel="preload" href="js/crm.js?v=32" as="script">
 <link rel="preload" href="js/maps.js?v=10" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -65,7 +65,7 @@
 <!-- Optional theme fonts: 14 additional families used by alt themes only. Loaded
      non-blocking via the media-swap trick — the browser fetches them after first
      paint instead of stalling render on a 14-family Google Fonts request. -->
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Unbounded:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&family=Anton&family=Exo+2:wght@400;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Unbounded:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&family=Anton&family=Exo+2:wght@400;600;700&display=swap" data-nbd-font-swap>
 <noscript><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=Space+Mono:wght@400;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&family=Unbounded:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Share+Tech+Mono&family=Courier+Prime:wght@400;700&family=Anton&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet"></noscript>
 <!--
   App Check (C-4): the reCAPTCHA v3 site key is origin-bound and
@@ -121,7 +121,7 @@
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
      /pro/css revalidation policy instead of shipping in every HTML load. -->
-<link rel="stylesheet" href="css/dashboard-app.css?v=1">
+<link rel="stylesheet" href="css/dashboard-app.css?v=2">
 <!-- Kanban force CSS — extracted to css/kanban-force.css (Rock 4 Phase 2c). -->
 <link rel="stylesheet" href="css/kanban-force.css?v=1" id="kanban-force-css-link">
 <!-- v5→DS theme bridge — extracted to css/theme-bridge.css (Rock 4 Phase 2d). -->
@@ -305,7 +305,7 @@
 </svg>
 
 <header>
-  <div style="display:flex;align-items:center;gap:10px;">
+  <div class="brand-wrap">
     <div class="logo-mark">NBD</div>
     <div class="logo">NBD <span>PRO</span></div>
   </div>
@@ -1423,7 +1423,15 @@
   </template>
 
   <!-- ══ ESTIMATES ══ -->
-  <div class="view" id="view-est">
+  <!-- Rock 4 Phase 4 (final view): ESTIMATES — empty mount. The last raw
+       view, deliberately deferred until Rock 2 PR 5 (V2-only entry) landed.
+       Every external writer reaches this DOM through goTo('est') first
+       (maps-routing import, bootstrap ?est= deep link, recent-estimates
+       widget), and goTo hydrates synchronously before use. The inline
+       insurance-overlay-toggle <script src> inside re-executes via the
+       _hydrateViewTemplate clone-script swap. -->
+  <div class="view" id="view-est" data-view-template="tpl-view-est"></div>
+  <template id="tpl-view-est">
     <!-- Step 0: List -->
     <div id="est-list" class="view-scroll">
       <div class="page-hdr">
@@ -1722,7 +1730,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </template>
 
   <!-- ══ CRM ══ -->
   <!-- Phase C.3-finish: CRM (PIPELINE / KANBAN) — empty mount. This is
@@ -1763,37 +1771,77 @@
           <option>Full Exterior</option><option>Fire</option><option>Water</option>
         </select>
 
-        <!-- VIEW switcher inline (replaces the old VIEW: row) -->
-        <div class="crm-hdr-views" id="kanbanViewSwitcher" role="tablist" aria-label="Pipeline view">
-          <button class="kview-btn active" data-view="insurance" data-action="kanbanView" data-target="insurance">Ins<span class="kview-count" id="kview-count-insurance"></span></button>
-          <button class="kview-btn" data-view="cash" data-action="kanbanView" data-target="cash">Cash<span class="kview-count" id="kview-count-cash"></span></button>
-          <button class="kview-btn" data-view="finance" data-action="kanbanView" data-target="finance">Fin<span class="kview-count" id="kview-count-finance"></span></button>
-          <button class="kview-btn" data-view="warranty" data-action="kanbanView" data-target="warranty" title="Warranty / callback pipeline">War<span class="kview-count" id="kview-count-warranty"></span></button>
-          <button class="kview-btn" data-view="service" data-action="kanbanView" data-target="service" title="Service / small repair pipeline">Svc<span class="kview-count" id="kview-count-service"></span></button>
-          <button class="kview-btn" data-view="jobs" data-action="kanbanView" data-target="jobs">Jobs<span class="kview-count" id="kview-count-jobs"></span></button>
-          <button class="kview-btn" data-view="simple" data-action="kanbanView" data-target="simple">All<span class="kview-count" id="kview-count-simple"></span></button>
-        </div>
+
       </div>
 
-      <!-- RIGHT: action icons -->
+      <!-- RIGHT: actions — one-row toolbar (2026-07-06, Jo's call after
+           the header grew button-by-button until it overflowed the
+           viewport). Three controls, nothing else:
+             1. FILTERS dropdown — the five filter/sort toggles moved
+                INSIDE (same real elements, same ids, so every filter
+                module + the toggle delegate keep working untouched);
+                the button carries an active-count badge synced by
+                syncCrmFilterIndicators (dashboard-ui.js).
+             2. Tools (⋯) — nav shortcuts as before, plus Bulk / CSV /
+                deleted-leads / sample data and the sidebar/fullscreen/
+                density utilities (labels added for menu context).
+             3. ＋ Add Lead — the primary action stays a top-level
+                button (PR #869 revival).
+           The old .crm-tools-menu-mobile duplicate cluster is gone —
+           the real buttons now live in menus at every width. -->
       <div class="crm-hdr-actions">
-        <!-- Sidebar collapse — toggles icon-only rail to gain horizontal room -->
-        <button class="crm-icon-btn" id="sidebarToggleBtn" data-action="toggle" data-target="sidebarCollapse" title="Toggle sidebar">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M8 3v14"/></svg>
-        </button>
-        <!-- Fullscreen kanban — hides chrome -->
-        <button class="crm-icon-btn" id="kanbanFullscreenBtn" data-action="toggle" data-target="kanbanFullscreen" title="Fullscreen kanban (Esc to exit)">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg>
-        </button>
-
-        <!-- Sweep R3 (C): card-density quick toggle. The density picker
-             still lives in Settings → Display, but reps don't want to
-             open Settings just to flip from Comfy to Compact when
-             they're scanning a busy column. This button cycles
-             Compact → Comfortable → Spacious in place. -->
-        <button class="crm-icon-btn" id="kanbanDensityToggleBtn" data-action="call" data-fn="cycleKanbanDensity" title="Card density (cycles Compact → Comfortable → Spacious)">
-          <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
-        </button>
+        <div class="crm-tools-wrap">
+          <button class="btn btn-ghost crm-hdr-btn" id="crmFiltersBtn" data-action="crmFiltersMenu" title="Filters & sorting" style="position:relative;">
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h14l-5.5 6.5V16l-3 1.2v-6.7L3 4z"/></svg>
+            <span class="crm-hdr-btn-label">Filters</span>
+            <span id="crmFiltersActiveBadge" style="display:none;background:var(--orange);color:var(--accent-fg);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+          </button>
+          <div class="crm-tools-menu" id="crmFiltersMenu" role="menu" aria-label="Pipeline filters">
+            <!-- Wave 25: Needs Attention filter — composes Wave 13 + 17 +
+                 19 signals into a single click. Toggling it filters the
+                 kanban to leads with stale-stage (≥7d), overdue tasks,
+                 or stale estimates. -->
+            <button class="btn btn-ghost crm-hdr-btn" id="needsAttentionBtn"
+              data-action="toggle" data-target="needsAttention"
+              title="Show only leads that need follow-up: stale stage, overdue task, or stale estimate"
+              style="position:relative;transition:background .15s,border-color .15s,color .15s;">
+              🚨 <span class="crm-hdr-btn-label">Needs Attention</span>
+              <span id="needsAttentionCountBadge"
+                style="display:none;background:#ef4444;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+            </button>
+            <!-- Wave 54: Stale Shares filter — customers shared 5+ days
+                 ago with no customer-side response. -->
+            <button class="btn btn-ghost crm-hdr-btn" id="staleSharesBtn"
+              data-action="toggle" data-target="staleShares"
+              title="Show only customers you shared the link with 5+ days ago who haven't responded"
+              style="position:relative;transition:background .15s,border-color .15s,color .15s;">
+              📤 <span class="crm-hdr-btn-label">Stale Shares</span>
+              <span id="staleSharesCountBadge"
+                style="display:none;background:rgba(155,109,255,0.85);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+            </button>
+            <!-- Wave 35: snoozed-leads toggle. -->
+            <button class="btn btn-ghost crm-hdr-btn" id="snoozedToggleBtn"
+              data-action="toggle" data-target="showSnoozed"
+              title="Show snoozed leads (hidden by default)"
+              style="position:relative;transition:background .15s,border-color .15s,color .15s;">
+              💤 <span id="snoozedBtnLabel" class="crm-hdr-btn-label">Snoozed</span>
+              <span id="snoozedCountBadge"
+                style="display:none;background:rgba(155,109,255,0.85);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+            </button>
+            <!-- Wave 93: sort kanban by engagement tier toggle. -->
+            <button class="btn btn-ghost crm-hdr-btn" id="engagementSortBtn"
+              data-action="toggle" data-target="engagementSort"
+              title="Sort each column by engagement tier (Hot first)"
+              style="position:relative;transition:background .15s,border-color .15s,color .15s;">
+              🔥 <span class="crm-hdr-btn-label">Hot first</span>
+            </button>
+            <hr style="border:none;border-top:1px solid var(--br);margin:6px 0;">
+            <button class="btn btn-ghost crm-hdr-btn pos-rel" id="prospectsToggleBtn" data-action="goTo" data-target="prospects" title="Open Prospects page">
+              👀 <span id="prospectsBtnLabel" class="crm-hdr-btn-label">Prospects</span>
+              <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--accent-fg);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
+            </button>
+          </div>
+        </div>
 
         <!-- Tools dropdown (was the entire secondary toolbar) -->
         <div class="crm-tools-wrap">
@@ -1809,93 +1857,67 @@
             <button data-action="toolMenuGoTo" data-target="schedule">📅 Schedule</button>
             <hr style="border:none;border-top:1px solid var(--br);margin:6px 0;">
             <button data-action="toolMenuGoTo" data-target="dash">🏠 Dashboard</button>
-            <!-- Mobile-only filter cluster: mirrors the right-side
-                 inline filter buttons that get hidden on ≤768px to
-                 declutter the header. Same data-action/data-target as
-                 the inline counterparts so the existing toggle
-                 dispatcher handles them with no extra wiring. -->
-            <div class="crm-tools-menu-mobile">
-              <hr style="border:none;border-top:1px solid var(--br);margin:6px 0;">
-              <button data-action="toggle" data-target="needsAttention">🚨 Needs Attention</button>
-              <button data-action="toggle" data-target="staleShares">📤 Stale Shares</button>
-              <button data-action="goTo" data-target="prospects">👀 Prospects</button>
-              <button data-action="toggle" data-target="showSnoozed">💤 Snoozed</button>
-              <button data-action="toggle" data-target="engagementSort">🔥 Hot first</button>
-              <hr style="border:none;border-top:1px solid var(--br);margin:6px 0;">
-              <button data-action="toggle" data-target="bulkMode">☑ Bulk select</button>
-              <button data-action="call" data-fn="exportLeadsCSV">📤 Export CSV</button>
-            </div>
+            <hr style="border:none;border-top:1px solid var(--br);margin:6px 0;">
+            <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" data-action="toggle" data-target="bulkMode" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk select</span></button>
+            <button class="btn btn-ghost crm-hdr-btn" id="csvExportBtn" data-action="call" data-fn="exportLeadsCSV" title="Export CSV">📤 <span class="crm-hdr-btn-label">Export CSV</span></button>
+            <button class="btn btn-ghost btn-trash-toggle crm-hdr-btn" data-action="call" data-fn="openDeletedDrawer" title="Deleted Leads">
+              🗑 <span class="crm-hdr-btn-label">Deleted leads</span>
+              <span class="trash-count-badge" id="trashCountBadge"></span>
+            </button>
+            <button class="btn btn-ghost crm-hdr-btn" id="loadSampleDataBtn" data-action="call" data-fn="loadSampleData" style="display:none;" title="Add 5 sample leads">
+              🎲 <span class="crm-hdr-btn-label">Sample data</span>
+            </button>
+            <hr style="border:none;border-top:1px solid var(--br);margin:6px 0;">
+            <!-- Sidebar collapse — toggles icon-only rail to gain horizontal room -->
+            <button class="crm-icon-btn" id="sidebarToggleBtn" data-action="toggle" data-target="sidebarCollapse" title="Toggle sidebar">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="14" height="14" rx="1.5"/><path d="M8 3v14"/></svg>
+              <span class="crm-hdr-btn-label">Collapse sidebar</span>
+            </button>
+            <!-- Fullscreen kanban — hides chrome -->
+            <button class="crm-icon-btn" id="kanbanFullscreenBtn" data-action="toggle" data-target="kanbanFullscreen" title="Fullscreen kanban (Esc to exit)">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg>
+              <span class="crm-hdr-btn-label">Fullscreen board</span>
+            </button>
+            <!-- Sweep R3 (C): card-density quick toggle. -->
+            <button class="crm-icon-btn" id="kanbanDensityToggleBtn" data-action="call" data-fn="cycleKanbanDensity" title="Card density (cycles Compact → Comfortable → Spacious)">
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
+              <span class="crm-hdr-btn-label">Card density</span>
+            </button>
           </div>
         </div>
 
-        <span class="crm-hdr-sep" aria-hidden="true"></span>
-        <button class="btn btn-ghost btn-trash-toggle crm-hdr-btn" data-action="call" data-fn="openDeletedDrawer" title="Deleted Leads">
-          🗑
-          <span class="trash-count-badge" id="trashCountBadge"></span>
-        </button>
-        <button class="btn btn-ghost crm-hdr-btn" id="loadSampleDataBtn" data-action="call" data-fn="loadSampleData" style="display:none;background:var(--purple);color:white;" title="Add 5 sample leads">
-          🎲 Sample
-        </button>
-        <span class="crm-hdr-sep" aria-hidden="true"></span>
-        <!-- Wave 25: Needs Attention filter — composes Wave 13 + 17 +
-             19 signals into a single click. Toggling it filters the
-             kanban to leads with stale-stage (≥7d), overdue tasks,
-             or stale estimates. -->
-        <button class="btn btn-ghost crm-hdr-btn" id="needsAttentionBtn"
-          data-action="toggle" data-target="needsAttention"
-          title="Show only leads that need follow-up: stale stage, overdue task, or stale estimate"
-          style="position:relative;transition:background .15s,border-color .15s,color .15s;">
-          🚨 <span class="crm-hdr-btn-label">Needs Attention</span>
-          <span id="needsAttentionCountBadge"
-            style="display:none;background:#ef4444;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
-        </button>
-        <!-- Wave 54: Stale Shares filter — customers shared 5+ days
-             ago with no customer-side response. Different recovery
-             flavor than Needs Attention (which surfaces stage/task/
-             estimate signals). Compounds W44 lastSharedAt tracking. -->
-        <button class="btn btn-ghost crm-hdr-btn" id="staleSharesBtn"
-          data-action="toggle" data-target="staleShares"
-          title="Show only customers you shared the link with 5+ days ago who haven't responded"
-          style="position:relative;transition:background .15s,border-color .15s,color .15s;">
-          📤 <span class="crm-hdr-btn-label">Stale Shares</span>
-          <span id="staleSharesCountBadge"
-            style="display:none;background:rgba(155,109,255,0.85);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
-        </button>
-        <button class="btn btn-ghost crm-hdr-btn pos-rel" id="prospectsToggleBtn" data-action="goTo" data-target="prospects" title="Open Prospects page">
-          👀 <span id="prospectsBtnLabel" class="crm-hdr-btn-label">Prospects</span>
-          <span id="prospectsCountBadge" style="display:none;background:var(--orange);color:var(--accent-fg);font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
-        </button>
-        <!-- Wave 35: snoozed-leads toggle. Hidden by default (snoozed
-             leads are deferred-by-design); flips on to surface them
-             when the rep wants to triage their snooze backlog. Count
-             badge shows how many are currently snoozed. -->
-        <button class="btn btn-ghost crm-hdr-btn" id="snoozedToggleBtn"
-          data-action="toggle" data-target="showSnoozed"
-          title="Show snoozed leads (hidden by default)"
-          style="position:relative;transition:background .15s,border-color .15s,color .15s;">
-          💤 <span id="snoozedBtnLabel" class="crm-hdr-btn-label">Snoozed</span>
-          <span id="snoozedCountBadge"
-            style="display:none;background:rgba(155,109,255,0.85);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px;">0</span>
-        </button>
-        <!-- Wave 93: sort kanban by engagement tier toggle. When ON,
-             cards within each stage column reorder descending by
-             W91/W92 tier (✅→🔥→👀→📨→🌱). Lets reps see Hot leads
-             at the top of every column for prioritization. -->
-        <button class="btn btn-ghost crm-hdr-btn" id="engagementSortBtn"
-          data-action="toggle" data-target="engagementSort"
-          title="Sort each column by engagement tier (Hot first)"
-          style="position:relative;transition:background .15s,border-color .15s,color .15s;">
-          🔥 <span class="crm-hdr-btn-label">Hot first</span>
-        </button>
-        <span class="crm-hdr-sep" aria-hidden="true"></span>
-        <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" data-action="toggle" data-target="bulkMode" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk</span></button>
-        <button class="btn btn-ghost crm-hdr-btn" id="csvExportBtn" data-action="call" data-fn="exportLeadsCSV" title="Export CSV">📤 <span class="crm-hdr-btn-label">CSV</span></button>
-        <!-- CRM cleanup 2026-05-14: inline ＋ Add button removed.
-             The orange FAB at the bottom-right (see #fabAddLead) is the
-             primary add action, and the `C` keyboard shortcut still
-             opens the lead modal — so the inline duplicate just ate
-             horizontal real estate in an already-crowded action row. -->
+        <!-- Add Lead RESTORED 2026-07-06 (Jo's call: header button + FAB).
+             See PR #869 — the FAB had silently died in a script-order
+             change and the 2026-05-14 cleanup had removed the inline
+             button on the premise the FAB covered it. `C` still works. -->
+        <button class="btn crm-hdr-btn" id="crmAddLeadBtn" data-action="call" data-fn="openLeadModal" title="Add Lead (C)"
+          style="background:var(--orange);color:var(--accent-fg);border:1px solid var(--accent-ring);">＋ <span class="crm-hdr-btn-label">Add Lead</span></button>
       </div>
+
+      <!-- VIEW switcher — its own slim row under the toolbar (2026-07-06:
+           was inline in the search cluster, where it wrapped mid-header
+           and read as clutter; now a deliberate second row). -->
+      <div class="crm-hdr-viewrow">
+        <!-- VIEW switcher inline (replaces the old VIEW: row) -->
+        <div class="crm-hdr-views" id="kanbanViewSwitcher" role="tablist" aria-label="Pipeline view">
+          <button class="kview-btn active" data-view="insurance" data-action="kanbanView" data-target="insurance">Ins<span class="kview-count" id="kview-count-insurance"></span></button>
+          <button class="kview-btn" data-view="cash" data-action="kanbanView" data-target="cash">Cash<span class="kview-count" id="kview-count-cash"></span></button>
+          <button class="kview-btn" data-view="finance" data-action="kanbanView" data-target="finance">Fin<span class="kview-count" id="kview-count-finance"></span></button>
+          <button class="kview-btn" data-view="warranty" data-action="kanbanView" data-target="warranty" title="Warranty / callback pipeline">War<span class="kview-count" id="kview-count-warranty"></span></button>
+          <button class="kview-btn" data-view="service" data-action="kanbanView" data-target="service" title="Service / small repair pipeline">Svc<span class="kview-count" id="kview-count-service"></span></button>
+          <button class="kview-btn" data-view="jobs" data-action="kanbanView" data-target="jobs">Jobs<span class="kview-count" id="kview-count-jobs"></span></button>
+          <button class="kview-btn" data-view="simple" data-action="kanbanView" data-target="simple">All<span class="kview-count" id="kview-count-simple"></span></button>
+        </div>
+        <!-- Board/List toggle (2026-07-06, Jo's call: lean triage list).
+             Right-aligned in the view row; mode persists per device
+             (crm-list-view.js). List = sortable triage table over the
+             SAME filtered lead set the kanban renders. -->
+        <div class="crm-view-mode" role="group" aria-label="Pipeline layout">
+          <button class="kview-btn" id="crmViewBoardBtn" data-action="call" data-fn="crmViewBoard" title="Kanban board">▦ Board</button>
+          <button class="kview-btn" id="crmViewListBtn" data-action="call" data-fn="crmViewList" title="Sortable list">≡ List</button>
+        </div>
+      </div>
+
       <!-- Bulk action toolbar (hidden until bulk mode active).
            Stage moves still go through moveCard() to preserve the
            transactional history + lost-reason prompt. Field
@@ -2049,6 +2071,10 @@
     <div id="dailyCommandCenter" class="dt-widget"></div>
 
     <!-- KANBAN BOARD — columns generated dynamically by buildKanbanColumns() -->
+    <!-- Lean triage list surface (2026-07-06) — populated by
+         crm-list-view.js when body.crm-list-mode is on; the kanban
+         stays rendered underneath so toggling back is instant. -->
+    <div id="crmListWrap" class="crm-list-wrap"></div>
     <div class="kanban-board" id="kanbanBoard">
       <!-- Populated on load by window.buildKanbanColumns() -->
     </div><!-- /kanban-board -->
@@ -3847,7 +3873,7 @@
               </div>
             </div>
             <div style="font-size:11px;color:var(--m);padding:10px 14px;background:var(--s2);border:1px solid var(--br);border-radius:4px;">
-              <strong class="fg-orange">Pricing:</strong> Solo operators never pay for team features. Multi-user unlocks at the Crew tier ($299/mo, up to 5 reps, +$39/mo per additional seat) and scales with Enterprise (unlimited, custom pricing).
+              <strong class="fg-orange">Pricing:</strong> Solo operators never pay for team features. Multi-user unlocks at the Growth plan ($299/mo, includes up to 5 team seats) and scales with Enterprise (unlimited, custom pricing).
             </div>
           </div>
         </div>
@@ -5882,15 +5908,16 @@
      push token via getToken({vapidKey}), and persists it to
      users/{uid}/fcmTokens so the backend reminder/lead pushes have recipients.
      No-ops until window.__NBD_VAPID_KEY is set (dashboard-fcm-config.js). -->
-<script defer src="js/push-registration.js?v=1"></script>
-<script defer src="js/crm-portal-bridge.js?v=1"></script>
+<script defer src="js/push-registration.js?v=2"></script>
+<script defer src="js/crm-portal-bridge.js?v=2"></script>
 <script defer src="js/crm.js?v=32"></script>
+<script defer src="js/crm-list-view.js?v=1"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>
 <script defer src="js/global-search.js?v=1"></script>
 <script defer src="js/bottleneck-widget.js?v=1"></script>
-<script defer src="js/pwa-install-nudge.js?v=1"></script>
+<script defer src="js/pwa-install-nudge.js?v=4"></script>
 <script defer src="js/data-export.js?v=1"></script>
 <script defer src="js/shortcuts-help.js?v=1"></script>
 <script defer src="js/data-import.js?v=1"></script>
@@ -5929,7 +5956,7 @@
      loaded in order before the thin maps.js shim. See maps.js
      header for the full split rationale. Each module is a classic
      <script> (non-ESM) and shares sibling-scope globals. -->
-<script defer src="js/maps-core.js?v=2"></script>
+<script defer src="js/maps-core.js?v=3"></script>
 <script defer src="js/maps-overlays.js?v=2"></script>
 <script defer src="js/maps-routing.js?v=3"></script>
 <script defer src="js/maps.js?v=10"></script>
@@ -5964,7 +5991,7 @@
      window._leadDoc / _customerId / _customerEstimates / _allPhotos, which
      the dashboard stages just-in-time in _stageWindowStateForLead. -->
 <script defer src="js/share-gallery.js?v=2"></script>
-<script defer src="js/analytics-kpi.js?v=3"></script>
+<script defer src="js/analytics-kpi.js?v=4"></script>
 <!-- T-3: AI texting analytics card (renders on the board/analytics view) -->
 <script defer src="js/ai-texting-stats-card.js?v=1"></script>
 <!-- T-4: AI texting persona editor (Settings → AI Texting tab) -->
@@ -6035,9 +6062,16 @@
 <!-- W149: FAB stack coordinator — hides voice/inbox FABs when a
      modal is open so they don't float over the modal content. -->
 <script defer src="js/fab-stack-coordinator.js?v=1"></script>
-<!-- W150: PWA install prompt — beforeinstallprompt for Android +
-     manual Add-to-Home-Screen card for iOS. -->
-<script defer src="js/pwa-install.js?v=1"></script>
+<!-- W150 pwa-install.js DELETED (2026-07-05): it and pwa-install-nudge.js
+     were two complete install-prompt systems, both loaded here. They shared
+     the #nbd-pwa-install-banner element id but kept separate dismissal
+     flags, so dismissing one banner immediately surfaced the other. The
+     nudge (session-gated, snooze + forever-dismiss, iOS/Android
+     walkthroughs; loaded above with the widget scripts) is now the ONLY
+     install-prompt system, on the dashboard and customer.html alike. It
+     still honors W150's stored dismiss/install state so nobody is
+     re-nagged. -->
+
 <!-- W151: offline banner — shows a yellow strip across the top
      when navigator.onLine === false. -->
 <script defer src="js/offline-banner.js?v=1"></script>
