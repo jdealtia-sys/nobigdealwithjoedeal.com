@@ -1908,6 +1908,14 @@
           <button class="kview-btn" data-view="jobs" data-action="kanbanView" data-target="jobs">Jobs<span class="kview-count" id="kview-count-jobs"></span></button>
           <button class="kview-btn" data-view="simple" data-action="kanbanView" data-target="simple">All<span class="kview-count" id="kview-count-simple"></span></button>
         </div>
+        <!-- Board/List toggle (2026-07-06, Jo's call: lean triage list).
+             Right-aligned in the view row; mode persists per device
+             (crm-list-view.js). List = sortable triage table over the
+             SAME filtered lead set the kanban renders. -->
+        <div class="crm-view-mode" role="group" aria-label="Pipeline layout">
+          <button class="kview-btn" id="crmViewBoardBtn" data-action="call" data-fn="crmViewBoard" title="Kanban board">▦ Board</button>
+          <button class="kview-btn" id="crmViewListBtn" data-action="call" data-fn="crmViewList" title="Sortable list">≡ List</button>
+        </div>
       </div>
 
       <!-- Bulk action toolbar (hidden until bulk mode active).
@@ -2063,6 +2071,10 @@
     <div id="dailyCommandCenter" class="dt-widget"></div>
 
     <!-- KANBAN BOARD — columns generated dynamically by buildKanbanColumns() -->
+    <!-- Lean triage list surface (2026-07-06) — populated by
+         crm-list-view.js when body.crm-list-mode is on; the kanban
+         stays rendered underneath so toggling back is instant. -->
+    <div id="crmListWrap" class="crm-list-wrap"></div>
     <div class="kanban-board" id="kanbanBoard">
       <!-- Populated on load by window.buildKanbanColumns() -->
     </div><!-- /kanban-board -->
@@ -5899,6 +5911,7 @@
 <script defer src="js/push-registration.js?v=2"></script>
 <script defer src="js/crm-portal-bridge.js?v=2"></script>
 <script defer src="js/crm.js?v=32"></script>
+<script defer src="js/crm-list-view.js?v=1"></script>
 <script defer src="js/tasks.js?v=4"></script>
 <script defer src="js/notif-bell.js?v=1"></script>
 <script defer src="js/lead-dedup.js?v=1"></script>

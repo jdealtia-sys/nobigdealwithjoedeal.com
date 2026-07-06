@@ -133,6 +133,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   '_mJdSwitchTab', '_mJdAct', '_mJdShare', '_mCreate',
   // CRM kanban + filters
   'tlFilterCat', 'tlToggleCat', 'setKanbanDensity', 'cycleKanbanDensity',
+  // Board/List layout toggle (2026-07-06 lean triage list — crm-list-view.js)
+  'crmViewBoard', 'crmViewList',
   // Joe AI quick prompts + chat lifecycle
   'joeQuick', 'clearJoeChat', 'clearJoeKey',
   // Draw / zone / pin tools

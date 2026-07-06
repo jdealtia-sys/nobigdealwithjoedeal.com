@@ -1576,6 +1576,38 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     }, { timeout: 5_000 });
   });
 
+  // Lean triage list (2026-07-06): Board/List toggle over the same
+  // filtered lead set; stage select rides moveCard. Spy-based like the
+  // kanban drop test — no data mutated.
+  test('pipeline list view: toggle renders sortable rows; stage select routes through moveCard', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    await safeWaitForFunction(page, () => typeof window.crmViewList === 'function'
+      && !!document.getElementById('crmListWrap'), { timeout: 15_000 });
+    await safeEvaluate(page, () => window.crmViewList());
+    await safeWaitForFunction(page, () => document.body.classList.contains('crm-list-mode')
+      && document.querySelectorAll('#crmListWrap .crm-list-row').length > 0, { timeout: 10_000 });
+    const spy = await safeEvaluate(page, () => {
+      const sel = document.querySelector('#crmListWrap .cl-stage-select');
+      if (!sel) return { ok: false, reason: 'no stage select' };
+      const orig = window.moveCard;
+      const seen = [];
+      window.moveCard = (id, st) => { seen.push([id, st]); };
+      try {
+        const other = Array.from(sel.options).map(o => o.value).find(v => v !== sel.value);
+        sel.value = other;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      } finally { window.moveCard = orig; }
+      return { ok: true, seen, id: sel.dataset.id };
+    });
+    expect(spy.ok, 'list rendered a stage select').toBe(true);
+    expect(spy.seen.length, 'stage change routed through moveCard exactly once').toBe(1);
+    expect(spy.seen[0][0], 'moveCard called with the row lead id').toBe(spy.id);
+    // Back to board so later serial tests see the kanban
+    await safeEvaluate(page, () => window.crmViewBoard());
+    await safeWaitForFunction(page, () => !document.body.classList.contains('crm-list-mode'), { timeout: 5_000 });
+  });
+
   test('nav customizer opens and addTab responds through the delegate (no inline handlers)', async ({ page }) => {
     // Full console capture: when this journey fails in CI the modal is
     // simply absent, which means the module-tail delegate never bound —

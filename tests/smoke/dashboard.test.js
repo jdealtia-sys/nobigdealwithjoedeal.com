@@ -1103,6 +1103,43 @@ section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');
     !/#needsAttentionBtn,\s*#staleSharesBtn/.test(styles));
 }
 
+section('Pipeline lean triage list (2026-07-06) — Board/List toggle');
+{
+  // Jo's scope call: the list is a LEAN sortable table sharing the
+  // kanban's fully-narrowed lead set — no bulk/thumbnails/drag (those
+  // stay kanban-only), stage changes ride the same moveCard path.
+  const lv = read(path.join(PRO_JS, 'crm-list-view.js'));
+  assert('crm-list-view module exposes CrmListView + call-delegate entry points',
+    /window\.CrmListView = \{ isActive, render, clear \}/.test(lv)
+    && /window\.crmViewBoard = /.test(lv) && /window\.crmViewList\s*= /.test(lv));
+  assert('stage select rides moveCard (history + gating intact)',
+    /window\.moveCard\(sel\.dataset\.id, sel\.value\)/.test(lv));
+  assert('mode persists in localStorage and gates body.crm-list-mode',
+    /nbd-crm-view-mode/.test(lv) && /crm-list-mode/.test(lv));
+
+  const dashHtml = readDashboard();
+  assert('view row carries the Board/List toggle wired through the call delegate',
+    /id="crmViewBoardBtn"[^>]*data-fn="crmViewBoard"/.test(dashHtml)
+    && /id="crmViewListBtn"[^>]*data-fn="crmViewList"/.test(dashHtml));
+  assert('list surface div sits beside the kanban board',
+    /id="crmListWrap"[\s\S]{0,600}id="kanbanBoard"/.test(dashHtml));
+  assert('crm-list-view.js ships as a script tag',
+    /<script defer src="js\/crm-list-view\.js/.test(dashHtml));
+
+  const state = read(path.join(PRO_JS, 'dashboard-state.js'));
+  assert('call allowlist admits crmViewBoard/crmViewList',
+    /'crmViewBoard', 'crmViewList'/.test(state));
+
+  const pipe = read(path.join(PRO_JS, 'crm-pipeline.js'));
+  assert('renderLeads hands the fully-narrowed list to CrmListView',
+    /window\.CrmListView\.isActive\(\)\) window\.CrmListView\.render\(list\)/.test(pipe));
+
+  const styles = readDashboardStyles();
+  assert('body.crm-list-mode swaps the surfaces CSS-side',
+    /body\.crm-list-mode #view-crm \.kanban-board\{ display:none !important; \}/.test(styles)
+    && /body\.crm-list-mode \.crm-list-wrap\{ display:block/.test(styles));
+}
+
 section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
 {
   const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
