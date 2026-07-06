@@ -1138,22 +1138,76 @@
     /* Age column is the most droppable on narrow phones */
     .crm-list-table .cl-age, .crm-list-table th[data-sort="age"]{ display:none; }
 
-    /* ── Mobile FAB slimming (2026-07-06, Jo's screenshots + call) ──
-       When the Wave-149 hide bug was fixed, phones met the full
-       four-button floating stack for the first time — the W128 mic sat
-       ON TOP of the bottom nav's MORE button (its bottom:20px predates
-       #mobile-nav, 62px + safe-area) and the column occluded kanban
-       cards. Interim posture until the speed-dial ships (next session,
-       Jo's pick): phones float ONLY ＋ Add Lead, lifted clear of the
-       nav; the mic / quick-capture / inbox tools are mobile-hidden
-       (zero regression — they were opacity-0 and untappable on every
-       platform for months). display:none!important outranks the
-       modules' inline cssText. Desktop keeps all four. */
-    #nbd-whisper-fab, #nbd-qc-fab, #nbd-qci-fab{ display:none !important; }
-    #addLeadFab{
+    /* ── Mobile FAB speed-dial (2026-07-06, Jo's pick — supersedes the
+       same-day interim that display:none'd the field tools) ──
+       Phones collapse the three field-tool FABs (W128 mic, W130 quick
+       capture, W132 inbox) behind ONE ⋯ launcher (#nbd-fab-dial, built
+       by fab-speed-dial.js) so the bottom-right column never stacks
+       four buttons over the kanban + bottom nav again. Closed: tools
+       sit parked at their fan slots, faded + untappable (their inline
+       cssText already transitions opacity, so the fade animates).
+       Open (body.nbd-dial-open): they fan out in a thumb row to the
+       LEFT of the launcher, centers aligned on the launcher's center
+       line (y = 78px + 24 + safe-area). ＋ Add Lead floats ABOVE the
+       launcher. bottom/right need !important to outrank the modules'
+       inline positions; opacity deliberately does NOT get !important —
+       fab-stack-coordinator's inline hide must still win while a
+       full-screen modal is open. */
+    #nbd-whisper-fab{
+      opacity:0; pointer-events:none;
+      bottom:calc(75px + env(safe-area-inset-bottom, 0px)) !important;
+      right:calc(76px + env(safe-area-inset-right, 0px)) !important;
+    }
+    #nbd-qc-fab{
+      opacity:0; pointer-events:none;
       bottom:calc(78px + env(safe-area-inset-bottom, 0px)) !important;
+      right:calc(142px + env(safe-area-inset-right, 0px)) !important;
+    }
+    #nbd-qci-fab{
+      opacity:0; pointer-events:none;
+      bottom:calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+      right:calc(202px + env(safe-area-inset-right, 0px)) !important;
+    }
+    body.nbd-dial-open #nbd-whisper-fab,
+    body.nbd-dial-open #nbd-qc-fab,
+    body.nbd-dial-open #nbd-qci-fab{
+      opacity:1; pointer-events:auto;
+    }
+    #addLeadFab{
+      bottom:calc(138px + env(safe-area-inset-bottom, 0px)) !important;
       right:calc(16px + env(safe-area-inset-right, 0px)) !important;
     }
+  }
+
+  /* ── Field-tools speed-dial launcher (#nbd-fab-dial) ──
+     Built by fab-speed-dial.js; mobile-only (the ≤768px block below
+     turns it on — desktop keeps the classic vertical FAB stack and
+     never shows it). Sits in the slot the interim slimming gave the
+     Add Lead FAB: bottom-right, just clear of #mobile-nav (62px +
+     safe-area). Same z-index as its stack siblings so
+     fab-stack-coordinator's inline opacity toggle works unchanged. */
+  #nbd-fab-dial{
+    display:none;
+    position:fixed;
+    bottom:calc(78px + env(safe-area-inset-bottom, 0px));
+    right:calc(16px + env(safe-area-inset-right, 0px));
+    z-index:9999;
+    width:48px; height:48px; border-radius:50%;
+    background:var(--s2, #1a1f2e); color:var(--orange, #c8541a);
+    border:1px solid var(--br, #2a3344); cursor:pointer;
+    font-size:20px; font-weight:700; line-height:1;
+    box-shadow:0 4px 14px rgba(0,0,0,.35);
+    align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent;
+    transition:background .15s, color .15s, opacity .16s;
+  }
+  body.nbd-dial-open #nbd-fab-dial{
+    background:var(--orange, #c8541a);
+    color:var(--accent-fg, #fff);
+    border-color:var(--accent-ring, rgba(255,255,255,.35));
+  }
+  @media (max-width:768px){
+    #nbd-fab-dial{ display:flex; }
   }
 
   /* Sidebar-collapsed mode — narrows the rail to icons only.

@@ -1048,12 +1048,51 @@ section('Add Lead revival (2026-07-06) — pipeline affordances cannot silently 
     /_CLASS_TOGGLED = new Set\(\[[^\]]*'nbd-picker-modal'/.test(coord));
   assert('coordinator observes class flips on the persistent class-toggled modals',
     /_CLASS_TOGGLED\.forEach[\s\S]{0,200}attributeFilter: \['class'\]/.test(coord));
-  // Mobile FAB slimming (2026-07-06): phones float ONLY ＋ Add Lead,
-  // lifted above #mobile-nav (62px + safe-area); the three field-tool
-  // FABs are mobile-hidden until the speed-dial ships.
-  assert('mobile hides the field-tool FABs and lifts ＋ above the bottom nav',
-    /#nbd-whisper-fab, #nbd-qc-fab, #nbd-qci-fab\{ display:none !important; \}/.test(styles)
-    && /#addLeadFab\{\s*bottom:calc\(78px \+ env\(safe-area-inset-bottom, 0px\)\) !important;/.test(styles));
+}
+
+section('Mobile FAB speed-dial (2026-07-06, Jo\'s pick) — one launcher, tools fan out');
+{
+  // Supersedes the same-day interim that display:none'd the field
+  // tools on phones. Contract: phones show ⋯ (#nbd-fab-dial) + ＋ Add
+  // Lead above it; the mic/capture/inbox FABs park faded at their fan
+  // slots and appear only while body.nbd-dial-open. Desktop never
+  // shows the launcher and keeps the classic vertical stack.
+  const dial = read(path.join(PRO_JS, 'fab-speed-dial.js'));
+  const styles = readDashboardStyles();
+  const dashHtml = readDashboard();
+  const coord = read(path.join(PRO_JS, 'fab-stack-coordinator.js'));
+
+  assert('dashboard loads fab-speed-dial.js',
+    /<script defer src="js\/fab-speed-dial\.js\?v=\d+"><\/script>/.test(dashHtml));
+  assert('launcher toggles body.nbd-dial-open',
+    /OPEN_CLASS = 'nbd-dial-open'/.test(dial)
+    && /classList\.toggle\(OPEN_CLASS, open\)/.test(dial));
+  assert('coordinator hides the launcher with the rest of the stack',
+    /FAB_IDS = \[[\s\S]{0,400}'nbd-fab-dial'/.test(coord));
+
+  // The mic swaps its glyph to ⏹ while recording; folding the dial
+  // then would leave an unstoppable recording. Both dismiss paths and
+  // the tool-tap fallthrough must respect it.
+  assert('dismiss paths are recording-safe (⏹ guard + tool taps excluded)',
+    /_micIsRecording[\s\S]{0,200}'⏹'/.test(dial)
+    && /_onDocClick[\s\S]{0,400}_micIsRecording\(\)/.test(dial)
+    && /_onDocClick[\s\S]{0,600}#nbd-whisper-fab, #nbd-qc-fab, #nbd-qci-fab/.test(dial));
+
+  // CSS contract — parked tools: opacity WITHOUT !important (the
+  // fab-stack-coordinator's inline hide must still win during modals),
+  // positions WITH !important (must outrank the modules' inline
+  // cssText). Launcher hidden on desktop, shown ≤768px.
+  assert('mobile parks the field tools faded at fan slots (no !important on opacity)',
+    /#nbd-whisper-fab\{\s*opacity:0; pointer-events:none;\s*bottom:calc\(75px[^}]*!important/.test(styles)
+    && /#nbd-qc-fab\{\s*opacity:0; pointer-events:none;\s*bottom:calc\(78px[^}]*!important/.test(styles)
+    && /#nbd-qci-fab\{\s*opacity:0; pointer-events:none;\s*bottom:calc\(80px[^}]*!important/.test(styles));
+  assert('body.nbd-dial-open fans the tools out',
+    /body\.nbd-dial-open #nbd-whisper-fab,\s*body\.nbd-dial-open #nbd-qc-fab,\s*body\.nbd-dial-open #nbd-qci-fab\{\s*opacity:1; pointer-events:auto;/.test(styles));
+  assert('＋ Add Lead floats ABOVE the launcher on mobile (138px slot)',
+    /#addLeadFab\{\s*bottom:calc\(138px \+ env\(safe-area-inset-bottom, 0px\)\) !important;/.test(styles));
+  assert('launcher styled at the bottom slot, desktop-hidden, mobile-shown',
+    /#nbd-fab-dial\{\s*display:none;\s*position:fixed;\s*bottom:calc\(78px/.test(styles)
+    && /@media \(max-width:768px\)\{\s*#nbd-fab-dial\{ display:flex; \}\s*\}/.test(styles));
 }
 
 section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');
