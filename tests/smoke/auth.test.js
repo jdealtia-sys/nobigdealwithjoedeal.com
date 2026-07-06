@@ -955,38 +955,56 @@ section('OWNER-ROLE: mintOwnerClaims exists and DEPLOYS');
     /isGlobalAdmin \|\| isOwnerCaller\(request\.auth\.token\)/.test(invites));
 }
 
-section('OWNER-ROLE: client checks key on the owner claim (email = deprecated fallback)');
+section('OWNER-ROLE: client authorization is claim-ONLY (emails = mint trigger in ONE file)');
 {
+  // OWNER_EMAILS retirement (2026-07-06, Jo's call: safe demotion).
+  // Client-side, the founder emails may exist in EXACTLY ONE file —
+  // nbd-auth.js — and only as the mintOwnerClaims trigger, never as an
+  // authorization input. Every access decision keys on claims.owner.
+  const OWNER_EMAIL_RE = /jonathandeal459@gmail\.com|jd@nobigdealwithjoedeal\.com/;
+
   const nbdAuth = read(path.join(PRO_JS, 'nbd-auth.js'));
-  assert('nbd-auth.js owner bypass checks claims.owner === true',
-    /_ownerClaim = _claims\.owner === true/.test(nbdAuth));
-  assert('nbd-auth.js keeps the OWNER_EMAILS fallback during transition',
-    /OWNER_EMAILS = new Set\(\[[\s\S]{0,120}'jd@nobigdealwithjoedeal\.com'/.test(nbdAuth));
-  assert('nbd-auth.js fallback is marked deprecated with a removal note',
-    /DEPRECATED[\s\S]{0,400}(remove|REMOVE)[\s\S]{0,200}claims are confirmed in prod/i.test(nbdAuth));
-  assert('nbd-auth.js calls mintOwnerClaims when email matched but claim missing',
-    /if \(!_ownerClaim\) _requestOwnerClaimMint\(user\)/.test(nbdAuth)
-    && /httpsCallable\(fns, 'mintOwnerClaims'\)/.test(nbdAuth));
-  assert('nbd-auth.js hasAccess() honors the owner claim',
-    /hasAccess\(plan\)\s*\{[\s\S]{0,200}_claims\.owner === true/.test(nbdAuth));
+  assert('nbd-auth.js owner bypass keys on claims.owner === true',
+    /_ownerClaim = _claims\.owner === true/.test(nbdAuth)
+    && /if \(_ownerClaim\) \{/.test(nbdAuth));
+  assert('nbd-auth.js keeps the mint-trigger list (documented as trigger-only)',
+    /OWNER_EMAILS = new Set\(\[[\s\S]{0,120}'jd@nobigdealwithjoedeal\.com'/.test(nbdAuth)
+    && /MINT TRIGGER ONLY/.test(nbdAuth));
+  assert('nbd-auth.js self-heal: mint is awaited then claims are re-read',
+    /_requestOwnerClaimMint\(user\)/.test(nbdAuth)
+    && /httpsCallable\(fns, 'mintOwnerClaims'\)/.test(nbdAuth)
+    && /reread = await Promise\.race/.test(nbdAuth));
+  assert('nbd-auth.js isOwner getter is claim-only (no email read)',
+    /get isOwner\(\)\s*\{[\s\S]{0,400}return _claims\.owner === true;\s*\}/.test(nbdAuth));
+  {
+    const m = nbdAuth.match(/hasAccess\(plan\)\s*\{[\s\S]{0,600}?\n  \}/);
+    assert('nbd-auth.js hasAccess() honors the owner claim, no email fallback',
+      !!m && /_claims\.owner === true/.test(m[0]) && !/OWNER_EMAILS/.test(m[0]));
+  }
 
   const gate = read(path.join(PRO_JS, 'billing-gate.js'));
-  assert('billing-gate.js _isOwner checks window._userClaims.owner === true first',
+  assert('billing-gate.js _isOwner is claim-only',
     /_isOwner\(\)\s*\{[\s\S]{0,400}window\._userClaims\.owner === true/.test(gate));
-  assert('billing-gate.js keeps the deprecated email fallback',
-    /DEPRECATED[\s\S]{0,600}OWNER_EMAILS/.test(gate) || /OWNER_EMAILS[\s\S]{0,600}DEPRECATED/.test(gate));
+  assert('billing-gate.js contains no founder-email literals',
+    !OWNER_EMAIL_RE.test(gate));
 
   const boot = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
-  assert('dashboard-bootstrap owner check is claim-first (claims.owner === true)',
-    /isOwnerAccount = \(_bootClaims && _bootClaims\.owner === true\)/.test(boot));
+  assert('dashboard-bootstrap owner check is claim-only',
+    /isOwnerAccount = \(_bootClaims && _bootClaims\.owner === true\);/.test(boot));
+  assert('dashboard-bootstrap contains no founder-email AUTH literals',
+    !/=== 'jd@nobigdealwithjoedeal\.com'|=== 'jonathandeal459@gmail\.com'/.test(boot));
 
   const onboarding = read(path.join(PRO_JS, 'pages/onboarding.js'));
-  assert('onboarding.js owner redirect is claim-first',
-    /state\.claims\.owner === true \|\| OWNER_EMAILS\.includes\(emailLower\)/.test(onboarding));
+  assert('onboarding.js owner redirect is claim-only',
+    /if \(state\.claims\.owner === true\) \{ toDashboard\(\); return; \}/.test(onboarding));
+  assert('onboarding.js contains no founder-email literals',
+    !OWNER_EMAIL_RE.test(onboarding));
 
   const academy = read(path.join(PRO_JS, 'real-deal-academy.js'));
   assert('real-deal-academy.js tier unlock honors the owner claim',
     /window\._userClaims\?\.owner === true/.test(academy));
+  assert('real-deal-academy.js contains no founder-email literals',
+    !OWNER_EMAIL_RE.test(academy));
 }
 
 };

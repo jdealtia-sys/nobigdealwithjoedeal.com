@@ -83,19 +83,20 @@ function makeBilling({ user, subDoc, subExists = true, claims, claimsError } = {
     assert('legacy professional doc: aiCalls unlocked (Infinity)', B.canUse('aiCalls') === true);
   }
 
-  // 3. Owner email bypass → enterprise, never gated (short-circuits Firestore).
+  // 3. OWNER_EMAILS retirement (2026-07-06): a founder EMAIL with no owner
+  //    claim gets NO bypass — email alone never authorizes anymore. (The
+  //    self-heal lives in nbd-auth.js: mint + token re-read at login turns
+  //    a real founder session into case 3b before billing-gate ever gates.)
   {
     const B = makeBilling({ user: { uid: 'owner', email: 'jonathandeal459@gmail.com' }, subDoc: { plan: 'free', status: 'none' } });
     await B.loadSubscription();
-    assert('owner bypass: getPlan().plan === enterprise', B.getPlan().plan === 'enterprise');
-    assert('owner bypass: canUse(team) true despite free sub doc', B.canUse('team') === true);
-    assert('owner bypass: canUse(leads) true', B.canUse('leads') === true);
+    assert('founder email, NO claim: stays free (email never authorizes)', B.getPlan().plan === 'free');
+    assert('founder email, NO claim: team locked like any free user', B.canUse('team') === false);
   }
 
   // 3b. Owner CLAIM bypass (claims-based root) — an { owner: true } custom
-  //     claim must bypass gating even when the email is NOT in the
-  //     deprecated OWNER_EMAILS fallback list. This is the post-transition
-  //     path: once the email list is removed, the claim is the only key.
+  //     claim bypasses gating regardless of email. Since the retirement
+  //     this is THE owner path, not the post-transition one.
   {
     const B = makeBilling({
       user: { uid: 'claim-owner', email: 'not-in-the-list@demo.test' },
@@ -103,14 +104,15 @@ function makeBilling({ user, subDoc, subExists = true, claims, claimsError } = {
       subDoc: { plan: 'free', status: 'none' },
     });
     await B.loadSubscription();
-    assert('owner claim (email NOT listed): getPlan().plan === enterprise', B.getPlan().plan === 'enterprise');
-    assert('owner claim (email NOT listed): canUse(team) true', B.canUse('team') === true);
-    assert('owner claim (email NOT listed): canUse(reports) true', B.canUse('reports') === true);
+    assert('owner claim (any email): getPlan().plan === enterprise', B.getPlan().plan === 'enterprise');
+    assert('owner claim (any email): canUse(team) true', B.canUse('team') === true);
+    assert('owner claim (any email): canUse(reports) true', B.canUse('reports') === true);
   }
 
-  // 3c. Claims read FAILURE + listed owner email → the deprecated email
-  //     fallback still bypasses (transition safety: Jo can never be locked
-  //     out by a claims-read hiccup or a not-yet-minted claim).
+  // 3c. Claims read FAILURE + listed owner email → NO bypass since the
+  //     retirement. The session degrades to the subscription doc for this
+  //     load and heals at the next login (nbd-auth mint + refresh) — it
+  //     must NOT fail open on an email literal.
   {
     const B = makeBilling({
       user: { uid: 'owner-fallback', email: 'jd@nobigdealwithjoedeal.com' },
@@ -118,8 +120,8 @@ function makeBilling({ user, subDoc, subExists = true, claims, claimsError } = {
       subDoc: { plan: 'free', status: 'none' },
     });
     await B.loadSubscription();
-    assert('claims read fails + listed email: still enterprise (fallback)', B.getPlan().plan === 'enterprise');
-    assert('claims read fails + listed email: canUse(team) true', B.canUse('team') === true);
+    assert('claims read fails + founder email: NO email bypass (stays free)', B.getPlan().plan === 'free');
+    assert('claims read fails + founder email: team locked (degrade, heal next login)', B.canUse('team') === false);
   }
 
   // 3d. Claims read failure + NON-owner email → NO bypass (the fallback
