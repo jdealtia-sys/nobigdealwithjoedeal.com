@@ -131,7 +131,7 @@ section('Bulk lead operations — writeBatch + NBDStore + new fields');
   // writes are rules-denied — one denied doc voids an atomic batch) sits
   // between the function head and the writeBatch call.
   assert('commitBulkLeadOp uses writeBatch + chunk cap < 500',
-    /async function commitBulkLeadOp[\s\S]{0,1600}window\.writeBatch\(window\.db\)/.test(crm)
+    /async function commitBulkLeadOp[\s\S]{0,2400}window\.writeBatch\(window\.db\)/.test(crm)
     && /CHUNK\s*=\s*450/.test(crm));
 
   // New bulk capabilities — carrier + damage. These are the

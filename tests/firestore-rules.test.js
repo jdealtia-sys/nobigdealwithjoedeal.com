@@ -568,6 +568,7 @@ async function run() {
   // NO companyId (they now double as the legacy-doc protection probe).
   const mgrA     = env.authenticatedContext('mia',  { role: 'manager', companyId: 'co-a' }).firestore();
   const viewerA  = env.authenticatedContext('vera', { role: 'viewer',  companyId: 'co-a' }).firestore();
+  const mgrB     = env.authenticatedContext('mob',  { role: 'manager', companyId: 'co-b' }).firestore();
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     await setDoc(doc(db, 'leads/leadA2'), { userId: 'alice', name: 'Alice Team Lead', companyId: 'co-a' });
@@ -578,6 +579,7 @@ async function run() {
       { userId: 'alice', title: 'call back', done: false });
     await setDoc(doc(db, 'leads/leadA2/notes/note1'),
       { userId: 'alice', text: 'roof notes' });
+    await setDoc(doc(db, 'leads/leadDel'), { userId: 'alice', name: 'Delete Me', companyId: 'co-a' });
     await setDoc(doc(db, 'leads/leadA/activity/legacy-act'),
       { userId: 'alice', type: 'note', source: 'rep', note: 'legacy parent' });
   });
@@ -605,15 +607,28 @@ async function run() {
   // ✅ the classic own-leads query stays provable for everyone
   await assertSucceeds(getDocs(query(collection(alice, 'leads'), where('userId', '==', 'alice'))));
 
-  // ❌ visibility does NOT widen writes: non-owner staff cannot mutate
-  await assertFails(updateDoc(doc(mgrA, 'leads/leadA2'), { stage: 'contacted' }));
-  await assertFails(updateDoc(doc(coAdmin, 'leads/leadA2'), { stage: 'contacted' }));
+  // ── MANAGER EDIT RIGHTS (2026-07-06, Jo's product call) ────────
+  // Same-company staff UPDATE any tenant lead (kanban fully workable)…
+  await assertSucceeds(updateDoc(doc(mgrA, 'leads/leadA2'), { stage: 'contacted' }));
+  await assertSucceeds(updateDoc(doc(coAdmin, 'leads/leadA2'), { stage: 'inspected' }));
+  // …but provenance is FROZEN: no reassigning ownership or re-tenanting.
+  await assertFails(updateDoc(doc(mgrA, 'leads/leadA2'), { userId: 'mia' }));
+  await assertFails(updateDoc(doc(mgrA, 'leads/leadA2'), { companyId: 'co-b' }));
+  // Viewer stays read-only; cross-tenant staff stays dead; legacy
+  // no-companyId docs stay owner-only for writes too.
+  await assertFails(updateDoc(doc(viewerA, 'leads/leadA2'), { stage: 'x' }));
+  await assertFails(updateDoc(doc(mgrB, 'leads/leadA2'), { stage: 'x' }));
+  await assertFails(updateDoc(doc(mgrA, 'leads/leadA'), { stage: 'x' }));
+  // DELETE: managers manage the board but don't destroy data — only the
+  // lead owner or the tenant's company_admin can delete.
   await assertFails(deleteDoc(doc(viewerA, 'leads/leadA2')));
+  await assertFails(deleteDoc(doc(mgrA, 'leads/leadDel')));
+  await assertFails(deleteDoc(doc(mgrB, 'leads/leadDel')));
+  await assertSucceeds(deleteDoc(doc(coAdmin, 'leads/leadDel')));
 
   // ❌ the review's load-bearing probe: a STAFF role in the WRONG tenant
   // must not make the company LIST query provable — role alone never
   // crosses the companyId wall.
-  const mgrB = env.authenticatedContext('mob', { role: 'manager', companyId: 'co-b' }).firestore();
   await assertFails(getDocs(query(collection(mgrB, 'leads'), where('companyId', '==', 'co-a'))));
   await assertFails(getDoc(doc(mgrB, 'leads/leadA2')));
 
@@ -635,9 +650,22 @@ async function run() {
   await assertSucceeds(getDocs(collection(mgrA, 'leads/leadA2/tasks')));
   await assertSucceeds(getDocs(collection(viewerA, 'leads/leadA2/notes')));
   await assertFails(getDocs(collection(mgrB, 'leads/leadA2/tasks')));
-  // ❌ subcollection writes stay owner-only (manager can't forge activity)
-  await assertFails(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-forge'),
-    { userId: 'mia', type: 'note', source: 'rep', note: 'nope' }));
+  // ✅ collaboration writes follow the parent for same-company staff:
+  // a well-shaped timeline note, a task, a note — all F-05 constraints
+  // still bind (source/type/denylist proven by the earlier F-05 block).
+  await assertSucceeds(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-note'),
+    { userId: 'mia', type: 'note', source: 'rep', note: 'manager follow-up' }));
+  await assertSucceeds(setDoc(doc(mgrA, 'leads/leadA2/tasks/mgr-task'),
+    { userId: 'mia', title: 'call back', done: false }));
+  await assertSucceeds(setDoc(doc(coAdmin, 'leads/leadA2/notes/ca-note'),
+    { userId: 'carol', text: 'owner note' }));
+  // ❌ …but never cross-tenant, never viewer, and never with a forged shape.
+  await assertFails(setDoc(doc(mgrB, 'leads/leadA2/activity/xt-forge'),
+    { userId: 'mob', type: 'note', source: 'rep', note: 'nope' }));
+  await assertFails(setDoc(doc(viewerA, 'leads/leadA2/tasks/viewer-task'),
+    { userId: 'vera', title: 'nope', done: false }));
+  await assertFails(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-webhook-forge'),
+    { userId: 'mia', type: 'note', source: 'rep', note: 'x', stripeInvoiceId: 'in_123' }));
 
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();

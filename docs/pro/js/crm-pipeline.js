@@ -1530,13 +1530,19 @@ async function moveCard(id, newStage){
   // move client-side with a clear message instead of letting the
   // optimistic UI move a card the rules will silently bounce back.
   const _meUid = window._user && window._user.uid;
-  const _myRole = (window._userClaims && window._userClaims.role) || '';
+  const _mcClaims = window._userClaims || {};
+  const _myRole = _mcClaims.role || '';
   if (_myRole === 'viewer') {
     // Viewer writes are rules-denied even on leads they own (Audit #3 F-1).
     if (typeof showToast === 'function') showToast('Your role is read-only — ask the lead owner to move it.', 'info');
     return;
   }
-  if (lead.userId && _meUid && lead.userId !== _meUid && _myRole !== 'admin') {
+  // Manager edit rights (2026-07, Jo's call): same-company staff can move
+  // any tenant card — the rules' staff-update clause allows it. Everyone
+  // else still gets the teammate block instead of a silent rules bounce.
+  const _mcStaff = ['company_admin', 'manager'].includes(_myRole)
+    && !!_mcClaims.companyId && lead.companyId === _mcClaims.companyId;
+  if (lead.userId && _meUid && lead.userId !== _meUid && _myRole !== 'admin' && !_mcStaff) {
     if (typeof showToast === 'function') showToast("This lead belongs to a teammate — only its owner can move it.", 'info');
     return;
   }
@@ -1815,12 +1821,16 @@ async function changeLeadType(id, newType){
   if(!lead) return;
   if(lead._pending){ if(typeof showToast==='function') showToast('Change in progress...','info'); return; }
 
-  // Same non-owner guard as moveCard (team visibility, 2026-07): staff can
-  // SEE teammate cards but lead writes stay owner-only at the rules layer.
-  const _clRole = (window._userClaims && window._userClaims.role) || '';
+  // Same guard as moveCard (manager edit rights, 2026-07): viewers are
+  // read-only; same-company staff can edit any tenant lead; everyone else
+  // is blocked from teammate leads instead of a silent rules bounce.
+  const _clClaims = window._userClaims || {};
+  const _clRole = _clClaims.role || '';
   const _clMe = window._user && window._user.uid;
+  const _clStaff = ['company_admin', 'manager'].includes(_clRole)
+    && !!_clClaims.companyId && lead.companyId === _clClaims.companyId;
   if (_clRole === 'viewer'
-      || (lead.userId && _clMe && lead.userId !== _clMe && _clRole !== 'admin')) {
+      || (lead.userId && _clMe && lead.userId !== _clMe && _clRole !== 'admin' && !_clStaff)) {
     if (typeof showToast === 'function') showToast(_clRole === 'viewer'
       ? 'Your role is read-only.'
       : "This lead belongs to a teammate — only its owner can change it.", 'info');

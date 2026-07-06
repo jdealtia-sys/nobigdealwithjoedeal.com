@@ -61,12 +61,18 @@ async function openCrm(page) {
       await page.waitForLoadState('load');
       await page.waitForFunction(() => typeof window.goTo === 'function', null, { timeout: 20_000 });
       await page.evaluate(() => window.goTo('crm'));
+      // The SW cold-boot reload can fire right AFTER goTo and bounce a
+      // fresh document back to view-home (seen 2026-07-06: goTo succeeded,
+      // kanban never stamped). Success = the kanban is actually visible;
+      // anything else retries the whole navigation.
+      await page.locator('#kanbanBoard, #view-crm .kanban-board').first()
+        .waitFor({ state: 'visible', timeout: 15_000 });
       return;
     } catch (e) {
-      if (!/Execution context was destroyed|navigation|not a function/i.test(String(e))) throw e;
+      if (!/Execution context was destroyed|navigation|not a function|Timeout.*exceeded|waiting for locator/i.test(String(e))) throw e;
     }
   }
-  throw new Error('openCrm: dashboard never settled with a working goTo()');
+  throw new Error('openCrm: kanban never rendered across 3 attempts');
 }
 
 /** Poll an async predicate until truthy or timeout. Returns the value. */
@@ -406,7 +412,8 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
       // (non-permission errors only) so a dropped read can't masquerade
       // as a rules verdict — same mitigation as the isolation test.
       let managerRead;
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 4; i++) {
+        try {
         managerRead = await repPage.evaluate(async (id) => {
           const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
           try {
@@ -414,26 +421,66 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
             return { ok: snap.exists() };
           } catch (e) { return { ok: false, err: String(e && (e.code || e.message)) }; }
         }, strangerLeadId);
+        } catch (e) {
+          if (!/Execution context was destroyed|navigation|No Firebase App|app\/no-app/i.test(String(e))) throw e;
+          managerRead = { ok: false, err: 'transient/navigation' };
+          await new Promise((r) => setTimeout(r, 2_000));
+          continue;
+        }
         if (managerRead.ok || /permission|insufficient/i.test(String(managerRead.err || ''))) break;
         await new Promise((r) => setTimeout(r, 2_000));
       }
       expect(managerRead.ok, `manager reads the owner's lead (err: ${managerRead.err || 'none'})`).toBe(true);
+      // Manager edit rights (2026-07, Jo's call): the manager can WORK the
+      // shared board — a stage update on the owner's lead succeeds…
       let managerWrite;
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 4; i++) {
+        try {
         managerWrite = await repPage.evaluate(async (id) => {
           const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
           try {
-            await fs.updateDoc(fs.doc(window.db || window._db, 'leads', id), { stage: 'hijacked' });
+            await fs.updateDoc(fs.doc(window.db || window._db, 'leads', id), { stage: 'contacted' });
+            return { wrote: true };
+          } catch (e) {
+            const err = String(e && (e.code || e.message));
+            return { wrote: false, denied: /permission|insufficient/i.test(err), err };
+          }
+        }, strangerLeadId);
+        } catch (e) {
+          if (!/Execution context was destroyed|navigation|No Firebase App|app\/no-app/i.test(String(e))) throw e;
+          managerWrite = { denied: false, err: 'transient/navigation' };
+          await new Promise((r) => setTimeout(r, 2_000));
+          continue;
+        }
+        if (managerWrite.wrote || managerWrite.denied) break;
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
+      expect(managerWrite.wrote, `manager updates the owner's lead (edit rights; err: ${managerWrite.err || 'none'})`).toBe(true);
+      // …but provenance is frozen: reassigning ownership is rules-denied.
+      let provenanceWrite;
+      for (let i = 0; i < 4; i++) {
+        try {
+        provenanceWrite = await repPage.evaluate(async (id) => {
+          const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          try {
+            const me = (window._user && window._user.uid) || 'me';
+            await fs.updateDoc(fs.doc(window.db || window._db, 'leads', id), { userId: me });
             return { denied: false, wrote: true };
           } catch (e) {
             const err = String(e && (e.code || e.message));
             return { denied: /permission|insufficient/i.test(err), err };
           }
         }, strangerLeadId);
-        if (managerWrite.wrote || managerWrite.denied) break;
+        } catch (e) {
+          if (!/Execution context was destroyed|navigation|No Firebase App|app\/no-app/i.test(String(e))) throw e;
+          provenanceWrite = { denied: false, err: 'transient/navigation' };
+          await new Promise((r) => setTimeout(r, 2_000));
+          continue;
+        }
+        if (provenanceWrite.wrote || provenanceWrite.denied) break;
         await new Promise((r) => setTimeout(r, 2_000));
       }
-      expect(managerWrite.denied, `manager cannot MUTATE the owner's lead (writes stay owner-only; err: ${managerWrite.err || 'none'})`).toBe(true);
+      expect(provenanceWrite.denied, `manager cannot reassign lead ownership (provenance frozen; err: ${provenanceWrite.err || 'none'})`).toBe(true);
     } finally {
       await repContext.close();
     }
@@ -471,8 +518,19 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
     // masquerade as an isolation verdict either way.
     const probeRead = async (p, leadId) => {
       let last;
-      for (let i = 0; i < 3; i++) {
-        last = await probeReadOnce(p, leadId);
+      for (let i = 0; i < 4; i++) {
+        try {
+          // Re-anchor on a settled document — the SW cold-boot reload can
+          // tear the context down mid-evaluate (same class callFromPage
+          // and openCrm retry).
+          await p.waitForFunction(() => window._user && window._user.uid, null, { timeout: 20_000 });
+          last = await probeReadOnce(p, leadId);
+        } catch (e) {
+          if (!/Execution context was destroyed|navigation|No Firebase App|app\/no-app/i.test(String(e))) throw e;
+          last = { denied: false, err: 'transient/navigation' };
+          await new Promise((r) => setTimeout(r, 2_000));
+          continue;
+        }
         if (last.denied || last.exists !== undefined) return last;
         await new Promise((r) => setTimeout(r, 2_000));
       }
