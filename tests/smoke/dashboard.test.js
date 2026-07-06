@@ -1048,6 +1048,12 @@ section('Add Lead revival (2026-07-06) — pipeline affordances cannot silently 
     /_CLASS_TOGGLED = new Set\(\[[^\]]*'nbd-picker-modal'/.test(coord));
   assert('coordinator observes class flips on the persistent class-toggled modals',
     /_CLASS_TOGGLED\.forEach[\s\S]{0,200}attributeFilter: \['class'\]/.test(coord));
+  // Mobile FAB slimming (2026-07-06): phones float ONLY ＋ Add Lead,
+  // lifted above #mobile-nav (62px + safe-area); the three field-tool
+  // FABs are mobile-hidden until the speed-dial ships.
+  assert('mobile hides the field-tool FABs and lifts ＋ above the bottom nav',
+    /#nbd-whisper-fab, #nbd-qc-fab, #nbd-qci-fab\{ display:none !important; \}/.test(styles)
+    && /#addLeadFab\{\s*bottom:calc\(78px \+ env\(safe-area-inset-bottom, 0px\)\) !important;/.test(styles));
 }
 
 section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');

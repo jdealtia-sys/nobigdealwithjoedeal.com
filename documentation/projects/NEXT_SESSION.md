@@ -4,7 +4,23 @@
 > pillar plans, the 2026-07 product audit, and the last 72 hours of merges
 > (PRs #839–#858). Self-contained: a fresh agent can pick this up cold.
 >
-> **STATUS: EXECUTED same-day (this PR).** The rig now boots the Functions
+> **STATUS: EXECUTED — and the whole punch list + bench cleared the
+> same day.** 2026-07-06 final ledger, eleven merged PRs: #862 (this
+> brief's Stranger Test), #863 team pipeline visibility, #864 manager
+> edit rights, #865 team UX trio, #866 photos companyId + backfill,
+> #867 submitPublicLead truth-telling, #868 OWNER_EMAILS retirement,
+> #869 Add Lead revival (+ the FAB stack resurrected from a silent
+> Wave-149 death), #870 one-row pipeline toolbar + lean triage list
+> (+ filter active-state fixed at the source), #871 alert-outbox
+> ledger (notification routing now CI-asserted), #872 globals Tranche
+> 2b (+ crm-snooze de-NUL'd). Remaining queue: mobile FAB
+> SPEED-DIAL (Jo's pick from his phone screenshots — collapse the three
+> field-tool FABs into one fan-out button with ＋ Add Lead above it;
+> interim shipped 2026-07-06: phones float only the lifted ＋, field
+> tools mobile-hidden); globals Tranche 2c
+> (delegate rewrites — fresh session) and Tranche 3; Rock 2 PR 6
+> ~Jul 18; flip e2e-authed-emulator to required ~Jul 19; Jo console
+> IAM grant (serviceAccountTokenCreator). Original brief follows. The rig now boots the Functions
 > emulator, `tests/e2e/stranger.spec.js` runs the full journey in CI
 > (`@stranger` matrix shard), and the findings are recorded in the
 > **Punch list** section at the bottom of this doc.
@@ -128,9 +144,10 @@ the code that shipped this week.
 
 ## The bench (if blocked, or the session finishes early)
 
-1. **Globals Tranche 2b+** — widgets/tasks/email_system/crm-snooze
-   remnants + the `_NBD_CALL_ALLOWLIST` cluster
-   (`docs/dev/dashboard-decomposition-plan.md:462`).
+1. ~~**Globals Tranche 2b**~~ ✅ EXECUTED 2026-07-06 (PR #872 — scope
+   collapsed on re-inventory; see the decomposition plan's tranche
+   table). Next in this lane: **Tranche 2c**, the `_NBD_CALL_ALLOWLIST`
+   delegate-rewrite cluster — riskier, deserves a fresh session.
 2. ~~**Retire `OWNER_EMAILS`**~~ ✅ **EXECUTED 2026-07-06 (Jo's call:
    safe demotion).** Client authorization is claim-ONLY everywhere
    (`claims.owner === true`): billing-gate, dashboard-bootstrap,
