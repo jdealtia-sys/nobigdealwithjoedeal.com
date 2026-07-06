@@ -101,17 +101,20 @@ function _normalizePlan(raw) {
 // (functions/handlers/auth.js) from the single server-side email list in
 // functions/handlers/_shared.js OWNER_EMAILS.
 //
-// DEPRECATED transition fallback: the email list below is kept ONLY so
-// the founder accounts can never be locked out before the claim has
-// been minted (first login after this ships, claim-read timeout, etc.).
-// When an owner email matches but the claim is missing, we call
-// mintOwnerClaims (fire-and-forget) so the claim exists on the next
-// token refresh. REMOVE this list (and _requestOwnerClaimMint's
-// email-triggered call) after owner claims are confirmed in prod —
-// sign in with both accounts and verify
-// getIdTokenResult().claims.owner === true.
-//
-// Keep this list tight — it's the SaaS equivalent of a root user.
+// MINT TRIGGER ONLY — this list NEVER authorizes anything (2026-07-06,
+// OWNER_EMAILS retirement; Jo's call: safe demotion). It exists solely
+// to decide "should this session ask the server to mint the owner
+// claim?" — mirroring the server's own security posture on
+// mintOwnerClaims ("the email list never authorizes anything by itself
+// here, it only selects who gets the claim"). Every access decision in
+// this module (and in billing-gate.js / onboarding.js /
+// real-deal-academy.js / dashboard-bootstrap, whose email fallbacks are
+// deleted) keys on claims.owner === true. A founder account that
+// somehow lacks the claim self-heals here: email match → mint → token
+// refresh → claims re-read, all within this login (see the owner-mint
+// block in the auth handler below). This is the LAST client copy of the
+// founder emails; the authoritative list lives in
+// functions/handlers/_shared.js OWNER_EMAILS (the mint source).
 const OWNER_EMAILS = new Set([
   'jd@nobigdealwithjoedeal.com',
   'jonathandeal459@gmail.com'
@@ -217,11 +220,10 @@ export const NBDAuth = {
   get role()         { return _role; },
   get isAdmin()      { return _role === 'admin'; },
   get isOwner()      {
-    // Claim first; email list is the DEPRECATED transition fallback
-    // (also covers a failed/timed-out claims read) — see OWNER_EMAILS.
-    if (_claims.owner === true) return true;
-    const email = (_user?.email || '').trim().toLowerCase();
-    return !!email && OWNER_EMAILS.has(email);
+    // Claim-only since the OWNER_EMAILS retirement (2026-07-06) — the
+    // auth handler's owner-mint block already healed a missing claim
+    // (mint + token re-read) before anything can call this getter.
+    return _claims.owner === true;
   },
   get planLevel()    { return PLAN_LEVELS[_userPlan] || 0; },
   get trialDaysLeft(){ return _trialDaysLeft; },
@@ -398,9 +400,11 @@ export const NBDAuth = {
         // this call can hang indefinitely, keeping the page invisible
         // (visibility:hidden) until the network stack times out (~60s).
         // Racing against a 4s resolve (not reject) means we proceed with
-        // empty claims on timeout — the owner check below falls back to
-        // the OWNER_EMAILS list and the subscription check still runs
-        // and grants the correct plan from Firestore.
+        // empty claims on timeout — for founder accounts the owner-mint
+        // block below re-reads the claims (time-bounded) so a timed-out
+        // first read still resolves to the owner claim; everyone else
+        // proceeds to the subscription check, which grants the correct
+        // plan from Firestore.
         _claims = {};
         try {
           const tokenResult = await Promise.race([
@@ -416,21 +420,40 @@ export const NBDAuth = {
         // ── Owner bypass ──
         // Short-circuit plan/role resolution for the founder/staff
         // accounts. Keyed on the { owner: true } custom claim (minted
-        // server-side by mintOwnerClaims); the OWNER_EMAILS check is the
-        // DEPRECATED transition fallback so a claims-read failure — or a
-        // not-yet-minted claim — can never lock the founder out. This
-        // fixes the case where Joe signs in as admin but the UI says
-        // "upgrade to use some features" because the subscriptions/ doc
-        // is missing, stale, or unreadable. No Firestore round-trip =
-        // no fail-closed to 'free' for the only account that can never
-        // be on a plan.
+        // server-side by mintOwnerClaims) — the claim is the ONLY
+        // authorizer since the OWNER_EMAILS retirement (2026-07-06).
+        // This fixes the case where Joe signs in as admin but the UI
+        // says "upgrade to use some features" because the
+        // subscriptions/ doc is missing, stale, or unreadable. No
+        // Firestore round-trip = no fail-closed to 'free' for the only
+        // account that can never be on a plan.
+        //
+        // Self-heal (the no-lockout half of the retirement): when the
+        // email matches the mint-trigger list but the claim isn't on
+        // the token — first login before minting, or the 4s claims-read
+        // timeout above left _claims empty — ask the server to mint,
+        // then re-read the claims ONCE, all time-bounded so a slow
+        // network can't hang the page. The re-read turns both cases
+        // into claims.owner === true within this same login; if it
+        // still isn't (mint refused/failed), this session resolves like
+        // any other user and heals on the next login instead.
         const emailLower = (user.email || '').trim().toLowerCase();
-        const _ownerClaim = _claims.owner === true;
-        if (_ownerClaim || (emailLower && OWNER_EMAILS.has(emailLower))) {
-          // Email matched but the claim isn't on the token yet — ask the
-          // server to mint it (idempotent, fire-and-forget; never blocks
-          // page load). Next token refresh carries owner:true.
-          if (!_ownerClaim) _requestOwnerClaimMint(user);
+        let _ownerClaim = _claims.owner === true;
+        if (!_ownerClaim && emailLower && OWNER_EMAILS.has(emailLower)) {
+          try {
+            await Promise.race([
+              _requestOwnerClaimMint(user),
+              new Promise(resolve => setTimeout(resolve, 6000))
+            ]);
+            const reread = await Promise.race([
+              user.getIdTokenResult(),
+              new Promise(resolve => setTimeout(resolve, 4000))
+            ]);
+            if (reread && reread.claims) _claims = reread.claims;
+          } catch (_) { /* claim absent this session — heals next login */ }
+          _ownerClaim = _claims.owner === true;
+        }
+        if (_ownerClaim) {
           // Note: assignment order is deliberate — the H-02 smoke test
           // guards against `_role = 'admin'` being followed immediately
           // by a `_subscription = { plan: ...` assignment, which was
@@ -660,13 +683,11 @@ export const NBDAuth = {
   /**
    * Check if user has access to a specific plan level.
    * Owner accounts always return true — they bypass plan gates.
-   * Owner = { owner: true } claim; the OWNER_EMAILS check is the
-   * deprecated transition fallback (see the OWNER_EMAILS comment).
+   * Owner = { owner: true } claim only (OWNER_EMAILS retired 2026-07-06;
+   * the list survives solely as the mint trigger — see its comment).
    */
   hasAccess(plan) {
     if (_claims.owner === true) return true;
-    const email = (_user?.email || '').trim().toLowerCase();
-    if (email && OWNER_EMAILS.has(email)) return true;
     // Normalize the requested plan so legacy callers (e.g. academy
     // course tiers passing 'foundation') resolve to the canonical
     // level. Unknown values normalize to 'free' (level 0) — same
@@ -856,12 +877,11 @@ export const NBDAuth = {
 // ── Internal Helpers ──────────────────────────────────────
 // Ask the server to stamp { owner: true, role: 'admin' } on this account
 // (mintOwnerClaims callable — see functions/handlers/auth.js). Called only
-// when the signed-in email matched the deprecated OWNER_EMAILS fallback
-// but the token has no owner claim yet. Fire-and-forget: page load never
-// waits on it; the email fallback keeps this session working regardless.
-// Idempotent server-side; the per-page guard just avoids repeat calls.
-// REMOVE together with the OWNER_EMAILS fallback once owner claims are
-// confirmed in prod.
+// when the signed-in email matched the OWNER_EMAILS mint-trigger list but
+// the token has no owner claim yet. Since the retirement (2026-07-06) the
+// caller AWAITS this (time-bounded) and re-reads the claims right after —
+// the claim, not the email, is what authorizes the session. Idempotent
+// server-side; the per-page guard just avoids repeat calls.
 async function _requestOwnerClaimMint(user) {
   if (window.__NBD_OWNER_MINT_ATTEMPTED) return;
   window.__NBD_OWNER_MINT_ATTEMPTED = true;
@@ -873,13 +893,14 @@ async function _requestOwnerClaimMint(user) {
     const out = (res && res.data) || {};
     if (out.owner === true && (out.minted || out.refresh)) {
       // Claims changed (or the token predates them) — force-refresh so
-      // the NEXT claims read carries owner:true. Deliberately no reload:
-      // this session already runs on the email fallback.
+      // the caller's claims re-read (and every later read) carries
+      // owner:true. Deliberately no reload: the caller re-reads in place.
       await user.getIdToken(true);
       console.info('[nbd-auth] owner claim minted — token refreshed');
     }
   } catch (e) {
-    // Never fatal: the deprecated email fallback already granted access.
+    // Never fatal: the caller degrades to a normal (non-owner) session
+    // for this login and retries the mint on the next one.
     console.warn('[nbd-auth] owner-claim mint skipped:', e && e.message);
   }
 }

@@ -131,9 +131,19 @@ the code that shipped this week.
 1. **Globals Tranche 2b+** — widgets/tasks/email_system/crm-snooze
    remnants + the `_NBD_CALL_ALLOWLIST` cluster
    (`docs/dev/dashboard-decomposition-plan.md:462`).
-2. **Retire `OWNER_EMAILS`** — `docs/pro/js/billing-gate.js:70` +
-   `functions/billing.js` (Pillar 4 Phase 1 leftover); replace with a
-   claim/config, keep the founder-never-gated invariant.
+2. ~~**Retire `OWNER_EMAILS`**~~ ✅ **EXECUTED 2026-07-06 (Jo's call:
+   safe demotion).** Client authorization is claim-ONLY everywhere
+   (`claims.owner === true`): billing-gate, dashboard-bootstrap,
+   onboarding, real-deal-academy all dropped their founder-email
+   literals/fallbacks; nbd-auth's isOwner/hasAccess are claim-only. The
+   emails survive in exactly TWO places by design: nbd-auth.js as the
+   MINT TRIGGER (email match + missing claim → awaited mintOwnerClaims +
+   token re-read, all time-bounded — the founder self-heals within the
+   same login instead of relying on an email bypass) and
+   functions/handlers/_shared.js as the mint SOURCE (the config of
+   record). Smoke pins the posture: founder emails may appear in exactly
+   one client file, never in an authorization expression; billing-gate
+   unit tests inverted (founder email without claim = no bypass).
 3. ~~**HSTS + `X-Content-Type-Options: nosniff`** in `firebase.json`
    (Rock 1 tail).~~ **STALE — already shipped** (verified 2026-07-06):
    the `source: "**"` header rule has carried both since PR #813

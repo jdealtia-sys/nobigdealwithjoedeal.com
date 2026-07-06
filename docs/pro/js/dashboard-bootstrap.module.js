@@ -922,25 +922,25 @@
     // subscriptions/ doc never flips Joe to 'free' and triggers the
     // "upgrade to unlock" wall for his own product.
     //
-    // The email literals below are the DEPRECATED transition fallback
-    // (must mirror OWNER_EMAILS in js/nbd-auth.js + js/billing-gate.js)
-    // so a not-yet-minted claim or a failed claims read can't lock the
-    // founder out — remove them after owner claims are confirmed in prod.
+    // Claim-ONLY since the OWNER_EMAILS retirement (2026-07-06): the
+    // email-literal fallback this block carried is gone. nbd-auth's
+    // login path heals a missing founder claim (mint + token refresh)
+    // before the dashboard bootstraps, so this read sees owner:true on
+    // founder sessions; if it somehow doesn't, the session degrades to
+    // the normal subscription path below and heals on the next login.
     //
     // NOTE: the previous `isDemoAccount = user.email === 'demo@nobigdeal.pro'`
     // hardcoded bypass was REMOVED (2026-04-23). Demo accounts now flow
     // through NBDAuth's claim-based demo path (H-02). Trusting an email
     // literal here was a second auth surface that could diverge from the
-    // claim-based path and silently grant professional-tier access.
-    const _emailLower = (user.email || '').trim().toLowerCase();
+    // claim-based path and silently grant professional-tier access —
+    // the same reasoning that retired the owner-email literals.
     let _bootClaims = null;
     try {
       const _tr = await user.getIdTokenResult();
       _bootClaims = (_tr && _tr.claims) || null;
-    } catch (_) { /* claims read failed — email fallback below covers owners */ }
-    const isOwnerAccount = (_bootClaims && _bootClaims.owner === true)
-                        || _emailLower === 'jd@nobigdealwithjoedeal.com'
-                        || _emailLower === 'jonathandeal459@gmail.com';
+    } catch (_) { /* claims unread — owner short-circuit simply won't fire */ }
+    const isOwnerAccount = (_bootClaims && _bootClaims.owner === true);
 
     if (isOwnerAccount) {
       window._userPlan = 'growth';

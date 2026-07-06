@@ -55,13 +55,13 @@ const db = getFirestore(app);
 const functions = getFunctions(app);
 await connectEmulatorsIfLocal({ auth, db, functions });
 
-// Mirror of dashboard-bootstrap's owner bypass — Joe's accounts ARE the NBD
-// default brand; the wizard would only tempt an accidental brand override
-// onto the production NBD profile. Owner status is claims-based
-// (claims.owner === true, minted by mintOwnerClaims); this email list is
-// the DEPRECATED transition fallback — remove after owner claims are
-// confirmed in prod.
-const OWNER_EMAILS = ['jd@nobigdealwithjoedeal.com', 'jonathandeal459@gmail.com'];
+// Owner bypass — claim-ONLY since the OWNER_EMAILS retirement
+// (2026-07-06). Joe's accounts ARE the NBD default brand; the wizard
+// would only tempt an accidental brand override onto the production NBD
+// profile. Owner status is claims.owner === true (minted by
+// mintOwnerClaims; nbd-auth heals a missing claim at login). The email
+// list this page carried is gone — the only client copy lives in
+// nbd-auth.js as a mint trigger.
 
 const state = {
   user: null,
@@ -380,16 +380,17 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) { window.location.replace('/pro/login.html'); return; }
   state.user = user;
 
-  // Claims first so the owner check below can key on claims.owner === true;
-  // a failed read leaves {} and the deprecated email fallback still catches
-  // the founder accounts.
+  // Claims first — the owner redirect below keys on claims.owner === true
+  // only (OWNER_EMAILS retired 2026-07-06). nbd-auth's login path heals a
+  // missing founder claim (mint + token refresh) before this page is
+  // normally reached; a failed read here just means the wizard renders,
+  // which only writes the caller's OWN companyProfile doc.
   try {
     const tokenResult = await user.getIdTokenResult();
     state.claims = (tokenResult && tokenResult.claims) || {};
   } catch (_) { state.claims = {}; }
 
-  const emailLower = (user.email || '').trim().toLowerCase();
-  if (state.claims.owner === true || OWNER_EMAILS.includes(emailLower)) { toDashboard(); return; }
+  if (state.claims.owner === true) { toDashboard(); return; }
 
   // Invited rep — their owner configures the brand, not them.
   if (state.claims.companyId && state.claims.companyId !== user.uid) { toDashboard(); return; }
