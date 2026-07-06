@@ -1007,6 +1007,49 @@ section('Wave 5 — Theme-aware accent + contrast tokens');
     '#addLeadFab still has a hardcoded NBD-orange glow — should use var(--og)');
 }
 
+section('Add Lead revival (2026-07-06) — pipeline affordances cannot silently die again');
+{
+  // History this section exists to prevent repeating: the 2026-05-14
+  // header cleanup removed the inline ＋ Add button because "the FAB is
+  // the primary add action" — but the FAB was ALREADY dead: dashboard-ui
+  // executes before dashboard-actions (which defines goTo), and
+  // setupAddLeadFab's old `typeof goTo !== 'function' → return` guard
+  // silently disabled it. Result: a pipeline with zero add-lead entry
+  // points and no error anywhere.
+  const ui = read(path.join(PRO_JS, 'dashboard-ui.js'));
+  assert('setupAddLeadFab survives boot order (install() + retry, no bare bail)',
+    /setupAddLeadFab[\s\S]{0,2500}if \(!install\(\)\)/.test(ui)
+    && !/setupAddLeadFab[\s\S]{0,600}if \(typeof _origGoTo !== 'function'\) return;/.test(ui));
+
+  const dashHtml = readDashboard();
+  assert('pipeline header carries the restored ＋ Add Lead button (wired to openLeadModal)',
+    /id="crmAddLeadBtn"[^>]*data-fn="openLeadModal"/.test(dashHtml));
+  assert('#addLeadFab still present and wired to openLeadModal',
+    /id="addLeadFab"[^>]*data-fn="openLeadModal"/.test(dashHtml));
+
+  const styles = readDashboardStyles();
+  assert('FAB is restacked ABOVE the capture-inbox FAB (196px slot, stack z-index)',
+    /#addLeadFab\{[\s\S]{0,300}bottom:calc\(196px[\s\S]{0,200}z-index:9999/.test(styles));
+  assert('FAB has no mobile bottom:80px override (collided with the capture FAB at 84px)',
+    !/#addLeadFab\{\s*bottom:80px/.test(styles));
+
+  const coord = read(path.join(PRO_JS, 'fab-stack-coordinator.js'));
+  assert('fab-stack-coordinator hides addLeadFab with the rest of the stack',
+    /FAB_IDS = \[[\s\S]{0,300}'addLeadFab'/.test(coord));
+  assert('coordinator treats leadModal + quickAddModal as class-toggled blockers',
+    /_CLASS_TOGGLED = new Set\(\[[^\]]*'leadModal'[^\]]*'quickAddModal'/.test(coord)
+    && /BLOCKING_MODAL_IDS = \[[\s\S]{0,1800}'leadModal'/.test(coord));
+  // nbd-picker-modal is STATIC in dashboard.html and class-toggled:
+  // classifying it as display-toggled made "presence = open" hide the
+  // whole FAB stack (mic/capture/inbox) on EVERY dashboard load (Wave
+  // 149 regression, found 2026-07-06 by the add-lead revival E2E whose
+  // restore assertion could never pass).
+  assert('coordinator classifies the static appearance picker as class-toggled',
+    /_CLASS_TOGGLED = new Set\(\[[^\]]*'nbd-picker-modal'/.test(coord));
+  assert('coordinator observes class flips on the persistent class-toggled modals',
+    /_CLASS_TOGGLED\.forEach[\s\S]{0,200}attributeFilter: \['class'\]/.test(coord));
+}
+
 section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
 {
   const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)

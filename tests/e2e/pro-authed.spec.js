@@ -11,7 +11,7 @@
 // running the suite locally without secrets stays clean.
 
 const { test, expect } = require('@playwright/test');
-const { requireTestUser, loginAs, callCallableInPage, cleanupE2EData } = require('./fixtures/auth');
+const { requireTestUser, loginAs, callCallableInPage, cleanupE2EData, safeEvaluate, safeWaitForFunction } = require('./fixtures/auth');
 
 /**
  * Navigate to the CRM/Pipeline view. Post-login the dashboard shows
@@ -1512,6 +1512,44 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     expect(calls.seen).toEqual([['e2e-synthetic-drag', calls.stage]]);
   });
 
+  // Add Lead revival (2026-07-06): the pipeline's FAB was silently dead
+  // for months — setupAddLeadFab ran before goTo existed and bailed on a
+  // guard, and the 2026-05-14 header cleanup had already removed the
+  // inline button on the premise the FAB covered it. This locks in BOTH
+  // affordances so neither can silently vanish again.
+  test('pipeline add-lead: header button + FAB visible on CRM view; FAB opens the lead modal', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    // The boot-order fix polls for goTo at 100ms — the class lands right
+    // after the view flip.
+    await safeWaitForFunction(page, () => document.body.classList.contains('show-add-lead-fab'),
+      { timeout: 15_000 });
+    const vis = await safeEvaluate(page, () => {
+      const fab = document.getElementById('addLeadFab');
+      const hdr = document.getElementById('crmAddLeadBtn');
+      return {
+        fabDisplay: fab ? getComputedStyle(fab).display : 'missing',
+        hdrPresent: !!hdr && hdr.dataset.fn === 'openLeadModal',
+      };
+    });
+    expect(vis.fabDisplay, 'FAB rendered (display:flex under body.show-add-lead-fab)').toBe('flex');
+    expect(vis.hdrPresent, 'header ＋ Add Lead button present and wired to openLeadModal').toBe(true);
+    await safeEvaluate(page, () => document.getElementById('addLeadFab').click());
+    await expect(page.locator('#leadModal'), 'FAB click opens the Add Lead modal').toHaveClass(/open/, { timeout: 5_000 });
+    // fab-stack-coordinator: the open modal must hide the FAB stack
+    // (leadModal is class-toggled at z-index 2000, below the FABs' 9999).
+    await safeWaitForFunction(page, () => {
+      const fab = document.getElementById('addLeadFab');
+      return fab && fab.style.opacity === '0' && fab.style.pointerEvents === 'none';
+    }, { timeout: 5_000 });
+    // Close it again so later tests in the serial group see a clean view.
+    await safeEvaluate(page, () => document.getElementById('leadModal').classList.remove('open'));
+    await safeWaitForFunction(page, () => {
+      const fab = document.getElementById('addLeadFab');
+      return fab && fab.style.opacity !== '0';
+    }, { timeout: 5_000 });
+  });
+
   test('nav customizer opens and addTab responds through the delegate (no inline handlers)', async ({ page }) => {
     // Full console capture: when this journey fails in CI the modal is
     // simply absent, which means the module-tail delegate never bound —
@@ -1555,7 +1593,10 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     expect(delegateBound, 'data-mnc-action delegate never answered the probe (2 loads) — '
       + 'console: ' + consoleMsgs.filter(m => /error|warn|pageerror/.test(m)).slice(-15).join(' | '))
       .toBe(true);
-    await page.evaluate(() => {
+    // safeEvaluate: the SW controllerchange reload can strike here too
+    // (rotating shard2 victim, 2026-07-06 runs) — retry on the one-shot
+    // navigation instead of failing the whole serial group.
+    await safeEvaluate(page, () => {
       const b = document.createElement('button');
       b.id = 'e2e-open-customizer';
       b.dataset.mncAction = 'openCustomizer';
@@ -1600,7 +1641,9 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     await loginAs(page, creds);
     await page.waitForFunction(() => typeof window.openQuickAddLead === 'function'
       && typeof window._saveLead === 'function', null, { timeout: 15_000 });
-    await page.evaluate(() => window.openQuickAddLead());
+    // safeEvaluate: the SW reload can land right at the modal-open call
+    // (rotating shard2 victim, 2026-07-06).
+    await safeEvaluate(page, () => window.openQuickAddLead());
     const modal = page.locator('#quickAddModal');
     await expect(modal).toHaveClass(/open/, { timeout: 5_000 });
     await page.fill('#qaAddr', '123 E2E Quick Add St, Lexington, KY');

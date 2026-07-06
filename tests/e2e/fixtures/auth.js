@@ -80,7 +80,13 @@ async function loginAs(page, creds) {
   // can't be patched from here — those call sites in the spec tolerate
   // ALREADY_EXISTS locally and re-fetch by lastName.
   if (/localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')) {
-    await page.evaluate(() => {
+    // safeEvaluate, not page.evaluate: the SW-update controllerchange
+    // reload lands RIGHT here on runs where the deploy changed cached
+    // files — the single most common shard-CI failure signature
+    // ("Execution context was destroyed" at this line, rotating through
+    // whichever test logs in first). The reload is one-shot; retrying
+    // the evaluate lands on the settled page.
+    await safeEvaluate(page, () => {
       const install = () => {
         if (window.__nbdAddDocPatched || typeof window.addDoc !== 'function'
             || typeof window.doc !== 'function') return false;
@@ -103,6 +109,61 @@ async function loginAs(page, creds) {
         const t = setInterval(() => { if (install() || ++tries > 100) clearInterval(t); }, 100);
       }
     });
+  }
+}
+
+/**
+ * page.evaluate that tolerates the one-shot navigation races this rig
+ * documents (SW controllerchange reload after a deploy changed cached
+ * files; the login 301 hop): on "Execution context was destroyed" /
+ * navigation-interrupted errors it waits for the page to settle and
+ * retries, up to 5 attempts. Any other error — and the final attempt —
+ * throws through untouched, so real failures still fail loudly.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {Function} fn      — function to run in the page
+ * @param {*} [arg]          — optional argument forwarded to fn
+ */
+async function safeEvaluate(page, fn, arg) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await page.evaluate(fn, arg);
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      if (attempt < 4
+          && /Execution context was destroyed|interrupted by another navigation|navigating and changing|Target closed/i.test(msg)) {
+        await page.waitForLoadState('domcontentloaded').catch(() => {});
+        await page.waitForTimeout(400);
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
+/**
+ * waitForFunction with the same navigation-race tolerance as
+ * safeEvaluate: a mid-wait SW reload destroys the polling context and
+ * throws even though the predicate would be true on the settled page.
+ *
+ * @param {import('@playwright/test').Page} page
+ * @param {Function} fn
+ * @param {{timeout?: number}} [opts]
+ */
+async function safeWaitForFunction(page, fn, opts) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await page.waitForFunction(fn, null, opts || {});
+    } catch (e) {
+      const msg = String((e && e.message) || e);
+      if (attempt < 4
+          && /Execution context was destroyed|interrupted by another navigation|navigating and changing|Target closed/i.test(msg)) {
+        await page.waitForLoadState('domcontentloaded').catch(() => {});
+        await page.waitForTimeout(400);
+        continue;
+      }
+      throw e;
+    }
   }
 }
 
@@ -161,5 +222,7 @@ module.exports = {
   loginAs,
   logout,
   callCallableInPage,
-  cleanupE2EData
+  cleanupE2EData,
+  safeEvaluate,
+  safeWaitForFunction
 };

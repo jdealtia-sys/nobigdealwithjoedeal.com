@@ -28,6 +28,7 @@
     'nbd-whisper-fab',          // W128
     'nbd-qc-fab',               // W130
     'nbd-qci-fab',              // W132
+    'addLeadFab',               // Add Lead — revived + restacked 2026-07-06
   ];
 
   const BLOCKING_MODAL_IDS = [
@@ -47,19 +48,42 @@
     'nbd-pwa-install-banner',
     'nbd-pwa-ios-modal',        // W150 iOS Add-to-Home-Screen walkthrough
     'nbd-pwa-and-modal',        // W150 Android install fallback walkthrough
+    // Add Lead revival (2026-07-06): the lead + quick-add modals are
+    // .modal-bg overlays at z-index 2000 — BELOW the FAB stack's 9999 —
+    // so without coordination the newly restacked Add Lead FAB (and the
+    // mic/capture FABs) float on top of the very modal the FAB opened.
+    'leadModal',                // full Add/Edit Lead modal (class-toggled)
+    'quickAddModal',            // mobile 3-tap quick add (class-toggled)
   ];
 
   // The lead-alert stack lists itself but should NOT trigger hide
   // (the stack is non-modal — it sits next to the FABs). Filter it.
   const _BLOCK_SET = new Set(BLOCKING_MODAL_IDS.filter(id => id !== 'nbd-lead-alert-stack'));
 
+  // Modals that toggle a `.open` class instead of style.display —
+  // _isModalActive treats presence-in-DOM as open for display-toggled
+  // ids, which would read these as permanently open (they live in the
+  // static HTML). estV2Modal was the original case; the lead modals
+  // joined 2026-07-06.
+  //
+  // nbd-picker-modal is the load-bearing entry: it is STATIC in
+  // dashboard.html and class-toggled (theme-bridge.css `.open` →
+  // display:flex; maps.js nbdPickerOpen/Close flip the class, never
+  // inline style) — but Wave 149 listed it as display-toggled, so
+  // "presence = open" made _isModalActive() TRUE on every dashboard
+  // load and the ENTIRE FAB stack (mic / quick-capture / inbox) has
+  // been opacity-0 + untappable since. Found 2026-07-06 by the
+  // add-lead revival E2E, whose restore assertion could never pass.
+  const _CLASS_TOGGLED = new Set(['estV2Modal', 'leadModal', 'quickAddModal', 'nbd-picker-modal']);
+
   function _isModalActive() {
     for (const id of _BLOCK_SET) {
       const el = document.getElementById(id);
       if (!el) continue;
       const style = el.style;
-      // The estV2Modal toggles via a `.open` class; others toggle display.
-      if (id === 'estV2Modal') {
+      // Class-toggled modals (estV2Modal, leadModal, quickAddModal) flip
+      // a `.open` class; others toggle display.
+      if (_CLASS_TOGGLED.has(id)) {
         if (el.classList && el.classList.contains('open')) return true;
         continue;
       }
@@ -101,6 +125,18 @@
       subtree: false,         // only direct body children matter
       attributes: true,       // class+style toggles
       attributeFilter: ['class', 'style'],
+    });
+    // Class-toggled modals are PERSISTENT children — their .open flip is
+    // an attribute change on a child, which the body observer above
+    // deliberately doesn't see (subtree:false). Without this, hiding
+    // waited on the belt-and-suspenders keydown/interval and the FAB
+    // stack floated over a just-opened lead modal for up to 1.5s.
+    // One observer, multiple targets; estV2Modal mounts dynamically and
+    // simply isn't present here — its childList mount + the fallbacks
+    // keep covering it as before.
+    _CLASS_TOGGLED.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) obs.observe(el, { attributes: true, attributeFilter: ['class'] });
     });
     // Also recheck on any keydown/click — a modal that toggled via
     // a child mutation might not have triggered the observer. Cheap

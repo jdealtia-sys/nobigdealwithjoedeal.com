@@ -1173,8 +1173,22 @@
      --accent-ring replaces the white inner border that disappeared
      on light themes. Glow uses --og (which IS per-theme tinted), so
      the FAB reads on any theme without per-theme overrides. */
+  /* Restack (2026-07-06): the FAB's original bottom:24/right:24 slot was
+     taken over by the W128 mic FAB (bottom:20/right:20, z-index 9999) —
+     reviving it there would bury it under the mic. It now slots into the
+     bottom-right FAB stack ABOVE the W132 capture-inbox button
+     (mic 20px/54h → capture 84px/48h → inbox 142px/44h → ADD 196px/48h),
+     right-edge chosen so all stack centers align at ~47px, with the same
+     safe-area treatment and z-index as its stack siblings. One position
+     for all viewports — 196px clears the mobile bottom nav by design
+     (the old 80px mobile override collided with the capture FAB at 84px).
+     fab-stack-coordinator hides it alongside the stack when a
+     full-screen modal is open. */
   #addLeadFab{
-    position:fixed; bottom:24px; right:24px; z-index:900;
+    position:fixed;
+    bottom:calc(196px + env(safe-area-inset-bottom, 0px));
+    right:calc(23px + env(safe-area-inset-right, 0px));
+    z-index:9999;
     width:48px; height:48px; border-radius:50%;
     background:var(--orange); color:var(--accent-fg);
     border:1px solid var(--accent-ring); cursor:pointer;
@@ -1188,10 +1202,6 @@
   #addLeadFab:active{ transform:scale(.96); }
   /* FAB is shown only on the CRM page (Prospects has its own + button) */
   body.show-add-lead-fab #addLeadFab{ display:flex; }
-  /* Keep clear of the mobile bottom nav */
-  @media (max-width:768px){
-    #addLeadFab{ bottom:80px; right:16px; width:52px; height:52px; }
-  }
 
   /* Scroll-collapse: when the user is actively scrolling/dragging the
      kanban board, shrink the header further. The .crm-scrolling class
