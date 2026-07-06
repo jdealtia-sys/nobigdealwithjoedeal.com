@@ -1090,9 +1090,18 @@ section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');
   assert('filter toggles inside ANY dropdown close both menus after acting',
     /closest\('\.crm-tools-menu'\)/.test(ui)
     && /closeCrmFiltersMenu/.test(ui));
-  assert('sync function drives the Filters active-count badge',
+  // Every filter module stamps .active on its button synchronously
+  // (added 2026-07-06 — none did before; the old mobile menu's active
+  // mirrors were silently dead because of it), and the sync fn counts
+  // those classes into the Filters badge.
+  assert('sync function counts stamped .active classes into the badge',
     /crmFiltersActiveBadge/.test(ui)
     && /\['needsAttentionBtn', 'staleSharesBtn', 'snoozedToggleBtn', 'engagementSortBtn'\]/.test(ui));
+  for (const [f, flag] of [['needs-attention-filter.js', 'active'], ['stale-shares-filter.js', 'active'],
+                           ['lead-snooze.js', 'showing'], ['crm.js', 'on']]) {
+    assert(f + " stamps .active on its filter button",
+      new RegExp("classList\\.toggle\\('active', " + flag + "\\)").test(read(path.join(PRO_JS, f))));
+  }
 
   const styles = readDashboardStyles();
   assert('menu-item normalization for moved .crm-hdr-btn/.crm-icon-btn',

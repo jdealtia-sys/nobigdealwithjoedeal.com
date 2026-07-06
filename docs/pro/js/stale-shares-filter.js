@@ -110,6 +110,9 @@
       btn.style.borderColor = '';
       btn.style.color = '';
     }
+    // .active stamped for the Filters-menu highlight + badge sync
+    // (see needs-attention-filter.js updateButton for the full note).
+    btn.classList.toggle('active', active);
   }
 
   function applyFilter() {

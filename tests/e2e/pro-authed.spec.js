@@ -1577,25 +1577,39 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     // function, then click-until-active: the predicate clicks only while
     // INACTIVE so it can never toggle the filter back off.
     await safeWaitForFunction(page, () => typeof window.toggleNeedsAttention === 'function', { timeout: 15_000 });
+    // Click-until-active with a COOLDOWN. The filter module stamps
+    // .active synchronously inside its toggle, so one landed click is
+    // enough — but a click during the SW storm can no-op before the
+    // delegate binds, so retry at most every 1.2s. Never flap: the
+    // class flips in the same tick as a landed click, so the next poll
+    // stops clicking.
     await safeWaitForFunction(page, () => {
       const b = document.getElementById('needsAttentionBtn');
       const badge = document.getElementById('crmFiltersActiveBadge');
       if (b && b.classList.contains('active')
           && badge && badge.textContent === '1' && badge.style.display !== 'none') return true;
-      if (b && !b.classList.contains('active')) b.click();
+      const now = Date.now();
+      if (b && !b.classList.contains('active')
+          && (!window.__nbdE2eTglAt || now - window.__nbdE2eTglAt > 1200)) {
+        window.__nbdE2eTglAt = now; b.click();
+      }
       return false;
-    }, { timeout: 10_000 });
+    }, { timeout: 15_000 });
     // Selecting a filter closes the menu (220ms delegate close)
     await safeWaitForFunction(page, () => !document.getElementById('crmFiltersMenu').classList.contains('open'), { timeout: 5_000 });
     // Toggle back off — badge empties, kanban unfiltered for later tests.
-    // Mirror pattern: click only while ACTIVE.
     await safeWaitForFunction(page, () => {
       const b = document.getElementById('needsAttentionBtn');
       const badge = document.getElementById('crmFiltersActiveBadge');
-      if (badge && badge.style.display === 'none' && b && !b.classList.contains('active')) return true;
-      if (b && b.classList.contains('active')) b.click();
+      if (b && !b.classList.contains('active')
+          && badge && badge.style.display === 'none') return true;
+      const now = Date.now();
+      if (b && b.classList.contains('active')
+          && (!window.__nbdE2eTglAt2 || now - window.__nbdE2eTglAt2 > 1200)) {
+        window.__nbdE2eTglAt2 = now; b.click();
+      }
       return false;
-    }, { timeout: 10_000 });
+    }, { timeout: 15_000 });
   });
 
   // Lean triage list (2026-07-06): Board/List toggle over the same

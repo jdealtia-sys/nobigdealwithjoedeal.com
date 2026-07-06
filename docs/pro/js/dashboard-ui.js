@@ -2013,6 +2013,10 @@ function syncMobileToolsMenuActive() {
   // One-row toolbar (2026-07-06): the Filters button shows how many
   // filter/sort toggles are ON so a collapsed filter can't silently
   // hide leads. Called on every toggle (delegate) + on menu open.
+  // Each filter module stamps .active on its own button SYNCHRONOUSLY
+  // inside its update fn (added 2026-07-06 — none of them ever set it
+  // before, which is why the old mobile menu's active mirrors never lit
+  // up). The class is therefore the cheap shared truth to count here.
   const filterIds = ['needsAttentionBtn', 'staleSharesBtn', 'snoozedToggleBtn', 'engagementSortBtn'];
   const n = filterIds.filter((id) => {
     const b = document.getElementById(id);
