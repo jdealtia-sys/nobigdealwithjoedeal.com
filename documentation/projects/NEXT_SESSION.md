@@ -171,6 +171,13 @@ future session; none blocked the journey itself.
    estimate address-match can silently auto-link a staff member's
    estimate to a teammate's lead (estimates.js:774 — plausibly desired
    for teams, but silent; Jo to confirm or we add a confirm prompt).
+   Two low-severity review notes accepted without code: the >500-doc
+   pagination path is untested under the companyId scope (identical code
+   to the battle-tested userId paging; a 501-doc seed isn't worth the rig
+   cost yet), and loadLeads can race the claims read on exotic boot paths
+   — the fallback is the pre-team userId fetch, self-healing on the next
+   load. Review stats: 16 confirmed / 4 rejected across 23 agents; every
+   confirmed finding is fixed or recorded here.
 
 2. **`submitPublicLead`'s App Check claim is dead config.** The handler
    sets `enforceAppCheck: true` with the comment "required; App Check sits
