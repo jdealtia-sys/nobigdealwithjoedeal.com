@@ -401,14 +401,22 @@ async function commitBulkLeadOp(ids, applyToBatch) {
   // whole chunk INCLUDING the caller's own leads. Filter to mutable leads
   // up front and say what was skipped instead of failing everything.
   const _me = window._user && window._user.uid;
-  const _isPlatformAdmin = ((window._userClaims && window._userClaims.role) || '') === 'admin';
+  const _claims = window._userClaims || {};
+  const _role = _claims.role || '';
+  const _isPlatformAdmin = _role === 'admin';
+  // Manager edit rights (2026-07): same-company staff can mutate any
+  // tenant lead (matches the rules' staff-update clause), so their bulk
+  // selections no longer skip teammate cards. Viewers stay filtered.
+  const _isStaff = ['company_admin', 'manager'].includes(_role) && !!_claims.companyId;
   const _byId = new Map((window._leads || []).map(l => [l.id, l]));
   const mutable = ids.filter((id) => {
     const l = _byId.get(id);
     // Unknown-to-cache ids and legacy docs without userId keep the old
     // behavior — they only reach a non-owner's selection via cache
     // states the fetch already scopes.
-    return _isPlatformAdmin || !l || !l.userId || !_me || l.userId === _me;
+    if (_isPlatformAdmin || !l || !l.userId || !_me) return true;
+    if (l.userId === _me) return true;
+    return _isStaff && l.companyId === _claims.companyId;
   });
   const skipped = ids.length - mutable.length;
   if (skipped > 0 && typeof window.showToast === 'function') {

@@ -354,13 +354,19 @@ async function loadCustomerData(id) {
     window._leadDoc = lead; // Used by document generator data bridge
 
     // ── Auto-assign Customer ID (NBD-0001 format) if missing ──
-    // OWNER-ONLY (team visibility, 2026-07): staff can now OPEN a
-    // teammate's customer page, but the lead update below is rules-denied
-    // for non-owners — running the counter transaction first would burn a
-    // shared tenant ID on every such open and then fail the stamp,
-    // leaving customerId gaps. The owner assigns on their next open.
-    if (!lead.customerId
-        && lead.userId && window._user && lead.userId === window._user.uid) {
+    // WRITER-ONLY (team visibility → manager edit rights, 2026-07): only
+    // mint from the shared counter when THIS user can actually stamp the
+    // lead — the owner, or same-company staff now that the rules'
+    // staff-update clause exists. Anyone else (viewer, stale claims)
+    // would burn a tenant ID in the counter transaction and then fail
+    // the updateDoc, leaving permanent NBD-XXXX gaps.
+    const _cidClaims = window._userClaims || {};
+    const _cidCanWrite = lead.userId && window._user && (
+      lead.userId === window._user.uid
+      || (['company_admin', 'manager'].includes(_cidClaims.role || '')
+          && !!_cidClaims.companyId && lead.companyId === _cidClaims.companyId)
+    );
+    if (!lead.customerId && _cidCanWrite) {
       try {
         const _cid = (lead && lead.companyId) || (window._user && window._user.uid);
         const _ctrId = (typeof window._custCounterId === 'function') ? window._custCounterId(_cid) : 'customerIds';

@@ -418,22 +418,42 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
         await new Promise((r) => setTimeout(r, 2_000));
       }
       expect(managerRead.ok, `manager reads the owner's lead (err: ${managerRead.err || 'none'})`).toBe(true);
+      // Manager edit rights (2026-07, Jo's call): the manager can WORK the
+      // shared board — a stage update on the owner's lead succeeds…
       let managerWrite;
       for (let i = 0; i < 3; i++) {
         managerWrite = await repPage.evaluate(async (id) => {
           const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
           try {
-            await fs.updateDoc(fs.doc(window.db || window._db, 'leads', id), { stage: 'hijacked' });
+            await fs.updateDoc(fs.doc(window.db || window._db, 'leads', id), { stage: 'contacted' });
+            return { wrote: true };
+          } catch (e) {
+            const err = String(e && (e.code || e.message));
+            return { wrote: false, denied: /permission|insufficient/i.test(err), err };
+          }
+        }, strangerLeadId);
+        if (managerWrite.wrote || managerWrite.denied) break;
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
+      expect(managerWrite.wrote, `manager updates the owner's lead (edit rights; err: ${managerWrite.err || 'none'})`).toBe(true);
+      // …but provenance is frozen: reassigning ownership is rules-denied.
+      let provenanceWrite;
+      for (let i = 0; i < 3; i++) {
+        provenanceWrite = await repPage.evaluate(async (id) => {
+          const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          try {
+            const me = (window._user && window._user.uid) || 'me';
+            await fs.updateDoc(fs.doc(window.db || window._db, 'leads', id), { userId: me });
             return { denied: false, wrote: true };
           } catch (e) {
             const err = String(e && (e.code || e.message));
             return { denied: /permission|insufficient/i.test(err), err };
           }
         }, strangerLeadId);
-        if (managerWrite.wrote || managerWrite.denied) break;
+        if (provenanceWrite.wrote || provenanceWrite.denied) break;
         await new Promise((r) => setTimeout(r, 2_000));
       }
-      expect(managerWrite.denied, `manager cannot MUTATE the owner's lead (writes stay owner-only; err: ${managerWrite.err || 'none'})`).toBe(true);
+      expect(provenanceWrite.denied, `manager cannot reassign lead ownership (provenance frozen; err: ${provenanceWrite.err || 'none'})`).toBe(true);
     } finally {
       await repContext.close();
     }

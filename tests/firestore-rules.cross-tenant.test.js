@@ -114,7 +114,14 @@ async function run() {
   await check('leads: cross-tenant MANAGER still denied',       'deny',  getDoc(doc(bobMgr, 'leads/leadA')));
   await check('leads: cross-tenant company_admin still denied', 'deny',  getDoc(doc(bobCA,  'leads/leadA')));
   await check('leads: claim-less user still denied',            'deny',  getDoc(doc(noClaim,'leads/leadA')));
-  await check('leads: same-tenant manager still cannot WRITE',  'deny',  updateDoc(doc(eveMgr, 'leads/leadA'), { stage: 'hijacked' }));
+  // Manager edit rights (2026-07-06): same-tenant staff CAN update — but
+  // provenance stays frozen and the companyId wall stays absolute.
+  await check('leads: same-tenant manager CAN update (edit rights)', 'allow', updateDoc(doc(eveMgr, 'leads/leadA'), { stage: 'contacted' }));
+  await check('leads: manager cannot REASSIGN ownership',        'deny',  updateDoc(doc(eveMgr, 'leads/leadA'), { userId: 'eve' }));
+  await check('leads: manager cannot RE-TENANT a lead',          'deny',  updateDoc(doc(eveMgr, 'leads/leadA'), { companyId: 'co-b' }));
+  await check('leads: cross-tenant manager cannot update',       'deny',  updateDoc(doc(bobMgr, 'leads/leadA'), { stage: 'hijacked' }));
+  await check('leads: same-tenant MANAGER cannot delete',        'deny',  deleteDoc(doc(eveMgr, 'leads/leadA')));
+  await check('leads: cross-tenant company_admin cannot delete', 'deny',  deleteDoc(doc(bobCA, 'leads/leadA')));
   await check('lead documents: same-tenant manager reads',      'allow', getDoc(doc(eveMgr, 'leads/leadA/documents/docA')));
   await check('ai_drafts: same-tenant manager still denied',    'deny',  getDoc(doc(eveMgr, 'leads/leadA/ai_drafts/draftA')));
   await check('estimates: B reads A estimate',        'deny',  getDoc(doc(bob, 'estimates/estA')));

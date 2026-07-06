@@ -125,8 +125,29 @@ service cloud.firestore {
       // reappeared on the next loadLeads, incl. bridged /inspect web-leads).
       // .get(key, default) returns the default when the key is absent and never
       // throws, preserving the viewer-only deny.
-      allow update, delete: if (isOwner(resource.data.userId)
-            && request.auth.token.get('role', '') != 'viewer') || isAdmin();
+      // Manager edit rights (2026-07-06, Jo's call after team visibility):
+      // same-company STAFF (company_admin + manager — isCompanyStaff, which
+      // never matches viewer or sales_rep) can UPDATE any tenant lead so the
+      // shared kanban is fully workable — but provenance is frozen
+      // (didNotChange userId/companyId: managers edit content, they don't
+      // reassign ownership or re-tenant a lead; reassignment ships as its
+      // own feature). DELETE stays owner + same-company company_admin —
+      // managers manage the board, only the lead owner or the tenant owner
+      // destroys data. Legacy docs without companyId stay owner-only for
+      // both (the company clause errors-to-deny on the absent key).
+      allow update: if (isOwner(resource.data.userId)
+            && request.auth.token.get('role', '') != 'viewer')
+        || isAdmin()
+        || (isCompanyStaff()
+            && resource.data.companyId != null
+            && resource.data.companyId == myCompanyId()
+            && didNotChange(['userId', 'companyId']));
+      allow delete: if (isOwner(resource.data.userId)
+            && request.auth.token.get('role', '') != 'viewer')
+        || isAdmin()
+        || (isCompanyAdmin()
+            && resource.data.companyId != null
+            && resource.data.companyId == myCompanyId());
       allow create: if isAuth()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string
@@ -159,7 +180,12 @@ service cloud.firestore {
         // stripe, esign, calcom) bypass these rules via admin SDK.
         allow create: if isAuth()
           && request.resource.data.userId == request.auth.uid
-          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          // Manager edit rights (2026-07): same-company staff may append
+          // timeline entries on teammate leads; every F-05 shape constraint
+          // below (source=='rep', type allowlist, financial-key denylist)
+          // still applies to them unchanged.
+          && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+              || (isCompanyStaff() && parentLeadInMyCompany(leadId)))
           && request.resource.data.source == 'rep'
           // F-05 allowlist of rep-authored, first-party activity types. These
           // are UI/timeline labels (drive timeline icons + lead-score signals)
@@ -186,14 +212,16 @@ service cloud.firestore {
           || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
           || parentLeadInMyCompany(leadId));
         allow write:  if isAuth()
-          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+          && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+              || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
       }
       match /notes/{noteId} {
         allow read:   if isAuth() && (isAdmin()
           || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
           || parentLeadInMyCompany(leadId));
         allow write:  if isAuth()
-          && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
+          && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+              || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
       }
 
       // ── RECORDINGS (Voice Intelligence) ───────────────

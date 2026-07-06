@@ -743,7 +743,7 @@ section('D3: leads/*/activity subcollection rules');
   // reject list, so the window widened. `allow update, delete: if false`
   // is still the terminal statement of the match block.
   assert('activity writes restrict update/delete',
-    /match \/activity\/\{activityId\}[\s\S]{0,2000}allow update, delete: if false/.test(src));
+    /match \/activity\/\{activityId\}[\s\S]{0,2600}allow update, delete: if false/.test(src));
   assert('activity type allowlist enforced (F-05)',
     /request\.resource\.data\.type in \[[\s\S]*?'note'[\s\S]*?\]/.test(src));
   assert('activity rejects financial webhook fields (F-05)',

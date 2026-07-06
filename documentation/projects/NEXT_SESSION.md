@@ -163,10 +163,14 @@ future session; none blocked the journey itself.
    a toast, and the Stranger Test's team journey now invites a MANAGER
    and asserts the shared kanban + rules-level read/write boundary.
    Remaining polish (deliberately deferred, from the adversarial review):
-   a read-only affordance on the customer page when staff open a
-   teammate's lead (writes correctly fail at rules today); Jo's product
-   call on whether managers should EDIT team leads (would widen update
-   rules — separate decision); teammate kanban cards render without photo
+   ~~Jo's product call on whether managers should EDIT team leads~~ —
+   ✅ DECIDED + EXECUTED 2026-07-06 (same day, the session after): managers
+   and company_admins update any same-tenant lead with provenance frozen
+   (didNotChange userId/companyId); deletes stay owner + company_admin;
+   tasks/notes/activity collaboration writes follow the parent; client
+   guards (moveCard/changeLeadType/bulk/customerId-mint) allow staff. The
+   read-only customer-page affordance is now only needed for VIEWERS
+   (staff can genuinely edit); teammate kanban cards render without photo
    thumbnails (the photo cache stays userId-scoped — cosmetic); and the
    estimate address-match can silently auto-link a staff member's
    estimate to a teammate's lead (estimates.js:774 — plausibly desired
