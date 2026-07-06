@@ -2227,6 +2227,11 @@ async function uploadSinglePhoto(item, index) {
           const photoDoc = {
             leadId: window._customerId,
             userId: window.auth.currentUser.uid,
+            // Tenant key (claims.companyId || uid — the Phase-1.5 rule):
+            // lets the dashboard thumbnail cache and team galleries find
+            // this photo with one company-scoped query instead of a
+            // per-lead parent lookup.
+            companyId: (window._userClaims && window._userClaims.companyId) || window.auth.currentUser.uid,
             url: downloadURL,
             storagePath: storagePath,
             filename: file.name,
