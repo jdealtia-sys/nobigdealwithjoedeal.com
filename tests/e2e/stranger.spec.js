@@ -89,7 +89,7 @@ async function waitOnboardingReady(page, email) {
 }
 
 /** In-page callable through the app's own (emulator-connected, App-Check-shimmed) SDK. */
-async function callFromPage(page, fnName, payload) {
+async function callFromPageOnce(page, fnName, payload) {
   return page.evaluate(async ({ name, data }) => {
     const m = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
     const emu = await import('/pro/js/nbd-emulator-connect.js');
@@ -102,6 +102,26 @@ async function callFromPage(page, fnName, payload) {
       return { ok: false, code: (e && e.code) || '', message: (e && e.message) || String(e) };
     }
   }, { name: fnName, data: payload || {} });
+}
+
+/**
+ * Same, but retries the emulator's transient-failure signature: a bare
+ * `internal` error. Server-side Firestore hiccups (rate-limit transaction
+ * contention, dropped reads) surface as raw errors → callable `internal`;
+ * every DELIBERATE refusal in these functions is a typed HttpsError
+ * (resource-exhausted, failed-precondition, invalid-argument) which is
+ * returned as-is, so retrying `internal` never masks a real verdict.
+ */
+async function callFromPage(page, fnName, payload) {
+  let last;
+  for (let i = 0; i < 3; i++) {
+    last = await callFromPageOnce(page, fnName, payload);
+    const internal = !last.ok && /(^|\/)internal$/.test(last.code || '') ||
+      (!last.ok && String(last.message).trim().toLowerCase() === 'internal');
+    if (!internal) return last;
+    await new Promise((r) => setTimeout(r, 2_000));
+  }
+  return last;
 }
 
 // Shared across the serial journey.
