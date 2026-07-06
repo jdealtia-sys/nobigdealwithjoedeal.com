@@ -3,6 +3,11 @@
 > Planning brief, 2026-07-06. Written after a full sweep of BIG_ROCKS.md, the
 > pillar plans, the 2026-07 product audit, and the last 72 hours of merges
 > (PRs #839–#858). Self-contained: a fresh agent can pick this up cold.
+>
+> **STATUS: EXECUTED same-day (this PR).** The rig now boots the Functions
+> emulator, `tests/e2e/stranger.spec.js` runs the full journey in CI
+> (`@stranger` matrix shard), and the findings are recorded in the
+> **Punch list** section at the bottom of this doc.
 
 ## State of the board (why this pick)
 
@@ -140,3 +145,73 @@ the code that shipped this week.
 | ~Jul 19 | Flip `e2e-authed-emulator` from `continue-on-error` to required (needs 2 weeks green from Jul 5) |
 | With Jo on device | CRM Phase 2 aggressive breakpoint consolidation |
 | Jo console action | IAM grant `roles/iam.serviceAccountTokenCreator` (access-code login, audit Break #2) |
+
+---
+
+## Punch list — findings from executing the Stranger Test (2026-07-06)
+
+What the journey flushed out, in priority order. Each is a candidate for a
+future session; none blocked the journey itself.
+
+1. **Invited reps cannot see the tenant's pipeline.** `firestore.rules`
+   scopes `leads` reads to `isOwner(resource.data.userId)` — there is no
+   company-scoped read, and the rules comment (firestore.rules:70) says the
+   claim-based ownership match is "intentionally NOT enforced yet". So a
+   rep who claims into a team gets the claims, the member doc, and the
+   shared brand — but an EMPTY kanban. The team feature is
+   invite-complete, visibility-incomplete. (The Stranger Test asserts
+   what's true today: claims + activation + solo-supersede; it does NOT
+   assert shared-pipeline visibility. When the rules follow-up lands, add
+   that assertion.)
+
+2. **`submitPublicLead`'s App Check claim is dead config.** The handler
+   sets `enforceAppCheck: true` with the comment "required; App Check sits
+   in front" (functions/handlers/integrations.js:240) — but firebase-functions
+   v2 `onRequest` **ignores** `enforceAppCheck` (it is an `onCall`-only
+   option; verified in the SDK source). The endpoint's real protections
+   are Turnstile (when configured), per-IP rate limits, honeypot, and
+   validation — which may well be the right posture for a public homeowner
+   endpoint, but the code should say what's true: either implement manual
+   App Check verification or fix the comment/option.
+
+3. **App Check enforcement blocks the emulator rig by design** — enforced
+   callables reject a MISSING token even in the Functions emulator, while
+   the emulator's always-on `skipTokenVerification` accepts any decodable
+   JWT. Fixed this session with a localhost-only CustomProvider shim in
+   `nbd-emulator-connect.js` (+ the three boot files), keeping
+   `enforceAppCheck: true` exercised server-side. If a future page adds
+   its own App Check init, it must use the same
+   `isLocalEmulatorEnv()`-first pattern or its callables die only in tests.
+
+4. **The rig ran a trigger prod can never run.** `onRepSignup` (the
+   GCIP-blocked `beforeUserCreated` blocking trigger, permanently in
+   `NBD_DEPLOY_SKIP_LIST`) is still exported from functions/index.js, so
+   the emulator loaded and EXECUTED it — it matched the pending invite at
+   the rep's signup and stamped team claims before `claimInvite` ever got
+   a chance, making the rig test a flow production cannot ship. Fixed: the
+   handler itself no-ops when `NBD_DEPLOY_SKIP_LIST` names it, and the rig
+   injects that via `functions/.env.local`
+   (tests/e2e/fixtures/ensure-emulator-env.js) — dotenv is the only channel
+   that reaches the call-time runtime, and the skip must live INSIDE the
+   handler because trigger discovery runs with a scrubbed env, so gating
+   the export half-registers the blocking trigger and 500s every signup
+   (both failure modes were hit before landing here). Longer-term decision
+   for Jo: `onRepSignup` demonstrably works — if GCIP is ever purchased,
+   it can replace the claimInvite dance; until then, consider deleting the
+   export outright instead of skip-listing it in two places.
+
+5. **Alert delivery is unasserted.** `leadAlert*`/`onNewLead`/
+   `teamInviteEmail` fire in the rig but Resend/Twilio secrets are absent,
+   so delivery fails silently server-side. The tenant-routing HALF is
+   covered (lead-bridge writes are asserted); the notification half needs
+   either a Resend sandbox key in CI or an email-queue assertion seam.
+
+6. **Emulator seat-of-the-pants notes** for whoever extends the rig:
+   the functions emulator needs `functions/node_modules` in CI (step
+   added); secrets warnings are expected noise; scheduled functions don't
+   fire; `admin.firestore.FieldValue` namespaced statics are broken
+   in-emulator (modular imports are fine — all journey-path functions
+   already use them). Sandboxed agent containers additionally need
+   `PLAYWRIGHT_CHROMIUM_PATH`, `PLAYWRIGHT_PROXY_SERVER`, and — where the
+   egress policy denies gstatic — `NBD_E2E_SDK_LOCAL_DIR` (see
+   tests/e2e/fixtures/local-sdk.js); none of these apply in GitHub CI.

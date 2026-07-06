@@ -12,7 +12,7 @@ import { getAuth, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvi
                                                                 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp }   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable }                           from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
-import { connectEmulatorsIfLocal }                               from "../nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
+import { connectEmulatorsIfLocal, emulatorAppCheckIfLocal }      from "../nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
 
 const firebaseConfig = {
   apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -27,8 +27,12 @@ const app = initializeApp(firebaseConfig);
 // App Check must be live before any callable runs — createCompany
 // (enforceAppCheck:true) is invoked right after signup. Key comes from
 // js/dashboard-appcheck-config.js loaded in <head> (photo-review.js pattern).
+// On localhost the emulator shim replaces reCAPTCHA (which can't mint tokens
+// off the registered origin) so the same enforced callable path works in the
+// emulator rig.
 try {
-  if (typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
+  if (!(await emulatorAppCheckIfLocal(app))
+      && typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
     initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(window.__NBD_APP_CHECK_KEY),
       isTokenAutoRefreshEnabled: true,

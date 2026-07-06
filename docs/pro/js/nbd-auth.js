@@ -24,9 +24,9 @@ let __NBD_SENTRY_BOOTSTRAPPED; // module-local (globals Tranche 1 — was window
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, initializeFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, CustomProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 // Audit #3: localhost-only emulator wiring. No-op in production.
-import { connectEmulatorsIfLocal } from "./nbd-emulator-connect.js";
+import { connectEmulatorsIfLocal, isLocalEmulatorEnv, emulatorAppCheckFakeToken } from "./nbd-emulator-connect.js";
 
 // ── Firebase Config (single source of truth) ─────────────
 const FIREBASE_CONFIG = {
@@ -309,7 +309,16 @@ export const NBDAuth = {
       // page; initializeAppCheck throws on repeat calls.
       try {
         const appCheckKey = (typeof window !== 'undefined' && window.__NBD_APP_CHECK_KEY || '').trim();
-        if (appCheckKey && !window.__NBD_APP_CHECK_INITIALIZED) {
+        if (isLocalEmulatorEnv() && !window.__NBD_APP_CHECK_INITIALIZED) {
+          // Emulator rig: enforced callables still demand a decodable App
+          // Check JWT; reCAPTCHA can't mint one off the registered origin.
+          // Sync init so no callable races ahead of the shim.
+          initializeAppCheck(_app, {
+            provider: new CustomProvider({ getToken: async () => emulatorAppCheckFakeToken() }),
+            isTokenAutoRefreshEnabled: false
+          });
+          window.__NBD_APP_CHECK_INITIALIZED = true;
+        } else if (appCheckKey && !window.__NBD_APP_CHECK_INITIALIZED) {
           initializeAppCheck(_app, {
             provider: new ReCaptchaEnterpriseProvider(appCheckKey),
             isTokenAutoRefreshEnabled: true

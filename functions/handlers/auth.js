@@ -388,6 +388,21 @@ exports.cleanupE2ETestData = onCall(
 exports.onRepSignup = beforeUserCreated(
   { region: 'us-central1' },
   async (event) => {
+    // Emulator-rig parity no-op. This trigger is permanently in the deploy
+    // workflow's NBD_DEPLOY_SKIP_LIST (GCIP-blocked), so PRODUCTION NEVER
+    // RUNS IT — reps get their claims from claimInvite on first dashboard
+    // load instead. The Functions emulator, however, loads every export and
+    // executes this at signup, pre-empting the claimInvite path the product
+    // actually ships. The rig injects NBD_DEPLOY_SKIP_LIST via
+    // functions/.env.local (tests/e2e/fixtures/ensure-emulator-env.js);
+    // honoring it HERE (not at the export — trigger discovery runs with a
+    // scrubbed env, and a conditional export half-registers the blocking
+    // trigger and 500s every signup) keeps emulator behavior prod-faithful.
+    if (String(process.env.NBD_DEPLOY_SKIP_LIST || '')
+      .split(',').map((s) => s.trim()).includes('onRepSignup')) {
+      logger.info('onRepSignup: skip-listed (emulator rig) — no-op');
+      return;
+    }
     const user = event.data;
     const email = (user.email || '').toLowerCase().trim();
     if (!email) return; // No email = nothing to match

@@ -15,6 +15,14 @@
 (function () {
   'use strict';
 
+  // Emulator rig (localhost only): point the shared lead gateway at the
+  // local Functions emulator so the quote form works end-to-end in tests.
+  // This page is a plain script, so it can't import nbd-emulator-connect.js —
+  // same hostname guard, hard no-op in production.
+  if (/^(localhost|127\.0\.0\.1|\[::1\]|::1)$/.test(window.location.hostname) && !window.__NBD_FUNCTIONS_BASE) {
+    window.__NBD_FUNCTIONS_BASE = 'http://127.0.0.1:5001/nobigdeal-pro/us-central1';
+  }
+
   var $ = function (id) { return document.getElementById(id); };
 
   function companyKey() {
