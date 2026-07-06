@@ -529,6 +529,21 @@ service cloud.firestore {
             || request.resource.data.companyId == request.auth.uid);
     }
 
+    // ── ALERT OUTBOX ──────────────────────────────────
+    // Admin-SDK-written ledger of lead-alert routing decisions
+    // (functions/lead-alert.js recordAlertOutbox). Reads: platform admin
+    // + the tenant's own company readers (/expenses shape — companyId is
+    // always present on these docs, null for NBD-fallback alerts, so the
+    // != null guard is safe). All client writes denied — alerts can't be
+    // forged or scrubbed from the audit trail.
+    match /alert_outbox/{outboxId} {
+      allow read: if isAdmin()
+        || (isCompanyReader()
+            && resource.data.companyId != null
+            && resource.data.companyId == myCompanyId());
+      allow create, update, delete: if false;
+    }
+
     // ── MAP PINS ──────────────────────────────────────
     match /pins/{pinId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();

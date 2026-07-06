@@ -206,12 +206,47 @@ async function ackHomeowner(collection, d, leadId, target) {
   }
 }
 
+// ── Alert outbox ledger (2026-07-06, punch item 6) ──────────────────────
+// One doc per alert attempt recording the RESOLVED routing decision +
+// per-channel outcomes. Two consumers:
+//   - CI: the Stranger E2E asserts the alert for a tenant's public lead
+//     TARGETED the tenant (companyProfile alertEmail/alertSms), never
+//     Joe — the notification half of lead routing was previously
+//     unassertable because Resend/Twilio secrets don't exist in the rig
+//     and delivery failed silently server-side.
+//   - Prod: an audit trail of who was alerted for which lead (readable
+//     by platform admin + the lead's own tenant readers; see
+//     firestore.rules /alert_outbox).
+// Best-effort by design: an outbox write failure never blocks the alert.
+async function recordAlertOutbox(collection, leadId, d, target, outcomes) {
+  try {
+    await getFirestore().collection('alert_outbox').add({
+      kind: 'lead-alert',
+      collection,
+      leadId: leadId || null,
+      companyId: (d && d.companyId) || null,
+      target: {
+        emails: target.emails || null,
+        sms: target.sms || null,
+        name: target.name || '',
+        seal: target.seal || '',
+      },
+      emailStatus: outcomes.email,
+      smsStatus: outcomes.sms,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+  } catch (e) {
+    logger.warn('leadAlert: outbox write failed', { collection, leadId, err: e && e.message });
+  }
+}
+
 async function alertJoe(collection, d, leadId) {
   const label = KIND_LABEL[collection] || collection;
   const source = d.source || '';
   const s = summarize(d);
   // Route to the lead's tenant (Oaks → Scott); NBD / unset → Joe (default).
   const target = await resolveAlertTarget(d.companyId);
+  const outcomes = { email: 'skipped:no-target', sms: 'skipped:no-target' };
 
   // Text via Twilio (works once the number is A2P 10DLC approved). Skip when
   // the tenant configured no alert SMS — never fall back to Joe's cell.
@@ -222,8 +257,10 @@ async function alertJoe(collection, d, leadId) {
       from: TWILIO_PHONE_NUMBER.value(),
       body: smsBody(label, source, s, target.seal),
     });
+    outcomes.sms = 'sent';
     logger.info('leadAlert: sms queued', { collection, leadId, sid: msg.sid });
   } catch (e) {
+    outcomes.sms = 'failed:' + String(e && e.message || e).slice(0, 200);
     logger.error('leadAlert: sms failed', { collection, leadId, err: e.message });
   }
 
@@ -238,10 +275,15 @@ async function alertJoe(collection, d, leadId) {
       html: emailHtml(label, source, s, leadId, target.name),
       reply_to: s.email || undefined,
     });
+    outcomes.email = 'sent';
     logger.info('leadAlert: email sent', { collection, leadId, id: (resp && resp.data && resp.data.id) || null });
   } catch (e) {
+    outcomes.email = 'failed:' + String(e && e.message || e).slice(0, 200);
     logger.error('leadAlert: email failed', { collection, leadId, err: e.message });
   }
+
+  // Ledger the routing decision + outcomes (see recordAlertOutbox above).
+  await recordAlertOutbox(collection, leadId, d, target, outcomes);
 
   // Close the loop with the homeowner (independent; never blocks the alert).
   await ackHomeowner(collection, d, leadId, target);
