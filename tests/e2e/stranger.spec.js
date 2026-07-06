@@ -314,6 +314,28 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
     expect(bridged.userId, 'bridged lead routed to the tenant OWNER').toBe(STRANGER.uid);
     expect(bridged.companyId).toBe(STRANGER.uid);
 
+    // The NOTIFICATION half (2026-07-06, punch item 6): the leadAlert
+    // trigger's outbox ledger records WHO the alert targeted. Delivery
+    // itself can't succeed in the rig (no Resend/Twilio secrets — the
+    // statuses record the failure), but the ROUTING decision is the
+    // product guarantee: the alert for a tenant's public lead goes to
+    // the TENANT's alert contact (createCompany seeded alertEmail from
+    // their account email; the wizard added alertSms) — never to Joe.
+    const outbox = await eventually(async () => {
+      const snap = await db.collection('alert_outbox')
+        .where('companyId', '==', STRANGER.uid).limit(1).get();
+      return snap.empty ? null : snap.docs[0].data();
+    }, { label: 'alert_outbox entry for the microsite lead', timeout: 45_000 });
+    expect(outbox.kind).toBe('lead-alert');
+    expect(outbox.collection, 'alert fired off the public contact_leads doc').toBe('contact_leads');
+    expect(outbox.target.emails, 'alert email targeted the TENANT\'s alert contact')
+      .toEqual([STRANGER.email]);
+    expect(JSON.stringify(outbox.target), 'alert never routed to Joe')
+      .not.toMatch(/nobigdealwithjoedeal|jonathandeal459|8594207382/i);
+    expect(outbox.target.seal, 'tenant-resolved target, not the NBD fallback').not.toBe('NBD');
+    expect(String(outbox.emailStatus), 'email attempt recorded (send fails in the rig — no secrets)')
+      .toMatch(/^(sent|failed:)/);
+
     // …and their card shows up in THEIR kanban like any other lead.
     await loginAs(page, { email: STRANGER.email, password: STRANGER.password });
     await openCrm(page);

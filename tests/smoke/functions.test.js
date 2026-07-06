@@ -19,6 +19,23 @@ module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
 
 // ── Cloud Functions contract ─────────────────────────────────
+section('Alert outbox ledger (2026-07-06, punch item 6)');
+{
+  const la = read(path.join(FUNCTIONS, 'lead-alert.js'));
+  assert('recordAlertOutbox writes the routing decision to alert_outbox',
+    /async function recordAlertOutbox/.test(la)
+    && /collection\('alert_outbox'\)\.add\(/.test(la)
+    && /companyId: \(d && d\.companyId\) \|\| null/.test(la));
+  assert('alertJoe records per-channel outcomes into the ledger',
+    /const outcomes = \{ email: 'skipped:no-target', sms: 'skipped:no-target' \}/.test(la)
+    && /await recordAlertOutbox\(collection, leadId, d, target, outcomes\)/.test(la));
+  assert('outbox write is best-effort (never blocks the alert path)',
+    /outbox write failed/.test(la));
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('alert_outbox rules: tenant readers + admin only, zero client writes',
+    /match \/alert_outbox\/\{outboxId\}[\s\S]{0,600}allow create, update, delete: if false/.test(rules));
+}
+
 section('Cloud Functions exports');
 {
   const src = readFunctionsIndex();

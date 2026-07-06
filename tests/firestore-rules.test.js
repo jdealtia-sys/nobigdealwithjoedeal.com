@@ -587,6 +587,9 @@ async function run() {
     // from the docLeadInMyCompany fallback.
     await setDoc(doc(db, 'photos/photoStamped'), { userId: 'alice', companyId: 'co-a', url: 'p/stamped.jpg' });
     await setDoc(doc(db, 'photos/photoStampedB'), { userId: 'bob', companyId: 'co-b', url: 'p/stamped-b.jpg' });
+    // Alert-outbox ledger (admin-SDK-written; see functions/lead-alert.js)
+    await setDoc(doc(db, 'alert_outbox/obxA'), { kind: 'lead-alert', collection: 'contact_leads', companyId: 'co-a', target: { emails: ['a@co-a.test'], sms: null }, emailStatus: 'sent', smsStatus: 'skipped:no-target' });
+    await setDoc(doc(db, 'alert_outbox/obxNbd'), { kind: 'lead-alert', collection: 'contact_leads', companyId: null, target: { emails: ['jd@x.test'], sms: null }, emailStatus: 'sent', smsStatus: 'sent' });
     await setDoc(doc(db, 'leads/leadA/activity/legacy-act'),
       { userId: 'alice', type: 'note', source: 'rep', note: 'legacy parent' });
   });
@@ -688,6 +691,20 @@ async function run() {
   await assertFails(getDoc(doc(mgrB, 'photos/photoStamped')));
   await assertFails(updateDoc(doc(mgrA, 'photos/photoStamped'), { phase: 'After' }));
   await assertFails(updateDoc(doc(viewerA, 'photos/photoStamped'), { caption: 'x' }));
+
+  // ✅ ALERT OUTBOX: tenant readers see their OWN company's alert ledger
+  // (incl. the provable companyId LIST query); NBD-fallback (companyId
+  // null) docs are platform-admin only; nothing is client-writable.
+  await assertSucceeds(getDoc(doc(coAdmin, 'alert_outbox/obxA')));
+  await assertSucceeds(getDoc(doc(mgrA, 'alert_outbox/obxA')));
+  await assertSucceeds(getDocs(query(collection(mgrA, 'alert_outbox'), where('companyId', '==', 'co-a'))));
+  await assertSucceeds(getDoc(doc(admin, 'alert_outbox/obxNbd')));
+  await assertFails(getDoc(doc(mgrB, 'alert_outbox/obxA')));
+  await assertFails(getDoc(doc(bob, 'alert_outbox/obxA')));
+  await assertFails(getDoc(doc(coAdmin, 'alert_outbox/obxNbd')));
+  await assertFails(setDoc(doc(coAdmin, 'alert_outbox/forged'),
+    { kind: 'lead-alert', companyId: 'co-a', target: { emails: ['x@y.z'] } }));
+  await assertFails(updateDoc(doc(coAdmin, 'alert_outbox/obxA'), { emailStatus: 'scrubbed' }));
 
   // ✅ CREATE pins companyId to the caller's tenant (claim or solo uid —
   // the Phase-1.5 /leads shape) but still accepts its absence (cached

@@ -54,6 +54,11 @@
     // mic/capture FABs) float on top of the very modal the FAB opened.
     'leadModal',                // full Add/Edit Lead modal (class-toggled)
     'quickAddModal',            // mobile 3-tap quick add (class-toggled)
+    // Visual QA 2026-07-06 (emulator screenshots): the onboarding tour's
+    // full-screen overlay rendered UNDER the FAB stack — the buttons
+    // floated over the welcome dialog. Mounted on open / removed on
+    // close, so display-toggle presence semantics are correct.
+    'nbd-onb-overlay',
   ];
 
   // The lead-alert stack lists itself but should NOT trigger hide
