@@ -42,6 +42,52 @@ export function isLocalEmulatorEnv() {
 }
 
 /**
+ * Emulator-mode App Check. No-op (returns false) off-localhost.
+ *
+ * Callables shipped with `enforceAppCheck: true` (createCompany, claimInvite,
+ * setSiteSlug, …) reject requests with NO X-Firebase-AppCheck header even in
+ * the Functions emulator — but the emulator always runs the functions runtime
+ * with the `skipTokenVerification` debug feature, which unsafe-decodes the
+ * token instead of verifying it (firebase-tools functionsEmulator.js
+ * getEmulatorEnvs). So a well-formed, unsigned JWT is sufficient AND required.
+ * The real ReCaptchaEnterpriseProvider can't mint one on localhost (no
+ * reCAPTCHA origin registration), so callers use this INSTEAD of their
+ * production App Check init when local. Enforcement stays ON server-side —
+ * the "token present and decoded" path is exercised, only the signature
+ * check is emulator-skipped.
+ *
+ * @param {object} app - the initialized Firebase app
+ * @returns {Promise<boolean>} true if local (App Check emulator shim installed)
+ */
+export function emulatorAppCheckFakeToken() {
+  const b64url = (obj) => btoa(JSON.stringify(obj))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const now = Math.floor(Date.now() / 1000);
+  const token = [
+    b64url({ alg: 'none', typ: 'JWT' }),
+    // The emulator's unsafe decoder reads app_id from `sub`.
+    b64url({ sub: 'nbd-emulator-app', iat: now, exp: now + 3600 }),
+    b64url({ sig: 'emulator' }),
+  ].join('.');
+  return { token, expireTimeMillis: (now + 3600) * 1000 };
+}
+
+export async function emulatorAppCheckIfLocal(app) {
+  if (!isLocalEmulatorEnv() || !app) return false;
+  try {
+    const { initializeAppCheck, CustomProvider } = await import(`${SDK}/firebase-app-check.js`);
+    initializeAppCheck(app, {
+      provider: new CustomProvider({ getToken: async () => emulatorAppCheckFakeToken() }),
+      isTokenAutoRefreshEnabled: false,
+    });
+  } catch (e) {
+    // "already initialized" on a shared app instance is harmless.
+    console.warn('[nbd-emulator-connect] app-check shim warning:', e && e.message);
+  }
+  return true;
+}
+
+/**
  * Connect any provided SDK instances to the local emulators. No-op off-localhost.
  * @param {{auth?:object, db?:object, functions?:object, storage?:object}} svc
  * @returns {Promise<boolean>} true if running locally (whether or not any svc was passed)

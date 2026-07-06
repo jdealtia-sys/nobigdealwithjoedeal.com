@@ -235,7 +235,11 @@ jobs:
         # '@audit' = tests/e2e/dashboard-actions-audit.spec.js — full
         # data-action wiring + mobile tap audit (2026-07-05). Its own
         # emulator session, same flake-isolation rationale as the shards.
-        shard: ['@shard1', '@shard2', '@audit']
+        # '@stranger' = tests/e2e/stranger.spec.js — the Stranger Test:
+        # the full second-contractor lifecycle (provision → operate →
+        # microsite → team → isolation) against the FULL emulator rig,
+        # functions included (2026-07-06).
+        shard: ['@shard1', '@shard2', '@audit', '@stranger']
     # Rock 3: hermetic authed journey — seed a tenant in the Auth/Firestore
     # emulators, serve docs/ from the hosting emulator (the client SDK
     # auto-connects to emulators on localhost via nbd-emulator-connect.js),
@@ -269,6 +273,14 @@ jobs:
         run: |
           cd tests
           npm install --silent --no-audit --no-fund
+      # The Stranger Test shard boots the FUNCTIONS emulator — the emulated
+      # runtime loads functions/index.js, so its dependencies must be
+      # installed there (and only there; legacy shards run functions-less).
+      - name: Install functions deps (functions emulator runtime)
+        if: matrix.shard == '@stranger'
+        run: |
+          cd functions
+          npm install --silent --no-audit --no-fund
       - name: Install Playwright chromium
         run: |
           cd tests
@@ -276,6 +288,14 @@ jobs:
       - name: Run authed E2E against emulators
         env:
           PLAYWRIGHT_GREP: ${{ matrix.shard }}
+          # The FUNCTIONS emulator boots only for the Stranger Test shard —
+          # its ~140-function runtime measurably slows dashboard settle and
+          # widened the documented 301-hop "execution context destroyed"
+          # race in the legacy shards on the first full-rig run. The legacy
+          # shards keep their tuned functions-less environment (callable
+          # connection-refusals are allowlisted there); widening functions
+          # to all shards is future work once boot cost is addressed.
+          NBD_EMU_FUNCTIONS: ${{ matrix.shard == '@stranger' && '1' || '' }}
         run: |
           cd tests
           npm run test:e2e:authed:emu

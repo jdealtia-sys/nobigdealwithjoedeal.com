@@ -7,11 +7,11 @@
 // order, so this still runs after dashboard-appcheck-config.js sets
 // window.__NBD_APP_CHECK_KEY and after dashboard-auth-gate.module.js.
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-  import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
+  import { initializeAppCheck, ReCaptchaEnterpriseProvider, CustomProvider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
   import { getAuth, onAuthStateChanged, signOut, updateProfile, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { getFirestore, collection, addDoc, getDocs, getDoc, updateDoc, deleteDoc, doc, orderBy, query, serverTimestamp, where, arrayUnion, limit, startAfter, setDoc, writeBatch, runTransaction, onSnapshot, disableNetwork, enableNetwork } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
   import { getStorage, ref, uploadBytes, getDownloadURL, listAll } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
-  import { connectEmulatorsIfLocal } from "./nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
+  import { connectEmulatorsIfLocal, isLocalEmulatorEnv, emulatorAppCheckFakeToken } from "./nbd-emulator-connect.js"; // Audit #3: localhost-only, no-op in prod
 
   // ═══ GLOBAL CRM STATE (MUST BE TOP-LEVEL) ═══
   // Per S27 architectural rule: All CRM global state declared before any function definitions
@@ -800,7 +800,21 @@
   // HTML (they're validated by reCAPTCHA, not secret). An unset key
   // falls back to an init-skipped warning so dev/local still works.
   const APP_CHECK_KEY = (window.__NBD_APP_CHECK_KEY || '').trim();
-  if (APP_CHECK_KEY && !window.__NBD_APP_CHECK_INITIALIZED) {
+  if (isLocalEmulatorEnv() && !window.__NBD_APP_CHECK_INITIALIZED) {
+    // Emulator rig: reCAPTCHA can't mint tokens off the registered origin,
+    // but enforced callables (claimInvite, createCompany, …) still demand a
+    // decodable App Check JWT even in the Functions emulator. Sync init (no
+    // dynamic import) so no callable can race ahead of the shim.
+    try {
+      initializeAppCheck(app, {
+        provider: new CustomProvider({ getToken: async () => emulatorAppCheckFakeToken() }),
+        isTokenAutoRefreshEnabled: false
+      });
+      window.__NBD_APP_CHECK_INITIALIZED = true;
+    } catch (e) {
+      console.warn('App Check emulator shim init failed:', e);
+    }
+  } else if (APP_CHECK_KEY && !window.__NBD_APP_CHECK_INITIALIZED) {
     try {
       initializeAppCheck(app, {
         provider: new ReCaptchaEnterpriseProvider(APP_CHECK_KEY),

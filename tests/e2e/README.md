@@ -141,3 +141,46 @@ alert(JSON.stringify(r));   // shows email + password ONCE
 The callable creates the auth user, sets `e2eTestAccount: true`,
 and rotates the password if the user already exists. Capture the
 password, set it as the GitHub Secret, done.
+
+## The Stranger Test (`stranger.spec.js`, `@stranger` shard)
+
+The full second-contractor lifecycle against the FULL emulator rig —
+functions included. Set `NBD_EMU_FUNCTIONS=1` to add the Functions
+emulator to the `test:e2e:authed:emu` `--only` list; the `@stranger` CI
+shard sets it, the legacy shards deliberately do NOT (the ~140-function
+runtime slows dashboard settle enough to widen the documented 301-hop
+"execution context destroyed" race those shards were tuned against):
+
+register → `createCompany` → onboarding completed for real → dashboard
+unwalled on the free plan → save a lead → the tenant microsite
+(`/sites/t/<uid>`) renders their brand via `getPublicSiteConfig` → a
+homeowner quote-form submission routes through `submitPublicLead` +
+`leadBridgeContact` into THEIR pipeline → free-plan invites are
+seat-gated → an (admin-stand-in) upgraded tenant invites a rep →
+the rep registers, verifies, and `claimInvite` re-points their claims
+and supersedes their solo tenant → cross-tenant lead reads are denied
+both directions.
+
+Notes:
+
+- `fixtures/ensure-emulator-env.js` runs before `emulators:exec` and writes
+  a managed block to `functions/.env.local` (gitignored, emulator-only)
+  setting `NBD_DEPLOY_SKIP_LIST=onRepSignup` — the GCIP-blocked blocking
+  trigger prod never deploys must also no-op in the rig, or it stamps rep
+  claims at signup and pre-empts the claimInvite path the product ships.
+  The skip lives INSIDE the handler (functions/handlers/auth.js): trigger
+  discovery runs with a scrubbed env, so export-gating half-registers the
+  blocking trigger and 500s every signup.
+- Enforced callables (`createCompany`, `claimInvite`, `createTeamInvite`)
+  keep `enforceAppCheck: true` in the rig — the localhost-only CustomProvider
+  shim in `docs/pro/js/nbd-emulator-connect.js` mints a decodable JWT that
+  the emulator's always-on `skipTokenVerification` accepts. Look for
+  `"verifications":{"app":"VALID","auth":"VALID"}` in the emulator log.
+- Two admin-SDK nudges stand in for what a real flow gets from outside the
+  browser: the rep's email verification (we can't click the link) and the
+  plan upgrade (Stripe hosted checkout can't be emulated).
+- Sandboxed agent containers (egress-policied) need three env escape
+  hatches that are all no-ops in GitHub CI: `PLAYWRIGHT_CHROMIUM_PATH`,
+  `PLAYWRIGHT_PROXY_SERVER`, and `NBD_E2E_SDK_LOCAL_DIR` (serves the
+  gstatic Firebase SDK bundles from a local `firebase` npm package via
+  route interception — see `fixtures/local-sdk.js`).

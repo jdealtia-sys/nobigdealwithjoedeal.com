@@ -109,7 +109,12 @@ exports.previewAiPersona           = aiTextingPreviewHandlers.previewAiPersona;
 // Auth / identity triggers + callables
 // NOTE: onRepSignup is in NBD_DEPLOY_SKIP_LIST per
 // .github/workflows/firebase-deploy.yml — DO NOT remove its export.
-// The skip-list is applied at deploy time, not at code time.
+// The skip-list is applied at deploy time, not at code time. (Do NOT try
+// to gate the export on env either: the emulator runs trigger DISCOVERY
+// with a scrubbed env, so a conditional export half-registers the blocking
+// trigger — registered with the Auth emulator, missing from the runtime —
+// and every signup dies on a 500. The emulator-rig skip lives INSIDE the
+// handler instead; see handlers/auth.js.)
 const authHandlers = require('./handlers/auth');
 exports.onRepSignup          = authHandlers.onRepSignup;
 exports.activateInvitedRep   = authHandlers.activateInvitedRep;

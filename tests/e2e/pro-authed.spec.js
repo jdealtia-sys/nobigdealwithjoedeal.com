@@ -112,10 +112,11 @@ test.describe('Authenticated /pro/ shell — read-only @shard1', () => {
 // could reach. This journey locks the whole path end-to-end.
 //
 // Hermetic: the account is created fresh in the AUTH EMULATOR each
-// run (unique email per attempt) and evaporates with it. The
-// createCompany callable fails in emulator mode (no functions
-// emulator) — BY DESIGN register.js treats that as non-fatal (solo
-// uid convention), which this journey also exercises.
+// run (unique email per attempt) and evaporates with it. Since the
+// Stranger Test (2026-07-06) the rig boots the FUNCTIONS emulator
+// too, so createCompany now genuinely provisions the tenant here —
+// the skip path stays covered because this journey uses the
+// onboarding SKIP link (the full-wizard path is stranger.spec.js's).
 // ───────────────────────────────────────────────────────────────
 // Destructive flows (Rock 3 PR 4)
 //

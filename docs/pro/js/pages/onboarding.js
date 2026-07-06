@@ -26,7 +26,7 @@ import { initializeAppCheck, ReCaptchaEnterpriseProvider } from "https://www.gst
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { getFunctions, httpsCallable } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js";
-import { connectEmulatorsIfLocal } from "../nbd-emulator-connect.js"; // localhost-only, no-op in prod
+import { connectEmulatorsIfLocal, emulatorAppCheckIfLocal } from "../nbd-emulator-connect.js"; // localhost-only, no-op in prod
 
 const firebaseConfig = {
   apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -38,8 +38,11 @@ const firebaseConfig = {
 };
 
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+// Emulator shim first (localhost only) — the createCompany self-heal below is
+// an enforced callable and needs a decodable App Check token in the rig too.
 try {
-  if (typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
+  if (!(await emulatorAppCheckIfLocal(app))
+      && typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
     initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(window.__NBD_APP_CHECK_KEY),
       isTokenAutoRefreshEnabled: true,
