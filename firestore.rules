@@ -85,6 +85,19 @@ service cloud.firestore {
              == request.auth.token.get('companyId', '');
     }
 
+    // Same idea for FLAT collections that reference a lead by field
+    // (photos carry leadId but predate companyId stamping): the caller is
+    // a company reader and the REFERENCED lead is in their tenant. Guard
+    // the key with `in` before path-interpolating it; a missing or
+    // malformed leadId errors to deny.
+    function docLeadInMyCompany() {
+      return isCompanyReader()
+        && request.auth.token.get('companyId', '') != ''
+        && 'leadId' in resource.data
+        && get(/databases/$(database)/documents/leads/$(resource.data.leadId)).data.get('companyId', '')
+             == request.auth.token.get('companyId', '');
+    }
+
     // ── LEADS ─────────────────────────────────────────
     // companyId is required on create. The Rock 3 backfill
     // (PR #56 audit/backfill callable) stamped companyId on every
@@ -483,8 +496,15 @@ service cloud.firestore {
     }
 
     // ── PHOTOS ────────────────────────────────────────
+    // Team visibility (2026-07-06): company readers see the photos of any
+    // lead in THEIR tenant (via the photo's leadId → parent lead check —
+    // photo docs predate companyId stamping), so a manager opening a
+    // teammate's customer page gets the gallery, not an empty grid.
+    // Writes stay owner-only.
     match /photos/{photoId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow read: if isOwner(resource.data.userId) || isAdmin()
+        || docLeadInMyCompany();
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
       allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 

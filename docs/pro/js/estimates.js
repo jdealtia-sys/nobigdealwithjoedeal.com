@@ -791,6 +791,25 @@ async function saveEstimate() {
     }
   }
 
+  // Team visibility (2026-07): staff caches now hold the whole tenant
+  // book, so the address match can land on a TEAMMATE's lead. That may be
+  // exactly right (writing an estimate for a rep's customer) — but never
+  // silently: confirm before attaching, and fall back to unlinked on
+  // cancel so the rep can pick explicitly.
+  if (leadId && !window._estLinkedLeadId) {
+    const _matched = (window._leads || []).find(l => l.id === leadId);
+    const _me = window._user && window._user.uid;
+    if (_matched && _matched.userId && _me && _matched.userId !== _me) {
+      const _who = ((_matched.firstName || '') + ' ' + (_matched.lastName || '')).trim() || 'a teammate\'s customer';
+      const _ok = (window.D2D && typeof window.D2D.uiConfirm === 'function')
+        ? await window.D2D.uiConfirm(
+            `This address matches ${_who} — a lead owned by a teammate.\n\nAttach this estimate to their customer?`,
+            { okLabel: 'Attach', cancelLabel: 'Save unlinked' })
+        : confirm(`This address matches ${_who} — a lead owned by a teammate. Attach this estimate to their customer?`);
+      if (!_ok) leadId = null;
+    }
+  }
+
   _savingEstimate = true;
   const isUpdate = !!window._editingEstimateId;
   // Disable the Save buttons for the duration of the save round-trip
