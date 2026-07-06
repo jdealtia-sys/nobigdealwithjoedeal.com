@@ -1972,21 +1972,41 @@ window.syncMobileToolsMenuActive = syncMobileToolsMenuActive;
 
 // FAB visibility — show only on the CRM view. Hooks goTo() so we don't
 // have to touch every nav site.
+//
+// Boot-order fix (2026-07-06): this file executes BEFORE
+// dashboard-actions.js (dashboard.html loads them adjacent, both defer,
+// ui first) — so window.goTo does NOT exist yet when this IIFE runs.
+// The old `if (typeof goTo !== 'function') return;` guard silently
+// disabled the entire FAB from the day the decomposition split the
+// files: the pipeline lost its add-lead button and nobody saw an error.
+// Now we poll briefly for goTo and install the wrap when it appears;
+// updateFab also runs standalone so the class is right even pre-install.
 (function setupAddLeadFab() {
-  const _origGoTo = window.goTo;
-  if (typeof _origGoTo !== 'function') return; // page boot ordering — should always be defined here, but guard anyway
   const updateFab = () => {
     const onCrm = document.getElementById('view-crm')?.classList.contains('active');
     document.body.classList.toggle('show-add-lead-fab', !!onCrm);
   };
-  // Initial
-  updateFab();
-  // Re-evaluate after every navigation
-  window.goTo = function() {
-    const r = _origGoTo.apply(this, arguments);
-    setTimeout(updateFab, 50);
-    return r;
+  const install = () => {
+    const _origGoTo = window.goTo;
+    if (typeof _origGoTo !== 'function') return false;
+    // Re-evaluate after every navigation
+    window.goTo = function() {
+      const r = _origGoTo.apply(this, arguments);
+      setTimeout(updateFab, 50);
+      return r;
+    };
+    updateFab();
+    return true;
   };
+  if (!install()) {
+    let _tries = 0;
+    const _t = setInterval(() => {
+      // 100 × 100ms = 10s ceiling — goTo appears within ms in practice
+      // (dashboard-actions.js is the very next script tag).
+      if (install() || ++_tries >= 100) clearInterval(_t);
+    }, 100);
+  }
+  document.addEventListener('DOMContentLoaded', updateFab);
 })();
 
 // Scroll-collapse — OPT-IN behavior (was on by default; users found the

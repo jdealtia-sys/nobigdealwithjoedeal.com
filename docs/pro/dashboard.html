@@ -1898,11 +1898,16 @@
         <span class="crm-hdr-sep" aria-hidden="true"></span>
         <button class="btn btn-ghost crm-hdr-btn" id="bulkModeBtn" data-action="toggle" data-target="bulkMode" title="Select multiple leads">☑ <span class="crm-hdr-btn-label">Bulk</span></button>
         <button class="btn btn-ghost crm-hdr-btn" id="csvExportBtn" data-action="call" data-fn="exportLeadsCSV" title="Export CSV">📤 <span class="crm-hdr-btn-label">CSV</span></button>
-        <!-- CRM cleanup 2026-05-14: inline ＋ Add button removed.
-             The orange FAB at the bottom-right (see #fabAddLead) is the
-             primary add action, and the `C` keyboard shortcut still
-             opens the lead modal — so the inline duplicate just ate
-             horizontal real estate in an already-crowded action row. -->
+        <!-- Add Lead RESTORED 2026-07-06 (Jo's call: header button + FAB).
+             The 2026-05-14 cleanup removed the inline button on the
+             premise that the orange FAB was the primary add action — but
+             the FAB had silently died in a script-order change
+             (setupAddLeadFab ran before goTo existed; see dashboard-ui.js),
+             leaving the pipeline with NO add affordance at all. Both now
+             exist: this button for desktop, the FAB (restacked above the
+             capture-inbox FAB) for thumb reach. `C` still works. -->
+        <button class="btn crm-hdr-btn" id="crmAddLeadBtn" data-action="call" data-fn="openLeadModal" title="Add Lead (C)"
+          style="background:var(--orange);color:var(--accent-fg);border:1px solid var(--accent-ring);">＋ <span class="crm-hdr-btn-label">Add Lead</span></button>
       </div>
       <!-- Bulk action toolbar (hidden until bulk mode active).
            Stage moves still go through moveCard() to preserve the
