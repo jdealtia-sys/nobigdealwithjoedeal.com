@@ -237,7 +237,18 @@ function rateLimitIpKey(ip) {
 exports.submitPublicLead = onRequest(
   {
     cors: CORS_ORIGINS,        // same origin allowlist used by claudeProxy
-    enforceAppCheck: true,     // required; App Check sits in front
+    // NO enforceAppCheck here — deliberately, twice over. (1) It would be
+    // dead config: firebase-functions v2 `onRequest` IGNORES the option
+    // (it's onCall-only; verified in the SDK source — HttpsOptions carries
+    // it but only the callable wrapper reads it). A previous revision set
+    // `enforceAppCheck: true` with a comment claiming App Check "sits in
+    // front", which was never true and misled security review. (2) Even
+    // done manually it would be wrong: this is the PUBLIC homeowner quote
+    // form on tenant microsites — anonymous browsers with no App Check
+    // provider. The real protections, all below in the handler body:
+    // per-IP rate limit (IPv6 /64-keyed), Turnstile when configured
+    // (fail-closed on verifier error), honeypot, strict field validation
+    // (M-04 allowlist), and the CORS origin allowlist above.
     secrets: [INT_SECRETS.TURNSTILE_SECRET],
     maxInstances: 20,
     concurrency: 80,
