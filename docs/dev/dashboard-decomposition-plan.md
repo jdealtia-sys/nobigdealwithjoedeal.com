@@ -459,7 +459,8 @@ API object per module, registered once.
 | 1 | Repo-wide safe frontier: 18 alias exports deleted, 47 singles module-local, 13 dead exports deleted | ✅ merged (PR #846) — see hotfix note below |
 | 1b | The 7 deferred multi-assign state vars | ✅ merged (PR #846) |
 | 2a | mobile-nav-customizer: inline handlers → delegation, 14 globals off window | ✅ merged (PR #847) — **was a prod bug fix**: `script-src-attr 'none'` had drag/touch reorder silently dead |
-| 2b+ | widgets/tasks/email_system/crm-snooze remnants; dashboard-ui `_NBD_CALL_ALLOWLIST` cluster | ⏳ next |
+| 2b | widgets/tasks/email_system/crm-snooze remnants | ✅ merged 2026-07-06 — **scope collapsed on re-inventory**: Tranche 1 had already taken 7 of widgets' 9, and the three-way proof shows nearly every remaining listed name is MULTI-consumer (openTaskModal ×11 files, _taskCache ×8, all 8 crm-snooze names external or registry-dispatched) → those move to Tranche 3 by definition. Converted: `_wRadarMap` + `_wToggleTask` (widgets.js), `checkTask` export dropped (tasks.js — its only caller is its own delegate). Bonus: crm-snooze.js contained RAW control bytes (incl. a NUL) inside its sanitizer regex character class — `file(1)` classified the shipped JS as "data"; normalized to escaped `\xNN` text form, regex semantics verified identical |
+| 2c | dashboard-ui `_NBD_CALL_ALLOWLIST` cluster (delegate rewrites) | ⏳ next |
 | 3 | 2–5-consumer middle band (~515 globals) | ⏳ after 2 |
 
 **Hard-won lessons, binding on future tranches:**

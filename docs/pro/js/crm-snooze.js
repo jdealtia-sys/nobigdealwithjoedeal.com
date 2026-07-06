@@ -509,7 +509,7 @@ async function checkAndCreateFollowUpNotifications(leads) {
   const _sanitize = (s, max) => {
     if (typeof s !== 'string') return s;
     // Drop control characters + zero-width chars; keep newlines/tabs.
-    const cleaned = s.replace(/[ --​-‏﻿]/g, '');
+    const cleaned = s.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f​-‏﻿]/g, '');
     return cleaned.length > max ? cleaned.slice(0, max) : cleaned;
   };
   const _safeName = (l) =>
