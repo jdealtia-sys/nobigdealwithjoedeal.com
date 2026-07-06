@@ -353,6 +353,17 @@ function renderLeads(leads, filtered){
     } else { alertWrap.style.display='none'; }
   }
 
+  // ── Lean triage list (2026-07-06) ──
+  // When list mode is on (body.crm-list-mode, persisted per device),
+  // render the SAME fully-narrowed `list` as a sortable table. The
+  // kanban columns below STILL build (hidden by CSS) so every side
+  // effect — counts, badges, per-column totals — keeps running and
+  // toggling back to Board is instant.
+  if (window.CrmListView) {
+    if (window.CrmListView.isActive()) window.CrmListView.render(list);
+    else window.CrmListView.clear();
+  }
+
   // ── Build kanban columns ──
   // Use stage keys if available (new system), fall back to legacy display names
   const stageKeys = window._stageKeys || null;

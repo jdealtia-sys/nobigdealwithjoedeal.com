@@ -873,8 +873,13 @@
     align-items:center;
     padding:6px 14px;          /* Pro Chrome: was 8px 14px — claws back 4px of vertical */
     flex-shrink:0;
-    /* On desktop force one row; mobile media query below allows wrapping. */
-    flex-wrap:nowrap;
+    /* One-row toolbar (2026-07-06): wrap at every width — the toolbar
+       row stays one line by itself (three controls can't overflow) and
+       the .crm-hdr-viewrow's flex-basis:100% NEEDS wrap to break onto
+       its own line. The visual-QA screenshots caught the old nowrap
+       squeezing the chips row inline and pushing the Board/List toggle
+       off-viewport. */
+    flex-wrap:wrap;
     gap:6px;                   /* Pro Chrome: was 8px */
     border-bottom:1px solid var(--br);
   }
@@ -1057,14 +1062,81 @@
     border-left:3px solid transparent;
   }
   .crm-tools-menu button:hover{ background:var(--s3); color:var(--orange); }
-  /* Active-state for mobile filter items — mirrors the orange-border
-     treatment the inline source buttons get when their filter is ON.
-     Synced by syncMobileToolsMenuActive() (dashboard-ui.js). */
-  .crm-tools-menu-mobile button.active{
+  /* Active-state for filter items in ANY toolbar dropdown — the orange
+     left-border treatment. Was scoped to .crm-tools-menu-mobile; the
+     one-row toolbar (2026-07-06) moved the REAL filter buttons into
+     #crmFiltersMenu, so the generic selector carries it now. */
+  .crm-tools-menu button.active{
     color:var(--orange);
     border-left-color:var(--orange);
     background:color-mix(in srgb, var(--orange) 12%, transparent);
     font-weight:600;
+  }
+  /* One-row toolbar (2026-07-06): buttons MOVED into the dropdowns keep
+     their ids + .btn/.crm-hdr-btn/.crm-icon-btn classes (every filter
+     module binds by id) — normalize them to menu-item form so the
+     header-button styling doesn't leak into the menus. */
+  .crm-tools-menu .crm-hdr-btn,
+  .crm-tools-menu .crm-icon-btn{
+    display:flex; align-items:center; gap:7px;
+    width:100%; text-align:left;
+    background:transparent; border:none; box-shadow:none;
+    border-left:3px solid transparent; border-radius:5px;
+    padding:8px 12px; font-size:12px; color:var(--t);
+    min-height:0;
+  }
+  .crm-tools-menu .crm-hdr-btn:hover,
+  .crm-tools-menu .crm-icon-btn:hover{ background:var(--s3); color:var(--orange); }
+  /* Labels always visible inside menus — the compact-density and mobile
+     rules that hide .crm-hdr-btn-label are for the inline header row. */
+  .crm-tools-menu .crm-hdr-btn-label{ display:inline !important; }
+  /* Filters button shows its active state like the old inline pills */
+  #crmFiltersBtn.active{
+    color:var(--orange);
+    border-color:var(--orange);
+  }
+  /* View switcher — its own slim row under the toolbar (the .crm-header
+     is flex-wrap; flex-basis:100% forces the break). */
+  .crm-hdr-viewrow{
+    flex-basis:100%; min-width:100%;
+    display:flex; align-items:center;
+  }
+  /* Board/List toggle — right edge of the view row */
+  .crm-view-mode{ margin-left:auto; display:flex; gap:2px; }
+
+  /* ── Lean triage list (2026-07-06) ──
+     body.crm-list-mode swaps which surface is visible; the kanban stays
+     rendered underneath (renderLeads side effects + instant toggle). */
+  .crm-list-wrap{ display:none; }
+  body.crm-list-mode #view-crm .kanban-board{ display:none !important; }
+  body.crm-list-mode .crm-list-wrap{ display:block; padding:0 4px 20px; overflow:auto; }
+  .crm-list-table{ width:100%; border-collapse:collapse; font-size:12px; }
+  .crm-list-table th{
+    position:sticky; top:0; z-index:5;
+    text-align:left; padding:8px 10px; cursor:pointer; user-select:none;
+    background:var(--s2); color:var(--m); font-size:11px;
+    text-transform:uppercase; letter-spacing:.04em;
+    border-bottom:1px solid var(--br); white-space:nowrap;
+  }
+  .crm-list-table th:hover{ color:var(--orange); }
+  .crm-list-table td{ padding:8px 10px; border-bottom:1px solid var(--br); vertical-align:middle; }
+  .crm-list-row:hover td{ background:var(--s2); }
+  .crm-list-table .cl-name a{ color:var(--t); font-weight:600; text-decoration:none; }
+  .crm-list-table .cl-name a:hover{ color:var(--orange); }
+  .crm-list-table .cl-addr{ color:var(--m); font-size:11px; margin-top:2px; }
+  .crm-list-table .cl-stage-select{
+    background:var(--s3); border:1px solid var(--br); border-radius:5px;
+    color:var(--t); font-size:11px; padding:5px 8px; max-width:180px;
+  }
+  .crm-list-table .cl-value{ font-weight:600; white-space:nowrap; }
+  .crm-list-table .cl-age, .crm-list-table .cl-activity{ color:var(--m); white-space:nowrap; }
+  .crm-list-table .cl-actions{ white-space:nowrap; text-align:right; }
+  .crm-list-table .cl-call{ margin-right:10px; text-decoration:none; }
+  .crm-list-table .cl-open{ color:var(--orange); text-decoration:none; font-weight:600; font-size:11px; }
+  .crm-list-empty{ padding:40px 16px; text-align:center; color:var(--m); font-size:13px; }
+  @media (max-width:768px){
+    /* Age column is the most droppable on narrow phones */
+    .crm-list-table .cl-age, .crm-list-table th[data-sort="age"]{ display:none; }
   }
 
   /* Sidebar-collapsed mode — narrows the rail to icons only.

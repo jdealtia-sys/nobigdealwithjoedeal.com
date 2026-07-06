@@ -3895,7 +3895,8 @@ body {
           are hidden to declutter.
        4. Orphan separator pips are dropped so we don't leave empty
           1px gaps where their neighbour buttons used to live. */
-  .crm-tools-menu-mobile{ display:block; }
+  /* (2026-07-06) .crm-tools-menu-mobile duplicate cluster removed — the
+     real filter buttons live in #crmFiltersMenu at every width now. */
   /* Search cluster: force its own row + let the input grow */
   .crm-hdr-search{ flex-basis:100%!important; flex-wrap:wrap!important; gap:6px!important; min-width:0!important; }
   /* View switcher: own full-width horizontal-scroll row */
@@ -3926,13 +3927,11 @@ body {
     mask-image:none!important;
     -webkit-mask-image:none!important;
   }
-  #needsAttentionBtn,
-  #staleSharesBtn,
-  #prospectsToggleBtn,
-  #snoozedToggleBtn,
-  #engagementSortBtn,
-  #bulkModeBtn,
-  #csvExportBtn,
+  /* One-row toolbar (2026-07-06): the filter/bulk/csv buttons moved
+     INSIDE the dropdowns, so the old mobile id-hide list would blank
+     them out of the menus. Only the genuinely-pointless-on-mobile
+     utilities stay hidden (no sidebar to collapse; the view is already
+     fullscreen-ish). display:none beats the menu-item flex rule. */
   #sidebarToggleBtn,
   #kanbanFullscreenBtn{ display:none!important; }
   .crm-hdr-sep{ display:none!important; }

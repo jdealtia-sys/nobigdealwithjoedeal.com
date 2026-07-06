@@ -1550,6 +1550,100 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     }, { timeout: 5_000 });
   });
 
+  // One-row toolbar (2026-07-06): the filter pills moved into the
+  // Filters dropdown; this locks the menu lifecycle + the active-count
+  // badge so a collapsed filter can never silently hide leads again.
+  test('pipeline one-row toolbar: Filters menu toggles a filter and badges the count', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    // Gate on the delegate's module actually executing (not just the
+    // markup existing): a click during the SW-reload storm can land
+    // before dashboard-ui.js binds, silently doing nothing — the exact
+    // 2026-07-06 first-CI-run failure. Then click-until-open: the
+    // predicate re-clicks each poll until the class appears, checking
+    // BEFORE clicking so an already-open menu is never toggled shut.
+    await safeWaitForFunction(page, () => typeof window.toggleCrmFiltersMenu === 'function'
+      && !!document.getElementById('crmFiltersBtn'), { timeout: 15_000 });
+    await safeWaitForFunction(page, () => {
+      const menu = document.getElementById('crmFiltersMenu');
+      if (!menu) return false;
+      if (menu.classList.contains('open')) return true;
+      document.getElementById('crmFiltersBtn').click();
+      return menu.classList.contains('open');
+    }, { timeout: 10_000 });
+    // toggleNeedsAttention ships with the lazily-loaded CRM bundle — a
+    // click before it exists silently no-ops in the toggle delegate (the
+    // 1e47f2b CI failure, one step past the menu-open race). Gate on the
+    // function, then click-until-active: the predicate clicks only while
+    // INACTIVE so it can never toggle the filter back off.
+    await safeWaitForFunction(page, () => typeof window.toggleNeedsAttention === 'function', { timeout: 15_000 });
+    // Click-until-active with a COOLDOWN. The filter module stamps
+    // .active synchronously inside its toggle, so one landed click is
+    // enough — but a click during the SW storm can no-op before the
+    // delegate binds, so retry at most every 1.2s. Never flap: the
+    // class flips in the same tick as a landed click, so the next poll
+    // stops clicking.
+    await safeWaitForFunction(page, () => {
+      const b = document.getElementById('needsAttentionBtn');
+      const badge = document.getElementById('crmFiltersActiveBadge');
+      if (b && b.classList.contains('active')
+          && badge && badge.textContent === '1' && badge.style.display !== 'none') return true;
+      const now = Date.now();
+      if (b && !b.classList.contains('active')
+          && (!window.__nbdE2eTglAt || now - window.__nbdE2eTglAt > 1200)) {
+        window.__nbdE2eTglAt = now; b.click();
+      }
+      return false;
+    }, { timeout: 15_000 });
+    // Selecting a filter closes the menu (220ms delegate close)
+    await safeWaitForFunction(page, () => !document.getElementById('crmFiltersMenu').classList.contains('open'), { timeout: 5_000 });
+    // Toggle back off — badge empties, kanban unfiltered for later tests.
+    await safeWaitForFunction(page, () => {
+      const b = document.getElementById('needsAttentionBtn');
+      const badge = document.getElementById('crmFiltersActiveBadge');
+      if (b && !b.classList.contains('active')
+          && badge && badge.style.display === 'none') return true;
+      const now = Date.now();
+      if (b && b.classList.contains('active')
+          && (!window.__nbdE2eTglAt2 || now - window.__nbdE2eTglAt2 > 1200)) {
+        window.__nbdE2eTglAt2 = now; b.click();
+      }
+      return false;
+    }, { timeout: 15_000 });
+  });
+
+  // Lean triage list (2026-07-06): Board/List toggle over the same
+  // filtered lead set; stage select rides moveCard. Spy-based like the
+  // kanban drop test — no data mutated.
+  test('pipeline list view: toggle renders sortable rows; stage select routes through moveCard', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    await safeWaitForFunction(page, () => typeof window.crmViewList === 'function'
+      && !!document.getElementById('crmListWrap'), { timeout: 15_000 });
+    await safeEvaluate(page, () => window.crmViewList());
+    await safeWaitForFunction(page, () => document.body.classList.contains('crm-list-mode')
+      && document.querySelectorAll('#crmListWrap .crm-list-row').length > 0, { timeout: 10_000 });
+    const spy = await safeEvaluate(page, () => {
+      const sel = document.querySelector('#crmListWrap .cl-stage-select');
+      if (!sel) return { ok: false, reason: 'no stage select' };
+      const orig = window.moveCard;
+      const seen = [];
+      window.moveCard = (id, st) => { seen.push([id, st]); };
+      try {
+        const other = Array.from(sel.options).map(o => o.value).find(v => v !== sel.value);
+        sel.value = other;
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      } finally { window.moveCard = orig; }
+      return { ok: true, seen, id: sel.dataset.id };
+    });
+    expect(spy.ok, 'list rendered a stage select').toBe(true);
+    expect(spy.seen.length, 'stage change routed through moveCard exactly once').toBe(1);
+    expect(spy.seen[0][0], 'moveCard called with the row lead id').toBe(spy.id);
+    // Back to board so later serial tests see the kanban
+    await safeEvaluate(page, () => window.crmViewBoard());
+    await safeWaitForFunction(page, () => !document.body.classList.contains('crm-list-mode'), { timeout: 5_000 });
+  });
+
   test('nav customizer opens and addTab responds through the delegate (no inline handlers)', async ({ page }) => {
     // Full console capture: when this journey fails in CI the modal is
     // simply absent, which means the module-tail delegate never bound —

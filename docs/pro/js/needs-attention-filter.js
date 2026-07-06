@@ -154,6 +154,12 @@
       btn.style.borderColor = '';
       btn.style.color = '';
     }
+    // One-row toolbar (2026-07-06): stamp .active alongside the inline
+    // styles — the Filters-menu highlight CSS, the crmFiltersActiveBadge
+    // sync (dashboard-ui.js), and the E2E all key on the class. None of
+    // the filter modules ever set it before, which is also why the old
+    // mobile tools-menu active mirrors never lit up.
+    btn.classList.toggle('active', active);
   }
 
   // ─── Apply the filter ────────────────────────────────────────────

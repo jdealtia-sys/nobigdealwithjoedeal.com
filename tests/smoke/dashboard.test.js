@@ -1050,6 +1050,105 @@ section('Add Lead revival (2026-07-06) — pipeline affordances cannot silently 
     /_CLASS_TOGGLED\.forEach[\s\S]{0,200}attributeFilter: \['class'\]/.test(coord));
 }
 
+section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');
+{
+  // Jo's call after the header grew button-by-button until it overflowed
+  // the viewport: the action row is exactly Filters ▾ / Tools ⋯ /
+  // ＋ Add Lead. The filter/sort/bulk/csv buttons MOVED into the
+  // dropdowns keeping their ids — every filter module and the toggle
+  // delegate bind by id, so these contracts pin id + new container.
+  const dashHtml = readDashboard();
+  const actionsStart = dashHtml.indexOf('<div class="crm-hdr-actions">');
+  const filtersMenu = dashHtml.slice(dashHtml.indexOf('id="crmFiltersMenu"'),
+                                     dashHtml.indexOf('id="crmToolsBtn"'));
+  const toolsMenu   = dashHtml.slice(dashHtml.indexOf('id="crmToolsMenu"'),
+                                     dashHtml.indexOf('id="crmAddLeadBtn"'));
+  assert('actions row exists with the Filters trigger + badge',
+    actionsStart > -1
+    && /id="crmFiltersBtn"[^>]*data-action="crmFiltersMenu"/.test(dashHtml)
+    && /id="crmFiltersActiveBadge"/.test(dashHtml));
+  for (const id of ['needsAttentionBtn', 'staleSharesBtn', 'snoozedToggleBtn',
+                    'engagementSortBtn', 'prospectsToggleBtn']) {
+    assert('filter control #' + id + ' lives inside #crmFiltersMenu',
+      new RegExp('id="' + id + '"').test(filtersMenu));
+  }
+  for (const frag of ['id="bulkModeBtn"', 'id="csvExportBtn"',
+                      'data-fn="openDeletedDrawer"', 'id="loadSampleDataBtn"',
+                      'id="sidebarToggleBtn"', 'id="kanbanFullscreenBtn"',
+                      'id="kanbanDensityToggleBtn"']) {
+    assert('tools control ' + frag + ' lives inside #crmToolsMenu',
+      toolsMenu.includes(frag));
+  }
+  assert('the duplicate .crm-tools-menu-mobile cluster is gone',
+    !dashHtml.includes('class="crm-tools-menu-mobile"'));
+  assert('view switcher sits in its own .crm-hdr-viewrow row',
+    /class="crm-hdr-viewrow"[\s\S]{0,600}id="kanbanViewSwitcher"/.test(dashHtml));
+
+  const ui = read(path.join(PRO_JS, 'dashboard-ui.js'));
+  assert('delegate handles the crmFiltersMenu action',
+    /if \(action === 'crmFiltersMenu'\)/.test(ui));
+  assert('filter toggles inside ANY dropdown close both menus after acting',
+    /closest\('\.crm-tools-menu'\)/.test(ui)
+    && /closeCrmFiltersMenu/.test(ui));
+  // Every filter module stamps .active on its button synchronously
+  // (added 2026-07-06 — none did before; the old mobile menu's active
+  // mirrors were silently dead because of it), and the sync fn counts
+  // those classes into the Filters badge.
+  assert('sync function counts stamped .active classes into the badge',
+    /crmFiltersActiveBadge/.test(ui)
+    && /\['needsAttentionBtn', 'staleSharesBtn', 'snoozedToggleBtn', 'engagementSortBtn'\]/.test(ui));
+  for (const [f, flag] of [['needs-attention-filter.js', 'active'], ['stale-shares-filter.js', 'active'],
+                           ['lead-snooze.js', 'showing'], ['crm.js', 'on']]) {
+    assert(f + " stamps .active on its filter button",
+      new RegExp("classList\\.toggle\\('active', " + flag + "\\)").test(read(path.join(PRO_JS, f))));
+  }
+
+  const styles = readDashboardStyles();
+  assert('menu-item normalization for moved .crm-hdr-btn/.crm-icon-btn',
+    /\.crm-tools-menu \.crm-hdr-btn,\s*\.crm-tools-menu \.crm-icon-btn\{/.test(styles));
+  assert('labels forced visible inside menus',
+    /\.crm-tools-menu \.crm-hdr-btn-label\{ display:inline !important; \}/.test(styles));
+  assert('mobile no longer id-hides the relocated filter buttons',
+    !/#needsAttentionBtn,\s*#staleSharesBtn/.test(styles));
+}
+
+section('Pipeline lean triage list (2026-07-06) — Board/List toggle');
+{
+  // Jo's scope call: the list is a LEAN sortable table sharing the
+  // kanban's fully-narrowed lead set — no bulk/thumbnails/drag (those
+  // stay kanban-only), stage changes ride the same moveCard path.
+  const lv = read(path.join(PRO_JS, 'crm-list-view.js'));
+  assert('crm-list-view module exposes CrmListView + call-delegate entry points',
+    /window\.CrmListView = \{ isActive, render, clear \}/.test(lv)
+    && /window\.crmViewBoard = /.test(lv) && /window\.crmViewList\s*= /.test(lv));
+  assert('stage select rides moveCard (history + gating intact)',
+    /window\.moveCard\(sel\.dataset\.id, sel\.value\)/.test(lv));
+  assert('mode persists in localStorage and gates body.crm-list-mode',
+    /nbd-crm-view-mode/.test(lv) && /crm-list-mode/.test(lv));
+
+  const dashHtml = readDashboard();
+  assert('view row carries the Board/List toggle wired through the call delegate',
+    /id="crmViewBoardBtn"[^>]*data-fn="crmViewBoard"/.test(dashHtml)
+    && /id="crmViewListBtn"[^>]*data-fn="crmViewList"/.test(dashHtml));
+  assert('list surface div sits beside the kanban board',
+    /id="crmListWrap"[\s\S]{0,600}id="kanbanBoard"/.test(dashHtml));
+  assert('crm-list-view.js ships as a script tag',
+    /<script defer src="js\/crm-list-view\.js/.test(dashHtml));
+
+  const state = read(path.join(PRO_JS, 'dashboard-state.js'));
+  assert('call allowlist admits crmViewBoard/crmViewList',
+    /'crmViewBoard', 'crmViewList'/.test(state));
+
+  const pipe = read(path.join(PRO_JS, 'crm-pipeline.js'));
+  assert('renderLeads hands the fully-narrowed list to CrmListView',
+    /window\.CrmListView\.isActive\(\)\) window\.CrmListView\.render\(list\)/.test(pipe));
+
+  const styles = readDashboardStyles();
+  assert('body.crm-list-mode swaps the surfaces CSS-side',
+    /body\.crm-list-mode #view-crm \.kanban-board\{ display:none !important; \}/.test(styles)
+    && /body\.crm-list-mode \.crm-list-wrap\{ display:block/.test(styles));
+}
+
 section('Wave 4 — Design tokens (type / spacing / radius / tap-targets)');
 {
   const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
@@ -2209,10 +2308,15 @@ section('Pro Chrome — icon system + header consolidation');
   assert('notif button keeps its #notifBadge under .hdr-tool-badge',
     /<button class="hdr-tool"[^>]*id="notifBtn"[\s\S]{0,500}id="notifBadge" class="hdr-tool-badge( dn)?"/.test(dash),
     'expected #notifBadge inside the .hdr-tool#notifBtn with .hdr-tool-badge class');
-  // 5. The CRM action row was given group dividers (3 .crm-hdr-sep spans).
-  assert('CRM action row has ≥3 .crm-hdr-sep dividers between groups',
-    (dash.match(/class="crm-hdr-sep"/g) || []).length >= 3,
-    'expected at least 3 .crm-hdr-sep elements inside .crm-hdr-actions');
+  // 5. (superseded 2026-07-06) The action row used to carry ≥3
+  //    .crm-hdr-sep group dividers; the one-row toolbar reduced it to
+  //    three controls (Filters ▾ / Tools ⋯ / ＋ Add Lead) with no seps.
+  //    The toolbar's own contracts live in the "Pipeline one-row
+  //    toolbar" smoke section; here we just pin that the old sep-heavy
+  //    sprawl doesn't come back.
+  assert('CRM action row stays sep-free (one-row toolbar)',
+    (dash.match(/class="crm-hdr-sep"/g) || []).length === 0,
+    'a .crm-hdr-sep crept back into the pipeline header — the one-row toolbar has no dividers');
 }
 
 section('Sidebar customizer — hidden prefs apply at real page boot');
