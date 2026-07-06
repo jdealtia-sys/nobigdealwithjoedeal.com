@@ -628,6 +628,13 @@ async function run() {
   await assertFails(getDoc(doc(bob, 'leads/leadA2/activity/act1')));
   await assertFails(getDoc(doc(mgrB, 'leads/leadA2/tasks/task1')));
   await assertFails(getDoc(doc(mgrA, 'leads/leadA/activity/legacy-act')));
+  // ✅ …and the UNFILTERED subcollection LIST the customer page actually
+  // issues (tasks.js orderBy-only getDocs) is provable for same-company
+  // staff — the parent get() is constant across the whole query — and
+  // stays dead cross-tenant.
+  await assertSucceeds(getDocs(collection(mgrA, 'leads/leadA2/tasks')));
+  await assertSucceeds(getDocs(collection(viewerA, 'leads/leadA2/notes')));
+  await assertFails(getDocs(collection(mgrB, 'leads/leadA2/tasks')));
   // ❌ subcollection writes stay owner-only (manager can't forge activity)
   await assertFails(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-forge'),
     { userId: 'mia', type: 'note', source: 'rep', note: 'nope' }));
