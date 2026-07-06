@@ -2015,18 +2015,35 @@
       window._loadLeadsExhausted = false;
       window._loadLeadsNextRetryAt = null;
     }
-    // Load photo cache for thumbnails
+    // Load photo cache for thumbnails. Team visibility (2026-07): company
+    // readers ALSO pull the tenant's stamped photos so teammate kanban
+    // cards get thumbnails — the loadLeads two-scope shape. The own-userId
+    // query always runs (it covers the caller's pre-backfill photos that
+    // have no companyId yet — the same "pre-invite docs vanish" class the
+    // #863 review caught on leads); the company query only adds docs that
+    // migration 004 / post-2026-07 clients stamped. Deduped by doc id.
     try {
       const _puid = window._user?.uid;
-      const psnap = _puid
-        ? await getDocs(query(collection(db,'photos'), where('userId','==',_puid)))
-        : { docs: [] };
+      const _pClaims = window._userClaims || {};
+      const _pScopes = [];
+      if (_puid) {
+        _pScopes.push(where('userId','==',_puid));
+        if (['company_admin','manager','viewer'].includes(_pClaims.role || '') && _pClaims.companyId) {
+          _pScopes.push(where('companyId','==',_pClaims.companyId));
+        }
+      }
       window._photoCache = {};
-      psnap.docs.forEach(d => {
-        const p = {id:d.id,...d.data()};
-        if(!window._photoCache[p.leadId]) window._photoCache[p.leadId] = [];
-        window._photoCache[p.leadId].push(p);
-      });
+      const _pSeen = new Set();
+      for (const _scope of _pScopes) {
+        const psnap = await getDocs(query(collection(db,'photos'), _scope));
+        psnap.docs.forEach(d => {
+          if (_pSeen.has(d.id)) return;
+          _pSeen.add(d.id);
+          const p = {id:d.id,...d.data()};
+          if(!window._photoCache[p.leadId]) window._photoCache[p.leadId] = [];
+          window._photoCache[p.leadId].push(p);
+        });
+      }
     } catch(e) { window._photoCache = {}; }
     // Wave 120: replace one-shot 500ms retry with a polling loop so
     // a slow crm.js load doesn't leave the kanban skeleton up forever.
@@ -3024,7 +3041,9 @@
       const r = ref(storage, `photos/${uid}/${leadId}/${Date.now()}_${safeName}`);
       await uploadBytes(r, file);
       const url = await getDownloadURL(r);
-      await addDoc(collection(db,'photos'), {leadId, url, name:file.name, userId:uid, createdAt:serverTimestamp()});
+      await addDoc(collection(db,'photos'), {leadId, url, name:file.name, userId:uid, createdAt:serverTimestamp(),
+        // Tenant key (claims.companyId || uid) — company-scoped photo reads.
+        companyId: (window._userClaims && window._userClaims.companyId) || uid});
       return url;
     } catch(e) { console.error('Upload failed',e); return null; }
   };

@@ -987,7 +987,9 @@
         // orderBy('createdAt'). Without it the new doc had no ordering field
         // and was silently excluded. (annotatedAt stays in `meta` as the
         // edit timestamp — distinct from doc-create time.)
-        await window.addDoc(window.collection(window.db, 'photos'), { url, originalPhotoId: S.photoId, leadId: S.leadId, userId: authUid, createdAt: window.serverTimestamp(), ...meta });
+        // companyId: tenant key (claims.companyId || uid) so the annotated
+        // copy is visible to company-scoped team reads like the original.
+        await window.addDoc(window.collection(window.db, 'photos'), { url, originalPhotoId: S.photoId, leadId: S.leadId, userId: authUid, companyId: (window._userClaims && window._userClaims.companyId) || authUid, createdAt: window.serverTimestamp(), ...meta });
       }
       S.hasUnsaved = false;
       toast('Saved!', 'success');

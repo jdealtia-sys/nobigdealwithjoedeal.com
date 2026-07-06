@@ -817,10 +817,21 @@ exports.uploadHomeownerPhoto = onRequest(
       });
 
       // Photo doc — rep owns it (userId = ownerUid) so the existing
-      // photo queries on the rep dashboard surface it.
+      // photo queries on the rep dashboard surface it. companyId is the
+      // owner's tenant key (claims.companyId || uid — the Phase-1.5
+      // rule) so company-scoped team reads see homeowner uploads too;
+      // best-effort, the uid fallback matches the solo convention.
+      let ownerCompanyId = tok.ownerUid;
+      try {
+        const ownerUser = await require('firebase-admin/auth').getAuth().getUser(tok.ownerUid);
+        if (ownerUser.customClaims && ownerUser.customClaims.companyId) {
+          ownerCompanyId = ownerUser.customClaims.companyId;
+        }
+      } catch (_) { /* deleted owner → uid fallback */ }
       const photoRef = await db.collection('photos').add({
         leadId: tok.leadId,
         userId: tok.ownerUid,
+        companyId: ownerCompanyId,
         source: 'homeowner',
         url,
         path,

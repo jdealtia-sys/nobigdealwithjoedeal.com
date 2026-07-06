@@ -231,15 +231,24 @@ future session; none blocked the journey itself.
    export outright instead of skip-listing it in two places.
 
 5. **Kanban thumbnails for teammate leads need companyId on /photos.**
-   The customer page now reads teammate photos via a leadId lookup
-   (docLeadInMyCompany), but the dashboard's photo-thumbnail cache is one
-   collection-wide `where('userId','==',uid)` query — it can't be made
-   provable per-teammate without a query per lead. The clean fix is the
-   /expenses pattern: stamp `companyId` on photo docs at create (rules +
-   client) and backfill existing docs with an admin script, then the
-   cache becomes one `where('companyId','==',claim)` query. Deferred
-   from the 2026-07-06 team-UX pass as cosmetic; needs the backfill
-   script written and run before the rule can rely on it.
+   ✅ **EXECUTED 2026-07-06 (fourth follow-up, same day).** Photos now
+   carry the tenant key end-to-end: every client create site stamps
+   `claims.companyId || uid` (customer-page upload, dashboard
+   `_uploadPhoto`, photo-editor annotated copies) and the homeowner
+   portal upload stamps the owner's key server-side; the /photos rule
+   pins companyId on create to the caller's own tenant (Phase-1.5
+   /leads shape) while still accepting its absence so cached pre-stamp
+   bundles keep uploading; reads gain a throw-safe companyId clause
+   (`.get()` form, ordered BEFORE docLeadInMyCompany so unstamped docs
+   fall through to the leadId path instead of error-poisoning the
+   disjunction) that makes `where('companyId','==',claim)` LIST queries
+   provable; the dashboard thumbnail cache does the loadLeads two-scope
+   merged fetch (own userId always — pre-backfill own photos must not
+   vanish — plus the company scope for team readers, deduped); and
+   **migration 004** (`functions/migrations/scripts/`) backfills the
+   backlog with the PR-#56 keying rule (owner's claim || uid, memoized),
+   applied automatically by the daily migrationsTick after deploy.
+   Teammate kanban thumbnails appear as the backfill lands.
 
 6. **Alert delivery is unasserted.** `leadAlert*`/`onNewLead`/
    `teamInviteEmail` fire in the rig but Resend/Twilio secrets are absent,

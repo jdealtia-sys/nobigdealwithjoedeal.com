@@ -582,6 +582,11 @@ async function run() {
     await setDoc(doc(db, 'leads/leadDel'), { userId: 'alice', name: 'Delete Me', companyId: 'co-a' });
     await setDoc(doc(db, 'photos/photoA2'), { userId: 'alice', leadId: 'leadA2', url: 'p/a2.jpg' });
     await setDoc(doc(db, 'photos/photoNoLead'), { userId: 'alice', url: 'p/orphan.jpg' });
+    // Stamped photos (migration 004 / post-2026-07 clients): companyId on
+    // the doc, deliberately NO leadId — isolates the companyId read clause
+    // from the docLeadInMyCompany fallback.
+    await setDoc(doc(db, 'photos/photoStamped'), { userId: 'alice', companyId: 'co-a', url: 'p/stamped.jpg' });
+    await setDoc(doc(db, 'photos/photoStampedB'), { userId: 'bob', companyId: 'co-b', url: 'p/stamped-b.jpg' });
     await setDoc(doc(db, 'leads/leadA/activity/legacy-act'),
       { userId: 'alice', type: 'note', source: 'rep', note: 'legacy parent' });
   });
@@ -666,6 +671,35 @@ async function run() {
   await assertFails(getDoc(doc(mgrA, 'photos/photoNoLead')));
   await assertFails(updateDoc(doc(mgrA, 'photos/photoA2'), { phase: 'After' }));
   await assertSucceeds(getDoc(doc(alice, 'photos/photoNoLead')));
+
+  // ✅ STAMPED photos (companyId on the doc — migration 004 + new clients):
+  // company readers get them WITHOUT a leadId, and the dashboard
+  // thumbnail-cache LIST query where('companyId','==',claim) is provable.
+  await assertSucceeds(getDoc(doc(alice, 'photos/photoStamped')));   // owner first
+  await assertSucceeds(getDoc(doc(mgrA, 'photos/photoStamped')));
+  await assertSucceeds(getDoc(doc(viewerA, 'photos/photoStamped')));
+  await assertSucceeds(getDocs(query(collection(mgrA, 'photos'), where('companyId', '==', 'co-a'))));
+  await assertSucceeds(getDocs(query(collection(viewerA, 'photos'), where('companyId', '==', 'co-a'))));
+  await assertSucceeds(getDocs(query(collection(mgrB, 'photos'), where('companyId', '==', 'co-b'))));
+  // ❌ sales_rep is excluded from company reads; staff never cross tenants;
+  // stamping doesn't widen writes.
+  await assertFails(getDocs(query(collection(bob, 'photos'), where('companyId', '==', 'co-b'))));
+  await assertFails(getDocs(query(collection(mgrB, 'photos'), where('companyId', '==', 'co-a'))));
+  await assertFails(getDoc(doc(mgrB, 'photos/photoStamped')));
+  await assertFails(updateDoc(doc(mgrA, 'photos/photoStamped'), { phase: 'After' }));
+  await assertFails(updateDoc(doc(viewerA, 'photos/photoStamped'), { caption: 'x' }));
+
+  // ✅ CREATE pins companyId to the caller's tenant (claim or solo uid —
+  // the Phase-1.5 /leads shape) but still accepts its absence (cached
+  // pre-stamp bundles keep uploading).
+  await assertSucceeds(setDoc(doc(alice, 'photos/newStamped'),
+    { userId: 'alice', companyId: 'co-a', url: 'p/n1.jpg' }));
+  await assertSucceeds(setDoc(doc(alice, 'photos/newSoloKey'),
+    { userId: 'alice', companyId: 'alice', url: 'p/n2.jpg' }));
+  await assertSucceeds(setDoc(doc(alice, 'photos/newLegacy'),
+    { userId: 'alice', url: 'p/n3.jpg' }));
+  await assertFails(setDoc(doc(alice, 'photos/newForeign'),
+    { userId: 'alice', companyId: 'co-b', url: 'p/n4.jpg' }));
   // ✅ collaboration writes follow the parent for same-company staff:
   // a well-shaped timeline note, a task, a note — all F-05 constraints
   // still bind (source/type/denylist proven by the earlier F-05 block).

@@ -497,15 +497,36 @@ service cloud.firestore {
 
     // ── PHOTOS ────────────────────────────────────────
     // Team visibility (2026-07-06): company readers see the photos of any
-    // lead in THEIR tenant (via the photo's leadId → parent lead check —
-    // photo docs predate companyId stamping), so a manager opening a
-    // teammate's customer page gets the gallery, not an empty grid.
-    // Writes stay owner-only.
+    // lead in THEIR tenant, so a manager opening a teammate's customer
+    // page gets the gallery, not an empty grid. Two read paths, in order:
+    //   1. companyId clause — photos stamped by post-2026-07 clients (and
+    //      migration 004's backfill). This is the /leads-shape clause that
+    //      makes where('companyId','==',claim) LIST queries provable —
+    //      the dashboard thumbnail cache depends on it. Uses .get(), NOT
+    //      bare access: an absent companyId must fall THROUGH to the
+    //      leadId path below, and a thrown absent-key access would
+    //      error-poison the whole disjunction to deny instead.
+    //   2. docLeadInMyCompany — leadId → parent-lead lookup for docs the
+    //      backfill hasn't reached (or whose lead predates stamping).
+    //      Keep it even after 004 lands: it costs nothing on stamped
+    //      docs (clause 1 short-circuits first) and keeps stragglers
+    //      readable forever.
+    // Writes stay owner-only. Create pins companyId to the caller's own
+    // tenant when present (claim or solo uid — the Phase-1.5 /leads
+    // shape) but still ACCEPTS its absence: open sessions run cached
+    // pre-stamp bundles for days, and their uploads must not break.
+    // Requiring the field outright is a follow-up once sessions cycle.
     match /photos/{photoId} {
       allow read: if isOwner(resource.data.userId) || isAdmin()
+        || (isCompanyReader()
+            && resource.data.get('companyId', '') != ''
+            && resource.data.get('companyId', '') == myCompanyId())
         || docLeadInMyCompany();
       allow update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+        && (request.resource.data.get('companyId', '') == ''
+            || request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
     }
 
     // ── MAP PINS ──────────────────────────────────────
