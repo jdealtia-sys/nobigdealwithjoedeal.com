@@ -395,6 +395,32 @@ async function loadCustomerData(id) {
       document.getElementById('customerIdBadge').style.display = '';
     }
 
+    // Read-only affordance (team visibility, 2026-07): viewers — and any
+    // session that can see this lead but not write it — get an explicit
+    // banner instead of edit controls that silently bounce at the rules
+    // layer. Staff (company_admin/manager) genuinely edit since the
+    // manager-edit-rights change, so they get no banner.
+    try {
+      const _roClaims = window._userClaims || {};
+      const _roRole = _roClaims.role || '';
+      const _roIsOwner = lead.userId && window._user && lead.userId === window._user.uid;
+      const _roIsStaff = ['company_admin', 'manager'].includes(_roRole)
+        && !!_roClaims.companyId && lead.companyId === _roClaims.companyId;
+      const _roReadOnly = _roRole === 'viewer' || (!_roIsOwner && !_roIsStaff && _roRole !== 'admin');
+      if (_roReadOnly && !document.getElementById('nbdReadOnlyBanner')) {
+        document.body.classList.add('nbd-readonly-customer');
+        const b = document.createElement('div');
+        b.id = 'nbdReadOnlyBanner';
+        b.setAttribute('role', 'status');
+        b.style.cssText = 'position:sticky;top:0;z-index:50;background:#1e3a6e;color:#fff;'
+          + 'padding:8px 14px;font-size:13px;font-weight:600;text-align:center;';
+        b.textContent = _roRole === 'viewer'
+          ? 'Read-only — your role can view this customer but not make changes.'
+          : "Read-only — this customer belongs to a teammate.";
+        document.body.prepend(b);
+      }
+    } catch (_) { /* affordance is best-effort — never block hydration */ }
+
     // Step 16: Referred-by badge — surfaces the upstream relationship
     // so the rep knows this lead came in via a past customer's share
     // link. Falls back to the customerId when the name isn't set
@@ -961,7 +987,7 @@ async function loadTimeline(leadId, lead) {
   // Load photos for timeline
   try {
     const photoSnap = await getDocs(
-      query(collection(db, 'photos'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
+      query(collection(db, 'photos'), ..._photoQueryScopes(leadId))
     );
     photoSnap.docs.forEach(d => {
       const photo = d.data();
@@ -1249,10 +1275,28 @@ function attachCustomerPhotoStripHandlers() {
   });
 }
 
+
+// Team visibility (2026-07): photo queries drop the userId filter when a
+// company reader (company_admin/manager/viewer) is viewing a lead in their
+// tenant — the photos rules' docLeadInMyCompany clause makes the
+// leadId-only list query provable, so a manager opening a teammate's
+// customer page gets the gallery instead of an empty grid. Everyone else
+// keeps the classic owner-scoped pair (provable under isOwner).
+function _photoQueryScopes(leadId) {
+  const claims = window._userClaims || {};
+  const lead = window._currentLead || {};
+  const teamReader = ['company_admin', 'manager', 'viewer'].includes(claims.role || '')
+    && !!claims.companyId
+    && lead.userId && window._user && lead.userId !== window._user.uid;
+  return teamReader
+    ? [where('leadId', '==', leadId)]
+    : [where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid)];
+}
+
 async function loadPhotos(leadId) {
   try {
     const photoSnap = await getDocs(
-      query(collection(db, 'photos'), where('leadId', '==', leadId), where('userId', '==', auth.currentUser?.uid))
+      query(collection(db, 'photos'), ..._photoQueryScopes(leadId))
     );
 
     if (photoSnap.empty) {
@@ -2745,7 +2789,7 @@ async function _gatherTimelineForReport(leadId, lead) {
   } catch (_) { /* ignore */ }
 
   try {
-    const snap = await getDocs(query(collection(window.db, 'photos'), where('leadId', '==', leadId), where('userId', '==', uid)));
+    const snap = await getDocs(query(collection(window.db, 'photos'), ..._photoQueryScopes(leadId)));
     snap.docs.forEach(d => {
       const p = d.data();
       if (!p.uploadedAt) return;

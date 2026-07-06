@@ -580,6 +580,8 @@ async function run() {
     await setDoc(doc(db, 'leads/leadA2/notes/note1'),
       { userId: 'alice', text: 'roof notes' });
     await setDoc(doc(db, 'leads/leadDel'), { userId: 'alice', name: 'Delete Me', companyId: 'co-a' });
+    await setDoc(doc(db, 'photos/photoA2'), { userId: 'alice', leadId: 'leadA2', url: 'p/a2.jpg' });
+    await setDoc(doc(db, 'photos/photoNoLead'), { userId: 'alice', url: 'p/orphan.jpg' });
     await setDoc(doc(db, 'leads/leadA/activity/legacy-act'),
       { userId: 'alice', type: 'note', source: 'rep', note: 'legacy parent' });
   });
@@ -650,6 +652,20 @@ async function run() {
   await assertSucceeds(getDocs(collection(mgrA, 'leads/leadA2/tasks')));
   await assertSucceeds(getDocs(collection(viewerA, 'leads/leadA2/notes')));
   await assertFails(getDocs(collection(mgrB, 'leads/leadA2/tasks')));
+
+  // ✅ PHOTOS follow the referenced lead (docLeadInMyCompany): company
+  // readers see a tenant lead's gallery — including the leadId-only LIST
+  // query the customer page issues for teammate leads — while writes and
+  // orphan photos (no leadId) stay owner-only, and cross-tenant stays dead.
+  await assertSucceeds(getDoc(doc(mgrA, 'photos/photoA2')));
+  await assertSucceeds(getDoc(doc(viewerA, 'photos/photoA2')));
+  await assertSucceeds(getDocs(query(collection(mgrA, 'photos'), where('leadId', '==', 'leadA2'))));
+  await assertFails(getDoc(doc(mgrB, 'photos/photoA2')));
+  await assertFails(getDocs(query(collection(mgrB, 'photos'), where('leadId', '==', 'leadA2'))));
+  await assertFails(getDoc(doc(bob, 'photos/photoA2')));
+  await assertFails(getDoc(doc(mgrA, 'photos/photoNoLead')));
+  await assertFails(updateDoc(doc(mgrA, 'photos/photoA2'), { phase: 'After' }));
+  await assertSucceeds(getDoc(doc(alice, 'photos/photoNoLead')));
   // ✅ collaboration writes follow the parent for same-company staff:
   // a well-shaped timeline note, a task, a note — all F-05 constraints
   // still bind (source/type/denylist proven by the earlier F-05 block).

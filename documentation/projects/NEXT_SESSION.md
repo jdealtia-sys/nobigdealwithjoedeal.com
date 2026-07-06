@@ -168,13 +168,24 @@ future session; none blocked the journey itself.
    and company_admins update any same-tenant lead with provenance frozen
    (didNotChange userId/companyId); deletes stay owner + company_admin;
    tasks/notes/activity collaboration writes follow the parent; client
-   guards (moveCard/changeLeadType/bulk/customerId-mint) allow staff. The
-   read-only customer-page affordance is now only needed for VIEWERS
-   (staff can genuinely edit); teammate kanban cards render without photo
-   thumbnails (the photo cache stays userId-scoped — cosmetic); and the
-   estimate address-match can silently auto-link a staff member's
-   estimate to a teammate's lead (estimates.js:774 — plausibly desired
-   for teams, but silent; Jo to confirm or we add a confirm prompt).
+   guards (moveCard/changeLeadType/bulk/customerId-mint) allow staff.
+   ~~Remaining team-UX polish~~ — ✅ EXECUTED 2026-07-06 (same day, third
+   follow-up): (a) photos on teammate leads are now readable — /photos
+   read gains a `docLeadInMyCompany()` clause (leadId → parent lead
+   companyId lookup, mirroring parentLeadInMyCompany for flat
+   collections) and the customer page queries photos by leadId-only for
+   team readers viewing a teammate's lead (`_photoQueryScopes`, applied
+   to the timeline, gallery, and portal-generation queries); photo
+   writes stay owner-only. (b) The customer page shows a sticky
+   read-only banner for viewers and non-owner non-staff visitors.
+   (c) The estimate address-match auto-link now CONFIRMS before
+   attaching to a teammate's lead ("Attach" / "Save unlinked" —
+   estimates.js saveEstimate); own-lead matches still link silently.
+   Still deferred from this trio: kanban-card photo THUMBNAILS for
+   teammate leads — the dashboard photo cache is a userId-scoped
+   collection-wide query; making it company-scoped needs companyId
+   stamped on photo docs (create-rule + backfill script), punch item
+   below.
    Two low-severity review notes accepted without code: the >500-doc
    pagination path is untested under the companyId scope (identical code
    to the battle-tested userId paging; a 501-doc seed isn't worth the rig
@@ -219,13 +230,24 @@ future session; none blocked the journey itself.
    it can replace the claimInvite dance; until then, consider deleting the
    export outright instead of skip-listing it in two places.
 
-5. **Alert delivery is unasserted.** `leadAlert*`/`onNewLead`/
+5. **Kanban thumbnails for teammate leads need companyId on /photos.**
+   The customer page now reads teammate photos via a leadId lookup
+   (docLeadInMyCompany), but the dashboard's photo-thumbnail cache is one
+   collection-wide `where('userId','==',uid)` query — it can't be made
+   provable per-teammate without a query per lead. The clean fix is the
+   /expenses pattern: stamp `companyId` on photo docs at create (rules +
+   client) and backfill existing docs with an admin script, then the
+   cache becomes one `where('companyId','==',claim)` query. Deferred
+   from the 2026-07-06 team-UX pass as cosmetic; needs the backfill
+   script written and run before the rule can rely on it.
+
+6. **Alert delivery is unasserted.** `leadAlert*`/`onNewLead`/
    `teamInviteEmail` fire in the rig but Resend/Twilio secrets are absent,
    so delivery fails silently server-side. The tenant-routing HALF is
    covered (lead-bridge writes are asserted); the notification half needs
    either a Resend sandbox key in CI or an email-queue assertion seam.
 
-6. **Functions emulator is scoped to the `@stranger` shard for now.** The
+7. **Functions emulator is scoped to the `@stranger` shard for now.** The
    first full-rig CI run showed the legacy shards' documented 301-hop
    "execution context destroyed" flake widening under the ~140-function
    runtime's boot load (rotating single victims: d2d, docgen — the exact
@@ -235,7 +257,7 @@ future session; none blocked the journey itself.
    widen functions to all shards once boot cost is addressed (scope the
    loaded codebase, or split the destructive shard further).
 
-7. **Emulator seat-of-the-pants notes** for whoever extends the rig:
+8. **Emulator seat-of-the-pants notes** for whoever extends the rig:
    the functions emulator needs `functions/node_modules` in CI (step
    added); secrets warnings are expected noise; scheduled functions don't
    fire; `admin.firestore.FieldValue` namespaced statics are broken
