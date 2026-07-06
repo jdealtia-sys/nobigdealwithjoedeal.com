@@ -13,7 +13,11 @@
 > Wave-149 death), #870 one-row pipeline toolbar + lean triage list
 > (+ filter active-state fixed at the source), #871 alert-outbox
 > ledger (notification routing now CI-asserted), #872 globals Tranche
-> 2b (+ crm-snooze de-NUL'd). Remaining queue: globals Tranche 2c
+> 2b (+ crm-snooze de-NUL'd). Remaining queue: mobile FAB
+> SPEED-DIAL (Jo's pick from his phone screenshots — collapse the three
+> field-tool FABs into one fan-out button with ＋ Add Lead above it;
+> interim shipped 2026-07-06: phones float only the lifted ＋, field
+> tools mobile-hidden); globals Tranche 2c
 > (delegate rewrites — fresh session) and Tranche 3; Rock 2 PR 6
 > ~Jul 18; flip e2e-authed-emulator to required ~Jul 19; Jo console
 > IAM grant (serviceAccountTokenCreator). Original brief follows. The rig now boots the Functions

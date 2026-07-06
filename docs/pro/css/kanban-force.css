@@ -1137,6 +1137,23 @@
   @media (max-width:768px){
     /* Age column is the most droppable on narrow phones */
     .crm-list-table .cl-age, .crm-list-table th[data-sort="age"]{ display:none; }
+
+    /* ── Mobile FAB slimming (2026-07-06, Jo's screenshots + call) ──
+       When the Wave-149 hide bug was fixed, phones met the full
+       four-button floating stack for the first time — the W128 mic sat
+       ON TOP of the bottom nav's MORE button (its bottom:20px predates
+       #mobile-nav, 62px + safe-area) and the column occluded kanban
+       cards. Interim posture until the speed-dial ships (next session,
+       Jo's pick): phones float ONLY ＋ Add Lead, lifted clear of the
+       nav; the mic / quick-capture / inbox tools are mobile-hidden
+       (zero regression — they were opacity-0 and untappable on every
+       platform for months). display:none!important outranks the
+       modules' inline cssText. Desktop keeps all four. */
+    #nbd-whisper-fab, #nbd-qc-fab, #nbd-qci-fab{ display:none !important; }
+    #addLeadFab{
+      bottom:calc(78px + env(safe-area-inset-bottom, 0px)) !important;
+      right:calc(16px + env(safe-area-inset-right, 0px)) !important;
+    }
   }
 
   /* Sidebar-collapsed mode — narrows the rail to icons only.
