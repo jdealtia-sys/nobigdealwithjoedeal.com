@@ -101,12 +101,25 @@ async function run() {
   }
 
   console.log('\nFIRESTORE RULES ENFORCEMENT (per role)');
-  // company_admin: reads OWN lead, but NOT the rep's (lead reads are userId-scoped).
+  // company_admin: reads OWN lead AND the rep's — team pipeline visibility
+  // (2026-07-06) company-scopes lead reads for company_admin/manager/viewer.
+  // (This assertion was inverted before that change: reads were
+  // userId-scoped and the team feature shipped invite-complete but
+  // visibility-incomplete — the Stranger Test punch list item #1.)
   {
     const { auth, db } = clientFor();
     await signInWithEmailAndPassword(auth, 'companyadmin@demo.test', PASSWORD);
     await allowed('company_admin reads OWN lead', getDoc(doc(db, 'leads/lead_admin')).then(s => { if (!s.exists()) throw new Error('missing'); }));
-    await denied('company_admin CANNOT read rep-owned lead (userId-scoped)', getDoc(doc(db, 'leads/lead_rep')));
+    await allowed('company_admin reads rep-owned SAME-COMPANY lead (team visibility)',
+      getDoc(doc(db, 'leads/lead_rep')).then(s => { if (!s.exists()) throw new Error('missing'); }));
+    await signOut(auth);
+  }
+  // sales_rep: own-only reads survive team visibility (Wave 110 semantics).
+  {
+    const { auth, db } = clientFor();
+    await signInWithEmailAndPassword(auth, 'salesrep@demo.test', PASSWORD);
+    await denied('sales_rep CANNOT read the company_admin\'s lead (own-only)',
+      getDoc(doc(db, 'leads/lead_admin')));
     await signOut(auth);
   }
   // platform admin: reads ANY lead (isAdmin()).

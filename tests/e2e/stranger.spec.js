@@ -135,9 +135,22 @@ async function callFromPageOnce(page, fnName, payload) {
  */
 async function callFromPage(page, fnName, payload) {
   let last;
-  for (let i = 0; i < 3; i++) {
-    last = await callFromPageOnce(page, fnName, payload);
-    const internal = !last.ok && /(^|\/)internal$/.test(last.code || '') ||
+  for (let i = 0; i < 4; i++) {
+    try {
+      // Re-anchor on a settled document each attempt: the login 301 hop
+      // (dashboard.html → cleanUrls → dashboard) can tear down the page
+      // between a wait and the evaluate — the fresh document has no
+      // Firebase app yet, so getFunctions() throws app/no-app (the same
+      // race class openCrm retries).
+      await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 20_000 });
+      last = await callFromPageOnce(page, fnName, payload);
+    } catch (e) {
+      if (!/No Firebase App|app\/no-app|Execution context was destroyed|navigation/i.test(String(e))) throw e;
+      last = { ok: false, code: 'transient/navigation', message: String(e) };
+      await new Promise((r) => setTimeout(r, 2_000));
+      continue;
+    }
+    const internal = (!last.ok && /(^|\/)internal$/.test(last.code || '')) ||
       (!last.ok && String(last.message).trim().toLowerCase() === 'internal');
     if (!internal) return last;
     await new Promise((r) => setTimeout(r, 2_000));
@@ -302,7 +315,7 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
       'microsite lead card visible in tenant kanban').toBeVisible({ timeout: 15_000 });
   });
 
-  test('team: free plan is seat-gated; upgraded tenant invites a rep who claims in', async ({ page, browser }) => {
+  test('team: free plan is seat-gated; upgraded tenant invites a MANAGER who claims in and sees the shared pipeline', async ({ page, browser }) => {
     expect(STRANGER.uid, 'provision test must have run').toBeTruthy();
     const { db, auth, FieldValue } = admin();
 
@@ -310,7 +323,7 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
     await page.waitForFunction(() => window._user && window._user.uid, null, { timeout: 20_000 });
 
     // Free plan → zero seats. The gate must refuse BEFORE any member doc.
-    const gated = await callFromPage(page, 'createTeamInvite', { email: REP.email, role: 'sales_rep' });
+    const gated = await callFromPage(page, 'createTeamInvite', { email: REP.email, role: 'manager' });
     expect(gated.ok, 'free-plan invite refused').toBe(false);
     expect(gated.message, 'refusal names the upgrade path').toMatch(/growth plan/i);
 
@@ -321,7 +334,11 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
       createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
 
-    const invited = await callFromPage(page, 'createTeamInvite', { email: REP.email, role: 'sales_rep' });
+    // Invite as MANAGER — the role the product promises "sees all reps'
+    // leads" (team pipeline visibility, 2026-07). sales_rep own-only
+    // semantics are pinned by the rules suites; this journey proves the
+    // staff experience end to end.
+    const invited = await callFromPage(page, 'createTeamInvite', { email: REP.email, role: 'manager' });
     expect(invited.ok, `growth-plan invite succeeds (got: ${invited.message || ''})`).toBe(true);
     expect(invited.data && invited.data.invited).toBe(true);
     const memberRef = db.doc(`companies/${STRANGER.uid}/members/${REP.email}`);
@@ -361,14 +378,62 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
       expect(activated.uid, 'member doc records the claiming uid').toBe(REP.uid);
       expect(activated.activatedVia).toBe('claimInvite-v1');
 
-      // Claims re-pointed to the team; the rep's register-time solo tenant is
-      // absorbed, not deleted.
+      // Claims re-pointed to the team; the member's register-time solo
+      // tenant is absorbed, not deleted.
       const repUser = await auth.getUser(REP.uid);
-      expect((repUser.customClaims || {}).companyId, 'rep claims re-pointed to the tenant').toBe(STRANGER.uid);
-      expect((repUser.customClaims || {}).role).toBe('sales_rep');
+      expect((repUser.customClaims || {}).companyId, 'member claims re-pointed to the tenant').toBe(STRANGER.uid);
+      expect((repUser.customClaims || {}).role).toBe('manager');
       const repSolo = (await db.doc(`companies/${REP.uid}`).get()).data();
-      expect(repSolo && repSolo.status, 'rep solo tenant superseded-by-invite').toBe('superseded-by-invite');
+      expect(repSolo && repSolo.status, 'member solo tenant superseded-by-invite').toBe('superseded-by-invite');
       expect(repSolo && repSolo.supersededBy).toBe(STRANGER.uid);
+
+      // THE TEAM PAYOFF (2026-07): the manager's dashboard reboots into
+      // team scope and the role-branched loadLeads fetches the TENANT
+      // book — the owner's lead from the 'operate' test appears on the
+      // manager's kanban. Before company-scoped reads this was the
+      // punch-list #1 empty-kanban bug: invite-complete,
+      // visibility-incomplete.
+      await repPage.waitForURL(/\/pro\/dashboard(\.html)?([?#]|$)/, { timeout: 30_000 });
+      await openCrm(repPage);
+      await expect(repPage.locator(`text=/\\[E2E\\] Homeowner.*${stamp}/i`).first(),
+        "owner's lead card visible on the manager's shared kanban").toBeVisible({ timeout: 30_000 });
+
+      // Rules-level proof of the same thing (read the owner's lead doc
+      // directly), plus the write boundary: seeing is not editing.
+      const strangerLeadId = (await db.collection('leads')
+        .where('lastName', '==', LEAD_LAST).limit(1).get()).docs[0].id;
+      // Both probes retry the documented client-is-offline emulator drop
+      // (non-permission errors only) so a dropped read can't masquerade
+      // as a rules verdict — same mitigation as the isolation test.
+      let managerRead;
+      for (let i = 0; i < 3; i++) {
+        managerRead = await repPage.evaluate(async (id) => {
+          const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          try {
+            const snap = await fs.getDoc(fs.doc(window.db || window._db, 'leads', id));
+            return { ok: snap.exists() };
+          } catch (e) { return { ok: false, err: String(e && (e.code || e.message)) }; }
+        }, strangerLeadId);
+        if (managerRead.ok || /permission|insufficient/i.test(String(managerRead.err || ''))) break;
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
+      expect(managerRead.ok, `manager reads the owner's lead (err: ${managerRead.err || 'none'})`).toBe(true);
+      let managerWrite;
+      for (let i = 0; i < 3; i++) {
+        managerWrite = await repPage.evaluate(async (id) => {
+          const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          try {
+            await fs.updateDoc(fs.doc(window.db || window._db, 'leads', id), { stage: 'hijacked' });
+            return { denied: false, wrote: true };
+          } catch (e) {
+            const err = String(e && (e.code || e.message));
+            return { denied: /permission|insufficient/i.test(err), err };
+          }
+        }, strangerLeadId);
+        if (managerWrite.wrote || managerWrite.denied) break;
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
+      expect(managerWrite.denied, `manager cannot MUTATE the owner's lead (writes stay owner-only; err: ${managerWrite.err || 'none'})`).toBe(true);
     } finally {
       await repContext.close();
     }

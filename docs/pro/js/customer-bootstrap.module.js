@@ -354,7 +354,13 @@ async function loadCustomerData(id) {
     window._leadDoc = lead; // Used by document generator data bridge
 
     // ── Auto-assign Customer ID (NBD-0001 format) if missing ──
-    if (!lead.customerId) {
+    // OWNER-ONLY (team visibility, 2026-07): staff can now OPEN a
+    // teammate's customer page, but the lead update below is rules-denied
+    // for non-owners — running the counter transaction first would burn a
+    // shared tenant ID on every such open and then fail the stamp,
+    // leaving customerId gaps. The owner assigns on their next open.
+    if (!lead.customerId
+        && lead.userId && window._user && lead.userId === window._user.uid) {
       try {
         const _cid = (lead && lead.companyId) || (window._user && window._user.uid);
         const _ctrId = (typeof window._custCounterId === 'function') ? window._custCounterId(_cid) : 'customerIds';

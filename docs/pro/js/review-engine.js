@@ -96,7 +96,13 @@
    * Called after leads load — finds recently closed jobs without review requests
    */
   function checkAutoReviewRequests() {
-    const leads = window._leads || [];
+    // OWN leads only (team visibility, 2026-07): staff caches now hold the
+    // whole tenant book, but review requests act on the lead (updateDoc
+    // reviewRequested) which is owner-only at the rules layer — running
+    // this over teammates' leads created un-actionable notifications and a
+    // denied-write re-fire loop.
+    const _me = window._user && window._user.uid;
+    const leads = (window._leads || []).filter(l => !l.userId || l.userId === _me);
     const closedStages = ['closed', 'install_complete', 'Complete'];
     const recently = Date.now() - (7 * 24 * 60 * 60 * 1000); // Last 7 days
 

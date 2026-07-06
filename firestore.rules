@@ -53,9 +53,36 @@ service cloud.firestore {
       return isCompanyAdmin() || isManager();
     }
 
+    // Company-wide PIPELINE readers — the roles the product grants team
+    // lead-visibility (role taxonomy above: manager sees all reps' leads,
+    // viewer is read-only INSIDE their company). sales_rep is deliberately
+    // absent: own-leads-only — the same decision the Wave-110 client
+    // hydration filter enforces at the fetch layer so teammates' data
+    // never reaches a rep's browser. Role read via .get(): solo operators
+    // carry NO role claim and a bare token.role access THROWS (NEW-5).
+    function isCompanyReader() {
+      return isAuth()
+        && request.auth.token.get('role', '') in ['company_admin', 'manager', 'viewer'];
+    }
+
     // Field-diff helper used by users/<uid> to block privilege escalation.
     function didNotChange(fields) {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+
+    // Parent-lead company check for lead SUBCOLLECTION reads: the caller
+    // is a company reader (see isCompanyReader) and the PARENT lead
+    // belongs to their tenant — so a manager opening a teammate's
+    // customer page gets its activity/notes/documents, not a shell.
+    // Fully throw-proof (.get() on BOTH sides): subcollection parents can
+    // be legacy docs without companyId, and defensive tokens may lack the
+    // claim. The get() is the same parent read the owner clause already
+    // pays — rules dedupe repeated access to one document per request.
+    function parentLeadInMyCompany(leadId) {
+      return isCompanyReader()
+        && request.auth.token.get('companyId', '') != ''
+        && get(/databases/$(database)/documents/leads/$(leadId)).data.get('companyId', '')
+             == request.auth.token.get('companyId', '');
     }
 
     // ── LEADS ─────────────────────────────────────────
@@ -71,7 +98,21 @@ service cloud.firestore {
     // intentionally NOT enforced yet — that's a follow-up after
     // verifying every active user's custom claims include companyId.
     match /leads/{leadId} {
-      allow read: if isOwner(resource.data.userId) || isAdmin();
+      // Team pipeline visibility (2026-07-06) — the follow-up the comment
+      // above promised, unblocked once provisioning/claimInvite guarantee
+      // companyId claims (proven end-to-end by the Stranger Test).
+      // company_admin/manager/viewer read every lead in THEIR tenant;
+      // sales_rep stays own-only (isCompanyReader excludes it). Shape
+      // mirrors /expenses exactly — the form the rules tests prove
+      // query-compliant for where('companyId','==',claim) list queries.
+      // Owner check stays FIRST: legacy docs without companyId remain
+      // owner-readable (absent-key access in the company clause errors
+      // to deny, never widens).
+      allow read: if isOwner(resource.data.userId)
+        || isAdmin()
+        || (isCompanyReader()
+            && resource.data.companyId != null
+            && resource.data.companyId == myCompanyId());
       // Audit #3 F-1: writes require a non-viewer role. A 'viewer' who happens
       // to own a lead can still READ it but can no longer mutate it at the rules
       // layer (read-only was previously UI-enforced only). Users with no role
@@ -111,7 +152,8 @@ service cloud.firestore {
       // writes; those come only from admin SDK (webhooks).
       match /activity/{activityId} {
         allow read:  if isAuth() && (isAdmin()
-          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
         // Reps can append their own notes/activity via direct write; the
         // rule enforces shape. Webhook-written activities (measurement,
         // stripe, esign, calcom) bypass these rules via admin SDK.
@@ -141,13 +183,15 @@ service cloud.firestore {
       }
       match /tasks/{taskId} {
         allow read:   if isAuth() && (isAdmin()
-          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
         allow write:  if isAuth()
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
       }
       match /notes/{noteId} {
         allow read:   if isAuth() && (isAdmin()
-          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
         allow write:  if isAuth()
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
       }
@@ -190,7 +234,8 @@ service cloud.firestore {
       // applies on that path — it goes through admin SDK).
       match /portal_messages/{messageId} {
         allow read: if isAuth() && (isAdmin()
-          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
         allow write: if false; // admin SDK only
       }
 
@@ -202,7 +247,8 @@ service cloud.firestore {
       // attached document from the customer page documents list.
       match /documents/{documentId} {
         allow read:  if isAuth() && (isAdmin()
-          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
         allow write: if isAuth()
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
       }
@@ -213,7 +259,8 @@ service cloud.firestore {
       // saved drawing on customer page reload.
       match /drawings/{drawingId} {
         allow read:  if isAuth() && (isAdmin()
-          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
         allow write: if isAuth()
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
       }
@@ -251,7 +298,8 @@ service cloud.firestore {
       // lead's signature store; nobody else can read or write it.
       match /signatures/{sigRole} {
         allow read:  if isAuth() && (isAdmin()
-          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId));
+          || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+          || parentLeadInMyCompany(leadId));
         allow write: if isAuth()
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
       }
