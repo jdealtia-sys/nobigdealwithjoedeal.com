@@ -1550,6 +1550,32 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     }, { timeout: 5_000 });
   });
 
+  // One-row toolbar (2026-07-06): the filter pills moved into the
+  // Filters dropdown; this locks the menu lifecycle + the active-count
+  // badge so a collapsed filter can never silently hide leads again.
+  test('pipeline one-row toolbar: Filters menu toggles a filter and badges the count', async ({ page }) => {
+    await loginAs(page, creds);
+    await openCrmView(page);
+    await safeWaitForFunction(page, () => !!document.getElementById('crmFiltersBtn'), { timeout: 15_000 });
+    await safeEvaluate(page, () => document.getElementById('crmFiltersBtn').click());
+    await safeWaitForFunction(page, () => document.getElementById('crmFiltersMenu')?.classList.contains('open'), { timeout: 5_000 });
+    await safeEvaluate(page, () => document.getElementById('needsAttentionBtn').click());
+    await safeWaitForFunction(page, () => {
+      const b = document.getElementById('needsAttentionBtn');
+      const badge = document.getElementById('crmFiltersActiveBadge');
+      return b && b.classList.contains('active')
+        && badge && badge.textContent === '1' && badge.style.display !== 'none';
+    }, { timeout: 5_000 });
+    // Selecting a filter closes the menu (220ms delegate close)
+    await safeWaitForFunction(page, () => !document.getElementById('crmFiltersMenu').classList.contains('open'), { timeout: 5_000 });
+    // Toggle back off — badge empties, kanban unfiltered for later tests
+    await safeEvaluate(page, () => document.getElementById('needsAttentionBtn').click());
+    await safeWaitForFunction(page, () => {
+      const badge = document.getElementById('crmFiltersActiveBadge');
+      return badge && badge.style.display === 'none';
+    }, { timeout: 5_000 });
+  });
+
   test('nav customizer opens and addTab responds through the delegate (no inline handlers)', async ({ page }) => {
     // Full console capture: when this journey fails in CI the modal is
     // simply absent, which means the module-tail delegate never bound —

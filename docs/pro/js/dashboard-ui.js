@@ -283,6 +283,13 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     if (typeof toggleCrmToolsMenu === 'function') toggleCrmToolsMenu(e);
     return;
   }
+  if (action === 'crmFiltersMenu') {
+    // One-row toolbar (2026-07-06): the pipeline filter toggles live in
+    // their own dropdown; same stopPropagation contract as crmToolsMenu.
+    e.preventDefault();
+    if (typeof toggleCrmFiltersMenu === 'function') toggleCrmFiltersMenu(e);
+    return;
+  }
   // C.4 cluster 4 — no-arg toggle handlers. Pattern: tap a button →
   // calls a global toggleXxx() with no arguments. Same allowlist
   // discipline as closeModal: data-target maps to a specific function
@@ -308,9 +315,10 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     // close the menu so the user immediately sees the filter result on
     // the kanban (saves one tap). The active-state mirror above
     // briefly previews ON before the menu closes — confirms the action.
-    if (el.closest && el.closest('.crm-tools-menu-mobile')) {
+    if (el.closest && el.closest('.crm-tools-menu')) {
       setTimeout(() => {
         if (typeof window.closeCrmToolsMenu === 'function') window.closeCrmToolsMenu();
+        if (typeof window.closeCrmFiltersMenu === 'function') window.closeCrmFiltersMenu();
       }, 220);
     }
     return;
@@ -1888,6 +1896,7 @@ window.toggleKanbanFullscreen = toggleKanbanFullscreen;
 function toggleCrmToolsMenu(ev) {
   const menu = document.getElementById('crmToolsMenu');
   if (!menu) return;
+  if (typeof closeCrmFiltersMenu === 'function') closeCrmFiltersMenu();
   const isOpen = menu.classList.toggle('open');
   if (isOpen) {
     // Reflect current filter active-state into the mobile Tools menu
@@ -1915,6 +1924,36 @@ function closeCrmToolsMenu() {
 }
 window.toggleCrmToolsMenu = toggleCrmToolsMenu;
 window.closeCrmToolsMenu = closeCrmToolsMenu;
+
+// Filters dropdown (one-row toolbar, 2026-07-06) — same lifecycle as the
+// Tools menu: sync indicators on open, close on outside click, and the
+// two menus close each other so only one is ever open.
+function toggleCrmFiltersMenu(ev) {
+  const menu = document.getElementById('crmFiltersMenu');
+  if (!menu) return;
+  closeCrmToolsMenu();
+  const isOpen = menu.classList.toggle('open');
+  if (isOpen) {
+    if (typeof window.syncMobileToolsMenuActive === 'function') {
+      window.syncMobileToolsMenuActive();
+    }
+    setTimeout(() => {
+      const onAway = (e) => {
+        if (!menu.contains(e.target) && !(e.target.closest && e.target.closest('#crmFiltersBtn'))) {
+          closeCrmFiltersMenu();
+          document.removeEventListener('click', onAway, true);
+        }
+      };
+      document.addEventListener('click', onAway, true);
+    }, 0);
+  }
+  if (ev) ev.stopPropagation();
+}
+function closeCrmFiltersMenu() {
+  document.getElementById('crmFiltersMenu')?.classList.remove('open');
+}
+window.toggleCrmFiltersMenu = toggleCrmFiltersMenu;
+window.closeCrmFiltersMenu = closeCrmFiltersMenu;
 
 // Global header mobile kebab — collapses theme/settings/guide buttons
 // into a single dropdown on ≤768px. Same shape as toggleCrmToolsMenu
@@ -1961,12 +2000,31 @@ const _MOBILE_TOOLS_FILTER_MAP = {
   bulkMode:       'bulkModeBtn',
 };
 function syncMobileToolsMenuActive() {
+  // Legacy mirror — a no-op since the one-row toolbar removed the
+  // .crm-tools-menu-mobile duplicate cluster (the REAL filter buttons
+  // now live inside #crmFiltersMenu and carry .active themselves); kept
+  // null-guarded in case a page still ships the old markup.
   Object.entries(_MOBILE_TOOLS_FILTER_MAP).forEach(([target, srcId]) => {
     const src  = document.getElementById(srcId);
     const item = document.querySelector('.crm-tools-menu-mobile [data-target="' + target + '"]');
     if (!src || !item) return;
     item.classList.toggle('active', src.classList.contains('active'));
   });
+  // One-row toolbar (2026-07-06): the Filters button shows how many
+  // filter/sort toggles are ON so a collapsed filter can't silently
+  // hide leads. Called on every toggle (delegate) + on menu open.
+  const filterIds = ['needsAttentionBtn', 'staleSharesBtn', 'snoozedToggleBtn', 'engagementSortBtn'];
+  const n = filterIds.filter((id) => {
+    const b = document.getElementById(id);
+    return b && b.classList.contains('active');
+  }).length;
+  const badge = document.getElementById('crmFiltersActiveBadge');
+  if (badge) {
+    badge.textContent = String(n);
+    badge.style.display = n ? '' : 'none';
+  }
+  const fbtn = document.getElementById('crmFiltersBtn');
+  if (fbtn) fbtn.classList.toggle('active', n > 0);
 }
 window.syncMobileToolsMenuActive = syncMobileToolsMenuActive;
 
