@@ -212,7 +212,9 @@ window.loadAllTasks = loadAllTasks;
 window.openTaskModal = openTaskModal;
 window.closeTaskModal = closeTaskModal;
 window.addTask = addTask;
-window.checkTask = checkTask;
+// checkTask's window export dropped (globals Tranche 2b): zero external
+// consumers — the only caller is this file's own data-tk-action delegate,
+// which references the bare function.
 window.removeTask = removeTask;
 window.createNotification = createNotification;
 

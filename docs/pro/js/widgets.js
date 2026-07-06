@@ -3,7 +3,7 @@
 // ║  30 customizable widgets • drag grid • localStorage persistence  ║
 // ╚═══════════════════════════════════════════════════════════════════╝
 
-let _NBD_WIDGETS_DELEGATE_BOUND, _wAddTask, _wAskJoe, _wMiniHeat, _wQuickAddLead, _wQuickDraw, _wQuickEst; // module-local (globals Tranche 1 — was window.*)
+let _NBD_WIDGETS_DELEGATE_BOUND, _wAddTask, _wAskJoe, _wMiniHeat, _wQuickAddLead, _wQuickDraw, _wQuickEst, _wRadarMap, _wToggleTask; // module-local (globals Tranches 1 + 2b — was window.*)
 (function(){
 'use strict';
 
@@ -255,9 +255,9 @@ const WIDGETS = [
         <div style="font-size:9px;color:var(--m);margin-top:4px;text-align:center;">Live NEXRAD radar • Updates every 10 min</div>`;
       setTimeout(() => {
         if(!window.L) return;
-        if(window._wRadarMap){try{window._wRadarMap.remove();}catch(e){}}
+        if(_wRadarMap){try{_wRadarMap.remove();}catch(e){}}
         const map = L.map('w-radar-map',{zoomControl:false,attributionControl:false}).setView([39.07,-84.17],7);
-        window._wRadarMap = map;
+        _wRadarMap = map;
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:10}).addTo(map);
         L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png',{opacity:.6,maxZoom:10}).addTo(map);
       }, 100);
@@ -777,7 +777,7 @@ function resetDefaults() {
 
 
 // ── WIDGET INTERACTION HELPERS (global) ─────────────────────────
-window._wToggleTask = function(idx, done) {
+_wToggleTask = function(idx, done) {
   let tasks = JSON.parse(localStorage.getItem('nbd_home_tasks') || '[]');
   if(!tasks.length) tasks = [{t:'Follow up on yesterday\'s leads',d:false},{t:'Send 3 estimates',d:false},{t:'Update pipeline stages',d:false},{t:'Check storm reports',d:false}];
   if(tasks[idx]) tasks[idx].d = done;
@@ -899,7 +899,7 @@ const _wActions = {
 // handlers are dispatched by the change/input/keydown delegates below.
 // Signature mirrors _wActions: (wId, ev, target).
 const _wChange = {
-  toggleTask:   (_id, ev, target) => { if (typeof window._wToggleTask === 'function') window._wToggleTask(parseInt(target.dataset.wIdx, 10), target.checked); },
+  toggleTask:   (_id, ev, target) => { if (typeof _wToggleTask === 'function') _wToggleTask(parseInt(target.dataset.wIdx, 10), target.checked); },
   toggleWidget: (id, ev, target) => { window.NBDWidgets.toggleWidget(id, target.checked); },
 };
 const _wInput = {

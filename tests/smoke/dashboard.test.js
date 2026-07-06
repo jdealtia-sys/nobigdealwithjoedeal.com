@@ -2514,7 +2514,12 @@ section('Ops P1 #4 — loadLeads completeness + kanban render cap');
 // docs/dev/dashboard-decomposition-plan.md, caveat 4 execution plan.
 section('Globals Tranches 0+1: converted names stay off window');
 {
-  const T1_NAMES = ['dismissNotification', 'notifAction',
+  const T1_NAMES = [
+    // Tranche 2b (2026-07-06): widgets.js radar-map handle + task
+    // checkbox handler (delegate calls the bare fn), tasks.js checkTask
+    // export (only caller is its own data-tk-action delegate).
+    '_wRadarMap', '_wToggleTask', 'checkTask',
+    'dismissNotification', 'notifAction',
     'renderDismissedNotifications', 'renderNotifications',
     'restoreNotification', 'showShortcutsHelp', 'closeHdrMobileMenu',
     'restoreCrmSecondary', 'seedDemoEstimates', '$id', 'nbdIcon',
