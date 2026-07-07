@@ -234,6 +234,9 @@ exports.healthDigestCron = onSchedule(
       bodyHtml,
       bodyPlain: 'Health digest for ' + periodLabel + ' — Vision ' + fmtUsd(vision.userTotal) + ', ' + fmtNum(activity.photos) + ' photo uploads, ' + fmtNum(stripe.total) + ' Stripe events.',
       kind: 'health_digest',
+      // The emailQueueWorker query filters on status=='pending'; a doc
+      // without it is never claimed, so the digest silently never sends.
+      status: 'pending',
       createdAt: FieldValue.serverTimestamp(),
     });
 

@@ -527,3 +527,10 @@ exports.recordCustomerEvent = customerAudit.recordCustomerEvent;
 // Gated on HEALTH_DIGEST_ENABLED env var ('true' to enable).
 const healthDigest = require('./health-digest');
 exports.healthDigestCron = healthDigest.healthDigestCron;
+
+// Monthly per-tenant overhead spend digest — sums the prior month's
+// OVERHEAD-type expenses per company and emails each owner a category
+// breakdown via email_queue → emailQueueWorker. Enabled by default;
+// MONTHLY_OVERHEAD_ALERT_DISABLED=true pauses without a rollback.
+const monthlyOverheadAlert = require('./monthly-overhead-alert');
+exports.monthlyOverheadAlertCron = monthlyOverheadAlert.monthlyOverheadAlertCron;
