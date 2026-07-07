@@ -817,6 +817,19 @@ section('D5: nightly Firestore backup cron');
   assert('exports to GCS bucket', /BACKUP_BUCKET/.test(src) && /:exportDocuments/.test(src));
 }
 
+section('D6: GDPR export ↔ erasure symmetry for users/{uid} subcollections');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  // Erasure recursiveDeletes users/{uid} (subcollections included), so the
+  // Article-20 export must also list users/{uid} subcollections — otherwise
+  // captures / notificationLogs / fcmTokens are deleted but never exported.
+  assert('export lists users/{uid} subcollections (captures et al.)',
+    /db\.doc\('users\/' \+ uid\)\.listCollections\(\)/.test(src) &&
+    /user_subcollections/.test(src));
+  assert('erasure recursiveDeletes the owner-keyed docs (subcollection-safe)',
+    /recursiveDelete\(db\.doc\(coll \+ '\/' \+ uid\)\)/.test(src));
+}
+
 section('F-07: Stripe webhook idempotency is atomic');
 {
   // L-03 cont.: Stripe handlers moved to functions/stripe.js.
