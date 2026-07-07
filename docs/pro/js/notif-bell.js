@@ -682,6 +682,15 @@
           </div>
         </div>
         ${actionButtonsHTML}
+        ${isDismissedView ? `
+        <button title="Restore"
+          style="
+            background:transparent; border:none; color:var(--m,#9aa3b2);
+            cursor:pointer; padding:4px 8px; font-size:13px; line-height:1;
+            opacity:0.7; align-self:flex-start;"
+          data-nb-action="restore" data-nb-id="${escapeHtml(n.id)}" data-nb-stop="1">
+          ↩
+        </button>` : `
         <button title="Dismiss"
           style="
             background:transparent; border:none; color:var(--m,#9aa3b2);
@@ -689,7 +698,7 @@
             opacity:0.6; align-self:flex-start;"
           data-nb-action="dismiss" data-nb-id="${escapeHtml(n.id)}" data-nb-stop="1">
           ×
-        </button>
+        </button>`}
       </div>`;
   }
 
@@ -711,6 +720,30 @@
   function dismissOne(id) {
     const item = buildNotifications().find(n => n.id === id);
     if (item) dismissItem(item);
+    render();
+  }
+
+  // Restore a dismissed item from the "Show dismissed" drawer. Source-
+  // aware, mirroring dismissItem: server items un-dismiss in Firestore
+  // (via NBDServerNotifs.restore) and come back UNREAD; derived nags
+  // drop out of the localStorage dismissed set (and read set, so the
+  // signal re-nags).
+  function restoreItem(n) {
+    if (n._source === 'server') {
+      _patchServerDoc(n._docId, { dismissed: false, read: false });
+      invalidateNotifCache();
+      if (window.NBDServerNotifs && typeof window.NBDServerNotifs.restore === 'function') {
+        Promise.resolve(window.NBDServerNotifs.restore(n._docId)).catch(() => {});
+      }
+    } else {
+      dismissed.delete(n.id); _writeSet(DISMISS_KEY, dismissed);
+      read.delete(n.id);      _writeSet(READ_KEY, read);
+      invalidateNotifCache();
+    }
+  }
+  function restoreOne(id) {
+    const item = buildNotifications().find(n => n.id === id);
+    if (item) restoreItem(item);
     render();
   }
 
@@ -873,6 +906,7 @@
     getCount: () => buildNotifications().filter(n => !itemIsDismissed(n) && !itemIsRead(n)).length,
     _handleClick: handleClick,
     _dismiss: dismissOne,
+    _restore: restoreOne,
     _actionSms,
     _actionEmail,
     _actionPreview,

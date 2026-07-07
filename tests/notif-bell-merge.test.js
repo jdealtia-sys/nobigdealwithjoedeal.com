@@ -186,5 +186,29 @@ clickAction('handleClick', 'server:srv9', false);
 ok('delegate dispatched handleClick → NBDServerNotifs.markRead(srv9)', captured.markRead.includes('srv9'));
 ok('handleClick navigated to the lead deep-link', /tab=crm&lead=L1/.test(win.location.href));
 
+// ── Step 6: restore a dismissed SERVER notif from the drawer (↩) ──
+win._taskCache = {}; // isolate: no derived items this step
+win._notifications = [
+  { id: 'srvD', userId: 'u', type: 'portal_message', leadId: 'L1', title: 'Dismissed pending',
+    message: 'was dismissed', read: true, dismissed: true, createdAt: nowD },
+];
+fireWin('nbd:data-refreshed');
+clickAction('restore', 'server:srvD', true);
+ok('delegate dispatched restore → NBDServerNotifs.restore(srvD)', captured.restore.includes('srvD'));
+ok('restored server notif is back in the ACTIVE list', els.notifList.innerHTML.includes('Dismissed pending'));
+ok('restored server notif returns UNREAD (badge = 1)', els.notifBadge.textContent === '1');
+
+// ── Step 7: restore a dismissed DERIVED nag (localStorage) ──
+// derivedTaskId was dismissed in Step 4; bring the overdue task back.
+win._notifications = [];
+win._taskCache = { L1: [{ id: 't1', text: 'Call Jane', dueDate: '2020-01-01', done: false }] };
+fireWin('nbd:data-refreshed');
+ok('derived nag currently dismissed (in drawer)',
+   JSON.parse(localStorage.getItem('nbd_notif_dismissed_v1') || '[]').includes(derivedTaskId));
+clickAction('restore', derivedTaskId, true);
+ok('restore removed derived item from localStorage dismissed set',
+   !JSON.parse(localStorage.getItem('nbd_notif_dismissed_v1') || '[]').includes(derivedTaskId));
+ok('restored derived nag is back in the ACTIVE list', els.notifList.innerHTML.includes('Overdue task'));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.log('FAILED:', fails.join(' | ')); process.exit(1); }
