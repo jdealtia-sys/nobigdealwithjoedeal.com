@@ -1855,6 +1855,13 @@
     if (docOverrides && Object.keys(docOverrides).length) {
       updates['docOverrides.' + docType] = _stripUndefined(docOverrides);
     }
+    // A preflight that persists `phone` back to the lead must refresh the
+    // normalized inbound-SMS match key with it — incomingSMS queries leads
+    // by phoneDigits and a bare phone write leaves a stale key. Canonical
+    // transform — keep identical to functions/phone-utils.js.
+    if (Object.prototype.hasOwnProperty.call(updates, 'phone')) {
+      updates.phoneDigits = String(updates.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10);
+    }
     if (!Object.keys(updates).length) return;
     updates.updatedAt = window.serverTimestamp();
     try {

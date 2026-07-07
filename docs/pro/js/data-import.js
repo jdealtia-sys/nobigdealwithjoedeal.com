@@ -419,6 +419,10 @@
           window.collection(window.db, 'leads'),
           {
             ...lead,
+            // Normalized inbound-SMS match key — see functions/phone-utils.js.
+            // CSV import is the bulk-onboarding path; without this every
+            // imported lead is invisible to incomingSMS's phoneDigits match.
+            phoneDigits: String(lead.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10),
             userId: uid,
             companyId,
             createdAt: window.serverTimestamp(),

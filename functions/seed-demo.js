@@ -12,6 +12,7 @@ const admin = require('firebase-admin');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { getApps } = require('firebase-admin/app');
+const { phoneDigits10 } = require('./phone-utils');
 
 // Use existing admin app if running inside Cloud Functions, otherwise init fresh
 if (!getApps().length) {
@@ -403,6 +404,8 @@ async function seed() {
       name: `${lead.firstName} ${lead.lastName}`,
       address: lead.address,
       phone: lead.phone,
+      // Normalized inbound-SMS match key — see functions/phone-utils.js.
+      phoneDigits: phoneDigits10(lead.phone),
       email: lead.email || '',
       stage: lead.stage,
       jobType: lead.jobType || '',

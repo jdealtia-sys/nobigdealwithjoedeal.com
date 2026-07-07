@@ -32,6 +32,11 @@ async function saveCustomerEdits() {
       jobValue: document.getElementById('editJobValue').value.trim(),
       updatedAt: new Date()
     };
+    // Refresh the normalized inbound-SMS match key alongside phone —
+    // incomingSMS queries leads by phoneDigits; writing phone without it
+    // leaves the OLD number's key on the lead, so texts from the corrected
+    // number stop matching. Keep identical to functions/phone-utils.js.
+    updates.phoneDigits = String(updates.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10);
     await window.updateDoc(window.doc(window.db, 'leads', window._customerId), updates);
     // Update display
     document.getElementById('customerName').textContent = ((updates.firstName + ' ' + updates.lastName).trim()) || 'Unknown';

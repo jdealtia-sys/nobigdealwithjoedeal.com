@@ -29,6 +29,10 @@ const twilio = require('twilio');
 // don't hammer the shared Firestore rate_limits doc. Falls back to
 // the Firestore limiter when Upstash isn't configured.
 const { enforceRateLimit, httpRateLimit, clientIp } = require('./integrations/upstash-ratelimit');
+// Canonical phone normalization — the lead-write paths stamp `phoneDigits`
+// (last-10 US digits) on every lead; incomingSMS normalizes the Twilio
+// sender the same way so an E.164 inbound matches a free-form-typed lead.
+const { phoneDigits10 } = require('./phone-utils');
 
 // Minimal HTML escaper for values we store from untrusted SMS webhooks.
 function escForStore(s) {
@@ -619,12 +623,29 @@ exports.incomingSMS = onRequest(
         }
       }
 
-      // Match phone number to a lead in Firestore
-      const leadsSnap = await db
-        .collection('leads')
-        .where('phone', '==', fromPhone)
-        .limit(1)
-        .get();
+      // Match phone number to a lead in Firestore.
+      //
+      // Twilio delivers the sender in E.164 (+15551234567); leads store the
+      // phone however the rep typed it ("(555) 123-4567"), so an exact
+      // `phone == fromPhone` match almost never hit — most inbound texts
+      // never tied to a lead (no inbound note, no AI draft, rep never saw
+      // it). We now match on the normalized `phoneDigits` key (last-10 US
+      // digits) that every lead-write path stamps. Admin SDK + single-field
+      // equality → auto single-field index (no composite needed).
+      //
+      // The exact-`phone` fallback covers any lead not yet backfilled with
+      // phoneDigits (defense-in-depth until the backfill has fully run).
+      const fromDigits = phoneDigits10(fromPhone);
+      let leadsSnap = fromDigits
+        ? await db.collection('leads').where('phoneDigits', '==', fromDigits).limit(1).get()
+        : { empty: true, docs: [] };
+      if (leadsSnap.empty) {
+        leadsSnap = await db
+          .collection('leads')
+          .where('phone', '==', fromPhone)
+          .limit(1)
+          .get();
+      }
 
       let leadId = null;
       if (!leadsSnap.empty) {
