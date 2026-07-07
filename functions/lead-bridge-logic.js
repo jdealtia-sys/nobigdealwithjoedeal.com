@@ -198,6 +198,12 @@ function mapPublicLeadToLead(args) {
   if (data.utm_campaign) doc.utmCampaign = String(data.utm_campaign);
   if (data.referrer)     doc.referrer = String(data.referrer);
 
+  // Referral-code self-redemption: a friend entered a customer's personal
+  // code on the public form. Carry it onto the CRM lead (uppercased to match
+  // the referrals-collection code format) so the onReferralLeadWrite trigger
+  // can attribute it and credit the $200 bonus on close.
+  if (data.referralCode) doc.redeemReferralCode = String(data.referralCode).toUpperCase().trim();
+
   return doc;
 }
 

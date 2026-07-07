@@ -144,6 +144,16 @@ console.log('\nLEAD-BRIDGE — public lead → CRM leads doc mapping');
   ok('utm: source mapped when present', utm.utmSource === 'google');
   ok('utm: campaign absent when not sent', !('utmCampaign' in utm));
 
+  // Referral-code self-redemption: a friend entered a customer's code on the
+  // public form → carried onto the CRM lead (uppercased to match the referrals
+  // code format) so onReferralLeadWrite can attribute it. Absent when unsent.
+  const refd = L.mapPublicLeadToLead({ collection: 'inspect_leads', sourceId: 's', ownerUid: NBD, companyId: NBD,
+    data: { name: 'Pat Referred', phone: '5135550122', address: '3 B St', referralCode: 'john-ab12' } });
+  ok('referral: code carried as redeemReferralCode (uppercased)', refd.redeemReferralCode === 'JOHN-AB12');
+  const noRef = L.mapPublicLeadToLead({ collection: 'inspect_leads', sourceId: 's', ownerUid: NBD, companyId: NBD,
+    data: { name: 'No Ref', phone: '5135550133', address: '4 C St' } });
+  ok('referral: absent when not supplied', !('redeemReferralCode' in noRef));
+
   // estimator follow-up events must NOT bridge (4-duplicate-cards bug);
   // the initial save (no type) and unknown future types MUST bridge.
   ok('event: estimate_result skipped', L.isFollowUpEvent('estimate_leads', { type: 'estimate_result' }) === true);
