@@ -107,6 +107,105 @@
     return null;
   }
 
+  // ─── Server-notification bridge (2026-07-07 single-owner merge) ───
+  // Before this, two systems drove the same bell: notif-bell (derived
+  // in-memory nags, localStorage read/dismiss) and crm-snooze (the
+  // Firestore `notifications` feed — portal / referral / deal-accept /
+  // remote-sign / follow-up engine writes). notif-bell won both window
+  // bindings (loads last) but never read the Firestore feed, so every
+  // server-written notification was invisible AND unclearable.
+  //
+  // Fix: notif-bell is the single renderer and now UNIONs the two
+  // sources. crm-snooze hydrates the full feed (incl. dismissed) into
+  // window._notifications and fires 'nbd:notifs-updated'; notif-bell
+  // adapts each doc into an item and routes its read/dismiss/clear back
+  // to Firestore via window.NBDServerNotifs (see crm-snooze.js).
+  //
+  // State lives in two places by source:
+  //   - derived items  → localStorage Sets (isRead/isDismissed by id)
+  //   - server items   → the Firestore doc's read/dismissed fields,
+  //                      mirrored on the adapted item as _read/_dismissed
+  // so itemIsRead/itemIsDismissed dispatch on n._source below.
+  const SERVER_NOTIF_ICONS = {
+    follow_up: '📅', needs_field: '📝', task_due: '⏰', task_overdue: '🔴',
+    estimate_approved: '✅', estimate_viewed: '👀', review_request: '⭐',
+    stage_change: '🔄', new_lead: '👤', referral_received: '🎁',
+    deal_accepted: '🎉', remote_signature: '✍️', homeowner_upload: '📎',
+    callback_request: '📞', homeowner_callback: '📞', customer_rating: '⭐',
+    portal_message_in: '💬', portal_message: '💬', portal_message_out: '💬',
+  };
+  function serverIcon(type) { return SERVER_NOTIF_ICONS[type] || '🔔'; }
+  function serverSeverity(n) {
+    const p = String(n && n.priority || '').toLowerCase();
+    if (p === 'high') return 'high';
+    if (p === 'low')  return 'low';
+    return 'medium';
+  }
+  // Adapt one Firestore notification doc → notif-bell item shape.
+  // Returns null for malformed docs. Demo/placeholder leadIds (d-…)
+  // are treated as "no lead" (matching crm-snooze) so we don't render
+  // dead action buttons / lead links that resolve nowhere.
+  function adaptServerNotif(n) {
+    if (!n || !n.id) return null;
+    const leadOk = n.leadId && !String(n.leadId).startsWith('d-');
+    const ts = toDate(n.createdAt);
+    return {
+      id:         'server:' + n.id,
+      _source:    'server',
+      _docId:     n.id,
+      _read:      !!n.read,
+      _dismissed: !!n.dismissed,
+      leadId:     leadOk ? n.leadId : null,
+      type:       n.type || 'default',
+      severity:   serverSeverity(n),
+      icon:       serverIcon(n.type),
+      title:      n.title || 'Notification',
+      text:       n.message || '',
+      sub:        ts ? relativeTime(ts) : '',
+      ts:         ts,
+      href:       leadOk ? `/pro/dashboard.html?tab=crm&lead=${encodeURIComponent(n.leadId)}` : null,
+    };
+  }
+  // Optimistically patch the underlying Firestore doc object in
+  // window._notifications so the next re-render reflects the mutation
+  // immediately. crm-snooze's onSnapshot replaces the whole array with
+  // server truth shortly after, which confirms (or, on write failure,
+  // self-corrects) the optimistic state.
+  function _patchServerDoc(docId, patch) {
+    const arr = window._notifications;
+    if (!Array.isArray(arr)) return;
+    const d = arr.find(x => x && x.id === docId);
+    if (d) Object.assign(d, patch);
+  }
+
+  // ─── Source-aware read / dismissed predicates ────────────────────
+  function itemIsRead(n)      { return n._source === 'server' ? !!n._read      : isRead(n.id); }
+  function itemIsDismissed(n) { return n._source === 'server' ? !!n._dismissed : isDismissed(n.id); }
+
+  // ─── Source-aware mutations ──────────────────────────────────────
+  function markReadItem(n) {
+    if (n._source === 'server') {
+      _patchServerDoc(n._docId, { read: true });
+      invalidateNotifCache();
+      if (window.NBDServerNotifs && typeof window.NBDServerNotifs.markRead === 'function') {
+        Promise.resolve(window.NBDServerNotifs.markRead(n._docId)).catch(() => {});
+      }
+    } else {
+      markRead(n.id);
+    }
+  }
+  function dismissItem(n) {
+    if (n._source === 'server') {
+      _patchServerDoc(n._docId, { dismissed: true, read: true });
+      invalidateNotifCache();
+      if (window.NBDServerNotifs && typeof window.NBDServerNotifs.dismiss === 'function') {
+        Promise.resolve(window.NBDServerNotifs.dismiss(n._docId)).catch(() => {});
+      }
+    } else {
+      dismiss(n.id);
+    }
+  }
+
   // ─── Aggregation: build the notification list from in-memory data ─
   // Wave 108: cache the result of buildNotifications() for a short
   // window so handleClick/markAllRead/clearAll don't re-iterate the
@@ -334,6 +433,20 @@
       });
     });
 
+    // ── Server-persisted notifications (2026-07-07 single-owner merge) ──
+    // Union the Firestore `notifications` feed (hydrated into
+    // window._notifications by crm-snooze.js) into the derived list.
+    // Adapted items carry _source:'server' + _docId so the render/
+    // read/dismiss paths route their state back to Firestore. Dismissed
+    // docs are kept (they surface in the dismissed drawer, not the
+    // active list). This is the fix for server notifications being
+    // invisible + unclearable — they now appear and clear.
+    const serverNotifs = Array.isArray(window._notifications) ? window._notifications : [];
+    serverNotifs.forEach(sn => {
+      const it = adaptServerNotif(sn);
+      if (it) items.push(it);
+    });
+
     // Wave 138: enrich each item with the lead's W135 unified score
     // before sorting. Items tied to a leadId inherit that lead's
     // score so the bell tracks the same priority signal as the
@@ -384,9 +497,9 @@
     if (!list || !badge) return;
 
     const all = buildNotifications();
-    const active    = all.filter(n => !isDismissed(n.id));
-    const dismissedItems = all.filter(n =>  isDismissed(n.id));
-    const unread    = active.filter(n => !isRead(n.id));
+    const active    = all.filter(n => !itemIsDismissed(n));
+    const dismissedItems = all.filter(n =>  itemIsDismissed(n));
+    const unread    = active.filter(n => !itemIsRead(n));
 
     // Badge — only un-read, un-dismissed items count.
     if (unread.length > 0) {
@@ -425,7 +538,7 @@
     const sevColor = n.severity === 'high'   ? '#ef4444'
                    : n.severity === 'medium' ? '#f59e0b'
                                              : '#9ca3af';
-    const opacity = (isDismissedView || isRead(n.id)) ? '0.55' : '1';
+    const opacity = (isDismissedView || itemIsRead(n)) ? '0.55' : '1';
 
     // Wave 48: inline reshare buttons. Mirrors the W46/W47 pattern
     // from Almost There + Hot Leads: a notification about a lead
@@ -585,7 +698,7 @@
     const all = buildNotifications();
     const item = all.find(n => n.id === id);
     if (!item) return;
-    markRead(id);
+    markReadItem(item);
     closeDropdown();
     if (typeof item.onClick === 'function') {
       try { item.onClick(); } catch (e) { console.warn('[NotifBell]', e); }
@@ -596,21 +709,44 @@
   }
 
   function dismissOne(id) {
-    dismiss(id);
+    const item = buildNotifications().find(n => n.id === id);
+    if (item) dismissItem(item);
     render();
   }
 
   function markAllRead() {
-    const items = buildNotifications().filter(n => !isDismissed(n.id));
-    items.forEach(n => read.add(n.id));
+    const items = buildNotifications().filter(n => !itemIsDismissed(n));
+    // Derived items → localStorage read set.
+    items.filter(n => n._source !== 'server').forEach(n => read.add(n.id));
     _writeSet(READ_KEY, read);
+    // Server items → Firestore, by explicit doc id (order-independent).
+    const serverIds = items
+      .filter(n => n._source === 'server' && !n._read)
+      .map(n => n._docId);
+    serverIds.forEach(docId => _patchServerDoc(docId, { read: true }));
+    invalidateNotifCache();
+    if (serverIds.length && window.NBDServerNotifs
+        && typeof window.NBDServerNotifs.markReadMany === 'function') {
+      Promise.resolve(window.NBDServerNotifs.markReadMany(serverIds)).catch(() => {});
+    }
     render();
   }
 
   function clearAll() {
-    const items = buildNotifications().filter(n => !isDismissed(n.id));
-    items.forEach(n => dismissed.add(n.id));
+    const items = buildNotifications().filter(n => !itemIsDismissed(n));
+    // Derived items → localStorage dismissed set.
+    items.filter(n => n._source !== 'server').forEach(n => dismissed.add(n.id));
     _writeSet(DISMISS_KEY, dismissed);
+    // Server items → Firestore, by explicit doc id.
+    const serverIds = items
+      .filter(n => n._source === 'server')
+      .map(n => n._docId);
+    serverIds.forEach(docId => _patchServerDoc(docId, { dismissed: true, read: true }));
+    invalidateNotifCache();
+    if (serverIds.length && window.NBDServerNotifs
+        && typeof window.NBDServerNotifs.dismissMany === 'function') {
+      Promise.resolve(window.NBDServerNotifs.dismissMany(serverIds)).catch(() => {});
+    }
     render();
   }
 
@@ -668,6 +804,13 @@
     setInterval(render, 60_000);
     // Re-render whenever dashboard publishes a data refresh.
     window.addEventListener('nbd:data-refreshed', render);
+    // Re-render when the Firestore notifications feed changes.
+    // crm-snooze.js fires this from its onSnapshot after hydrating
+    // window._notifications, so server-written notifications (portal,
+    // referral, deal-accept, remote-sign, follow-up engine) appear +
+    // update the badge in real time. Invalidate the 5s build cache
+    // first so the rebuild picks up the new feed.
+    window.addEventListener('nbd:notifs-updated', () => { invalidateNotifCache(); render(); });
     // Also react to focus — reps tabbing back to the dashboard.
     window.addEventListener('focus', render);
   }
@@ -727,7 +870,7 @@
   // Expose API
   const NotifBell = {
     render,
-    getCount: () => buildNotifications().filter(n => !isDismissed(n.id) && !isRead(n.id)).length,
+    getCount: () => buildNotifications().filter(n => !itemIsDismissed(n) && !itemIsRead(n)).length,
     _handleClick: handleClick,
     _dismiss: dismissOne,
     _actionSms,
@@ -749,27 +892,32 @@
   } else {
     setTimeout(init, 2500);
   }
-})();
 
-
-// ── CSP-safe delegation for 8 data-nb-action attrs (notif bell)
-(function () {
-  if (window._NBD_NB_DELEGATE_BOUND) return;
-  window._NBD_NB_DELEGATE_BOUND = true;
-  document.addEventListener('click', function (ev) {
-    // data-nb-stop-self on a wrapper element prevents bubbling from the wrapper itself
-    const stopSelf = ev.target.closest && ev.target.closest('[data-nb-stop-self="1"]');
-    if (stopSelf && ev.target === stopSelf) ev.stopPropagation();
-    const t = ev.target.closest && ev.target.closest('[data-nb-action]');
-    if (!t) return;
-    if (t.dataset.nbStop === '1') ev.stopPropagation();
-    const action = t.dataset.nbAction;
-    const id = t.dataset.nbId;
-    const NB = NotifBell || {};
-    const internal = '_' + action; // _actionSms, _handleClick, _dismiss, etc.
-    const fn = NB[internal];
-    if (typeof fn !== 'function') { console.warn('[notif-bell] no dispatch for', action); return; }
-    try { id !== undefined ? fn(id) : fn(); }
-    catch (e) { console.error('[notif-bell] dispatch ' + action + ' failed:', e); }
-  });
+  // ── CSP-safe delegation for the 8 data-nb-action attrs (notif bell) ──
+  // Registered INSIDE this IIFE so the click handler closes over the
+  // `NotifBell` const above. It previously lived in a SEPARATE sibling
+  // IIFE where `NotifBell` was out of scope, so `const NB = NotifBell`
+  // threw "ReferenceError: NotifBell is not defined" on every click —
+  // the row-click nav, × dismiss, and inline call/text/email/preview/
+  // snooze buttons were all dead. Keeping NotifBell a closure (not on
+  // window) also satisfies the globals Tranche-0 guard.
+  if (!window._NBD_NB_DELEGATE_BOUND) {
+    window._NBD_NB_DELEGATE_BOUND = true;
+    document.addEventListener('click', function (ev) {
+      // data-nb-stop-self on a wrapper element prevents bubbling from the wrapper itself
+      const stopSelf = ev.target.closest && ev.target.closest('[data-nb-stop-self="1"]');
+      if (stopSelf && ev.target === stopSelf) ev.stopPropagation();
+      const t = ev.target.closest && ev.target.closest('[data-nb-action]');
+      if (!t) return;
+      if (t.dataset.nbStop === '1') ev.stopPropagation();
+      const action = t.dataset.nbAction;
+      const id = t.dataset.nbId;
+      const NB = NotifBell || {};
+      const internal = '_' + action; // _actionSms, _handleClick, _dismiss, etc.
+      const fn = NB[internal];
+      if (typeof fn !== 'function') { console.warn('[notif-bell] no dispatch for', action); return; }
+      try { id !== undefined ? fn(id) : fn(); }
+      catch (e) { console.error('[notif-bell] dispatch ' + action + ' failed:', e); }
+    });
+  }
 })();

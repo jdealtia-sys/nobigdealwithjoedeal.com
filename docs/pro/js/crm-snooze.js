@@ -41,21 +41,30 @@ window._notifications = [];
 _notifDropdownOpen = false;
 _notifUnsub = null; // onSnapshot unsubscribe handle
 
+// Single-owner refactor (2026-07-07): notif-bell.js is now the sole
+// renderer of the header bell (it loads last and owns the window.*
+// bindings + the dropdown open state). crm-snooze no longer touches
+// #notifBadge / #notifList — doing so was the source of three bugs:
+// server notifications never showed in the opened dropdown, couldn't
+// be cleared, and the badge raced between the two systems.
+//
+// This function now only HYDRATES the Firestore feed. It publishes the
+// FULL list (including dismissed docs) on window._notifications so
+// notif-bell can render the active list + the dismissed drawer + a
+// correct union badge, then fires 'nbd:notifs-updated' so notif-bell
+// re-renders in real time. The follow-up / needs-field / review-engine
+// dedup readers of window._notifications keep working — seeing a
+// dismissed same-day notification just (correctly) suppresses a
+// duplicate re-create.
 function _renderNotifBadgeAndList(allNotifs) {
-  window._notifications = allNotifs.filter(n => !n.dismissed);
+  window._notifications = allNotifs; // full list, incl. dismissed
   _dismissedNotifications = allNotifs.filter(n => n.dismissed);
-  const unreadCount = window._notifications.filter(n => !n.read).length;
-  const badge = document.getElementById('notifBadge');
-  if (badge) {
-    if (unreadCount > 0) {
-      badge.style.display = 'block';
-      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-    } else {
-      badge.style.display = 'none';
-    }
-  }
-  if (_notifDropdownOpen) {
-    renderNotifications();
+  try {
+    window.dispatchEvent(new Event('nbd:notifs-updated'));
+  } catch (_) {
+    // Extremely old engines without the Event constructor: notif-bell's
+    // own 60s poll / focus / open-render still picks up the new feed
+    // from window._notifications on the next tick.
   }
 }
 
@@ -704,9 +713,49 @@ async function checkAndCreateNeedsFieldNotifications(leads) {
 }
 window.checkAndCreateNeedsFieldNotifications = checkAndCreateNeedsFieldNotifications;
 window.markNotificationRead = markNotificationRead;
+// Legacy window bindings — notif-bell.js (loads last) overwrites
+// toggleNotificationDropdown / markAllNotificationsRead /
+// clearAllNotifications / toggleDismissedNotifications and is the
+// single owner of the bell. These crm-snooze definitions remain only
+// as dead fallbacks and are never dispatched by the header delegate.
 window.markAllNotificationsRead = markAllNotificationsRead;
 window.clearAllNotifications = clearAllNotifications;
 window.toggleDismissedNotifications = toggleDismissedNotifications;
+
+// ── Server-notification persistence API for notif-bell.js ──────────
+// notif-bell owns the render; when the rep marks read / dismisses a
+// SERVER notification (a real Firestore `notifications` doc), it calls
+// these to persist the change. Explicit doc-id arguments keep the
+// writes independent of any window._notifications snapshot timing, so
+// notif-bell can optimistically patch local state without racing what
+// gets written. The live onSnapshot then confirms the change (or, on a
+// failed write, self-corrects on the next snapshot).
+async function _updateNotifDocs(ids, patch) {
+  const _db = window._db || window.db;
+  const list = Array.isArray(ids) ? ids.filter(Boolean) : (ids ? [ids] : []);
+  if (!_db || !list.length) return;
+  try {
+    const { updateDoc, doc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const ts = serverTimestamp();
+    const stamped = Object.assign({}, patch);
+    if (patch.read)      stamped.readAt = ts;
+    if (patch.dismissed) stamped.dismissedAt = ts;
+    await Promise.all(list.map(id =>
+      updateDoc(doc(_db, 'notifications', id), stamped)
+        .catch(err => console.warn('[NBDServerNotifs] write failed:', id, err && err.message))
+    ));
+  } catch (e) {
+    console.error('[NBDServerNotifs] update error:', e && e.message);
+  }
+}
+window.NBDServerNotifs = {
+  markRead:     (id)  => _updateNotifDocs(id,  { read: true }),
+  dismiss:      (id)  => _updateNotifDocs(id,  { dismissed: true, read: true }),
+  restore:      (id)  => _updateNotifDocs(id,  { dismissed: false, read: false }),
+  markReadMany: (ids) => _updateNotifDocs(ids, { read: true }),
+  dismissMany:  (ids) => _updateNotifDocs(ids, { dismissed: true, read: true }),
+};
 
 // ═══════════════════════════════════════════════════════════
 // Auto-log communications from tel:/sms:/mailto: clicks
