@@ -674,7 +674,11 @@
     // half-working link we hide the card entirely.
     const customerId = view.homeowner && view.homeowner.customerId;
     if (customerId) {
-      const referLink = 'https://nobigdeal-pro.web.app/pro/refer.html?ref=' + encodeURIComponent(customerId);
+      // Canonical custom domain — NOT the *.web.app origin, which Google
+      // Safe Browsing has flagged (a friend tapping the texted link in
+      // Chrome would hit a red interstitial). Every other homeowner-facing
+      // link in the app uses nobigdealwithjoedeal.com.
+      const referLink = 'https://nobigdealwithjoedeal.com/pro/refer.html?ref=' + encodeURIComponent(customerId);
       const sent = (view.referralStats && view.referralStats.sent) || 0;
       const statPill = sent > 0
         ? '<span style="background:rgba(46,204,138,.16);color:#a7f3d0;border:1px solid rgba(46,204,138,.4);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.04em;">✓ ' + sent + ' sent your way</span>'
