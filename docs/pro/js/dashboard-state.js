@@ -185,18 +185,20 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // photo auto-detect — are registry-registered now; see the Tranche
   // 2c-2 note above.)
   'searchMap', 'saveZone', 'spyglassSearch', 'searchDraw',
-  'selectAllVisibleLeads', 'retryLoadLeads', 'saveDocUpload',
+  'retryLoadLeads', 'saveDocUpload',
   'saveJoeKey', 'sendJoeMessage', 'saveJoeKeyFromSettings',
   'shareCalViaSMS', 'shareCalViaEmail', 'saveCalSettings',
   'qaUseMyLocation', 'saveQuickLead',
   'openLeadModal', 'openTaskModal', 'openShortcutsPanel', 'openQMImportModal',
   'openPhotosForLead', 'openFullCustomerDetails', 'openDocsForLead',
-  'openDeletedDrawer', 'openUploadDoc', 'openEstimateV2Builder',
-  'editCardDetails', 'confirmDeleteLead', 'confirmPropertyIntelPull',
+  'openUploadDoc', 'openEstimateV2Builder',
+  'editCardDetails', 'confirmPropertyIntelPull',
   'executePullPropertyIntel', 'pullIntelForModal', 'addTask',
-  // Bulk operations
-  'bulkSnoozeLeads', 'bulkMoveStage', 'bulkDelete', 'bulkAssignSource',
-  'bulkAssignJobType', 'bulkAssignDamage', 'bulkAssignCarrier',
+  // Bulk operations — the toolbar handlers register in __NBD_CALL_REGISTRY
+  // (crm-portal-bridge.js, Globals Tranche 2c-3), so they leave the
+  // allowlist. clearBulkSelection STAYS: lead-snooze.js calls
+  // window.clearBulkSelection() directly, bypassing the registry-first
+  // dispatcher — the same MUST-STAY shape as goToMyLocation.
   'clearBulkSelection',
   // Notifications
   'markAllNotificationsRead', 'clearAllNotifications',
@@ -219,8 +221,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'fabToggle', 'switchScTab',
   // Daily-success / floors config
   'dsSaveConfig', 'dsResetDefaults', 'dsAddFloor',
-  // Misc page-level
-  'cancelDeleteConfirm',
+  // (cancelDeleteConfirm moved into __NBD_CALL_REGISTRY — crm-portal-bridge.js,
+  //  Globals Tranche 2c-3)
   // Settings page private setters (defensive: only fire if loaded)
   '_saveSettings', '_saveNotifSettings', '_saveEstimateDefaultsV2',
   '_saveCompanySettings', '_testNotif', '_sharePortalLink',

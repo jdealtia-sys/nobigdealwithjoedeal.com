@@ -34,7 +34,19 @@
  * of leads before sending. It references the Firebase shim consts
  * (col, _serverTimestamp, …) declared in crm-leads.js as outer-
  * scope globals (classic-script sibling scope).
+ *
+ * Globals Tranche 2c-3 (2026-07-07): the whole file is IIFE-wrapped so
+ * its top-level names no longer auto-attach to `window`. Bare reads of
+ * OTHER files' globals (showToast, moveCard, renderLeads, escHtml,
+ * _serverTimestamp, …) still resolve through the outer/global scope, so
+ * only this file's OWN exports change. Names with live cross-file
+ * consumers are re-exported explicitly at the bottom (crm.js no longer
+ * re-exports them); the 11 markup-only handlers register in
+ * window.__NBD_CALL_REGISTRY (dispatched FIRST by dashboard-ui.js
+ * _nbdResolveCall) and are removed from _NBD_CALL_ALLOWLIST. See
+ * docs/dev/dashboard-decomposition-plan.md.
  */
+(function () {
 
 
 // ═══════════════════════════════════════════════════════════════
@@ -739,3 +751,52 @@ window.sendFollowUpSMS = function(leadId) {
   );
   window.open(`sms:${cleanPhone}?body=${body}`, '_self');
 };
+
+
+// ─────────────────────────────────────────────────────────────────────
+// Globals Tranche 2c-3: deliberate window surface + registry wiring
+// ─────────────────────────────────────────────────────────────────────
+// (a) These names have LIVE cross-file consumers that resolve OUTSIDE
+// the dashboard-ui.js registry — a bare cross-file read, a window[fn]
+// dispatch via _NBD_TOGGLE_FNS / _NBD_MODAL_CLOSE_FNS, or a direct
+// window.X() call — so they must stay on window. crm.js no longer
+// re-exports them (those bare re-exports would ReferenceError now that
+// the names are IIFE-scoped); this file owns its window surface.
+window.editLead = editLead;                        // crm-pipeline.js:351 (bare), dashboard-actions/bootstrap, kanban-context-menu
+window.deleteLead = deleteLead;                    // kanban-context-menu.js:273 (window.deleteLead)
+window.showDeleteConfirm = showDeleteConfirm;      // maps-overlays.js:358 (bare) — was only a classic auto-global before
+window.toggleBulkMode = toggleBulkMode;            // _NBD_TOGGLE_FNS window[fn] + lead-snooze.js:774
+window.toggleCardSelection = toggleCardSelection;  // crm-pipeline.js:2007
+window.clearBulkSelection = clearBulkSelection;    // lead-snooze.js:773 (direct window.clearBulkSelection()) — stays allowlisted too
+window.closeDeletedDrawer = closeDeletedDrawer;    // _NBD_MODAL_CLOSE_FNS window[fn]
+window.updateBulkToolbar = updateBulkToolbar;      // internal callers + smoke pin (crm.test.js)
+window.scrollToFollowUps = scrollToFollowUps;      // analytics-kpi.js:841
+window.restoreCrmSearch = restoreCrmSearch;        // dashboard-bootstrap.module.js:1253,2068
+window.refreshTrashBadge = refreshTrashBadge;      // dashboard-bootstrap.module.js:1256
+// (exitBulkMode, toggleProspectsView, promoteProspect, _repBookingUrl,
+//  sendBookingSMS, sendFollowUpSMS keep their in-file window.* assignments above.)
+
+// (b) The 11 markup-dispatched handlers register in __NBD_CALL_REGISTRY —
+// dashboard-ui.js's _nbdResolveCall checks the registry BEFORE the
+// allowlisted-window fallback, so registration IS the security opt-in the
+// _NBD_CALL_ALLOWLIST entry used to be. Their allowlist entries are removed
+// in dashboard-state.js. (clearBulkSelection is NOT registered — it keeps
+// its window re-export above AND its allowlist entry, the same MUST-STAY
+// shape as goToMyLocation, because lead-snooze.js calls it as
+// window.clearBulkSelection() outside the dispatcher.)
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  selectAllVisibleLeads: selectAllVisibleLeads,
+  openDeletedDrawer: openDeletedDrawer,
+  confirmDeleteLead: confirmDeleteLead,
+  cancelDeleteConfirm: cancelDeleteConfirm,
+  bulkSnoozeLeads: bulkSnoozeLeads,
+  bulkMoveStage: bulkMoveStage,
+  bulkDelete: bulkDelete,
+  bulkAssignSource: bulkAssignSource,
+  bulkAssignJobType: bulkAssignJobType,
+  bulkAssignDamage: bulkAssignDamage,
+  bulkAssignCarrier: bulkAssignCarrier
+});
+
+})();

@@ -50,8 +50,9 @@ window.updatePipeline = updatePipeline;
 window.openLeadModal = openLeadModal;
 window.closeLeadModal = closeLeadModal;
 window.saveLead = saveLead;
-window.deleteLead = deleteLead;
-window.editLead = editLead;
+// deleteLead + editLead are re-exported by crm-portal-bridge.js itself
+// now (IIFE-wrapped, Globals Tranche 2c-3) — a bare re-export here would
+// ReferenceError since the names are module-scoped there.
 window.moveCard = moveCard;
 window.changeLeadType = changeLeadType;
 
@@ -89,7 +90,7 @@ try {
   }
 } catch (_) {}
 // exportLeadsCSV is defined in tools.js
-window.scrollToFollowUps = scrollToFollowUps;
+// scrollToFollowUps re-exported by crm-portal-bridge.js (Tranche 2c-3).
 window.kanbanFilter = kanbanFilter;
 window.kanbanFilterDebounced = kanbanFilterDebounced;
 window.clearCrmSearch = clearCrmSearch;
@@ -105,28 +106,18 @@ window.filterByStage = function(stageKey) {
   const countSpan = document.getElementById('crmSearchCount');
   if (countSpan) countSpan.textContent = filtered.length + ' in stage';
 };
-window.restoreCrmSearch = restoreCrmSearch;
-window.openDeletedDrawer = openDeletedDrawer;
-window.closeDeletedDrawer = closeDeletedDrawer;
 window.handleCardClick = handleCardClick;
-window.cancelDeleteConfirm = cancelDeleteConfirm;
-window.confirmDeleteLead = confirmDeleteLead;
-// Bulk operations
-window.toggleBulkMode = toggleBulkMode;
-window.toggleCardSelection = toggleCardSelection;
-window.clearBulkSelection = clearBulkSelection;
-window.bulkMoveStage = bulkMoveStage;
-window.bulkDelete = bulkDelete;
-window.bulkAssignCarrier = bulkAssignCarrier;
-window.bulkAssignDamage  = bulkAssignDamage;
-// Wave 32: extended bulk-edit fields.
-window.bulkAssignSource  = bulkAssignSource;
-window.bulkAssignJobType = bulkAssignJobType;
-// Wave 37: bulk snooze via the toolbar.
-window.bulkSnoozeLeads   = bulkSnoozeLeads;
-window.selectAllVisibleLeads = selectAllVisibleLeads;
-window.updateBulkToolbar = updateBulkToolbar;
-window.refreshTrashBadge = refreshTrashBadge;
+// Deleted-drawer, delete-confirm, bulk-ops, CRM-search + follow-up-scroll
+// and trash-badge helpers now live behind crm-portal-bridge.js's own
+// window surface (IIFE-wrapped, Globals Tranche 2c-3). The 11 markup-only
+// handlers (selectAllVisibleLeads, openDeletedDrawer, confirmDeleteLead,
+// cancelDeleteConfirm, bulkSnoozeLeads, bulkMoveStage, bulkDelete,
+// bulkAssignSource/JobType/Damage/Carrier) register in __NBD_CALL_REGISTRY
+// there; the names with real cross-file consumers (closeDeletedDrawer,
+// toggleBulkMode, toggleCardSelection, clearBulkSelection, updateBulkToolbar,
+// restoreCrmSearch, refreshTrashBadge) are re-exported from that file. The
+// bare re-exports that used to live here would ReferenceError now that the
+// names are module-scoped.
 // restoreLead and permanentlyDelete are defined in dashboard.html as _restoreLead and _permanentDeleteLead
 window.restoreLead = (id) => window._restoreLead(id);
 window.permanentlyDelete = (id) => window._permanentDeleteLead(id);
