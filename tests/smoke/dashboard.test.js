@@ -1093,6 +1093,12 @@ section('Mobile FAB speed-dial (2026-07-06, Jo\'s pick) — one launcher, tools 
   assert('launcher styled at the bottom slot, desktop-hidden, mobile-shown',
     /#nbd-fab-dial\{\s*display:none;\s*position:fixed;\s*bottom:calc\(78px/.test(styles)
     && /@media \(max-width:768px\)\{\s*#nbd-fab-dial\{ display:flex; \}\s*\}/.test(styles));
+  // The launcher is shown on EVERY mobile view, so every scrollable view must
+  // reserve enough bottom padding for the last row to clear it — otherwise the
+  // card action buttons (Photos VIEW/ADD, D2D value card) sit trapped under the
+  // FAB. Clearance must exceed the launcher's ~126px top (78px bottom + 48px).
+  assert('mobile .view-scroll reserves bottom clearance for the ⋯ launcher (≥126px)',
+    /\.view-scroll \{ min-height:auto!important; padding-bottom:calc\((1[3-9]\d|[2-9]\d\d)px \+ env\(safe-area-inset-bottom, 0px\)\)!important; \}/.test(styles));
 }
 
 section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');
