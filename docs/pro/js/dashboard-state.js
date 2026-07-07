@@ -188,12 +188,12 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'copyDebugInfo', 'copyCalLink', 'loadSampleData', 'inviteTeamMember',
   'exportLeadsCSV', 'generateWarrantyCertPDF', 'printDoc', 'clearCrmSearch',
   // Appearance picker
-  'nbdSetSize', 'nbdPickerTab', 'nbdComfortSet', 'nbdHowtoOpen', 'nbdHowtoClose',
+  'nbdPickerTab', 'nbdComfortSet', 'nbdHowtoOpen', 'nbdHowtoClose',
   'nbdSaveCustom', 'nbdRandom', 'nbdPickerClose', 'nbdNavToggle', 'nbdCopyFS',
   // nbdApplyLegacyFont = the Settings 28-font grid applier. Renamed from nbdApplyFont
   // (2026-06-20) to stop colliding with maps.js's theme-engine nbdApplyFont, which
   // loaded later and shadowed window.nbdApplyFont → every Settings font card no-op'd.
-  'nbdApplyFont', 'nbdApplyLegacyFont', 'nbdApplyCustom', 'nbdPickerOpen',
+  'nbdApplyFont', 'nbdApplyCustom', 'nbdPickerOpen',
   // Display-mode segmented toggle (Light/Dark/Auto) above the theme grid
   'nbdSetModePref',
   'saveCustomTheme', 'resetCustomTheme', 'resetSidebarCustomizer',
@@ -255,19 +255,16 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // step-4: voicemail open-for-lead wrapper
   'cdaOpenVoicemail',
   // ── CSP onchange/oninput sweep (Phase C.6) ──
-  // Toggle wrappers in dashboard-ui-prefs-boot.js that replace inline
-  // `onchange="if(window.X)X.f(this.checked)"` with a single function
-  // call. Each shows a toast so the user sees the toggle reacting.
-  'toggleProfessionalMode',
-  'nbdGxSetEnabled', 'nbdGxSetGlow', 'nbdGxSetAnimatedBg', 'nbdGxSetAccent',
-  'nbdGxSetIntensityFromSlider',
-  'nbdOverlaysSetEnabled', 'nbdSoundsSetEnabled',
-  'nbdComfortSetMotion', 'nbdComfortSetProMode', 'nbdComfortSetCbSafe',
-  'nbdComfortSetAutoTheme',
-  'nbdSetCrmSecHeaderEnabledT', 'nbdSetKanbanBoldHierarchyT', 'nbdSetCrmAutoCollapseT',
-  'nbdSelectPhotoLead', 'nbdTogglePhotosOnly',
-  'nbdSettingsUpdateCalcomPreview',
-  'd2dSetDispoFilter',
+  // The prefs-boot toggle wrappers that used to live here (Phase C.6:
+  // toggleProfessionalMode, the nbdGx*/nbdComfortSet*/nbdSet*T families,
+  // nbdSelectPhotoLead, nbdTogglePhotosOnly, d2dSetDispoFilter,
+  // nbdSettingsUpdateCalcomPreview — plus nbdSetSize, nbdApplyLegacyFont
+  // and nbdSetSidebarLabels from the sections above) moved OFF window in
+  // Globals Tranche 2c: dashboard-ui-prefs-boot.js now registers them in
+  // window.__NBD_CALL_REGISTRY, which the dashboard-ui.js dispatchers
+  // resolve FIRST (registration replaces the allowlist entry — see
+  // _nbdResolveCall). Do NOT re-add registered names here: a stale window
+  // fallback would shadow-resurrect the global the tranche removed.
   // Pre-existing globals that also fire from inline onchange/oninput
   'recalc', 'updateEstCalc', 'calcTierPrices', 'toggleInsuranceOverlay',
   'applyEstimatePreset', 'applyCustomTheme', 'kanbanFilter', 'kanbanFilterDebounced',
@@ -282,11 +279,6 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // its JS-built checkboxes carried CSP-dead inline onchange attrs until
   // 2026-06-09, now the data-on-change delegate (same shape as toggleHotkey)
   'toggleSidebarItem',
-  // Appearance tab — "Show tool names" sidebar toggle (#sidebarLabelsToggle,
-  // data-on-change). Target nbdSetSidebarLabels lives in dashboard-ui-prefs-
-  // boot.js; without this allowlist entry the change delegate returned early
-  // and the toggle was a silent no-op (same class as the saveLead drop).
-  'nbdSetSidebarLabels',
 ]);
 
 // ══════════════════════════════════════════════

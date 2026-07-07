@@ -157,17 +157,33 @@ function _hydrateViewTemplate(name) {
 //   'event'   → the event object (rare; for handlers expecting an event)
 //
 // `data-on-arg` provides a STATIC second argument (literal string).
-// Function name must be on `_NBD_CALL_ALLOWLIST`.
+// Function name must be registered in `__NBD_CALL_REGISTRY` (Tranche 2c
+// module-scoped handlers) or on `_NBD_CALL_ALLOWLIST` (window globals).
 //
 // `data-on-after` (optional) names a SECOND function called immediately
 // after the first — covers the inline pattern `f(this.checked); g()`.
+
+// Resolve a markup-dispatched function name. Converted modules register
+// their handlers in window.__NBD_CALL_REGISTRY (one namespaced global)
+// instead of exposing each function on window — the registry is checked
+// FIRST and needs no allowlist entry (registration is the explicit
+// opt-in). Unconverted names keep resolving via window[fnName], gated by
+// _NBD_CALL_ALLOWLIST exactly as before. Returns null when the name is
+// unregistered/unlisted or not (yet) a function.
+function _nbdResolveCall(fnName) {
+  if (!fnName) return null;
+  const reg = window.__NBD_CALL_REGISTRY;
+  if (reg && typeof reg[fnName] === 'function') return reg[fnName];
+  if (typeof _NBD_CALL_ALLOWLIST !== 'undefined' && !_NBD_CALL_ALLOWLIST.has(fnName)) return null;
+  const fn = window[fnName];
+  return typeof fn === 'function' ? fn : null;
+}
+
 function _nbdOnChangeDelegate(e, attrName) {
   const el = e.target && e.target.closest && e.target.closest('[' + attrName + ']');
   if (!el) return;
-  const fnName = el.getAttribute(attrName);
-  if (!fnName || (typeof _NBD_CALL_ALLOWLIST !== 'undefined' && !_NBD_CALL_ALLOWLIST.has(fnName))) return;
-  const fn = window[fnName];
-  if (typeof fn !== 'function') return;
+  const fn = _nbdResolveCall(el.getAttribute(attrName));
+  if (!fn) return;
   const pass = el.getAttribute('data-on-pass') || 'value';
   let arg;
   switch (pass) {
@@ -184,11 +200,8 @@ function _nbdOnChangeDelegate(e, attrName) {
   const staticArg = el.getAttribute('data-on-arg');
   if (staticArg !== null) args.push(staticArg);
   fn(...args);
-  const after = el.getAttribute('data-on-after');
-  if (after && (typeof _NBD_CALL_ALLOWLIST === 'undefined' || _NBD_CALL_ALLOWLIST.has(after))) {
-    const afterFn = window[after];
-    if (typeof afterFn === 'function') afterFn();
-  }
+  const afterFn = _nbdResolveCall(el.getAttribute('data-on-after'));
+  if (afterFn) afterFn();
 }
 document.addEventListener('change', function _nbdOnChangeHandler(e) {
   _nbdOnChangeDelegate(e, 'data-on-change');
@@ -483,9 +496,11 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
   // stays explicit + the allowlist limits which globals the delegate
   // can ever invoke.
   //
-  // call         → window[data-fn](...args) — args from data-arg/data-arg2;
-  //                pass the resolved element if data-pass-el is set.
-  //                Requires data-fn to be on _NBD_CALL_ALLOWLIST.
+  // call         → registry-or-window[data-fn](...args) — args from
+  //                data-arg/data-arg2; pass the resolved element if
+  //                data-pass-el is set. Requires data-fn registered in
+  //                __NBD_CALL_REGISTRY or on _NBD_CALL_ALLOWLIST
+  //                (see _nbdResolveCall).
   // module       → window[Module]?.[method](...) defensive dispatch;
   //                falls back to a toast (data-fallback-toast).
   // windowOpen   → window.open(url, '_blank', 'noopener')
@@ -496,10 +511,8 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
   // hideEl       → getElementById(target).style.display = 'none'
   // stopProp     → event.stopPropagation() (no preventDefault)
   if (action === 'call') {
-    const fnName = el.dataset.fn;
-    if (!fnName || !_NBD_CALL_ALLOWLIST.has(fnName)) return;
-    const fn = window[fnName];
-    if (typeof fn !== 'function') return;
+    const fn = _nbdResolveCall(el.dataset.fn);
+    if (!fn) return;
     e.preventDefault();
     const args = [];
     if (el.dataset.arg !== undefined) args.push(el.dataset.arg);

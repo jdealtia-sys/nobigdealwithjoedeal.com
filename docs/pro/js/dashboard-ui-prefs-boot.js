@@ -1,3 +1,16 @@
+// ── Globals Tranche 2c (2026-07-06): module scope ──
+// Everything in this file used to sit at the top level of a classic
+// script, so every function/var landed in global scope. The deliberate
+// external surface is now exactly three window names:
+//   • window.showToast          — guarded page-wide toast fallback
+//   • window.nbdSyncSizeBtns    — called by ui.js switchSettingsTab
+//   • window.nbdRenderFontGrid  — called by ui.js + dashboard-billing-tab.js
+// The delegate-dispatched handlers (data-fn / data-on-change /
+// data-on-input in dashboard.html + generated markup) are registered in
+// window.__NBD_CALL_REGISTRY at the bottom instead of being globals —
+// dashboard-ui.js's dispatchers resolve the registry first, then fall
+// back to allowlisted window globals for unconverted modules.
+(function () {
 // ── Professional Mode (DE-MOJI) — early boot ──
 // Set the body class BEFORE paint so emojis never flash then disappear.
 // The toggle function is also defined here so it's available to the
@@ -183,10 +196,10 @@ function nbdApplyLegacyFont(fontId) {
   });
   if (typeof showToast === 'function') showToast('Font: ' + font.label, 'info');
 }
-// Expose under the unique name so the data-action="call" delegate's window[fnName]
-// lookup resolves it. (The top-level declaration already creates the global, but be
-// explicit — and immune to any later same-name shadowing from deferred scripts.)
-window.nbdApplyLegacyFont = nbdApplyLegacyFont;
+// (Dispatch used to require an explicit window export of this function to survive
+// later same-name shadowing; the __NBD_CALL_REGISTRY entry at the bottom of this
+// file is immune to window shadowing by construction — the dispatchers never
+// consult window for registered names.)
 // Render font grid into settings — grouped by category with a section
 // heading so users can browse Sans / Serif / Mono. Each card shows an
 // Aa preview rendered in that font so the picker reads like a sample
@@ -270,7 +283,6 @@ function nbdSetSidebarLabels(show) {
   }, 200);
   if (typeof showToast === 'function') showToast(show ? 'Sidebar tool names shown' : 'Sidebar tool names hidden', 'info');
 }
-window.nbdSetSidebarLabels = nbdSetSidebarLabels;
 
 // On load, sync the "Show tool names" checkbox to the persisted rail state
 // (checked = labels visible = not collapsed; default is shown).
@@ -409,4 +421,40 @@ function nbdSettingsUpdateCalcomPreview(value) {
   } else {
     _nbdSidebarBootFinalize();
   }
+})();
+
+// ── Delegate registration (Tranche 2c) ──
+// These handlers are dispatched from markup — data-fn / data-on-change /
+// data-on-input in dashboard.html, the font-grid cards generated above,
+// and the d2d dispo-filter select generated in d2d-tracker-ui-2026b.js —
+// via the dashboard-ui.js dispatchers. Registering here instead of
+// exposing each on window is what lets them live in module scope. The
+// registry entry IS the security opt-in (the role an _NBD_CALL_ALLOWLIST
+// entry used to play); tests/smoke/dashboard.test.js pins registration,
+// markup wiring, and off-window status for every name below.
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  nbdSetSize: nbdSetSize,
+  nbdApplyLegacyFont: nbdApplyLegacyFont,
+  toggleProfessionalMode: toggleProfessionalMode,
+  nbdSetSidebarLabels: nbdSetSidebarLabels,
+  nbdGxSetEnabled: nbdGxSetEnabled,
+  nbdGxSetGlow: nbdGxSetGlow,
+  nbdGxSetAnimatedBg: nbdGxSetAnimatedBg,
+  nbdGxSetAccent: nbdGxSetAccent,
+  nbdGxSetIntensityFromSlider: nbdGxSetIntensityFromSlider,
+  nbdOverlaysSetEnabled: nbdOverlaysSetEnabled,
+  nbdSoundsSetEnabled: nbdSoundsSetEnabled,
+  nbdComfortSetMotion: nbdComfortSetMotion,
+  nbdComfortSetProMode: nbdComfortSetProMode,
+  nbdComfortSetCbSafe: nbdComfortSetCbSafe,
+  nbdComfortSetAutoTheme: nbdComfortSetAutoTheme,
+  nbdSetCrmSecHeaderEnabledT: nbdSetCrmSecHeaderEnabledT,
+  nbdSetKanbanBoldHierarchyT: nbdSetKanbanBoldHierarchyT,
+  nbdSetCrmAutoCollapseT: nbdSetCrmAutoCollapseT,
+  nbdSelectPhotoLead: nbdSelectPhotoLead,
+  nbdTogglePhotosOnly: nbdTogglePhotosOnly,
+  d2dSetDispoFilter: d2dSetDispoFilter,
+  nbdSettingsUpdateCalcomPreview: nbdSettingsUpdateCalcomPreview
+});
 })();

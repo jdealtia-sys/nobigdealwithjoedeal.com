@@ -2560,6 +2560,17 @@ section('Ops P1 #4 — loadLeads completeness + kanban render cap');
 section('Globals Tranches 0+1: converted names stay off window');
 {
   const T1_NAMES = [
+    // Tranche 2c (2026-07-06): the dashboard-ui-prefs-boot.js call
+    // cluster — module-scoped, dispatched via __NBD_CALL_REGISTRY
+    // (see the "Globals Tranche 2c" section below for wiring guards).
+    'nbdSetSize', 'nbdApplyLegacyFont', 'toggleProfessionalMode',
+    'nbdSetSidebarLabels', 'nbdGxSetEnabled', 'nbdGxSetGlow',
+    'nbdGxSetAnimatedBg', 'nbdGxSetAccent', 'nbdGxSetIntensityFromSlider',
+    'nbdOverlaysSetEnabled', 'nbdSoundsSetEnabled', 'nbdComfortSetMotion',
+    'nbdComfortSetProMode', 'nbdComfortSetCbSafe', 'nbdComfortSetAutoTheme',
+    'nbdSetCrmSecHeaderEnabledT', 'nbdSetKanbanBoldHierarchyT',
+    'nbdSetCrmAutoCollapseT', 'nbdSelectPhotoLead', 'nbdTogglePhotosOnly',
+    'd2dSetDispoFilter', 'nbdSettingsUpdateCalcomPreview',
     // Tranche 2b (2026-07-06): widgets.js radar-map handle + task
     // checkbox handler (delegate calls the bare fn), tasks.js checkTask
     // export (only caller is its own data-tk-action delegate).
@@ -2700,6 +2711,82 @@ section('Globals Tranches 0+1: converted names stay off window');
     /min-height:calc\(48px \+ env\(safe-area-inset-top/.test(hdrRule)
     && /padding:env\(safe-area-inset-top/.test(hdrRule)
     && !/height:48px/.test(hdrRule));
+}
+
+// ── Globals Tranche 2c: the __NBD_CALL_REGISTRY dispatch layer ──
+// prefs-boot's 22 markup-dispatched handlers moved into module scope and
+// register in window.__NBD_CALL_REGISTRY; the dashboard-ui.js dispatchers
+// resolve the registry BEFORE the allowlisted-window fallback. These
+// guards pin (a) the resolver + all three dispatch sites, (b) every
+// registration, (c) allowlist removal (a stale entry would re-route
+// dispatch to a window global that no longer exists = silent dead
+// control), and (d) a FULL markup↔dispatch wiring audit of dashboard.html
+// — every data-fn / data-on-change / data-on-input / data-on-after name
+// must be allowlisted or registered. (d) is the invariant whose violation
+// produced the C-1 saveLead and H-4 21-dead-buttons classes.
+section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
+{
+  const T2C_NAMES = [
+    'nbdSetSize', 'nbdApplyLegacyFont', 'toggleProfessionalMode',
+    'nbdSetSidebarLabels', 'nbdGxSetEnabled', 'nbdGxSetGlow',
+    'nbdGxSetAnimatedBg', 'nbdGxSetAccent', 'nbdGxSetIntensityFromSlider',
+    'nbdOverlaysSetEnabled', 'nbdSoundsSetEnabled', 'nbdComfortSetMotion',
+    'nbdComfortSetProMode', 'nbdComfortSetCbSafe', 'nbdComfortSetAutoTheme',
+    'nbdSetCrmSecHeaderEnabledT', 'nbdSetKanbanBoldHierarchyT',
+    'nbdSetCrmAutoCollapseT', 'nbdSelectPhotoLead', 'nbdTogglePhotosOnly',
+    'd2dSetDispoFilter', 'nbdSettingsUpdateCalcomPreview'];
+
+  const ui = read(path.join(PRO_JS, 'dashboard-ui.js'));
+  assert('dashboard-ui.js defines the _nbdResolveCall registry-first resolver',
+    /function _nbdResolveCall\(/.test(ui) && /__NBD_CALL_REGISTRY/.test(ui));
+  assert('change/input delegate resolves via _nbdResolveCall',
+    /_nbdResolveCall\(el\.getAttribute\(attrName\)\)/.test(ui));
+  assert('data-on-after resolves via _nbdResolveCall',
+    /_nbdResolveCall\(el\.getAttribute\('data-on-after'\)\)/.test(ui));
+  assert('click `call` action resolves via _nbdResolveCall',
+    /_nbdResolveCall\(el\.dataset\.fn\)/.test(ui));
+
+  const prefsBoot = read(path.join(PRO_JS, 'dashboard-ui-prefs-boot.js'));
+  const regBlock = (prefsBoot.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/) || ['', ''])[1];
+  for (const n of T2C_NAMES) {
+    assert('prefs-boot registers ' + n + ' in __NBD_CALL_REGISTRY',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(regBlock));
+  }
+
+  const stateSrc = read(path.join(PRO_JS, 'dashboard-state.js'));
+  for (const n of T2C_NAMES) {
+    assert('allowlist no longer carries ' + n + ' (the registry entry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+  }
+
+  // The resolver's window fallback is allowlist-gated; keep state ahead of
+  // dashboard-ui in the defer queue so the gate exists when dispatch runs.
+  const dashRaw = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard.html loads dashboard-state.js before dashboard-ui.js',
+    dashRaw.indexOf('js/dashboard-state.js') !== -1
+      && dashRaw.indexOf('js/dashboard-state.js') < dashRaw.indexOf('js/dashboard-ui.js'));
+
+  // (d) FULL wiring audit — every markup-dispatched name in dashboard.html
+  // must be resolvable: quoted in dashboard-state.js (allowlist/toggle/
+  // modal maps) or registered in some __NBD_CALL_REGISTRY block under
+  // docs/pro/js/. New markup wired to an unlisted, unregistered name is a
+  // silently dead control (the delegate returns early).
+  const registered = new Set();
+  for (const file of fs.readdirSync(PRO_JS)) {
+    if (!file.endsWith('.js')) continue;
+    const src = fs.readFileSync(path.join(PRO_JS, file), 'utf8');
+    for (const m of src.matchAll(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/g)) {
+      for (const k of m[1].matchAll(/([A-Za-z_$][\w$]*)\s*:/g)) registered.add(k[1]);
+    }
+  }
+  const dispatchNames = new Set();
+  for (const m of dashRaw.matchAll(/data-(?:fn|on-change|on-input|on-after)="([A-Za-z_$][\w$]*)"/g)) {
+    dispatchNames.add(m[1]);
+  }
+  const unresolved = [...dispatchNames].filter(n => !registered.has(n) && stateSrc.indexOf("'" + n + "'") === -1);
+  assert('every markup-dispatched name in dashboard.html is allowlisted or registered — '
+      + (unresolved.slice(0, 5).join(', ') || 'clean'), unresolved.length === 0);
+  assert('wiring audit saw the real markup surface (sanity floor)', dispatchNames.size > 150);
 }
 
 };
