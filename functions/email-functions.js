@@ -266,13 +266,21 @@ function populateTemplate(template, variables) {
 /**
  * Log email to Firestore
  */
-async function logEmailToFirestore(db, to, subject, uid, status = 'sent') {
+async function logEmailToFirestore(db, to, subject, uid, status = 'sent', leadId = null) {
   try {
+    const ts = FieldValue.serverTimestamp();
     await db.collection('email_log').add({
       to,
       subject,
       uid,
-      sentAt: FieldValue.serverTimestamp(),
+      // leadId ties the row to a customer thread. The customer-page
+      // Communication Log queries where('leadId','==',id) — without it, the
+      // row is invisible there. `date` is the field that log orders by (and
+      // the {leadId, uid, date} composite index keys on); `sentAt` is kept
+      // for existing analytics readers. Both carry the same server timestamp.
+      leadId: leadId || null,
+      date: ts,
+      sentAt: ts,
       status
     });
   } catch (e) {
@@ -347,7 +355,7 @@ exports.sendEmail = onRequest(
       return;
     }
 
-    const { to, subject, body, html, replyTo, attachments } = req.body;
+    const { to, subject, body, html, replyTo, attachments, leadId } = req.body;
 
     // Validate input
     if (!to || !isValidEmail(to)) {
@@ -380,7 +388,7 @@ exports.sendEmail = onRequest(
 
       // Log to Firestore
       const db = getFirestore();
-      await logEmailToFirestore(db, to, subject, decoded.uid, 'sent');
+      await logEmailToFirestore(db, to, subject, decoded.uid, 'sent', leadId || null);
 
       res.json({
         success: true,
@@ -392,7 +400,7 @@ exports.sendEmail = onRequest(
 
       // Log failure
       const db = getFirestore();
-      await logEmailToFirestore(db, to, subject, decoded.uid, 'failed');
+      await logEmailToFirestore(db, to, subject, decoded.uid, 'failed', leadId || null);
 
       res.status(500).json({
         error: 'Failed to send email'
@@ -510,7 +518,7 @@ exports.sendEstimateEmail = onRequest(
       });
 
       // Log to Firestore
-      await logEmailToFirestore(db, to, subject || 'Estimate', decoded.uid, 'sent');
+      await logEmailToFirestore(db, to, subject || 'Estimate', decoded.uid, 'sent', leadId);
 
       res.json({
         success: true,
@@ -576,7 +584,7 @@ exports.sendDripEmail = onCall(
 
       // Log to Firestore — owner is ALWAYS the authenticated caller.
       const db = getFirestore();
-      await logEmailToFirestore(db, to, template.subject, request.auth.uid, 'sent');
+      await logEmailToFirestore(db, to, template.subject, request.auth.uid, 'sent', (variables && variables.leadId) || null);
 
       return {
         success: true,
