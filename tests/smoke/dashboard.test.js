@@ -1356,17 +1356,11 @@ section('Phase C.4 finale + C.5 — long-tail delegate + script-src tightening')
     /_NBD_CALL_ALLOWLIST\s*=\s*new Set\(\[/.test(mainJs),
     'expected _NBD_CALL_ALLOWLIST = new Set([...]) declaration');
 
-  // Spot-check that key wrappers exist as window globals. NOTE: the 14 cda*
-  // card-detail wrappers that used to live here moved OFF window into an IIFE
-  // and register in __NBD_CALL_REGISTRY (Globals Tranche 2c-4a, 2026-07-07) —
-  // their off-window + registration guards now live in the "Globals Tranches
-  // 0+1" and "Globals Tranche 2c" sections below. The names left here are the
-  // not-yet-converted 2c-4b/2c-4c one-offs that are still window.X = function.
-  for (const fn of ['mCreateFabRoute','openDailyProgramFromMore','mQuickAddRoute','restartOnboardingTour','openDecisionPicker','openD2DOrGo','clearAccentTheme','openSettingsTab','openPhotoEngineOrClickProxy','openReportGenerator','enrichReportData','openPhotoEngineCurrentLead','openInspectionBuilderCurrentLead','closeInspectionBuilder','hideFollowUpAlerts','goToD2DFromMaps','openCalBookingUrl','hardResetTest','gstaticTest','modeLineDraw']) {
-    assert('window.' + fn + ' defined',
-      new RegExp('window\\.' + fn + '\\s*=\\s*function').test(mainJs),
-      'expected window.' + fn + ' = function(...)');
-  }
+  // (The on-window spot-check that used to live here is gone: the 14 cda*
+  // wrappers converted in Tranche 2c-4a and the 20 one-off openers in Tranche
+  // 2c-4c all moved OFF window into __NBD_CALL_REGISTRY. Their off-window +
+  // registration guards live in the "Globals Tranches 0+1" and "Globals
+  // Tranche 2c" sections below.)
 
   // C.5 — script-src 'unsafe-inline' dropped from line-44 enforcing CSP.
   // The Report-Only policy already lacked it; now the enforcing one matches.
@@ -2247,11 +2241,13 @@ section('Wave 2C.1 — Mobile create popover');
     !/window\.openMobileCreatePopover\s*=/.test(mainJs),
     'expected openMobileCreatePopover to have no window re-export');
   // 5. Center FAB routes through mCreateFabRoute (toggleMobileCreatePopover
-  //    with an openLeadModal fallback, defined as a single global).
+  //    with an openLeadModal fallback). mCreateFabRoute moved OFF window in
+  //    Tranche 2c-4c — it's now a module-local function registered in
+  //    __NBD_CALL_REGISTRY, not window.mCreateFabRoute = function.
   assert('mobile-nav center FAB routes through mCreateFabRoute',
     /data-action="call" data-fn="mCreateFabRoute"/.test(dash) &&
-    /mCreateFabRoute\s*=\s*function/.test(mainJs),
-    'expected the FAB onclick to test for toggleMobileCreatePopover and fall back to openLeadModal');
+    /mCreateFabRoute:\s*mCreateFabRoute/.test(mainJs),
+    'expected the FAB data-fn wired + mCreateFabRoute registered in __NBD_CALL_REGISTRY');
   // 6. Desktop force-hide guard.
   assert('@media (min-width:769px) hides .m-create-popover',
     /@media\s*\(min-width:\s*769px\)[\s\S]{0,400}\.m-create-popover[\s\S]{0,100}display:\s*none\s*!important/.test(dash),
@@ -2638,6 +2634,17 @@ section('Globals Tranches 0+1: converted names stay off window');
     // _mJdAct, openMobileInspection, closeMobileInspection,
     // closeMobileCreatePopover, toggleMobileCreatePopover, openLeadDetail).
     '_mJdShare', '_mCreate', 'openMobileCreatePopover',
+    // Tranche 2c-4c (2026-07-07): the 20 one-off compound-rewrite openers in
+    // dashboard-actions.js (incl. the two 2c-4b mobile-routing tail names
+    // mCreateFabRoute/mQuickAddRoute) moved OFF window into one in-file IIFE,
+    // dispatched via __NBD_CALL_REGISTRY. All markup-only — none re-exported.
+    'openDailyProgramFromMore', 'mCreateFabRoute', 'mQuickAddRoute',
+    'restartOnboardingTour', 'openDecisionPicker', 'openD2DOrGo',
+    'clearAccentTheme', 'openSettingsTab', 'openPhotoEngineOrClickProxy',
+    'openReportGenerator', 'enrichReportData', 'openPhotoEngineCurrentLead',
+    'openInspectionBuilderCurrentLead', 'closeInspectionBuilder',
+    'hideFollowUpAlerts', 'goToD2DFromMaps', 'openCalBookingUrl',
+    'hardResetTest', 'gstaticTest', 'modeLineDraw',
     // Tranche 2b (2026-07-06): widgets.js radar-map handle + task
     // checkbox handler (delegate calls the bare fn), tasks.js checkTask
     // export (only caller is its own data-tk-action delegate).
@@ -2999,6 +3006,31 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('openMobileCreatePopover is neither registered nor window-exported (2c-4b private)',
     !/openMobileCreatePopover:\s*openMobileCreatePopover/.test(daRegBlock)
       && !/window\.openMobileCreatePopover\s*=/.test(dashActions));
+
+  // ── Tranche 2c-4c: the dashboard-actions.js one-off compound-rewrite openers ──
+  // Third slice: 20 markup-dispatched openers (incl. the 2c-4b mobile-routing
+  // tail mCreateFabRoute/mQuickAddRoute) wrapped in one in-file IIFE. All
+  // REGISTER_ONLY — register in __NBD_CALL_REGISTRY, leave the allowlist, no
+  // window re-export. NOTE: hardResetTest/gstaticTest are dispatched from
+  // GENERATED markup (dashboard-load-status-banner.js), so the dashboard.html
+  // data-fn wiring audit below can't see them — these registry assertions are
+  // their ONLY guard against a silent dead button.
+  const T2C4C_NAMES = [
+    'openDailyProgramFromMore', 'mCreateFabRoute', 'mQuickAddRoute',
+    'restartOnboardingTour', 'openDecisionPicker', 'openD2DOrGo',
+    'clearAccentTheme', 'openSettingsTab', 'openPhotoEngineOrClickProxy',
+    'openReportGenerator', 'enrichReportData', 'openPhotoEngineCurrentLead',
+    'openInspectionBuilderCurrentLead', 'closeInspectionBuilder',
+    'hideFollowUpAlerts', 'goToD2DFromMaps', 'openCalBookingUrl',
+    'hardResetTest', 'gstaticTest', 'modeLineDraw'];
+  for (const n of T2C4C_NAMES) {
+    assert('dashboard-actions registers ' + n + ' in __NBD_CALL_REGISTRY (2c-4c)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(daRegBlock));
+    assert('allowlist no longer carries ' + n + ' (2c-4c — registry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('dashboard-actions no longer defines window.' + n + ' (2c-4c off window)',
+      !new RegExp('window\\.' + n + '\\s*=\\s*function').test(dashActions));
+  }
 
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.

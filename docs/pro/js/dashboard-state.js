@@ -244,10 +244,10 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // cdaOpenMobileInspection, cdaVoiceMemo, cdaOpenVoicemail, cdaSharePortalLink,
   // cdaRevokePortalLink, cdaConfirmPromote, cdaOpenTaskModal, cdPickStage,
   // cdPickType, _mCreatePhotoPicked.
-  // Mobile-more compound rewrites
-  'openDailyProgramFromMore',
-  // Mobile create-popover routing
-  'mCreateFabRoute',
+  // (Tranche 2c-4c 2026-07-07: openDailyProgramFromMore, mCreateFabRoute +
+  //  the other 18 one-off openers moved OFF window into an IIFE in
+  //  dashboard-actions.js and register in __NBD_CALL_REGISTRY. Do NOT re-add —
+  //  a stale window fallback would shadow-resurrect the global.)
   // Settings page private setters (defensive — delegate's typeof
   // guard makes the && existence-check redundant)
   '_nbdDismissTrial', '_loadCompanySettings', '_resetEstimateDefaultsV2',
@@ -264,18 +264,13 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  __NBD_CALL_REGISTRY, Tranche 2c-4a — see the cluster note above)
   // Draw / misc
   'undoLine', 'testFirestoreRules',
-  // Quick-add ternary rewrite
-  'mQuickAddRoute',
-  // OnboardingTour / DecisionEngine / D2D / ThemeGX / settings ternary rewrites
-  'restartOnboardingTour', 'openDecisionPicker', 'openD2DOrGo',
-  'clearAccentTheme', 'openSettingsTab', 'openPhotoEngineOrClickProxy',
-  // (cdaSharePortalLink, cdaRevokePortalLink, cdaConfirmPromote, cdaOpenTaskModal,
-  //  cdPickStage, cdPickType → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
-  // Compound rewrites for ~15 remaining one-off handlers
-  'openReportGenerator', 'enrichReportData', 'openPhotoEngineCurrentLead',
-  'openInspectionBuilderCurrentLead', 'closeInspectionBuilder',
-  'hideFollowUpAlerts', 'goToD2DFromMaps', 'openCalBookingUrl',
-  'hardResetTest', 'gstaticTest', 'modeLineDraw',
+  // (Tranche 2c-4c 2026-07-07: mQuickAddRoute, restartOnboardingTour,
+  //  openDecisionPicker, openD2DOrGo, clearAccentTheme, openSettingsTab,
+  //  openPhotoEngineOrClickProxy, openReportGenerator, enrichReportData,
+  //  openPhotoEngineCurrentLead, openInspectionBuilderCurrentLead,
+  //  closeInspectionBuilder, hideFollowUpAlerts, goToD2DFromMaps,
+  //  openCalBookingUrl, hardResetTest, gstaticTest, modeLineDraw →
+  //  __NBD_CALL_REGISTRY, off window. Do NOT re-add.)
   // Misc directly-callable global referenced in surveyed onclicks
   'goTo',
   // step-3: smart-calendar refresh button

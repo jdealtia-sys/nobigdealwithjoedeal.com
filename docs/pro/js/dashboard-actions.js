@@ -42,17 +42,31 @@
 // globals that the `call` delegate dispatches.
 let _NBD_DA_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
+// ══════════════════════════════════════════════
+// ONE-OFF OPENERS + MOBILE-ROUTE TAIL — Globals Tranche 2c-4c (2026-07-07)
+// ══════════════════════════════════════════════
+// 20 markup-dispatched compound-rewrite openers (+ the two 2c-4b mobile-route
+// tail names mCreateFabRoute/mQuickAddRoute), consolidated OFF window into this
+// IIFE and registered in __NBD_CALL_REGISTRY (resolved first by the
+// dashboard-ui.js `call` delegate). All markup-only — none has a window/bare/
+// dynamic cross-boundary consumer, so none is re-exported and all 20 leave
+// _NBD_CALL_ALLOWLIST. Bare callees (goTo, showToast, closeMobileMore,
+// openLeadModal, nbdPickerOpen, switchSettingsTab, setDrawMode) and the
+// window.* module APIs resolve up-scope, unaffected by the wrap. See
+// docs/dev/dashboard-actions-globals-audit.md.
+(function () {
+
 // C.4 finale — More-drawer compound rewrites. The original onclicks
 // were `mobileNav('home');closeMobileMore()` style chains; we
 // consolidate the side-effects here so the markup uses data-action="call".
-window.openDailyProgramFromMore = function openDailyProgramFromMore() {
+function openDailyProgramFromMore() {
   if (typeof closeMobileMore === 'function') closeMobileMore();
   window.location.href = '/pro/daily-success';
 };
 
 // C.4 finale — mobile FAB create routing. Replaces the ternary
 // `window.toggleMobileCreatePopover ? toggleMobileCreatePopover() : openLeadModal()`.
-window.mCreateFabRoute = function mCreateFabRoute() {
+function mCreateFabRoute() {
   if (typeof window.toggleMobileCreatePopover === 'function') {
     window.toggleMobileCreatePopover();
   } else if (typeof openLeadModal === 'function') {
@@ -63,18 +77,18 @@ window.mCreateFabRoute = function mCreateFabRoute() {
 
 // C.4 finale — ternary / compound rewrites for the few one-off handlers
 // that don't fit the generic call / module shapes.
-window.mQuickAddRoute = function mQuickAddRoute() {
+function mQuickAddRoute() {
   if (typeof closeQuickAddLead === 'function') closeQuickAddLead();
   if (typeof openLeadModal === 'function') openLeadModal();
 };
-window.restartOnboardingTour = function restartOnboardingTour() {
+function restartOnboardingTour() {
   if (window.OnboardingTour && typeof window.OnboardingTour.forceRestart === 'function') {
     window.OnboardingTour.forceRestart();
   } else if (typeof showToast === 'function') {
     showToast('Tour module loading...', 'error');
   }
 };
-window.openDecisionPicker = function openDecisionPicker() {
+function openDecisionPicker() {
   // NEW-D15: the decision-engine bundle is lazy and wired (in script-loader's
   // VIEW_BUNDLES) only to aitree/understand — never to #/joe, where the
   // "⚡ Scenarios" button lives. Load the 'decision' bundle on demand before
@@ -94,21 +108,21 @@ window.openDecisionPicker = function openDecisionPicker() {
     _open();
   }
 };
-window.openD2DOrGo = function openD2DOrGo() {
+function openD2DOrGo() {
   if (window.D2D && typeof window.D2D.openQuickKnock === 'function') {
     window.D2D.openQuickKnock();
   } else if (typeof goTo === 'function') {
     goTo('d2d');
   }
 };
-window.clearAccentTheme = function clearAccentTheme() {
+function clearAccentTheme() {
   if (window.ThemeGX && typeof window.ThemeGX.clearAccentOverride === 'function') {
     window.ThemeGX.clearAccentOverride();
   }
   const picker = document.getElementById('customAccentColorPicker');
   if (picker) picker.value = '#e8720c';
 };
-window.openSettingsTab = function openSettingsTab(tabKey) {
+function openSettingsTab(tabKey) {
   if (typeof nbdPickerOpen === 'function') {
     nbdPickerOpen();
   } else {
@@ -118,53 +132,53 @@ window.openSettingsTab = function openSettingsTab(tabKey) {
     }, 200);
   }
 };
-window.openPhotoEngineOrClickProxy = function openPhotoEngineOrClickProxy(fallbackInputId) {
+function openPhotoEngineOrClickProxy(fallbackInputId) {
   if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
     window.PhotoEngine.openCamera();
   } else if (fallbackInputId) {
     document.getElementById(fallbackInputId)?.click();
   }
 };
-window.openReportGenerator = function openReportGenerator() {
+function openReportGenerator() {
   if (window.NBDReports && typeof window.NBDReports.openGenerator === 'function') {
     window.NBDReports.openGenerator();
   } else if (typeof showToast === 'function') {
     showToast('Report engine loading…', 'error');
   }
 };
-window.enrichReportData = function enrichReportData() {
+function enrichReportData() {
   if (window.NBDReports && typeof window.NBDReports.enrichData === 'function') {
     window.NBDReports.enrichData();
   } else if (typeof showToast === 'function') {
     showToast('Report engine loading…', 'error');
   }
 };
-window.openPhotoEngineCurrentLead = function openPhotoEngineCurrentLead() {
+function openPhotoEngineCurrentLead() {
   if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
     window.PhotoEngine.openCamera(window._currentPhotoLeadId || '');
   } else if (typeof showToast === 'function') {
     showToast('Photo engine loading…', 'error');
   }
 };
-window.openInspectionBuilderCurrentLead = function openInspectionBuilderCurrentLead() {
+function openInspectionBuilderCurrentLead() {
   if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
     window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._currentPhotoLeadId || window._leadId || window._currentLeadId || '');
   } else if (typeof showToast === 'function') {
     showToast('Report engine loading…', 'error');
   }
 };
-window.closeInspectionBuilder = function closeInspectionBuilder() {
+function closeInspectionBuilder() {
   const overlay = document.getElementById('inspectionBuilderOverlay');
   const container = document.getElementById('inspectionBuilderContainer');
   if (overlay) overlay.style.display = 'none';
   if (container) container.innerHTML = '';
 };
-window.hideFollowUpAlerts = function hideFollowUpAlerts() {
+function hideFollowUpAlerts() {
   const wrap = document.getElementById('followUpAlertsWrap');
   if (wrap) wrap.style.display = 'none';
   try { localStorage.setItem('nbd_crm_followup_hidden', '1'); } catch (e) {}
 };
-window.goToD2DFromMaps = function goToD2DFromMaps() {
+function goToD2DFromMaps() {
   if (typeof goTo === 'function') goTo('d2d');
   try {
     if (!localStorage.getItem('nbd_maps_redirect_seen')) {
@@ -175,17 +189,17 @@ window.goToD2DFromMaps = function goToD2DFromMaps() {
     }
   } catch (e) {}
 };
-window.openCalBookingUrl = function openCalBookingUrl() {
+function openCalBookingUrl() {
   const input = document.getElementById('calBookingUrl');
   if (input && input.value) window.open(input.value, '_blank', 'noopener');
 };
-window.hardResetTest = function hardResetTest() {
+function hardResetTest() {
   if (typeof window.__nbdHardReset === 'function') window.__nbdHardReset();
 };
-window.gstaticTest = function gstaticTest() {
+function gstaticTest() {
   if (typeof window.__nbdGstaticTest === 'function') window.__nbdGstaticTest();
 };
-window.modeLineDraw = function modeLineDraw() {
+function modeLineDraw() {
   // The original onclick was setDrawMode('line', document.getElementById('modeLineBtn'))
   // — explicit element ref because the user might activate via keyboard shortcut
   // and we still want the active-state ring on the line button.
@@ -193,6 +207,33 @@ window.modeLineDraw = function modeLineDraw() {
     setDrawMode('line', document.getElementById('modeLineBtn'));
   }
 };
+
+  // Registration IS the security opt-in; all 20 are markup-dispatched only
+  // (no window re-export — none has a cross-boundary consumer).
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    openDailyProgramFromMore: openDailyProgramFromMore,
+    mCreateFabRoute: mCreateFabRoute,
+    mQuickAddRoute: mQuickAddRoute,
+    restartOnboardingTour: restartOnboardingTour,
+    openDecisionPicker: openDecisionPicker,
+    openD2DOrGo: openD2DOrGo,
+    clearAccentTheme: clearAccentTheme,
+    openSettingsTab: openSettingsTab,
+    openPhotoEngineOrClickProxy: openPhotoEngineOrClickProxy,
+    openReportGenerator: openReportGenerator,
+    enrichReportData: enrichReportData,
+    openPhotoEngineCurrentLead: openPhotoEngineCurrentLead,
+    openInspectionBuilderCurrentLead: openInspectionBuilderCurrentLead,
+    closeInspectionBuilder: closeInspectionBuilder,
+    hideFollowUpAlerts: hideFollowUpAlerts,
+    goToD2DFromMaps: goToD2DFromMaps,
+    openCalBookingUrl: openCalBookingUrl,
+    hardResetTest: hardResetTest,
+    gstaticTest: gstaticTest,
+    modeLineDraw: modeLineDraw,
+  });
+})();
 
 // ══════════════════════════════════════════════
 // NAVIGATION ROUTER — goTo()
