@@ -210,5 +210,49 @@ ok('restore removed derived item from localStorage dismissed set',
    !JSON.parse(localStorage.getItem('nbd_notif_dismissed_v1') || '[]').includes(derivedTaskId));
 ok('restored derived nag is back in the ACTIVE list', els.notifList.innerHTML.includes('Overdue task'));
 
+// ── Step 8: same-lead follow_up suppresses redundant derived overdue/stale ──
+// Isolate: clear localStorage read/dismissed so nothing else filters.
+_ls['nbd_notif_read_v1'] = '[]'; _ls['nbd_notif_dismissed_v1'] = '[]';
+const oldDate = new Date(2020, 0, 1); // stale-lead + overdue-task both fire
+win._leads = [{ id: 'LX', firstName: 'Sam', lastName: 'Roe', stage: 'contacted', updatedAt: oldDate }];
+win._taskCache = { LX: [{ id: 'tX', text: 'Call Sam', dueDate: '2020-01-01', done: false }] };
+win._estimates = [];
+// forceRender: dismissOne on a nonexistent id rebuilds + renders without mutating state.
+const forceRender = () => { fireWin('nbd:data-refreshed'); clickAction('dismiss', '__none__', true); };
+
+// 8a — WITH a same-lead server follow_up: derived rows suppressed, server survives.
+win._notifications = [
+  { id: 'srvF', userId: 'u', type: 'follow_up', leadId: 'LX', title: 'Overdue Follow-Up — Sam Roe',
+    message: '2 days overdue', read: false, dismissed: false, createdAt: nowD },
+];
+forceRender();
+ok('follow_up: server row shows', els.notifList.innerHTML.includes('Overdue Follow-Up — Sam Roe'));
+ok('follow_up: derived overdue-task suppressed', !els.notifList.innerHTML.includes('Overdue task'));
+ok('follow_up: derived stale-lead suppressed', !els.notifList.innerHTML.includes('going cold'));
+ok('follow_up: badge = 1 (only the server follow_up)', els.notifBadge.textContent === '1');
+
+// 8b — control: no follow_up → derived rows show as normal.
+win._notifications = [];
+forceRender();
+ok('no follow_up: derived overdue-task shows', els.notifList.innerHTML.includes('Overdue task'));
+ok('no follow_up: derived stale-lead shows', els.notifList.innerHTML.includes('going cold'));
+
+// 8c — a dismissed follow_up does NOT suppress (it's not in the active list anyway).
+win._notifications = [
+  { id: 'srvFd', userId: 'u', type: 'follow_up', leadId: 'LX', title: 'Overdue Follow-Up — Sam Roe',
+    message: 'was dismissed', read: true, dismissed: true, createdAt: nowD },
+];
+forceRender();
+ok('dismissed follow_up does NOT suppress derived overdue-task', els.notifList.innerHTML.includes('Overdue task'));
+
+// 8d — fresh-view (distinct signal) survives even with a same-lead follow_up.
+win._estimates = [{ id: 'eX', leadId: 'LX', total: 5000, viewedAt: new Date(Date.now() - 60 * 60 * 1000) }];
+win._notifications = [
+  { id: 'srvF2', userId: 'u', type: 'follow_up', leadId: 'LX', title: 'Overdue Follow-Up — Sam Roe',
+    message: '2 days overdue', read: false, dismissed: false, createdAt: nowD },
+];
+forceRender();
+ok('fresh-view NOT suppressed by follow_up', els.notifList.innerHTML.includes('Customer viewing your estimate'));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) { console.log('FAILED:', fails.join(' | ')); process.exit(1); }
