@@ -2560,6 +2560,20 @@ section('Ops P1 #4 — loadLeads completeness + kanban render cap');
 section('Globals Tranches 0+1: converted names stay off window');
 {
   const T1_NAMES = [
+    // Tranche 2c-2 (2026-07-06): the maps-routing.js drawing-tool call
+    // cluster — the whole file is IIFE-wrapped now; these 21 handlers
+    // are module-scoped and dispatched via __NBD_CALL_REGISTRY (see the
+    // "Globals Tranche 2c" section below for wiring guards). NOT here:
+    // goToMyLocation (maps.js still re-states it on window — failed the
+    // three-way proof) and the file's deliberate window exports
+    // (initDrawMap, selLT, setDrawMode, the toggle/close-map targets, …).
+    'acceptAutoDetect', 'addStructure', 'applySmartWaste',
+    'cancelAutoDetect', 'exportXactimateESX', 'generateScopeFromDrawing',
+    'handleComparisonFile', 'loadDrawingFromCustomer', 'openComparisonMode',
+    'recalc', 'runSolarAnalysis', 'saveDrawingToCustomer', 'screenshotMap',
+    'setHistoricalLayer', 'showAngles', 'showMaterialTakeoff',
+    'startAutoDetect', 'startPresentation', 'startShadowPitch',
+    'updateHistoryOpacity', 'zoomToFit',
     // Tranche 2c (2026-07-06): the dashboard-ui-prefs-boot.js call
     // cluster — module-scoped, dispatched via __NBD_CALL_REGISTRY
     // (see the "Globals Tranche 2c" section below for wiring guards).
@@ -2758,6 +2772,56 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('allowlist no longer carries ' + n + ' (the registry entry replaced it)',
       !new RegExp("'" + n + "'").test(stateSrc));
   }
+
+  // ── Tranche 2c-2: the maps-routing.js drawing-tool cluster ──
+  // Same pattern, second module: 21 of its 22 allowlisted names register
+  // in __NBD_CALL_REGISTRY and leave the allowlist. goToMyLocation is the
+  // deliberate exception — the maps.js shim re-states it on window (real
+  // cross-file reference), so it keeps its allowlist entry until the
+  // shim's export block is unwound (Tranche 3).
+  const T2C2_NAMES = [
+    'acceptAutoDetect', 'addStructure', 'applySmartWaste',
+    'cancelAutoDetect', 'exportXactimateESX', 'generateScopeFromDrawing',
+    'handleComparisonFile', 'loadDrawingFromCustomer', 'openComparisonMode',
+    'recalc', 'runSolarAnalysis', 'saveDrawingToCustomer', 'screenshotMap',
+    'setHistoricalLayer', 'showAngles', 'showMaterialTakeoff',
+    'startAutoDetect', 'startPresentation', 'startShadowPitch',
+    'updateHistoryOpacity', 'zoomToFit'];
+
+  const mapsRouting = read(path.join(PRO_JS, 'maps-routing.js'));
+  const mrRegBlock = (mapsRouting.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/) || ['', ''])[1];
+  for (const n of T2C2_NAMES) {
+    assert('maps-routing registers ' + n + ' in __NBD_CALL_REGISTRY',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(mrRegBlock));
+  }
+  for (const n of T2C2_NAMES) {
+    assert('allowlist no longer carries ' + n + ' (the registry entry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+  }
+  // goToMyLocation must stay BOTH allowlisted and window-exported — the
+  // dispatcher reaches it as window[fn], and maps.js's shim line reads
+  // the bare name at load time. Losing either half = dead button or a
+  // maps.js boot ReferenceError.
+  assert('goToMyLocation keeps its allowlist entry (failed the three-way proof)',
+    /'goToMyLocation'/.test(stateSrc));
+  assert('maps-routing re-exports goToMyLocation for the maps.js shim',
+    /window\.goToMyLocation = goToMyLocation;/.test(mapsRouting));
+  // The IIFE wrap must not orphan the toggle/close-map dispatch targets
+  // or the cross-file bare-name consumers — those resolve as window[fn]
+  // or bare globals (never via the registry), so each needs its explicit
+  // export.
+  for (const n of ['initDrawMap', 'selLT', 'renderAccessoryPanel',
+    'setDrawMode', 'clearDraw', 'undoLine', 'exportDrawReport',
+    'importToEstimate', 'perimChooseType', 'searchDraw', 'toggleDraw',
+    'toggleMapLayer', 'toggleHistoricalImagery', 'toggleVoiceControl',
+    'closeComparisonMode', 'closeHistoricalImagery']) {
+    assert('maps-routing window-exports ' + n + ' (window[fn]-dispatched or bare-called cross-file)',
+      new RegExp('window\\.' + n + ' = ' + n + ';').test(mapsRouting));
+  }
+  // drawMap must stay a top-level let OUTSIDE the module IIFE —
+  // dashboard-actions/ui/sw-bootstrap read it as a bare global at runtime.
+  assert('drawMap survives as a top-level global let',
+    /^let drawMap;$/m.test(mapsRouting));
 
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.
