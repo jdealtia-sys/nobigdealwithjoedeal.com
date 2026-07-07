@@ -52,6 +52,16 @@
       // dumpFee / tearOffExtraPerSq may also be set here (optional)
     },
 
+    /* ── JOB BUDGET ALERTS ─────────────────────────────────────
+       Per-tenant thresholds for the Expenses view's per-job cost
+       flags. Mirrors ExpenseConfig.BUDGET (docs/pro/js/expense-config.js)
+       so unconfigured tenants keep the 65/30 industry defaults;
+       budgetStatus() falls back per-field on any invalid value. */
+    budgetDefaults: {
+      directCostPctWarn: 65,   // amber ⚠ when direct cost ≥ this % of contract value
+      marginFloorPct:    30    // red ⚠ when projected gross margin < this %
+    },
+
     /* ── LEGAL TEXT ────────────────────────────────────────────── */
     cancellationWindowText: 'three (3) business days',
     cancellationStatute: 'Kentucky Revised Statutes § 367.390',

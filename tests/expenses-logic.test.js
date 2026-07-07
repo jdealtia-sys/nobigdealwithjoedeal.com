@@ -246,6 +246,20 @@ eq('breach when margin < 30% floor', EC.budgetStatus(10000, 8000), 'breach');
 eq('warn when direct cost 65-99% (margin still ok)', EC.budgetStatus(10000, 6800), 'warn');
 ok('null when healthy (cost 50%)', EC.budgetStatus(10000, 5000) === null);
 ok('null when no revenue', EC.budgetStatus(0, 5000) === null);
+// tenant overrides via companyProfile.budgetDefaults (optional 3rd arg)
+eq('tenant warn threshold lowers the amber trigger (50% warn)',
+  EC.budgetStatus(10000, 5500, { directCostPctWarn: 50, marginFloorPct: 30 }), 'warn');
+eq('tenant margin floor raises the red trigger (45% floor -> breach at 40% margin)',
+  EC.budgetStatus(10000, 6000, { directCostPctWarn: 65, marginFloorPct: 45 }), 'breach');
+ok('tenant thresholds can relax the default (cost 68% healthy at warn=80)',
+  EC.budgetStatus(10000, 6800, { directCostPctWarn: 80, marginFloorPct: 15 }) === null);
+eq('invalid override values fall back per-field (warn="abc", floor=0)',
+  EC.budgetStatus(10000, 6800, { directCostPctWarn: 'abc', marginFloorPct: 0 }), 'warn');
+eq('out-of-range overrides fall back (warn=150 -> default 65 still warns)',
+  EC.budgetStatus(10000, 6800, { directCostPctWarn: 150, marginFloorPct: -5 }), 'warn');
+eq('null thresholds arg behaves as defaults', EC.budgetStatus(10000, 8000, null), 'breach');
+eq('cost >= 100% is always a breach regardless of overrides',
+  EC.budgetStatus(10000, 11000, { directCostPctWarn: 99, marginFloorPct: 1 }), 'breach');
 
 // ── QA fixes: vendor normalization, mileage clamp, month-end dates ──
 console.log('QA FIXES — normVendor / mileage clamp / advanceDate clamp');
