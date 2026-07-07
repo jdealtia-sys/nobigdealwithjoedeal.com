@@ -39,6 +39,7 @@
   let _currentSupplement = null;
   let _parentEstimate = null;
   let _existingVersions = 0;
+  let _existingSupplements = [];   // saved supplements on this estimate (for response recording)
 
   function _esc(s) {
     return String(s == null ? '' : s)
@@ -51,6 +52,75 @@
   function _money(n) {
     if (typeof n !== 'number' || !isFinite(n)) return '$0';
     return '$' + Math.round(n).toLocaleString();
+  }
+
+  // ─── Existing-supplement response recording ────────────────────
+  // A supplement is created 'draft' and only bills once the carrier's response
+  // is recorded (approved → full total; partial → the $ the adjuster approved).
+  const _STATUS_META = {
+    draft:     { c: '#94a3b8', label: 'Draft' },
+    submitted: { c: '#eab308', label: 'Sent to carrier' },
+    approved:  { c: '#22c55e', label: 'Approved' },
+    partial:   { c: '#38bdf8', label: 'Partial' },
+    denied:    { c: '#ef4444', label: 'Denied' },
+  };
+  function _statusBadge(status) {
+    const m = _STATUS_META[status] || _STATUS_META.draft;
+    return '<span style="display:inline-block;padding:2px 9px;border-radius:999px;font-size:11px;' +
+      'font-weight:700;letter-spacing:0.03em;color:' + m.c + ';border:1px solid ' + m.c + ';' +
+      'background:rgba(255,255,255,0.03);white-space:nowrap;">' + m.label + '</span>';
+  }
+
+  // Rows for each saved supplement + its "record carrier response" control.
+  function _existingListHtml() {
+    return (_existingSupplements || []).map(function (s) {
+      const total = Number(s.supplementTotal) || 0;
+      const st = s.status || 'draft';
+      const priorAmt = (st === 'partial' && s.submission && s.submission.approvedAmount)
+        ? String(s.submission.approvedAmount) : '';
+      const bill = st === 'approved' ? _money(total)
+                 : st === 'partial' ? _money(Number(priorAmt) || 0)
+                 : st === 'denied' ? '$0' : null;
+      return (
+        '<div class="nbd-sup-existing" data-sup-id="' + _esc(s.id) + '" data-sup-total="' + total + '" ' +
+          'style="background:#0a1424;border:1px solid #2a3344;border-radius:8px;padding:10px 12px;margin-bottom:8px;">' +
+          '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">' +
+            '<div style="font-size:13px;">' +
+              '<span style="font-weight:700;">Supplement #' + _esc(String(s.version || 1)) + '</span>' +
+              ' <span style="color:#cbd5e1;font-variant-numeric:tabular-nums;">' + _money(total) + '</span>' +
+              (s.reason ? ' <span style="color:#94a3b8;font-size:12px;">— ' + _esc(s.reason) + '</span>' : '') +
+            '</div>' +
+            _statusBadge(st) +
+          '</div>' +
+          (bill != null
+            ? '<div style="margin-top:6px;font-size:11px;color:#94a3b8;">Invoices bill <strong style="color:#cbd5e1;">' + bill + '</strong> for this supplement.</div>'
+            : '') +
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">' +
+            '<select class="nbd-sup-resp-status" style="flex:1;min-width:180px;padding:7px 9px;border-radius:5px;border:1px solid #2a3344;background:#13171d;color:inherit;font:inherit;font-size:13px;">' +
+              '<option value="">Record carrier response…</option>' +
+              '<option value="approved"' + (st === 'approved' ? ' selected' : '') + '>Approved — bill full ' + _money(total) + '</option>' +
+              '<option value="partial"' + (st === 'partial' ? ' selected' : '') + '>Partial — enter approved $</option>' +
+              '<option value="denied"' + (st === 'denied' ? ' selected' : '') + '>Denied — bill $0</option>' +
+            '</select>' +
+            '<input type="number" class="nbd-sup-resp-amount" min="0" step="0.01" placeholder="Approved $" ' +
+              'value="' + _esc(priorAmt) + '" ' +
+              'style="width:120px;padding:7px 9px;border-radius:5px;border:1px solid #2a3344;background:#13171d;color:inherit;font:inherit;font-size:13px;display:' + (st === 'partial' ? 'inline-block' : 'none') + ';">' +
+            '<button type="button" class="nbd-sup-resp-save" style="padding:7px 14px;background:#1a2540;color:#cbd5e1;border:1px solid #2a3344;border-radius:5px;cursor:pointer;font-size:13px;font-weight:600;">Save response</button>' +
+          '</div>' +
+        '</div>'
+      );
+    }).join('');
+  }
+
+  function _existingSectionHtml() {
+    if (!(_existingSupplements && _existingSupplements.length)) return '';
+    return (
+      '<div style="margin-bottom:16px;">' +
+        '<div style="font-size:11px;color:#94a3b8;letter-spacing:0.06em;text-transform:uppercase;font-weight:600;margin-bottom:4px;">Previous supplements on this estimate</div>' +
+        '<div style="font-size:12px;color:#94a3b8;margin-bottom:8px;">Record what the carrier approved. Only <strong>Approved</strong> / <strong>Partial</strong> supplements are folded into invoices.</div>' +
+        '<div id="nbd-sup-existing-list">' + _existingListHtml() + '</div>' +
+      '</div>'
+    );
   }
 
   // ─── Open the supplement modal for a given estimate ────────────
@@ -66,12 +136,15 @@
 
     _parentEstimate = parentEstimateData;
 
-    // Look up existing supplements to pick the next version number.
+    // Look up existing supplements to pick the next version number AND to let
+    // the rep record the carrier's response on any of them (that response is
+    // what flips a supplement to a billable status so invoicing folds it in).
     let existing = [];
     try {
       existing = await window.EstimateSupplement.loadForEstimate(estimateId) || [];
     } catch (_) { /* empty list is fine */ }
     _existingVersions = existing.length;
+    _existingSupplements = existing;
 
     _currentSupplement = window.EstimateSupplement.createSupplement(parentEstimateData, {
       leadId: parentEstimateData.leadId || window._customerId || null,
@@ -159,6 +232,10 @@
           '<button type="button" id="nbd-sup-close" style="background:transparent;border:none;color:#94a3b8;font-size:22px;cursor:pointer;padding:4px 10px;line-height:1;">×</button>' +
         '</div>' +
 
+        // Existing supplements + carrier-response recording (only when there
+        // are already-saved supplements on this estimate).
+        _existingSectionHtml() +
+
         // Reason input
         '<div style="margin-bottom:14px;">' +
           '<label style="display:block;font-size:11px;color:#94a3b8;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:5px;font-weight:600;">Reason for supplement</label>' +
@@ -228,6 +305,9 @@
   function _wireModalEvents(modal) {
     modal.querySelector('#nbd-sup-close').addEventListener('click', _close);
 
+    // Carrier-response controls on the existing-supplements list.
+    _wireExistingControls(modal);
+
     const reasonEl = modal.querySelector('#nbd-sup-reason');
     if (reasonEl) reasonEl.addEventListener('input', (e) => {
       _currentSupplement.reason = e.target.value;
@@ -268,6 +348,93 @@
 
     const saveBtn = modal.querySelector('#nbd-sup-save');
     if (saveBtn) saveBtn.addEventListener('click', _save);
+  }
+
+  // Wire the "record carrier response" controls for each existing supplement.
+  // CSP-safe: addEventListener only, no inline handlers. Scoped to `root` so it
+  // can re-wire just the list container after a save without a full re-render.
+  function _wireExistingControls(root) {
+    Array.from(root.querySelectorAll('.nbd-sup-existing')).forEach(function (rowEl) {
+      const sel = rowEl.querySelector('.nbd-sup-resp-status');
+      const amt = rowEl.querySelector('.nbd-sup-resp-amount');
+      const btn = rowEl.querySelector('.nbd-sup-resp-save');
+      if (sel && amt) {
+        sel.addEventListener('change', function () {
+          if (sel.value === 'partial') {
+            amt.style.display = 'inline-block';
+            if (!amt.value) amt.value = rowEl.dataset.supTotal || '';
+            amt.focus();
+          } else {
+            amt.style.display = 'none';
+          }
+        });
+      }
+      if (btn) btn.addEventListener('click', function () { _saveResponse(rowEl, sel, amt, btn); });
+    });
+  }
+
+  async function _saveResponse(rowEl, sel, amt, btn) {
+    const supId = rowEl.dataset.supId;
+    const status = sel ? sel.value : '';
+    if (!supId || !status) { _toast('Pick a carrier response first.', 'error'); return; }
+
+    let approvedAmount = null;
+    if (status === 'partial') {
+      approvedAmount = Number(amt && amt.value);
+      if (!isFinite(approvedAmount) || approvedAmount <= 0) {
+        _toast('Enter the dollar amount the adjuster approved.', 'error');
+        return;
+      }
+    }
+    if (!window.EstimateSupplement || typeof window.EstimateSupplement.updateResponse !== 'function') {
+      _toast('Supplement engine not loaded.', 'error');
+      return;
+    }
+
+    btn.disabled = true;
+    const prevLabel = btn.textContent;
+    btn.textContent = 'Saving…';
+
+    const ok = await window.EstimateSupplement.updateResponse(supId, {
+      status: status,
+      approvedAmount: approvedAmount,
+    });
+
+    if (!ok) {
+      _toast('Could not record response — check console.', 'error');
+      btn.disabled = false;
+      btn.textContent = prevLabel;
+      return;
+    }
+
+    // Reflect locally so the badge + billable note update without a full reload.
+    const s = (_existingSupplements || []).find(function (x) { return x.id === supId; });
+    if (s) {
+      s.status = status;
+      s.submission = s.submission || {};
+      s.submission.responseStatus = status;
+      s.submission.approvedAmount = approvedAmount;
+    }
+    const bill = status === 'approved' ? _money(Number(rowEl.dataset.supTotal) || 0)
+               : status === 'partial' ? _money(approvedAmount)
+               : '$0';
+    _toast('Carrier response recorded — invoices will bill ' + bill + ' for this supplement.', 'success');
+
+    // Re-render just the existing-supplements list (keeps any in-progress new
+    // supplement in the builder below untouched).
+    const listEl = document.getElementById('nbd-sup-existing-list');
+    if (listEl) {
+      listEl.innerHTML = _existingListHtml();
+      _wireExistingControls(listEl);
+    }
+
+    // Same refresh signal the save path uses so the customer timeline / kanban
+    // score badge pick up the status change.
+    try {
+      window.dispatchEvent(new CustomEvent('nbd:data-refreshed', {
+        detail: { source: 'supplement-response', supplementId: supId }
+      }));
+    } catch (_) {}
   }
 
   function _runCatalogSearch(query, qty) {

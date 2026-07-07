@@ -143,6 +143,13 @@ jobs:
         run: |
           cd tests
           firebase emulators:exec --only firestore --project nbd-xtenant-test 'node firestore-rules.cross-tenant.test.js'
+      # Communication Log producer→index→consumer contract (customer page).
+      # Broke silently once (log permanently empty): producers wrote neither
+      # leadId nor `date` while the consumer queried {leadId, uid, orderBy date}.
+      - name: Run Communication Log contract test under emulator
+        run: |
+          cd tests
+          firebase emulators:exec --only firestore --project nbd-commlog-test 'node communication-log-contract.test.js'
       - name: Run Storage rules tests under emulator
         run: |
           cd tests
