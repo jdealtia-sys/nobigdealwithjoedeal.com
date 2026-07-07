@@ -249,6 +249,7 @@ exports.teamInviteEmail = onDocumentCreated(
     } catch (_) { /* cosmetic lookups — never block the send */ }
 
     const roleLabel = String(d.role || 'sales rep').replace(/_/g, ' ');
+    let emailStatus;
     try {
       const resend = new Resend(RESEND_API_KEY.value());
       const from = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
@@ -261,10 +262,31 @@ exports.teamInviteEmail = onDocumentCreated(
         text: inviteEmailText(companyName, roleLabel),
         headers: { 'X-NBD-Campaign': 'team-invite-v1' },
       });
+      emailStatus = 'sent';
       await snap.ref.update({ inviteEmailSentAt: FieldValue.serverTimestamp() }).catch(() => {});
       logger.info('teamInviteEmail: sent', { companyId });
     } catch (e) {
+      emailStatus = 'failed:' + String(e && e.message || e).slice(0, 200);
       logger.error('teamInviteEmail: send failed', { companyId, err: e.message });
+    }
+    // Ledger the attempt in alert_outbox (same seam as lead-alert.js
+    // recordAlertOutbox): the dashboard's alert-health banner surfaces
+    // 'failed:*' statuses to the owner — without this, a dead Resend key
+    // means invites silently never arrive and nobody finds out. Best-effort:
+    // an outbox write failure never blocks anything.
+    try {
+      await db.collection('alert_outbox').add({
+        kind: 'team-invite',
+        collection: `companies/${companyId}/members`,
+        leadId: null,
+        companyId,
+        target: { emails: [to], sms: null, name: companyName, seal: '' },
+        emailStatus,
+        smsStatus: 'skipped:n/a',
+        createdAt: FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      logger.warn('teamInviteEmail: outbox write failed', { companyId, err: e && e.message });
     }
   }
 );

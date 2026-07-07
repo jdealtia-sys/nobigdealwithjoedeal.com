@@ -34,6 +34,40 @@ section('Alert outbox ledger (2026-07-06, punch item 6)');
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('alert_outbox rules: tenant readers + admin only, zero client writes',
     /match \/alert_outbox\/\{outboxId\}[\s\S]{0,600}allow create, update, delete: if false/.test(rules));
+
+  // Delivery-health seam (2026-07-07): invites ledger too, and the
+  // dashboard banner is the consumer that makes failed:* statuses visible.
+  const inv = read(path.join(FUNCTIONS, 'handlers/invites.js'));
+  assert('teamInviteEmail ledgers every send attempt to alert_outbox',
+    /kind: 'team-invite'/.test(inv)
+    && /collection\('alert_outbox'\)\.add\(/.test(inv)
+    && /emailStatus,/.test(inv));
+  assert('teamInviteEmail records failures with the failed: prefix the banner scans for',
+    /emailStatus = 'failed:' \+ String\(/.test(inv));
+  const idx = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
+  assert('composite index {companyId, createdAt} exists for tenant-scoped outbox reads',
+    idx.indexes.some(i => i.collectionGroup === 'alert_outbox'
+      && i.fields.length === 2
+      && i.fields[0].fieldPath === 'companyId'
+      && i.fields[1].fieldPath === 'createdAt'));
+}
+
+section('Alert-health banner (delivery-failure surfacing)');
+{
+  const banner = read(path.join(PRO_JS, 'alert-health-banner.js'));
+  assert('banner uses the __NBD_LOADED idempotency registry',
+    /__NBD_LOADED\['alert-health-banner'\]/.test(banner));
+  assert('banner scans both channels for failed: statuses',
+    /isFailed\(d\.emailStatus\)/.test(banner) && /isFailed\(d\.smsStatus\)/.test(banner)
+    && /indexOf\('failed:'\) === 0/.test(banner));
+  assert('tenant branch pins companyId (rules provability + the composite index)',
+    /where\('companyId', '==', claims\.companyId/.test(banner));
+  assert('gated to owner / platform admin / company_admin',
+    /claims\.admin === true \|\| claims\.owner === true \|\| role === 'company_admin'/.test(banner));
+  assert('banner generates NO inline handler attributes (CSP script-src-attr none)',
+    !/on(click|load|change|error)\s*=\s*"/.test(banner) && /addEventListener\('click'/.test(banner));
+  assert('dashboard.html loads alert-health-banner.js',
+    /alert-health-banner\.js/.test(readDashboard()));
 }
 
 section('Cloud Functions exports');
