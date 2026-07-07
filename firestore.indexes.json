@@ -692,6 +692,15 @@
         { "fieldPath": "userId",     "order": "ASCENDING"  },
         { "fieldPath": "uploadedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "_comment": "Review 2026-06-27 (HIGH): invoice-pipeline.loadEstimateSupplements + estimate-supplement.loadForEstimate — where('parentEstimateId','==') + where('userId','==') on supplements (no orderBy). Equality-only queries can be served by Firestore's single-field zig-zag merge, so this composite is defensive/explicit per team convention (every userId+X query is pinned) and the index-build-race runbook: ship + finish BUILDING the index before the code relies on it. createInvoiceFromEstimate folds approved/partial supplements into the invoice; the firestore.rules supplements read also requires the userId== filter.",
+      "collectionGroup": "supplements",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "parentEstimateId", "order": "ASCENDING" },
+        { "fieldPath": "userId",           "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
