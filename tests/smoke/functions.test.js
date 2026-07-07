@@ -98,7 +98,7 @@ section('firebase-admin v14: legacy namespace is dead');
   const REQUIRE_ALLOWLIST = new Set([
     'index.js', 'seed-demo.js', 'seed-companies.js', 'rate-limit-policy.js',
     'migrations/runner.js', 'migrate-companyprofile-per-tenant.js',
-    'migrate-companyid-backfill.js',
+    'migrate-companyid-backfill.js', 'migrate-docprefixes.js',
   ]);
   const offendersLegacy = [];
   const offendersRequire = [];

@@ -2644,7 +2644,9 @@
                   const snap = await tx.get(counterRef);
                   let nextNum = snap.exists() ? (snap.data().next || 0) + 1 : 1;
                   tx.set(counterRef, { next: nextNum }, { merge: true });
-                  return _pfx + '-' + String(nextNum).padStart(4, '0');
+                  return (typeof window._formatCustomerId === 'function')
+                    ? window._formatCustomerId(_pfx, nextNum, _cid)
+                    : _pfx + '-' + String(nextNum).padStart(4, '0');
                 });
                 await updateDoc(doc(db, 'leads', leadRef.id), { customerId: custId });
                 console.log('✓ Assigned customer ID:', custId);
@@ -2707,7 +2709,9 @@
             const snap = await tx.get(counterRef);
             let nextNum = snap.exists() ? (snap.data().next || 0) + 1 : 1;
             tx.set(counterRef, { next: nextNum }, { merge: true });
-            return _pfx + '-' + String(nextNum).padStart(4, '0');
+            return (typeof window._formatCustomerId === 'function')
+              ? window._formatCustomerId(_pfx, nextNum, _cid)
+              : _pfx + '-' + String(nextNum).padStart(4, '0');
           });
           await updateDoc(doc(db, 'leads', fallbackRef.id), { customerId: custId });
           console.log('✓ Assigned customer ID:', custId);

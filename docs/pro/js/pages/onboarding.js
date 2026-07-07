@@ -180,7 +180,6 @@ function buildOverrides() {
   const website = val('obWebsite').replace(/^https?:\/\//i, '').replace(/\/$/, '');
   const address = val('obAddress');
   const serviceArea = val('obServiceArea');
-  const seal = val('obSeal').toUpperCase();
   const tagline = val('obTagline');
   const logoUrl = val('obLogoUrl');
 
@@ -209,7 +208,11 @@ function buildOverrides() {
       accent:  val('obColorAccent')  || '#E8720C',
     };
   }
-  if (seal)    { brand.seal = seal; brand.docPrefix = seal; }
+  // NOTE: brand.seal / brand.docPrefix are deliberately NOT written here. They
+  // are the tenant's globally-reserved customer-ID prefix and are set ONLY by
+  // the reserveCompanyPrefix callable (finish() below) — direct client writes to
+  // them are denied by firestore.rules. This keeps prefixes globally unique so
+  // the public referral endpoint can't misroute a lead across tenants.
   if (tagline)   brand.tagline = tagline;
   if (logoUrl)   brand.logoUrl = logoUrl;
   if (Object.keys(contact).length) brand.contact = contact;
@@ -240,11 +243,6 @@ async function finish() {
     const overrides = buildOverrides();
 
     await setDoc(doc(db, 'companyProfile', companyKey), overrides, { merge: true });
-    await setDoc(doc(db, 'users', uid), {
-      onboarded: true,
-      onboardedAt: serverTimestamp(),
-      company: overrides.businessName,
-    }, { merge: true });
 
     // Provisioning self-heal: if the register-page createCompany call didn't
     // land (offline, App Check hiccup), this account has no companyId claim
@@ -262,6 +260,42 @@ async function finish() {
         console.warn('createCompany retry failed (profile still saved):', e && e.message);
       }
     }
+
+    // Reserve the tenant's GLOBALLY-UNIQUE customer-ID prefix (seal). This is the
+    // ONLY writer of brand.docPrefix/seal — direct client writes to them are
+    // rules-denied — and it claims docPrefixes/{SEAL} atomically, so two
+    // companies can never share a prefix (which would let the public referral
+    // endpoint drop a lead into the wrong tenant's CRM). A blank seal is fine:
+    // the tenant then mints under the shared 'NBD' fallback, same as before.
+    // Runs AFTER the createCompany self-heal so the companyId claim is settled.
+    const seal = val('obSeal').toUpperCase();
+    if (seal) {
+      try {
+        const reserveFn = httpsCallable(functions, 'reserveCompanyPrefix');
+        await reserveFn({ seal });
+      } catch (e) {
+        const code = (e && e.code) || '';
+        const taken = code === 'functions/already-exists';
+        setStep(2);
+        showErr(taken
+          ? 'Those initials are already used by another company — pick different ones.'
+          : ((e && e.message) || 'Could not reserve your initials. Please try again.'));
+        if (btn) { btn.disabled = false; btn.textContent = 'Finish Setup →'; }
+        return; // profile is saved; block the dashboard until the prefix is set
+      }
+    }
+
+    // Mark onboarded ONLY after the prefix is reserved (or intentionally blank).
+    // Set earlier, a transient reservation failure would leave the rep onboarded
+    // but prefix-less — the wizard wouldn't reappear on reload and they'd mint
+    // under the shared 'NBD' fallback instead of their own prefix. Writing it
+    // last means a blocked reservation keeps them on the wizard to retry.
+    await setDoc(doc(db, 'users', uid), {
+      onboarded: true,
+      onboardedAt: serverTimestamp(),
+      company: overrides.businessName,
+    }, { merge: true });
+
     toDashboard();
   } catch (e) {
     console.warn('onboarding save failed:', e);
