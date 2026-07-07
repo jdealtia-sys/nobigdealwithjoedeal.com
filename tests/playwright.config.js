@@ -27,6 +27,17 @@ module.exports = defineConfig({
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://nobigdealwithjoedeal.com',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // Service workers are blocked in E2E. Every test context starts with a
+    // pristine profile, so the first dashboard load installs /pro/sw.js
+    // fresh; when the new SW takes control, dashboard-sw-bootstrap.js's
+    // controllerchange handler reloads the page once, and that reload races
+    // the spec's first post-login page.evaluate ("Execution context was
+    // destroyed", reproduced 2026-07-06 on the emulator run). No spec
+    // exercises the SW (sw.js is covered statically by pwa-manifest.test.js
+    // and the smoke suite), and the app fully supports SW-less operation
+    // (?nosw=1 kill-switch), so blocking registration is the deterministic
+    // fix. Registration fails into the bootstrap's .catch → console.warn.
+    serviceWorkers: 'block',
     // Emulator mode: the hosting emulator serves the PRODUCTION security
     // headers from firebase.json, and that CSP's connect-src has no
     // carve-out for the local emulator ports (127.0.0.1:9099 auth /
