@@ -939,6 +939,47 @@ section('F1: email queue worker');
     /"collectionGroup":\s*"email_queue"[\s\S]{0,300}"fieldPath":\s*"status"[\s\S]{0,200}"fieldPath":\s*"createdAt"/.test(ix));
 }
 
+section('F1b: monthly overhead alert cron');
+{
+  const CI_FACTORY = '(onRequest|onCall|beforeUserCreated|beforeUserSignedIn|onSchedule|onDocumentCreated|onDocumentUpdated|onDocumentWritten|onDocumentDeleted)';
+  const src = read(path.join(FUNCTIONS, 'monthly-overhead-alert.js'));
+  // Must be a DIRECT factory call at line start or the CI deploy grep skips it.
+  assert('monthlyOverheadAlertCron is a direct onSchedule factory (CI-deployable)',
+    new RegExp('^exports\\.monthlyOverheadAlertCron *= *' + CI_FACTORY, 'm').test(src));
+  assert('runs monthly (1st of month)', /schedule:\s*'0 9 1 \* \*'/.test(src));
+  // email_queue producer contract: status:'pending' is mandatory or the worker
+  // (where status==pending) never sends it — the health-digest.js trap.
+  assert('queued email carries status:pending (worker contract)',
+    /collection\('email_queue'\)\.add\([\s\S]{0,400}status:\s*'pending'/.test(src));
+  const logicSrc = read(path.join(FUNCTIONS, 'monthly-overhead-logic.js'));
+  assert('only overhead-type expenses counted (logic module)', /costType !== 'overhead'/.test(logicSrc));
+  assert('resolves owner via companies/{cid}.ownerId then getUser',
+    /ownerId/.test(src) && /getAuth\(\)\.getUser/.test(src));
+  assert('uses modular FieldValue (v14-safe)',
+    /require\('firebase-admin\/firestore'\)/.test(src) && /FieldValue\.serverTimestamp/.test(src));
+  assert('exposes pure helpers for unit tests', /exports\._test\s*=/.test(src));
+  const idx = readFunctionsIndex();
+  assert('index.js wires monthly-overhead-alert', /require\('\.\/monthly-overhead-alert'\)/.test(idx));
+  // Single-field range on `date` → automatic index; assert NO new composite
+  // was needed (the query intentionally buckets costType/company in code).
+  const ix = read(path.join(ROOT, 'firestore.indexes.json'));
+  assert('no per-company overhead composite index was added (in-code bucketing)',
+    !/"fieldPath":\s*"costType"/.test(ix));
+
+  // Contract guard for EVERY email_queue producer: the worker claims only
+  // status=='pending' docs, so a producer that omits it silently drops the
+  // mail (health-digest.js shipped this bug — fixed here). Each add() call
+  // to email_queue must include status:'pending' within the object literal.
+  const PRODUCERS = ['monthly-overhead-alert.js', 'health-digest.js', 'stripe.js', 'integrations/compliance.js'];
+  for (const p of PRODUCERS) {
+    const psrc = read(path.join(FUNCTIONS, p));
+    const adds = psrc.match(/collection\(['"]email_queue['"]\)\.add\(\{[\s\S]*?\}\)/g) || [];
+    let allHaveStatus = adds.length > 0;
+    for (const a of adds) if (!/status:\s*'pending'/.test(a)) allHaveStatus = false;
+    assert(p + ' email_queue producer sets status:pending on every add', allHaveStatus);
+  }
+}
+
 section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
 {
   const es = read(path.join(FUNCTIONS, 'integrations/esign.js'));
