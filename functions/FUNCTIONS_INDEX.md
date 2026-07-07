@@ -183,6 +183,7 @@ These operate on the **caller's own data** (owner-scoped Firestore queries insid
 | `leadAlertContact` / `leadAlertEstimate` / `leadAlertFreeRoof` / `leadAlertInspect` / `leadAlertStorm` | `contact_leads` / `estimate_leads` / `free_roof_entries` / `inspect_leads` / `storm_alert_subscribers` created | Text + email Joe the moment a public marketing lead lands |
 | `leadBridgeContact` / `leadBridgeEstimate` / `leadBridgeFreeRoof` / `leadBridgeInspect` / `leadBridgeStorm` | same five collections | Mirror each high-intent public lead into the tenant's CRM `leads` pipeline (tenant-aware, idempotent) |
 | `slack_onLeadWon` | `leads/{leadId}` written | Slack ping on won deal |
+| `onReferralLeadWrite` | `leads/{leadId}` written | Referral-code redemption: attribute a redeemed `redeemReferralCode` to its referrer, then record the $200 bonus as OWED + notify the rep when the referred project reaches a closed stage (idempotent) |
 | `slack_onStormAlert` | `storm_alerts_sent/{id}` created | Slack ping on storm alert |
 | `slack_onAdminGrantAttempt` | `audit_log/{id}` created | Slack ping on admin-grant attempts (was collectively listed as `slackPing`, which no longer exists) |
 | `stormBriefing_onAlertSent` | `storm_alerts_sent/{id}` created | Phase B.2 rep-facing storm briefing (call-order scoring; once per alertId via atomic sentinel) |

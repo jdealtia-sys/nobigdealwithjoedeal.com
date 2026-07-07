@@ -146,6 +146,10 @@ exports.validateAccessCode = portalHandlersInline.validateAccessCode;
 // companyProfile seed + owner claims). See handlers/provisioning.js.
 const provisioningHandlers = require('./handlers/provisioning');
 exports.createCompany = provisioningHandlers.createCompany;
+// Global customer-ID prefix reservation (docPrefixes/{PREFIX}). The only writer
+// of brand.docPrefix/seal + the registry; closes the cross-tenant referral
+// misroute. See handlers/provisioning.js:reserveCompanyPrefix.
+exports.reserveCompanyPrefix = provisioningHandlers.reserveCompanyPrefix;
 
 // PILLAR1 Phase 3 — team invites, de-GCIP'd (claim on first dashboard
 // load instead of the never-deployable onRepSignup blocking trigger).
@@ -460,6 +464,14 @@ exports.anniversaryAutoTouch = anniversaryTouch.anniversaryAutoTouch;
 // identifies in the form.
 const referrals = require('./referrals');
 exports.submitReferral = referrals.submitReferral;
+
+// Referral-CODE redemption + $200 bonus crediting on close. A single
+// leads/{leadId} onWrite trigger: attributes a redeemed code to its referrer,
+// then records the bonus as OWED when the referred project closes. Self-
+// exports its trigger (literal onDocumentWritten for the CI allowlist), so
+// merge the whole module — same pattern as lead-bridge above.
+const referralRewards = require('./referral-rewards');
+Object.assign(exports, referralRewards);
 
 // ═══════════════════════════════════════════════════════════════
 // VISUALIZER IMAGE GENERATION — Gemini 2.5 Flash Image

@@ -17,6 +17,7 @@
 
 const path = require('path');
 const IP = require(path.join('..', 'docs', 'pro', 'js', 'invoice-pipeline.js'));
+const ES = require(path.join('..', 'docs', 'pro', 'js', 'estimate-supplement.js'));
 
 let passed = 0, failed = 0;
 function test(name, fn) {
@@ -137,6 +138,66 @@ test('money math rounds to cents (no float drift)', () => {
   const r = IP.applySupplementsToTotals(b, [supp]);
   near(r.total, 100.3, 0.0001, 'total');
   near(r.subtotal, 100.3, 0.0001, 'subtotal');
+});
+
+// ── CROSS-MODULE CONTRACT: the RUNTIME supplement path reaches billable ──
+// The fixtures above are hand-built {status:'approved'|'partial'} docs. That
+// alone can pass while production is inert — which is exactly what happened:
+// supplements were created 'draft' and no code path ever flipped them, so the
+// invoice fold added $0. These tests drive the REAL estimate-supplement.js
+// functions so the two modules can never silently drift apart again:
+//   createSupplement() (draft) → recordResponse() → IP.supplementBillableAmount()
+console.log('\nsupplement → invoice billable contract (real estimate-supplement.js)');
+console.log('──────────────────────────────────────────────────');
+
+const parentEstimate = {
+  lines: [{ code: 'RFG', name: 'Shingles', unit: 'sq', quantity: 20,
+            materialCostPerUnit: 100, laborCostPerUnit: 50, lineTotal: 3000 }],
+  total: 3000, materialCost: 2000, laborCost: 1000,
+};
+
+test('a freshly created supplement is draft and bills $0 (the #881 bug shape)', () => {
+  const s = ES.createSupplement(parentEstimate, { version: 1 });
+  s.supplementTotal = 2500; // calculateDelta stamps this before save
+  eq(s.status, 'draft', 'created status');
+  eq(IP.supplementBillableAmount(s), 0, 'draft is not billable');
+});
+
+test('recordResponse("approved") flips it to bill the full supplementTotal', () => {
+  const s = ES.createSupplement(parentEstimate, { version: 1 });
+  s.supplementTotal = 2500;
+  ES.recordResponse(s, { status: 'approved' });
+  eq(s.status, 'approved', 'status');
+  eq(IP.supplementBillableAmount(s), 2500, 'bills full total');
+});
+
+test('recordResponse("partial", $1500) bills the adjuster amount, not the total', () => {
+  const s = ES.createSupplement(parentEstimate, { version: 2 });
+  s.supplementTotal = 4000;
+  ES.recordResponse(s, { status: 'partial', approvedAmount: 1500 });
+  eq(s.status, 'partial', 'status');
+  eq(s.submission.approvedAmount, 1500, 'approvedAmount persisted on doc');
+  eq(IP.supplementBillableAmount(s), 1500, 'bills approvedAmount');
+});
+
+test('recordResponse("denied") stays non-billable', () => {
+  const s = ES.createSupplement(parentEstimate, { version: 3 });
+  s.supplementTotal = 900;
+  ES.recordResponse(s, { status: 'denied' });
+  eq(IP.supplementBillableAmount(s), 0, 'denied bills $0');
+});
+
+test('end-to-end fold: one approved + one partial supplement land on the invoice', () => {
+  const a = ES.createSupplement(parentEstimate, { version: 1 }); a.supplementTotal = 2000;
+  ES.recordResponse(a, { status: 'approved' });
+  const b = ES.createSupplement(parentEstimate, { version: 2 }); b.supplementTotal = 3000;
+  ES.recordResponse(b, { status: 'partial', approvedAmount: 1200 });
+  const draftC = ES.createSupplement(parentEstimate, { version: 3 }); draftC.supplementTotal = 500; // never responded
+  const invBase = { items: [], subtotal: 10000, tax: 750, total: 10750 };
+  const r = IP.applySupplementsToTotals(invBase, [a, b, draftC]);
+  eq(r.supplementTotal, 3200, '2000 + 1200 (draft ignored)');
+  eq(r.total, 13950, 'total += 3200, tax untouched');
+  eq(r.supplementCount, 2, 'two billable lines');
 });
 
 console.log('──────────────────────────────────────────────────');

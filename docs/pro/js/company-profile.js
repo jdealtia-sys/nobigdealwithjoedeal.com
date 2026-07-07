@@ -52,6 +52,16 @@
       // dumpFee / tearOffExtraPerSq may also be set here (optional)
     },
 
+    /* ── JOB BUDGET ALERTS ─────────────────────────────────────
+       Per-tenant thresholds for the Expenses view's per-job cost
+       flags. Mirrors ExpenseConfig.BUDGET (docs/pro/js/expense-config.js)
+       so unconfigured tenants keep the 65/30 industry defaults;
+       budgetStatus() falls back per-field on any invalid value. */
+    budgetDefaults: {
+      directCostPctWarn: 65,   // amber ⚠ when direct cost ≥ this % of contract value
+      marginFloorPct:    30    // red ⚠ when projected gross margin < this %
+    },
+
     /* ── LEGAL TEXT ────────────────────────────────────────────── */
     cancellationWindowText: 'three (3) business days',
     cancellationStatute: 'Kentucky Revised Statutes § 367.390',
@@ -311,9 +321,28 @@
       return window._companyProfile;
     }
     const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    await setDoc(doc(window.db, 'companyProfile', key), overridesObj, { merge: true });
+    // brand.docPrefix / brand.seal are the tenant's globally-reserved customer-ID
+    // prefix — they're set ONLY by the reserveCompanyPrefix callable (admin SDK)
+    // and are immutable to client writes (firestore.rules). A full-profile "save
+    // everything" round-trip carries the loaded docPrefix back here; strip it from
+    // the write so the (deep-merge) setDoc never touches it — otherwise the rules
+    // guard would deny the whole save. In-memory/localStorage keep the value (the
+    // mint helpers read it); only the Firestore payload is scrubbed.
+    const writePayload = _stripReservedBrandKeys(overridesObj);
+    await setDoc(doc(window.db, 'companyProfile', key), writePayload, { merge: true });
     return window._companyProfile;
   };
+
+  // Returns a shallow clone of the overrides with brand.docPrefix / brand.seal
+  // removed (they're callable-managed + client-immutable). Non-mutating.
+  function _stripReservedBrandKeys(overridesObj) {
+    if (!overridesObj || !overridesObj.brand || typeof overridesObj.brand !== 'object') return overridesObj;
+    const brand = Object.assign({}, overridesObj.brand);
+    if (!('docPrefix' in brand) && !('seal' in brand)) return overridesObj;
+    delete brand.docPrefix;
+    delete brand.seal;
+    return Object.assign({}, overridesObj, { brand: brand });
+  }
 
   // ── TenantContext backbone (Phase A, 2026-06-07) ─────────────────
   // The one resolver every brand-bearing surface reads from, so brand is
@@ -387,6 +416,35 @@
     const p = window._custIdPrefix();
     if (!p || p === 'NBD') return 'customerIds';            // NBD / unconfigured → legacy shared counter
     return 'customerIds_' + String(companyId || p).toLowerCase();
+  };
+
+  // ── Customer-ID salt (defense-in-depth against prefix collision) ──
+  // The prefix registry (docPrefixes/{PREFIX}, enforced by reserveCompanyPrefix)
+  // makes prefixes globally unique, which alone makes every customerId unique.
+  // The salt is a SECOND layer: a short, deterministic, companyId-derived suffix
+  // baked into the ID string itself, so even if a prefix reservation were somehow
+  // bypassed, two tenants can never mint the same customerId (and the public
+  // referral endpoint — which resolves a lead by exact customerId match — can
+  // never misroute across tenants). FNV-1a/32 → base36 → 4 upper-alnum chars.
+  // MUST stay byte-identical to functions/customer-id.js:custIdSalt (server mints
+  // the same IDs via the backfill). NBD keeps its legacy un-salted 'NBD-####'.
+  window._custIdSalt = function (companyId) {
+    const s = String(companyId || '');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return (h >>> 0).toString(36).toUpperCase().padStart(4, '0').slice(-4);
+  };
+  // Canonical customer-ID formatter. Every mint site (dashboard + customer
+  // bootstrap, server backfill) routes through this so the format never drifts.
+  // NBD prefix → 'NBD-0001' (legacy, un-salted, NEVER changed). Any other
+  // (registered) prefix → 'OAK-0001-K3P9'.
+  window._formatCustomerId = function (prefix, seq, companyId) {
+    const p = prefix || 'NBD';
+    const base = p + '-' + String(seq).padStart(4, '0');
+    return (p === 'NBD') ? base : base + '-' + window._custIdSalt(companyId);
   };
 
   // The RAW, un-merged tenant brand override (null for NBD / pre-auth). Lets a

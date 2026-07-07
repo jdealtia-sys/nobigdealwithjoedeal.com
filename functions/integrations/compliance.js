@@ -307,6 +307,27 @@ exports.exportMyData = onCall(
     out.profile = out.ownerDocs.users || null;
     out.subscription = out.ownerDocs.subscriptions || null;
 
+    // ── (5b) users/{uid} SUBCOLLECTIONS ──
+    // The owner-doc .get() above returns only the document's own fields,
+    // not its subcollections. users/{uid} carries personal data in
+    // subcollections — captures (Talk Tank voice transcripts + AI
+    // summaries with extracted people/addresses/amounts), notificationLogs,
+    // fcmTokens — which the ERASURE path recursiveDeletes (Article 17), so
+    // the Article-20 export must return them too or the two are asymmetric.
+    // listCollections() future-proofs this: any new users/{uid}
+    // subcollection is exported without a code change here.
+    try {
+      const userSubs = {};
+      const children = await db.doc('users/' + uid).listCollections();
+      for (const childColl of children) {
+        const snap = await childColl.get();
+        userSubs[childColl.id] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      }
+      if (Object.keys(userSubs).length) out.collections.user_subcollections = userSubs;
+    } catch (e) {
+      out.collections.user_subcollections = { error: e.message };
+    }
+
     // ── (6) api_usage (last 90 days) ──
     try {
       const since = Timestamp.fromMillis(Date.now() - 90 * 86_400_000);

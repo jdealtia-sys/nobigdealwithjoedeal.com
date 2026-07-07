@@ -343,6 +343,7 @@
         "find-secrets.js",
         "migrate-companyprofile-per-tenant.js",
         "migrate-companyid-backfill.js",
+        "migrate-docprefixes.js",
         "verify-functions-company-enhancement.js",
         "SEED_COMPANIES_README.md"
       ]

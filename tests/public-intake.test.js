@@ -114,6 +114,7 @@ async function run() {
       service: 'Roof Replacement', roofType: 'asphalt', timeline: 'asap',
       type: 'email_estimate_request', requestType: 'instant_estimate',
       estimateSummary: 'Roof Replacement — Asphalt\nEstimated range: $12,400 – $15,800',
+      referralCode: 'JANE-CD34', // shared optional (self-redemption) — must persist
       leadScore: '100', assignedTo: 'attacker' // NOT allowlisted → must be dropped
     });
     ok(`estimate with funnel optionals passes validation (not 4xx; got ${r.status})`, ![400, 405].includes(r.status));
@@ -129,6 +130,7 @@ async function run() {
     ok('estimate optional type persisted', str(fields, 'type') === 'email_estimate_request');
     ok('estimate optional requestType persisted', str(fields, 'requestType') === 'instant_estimate');
     ok('estimate optional estimateSummary persisted', (str(fields, 'estimateSummary') || '').startsWith('Roof Replacement'));
+    ok('estimate optional referralCode persisted (self-redemption)', str(fields, 'referralCode') === 'JANE-CD34');
     ok('unknown key leadScore still dropped', !(fields && fields.leadScore));
     ok('unknown key assignedTo still dropped', !(fields && fields.assignedTo));
   }

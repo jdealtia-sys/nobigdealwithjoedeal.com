@@ -8,9 +8,12 @@
  *   leads → pipeline → snooze → portal-bridge → crm (shim)
  *
  * This file holds:
- *   - the in-page notification subsystem (bell badge, dropdown,
- *     onSnapshot subscription, dismissed drawer, mark-read /
- *     dismiss / restore / clear-all helpers)
+ *   - the Firestore notifications FEED: the onSnapshot subscription that
+ *     hydrates window._notifications + fires 'nbd:notifs-updated'.
+ *     Rendering the bell (badge, dropdown, dismissed drawer, mark-read/
+ *     dismiss/restore/clear) now lives in notif-bell.js — the single
+ *     owner. crm-snooze only exposes window.NBDServerNotifs so notif-bell
+ *     can persist server-notification read/dismiss/restore to Firestore.
  *   - the follow-up notification engine
  *     (checkAndCreateFollowUpNotifications)
  *   - the missing-required-field auto-notifier
@@ -36,26 +39,33 @@
 // NOTIFICATION SYSTEM
 // ═══════════════════════════════════════════════════════════════
 
-let _dismissedNotifications, _notifDropdownOpen, _dismissedDrawerOpen, __NBD_COMM_LOG_DELEGATE, _notifUnsub; // module-local (globals Tranche 1 — was window.*)
+let __NBD_COMM_LOG_DELEGATE, _notifUnsub; // module-local (globals Tranche 1 — was window.*)
 window._notifications = [];
-_notifDropdownOpen = false;
 _notifUnsub = null; // onSnapshot unsubscribe handle
 
+// Single-owner refactor (2026-07-07): notif-bell.js is now the sole
+// renderer of the header bell (it loads last and owns the window.*
+// bindings + the dropdown open state). crm-snooze no longer touches
+// #notifBadge / #notifList — doing so was the source of three bugs:
+// server notifications never showed in the opened dropdown, couldn't
+// be cleared, and the badge raced between the two systems.
+//
+// This function now only HYDRATES the Firestore feed. It publishes the
+// FULL list (including dismissed docs) on window._notifications so
+// notif-bell can render the active list + the dismissed drawer + a
+// correct union badge, then fires 'nbd:notifs-updated' so notif-bell
+// re-renders in real time. The follow-up / needs-field / review-engine
+// dedup readers of window._notifications keep working — seeing a
+// dismissed same-day notification just (correctly) suppresses a
+// duplicate re-create.
 function _renderNotifBadgeAndList(allNotifs) {
-  window._notifications = allNotifs.filter(n => !n.dismissed);
-  _dismissedNotifications = allNotifs.filter(n => n.dismissed);
-  const unreadCount = window._notifications.filter(n => !n.read).length;
-  const badge = document.getElementById('notifBadge');
-  if (badge) {
-    if (unreadCount > 0) {
-      badge.style.display = 'block';
-      badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-    } else {
-      badge.style.display = 'none';
-    }
-  }
-  if (_notifDropdownOpen) {
-    renderNotifications();
+  window._notifications = allNotifs; // full list, incl. dismissed
+  try {
+    window.dispatchEvent(new Event('nbd:notifs-updated'));
+  } catch (_) {
+    // Extremely old engines without the Event constructor: notif-bell's
+    // own 60s poll / focus / open-render still picks up the new feed
+    // from window._notifications on the next tick.
   }
 }
 
@@ -107,351 +117,6 @@ async function loadNotifications() {
     }
   } catch (error) {
     console.error('Error loading notifications:', error);
-  }
-}
-
-const NOTIF_ICONS = {
-  'task_due': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M5 2h10v4l-3 3 3 3v4H5v-4l3-3-3-3V2z"/></svg>',
-  'task_overdue': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 3L2 17h16L10 3z"/><path d="M10 8v4M10 14.5v.5"/></svg>',
-  'estimate_approved': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg>',
-  'stage_change': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M3 10a7 7 0 0112.9-3.7L17 5"/><path d="M17 10a7 7 0 01-12.9 3.7L3 15"/><path d="M17 2v3h-3M3 18v-3h3"/></svg>',
-  'follow_up': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg>',
-  'new_lead': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="7" r="3"/><path d="M4 17a6 6 0 0112 0"/></svg>',
-  'default': '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><path d="M10 2a5 5 0 00-5 5c0 4-2 6-2 6h14s-2-2-2-6a5 5 0 00-5-5z"/><path d="M8.5 16a1.5 1.5 0 003 0"/></svg>'
-};
-
-function renderNotifItem(n, opts = {}) {
-  const isUnread = !n.read;
-  const isDismissed = opts.dismissed || false;
-  const timestamp = n.createdAt?.toDate ? n.createdAt.toDate() : new Date(n.createdAt || Date.now());
-  const timeAgo = getTimeAgo(timestamp);
-  const icon = NOTIF_ICONS[n.type] || NOTIF_ICONS.default;
-  const hasLead = n.leadId && !n.leadId.startsWith('d-');
-
-  // Notification.message is populated from incoming SMS + push content via
-  // Cloud Functions, so it can contain attacker-controlled HTML. Every field
-  // is escaped and all IDs are data-attributes consumed by event listeners
-  // (see wireNotifListeners below) instead of inline onclick handlers.
-  return `
-    <div class="nbd-notif-row" data-notif-id="${escHtml(n.id)}" data-notif-lead="${escHtml(n.leadId||'')}" data-notif-dismissed="${isDismissed ? '1' : '0'}" data-notif-type="${escHtml(n.type||'')}" style="padding:10px 14px;border-bottom:1px solid var(--br);cursor:pointer;transition:background .15s;${isUnread && !isDismissed ? 'background:var(--og);' : ''}${isDismissed ? 'opacity:0.65;' : ''}">
-      <div style="display:flex;gap:10px;align-items:start;">
-        <div style="font-size:20px;flex-shrink:0;">${icon}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:${isUnread ? '600' : '400'};margin-bottom:3px;color:var(--t);">
-            ${escHtml(n.title || 'Notification')}
-          </div>
-          <div style="font-size:12px;color:var(--m);margin-bottom:3px;line-height:1.4;">
-            ${escHtml(n.message || '')}
-          </div>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:10px;color:var(--m);opacity:0.8;">${escHtml(timeAgo)}</span>
-            ${hasLead && !isDismissed ? `<span style="font-size:9px;color:var(--blue);font-weight:600;letter-spacing:.03em;">→ VIEW LEAD</span>` : ''}
-            ${hasLead && !isDismissed && (n.type === 'follow_up' || n.type === 'task_overdue') ? `<span class="nbd-notif-sms" style="font-size:9px;color:var(--green,var(--green));font-weight:600;letter-spacing:.03em;cursor:pointer;">📱 SMS</span>` : ''}
-            ${isDismissed ? `<span class="nbd-notif-restore" style="font-size:9px;color:var(--orange);font-weight:600;letter-spacing:.03em;cursor:pointer;">↩ RESTORE</span>` : ''}
-          </div>
-        </div>
-        ${isUnread && !isDismissed ? `<div style="width:8px;height:8px;background:var(--orange);border-radius:50%;flex-shrink:0;margin-top:4px;"></div>` : ''}
-        ${!isDismissed ? `<button class="nbd-notif-dismiss" title="Dismiss" style="background:none;border:none;color:var(--m);cursor:pointer;font-size:14px;padding:2px 4px;opacity:0.4;flex-shrink:0;line-height:1;">✕</button>` : ''}
-      </div>
-    </div>`;
-}
-
-// Wire event listeners on all rendered notification rows. Called after every
-// innerHTML = list.map(renderNotifItem) so handlers attach to the new DOM.
-// Delegated click listener for every kanban card. Replaces the inline
-// onclick="..." attributes that buildCard() used to emit. Each action
-// button has a data-action attribute naming the handler, plus data-id /
-// data-* payloads. Called by the kanban render functions after every
-// innerHTML update so listeners survive re-renders.
-
-function wireNotifListeners(container) {
-  if (!container) return;
-  container.querySelectorAll('.nbd-notif-row').forEach(row => {
-    const id = row.dataset.notifId;
-    const leadId = row.dataset.notifLead || '';
-    const dismissed = row.dataset.notifDismissed === '1';
-    row.addEventListener('mouseenter', () => { row.style.background = 'var(--s2)'; });
-    row.addEventListener('mouseleave', () => { row.style.background = dismissed ? '' : row.dataset.notifBg || ''; });
-    row.addEventListener('click', () => notifAction(id, leadId, dismissed));
-
-    const smsBtn = row.querySelector('.nbd-notif-sms');
-    if (smsBtn) smsBtn.addEventListener('click', (e) => { e.stopPropagation(); sendFollowUpSMS(leadId); });
-
-    const restoreBtn = row.querySelector('.nbd-notif-restore');
-    if (restoreBtn) restoreBtn.addEventListener('click', (e) => { e.stopPropagation(); restoreNotification(id); });
-
-    const dismissBtn = row.querySelector('.nbd-notif-dismiss');
-    if (dismissBtn) dismissBtn.addEventListener('click', (e) => { e.stopPropagation(); dismissNotification(id); });
-  });
-}
-
-function renderNotifications() {
-  const list = document.getElementById('notifList');
-  if (!list) return;
-
-  const unreadCount = window._notifications.filter(n => !n.read).length;
-  const dismissedCount = (_dismissedNotifications||[]).length;
-
-  // Show/hide header buttons
-  const markAllBtn = document.querySelector('[onclick="markAllNotificationsRead()"]');
-  if (markAllBtn) markAllBtn.style.display = unreadCount > 0 ? 'inline-block' : 'none';
-  const clearAllBtn = document.getElementById('clearAllNotifBtn');
-  if (clearAllBtn) clearAllBtn.style.display = window._notifications.length > 0 ? 'inline-block' : 'none';
-
-  // Show/hide dismissed toggle
-  const dismissedToggle = document.getElementById('notifDismissedToggle');
-  if (dismissedToggle) dismissedToggle.style.display = dismissedCount > 0 ? 'block' : 'none';
-  const dismissedCountEl = document.getElementById('dismissedCount');
-  if (dismissedCountEl) dismissedCountEl.textContent = dismissedCount > 0 ? `(${dismissedCount})` : '';
-
-  if (window._notifications.length === 0) {
-    list.innerHTML = `
-      <div style="padding:40px 20px;text-align:center;color:var(--m);">
-        <div style="margin-bottom:8px;opacity:0.5;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:28px;height:28px;"><path d="M10 2a5 5 0 00-5 5c0 4-2 6-2 6h14s-2-2-2-6a5 5 0 00-5-5z"/><path d="M8.5 16a1.5 1.5 0 003 0"/></svg></div>
-        <div style="font-size:13px;">${dismissedCount > 0 ? 'All caught up' : 'No notifications yet'}</div>
-        ${dismissedCount > 0 ? '<div style="font-size:11px;color:var(--m);margin-top:4px;">Dismissed items are below</div>' : ''}
-      </div>`;
-    return;
-  }
-
-  list.innerHTML = window._notifications.map(n => renderNotifItem(n)).join('');
-  wireNotifListeners(list);
-
-  // Render dismissed list if open
-  renderDismissedNotifications();
-}
-
-function getTimeAgo(date) {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
-  
-  if (seconds < 60) return 'Just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
-  return date.toLocaleDateString();
-}
-
-window.toggleNotificationDropdown = function() {
-  const dropdown = document.getElementById('notifDropdown');
-  if (!dropdown) return;
-  
-  _notifDropdownOpen = !_notifDropdownOpen;
-  
-  if (_notifDropdownOpen) {
-    dropdown.style.display = 'flex';
-    renderNotifications();
-  } else {
-    dropdown.style.display = 'none';
-  }
-};
-
-// Close dropdown when clicking outside
-document.addEventListener('click', (e) => {
-  const notifBtn = document.getElementById('notifBtn');
-  const dropdown = document.getElementById('notifDropdown');
-  if (notifBtn && dropdown && _notifDropdownOpen) {
-    if (!notifBtn.contains(e.target) && !dropdown.contains(e.target)) {
-      _notifDropdownOpen = false;
-      dropdown.style.display = 'none';
-    }
-  }
-});
-
-// ── Click a notification: mark read + navigate to lead ──
-async function notifAction(notifId, leadId, isDismissed) {
-  if (isDismissed) {
-    // If clicking a dismissed notification, restore it
-    await restoreNotification(notifId);
-    return;
-  }
-  // Mark as read
-  await markNotificationRead(notifId);
-  // Navigate to the lead if we have one
-  if (leadId && !leadId.startsWith('d-')) {
-    // Close dropdown
-    _notifDropdownOpen = false;
-    const dropdown = document.getElementById('notifDropdown');
-    if (dropdown) dropdown.style.display = 'none';
-    // Go to CRM and open the lead
-    if (typeof goTo === 'function') goTo('crm');
-    // Small delay to let CRM view render, then trigger lead card click
-    setTimeout(() => {
-      if (typeof handleCardClick === 'function') {
-        handleCardClick(leadId);
-      } else {
-        // Fallback: find card and click it
-        const card = document.querySelector(`.lead-card[data-id="${leadId}"]`);
-        if (card) card.click();
-      }
-    }, 300);
-  }
-}
-
-async function markNotificationRead(notifId) {
-  try {
-    const _db = window._db || window.db;
-    if (!_db) return;
-    const { updateDoc, doc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-
-    await updateDoc(doc(_db, 'notifications', notifId), {
-      read: true,
-      readAt: serverTimestamp()
-    });
-
-    // Update local state
-    const notif = window._notifications.find(n => n.id === notifId);
-    if (notif) notif.read = true;
-
-    // Refresh display
-    await loadNotifications();
-
-  } catch (error) {
-    console.error('Error marking notification as read:', error);
-  }
-}
-
-// ── Dismiss a single notification ──
-async function dismissNotification(notifId) {
-  try {
-    const _db = window._db || window.db;
-    if (!_db) return;
-    const { updateDoc, doc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-
-    await updateDoc(doc(_db, 'notifications', notifId), {
-      dismissed: true,
-      dismissedAt: serverTimestamp(),
-      read: true
-    });
-
-    await loadNotifications();
-    window.showToast?.('Notification dismissed', 'success');
-  } catch (error) {
-    console.error('Error dismissing notification:', error);
-  }
-}
-
-// ── Clear ALL visible notifications ──
-async function clearAllNotifications() {
-  try {
-    const _db = window._db || window.db;
-    if (!_db) return;
-    const { updateDoc, doc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-
-    const visible = window._notifications.filter(n => !n.dismissed);
-    if (!visible.length) return;
-
-    await Promise.all(visible.map(n =>
-      updateDoc(doc(_db, 'notifications', n.id), {
-        dismissed: true,
-        dismissedAt: serverTimestamp(),
-        read: true
-      })
-    ));
-
-    await loadNotifications();
-    window.showToast?.(`${visible.length} notification${visible.length!==1?'s':''} cleared`, 'success');
-  } catch (error) {
-    console.error('Error clearing all notifications:', error);
-  }
-}
-
-// ── Restore a dismissed notification ──
-async function restoreNotification(notifId) {
-  try {
-    const _db = window._db || window.db;
-    if (!_db) return;
-    const { updateDoc, doc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-
-    await updateDoc(doc(_db, 'notifications', notifId), {
-      dismissed: false,
-      read: false,
-      restoredAt: serverTimestamp()
-    });
-
-    await loadNotifications();
-    window.showToast?.('Notification restored', 'success');
-  } catch (error) {
-    console.error('Error restoring notification:', error);
-  }
-}
-
-// ── Toggle dismissed notifications drawer ──
-_dismissedDrawerOpen = false;
-function toggleDismissedNotifications() {
-  _dismissedDrawerOpen = !_dismissedDrawerOpen;
-  const dismissedList = document.getElementById('notifDismissedList');
-  const toggleLabel = document.getElementById('dismissedToggleLabel');
-  if (dismissedList) {
-    dismissedList.style.display = _dismissedDrawerOpen ? 'block' : 'none';
-  }
-  if (toggleLabel) {
-    toggleLabel.textContent = _dismissedDrawerOpen ? 'Hide dismissed' : 'Show dismissed';
-  }
-  if (_dismissedDrawerOpen) renderDismissedNotifications();
-}
-
-function renderDismissedNotifications() {
-  const list = document.getElementById('notifDismissedList');
-  if (!list || !_dismissedDrawerOpen) return;
-  const dismissed = _dismissedNotifications || [];
-  if (!dismissed.length) {
-    list.innerHTML = `<div style="padding:16px;text-align:center;font-size:11px;color:var(--m);">No dismissed notifications</div>`;
-    return;
-  }
-  list.innerHTML = dismissed.map(n => renderNotifItem(n, {dismissed:true})).join('');
-  wireNotifListeners(list);
-}
-
-async function markAllNotificationsRead() {
-  try {
-    const _db = window._db || window.db;
-    if (!_db) return;
-    const { updateDoc, doc, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-
-    const unread = window._notifications.filter(n => !n.read);
-
-    await Promise.all(unread.map(n =>
-      updateDoc(doc(_db, 'notifications', n.id), {
-        read: true,
-        readAt: serverTimestamp()
-      })
-    ));
-
-    // Update local state
-    window._notifications.forEach(n => n.read = true);
-
-    // Refresh display
-    await loadNotifications();
-
-  } catch (error) {
-    console.error('Error marking all as read:', error);
-  }
-}
-
-// Helper function to create notifications (for system use)
-async function createNotification(userId, type, title, message, leadId = null) {
-  try {
-    const _db = window._db || window.db;
-    if (!_db) return;
-    const { addDoc, collection, serverTimestamp } =
-      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-
-    await addDoc(collection(_db, 'notifications'), {
-      userId: userId,
-      type: type,
-      title: title,
-      message: message,
-      leadId: leadId,
-      read: false,
-      createdAt: serverTimestamp()
-    });
-  } catch (error) {
-    console.error('Error creating notification:', error);
   }
 }
 
@@ -703,10 +368,41 @@ async function checkAndCreateNeedsFieldNotifications(leads) {
   }
 }
 window.checkAndCreateNeedsFieldNotifications = checkAndCreateNeedsFieldNotifications;
-window.markNotificationRead = markNotificationRead;
-window.markAllNotificationsRead = markAllNotificationsRead;
-window.clearAllNotifications = clearAllNotifications;
-window.toggleDismissedNotifications = toggleDismissedNotifications;
+
+// ── Server-notification persistence API for notif-bell.js ──────────
+// notif-bell owns the render; when the rep marks read / dismisses a
+// SERVER notification (a real Firestore `notifications` doc), it calls
+// these to persist the change. Explicit doc-id arguments keep the
+// writes independent of any window._notifications snapshot timing, so
+// notif-bell can optimistically patch local state without racing what
+// gets written. The live onSnapshot then confirms the change (or, on a
+// failed write, self-corrects on the next snapshot).
+async function _updateNotifDocs(ids, patch) {
+  const _db = window._db || window.db;
+  const list = Array.isArray(ids) ? ids.filter(Boolean) : (ids ? [ids] : []);
+  if (!_db || !list.length) return;
+  try {
+    const { updateDoc, doc, serverTimestamp } =
+      await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+    const ts = serverTimestamp();
+    const stamped = Object.assign({}, patch);
+    if (patch.read)      stamped.readAt = ts;
+    if (patch.dismissed) stamped.dismissedAt = ts;
+    await Promise.all(list.map(id =>
+      updateDoc(doc(_db, 'notifications', id), stamped)
+        .catch(err => console.warn('[NBDServerNotifs] write failed:', id, err && err.message))
+    ));
+  } catch (e) {
+    console.error('[NBDServerNotifs] update error:', e && e.message);
+  }
+}
+window.NBDServerNotifs = {
+  markRead:     (id)  => _updateNotifDocs(id,  { read: true }),
+  dismiss:      (id)  => _updateNotifDocs(id,  { dismissed: true, read: true }),
+  restore:      (id)  => _updateNotifDocs(id,  { dismissed: false, read: false }),
+  markReadMany: (ids) => _updateNotifDocs(ids, { read: true }),
+  dismissMany:  (ids) => _updateNotifDocs(ids, { dismissed: true, read: true }),
+};
 
 // ═══════════════════════════════════════════════════════════
 // Auto-log communications from tel:/sms:/mailto: clicks

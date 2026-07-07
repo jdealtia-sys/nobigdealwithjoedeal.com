@@ -120,12 +120,17 @@ function formatPhoneNumber(phone) {
  */
 async function logSMSToFirestore(db, to, body, uid, leadId = null, status = 'sent', twilioSid = null) {
   try {
+    const ts = FieldValue.serverTimestamp();
     await db.collection('sms_log').add({
       to,
       body,
       uid,
       leadId: leadId || null,
-      sentAt: FieldValue.serverTimestamp(),
+      // `date` is the field the customer-page Communication Log orders by (and
+      // the {leadId, uid, date} composite index keys on); `sentAt` is kept for
+      // existing readers. Both carry the same server timestamp.
+      date: ts,
+      sentAt: ts,
       status,
       twilioSid: twilioSid || null
     });
@@ -714,11 +719,17 @@ exports.incomingSMS = onRequest(
           }
         }
 
-        if (lead.assignedTo) {
+        // Notify the assigned rep, falling back to the lead's OWNER
+        // (userId). No lead-write path sets `assignedTo`, so without this
+        // fallback the inbound-SMS push was dead for every lead — the rep
+        // never got told a customer texted back. userId is present on
+        // every matched lead (the phoneDigits match queries by it).
+        const notifyUid = lead.assignedTo || lead.userId;
+        if (notifyUid) {
           // Get rep's FCM token
           const repTokensSnap = await db
             .collection('users')
-            .doc(lead.assignedTo)
+            .doc(notifyUid)
             .collection('fcmTokens')
             .limit(1)
             .get();

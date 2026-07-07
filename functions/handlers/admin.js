@@ -23,6 +23,7 @@ const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { callableRateLimit } = require('../shared');
+const { formatCustomerId } = require('../customer-id');
 const {
   CORS_ORIGINS,
   LEGACY_ACCESS_CODES,
@@ -327,7 +328,9 @@ exports.backfillCustomerData = onCall(
             const cs = await tx.get(counterRef);
             const next = cs.exists ? (cs.data().next || 0) + 1 : 1;
             tx.set(counterRef, { next }, { merge: true });
-            return _dp + '-' + String(next).padStart(4, '0');
+            // Canonical formatter — salts non-NBD IDs (defense-in-depth), keeps
+            // 'NBD-####' byte-identical. Mirrors the client mint helpers.
+            return formatCustomerId(_dp, next, callerCompanyId);
           });
           updates.customerId = newCid;
           fixedCustomerId++;

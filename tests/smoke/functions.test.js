@@ -98,7 +98,7 @@ section('firebase-admin v14: legacy namespace is dead');
   const REQUIRE_ALLOWLIST = new Set([
     'index.js', 'seed-demo.js', 'seed-companies.js', 'rate-limit-policy.js',
     'migrations/runner.js', 'migrate-companyprofile-per-tenant.js',
-    'migrate-companyid-backfill.js',
+    'migrate-companyid-backfill.js', 'migrate-docprefixes.js',
   ]);
   const offendersLegacy = [];
   const offendersRequire = [];
@@ -817,6 +817,19 @@ section('D5: nightly Firestore backup cron');
   assert('exports to GCS bucket', /BACKUP_BUCKET/.test(src) && /:exportDocuments/.test(src));
 }
 
+section('D6: GDPR export ↔ erasure symmetry for users/{uid} subcollections');
+{
+  const src = read(path.join(FUNCTIONS, 'integrations/compliance.js'));
+  // Erasure recursiveDeletes users/{uid} (subcollections included), so the
+  // Article-20 export must also list users/{uid} subcollections — otherwise
+  // captures / notificationLogs / fcmTokens are deleted but never exported.
+  assert('export lists users/{uid} subcollections (captures et al.)',
+    /db\.doc\('users\/' \+ uid\)\.listCollections\(\)/.test(src) &&
+    /user_subcollections/.test(src));
+  assert('erasure recursiveDeletes the owner-keyed docs (subcollection-safe)',
+    /recursiveDelete\(db\.doc\(coll \+ '\/' \+ uid\)\)/.test(src));
+}
+
 section('F-07: Stripe webhook idempotency is atomic');
 {
   // L-03 cont.: Stripe handlers moved to functions/stripe.js.
@@ -925,6 +938,29 @@ section('E4: service-worker kill switch');
     fs.existsSync(path.join(ROOT, 'docs/pro/README-killswitch.md')));
 }
 
+section('AUTHZ: email-send callables gate role + rate-limit + escape');
+{
+  const src = read(path.join(FUNCTIONS, 'email-functions.js'));
+  // sendDripEmail was an open branded-mail relay: any authed user (incl.
+  // read-only viewer / access-code member) could send to an arbitrary
+  // recipient with unescaped template variables. It must now (a) block
+  // viewer/member like sendEmail, (b) escape template values.
+  const drip = (src.match(/exports\.sendDripEmail = onCall\([\s\S]*?\n\);/) || [''])[0];
+  assert('sendDripEmail blocks viewer/member role',
+    /_dripRole === 'viewer' \|\| _dripRole === 'member'/.test(drip));
+  assert('sendDripEmail keeps its per-uid rate limit',
+    /enforceRateLimit\('sendDripEmail:uid'/.test(drip));
+  assert('populateTemplate HTML-escapes variable values',
+    /function escapeTemplateValue/.test(src) &&
+    /const value = escapeTemplateValue\(variables\[key\]\)/.test(src));
+  // sendEstimateEmail keeps its ownership/tenant guard AND now a per-uid cap.
+  const est = (src.match(/exports\.sendEstimateEmail = onRequest\([\s\S]*?\n\);/) || [''])[0];
+  assert('sendEstimateEmail has a per-uid rate limit (not just per-IP)',
+    /enforceRateLimit\('sendEstimateEmail:uid'/.test(est));
+  assert('sendEstimateEmail keeps the ownership+tenant guard',
+    /ownsLead && !sameCompanyMgr/.test(est) || /!ownsLead && !sameCompanyMgr/.test(est));
+}
+
 section('F1: email queue worker');
 {
   const src = read(path.join(FUNCTIONS, 'integrations/email-queue-worker.js'));
@@ -1011,6 +1047,11 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
     /secrets:\s*\[[^\]]*AI_ANTHROPIC_KEY[^\]]*\]/.test(sms));
   assert('incomingSMS calls generateAIDraft after lead match',
     /await\s+generateAIDraft\(\{[\s\S]{0,300}leadId[\s\S]{0,300}incomingNoteId/.test(sms));
+  // Inbound-SMS rep push was gated on lead.assignedTo, which no lead-write
+  // path ever sets → the notification was dead. It must fall back to the
+  // lead's owner (userId) so a rep actually hears their customer replied.
+  assert('incomingSMS push falls back to lead.userId when assignedTo is unset',
+    /lead\.assignedTo \|\| lead\.userId/.test(sms) && /notifyUid/.test(sms));
 
   // M3: measurementWebhook completed the sweep — ensure the fix sticks.
   const m = read(path.join(FUNCTIONS, 'integrations/measurement.js'));

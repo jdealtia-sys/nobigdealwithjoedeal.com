@@ -663,7 +663,8 @@
         // A4: budget / margin-floor flag (direct cost vs contract value)
         var ecB = EC();
         var rev = (ecB && row.lead) ? ecB.getJobRevenue(row.lead) : 0;
-        var bStatus = ecB && ecB.budgetStatus ? ecB.budgetStatus(rev, row.jb.directCents / 100) : null;
+        var bDefaults = (window._companyProfile && window._companyProfile.budgetDefaults) || null;
+        var bStatus = ecB && ecB.budgetStatus ? ecB.budgetStatus(rev, row.jb.directCents / 100, bDefaults) : null;
         var budgetBadge = bStatus === 'breach' ? '<span title="Over budget / margin below floor" style="color:#dc2626;">⚠ </span>'
           : bStatus === 'warn' ? '<span title="Approaching cost budget" style="color:#eab308;">⚠ </span>' : '';
         // Estimated-vs-actual (V2 estimates only)

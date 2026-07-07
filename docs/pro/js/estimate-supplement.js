@@ -19,7 +19,12 @@
 
 (function () {
   'use strict';
-  if (typeof window === 'undefined') return;
+  // Data-model functions (createSupplement / recordResponse / calculateDelta)
+  // are pure and require() cleanly under Node — tests/invoice-pipeline.test.js
+  // requires this file to lock the createSupplement→recordResponse→invoice
+  // "billable" contract. Only the window.* export + DOM/Firestore functions are
+  // browser-only, so guard those on _HAS_WINDOW instead of bailing out entirely.
+  var _HAS_WINDOW = typeof window !== 'undefined';
 
   // ═════════════════════════════════════════════════════════
   // Data model
@@ -91,7 +96,7 @@
 
       // Settings snapshot (so the delta calc doesn't drift if
       // Joe edits rates between supplements)
-      settingsSnapshot: window.EstimateBuilderV2
+      settingsSnapshot: (_HAS_WINDOW && window.EstimateBuilderV2)
         ? window.EstimateBuilderV2.loadSettings()
         : null,
 
@@ -662,11 +667,101 @@ ${signBlock}
     }
   }
 
+  /**
+   * Persist a carrier's response onto an ALREADY-SAVED supplement so it reaches
+   * a billable status. This is the runtime path that was missing: supplements
+   * were created 'draft' and NOTHING ever flipped them to approved/partial, so
+   * invoice-pipeline.supplementBillableAmount() always returned 0 and approved
+   * supplement dollars silently never made it onto the invoice (the #881 fold
+   * was inert). markSubmitted()/recordResponse() above are pure in-memory
+   * mutators that never touched Firestore — this writes the same field shape
+   * they produce, via updateDoc.
+   *
+   *   - 'approved' → bills the full supplementTotal (already stored at save).
+   *   - 'partial'  → bills submission.approvedAmount (the adjuster's $ figure).
+   *   - 'denied'   → not billable.
+   *
+   * The /supplements rule already permits this: an owner update passes as long
+   * as userId + parentEstimateId are unchanged (which they are here).
+   *
+   * @param {string} supplementId  Firestore doc id in `supplements`
+   * @param {Object} response  { status:'approved'|'partial'|'denied', approvedAmount?, notes? }
+   * @returns {Promise<boolean>} true on success
+   */
+  async function updateResponse(supplementId, response) {
+    if (!supplementId || !response || !response.status) return false;
+    if (typeof window.updateDoc !== 'function' || !window.db || typeof window.doc !== 'function') {
+      console.warn('[Supplement] Firestore not available — cannot record response');
+      return false;
+    }
+    const status = response.status;
+    if (status !== 'approved' && status !== 'partial' && status !== 'denied') {
+      console.warn('[Supplement] invalid response status:', status);
+      return false;
+    }
+    const ts = (typeof window.serverTimestamp === 'function')
+      ? window.serverTimestamp()
+      : new Date().toISOString();
+    // For 'partial' the adjuster approved a specific dollar figure — that is
+    // the billable amount invoice-pipeline reads (submission.approvedAmount).
+    // For 'approved' the full supplementTotal bills, so approvedAmount stays null.
+    const approvedAmount = (status === 'partial')
+      ? (Number(response.approvedAmount) || 0)
+      : null;
+    try {
+      await window.updateDoc(
+        window.doc(window.db, 'supplements', supplementId),
+        {
+          status: status,
+          'submission.responseStatus': status,
+          'submission.approvedAmount': approvedAmount,
+          'submission.responseNotes': (response.notes || ''),
+          'submission.respondedAt': ts,
+          updatedAt: ts,
+        }
+      );
+      return true;
+    } catch (e) {
+      console.error('[Supplement] recordResponse persist failed:', e);
+      return false;
+    }
+  }
+
+  /**
+   * Optional: stamp that the supplement letter was sent to the carrier. NOT a
+   * gate for billing — a rep can record a response without first marking it
+   * sent — it only tracks the outbound step for the timeline.
+   */
+  async function markSubmittedRemote(supplementId, submission) {
+    if (!supplementId) return false;
+    if (typeof window.updateDoc !== 'function' || !window.db || typeof window.doc !== 'function') return false;
+    const ts = (typeof window.serverTimestamp === 'function')
+      ? window.serverTimestamp() : new Date().toISOString();
+    submission = submission || {};
+    try {
+      await window.updateDoc(
+        window.doc(window.db, 'supplements', supplementId),
+        {
+          status: 'submitted',
+          'submission.submittedAt': ts,
+          'submission.submittedTo': submission.submittedTo || null,
+          'submission.adjuster': submission.adjuster || null,
+          'submission.method': submission.method || 'email',
+          updatedAt: ts,
+        }
+      );
+      return true;
+    } catch (e) {
+      console.error('[Supplement] markSubmitted persist failed:', e);
+      return false;
+    }
+  }
+
   // ═════════════════════════════════════════════════════════
   // Public API
   // ═════════════════════════════════════════════════════════
 
-  window.EstimateSupplement = {
+  const _api = {
     createSupplement,
     addItem,
     addFromCatalog,
@@ -679,8 +774,15 @@ ${signBlock}
     recordResponse,
     formatSupplementLetter,
     saveToFirestore,
-    loadForEstimate
+    loadForEstimate,
+    updateResponse,        // NEW: persists carrier response → billable status
+    markSubmittedRemote    // NEW: optional "sent to carrier" stamp
   };
-
-  console.log('[EstimateSupplement] Supplement builder ready.');
+  if (_HAS_WINDOW) {
+    window.EstimateSupplement = _api;
+    console.log('[EstimateSupplement] Supplement builder ready.');
+  }
+  // Node (unit tests) require() this file to lock the createSupplement →
+  // recordResponse → invoice-pipeline "billable" contract; expose the same API.
+  if (typeof module !== 'undefined' && module.exports) module.exports = _api;
 })();

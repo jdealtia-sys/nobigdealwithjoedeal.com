@@ -252,12 +252,22 @@ function isValidEmail(email) {
 }
 
 /**
- * Populate template with variables
+ * Populate template with variables.
+ * Variable VALUES are HTML-escaped before substitution: they are
+ * caller-supplied plain-text fields (customerName, address, amount, …),
+ * and the drip templates are fixed server-owned HTML. Escaping the values
+ * blocks HTML/script injection through a variable while leaving the
+ * template markup itself intact.
  */
+function escapeTemplateValue(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 function populateTemplate(template, variables) {
   let html = template.html;
   Object.keys(variables).forEach(key => {
-    const value = variables[key] || '';
+    const value = escapeTemplateValue(variables[key]);
     html = html.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
   });
   return html;
@@ -266,13 +276,21 @@ function populateTemplate(template, variables) {
 /**
  * Log email to Firestore
  */
-async function logEmailToFirestore(db, to, subject, uid, status = 'sent') {
+async function logEmailToFirestore(db, to, subject, uid, status = 'sent', leadId = null) {
   try {
+    const ts = FieldValue.serverTimestamp();
     await db.collection('email_log').add({
       to,
       subject,
       uid,
-      sentAt: FieldValue.serverTimestamp(),
+      // leadId ties the row to a customer thread. The customer-page
+      // Communication Log queries where('leadId','==',id) — without it, the
+      // row is invisible there. `date` is the field that log orders by (and
+      // the {leadId, uid, date} composite index keys on); `sentAt` is kept
+      // for existing analytics readers. Both carry the same server timestamp.
+      leadId: leadId || null,
+      date: ts,
+      sentAt: ts,
       status
     });
   } catch (e) {
@@ -347,7 +365,7 @@ exports.sendEmail = onRequest(
       return;
     }
 
-    const { to, subject, body, html, replyTo, attachments } = req.body;
+    const { to, subject, body, html, replyTo, attachments, leadId } = req.body;
 
     // Validate input
     if (!to || !isValidEmail(to)) {
@@ -380,7 +398,7 @@ exports.sendEmail = onRequest(
 
       // Log to Firestore
       const db = getFirestore();
-      await logEmailToFirestore(db, to, subject, decoded.uid, 'sent');
+      await logEmailToFirestore(db, to, subject, decoded.uid, 'sent', leadId || null);
 
       res.json({
         success: true,
@@ -392,7 +410,7 @@ exports.sendEmail = onRequest(
 
       // Log failure
       const db = getFirestore();
-      await logEmailToFirestore(db, to, subject, decoded.uid, 'failed');
+      await logEmailToFirestore(db, to, subject, decoded.uid, 'failed', leadId || null);
 
       res.status(500).json({
         error: 'Failed to send email'
@@ -427,6 +445,14 @@ exports.sendEstimateEmail = onRequest(
     if (!decoded) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
+    }
+    // Per-uid daily cap (the IP limit above doesn't bound a single
+    // account behind rotating IPs). Matches sendEmail's per-uid cap.
+    try {
+      await enforceRateLimit('sendEstimateEmail:uid', decoded.uid, 200, 86_400_000);
+    } catch (e) {
+      if (e.rateLimited) { res.status(429).json({ error: 'Daily email limit exceeded' }); return; }
+      throw e;
     }
 
     const { leadId, estimateHtml, subject } = req.body;
@@ -480,8 +506,12 @@ exports.sendEstimateEmail = onRequest(
 
       // Escape lead-sourced fields (address/name originate from public lead
       // forms) before interpolating into the email HTML — defense-in-depth,
-      // matching the sibling estimate-email.js. estimateHtml is trusted,
-      // server-built markup and is intentionally left as-is.
+      // matching the sibling estimate-email.js. NOTE: estimateHtml is
+      // CLIENT-supplied (req.body) rich estimate markup, not server-built —
+      // it is inserted as-is by design so the rep's formatted estimate
+      // renders. The ownership+tenant guard above bounds the recipient to a
+      // lead the caller owns/manages (lead.email), so any markup the caller
+      // injects only reaches their own customer, never a cross-tenant target.
       const escHtml = (s) => String(s == null ? '' : s)
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const html = BRANDED_EMAIL_TEMPLATE(
@@ -510,7 +540,7 @@ exports.sendEstimateEmail = onRequest(
       });
 
       // Log to Firestore
-      await logEmailToFirestore(db, to, subject || 'Estimate', decoded.uid, 'sent');
+      await logEmailToFirestore(db, to, subject || 'Estimate', decoded.uid, 'sent', leadId);
 
       res.json({
         success: true,
@@ -544,6 +574,14 @@ exports.sendDripEmail = onCall(
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Unauthorized');
     }
+    // Block read-only / access-code-only accounts from using this as a
+    // branded-mail relay: `viewer` is the read-only team role, `member`
+    // the access-code-only login. Neither should emit company-domain mail
+    // to an arbitrary recipient. Mirrors the sendEmail gate (AUTHZ-2).
+    const _dripRole = (request.auth.token && request.auth.token.role) || '';
+    if (_dripRole === 'viewer' || _dripRole === 'member') {
+      throw new HttpsError('permission-denied', 'Your account role cannot send email');
+    }
     // Per-uid daily drip cap.
     try {
       await enforceRateLimit('sendDripEmail:uid', request.auth.uid, 500, 86_400_000);
@@ -576,7 +614,7 @@ exports.sendDripEmail = onCall(
 
       // Log to Firestore — owner is ALWAYS the authenticated caller.
       const db = getFirestore();
-      await logEmailToFirestore(db, to, template.subject, request.auth.uid, 'sent');
+      await logEmailToFirestore(db, to, template.subject, request.auth.uid, 'sent', (variables && variables.leadId) || null);
 
       return {
         success: true,

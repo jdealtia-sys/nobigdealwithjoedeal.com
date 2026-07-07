@@ -187,7 +187,15 @@
 
   function onSearch(value) {
     state.search = value || '';
-    render();
+    // Re-render ONLY the results list, never the whole view: a full
+    // render() rebuilds the header (scroll.innerHTML) and destroys the
+    // <input class="tt-search"> the user is typing in — dropping focus
+    // and the caret on every keystroke. The chip counts don't depend on
+    // the search term, so the header is safe to leave untouched.
+    const view = document.getElementById('view-talk-tank');
+    const mount = view && view.querySelector('.tt-body-mount');
+    if (mount) mount.innerHTML = buildBody();
+    else render();
   }
 
   // ── Render ──────────────────────────────────────────────────
@@ -195,7 +203,6 @@
     const view = document.getElementById('view-talk-tank');
     if (!view) return;
     const scroll = view.querySelector('.view-scroll') || view;
-    const filtered = applyFilters(state.items);
 
     const chip = (id, label, n) =>
       `<button class="tt-chip${state.filter === id ? ' tt-chip-active' : ''}" data-tt-action="setFilter" data-tt-id="${id}">${label}${typeof n === 'number' ? ` <span class="tt-chip-count">${n}</span>` : ''}</button>`;
@@ -226,21 +233,27 @@
       </div>
     `;
 
-    let body = '';
+    // Body lives in a stable mount so onSearch() can swap just the list
+    // (see the focus-preservation note there).
+    scroll.innerHTML = header + '<div class="tt-body-mount">' + buildBody() + '</div>';
+  }
+
+  // The results list / empty-state markup (everything below the header).
+  // Extracted so onSearch() can re-render it in isolation.
+  function buildBody() {
+    const filtered = applyFilters(state.items);
     if (state.loading) {
-      body = `<div class="tt-empty"><div class="tt-empty-icon">⏳</div><div class="tt-empty-msg">Loading captures…</div></div>`;
-    } else if (filtered.length === 0) {
+      return `<div class="tt-empty"><div class="tt-empty-icon">⏳</div><div class="tt-empty-msg">Loading captures…</div></div>`;
+    }
+    if (filtered.length === 0) {
       const isFiltered = state.filter !== 'all' || state.search;
-      body = `<div class="tt-empty">
+      return `<div class="tt-empty">
         <div class="tt-empty-icon">${isFiltered ? '🔍' : '🎙️'}</div>
         <div class="tt-empty-msg">${isFiltered ? 'Nothing matches that filter.' : 'No captures yet.'}</div>
         ${isFiltered ? '' : '<div class="tt-empty-sub">Hit <strong>Record</strong> to drop your first thought.</div>'}
       </div>`;
-    } else {
-      body = '<div class="tt-list">' + filtered.map(renderRow).join('') + '</div>';
     }
-
-    scroll.innerHTML = header + body;
+    return '<div class="tt-list">' + filtered.map(renderRow).join('') + '</div>';
   }
 
   function renderRow(item) {

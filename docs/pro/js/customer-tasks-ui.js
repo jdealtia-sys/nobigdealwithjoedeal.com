@@ -1080,11 +1080,14 @@ window.loadCommunicationLog = async function(leadId) {
 
     smsSnap.forEach(doc => {
       const data = doc.data();
+      // The producer (logSMSToFirestore) stores the text in `body`; tolerate a
+      // legacy `message` field too. Was reading only `message` — always blank.
+      const smsText = data.body || data.message || '';
       comms.push({
         type: 'sms',
         date: data.date?.toDate ? data.date.toDate() : new Date(data.date),
-        subject: data.message || 'Text Message',
-        preview: data.message?.substring(0, 100) || '',
+        subject: smsText || 'Text Message',
+        preview: smsText.substring(0, 100),
         status: data.status || 'sent'
       });
     });

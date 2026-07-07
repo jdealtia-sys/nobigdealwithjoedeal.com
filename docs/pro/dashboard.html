@@ -739,6 +739,7 @@
       <div class="ni" data-action="goTo" data-target="reports" id="nav-reports"><span class="ni-icon">📈</span>Reports</div>
       <div class="ni" data-action="goTo" data-target="expenses" id="nav-expenses"><span class="ni-icon">🧾</span>Expenses</div>
       <div class="ni" data-action="goTo" data-target="money" id="nav-money"><span class="ni-icon">💵</span>Money</div>
+      <div class="ni" data-action="goTo" data-target="refrewards" id="nav-refrewards"><span class="ni-icon">🎁</span>Referrals</div>
       <div class="ni" data-action="windowOpen" data-target="/pro/daily-success/" id="nav-daily"><span class="ni-icon">📅</span>Success Tracker</div>
       <div class="ni" data-action="goTo" data-target="storm" id="nav-storm"><span class="ni-icon">⛈️</span>Storm Watch</div>
       <div class="ni" data-action="goTo" data-target="closeboard" id="nav-closeboard"><span class="ni-icon">📋</span>Close Board</div>
@@ -2242,6 +2243,9 @@
   <!-- Money: template-hydrated mount; money-dashboard.js renders the P&L into .view-scroll on init. -->
   <div class="view" id="view-money" data-view-template="tpl-view-money"></div>
   <template id="tpl-view-money"><div class="view-scroll"></div></template>
+  <!-- Referral Rewards: template-hydrated mount; referral-rewards-ui.js renders owed/paid $200 bonuses into .view-scroll on init. -->
+  <div class="view" id="view-refrewards" data-view-template="tpl-view-refrewards"></div>
+  <template id="tpl-view-refrewards"><div class="view-scroll" id="refrewardsScroll"></div></template>
   <template id="tpl-view-closeboard">
     <div class="view-scroll">
       <div class="page-hdr">
@@ -3744,6 +3748,18 @@
           </div>
         </div>
 
+        <div class="panel mb-md">
+          <div class="panel-hdr"><div><div class="panel-label">When Expenses flags a job: amber ⚠ once direct costs pass the warning %, red ⚠ once projected gross margin drops below the floor. Blank = industry defaults (65 / 30).</div><div class="panel-title">Job Budget Alerts</div></div></div>
+          <div class="panel-body">
+            <div class="sf-row">
+              <div class="sf"><label>Cost warning at (% of contract value)</label>
+                <input type="number" id="cp_budget_directCostPctWarn" min="1" max="99" step="1" placeholder="65"></div>
+              <div class="sf"><label>Margin floor (% gross margin)</label>
+                <input type="number" id="cp_budget_marginFloorPct" min="1" max="99" step="1" placeholder="30"></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Pillar 5: tenant microsite address + wizard re-run -->
         <div class="panel mb-md">
           <div class="panel-hdr"><div><div class="panel-label">Your free one-page site renders live from this profile. Share the link in your GBP, truck decals, and door hangers — its quote form feeds YOUR pipeline.</div><div class="panel-title">Your Website</div></div></div>
@@ -4766,6 +4782,9 @@
     <div class="mrow">
       <div class="mfield"><label>Source</label>
         <select id="lSource"><option>Door Knock</option><option>Storm Canvass</option><option>Referral</option><option>Online</option><option>Other</option></select>
+      </div>
+      <div class="mfield"><label>Referral Code <span style="opacity:.6;font-weight:400;">(if referred)</span></label>
+        <input type="text" id="lReferralCode" placeholder="e.g. JOHN-AB12" autocapitalize="characters" maxlength="32">
       </div>
     </div>
     <div class="mrow">
@@ -5981,6 +6000,7 @@
 
 <script defer src="js/ai.js?v=5"></script>
 <script defer src="js/review-engine.js?v=2"></script>
+<script defer src="js/referral-rewards-ui.js?v=1"></script>
 <script defer src="js/company-profile.js?v=1"></script>
 <!-- LAZY: doc-generation cluster (nbd-logo-asset, document-generator,
      document-generator-templates, doc-preflight) loaded via ScriptLoader's

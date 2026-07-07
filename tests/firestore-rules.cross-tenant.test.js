@@ -76,8 +76,9 @@ async function run() {
   // ── Seed Company A data with rules disabled (single call) ───
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    await setDoc(doc(db, 'companyProfile/co-a'),        { legalName: 'NBD Home Solutions', financing: { apr: 0.0 }, _seed: true }); // per-tenant key
+    await setDoc(doc(db, 'companyProfile/co-a'),        { legalName: 'NBD Home Solutions', financing: { apr: 0.0 }, brand: { docPrefix: 'ACO', seal: 'ACO' }, _seed: true }); // per-tenant key; brand.docPrefix is callable-only
     await setDoc(doc(db, 'companyProfile/solo1'),       { legalName: 'Solo Op', _seed: true });                                      // solo operator (uid key)
+    await setDoc(doc(db, 'docPrefixes/ACO'),           { companyId: 'co-a', seal: 'ACO', reservedVia: 'seed' });                    // co-a already holds prefix ACO
     await setDoc(doc(db, 'counters/customerIds'),      { next: 42 });
     await setDoc(doc(db, 'leads/leadA'),               { userId: 'alice', companyId: 'co-a', name: 'Alice Homeowner', phone: '+15555550100' });
     await setDoc(doc(db, 'estimates/estA'),            { userId: 'alice', companyId: 'co-a', total: 28500 });
@@ -178,6 +179,28 @@ async function run() {
   await check('counters: overwrite to garbage DENIED',        'deny',  setDoc(doc(bob, 'counters/customerIds'), { next: 999999 }));
   await check('counters: legit +1 increment ALLOWED',         'allow', setDoc(doc(bob, 'counters/customerIds'), { next: 43 }));
   await check('counters: read intentionally open (mint txn)', 'allow', getDoc(doc(bob, 'counters/customerIds')));
+
+  // ═══════════════════════════════════════════════════════════
+  // C2. DOC-PREFIX REGISTRY + brand.docPrefix/seal immutability.
+  //     Global customer-ID prefix uniqueness is what stops the public
+  //     referral endpoint (unscoped `where('customerId','==',ref)`) from
+  //     dropping a homeowner's lead into the WRONG tenant's CRM. The
+  //     registry (docPrefixes/{PREFIX}) is written ONLY by the
+  //     reserveCompanyPrefix callable (admin SDK); clients may READ it (to
+  //     show availability) but never write it, and brand.docPrefix/seal are
+  //     immutable to client writes so nobody can bypass the callable.
+  // ═══════════════════════════════════════════════════════════
+  await check('docPrefixes: authed reads a reservation',        'allow', getDoc(doc(alice, 'docPrefixes/ACO')));
+  await check('docPrefixes: anon cannot read',                  'deny',  getDoc(doc(anon,  'docPrefixes/ACO')));
+  await check('docPrefixes: client cannot CLAIM a free prefix', 'deny',  setDoc(doc(bob,   'docPrefixes/BCO'), { companyId: 'co-b', seal: 'BCO' }));
+  await check('docPrefixes: client cannot STEAL a taken prefix','deny',  setDoc(doc(bob,   'docPrefixes/ACO'), { companyId: 'co-b' }, { merge: true }));
+  await check('docPrefixes: client cannot DELETE a reservation','deny',  deleteDoc(doc(alice, 'docPrefixes/ACO')));
+  // brand.docPrefix / brand.seal are callable-only (client writes to them deny).
+  await check('companyProfile: cannot SET docPrefix on create', 'deny',  setDoc(doc(bob,   'companyProfile/co-b'), { legalName: 'B Co', brand: { docPrefix: 'BCO', seal: 'BCO' } }));
+  await check('companyProfile: CAN create WITHOUT a prefix',    'allow', setDoc(doc(bob,   'companyProfile/co-b'), { legalName: 'B Co', brand: { legalName: 'B Co' } }));
+  await check('companyProfile: cannot CHANGE own docPrefix',    'deny',  setDoc(doc(alice, 'companyProfile/co-a'), { brand: { docPrefix: 'XYZ' } }, { merge: true }));
+  await check('companyProfile: cannot CHANGE own seal',         'deny',  setDoc(doc(alice, 'companyProfile/co-a'), { brand: { seal: 'XYZ' } }, { merge: true }));
+  await check('companyProfile: CAN edit brand (prefix preserved)','allow',setDoc(doc(alice, 'companyProfile/co-a'), { brand: { tagline: 'new tagline' } }, { merge: true }));
 
   // ═══════════════════════════════════════════════════════════
   // D. PRIVILEGE / ESCALATION — must DENY
