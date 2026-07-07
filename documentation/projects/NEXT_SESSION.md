@@ -144,10 +144,15 @@ the code that shipped this week.
 
 ## The bench (if blocked, or the session finishes early)
 
-1. ~~**Globals Tranche 2b**~~ ✅ EXECUTED 2026-07-06 (PR #872 — scope
-   collapsed on re-inventory; see the decomposition plan's tranche
-   table). Next in this lane: **Tranche 2c**, the `_NBD_CALL_ALLOWLIST`
-   delegate-rewrite cluster — riskier, deserves a fresh session.
+1. ~~**Globals Tranche 2b**~~ ✅ EXECUTED 2026-07-06 (PR #872). The
+   `__NBD_CALL_REGISTRY` delegate-rewrite lane (**Tranche 2c**) has now
+   shipped three modules — 2c-1 prefs-boot (#878), 2c-2 maps-routing
+   (#883), **2c-3 crm-portal-bridge (#898, 2026-07-07: 11 handlers
+   registered, `clearBulkSelection` MUST-STAY à la goToMyLocation)**.
+   Next in this lane: **Tranche 2c-4+** — dashboard-bootstrap.module.js
+   (18), dashboard-ui.js (16), then the dashboard-actions.js 87-name
+   cluster (its own multi-session effort). Same registry pattern, one
+   module per PR; see the decomposition plan's tranche table.
 2. ~~**Retire `OWNER_EMAILS`**~~ ✅ **EXECUTED 2026-07-06 (Jo's call:
    safe demotion).** Client authorization is claim-ONLY everywhere
    (`claims.owner === true`): billing-gate, dashboard-bootstrap,
@@ -172,8 +177,8 @@ the code that shipped this week.
 
 | When | What |
 |---|---|
-| ~Jul 18+ | Rock 2 PR 6 — read the deprecation field logs first, then delete/stub `estimates.js` classic paths |
-| ~Jul 19 | Flip `e2e-authed-emulator` from `continue-on-error` to required (needs 2 weeks green from Jul 5) |
+| ~Jul 18+ | Rock 2 PR 6 — read the deprecation field logs first, then delete/stub `estimates.js` classic paths. **⏰ SCHEDULED 2026-07-07** — fires as a fresh session Jul 18 14:00 UTC (trigger `trig_01P97mE4ah5XTd8siVSyXRkw`); it verifies field logs first and opens a DRAFT PR for Jo's review, never auto-deletes. |
+| ~Jul 19 | Flip `e2e-authed-emulator` from `continue-on-error` to required (needs 2 weeks green from Jul 5). **⏰ SCHEDULED 2026-07-07** — fires as a fresh session Jul 19 14:00 UTC (trigger `trig_01RbAxw3BarLg37ucbYpS6eE`); it checks the 2-week green history first and opens a DRAFT PR, never auto-flips. |
 | With Jo on device | CRM Phase 2 aggressive breakpoint consolidation |
 | Jo console action | IAM grant `roles/iam.serviceAccountTokenCreator` (access-code login, audit Break #2) |
 

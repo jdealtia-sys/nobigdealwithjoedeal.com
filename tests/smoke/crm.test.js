@@ -178,12 +178,18 @@ section('Bulk lead operations — writeBatch + NBDStore + new fields');
     /data-action="call" data-fn="selectAllVisibleLeads"/.test(dash));
 
   // Public API — every helper exposed on window so inline
-  // onclick handlers can reach them.
-  assert('crm.js exposes new bulk helpers on window',
-    /window\.bulkAssignCarrier\s*=\s*bulkAssignCarrier/.test(crm)
-    && /window\.bulkAssignDamage\s*=\s*bulkAssignDamage/.test(crm)
-    && /window\.selectAllVisibleLeads\s*=\s*selectAllVisibleLeads/.test(crm)
-    && /window\.updateBulkToolbar\s*=\s*updateBulkToolbar/.test(crm));
+  // onclick handlers can reach them. Globals Tranche 2c-3 (2026-07-07):
+  // the markup-only bulk handlers now REGISTER in __NBD_CALL_REGISTRY
+  // (crm-portal-bridge.js is IIFE-wrapped) instead of living on window;
+  // updateBulkToolbar keeps its window export (internal + cross-file
+  // callers). The dashboard.test.js Tranche 2c section pins the full
+  // registration + allowlist-removal + off-window surface.
+  assert('bulk toolbar handlers register in __NBD_CALL_REGISTRY (Tranche 2c-3)',
+    /bulkAssignCarrier:\s*bulkAssignCarrier/.test(crm)
+    && /bulkAssignDamage:\s*bulkAssignDamage/.test(crm)
+    && /selectAllVisibleLeads:\s*selectAllVisibleLeads/.test(crm));
+  assert('updateBulkToolbar stays window-exported (internal + cross-file callers)',
+    /window\.updateBulkToolbar\s*=\s*updateBulkToolbar/.test(crm));
 }
 
 section('Firestore repository layer — write convention');

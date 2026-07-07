@@ -918,12 +918,13 @@ if(typeof toggleOverlay!=='undefined') window.toggleOverlay = toggleOverlay;
 // FORWARD REFERENCES REMOVED - Functions exposed by their own modules
 // All assignments below moved to crm.js, maps.js, etc.
 // ══════════════════════════════════════════════════════════════════
-// Delete confirm - in crm.js
-if(typeof cancelDeleteConfirm!=='undefined') window.cancelDeleteConfirm = cancelDeleteConfirm;
-if(typeof confirmDeleteLead!=='undefined') window.confirmDeleteLead = confirmDeleteLead;
-// Deleted drawer - in crm.js
-if(typeof openDeletedDrawer!=='undefined') window.openDeletedDrawer = openDeletedDrawer;
-if(typeof closeDeletedDrawer!=='undefined') window.closeDeletedDrawer = closeDeletedDrawer;
+// Delete confirm + deleted drawer: owned by crm-portal-bridge.js, which
+// loads AFTER this file — so these typeof-guards were always 'undefined'
+// here and no-op'd (dead since the crm.js split). Globals Tranche 2c-3
+// wrapped that module: cancelDeleteConfirm/confirmDeleteLead/openDeletedDrawer
+// register in __NBD_CALL_REGISTRY, closeDeletedDrawer re-exports itself —
+// none need a forward-reference here. (restoreDeletedLead/permanentDeleteLead
+// remain crm.js window aliases; their guards stay below.)
 if(typeof restoreDeletedLead!=='undefined') window.restoreDeletedLead = restoreDeletedLead;
 if(typeof permanentDeleteLead!=='undefined') window.permanentDeleteLead = permanentDeleteLead;
 // Pin popup actions - in maps.js

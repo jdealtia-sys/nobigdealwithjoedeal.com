@@ -2585,6 +2585,17 @@ section('Globals Tranches 0+1: converted names stay off window');
     'nbdSetCrmSecHeaderEnabledT', 'nbdSetKanbanBoldHierarchyT',
     'nbdSetCrmAutoCollapseT', 'nbdSelectPhotoLead', 'nbdTogglePhotosOnly',
     'd2dSetDispoFilter', 'nbdSettingsUpdateCalcomPreview',
+    // Tranche 2c-3 (2026-07-07): the crm-portal-bridge.js bulk-ops /
+    // deleted-drawer / delete-confirm markup handlers — module-scoped now
+    // (whole file IIFE-wrapped), dispatched via __NBD_CALL_REGISTRY. NOT
+    // here: clearBulkSelection (lead-snooze.js calls it directly on window —
+    // MUST-STAY, allowlisted like goToMyLocation) and this file's deliberate
+    // window re-exports (editLead, deleteLead, showDeleteConfirm,
+    // toggleBulkMode, toggleCardSelection, closeDeletedDrawer,
+    // updateBulkToolbar, scrollToFollowUps, restoreCrmSearch, refreshTrashBadge).
+    'selectAllVisibleLeads', 'openDeletedDrawer', 'confirmDeleteLead',
+    'cancelDeleteConfirm', 'bulkSnoozeLeads', 'bulkMoveStage', 'bulkDelete',
+    'bulkAssignSource', 'bulkAssignJobType', 'bulkAssignDamage', 'bulkAssignCarrier',
     // Tranche 2b (2026-07-06): widgets.js radar-map handle + task
     // checkbox handler (delegate calls the bare fn), tasks.js checkTask
     // export (only caller is its own data-tk-action delegate).
@@ -2822,6 +2833,49 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   // dashboard-actions/ui/sw-bootstrap read it as a bare global at runtime.
   assert('drawMap survives as a top-level global let',
     /^let drawMap;$/m.test(mapsRouting));
+
+  // ── Tranche 2c-3: the crm-portal-bridge.js bulk-ops cluster ──
+  // Same pattern, third module. The whole file is IIFE-wrapped; 11
+  // markup-only handlers register in __NBD_CALL_REGISTRY and leave the
+  // allowlist. clearBulkSelection is the deliberate exception — the same
+  // MUST-STAY shape as goToMyLocation: lead-snooze.js calls
+  // window.clearBulkSelection() OUTSIDE the registry-first dispatcher, so
+  // it keeps BOTH its allowlist entry and a window re-export.
+  const T2C3_NAMES = [
+    'selectAllVisibleLeads', 'openDeletedDrawer', 'confirmDeleteLead',
+    'cancelDeleteConfirm', 'bulkSnoozeLeads', 'bulkMoveStage', 'bulkDelete',
+    'bulkAssignSource', 'bulkAssignJobType', 'bulkAssignDamage', 'bulkAssignCarrier'];
+  const crmPortalBridge = read(path.join(PRO_JS, 'crm-portal-bridge.js'));
+  const cpbRegBlock = (crmPortalBridge.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/) || ['', ''])[1];
+  assert('crm-portal-bridge.js is IIFE-wrapped (its top-level names leave window)',
+    /^\(function \(\) \{$/m.test(crmPortalBridge) && /\}\)\(\);\s*$/.test(crmPortalBridge.trimEnd()));
+  for (const n of T2C3_NAMES) {
+    assert('crm-portal-bridge registers ' + n + ' in __NBD_CALL_REGISTRY',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(cpbRegBlock));
+    assert('allowlist no longer carries ' + n + ' (the registry entry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+  }
+  // clearBulkSelection MUST stay BOTH allowlisted and window-exported —
+  // lead-snooze.js:773 calls window.clearBulkSelection() directly, and it
+  // is NOT registered (would be redundant). Losing either half = a dead
+  // best-effort bulk-exit after a snooze action.
+  assert('clearBulkSelection keeps its allowlist entry (lead-snooze direct call)',
+    /'clearBulkSelection'/.test(stateSrc));
+  assert('crm-portal-bridge re-exports clearBulkSelection on window',
+    /window\.clearBulkSelection = clearBulkSelection;/.test(crmPortalBridge));
+  assert('clearBulkSelection is NOT registered (window path only)',
+    !/\bclearBulkSelection:\s*clearBulkSelection\b/.test(cpbRegBlock));
+  // The IIFE wrap must not orphan the cross-file consumers — these resolve
+  // as bare globals, window.X(), or window[fn] dispatch (never via the
+  // registry), so each needs an explicit re-export from this file now that
+  // crm.js no longer provides it.
+  for (const n of ['editLead', 'deleteLead', 'showDeleteConfirm',
+    'toggleBulkMode', 'toggleCardSelection', 'closeDeletedDrawer',
+    'updateBulkToolbar', 'scrollToFollowUps', 'restoreCrmSearch',
+    'refreshTrashBadge']) {
+    assert('crm-portal-bridge window-exports ' + n + ' (cross-file consumer)',
+      new RegExp('window\\.' + n + ' = ' + n + ';').test(crmPortalBridge));
+  }
 
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.
