@@ -120,12 +120,17 @@ function formatPhoneNumber(phone) {
  */
 async function logSMSToFirestore(db, to, body, uid, leadId = null, status = 'sent', twilioSid = null) {
   try {
+    const ts = FieldValue.serverTimestamp();
     await db.collection('sms_log').add({
       to,
       body,
       uid,
       leadId: leadId || null,
-      sentAt: FieldValue.serverTimestamp(),
+      // `date` is the field the customer-page Communication Log orders by (and
+      // the {leadId, uid, date} composite index keys on); `sentAt` is kept for
+      // existing readers. Both carry the same server timestamp.
+      date: ts,
+      sentAt: ts,
       status,
       twilioSid: twilioSid || null
     });
