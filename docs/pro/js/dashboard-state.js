@@ -144,10 +144,22 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'estNext', 'estBack', 'saveEstimate', 'exportEstimate', 'cancelEstimate',
   'importToEstimate', 'startNewEstimate', 'startNewEstimateOriginal', 'selectTier',
   'setDepositOverride', 'toggleInternalView', 'createEstimateRevision',
-  'exportXactimateESX', 'exportDrawReport',
+  'exportDrawReport',
   // Photos / damage / drawing
-  'setPhotoMode', 'damagNearMe', 'damageNearMePhotos', 'acceptAutoDetect',
-  'cancelAutoDetect', 'generateScopeFromDrawing', 'loadDrawingFromCustomer',
+  // Globals Tranche 2c-2 (2026-07-06): the maps-routing.js drawing-tool
+  // cluster moved OFF window — its 21 markup-dispatched handlers (the
+  // auto-detect accept/cancel/start trio, structure add, smart waste,
+  // Xactimate export, scope + comparison-file + drawing save/load,
+  // comparison-mode open, draw recalc, solar, screenshot, the two
+  // historical-imagery sliders, angles, material takeoff, presentation,
+  // shadow pitch, zoom-fit) now register in __NBD_CALL_REGISTRY at the
+  // bottom of maps-routing.js, which the dashboard-ui.js dispatchers
+  // resolve FIRST. Do NOT re-add registered names here: a stale window
+  // fallback would shadow-resurrect the global the tranche removed.
+  // goToMyLocation deliberately REMAINS allowlisted below — the maps.js
+  // shim still re-states it on window (failed the three-way proof;
+  // Tranche 3 candidate).
+  'setPhotoMode', 'damagNearMe', 'damageNearMePhotos',
   // Customer / lead modals
   // QA 2026-06-07 (C-1 fix): saveLead was dropped from the allowlist during the
   // CSP onclick→data-action sweep, so the Add/Edit Lead modal's Save buttons
@@ -165,26 +177,29 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // below — 2026-06-20. The earlier "does not exist on window" note was a
   // misdiagnosis: it's a top-level global in dashboard-custom-theme.js, reachable as
   // window.saveCustomTheme, so only the missing allowlist entry kept SAVE THEME dead.)
-  'searchMap', 'saveZone', 'spyglassSearch', 'searchDraw', 'saveDrawingToCustomer',
-  'showMaterialTakeoff', 'runSolarAnalysis', 'screenshotMap', 'showAngles',
-  'startAutoDetect', 'selectAllVisibleLeads', 'retryLoadLeads', 'saveDocUpload',
+  // (2026-07-06: the maps-routing.js members of that H-4 restore list —
+  // drawing save/load, material takeoff, solar, screenshot, angles and
+  // photo auto-detect — are registry-registered now; see the Tranche
+  // 2c-2 note above.)
+  'searchMap', 'saveZone', 'spyglassSearch', 'searchDraw',
+  'selectAllVisibleLeads', 'retryLoadLeads', 'saveDocUpload',
   'saveJoeKey', 'sendJoeMessage', 'saveJoeKeyFromSettings',
   'shareCalViaSMS', 'shareCalViaEmail', 'saveCalSettings',
   'qaUseMyLocation', 'saveQuickLead',
   'openLeadModal', 'openTaskModal', 'openShortcutsPanel', 'openQMImportModal',
   'openPhotosForLead', 'openFullCustomerDetails', 'openDocsForLead',
-  'openDeletedDrawer', 'openComparisonMode', 'openUploadDoc', 'openEstimateV2Builder',
+  'openDeletedDrawer', 'openUploadDoc', 'openEstimateV2Builder',
   'editCardDetails', 'confirmDeleteLead', 'confirmPropertyIntelPull',
   'executePullPropertyIntel', 'pullIntelForModal', 'addTask',
   // Bulk operations
   'bulkSnoozeLeads', 'bulkMoveStage', 'bulkDelete', 'bulkAssignSource',
   'bulkAssignJobType', 'bulkAssignDamage', 'bulkAssignCarrier',
-  'clearBulkSelection', 'applySmartWaste',
+  'clearBulkSelection',
   // Notifications
   'markAllNotificationsRead', 'clearAllNotifications',
   // Misc tools
-  'zoomToFit', 'goToMyLocation', 'spyglassGoToLocation', 'dropPinByAddress',
-  'quickStormCheck', 'addStructure', 'perimChooseType',
+  'goToMyLocation', 'spyglassGoToLocation', 'dropPinByAddress',
+  'quickStormCheck', 'perimChooseType',
   'copyDebugInfo', 'copyCalLink', 'loadSampleData', 'inviteTeamMember',
   'exportLeadsCSV', 'generateWarrantyCertPDF', 'printDoc', 'clearCrmSearch',
   // Appearance picker
@@ -232,7 +247,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Card-detail action wrappers (defined below)
   'cdaMjdAct', 'cdaEditLead', 'cdaOpenMobileInspection', 'cdaVoiceMemo',
   // Draw / misc
-  'undoLine', 'testFirestoreRules', 'startShadowPitch', 'startPresentation',
+  'undoLine', 'testFirestoreRules',
   // Quick-add ternary rewrite
   'mQuickAddRoute',
   // OnboardingTour / DecisionEngine / D2D / ThemeGX / settings ternary rewrites
@@ -265,11 +280,15 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // resolve FIRST (registration replaces the allowlist entry — see
   // _nbdResolveCall). Do NOT re-add registered names here: a stale window
   // fallback would shadow-resurrect the global the tranche removed.
-  // Pre-existing globals that also fire from inline onchange/oninput
-  'recalc', 'updateEstCalc', 'calcTierPrices', 'toggleInsuranceOverlay',
+  // Pre-existing globals that also fire from inline onchange/oninput.
+  // (Tranche 2c-2 moved the maps-routing.js members of this list — the
+  // draw recalc, the comparison-file handler and the two historical-
+  // imagery sliders — into the registry; see the drawing-cluster note
+  // higher up.)
+  'updateEstCalc', 'calcTierPrices', 'toggleInsuranceOverlay',
   'applyEstimatePreset', 'applyCustomTheme', 'kanbanFilter', 'kanbanFilterDebounced',
-  'filterPhotoLeads', 'handleComparisonFile', 'handleDocUpload',
-  'setHistoricalLayer', 'updateHistoryOpacity', 'updateCalEmbed',
+  'filterPhotoLeads', 'handleDocUpload',
+  'updateCalEmbed',
   'updateCertPreview', 'updatePropertyIntelCost', 'uploadPhotos',
   '_mCreatePhotoPicked', 'nbdRenderThemes', 'nbdLiveCustom',
   'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey',

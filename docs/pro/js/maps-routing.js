@@ -14,24 +14,35 @@
  *
  * Depends on the sibling-scope globals declared in maps-core.js
  * (mainMap, hav, mid, …) and helpers reachable as classic-script
- * globals (showToast, geocode, openLeadModal, goTo, …). No
- * import/export — every let/const declared at top level here is
- * a sibling-scope global readable by the maps.js shim.
+ * globals (showToast, geocode, openLeadModal, goTo, …) — reads of
+ * those resolve fine from inside the module IIFE.
  *
- * window.loadDrawingFromCustomer is exported inline below
- * (legacy from the original maps.js); the rest of the public
- * surface is re-stated by the maps.js shim alongside the
- * core / overlays exports.
+ * Globals Tranche 2c-2 (2026-07-06): the file body is wrapped in ONE
+ * top-level IIFE, so its ~150 top-level declarations left the global
+ * scope. `drawMap` alone stays a top-level `let` (bare-read at runtime
+ * by dashboard-actions.js / dashboard-ui.js / dashboard-sw-bootstrap.js).
+ * The deliberate window surface is the export block at the BOTTOM of
+ * this file (names other dispatchers or files resolve via window);
+ * the 21 markup-dispatched drawing handlers are registered in
+ * __NBD_CALL_REGISTRY there instead of living on window.
  */
 
 // ══════════════════════════════════════════════
 // DRAW MAP
 // ══════════════════════════════════════════════
+// drawMap stays a top-level global `let` (NOT inside the module IIFE):
+// dashboard-actions.js (ensureMapSize after view init), dashboard-ui.js
+// (spyglass result jump) and dashboard-sw-bootstrap.js (diagnostics)
+// all read it as a bare sibling-scope name at runtime. Everything else
+// in this file lives in module scope below (Globals Tranche 2c-2).
+let drawMap;
+
+(function () {
 // ══════════════════════════════════════════════
 // DRAWING TOOL v2 — multi-facet, save/restore, drag, snap, shortcuts
 // ══════════════════════════════════════════════
 let _NBD_MR_DELEGATE_BOUND, _presentSteps, _perimClosing; // module-local (globals Tranche 1 — was window.*)
-let drawMap, drawOn=false, drawStart=null, drawLT=0, drawnLines=[], tempLine=null, tempLbl=null;
+let drawOn=false, drawStart=null, drawLT=0, drawnLines=[], tempLine=null, tempLbl=null;
 let drawMode = 'line'; // 'line' | 'perim' | 'er' | 'gutter'
 
 const LT = [
@@ -1527,10 +1538,9 @@ async function loadDrawingFromCustomer() {
   }
 }
 
-// Expose for inline button onclick in dashboard.html
-if (typeof window !== 'undefined') {
-  window.loadDrawingFromCustomer = loadDrawingFromCustomer;
-}
+// (The old direct window export of loadDrawingFromCustomer is gone —
+// Tranche 2c-2. The Load button's data-fn dispatch resolves it through
+// __NBD_CALL_REGISTRY; see the registration block at the bottom.)
 
 // ═══════════════════════════════════════════════════════════
 // ROOF ACCESSORIES (pipes, skylights, chimneys, vents, etc.)
@@ -3430,4 +3440,81 @@ td{font-size:12px;}.note{background:#fff8f0;border-left:4px solid #e8720c;paddin
       console.error('[maps-routing] dispatch ' + action + ' failed:', e);
     }
   });
+})();
+
+// ── Deliberate window surface (Globals Tranche 2c-2) ──
+// The module IIFE took this file's top-level declarations off the global
+// scope. The names below must STAY reachable on window — each has a live
+// cross-file consumer that resolves it there (or as a bare global):
+//   • initDrawMap — dashboard-actions.js waitForMapFn polls
+//     window['initDrawMap'] then calls it when the draw view opens;
+//     dashboard-sw-bootstrap.js reports typeof in its diagnostics
+//   • selLT — dashboard-ui.js's selLineType action branch calls the bare
+//     name (typeof-guarded)
+//   • renderAccessoryPanel — dashboard-accessory-panel-init.js calls the
+//     bare name on a timer
+//   • setDrawMode — allowlisted data-fn dispatch + a bare typeof-guarded
+//     call in dashboard-actions.js (draw-view init selects line mode)
+//   • clearDraw / undoLine / exportDrawReport / importToEstimate /
+//     perimChooseType / searchDraw — allowlisted data-fn dispatch via
+//     window[fn]; their allowlist entries belong to the
+//     dashboard-actions.js cluster (searchDraw is also window-guard
+//     called from widgets.js and wired to data-enter-action)
+//   • toggleDraw / toggleMapLayer / toggleHistoricalImagery /
+//     toggleVoiceControl — dispatched by _NBD_TOGGLE_FNS as window[fn]
+//   • closeComparisonMode / closeHistoricalImagery — dispatched by
+//     _NBD_MODAL_CLOSE_FNS as window[fn]
+//   • goToMyLocation — FAILED the tranche's three-way proof: the maps.js
+//     shim re-states it on window (real cross-file code reference), so
+//     it also keeps its _NBD_CALL_ALLOWLIST entry. Tranche 3 candidate.
+window.initDrawMap = initDrawMap;
+window.selLT = selLT;
+window.renderAccessoryPanel = renderAccessoryPanel;
+window.setDrawMode = setDrawMode;
+window.clearDraw = clearDraw;
+window.undoLine = undoLine;
+window.exportDrawReport = exportDrawReport;
+window.importToEstimate = importToEstimate;
+window.perimChooseType = perimChooseType;
+window.searchDraw = searchDraw;
+window.toggleDraw = toggleDraw;
+window.toggleMapLayer = toggleMapLayer;
+window.toggleHistoricalImagery = toggleHistoricalImagery;
+window.toggleVoiceControl = toggleVoiceControl;
+window.closeComparisonMode = closeComparisonMode;
+window.closeHistoricalImagery = closeHistoricalImagery;
+window.goToMyLocation = goToMyLocation;
+
+// ── Delegate registration (Globals Tranche 2c-2) ──
+// These 21 handlers are dispatched ONLY from markup — data-fn /
+// data-on-change / data-on-input in dashboard.html — through the
+// dashboard-ui.js dispatchers, which resolve __NBD_CALL_REGISTRY FIRST
+// (_nbdResolveCall). Registration here replaces each name's
+// _NBD_CALL_ALLOWLIST entry as the security opt-in; the functions
+// themselves stay module-scoped. tests/smoke/dashboard.test.js pins
+// registration, allowlist removal and off-window status per name.
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  acceptAutoDetect: acceptAutoDetect,
+  addStructure: addStructure,
+  applySmartWaste: applySmartWaste,
+  cancelAutoDetect: cancelAutoDetect,
+  exportXactimateESX: exportXactimateESX,
+  generateScopeFromDrawing: generateScopeFromDrawing,
+  handleComparisonFile: handleComparisonFile,
+  loadDrawingFromCustomer: loadDrawingFromCustomer,
+  openComparisonMode: openComparisonMode,
+  recalc: recalc,
+  runSolarAnalysis: runSolarAnalysis,
+  saveDrawingToCustomer: saveDrawingToCustomer,
+  screenshotMap: screenshotMap,
+  setHistoricalLayer: setHistoricalLayer,
+  showAngles: showAngles,
+  showMaterialTakeoff: showMaterialTakeoff,
+  startAutoDetect: startAutoDetect,
+  startPresentation: startPresentation,
+  startShadowPitch: startShadowPitch,
+  updateHistoryOpacity: updateHistoryOpacity,
+  zoomToFit: zoomToFit
+});
 })();
