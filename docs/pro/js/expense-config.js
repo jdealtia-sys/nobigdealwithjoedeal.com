@@ -156,19 +156,31 @@
   // schema comment). Used by the Phase-1 form validator + the OCR reconcile.
   var REQUIRED_FIELDS = ['userId', 'companyId', 'category', 'costType', 'amountCents', 'date'];
 
-  // ── A4: budget / overspend thresholds (defaults; tenant-editable later) ──
+  // ── A4: budget / overspend thresholds ──
   // directCostPctWarn: amber when a job's direct costs exceed this % of its
   // contract value. marginFloorPct: red when projected gross margin drops below
-  // this. Industry-convention defaults — NOT hard rules; make these per-tenant
-  // (companyProfile.budgetDefaults) in a follow-up.
+  // this. Industry-convention defaults; tenants override via
+  // companyProfile.budgetDefaults (Settings → Company Profile → Job Budget
+  // Alerts), threaded in as budgetStatus's optional 3rd arg.
   var BUDGET = { directCostPctWarn: 65, marginFloorPct: 30 };
+  // A threshold override only counts if it is a real percentage; anything
+  // else (blank field, string, 0, ≥100) falls back to the default so a
+  // half-saved profile can never disable or invert the alerts.
+  function _pct(v, fallback) {
+    var n = typeof v === 'number' ? v : parseFloat(v);
+    return (isFinite(n) && n > 0 && n < 100) ? n : fallback;
+  }
   // Returns null (no signal) | 'warn' | 'breach' for a job's cost health.
-  function budgetStatus(revenueDollars, directCostDollars) {
+  // thresholds: optional { directCostPctWarn, marginFloorPct } tenant override.
+  function budgetStatus(revenueDollars, directCostDollars, thresholds) {
     if (!(revenueDollars > 0) || !(directCostDollars > 0)) return null;
+    var t = thresholds || BUDGET;
+    var warnPct = _pct(t.directCostPctWarn, BUDGET.directCostPctWarn);
+    var floorPct = _pct(t.marginFloorPct, BUDGET.marginFloorPct);
     var marginPct = (revenueDollars - directCostDollars) / revenueDollars * 100;
     var costPct = directCostDollars / revenueDollars * 100;
-    if (marginPct < BUDGET.marginFloorPct || costPct >= 100) return 'breach';
-    if (costPct >= BUDGET.directCostPctWarn) return 'warn';
+    if (marginPct < floorPct || costPct >= 100) return 'breach';
+    if (costPct >= warnPct) return 'warn';
     return null;
   }
 

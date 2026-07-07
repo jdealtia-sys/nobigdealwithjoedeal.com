@@ -3518,6 +3518,18 @@
       const desc = document.getElementById('cp_vp' + i + '_desc')?.value || '';
       if (icon || title || desc) out.valueProps.push({ icon, title, desc });
     }
+    // Job Budget Alerts — nested object like financingTiers. Out-of-range /
+    // blank values persist the default so budgetStatus never sees garbage
+    // (it also guards per-field, but keep the stored doc clean).
+    const bdDef = defaults.budgetDefaults || { directCostPctWarn: 65, marginFloorPct: 30 };
+    const bdPct = (id, fb) => {
+      const n = parseFloat(document.getElementById(id)?.value);
+      return (Number.isFinite(n) && n > 0 && n < 100) ? n : fb;
+    };
+    out.budgetDefaults = {
+      directCostPctWarn: bdPct('cp_budget_directCostPctWarn', bdDef.directCostPctWarn),
+      marginFloorPct: bdPct('cp_budget_marginFloorPct', bdDef.marginFloorPct)
+    };
     return out;
   }
 
@@ -3550,6 +3562,11 @@
       const titleEl = document.getElementById('cp_vp' + i + '_title'); if (titleEl) titleEl.value = v.title || '';
       const descEl = document.getElementById('cp_vp' + i + '_desc');   if (descEl)  descEl.value = v.desc || '';
     }
+    const bd = p.budgetDefaults || defaults.budgetDefaults || {};
+    const warnEl = document.getElementById('cp_budget_directCostPctWarn');
+    if (warnEl) warnEl.value = bd.directCostPctWarn != null ? bd.directCostPctWarn : '';
+    const floorEl = document.getElementById('cp_budget_marginFloorPct');
+    if (floorEl) floorEl.value = bd.marginFloorPct != null ? bd.marginFloorPct : '';
   }
 
   window._loadCompanyProfileSettings = async function () {
