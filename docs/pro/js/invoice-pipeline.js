@@ -89,6 +89,124 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   }
 
   // ═══════════════════════════════════════════════════════════════════════
+  // INSURANCE SUPPLEMENTS → INVOICE
+  // ═══════════════════════════════════════════════════════════════════════
+  //
+  // An estimate can accrue insurance supplements (scope the adjuster approved
+  // AFTER the original estimate was priced — see docs/pro/js/estimate-supplement.js).
+  // Those approved dollars are real revenue but live in the `supplements`
+  // collection, not on the estimate, so they must be folded into the invoice
+  // or it undercharges. The total math below is pure (no DOM/Firestore) so it
+  // is unit-tested in tests/invoice-pipeline.test.js.
+
+  /**
+   * Billable dollars for a single supplement doc.
+   *   - status 'approved' → full supplementTotal
+   *   - status 'partial'  → submission.approvedAmount (the dollar figure the
+   *                         adjuster actually approved)
+   *   - anything else (draft / submitted / denied) → 0 (not billable)
+   * Field shapes per estimate-supplement.js createSupplement()/recordResponse().
+   */
+  function supplementBillableAmount(sup) {
+    if (!sup) return 0;
+    if (sup.status === 'partial') {
+      return Number(sup.submission && sup.submission.approvedAmount) || 0;
+    }
+    if (sup.status === 'approved') {
+      return Number(sup.supplementTotal) || 0;
+    }
+    return 0;
+  }
+
+  /**
+   * Filter a list of supplement docs down to the billable ones (approved or
+   * partial, with a positive amount) and attach the dollar amount + an
+   * invoice-line description to each.
+   */
+  function selectBillableSupplements(supplements) {
+    return (supplements || [])
+      .map(function (sup) {
+        const billable = supplementBillableAmount(sup);
+        const version = sup && sup.version ? sup.version : 1;
+        const reason = (sup && sup.reason ? String(sup.reason) : '').trim();
+        const tag = sup && sup.status === 'partial' ? 'partial approval' : 'approved';
+        let description = 'Insurance Supplement #' + version + ' (' + tag + ')';
+        if (reason) description += ' — ' + reason;
+        return {
+          id: (sup && sup.id) || null,
+          status: sup && sup.status,
+          billable: billable,
+          description: description
+        };
+      })
+      .filter(function (s) { return s.billable > 0; });
+  }
+
+  /**
+   * Fold billable supplements into a base set of invoice totals.
+   * Insurance supplements are tax-exempt (estimate-supplement.calculateDelta
+   * forces supplementTax = 0), so each amount is appended as its own line item
+   * and added to subtotal + total, but tax is left untouched.
+   *
+   * @param {{items:Array, subtotal:number, tax:number, total:number}} base
+   * @param {Array} supplements - raw supplement docs
+   * @returns {{items, subtotal, tax, total, supplementTotal, supplementCount}}
+   */
+  function applySupplementsToTotals(base, supplements) {
+    base = base || {};
+    const round2 = function (n) { return Math.round((Number(n) || 0) * 100) / 100; };
+    const supLines = selectBillableSupplements(supplements);
+    const supplementTotal = supLines.reduce(function (s, l) { return s + l.billable; }, 0);
+    const items = (base.items || []).concat(supLines.map(function (l) {
+      const amt = round2(l.billable);
+      return { description: l.description, quantity: 1, unitPrice: amt, total: amt };
+    }));
+    return {
+      items: items,
+      subtotal: round2((Number(base.subtotal) || 0) + supplementTotal),
+      tax: Number(base.tax) || 0,
+      total: round2((Number(base.total) || 0) + supplementTotal),
+      supplementTotal: round2(supplementTotal),
+      supplementCount: supLines.length
+    };
+  }
+
+  /**
+   * Load this user's supplements for a parent estimate.
+   *
+   * Query: where('parentEstimateId','==',id) + where('userId','==',uid) on the
+   * `supplements` collection — backed by the composite index added in
+   * firestore.indexes.json. Per the index-build-race runbook the index ships
+   * (and finishes BUILDING) before this code relies on it; until then the query
+   * can throw FAILED_PRECONDITION. So this is deliberately fail-soft: on ANY
+   * error we log and return [], and the invoice is created from the base
+   * estimate only (the pre-existing behavior) — invoice creation never throws
+   * because of supplements. It self-heals the moment the index is live.
+   *
+   * We re-implement the query here rather than reuse
+   * EstimateSupplement.loadForEstimate because the supplement builder module is
+   * NOT loaded on dashboard.html (where invoices are created) — only on
+   * customer.html / legacy — so reusing it would silently yield zero supplements.
+   */
+  async function loadEstimateSupplements(db, estimateId) {
+    try {
+      const uid = window._auth && window._auth.currentUser && window._auth.currentUser.uid;
+      if (!uid || !estimateId) return [];
+      if (!window.query || !window.where || !window.getDocs || !window.collection) return [];
+      const q = window.query(
+        window.collection(db, 'supplements'),
+        window.where('parentEstimateId', '==', estimateId),
+        window.where('userId', '==', uid)
+      );
+      const snap = await window.getDocs(q);
+      return snap.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); });
+    } catch (err) {
+      console.warn('[invoice-pipeline] supplement load failed (index still building?); invoicing base estimate only:', err && err.message);
+      return [];
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
   // CORE INVOICE FUNCTIONS
   // ═══════════════════════════════════════════════════════════════════════
 
@@ -182,6 +300,24 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
           total = subtotal + tax;
         }
       }
+      // ── Fold in approved/partial insurance supplements ──────────────────
+      // Supplements are newly-discovered scope the adjuster approved AFTER the
+      // estimate was priced. They live in their own `supplements` collection
+      // and are NOT part of the estimate's saved total — so an invoice built
+      // from the estimate alone undercharges by the approved supplement amount.
+      // (Adversarial review 2026-06-27, confirmed HIGH; deferred from #793 for
+      // the new composite index.) Insurance supplements are tax-exempt, so each
+      // billable amount lands in subtotal + total as its own line, never taxed.
+      // loadEstimateSupplements is fail-soft (returns [] on any error / while
+      // the index is still building), so this can never break invoice create.
+      const supplements = await loadEstimateSupplements(db, estimateId);
+      const folded = applySupplementsToTotals({ items, subtotal, tax, total }, supplements);
+      items = folded.items;
+      subtotal = folded.subtotal;
+      tax = folded.tax;
+      total = folded.total;
+      const supplementTotal = folded.supplementTotal;
+
       // Honor the estimate's saved deposit (insurance 0% or rep override); else 50%.
       // CLASSIC builder saves deposit as an object {pct,amount,remainder}; V2 saves
       // a number. Coerce both, and fall back to 50% if neither yields a finite value
@@ -220,6 +356,10 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         tax: tax,
         taxRate: taxRate,
         total: total,
+        // How much of `total` came from approved/partial insurance supplements
+        // (0 when none) — kept for AR auditing and so the invoice is traceable
+        // back to the supplement(s) it folded in.
+        supplementTotal: supplementTotal,
         depositAmount: depositAmount,
         depositPaid: false,
         amountPaid: 0,
@@ -1041,7 +1181,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   // EXPORTS
   // ═══════════════════════════════════════════════════════════════════════
 
-  window.InvoicePipeline = {
+  const _api = {
     createInvoiceFromEstimate,
     generateStripePaymentLink,
     sendInvoice,
@@ -1052,14 +1192,29 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     renderInvoiceList,
     createInvoiceUI,
     sendInvoiceUI,
-    showInvoiceDetailModal
+    showInvoiceDetailModal,
+    // Pure supplement-folding helpers, exported for unit tests
+    // (tests/invoice-pipeline.test.js) — no DOM/Firestore dependency.
+    supplementBillableAmount,
+    selectBillableSupplements,
+    applySupplementsToTotals
   };
+
+  if (typeof window !== 'undefined') {
+    window.InvoicePipeline = _api;
+  }
+  // Node (unit tests) require() this file; expose the same API via CommonJS.
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = _api;
+  }
 
 })();
 
 
 // CSP-safe delegation for 7 data-ip-action attrs (invoice pipeline).
+// Guarded for Node: unit tests require() this file where there is no DOM.
 (function () {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return;
   if (_NBD_IP_DELEGATE_BOUND) return;
   _NBD_IP_DELEGATE_BOUND = true;
   document.addEventListener('click', function (ev) {

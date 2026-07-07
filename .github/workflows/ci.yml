@@ -50,6 +50,12 @@ jobs:
       # invoice.total. Dependency-free logic mirror of functions/stripe.js.
       - name: Run Stripe payment-link tax reconciliation tests
         run: node tests/stripe-payment-link-tax.test.js
+      # Money-path gate: approved/partial insurance supplements must fold into
+      # invoice subtotal + total (tax-exempt, own line items) or invoices on
+      # supplemented jobs undercharge by the approved amount. Dependency-free
+      # require() of docs/pro/js/invoice-pipeline.js pure helpers.
+      - name: Run invoice-pipeline supplement folding tests
+        run: node tests/invoice-pipeline.test.js
       # Theme legibility + completeness gate (audit Phase 3): every theme in both
       # registries must define the required vars and clear the WCAG contrast floor
       # as rendered. Dependency-free; extracts the real engine colour helpers.
