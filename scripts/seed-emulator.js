@@ -115,6 +115,11 @@ async function seed() {
       userId: uid[l.owner], companyId: COMPANY_ID,
       firstName: l.firstName, lastName: l.lastName, name: `${l.firstName} ${l.lastName}`,
       address: `${100 + leadIds.length} Maple St, Austin, TX`, phone: '555-02' + (10 + leadIds.length),
+      // Normalized inbound-SMS match key — mirrors what every prod
+      // lead-write path stamps (functions/phone-utils.js), so emulator QA
+      // exercises the real incomingSMS phoneDigits match instead of the
+      // legacy exact-phone fallback.
+      phoneDigits: String('555-02' + (10 + leadIds.length)).replace(/\D/g, '').replace(/^1/, '').slice(-10),
       email: `${l.firstName.toLowerCase()}@example.com`,
       stage: l.stage, source: 'manual', jobValue: l.jobValue, estValue: l.jobValue, value: l.jobValue,
       deleted: false, createdAt: daysAgo(20 - leadIds.length), updatedAt: daysAgo(2),

@@ -128,6 +128,25 @@ module.exports.run = function run(ctx) {
     const d2d = read(path.join(PRO_JS, 'd2d-tracker-core-2026b.js'));
     assert('d2d convertToLead stamps phoneDigits (canonical inline)',
       /phoneDigits:\s*String\(knock\.phone/.test(d2d) && CANON_INLINE.test(d2d));
+
+    // Paths added/covered by the 2026-07-06 drift audit (88 PRs after the
+    // original stamp list). Each was a CONFIRMED prod gap: leads written or
+    // phone-edited here carried no (or a stale) phoneDigits key.
+    const imp = read(path.join(PRO_JS, 'data-import.js'));
+    assert('CSV lead import stamps phoneDigits (canonical inline)',
+      /phoneDigits:\s*String\(lead\.phone/.test(imp) && CANON_INLINE.test(imp));
+
+    const editModal = read(path.join(PRO_JS, 'customer-edit-modal.js'));
+    assert('customer edit modal refreshes phoneDigits on phone edit',
+      /updates\.phoneDigits\s*=\s*String\(updates\.phone/.test(editModal) && CANON_INLINE.test(editModal));
+
+    const preflight = read(path.join(PRO_JS, 'doc-preflight.js'));
+    assert('DocPreflight refreshes phoneDigits when persisting phone',
+      /updates\.phoneDigits\s*=\s*String\(updates\.phone/.test(preflight) && CANON_INLINE.test(preflight));
+
+    const seedEmu = read(path.join(ROOT, 'scripts/seed-emulator.js'));
+    assert('emulator seed stamps phoneDigits (QA rig exercises the real match path)',
+      /phoneDigits:\s*String\(/.test(seedEmu) && CANON_INLINE.test(seedEmu));
   }
 
   // ── 5. Backfill script exists + reuses the shared helper ───
