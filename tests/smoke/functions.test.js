@@ -925,6 +925,29 @@ section('E4: service-worker kill switch');
     fs.existsSync(path.join(ROOT, 'docs/pro/README-killswitch.md')));
 }
 
+section('AUTHZ: email-send callables gate role + rate-limit + escape');
+{
+  const src = read(path.join(FUNCTIONS, 'email-functions.js'));
+  // sendDripEmail was an open branded-mail relay: any authed user (incl.
+  // read-only viewer / access-code member) could send to an arbitrary
+  // recipient with unescaped template variables. It must now (a) block
+  // viewer/member like sendEmail, (b) escape template values.
+  const drip = (src.match(/exports\.sendDripEmail = onCall\([\s\S]*?\n\);/) || [''])[0];
+  assert('sendDripEmail blocks viewer/member role',
+    /_dripRole === 'viewer' \|\| _dripRole === 'member'/.test(drip));
+  assert('sendDripEmail keeps its per-uid rate limit',
+    /enforceRateLimit\('sendDripEmail:uid'/.test(drip));
+  assert('populateTemplate HTML-escapes variable values',
+    /function escapeTemplateValue/.test(src) &&
+    /const value = escapeTemplateValue\(variables\[key\]\)/.test(src));
+  // sendEstimateEmail keeps its ownership/tenant guard AND now a per-uid cap.
+  const est = (src.match(/exports\.sendEstimateEmail = onRequest\([\s\S]*?\n\);/) || [''])[0];
+  assert('sendEstimateEmail has a per-uid rate limit (not just per-IP)',
+    /enforceRateLimit\('sendEstimateEmail:uid'/.test(est));
+  assert('sendEstimateEmail keeps the ownership+tenant guard',
+    /ownsLead && !sameCompanyMgr/.test(est) || /!ownsLead && !sameCompanyMgr/.test(est));
+}
+
 section('F1: email queue worker');
 {
   const src = read(path.join(FUNCTIONS, 'integrations/email-queue-worker.js'));
