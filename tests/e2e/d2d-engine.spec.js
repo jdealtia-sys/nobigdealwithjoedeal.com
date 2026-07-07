@@ -64,5 +64,24 @@ test.describe('D2D tracker — lazy load (PR 2e)', () => {
     expect(after.D2D, 'window.D2D loaded after opening the view').toBe('object');
     expect(after.init, 'window.D2D.init is a function').toBe('function');
     expect(after.state, 'window._D2DState published by the core module').toBe('object');
+
+    // The click delegate resolves data-d2d-action names only through
+    // window.D2D — a ui helper missing from the shim's export list is a
+    // dead button. Pin the conversion-prompt trio + the two other composed
+    // helpers that were dead before the 2026-07-06 shim fix.
+    const actions = await page.evaluate(() => {
+      const names = [
+        'convertToLeadAndDismissPrompt',
+        'convertToLeadWithEditAndDismissPrompt',
+        'dismissConvertPrompt',
+        'toggleHail',
+        'dismissFollowupsBanner',
+      ];
+      return Object.fromEntries(names.map(n => [n, typeof window.D2D[n]]));
+    });
+    console.log('D2D_ACTIONS=' + JSON.stringify(actions));
+    for (const [name, type] of Object.entries(actions)) {
+      expect(type, 'window.D2D.' + name + ' dispatches (delegate registry)').toBe('function');
+    }
   });
 });

@@ -31,6 +31,43 @@ section('UI-D: Hail overlay on D2D + Pipeline badge');
     /l\.hailHit && l\.hailHit\.sizeInches/.test(crm));
 }
 
+section('D2D delegate registry — data-d2d-action ⇄ window.D2D shim contract');
+{
+  // The document-level click delegate (d2d-tracker-ui-2026b.js) resolves
+  // data-d2d-action names ONLY through window.D2D, which is composed from an
+  // explicit export list in d2d-tracker-2026b.js. A helper that exists on
+  // window._D2DState but is missing from the shim renders a button that
+  // silently no-ops ('[d2d] no dispatch'). 2026-07-06: the hot-lead
+  // conversion prompt's three buttons + toggleHail + dismissFollowupsBanner
+  // were all dead this way.
+  const shim = read(path.join(PRO_JS, 'd2d-tracker-2026b.js'));
+  for (const name of [
+    'convertToLeadAndDismissPrompt',
+    'convertToLeadWithEditAndDismissPrompt',
+    'dismissConvertPrompt',
+    'toggleHail',
+    'dismissFollowupsBanner',
+  ]) {
+    assert('D2D shim exports ' + name,
+      new RegExp('^\\s*' + name + ':\\s*state\\.' + name + ',', 'm').test(shim),
+      'expected `' + name + ': state.' + name + ',` in the window.D2D literal');
+  }
+  // General contract: every action name rendered in the tracker sources must
+  // be a key in the shim's window.D2D literal. Skip comment lines so the
+  // delegate's own `data-d2d-action="methodName"` doc example doesn't count.
+  const rendered = new Set();
+  for (const shard of ['d2d-tracker-core-2026b.js', 'd2d-tracker-ui-2026b.js', 'd2d-tracker-2026b.js']) {
+    for (const line of read(path.join(PRO_JS, shard)).split('\n')) {
+      if (/^\s*(\/\/|\*)/.test(line)) continue;
+      for (const m of line.matchAll(/data-d2d-action="(\w+)"/g)) rendered.add(m[1]);
+    }
+  }
+  const missing = [...rendered].filter(name => !new RegExp('^\\s*' + name + ':', 'm').test(shim));
+  assert('every rendered data-d2d-action has a window.D2D export (found ' + rendered.size + ' actions)',
+    missing.length === 0,
+    'dead buttons — rendered but not exported by the shim: ' + missing.join(', '));
+}
+
 section('Phase C.3 — large-view extractions (photos + admin)');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

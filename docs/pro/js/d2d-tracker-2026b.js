@@ -38,6 +38,14 @@
     callPhone: state.callPhone,
     convertToLead: state.convertToLead,
     convertToLeadWithEdit: state.convertToLeadWithEdit,
+    // The hot-lead conversion prompt and the follow-ups banner dispatch these
+    // composed ui helpers via data-d2d-action; the click delegate resolves
+    // actions ONLY through window.D2D, so anything missing here is a dead
+    // button ('[d2d] no dispatch').
+    convertToLeadAndDismissPrompt: state.convertToLeadAndDismissPrompt,
+    convertToLeadWithEditAndDismissPrompt: state.convertToLeadWithEditAndDismissPrompt,
+    dismissConvertPrompt: state.dismissConvertPrompt,
+    dismissFollowupsBanner: state.dismissFollowupsBanner,
     deleteKnock: state.deleteKnock,
     toggleHeatMap: state.toggleHeatMap,
     setDateFilter: state.setDateFilter,
@@ -140,6 +148,9 @@
         window._d2dHailLayer = null;
       }
     },
+    // The ⛈ Hail button dispatches toggleHail (ui module helper that flips
+    // between showHail/hideHail based on the current overlay state).
+    toggleHail: state.toggleHail,
     DISPOSITIONS: state.DISPOSITIONS,
     DISPO_ORDER: state.DISPO_ORDER,
     CARRIERS: state.CARRIERS
