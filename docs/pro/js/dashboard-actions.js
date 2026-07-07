@@ -1025,8 +1025,24 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ══════════════════════════════════════════════
-// MOBILE JOB-DETAIL ACTIONS
+// MOBILE JOB-DETAIL / CREATE-POPOVER CLUSTER — Globals Tranche 2c-4b (2026-07-07)
 // ══════════════════════════════════════════════
+// This whole contiguous block is wrapped in one in-file IIFE so its top-level
+// `function` declarations become module-local instead of auto-globals. The
+// three markup-dispatched (data-fn=) convertibles — _mJdSwitchTab, _mJdShare,
+// _mCreate — register in __NBD_CALL_REGISTRY (block at the bottom of the IIFE),
+// which the dashboard-ui.js `call` delegate resolves first. Every name with a
+// cross-boundary consumer keeps its explicit `window.X = X` re-export (those
+// exports are now load-bearing — the function decl no longer globals itself):
+//   _mJdSwitchTab        → dashboard-widgets.js:1176 bare call
+//   _mJdAct              → 2c-4a cdaMjdAct calls window._mJdAct
+//   openMobileInspection → 2c-4a cdaOpenMobileInspection calls window.openMobileInspection
+//   closeMobileInspection, closeMobileCreatePopover → _NBD_MODAL_CLOSE_FNS window[fn] dispatch
+//   toggleMobileCreatePopover → mCreateFabRoute (outside this IIFE) calls window.toggleMobileCreatePopover
+//   openLeadDetail       → crm-pipeline.js:1267 bare call
+// openMobileCreatePopover is fully PRIVATE — its only caller (toggleMobileCreatePopover)
+// is co-located in this IIFE. See docs/dev/dashboard-actions-globals-audit.md.
+(function () {
 function _mJdSwitchTab(tab) {
   document.querySelectorAll('.m-jd-tab').forEach(t => {
     const on = t.dataset.tab === tab;
@@ -1146,7 +1162,6 @@ function _mJdShare() {
     showToast(portal ? 'Sharing not supported here' : 'No portal link yet — generate one from the lead detail', 'info');
   }
 }
-window._mJdShare = _mJdShare;
 
 function _mJdAct(kind) {
   const id = window._cardDetailLeadId;
@@ -1205,7 +1220,8 @@ function toggleMobileCreatePopover() {
   if (pop.hidden) openMobileCreatePopover();
   else closeMobileCreatePopover();
 }
-window.openMobileCreatePopover  = openMobileCreatePopover;
+// openMobileCreatePopover is PRIVATE (Tranche 2c-4b) — sole caller
+// toggleMobileCreatePopover is co-located in this IIFE; no window export.
 window.closeMobileCreatePopover = closeMobileCreatePopover;
 window.toggleMobileCreatePopover = toggleMobileCreatePopover;
 
@@ -1243,7 +1259,6 @@ function _mCreate(kind) {
       break;
   }
 }
-window._mCreate = _mCreate;
 
 // Mobile-aware router. Card clicks (handleCardClick / openLeadDetail
 // callers) go here; we pick mobile overlay vs desktop modal at click
@@ -1258,6 +1273,17 @@ function openLeadDetail(leadId) {
   }
 }
 window.openLeadDetail = openLeadDetail;
+
+  // Registration IS the security opt-in. The three markup-dispatched (data-fn=)
+  // convertibles register here; the window re-exports above stay for the
+  // cross-boundary consumers. tests/smoke/dashboard.test.js pins both sides.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    _mJdSwitchTab: _mJdSwitchTab,
+    _mJdShare: _mJdShare,
+    _mCreate: _mCreate,
+  });
+})();
 
 // Async confirm helper that prefers our themed in-app dialog (works in
 // iOS PWA standalone where native confirm() can silently no-op) and

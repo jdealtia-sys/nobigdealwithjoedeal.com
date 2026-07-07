@@ -129,8 +129,12 @@ const _NBD_MODAL_CLOSE_FNS = {
 // ignored by the delegate. Add functions here only when their inline
 // onclick is being migrated to data-action="call" data-fn="...".
 const _NBD_CALL_ALLOWLIST = new Set([
-  // Mobile job-detail / create-popover internals
-  '_mJdSwitchTab', '_mJdAct', '_mJdShare', '_mCreate',
+  // Mobile job-detail / create-popover internals — moved OFF window into an
+  // IIFE in dashboard-actions.js (Globals Tranche 2c-4b, 2026-07-07).
+  // _mJdSwitchTab / _mJdShare / _mCreate register in __NBD_CALL_REGISTRY;
+  // _mJdAct is never markup-dispatched (reached via window._mJdAct from the
+  // 2c-4a cdaMjdAct wrapper), so its allowlist entry was vestigial. Do NOT
+  // re-add — a stale window fallback would shadow-resurrect the global.
   // CRM kanban + filters
   'tlFilterCat', 'tlToggleCat', 'setKanbanDensity', 'cycleKanbanDensity',
   // Board/List layout toggle (2026-07-06 lean triage list — crm-list-view.js)

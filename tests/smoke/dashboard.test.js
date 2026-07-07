@@ -2188,9 +2188,11 @@ section('Wave 2C.2 — Camera FAB + native share');
     /id="mJdShare"[\s\S]*data-action="call" data-fn="_mJdShare"/.test(dash),
     'expected the share icon button in the mobile job-detail top bar');
   // 4. JS handler exposed.
-  assert('window._mJdShare exposed',
-    /window\._mJdShare\s*=/.test(mainJs),
-    'expected window._mJdShare to be exported');
+  // Tranche 2c-4b: _mJdShare moved off window into the mobile IIFE and
+  // registers in __NBD_CALL_REGISTRY (markup-dispatched, no window consumer).
+  assert('_mJdShare registered in __NBD_CALL_REGISTRY and off window (2c-4b)',
+    /_mJdShare:\s*_mJdShare/.test(mainJs) && !/window\._mJdShare\s*=/.test(mainJs),
+    'expected _mJdShare registered and NOT window-exported');
   // 5. _mJdShare prefers navigator.share().
   assert('_mJdShare uses navigator.share when available',
     /navigator\.share\(\{\s*title:[^}]*url:\s*portal/.test(mainJs),
@@ -2222,12 +2224,22 @@ section('Wave 2C.1 — Mobile create popover');
   assert('hidden camera input #mCreatePhotoInput with capture=environment',
     /<input type="file" id="mCreatePhotoInput"[^>]*capture="environment"/.test(dash),
     'expected hidden <input type="file" capture="environment"> for the Photo row');
-  // 4. window handlers exposed in dashboard-main.js.
-  for (const fn of ['openMobileCreatePopover','closeMobileCreatePopover','toggleMobileCreatePopover','_mCreate']) {
-    assert('window.' + fn + ' exposed',
-      new RegExp('window\\.' + fn.replace(/_/g,'_') + '\\s*=').test(mainJs),
+  // 4. Handler exposure — split by Tranche 2c-4b disposition.
+  //   closeMobileCreatePopover + toggleMobileCreatePopover KEEP their window
+  //   export (the first is _NBD_MODAL_CLOSE_FNS window[fn]-dispatched, the
+  //   second is called by mCreateFabRoute outside the IIFE); _mCreate moved to
+  //   the registry; openMobileCreatePopover is fully private (module-local).
+  for (const fn of ['closeMobileCreatePopover','toggleMobileCreatePopover']) {
+    assert('window.' + fn + ' exposed (2c-4b MUST-STAY)',
+      new RegExp('window\\.' + fn + '\\s*=').test(mainJs),
       'expected window.' + fn);
   }
+  assert('_mCreate registered in __NBD_CALL_REGISTRY (2c-4b, off window)',
+    /_mCreate:\s*_mCreate/.test(mainJs) && !/window\._mCreate\s*=/.test(mainJs),
+    'expected _mCreate registered and NOT window-exported');
+  assert('openMobileCreatePopover is module-local (2c-4b PRIVATE — no window export)',
+    !/window\.openMobileCreatePopover\s*=/.test(mainJs),
+    'expected openMobileCreatePopover to have no window re-export');
   // 5. Center FAB routes through mCreateFabRoute (toggleMobileCreatePopover
   //    with an openLeadModal fallback, defined as a single global).
   assert('mobile-nav center FAB routes through mCreateFabRoute',
@@ -2613,6 +2625,13 @@ section('Globals Tranches 0+1: converted names stay off window');
     'cdaOpenMobileInspection', 'cdaVoiceMemo', 'cdaOpenVoicemail',
     'cdaSharePortalLink', 'cdaRevokePortalLink', 'cdaConfirmPromote',
     'cdaOpenTaskModal', '_mCreatePhotoPicked',
+    // Tranche 2c-4b (2026-07-07): the dashboard-actions.js mobile create/
+    // job-detail cluster is IIFE-wrapped; these three lost their window export
+    // (markup→registry for _mJdShare/_mCreate; openMobileCreatePopover is
+    // private). NOT here: the 7 MUST-STAY window re-exports (_mJdSwitchTab,
+    // _mJdAct, openMobileInspection, closeMobileInspection,
+    // closeMobileCreatePopover, toggleMobileCreatePopover, openLeadDetail).
+    '_mJdShare', '_mCreate', 'openMobileCreatePopover',
     // Tranche 2b (2026-07-06): widgets.js radar-map handle + task
     // checkbox handler (delegate calls the bare fn), tasks.js checkTask
     // export (only caller is its own data-tk-action delegate).
@@ -2910,7 +2929,11 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     'cdaSharePortalLink', 'cdaRevokePortalLink', 'cdaConfirmPromote',
     'cdaOpenTaskModal', '_mCreatePhotoPicked'];
   const dashActions = read(path.join(PRO_JS, 'dashboard-actions.js'));
-  const daRegBlock = (dashActions.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/) || ['', ''])[1];
+  // dashboard-actions.js now carries MORE THAN ONE registry block (2c-4a card-
+  // detail + 2c-4b mobile, and the 2c-4b block is physically earlier in the
+  // file). A first-match .match() would silently grab only the 2c-4b block and
+  // fail every 2c-4a assertion below — aggregate ALL blocks instead.
+  const daRegBlock = [...dashActions.matchAll(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/g)].map(m => m[1]).join('\n');
   for (const n of T2C4A_NAMES) {
     assert('dashboard-actions registers ' + n + ' in __NBD_CALL_REGISTRY',
       new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(daRegBlock));
@@ -2934,6 +2957,42 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   // MUST-STAY: the goTo router keeps its allowlist entry (never converted).
   assert('goTo router stays allowlisted (MUST-STAY — 27 cross-file callers)',
     /'goTo'/.test(stateSrc));
+
+  // ── Tranche 2c-4b: the dashboard-actions.js mobile create/job-detail cluster ──
+  // Second slice: the contiguous mobile block is IIFE-wrapped. Three markup-
+  // dispatched convertibles register in __NBD_CALL_REGISTRY and leave the
+  // allowlist; seven names keep a window re-export for a cross-boundary consumer
+  // (cross-slice 2c-4a call, _NBD_MODAL_CLOSE_FNS window[fn] dispatch, or a
+  // bare cross-file caller). openMobileCreatePopover is private.
+  const T2C4B_REG = ['_mJdSwitchTab', '_mJdShare', '_mCreate'];
+  for (const n of T2C4B_REG) {
+    assert('dashboard-actions registers ' + n + ' in __NBD_CALL_REGISTRY (2c-4b)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(daRegBlock));
+    assert('allowlist no longer carries ' + n + ' (2c-4b — registry/vestigial)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+  }
+  // _mJdAct also leaves the allowlist (never markup-dispatched; reached via
+  // window._mJdAct from the 2c-4a cdaMjdAct wrapper).
+  assert("allowlist no longer carries _mJdAct (reached via window._mJdAct only)",
+    !/'_mJdAct'/.test(stateSrc));
+  // The 7 load-bearing window re-exports — each pinned to its consumer. Dropping
+  // any one is a silent dead control (modal-close / cross-slice / bare caller),
+  // invisible to the data-fn wiring audit.
+  for (const [n, why] of [
+    ['_mJdSwitchTab', 'dashboard-widgets.js bare call'],
+    ['_mJdAct', '2c-4a cdaMjdAct window._mJdAct'],
+    ['openMobileInspection', '2c-4a cdaOpenMobileInspection window.openMobileInspection'],
+    ['closeMobileInspection', '_NBD_MODAL_CLOSE_FNS window[fn]'],
+    ['closeMobileCreatePopover', '_NBD_MODAL_CLOSE_FNS window[fn]'],
+    ['toggleMobileCreatePopover', 'mCreateFabRoute (outside IIFE)'],
+    ['openLeadDetail', 'crm-pipeline.js bare call']]) {
+    assert('dashboard-actions keeps window.' + n + ' re-export (' + why + ')',
+      new RegExp('window\\.' + n + '\\s*=\\s*' + n + ';').test(dashActions));
+  }
+  // openMobileCreatePopover is private — no registry entry, no window export.
+  assert('openMobileCreatePopover is neither registered nor window-exported (2c-4b private)',
+    !/openMobileCreatePopover:\s*openMobileCreatePopover/.test(daRegBlock)
+      && !/window\.openMobileCreatePopover\s*=/.test(dashActions));
 
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.
