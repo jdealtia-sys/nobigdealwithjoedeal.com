@@ -1,0 +1,98 @@
+# NBD Citation Kit — copy-paste listing copy (July 2026)
+
+Companion to `local-seo-playbook-2026-07.md`. Every field below is ready to paste.
+Use it EXACTLY as written on every directory — consistency is the whole game.
+
+---
+
+## The identity block (paste everywhere)
+
+```
+Business name : No Big Deal Home Solutions
+Phone         : (859) 420-7382
+Email         : jd@nobigdealwithjoedeal.com
+Website       : https://nobigdealwithjoedeal.com
+Located in    : Goshen, OH (service-area business — hide street address where offered)
+Hours         : Mon–Sat 7:00 AM – 6:00 PM
+Primary cat.  : Roofing Contractor
+Secondary     : Siding Contractor · Gutter Service · General Contractor
+Service areas : Greater Cincinnati OH + Northern KY — Goshen, Milford, Batavia,
+                Loveland, Mason, Lebanon, Maineville, Blue Ash, Indian Hill, Amelia,
+                Cincinnati, Anderson Township, West Chester, Fairfield, Monroe,
+                Springboro, Middletown, Florence KY, Erlanger KY, Covington KY,
+                Fort Mitchell KY
+```
+
+## Short description (~240 chars — Bing, Apple, Yelp, Nextdoor)
+
+> Honest roofing, siding, gutter and storm damage repair serving Greater Cincinnati
+> and Northern Kentucky. GAF-certified installer. Insurance claims handled start to
+> finish. Licensed, insured, locally owned. Call Joe directly — it's no big deal.
+
+## Long description (~700 chars — BBB, chambers, Houzz)
+
+> No Big Deal Home Solutions is a locally owned roofing and exterior restoration
+> company serving Greater Cincinnati and Northern Kentucky. Owner Joe Deal shows up
+> personally, gets on the roof, and gives a straight answer about what needs to
+> happen — and what doesn't. We're a GAF-certified residential roofing contractor
+> (cert #1162011) and a James Hardie Alliance contractor, installing GAF Timberline
+> shingles as our standard line and the impact-resistant TAMKO Storm Series for hail
+> country. Storm damage insurance claims handled start to finish — documentation,
+> adjuster meeting, and honest scope. Free inspections, no pressure, no games.
+> Because around here, keeping your home safe is No Big Deal.
+
+## Services list (checkbox-style directories)
+
+Roof Replacement · Roof Repair · Roof Inspection · Storm Damage Restoration ·
+Hail Damage Insurance Claims · Siding Replacement (James Hardie / LP SmartSide /
+vinyl) · Siding Repair · Gutter Replacement · Roof Cleaning / Soft Wash ·
+Fire, Water & Smoke Damage Restoration
+
+## Where to paste it (claim links, in priority order)
+
+| # | Directory | Where | Notes |
+|---|---|---|---|
+| 1 | GAF contractor locator | gaf.com/en-us/roofing-contractors → claim via your GAF account | Verify cert #1162011 shows **System Plus** and the website URL is set |
+| 2 | James Hardie | jameshardie.com → "Find a Contractor" / Alliance portal | Link the site on your Alliance profile |
+| 3 | TAMKO | Ask your TAMKO rep about the Team-tier contractor listing | Storm Series lane |
+| 4 | Bing Places | bingplaces.com | "Import from Google Business Profile" — 10 minutes total |
+| 5 | Apple Business Connect | businessconnect.apple.com | Sign in with an Apple ID; feeds Apple Maps/Siri |
+| 6 | Nextdoor | business.nextdoor.com | Free claim; neighbors ask for roofer recs here weekly |
+| 7 | BBB | bbb.org → "Get Listed" | Free listing first; accreditation is optional/paid — your call |
+| 8 | Yelp | biz.yelp.com | Claim the free page; ignore their ad calls |
+| 9 | Clermont County Chamber | Membership = directory link | Goshen home turf |
+| 10 | Supplier locators | Ask SRS / ABC / Beacon rep | Dealer-locator links where offered |
+
+---
+
+# GBP posts — July/August drafts (one per week, paste as "Update")
+
+**Week 1 — seasonal (summer storms)**
+> Mid-summer storms are rolling through Greater Cincinnati about every other week
+> right now. After the wind dies down, take 5 minutes: look for shingles in the yard,
+> granules piling in the gutters, and any spots on the roof that look darker than the
+> rest. See something? Tap below and I'll take a look with the drone — free, honest,
+> no pressure. Keeping your home safe is No Big Deal. — Joe
+
+**Week 2 — job post (fill in the details)**
+> Just wrapped a full roof replacement in [TOWN], OH — complete tear-off, decking
+> inspection, new GAF Timberline in [COLOR]. [ONE SENTENCE about something real from
+> the job — "found two soft spots in the decking the old roof was hiding" beats any
+> slogan.] Homeowner's insurance covered [what it covered], and we handled the claim
+> paperwork start to finish. 📸 photos below.
+
+**Week 3 — education**
+> "Do I need a whole new roof or just a repair?" — the question I get most. Honest
+> answer: probably a repair, if we catch it early. A cracked pipe boot or a few
+> wind-lifted shingles is a couple-hundred-dollar fix, not a five-figure roof. That's
+> why the inspection is free and the answer is straight. If repair is the right call,
+> that's what I'll tell you.
+
+**Week 4 — proof/thanks**
+> [COUNT] roofs and counting across Clermont, Warren, Hamilton and Northern Kentucky
+> this season — and every single one got the same deal: I show up, I get on the roof,
+> you get the truth. To everyone who's left a review or passed my number to a
+> neighbor: thank you. That's the whole business model. — Joe
+
+**Every post:** attach 1–3 real job photos, set the button to "Call now" or link
+`nobigdealwithjoedeal.com/inspect`. Post them Tuesday or Wednesday mornings.
