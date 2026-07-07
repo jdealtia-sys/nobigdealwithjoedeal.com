@@ -465,6 +465,14 @@ exports.anniversaryAutoTouch = anniversaryTouch.anniversaryAutoTouch;
 const referrals = require('./referrals');
 exports.submitReferral = referrals.submitReferral;
 
+// Referral-CODE redemption + $200 bonus crediting on close. A single
+// leads/{leadId} onWrite trigger: attributes a redeemed code to its referrer,
+// then records the bonus as OWED when the referred project closes. Self-
+// exports its trigger (literal onDocumentWritten for the CI allowlist), so
+// merge the whole module — same pattern as lead-bridge above.
+const referralRewards = require('./referral-rewards');
+Object.assign(exports, referralRewards);
+
 // ═══════════════════════════════════════════════════════════════
 // VISUALIZER IMAGE GENERATION — Gemini 2.5 Flash Image
 // ═══════════════════════════════════════════════════════════════

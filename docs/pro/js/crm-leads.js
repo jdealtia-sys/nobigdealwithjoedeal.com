@@ -109,7 +109,7 @@ function closeLeadModal(){
   hide('mErr'); hide('mOk');
 
   ['lFname','lLname','lAddr','lPhone','lEmail','lNotes',
-   'lJobValue','lFollowUp','lInsCarrier'].forEach(setVal);
+   'lJobValue','lFollowUp','lInsCarrier','lReferralCode'].forEach(setVal);
 
   const editId = document.getElementById('lEditId'); if(editId) editId.value='';
   const title = document.getElementById('leadModalTitle'); if(title) title.textContent='Add Lead';
@@ -203,6 +203,10 @@ async function saveLead(){
       subType: document.getElementById('lSubType')?.value || '',
       trades: (typeof window.getSelectedTrades === 'function') ? window.getSelectedTrades() : [],
       source: document.getElementById('lSource')?.value || '',
+      // Referral-code redemption: the code this lead was referred with (if any).
+      // Stamped raw + uppercased; the server-side onReferralLeadWrite trigger
+      // resolves it to the referrer and credits the $200 bonus on close.
+      redeemReferralCode: document.getElementById('lReferralCode')?.value?.trim().toUpperCase() || '',
       damageType: document.getElementById('lDamageType')?.value||'',
       claimStatus: document.getElementById('lClaimStatus')?.value||'No Claim',
       jobValue: parseFloat(document.getElementById('lJobValue')?.value)||0,

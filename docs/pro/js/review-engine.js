@@ -225,58 +225,14 @@
     window.open(`sms:${phone}?body=${body}`, '_self');
   }
 
-  /**
-   * Track a referral — called when a new lead mentions a referral code
-   */
-  async function trackReferral(newLeadId, referralCode) {
-    if (!window.db || !window._user || !referralCode) return;
-
-    try {
-      // Look up the referral record
-      const snap = await window.getDocs(window.query(
-        window.collection(window.db, 'referrals'),
-        window.where('code', '==', referralCode.toUpperCase()),
-        window.where('userId', '==', window._user.uid)
-      ));
-
-      if (snap.empty) {
-        if (typeof showToast === 'function') showToast('Referral code not found', 'error');
-        return false;
-      }
-
-      const refDoc = snap.docs[0];
-      await window.updateDoc(window.doc(window.db, 'referrals', refDoc.id), {
-        referredLeads: window.arrayUnion(newLeadId)
-      });
-
-      // Update new lead with referral info
-      await window.updateDoc(window.doc(window.db, 'leads', newLeadId), {
-        referredBy: referralCode,
-        referrerLeadId: refDoc.data().referrerLeadId
-      });
-
-      // Create notification for the referral
-      const referrerLead = (window._leads || []).find(l => l.id === refDoc.data().referrerLeadId);
-      const referrerName = referrerLead ? ((referrerLead.firstName || '') + ' ' + (referrerLead.lastName || '')).trim() : 'A customer';
-
-      await window.addDoc(window.collection(window.db, 'notifications'), {
-        userId: window._user.uid,
-        leadId: newLeadId,
-        type: 'referral',
-        title: '🎁 New Referral!',
-        message: `${referrerName} referred a new lead (code: ${referralCode})`,
-        read: false,
-        dismissed: false,
-        createdAt: window.serverTimestamp()
-      });
-
-      if (typeof showToast === 'function') showToast(`Referral tracked — referred by ${referrerName}`, 'ok');
-      return true;
-    } catch(e) {
-      console.error('Referral tracking failed:', e);
-      return false;
-    }
-  }
+  // Referral attribution + the $200-bonus crediting-on-close moved SERVER-SIDE
+  // to functions/referral-rewards.js (onReferralLeadWrite). Intake now just
+  // stamps `redeemReferralCode` on the lead (rep Add/Edit Lead modal or the
+  // public /inspect form) and the trigger resolves the code to its referrer
+  // and records the bonus as owed when the project closes. The old client-side
+  // trackReferral() that lived here had ZERO callers and no crediting path, so
+  // the $200 promised in sendReferralSMS was unbacked — removed to avoid a
+  // second, drifting attribution lane.
 
   /**
    * Get referral stats for dashboard
@@ -305,7 +261,6 @@
     checkAutoReviews: checkAutoReviewRequests,
     assignReferralCode,
     sendReferralSMS,
-    trackReferral,
     getReferralStats
   };
 

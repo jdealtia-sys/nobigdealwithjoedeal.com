@@ -129,7 +129,13 @@ exports.integrationStatus = onCall(
 // only marketing-attribution UTMs + HTTP referrer pass through; add
 // to the allowlist deliberately when a real need appears.
 const PUBLIC_LEAD_OPTIONAL_DEFAULTS = [
-  'utm_source', 'utm_medium', 'utm_campaign', 'referrer'
+  'utm_source', 'utm_medium', 'utm_campaign', 'referrer',
+  // Referral-code self-redemption: a friend who was texted a customer's
+  // personal code (e.g. JOHN-AB12) can enter it on any public form. It flows
+  // through lead-bridge onto the CRM lead as `redeemReferralCode`, where the
+  // onReferralLeadWrite trigger resolves it and credits the $200 bonus on
+  // close. Capped short below (maxLen.referralCode) on every kind.
+  'referralCode'
 ];
 
 const PUBLIC_LEAD_KINDS = {
@@ -209,6 +215,11 @@ const PUBLIC_LEAD_KINDS = {
     optional: [...PUBLIC_LEAD_OPTIONAL_DEFAULTS, 'email', 'story', 'photoCount', 'photoNames']
   }
 };
+
+// Bound the shared `referralCode` optional to a short cap on every kind (codes
+// are ~12 chars; the redemption trigger validates + uppercases). Without a
+// per-key maxLen the optional-field loop would fall back to the generic 500.
+for (const spec of Object.values(PUBLIC_LEAD_KINDS)) { spec.maxLen.referralCode = 32; }
 
 const { verifyTurnstile } = require('../integrations/turnstile');
 const { SECRETS: INT_SECRETS } = require('../integrations/_shared');

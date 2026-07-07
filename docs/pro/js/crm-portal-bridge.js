@@ -486,6 +486,7 @@ function editLead(id){
     window.setSelectedTrades(Array.isArray(l.trades) ? l.trades : []);
   }
   setV('lSource',l.source||'Door Knock');
+  setV('lReferralCode', l.redeemReferralCode||'');
   setV('lDamageType',l.damageType||'');
   setV('lClaimStatus',l.claimStatus||'No Claim');
   setV('lJobValue',l.jobValue||'');
