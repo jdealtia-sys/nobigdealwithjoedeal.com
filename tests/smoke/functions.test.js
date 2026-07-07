@@ -993,6 +993,11 @@ section('F2 / M3: webhooks fail closed (every HTTP webhook signed)');
     /secrets:\s*\[[^\]]*AI_ANTHROPIC_KEY[^\]]*\]/.test(sms));
   assert('incomingSMS calls generateAIDraft after lead match',
     /await\s+generateAIDraft\(\{[\s\S]{0,300}leadId[\s\S]{0,300}incomingNoteId/.test(sms));
+  // Inbound-SMS rep push was gated on lead.assignedTo, which no lead-write
+  // path ever sets → the notification was dead. It must fall back to the
+  // lead's owner (userId) so a rep actually hears their customer replied.
+  assert('incomingSMS push falls back to lead.userId when assignedTo is unset',
+    /lead\.assignedTo \|\| lead\.userId/.test(sms) && /notifyUid/.test(sms));
 
   // M3: measurementWebhook completed the sweep — ensure the fix sticks.
   const m = read(path.join(FUNCTIONS, 'integrations/measurement.js'));
