@@ -146,6 +146,10 @@ exports.validateAccessCode = portalHandlersInline.validateAccessCode;
 // companyProfile seed + owner claims). See handlers/provisioning.js.
 const provisioningHandlers = require('./handlers/provisioning');
 exports.createCompany = provisioningHandlers.createCompany;
+// Global customer-ID prefix reservation (docPrefixes/{PREFIX}). The only writer
+// of brand.docPrefix/seal + the registry; closes the cross-tenant referral
+// misroute. See handlers/provisioning.js:reserveCompanyPrefix.
+exports.reserveCompanyPrefix = provisioningHandlers.reserveCompanyPrefix;
 
 // PILLAR1 Phase 3 — team invites, de-GCIP'd (claim on first dashboard
 // load instead of the never-deployable onRepSignup blocking trigger).

@@ -379,7 +379,9 @@ async function loadCustomerData(id) {
             nextNum = (counterSnap.data().next || 0) + 1;
           }
           transaction.set(counterRef, { next: nextNum }, { merge: true });
-          return _pfx + '-' + String(nextNum).padStart(4, '0');
+          return (typeof window._formatCustomerId === 'function')
+            ? window._formatCustomerId(_pfx, nextNum, _cid)
+            : _pfx + '-' + String(nextNum).padStart(4, '0');
         });
         await updateDoc(doc(db, 'leads', id), { customerId: newId });
         lead.customerId = newId;

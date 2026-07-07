@@ -70,6 +70,17 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
     }
 
+    // A tenant's customer-ID prefix (brand.docPrefix) + its display twin
+    // (brand.seal) are set ONLY by the reserveCompanyPrefix callable (admin SDK)
+    // after it atomically claims docPrefixes/{PREFIX}. They must be immutable to
+    // client writes — else a tenant could pick a prefix already reserved by
+    // another company, and the public referral endpoint (resolves a lead by
+    // exact customerId match) would misroute a homeowner's PII into the wrong
+    // tenant's CRM. .get() on both the map and the key so an absent brand map or
+    // key returns null instead of throwing.
+    function brandPrefix(d) { return d.get('brand', {}).get('docPrefix', null); }
+    function brandSeal(d)   { return d.get('brand', {}).get('seal', null); }
+
     // Parent-lead company check for lead SUBCOLLECTION reads: the caller
     // is a company reader (see isCompanyReader) and the PARENT lead
     // belongs to their tenant — so a manager opening a teammate's
@@ -657,8 +668,47 @@ service cloud.firestore {
       // asserts a same-tenant sales_rep CAN write own config (it encodes the
       // desired behaviour), so role-restricting writes is a PRODUCT decision,
       // not a security fix. Left open per that tested design intent.
-      allow read, write: if isAuth()
-        && (companyId == myCompanyId() || companyId == request.auth.uid);
+      // Same-tenant scope gate (unchanged): key by companyId claim, or by uid
+      // for solo operators (companyId == uid convention).
+      function cpScoped() {
+        return isAuth() && (companyId == myCompanyId() || companyId == request.auth.uid);
+      }
+      allow read: if cpScoped();
+      // create: a client may NOT seed a docPrefix/seal — those come from the
+      // reserveCompanyPrefix callable only (both must be absent/null here).
+      allow create: if cpScoped()
+        && brandPrefix(request.resource.data) == null
+        && brandSeal(request.resource.data) == null;
+      // update: a client may write anything EXCEPT introducing or changing
+      // docPrefix/seal. A deep-merge that doesn't touch them carries the existing
+      // value forward (request == resource) and passes; only the admin SDK (which
+      // bypasses rules) can actually set/rotate them.
+      allow update: if cpScoped()
+        && brandPrefix(request.resource.data) == brandPrefix(resource.data)
+        && brandSeal(request.resource.data) == brandSeal(resource.data);
+      // delete: preserve the prior capability (write included delete). Deleting
+      // the profile does NOT release the docPrefixes/{PREFIX} reservation (that's
+      // admin-SDK-only), so it can't be abused to free a prefix for collision.
+      allow delete: if cpScoped();
+    }
+
+    // ── DOC-PREFIX REGISTRY (global customer-ID prefix uniqueness) ─────
+    // docPrefixes/{PREFIX} → { companyId } is the authoritative claim that a
+    // customer-ID prefix (e.g. 'OAK') belongs to exactly ONE tenant, platform-
+    // wide. Prefixes were previously first-come-first-served PER TENANT with no
+    // cross-tenant check (onboarding validated only the /^[A-Z0-9]{2,4}$/ shape
+    // and reserved the literal 'NBD'), so two self-serve tenants that derived
+    // the same seal (deriveSeal is company-name initials) each minted 'OAK-0001'
+    // — and the public referral endpoint, which finds a lead by unscoped
+    // customerId match, could then drop a friend's lead into the WRONG tenant's
+    // CRM. Reservations are written ONLY by the reserveCompanyPrefix callable
+    // (admin SDK) inside a transaction that first checks the doc is free; the
+    // migration functions/migrate-docprefixes.js seeds the existing tenants.
+    // Reads are open to authed users so onboarding can show availability; all
+    // writes are denied to clients (admin SDK bypasses rules).
+    match /docPrefixes/{prefix} {
+      allow read: if isAuth();
+      allow write: if false;
     }
 
     // ── SUBSCRIPTIONS ─────────────────────────────────

@@ -52,6 +52,30 @@ function loadCompanyProfile() {
   ok('no-docPrefix tenant → prefix falls back to NBD', win._custIdPrefix() === 'NBD');
   ok('no-docPrefix tenant → legacy counter (no blank-prefix mint)', win._custCounterId('someco') === 'customerIds');
 
+  // ── Customer-ID salt (defense-in-depth against prefix collision) ──
+  console.log('\nCustomer-ID salt + formatter (client)');
+  ok('_custIdSalt is a function', typeof win._custIdSalt === 'function');
+  ok('_formatCustomerId is a function', typeof win._formatCustomerId === 'function');
+  ok('salt is 4 upper-alnum chars', /^[0-9A-Z]{4}$/.test(win._custIdSalt('oaks')));
+  ok('salt is deterministic', win._custIdSalt('oaks') === win._custIdSalt('oaks'));
+  ok('salt differs per companyId', win._custIdSalt('oaks') !== win._custIdSalt('acme'));
+
+  console.log('\n_formatCustomerId — NBD stays byte-identical (legacy), non-NBD is salted');
+  ok('NBD → un-salted NBD-0001', win._formatCustomerId('NBD', 1, 'anything') === 'NBD-0001');
+  ok('NBD → un-salted NBD-0042', win._formatCustomerId('NBD', 42, 'anything') === 'NBD-0042');
+  ok('OAK → salted OAK-0001-<salt>', win._formatCustomerId('OAK', 1, 'oaks') === 'OAK-0001-' + win._custIdSalt('oaks'));
+  ok('salt binds to companyId (same seq+prefix, different company → different ID)',
+    win._formatCustomerId('OAK', 1, 'oaks') !== win._formatCustomerId('OAK', 1, 'acme'));
+
+  // ── Client ⇄ server parity — the two mint paths MUST agree byte-for-byte ──
+  console.log('\nClient ⇄ server salt parity (functions/customer-id.js)');
+  const srv = require('../functions/customer-id');
+  ok('salt parity: oaks', win._custIdSalt('oaks') === srv.custIdSalt('oaks'));
+  ok('salt parity: a long uid', win._custIdSalt('1phDvAVXHSg82wDLegAbQFq14Ci1') === srv.custIdSalt('1phDvAVXHSg82wDLegAbQFq14Ci1'));
+  ok('salt parity: empty', win._custIdSalt('') === srv.custIdSalt(''));
+  ok('format parity: NBD-0001', win._formatCustomerId('NBD', 1, 'x') === srv.formatCustomerId('NBD', 1, 'x'));
+  ok('format parity: OAK-0007', win._formatCustomerId('OAK', 7, 'oaks') === srv.formatCustomerId('OAK', 7, 'oaks'));
+
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);
   if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }

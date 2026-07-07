@@ -33,6 +33,7 @@ const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { CORS_ORIGINS } = require('./_shared');
 const { callableRateLimit } = require('../shared');
+const { validateSeal, decideReservation } = require('../prefix-reservation');
 
 // Mirror of functions/stripe.js mergeCustomClaims — setCustomUserClaims
 // replaces the whole claim set, so read-merge-write to avoid wiping the
@@ -143,4 +144,117 @@ exports.createCompany = onCall(
   }
 );
 
-exports._test = { validateCompanyInput };
+// ═════════════════════════════════════════════════════════════════
+// reserveCompanyPrefix — atomically claim a GLOBALLY-UNIQUE customer-ID
+// prefix (seal) for the caller's tenant.
+// ═════════════════════════════════════════════════════════════════
+//
+// Why this exists: customer IDs are 'PREFIX-####' (e.g. 'OAK-0001'), minted
+// from a PER-TENANT counter that starts at 1. The prefix used to be chosen
+// client-side with only a format check + a reserved 'NBD' literal — nothing
+// stopped two self-serve tenants from both deriving the seal 'OAK' and each
+// minting 'OAK-0001'. The public referral endpoint (functions/referrals.js)
+// resolves the source customer by an UNSCOPED `where('customerId','==',ref)`,
+// so a colliding prefix would silently drop a homeowner's PII lead into the
+// WRONG tenant's CRM and notify the wrong rep. Making prefixes globally unique
+// makes every customerId globally unique, which closes that misroute at the root.
+//
+// This callable is the ONLY writer of brand.docPrefix / brand.seal (firestore
+// rules make them client-immutable) and of docPrefixes/{PREFIX} (rules deny all
+// client writes). It reserves the prefix in a transaction: free → claim it +
+// stamp the profile; already yours → idempotent no-op; taken by someone else →
+// rejected. A tenant that already owns a different prefix is refused (rotating a
+// prefix would strand every existing customerId minted under the old one).
+// validateSeal + decideReservation live in ../prefix-reservation (pure, unit-
+// tested); this callable just wires them to the Firestore transaction I/O.
+exports.reserveCompanyPrefix = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (request) => {
+    const uid = request.auth && request.auth.uid;
+    if (!uid) throw new HttpsError('unauthenticated', 'Not authenticated');
+    await callableRateLimit(request, 'reserveCompanyPrefix', 10, 3_600_000);
+
+    // Invited reps belong to their inviter's tenant — only the owner sets the
+    // company prefix. companyId == uid for solo owners (the standard convention).
+    const claimCompany = request.auth.token.companyId;
+    if (claimCompany && claimCompany !== uid) {
+      throw new HttpsError('failed-precondition',
+        'Only the company owner can set the customer-ID prefix.');
+    }
+    const companyId = claimCompany || uid;
+
+    const v = validateSeal(request.data && request.data.seal);
+    if (v.error) throw new HttpsError('invalid-argument', v.error);
+    const seal = v.seal;
+
+    const db = getFirestore();
+    const prefixRef = db.doc(`docPrefixes/${seal}`);
+    const profileRef = db.doc(`companyProfile/${companyId}`);
+    const now = FieldValue.serverTimestamp();
+
+    let result;
+    try {
+      result = await db.runTransaction(async (tx) => {
+        // Reads first (transaction rule): the registry slot + this tenant's
+        // currently-reserved prefix (if any).
+        const [prefixSnap, profileSnap] = await Promise.all([
+          tx.get(prefixRef),
+          tx.get(profileRef),
+        ]);
+
+        const decision = decideReservation({
+          prefixExists: prefixSnap.exists,
+          prefixOwner: (prefixSnap.data() || {}).companyId,
+          existingPrefix: ((profileSnap.data() || {}).brand || {}).docPrefix,
+          companyId,
+          seal,
+        });
+
+        if (decision.action === 'reject') {
+          if (decision.code === 'already-exists') {
+            // Held by a different tenant — exactly the collision we block.
+            throw new HttpsError('already-exists',
+              'Those initials are already in use by another company. Please choose different initials.');
+          }
+          // Rotating a prefix would strand every customerId minted under the old
+          // one (and orphan its registry entry).
+          throw new HttpsError('failed-precondition',
+            'Your company already has a customer-ID prefix set; it cannot be changed here.');
+        }
+
+        if (decision.action === 'idempotent') {
+          // Already ours. Re-stamp the profile defensively (a partial earlier run
+          // could have written the registry but not the profile) and return.
+          tx.set(profileRef, { brand: { docPrefix: seal, seal } }, { merge: true });
+          return { reserved: false, seal, alreadyOwned: true };
+        }
+
+        // action === 'claim' — free slot.
+        tx.set(prefixRef, {
+          companyId,
+          seal,
+          reservedVia: 'reserveCompanyPrefix',
+          reservedBy: uid,
+          reservedAt: now,
+        });
+        tx.set(profileRef, { brand: { docPrefix: seal, seal } }, { merge: true });
+        return { reserved: true, seal };
+      });
+    } catch (e) {
+      if (e instanceof HttpsError) throw e;
+      logger.error('reserveCompanyPrefix_txn_failed', { uid, seal, err: e.message });
+      throw new HttpsError('internal', 'Could not reserve your prefix. Try again.');
+    }
+
+    logger.info('reserveCompanyPrefix_done', { uid, companyId, seal, reserved: result.reserved });
+    return result;
+  }
+);
+
+exports._test = { validateCompanyInput, validateSeal, decideReservation };
