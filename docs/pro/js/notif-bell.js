@@ -447,6 +447,37 @@
       if (it) items.push(it);
     });
 
+    // ── Same-lead dedupe: follow_up vs derived overdue/stale (2026-07-07) ──
+    // A lead with an active (non-dismissed) server `follow_up` notice
+    // ("Overdue Follow-Up — Name", written by crm-snooze's engine) already
+    // tells the rep "this lead is overdue, go work it". The DERIVED
+    // overdue-task / task-today / stale-lead rows for that SAME lead say
+    // the same thing from a different data source, so showing both is the
+    // bell-doubling noise. Drop the derived rows and keep the server one —
+    // it's the clearable, persistent nudge, and clicking it lands the rep
+    // on the lead where the specific tasks live.
+    //
+    // Deliberately NOT suppressed: fresh-view (customer engaged right now),
+    // snooze-expired (state transition), stale-estimate (estimate-specific)
+    // — distinct, non-redundant signals. Dedupe only keys off follow_up
+    // (not needs_field, which names the exact missing fields).
+    const followUpLeadIds = new Set(
+      items
+        .filter(it => it._source === 'server' && it.type === 'follow_up' && !it._dismissed && it.leadId)
+        .map(it => it.leadId)
+    );
+    if (followUpLeadIds.size) {
+      const REDUNDANT_WITH_FOLLOWUP = new Set(['overdue-task', 'task-today', 'stale-lead']);
+      for (let i = items.length - 1; i >= 0; i--) {
+        const it = items[i];
+        if (it._source !== 'server'
+            && REDUNDANT_WITH_FOLLOWUP.has(it.type)
+            && it.leadId && followUpLeadIds.has(it.leadId)) {
+          items.splice(i, 1);
+        }
+      }
+    }
+
     // Wave 138: enrich each item with the lead's W135 unified score
     // before sorting. Items tied to a leadId inherit that lead's
     // score so the bell tracks the same priority signal as the
