@@ -129,6 +129,12 @@ test('dashboard-actions-audit @audit', async ({ page }) => {
     const TOGGLES = typeof _NBD_TOGGLE_FNS !== 'undefined' ? _NBD_TOGGLE_FNS : null;
     const CLOSES = typeof _NBD_MODAL_CLOSE_FNS !== 'undefined' ? _NBD_MODAL_CLOSE_FNS : null;
     const ALLOW = typeof _NBD_CALL_ALLOWLIST !== 'undefined' ? _NBD_CALL_ALLOWLIST : null;
+    // Tranche 2c: converted modules register handlers in
+    // window.__NBD_CALL_REGISTRY instead of window+allowlist; mirror the
+    // dispatcher's registry-FIRST resolution (_nbdResolveCall) or every
+    // converted name audits as a false DEAD.
+    const REG = window.__NBD_CALL_REGISTRY || null;
+    const registered = (name) => !!(REG && typeof REG[name] === 'function');
 
     // actions implemented by dashboard-ui.js's delegate
     const UI_ACTIONS = new Set(['call','clickProxy','closeModal','closeOpen','crmToolsMenu','docgen','filterByStage','goTo','hideEl','kanbanView','mapOverlay','mapSidebar','mobileNav','modalBackdropClose','module','navSection','newEstimate','peBulkAnalyze','peDeletePhoto','peOpenLightbox','peRemove','peStagePhoto','peTagToggle','reload','removeClosest','removeParent','removeSelf','selLineType','selectPin','settingsTab','signOut','stopProp','toggle','toolMenuGoTo','tradeChip','windowOpen','zoneColor']);
@@ -187,8 +193,9 @@ test('dashboard-actions-audit @audit', async ({ page }) => {
             else if (!has(CLOSES[target])) { status = 'DEAD'; why = 'window.' + CLOSES[target] + ' missing'; }
             break;
           case 'call':
+            if (registered(fn)) break; // registry-first, same as _nbdResolveCall
             if (!ALLOW) { status = 'DEAD'; why = '_NBD_CALL_ALLOWLIST unreachable'; }
-            else if (!ALLOW.has(fn)) { status = 'DEAD'; why = '"' + fn + '" not in _NBD_CALL_ALLOWLIST'; }
+            else if (!ALLOW.has(fn)) { status = 'DEAD'; why = '"' + fn + '" not registered in __NBD_CALL_REGISTRY nor in _NBD_CALL_ALLOWLIST'; }
             else if (!has(fn)) { status = 'DEAD'; why = 'window.' + fn + ' is not a function'; }
             break;
           case 'module': {
@@ -221,7 +228,8 @@ test('dashboard-actions-audit @audit', async ({ page }) => {
       const sig = ['on-change', fnName, view].join('|');
       if (seen.has(sig)) { seen.get(sig).count++; return; }
       let status = 'ok'; let why = '';
-      if (ALLOW && !ALLOW.has(fnName)) { status = 'DEAD'; why = '"' + fnName + '" not in _NBD_CALL_ALLOWLIST'; }
+      if (registered(fnName)) { /* registry-first, same as _nbdResolveCall */ }
+      else if (ALLOW && !ALLOW.has(fnName)) { status = 'DEAD'; why = '"' + fnName + '" not registered in __NBD_CALL_REGISTRY nor in _NBD_CALL_ALLOWLIST'; }
       else if (typeof window[fnName] !== 'function') { status = 'DEAD'; why = 'window.' + fnName + ' is not a function'; }
       const entry = { action: 'data-on-change/input', target: '', fn: fnName, view, label: (el.id || el.name || ''), status, why, count: 1 };
       seen.set(sig, entry); results.push(entry);
