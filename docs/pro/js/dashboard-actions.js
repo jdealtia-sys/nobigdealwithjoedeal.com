@@ -893,11 +893,10 @@ if(typeof closeTips!=='undefined') window.closeTips = closeTips;
 if(typeof applyTheme!=='undefined') window.applyTheme = applyTheme;
 if(typeof goToWithTheme!=='undefined') window.goToWithTheme = goToWithTheme;
 if(typeof showToast!=='undefined') window.showToast = showToast;
-// Daily settings - defined later in this file
-if(typeof dsAddFloor!=='undefined') window.dsAddFloor = dsAddFloor;
-if(typeof dsRemoveFloor!=='undefined') window.dsRemoveFloor = dsRemoveFloor;
-if(typeof dsSaveConfig!=='undefined') window.dsSaveConfig = dsSaveConfig;
-if(typeof dsResetDefaults!=='undefined') window.dsResetDefaults = dsResetDefaults;
+// Daily settings — the ds* cluster is IIFE-wrapped (Globals Tranche 2c-4d,
+// 2026-07-07); its window exports moved INSIDE that IIFE (dsRemoveFloor stays,
+// the rest go to the registry). This load-time typeof block would read
+// 'undefined' post-wrap (the decls are module-local now), so it is gone.
 // NBD Unified Appearance Picker - in maps.js or dashboard
 if(typeof nbdPickerOpen!=='undefined') window.nbdPickerOpen = nbdPickerOpen;
 if(typeof nbdPickerClose!=='undefined') window.nbdPickerClose = nbdPickerClose;
@@ -927,8 +926,17 @@ if(typeof renderLeaderboard!=='undefined') window.renderLeaderboard = renderLead
 // ══════════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════
-// DAILY PROGRAM — config logic (load/save/reset/floors)
+// DAILY PROGRAM — config logic — Globals Tranche 2c-4d (2026-07-07)
 // ══════════════════════════════════════════════
+// The cluster AND its callers (the goTo settings-hook + the DOMContentLoaded
+// handler, both of which call dsLoadConfig) are wrapped in this one IIFE so the
+// internal helpers (dsGetConfig/dsLoadConfig/dsDefaultFloors) go module-local.
+// dsAddFloor/dsSaveConfig/dsResetDefaults register in __NBD_CALL_REGISTRY;
+// dsRemoveFloor keeps a window re-export (bare-called at dashboard-ui.js:2208).
+// Shared state (dsFloors, DS_* consts) lives in dashboard-state.js up-scope and
+// dsRenderFloors/dsBuildThemeGrid in dashboard-ui.js — all resolve up-scope,
+// unaffected by the wrap. See docs/dev/dashboard-actions-globals-audit.md.
+(function () {
 function dsGetConfig() {
   try { return JSON.parse(localStorage.getItem(DS_NBD_CFG)) || null; } catch { return null; }
 }
@@ -1064,6 +1072,18 @@ document.addEventListener('DOMContentLoaded', () => {
     restoreSettingsSections();
   }
 });
+
+  // dsRemoveFloor is bare-called from dashboard-ui.js:2208 (the floor-row delete
+  // button) — MUST keep a window export. The other three convert to the registry;
+  // dsGetConfig/dsLoadConfig/dsDefaultFloors are private (intra-IIFE callers only).
+  window.dsRemoveFloor = dsRemoveFloor;
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    dsAddFloor: dsAddFloor,
+    dsSaveConfig: dsSaveConfig,
+    dsResetDefaults: dsResetDefaults,
+  });
+})();
 
 // ══════════════════════════════════════════════
 // MOBILE JOB-DETAIL / CREATE-POPOVER CLUSTER — Globals Tranche 2c-4b (2026-07-07)
@@ -1479,6 +1499,14 @@ window.absoluteDeleteProspect = async function(leadId) {
 // This eliminates the "data doesn't load even when leads loaded in
 // kanban" failure mode on iOS Safari, where the second page load's
 // Firestore connection sometimes hangs.
+// ── Globals Tranche 2c-4e (2026-07-07): the customer-page handoff cluster is
+// wrapped in this IIFE. The 4 openers register in __NBD_CALL_REGISTRY;
+// _stashLeadForCustomerPage keeps its window export (7 typeof-guarded widget
+// callers: activity-feed, almost-there, global-search, hot-leads,
+// smart-followup-briefing, stale-shares, dashboard-bootstrap.module).
+// editCardDetails' bare editLead/closeCardDetailModal resolve up-scope via the
+// global object. See docs/dev/dashboard-actions-globals-audit.md.
+(function () {
 function _stashLeadForCustomerPage(leadId) {
   try {
     if (!leadId || !Array.isArray(window._leads)) return;
@@ -1509,28 +1537,35 @@ function openPhotosForLead() {
   _stashLeadForCustomerPage(window._cardDetailLeadId);
   window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}#photos`;
 }
-window.openPhotosForLead = openPhotosForLead;
 
 function openDocsForLead() {
   if (!window._cardDetailLeadId) return;
   _stashLeadForCustomerPage(window._cardDetailLeadId);
   window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}#documents`;
 }
-window.openDocsForLead = openDocsForLead;
 
 function openFullCustomerDetails() {
   if (!window._cardDetailLeadId) return;
   _stashLeadForCustomerPage(window._cardDetailLeadId);
   window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}`;
 }
-window.openFullCustomerDetails = openFullCustomerDetails;
 
 function editCardDetails() {
   if (!window._cardDetailLeadId) return;
   closeCardDetailModal();
   editLead(window._cardDetailLeadId);
 }
-window.editCardDetails = editCardDetails;
+
+  // _stashLeadForCustomerPage keeps its window export above (7 widget callers).
+  // The 4 openers are markup-only → registry, off window.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    openPhotosForLead: openPhotosForLead,
+    openDocsForLead: openDocsForLead,
+    openFullCustomerDetails: openFullCustomerDetails,
+    editCardDetails: editCardDetails,
+  });
+})();
 
 
 (function(){if(_NBD_DA_DELEGATE)return;_NBD_DA_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-da-action]');if(!t)return;if(t.dataset.daAction==='reload')window.location.reload();});})();

@@ -2645,6 +2645,16 @@ section('Globals Tranches 0+1: converted names stay off window');
     'openInspectionBuilderCurrentLead', 'closeInspectionBuilder',
     'hideFollowUpAlerts', 'goToD2DFromMaps', 'openCalBookingUrl',
     'hardResetTest', 'gstaticTest', 'modeLineDraw',
+    // Tranche 2c-4d (2026-07-07): daily-program ds* cluster IIFE-wrapped. These
+    // 6 are off window (3 registered + 3 private). NOT here: dsRemoveFloor
+    // (keeps window.dsRemoveFloor — dashboard-ui.js:2208 bare call).
+    'dsGetConfig', 'dsLoadConfig', 'dsDefaultFloors',
+    'dsAddFloor', 'dsSaveConfig', 'dsResetDefaults',
+    // Tranche 2c-4e (2026-07-07): customer-page handoff cluster IIFE-wrapped.
+    // The 4 openers are off window (registered). NOT here:
+    // _stashLeadForCustomerPage (keeps window export — 7 widget callers).
+    'openPhotosForLead', 'openDocsForLead', 'openFullCustomerDetails',
+    'editCardDetails',
     // Tranche 2b (2026-07-06): widgets.js radar-map handle + task
     // checkbox handler (delegate calls the bare fn), tasks.js checkTask
     // export (only caller is its own data-tk-action delegate).
@@ -3031,6 +3041,45 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('dashboard-actions no longer defines window.' + n + ' (2c-4c off window)',
       !new RegExp('window\\.' + n + '\\s*=\\s*function').test(dashActions));
   }
+
+  // ── Tranche 2c-4d: the dashboard-actions.js daily-program config cluster ──
+  // Cluster + its callers (goTo settings-hook + DOMContentLoaded handler)
+  // IIFE-wrapped. 3 registered; dsRemoveFloor WINDOW_ONLY (bare-called at
+  // dashboard-ui.js:2208); 3 helpers private. The load-time typeof-guarded
+  // ds* re-export block is deleted (would read undefined post-wrap).
+  const T2C4D_REG = ['dsAddFloor', 'dsSaveConfig', 'dsResetDefaults'];
+  for (const n of T2C4D_REG) {
+    assert('dashboard-actions registers ' + n + ' in __NBD_CALL_REGISTRY (2c-4d)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(daRegBlock));
+    assert('allowlist no longer carries ' + n + ' (2c-4d — registry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('dashboard-actions no longer defines window.' + n + ' = ' + n + ' (2c-4d off window)',
+      !new RegExp('window\\.' + n + '\\s*=\\s*' + n + '\\b').test(dashActions));
+  }
+  assert('dashboard-actions keeps window.dsRemoveFloor re-export (dashboard-ui.js:2208 bare call)',
+    /window\.dsRemoveFloor = dsRemoveFloor;/.test(dashActions));
+  assert('the load-time typeof-guarded ds* re-export block is gone (2c-4d)',
+    !/typeof dsAddFloor!==/.test(dashActions) && !/typeof dsResetDefaults!==/.test(dashActions));
+  for (const n of ['dsGetConfig', 'dsLoadConfig', 'dsDefaultFloors']) {
+    assert(n + ' is private (2c-4d — not registered, not window-exported)',
+      !new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(daRegBlock)
+        && !new RegExp('window\\.' + n + '\\s*=').test(dashActions));
+  }
+
+  // ── Tranche 2c-4e: the dashboard-actions.js customer-page handoff cluster ──
+  // 4 openers registered + off window; _stashLeadForCustomerPage WINDOW_ONLY
+  // (7 typeof-guarded widget callers) keeps its export inside the wrap.
+  const T2C4E_REG = ['openPhotosForLead', 'openDocsForLead', 'openFullCustomerDetails', 'editCardDetails'];
+  for (const n of T2C4E_REG) {
+    assert('dashboard-actions registers ' + n + ' in __NBD_CALL_REGISTRY (2c-4e)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(daRegBlock));
+    assert('allowlist no longer carries ' + n + ' (2c-4e — registry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('dashboard-actions no longer defines window.' + n + ' = ' + n + ' (2c-4e off window)',
+      !new RegExp('window\\.' + n + '\\s*=\\s*' + n + '\\b').test(dashActions));
+  }
+  assert('dashboard-actions keeps window._stashLeadForCustomerPage re-export (7 widget callers)',
+    /window\._stashLeadForCustomerPage = _stashLeadForCustomerPage;/.test(dashActions));
 
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.

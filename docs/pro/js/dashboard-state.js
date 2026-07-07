@@ -194,9 +194,11 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'shareCalViaSMS', 'shareCalViaEmail', 'saveCalSettings',
   'qaUseMyLocation', 'saveQuickLead',
   'openLeadModal', 'openTaskModal', 'openShortcutsPanel', 'openQMImportModal',
-  'openPhotosForLead', 'openFullCustomerDetails', 'openDocsForLead',
+  // (openPhotosForLead, openFullCustomerDetails, openDocsForLead →
+  //  __NBD_CALL_REGISTRY, Tranche 2c-4e — off window)
   'openUploadDoc', 'openEstimateV2Builder',
-  'editCardDetails', 'confirmPropertyIntelPull',
+  // (editCardDetails → __NBD_CALL_REGISTRY, Tranche 2c-4e — off window)
+  'confirmPropertyIntelPull',
   'executePullPropertyIntel', 'pullIntelForModal', 'addTask',
   // Bulk operations — the toolbar handlers register in __NBD_CALL_REGISTRY
   // (crm-portal-bridge.js, Globals Tranche 2c-3), so they leave the
@@ -223,8 +225,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'saveCustomTheme', 'resetCustomTheme', 'resetSidebarCustomizer',
   // FAB / scoreboard tabs
   'fabToggle', 'switchScTab',
-  // Daily-success / floors config
-  'dsSaveConfig', 'dsResetDefaults', 'dsAddFloor',
+  // (Tranche 2c-4d 2026-07-07: dsAddFloor, dsSaveConfig, dsResetDefaults →
+  //  __NBD_CALL_REGISTRY, off window. dsRemoveFloor stays window-exported
+  //  (dashboard-ui.js bare call); ds* helpers are private. Do NOT re-add.)
   // (cancelDeleteConfirm moved into __NBD_CALL_REGISTRY — crm-portal-bridge.js,
   //  Globals Tranche 2c-3)
   // Settings page private setters (defensive: only fire if loaded)
