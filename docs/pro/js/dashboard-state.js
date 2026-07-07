@@ -230,9 +230,16 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'confirmPromoteProspect', 'runLeadAction', 'openLeadImport',
   // Quick-add flow
   'closeQuickAddLead',
-  // Card-detail action helpers (defined below, glue around _cardDetailLeadId)
-  'cdaReport', 'cdaEnrich', 'cdaPhotos', 'cdaInvoice', 'cdaInspection',
-  'cdaInspectionDeep',
+  // Card-detail action helpers (glue around _cardDetailLeadId): the 18-name
+  // cda* / chip-picker / _mCreatePhotoPicked cluster moved OFF window into an
+  // IIFE in dashboard-actions.js and registers in __NBD_CALL_REGISTRY (Globals
+  // Tranche 2c-4a, 2026-07-07); see docs/dev/dashboard-actions-globals-audit.md.
+  // Do NOT re-add these names — a stale window fallback would shadow-resurrect
+  // the global the tranche removed. Removed: cdaReport, cdaEnrich, cdaPhotos,
+  // cdaInvoice, cdaInspection, cdaInspectionDeep, cdaMjdAct, cdaEditLead,
+  // cdaOpenMobileInspection, cdaVoiceMemo, cdaOpenVoicemail, cdaSharePortalLink,
+  // cdaRevokePortalLink, cdaConfirmPromote, cdaOpenTaskModal, cdPickStage,
+  // cdPickType, _mCreatePhotoPicked.
   // Mobile-more compound rewrites
   'openDailyProgramFromMore',
   // Mobile create-popover routing
@@ -249,8 +256,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // entry made the button a silent no-op — the delegate gate at
   // dashboard-ui.js:492 returns for any data-fn not listed here.
   '_saveSiteSlug',
-  // Card-detail action wrappers (defined below)
-  'cdaMjdAct', 'cdaEditLead', 'cdaOpenMobileInspection', 'cdaVoiceMemo',
+  // (cdaMjdAct, cdaEditLead, cdaOpenMobileInspection, cdaVoiceMemo →
+  //  __NBD_CALL_REGISTRY, Tranche 2c-4a — see the cluster note above)
   // Draw / misc
   'undoLine', 'testFirestoreRules',
   // Quick-add ternary rewrite
@@ -258,11 +265,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // OnboardingTour / DecisionEngine / D2D / ThemeGX / settings ternary rewrites
   'restartOnboardingTour', 'openDecisionPicker', 'openD2DOrGo',
   'clearAccentTheme', 'openSettingsTab', 'openPhotoEngineOrClickProxy',
-  // Card-detail share/revoke/promote/task wrappers
-  'cdaSharePortalLink', 'cdaRevokePortalLink', 'cdaConfirmPromote',
-  'cdaOpenTaskModal',
-  // Wave 28: card-detail chip pickers (stage + classification quick-change)
-  'cdPickStage', 'cdPickType',
+  // (cdaSharePortalLink, cdaRevokePortalLink, cdaConfirmPromote, cdaOpenTaskModal,
+  //  cdPickStage, cdPickType → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
   // Compound rewrites for ~15 remaining one-off handlers
   'openReportGenerator', 'enrichReportData', 'openPhotoEngineCurrentLead',
   'openInspectionBuilderCurrentLead', 'closeInspectionBuilder',
@@ -272,8 +276,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'goTo',
   // step-3: smart-calendar refresh button
   'loadSmartCalendar',
-  // step-4: voicemail open-for-lead wrapper
-  'cdaOpenVoicemail',
+  // (cdaOpenVoicemail → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
   // ── CSP onchange/oninput sweep (Phase C.6) ──
   // The prefs-boot toggle wrappers that used to live here (Phase C.6:
   // toggleProfessionalMode, the nbdGx*/nbdComfortSet*/nbdSet*T families,
@@ -295,7 +298,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'filterPhotoLeads', 'handleDocUpload',
   'updateCalEmbed',
   'updateCertPreview', 'updatePropertyIntelCost', 'uploadPhotos',
-  '_mCreatePhotoPicked', 'nbdRenderThemes', 'nbdLiveCustom',
+  // (_mCreatePhotoPicked → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
+  'nbdRenderThemes', 'nbdLiveCustom',
   'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey',
   // Help tab — Hotkey Toggles grid (dashboard-hotkey-toggles.js); data-on-change delegate
   'toggleHotkey',

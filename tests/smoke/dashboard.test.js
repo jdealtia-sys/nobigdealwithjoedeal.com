@@ -1350,8 +1350,13 @@ section('Phase C.4 finale + C.5 — long-tail delegate + script-src tightening')
     /_NBD_CALL_ALLOWLIST\s*=\s*new Set\(\[/.test(mainJs),
     'expected _NBD_CALL_ALLOWLIST = new Set([...]) declaration');
 
-  // Spot-check that key wrappers exist as window globals.
-  for (const fn of ['cdaReport','cdaEnrich','cdaPhotos','cdaInvoice','cdaInspection','cdaInspectionDeep','cdaMjdAct','cdaEditLead','cdaOpenMobileInspection','cdaVoiceMemo','cdaSharePortalLink','cdaRevokePortalLink','cdaConfirmPromote','cdaOpenTaskModal','mCreateFabRoute','openDailyProgramFromMore','mQuickAddRoute','restartOnboardingTour','openDecisionPicker','openD2DOrGo','clearAccentTheme','openSettingsTab','openPhotoEngineOrClickProxy','openReportGenerator','enrichReportData','openPhotoEngineCurrentLead','openInspectionBuilderCurrentLead','closeInspectionBuilder','hideFollowUpAlerts','goToD2DFromMaps','openCalBookingUrl','hardResetTest','gstaticTest','modeLineDraw']) {
+  // Spot-check that key wrappers exist as window globals. NOTE: the 14 cda*
+  // card-detail wrappers that used to live here moved OFF window into an IIFE
+  // and register in __NBD_CALL_REGISTRY (Globals Tranche 2c-4a, 2026-07-07) —
+  // their off-window + registration guards now live in the "Globals Tranches
+  // 0+1" and "Globals Tranche 2c" sections below. The names left here are the
+  // not-yet-converted 2c-4b/2c-4c one-offs that are still window.X = function.
+  for (const fn of ['mCreateFabRoute','openDailyProgramFromMore','mQuickAddRoute','restartOnboardingTour','openDecisionPicker','openD2DOrGo','clearAccentTheme','openSettingsTab','openPhotoEngineOrClickProxy','openReportGenerator','enrichReportData','openPhotoEngineCurrentLead','openInspectionBuilderCurrentLead','closeInspectionBuilder','hideFollowUpAlerts','goToD2DFromMaps','openCalBookingUrl','hardResetTest','gstaticTest','modeLineDraw']) {
     assert('window.' + fn + ' defined',
       new RegExp('window\\.' + fn + '\\s*=\\s*function').test(mainJs),
       'expected window.' + fn + ' = function(...)');
@@ -2596,6 +2601,18 @@ section('Globals Tranches 0+1: converted names stay off window');
     'selectAllVisibleLeads', 'openDeletedDrawer', 'confirmDeleteLead',
     'cancelDeleteConfirm', 'bulkSnoozeLeads', 'bulkMoveStage', 'bulkDelete',
     'bulkAssignSource', 'bulkAssignJobType', 'bulkAssignDamage', 'bulkAssignCarrier',
+    // Tranche 2c-4a (2026-07-07): the dashboard-actions.js card-detail cluster
+    // — 18 cda* / chip-picker / mobile photo-picker wrappers consolidated into
+    // one IIFE and dispatched via __NBD_CALL_REGISTRY (see the "Globals Tranche
+    // 2c" section below). NOT here: the file's MUST-STAY names (goTo router,
+    // zone-draw, openLeadDetail, viewProspectOnMap, _mJdSwitchTab, the mobile
+    // close-* handlers) which stay window-exported — see
+    // docs/dev/dashboard-actions-globals-audit.md.
+    'cdaReport', 'cdaEnrich', 'cdaPhotos', 'cdaInvoice', 'cdaInspection',
+    'cdaInspectionDeep', 'cdPickStage', 'cdPickType', 'cdaMjdAct', 'cdaEditLead',
+    'cdaOpenMobileInspection', 'cdaVoiceMemo', 'cdaOpenVoicemail',
+    'cdaSharePortalLink', 'cdaRevokePortalLink', 'cdaConfirmPromote',
+    'cdaOpenTaskModal', '_mCreatePhotoPicked',
     // Tranche 2b (2026-07-06): widgets.js radar-map handle + task
     // checkbox handler (delegate calls the bare fn), tasks.js checkTask
     // export (only caller is its own data-tk-action delegate).
@@ -2876,6 +2893,47 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('crm-portal-bridge window-exports ' + n + ' (cross-file consumer)',
       new RegExp('window\\.' + n + ' = ' + n + ';').test(crmPortalBridge));
   }
+
+  // ── Tranche 2c-4a: the dashboard-actions.js card-detail cluster ──
+  // First slice of the dashboard-actions.js decomposition. 18 cda* /
+  // chip-picker / mobile photo-picker wrappers are consolidated into ONE
+  // in-file IIFE (the file is NOT wholly wrapped — the goTo router, zone-draw
+  // shims and other MUST-STAY names stay as top-level window globals) and
+  // register in __NBD_CALL_REGISTRY, leaving the allowlist. cdaMjdAct /
+  // cdaOpenMobileInspection call the 2c-4b mobile cluster via window._mJdAct /
+  // window.openMobileInspection so they survive when those callees go
+  // module-local. See docs/dev/dashboard-actions-globals-audit.md.
+  const T2C4A_NAMES = [
+    'cdaReport', 'cdaEnrich', 'cdaPhotos', 'cdaInvoice', 'cdaInspection',
+    'cdaInspectionDeep', 'cdPickStage', 'cdPickType', 'cdaMjdAct', 'cdaEditLead',
+    'cdaOpenMobileInspection', 'cdaVoiceMemo', 'cdaOpenVoicemail',
+    'cdaSharePortalLink', 'cdaRevokePortalLink', 'cdaConfirmPromote',
+    'cdaOpenTaskModal', '_mCreatePhotoPicked'];
+  const dashActions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const daRegBlock = (dashActions.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/) || ['', ''])[1];
+  for (const n of T2C4A_NAMES) {
+    assert('dashboard-actions registers ' + n + ' in __NBD_CALL_REGISTRY',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(daRegBlock));
+    assert('allowlist no longer carries ' + n + ' (the registry entry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    // Off window: no file may reassign window.<cdaName> (would shadow-resurrect).
+    assert('dashboard-actions no longer defines window.' + n,
+      !new RegExp('window\\.' + n + '\\s*=\\s*function').test(dashActions));
+  }
+  // The cross-slice calls resolve via window.* — those callees (2c-4b) are
+  // re-exported now, so cdaMjdAct / cdaOpenMobileInspection keep working and
+  // will survive the mobile cluster going module-local.
+  assert('cdaMjdAct calls the mobile handler via window._mJdAct (cross-slice-safe)',
+    /window\._mJdAct\(actionType/.test(dashActions));
+  assert('cdaOpenMobileInspection calls via window.openMobileInspection (cross-slice-safe)',
+    /window\.openMobileInspection\(window\._cardDetailLeadId\)/.test(dashActions));
+  assert('dashboard-actions window-exports _mJdAct for the cross-slice call',
+    /window\._mJdAct = _mJdAct;/.test(dashActions));
+  assert('dashboard-actions window-exports openMobileInspection for the cross-slice call',
+    /window\.openMobileInspection = openMobileInspection;/.test(dashActions));
+  // MUST-STAY: the goTo router keeps its allowlist entry (never converted).
+  assert('goTo router stays allowlisted (MUST-STAY — 27 cross-file callers)',
+    /'goTo'/.test(stateSrc));
 
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.

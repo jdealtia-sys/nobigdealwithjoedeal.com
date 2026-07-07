@@ -41,86 +41,6 @@
 // opens) and the defensive module-load fallback into single named
 // globals that the `call` delegate dispatches.
 let _NBD_DA_DELEGATE; // module-local (globals Tranche 1 — was window.*)
-window.cdaReport = function cdaReport() {
-  if (window.NBDReports && typeof window.NBDReports.openGenerator === 'function') {
-    window.NBDReports.openGenerator(window._cardDetailLeadId);
-  } else if (typeof showToast === 'function') {
-    showToast('Report module loading...', 'error');
-  }
-};
-window.cdaEnrich = function cdaEnrich() {
-  if (window.NBDReports && typeof window.NBDReports.enrichData === 'function') {
-    window.NBDReports.enrichData(window._cardDetailLeadId);
-  } else if (typeof showToast === 'function') {
-    showToast('Report module loading...', 'error');
-  }
-};
-window.cdaPhotos = function cdaPhotos() {
-  if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
-    if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
-    window.PhotoEngine.openCamera(window._cardDetailLeadId);
-  } else if (typeof showToast === 'function') {
-    showToast('Photo engine loading...', 'error');
-  }
-};
-window.cdaInvoice = function cdaInvoice() {
-  if (window.InvoicePipeline && typeof window.InvoicePipeline.createInvoiceUI === 'function') {
-    if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
-    window.InvoicePipeline.createInvoiceUI(window._cardDetailLeadId);
-  } else if (typeof showToast === 'function') {
-    showToast('Invoice pipeline loading...', 'error');
-  }
-};
-window.cdaInspection = function cdaInspection() {
-  if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
-    // openBuilder(containerId, leadId) — the containerId MUST be first. The
-    // original inline onclick passed 'inspectionBuilderContainer'; the CSP
-    // extraction dropped it, so the builder never rendered (leadId was read as
-    // the container id → getElementById miss → silent return).
-    window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._cardDetailLeadId);
-  } else if (typeof showToast === 'function') {
-    showToast('Inspection engine loading...', 'error');
-  }
-};
-// Wave 28: card-detail chip pickers. Clicking either chip in the card-
-// detail modal opens the same floating menu the kanban right-click flow
-// uses — no full edit form needed to move a card or relabel its track.
-// Anchors below the chip so the menu drops down into view. The picker
-// implementation lives in kanban-context-menu.js (window.KanbanContextMenu).
-window.cdPickStage = function cdPickStage(el) {
-  const id = window._cardDetailLeadId;
-  if (!id || !window.KanbanContextMenu) return;
-  const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
-  const anchor = r ? { x: r.left, y: r.bottom + 4 } : { x: 100, y: 100 };
-  window.KanbanContextMenu.openStagePicker(id, anchor);
-};
-window.cdPickType = function cdPickType(el) {
-  const id = window._cardDetailLeadId;
-  if (!id || !window.KanbanContextMenu) return;
-  const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
-  const anchor = r ? { x: r.left, y: r.bottom + 4 } : { x: 100, y: 100 };
-  window.KanbanContextMenu.openTypePicker(id, anchor);
-};
-
-window.cdaInspectionDeep = function cdaInspectionDeep() {
-  // The original onclick was: close the card-detail modal, then after 200ms
-  // show the inspectionBuilderOverlay and call openBuilder. The setTimeout
-  // gives the modal-close animation time to finish.
-  if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
-    const lid = window._cardDetailLeadId;
-    if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
-    setTimeout(function(){
-      const overlay = document.getElementById('inspectionBuilderOverlay');
-      if (overlay) overlay.style.display = 'block';
-      // openBuilder(containerId, leadId) — container first. The CSP extraction of
-      // the original inline onclick dropped 'inspectionBuilderContainer', so the
-      // card-detail "Report" button silently never opened the builder.
-      window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', lid);
-    }, 200);
-  } else if (typeof showToast === 'function') {
-    showToast('Inspection engine loading...', 'error');
-  }
-};
 
 // C.4 finale — More-drawer compound rewrites. The original onclicks
 // were `mobileNav('home');closeMobileMore()` style chains; we
@@ -140,45 +60,6 @@ window.mCreateFabRoute = function mCreateFabRoute() {
   }
 };
 
-// C.4 finale — card-detail-lead-id guarded wrappers. Each replaces
-// an inline `window._cardDetailLeadId && fn(window._cardDetailLeadId)`
-// short-circuit so the markup only carries data-action="call".
-window.cdaMjdAct = function cdaMjdAct(actionType) {
-  if (!window._cardDetailLeadId || typeof _mJdAct !== 'function') return;
-  _mJdAct(actionType, window._cardDetailLeadId);
-};
-window.cdaEditLead = function cdaEditLead() {
-  if (window._cardDetailLeadId && typeof window.editLead === 'function') {
-    const id = window._cardDetailLeadId;
-    // Close the mobile job-detail overlay first. It sits at z-index 2100,
-    // above the lead-edit modal's .modal-bg (z-index 2000), so without this
-    // the edit modal opens *behind* the still-visible panel and the Edit
-    // button appears to do nothing on mobile. (Matches cdaInspectionDeep,
-    // which also closes the detail surface before opening its sub-flow.)
-    if (typeof window.closeMobileJobDetail === 'function') window.closeMobileJobDetail();
-    window.editLead(id);
-  }
-};
-window.cdaOpenMobileInspection = function cdaOpenMobileInspection() {
-  if (window._cardDetailLeadId && typeof openMobileInspection === 'function') {
-    openMobileInspection(window._cardDetailLeadId);
-  }
-};
-window.cdaVoiceMemo = function cdaVoiceMemo() {
-  if (window._cardDetailLeadId &&
-      window.NBDVoiceMemo &&
-      typeof window.NBDVoiceMemo.recordForLead === 'function') {
-    window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId);
-  }
-};
-// step-4: opens the voicemail-pipeline modal for the current card-detail lead.
-window.cdaOpenVoicemail = function cdaOpenVoicemail() {
-  if (window._cardDetailLeadId &&
-      window.NBDVoicemail &&
-      typeof window.NBDVoicemail.openForLead === 'function') {
-    window.NBDVoicemail.openForLead(window._cardDetailLeadId);
-  }
-};
 
 // C.4 finale — ternary / compound rewrites for the few one-off handlers
 // that don't fit the generic call / module shapes.
@@ -242,26 +123,6 @@ window.openPhotoEngineOrClickProxy = function openPhotoEngineOrClickProxy(fallba
     window.PhotoEngine.openCamera();
   } else if (fallbackInputId) {
     document.getElementById(fallbackInputId)?.click();
-  }
-};
-window.cdaSharePortalLink = function cdaSharePortalLink() {
-  if (window._cardDetailLeadId && typeof window._sharePortalLink === 'function') {
-    window._sharePortalLink(window._cardDetailLeadId);
-  }
-};
-window.cdaRevokePortalLink = function cdaRevokePortalLink() {
-  if (window._cardDetailLeadId && typeof window._revokePortalLink === 'function') {
-    window._revokePortalLink(window._cardDetailLeadId);
-  }
-};
-window.cdaConfirmPromote = function cdaConfirmPromote() {
-  if (window._cardDetailLeadId && typeof window.confirmPromoteProspect === 'function') {
-    window.confirmPromoteProspect(window._cardDetailLeadId);
-  }
-};
-window.cdaOpenTaskModal = function cdaOpenTaskModal() {
-  if (window._cardDetailLeadId && typeof openTaskModal === 'function') {
-    openTaskModal(window._cardDetailLeadId, null);
   }
 };
 window.openReportGenerator = function openReportGenerator() {
@@ -1384,32 +1245,6 @@ function _mCreate(kind) {
 }
 window._mCreate = _mCreate;
 
-// Photo capture handler — shared by the mobile "+" create popover and the
-// view-photos shutter FAB's no-lead fallback. Both fire BEFORE any lead
-// exists, but a photo can only be stored against a lead
-// (PhotoEngine.uploadFromFile requires a leadId) and there is no
-// standalone-upload path. So route the rep to create/open a lead and add
-// photos from its gallery.
-//
-// Previously this called window.PhotoEngine.uploadOne — not a real
-// PhotoEngine method (only uploadFromFile exists) — and otherwise pushed
-// the file into window._pendingPhotoUploads, an array nothing ever
-// consumed. Either way the photo was silently dropped while a false
-// "Photo uploaded" / "Photo queued" toast claimed success.
-window._mCreatePhotoPicked = function (event) {
-  try {
-    const file = event && event.target && event.target.files && event.target.files[0];
-    if (!file) return;
-    if (typeof openLeadModal === 'function') openLeadModal();
-    if (typeof showToast === 'function') showToast('Create or open a lead, then add photos from its gallery', 'info');
-  } catch (e) {
-    console.warn('mobile photo create reroute failed:', e && e.message);
-  } finally {
-    // Reset input so the same file can be re-picked next time.
-    if (event && event.target) event.target.value = '';
-  }
-};
-
 // Mobile-aware router. Card clicks (handleCardClick / openLeadDetail
 // callers) go here; we pick mobile overlay vs desktop modal at click
 // time so changing viewport (tablet rotation) just works.
@@ -1632,3 +1467,206 @@ window.editCardDetails = editCardDetails;
 
 
 (function(){if(_NBD_DA_DELEGATE)return;_NBD_DA_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-da-action]');if(!t)return;if(t.dataset.daAction==='reload')window.location.reload();});})();
+
+// ══════════════════════════════════════════════
+// CARD-DETAIL ACTION CLUSTER — Globals Tranche 2c-4a (2026-07-07)
+// ══════════════════════════════════════════════
+// The 18 card-detail action wrappers + chip pickers + the mobile photo-picker,
+// consolidated OFF `window` into this IIFE and registered in
+// window.__NBD_CALL_REGISTRY — which the dashboard-ui.js `call` delegate
+// resolves FIRST (registration is the security opt-in that the
+// _NBD_CALL_ALLOWLIST entry used to be; these names are removed from that
+// allowlist in dashboard-state.js). Each wraps window._cardDetailLeadId and
+// delegates to another module (NBDReports, PhotoEngine, InvoicePipeline,
+// InspectionReportEngine, KanbanContextMenu, NBDVoiceMemo, NBDVoicemail) or a
+// window-scoped helper — no shared top-level lexical state, so consolidating
+// the scattered defs here is safe. Cross-slice calls to _mJdAct /
+// openMobileInspection go through `window.*` so they survive when the mobile
+// cluster (Tranche 2c-4b) goes module-local. See
+// docs/dev/dashboard-actions-globals-audit.md.
+(function () {
+  function cdaReport() {
+    if (window.NBDReports && typeof window.NBDReports.openGenerator === 'function') {
+      window.NBDReports.openGenerator(window._cardDetailLeadId);
+    } else if (typeof showToast === 'function') {
+      showToast('Report module loading...', 'error');
+    }
+  }
+  function cdaEnrich() {
+    if (window.NBDReports && typeof window.NBDReports.enrichData === 'function') {
+      window.NBDReports.enrichData(window._cardDetailLeadId);
+    } else if (typeof showToast === 'function') {
+      showToast('Report module loading...', 'error');
+    }
+  }
+  function cdaPhotos() {
+    if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
+      if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
+      window.PhotoEngine.openCamera(window._cardDetailLeadId);
+    } else if (typeof showToast === 'function') {
+      showToast('Photo engine loading...', 'error');
+    }
+  }
+  function cdaInvoice() {
+    if (window.InvoicePipeline && typeof window.InvoicePipeline.createInvoiceUI === 'function') {
+      if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
+      window.InvoicePipeline.createInvoiceUI(window._cardDetailLeadId);
+    } else if (typeof showToast === 'function') {
+      showToast('Invoice pipeline loading...', 'error');
+    }
+  }
+  function cdaInspection() {
+    if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
+      // openBuilder(containerId, leadId) — the containerId MUST be first. The
+      // original inline onclick passed 'inspectionBuilderContainer'; the CSP
+      // extraction dropped it, so the builder never rendered (leadId was read as
+      // the container id → getElementById miss → silent return).
+      window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._cardDetailLeadId);
+    } else if (typeof showToast === 'function') {
+      showToast('Inspection engine loading...', 'error');
+    }
+  }
+  // Wave 28: card-detail chip pickers. Clicking either chip in the card-
+  // detail modal opens the same floating menu the kanban right-click flow
+  // uses — no full edit form needed to move a card or relabel its track.
+  // Anchors below the chip so the menu drops down into view. The picker
+  // implementation lives in kanban-context-menu.js (window.KanbanContextMenu).
+  function cdPickStage(el) {
+    const id = window._cardDetailLeadId;
+    if (!id || !window.KanbanContextMenu) return;
+    const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    const anchor = r ? { x: r.left, y: r.bottom + 4 } : { x: 100, y: 100 };
+    window.KanbanContextMenu.openStagePicker(id, anchor);
+  }
+  function cdPickType(el) {
+    const id = window._cardDetailLeadId;
+    if (!id || !window.KanbanContextMenu) return;
+    const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    const anchor = r ? { x: r.left, y: r.bottom + 4 } : { x: 100, y: 100 };
+    window.KanbanContextMenu.openTypePicker(id, anchor);
+  }
+  function cdaInspectionDeep() {
+    // The original onclick was: close the card-detail modal, then after 200ms
+    // show the inspectionBuilderOverlay and call openBuilder. The setTimeout
+    // gives the modal-close animation time to finish.
+    if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
+      const lid = window._cardDetailLeadId;
+      if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
+      setTimeout(function(){
+        const overlay = document.getElementById('inspectionBuilderOverlay');
+        if (overlay) overlay.style.display = 'block';
+        // openBuilder(containerId, leadId) — container first. The CSP extraction of
+        // the original inline onclick dropped 'inspectionBuilderContainer', so the
+        // card-detail "Report" button silently never opened the builder.
+        window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', lid);
+      }, 200);
+    } else if (typeof showToast === 'function') {
+      showToast('Inspection engine loading...', 'error');
+    }
+  }
+  // card-detail-lead-id guarded wrappers. cdaMjdAct / cdaOpenMobileInspection
+  // call the mobile cluster (Tranche 2c-4b) via `window.*` so they keep
+  // resolving once those callees go module-local.
+  function cdaMjdAct(actionType) {
+    if (!window._cardDetailLeadId || typeof window._mJdAct !== 'function') return;
+    window._mJdAct(actionType, window._cardDetailLeadId);
+  }
+  function cdaEditLead() {
+    if (window._cardDetailLeadId && typeof window.editLead === 'function') {
+      const id = window._cardDetailLeadId;
+      // Close the mobile job-detail overlay first. It sits at z-index 2100,
+      // above the lead-edit modal's .modal-bg (z-index 2000), so without this
+      // the edit modal opens *behind* the still-visible panel and the Edit
+      // button appears to do nothing on mobile. (Matches cdaInspectionDeep,
+      // which also closes the detail surface before opening its sub-flow.)
+      if (typeof window.closeMobileJobDetail === 'function') window.closeMobileJobDetail();
+      window.editLead(id);
+    }
+  }
+  function cdaOpenMobileInspection() {
+    if (window._cardDetailLeadId && typeof window.openMobileInspection === 'function') {
+      window.openMobileInspection(window._cardDetailLeadId);
+    }
+  }
+  function cdaVoiceMemo() {
+    if (window._cardDetailLeadId &&
+        window.NBDVoiceMemo &&
+        typeof window.NBDVoiceMemo.recordForLead === 'function') {
+      window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId);
+    }
+  }
+  // step-4: opens the voicemail-pipeline modal for the current card-detail lead.
+  function cdaOpenVoicemail() {
+    if (window._cardDetailLeadId &&
+        window.NBDVoicemail &&
+        typeof window.NBDVoicemail.openForLead === 'function') {
+      window.NBDVoicemail.openForLead(window._cardDetailLeadId);
+    }
+  }
+  function cdaSharePortalLink() {
+    if (window._cardDetailLeadId && typeof window._sharePortalLink === 'function') {
+      window._sharePortalLink(window._cardDetailLeadId);
+    }
+  }
+  function cdaRevokePortalLink() {
+    if (window._cardDetailLeadId && typeof window._revokePortalLink === 'function') {
+      window._revokePortalLink(window._cardDetailLeadId);
+    }
+  }
+  function cdaConfirmPromote() {
+    if (window._cardDetailLeadId && typeof window.confirmPromoteProspect === 'function') {
+      window.confirmPromoteProspect(window._cardDetailLeadId);
+    }
+  }
+  function cdaOpenTaskModal() {
+    if (window._cardDetailLeadId && typeof openTaskModal === 'function') {
+      openTaskModal(window._cardDetailLeadId, null);
+    }
+  }
+  // Photo capture handler — shared by the mobile "+" create popover and the
+  // view-photos shutter FAB's no-lead fallback. Both fire BEFORE any lead
+  // exists, but a photo can only be stored against a lead
+  // (PhotoEngine.uploadFromFile requires a leadId) and there is no
+  // standalone-upload path. So route the rep to create/open a lead and add
+  // photos from its gallery. (Previously called window.PhotoEngine.uploadOne —
+  // not a real method — or pushed to window._pendingPhotoUploads, which
+  // nothing consumed, silently dropping the photo behind a false success toast.)
+  function _mCreatePhotoPicked(event) {
+    try {
+      const file = event && event.target && event.target.files && event.target.files[0];
+      if (!file) return;
+      if (typeof openLeadModal === 'function') openLeadModal();
+      if (typeof showToast === 'function') showToast('Create or open a lead, then add photos from its gallery', 'info');
+    } catch (e) {
+      console.warn('mobile photo create reroute failed:', e && e.message);
+    } finally {
+      // Reset input so the same file can be re-picked next time.
+      if (event && event.target) event.target.value = '';
+    }
+  }
+
+  // Registration IS the security opt-in (the role the _NBD_CALL_ALLOWLIST
+  // entry used to play). tests/smoke/dashboard.test.js pins registration +
+  // off-window status for every name below.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    cdaReport: cdaReport,
+    cdaEnrich: cdaEnrich,
+    cdaPhotos: cdaPhotos,
+    cdaInvoice: cdaInvoice,
+    cdaInspection: cdaInspection,
+    cdPickStage: cdPickStage,
+    cdPickType: cdPickType,
+    cdaInspectionDeep: cdaInspectionDeep,
+    cdaMjdAct: cdaMjdAct,
+    cdaEditLead: cdaEditLead,
+    cdaOpenMobileInspection: cdaOpenMobileInspection,
+    cdaVoiceMemo: cdaVoiceMemo,
+    cdaOpenVoicemail: cdaOpenVoicemail,
+    cdaSharePortalLink: cdaSharePortalLink,
+    cdaRevokePortalLink: cdaRevokePortalLink,
+    cdaConfirmPromote: cdaConfirmPromote,
+    cdaOpenTaskModal: cdaOpenTaskModal,
+    _mCreatePhotoPicked: _mCreatePhotoPicked,
+  });
+})();
