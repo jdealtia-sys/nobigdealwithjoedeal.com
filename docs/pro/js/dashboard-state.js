@@ -192,7 +192,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // drawing save/load, material takeoff, solar, screenshot, angles and
   // photo auto-detect — are registry-registered now; see the Tranche
   // 2c-2 note above.)
-  'searchMap', 'saveZone', 'spyglassSearch', 'searchDraw',
+  // (spyglassSearch → __NBD_CALL_REGISTRY, Tranche 2c-4h Slice H2 — off window.)
+  'searchMap', 'saveZone', 'searchDraw',
   'saveDocUpload',
   'saveJoeKey', 'sendJoeMessage', 'saveJoeKeyFromSettings',
   // (shareCalViaSMS, shareCalViaEmail, saveCalSettings → __NBD_CALL_REGISTRY,
@@ -201,7 +202,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'openLeadModal', 'openTaskModal', 'openShortcutsPanel', 'openQMImportModal',
   // (openPhotosForLead, openFullCustomerDetails, openDocsForLead →
   //  __NBD_CALL_REGISTRY, Tranche 2c-4e — off window)
-  'openUploadDoc', 'openEstimateV2Builder',
+  // (openUploadDoc → __NBD_CALL_REGISTRY, Tranche 2c-4h Slice H2 — off window.)
+  'openEstimateV2Builder',
   // (editCardDetails → __NBD_CALL_REGISTRY, Tranche 2c-4e — off window)
   'confirmPropertyIntelPull',
   'executePullPropertyIntel', 'pullIntelForModal', 'addTask',
@@ -214,11 +216,14 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Notifications
   'markAllNotificationsRead', 'clearAllNotifications',
   // Misc tools
-  'goToMyLocation', 'spyglassGoToLocation', 'dropPinByAddress',
-  'quickStormCheck', 'perimChooseType',
+  // (spyglassGoToLocation → __NBD_CALL_REGISTRY, Tranche 2c-4h Slice H2 — off window.)
+  'goToMyLocation', 'dropPinByAddress',
+  // (quickStormCheck → __NBD_CALL_REGISTRY, Tranche 2c-4h Slice H2 — off window.)
+  'perimChooseType',
   // (copyCalLink → __NBD_CALL_REGISTRY, Tranche 2c-4h — off window. Do NOT re-add.)
   'loadSampleData', 'inviteTeamMember',
-  'exportLeadsCSV', 'generateWarrantyCertPDF', 'printDoc', 'clearCrmSearch',
+  // (printDoc → __NBD_CALL_REGISTRY, Tranche 2c-4h Slice H2 — off window.)
+  'exportLeadsCSV', 'generateWarrantyCertPDF', 'clearCrmSearch',
   // Appearance picker
   'nbdPickerTab', 'nbdComfortSet', 'nbdHowtoOpen', 'nbdHowtoClose',
   'nbdSaveCustom', 'nbdRandom', 'nbdPickerClose', 'nbdNavToggle', 'nbdCopyFS',
@@ -230,7 +235,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'nbdSetModePref',
   'saveCustomTheme', 'resetCustomTheme', 'resetSidebarCustomizer',
   // FAB / scoreboard tabs
-  'fabToggle', 'switchScTab',
+  // (fabToggle → __NBD_CALL_REGISTRY, Tranche 2c-4h Slice H2 — off window.)
+  'switchScTab',
   // (Tranche 2c-4d 2026-07-07: dsAddFloor, dsSaveConfig, dsResetDefaults →
   //  __NBD_CALL_REGISTRY, off window. dsRemoveFloor stays window-exported
   //  (dashboard-ui.js bare call); ds* helpers are private. Do NOT re-add.)

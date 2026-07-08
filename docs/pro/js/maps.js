@@ -456,10 +456,11 @@ window.clearAllPins = clearAllPins;
 // damageNearMePhotos is defined in dashboard.html, not maps.js
 if (typeof damageNearMePhotos === 'function') window.damageNearMePhotos = damageNearMePhotos;
 if (typeof toggleMapSidebar === 'function') window.toggleMapSidebar = toggleMapSidebar;
-if (typeof spyglassSearch === 'function') window.spyglassSearch = spyglassSearch;
-if (typeof spyglassGoToLocation === 'function') window.spyglassGoToLocation = spyglassGoToLocation;
-if (typeof fabToggle === 'function') window.fabToggle = fabToggle;
-if (typeof quickStormCheck === 'function') window.quickStormCheck = quickStormCheck;
+// spyglassSearch / spyglassGoToLocation / fabToggle / quickStormCheck →
+// __NBD_CALL_REGISTRY (dashboard-ui.js, Globals Tranche 2c-4h Slice H2). These
+// forward-ref re-exports are removed; markup dispatch resolves registry-first.
+// (damagNearMe below still reads spyglassGoToLocation via the global lexical
+//  scope — dashboard-ui.js's const loads before maps.js.)
 if (typeof updatePinStats === 'function') window.updatePinStats = updatePinStats;
 window.startZoneDraw = startZoneDraw;
 window.cancelZoneDraw = cancelZoneDraw;

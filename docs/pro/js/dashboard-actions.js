@@ -802,10 +802,8 @@ if(typeof clearAllPins!=='undefined') window.clearAllPins = clearAllPins;
 if(typeof spyglassGoToLocation!=='undefined') window.damagNearMe = spyglassGoToLocation;
 if(typeof damageNearMePhotos!=='undefined') window.damageNearMePhotos = damageNearMePhotos;
 if(typeof toggleMapSidebar!=='undefined') window.toggleMapSidebar = toggleMapSidebar;
-if(typeof spyglassSearch!=='undefined') window.spyglassSearch = spyglassSearch;
-if(typeof spyglassGoToLocation!=='undefined') window.spyglassGoToLocation = spyglassGoToLocation;
-if(typeof fabToggle!=='undefined') window.fabToggle = fabToggle;
-if(typeof quickStormCheck!=='undefined') window.quickStormCheck = quickStormCheck;
+// spyglassSearch / spyglassGoToLocation / fabToggle / quickStormCheck →
+// __NBD_CALL_REGISTRY (dashboard-ui.js, Tranche 2c-4h Slice H2) — re-exports removed.
 if(typeof updatePinStats!=='undefined') window.updatePinStats = updatePinStats;
 if(typeof startZoneDraw!=='undefined') window.startZoneDraw = startZoneDraw;
 if(typeof cancelZoneDraw!=='undefined') window.cancelZoneDraw = cancelZoneDraw;
@@ -876,11 +874,11 @@ if(typeof uploadPhotos!=='undefined') window.uploadPhotos = uploadPhotos;
 if(typeof renderPhotoLeads!=='undefined') window.renderPhotoLeads = renderPhotoLeads;
 if(typeof renderPhotoGrid!=='undefined') window.renderPhotoGrid = renderPhotoGrid;
 // Documents - defined later in this file
-if(typeof openUploadDoc!=='undefined') window.openUploadDoc = openUploadDoc;
+// openUploadDoc → __NBD_CALL_REGISTRY (dashboard-ui.js, Tranche 2c-4h Slice H2) — re-export removed.
 if(typeof closeUploadDoc!=='undefined') window.closeUploadDoc = closeUploadDoc;
 if(typeof saveDocUpload!=='undefined') window.saveDocUpload = saveDocUpload;
 if(typeof openDocTemplate!=='undefined') window.openDocTemplate = openDocTemplate;
-if(typeof printDoc!=='undefined') window.printDoc = printDoc;
+// printDoc → __NBD_CALL_REGISTRY (dashboard-ui.js, Tranche 2c-4h Slice H2) — re-export removed.
 if(typeof closeDocViewer!=='undefined') window.closeDocViewer = closeDocViewer;
 // Ask Joe AI - in ai.js
 if(typeof sendJoeMessage!=='undefined') window.sendJoeMessage = sendJoeMessage;
