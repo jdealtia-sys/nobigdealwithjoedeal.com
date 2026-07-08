@@ -132,7 +132,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Mobile job-detail / create-popover internals
   '_mJdSwitchTab', '_mJdAct', '_mJdShare', '_mCreate',
   // CRM kanban + filters
-  'tlFilterCat', 'tlToggleCat', 'setKanbanDensity', 'cycleKanbanDensity',
+  // (cycleKanbanDensity → __NBD_CALL_REGISTRY, Tranche 2c-4g — off window.
+  //  setKanbanDensity STAYS: auto-global backing decl, not the clean form.)
+  'tlFilterCat', 'tlToggleCat', 'setKanbanDensity',
   // Board/List layout toggle (2026-07-06 lean triage list — crm-list-view.js)
   'crmViewBoard', 'crmViewList',
   // Referral Rewards view — mark a $200 code-referral bonus paid / reverse it
@@ -301,7 +303,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'updateCalEmbed',
   'updateCertPreview', 'updatePropertyIntelCost', 'uploadPhotos',
   '_mCreatePhotoPicked', 'nbdRenderThemes', 'nbdLiveCustom',
-  'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey',
+  // (nbdComfortSetWhisperHotkey, nbdComfortSetWhisperKey → __NBD_CALL_REGISTRY,
+  //  Tranche 2c-4g — off window)
   // Help tab — Hotkey Toggles grid (dashboard-hotkey-toggles.js); data-on-change delegate
   'toggleHotkey',
   // Appearance tab — Sidebar Customizer grid (dashboard-sidebar-customizer.js);

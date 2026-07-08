@@ -1584,7 +1584,7 @@ function setKanbanDensity(d) {
 // cycle starts from wherever the user left off, even if the
 // data-density attribute got cleared (Comfortable = no attribute).
 // Updates the button tooltip + label so the rep sees current state.
-function cycleKanbanDensity() {
+const cycleKanbanDensity = function() {
   const order = ['compact', 'comfortable', 'spacious'];
   let cur = 'comfortable';
   try { cur = localStorage.getItem(KANBAN_DENSITY_KEY) || 'comfortable'; } catch (_) {}
@@ -1607,7 +1607,6 @@ function cycleKanbanDensity() {
     btn.title = titleMap[next];
   }
 }
-window.cycleKanbanDensity = cycleKanbanDensity;
 
 function setKanbanBoldHierarchy(on) {
   if (on) document.documentElement.setAttribute('data-bold', 'true');
@@ -1705,7 +1704,7 @@ window.nbdComfortSet = nbdComfortSet;
 // Wave 131: hold-to-talk hotkey toggle + key picker. Stored on
 // localStorage via the NBDWhisper public API so the FAB tooltip,
 // the hotkey listener, and this tab all share state.
-function nbdComfortSetWhisperHotkey(enabled) {
+const nbdComfortSetWhisperHotkey = function(enabled) {
   if (window.NBDWhisper && window.NBDWhisper.setHotkeyEnabled) {
     window.NBDWhisper.setHotkeyEnabled(!!enabled);
   } else {
@@ -1719,16 +1718,14 @@ function nbdComfortSetWhisperHotkey(enabled) {
   const cfg = document.getElementById('npm-whisper-hotkey-config');
   if (cfg) cfg.style.display = enabled ? 'block' : 'none';
 }
-window.nbdComfortSetWhisperHotkey = nbdComfortSetWhisperHotkey;
 
-function nbdComfortSetWhisperKey(keyName) {
+const nbdComfortSetWhisperKey = function(keyName) {
   if (window.NBDWhisper && window.NBDWhisper.setHotkey) {
     window.NBDWhisper.setHotkey(keyName);
   } else {
     try { localStorage.setItem('nbd_whisper_hotkey', keyName); } catch (_) {}
   }
 }
-window.nbdComfortSetWhisperKey = nbdComfortSetWhisperKey;
 
 // Reflect current state in the comfort tab's buttons + toggles
 // so opening the picker shows the right active item.
@@ -2565,3 +2562,18 @@ const _origInitMainMap = window.initMainMap;
     } catch (e) { console.error('[dashboard-ui] dispatch ' + action + ' failed:', e); }
   });
 })();
+
+// ── Delegate registration (Globals Tranche 2c-4g — 2026-07-08) ──
+// Three leaf comfort/kanban handlers dispatched ONLY from markup, through THIS
+// file’s own registry-first resolver (_nbdResolveCall). Converted from auto-global
+// `function X` declarations to top-level `const X = function` (off window in this
+// classic, non-IIFE-wrapped script) + registered here; their _NBD_CALL_ALLOWLIST
+// entries are dropped in dashboard-state.js. MUST-STAY siblings keep window +
+// allowlist: setKanbanDensity (auto-global backing), setPhotoMode (widgets.js
+// cross-file call), nbdComfortSet (prefs-boot.js cross-file calls).
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  cycleKanbanDensity: cycleKanbanDensity,
+  nbdComfortSetWhisperHotkey: nbdComfortSetWhisperHotkey,
+  nbdComfortSetWhisperKey: nbdComfortSetWhisperKey
+});
