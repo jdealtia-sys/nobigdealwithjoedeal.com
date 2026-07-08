@@ -359,7 +359,13 @@ function _injectCustPanelCss() {
     + '.nbd-cust-panel .ncp-vr input[type=range]{width:100%;margin:2px 0;accent-color:#e8720c;height:14px;}'
     + '.nbd-cust-panel .ncp-vr-read{font-size:11px;color:#cdd4dc;font-variant-numeric:tabular-nums;text-align:center;margin-top:2px;}'
     + '.nbd-cust-panel .ncp-iconbtn{background:#171b21;color:#cdd4dc;border:1px solid rgba(255,255,255,.16);border-radius:6px;font-size:12px;line-height:1;padding:3px 6px;cursor:pointer;flex:0 0 auto;}'
-    + '.nbd-cust-panel .ncp-iconbtn:hover{background:#22272f;}';
+    + '.nbd-cust-panel .ncp-iconbtn:hover{background:#22272f;}'
+    // Phone viewports: narrow + cap height so the panel doesn't cover the map;
+    // sits bottom-left alongside the bottom-right pins panel (≈46vw each).
+    + '@media (max-width:640px){'
+    + '.nbd-cust-panel{width:46vw;max-height:46vh;padding:7px 8px;left:8px;bottom:74px;font-size:11px;}'
+    + '.nbd-cust-panel .ncp-chip,.nbd-cust-panel select{font-size:11px;}'
+    + '.nbd-cust-panel .ncp-dot{width:9px;height:9px;}}';
   document.head.appendChild(s);
 }
 

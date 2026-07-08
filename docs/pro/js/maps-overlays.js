@@ -249,7 +249,12 @@ function _injectPinPanelCss() {
     + '.nbd-pin-panel .npp-chip.off{opacity:.38;}'
     + '.nbd-pin-panel .npp-dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(255,255,255,.5);}'
     + '.nbd-pin-panel .npp-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
-    + '.nbd-pin-panel .npp-cnt{color:#9aa4b2;font-variant-numeric:tabular-nums;}';
+    + '.nbd-pin-panel .npp-cnt{color:#9aa4b2;font-variant-numeric:tabular-nums;}'
+    // Phone viewports: mirror the customers panel — narrow + capped, bottom-right.
+    + '@media (max-width:640px){'
+    + '.nbd-pin-panel{width:46vw;max-height:46vh;padding:7px 8px;right:8px;bottom:74px;font-size:11px;}'
+    + '.nbd-pin-panel .npp-chip{font-size:11px;}'
+    + '.nbd-pin-panel .npp-dot{width:9px;height:9px;}}';
   document.head.appendChild(s);
 }
 function renderPinDispPanel() {

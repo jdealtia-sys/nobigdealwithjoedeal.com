@@ -137,10 +137,19 @@ Both layers are now operational surfaces (two-layer design — leads vs pins):
   their palette colour + label; reuses `window.nbdRepList`).
 - Backfills: `backfill-lead-stageRole.js`, `backfill-pins-companyId.js`.
 
+**Shipped since (deep-dive round 3):**
+- **Zone insights** — clicking a territory shows the leads inside it
+  (point-in-polygon): count, pipeline $, won/active/job/new/lost breakdown, top
+  damage type (recomputed each open).
+- **Value-weighted heatmap** — the heat layer weights each point by the linked
+  lead's deal-$ tier (money) or the knock disposition (intent), not a flat 0.5.
+- **Pins toggle bug fixed** — `showAllPins`/`hideAllPins` now add/remove the
+  `pinClusterGroup` as a whole (they operated per-marker on `mainMap`, so with
+  clustering the "Pins" toggle was a silent no-op).
+- **Mobile** — the floating map panels (customers control panel + pins
+  disposition) constrain to ≈46vw / 46vh on ≤640px viewports.
+
 **Follow-ups worth noting:**
-- The pins show/hide toggle (`showAllPins`/`hideAllPins` in `maps-core.js`)
-  predates clustering and operates on `mainMap` directly — the disposition
-  filter deliberately routes through the cluster group instead. Worth a cleanup.
 - ~~**Territory zones are session-only.**~~ ✅ **DONE (2026-07-08).** Zones now
   persist to a Firestore `/zones` collection (team-shared, same rule shape as
   `/pins`): `loadZones`/`_saveZone`/`_deleteZone` in dashboard-bootstrap

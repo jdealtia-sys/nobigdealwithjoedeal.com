@@ -358,10 +358,36 @@ section('Customers map layer — dashboard.html wiring');
   assert('/zones rule is team-shared (mirrors /pins)',
     /match \/zones\/\{zoneId\}[\s\S]{0,320}sameCompanyAsResource\(\)[\s\S]{0,400}request\.resource\.data\.companyId == myCompanyId\(\)/.test(rules),
     'expected a /zones rule with same-company read + companyId-pinned create');
-
+  // Zone insights — point-in-polygon aggregation of the leads inside a zone.
+  assert('zones show insights (point-in-polygon leads → count/$ /roles/damage)',
+    /function _pointInPolygon\(lat, lng, poly\)/.test(actions)
+    && /function _zoneInsights\(zone\)/.test(actions)
+    && /_bindZoneInsights\(layer/.test(actions),
+    'expected _pointInPolygon + _zoneInsights bound to the zone layer');
   assert('Customers map FAB rendered',
     /id="fab-customers"[\s\S]{0,120}data-arg="customers"/.test(dash),
     'expected a Customers map FAB wired to fabToggle');
+}
+
+section('Map heat + pins toggle + mobile');
+{
+  const maps = readMaps();
+  // Heat weighted by money/intent, not a flat constant.
+  assert('heat layer weights points by deal $ / disposition (not flat)',
+    /function _pinHeatWeight\(p\)/.test(maps)
+    && /_DISPO_HEAT/.test(maps)
+    && /window\._pins\.map\(p => \[p\.lat, p\.lng, _pinHeatWeight\(p\)\]\)/.test(maps),
+    'expected buildHeatLayer to weight each point via _pinHeatWeight');
+  // Pins toggle bug fix: operate on the cluster group, not per-marker.
+  assert('pins show/hide toggles the cluster group (fixes the no-op toggle)',
+    /function showAllPins\(\)[\s\S]{0,200}mainMap\.addLayer\(pinClusterGroup\)/.test(maps)
+    && /function hideAllPins\(\)[\s\S]{0,200}mainMap\.removeLayer\(pinClusterGroup\)/.test(maps),
+    'expected showAllPins/hideAllPins to add/remove pinClusterGroup');
+  // Mobile: both floating panels constrain on small viewports.
+  assert('map panels are mobile-constrained (@media max-width:640px)',
+    /@media \(max-width:640px\)\{[\s\S]{0,120}\.nbd-cust-panel\{width:46vw/.test(maps)
+    && /@media \(max-width:640px\)\{[\s\S]{0,120}\.nbd-pin-panel\{width:46vw/.test(maps),
+    'expected mobile media queries capping both the customers + pins panels');
 }
 
 };

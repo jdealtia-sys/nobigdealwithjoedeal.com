@@ -126,9 +126,28 @@ function toggleOverlay(type, el) {
 }
 
 // ── HEAT MAP ─────────────────────────────────────
+// Per-point intensity so the heat surfaces where the MONEY / intent is, not
+// just where knocks landed: a pin linked to a lead weights by that deal's $
+// tier; an unlinked door-knock weights by disposition (signed hot → not-home
+// cold). Falls back to a mid weight when nothing is known.
+const _DISPO_HEAT = { 'signed':1.0, 'interested':0.75, 'follow-up':0.6, 'callback':0.6, 'left-material':0.5, 'not-home':0.25, 'not-interested':0.12, 'do-not-knock':0.1 };
+function _pinHeatWeight(p) {
+  if (p && p.leadId && Array.isArray(window._leads)) {
+    const lead = window._leads.find(l => l && l.id === p.leadId);
+    if (lead) {
+      const v = parseFloat(lead.jobValue || lead.value || lead.contractValue || 0) || 0;
+      if (v >= 50000) return 1.0;
+      if (v >= 25000) return 0.85;
+      if (v >= 10000) return 0.65;
+      if (v > 0) return 0.5;
+    }
+  }
+  if (p && p.status && _DISPO_HEAT[p.status] != null) return _DISPO_HEAT[p.status];
+  return 0.4;
+}
 function buildHeatLayer() {
   if(!mainMap || !window._pins) return;
-  const pts = window._pins.map(p => [p.lat, p.lng, 0.5]);
+  const pts = window._pins.map(p => [p.lat, p.lng, _pinHeatWeight(p)]);
   if(heatLayer) mainMap.removeLayer(heatLayer);
   if(pts.length === 0) return;
   heatLayer = L.heatLayer(pts, {
@@ -142,5 +161,17 @@ function hideHeatLayer() { if(heatLayer) mainMap.removeLayer(heatLayer); }
 function refreshHeatLayer() { buildHeatLayer(); }
 
 // ── PINS SHOW/HIDE ───────────────────────────────
-function showAllPins() { Object.values(pinMarkers).forEach(m=>m.addTo(mainMap)); }
-function hideAllPins() { Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m)); }
+// With clustering on (prod), markers live in pinClusterGroup — NOT directly on
+// the map — so the old per-marker addTo/removeLayer left the cluster copies
+// untouched and the "Pins" toggle silently did nothing (hide was a no-op; show
+// double-added an unclustered copy). Toggle the cluster group as a whole; fall
+// back to per-marker only when the cluster plugin is absent. The disposition
+// filter's in/out-of-group membership is preserved either way.
+function showAllPins() {
+  if (pinClusterGroup) { if (mainMap && !mainMap.hasLayer(pinClusterGroup)) mainMap.addLayer(pinClusterGroup); }
+  else { Object.values(pinMarkers).forEach(m=>m.addTo(mainMap)); }
+}
+function hideAllPins() {
+  if (pinClusterGroup) { if (mainMap && mainMap.hasLayer(pinClusterGroup)) mainMap.removeLayer(pinClusterGroup); }
+  else { Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m)); }
+}

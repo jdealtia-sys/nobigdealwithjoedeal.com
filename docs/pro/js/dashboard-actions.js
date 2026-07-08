@@ -659,6 +659,7 @@ async function saveZone() {
   const _tipName = repLabel ? `${name} · ${repLabel}` : name;
   // Team-shared zones render another user's name in my browser — escape it.
   layer.bindTooltip(`<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;">${_esc(_tipName)}</div>`, {permanent:true, className:'zone-tooltip', direction:'center'});
+  _bindZoneInsights(layer, { name, repLabel, points: pts });
 
   // Persist so the territory survives reload + syncs to the team (fall back to
   // a local id if the write is unavailable — the zone still shows this session).
@@ -688,6 +689,58 @@ function deleteZone(id) {
   renderZoneList();
 }
 
+// ── ZONE INSIGHTS — what's inside a drawn territory ──────────────
+// Ray-casting point-in-polygon (poly = [{lat,lng}]). Local roofing territories
+// don't cross the antimeridian, so the simple form is fine.
+function _pointInPolygon(lat, lng, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].lng, yi = poly[i].lat, xj = poly[j].lng, yj = poly[j].lat;
+    if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+  }
+  return inside;
+}
+// Aggregate the leads whose coords fall inside the zone: count, pipeline $,
+// role breakdown, top damage type. Uses the live pipeline engine for roles so
+// custom stages classify correctly.
+function _zoneInsights(zone) {
+  const poly = (zone.points || []).filter(p => p && p.lat != null && p.lng != null);
+  const roles = { new: 0, active: 0, job: 0, won: 0, lost: 0 };
+  const dmg = {};
+  let total = 0, count = 0;
+  if (poly.length >= 3) {
+    (window._leads || []).forEach(l => {
+      if (!l || l.deleted || l.lat == null || l.lng == null) return;
+      if (!_pointInPolygon(parseFloat(l.lat), parseFloat(l.lng), poly)) return;
+      count++;
+      total += parseFloat(l.jobValue || l.value || l.contractValue || 0) || 0;
+      const r = (typeof window.stageRole === 'function') ? window.stageRole(l._stageKey || l.stage) : (l._stageRole || 'active');
+      if (roles[r] != null) roles[r]++;
+      const d = String(l.damageType || '').trim();
+      if (d) dmg[d] = (dmg[d] || 0) + 1;
+    });
+  }
+  let topDmg = '', topN = 0;
+  Object.keys(dmg).forEach(k => { if (dmg[k] > topN) { topN = dmg[k]; topDmg = k; } });
+  return { count, total, roles, topDmg };
+}
+function _zonePopupHTML(zone) {
+  const esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const s = _zoneInsights(zone);
+  const money = '$' + Math.round(s.total).toLocaleString();
+  return `<div style="font-family:sans-serif;min-width:184px;">`
+    + `<div style="font-weight:800;font-size:13px;margin-bottom:3px;">${esc(zone.name || 'Zone')}${zone.repLabel ? ` · ${esc(zone.repLabel)}` : ''}</div>`
+    + `<div style="font-size:12px;color:var(--t,#111);">${s.count} customer${s.count === 1 ? '' : 's'} · <b>${esc(money)}</b> pipeline</div>`
+    + `<div style="font-size:11px;color:var(--m,#6b7280);margin-top:4px;">Won ${s.roles.won} · Active ${s.roles.active} · Job ${s.roles.job} · New ${s.roles.new} · Lost ${s.roles.lost}</div>`
+    + (s.topDmg ? `<div style="font-size:11px;color:var(--m,#6b7280);">Top damage: ${esc(s.topDmg)}</div>` : '')
+    + `</div>`;
+}
+// Bind a click-popup that recomputes on each open (leads change over time).
+function _bindZoneInsights(layer, zoneData) {
+  if (!layer || typeof layer.bindPopup !== 'function') return;
+  layer.bindPopup(() => _zonePopupHTML(zoneData), { maxWidth: 240, minWidth: 190 });
+}
+
 // Draw the persisted, team-shared zones (window._zones) onto the map and
 // rebuild the in-memory `zones` list. Idempotent — clears prior zone layers
 // first — so it's safe to call on map init AND after loadZones resolves.
@@ -704,6 +757,7 @@ function renderSavedZones() {
     const layer = L.polygon(pts, { color, weight:2.5, fillColor:color, fillOpacity:.1 }).addTo(mainMap);
     const tip = zd.repLabel ? (zd.name + ' · ' + zd.repLabel) : (zd.name || 'Zone');
     layer.bindTooltip(`<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;">${_esc(tip)}</div>`, {permanent:true, className:'zone-tooltip', direction:'center'});
+    _bindZoneInsights(layer, { name: zd.name, repLabel: zd.repLabel, points: zd.points });
     zones.push({ id: zd.id, name: zd.name, color, points: zd.points, layer, rep: zd.rep, repLabel: zd.repLabel });
   });
   if (typeof renderZoneList === 'function') renderZoneList();
