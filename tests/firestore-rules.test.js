@@ -422,6 +422,15 @@ async function run() {
   await assertFails(getDoc(doc(bob, 'companies/alice/members/m1')));
   await assertFails(setDoc(doc(bob, 'companies/alice/members/rep2'), { email: 'x@x.com', role: 'sales_rep' }));
 
+  // 23e. companies DOC: create pinned to caller uid + plan/ownerId frozen
+  //      (Settings sweep). alice owns companies/co-a (ownerId==alice.uid).
+  await assertSucceeds(updateDoc(doc(alice, 'companies/co-a'), { name: 'Alice Roofing LLC' })); // benign owner edit OK
+  await assertFails(updateDoc(doc(alice, 'companies/co-a'), { plan: 'enterprise' }));           // ❌ seat-paywall bypass frozen
+  await assertFails(updateDoc(doc(alice, 'companies/co-a'), { ownerId: 'bob' }));               // ❌ provenance frozen
+  await assertSucceeds(setDoc(doc(admin, 'companies/co-a'), { plan: 'growth' }, { merge: true })); // ✅ admin/webhook can set plan
+  await assertFails(setDoc(doc(alice, 'companies/squatUid'), { ownerId: 'alice', name: 'squat' })); // ❌ create pinned to own uid
+  await assertSucceeds(setDoc(doc(alice, 'companies/alice'), { ownerId: 'alice', name: 'Alice solo co' })); // ✅ own-uid create
+
   // 24. NEW-D11: saved reports — owners delete their OWN reports. The old
   //     rule was `allow update, delete: if isAdmin()`, so the My Reports
   //     delete button silently failed for every non-admin owner. Update

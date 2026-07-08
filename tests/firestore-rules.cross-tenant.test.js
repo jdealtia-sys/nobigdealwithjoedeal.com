@@ -61,7 +61,8 @@ async function run() {
   });
 
   // ── Contexts across the tenancy model ──────────────────────
-  const alice  = env.authenticatedContext('alice',  { role: 'sales_rep',     companyId: 'co-a' }).firestore(); // victim/owner
+  const alice  = env.authenticatedContext('alice',  { role: 'sales_rep',     companyId: 'co-a' }).firestore(); // same-tenant rep
+  const aliceCA= env.authenticatedContext('aliceca',{ role: 'company_admin', companyId: 'co-a' }).firestore(); // co-a company_admin (companyProfile writer)
   const dave   = env.authenticatedContext('dave',   { role: 'sales_rep',     companyId: 'co-a' }).firestore(); // same-tenant peer
   const eveMgr = env.authenticatedContext('eve',    { role: 'manager',       companyId: 'co-a' }).firestore(); // same-tenant manager
   const bob    = env.authenticatedContext('bob',    { role: 'sales_rep',     companyId: 'co-b' }).firestore(); // ATTACKER (other tenant)
@@ -159,13 +160,18 @@ async function run() {
   await check('training_sessions: B(co-b) reads A',   'deny',  getDoc(doc(bobMgr, 'training_sessions/tsA')));
 
   // ═══════════════════════════════════════════════════════════
-  // C. companyProfile — Phase-1 fix: per-tenant key companyProfile/{companyId}.
-  //    Same-tenant ALLOW, cross-tenant + claimless + anon DENY.
+  // C. companyProfile — per-tenant key companyProfile/{companyId}.
+  //    READ: any same-tenant member. WRITE: owner + company_admin ONLY
+  //    (product decision 2026-07-08 — viewer/sales_rep/manager are read-only
+  //    for legal/financing/pricing config). Cross-tenant + claimless + anon DENY.
   // ═══════════════════════════════════════════════════════════
-  await check('companyProfile: A(co-a) READS own config',      'allow', getDoc(doc(alice, 'companyProfile/co-a')));
-  await check('companyProfile: A(co-a) WRITES own config',     'allow', setDoc(doc(alice, 'companyProfile/co-a'), { tagline: 'edited by owner' }, { merge: true }));
+  await check('companyProfile: A rep READS own config',        'allow', getDoc(doc(alice, 'companyProfile/co-a')));
+  await check('companyProfile: A sales_rep DENIED write',      'deny',  setDoc(doc(alice, 'companyProfile/co-a'), { tagline: 'rep edit' }, { merge: true }));
+  await check('companyProfile: A manager DENIED write',        'deny',  setDoc(doc(eveMgr, 'companyProfile/co-a'), { tagline: 'mgr edit' }, { merge: true }));
+  await check('companyProfile: A company_admin WRITES own',    'allow', setDoc(doc(aliceCA, 'companyProfile/co-a'), { tagline: 'admin edit' }, { merge: true }));
   await check('companyProfile: B(co-b) READS co-a config',     'deny',  getDoc(doc(bob, 'companyProfile/co-a')));
   await check('companyProfile: B(co-b) OVERWRITES co-a config','deny',  setDoc(doc(bob, 'companyProfile/co-a'), { legalName: 'PWNED', financing: { apr: 99 } }, { merge: true }));
+  await check('companyProfile: B co_admin cross-tenant DENIED','deny',  setDoc(doc(bobCA, 'companyProfile/co-a'), { legalName: 'PWNED' }, { merge: true }));
   await check('companyProfile: claimless READS co-a config',   'deny',  getDoc(doc(noClaim, 'companyProfile/co-a')));
   await check('companyProfile: anon READS co-a config',        'deny',  getDoc(doc(anon, 'companyProfile/co-a')));
   await check('companyProfile: solo op READS own (uid key)',   'allow', getDoc(doc(solo, 'companyProfile/solo1')));
@@ -196,11 +202,13 @@ async function run() {
   await check('docPrefixes: client cannot STEAL a taken prefix','deny',  setDoc(doc(bob,   'docPrefixes/ACO'), { companyId: 'co-b' }, { merge: true }));
   await check('docPrefixes: client cannot DELETE a reservation','deny',  deleteDoc(doc(alice, 'docPrefixes/ACO')));
   // brand.docPrefix / brand.seal are callable-only (client writes to them deny).
-  await check('companyProfile: cannot SET docPrefix on create', 'deny',  setDoc(doc(bob,   'companyProfile/co-b'), { legalName: 'B Co', brand: { docPrefix: 'BCO', seal: 'BCO' } }));
-  await check('companyProfile: CAN create WITHOUT a prefix',    'allow', setDoc(doc(bob,   'companyProfile/co-b'), { legalName: 'B Co', brand: { legalName: 'B Co' } }));
-  await check('companyProfile: cannot CHANGE own docPrefix',    'deny',  setDoc(doc(alice, 'companyProfile/co-a'), { brand: { docPrefix: 'XYZ' } }, { merge: true }));
-  await check('companyProfile: cannot CHANGE own seal',         'deny',  setDoc(doc(alice, 'companyProfile/co-a'), { brand: { seal: 'XYZ' } }, { merge: true }));
-  await check('companyProfile: CAN edit brand (prefix preserved)','allow',setDoc(doc(alice, 'companyProfile/co-a'), { brand: { tagline: 'new tagline' } }, { merge: true }));
+  // Writers below are company_admins (owner/admin-only write gate); prefix/seal
+  // immutability is orthogonal to the role gate.
+  await check('companyProfile: cannot SET docPrefix on create', 'deny',  setDoc(doc(bobCA,  'companyProfile/co-b'), { legalName: 'B Co', brand: { docPrefix: 'BCO', seal: 'BCO' } }));
+  await check('companyProfile: CAN create WITHOUT a prefix',    'allow', setDoc(doc(bobCA,  'companyProfile/co-b'), { legalName: 'B Co', brand: { legalName: 'B Co' } }));
+  await check('companyProfile: cannot CHANGE own docPrefix',    'deny',  setDoc(doc(aliceCA, 'companyProfile/co-a'), { brand: { docPrefix: 'XYZ' } }, { merge: true }));
+  await check('companyProfile: cannot CHANGE own seal',         'deny',  setDoc(doc(aliceCA, 'companyProfile/co-a'), { brand: { seal: 'XYZ' } }, { merge: true }));
+  await check('companyProfile: CAN edit brand (prefix preserved)','allow',setDoc(doc(aliceCA, 'companyProfile/co-a'), { brand: { tagline: 'new tagline' } }, { merge: true }));
 
   // ═══════════════════════════════════════════════════════════
   // D. PRIVILEGE / ESCALATION — must DENY
