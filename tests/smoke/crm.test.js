@@ -472,4 +472,31 @@ section('backfill — leads.stageRole one-off (freeform-pipeline classification)
   }
 }
 
+section('Pipelines builder — drag-to-reorder stages');
+{
+  const pb = read(path.join(ROOT, 'docs/pro/js/pipeline-builder.js'));
+  // Draggable grip + drop-target rows carrying view + stage context.
+  assert('builder renders a draggable grip per stage row',
+    /class="pb-grip" draggable="true"/.test(pb)
+    && /class="pb-stage-row" data-view="/.test(pb),
+    'expected a draggable .pb-grip inside a .pb-stage-row with data-view/data-stage');
+  // Delegated DnD handlers (CSP-safe — no inline ondrag* attributes).
+  assert('builder wires delegated dragstart/dragover/drop on the root',
+    /addEventListener\('dragstart', onDragStart\)/.test(pb)
+    && /addEventListener\('dragover', onDragOver\)/.test(pb)
+    && /addEventListener\('drop', onDrop\)/.test(pb),
+    'expected delegated drag handlers on the builder root');
+  assert('builder has no inline ondrag* handlers (CSP-safe)',
+    !/ondragstart=|ondragover=|ondrop=/.test(pb),
+    'drag handlers must be delegated, not inline');
+  // Reorder is constrained to a single pipeline and splices the working config.
+  assert('drop reorders within the same view only',
+    /getAttribute\('data-view'\) !== _drag\.view/.test(pb),
+    'expected onDragOver to bail when the row is in a different view');
+  assert('drop splices the stage into the view order (before/after by pointer)',
+    /arr\.splice\(from, 1\)/.test(pb)
+    && /arr\.splice\(after \? to \+ 1 : to, 0, payload\.stage\)/.test(pb),
+    'expected the dropped stage to be removed then re-inserted at the target');
+}
+
 };

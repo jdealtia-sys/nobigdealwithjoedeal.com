@@ -20,9 +20,12 @@
 
 ### Phase 4+ — remaining freeform-pipeline work (NOT yet done)
 
-1. **Drag-to-reorder in the builder.** Today reordering is ▲/▼ buttons
-   (`pipeline-builder.js`). Native drag-and-drop of stage rows would match the
-   kanban's own DnD and is the top UX gap Jo will notice.
+1. ~~**Drag-to-reorder in the builder.**~~ ✅ **DONE (2026-07-08).**
+   `pipeline-builder.js` now renders a draggable grip (⠿) per stage row and
+   reorders via HTML5 drag-and-drop (delegated dragstart/dragover/drop on the
+   root — CSP-safe, no inline handlers), constrained to a single pipeline, with
+   a before/after drop indicator. The ▲/▼ buttons stay as a touch / a11y
+   fallback. Smoke-covered in `tests/smoke/crm.test.js`.
 2. ~~**`stageRole` migration/backfill for existing leads.**~~ ✅ **DONE
    (2026-07-08).** `scripts/backfill-lead-stageRole.js` — dry-run-by-default
    (`--apply --yes` to write), idempotent (only fills a MISSING/invalid role;

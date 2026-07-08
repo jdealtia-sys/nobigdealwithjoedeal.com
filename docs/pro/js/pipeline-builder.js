@@ -23,6 +23,7 @@
   var _cfg = null;      // working config (raw overrides), cloned from companyProfile.pipelines
   var _dirty = false;
   var _wired = false;   // root-level delegate installed once
+  var _drag = null;     // active drag payload { view, stage } during row reorder
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -109,7 +110,11 @@
       stages.forEach(function (key, i) {
         var m = res.stageMeta[key] || {};
         var isCustom = !!m.custom;
-        html += '<div style="display:flex;align-items:center;gap:6px;padding:5px 4px;border-bottom:1px solid var(--br);flex-wrap:wrap;">';
+        html += '<div class="pb-stage-row" data-view="' + esc(vk) + '" data-stage="' + esc(key) + '" style="display:flex;align-items:center;gap:6px;padding:5px 4px;border-bottom:1px solid var(--br);flex-wrap:wrap;">';
+        // drag handle (primary reorder affordance; ▲/▼ stay for touch / a11y)
+        if (editable) {
+          html += '<span class="pb-grip" draggable="true" data-view="' + esc(vk) + '" data-stage="' + esc(key) + '" title="Drag to reorder">⠿</span>';
+        }
         // reorder
         html += '<div style="display:flex;flex-direction:column;gap:1px;">';
         html += '<button type="button" class="pb-mini" data-pb-action="up" data-view="' + esc(vk) + '" data-stage="' + esc(key) + '"' + (i === 0 || !editable ? ' disabled' : '') + ' title="Move up">▲</button>';
@@ -256,6 +261,51 @@
     }
   }
 
+  // ── drag-to-reorder (HTML5 DnD, delegated + CSP-safe) ───────────
+  function _clearDropHints(root) {
+    var rows = root.querySelectorAll('.pb-stage-row.pb-dragover');
+    for (var i = 0; i < rows.length; i++) rows[i].classList.remove('pb-dragover');
+  }
+  function onDragStart(e) {
+    var g = e.target && e.target.closest && e.target.closest('.pb-grip');
+    if (!g) return;
+    _drag = { view: g.getAttribute('data-view'), stage: g.getAttribute('data-stage') };
+    if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', _drag.stage); } catch (_) {} }
+  }
+  function onDragOver(e) {
+    if (!_drag) return;
+    var row = e.target && e.target.closest && e.target.closest('.pb-stage-row');
+    if (!row || row.getAttribute('data-view') !== _drag.view) return; // reorder within a pipeline only
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+    var root = document.getElementById(ROOT_ID);
+    if (root) { _clearDropHints(root); if (row.getAttribute('data-stage') !== _drag.stage) row.classList.add('pb-dragover'); }
+  }
+  function onDrop(e) {
+    if (!_drag) return;
+    var row = e.target && e.target.closest && e.target.closest('.pb-stage-row');
+    var payload = _drag; _drag = null;
+    var root = document.getElementById(ROOT_ID);
+    if (root) _clearDropHints(root);
+    if (!row) return;
+    var view = row.getAttribute('data-view');
+    var target = row.getAttribute('data-stage');
+    if (view !== payload.view || target === payload.stage) return;
+    e.preventDefault();
+    var res = resolved(); if (!res) return;
+    var arr = ensureViewStages(view, res);
+    var from = arr.indexOf(payload.stage);
+    if (from === -1) return;
+    arr.splice(from, 1);
+    var to = arr.indexOf(target);
+    if (to === -1) { arr.splice(from, 0, payload.stage); return; } // target vanished — undo
+    // Drop before/after the target based on where in the row we released.
+    var rect = row.getBoundingClientRect();
+    var after = (e.clientY - rect.top) > rect.height / 2;
+    arr.splice(after ? to + 1 : to, 0, payload.stage);
+    _dirty = true; render();
+  }
+
   function wireRoot() {
     var root = document.getElementById(ROOT_ID);
     if (!root || root._pbWired) return;
@@ -265,6 +315,10 @@
     root.addEventListener('input', function (e) {
       if (e.target && e.target.getAttribute && e.target.getAttribute('data-pb-action') === 'rename') { setStageField(e.target.getAttribute('data-stage'), 'label', e.target.value); markDirtyLight(); }
     });
+    root.addEventListener('dragstart', onDragStart);
+    root.addEventListener('dragover', onDragOver);
+    root.addEventListener('drop', onDrop);
+    root.addEventListener('dragend', function () { _drag = null; _clearDropHints(root); });
   }
 
   function openBuilder() {
@@ -280,7 +334,11 @@
     var s = document.createElement('style');
     s.id = 'pb-style';
     s.textContent = '.pb-mini{background:var(--s2);border:1px solid var(--br);color:var(--m);border-radius:5px;width:22px;height:20px;font-size:9px;line-height:1;cursor:pointer;padding:0;}'
-      + '.pb-mini:disabled{opacity:.35;cursor:default;}.pb-mini.pb-danger{color:var(--red,#e05252);border-color:var(--red,#e05252);height:26px;width:26px;font-size:11px;}';
+      + '.pb-mini:disabled{opacity:.35;cursor:default;}.pb-mini.pb-danger{color:var(--red,#e05252);border-color:var(--red,#e05252);height:26px;width:26px;font-size:11px;}'
+      + '.pb-grip{cursor:grab;color:var(--m);font-size:14px;line-height:1;padding:0 2px;user-select:none;touch-action:none;}'
+      + '.pb-grip:active{cursor:grabbing;}'
+      + '.pb-stage-row{border-radius:6px;transition:background .08s;}'
+      + '.pb-stage-row.pb-dragover{background:var(--accent-weak,rgba(232,114,12,.14));box-shadow:inset 0 2px 0 var(--accent,#e8720c);}';
     document.head.appendChild(s);
   }
 
