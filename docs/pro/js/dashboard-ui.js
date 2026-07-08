@@ -1474,7 +1474,7 @@ const openUploadDoc = function(){
   // for routes that haven't visited #/docs yet.
   const el = document.getElementById('docUploadArea');
   if (el) el.style.display = 'block';
-}
+};
 
 // ── Inject "Blank" buttons on every template row ──
 // Runs once after DOM is ready. Each .tl-doc-row that calls
@@ -2436,7 +2436,7 @@ const spyglassSearch = async function() {
   if(sidebar && !sidebar.classList.contains('open') && window.innerWidth <= 768) {
     sidebar.classList.add('open');
   }
-}
+};
 
 const spyglassGoToLocation = function() {
   showToast('Getting your location...');
@@ -2460,7 +2460,7 @@ const spyglassGoToLocation = function() {
     () => showToast('Location access denied','error'),
     {enableHighAccuracy:true, timeout:8000}
   );
-}
+};
 
 // ── FAB bar toggles (sync with sidebar toggles) ──
 const fabToggle = function(type, el) {
@@ -2469,7 +2469,7 @@ const fabToggle = function(type, el) {
     toggleOverlay(type, tog);
     el.classList.toggle('active', tog.classList.contains('on'));
   }
-}
+};
 
 // Sync fab active states when overlay toggles happen from sidebar
 const _origToggleOverlay = window.toggleOverlay;
@@ -2498,7 +2498,7 @@ const quickStormCheck = async function() {
     },
     () => showToast('Location access denied','error')
   );
-}
+};
 
 // ── Auto-setup spyglass autocomplete ──────────────────────────
 (function() {
