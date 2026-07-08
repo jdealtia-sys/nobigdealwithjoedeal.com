@@ -214,12 +214,17 @@ section('Customers map layer — all leads on the map, role-coloured');
     /_custPanelEl\.addEventListener\('input'/.test(maps)
     && /read\.textContent = _custValLabel\(_custValMin\)/.test(maps),
     'expected an input listener that updates the readout without a full rebuild');
-  // Saved views — persist color-by + filters + range; apply/save/delete.
-  assert('saved views persist to localStorage and round-trip state',
-    /_CUST_VIEWS_KEY\s*=\s*'nbd_cust_map_views'/.test(maps)
-    && /function _custSnapshot\(\)/.test(maps)
-    && /function _custApplyView\(v\)/.test(maps),
-    'expected snapshot/apply helpers backed by a localStorage key');
+  // Saved views — TEAM-SHARED: persisted to companyProfile.mapViews (read by
+  // all, write by owner/admin), snapshot/apply the whole panel state.
+  assert('saved views are team-shared via companyProfile.mapViews',
+    /window\._companyProfile && window\._companyProfile\.mapViews/.test(maps)
+    && /_saveCompanyProfile\(\{ mapViews: v \}\)/.test(maps)
+    && /function _custSnapshot\(\)/.test(maps) && /function _custApplyView\(v\)/.test(maps),
+    'expected saved views backed by companyProfile.mapViews + snapshot/apply helpers');
+  assert('saved-view save/delete gated to owner/admin (everyone can apply)',
+    /function _custCanEditViews\(\)/.test(maps)
+    && /canEditViews[\s\S]{0,120}data-cust-saveview/.test(maps),
+    'expected _custCanEditViews to gate the save/delete controls');
   assert('saved views wired: apply on select, save + delete buttons',
     /data-cust-view/.test(maps) && /data-cust-saveview/.test(maps) && /data-cust-delview/.test(maps),
     'expected a view select + save/delete controls');

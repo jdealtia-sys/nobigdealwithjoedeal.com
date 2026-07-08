@@ -150,10 +150,27 @@ function _custValRangePasses(lead) {
 }
 function _custValLabel(v) { return v >= _CUST_VAL_CAP ? '$100k+' : (v >= 1000 ? '$' + Math.round(v / 1000) + 'k' : '$' + v); }
 
-// ── SAVED VIEWS (color-by + all filters + value range), persisted per browser ──
-const _CUST_VIEWS_KEY = 'nbd_cust_map_views';
-function _loadCustViews() { try { return JSON.parse(localStorage.getItem(_CUST_VIEWS_KEY) || '[]') || []; } catch (_) { return []; } }
-function _saveCustViews(v) { try { localStorage.setItem(_CUST_VIEWS_KEY, JSON.stringify(v)); } catch (_) {} }
+// ── SAVED VIEWS (color-by + all filters + value range) — TEAM-SHARED ──
+// Persisted to companyProfile.mapViews (read by all same-tenant members, write
+// by owner / company_admin — same gate as the pipelines builder) so the whole
+// team shares presets like "Hot Hail >$25k". Everyone can apply; only an
+// owner/admin can save or delete.
+function _loadCustViews() {
+  const v = window._companyProfile && window._companyProfile.mapViews;
+  return Array.isArray(v) ? v : [];
+}
+function _custCanEditViews() {
+  const c = window._userClaims || {};
+  const role = c.role || '';
+  if (role === 'admin' || role === 'company_admin') return true;
+  if (!c.companyId) return true;                       // solo owner (no companyId claim)
+  return window._user && c.companyId === window._user.uid; // owner keyed by uid
+}
+async function _saveCustViews(v) {
+  if (typeof window._saveCompanyProfile !== 'function') { if (typeof showToast === 'function') showToast('Cannot save right now', 'error'); return false; }
+  try { await window._saveCompanyProfile({ mapViews: v }); return true; }
+  catch (e) { if (typeof showToast === 'function') showToast('Save failed: ' + ((e && e.message) || 'unknown'), 'error'); return false; }
+}
 function _custSnapshot() {
   const f = {};
   _CUST_DIM_KEYS.forEach(function (dk) { f[dk] = _custFilters[dk] ? Array.from(_custFilters[dk]) : null; });
@@ -377,14 +394,18 @@ function _renderCustPanel(counts) {
   }
   const esc = (typeof _mapsEscHtml === 'function') ? _mapsEscHtml : (s => String(s || ''));
   let html = '';
-  // Saved views (presets): apply / save current / delete selected.
+  // Saved views (presets, team-shared): apply for everyone; save/delete for
+  // owner/admin only.
   const views = _loadCustViews();
+  const canEditViews = _custCanEditViews();
   html += '<div class="ncp-row"><span class="ncp-lbl">View</span>'
     + '<select data-cust-view><option value="">—</option>'
     + views.map(function (v, i) { return '<option value="' + i + '">' + esc(v.name || ('View ' + (i + 1))) + '</option>'; }).join('')
     + '</select>'
-    + '<button type="button" class="ncp-iconbtn" data-cust-saveview title="Save current view">＋</button>'
-    + '<button type="button" class="ncp-iconbtn" data-cust-delview title="Delete selected view">🗑</button>'
+    + (canEditViews
+        ? '<button type="button" class="ncp-iconbtn" data-cust-saveview title="Save current view (shared with the team)">＋</button>'
+          + '<button type="button" class="ncp-iconbtn" data-cust-delview title="Delete selected view">🗑</button>'
+        : '')
     + '</div>';
   // Color-by selector.
   html += '<div class="ncp-row"><span class="ncp-lbl">Color</span>'
@@ -448,24 +469,23 @@ function _renderCustPanel(counts) {
     _custPanelEl.addEventListener('click', function (e) {
       const save = e.target && e.target.closest && e.target.closest('[data-cust-saveview]');
       if (save) {
-        const name = (typeof prompt === 'function') ? (prompt('Name this view (color-by + filters + value range):') || '').trim() : '';
+        if (!_custCanEditViews()) { if (typeof showToast === 'function') showToast('Only an owner/admin can save shared views', 'info'); return; }
+        const name = (typeof prompt === 'function') ? (prompt('Name this view — shared with your team (color-by + filters + value range):') || '').trim() : '';
         if (!name) return;
-        const list = _loadCustViews();
+        const list = _loadCustViews().slice();
         list.push(Object.assign({ name: name.slice(0, 40) }, _custSnapshot()));
-        _saveCustViews(list);
-        if (typeof showToast === 'function') showToast('View saved', 'ok');
-        _renderCustPanel(counts);
+        _saveCustViews(list).then(function (okSave) { if (okSave && typeof showToast === 'function') showToast('View saved (shared)', 'ok'); _renderCustPanel(); });
         return;
       }
       const del = e.target && e.target.closest && e.target.closest('[data-cust-delview]');
       if (del) {
+        if (!_custCanEditViews()) { if (typeof showToast === 'function') showToast('Only an owner/admin can delete shared views', 'info'); return; }
         const vsel = _custPanelEl.querySelector('[data-cust-view]');
         const idx = vsel && vsel.value !== '' ? parseInt(vsel.value, 10) : -1;
         if (idx < 0) { if (typeof showToast === 'function') showToast('Pick a view to delete', 'info'); return; }
-        const list = _loadCustViews();
+        const list = _loadCustViews().slice();
         list.splice(idx, 1);
-        _saveCustViews(list);
-        _renderCustPanel(counts);
+        _saveCustViews(list).then(function () { _renderCustPanel(); });
         return;
       }
       const gmaps = e.target && e.target.closest && e.target.closest('[data-cust-gmaps]');
