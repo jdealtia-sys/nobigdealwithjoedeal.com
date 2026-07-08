@@ -168,6 +168,12 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+      # Firestore emulator runs on the JVM; firebase-tools needs a modern JDK
+      # (same setup as the @stranger E2E shard that boots the functions emulator).
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
       - name: Install test deps
         run: |
           cd tests
@@ -176,6 +182,19 @@ jobs:
         run: |
           cd functions
           npm ci
+      - name: Emulator-safe functions env (dummy secrets + onRepSignup skip)
+        # Writing a lead fires EVERY leads/{leadId} trigger; the ~34 secret-declaring
+        # functions can't reach Secret Manager in CI (no ADC), so without overrides
+        # they fail to load and wedge the work queue — onReferralLeadWrite never
+        # lands. Generate a .secret.local with dummy values (auto-covers new secrets)
+        # so all functions load + run; the trigger under test uses no secrets. Also
+        # skip the GCIP-blocked onRepSignup (prod never runs it).
+        run: |
+          grep -rhoE "defineSecret\(['\"][A-Z_]+['\"]" functions --include=*.js \
+            | sed -E "s/.*defineSecret\(['\"]([A-Z_]+)['\"].*/\1=emulator-dummy/" \
+            | sort -u > functions/.secret.local
+          echo "wrote $(wc -l < functions/.secret.local) dummy secrets"
+          node tests/e2e/fixtures/ensure-emulator-env.js
       - name: Install firebase-tools globally
         run: npm install -g firebase-tools@13
       - name: Run referral-rewards trigger test under functions+firestore emulator
