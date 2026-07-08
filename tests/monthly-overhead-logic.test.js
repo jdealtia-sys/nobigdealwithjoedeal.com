@@ -92,5 +92,11 @@ const freshEmail = L.buildEmail({ totalCents: 12345, count: 1, byCategory: { mar
 ok('no-prior phrasing', /no overhead recorded the month before/.test(freshEmail.bodyPlain));
 ok('singular "expense" when count is 1', /1 expense\b/.test(freshEmail.bodyPlain) && !/1 expenses/.test(freshEmail.bodyPlain));
 
+console.log('MONTHLY OVERHEAD LOGIC — alertMarkerId (idempotency, #7)');
+eq('marker id is company_month', L.alertMarkerId('co-a', '2026-06'), 'co-a_2026-06');
+ok('marker id stable for same (company, month)', L.alertMarkerId('co-a', '2026-06') === L.alertMarkerId('co-a', '2026-06'));
+ok('marker id differs by month', L.alertMarkerId('co-a', '2026-06') !== L.alertMarkerId('co-a', '2026-07'));
+ok('marker id differs by company', L.alertMarkerId('co-a', '2026-06') !== L.alertMarkerId('co-b', '2026-06'));
+
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' monthly overhead logic: ' + passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILURES:\n  ' + fails.join('\n  ')); process.exit(1); }

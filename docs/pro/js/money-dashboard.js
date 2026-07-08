@@ -46,6 +46,16 @@
     return String(s == null ? '' : s).toLowerCase().replace(/[.,#&]/g, ' ')
       .replace(/\b(inc|llc|l\.l\.c|co|corp|company|ltd)\b/g, ' ').replace(/\s+/g, ' ').trim();
   }
+  // Calendar YEAR of a date in the house timezone (America/New_York) — the same
+  // convention the monthly-overhead cron uses (monthly-overhead-logic.js), so
+  // the client dashboard and the server bucket a date into the same period
+  // instead of drifting by the viewer's local offset near year boundaries.
+  // Accepts a Date or a raw/Firestore value; null for a null/invalid date. (#11)
+  function etYear(v) {
+    var d = (v && typeof v.getTime === 'function') ? v : toJSDate(v);
+    if (!d || isNaN(d.getTime())) return null;
+    return Number(d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }).slice(0, 4));
+  }
 
   var WON_STAGES = ['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'Complete'];
   function isWon(l) { return WON_STAGES.indexOf(l._stageKey || l.stage || '') !== -1 && !l.deleted; }
@@ -56,13 +66,14 @@
   function computePnL(data) {
     var leads = data.leads || [], expenses = data.expenses || [],
         invoices = data.invoices || [], suppliers = data.suppliers || [];
-    var year = data.year || new Date().getFullYear();
+    var year = data.year || etYear(new Date());
 
     // Cash basis (dated): collected (paid invoices) vs spent (expenses) this year.
+    // Year membership is decided in ET (house convention), same as the expense
+    // + 1099 buckets below, so nothing straddles the boundary inconsistently.
     var collectedCents = 0;
     invoices.forEach(function (inv) {
-      var pd = toJSDate(inv.paidAt);
-      if (pd && pd.getFullYear() === year) collectedCents += collectedCentsOf(inv);
+      if (etYear(toJSDate(inv.paidAt)) === year) collectedCents += collectedCentsOf(inv);
     });
     var outstandingCents = 0;
     invoices.forEach(function (inv) {
@@ -74,13 +85,21 @@
     var directByLead = {}, supplierCents = {};
     expenses.forEach(function (e) {
       var d = toJSDate(e.date);
-      if (!d || d.getFullYear() !== year) return;
-      var c = parseInt(e.amountCents, 10) || 0;
+      if (etYear(d) !== year) return;
+      // Cash out + COGS = the tax-INCLUDED total (amount + tax): you paid the
+      // tax to the supplier, so it's real spend and belongs in job cost
+      // (product decision 2026-07-08). Same rule in profit-tracker.js +
+      // expenses.js aggregate(). NOTE: the 1099 YTD below stays PRE-tax.
+      var c = (parseInt(e.amountCents, 10) || 0) + (parseInt(e.taxCents, 10) || 0);
       spentCents += c;
       if (e.costType === 'direct') { cogsCents += c; if (e.leadId) directByLead[e.leadId] = (directByLead[e.leadId] || 0) + c; }
       else overheadCents += c;
-      var sup = (e.supplier || '').trim() || 'Unknown';
-      supplierCents[sup] = (supplierCents[sup] || 0) + c;
+      // Group suppliers by NORMALIZED vendor so "ABC Supply" and "abc supply "
+      // collapse to one row (same normVendor used for the 1099 match below).
+      var supRaw = (e.supplier || '').trim() || 'Unknown';
+      var supKey = normVendor(supRaw) || 'unknown';
+      if (!supplierCents[supKey]) supplierCents[supKey] = { label: supRaw, cents: 0 };
+      supplierCents[supKey].cents += c;
     });
     var netCashCents = collectedCents - spentCents;
 
@@ -95,8 +114,8 @@
     });
     var grossMargin = wonContractCents > 0 ? Math.round(((wonContractCents - wonDirectCents) / wonContractCents) * 100) : null;
 
-    // Top suppliers (this-year spend).
-    var topSuppliers = Object.keys(supplierCents).map(function (k) { return { supplier: k, cents: supplierCents[k] }; })
+    // Top suppliers (this-year spend), grouped by normalized vendor above.
+    var topSuppliers = Object.keys(supplierCents).map(function (k) { return { supplier: supplierCents[k].label, cents: supplierCents[k].cents }; })
       .sort(function (a, b) { return b.cents - a.cents; }).slice(0, 5);
 
     // 1099 worklist: eligible class (stored flag) + W-9 on file + YTD service
@@ -110,8 +129,10 @@
       var ytd = expenses.reduce(function (sum, e) {
         if (e.category !== 'subcontractor' && e.category !== 'direct_labor') return sum;
         if (normVendor(e.supplier) !== nm) return sum;
-        var d = toJSDate(e.date);
-        return (d && d.getFullYear() === year) ? sum + (parseInt(e.amountCents, 10) || 0) : sum;
+        // 1099 box 1 = amounts paid for SERVICES, PRE-tax (sales tax is not
+        // nonemployee compensation) — deliberately amountCents only, unlike the
+        // cash/COGS totals above which include tax.
+        return (etYear(toJSDate(e.date)) === year) ? sum + (parseInt(e.amountCents, 10) || 0) : sum;
       }, 0);
       if (ytd >= th) { due1099 += 1; due1099Cents += ytd; }
     });

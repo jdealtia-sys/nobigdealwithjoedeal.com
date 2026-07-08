@@ -388,6 +388,12 @@
     }
     if (amountCents <= 0) { toast('Enter an amount greater than $0', 'error'); return false; }
 
+    // A direct-cost expense with no job attached is allowed, but its COGS won't
+    // reach any job's margin — nudge non-blockingly via the save toast below
+    // (product decision 2026-07-08: allow but warn). A blocking confirm() would
+    // stall bulk entry and every automated/headless save. (#6)
+    var unassignedDirect = costType === 'direct' && !form.leadId;
+
     var receiptStoragePath = null;
     if (form.uploadedPath) {
       // Already uploaded during an AI scan — reuse it, don't upload twice.
@@ -430,7 +436,9 @@
     };
     try {
       await window.addDoc(window.collection(window.db, 'expenses'), docData);
-      toast('Expense logged', 'ok');
+      toast(unassignedDirect
+        ? 'Expense logged — not linked to a job, so it won’t count toward job margin'
+        : 'Expense logged', unassignedDirect ? 'warn' : 'ok');
       return true;
     } catch (e) {
       console.error('[expenses] create failed', e);
@@ -536,16 +544,25 @@
   function aggregate(list) {
     list = list || [];
     var c = EC();
+    // Normalize vendor for grouping so "ABC Supply" / "abc supply " collapse to
+    // one row (same normVendor the 1099 rollup uses); keep the first-seen raw
+    // name as the display label. (#5)
+    var nv = (c && c.normVendor) ? c.normVendor : function (s) { return String(s || '').trim().toLowerCase(); };
     var totalCents = 0, directCents = 0, overheadCents = 0;
     var bySupplier = {}, byCategory = {}, byJob = {};
     list.forEach(function (e) {
-      var cents = parseInt(e.amountCents, 10) || 0;
+      // Spend/COGS rollups = tax-INCLUDED total (amount + tax): tax paid to the
+      // supplier is real spend (product decision 2026-07-08). Same rule in
+      // profit-tracker.js + money-dashboard.js. (#9)
+      var cents = (parseInt(e.amountCents, 10) || 0) + (parseInt(e.taxCents, 10) || 0);
       var ct = e.costType || (c ? c.costTypeFor(e.category) : 'overhead');
       totalCents += cents;
       if (ct === 'direct') directCents += cents; else overheadCents += cents;
 
-      var sup = (e.supplier || '').trim() || 'Unknown';
-      bySupplier[sup] = (bySupplier[sup] || 0) + cents;
+      var supRaw = (e.supplier || '').trim() || 'Unknown';
+      var supKey = nv(supRaw) || 'unknown';
+      if (!bySupplier[supKey]) bySupplier[supKey] = { label: supRaw, cents: 0 };
+      bySupplier[supKey].cents += cents;
 
       var cat = e.category || 'uncategorized';
       byCategory[cat] = (byCategory[cat] || 0) + cents;
@@ -557,7 +574,7 @@
       byJob[job].count += 1;
     });
     var suppliers = Object.keys(bySupplier).map(function (k) {
-      return { supplier: k, cents: bySupplier[k], pct: totalCents ? (bySupplier[k] / totalCents * 100) : 0 };
+      return { supplier: bySupplier[k].label, cents: bySupplier[k].cents, pct: totalCents ? (bySupplier[k].cents / totalCents * 100) : 0 };
     }).sort(function (a, b) { return b.cents - a.cents; });
     var categories = Object.keys(byCategory).map(function (k) {
       return { category: k, label: c ? c.labelFor(k) : k, cents: byCategory[k], pct: totalCents ? (byCategory[k] / totalCents * 100) : 0 };

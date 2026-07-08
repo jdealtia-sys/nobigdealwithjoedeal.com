@@ -93,6 +93,19 @@ const aggEmpty = EX.aggregate([]);
 eq('empty total', aggEmpty.totalCents, 0);
 eq('empty supplier count', aggEmpty.supplierCount, 0);
 
+// tax-included totals + supplier normVendor collapse (product decision 2026-07-08)
+console.log('EXPENSES — aggregate tax-included + supplier normVendor');
+const aggTax = EX.aggregate([
+  { amountCents: 10000, taxCents: 800, category: 'materials', costType: 'direct', supplier: 'ABC Supply', leadId: 'L1' },
+  { amountCents: 5000, taxCents: 400, category: 'materials', costType: 'direct', supplier: 'abc supply ', leadId: 'L1' }, // spelling variant
+]);
+eq('total = amount + tax (16,200)', aggTax.totalCents, 16200);
+eq('direct = amount + tax (16,200)', aggTax.directCents, 16200);
+eq('two spellings collapse to ONE supplier', aggTax.supplierCount, 1);
+eq('supplier label = first-seen raw name', aggTax.suppliers[0].supplier, 'ABC Supply');
+eq('supplier total includes tax', aggTax.suppliers[0].cents, 16200);
+eq('job L1 total includes tax', aggTax.byJob['L1'].cents, 16200);
+
 // ── ProfitTracker.computeJobPLWithExpenses ───────────────────
 console.log('PROFIT TRACKER — computeJobPLWithExpenses (feed margin from ledger)');
 ok('computeJobPLWithExpenses exported', typeof PT.computeJobPLWithExpenses === 'function');
@@ -113,6 +126,12 @@ eq('grossMargin 25%', pl.grossMargin, 25);
 eq('overhead excluded from grossProfit (overhead=2000)', pl.overhead, 2000);
 eq('netProfit = 20000-17000', pl.netProfit, 3000);
 ok('overhead-type expense did NOT inflate COGS', pl.materialCost + pl.laborCost + pl.miscCosts === 15000);
+// COGS = tax-included total (product decision 2026-07-08)
+const plTax = PT.computeJobPLWithExpenses({ jobValue: '20000' }, [
+  { amountCents: 1000000, taxCents: 80000, category: 'materials', costType: 'direct' },
+]);
+eq('materialCost includes tax ($10,800)', plTax.materialCost, 10800);
+eq('grossProfit reflects tax-included COGS (20000-10800)', plTax.grossProfit, 9200);
 
 // ── Expenses.jobMargin guards ────────────────────────────────
 console.log('EXPENSES — jobMargin guards');

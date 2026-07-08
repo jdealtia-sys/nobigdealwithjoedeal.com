@@ -84,5 +84,32 @@ const empty = MD.computePnL({});
 eq('empty collected 0', empty.collectedCents, 0);
 eq('empty gross margin null', empty.grossMargin, null);
 
+// ── tax-included COGS + normVendor collapse (product decision 2026-07-08) ──
+console.log('  tax-included spend/COGS + supplier normVendor:');
+const t = MD.computePnL({
+  year: 2026,
+  leads: [{ id: 'J1', _stageKey: 'closed', jobValue: 10000 }],
+  invoices: [], suppliers: [],
+  expenses: [
+    // same vendor two spellings → ONE supplier row; tax rides into spend/COGS
+    { category: 'materials', costType: 'direct', amountCents: 100000, taxCents: 8000, leadId: 'J1', supplier: 'ABC Supply', date: new Date(2026, 5, 1) },
+    { category: 'materials', costType: 'direct', amountCents: 50000, taxCents: 4000, leadId: 'J1', supplier: 'abc supply ', date: new Date(2026, 6, 1) },
+  ],
+});
+eq('spent = amount + tax', t.spentCents, 162000);
+eq('COGS = amount + tax', t.cogsCents, 162000);
+eq('won direct (per-job) includes tax', t.wonDirectCents, 162000);
+eq('two spellings collapse to ONE supplier row', t.supplierCount, 1);
+eq('supplier label = first-seen raw name', t.topSuppliers[0].supplier, 'ABC Supply');
+eq('supplier total includes tax', t.topSuppliers[0].cents, 162000);
+
+// ── ET-year bucketing (#11): 2026-01-01T00:30Z is 2025-12-31 in ET ──
+console.log('  ET-year boundary:');
+const etData = MD.computePnL({
+  year: 2026, leads: [], invoices: [], suppliers: [],
+  expenses: [{ category: 'materials', costType: 'direct', amountCents: 10000, supplier: 'X', date: new Date('2026-01-01T00:30:00Z') }],
+});
+eq('Jan-1 00:30 UTC buckets to 2025 in ET → excluded from 2026 spend', etData.spentCents, 0);
+
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' money dashboard: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) { console.error('FAILED: ' + fails.join(', ')); process.exit(1); }
