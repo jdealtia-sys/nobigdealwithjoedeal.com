@@ -7,7 +7,7 @@
 'use strict';
 
 const path = require('path');
-const { ROOT, PRO_JS, FUNCTIONS, read, readCrm, readD2DLive } = require('./_shared');
+const { ROOT, PRO_JS, FUNCTIONS, read, readCrm, readD2DLive, readMaps } = require('./_shared');
 
 module.exports.run = function run(ctx) {
   const { assert, section } = ctx;
@@ -135,6 +135,56 @@ section('Phase B.2 — Storm Briefing automation');
     /leadCount:\s*scored\.length/.test(sb)
     && /topLeadIds:\s*scored\.slice\(0, BRIEFING_LEAD_LIMIT\)\.map/.test(sb),
     'expected the storm_briefings_sent sentinel to carry leadCount + topLeadIds for Viktor');
+}
+
+section('Customers map layer — all leads on the map, role-coloured');
+{
+  const maps = readMaps(); // includes maps-customers.js via MAPS_SPLIT
+  // The layer builds from the company-scoped CRM book, not the userId-scoped
+  // door-knock _pins, so the whole team's customers show.
+  assert('Customers layer builds from window._leads',
+    /function buildCustomersLayer[\s\S]{0,400}window\._leads/.test(maps),
+    'expected buildCustomersLayer() to iterate window._leads');
+  // Colour must come from the LIVE pipeline engine (STAGE_META / stageRole) so
+  // it matches the kanban and honours a tenant's custom stages.
+  assert('Customer marker colour resolves via STAGE_META / stageRole',
+    /_custColorOf[\s\S]{0,300}window\.STAGE_META/.test(maps)
+    && /window\.stageRole/.test(maps),
+    'expected _custColorOf() to read window.STAGE_META then fall back to window.stageRole');
+  // Rolling geocode-backfill: lazy, fair-use capped, and PERSISTED so a lead
+  // is only ever geocoded once.
+  assert('Customers layer persists geocoded coords via _saveLeadCoords',
+    /window\._saveLeadCoords\(lead\.id/.test(maps),
+    'expected the backfill to call window._saveLeadCoords to persist lat/lng');
+  assert('Customers layer respects a live-geocode fair-use cap',
+    /_CUST_GEOCODE_CAP/.test(maps) && /liveRequests\s*>=\s*_CUST_GEOCODE_CAP/.test(maps),
+    'expected a per-build geocode cap like the Jobs overlay');
+  // Wired into the generic overlay toggle path.
+  assert('toggleOverlay routes the customers layer',
+    /type==='customers'[\s\S]{0,120}showCustomersLayer\(\)[\s\S]{0,40}hideCustomersLayer\(\)/.test(maps),
+    'expected toggleOverlay to show/hide the customers layer');
+  assert('overlayState seeds a customers flag',
+    /overlayState\s*=\s*\{[^}]*customers:\s*false/.test(maps),
+    'expected overlayState to include customers:false');
+  // Legacy customer pins must no longer trust the dead static STAGE_COLORS map
+  // for post-migration/custom stages.
+  assert('addPinMarker colours customer pins via the live engine',
+    /p\.type === 'customer'[\s\S]{0,400}window\.STAGE_META/.test(maps),
+    'expected addPinMarker() to colour customer pins from window.STAGE_META');
+}
+
+section('Customers map layer — dashboard.html wiring');
+{
+  const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  assert('dashboard.html loads maps-customers.js between overlays and routing',
+    /maps-overlays\.js[\s\S]{0,80}maps-customers\.js[\s\S]{0,80}maps-routing\.js/.test(dash),
+    'expected the customers module in the locked core→overlays→customers→routing order');
+  assert('Customers overlay toggle rendered',
+    /data-action="mapOverlay"\s+data-target="customers"/.test(dash),
+    'expected a Customers overlay-row toggle');
+  assert('Customers map FAB rendered',
+    /id="fab-customers"[\s\S]{0,120}data-arg="customers"/.test(dash),
+    'expected a Customers map FAB wired to fabToggle');
 }
 
 };

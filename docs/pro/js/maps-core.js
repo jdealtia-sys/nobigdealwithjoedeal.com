@@ -69,7 +69,7 @@ const STAGE_COLORS = {
 // ══════════════════════════════════════════════
 // MAP OVERLAY SYSTEM
 // ══════════════════════════════════════════════
-let overlayState = { heat:false, pins:true, jobs:false, storm:false, weather:false };
+let overlayState = { heat:false, pins:true, jobs:false, storm:false, weather:false, customers:false };
 let heatLayer = null, jobMarkers = [], weatherLayer = null, stormTileLayer = null;
 let pendingPin = null; // { lat, lng, status, color } — waiting for confirm
 
@@ -120,6 +120,7 @@ function toggleOverlay(type, el) {
   if(type==='heat')    { overlayState.heat    ? showHeatLayer()    : hideHeatLayer();    }
   if(type==='pins')    { overlayState.pins    ? showAllPins()      : hideAllPins();      }
   if(type==='jobs')    { overlayState.jobs    ? showJobsLayer()    : hideJobsLayer();    }
+  if(type==='customers'){overlayState.customers? showCustomersLayer(): hideCustomersLayer();}
   if(type==='storm')   { overlayState.storm   ? showStormLayer()   : hideStormLayer();   }
   if(type==='weather') { overlayState.weather ? showWeatherLayer() : hideWeatherLayer(); }
 }

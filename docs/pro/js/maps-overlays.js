@@ -188,10 +188,23 @@ async function dropPin(lat,lng,status,color,existingId,notes) {
 function addPinMarker(p) {
   if(!mainMap) return;
 
-  // Determine pin color: use stage color for customer pins, status color otherwise
+  // Determine pin color: use stage color for customer pins, status color otherwise.
+  // Customer pins colour by the LIVE pipeline engine (window.STAGE_META /
+  // stageRole) so they match the kanban AND honour a tenant's custom stages —
+  // the old static STAGE_COLORS map only knew the legacy display names ('New',
+  // 'Approved', …) and left post-migration/custom stages mis-coloured.
   let pinColor = p.color || PIN_COLORS[p.status] || '#9CA3AF';
-  if (p.type === 'customer' && p.stage && STAGE_COLORS[p.stage]) {
-    pinColor = STAGE_COLORS[p.stage];
+  if (p.type === 'customer' && p.stage) {
+    const key = (typeof window.normalizeStage === 'function') ? window.normalizeStage(p.stage) : p.stage;
+    const meta = (window.STAGE_META && window.STAGE_META[key]) || null;
+    if (meta && meta.color) {
+      pinColor = meta.color;
+    } else if (typeof window.stageRole === 'function') {
+      const roleColors = { new:'#9CA3AF', active:'#4A9EFF', job:'#0D9488', won:'#22C55E', lost:'#E05252' };
+      pinColor = roleColors[window.stageRole(key)] || pinColor;
+    } else if (STAGE_COLORS[p.stage]) {
+      pinColor = STAGE_COLORS[p.stage]; // legacy fallback
+    }
   }
 
   const m = L.marker([p.lat,p.lng],{icon:makePinIcon(pinColor, p.status || p.stage)});

@@ -183,6 +183,7 @@ function readCrm() {
 const MAPS_SPLIT = [
   'maps-core.js',
   'maps-overlays.js',
+  'maps-customers.js',
   'maps-routing.js',
   'maps.js',
 ];

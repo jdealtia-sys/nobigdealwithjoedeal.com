@@ -2150,6 +2150,9 @@
     }, 200);
     // Auto-check for review requests on recently closed jobs
     if (window.ReviewEngine?.checkAutoReviews) setTimeout(() => window.ReviewEngine.checkAutoReviews(), 3000);
+    // Keep the Customers map layer in step with the book (no-op unless the
+    // overlay is currently on — maps-customers.js guards on overlayState).
+    if (typeof window.refreshCustomersLayer === 'function') window.refreshCustomersLayer();
     // Supplier pricing: feature was removed; archive folder deleted with
     // the 2026-04-23 dead-code cleanup.
   }
@@ -2768,6 +2771,21 @@
         // Return the newly-created lead's id (no-geocode fallback path).
         return fallbackRef.id;
       } else {
+        // EDIT EXISTING: re-geocode when the address changed (or coords are
+        // missing) so the Customers map layer + Jobs overlay stay accurate.
+        // Best-effort — a geocode miss/timeout leaves the prior coords
+        // untouched and never blocks the save (geocode() self-aborts at 5s).
+        if (data.address) {
+          const _prev = (window._leads || []).find(l => l && l.id === editId);
+          const _addrChanged = !_prev || String(_prev.address || '') !== String(data.address || '');
+          const _missingCoords = !_prev || _prev.lat == null || _prev.lng == null;
+          if (_addrChanged || _missingCoords) {
+            try {
+              const geo = await geocode(data.address);
+              if (geo && geo.lat && geo.lon) { data.lat = parseFloat(geo.lat); data.lng = parseFloat(geo.lon); }
+            } catch (_) { /* keep existing coords */ }
+          }
+        }
         // EDIT EXISTING: Just update
         await updateDoc(doc(db,'leads',editId), {
           ...data,
@@ -2798,6 +2816,20 @@
       throw e;
     }
     await loadLeads();
+  };
+
+  // Lightweight coord-only persister used by the Customers map layer's rolling
+  // geocode-backfill (maps-customers.js). Writes just lat/lng so a lead mapped
+  // once is never re-geocoded. Owner/staff-writable per the leads rule (only
+  // userId/companyId are frozen); a denied/failed write is non-fatal — the
+  // marker still shows this session, we just re-geocode next time.
+  window._saveLeadCoords = async (id, lat, lng) => {
+    if (!id || String(id).startsWith('d-')) return;
+    try {
+      await updateDoc(doc(db,'leads',id), { lat, lng, updatedAt: serverTimestamp() });
+      const l = (window._leads || []).find(x => x && x.id === id);
+      if (l) { l.lat = lat; l.lng = lng; }
+    } catch(e) { console.warn('saveLeadCoords failed:', e && e.code); }
   };
 
   window._deleteLead = async (id) => {
