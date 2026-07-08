@@ -136,10 +136,15 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
           id: (sup && sup.id) || null,
           status: sup && sup.status,
           billable: billable,
+          // Already folded onto an invoice — skip so a 2nd invoice for the same
+          // estimate (progress billing) can't re-bill this supplement. Stamped by
+          // createInvoiceFromEstimate when it folds the supplement. NOTE: a future
+          // invoice-void feature MUST clear invoicedInvoiceId to allow re-billing.
+          invoiced: !!(sup && sup.invoicedInvoiceId),
           description: description
         };
       })
-      .filter(function (s) { return s.billable > 0; });
+      .filter(function (s) { return s.billable > 0 && !s.invoiced; });
   }
 
   /**
@@ -167,7 +172,10 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       tax: Number(base.tax) || 0,
       total: round2((Number(base.total) || 0) + supplementTotal),
       supplementTotal: round2(supplementTotal),
-      supplementCount: supLines.length
+      supplementCount: supLines.length,
+      // Ids of the supplements folded into THIS invoice, so the caller can stamp
+      // them invoiced (they won't fold again on a later invoice).
+      supplementIds: supLines.map(function (l) { return l.id; }).filter(Boolean)
     };
   }
 
@@ -386,6 +394,24 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       };
 
       const invoiceRef = await window.addDoc(window.collection(db, 'invoices'), invoiceData);
+
+      // Stamp each supplement folded into THIS invoice so it can't be re-billed on
+      // a later invoice for the same estimate. Progress billing intentionally
+      // allows multiple invoices per estimate (Jo's call 2026-07-08), so a
+      // supplement must land on exactly ONE. Best-effort — a stamp miss risks a
+      // manual double-check, never a create failure; the invoice already exists.
+      const foldedIds = (folded && folded.supplementIds) || [];
+      if (foldedIds.length && typeof window.updateDoc === 'function' && typeof window.doc === 'function') {
+        const stampTs = (typeof window.serverTimestamp === 'function') ? window.serverTimestamp() : new Date().toISOString();
+        await Promise.all(foldedIds.map(function (sid) {
+          return window.updateDoc(window.doc(db, 'supplements', sid), {
+            invoicedInvoiceId: invoiceRef.id,
+            invoicedAt: stampTs,
+          }).catch(function (e) {
+            console.warn('[invoice-pipeline] supplement invoiced-stamp failed:', sid, e && e.message);
+          });
+        }));
+      }
       return invoiceRef.id;
 
     } catch (error) {
