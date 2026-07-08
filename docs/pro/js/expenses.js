@@ -388,13 +388,11 @@
     }
     if (amountCents <= 0) { toast('Enter an amount greater than $0', 'error'); return false; }
 
-    // Direct-cost expenses feed a job's gross margin — nudge (but allow) when
-    // one isn't attached to a job, otherwise its COGS silently floats and never
-    // reaches any job's P&L (product decision 2026-07-08: allow but warn). (#6)
-    if (costType === 'direct' && !form.leadId && typeof confirm === 'function' &&
-        !confirm('This direct cost isn’t linked to a job, so it won’t count toward any job’s margin. Save it as unassigned anyway?')) {
-      return false;
-    }
+    // A direct-cost expense with no job attached is allowed, but its COGS won't
+    // reach any job's margin — nudge non-blockingly via the save toast below
+    // (product decision 2026-07-08: allow but warn). A blocking confirm() would
+    // stall bulk entry and every automated/headless save. (#6)
+    var unassignedDirect = costType === 'direct' && !form.leadId;
 
     var receiptStoragePath = null;
     if (form.uploadedPath) {
@@ -438,7 +436,9 @@
     };
     try {
       await window.addDoc(window.collection(window.db, 'expenses'), docData);
-      toast('Expense logged', 'ok');
+      toast(unassignedDirect
+        ? 'Expense logged — not linked to a job, so it won’t count toward job margin'
+        : 'Expense logged', unassignedDirect ? 'warn' : 'ok');
       return true;
     } catch (e) {
       console.error('[expenses] create failed', e);
