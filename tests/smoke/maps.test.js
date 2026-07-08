@@ -206,6 +206,37 @@ section('Customers map layer — all leads on the map, role-coloured');
     'expected delegated click + change listeners on the panel');
 }
 
+section('D2D pins — disposition legend + filter (second layer)');
+{
+  const maps = readMaps();
+  // A disposition filter panel over the pins layer (PIN_LABELS categories).
+  assert('pins layer renders a disposition filter panel',
+    /function renderPinDispPanel\(\)/.test(maps)
+    && /nbd-pin-panel/.test(maps)
+    && /Object\.keys\(PIN_LABELS\)/.test(maps)
+    && /data-pin-disp/.test(maps),
+    'expected renderPinDispPanel() with a chip per PIN_LABELS disposition');
+  // Filter hides/shows pin markers via the cluster group; status-less pins pass.
+  assert('pin disposition filter shows/hides markers via applyPinDispFilter',
+    /function applyPinDispFilter\(\)[\s\S]{0,200}pinMarkers\[p\.id\]/.test(maps)
+    && /function _pinPassesDisp\(p\)[\s\S]{0,120}_pinDispFilter\.has\(p\.status\)/.test(maps),
+    'expected applyPinDispFilter to gate each pin marker by _pinPassesDisp');
+  assert('status-less (customer/legacy) pins always pass the disposition filter',
+    /if \(!p \|\| !p\.status\) return true;/.test(maps),
+    'expected pins without a status to bypass the disposition filter');
+  assert('pins panel filter keeps at least one disposition + drops to no-filter when all on',
+    /_pinDispFilter\.size > 1[\s\S]{0,30}_pinDispFilter\.delete\(st\)/.test(maps)
+    && /_pinDispFilter\.size === all\.length[\s\S]{0,30}_pinDispFilter = null/.test(maps),
+    'expected the pins chip toggle to never empty and to clear when all-on');
+  assert('pins panel is CSP-safe (delegated listener)',
+    /_pinPanelEl\.addEventListener\('click'/.test(maps),
+    'expected a delegated click listener on the pins panel');
+  // Wired into the pins overlay toggle + initial load.
+  assert('toggleOverlay shows/hides the pins disposition panel',
+    /overlayState\.pins[\s\S]{0,120}renderPinDispPanel\(\)[\s\S]{0,80}hidePinDispPanel\(\)/.test(maps),
+    'expected the pins toggle to render/hide the disposition panel');
+}
+
 section('Customers map layer — dashboard.html wiring');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));

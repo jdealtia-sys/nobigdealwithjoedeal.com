@@ -99,17 +99,44 @@ invisible.
    for a large existing book a `scripts/backfill-lead-coords.js` (admin SDK,
    dry-run-by-default) would fill everything in one pass. Nice-to-have — the
    rolling backfill converges on its own as reps open the layer.
-3. **Role legend + filter on the map.** A small legend (new/active/job/won/lost
-   swatches) and per-role show/hide would make a big book readable. Optional.
-4. **Cluster the Customers layer** at low zoom (it uses a plain `layerGroup`;
-   the D2D pins already cluster via `pinClusterGroup`). Consider if books grow
-   past a few hundred mapped leads.
+3. ~~**Role legend + filter on the map.**~~ ✅ **DONE + expanded (2026-07-08).**
+   Grew into a full control panel (see "Map control panel" below).
+4. ~~**Cluster the Customers layer.**~~ ✅ **DONE (2026-07-08)** —
+   `L.markerClusterGroup` with a `layerGroup` fallback.
 
-### Files touched (Track B)
+### Map control panel (2026-07-08 deep-dive)
 
-- `docs/pro/js/maps-customers.js` (new)
-- `docs/pro/js/maps-core.js` (`overlayState.customers`, `toggleOverlay` branch)
-- `docs/pro/js/maps-overlays.js` (`addPinMarker` role-colour fix)
-- `docs/pro/js/dashboard-bootstrap.module.js` (`_saveLeadCoords`, geocode-on-edit, `refreshCustomersLayer` hook)
-- `docs/pro/dashboard.html` (overlay row + FAB + script tag + cache bumps)
-- `tests/smoke/_shared.js`, `tests/smoke/dashboard.test.js`, `tests/smoke/maps.test.js`
+Both layers are now operational surfaces (two-layer design — leads vs pins):
+
+- **Customers layer (`maps-customers.js`)** — a floating control panel:
+  - **Color by** Stage/Role · Damage Type · Deal Value (data-driven
+    `_CUST_DIMENSIONS`; stage → `window.stageRole` so custom stages are safe,
+    damage → normalised peril buckets, value → deal-size tiers).
+  - **Cross-dimension filters** — legend chips filter the active dimension; a
+    "＋ Filters" section exposes the others. Filters compose with **AND**
+    (`_custPasses`), e.g. color by Stage while showing only Hail + $25k+.
+  - **Zoom-gated $ labels** — past z≥16 a dot blooms into a `💰 $value` pill
+    (rebuilt on `zoomend`); clean dots + clustering when zoomed out.
+- **D2D pins layer (`maps-overlays.js`)** — a disposition legend/filter panel
+  (bottom-right): per-disposition show/hide over `PIN_LABELS`, hiding markers
+  via the cluster group; status-less (customer/legacy) pins always pass. Wired
+  into the pins overlay toggle + initial load.
+
+**Follow-ups worth noting:** the pins show/hide toggle (`showAllPins`/
+`hideAllPins` in `maps-core.js`) predates clustering and operates on `mainMap`
+directly, so it's inconsistent with the cluster group — the disposition filter
+deliberately routes through the cluster group instead. Worth a dedicated
+cleanup pass. Also: a value-range *slider* (vs tiers) and a saved-view preset
+("my hot Hail estimates") are natural next steps if Jo wants them.
+
+### Files touched (both tracks)
+
+- `docs/pro/js/maps-customers.js` (new — Customers layer + control panel)
+- `docs/pro/js/maps-core.js` (`overlayState.customers`, `toggleOverlay` branches, pins-panel hooks)
+- `docs/pro/js/maps-overlays.js` (`addPinMarker` role-colour fix + disposition filter panel)
+- `docs/pro/js/dashboard-bootstrap.module.js` (`_saveLeadCoords`, geocode-on-edit, `refreshCustomersLayer` hook, pins `companyId` scoping)
+- `docs/pro/js/pipeline-builder.js` (drag-to-reorder)
+- `firestore.rules` (`/pins` team-shared rule)
+- `scripts/backfill-lead-stageRole.js` (new)
+- `docs/pro/dashboard.html` (overlay row + FAB + script tags + cache bumps)
+- `tests/smoke/_shared.js`, `tests/smoke/dashboard.test.js`, `tests/smoke/crm.test.js`, `tests/smoke/maps.test.js`, `tests/firestore-rules.test.js`

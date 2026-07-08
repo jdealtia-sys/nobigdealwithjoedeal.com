@@ -212,7 +212,86 @@ function addPinMarker(p) {
   // Add to cluster group if available, otherwise directly to map
   if(pinClusterGroup) { pinClusterGroup.addLayer(m); } else { m.addTo(mainMap); }
   pinMarkers[p.id] = m;
+  // Respect an active disposition filter for freshly-dropped/loaded pins.
+  if (_pinDispFilter && !_pinPassesDisp(p)) _setPinVisible(m, false);
 }
+
+// ── DISPOSITION FILTER (door-knock pins) ─────────────────────────
+// A floating legend/filter for the D2D pins, mirroring the Customers panel but
+// on the single dimension pins actually carry: knock disposition (p.status →
+// PIN_LABELS/PIN_COLORS). Colour-by is implicit (pins are already status-
+// coloured); this adds per-disposition show/hide. Pins without a status
+// (customer / legacy pins) always pass so a filter never hides them.
+let _pinDispFilter = null; // Set of statuses to show; null = all
+let _pinPanelEl = null;
+function _pinPassesDisp(p) { if (!_pinDispFilter) return true; if (!p || !p.status) return true; return _pinDispFilter.has(p.status); }
+function _setPinVisible(m, show) {
+  if (!m) return;
+  if (pinClusterGroup) { pinClusterGroup.removeLayer(m); if (show) pinClusterGroup.addLayer(m); }
+  else if (mainMap) { mainMap.removeLayer(m); if (show) m.addTo(mainMap); }
+}
+function applyPinDispFilter() {
+  (window._pins || []).forEach(p => { const m = pinMarkers[p.id]; if (m) _setPinVisible(m, _pinPassesDisp(p)); });
+}
+function _injectPinPanelCss() {
+  if (document.getElementById('pin-panel-style')) return;
+  const s = document.createElement('style');
+  s.id = 'pin-panel-style';
+  // Self-contained (identical tokens to the Customers panel) so it works even
+  // if that layer was never opened; positioned bottom-RIGHT to avoid overlap.
+  s.textContent =
+    '.nbd-pin-panel{position:absolute;right:12px;bottom:22px;z-index:600;background:rgba(10,12,15,.88);'
+    + 'border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:9px 10px;font-family:sans-serif;'
+    + 'box-shadow:0 4px 16px rgba(0,0,0,.5);backdrop-filter:blur(4px);width:172px;max-height:60vh;overflow:auto;}'
+    + '.nbd-pin-panel .npp-lbl{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#9aa4b2;font-weight:700;margin:0 2px 6px;}'
+    + '.nbd-pin-panel .npp-chip{display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;padding:3px 4px;border-radius:6px;cursor:pointer;color:#e7ebf0;font-size:12px;text-align:left;}'
+    + '.nbd-pin-panel .npp-chip:hover{background:rgba(255,255,255,.07);}'
+    + '.nbd-pin-panel .npp-chip.off{opacity:.38;}'
+    + '.nbd-pin-panel .npp-dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(255,255,255,.5);}'
+    + '.nbd-pin-panel .npp-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
+    + '.nbd-pin-panel .npp-cnt{color:#9aa4b2;font-variant-numeric:tabular-nums;}';
+  document.head.appendChild(s);
+}
+function renderPinDispPanel() {
+  if (!mainMap) return;
+  const container = mainMap.getContainer && mainMap.getContainer();
+  if (!container) return;
+  _injectPinPanelCss();
+  if (!_pinPanelEl) {
+    _pinPanelEl = document.createElement('div');
+    _pinPanelEl.className = 'nbd-pin-panel';
+    container.appendChild(_pinPanelEl);
+    if (L.DomEvent) { L.DomEvent.disableClickPropagation(_pinPanelEl); L.DomEvent.disableScrollPropagation(_pinPanelEl); }
+  }
+  const esc = _mapsEscHtml;
+  const counts = {};
+  (window._pins || []).forEach(p => { if (p && p.status) counts[p.status] = (counts[p.status] || 0) + 1; });
+  let html = '<div class="npp-lbl">Door Knocks</div>';
+  Object.keys(PIN_LABELS).forEach(function (st) {
+    const off = (_pinDispFilter && !_pinDispFilter.has(st)) ? ' off' : '';
+    html += '<button type="button" class="npp-chip' + off + '" data-pin-disp="' + esc(st) + '">'
+      + '<span class="npp-dot" style="background:' + esc(PIN_COLORS[st] || '#9CA3AF') + ';"></span>'
+      + '<span class="npp-name">' + esc(PIN_LABELS[st]) + '</span>'
+      + '<span class="npp-cnt">' + (counts[st] || 0) + '</span></button>';
+  });
+  _pinPanelEl.innerHTML = html;
+  if (!_pinPanelEl._wired) {
+    _pinPanelEl._wired = true;
+    _pinPanelEl.addEventListener('click', function (e) {
+      const chip = e.target && e.target.closest && e.target.closest('[data-pin-disp]');
+      if (!chip) return;
+      const st = chip.getAttribute('data-pin-disp');
+      const all = Object.keys(PIN_LABELS);
+      if (!_pinDispFilter) _pinDispFilter = new Set(all);
+      if (_pinDispFilter.has(st)) { if (_pinDispFilter.size > 1) _pinDispFilter.delete(st); } else { _pinDispFilter.add(st); }
+      if (_pinDispFilter.size === all.length) _pinDispFilter = null; // all on → no filter
+      applyPinDispFilter();
+      renderPinDispPanel();
+    });
+  }
+  _pinPanelEl.style.display = '';
+}
+function hidePinDispPanel() { if (_pinPanelEl) _pinPanelEl.style.display = 'none'; }
 
 // Escape untrusted strings for HTML text AND double-quoted attribute contexts.
 // Covers &, <, >, ", ' — the five XSS vectors that matter for innerHTML sinks.

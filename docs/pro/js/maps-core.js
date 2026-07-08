@@ -110,7 +110,7 @@ function initMainMap() {
   });
   if(window._pins) window._pins.forEach(p => addPinMarker(p));
   // Build heat + jobs layers from existing data
-  setTimeout(()=>{ buildHeatLayer(); buildJobsLayer(); updatePinStats(); }, 400);
+  setTimeout(()=>{ buildHeatLayer(); buildJobsLayer(); updatePinStats(); if(overlayState.pins && typeof renderPinDispPanel==='function') renderPinDispPanel(); }, 400);
 }
 
 // ── OVERLAY TOGGLE ──────────────────────────────
@@ -118,7 +118,7 @@ function toggleOverlay(type, el) {
   overlayState[type] = !overlayState[type];
   el.classList.toggle('on', overlayState[type]);
   if(type==='heat')    { overlayState.heat    ? showHeatLayer()    : hideHeatLayer();    }
-  if(type==='pins')    { overlayState.pins    ? showAllPins()      : hideAllPins();      }
+  if(type==='pins')    { if(overlayState.pins){ showAllPins(); if(typeof renderPinDispPanel==='function') renderPinDispPanel(); } else { hideAllPins(); if(typeof hidePinDispPanel==='function') hidePinDispPanel(); } }
   if(type==='jobs')    { overlayState.jobs    ? showJobsLayer()    : hideJobsLayer();    }
   if(type==='customers'){overlayState.customers? showCustomersLayer(): hideCustomersLayer();}
   if(type==='storm')   { overlayState.storm   ? showStormLayer()   : hideStormLayer();   }
