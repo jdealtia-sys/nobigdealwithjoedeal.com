@@ -136,7 +136,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // 2c-4a cdaMjdAct wrapper), so its allowlist entry was vestigial. Do NOT
   // re-add — a stale window fallback would shadow-resurrect the global.
   // CRM kanban + filters
-  'tlFilterCat', 'tlToggleCat', 'setKanbanDensity', 'cycleKanbanDensity',
+  // (cycleKanbanDensity → __NBD_CALL_REGISTRY, Tranche 2c-4g — off window.
+  //  setKanbanDensity STAYS: auto-global backing decl, not the clean form.)
+  'tlFilterCat', 'tlToggleCat', 'setKanbanDensity',
   // Board/List layout toggle (2026-07-06 lean triage list — crm-list-view.js)
   'crmViewBoard', 'crmViewList',
   // Referral Rewards view — mark a $200 code-referral bonus paid / reverse it
@@ -189,7 +191,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // photo auto-detect — are registry-registered now; see the Tranche
   // 2c-2 note above.)
   'searchMap', 'saveZone', 'spyglassSearch', 'searchDraw',
-  'retryLoadLeads', 'saveDocUpload',
+  'saveDocUpload',
   'saveJoeKey', 'sendJoeMessage', 'saveJoeKeyFromSettings',
   'shareCalViaSMS', 'shareCalViaEmail', 'saveCalSettings',
   'qaUseMyLocation', 'saveQuickLead',
@@ -211,7 +213,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Misc tools
   'goToMyLocation', 'spyglassGoToLocation', 'dropPinByAddress',
   'quickStormCheck', 'perimChooseType',
-  'copyDebugInfo', 'copyCalLink', 'loadSampleData', 'inviteTeamMember',
+  'copyCalLink', 'loadSampleData', 'inviteTeamMember',
   'exportLeadsCSV', 'generateWarrantyCertPDF', 'printDoc', 'clearCrmSearch',
   // Appearance picker
   'nbdPickerTab', 'nbdComfortSet', 'nbdHowtoOpen', 'nbdHowtoClose',
@@ -230,11 +232,20 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  (dashboard-ui.js bare call); ds* helpers are private. Do NOT re-add.)
   // (cancelDeleteConfirm moved into __NBD_CALL_REGISTRY — crm-portal-bridge.js,
   //  Globals Tranche 2c-3)
-  // Settings page private setters (defensive: only fire if loaded)
-  '_saveSettings', '_saveNotifSettings', '_saveEstimateDefaultsV2',
-  '_saveCompanySettings', '_testNotif', '_sharePortalLink',
+  // Settings page private setters (defensive: only fire if loaded).
+  // (Tranche 2c-4f 2026-07-07: the dashboard-bootstrap.module.js settings /
+  //  debug / export handlers moved OFF window into __NBD_CALL_REGISTRY —
+  //  _saveSettings, _saveNotifSettings, _saveCompanySettings, _testNotif,
+  //  runLeadAction, _resetEstimateDefaultsV2, _exportPhotos, _exportEstimates,
+  //  _exportAllData, _saveCompanyProfileSettings, _resetCompanyProfileSettings,
+  //  _saveSiteSlug, retryLoadLeads, copyDebugInfo, testFirestoreRules. Do NOT
+  //  re-add. MUST-STAY (kept below): _saveEstimateDefaultsV2 (intra-module
+  //  self-read), _loadCompanySettings / _loadCompanyProfileSettings (ui.js
+  //  cross-file window calls), loadSampleData (dashboard-actions.js twin).)
+  '_saveEstimateDefaultsV2',
+  '_sharePortalLink',
   '_revokePortalLink', 'exportLeadsCsv', 'exportEstimatesCsv',
-  'confirmPromoteProspect', 'runLeadAction', 'openLeadImport',
+  'confirmPromoteProspect', 'openLeadImport',
   // Quick-add flow
   'closeQuickAddLead',
   // Card-detail action helpers (glue around _cardDetailLeadId): the 18-name
@@ -253,21 +264,19 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  a stale window fallback would shadow-resurrect the global.)
   // Settings page private setters (defensive — delegate's typeof
   // guard makes the && existence-check redundant)
-  '_nbdDismissTrial', '_loadCompanySettings', '_resetEstimateDefaultsV2',
-  '_gdprRequestErasure', '_gdprExport', '_exportPhotos', '_exportEstimates',
-  '_exportAllData',
+  '_nbdDismissTrial', '_loadCompanySettings',
+  '_gdprRequestErasure', '_gdprExport',
   // Company Profile tab (doc-constants editable from UI)
-  '_loadCompanyProfileSettings', '_saveCompanyProfileSettings',
-  '_resetCompanyProfileSettings',
-  // Pillar 5 Settings surface: "Save Address" (microsite slug). Missing this
-  // entry made the button a silent no-op — the delegate gate at
-  // dashboard-ui.js:492 returns for any data-fn not listed here.
-  '_saveSiteSlug',
-  // (cdaMjdAct, cdaEditLead, cdaOpenMobileInspection, cdaVoiceMemo →
-  //  __NBD_CALL_REGISTRY, Tranche 2c-4a — see the cluster note above)
+  '_loadCompanyProfileSettings',
+  // (_saveCompanyProfileSettings, _resetCompanyProfileSettings, _saveSiteSlug,
+  //  testFirestoreRules → __NBD_CALL_REGISTRY, Tranche 2c-4f
+  //  (dashboard-bootstrap.module.js), off window. Do NOT re-add.)
+  // (cdaMjdAct, cdaEditLead, cdaOpenMobileInspection, cdaVoiceMemo,
+  //  cdaSharePortalLink, cdaRevokePortalLink, cdaConfirmPromote, cdaOpenTaskModal,
+  //  cdPickStage, cdPickType → __NBD_CALL_REGISTRY, Tranche 2c-4a/4b, off window)
   // Draw / misc
-  'undoLine', 'testFirestoreRules',
-  // (Tranche 2c-4c 2026-07-07: mQuickAddRoute, restartOnboardingTour,
+  'undoLine',
+  // (Tranche 2c-4b…4e 2026-07-07: mQuickAddRoute, restartOnboardingTour,
   //  openDecisionPicker, openD2DOrGo, clearAccentTheme, openSettingsTab,
   //  openPhotoEngineOrClickProxy, openReportGenerator, enrichReportData,
   //  openPhotoEngineCurrentLead, openInspectionBuilderCurrentLead,
@@ -302,7 +311,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'updateCertPreview', 'updatePropertyIntelCost', 'uploadPhotos',
   // (_mCreatePhotoPicked → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
   'nbdRenderThemes', 'nbdLiveCustom',
-  'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey',
+  // (nbdComfortSetWhisperHotkey, nbdComfortSetWhisperKey → __NBD_CALL_REGISTRY,
+  //  Tranche 2c-4g — off window)
   // Help tab — Hotkey Toggles grid (dashboard-hotkey-toggles.js); data-on-change delegate
   'toggleHotkey',
   // Appearance tab — Sidebar Customizer grid (dashboard-sidebar-customizer.js);

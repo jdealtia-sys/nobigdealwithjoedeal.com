@@ -561,7 +561,7 @@
     _run();
   }
 
-  window.runLeadAction = function(actionId, kind) {
+  const runLeadAction = function(actionId, kind) {
     const leadId = document.getElementById('lEditId')?.value || null;
     const lead = _findLead(leadId);
     // Emit for observers regardless of how the action is handled.
@@ -2256,7 +2256,6 @@
     showToast('Retrying CRM data load...', 'info');
     loadLeads();
   }
-  window.retryLoadLeads = retryLoadLeads;
   
   function copyDebugInfo() {
     const debugText = [
@@ -2287,7 +2286,6 @@
       console.log(debugText);
     });
   }
-  window.copyDebugInfo = copyDebugInfo;
   
   // Test Firestore Rules
   async function testFirestoreRules() {
@@ -2370,7 +2368,6 @@
       showToast('❌ Firestore rules test failed — check diagnostic panel', 'error');
     }
   }
-  window.testFirestoreRules = testFirestoreRules;
   
   // Capture console logs for debug panel.
   //
@@ -3127,7 +3124,7 @@
     } catch (e) { /* silent — rules may deny mid-bootstrap */ }
   };
 
-  window._saveSettings = async () => {
+  const _saveSettings = async () => {
     const name = document.getElementById('settingsName').value.trim();
     // Cal.com username — stored on users/{uid}.calcomUsername so the
     // calcomWebhook can resolve incoming bookings back to this rep.
@@ -3380,7 +3377,7 @@
     if (typeof showToast === 'function') showToast('✓ Estimate settings saved', 'success');
   };
 
-  window._resetEstimateDefaultsV2 = function() {
+  const _resetEstimateDefaultsV2 = function() {
     if (!confirm('Reset all estimate settings to factory defaults? This cannot be undone.')) return;
     const EB2 = window.EstimateBuilderV2;
     if (!EB2) return;
@@ -3403,7 +3400,7 @@
     'coTerritory','coRadius'
   ];
 
-  window._saveCompanySettings = async function() {
+  const _saveCompanySettings = async function() {
     const data = {};
     CO_FIELDS.forEach(f => {
       const el = document.getElementById(f);
@@ -3607,7 +3604,7 @@
     if (input) input.value = slug;
     _renderSiteLink(slug);
   }
-  window._saveSiteSlug = async function () {
+  const _saveSiteSlug = async function () {
     const input = document.getElementById('cp_siteSlug');
     const msg = document.getElementById('cp-slug-msg');
     const slug = (input && input.value || '').trim().toLowerCase();
@@ -3640,7 +3637,7 @@
     }
   };
 
-  window._saveCompanyProfileSettings = async function () {
+  const _saveCompanyProfileSettings = async function () {
     const overrides = _cpReadFormToProfile();
     try {
       if (typeof window._saveCompanyProfile !== 'function') {
@@ -3659,7 +3656,7 @@
     }
   };
 
-  window._resetCompanyProfileSettings = function () {
+  const _resetCompanyProfileSettings = function () {
     const defaults = window.NBD_COMPANY_PROFILE_DEFAULTS;
     if (!defaults) return;
     if (!confirm('Reset every Company Profile field to factory defaults? Unsaved edits will be lost. (You still need to click Save to persist.)')) return;
@@ -3770,7 +3767,7 @@
   // Convenience peek (mostly for tests/devtools).
   window._getNotifSettings = _readNotifSettings;
 
-  window._saveNotifSettings = async function() {
+  const _saveNotifSettings = async function() {
     const modeEl = document.querySelector('input[name="notifMode"]:checked');
     const data = {
       mode: modeEl ? modeEl.value : 'critical',
@@ -3869,7 +3866,7 @@
     }
   };
 
-  window._testNotif = function() {
+  const _testNotif = function() {
     if (typeof showToast === 'function') {
       showToast('🔔 Test notification — your alerts work!', 'success');
     } else {
@@ -3880,7 +3877,7 @@
   // ── Data Retention exports ─────────────────────────
   // Three buttons in Settings → Access → Data Retention pointed at
   // these functions but nothing defined them — the short-circuit
-  // `window._exportAllData && ...` just silently no-oped. Real
+  // `_exportAllData && ...` just silently no-oped. Real
   // implementations below. For a full GDPR-compliant JSON dump use
   // window._gdprExport (Settings → Your Rights panel); these are
   // convenience CSVs for the common ops workflows.
@@ -3907,7 +3904,7 @@
     if (typeof showToast === 'function') showToast('✓ ' + filename + ' downloaded.', 'success');
   }
 
-  window._exportAllData = function () {
+  const _exportAllData = function () {
     const leads = (window._leads || []).map(l => ({
       id:         l.id,
       firstName:  l.firstName || l.fname || '',
@@ -3928,7 +3925,7 @@
     _downloadCsv(leads, 'nbd-leads-' + new Date().toISOString().slice(0, 10) + '.csv');
   };
 
-  window._exportEstimates = function () {
+  const _exportEstimates = function () {
     const rows = (window._estimates || []).map(e => ({
       id:          e.id,
       address:     e.addr || e.address || '',
@@ -3946,7 +3943,7 @@
   // Photos ZIP — we don't bundle every photo blob client-side (too
   // much memory for a big account). Instead export a CSV manifest
   // with direct download links; reps can wget / curl the list.
-  window._exportPhotos = async function () {
+  const _exportPhotos = async function () {
     try {
       const uid = window._user?.uid;
       if (!uid) { if (typeof showToast === 'function') showToast('Sign in first', 'error'); return; }
@@ -4016,3 +4013,31 @@
       if (byId('aiUsageCost'))   byId('aiUsageCost').textContent   = '$0.00';
     }
   };
+
+// ── Delegate registration (Globals Tranche 2c-4f — 2026-07-07) ──
+// These 15 settings/debug/export handlers are dispatched ONLY from markup
+// (data-action="call" data-fn) through dashboard-ui.js _nbdResolveCall, which
+// resolves window.__NBD_CALL_REGISTRY FIRST. Registration here replaces each
+// name's _NBD_CALL_ALLOWLIST entry as the security opt-in; the functions stay
+// module-scoped (this is a real ES module — no IIFE needed). MUST-STAY siblings
+// keep their window.X exposure: _saveEstimateDefaultsV2 (intra-module self-read),
+// _loadCompanySettings / _loadCompanyProfileSettings (ui.js cross-file window
+// calls), and loadSampleData (dashboard-actions.js:913 also exports it).
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  runLeadAction: runLeadAction,
+  retryLoadLeads: retryLoadLeads,
+  copyDebugInfo: copyDebugInfo,
+  testFirestoreRules: testFirestoreRules,
+  _saveSettings: _saveSettings,
+  _saveNotifSettings: _saveNotifSettings,
+  _saveCompanySettings: _saveCompanySettings,
+  _testNotif: _testNotif,
+  _resetEstimateDefaultsV2: _resetEstimateDefaultsV2,
+  _saveSiteSlug: _saveSiteSlug,
+  _saveCompanyProfileSettings: _saveCompanyProfileSettings,
+  _resetCompanyProfileSettings: _resetCompanyProfileSettings,
+  _exportAllData: _exportAllData,
+  _exportEstimates: _exportEstimates,
+  _exportPhotos: _exportPhotos,
+});
