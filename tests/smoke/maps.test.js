@@ -171,6 +171,25 @@ section('Customers map layer — all leads on the map, role-coloured');
   assert('addPinMarker colours customer pins via the live engine',
     /p\.type === 'customer'[\s\S]{0,400}window\.STAGE_META/.test(maps),
     'expected addPinMarker() to colour customer pins from window.STAGE_META');
+  // Clusters at low zoom (like the D2D pins) so a big book stays readable.
+  assert('Customers layer clusters when markerClusterGroup is available',
+    /L\.markerClusterGroup === 'function'[\s\S]{0,120}L\.markerClusterGroup\(/.test(maps)
+    && /L\.layerGroup\(\)/.test(maps),
+    'expected _ensureCustomersLayer() to prefer L.markerClusterGroup with a layerGroup fallback');
+  // Per-role legend show/hide.
+  assert('Customers layer renders a per-role legend',
+    /nbd-cust-legend/.test(maps) && /_renderCustLegend/.test(maps)
+    && /data-cust-role/.test(maps),
+    'expected a floating legend with data-cust-role chips');
+  assert('legend filter skips hidden roles in the build',
+    /_custRoleVisible\(role\)/.test(maps) && /if \(!_custRoleVisible\(role\)\) continue;/.test(maps),
+    'expected buildCustomersLayer to skip roles filtered out via the legend');
+  assert('legend never hides the last visible role',
+    /_custRoleFilter\.size > 1[\s\S]{0,40}_custRoleFilter\.delete\(role\)/.test(maps),
+    'expected the legend to keep at least one role visible');
+  assert('legend is CSP-safe (delegated listener, no inline handlers)',
+    /_custLegendEl\.addEventListener\('click'/.test(maps),
+    'expected a delegated click listener on the legend');
 }
 
 section('Customers map layer — dashboard.html wiring');

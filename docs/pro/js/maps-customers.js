@@ -11,8 +11,8 @@
  *
  * Why a dedicated layer (vs the existing Jobs overlay / D2D pins):
  *   - Jobs overlay only shows leads in job stages, geocoded live and capped.
- *   - D2D `_pins` are door-knock activity scoped by userId, and a lead only
- *     gets a pin if it was CREATED from a pin/knock — most customers have none.
+ *   - D2D `_pins` are door-knock activity, and a lead only gets a pin if it was
+ *     CREATED from a pin/knock — most customers have none.
  *   - This layer is driven by `window._leads` (already company-scoped for the
  *     team) so it shows the WHOLE book, and colours by window.stageRole() /
  *     window.STAGE_META so a tenant's custom stages "just work".
@@ -23,6 +23,10 @@
  * overlay) and the result is persisted back via window._saveLeadCoords so it
  * only happens once per address (a rolling backfill).
  *
+ * UX: markers CLUSTER at low zoom (L.markerClusterGroup, same as the D2D pins)
+ * so a big book stays readable, and a floating LEGEND lets you toggle roles on
+ * and off (per-role show/hide).
+ *
  * Depends on sibling-scope globals: mainMap, overlayState, L, geocode
  * (dashboard-api.js), _mapsEscHtml / _mapsEscJsInAttr (maps-overlays.js).
  * Consumes window.* engine surface: _leads, stageRole, STAGE_META,
@@ -30,9 +34,12 @@
  */
 
 // Dedicated layer group (NOT the pin cluster — that's for door-knock _pins).
+// Clusters when the plugin is present (it is — maps-core uses it for pins),
+// else a plain layerGroup.
 let customersLayer = null;
-const _custGeocodeCache = new Map(); // address(lower) → {lat,lng} | null
-const _CUST_GEOCODE_CAP = 12;        // max live geocodes per build (fair-use)
+let _custLegendEl = null;                 // floating legend DOM (built once)
+const _custGeocodeCache = new Map();      // address(lower) → {lat,lng} | null
+const _CUST_GEOCODE_CAP = 12;             // max live geocodes per build (fair-use)
 
 // Role → fallback colour when a stage has no STAGE_META entry (custom stages
 // that only declared a role, or legacy display names). Mirrors the kanban's
@@ -44,6 +51,13 @@ const _CUST_ROLE_COLORS = {
   won:    '#22C55E',
   lost:   '#E05252',
 };
+const _CUST_ROLE_LABELS = { new: 'New', active: 'Active', job: 'In Production', won: 'Won', lost: 'Lost' };
+const _CUST_ROLE_ORDER  = ['new', 'active', 'job', 'won', 'lost'];
+
+// Which roles are currently VISIBLE. null = all (default). A role is hidden by
+// removing it from the set via the legend; buildCustomersLayer skips it.
+let _custRoleFilter = null;
+function _custRoleVisible(role) { return !_custRoleFilter || _custRoleFilter.has(role); }
 
 // Resolve a lead's role via the (possibly tenant-overridden) engine surface.
 function _custRoleOf(lead) {
@@ -115,25 +129,38 @@ function _addCustomerMarker(lead, lat, lng) {
   customersLayer.addLayer(m);
 }
 
+function _ensureCustomersLayer() {
+  if (customersLayer) return;
+  customersLayer = (typeof L.markerClusterGroup === 'function')
+    ? L.markerClusterGroup({ maxClusterRadius: 50, showCoverageOnHover: false, disableClusteringAtZoom: 18 })
+    : L.layerGroup();
+}
+
 // Build (or rebuild) the layer from window._leads. Plots leads that already
 // carry lat/lng immediately; lazily geocodes+persists the rest (capped).
+// Honours the per-role legend filter and refreshes the legend counts.
 async function buildCustomersLayer() {
   if (!mainMap) return;
-  if (!customersLayer) customersLayer = L.layerGroup();
+  _ensureCustomersLayer();
   customersLayer.clearLayers();
 
   const leads = window._leads || [];
+  const roleCounts = { new: 0, active: 0, job: 0, won: 0, lost: 0 };
   let liveRequests = 0;
 
   for (const lead of leads) {
     if (!lead || lead.deleted) continue;
+
+    const role = _custRoleOf(lead);
+    // Legend filter — skip hidden roles entirely (also spares geocode budget).
+    if (!_custRoleVisible(role)) continue;
 
     // 1) Already geocoded — plot straight away.
     const haveLat = lead.lat != null && lead.lat !== '';
     const haveLng = lead.lng != null && lead.lng !== '';
     if (haveLat && haveLng) {
       const la = parseFloat(lead.lat), ln = parseFloat(lead.lng);
-      if (!isNaN(la) && !isNaN(ln)) _addCustomerMarker(lead, la, ln);
+      if (!isNaN(la) && !isNaN(ln)) { _addCustomerMarker(lead, la, ln); roleCounts[role] = (roleCounts[role] || 0) + 1; }
       continue;
     }
 
@@ -161,7 +188,10 @@ async function buildCustomersLayer() {
       try { window._saveLeadCoords(lead.id, geo.lat, geo.lng); } catch (_) {}
     }
     _addCustomerMarker(lead, geo.lat, geo.lng);
+    roleCounts[role] = (roleCounts[role] || 0) + 1;
   }
+
+  _renderCustLegend(roleCounts);
 
   if (liveRequests >= _CUST_GEOCODE_CAP) {
     if (typeof showToast === 'function') {
@@ -170,11 +200,77 @@ async function buildCustomersLayer() {
   }
 }
 
-function showCustomersLayer() {
-  if (!customersLayer || customersLayer.getLayers().length === 0) { buildCustomersLayer(); }
-  if (customersLayer) customersLayer.addTo(mainMap);
+// ── LEGEND (floating, per-role show/hide) ───────────────────────────────
+function _injectCustLegendCss() {
+  if (document.getElementById('cust-legend-style')) return;
+  const s = document.createElement('style');
+  s.id = 'cust-legend-style';
+  s.textContent =
+    '.nbd-cust-legend{position:absolute;left:12px;bottom:22px;z-index:600;background:rgba(10,12,15,.86);'
+    + 'border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:8px 9px;font-family:sans-serif;'
+    + 'box-shadow:0 4px 16px rgba(0,0,0,.5);backdrop-filter:blur(4px);max-width:180px;}'
+    + '.nbd-cust-legend .ncl-title{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#9aa4b2;margin:0 2px 6px;font-weight:700;}'
+    + '.nbd-cust-legend .ncl-chip{display:flex;align-items:center;gap:7px;width:100%;background:none;border:none;'
+    + 'padding:4px 4px;border-radius:6px;cursor:pointer;color:#e7ebf0;font-size:12px;text-align:left;}'
+    + '.nbd-cust-legend .ncl-chip:hover{background:rgba(255,255,255,.07);}'
+    + '.nbd-cust-legend .ncl-chip.off{opacity:.4;}'
+    + '.nbd-cust-legend .ncl-dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(255,255,255,.5);}'
+    + '.nbd-cust-legend .ncl-lbl{flex:1;}'
+    + '.nbd-cust-legend .ncl-cnt{color:#9aa4b2;font-variant-numeric:tabular-nums;}';
+  document.head.appendChild(s);
 }
-function hideCustomersLayer() { if (customersLayer && mainMap) mainMap.removeLayer(customersLayer); }
+
+function _renderCustLegend(roleCounts) {
+  if (!mainMap) return;
+  const container = mainMap.getContainer && mainMap.getContainer();
+  if (!container) return;
+  _injectCustLegendCss();
+  if (!_custLegendEl) {
+    _custLegendEl = document.createElement('div');
+    _custLegendEl.className = 'nbd-cust-legend';
+    container.appendChild(_custLegendEl);
+    // Stop map drag/zoom when interacting with the legend.
+    if (L.DomEvent) { L.DomEvent.disableClickPropagation(_custLegendEl); L.DomEvent.disableScrollPropagation(_custLegendEl); }
+  }
+  const esc = (typeof _mapsEscHtml === 'function') ? _mapsEscHtml : (s => String(s || ''));
+  let html = '<div class="ncl-title">Customers</div>';
+  _CUST_ROLE_ORDER.forEach(function (role) {
+    const off = !_custRoleVisible(role) ? ' off' : '';
+    html += '<button type="button" class="ncl-chip' + off + '" data-cust-role="' + role + '">'
+      + '<span class="ncl-dot" style="background:' + esc(_CUST_ROLE_COLORS[role]) + ';"></span>'
+      + '<span class="ncl-lbl">' + esc(_CUST_ROLE_LABELS[role]) + '</span>'
+      + '<span class="ncl-cnt">' + (roleCounts[role] || 0) + '</span>'
+      + '</button>';
+  });
+  _custLegendEl.innerHTML = html;
+  // Delegated, CSP-safe (no inline handlers).
+  if (!_custLegendEl._wired) {
+    _custLegendEl._wired = true;
+    _custLegendEl.addEventListener('click', function (e) {
+      const btn = e.target && e.target.closest && e.target.closest('[data-cust-role]');
+      if (!btn) return;
+      const role = btn.getAttribute('data-cust-role');
+      if (!_custRoleFilter) _custRoleFilter = new Set(_CUST_ROLE_ORDER);
+      if (_custRoleFilter.has(role)) {
+        if (_custRoleFilter.size > 1) _custRoleFilter.delete(role); // never hide the last one
+      } else {
+        _custRoleFilter.add(role);
+      }
+      buildCustomersLayer();
+    });
+  }
+  _custLegendEl.style.display = '';
+}
+
+function _hideCustLegend() { if (_custLegendEl) _custLegendEl.style.display = 'none'; }
+
+function showCustomersLayer() {
+  _ensureCustomersLayer();
+  if (customersLayer.getLayers().length === 0) { buildCustomersLayer(); }
+  else if (_custLegendEl) { _custLegendEl.style.display = ''; }
+  customersLayer.addTo(mainMap);
+}
+function hideCustomersLayer() { if (customersLayer && mainMap) mainMap.removeLayer(customersLayer); _hideCustLegend(); }
 
 // Rebuild after a leads reload / stage move so the map tracks the book. Only
 // touches the map if the overlay is currently on (cheap no-op otherwise).
