@@ -721,35 +721,40 @@ service cloud.firestore {
     // key by functions/migrate-companyprofile-per-tenant.js and is no
     // longer client-reachable (its id matches neither branch below).
     match /companyProfile/{companyId} {
-      // Same-tenant members (any role) may read AND write their own company's
-      // profile; cross-tenant is denied by the companyId/uid scoping. NOTE: a
-      // 2026-06-24 audit flagged that this lets a viewer/sales_rep edit the
-      // legal/financing text — but the cross-tenant rules test deliberately
-      // asserts a same-tenant sales_rep CAN write own config (it encodes the
-      // desired behaviour), so role-restricting writes is a PRODUCT decision,
-      // not a security fix. Left open per that tested design intent.
-      // Same-tenant scope gate (unchanged): key by companyId claim, or by uid
-      // for solo operators (companyId == uid convention).
+      // READ is open to all same-tenant members; WRITE is owner + company_admin
+      // only (product decision 2026-07-08). companyProfile drives the legal
+      // clauses, financing APRs, pricing and letterhead baked into every
+      // generated contract/estimate/invoice — a read-only 'viewer' or sales_rep
+      // must not be able to rewrite tenant-wide, money-/law-bearing config.
+      // Scope: key by companyId claim, or by uid for solo operators
+      // (companyId == uid convention).
       function cpScoped() {
         return isAuth() && (companyId == myCompanyId() || companyId == request.auth.uid);
+      }
+      // Writers: platform admin, the solo owner (doc keyed by their uid), or a
+      // company_admin acting inside their own tenant. isCompanyAdmin() implies a
+      // role claim (and thus a companyId claim) so myCompanyId() is safe here.
+      function cpCanWrite() {
+        return isAdmin()
+          || companyId == request.auth.uid
+          || (isCompanyAdmin() && companyId == myCompanyId());
       }
       allow read: if cpScoped();
       // create: a client may NOT seed a docPrefix/seal — those come from the
       // reserveCompanyPrefix callable only (both must be absent/null here).
-      allow create: if cpScoped()
+      allow create: if cpCanWrite()
         && brandPrefix(request.resource.data) == null
         && brandSeal(request.resource.data) == null;
-      // update: a client may write anything EXCEPT introducing or changing
+      // update: an owner/admin may write anything EXCEPT introducing or changing
       // docPrefix/seal. A deep-merge that doesn't touch them carries the existing
       // value forward (request == resource) and passes; only the admin SDK (which
       // bypasses rules) can actually set/rotate them.
-      allow update: if cpScoped()
+      allow update: if cpCanWrite()
         && brandPrefix(request.resource.data) == brandPrefix(resource.data)
         && brandSeal(request.resource.data) == brandSeal(resource.data);
-      // delete: preserve the prior capability (write included delete). Deleting
-      // the profile does NOT release the docPrefixes/{PREFIX} reservation (that's
-      // admin-SDK-only), so it can't be abused to free a prefix for collision.
-      allow delete: if cpScoped();
+      // delete: owner/admin only (deleting does NOT release the docPrefixes/{PREFIX}
+      // reservation, which is admin-SDK-only, so no prefix-collision abuse).
+      allow delete: if cpCanWrite();
     }
 
     // ── DOC-PREFIX REGISTRY (global customer-ID prefix uniqueness) ─────
@@ -966,8 +971,21 @@ service cloud.firestore {
       allow read: if isAdmin()
         || (isAuth() && resource.data.ownerId == request.auth.uid)
         || (isAuth() && myCompanyId() == companyId);
-      allow create: if isAuth() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if (isAuth() && resource.data.ownerId == request.auth.uid) || isAdmin();
+      // Pin the doc id to the caller's uid: no legitimate client path creates
+      // company docs (registration provisions via the createCompany callable /
+      // admin SDK), and an unpinned create let anyone squat companies/{ANY-uid}
+      // as long as they stamped ownerId=self — locking out a legacy owner from
+      // team management and exposing that tenant's members subcollection.
+      allow create: if isAuth()
+        && companyId == request.auth.uid
+        && request.resource.data.ownerId == request.auth.uid;
+      // `plan` (entitlement) + `ownerId` (provenance) are admin-SDK-only — the
+      // Stripe webhook sets plan, provisioning sets ownerId. Freezing them stops
+      // a free-tier owner from client-writing plan:'enterprise' on their own doc
+      // to defeat the team-seat gate (createTeamInvite trusts companies.plan).
+      allow update: if ((isAuth() && resource.data.ownerId == request.auth.uid)
+            && didNotChange(['plan', 'ownerId'])) || isAdmin();
+      allow delete: if (isAuth() && resource.data.ownerId == request.auth.uid) || isAdmin();
 
       // Members subcollection is writable only by the company owner or admin.
       // QA 2026-06-21 #10: the live app queries /companies/{_user.uid}/members,
