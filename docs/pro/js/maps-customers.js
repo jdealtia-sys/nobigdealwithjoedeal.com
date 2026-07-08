@@ -398,6 +398,9 @@ function _renderCustPanel(counts) {
   const anyOtherFilter = others.some(function (d) { return !!_custFilters[d]; });
   html += '<button type="button" class="ncp-more" data-cust-morefilters>'
     + (_custFiltersOpen ? '▾' : '▸') + ' Filters' + (anyOtherFilter ? ' •' : '') + '</button>';
+  // Route the currently-filtered stops (nearest-neighbor from the map centre).
+  html += '<button type="button" class="ncp-more" data-cust-route>🧭 '
+    + (_custRouteOn ? 'Clear route' : 'Route these stops') + '</button>';
   if (_custFiltersOpen) {
     others.forEach(function (dk) {
       html += '<div class="ncp-group-lbl">' + esc(_CUST_DIMENSIONS[dk].label) + '</div>';
@@ -460,6 +463,8 @@ function _renderCustPanel(counts) {
         _renderCustPanel(counts);
         return;
       }
+      const route = e.target && e.target.closest && e.target.closest('[data-cust-route]');
+      if (route) { toggleCustomerRoute(); _renderCustPanel(counts); return; }
       const more = e.target && e.target.closest && e.target.closest('[data-cust-morefilters]');
       if (more) { _custFiltersOpen = !_custFiltersOpen; _renderCustPanel(counts); return; }
       const chip = e.target && e.target.closest && e.target.closest('[data-cust-cat]');
@@ -481,6 +486,83 @@ function _renderCustPanel(counts) {
 }
 function _hideCustPanel() { if (_custPanelEl) _custPanelEl.style.display = 'none'; }
 
+// ── ROUTE OPTIMIZER (nearest-neighbor over the filtered dots) ────────────
+let _custRouteLayer = null;
+let _custRouteOn = false;
+const _CUST_ROUTE_CAP = 25; // keep the day's route sane
+function _custHavFt(a, b) {
+  if (typeof hav === 'function') { try { return hav(a, b); } catch (_) {} }
+  const R = 20902231, toR = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * toR, dLon = (b.lng - a.lng) * toR;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * toR) * Math.cos(b.lat * toR) * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x));
+}
+// Leads currently passing every filter AND having coords → routable stops.
+function _custRoutableStops() {
+  const out = [];
+  (window._leads || []).forEach(l => {
+    if (!l || l.deleted || !_custPasses(l)) return;
+    if (l.lat == null || l.lng == null) return;
+    const la = parseFloat(l.lat), ln = parseFloat(l.lng);
+    if (!isNaN(la) && !isNaN(ln)) out.push({ lead: l, lat: la, lng: ln });
+  });
+  return out;
+}
+function _custNnOrder(start, pts) {
+  const remaining = pts.slice(), order = [];
+  let cur = start;
+  while (remaining.length) {
+    let bi = 0, bd = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const d = _custHavFt(cur, remaining[i]);
+      if (d < bd) { bd = d; bi = i; }
+    }
+    const n = remaining.splice(bi, 1)[0];
+    order.push(n);
+    cur = { lat: n.lat, lng: n.lng };
+  }
+  return order;
+}
+function _custNumIcon(n) {
+  return L.divIcon({
+    html: '<div style="width:20px;height:20px;border-radius:50%;background:#e8720c;color:#0A0C0F;font-family:sans-serif;font-size:11px;font-weight:800;'
+      + 'display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.55);">' + n + '</div>',
+    iconSize: [20, 20], iconAnchor: [10, 10], className: '',
+  });
+}
+function _clearRoute() {
+  if (_custRouteLayer && mainMap) mainMap.removeLayer(_custRouteLayer);
+  _custRouteLayer = null;
+  _custRouteOn = false;
+}
+function buildCustomerRoute() {
+  if (!mainMap) return;
+  _clearRoute();
+  let stops = _custRoutableStops();
+  if (!stops.length) { if (typeof showToast === 'function') showToast('No mapped customers match the current filters', 'info'); return; }
+  let capped = false;
+  if (stops.length > _CUST_ROUTE_CAP) { stops = stops.slice(0, _CUST_ROUTE_CAP); capped = true; }
+  const c = mainMap.getCenter();
+  const start = { lat: c.lat, lng: c.lng };
+  const ordered = _custNnOrder(start, stops);
+  // Total drive-ish distance (great-circle, feet → miles).
+  let ft = _custHavFt(start, ordered[0]);
+  for (let i = 1; i < ordered.length; i++) ft += _custHavFt(ordered[i - 1], ordered[i]);
+  const miles = (ft / 5280).toFixed(1);
+
+  _custRouteLayer = L.layerGroup();
+  const latlngs = [[start.lat, start.lng]].concat(ordered.map(o => [o.lat, o.lng]));
+  L.polyline(latlngs, { color: '#e8720c', weight: 3, opacity: 0.85, dashArray: '6,6' }).addTo(_custRouteLayer);
+  ordered.forEach((o, i) => { L.marker([o.lat, o.lng], { icon: _custNumIcon(i + 1) }).addTo(_custRouteLayer); });
+  _custRouteLayer.addTo(mainMap);
+  _custRouteOn = true;
+  try { mainMap.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] }); } catch (_) {}
+  if (typeof showToast === 'function') {
+    showToast('Route: ' + ordered.length + ' stops · ~' + miles + ' mi' + (capped ? ' (first ' + _CUST_ROUTE_CAP + ')' : ''), 'ok');
+  }
+}
+function toggleCustomerRoute() { if (_custRouteOn) { _clearRoute(); if (typeof showToast === 'function') showToast('Route cleared', 'info'); } else { buildCustomerRoute(); } }
+
 // Re-icon (dot ↔ $ label) when crossing the label-zoom threshold.
 function _wireCustZoom() {
   if (_custZoomWired || !mainMap) return;
@@ -500,7 +582,7 @@ function showCustomersLayer() {
   else if (_custPanelEl) { _custPanelEl.style.display = ''; }
   customersLayer.addTo(mainMap);
 }
-function hideCustomersLayer() { if (customersLayer && mainMap) mainMap.removeLayer(customersLayer); _hideCustPanel(); }
+function hideCustomersLayer() { if (customersLayer && mainMap) mainMap.removeLayer(customersLayer); _hideCustPanel(); _clearRoute(); }
 
 function refreshCustomersLayer() { if (overlayState && overlayState.customers) { buildCustomersLayer(); } }
 
@@ -509,4 +591,6 @@ if (typeof window !== 'undefined') {
   window.showCustomersLayer    = showCustomersLayer;
   window.hideCustomersLayer    = hideCustomersLayer;
   window.refreshCustomersLayer = refreshCustomersLayer;
+  window.buildCustomerRoute    = buildCustomerRoute;
+  window.toggleCustomerRoute   = toggleCustomerRoute;
 }

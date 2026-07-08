@@ -236,6 +236,20 @@ section('Customers map layer — all leads on the map, role-coloured');
   assert('rep names are best-effort (Me / team maps / short uid)',
     /function _custRepName\(uid\)[\s\S]{0,300}window\._user[\s\S]{0,200}'Me'/.test(maps),
     'expected _custRepName to label the current user Me and fall back gracefully');
+  // Route optimizer — nearest-neighbor over the currently-filtered stops.
+  assert('route optimizer orders filtered stops nearest-neighbor from map centre',
+    /function _custRoutableStops\(\)[\s\S]{0,200}_custPasses\(l\)/.test(maps)
+    && /function _custNnOrder\(start, pts\)/.test(maps)
+    && /mainMap\.getCenter\(\)/.test(maps),
+    'expected _custRoutableStops (filter-aware) + _custNnOrder from the map centre');
+  assert('route draws a polyline + numbered stop markers, capped',
+    /L\.polyline\(latlngs/.test(maps)
+    && /_custNumIcon\(i \+ 1\)/.test(maps)
+    && /_CUST_ROUTE_CAP/.test(maps),
+    'expected a dashed polyline, numbered markers, and a stop cap');
+  assert('route toggle wired in the panel',
+    /data-cust-route/.test(maps) && /toggleCustomerRoute\(\)/.test(maps),
+    'expected a Route button wired to toggleCustomerRoute');
 }
 
 section('D2D pins — disposition legend + filter (second layer)');
