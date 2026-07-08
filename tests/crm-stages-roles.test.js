@@ -102,5 +102,36 @@ ok('view label overridden', r5.views.cash.label === 'Homeowner Pays');
 const r6 = resolvePipelineConfig({ views: { cash: { stages: ['nope', 'zzz'] } } });
 ok('all-invalid view keeps default stages', r6.views.cash.stages.length === KANBAN_VIEWS.cash.stages.length && r6.errors.length > 0);
 
+// ── Phase 3: custom-stage ROUND-TRIP — client resolve → persist → SERVER classify ──
+// The freeform-pipeline contract: the client resolves a tenant's custom stage
+// to a role, stamps it on the lead (_stageRole → persisted stageRole), and the
+// SERVER (functions/stage-roles.js) classifies by that PERSISTED role — since it
+// has no idea what the custom stage means. This ties the two suites together and
+// proves the exact gap the backfill (scripts/backfill-lead-stageRole.js) closes.
+const server = require('../functions/stage-roles');
+// A tenant invents "custom_walkthru" and declares it WON.
+const rt = resolvePipelineConfig({
+  stages: { custom_walkthru: { label: 'Final Walkthrough', role: 'won' } },
+  views:  { cash: { stages: ['new', 'contract_signed', 'custom_walkthru'] } },
+});
+ok('round-trip: custom stage present in the resolved view',
+  rt.views.cash.stages.indexOf('custom_walkthru') !== -1);
+ok('round-trip: client resolves the custom stage → won',
+  rt.roleOf('custom_walkthru') === ROLE.WON);
+// The client stamps that role on the lead; the server MUST honour the persisted
+// value (custom-stage-safe path).
+const persistedRole = rt.roleOf('custom_walkthru');
+ok('round-trip: server honours the persisted stageRole (won)',
+  server.roleFor({ stage: 'custom_walkthru', stageRole: persistedRole }) === server.ROLE.WON);
+ok('round-trip: server isWon on the persisted custom-stage lead',
+  server.isWon({ stage: 'custom_walkthru', stageRole: persistedRole }) === true);
+// A LEGACY lead on the same custom stage with NO persisted role falls back to
+// the key map and MISclassifies (active) — the precise gap the backfill fixes.
+ok('round-trip: legacy (no stageRole) misclassifies as active — why the backfill exists',
+  server.roleFor({ stage: 'custom_walkthru' }) === server.ROLE.ACTIVE);
+// Built-in stages still agree client↔server without any persisted role.
+ok('round-trip: built-in closed agrees client + server',
+  rt.roleOf('closed') === ROLE.WON && server.roleFor({ stage: 'closed' }) === server.ROLE.WON);
+
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' crm-stages roles: ' + passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILURES:\n  ' + fails.join('\n  ')); process.exit(1); }
