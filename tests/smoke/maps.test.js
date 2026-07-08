@@ -145,12 +145,13 @@ section('Customers map layer — all leads on the map, role-coloured');
   assert('Customers layer builds from window._leads',
     /function buildCustomersLayer[\s\S]{0,400}window\._leads/.test(maps),
     'expected buildCustomersLayer() to iterate window._leads');
-  // Colour must come from the LIVE pipeline engine (STAGE_META / stageRole) so
-  // it matches the kanban and honours a tenant's custom stages.
-  assert('Customer marker colour resolves via STAGE_META / stageRole',
-    /_custColorOf[\s\S]{0,300}window\.STAGE_META/.test(maps)
-    && /window\.stageRole/.test(maps),
-    'expected _custColorOf() to read window.STAGE_META then fall back to window.stageRole');
+  // The stage dimension classifies by the LIVE pipeline role (window.stageRole)
+  // so it matches the kanban and honours a tenant's custom stages; the legend +
+  // dots share the role palette for consistency.
+  assert('stage dimension classifies via window.stageRole',
+    /function _custRoleOf\(lead\)[\s\S]{0,200}window\.stageRole/.test(maps)
+    && /catOf:\s*_custRoleOf/.test(maps),
+    'expected the stage dimension catOf to resolve the role via window.stageRole');
   // Rolling geocode-backfill: lazy, fair-use capped, and PERSISTED so a lead
   // is only ever geocoded once.
   assert('Customers layer persists geocoded coords via _saveLeadCoords',
@@ -176,20 +177,33 @@ section('Customers map layer — all leads on the map, role-coloured');
     /L\.markerClusterGroup === 'function'[\s\S]{0,120}L\.markerClusterGroup\(/.test(maps)
     && /L\.layerGroup\(\)/.test(maps),
     'expected _ensureCustomersLayer() to prefer L.markerClusterGroup with a layerGroup fallback');
-  // Per-role legend show/hide.
-  assert('Customers layer renders a per-role legend',
-    /nbd-cust-legend/.test(maps) && /_renderCustLegend/.test(maps)
-    && /data-cust-role/.test(maps),
-    'expected a floating legend with data-cust-role chips');
-  assert('legend filter skips hidden roles in the build',
-    /_custRoleVisible\(role\)/.test(maps) && /if \(!_custRoleVisible\(role\)\) continue;/.test(maps),
-    'expected buildCustomersLayer to skip roles filtered out via the legend');
-  assert('legend never hides the last visible role',
-    /_custRoleFilter\.size > 1[\s\S]{0,40}_custRoleFilter\.delete\(role\)/.test(maps),
-    'expected the legend to keep at least one role visible');
-  assert('legend is CSP-safe (delegated listener, no inline handlers)',
-    /_custLegendEl\.addEventListener\('click'/.test(maps),
-    'expected a delegated click listener on the legend');
+  // Control panel: color-by, legend/filter, cross-dimension AND filters.
+  assert('Customers panel offers 3 color-by dimensions (stage/damage/value)',
+    /_CUST_DIM_KEYS\s*=\s*\['stage',\s*'damage',\s*'value'\]/.test(maps)
+    && /data-cust-colorby/.test(maps),
+    'expected a color-by selector over stage/damage/value dimensions');
+  assert('dot colour follows the active color-by dimension',
+    /function _custColorOf\(lead\)[\s\S]{0,200}_CUST_DIMENSIONS\[_custColorBy\]/.test(maps),
+    'expected _custColorOf to resolve via the active color-by dimension');
+  assert('filters compose across dimensions (AND)',
+    /function _custPasses\(lead\)[\s\S]{0,260}for \(const dk of _CUST_DIM_KEYS\)[\s\S]{0,160}return false/.test(maps)
+    && /if \(!_custPasses\(lead\)\) continue;/.test(maps),
+    'expected _custPasses to AND every dimension filter and gate the build');
+  assert('damage + value dimensions normalise lead fields',
+    /function _custDamageKey\(lead\)/.test(maps) && /function _custValueKey\(lead\)/.test(maps),
+    'expected damage-type and value-tier categorisers');
+  assert('zoom-gated $ labels bloom past the label zoom',
+    /_CUST_LABEL_ZOOM/.test(maps)
+    && /labelMode && v > 0/.test(maps) && /💰/.test(maps)
+    && /zoomend[\s\S]{0,200}buildCustomersLayer\(\)/.test(maps),
+    'expected a $ value pill icon past _CUST_LABEL_ZOOM, rebuilt on zoomend');
+  assert('panel filter keeps at least one category per dimension',
+    /f\.size > 1[\s\S]{0,30}f\.delete\(cat\)/.test(maps),
+    'expected the chip toggle to never empty a dimension filter');
+  assert('panel is CSP-safe (delegated listeners, no inline handlers)',
+    /_custPanelEl\.addEventListener\('click'/.test(maps)
+    && /_custPanelEl\.addEventListener\('change'/.test(maps),
+    'expected delegated click + change listeners on the panel');
 }
 
 section('Customers map layer — dashboard.html wiring');
