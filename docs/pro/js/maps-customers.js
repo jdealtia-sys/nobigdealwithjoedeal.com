@@ -465,8 +465,11 @@ function _renderCustPanel(counts) {
     _custPanelEl.addEventListener('input', function (e) {
       const t = e.target;
       if (!t || !t.hasAttribute) return;
-      if (t.hasAttribute('data-cust-valmin')) { _custValMin = Math.min(parseInt(t.value, 10) || 0, _custValMax); }
-      else if (t.hasAttribute('data-cust-valmax')) { _custValMax = Math.max(parseInt(t.value, 10) || _CUST_VAL_CAP, _custValMin); }
+      // NaN-guard, NOT `|| fallback`: a legit 0 is falsy, so `parseInt||CAP`
+      // made dragging MAX to $0 snap to "no cap" (showing everything) instead
+      // of clamping to [min,0] (audit 2026-07-08).
+      if (t.hasAttribute('data-cust-valmin')) { const n = parseInt(t.value, 10); _custValMin = Math.min(isNaN(n) ? 0 : n, _custValMax); }
+      else if (t.hasAttribute('data-cust-valmax')) { const n = parseInt(t.value, 10); _custValMax = Math.max(isNaN(n) ? _CUST_VAL_CAP : n, _custValMin); }
       else return;
       const read = _custPanelEl.querySelector('.ncp-vr-read');
       if (read) read.textContent = _custValLabel(_custValMin) + ' – ' + _custValLabel(_custValMax);
@@ -499,7 +502,7 @@ function _renderCustPanel(counts) {
       const route = e.target && e.target.closest && e.target.closest('[data-cust-route]');
       if (route) { toggleCustomerRoute(); return; } // toggle re-renders the panel itself
       const more = e.target && e.target.closest && e.target.closest('[data-cust-morefilters]');
-      if (more) { _custFiltersOpen = !_custFiltersOpen; _renderCustPanel(counts); return; }
+      if (more) { _custFiltersOpen = !_custFiltersOpen; _renderCustPanel(); return; } // no-arg → freshest _custLastCounts (the closed-over `counts` is stale)
       const chip = e.target && e.target.closest && e.target.closest('[data-cust-cat]');
       if (!chip) return;
       const dk = chip.getAttribute('data-cust-dim');
@@ -524,7 +527,11 @@ let _custRouteLayer = null;
 let _custRouteOn = false;
 let _custRouteStart = null;    // {lat,lng} the route began from (GPS or map centre)
 let _custRouteOrdered = [];    // ordered stops [{lead,lat,lng}] for the Maps hand-off
-const _CUST_ROUTE_CAP = 25;    // keep the day's route sane
+// Google consumer directions holds origin + 23 waypoints + 1 destination = 24
+// STOPS (origin is the rep's start, not a stop). Cap the route at 24 so the map
+// pins and the "Open in Google Maps" hand-off always carry the SAME stops — a
+// 25th stop was drawn on the map but silently dropped from the URL (audit).
+const _CUST_ROUTE_CAP = 24;    // keep the day's route sane + fit the Maps hand-off
 const _CUST_GMAPS_WP_CAP = 23; // Google consumer directions waypoint limit
 // Resolve the route's START: prefer the rep's GPS (they route FROM where they
 // are), fall back to the map centre if geolocation is unavailable/denied/slow.

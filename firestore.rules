@@ -627,7 +627,14 @@ service cloud.firestore {
       // Owner or same-company company_admin may edit/remove a pin (an admin
       // curates shared territory); legacy pins (no companyId) stay owner-only
       // because sameCompanyAsResource() denies on the absent field.
-      allow update, delete: if isOwner(resource.data.userId) || isAdmin()
+      // UPDATE freezes provenance (userId/companyId) — mirrors /leads (line
+      // ~198). Without it an owner could updateDoc their pin's companyId to a
+      // VICTIM tenant, injecting a spoofed pin into that team's shared map
+      // (create pins companyId, but update did not — audit 2026-07-08).
+      allow update: if (isOwner(resource.data.userId) || isAdmin()
+          || (isCompanyAdmin() && sameCompanyAsResource()))
+        && didNotChange(['userId', 'companyId']);
+      allow delete: if isOwner(resource.data.userId) || isAdmin()
         || (isCompanyAdmin() && sameCompanyAsResource());
       // Pin companyId on create (mirrors /leads, /reports, /expenses). Without
       // it a crafted write could inject a pin into another tenant's team-visible
@@ -646,7 +653,12 @@ service cloud.firestore {
     // owner or same-company admin edits/removes; companyId pinned on create.
     match /zones/{zoneId} {
       allow read: if isOwner(resource.data.userId) || isAdmin() || sameCompanyAsResource();
-      allow update, delete: if isOwner(resource.data.userId) || isAdmin()
+      // UPDATE freezes provenance so a zone's companyId can't be repointed to a
+      // victim tenant's shared map (same fix as /pins — audit 2026-07-08).
+      allow update: if (isOwner(resource.data.userId) || isAdmin()
+          || (isCompanyAdmin() && sameCompanyAsResource()))
+        && didNotChange(['userId', 'companyId']);
+      allow delete: if isOwner(resource.data.userId) || isAdmin()
         || (isCompanyAdmin() && sameCompanyAsResource());
       allow create: if isAuth()
         && request.resource.data.userId == request.auth.uid

@@ -116,7 +116,7 @@
 <script defer src="/assets/vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=1"></script>
-<script type="module" src="js/dashboard-bootstrap.module.js?v=3"></script>
+<script type="module" src="js/dashboard-bootstrap.module.js?v=4"></script>
 
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
@@ -1097,13 +1097,16 @@
         <div class="slabel2">Territory Zones</div>
         <div class="zone-panel" id="zonePanel">
           <input class="zone-name-input" id="zoneNameInput" placeholder="Zone name (e.g. North Territory)">
+          <!-- data-target is a HEX literal (not var(--x)): zones persist their
+               color to Firestore + reload through safeColor(), which only
+               accepts hex — a CSS-var value reverted every saved zone to blue. -->
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;" id="zoneColorPicker">
-            <div data-action="zoneColor" data-target="var(--blue)" style="width:18px;height:18px;border-radius:50%;background:var(--blue);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--green)" style="width:18px;height:18px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--orange)" style="width:18px;height:18px;border-radius:50%;background:var(--orange);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--purple)" style="width:18px;height:18px;border-radius:50%;background:var(--purple);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--gold)" style="width:18px;height:18px;border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--red)" style="width:18px;height:18px;border-radius:50%;background:var(--red);cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
+            <div data-action="zoneColor" data-target="#4A9EFF" style="width:18px;height:18px;border-radius:50%;background:#4A9EFF;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#22C55E" style="width:18px;height:18px;border-radius:50%;background:#22C55E;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#e8720c" style="width:18px;height:18px;border-radius:50%;background:#e8720c;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#9B6DFF" style="width:18px;height:18px;border-radius:50%;background:#9B6DFF;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#D4A017" style="width:18px;height:18px;border-radius:50%;background:#D4A017;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#E05252" style="width:18px;height:18px;border-radius:50%;background:#E05252;cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
           </div>
           <select class="zone-name-input" id="zoneRepSelect" style="margin-bottom:6px;" title="Assign this territory to a rep — shades the zone in their colour">
             <option value="">Assign to rep (optional)…</option>
@@ -5203,11 +5206,11 @@
 <!-- Canonical customer URL builder (window.NBDUrl). Loaded BEFORE
      dashboard-actions.js because that file calls NBDUrl.customer(). -->
 <script defer src="js/nbd-url.js?v=1"></script>
-<script defer src="js/dashboard-state.js?v=1"></script>
+<script defer src="js/dashboard-state.js?v=2"></script>
 <script defer src="js/dashboard-api.js?v=2"></script>
 <script defer src="js/dashboard-widgets.js?v=4"></script>
 <script defer src="js/dashboard-ui.js?v=2"></script>
-<script defer src="js/dashboard-actions.js?v=6"></script>
+<script defer src="js/dashboard-actions.js?v=7"></script>
 <script defer src="js/dashboard-main.js?v=4"></script>
 
 <!-- DOC VIEWER MODAL -->
@@ -5994,7 +5997,7 @@
      <script> (non-ESM) and shares sibling-scope globals. -->
 <script defer src="js/maps-core.js?v=7"></script>
 <script defer src="js/maps-overlays.js?v=5"></script>
-<script defer src="js/maps-customers.js?v=8"></script>
+<script defer src="js/maps-customers.js?v=9"></script>
 <script defer src="js/maps-routing.js?v=3"></script>
 <script defer src="js/maps.js?v=10"></script>
 <!-- Smart Calendar — Today's Schedule with travel-time + priority. Reads

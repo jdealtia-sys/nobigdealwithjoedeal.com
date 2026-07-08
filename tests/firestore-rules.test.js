@@ -481,6 +481,7 @@ async function run() {
   // Update / delete: owner or same-company admin; cross-company blocked.
   await assertSucceeds(updateDoc(doc(coAdmin, 'pins/pin-alice-co'), { status: 'do-not-knock' })); // company_admin curates shared territory
   await assertFails(updateDoc(doc(bob,        'pins/pin-alice-co'), { status: 'signed' }));        // cross-company update blocked
+  await assertFails(updateDoc(doc(alice,      'pins/pin-alice-co'), { companyId: 'co-b' }));       // provenance frozen: owner can't repoint companyId to a victim tenant
   await assertFails(deleteDoc(doc(bob,        'pins/pin-alice-co')));                              // cross-company delete blocked
   await assertSucceeds(deleteDoc(doc(alice,   'pins/pin-alice-co')));                              // owner deletes own pin
 
@@ -500,6 +501,7 @@ async function run() {
   await assertFails(setDoc(doc(alice,    'zones/zone-new-xco'),  { userId: 'alice', companyId: 'co-b', name: 'X', color: '#D4A017', points: [] }));    // foreign tenant
   await assertSucceeds(updateDoc(doc(coAdmin, 'zones/zone-alice-co'), { name: 'North (reassigned)' })); // admin curates
   await assertFails(updateDoc(doc(bob,        'zones/zone-alice-co'), { name: 'hijack' }));              // cross-company update blocked
+  await assertFails(updateDoc(doc(alice,      'zones/zone-alice-co'), { companyId: 'co-b' }));           // provenance frozen: owner can't repoint companyId
   await assertSucceeds(deleteDoc(doc(alice,   'zones/zone-alice-co')));                                  // owner deletes own zone
 
   // 25. NEW-D40a: drawings. The lead-linked subcollection

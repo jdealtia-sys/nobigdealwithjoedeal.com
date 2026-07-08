@@ -149,6 +149,29 @@ Both layers are now operational surfaces (two-layer design — leads vs pins):
 - **Mobile** — the floating map panels (customers control panel + pins
   disposition) constrain to ≈46vw / 46vh on ≤640px viewports.
 
+**Adversarial audit (2026-07-08) — 6 confirmed bugs found + fixed.** A
+multi-agent review of the whole branch diff (correctness / integration /
+security / data dimensions, each finding double-verified by independent
+skeptics) surfaced and we fixed:
+1. **HIGH / security** — `/pins` + `/zones` UPDATE rules didn't freeze
+   `companyId`, so an owner could `updateDoc` their doc's companyId to a victim
+   tenant and inject a spoofed pin/zone into that team's shared map. Added
+   `didNotChange(['userId','companyId'])` to both update rules (mirrors
+   `/leads`) + rules tests.
+2. **MED** — the "Open in Google Maps" hand-off silently dropped a stop when a
+   route had 25 (Google holds origin + 23 waypoints + 1 dest = 24 stops); route
+   cap lowered to 24 so map pins == URL stops.
+3. **MED** — zone color reverted to blue on reload (picker emitted `var(--x)`;
+   `safeColor` only accepts hex) → swatches + default now emit hex.
+4. **MED** — `deleteZone` removed a zone from the UI even when the Firestore
+   delete was denied (team reader deleting a teammate's zone), silently
+   reappearing on reload → now awaits `_deleteZone` (returns bool) and only
+   removes locally on success.
+5. **LOW** — value-range MAX slider dragged to $0 snapped to "no cap"
+   (`parseInt||CAP` falsy-zero) → NaN-guard.
+6. **LOW** — the "＋ Filters" toggle re-rendered the legend with stale counts
+   (closed-over first-render `counts`) → uses the fresh `_custLastCounts`.
+
 **Follow-ups worth noting:**
 - ~~**Territory zones are session-only.**~~ ✅ **DONE (2026-07-08).** Zones now
   persist to a Firestore `/zones` collection (team-shared, same rule shape as

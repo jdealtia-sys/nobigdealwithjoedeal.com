@@ -3188,9 +3188,14 @@
     }
     catch(e) { console.error('🗺 saveZone FAILED:', e.code, e.message, e); return 'd-'+Date.now(); }
   };
+  // Returns true if the zone is gone server-side (or was never persisted), false
+  // if the delete was denied/failed — so the caller can avoid an optimistic
+  // removal that silently reappears on reload (a team reader can SEE a
+  // teammate's zone but the /zones rule denies deleting it).
   window._deleteZone = async (id) => {
-    try { if (id && !String(id).startsWith('d-')) await deleteDoc(doc(db,'zones',id)); }
-    catch(e){ console.warn('deleteZone failed:', e); showToast('Failed to delete zone','error'); }
+    if (!id || String(id).startsWith('d-')) return true; // local-only zone
+    try { await deleteDoc(doc(db,'zones',id)); return true; }
+    catch(e){ console.warn('deleteZone failed:', e && e.code); return false; }
   };
 
   // ── PHOTOS ─────────────────────────────────────

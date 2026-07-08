@@ -678,13 +678,19 @@ async function saveZone() {
   showToast(`Zone "${name}" saved ✓`);
 }
 
-function deleteZone(id) {
+async function deleteZone(id) {
   // Ids are Firestore doc strings (or a 'd-' local fallback); compare loosely so
   // a numeric-vs-string mismatch from the list's data attr still matches.
   const idx = zones.findIndex(z => String(z.id) === String(id));
   if(idx < 0) return;
-  if(zones[idx].layer) mainMap?.removeLayer(zones[idx].layer);
-  if (typeof window._deleteZone === 'function') { try { window._deleteZone(zones[idx].id); } catch (_) {} }
+  const zone = zones[idx];
+  // Confirm the server delete BEFORE touching the UI — a team reader sees a
+  // teammate's zone in the list, but the /zones rule denies deleting it. The
+  // old code removed it optimistically and it silently reappeared on reload.
+  let ok = true;
+  if (typeof window._deleteZone === 'function') { try { ok = await window._deleteZone(zone.id); } catch (_) { ok = false; } }
+  if (!ok) { if (typeof showToast === 'function') showToast('Could not delete — only the owner or a company admin can remove this zone', 'error'); return; }
+  if (zone.layer) mainMap?.removeLayer(zone.layer);
   zones.splice(idx, 1);
   renderZoneList();
 }

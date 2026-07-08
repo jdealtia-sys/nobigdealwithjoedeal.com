@@ -356,8 +356,13 @@ section('Customers map layer — dashboard.html wiring');
     'expected initMainMap to render saved zones');
   const rules = read(path.join(ROOT, 'firestore.rules'));
   assert('/zones rule is team-shared (mirrors /pins)',
-    /match \/zones\/\{zoneId\}[\s\S]{0,320}sameCompanyAsResource\(\)[\s\S]{0,400}request\.resource\.data\.companyId == myCompanyId\(\)/.test(rules),
+    /match \/zones\/\{zoneId\}[\s\S]{0,900}sameCompanyAsResource\(\)[\s\S]{0,900}request\.resource\.data\.companyId == myCompanyId\(\)/.test(rules),
     'expected a /zones rule with same-company read + companyId-pinned create');
+  // Audit fix: /pins + /zones UPDATE must freeze provenance (companyId) so an
+  // owner can't repoint their doc into a victim tenant's shared map.
+  assert('/pins + /zones update freezes userId/companyId (didNotChange)',
+    (rules.match(/allow update: if \(isOwner\(resource\.data\.userId\)[\s\S]{0,220}didNotChange\(\['userId', 'companyId'\]\)/g) || []).length >= 2,
+    'expected both /pins and /zones update rules to guard didNotChange([userId, companyId])');
   // Zone insights — point-in-polygon aggregation of the leads inside a zone.
   assert('zones show insights (point-in-polygon leads → count/$ /roles/damage)',
     /function _pointInPolygon\(lat, lng, poly\)/.test(actions)
@@ -388,6 +393,24 @@ section('Map heat + pins toggle + mobile');
     /@media \(max-width:640px\)\{[\s\S]{0,120}\.nbd-cust-panel\{width:46vw/.test(maps)
     && /@media \(max-width:640px\)\{[\s\S]{0,120}\.nbd-pin-panel\{width:46vw/.test(maps),
     'expected mobile media queries capping both the customers + pins panels');
+  // ── Audit regression guards (2026-07-08) ──
+  assert('route cap fits the Google Maps hand-off (no silently-dropped stop)',
+    /_CUST_ROUTE_CAP = 24\b/.test(maps),
+    'expected _CUST_ROUTE_CAP = 24 so map pins == URL stops (origin + 23 waypoints + dest)');
+  assert('value-range max slider NaN-guards (0 is a valid max, not "no cap")',
+    /data-cust-valmax'\)\) \{ const n = parseInt\(t\.value, 10\); _custValMax = Math\.max\(isNaN\(n\) \? _CUST_VAL_CAP : n/.test(maps),
+    'expected the max handler to use isNaN(n), not `parseInt||CAP` which snapped 0 to no-cap');
+  assert('Filters toggle re-renders with fresh counts (no stale closure)',
+    /_custFiltersOpen = !_custFiltersOpen; _renderCustPanel\(\); return/.test(maps),
+    'expected the more-filters branch to call _renderCustPanel() no-arg (fresh _custLastCounts)');
+  const actionsSrc = read(path.join(ROOT, 'docs/pro/js/dashboard-actions.js'));
+  assert('deleteZone confirms the server delete before removing locally',
+    /async function deleteZone\(id\)[\s\S]{0,700}ok = await window\._deleteZone\(zone\.id\)[\s\S]{0,200}if \(!ok\)/.test(actionsSrc)
+    && /window\._deleteZone = async \(id\)[\s\S]{0,300}return true;[\s\S]{0,300}return false;/.test(read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'))),
+    'expected deleteZone to await _deleteZone (which returns bool) and skip local removal on denial');
+  assert('zone color swatches emit hex (survive reload through safeColor)',
+    /data-target="#[0-9A-Fa-f]{6}"/.test(read(path.join(ROOT, 'docs/pro/dashboard.html'))),
+    'expected zone color picker data-target values to be hex, not var(--x)');
 }
 
 };
