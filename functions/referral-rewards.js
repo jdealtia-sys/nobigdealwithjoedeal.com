@@ -66,6 +66,14 @@ function normStage(s) {
 function isClosed(stage) {
   return CLOSED_STAGES.has(normStage(stage));
 }
+// Freeform-pipeline aware (Phase 3): the payout fires when the referred lead's
+// project reaches a WON-role stage — including a tenant's CUSTOM won stage,
+// resolved from the persisted lead.stageRole. Built-in stages keep working via
+// the CLOSED_STAGES fallback below.
+const { isWon: _roleIsWon } = require('./stage-roles');
+function projectClosed(lead) {
+  return _roleIsWon(lead) || isClosed(lead && lead.stage);
+}
 function fullName(lead) {
   return `${(lead && lead.firstName) || ''} ${(lead && lead.lastName) || ''}`.trim();
 }
@@ -242,7 +250,7 @@ async function handleReferralLeadWrite(event) {
   // the re-trigger from our own write no longer matches. The status latch —
   // not a stage-transition check — is the idempotency guard, so a code
   // entered on an already-closed lead still credits exactly once.
-  if (after.referralRewardStatus === 'pending' && isClosed(after.stage)) {
+  if (after.referralRewardStatus === 'pending' && projectClosed(after)) {
     const amount = REFERRAL_BONUS_USD;
     try {
       await afterSnap.ref.set({
