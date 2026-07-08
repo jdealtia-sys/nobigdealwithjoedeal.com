@@ -138,7 +138,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // CRM kanban + filters
   // (cycleKanbanDensity → __NBD_CALL_REGISTRY, Tranche 2c-4g — off window.
   //  setKanbanDensity STAYS: auto-global backing decl, not the clean form.)
-  'tlFilterCat', 'tlToggleCat', 'setKanbanDensity',
+  // (tlFilterCat, tlToggleCat → __NBD_CALL_REGISTRY, Tranche 2c-4h
+  //  (dashboard-ui.js Slice H1) — off window. Do NOT re-add.)
+  'setKanbanDensity',
   // Board/List layout toggle (2026-07-06 lean triage list — crm-list-view.js)
   'crmViewBoard', 'crmViewList',
   // Referral Rewards view — mark a $200 code-referral bonus paid / reverse it
@@ -193,7 +195,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'searchMap', 'saveZone', 'spyglassSearch', 'searchDraw',
   'saveDocUpload',
   'saveJoeKey', 'sendJoeMessage', 'saveJoeKeyFromSettings',
-  'shareCalViaSMS', 'shareCalViaEmail', 'saveCalSettings',
+  // (shareCalViaSMS, shareCalViaEmail, saveCalSettings → __NBD_CALL_REGISTRY,
+  //  Tranche 2c-4h (dashboard-ui.js Slice H1) — off window. Do NOT re-add.)
   'qaUseMyLocation', 'saveQuickLead',
   'openLeadModal', 'openTaskModal', 'openShortcutsPanel', 'openQMImportModal',
   // (openPhotosForLead, openFullCustomerDetails, openDocsForLead →
@@ -213,7 +216,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Misc tools
   'goToMyLocation', 'spyglassGoToLocation', 'dropPinByAddress',
   'quickStormCheck', 'perimChooseType',
-  'copyCalLink', 'loadSampleData', 'inviteTeamMember',
+  // (copyCalLink → __NBD_CALL_REGISTRY, Tranche 2c-4h — off window. Do NOT re-add.)
+  'loadSampleData', 'inviteTeamMember',
   'exportLeadsCSV', 'generateWarrantyCertPDF', 'printDoc', 'clearCrmSearch',
   // Appearance picker
   'nbdPickerTab', 'nbdComfortSet', 'nbdHowtoOpen', 'nbdHowtoClose',
@@ -306,8 +310,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // higher up.)
   'updateEstCalc', 'calcTierPrices', 'toggleInsuranceOverlay',
   'applyEstimatePreset', 'applyCustomTheme', 'kanbanFilter', 'kanbanFilterDebounced',
-  'filterPhotoLeads', 'handleDocUpload',
-  'updateCalEmbed',
+  // (filterPhotoLeads, handleDocUpload, updateCalEmbed → __NBD_CALL_REGISTRY,
+  //  Tranche 2c-4h (dashboard-ui.js Slice H1) — off window. Do NOT re-add.)
   'updateCertPreview', 'updatePropertyIntelCost', 'uploadPhotos',
   // (_mCreatePhotoPicked → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
   'nbdRenderThemes', 'nbdLiveCustom',

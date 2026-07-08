@@ -690,7 +690,7 @@ function loadCalSettings() {
   } catch (e) { /* first load, no settings yet */ }
 }
 
-function saveCalSettings() {
+const saveCalSettings = function() {
   const username = (document.getElementById('calUsername')?.value || '').trim();
   const eventSlug = (document.getElementById('calEventSlug')?.value || '').trim();
   if (!username) { showToast('Enter your Cal.com username', 'error'); return; }
@@ -703,7 +703,7 @@ function saveCalSettings() {
   showToast('Cal.com settings saved');
 }
 
-function updateCalEmbed() {
+const updateCalEmbed = function() {
   const username = (document.getElementById('calUsername')?.value || '').trim();
   const eventSlug = (document.getElementById('calEventSlug')?.value || '').trim();
   const embed = document.getElementById('calEmbed');
@@ -798,7 +798,7 @@ function updateCalEmbed() {
   if (urlEl) urlEl.value = 'https://cal.com/' + username + '/' + eventSlug;
 }
 
-function copyCalLink() {
+const copyCalLink = function() {
   const urlEl = document.getElementById('calBookingUrl');
   if (!urlEl) return;
   navigator.clipboard.writeText(urlEl.value).then(() => showToast('Booking link copied!')).catch(() => {
@@ -806,14 +806,14 @@ function copyCalLink() {
   });
 }
 
-function shareCalViaSMS() {
+const shareCalViaSMS = function() {
   const url = document.getElementById('calBookingUrl')?.value || '';
   if (!url) { showToast('Set up your booking link first', 'error'); return; }
   const msg = encodeURIComponent('Schedule your free roof inspection here: ' + url);
   window.open('sms:?body=' + msg);
 }
 
-function shareCalViaEmail() {
+const shareCalViaEmail = function() {
   const url = document.getElementById('calBookingUrl')?.value || '';
   if (!url) { showToast('Set up your booking link first', 'error'); return; }
   const subject = encodeURIComponent('Schedule Your Free Roof Inspection');
@@ -876,7 +876,7 @@ function closePhotoModal(){document.getElementById('photoModal').classList.remov
 document.getElementById('photoModal').addEventListener('click',e=>{if(e.target===document.getElementById('photoModal'))closePhotoModal();});
 
 // Photo search — filters the photo leads list by name/address
-function filterPhotoLeads(query) {
+const filterPhotoLeads = function(query) {
   window._photoSearchQuery = (query || '').toLowerCase().trim();
   renderPhotoLeads();
 }
@@ -1418,11 +1418,11 @@ const DOC_TEMPLATES = {
 };
 
 // ═══ TEMPLATE LIBRARY — toggle / filter ═══
-function tlToggleCat(headerEl){
+const tlToggleCat = function(headerEl){
   const cat = headerEl.closest('.tl-category');
   if(cat) cat.classList.toggle('tl-collapsed');
 }
-function tlFilterCat(catKey, btnEl){
+const tlFilterCat = function(catKey, btnEl){
   // Update active button
   document.querySelectorAll('.tl-filter-btn').forEach(b=>b.classList.remove('tl-filter-active'));
   if(btnEl) btnEl.classList.add('tl-filter-active');
@@ -1513,7 +1513,7 @@ function closeUploadDoc(){
   const el = document.getElementById('docUploadArea');
   if (el) el.style.display = 'none';
 }
-function handleDocUpload(inp){ _docFile = inp.files[0]; showToast('File selected: '+(_docFile?.name||''),'ok'); }
+const handleDocUpload = function(inp){ _docFile = inp.files[0]; showToast('File selected: '+(_docFile?.name||''),'ok'); };
 
 // ══════════════════════════════════════════════
 // THEME SYSTEM — apply/load + auto-theme
@@ -2575,5 +2575,21 @@ window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
 Object.assign(window.__NBD_CALL_REGISTRY, {
   cycleKanbanDensity: cycleKanbanDensity,
   nbdComfortSetWhisperHotkey: nbdComfortSetWhisperHotkey,
-  nbdComfortSetWhisperKey: nbdComfortSetWhisperKey
+  nbdComfortSetWhisperKey: nbdComfortSetWhisperKey,
+  // Tranche 2c-4h (Slice H1, 2026-07-08): 9 leaf cal/photo/template handlers,
+  // each a bare `function X` living ONLY in this file with zero cross-file
+  // callers (21-agent audit). Converted to `const X = function` (off window in
+  // this classic script) + registered here; allowlist entries dropped in
+  // dashboard-state.js. TDZ-safe: the sole non-markup caller (loadCalSettings →
+  // updateCalEmbed) runs from dashboard-main.js's DOMContentLoaded, long after
+  // these consts initialize.
+  saveCalSettings: saveCalSettings,
+  updateCalEmbed: updateCalEmbed,
+  copyCalLink: copyCalLink,
+  shareCalViaSMS: shareCalViaSMS,
+  shareCalViaEmail: shareCalViaEmail,
+  filterPhotoLeads: filterPhotoLeads,
+  tlToggleCat: tlToggleCat,
+  tlFilterCat: tlFilterCat,
+  handleDocUpload: handleDocUpload
 });

@@ -2698,6 +2698,12 @@ section('Globals Tranches 0+1: converted names stay off window');
     // setPhotoMode / nbdComfortSet (MUST-STAY — auto-global backing and/or real
     // cross-file consumers; keep allowlist + window export).
     'cycleKanbanDensity', 'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey',
+    // Tranche 2c-4h (Slice H1, 2026-07-08): the 9 dashboard-ui.js cal/photo/
+    // template leaf handlers — `function X` → `const X` + __NBD_CALL_REGISTRY.
+    // Each lived only in dashboard-ui.js with zero cross-file callers.
+    'saveCalSettings', 'updateCalEmbed', 'copyCalLink', 'shareCalViaSMS',
+    'shareCalViaEmail', 'filterPhotoLeads', 'tlToggleCat', 'tlFilterCat',
+    'handleDocUpload',
     // Tranche 2c-4f (2026-07-07): dashboard-bootstrap.module.js settings/debug/
     // export handlers — module-scoped (real ES module, no IIFE), dispatched via
     // __NBD_CALL_REGISTRY. NOT here (MUST-STAY window exports): loadSampleData
@@ -3115,6 +3121,24 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   // wrap-free form) — keeps BOTH its allowlist entry and window re-export.
   assert('setKanbanDensity keeps its allowlist entry + window export (2c-4g MUST-STAY)',
     /'setKanbanDensity'/.test(stateSrc) && /window\.setKanbanDensity = setKanbanDensity;/.test(ui));
+
+  // ── Tranche 2c-4h: dashboard-ui.js Slice H1 (9 cal/photo/template leaves) ──
+  // Same file + mechanism as 2c-4g: `function X` → `const X = function` (off
+  // window in this non-IIFE classic script) + registered in the file's own
+  // __NBD_CALL_REGISTRY block, allowlist entry dropped. All 9 are bare
+  // auto-globals living ONLY in dashboard-ui.js with zero cross-file callers
+  // (21-agent audit 2026-07-08). Reuses duRegBlock from the 2c-4g check above.
+  const T2C4H_NAMES = ['saveCalSettings', 'updateCalEmbed', 'copyCalLink',
+    'shareCalViaSMS', 'shareCalViaEmail', 'filterPhotoLeads', 'tlToggleCat',
+    'tlFilterCat', 'handleDocUpload'];
+  for (const n of T2C4H_NAMES) {
+    assert('dashboard-ui registers ' + n + ' in __NBD_CALL_REGISTRY (2c-4h)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(duRegBlock));
+    assert('allowlist no longer carries ' + n + ' (2c-4h — registry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('dashboard-ui no longer exposes window.' + n + ' (2c-4h off window)',
+      !new RegExp('window\\.' + n + '\\s*=\\s*' + n + '\\b').test(ui));
+  }
   // ── Tranche 2c-4f: the dashboard-bootstrap.module.js settings cluster ──
   // First NON-dashboard-actions module in this tranche, and a real ES module —
   // so the 15 markup-dispatched settings/debug/export handlers just move from
