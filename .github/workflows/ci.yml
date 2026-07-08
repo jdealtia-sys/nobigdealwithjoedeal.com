@@ -195,11 +195,15 @@ jobs:
             | sort -u > functions/.secret.local
           echo "wrote $(wc -l < functions/.secret.local) dummy secrets"
           node tests/e2e/fixtures/ensure-emulator-env.js
-      - name: Install firebase-tools globally
-        run: npm install -g firebase-tools@13
       - name: Run referral-rewards trigger test under functions+firestore emulator
+        # Use the tests devDependency firebase-tools (v15+, same as the @stranger
+        # shard that boots functions in CI). The global v13 the firestore-only jobs
+        # install does NOT read functions/.secret.local, so functions crash-loop
+        # without secret access (no ADC in CI) and onReferralLeadWrite never fires.
+        # v15 reads .secret.local, so all functions boot with the dummy values above.
         run: |
-          firebase emulators:exec --only functions,firestore --project demo-nbd-pl 'node tests/referral-rewards.test.js'
+          cd tests
+          npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node referral-rewards.test.js'
 
   functions-parse:
     name: Functions parse + dep install
