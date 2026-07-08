@@ -79,13 +79,19 @@ invisible.
 
 ### Deferred follow-ups (own PRs)
 
-1. **Pin scoping → `companyId`.** `loadPins` queries `where('userId','==',uid)`
-   (`dashboard-bootstrap.module.js:3060`) and the `/pins` Firestore rule is
-   owner-only. So D2D pins are NOT team-shared, unlike leads. The Customers
-   layer sidesteps this (it reads company-scoped `_leads`), but the door-knock
-   `_pins` + heat layer still show only the current user's. Migrating pins to
-   `companyId` touches `firestore.rules`, `loadPins`, `_savePin`, and the
-   cross-tenant rules tests — a self-contained PR.
+1. ~~**Pin scoping → `companyId`.**~~ ✅ **DONE (2026-07-08).** `_savePin` now
+   stamps `companyId` (claim, or uid for solo — same convention as leads/
+   reports), `loadPins` uses the same team dual-scope as `loadLeads`
+   (company_admin/manager/viewer fetch the tenant's pins + their own; sales_rep/
+   solo stay own-only), and the `/pins` rule mirrors `/reports`: same-company
+   read via `sameCompanyAsResource()`, owner/same-company-admin write, companyId
+   pinned on create. Rules-test coverage added in `firestore-rules.test.js`
+   (team read, cross-tenant deny, legacy owner-only, create-tenant-pin,
+   update/delete boundary). **Remaining sub-item:** a one-off
+   `scripts/backfill-pins-companyId.js` for pins created before this — until
+   backfilled, a teammate's LEGACY pins (no companyId) stay owner-only, so the
+   manager's shared map fills in only as new pins are dropped. Cheap to add
+   (same shape as `backfill-lead-stageRole.js`).
 2. **Batch coord backfill script.** The in-layer backfill is capped per open;
    for a large existing book a `scripts/backfill-lead-coords.js` (admin SDK,
    dry-run-by-default) would fill everything in one pass. Nice-to-have — the

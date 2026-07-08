@@ -3089,8 +3089,24 @@
     try {
       const uid = window._user?.uid;
       if (!uid) { console.warn('📌 loadPins: no uid, skipping'); window._pins = []; return; }
-      const snap = await getDocs(query(collection(db,'pins'), where('userId','==',uid)));
-      window._pins = snap.docs.map(d => ({id:d.id,...d.data()}));
+      // Team territory map (2026-07-08): company_admin / manager / viewer fetch
+      // the whole tenant's pins so the shared map shows every rep's knocks —
+      // same dual-scope shape as loadLeads. The second (own-uid) scope keeps a
+      // claimed-in member's PRE-invite pins (companyId == their own uid) and any
+      // legacy no-companyId pins visible. sales_rep + solo + legacy-claim stay
+      // own-only (matches the leads Wave-110 privacy decision).
+      const _claims = window._userClaims || {};
+      const _teamReader = ['company_admin', 'manager', 'viewer'].includes(_claims.role || '') && !!_claims.companyId;
+      const _scopes = _teamReader && _claims.companyId !== uid
+        ? [where('companyId', '==', _claims.companyId), where('userId', '==', uid)]
+        : [_teamReader ? where('companyId', '==', _claims.companyId) : where('userId', '==', uid)];
+      const _seen = new Set();
+      const _out = [];
+      for (const scope of _scopes) {
+        const snap = await getDocs(query(collection(db,'pins'), scope));
+        snap.docs.forEach(d => { if (!_seen.has(d.id)) { _seen.add(d.id); _out.push({id:d.id,...d.data()}); } });
+      }
+      window._pins = _out;
     } catch(e) { console.error('📌 loadPins FAILED:', e.code, e.message, e); window._pins = []; }
   }
   window._savePin = async (data) => {
@@ -3102,8 +3118,11 @@
         await updateDoc(doc(db,'pins',pinId), {...data, updatedAt:serverTimestamp()});
         return pinId;
       }
-      // Create new pin
-      const pinDoc = {...data, userId:window._user?.uid, createdAt:serverTimestamp()};
+      // Create new pin. Stamp companyId (claim, or uid for solo operators —
+      // same convention as leads/reports) so the pin is team-visible AND passes
+      // the /pins create rule, which now requires a tenant-scoped companyId.
+      const _uid = window._user?.uid;
+      const pinDoc = {...data, userId:_uid, companyId: (window._userClaims?.companyId) || _uid || null, createdAt:serverTimestamp()};
       const r = await addDoc(collection(db,'pins'), pinDoc);
       return r.id;
     }

@@ -458,6 +458,32 @@ async function run() {
   await assertFails(getDoc(doc(coAdmin, 'reports/report-alice-legacy')));                  // legacy has no companyId → not team-visible
   await assertSucceeds(setDoc(doc(alice, 'reports/report-new'), { userId: 'alice', companyId: 'co-a', name: 'New', template: 'inspection' })); // create with companyId
 
+  // 24b. PINS — team territory map (2026-07-08). Pins carry the creator's
+  //      companyId so same-company members see ONE shared map (mirrors
+  //      /reports). Legacy pins (no companyId) stay owner-only; create must
+  //      pin companyId to the caller's own tenant.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'pins/pin-alice-co'),     { userId: 'alice', companyId: 'co-a', lat: 39.1, lng: -84.1, status: 'signed' });
+    await setDoc(doc(db, 'pins/pin-alice-legacy'), { userId: 'alice', lat: 39.2, lng: -84.2, status: 'interested' });
+    await setDoc(doc(db, 'pins/pin-bob-co'),       { userId: 'bob',   companyId: 'co-b', lat: 40.0, lng: -85.0, status: 'not-home' });
+  });
+  // Read: same-company sees a colleague's pin; cross-company denied; legacy owner-only.
+  await assertSucceeds(getDoc(doc(coAdmin, 'pins/pin-alice-co')));   // carol (company_admin, co-a) sees alice's co-a pin
+  await assertSucceeds(getDoc(doc(alice,   'pins/pin-alice-co')));   // owner reads own
+  await assertFails(getDoc(doc(bob,        'pins/pin-alice-co')));   // bob (co-b) — different company, denied
+  await assertSucceeds(getDoc(doc(alice,   'pins/pin-alice-legacy')));// owner reads own legacy pin
+  await assertFails(getDoc(doc(coAdmin,    'pins/pin-alice-legacy')));// legacy has no companyId → not team-visible
+  // Create: companyId must be present AND the caller's own tenant.
+  await assertSucceeds(setDoc(doc(alice, 'pins/pin-new-ok'),    { userId: 'alice', companyId: 'co-a', lat: 39.3, lng: -84.3, status: 'callback' })); // own tenant
+  await assertFails(setDoc(doc(alice,    'pins/pin-new-noco'),  { userId: 'alice', lat: 39.4, lng: -84.4, status: 'callback' }));                    // missing companyId
+  await assertFails(setDoc(doc(alice,    'pins/pin-new-xco'),   { userId: 'alice', companyId: 'co-b', lat: 39.5, lng: -84.5, status: 'callback' })); // foreign tenant
+  // Update / delete: owner or same-company admin; cross-company blocked.
+  await assertSucceeds(updateDoc(doc(coAdmin, 'pins/pin-alice-co'), { status: 'do-not-knock' })); // company_admin curates shared territory
+  await assertFails(updateDoc(doc(bob,        'pins/pin-alice-co'), { status: 'signed' }));        // cross-company update blocked
+  await assertFails(deleteDoc(doc(bob,        'pins/pin-alice-co')));                              // cross-company delete blocked
+  await assertSucceeds(deleteDoc(doc(alice,   'pins/pin-alice-co')));                              // owner deletes own pin
+
   // 25. NEW-D40a: drawings. The lead-linked subcollection
   //     (leads/{leadId}/drawings) has long had owner rules, but the
   //     top-level /drawings collection — the draw tool's fallback for

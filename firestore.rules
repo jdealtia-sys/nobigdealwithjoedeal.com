@@ -617,8 +617,27 @@ service cloud.firestore {
 
     // ── MAP PINS ──────────────────────────────────────
     match /pins/{pinId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // Team territory visibility (2026-07-08): a pin carries the creator's
+      // companyId (stamped by _savePin). Same-company members read each other's
+      // door-knock / customer pins so the whole team sees ONE map — mirrors
+      // /reports. sameCompanyAsResource() requires BOTH companyIds non-null, so
+      // a solo user (no companyId claim) or a LEGACY pin (no companyId field)
+      // falls back to owner-only via isOwner — no cross-tenant leak.
+      allow read: if isOwner(resource.data.userId) || isAdmin() || sameCompanyAsResource();
+      // Owner or same-company company_admin may edit/remove a pin (an admin
+      // curates shared territory); legacy pins (no companyId) stay owner-only
+      // because sameCompanyAsResource() denies on the absent field.
+      allow update, delete: if isOwner(resource.data.userId) || isAdmin()
+        || (isCompanyAdmin() && sameCompanyAsResource());
+      // Pin companyId on create (mirrors /leads, /reports, /expenses). Without
+      // it a crafted write could inject a pin into another tenant's team-visible
+      // map. _savePin stamps companyId = claims.companyId || uid.
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() > 0
+        && (request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
     }
 
     // ── UNLINKED DRAWINGS (draw tool, no matching lead) ──
