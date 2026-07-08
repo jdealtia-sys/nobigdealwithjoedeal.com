@@ -54,6 +54,8 @@ async function run() {
     await setDoc(doc(db, 'leads/leadD'), { userId: 'dave', name: 'Dave Lead', companyId: 'co-d' });
     await setDoc(doc(db, 'leads/leadV'), { userId: 'vic',  name: 'Vic Lead',  companyId: 'co-v' });
     await setDoc(doc(db, 'leads/leadCar'), { userId: 'carol', name: 'Carol Lead', companyId: 'co-a' });
+    // Referral-freeze fixture: dave owns an 'owed' bonus lead in co-d.
+    await setDoc(doc(db, 'leads/leadRef'), { userId: 'dave', companyId: 'co-d', name: 'Ref Lead', referralRewardStatus: 'owed', referralRewardAmount: 200, referralDocId: 'refdoc1', referrerLeadId: 'someref', referredBy: 'JOHN-AB12' });
     await setDoc(doc(db, 'access_codes/NBD-ADMIN'), { code: 'NBD-ADMIN', active: true, email: 'admin@nobigdeal.pro' });
     await setDoc(doc(db, 'email_log/log1'), { uid: 'alice', to: 'x@y.com' });
     await setDoc(doc(db, 'reps/alice'), { companyId: 'co-a', role: 'rep' });
@@ -341,6 +343,30 @@ async function run() {
   await assertSucceeds(setDoc(
     doc(alice, 'leads/with-companyid'),
     { userId: 'alice', name: 'Lead with companyId', companyId: 'co-a' }));
+
+  // 24. Referral money-field freeze (QA sweep 2026-07-08). Server-owned referral
+  //     fields are admin-SDK-only (onReferralLeadWrite); the client's ONLY writes
+  //     are the rep's Mark Paid / Mark Unpaid toggle + entering redeemReferralCode.
+  //     leadRef is dave-owned in co-d with a seeded 'owed' bonus.
+  // ✅ a normal owner edit (unrelated field) still succeeds — the freeze is absence-safe
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadRef'), { stage: 'contacted' }));
+  // ✅ the rep may enter/correct a referral code (redeemReferralCode is not frozen)
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadRef'), { redeemReferralCode: 'JOHN-AB12' }));
+  // ✅ Mark Paid: owed -> paid (+ paidAt) is the carved-out client transition
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadRef'), { referralRewardStatus: 'paid', referralRewardPaidAt: nowTs }));
+  // ✅ Mark Unpaid: paid -> owed reverses it
+  await assertSucceeds(updateDoc(doc(dave, 'leads/leadRef'), { referralRewardStatus: 'owed' }));
+  // ❌ forging the reward amount / attribution pointers is denied (admin-SDK only)
+  await assertFails(updateDoc(doc(dave, 'leads/leadRef'), { referralRewardAmount: 999999 }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadRef'), { referrerLeadId: 'someoneElse' }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadRef'), { referralDocId: 'otherDoc' }));
+  // ❌ fabricating an 'owed' bonus on a plain lead (no prior status) is denied
+  await assertFails(updateDoc(doc(dave, 'leads/leadD'), { referralRewardStatus: 'owed', referralRewardAmount: 200 }));
+  // ❌ resetting owed -> pending to replay the Phase-B credit is denied
+  await assertFails(updateDoc(doc(dave, 'leads/leadRef'), { referralRewardStatus: 'pending' }));
+  // ❌ re-tenanting your own lead (change userId / companyId) is denied
+  await assertFails(updateDoc(doc(dave, 'leads/leadRef'), { userId: 'someoneElse' }));
+  await assertFails(updateDoc(doc(dave, 'leads/leadRef'), { companyId: 'co-x' }));
 
   // 22. /system/migrations is admin-SDK only — no client read/write.
   //     The runner in functions/migrations/runner.js owns this doc.

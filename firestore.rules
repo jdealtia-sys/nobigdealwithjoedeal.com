@@ -70,6 +70,29 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
     }
 
+    // Referral money fields are written ONLY by the onReferralLeadWrite trigger
+    // (admin SDK). A client must never forge them on a lead (a rep could otherwise
+    // fabricate an "owed" bonus or replay a credit). These are absence-safe via
+    // diff().affectedKeys(), so normal edits to non-referral leads are unaffected.
+    // NOT frozen (deliberately client-writable): redeemReferralCode (rep-entered
+    // code) and referralCode/referralCodeCreatedAt (the mint on the referrer's own
+    // lead) — and the owed<->paid toggle handled by referralStatusTransitionOk().
+    function referralServerFieldsFrozen() {
+      return didNotChange([
+        'referralRewardAmount', 'referralAttributedAt', 'referrerLeadId',
+        'referralDocId', 'referralRewardOwedAt', 'referredBy', 'referralCodeInvalid'
+      ]);
+    }
+    // referralRewardStatus is trigger-set (pending->owed). The ONLY client-allowed
+    // change is the rep's Mark Paid / Mark Unpaid toggle between owed and paid
+    // (referral-rewards-ui.js). Any other transition (e.g. forging ''->owed, or
+    // resetting owed->pending to replay Phase B) is denied.
+    function referralStatusTransitionOk() {
+      let b = resource.data.get('referralRewardStatus', '');
+      let a = request.resource.data.get('referralRewardStatus', '');
+      return b == a || (b in ['owed', 'paid'] && a in ['owed', 'paid']);
+    }
+
     // A tenant's customer-ID prefix (brand.docPrefix) + its display twin
     // (brand.seal) are set ONLY by the reserveCompanyPrefix callable (admin SDK)
     // after it atomically claims docPrefixes/{PREFIX}. They must be immutable to
@@ -159,13 +182,23 @@ service cloud.firestore {
       // managers manage the board, only the lead owner or the tenant owner
       // destroys data. Legacy docs without companyId stay owner-only for
       // both (the company clause errors-to-deny on the absent key).
-      allow update: if (isOwner(resource.data.userId)
-            && request.auth.token.get('role', '') != 'viewer')
-        || isAdmin()
-        || (isCompanyStaff()
-            && resource.data.companyId != null
-            && resource.data.companyId == myCompanyId()
-            && didNotChange(['userId', 'companyId']));
+      allow update: if isAdmin()
+        || (
+          (
+            (isOwner(resource.data.userId)
+              && request.auth.token.get('role', '') != 'viewer')
+            || (isCompanyStaff()
+              && resource.data.companyId != null
+              && resource.data.companyId == myCompanyId())
+          )
+          // Provenance frozen for BOTH owner and staff (reassignment / re-tenanting
+          // ships as its own feature). Server-owned referral money fields are
+          // admin-SDK-only; the sole client write is the rep's Mark Paid / Mark
+          // Unpaid toggle (owed<->paid), carved out below. See onReferralLeadWrite.
+          && didNotChange(['userId', 'companyId'])
+          && referralServerFieldsFrozen()
+          && referralStatusTransitionOk()
+        );
       allow delete: if (isOwner(resource.data.userId)
             && request.auth.token.get('role', '') != 'viewer')
         || isAdmin()

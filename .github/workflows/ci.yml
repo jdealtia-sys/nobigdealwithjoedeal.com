@@ -155,6 +155,56 @@ jobs:
           cd tests
           firebase emulators:exec --only storage --project nbd-storage-test 'node storage-rules.test.js'
 
+  # Referral-CODE $200-bonus trigger. Previously ONLY runnable by hand
+  # (emulators:exec locally) — so the money-path bugs the 2026-07-08 sweep found
+  # shipped unseen (#894/#897). Gated here: drives the REAL onReferralLeadWrite
+  # trigger in the functions+firestore emulator, so attribution / credit-on-close /
+  # tenant-scope / idempotency regressions fail the PR.
+  referral-trigger:
+    name: Referral trigger tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      # Firestore emulator runs on the JVM; firebase-tools needs a modern JDK
+      # (same setup as the @stranger E2E shard that boots the functions emulator).
+      - uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+      - name: Install test deps
+        run: |
+          cd tests
+          npm install --silent
+      - name: Install functions deps (the emulator must load the onReferralLeadWrite trigger)
+        run: |
+          cd functions
+          npm ci
+      - name: Emulator-safe functions env (dummy secrets + onRepSignup skip)
+        # Writing a lead fires EVERY leads/{leadId} trigger; the ~34 secret-declaring
+        # functions can't reach Secret Manager in CI (no ADC), so without overrides
+        # they fail to load and wedge the work queue — onReferralLeadWrite never
+        # lands. Generate a .secret.local with dummy values (auto-covers new secrets)
+        # so all functions load + run; the trigger under test uses no secrets. Also
+        # skip the GCIP-blocked onRepSignup (prod never runs it).
+        run: |
+          grep -rhoE "defineSecret\(['\"][A-Z_]+['\"]" functions --include=*.js \
+            | sed -E "s/.*defineSecret\(['\"]([A-Z_]+)['\"].*/\1=emulator-dummy/" \
+            | sort -u > functions/.secret.local
+          echo "wrote $(wc -l < functions/.secret.local) dummy secrets"
+          node tests/e2e/fixtures/ensure-emulator-env.js
+      - name: Run referral-rewards trigger test under functions+firestore emulator
+        # Use the tests devDependency firebase-tools (v15+, same as the @stranger
+        # shard that boots functions in CI). The global v13 the firestore-only jobs
+        # install does NOT read functions/.secret.local, so functions crash-loop
+        # without secret access (no ADC in CI) and onReferralLeadWrite never fires.
+        # v15 reads .secret.local, so all functions boot with the dummy values above.
+        run: |
+          cd tests
+          npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl 'node referral-rewards.test.js'
+
   functions-parse:
     name: Functions parse + dep install
     runs-on: ubuntu-latest
