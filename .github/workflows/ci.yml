@@ -155,6 +155,33 @@ jobs:
           cd tests
           firebase emulators:exec --only storage --project nbd-storage-test 'node storage-rules.test.js'
 
+  # Referral-CODE $200-bonus trigger. Previously ONLY runnable by hand
+  # (emulators:exec locally) — so the money-path bugs the 2026-07-08 sweep found
+  # shipped unseen (#894/#897). Gated here: drives the REAL onReferralLeadWrite
+  # trigger in the functions+firestore emulator, so attribution / credit-on-close /
+  # tenant-scope / idempotency regressions fail the PR.
+  referral-trigger:
+    name: Referral trigger tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Install test deps
+        run: |
+          cd tests
+          npm install --silent
+      - name: Install functions deps (the emulator must load the onReferralLeadWrite trigger)
+        run: |
+          cd functions
+          npm ci
+      - name: Install firebase-tools globally
+        run: npm install -g firebase-tools@13
+      - name: Run referral-rewards trigger test under functions+firestore emulator
+        run: |
+          firebase emulators:exec --only functions,firestore --project demo-nbd-pl 'node tests/referral-rewards.test.js'
+
   functions-parse:
     name: Functions parse + dep install
     runs-on: ubuntu-latest
