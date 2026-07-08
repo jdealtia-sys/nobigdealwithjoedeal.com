@@ -843,7 +843,7 @@ if(typeof hideAcDrop!=='undefined') window.hideAcDrop = hideAcDrop;
 // Make Lead from Map - in maps.js
 if(typeof makeLeadFromSearch!=='undefined') window.makeLeadFromSearch = makeLeadFromSearch;
 if(typeof fetchPropertyIntel!=='undefined') window.fetchPropertyIntel = fetchPropertyIntel;
-if(typeof pullIntelForModal!=='undefined') window.pullIntelForModal = pullIntelForModal;
+// pullIntelForModal → __NBD_CALL_REGISTRY via property-intel.js (Tranche 2c-4h Slice H2 pt2) — re-export removed.
 // Drawing tool - in maps.js
 if(typeof searchDraw!=='undefined') window.searchDraw = searchDraw;
 if(typeof selLT!=='undefined') window.selLT = selLT;
@@ -912,8 +912,8 @@ if(typeof toggleSettingsSection!=='undefined') window.toggleSettingsSection = to
 // CRM Search - already in crm.js
 if(typeof clearCrmSearch!=='undefined') window.clearCrmSearch = clearCrmSearch;
 // Property Intel - defined later in this file
-if(typeof executePullPropertyIntel!=='undefined') window.executePullPropertyIntel = executePullPropertyIntel;
-if(typeof confirmPropertyIntelPull!=='undefined') window.confirmPropertyIntelPull = confirmPropertyIntelPull;
+// executePullPropertyIntel / confirmPropertyIntelPull → __NBD_CALL_REGISTRY via
+// property-intel.js (Tranche 2c-4h Slice H2 pt2) — re-exports removed.
 if(typeof closePropertyIntelModal!=='undefined') window.closePropertyIntelModal = closePropertyIntelModal;
 if(typeof closePropertyIntelConfirmModal!=='undefined') window.closePropertyIntelConfirmModal = closePropertyIntelConfirmModal;
 // Notifications - defined later in this file

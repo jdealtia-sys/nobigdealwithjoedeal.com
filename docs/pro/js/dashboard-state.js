@@ -205,8 +205,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // (openUploadDoc → __NBD_CALL_REGISTRY, Tranche 2c-4h Slice H2 — off window.)
   'openEstimateV2Builder',
   // (editCardDetails → __NBD_CALL_REGISTRY, Tranche 2c-4e — off window)
-  'confirmPropertyIntelPull',
-  'executePullPropertyIntel', 'pullIntelForModal', 'addTask',
+  // (confirmPropertyIntelPull, executePullPropertyIntel, pullIntelForModal →
+  //  __NBD_CALL_REGISTRY via property-intel.js, Tranche 2c-4h Slice H2 pt2 — off window.)
+  'addTask',
   // Bulk operations — the toolbar handlers register in __NBD_CALL_REGISTRY
   // (crm-portal-bridge.js, Globals Tranche 2c-3), so they leave the
   // allowlist. clearBulkSelection STAYS: lead-snooze.js calls
@@ -318,7 +319,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'applyEstimatePreset', 'applyCustomTheme', 'kanbanFilter', 'kanbanFilterDebounced',
   // (filterPhotoLeads, handleDocUpload, updateCalEmbed → __NBD_CALL_REGISTRY,
   //  Tranche 2c-4h (dashboard-ui.js Slice H1) — off window. Do NOT re-add.)
-  'updateCertPreview', 'updatePropertyIntelCost', 'uploadPhotos',
+  // (updatePropertyIntelCost → __NBD_CALL_REGISTRY via property-intel.js, Tranche 2c-4h Slice H2 pt2.)
+  'updateCertPreview', 'uploadPhotos',
   // (_mCreatePhotoPicked → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
   'nbdRenderThemes', 'nbdLiveCustom',
   // (nbdComfortSetWhisperHotkey, nbdComfortSetWhisperKey → __NBD_CALL_REGISTRY,
