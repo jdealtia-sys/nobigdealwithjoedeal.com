@@ -95,6 +95,12 @@
     window.STAGES = vs.map(k => (resolved.stageMeta[k] || {}).label || k);
     // Custom stages may reclassify a lead's role — re-stamp the loaded book.
     (window._leads || []).forEach(l => { if (l) l._stageRole = resolved.roleOf(l._stageKey || l.stage); });
+    // Rebuild the COLUMNS from the new config (buildKanbanColumns now reads the
+    // window.* overrides), then re-render cards into them — otherwise renamed /
+    // custom / reordered / hidden stages wouldn't appear until a full reload.
+    if (typeof window.buildKanbanColumns === 'function') {
+      try { window.buildKanbanColumns(window._currentViewKey || vk); } catch (_) {}
+    }
     if (typeof window.renderLeads === 'function') { try { window.renderLeads(); } catch (_) {} }
   };
   window.stageOptionsForType = stageOptionsForType;
@@ -105,9 +111,17 @@
 
   // ── Dynamic kanban column builder ──
   window.buildKanbanColumns = function(viewKey) {
-    const view = KANBAN_VIEWS[viewKey || _currentViewKey];
+    // Read the LIVE (possibly tenant-overridden) views + stage meta that
+    // applyPipelineConfig writes to window.*, not the module-local default
+    // consts — otherwise a tenant's custom views / renamed / custom / reordered
+    // stages never actually render on the board (the Phase-2 builder wrote the
+    // config but the board ignored it). Fall back to the defaults pre-config.
+    const VIEWS = window.KANBAN_VIEWS || KANBAN_VIEWS;
+    const META = window.STAGE_META || STAGE_META;
+    const view = VIEWS[viewKey || _currentViewKey];
     if (!view) return;
-    const stages = view.stages;
+    // Skip stages flagged hidden in the tenant config (builder eye-toggle).
+    const stages = (view.stages || []).filter(k => !(META[k] && META[k].hidden));
     const board = document.getElementById('kanbanBoard');
     if (!board) return;
     // Delegated column DnD — the old per-column inline ondragover/ondrop
@@ -125,7 +139,7 @@
       });
     }
     board.innerHTML = stages.map(stageKey => {
-      const meta = STAGE_META[stageKey] || {};
+      const meta = META[stageKey] || {};
       const label = meta.label || stageKey;
       const hdrClass = meta.headerClass || 'kh-new';
       return `
@@ -144,7 +158,7 @@
     }).join('');
 
     // Update STAGES + _stageKeys for crm.js compat
-    window.STAGES = stages.map(k => STAGE_META[k]?.label || k);
+    window.STAGES = stages.map(k => META[k]?.label || k);
     window._stageKeys = stages;
     window._currentViewKey = viewKey || _currentViewKey;
     localStorage.setItem('nbd_kanban_view', window._currentViewKey);

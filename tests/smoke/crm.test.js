@@ -511,6 +511,26 @@ section('Pipelines builder — drag-to-reorder stages');
     /arr\.splice\(from, 1\)/.test(pb)
     && /arr\.splice\(after \? to \+ 1 : to, 0, payload\.stage\)/.test(pb),
     'expected the dropped stage to be removed then re-inserted at the target');
+  // Per-stage hide/show (eye) toggle → config `hidden` flag.
+  assert('builder has a hide/show eye toggle writing the hidden flag',
+    /data-pb-action="togglehide"/.test(pb)
+    && /action === 'togglehide'[\s\S]{0,160}setStageField\(key, 'hidden', !cur\)/.test(pb),
+    'expected a togglehide action that flips the stage hidden flag');
+
+  // The board renderer must honour the LIVE (tenant-overridden) config — this
+  // was a real end-to-end gap: buildKanbanColumns read module-local consts, so
+  // custom views / renames / custom / reordered / hidden stages never showed.
+  const boot = read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'));
+  assert('buildKanbanColumns reads window.KANBAN_VIEWS / window.STAGE_META overrides',
+    /const VIEWS = window\.KANBAN_VIEWS \|\| KANBAN_VIEWS/.test(boot)
+    && /const META = window\.STAGE_META \|\| STAGE_META/.test(boot),
+    'expected the board builder to prefer the applied config over the default consts');
+  assert('buildKanbanColumns skips stages flagged hidden',
+    /\.filter\(k => !\(META\[k\] && META\[k\]\.hidden\)\)/.test(boot),
+    'expected hidden stages to be dropped from the rendered columns');
+  assert('applyPipelineConfig rebuilds the columns (not just re-renders cards)',
+    /window\.buildKanbanColumns\(window\._currentViewKey \|\| vk\)/.test(boot),
+    'expected applyPipelineConfig to call buildKanbanColumns so config changes show live');
 }
 
 };

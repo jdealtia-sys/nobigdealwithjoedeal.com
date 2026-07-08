@@ -110,7 +110,8 @@
       stages.forEach(function (key, i) {
         var m = res.stageMeta[key] || {};
         var isCustom = !!m.custom;
-        html += '<div class="pb-stage-row" data-view="' + esc(vk) + '" data-stage="' + esc(key) + '" style="display:flex;align-items:center;gap:6px;padding:5px 4px;border-bottom:1px solid var(--br);flex-wrap:wrap;">';
+        var isHidden = !!m.hidden;
+        html += '<div class="pb-stage-row" data-view="' + esc(vk) + '" data-stage="' + esc(key) + '" style="display:flex;align-items:center;gap:6px;padding:5px 4px;border-bottom:1px solid var(--br);flex-wrap:wrap;' + (isHidden ? 'opacity:.5;' : '') + '">';
         // drag handle (primary reorder affordance; ▲/▼ stay for touch / a11y)
         if (editable) {
           html += '<span class="pb-grip" draggable="true" data-view="' + esc(vk) + '" data-stage="' + esc(key) + '" title="Drag to reorder">⠿</span>';
@@ -130,6 +131,8 @@
           html += '<option value="' + r + '"' + (m.role === r ? ' selected' : '') + '>' + esc(ROLE_LABEL[r] || r) + '</option>';
         });
         html += '</select>';
+        // hide/show on the board (keeps the stage in config + dropdowns)
+        html += '<button type="button" class="pb-mini" data-pb-action="togglehide" data-stage="' + esc(key) + '"' + (editable ? '' : ' disabled') + ' title="' + (isHidden ? 'Show on board' : 'Hide from board') + '">' + (isHidden ? '🙈' : '👁') + '</button>';
         // remove-from-view / delete-custom
         html += '<button type="button" class="pb-mini pb-danger" data-pb-action="remove" data-view="' + esc(vk) + '" data-stage="' + esc(key) + '"' + (editable ? '' : ' disabled') + ' title="Remove from this pipeline">✕</button>';
         if (isCustom) {
@@ -196,6 +199,10 @@
       var a2 = ensureViewStages(vk, res);
       var j = a2.indexOf(key);
       if (j !== -1) { a2.splice(j, 1); _dirty = true; render(); }
+    } else if (action === 'togglehide') {
+      var cur = res.stageMeta[key] && res.stageMeta[key].hidden;
+      setStageField(key, 'hidden', !cur); // resolver only hides on === true; false ⇒ shown
+      render();
     } else if (action === 'delete') {
       if (typeof confirm === 'function' && !confirm('Delete this custom stage from every pipeline? Leads already in it keep their stage value.')) return;
       delete _cfg.stages[key];

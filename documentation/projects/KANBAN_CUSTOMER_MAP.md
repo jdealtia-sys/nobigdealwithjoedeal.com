@@ -35,12 +35,19 @@
    (`functions/stage-roles.roleFromKey`) — the exact runtime precedence, so no
    drift. Smoke-covered in `tests/smoke/crm.test.js`. Run it after Phase 3 is
    live on prod (`node scripts/backfill-lead-stageRole.js` to preview).
-3. **Per-view stage visibility / `hidden` flag.** `resolvePipelineConfig`
-   already honours `existing.hidden = true` but the builder has no toggle for it.
-4. **Board reads the resolved config, not just `applyPipelineConfig` on boot.**
-   Verify the kanban view switcher + column builder pick up custom views end to
-   end (the resolver returns `views`, but confirm `buildKanbanColumns` renders a
-   tenant's custom view key).
+3. ~~**Per-view stage visibility / `hidden` flag.**~~ ✅ **DONE (2026-07-08).**
+   The builder now has a per-stage hide/show eye toggle (👁/🙈) that writes the
+   `hidden` flag; `buildKanbanColumns` drops hidden stages from the board while
+   they stay in config + dropdowns.
+4. ~~**Board reads the resolved config…**~~ ✅ **DONE (2026-07-08) — and this
+   was a real bug, not just a verify.** `buildKanbanColumns` read the
+   *module-local* `KANBAN_VIEWS` / `STAGE_META` consts, so a tenant's custom
+   views, renamed / custom / reordered / hidden stages were written by the
+   Phase-2 builder but NEVER rendered on the board. Fixed: it now reads the
+   `window.*` overrides (falling back to the consts pre-config), and
+   `applyPipelineConfig` rebuilds the columns so edits show live. Verified with
+   `resolvePipelineConfig` (custom view + custom stage + hidden → correct
+   columns). This makes the whole Phase-0→2 builder actually take effect.
 5. **Tests:** extend `tests/crm-stages-roles.test.js` / `tests/stage-roles.test.js`
    to cover a custom-stage round-trip (config → resolve → persist role → server
    classify).
