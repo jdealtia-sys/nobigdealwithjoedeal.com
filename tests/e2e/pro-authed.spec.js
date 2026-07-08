@@ -883,7 +883,14 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
           }))
         };
       }, knockId);
-      if (out && out.knock && out.knock.convertedToLead === true && out.leads.length) break;
+      // Wait for the leadId back-link too, not just convertedToLead: the
+      // convert transaction flips convertedToLead + creates the lead, but
+      // _saveLead stamps knock.leadId in a SEPARATE write. Breaking on
+      // convertedToLead alone can read the knock before the back-link lands
+      // (leadId null) under a slow emulator, spuriously failing the
+      // "knock → lead back-link" assertion below. Poll until it's stamped
+      // (or time out and let that assertion report the real gap).
+      if (out && out.knock && out.knock.convertedToLead === true && out.knock.leadId && out.leads.length) break;
       await page.waitForTimeout(1_000);
     }
 
