@@ -1468,9 +1468,9 @@ section('Phase C.4 settings-tab — switchSettingsTab via settingsTab action');
     'expected switchSettingsTab(target) dispatch');
 
   const count = (dash.match(/data-action="settingsTab"\s+data-target="[a-z]+"/g) || []).length;
-  assert('settingsTab conversions: 10 (one per Settings tab)',
-    count === 10,
-    'expected 10 settingsTab data-actions; got ' + count);
+  assert('settingsTab conversions: 11 (one per Settings tab, incl. Pipelines)',
+    count === 11,
+    'expected 11 settingsTab data-actions; got ' + count);
 
   const remaining = (dash.match(/onclick="switchSettingsTab\(/g) || []).length;
   assert('no inline switchSettingsTab onclicks remain',
@@ -1921,9 +1921,9 @@ section('Phase C.3 wave 2 — draw + dash + reports + settings');
     // Count all <script ...> opening tags (inline or external) inside
     // the template. Inline = `<script>`; external = `<script src=...>`.
     const scriptCount = (settingsBody.match(/<script[\s>]/g) || []).length;
-    assert('tpl-view-settings carries 5 <script> blocks (inline or external)',
-      scriptCount === 5,
-      'expected 5 scripts inside the settings template, got ' + scriptCount);
+    assert('tpl-view-settings carries 6 <script> blocks (inline or external, incl. pipeline-builder)',
+      scriptCount === 6,
+      'expected 6 scripts inside the settings template, got ' + scriptCount);
   }
 }
 

@@ -2833,6 +2833,7 @@
         <button class="stab-btn stab-active" data-action="settingsTab" data-target="profile" id="stab-profile">👤 Profile</button>
         <button class="stab-btn" data-action="settingsTab" data-target="appearance" id="stab-appearance">🎨 Appearance</button>
         <button class="stab-btn" data-action="settingsTab" data-target="estimates" id="stab-estimates">📋 Estimates</button>
+        <button class="stab-btn" data-action="settingsTab" data-target="pipelines" id="stab-pipelines">🔀 Pipelines</button>
         <button class="stab-btn" data-action="settingsTab" data-target="daily" id="stab-daily">⚡ Daily OS</button>
         <button class="stab-btn" data-action="settingsTab" data-target="company" id="stab-company">🏢 Company</button>
         <button class="stab-btn" data-action="settingsTab" data-target="company-profile" id="stab-company-profile">📜 Company Profile</button>
@@ -3412,6 +3413,14 @@
         <div id="v2save-msg" style="display:none;margin-top:10px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:#4caf82;">✓ Estimate settings saved</div>
 
       </div><!-- /stab-panel-estimates -->
+
+      <!-- ══ TAB: PIPELINES (freeform kanban stage editor) ══ -->
+      <div class="stab-panel dn" id="stab-panel-pipelines">
+        <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:4px;">🔀 Pipelines</div>
+        <div style="font-size:12px;color:var(--m);margin-bottom:14px;">Customize the kanban stages for each job type. Changes apply to your whole team.</div>
+        <div id="pipelineBuilderRoot"></div>
+      </div><!-- /stab-panel-pipelines -->
+      <script src="js/pipeline-builder.js?v=1"></script>
 
       <!-- ══ TAB: DAILY OS ══ -->
       <div class="stab-panel dn" id="stab-panel-daily">
