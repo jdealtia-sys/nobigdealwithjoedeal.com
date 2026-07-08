@@ -142,7 +142,7 @@ async function run() {
   ok('referredBy = code', attributed && attributed.referredBy === 'JOHN-AB12');
   ok('referralDocId points at the code record', attributed && attributed.referralDocId === codeDocId);
   ok('referrer name resolved', attributed && attributed.referredByName === 'John Doe');
-  ok('not flagged invalid', attributed && attributed.referralCodeInvalid === undefined);
+  ok('not flagged invalid', attributed && attributed.referralCodeInvalid !== true);
 
   const codeAfterAttr = await waitUntil(() => getDoc('referrals', codeDocId),
     (d) => d && Array.isArray(d.referredLeads) && d.referredLeads.includes('ref_friend'));
@@ -201,6 +201,35 @@ async function run() {
   ok('self-referral → no reward status', self && self.referralRewardStatus === undefined);
   const selfCode = await getDoc('referrals', selfCodeId);
   ok('self-referral code record untouched', selfCode && (!selfCode.referredLeads || selfCode.referredLeads.length === 0));
+
+  // ═══ 5. CORRECTED CODE RE-ATTRIBUTES (latch-trap fix) ═════════
+  console.log('\n5) Corrected code — a mistyped code fixed later still credits the referrer');
+  await setDoc('leads', 'ref_typo', { userId: REP, companyId: REP, firstName: 'Ty', lastName: 'Po', stage: 'new', redeemReferralCode: 'JOHN-AB13' }); // typo (unknown)
+  const typoInvalid = await waitUntil(() => getDoc('leads', 'ref_typo'), (l) => l && l.referralCodeInvalid === true);
+  ok('typo code → latched invalid first', typoInvalid && typoInvalid.referralCodeInvalid === true);
+  // Rep corrects the code — must re-attribute despite the invalid latch being set.
+  await patchDoc('leads', 'ref_typo', { redeemReferralCode: 'JOHN-AB12' });
+  const corrected = await waitUntil(() => getDoc('leads', 'ref_typo'), (l) => l && l.referrerLeadId === 'ref_referrer');
+  ok('corrected code → re-attributed to referrer', corrected && corrected.referrerLeadId === 'ref_referrer');
+  ok('corrected code → reward status pending', corrected && corrected.referralRewardStatus === 'pending');
+  ok('corrected code → invalid flag cleared', corrected && corrected.referralCodeInvalid === false);
+
+  // ═══ 6. TENANT SCOPE BY companyId (team + microsite) ══════════
+  console.log('\n6) Company scope — a code minted by one rep credits a lead owned by a teammate/owner in the SAME company');
+  const COMPANY = 'company_XYZ';
+  const REP3 = 'repUid_CCCCCCCCCCCCCCCCCCCC3'; // teammate/owner in COMPANY
+  await setDoc('leads', 'ref_teamref', { userId: REP, companyId: COMPANY, firstName: 'Team', lastName: 'Referrer', stage: 'closed' });
+  await addDoc('referrals', { code: 'TEAM-AB12', referrerLeadId: 'ref_teamref', userId: REP, companyId: COMPANY, referredLeads: [], rewardsPaid: 0, status: 'active' });
+  // Lead owned by a DIFFERENT rep (REP3) but the SAME company — the old
+  // rep-userId guard wrongly rejected this and dropped the $200.
+  await setDoc('leads', 'ref_teamfriend', { userId: REP3, companyId: COMPANY, firstName: 'New', lastName: 'Friend', stage: 'new', redeemReferralCode: 'TEAM-AB12' });
+  const teamAttr = await waitUntil(() => getDoc('leads', 'ref_teamfriend'), (l) => l && l.referralAttributedAt);
+  ok('same-company code (diff rep) → attributed, not rejected',
+    teamAttr && teamAttr.referrerLeadId === 'ref_teamref' && teamAttr.referralCodeInvalid === false);
+  // Cross-company redemption of the same code is still rejected.
+  await setDoc('leads', 'ref_xcompany', { userId: REP3, companyId: 'company_OTHER', firstName: 'X', lastName: 'Co', stage: 'new', redeemReferralCode: 'TEAM-AB12' });
+  const xco = await waitUntil(() => getDoc('leads', 'ref_xcompany'), (l) => l && l.referralAttributedAt);
+  ok('cross-company code → flagged invalid', xco && xco.referralCodeInvalid === true);
 
   // ── summary ──
   console.log('\n──────────────────────────────────────────────────');

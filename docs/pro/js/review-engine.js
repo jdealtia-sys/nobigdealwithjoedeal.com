@@ -164,19 +164,58 @@
     const lead = (window._leads || []).find(l => l.id === leadId);
     if (!lead) return null;
 
-    const firstName = (lead.firstName || 'NBD').toUpperCase().slice(0, 4);
-    const code = firstName + '-' + Math.random().toString(36).substring(2, 6).toUpperCase();
-    return code;
+    // Sanitize the name prefix to A-Z0-9 so the code never carries a space or
+    // punctuation (e.g. 'Jo Ann' or a '(Web lead)' default) that would break the
+    // exact-match redemption lookup and silently lose the $200. Pad the random
+    // suffix to a full 4 chars (toString(36) can drop trailing zeros → 'JOHN-').
+    const prefix = (lead.firstName || 'NBD').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 4) || 'NBD';
+    const suffix = (Math.random().toString(36).substring(2, 6) + '0000').slice(0, 4).toUpperCase();
+    return prefix + '-' + suffix;
   }
 
   /**
    * Create and assign a referral code to a lead
    */
   async function assignReferralCode(leadId) {
-    const code = generateReferralCode(leadId);
-    if (!code || !window.db || !window._user) return null;
+    if (!window.db || !window._user) return null;
+    const lead = (window._leads || []).find(l => l.id === leadId);
+    if (!lead) return null;
 
     try {
+      // Idempotent: if this referrer already has a code (locally or already
+      // minted in the referrals collection), reuse it. A double-tap must not
+      // mint a second doc and text the customer a different code. (Both queries
+      // are userId-scoped so they satisfy the owner-only referrals read rule.)
+      if (lead.referralCode) return lead.referralCode;
+      const existing = await window.getDocs(window.query(
+        window.collection(window.db, 'referrals'),
+        window.where('referrerLeadId', '==', leadId),
+        window.where('userId', '==', window._user.uid)
+      ));
+      if (!existing.empty) {
+        const priorCode = existing.docs[0].data().code;
+        lead.referralCode = priorCode;
+        return priorCode;
+      }
+
+      // Mint a code, regenerating on the (rare) same-tenant collision so the
+      // redemption lookup resolves to exactly one referrer.
+      let code = null;
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = generateReferralCode(leadId);
+        if (!candidate) return null;
+        const clash = await window.getDocs(window.query(
+          window.collection(window.db, 'referrals'),
+          window.where('code', '==', candidate),
+          window.where('userId', '==', window._user.uid)
+        ));
+        if (clash.empty) { code = candidate; break; }
+      }
+      if (!code) {
+        if (typeof showToast === 'function') showToast('Could not generate a unique code — try again', 'error');
+        return null;
+      }
+
       // Save code to lead
       await window.updateDoc(window.doc(window.db, 'leads', leadId), {
         referralCode: code,
@@ -188,16 +227,17 @@
         code,
         referrerLeadId: leadId,
         userId: window._user.uid,
+        // Tenant key so the server trigger scopes redemption by company: a code
+        // minted by any teammate credits when the referred lead closes on any
+        // teammate's / the owner's book. Falls back to uid for a solo tenant.
+        companyId: lead.companyId || window._user.uid,
         createdAt: window.serverTimestamp(),
         referredLeads: [],
         rewardsPaid: 0,
         status: 'active'
       });
 
-      // Update local
-      const lead = (window._leads || []).find(l => l.id === leadId);
-      if (lead) lead.referralCode = code;
-
+      lead.referralCode = code;
       if (typeof showToast === 'function') showToast(`Referral code: ${code}`, 'ok');
       return code;
     } catch(e) {

@@ -117,6 +117,23 @@
       ${paid.length ? `<h3 class="rr-h rr-h-muted">Paid</h3>${paid.map(rowPaid).join('')}` : ''}`;
   }
 
+  // Best-effort: keep the referrer's referrals-doc ledger (rewardsOwedTotal /
+  // rewardsPaid) in sync with the lead-status flip so a future per-referrer
+  // "total owed" surface isn't left overstated. Guarded — no-op if the modular
+  // increment() isn't exposed on window. The lead docs stay the UI's source of
+  // truth (this only reconciles the secondary ledger the trigger accrues).
+  async function reconcileLedger(lead, dOwed, dPaid) {
+    try {
+      if (!lead || !lead.referralDocId) return;
+      if (!window.db || !window.updateDoc || !window.doc || !window.increment) return;
+      const amt = amountOf(lead);
+      await window.updateDoc(window.doc(window.db, 'referrals', lead.referralDocId), {
+        rewardsOwedTotal: window.increment(dOwed * amt),
+        rewardsPaid: window.increment(dPaid * amt),
+      });
+    } catch (e) { /* ledger drift is non-fatal; lead status is authoritative */ }
+  }
+
   async function markReferralPaid(id) {
     const leads = Array.isArray(window._leads) ? window._leads : [];
     const lead = leads.find((l) => l && l.id === id);
@@ -137,6 +154,7 @@
       });
       lead.referralRewardStatus = 'paid';           // optimistic local
       lead.referralRewardPaidAt = Date.now();
+      await reconcileLedger(lead, -1, 1);           // owed → paid on the referrals doc
       if (window.showToast) window.showToast(`Marked ${fmtMoney(amt)} bonus paid to ${to}`, 'success');
       render();
     } catch (e) {
@@ -161,6 +179,7 @@
       });
       lead.referralRewardStatus = 'owed';           // optimistic local
       lead.referralRewardPaidAt = null;
+      await reconcileLedger(lead, 1, -1);           // paid → owed on the referrals doc
       if (window.showToast) window.showToast('Moved back to owed', 'info');
       render();
     } catch (e) {
@@ -168,6 +187,14 @@
       if (window.showToast) window.showToast('Could not update — try again', 'error');
     }
   }
+
+  // A referred project closing flips its lead to 'owed' server-side; surface
+  // freshly-owed bonuses without a manual reload by re-rendering on the app-wide
+  // data refresh — but only while the Referral Rewards view is actually showing.
+  window.addEventListener('nbd:data-refreshed', function () {
+    const v = document.getElementById('view-refrewards');
+    if (v && v.classList.contains('active')) render();
+  });
 
   window.ReferralRewards = { render };
   window.markReferralPaid = markReferralPaid;
