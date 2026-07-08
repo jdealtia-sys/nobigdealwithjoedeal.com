@@ -100,6 +100,18 @@ exports.lookupParcel = onCall(
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
 
+    // Per-uid cap: this returns owner PII (name/last-sale/assessed value) and
+    // bills Regrid ($0.01/lookup) per distinct address (each bypasses the cache),
+    // so an unthrottled rep could enumerate a whole street. Same limiter the
+    // other paid-vendor callables use (esign 30/hr, measurement/voice 20/hr).
+    const { enforceRateLimit } = require('./upstash-ratelimit');
+    try {
+      await enforceRateLimit('callable:lookupParcel:uid', uid, 60, 60 * 60_000);
+    } catch (e) {
+      if (e.rateLimited) throw new HttpsError('resource-exhausted', 'Too many parcel lookups — try again in an hour.');
+      throw e;
+    }
+
     const address = typeof request.data?.address === 'string'
       ? request.data.address.trim() : '';
     if (!address || address.length < 5 || address.length > 500) {

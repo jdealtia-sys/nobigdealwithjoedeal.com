@@ -108,6 +108,16 @@ exports.getHailHistory = onCall(
     const uid = request.auth && request.auth.uid;
     if (!uid) throw new HttpsError('unauthenticated', 'Sign in required');
 
+    // Per-uid cap: when HailTrace is the active provider this bills the shared
+    // key per call, and there was no limit (unlike the sibling paid callables).
+    const { enforceRateLimit } = require('./upstash-ratelimit');
+    try {
+      await enforceRateLimit('callable:getHailHistory:uid', uid, 60, 60 * 60_000);
+    } catch (e) {
+      if (e.rateLimited) throw new HttpsError('resource-exhausted', 'Too many hail lookups — try again in an hour.');
+      throw e;
+    }
+
     const lat = parseFloat(request.data && request.data.lat);
     const lng = parseFloat(request.data && request.data.lng);
     const radiusMi = Math.min(50, Math.max(0.5, parseFloat(request.data && request.data.radiusMi) || 3));
