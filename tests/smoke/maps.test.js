@@ -178,10 +178,10 @@ section('Customers map layer — all leads on the map, role-coloured');
     && /L\.layerGroup\(\)/.test(maps),
     'expected _ensureCustomersLayer() to prefer L.markerClusterGroup with a layerGroup fallback');
   // Control panel: color-by, legend/filter, cross-dimension AND filters.
-  assert('Customers panel offers 3 color-by dimensions (stage/damage/value)',
-    /_CUST_DIM_KEYS\s*=\s*\['stage',\s*'damage',\s*'value'\]/.test(maps)
+  assert('Customers panel offers color-by dimensions (stage/damage/value/rep)',
+    /_CUST_DIM_KEYS\s*=\s*\['stage',\s*'damage',\s*'value',\s*'rep'\]/.test(maps)
     && /data-cust-colorby/.test(maps),
-    'expected a color-by selector over stage/damage/value dimensions');
+    'expected a color-by selector over stage/damage/value/rep dimensions');
   assert('dot colour follows the active color-by dimension',
     /function _custColorOf\(lead\)[\s\S]{0,200}_CUST_DIMENSIONS\[_custColorBy\]/.test(maps),
     'expected _custColorOf to resolve via the active color-by dimension');
@@ -223,6 +223,19 @@ section('Customers map layer — all leads on the map, role-coloured');
   assert('saved views wired: apply on select, save + delete buttons',
     /data-cust-view/.test(maps) && /data-cust-saveview/.test(maps) && /data-cust-delview/.test(maps),
     'expected a view select + save/delete controls');
+  // Rep / owner — a DYNAMIC color-by dimension (cats computed from lead owners).
+  assert('rep/owner is a dynamic color-by dimension over lead owners',
+    /rep:\s*\{ label: 'Rep \/ Owner', catsFn: _custRepCats/.test(maps)
+    && /_CUST_DIM_KEYS = \['stage', 'damage', 'value', 'rep'\]/.test(maps)
+    && /function _custRepCats\(\)[\s\S]{0,300}window\._leads/.test(maps),
+    'expected a rep dimension whose categories are the distinct lead owners');
+  assert('dynamic dimensions resolve cats via _dimCats',
+    /function _dimCats\(dim\)\s*\{\s*return dim\.catsFn \? dim\.catsFn\(\)/.test(maps)
+    && /_dimCats\(dim\)\.forEach/.test(maps),
+    'expected _dimCats() used wherever a dimension enumerates categories');
+  assert('rep names are best-effort (Me / team maps / short uid)',
+    /function _custRepName\(uid\)[\s\S]{0,300}window\._user[\s\S]{0,200}'Me'/.test(maps),
+    'expected _custRepName to label the current user Me and fall back gracefully');
 }
 
 section('D2D pins — disposition legend + filter (second layer)');

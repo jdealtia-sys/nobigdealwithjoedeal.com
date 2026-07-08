@@ -98,18 +98,41 @@ function _custValueKey(lead) {
   return t ? t.key : 'v0';
 }
 
+// Rep / owner — a DYNAMIC dimension: categories are the distinct lead owners,
+// palette-coloured by first-seen order, so the map divides canvassing areas by
+// who owns each deal. Names are best-effort (team-member maps if present).
+const _CUST_REP_PALETTE = ['#4A9EFF', '#22C55E', '#D4A017', '#9B6DFF', '#ea580c', '#0891b2', '#e05252', '#16a34a', '#a855f7', '#0d9488'];
+function _custRepKey(lead) { return lead.userId || lead.assignedTo || 'unassigned'; }
+function _custRepName(uid) {
+  if (uid === 'unassigned') return 'Unassigned';
+  if (window._user && uid === window._user.uid) return 'Me';
+  const maps = [window._repNames, window._teamNames];
+  for (const m of maps) { if (m && m[uid]) return m[uid]; }
+  const tm = window._teamMembers;
+  if (Array.isArray(tm)) { const f = tm.find(x => x && (x.uid === uid || x.id === uid)); if (f) return f.name || f.displayName || f.email || uid; }
+  return String(uid).slice(0, 6);
+}
+function _custRepCats() {
+  const seen = [];
+  (window._leads || []).forEach(l => { if (l && !l.deleted) { const k = _custRepKey(l); if (seen.indexOf(k) === -1) seen.push(k); } });
+  return seen.map((k, i) => ({ key: k, label: _custRepName(k), color: _CUST_REP_PALETTE[i % _CUST_REP_PALETTE.length] }));
+}
+
 const _CUST_DIMENSIONS = {
   stage:  { label: 'Stage / Role', order: _CUST_ROLE_ORDER,
             cats: _CUST_ROLE_ORDER.map(r => ({ key: r, label: _CUST_ROLE_LABELS[r], color: _CUST_ROLE_COLORS[r] })),
             catOf: _custRoleOf },
   damage: { label: 'Damage Type', cats: _CUST_DAMAGE_CATS, catOf: _custDamageKey },
   value:  { label: 'Deal Value',  cats: _CUST_VALUE_CATS.map(c => ({ key: c.key, label: c.label, color: c.color })), catOf: _custValueKey },
+  rep:    { label: 'Rep / Owner', catsFn: _custRepCats, catOf: _custRepKey },
 };
-const _CUST_DIM_KEYS = ['stage', 'damage', 'value'];
+const _CUST_DIM_KEYS = ['stage', 'damage', 'value', 'rep'];
+// Resolve a dimension's categories (static array or dynamic function).
+function _dimCats(dim) { return dim.catsFn ? dim.catsFn() : (dim.cats || []); }
 
 // Active color-by dimension + per-dimension filter sets (null = all visible).
 let _custColorBy = 'stage';
-const _custFilters = { stage: null, damage: null, value: null };
+const _custFilters = { stage: null, damage: null, value: null, rep: null };
 
 // Value-RANGE filter (independent of the value-tier color dimension): a min/max
 // $ slider. max === _CUST_VAL_CAP means "no upper limit".
@@ -150,7 +173,7 @@ function _custApplyView(v) {
 
 function _custColorForCat(dimKey, catKey) {
   const dim = _CUST_DIMENSIONS[dimKey];
-  const c = dim && dim.cats.find(x => x.key === catKey);
+  const c = dim && _dimCats(dim).find(x => x.key === catKey);
   return (c && c.color) || '#6B7280';
 }
 // A lead's dot colour = its category colour in the ACTIVE color-by dimension.
@@ -329,7 +352,7 @@ function _custChipsHTML(dimKey, counts) {
   const dim = _CUST_DIMENSIONS[dimKey];
   const filter = _custFilters[dimKey];
   let html = '';
-  dim.cats.forEach(function (c) {
+  _dimCats(dim).forEach(function (c) {
     const off = (filter && !filter.has(c.key)) ? ' off' : '';
     const cnt = counts ? ('<span class="ncp-cnt">' + (counts[c.key] || 0) + '</span>') : '';
     html += '<button type="button" class="ncp-chip' + off + '" data-cust-dim="' + esc(dimKey) + '" data-cust-cat="' + esc(c.key) + '">'
@@ -445,11 +468,12 @@ function _renderCustPanel(counts) {
       const cat = chip.getAttribute('data-cust-cat');
       const dim = _CUST_DIMENSIONS[dk];
       if (!dim) return;
-      if (!_custFilters[dk]) _custFilters[dk] = new Set(dim.cats.map(function (c) { return c.key; }));
+      const cats = _dimCats(dim);
+      if (!_custFilters[dk]) _custFilters[dk] = new Set(cats.map(function (c) { return c.key; }));
       const f = _custFilters[dk];
       if (f.has(cat)) { if (f.size > 1) f.delete(cat); } else { f.add(cat); }
       // If a dimension's filter is back to "all", drop it (null = no filter).
-      if (f.size === dim.cats.length) _custFilters[dk] = null;
+      if (f.size === cats.length) _custFilters[dk] = null;
       buildCustomersLayer();
     });
   }
