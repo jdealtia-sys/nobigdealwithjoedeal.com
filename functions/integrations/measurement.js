@@ -180,6 +180,22 @@ exports.requestMeasurement = onCall(
     }
     const leadId = typeof request.data?.leadId === 'string' ? request.data.leadId : null;
 
+    // Verify the caller owns (or is same-tenant staff for) the lead BEFORE
+    // spending a paid measurement — the webhook later writes measurementReady +
+    // an activity entry onto leads/{leadId} via the admin SDK (bypassing rules),
+    // so an unchecked leadId let a rep stamp a spoofed measurement onto another
+    // tenant's lead. Mirrors the est.userId===uid check in sendEstimateForSignature.
+    if (leadId) {
+      const leadSnap = await getFirestore().doc(`leads/${leadId}`).get();
+      if (!leadSnap.exists) throw new HttpsError('not-found', 'Lead not found');
+      const lead = leadSnap.data() || {};
+      const token = request.auth.token || {};
+      const owns = lead.userId === uid
+        || (token.companyId && lead.companyId && token.companyId === lead.companyId)
+        || token.role === 'admin';
+      if (!owns) throw new HttpsError('permission-denied', 'Not your lead');
+    }
+
     const providerFn = selectProvider();
     const result = await providerFn(address, uid);
 
