@@ -202,7 +202,10 @@ function mapPublicLeadToLead(args) {
   // code on the public form. Carry it onto the CRM lead (uppercased to match
   // the referrals-collection code format) so the onReferralLeadWrite trigger
   // can attribute it and credit the $200 bonus on close.
-  if (data.referralCode) doc.redeemReferralCode = String(data.referralCode).toUpperCase().trim();
+  // Strip to A-Z0-9- so the redeemed value matches the minted code format
+  // exactly (internal spaces/punctuation would miss the exact-match lookup and
+  // silently lose the referrer's $200).
+  if (data.referralCode) doc.redeemReferralCode = String(data.referralCode).toUpperCase().replace(/[^A-Z0-9-]/g, '');
 
   return doc;
 }

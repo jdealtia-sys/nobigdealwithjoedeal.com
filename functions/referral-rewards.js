@@ -81,13 +81,26 @@ async function handleReferralLeadWrite(event) {
 
   // ─── Phase A: attribute a freshly-entered referral code ─────────
   // The referred lead carries `redeemReferralCode` (rep- or public-stamped).
-  // `referralAttributedAt` is the idempotency latch — set on BOTH the success
-  // and the invalid path so a bad code is resolved once, never retried.
-  if (after.redeemReferralCode && !after.referralAttributedAt) {
-    const code = String(after.redeemReferralCode).toUpperCase().trim();
+  // `referralAttributedAt` is a process-once latch, but it is set on the INVALID
+  // path too — so gating on it ALONE traps a corrected code forever. Re-run Phase
+  // A when the code is newly present OR was CHANGED (a rep fixing a typo, or
+  // switching referrer). Never re-open once a bonus is actually owed/paid: that
+  // credit stands.
+  const beforeCode = before && before.redeemReferralCode
+    ? String(before.redeemReferralCode).toUpperCase().trim() : '';
+  const afterCode = after.redeemReferralCode
+    ? String(after.redeemReferralCode).toUpperCase().trim() : '';
+  const codeChanged = !!afterCode && afterCode !== beforeCode;
+  const alreadyRewarded = after.referralRewardStatus === 'owed'
+    || after.referralRewardStatus === 'paid';
+  if (afterCode && !alreadyRewarded && (!after.referralAttributedAt || codeChanged)) {
+    const code = afterCode;
 
     // Mark the code processed-but-not-credited (unknown / foreign / self /
-    // empty). We still set the latch so the trigger stops re-evaluating it.
+    // empty). We still set the latch so the trigger stops re-evaluating an
+    // UNCHANGED bad code — a corrected code re-opens Phase A via the gate above.
+    // Also notify the rep so a fat-fingered code is a visible, fixable failure
+    // rather than a silent one (the customer was SMS-promised the bonus).
     const markInvalid = async (reason) => {
       logger.info('[referral] code not attributed', { leadId, code, reason });
       try {
@@ -98,13 +111,36 @@ async function handleReferralLeadWrite(event) {
       } catch (e) {
         logger.error('[referral] invalid-latch write failed', { leadId, err: e && e.message });
       }
+      try {
+        await db.collection('notifications').add({
+          userId: after.userId || null,
+          type: 'referral',
+          leadId,
+          title: '⚠️ Referral code not applied',
+          message: `Referral code "${code}" on ${fullName(after) || 'a lead'} could not be attributed (${reason}). Check the code and re-enter it to credit the referrer.`,
+          read: false,
+          dismissed: false,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        logger.warn('[referral] invalid-notification failed', { leadId, err: e && e.message });
+      }
     };
 
     if (!code) { await markInvalid('empty-code'); return; }
 
+    // Owner not yet resolved (e.g. a public lead mid-bridge). Defer WITHOUT
+    // latching so a later write that carries userId can still attribute — and
+    // never attribute a code without a resolved owner (closes the null-userId
+    // hole where the same-tenant guard below would otherwise fail open).
+    if (!after.userId) {
+      logger.info('[referral] owner unresolved — deferring attribution', { leadId, code });
+      return;
+    }
+
     let snap;
     try {
-      snap = await db.collection('referrals').where('code', '==', code).limit(1).get();
+      snap = await db.collection('referrals').where('code', '==', code).limit(10).get();
     } catch (e) {
       // Transient lookup error — do NOT set the latch, let a later write retry.
       logger.error('[referral] code lookup failed', { leadId, code, err: e && e.message });
@@ -112,17 +148,33 @@ async function handleReferralLeadWrite(event) {
     }
     if (snap.empty) { await markInvalid('unknown-code'); return; }
 
-    const refDoc = snap.docs[0];
+    // A code SHOULD be unique per mint, but until mint-time uniqueness fully
+    // backfills, pick the doc belonging to THIS lead's tenant so a cross-tenant
+    // collision can't shadow the right referrer (the old .limit(1) returned an
+    // arbitrary match). Prefer companyId, fall back to userId, else first.
+    const sameTenantDoc = (d) => {
+      const r = d.data() || {};
+      if (r.companyId && after.companyId) return r.companyId === after.companyId;
+      if (r.userId && after.userId) return r.userId === after.userId;
+      return false;
+    };
+    const refDoc = snap.docs.find(sameTenantDoc) || snap.docs[0];
     const referral = refDoc.data() || {};
 
-    // Guard 1: the code must belong to the SAME rep/tenant that owns this
-    // lead — otherwise a rep could self-credit by typing a rival tenant's
-    // code, or a public submitter could redeem a code not on this book.
-    // (referral.userId is the minting rep; legacy docs without it fall through
-    // as same-tenant, matching the pre-existing owner-scoped assumption.)
-    if (referral.userId && after.userId && referral.userId !== after.userId) {
-      await markInvalid('foreign-tenant-code'); return;
+    // Guard 1: the code must belong to the SAME TENANT as this lead. Compare
+    // companyId when both sides carry it — a code is minted by any rep on the
+    // team, but the redeeming lead's userId is whoever entered it (a teammate)
+    // or, for a public-microsite lead, the company OWNER. Keying on the minting
+    // rep's userId (the old check) wrongly rejected both cases and silently
+    // dropped the customer's $200. Fall back to userId only for legacy referrals
+    // docs minted before companyId was stamped; both absent = legacy solo tenant.
+    let tenantMismatch = false;
+    if (referral.companyId && after.companyId) {
+      tenantMismatch = referral.companyId !== after.companyId;
+    } else if (referral.userId && after.userId) {
+      tenantMismatch = referral.userId !== after.userId;
     }
+    if (tenantMismatch) { await markInvalid('foreign-tenant-code'); return; }
     // Guard 2: no self-referral — the referrer's own lead can't redeem their
     // own code.
     if (referral.referrerLeadId && referral.referrerLeadId === leadId) {
@@ -148,6 +200,8 @@ async function handleReferralLeadWrite(event) {
         referredByName: referrerName || null,
         referralRewardStatus: 'pending',
         referralAttributedAt: FieldValue.serverTimestamp(),
+        // Clear a stale invalid flag from an earlier mistyped code now corrected.
+        referralCodeInvalid: false,
       }, { merge: true });
       // Link the referred lead into the referrer's code record (mirrors the
       // old client trackReferral this replaces).
@@ -206,16 +260,30 @@ async function handleReferralLeadWrite(event) {
     // concrete Date (admin SDK stores it as a Timestamp).
     if (after.referralDocId) {
       try {
-        await db.doc(`referrals/${after.referralDocId}`).set({
-          rewards: FieldValue.arrayUnion({
-            referredLeadId: leadId,
-            amount,
-            status: 'owed',
-            owedAt: new Date(),
-          }),
-          rewardsOwedTotal: FieldValue.increment(amount),
-          updatedAt: FieldValue.serverTimestamp(),
-        }, { merge: true });
+        // Re-verify the referral doc is same-tenant before crediting its ledger.
+        // referralDocId is admin-set in Phase A, but defend against a forged /
+        // mismatched value pointing at another tenant's referrals doc.
+        const rdocSnap = await db.doc(`referrals/${after.referralDocId}`).get();
+        const rdoc = rdocSnap.exists ? (rdocSnap.data() || {}) : null;
+        const sameTenant = rdoc && (
+          (rdoc.companyId && after.companyId) ? rdoc.companyId === after.companyId
+            : (rdoc.userId && after.userId) ? rdoc.userId === after.userId
+              : true
+        );
+        if (rdoc && sameTenant) {
+          await rdocSnap.ref.set({
+            rewards: FieldValue.arrayUnion({
+              referredLeadId: leadId,
+              amount,
+              status: 'owed',
+              owedAt: new Date(),
+            }),
+            rewardsOwedTotal: FieldValue.increment(amount),
+            updatedAt: FieldValue.serverTimestamp(),
+          }, { merge: true });
+        } else {
+          logger.warn('[referral] skipped ledger credit — referralDocId missing/foreign', { leadId, referralDocId: after.referralDocId });
+        }
       } catch (e) {
         logger.warn('[referral] referral-doc reward update failed', { leadId, err: e && e.message });
       }
