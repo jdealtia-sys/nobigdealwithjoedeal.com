@@ -447,4 +447,29 @@ section('Phase C.1 + C.2 — view template-hydration sweep');
     'expected _eagerHydrateActiveViews IIFE that queries .view.active[data-view-template]');
 }
 
+section('backfill — leads.stageRole one-off (freeform-pipeline classification)');
+{
+  const fs = require('fs');
+  const p = path.join(ROOT, 'scripts/backfill-lead-stageRole.js');
+  assert('scripts/backfill-lead-stageRole.js exists', fs.existsSync(p));
+  if (fs.existsSync(p)) {
+    const bf = read(p);
+    // Reuse the SHARED server role map so the backfill can't drift from runtime.
+    assert('backfill imports the shared roleFromKey (no drift vs functions/stage-roles)',
+      /require\(['"]\.\.\/functions\/stage-roles['"]\)/.test(bf) && /roleFromKey\(/.test(bf));
+    assert('stageRole backfill is dry-run-by-default + --apply needs --yes',
+      /APPLY && !YES/.test(bf) && /--apply --yes/.test(bf));
+    // The persisted role is authoritative — only FILL gaps, never overwrite.
+    assert('stageRole backfill is idempotent (skips docs with a valid stageRole)',
+      /VALID_ROLES\.has\(data\.stageRole\)/.test(bf));
+    // A tenant's custom-stage role (companyProfile.pipelines) must win over the
+    // key-map guess — that's the whole point (custom stages classify wrong
+    // under the key map alone).
+    assert('stageRole backfill resolves a tenant custom-stage role from companyProfile.pipelines',
+      /companyProfile/.test(bf)
+      && /cfg\.stages\[stageKey\]/.test(bf)
+      && /return roleFromKey\(stageKey\)/.test(bf));
+  }
+}
+
 };

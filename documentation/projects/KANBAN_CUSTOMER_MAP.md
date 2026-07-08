@@ -23,13 +23,15 @@
 1. **Drag-to-reorder in the builder.** Today reordering is ▲/▼ buttons
    (`pipeline-builder.js`). Native drag-and-drop of stage rows would match the
    kanban's own DnD and is the top UX gap Jo will notice.
-2. **`stageRole` migration/backfill for existing leads.** Phase 3's design says
-   the *persisted* `stageRole` wins, but leads created before Phase 0 have none —
-   they fall back to the key map, which BREAKS for a tenant's custom stages
-   (the server can't classify `custom_walkthru`). Add a one-off backfill
-   (`scripts/backfill-lead-stageRole.js`, dry-run-by-default like
-   `backfill-leads-phoneDigits.js`) that stamps `stageRole` from the resolved
-   config per tenant. **This is the highest-correctness item.**
+2. ~~**`stageRole` migration/backfill for existing leads.**~~ ✅ **DONE
+   (2026-07-08).** `scripts/backfill-lead-stageRole.js` — dry-run-by-default
+   (`--apply --yes` to write), idempotent (only fills a MISSING/invalid role;
+   a persisted role is authoritative and never overwritten). Resolves each
+   lead's role from the tenant's own `companyProfile.pipelines.stages[key].role`
+   when the stage is custom/overridden, else the shared key map
+   (`functions/stage-roles.roleFromKey`) — the exact runtime precedence, so no
+   drift. Smoke-covered in `tests/smoke/crm.test.js`. Run it after Phase 3 is
+   live on prod (`node scripts/backfill-lead-stageRole.js` to preview).
 3. **Per-view stage visibility / `hidden` flag.** `resolvePipelineConfig`
    already honours `existing.hidden = true` but the builder has no toggle for it.
 4. **Board reads the resolved config, not just `applyPipelineConfig` on boot.**
