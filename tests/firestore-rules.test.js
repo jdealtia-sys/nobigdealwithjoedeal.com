@@ -484,6 +484,24 @@ async function run() {
   await assertFails(deleteDoc(doc(bob,        'pins/pin-alice-co')));                              // cross-company delete blocked
   await assertSucceeds(deleteDoc(doc(alice,   'pins/pin-alice-co')));                              // owner deletes own pin
 
+  // 24c. TERRITORY ZONES — persisted, team-shared canvassing areas (2026-07-08).
+  //      Same shape as /pins: same-company read, owner/same-company-admin write,
+  //      companyId pinned to the caller's tenant on create.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    await setDoc(doc(db, 'zones/zone-alice-co'), { userId: 'alice', companyId: 'co-a', name: 'North', color: '#4A9EFF', points: [{ lat: 39, lng: -84 }, { lat: 39.1, lng: -84 }, { lat: 39, lng: -84.1 }] });
+    await setDoc(doc(db, 'zones/zone-bob-co'),   { userId: 'bob',   companyId: 'co-b', name: 'South', color: '#22C55E', points: [{ lat: 40, lng: -85 }, { lat: 40.1, lng: -85 }, { lat: 40, lng: -85.1 }] });
+  });
+  await assertSucceeds(getDoc(doc(coAdmin, 'zones/zone-alice-co')));   // same-company admin sees the tenant's territory
+  await assertSucceeds(getDoc(doc(alice,   'zones/zone-alice-co')));   // owner reads own
+  await assertFails(getDoc(doc(bob,        'zones/zone-alice-co')));   // cross-company denied
+  await assertSucceeds(setDoc(doc(alice, 'zones/zone-new-ok'), { userId: 'alice', companyId: 'co-a', name: 'East', color: '#D4A017', points: [{ lat: 39, lng: -84 }, { lat: 39.1, lng: -84 }, { lat: 39, lng: -84.1 }] })); // own tenant
+  await assertFails(setDoc(doc(alice,    'zones/zone-new-noco'), { userId: 'alice', name: 'NoCo', color: '#D4A017', points: [] }));                    // missing companyId
+  await assertFails(setDoc(doc(alice,    'zones/zone-new-xco'),  { userId: 'alice', companyId: 'co-b', name: 'X', color: '#D4A017', points: [] }));    // foreign tenant
+  await assertSucceeds(updateDoc(doc(coAdmin, 'zones/zone-alice-co'), { name: 'North (reassigned)' })); // admin curates
+  await assertFails(updateDoc(doc(bob,        'zones/zone-alice-co'), { name: 'hijack' }));              // cross-company update blocked
+  await assertSucceeds(deleteDoc(doc(alice,   'zones/zone-alice-co')));                                  // owner deletes own zone
+
   // 25. NEW-D40a: drawings. The lead-linked subcollection
   //     (leads/{leadId}/drawings) has long had owner rules, but the
   //     top-level /drawings collection — the draw tool's fallback for

@@ -842,9 +842,9 @@ function renderZoneList() {
       <button class="zone-del nbd-zone-del" data-zone-id="${esc(z.id)}">✕</button>
     </div>`).join('');
   el.querySelectorAll('.nbd-zone-del').forEach(btn => {
-    // Zone ids are Date.now() numbers; deleteZone strict-compares, so the
-    // dataset string never matched and the ✕ was a no-op (NEW-D39).
-    btn.addEventListener('click', () => deleteZone(Number(btn.dataset.zoneId)));
+    // Zone ids are now Firestore doc strings (persisted zones) or a 'd-' local
+    // fallback — pass the raw string; deleteZone String()-compares both sides.
+    btn.addEventListener('click', () => deleteZone(btn.dataset.zoneId));
   });
 }
 

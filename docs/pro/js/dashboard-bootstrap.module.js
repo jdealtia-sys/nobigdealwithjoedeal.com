@@ -1351,7 +1351,7 @@
         }
       }, 250);
     });
-    loadEstimates(); loadPins();
+    loadEstimates(); loadPins(); loadZones();
     // B3: wire the live estimates listener so signature webhook
     // updates + V2 saves land in the UI without a reload.
     if (typeof window._subscribeEstimates === 'function') {
@@ -3143,6 +3143,55 @@
     catch(e) { console.error('📌 savePin FAILED:', e.code, e.message, e); return 'd-'+Date.now(); }
   };
   window._deletePin = async (id) => { try { await deleteDoc(doc(db,'pins',id)); } catch(e){ console.warn('deletePin failed:', e); showToast('Failed to delete pin','error'); } };
+
+  // ── TERRITORY ZONES ───────────────────────────
+  // Persisted, team-shared canvassing areas (optionally rep-assigned). Same
+  // company dual-scope + companyId stamping as pins, so a drawn territory
+  // survives reload and every teammate sees it.
+  async function loadZones() {
+    try {
+      const uid = window._user?.uid;
+      if (!uid) { window._zones = []; return; }
+      const _claims = window._userClaims || {};
+      const _teamReader = ['company_admin', 'manager', 'viewer'].includes(_claims.role || '') && !!_claims.companyId;
+      const _scopes = _teamReader && _claims.companyId !== uid
+        ? [where('companyId', '==', _claims.companyId), where('userId', '==', uid)]
+        : [_teamReader ? where('companyId', '==', _claims.companyId) : where('userId', '==', uid)];
+      const _seen = new Set();
+      const _out = [];
+      for (const scope of _scopes) {
+        const snap = await getDocs(query(collection(db,'zones'), scope));
+        snap.docs.forEach(d => { if (!_seen.has(d.id)) { _seen.add(d.id); _out.push({id:d.id,...d.data()}); } });
+      }
+      window._zones = _out;
+      // Draw them if the map is already up (order-independent with initMainMap,
+      // which also calls renderSavedZones once _zones exists — both idempotent).
+      if (typeof window.renderSavedZones === 'function') { try { window.renderSavedZones(); } catch (_) {} }
+    } catch(e) { console.error('🗺 loadZones FAILED:', e.code, e.message, e); window._zones = []; }
+  }
+  window.loadZones = loadZones;
+  window._saveZone = async (data) => {
+    try {
+      if (data.id && !String(data.id).startsWith('d-')) {
+        const zoneId = data.id;
+        const patch = {...data}; delete patch.id;
+        await updateDoc(doc(db,'zones',zoneId), {...patch, updatedAt:serverTimestamp()});
+        return zoneId;
+      }
+      const _uid = window._user?.uid;
+      const zoneDoc = {...data}; delete zoneDoc.id;
+      zoneDoc.userId = _uid;
+      zoneDoc.companyId = (window._userClaims?.companyId) || _uid || null;
+      zoneDoc.createdAt = serverTimestamp();
+      const r = await addDoc(collection(db,'zones'), zoneDoc);
+      return r.id;
+    }
+    catch(e) { console.error('🗺 saveZone FAILED:', e.code, e.message, e); return 'd-'+Date.now(); }
+  };
+  window._deleteZone = async (id) => {
+    try { if (id && !String(id).startsWith('d-')) await deleteDoc(doc(db,'zones',id)); }
+    catch(e){ console.warn('deleteZone failed:', e); showToast('Failed to delete zone','error'); }
+  };
 
   // ── PHOTOS ─────────────────────────────────────
   // Storage rules (storage.rules, 2026-04-11 hardening) require

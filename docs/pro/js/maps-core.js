@@ -110,7 +110,7 @@ function initMainMap() {
   });
   if(window._pins) window._pins.forEach(p => addPinMarker(p));
   // Build heat + jobs layers from existing data
-  setTimeout(()=>{ buildHeatLayer(); buildJobsLayer(); updatePinStats(); if(overlayState.pins && typeof renderPinDispPanel==='function') renderPinDispPanel(); }, 400);
+  setTimeout(()=>{ buildHeatLayer(); buildJobsLayer(); updatePinStats(); if(overlayState.pins && typeof renderPinDispPanel==='function') renderPinDispPanel(); if(typeof window.renderSavedZones==='function') window.renderSavedZones(); }, 400);
 }
 
 // ── OVERLAY TOGGLE ──────────────────────────────

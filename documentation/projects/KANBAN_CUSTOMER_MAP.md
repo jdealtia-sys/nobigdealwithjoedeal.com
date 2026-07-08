@@ -141,10 +141,14 @@ Both layers are now operational surfaces (two-layer design — leads vs pins):
 - The pins show/hide toggle (`showAllPins`/`hideAllPins` in `maps-core.js`)
   predates clustering and operates on `mainMap` directly — the disposition
   filter deliberately routes through the cluster group instead. Worth a cleanup.
-- **Territory zones are session-only** — `zones` is an in-memory array in
-  `dashboard-actions.js`; they vanish on reload and don't sync across the team.
-  Persisting zones (a `/zones` collection + rules + rep assignment carried
-  through) is the natural next step so rep territories survive + are shared.
+- ~~**Territory zones are session-only.**~~ ✅ **DONE (2026-07-08).** Zones now
+  persist to a Firestore `/zones` collection (team-shared, same rule shape as
+  `/pins`): `loadZones`/`_saveZone`/`_deleteZone` in dashboard-bootstrap
+  (companyId dual-scope + stamping), `renderSavedZones()` draws them on map init
+  and after load, and the rep assignment (colour + label) round-trips. Points
+  serialize to plain `{lat,lng}`. Registered in `FLAT_USER_COLLECTIONS`
+  (erase/export) and rules-tested. Territories now survive reload + sync across
+  the team.
 
 ### Files touched (both tracks)
 

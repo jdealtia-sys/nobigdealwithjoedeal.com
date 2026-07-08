@@ -335,6 +335,30 @@ section('Customers map layer — dashboard.html wiring');
     /z\.repLabel \? [\s\S]{0,80}esc\(z\.repLabel\)/.test(widgets),
     'expected renderZoneList to render z.repLabel');
 
+  // Zones are now PERSISTED + team-shared (Firestore /zones), not session-only.
+  const boot = read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'));
+  assert('zones have Firestore CRUD (load/save/delete) with companyId stamping',
+    /async function loadZones\(\)/.test(boot)
+    && /window\._saveZone\s*=/.test(boot) && /window\._deleteZone\s*=/.test(boot)
+    && /collection\(db,'zones'\)/.test(boot)
+    && /zoneDoc\.companyId = \(window\._userClaims\?\.companyId\) \|\| _uid/.test(boot),
+    'expected loadZones/_saveZone/_deleteZone against /zones with companyId stamped');
+  assert('zones load at boot alongside pins',
+    /loadPins\(\); loadZones\(\)/.test(boot),
+    'expected loadZones() called in the boot sequence');
+  assert('saveZone persists (serialized points) + renderSavedZones draws loaded zones',
+    /window\._saveZone\(\{ name, color: fillColor, points: pts/.test(actions)
+    && /function renderSavedZones\(\)/.test(actions)
+    && /window\.renderSavedZones = renderSavedZones/.test(actions),
+    'expected saveZone to persist serialized points and a renderSavedZones() to draw window._zones');
+  assert('map init draws persisted zones',
+    /renderSavedZones==='function'\) window\.renderSavedZones\(\)/.test(maps),
+    'expected initMainMap to render saved zones');
+  const rules = read(path.join(ROOT, 'firestore.rules'));
+  assert('/zones rule is team-shared (mirrors /pins)',
+    /match \/zones\/\{zoneId\}[\s\S]{0,320}sameCompanyAsResource\(\)[\s\S]{0,400}request\.resource\.data\.companyId == myCompanyId\(\)/.test(rules),
+    'expected a /zones rule with same-company read + companyId-pinned create');
+
   assert('Customers map FAB rendered',
     /id="fab-customers"[\s\S]{0,120}data-arg="customers"/.test(dash),
     'expected a Customers map FAB wired to fabToggle');

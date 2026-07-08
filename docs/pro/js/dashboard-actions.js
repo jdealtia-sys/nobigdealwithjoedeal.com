@@ -631,7 +631,7 @@ function cancelZoneDraw() {
   document.getElementById('zonePanel')?.classList.remove('visible');
 }
 
-function saveZone() {
+async function saveZone() {
   if(zonePoints.length < 3) { showToast('Draw at least 3 points to define a zone','error'); return; }
   const name = document.getElementById('zoneNameInput')?.value?.trim() || 'Zone ' + (zones.length+1);
   mainMap.off('click', mainMap._zoneClick);
@@ -649,15 +649,24 @@ function saveZone() {
   const repLabel = repKey && repOpt ? repOpt.textContent : '';
   const repColor = repKey && repOpt ? (repOpt.getAttribute('data-color') || zoneColor) : '';
   const fillColor = repColor || zoneColor;
+  const _esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  // Serialize points to plain {lat,lng} for Firestore (L.LatLng isn't storable).
+  const pts = zonePoints.map(p => ({ lat: p.lat, lng: p.lng }));
 
   const layer = L.polygon(zonePoints, {
     color: fillColor, weight:2.5, fillColor: fillColor, fillOpacity:.1
   }).addTo(mainMap);
   const _tipName = repLabel ? `${name} · ${repLabel}` : name;
-  layer.bindTooltip(`<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;">${_tipName}</div>`, {permanent:true, className:'zone-tooltip', direction:'center'});
+  // Team-shared zones render another user's name in my browser — escape it.
+  layer.bindTooltip(`<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;">${_esc(_tipName)}</div>`, {permanent:true, className:'zone-tooltip', direction:'center'});
 
-  const id = Date.now();
-  zones.push({id, name, color:fillColor, points:[...zonePoints], layer, rep:repKey, repLabel});
+  // Persist so the territory survives reload + syncs to the team (fall back to
+  // a local id if the write is unavailable — the zone still shows this session).
+  let id = 'd-' + Date.now();
+  if (typeof window._saveZone === 'function') {
+    try { id = await window._saveZone({ name, color: fillColor, points: pts, rep: repKey, repLabel }); } catch (_) {}
+  }
+  zones.push({id, name, color:fillColor, points:pts, layer, rep:repKey, repLabel});
   zonePoints = []; zoneDots = [];
   document.getElementById('zonePanel')?.classList.remove('visible');
   const _zni = document.getElementById('zoneNameInput');
@@ -669,11 +678,35 @@ function saveZone() {
 }
 
 function deleteZone(id) {
-  const idx = zones.findIndex(z => z.id === id);
+  // Ids are Firestore doc strings (or a 'd-' local fallback); compare loosely so
+  // a numeric-vs-string mismatch from the list's data attr still matches.
+  const idx = zones.findIndex(z => String(z.id) === String(id));
   if(idx < 0) return;
   if(zones[idx].layer) mainMap?.removeLayer(zones[idx].layer);
+  if (typeof window._deleteZone === 'function') { try { window._deleteZone(zones[idx].id); } catch (_) {} }
   zones.splice(idx, 1);
   renderZoneList();
+}
+
+// Draw the persisted, team-shared zones (window._zones) onto the map and
+// rebuild the in-memory `zones` list. Idempotent — clears prior zone layers
+// first — so it's safe to call on map init AND after loadZones resolves.
+function renderSavedZones() {
+  if (!mainMap || !Array.isArray(window._zones)) return;
+  const _esc = window.nbdEsc || (s => String(s == null ? '' : s));
+  const safeColor = c => /^#[0-9a-f]{3,8}$/i.test(String(c || '')) ? c : '#4A9EFF';
+  zones.forEach(z => { if (z.layer && mainMap) { try { mainMap.removeLayer(z.layer); } catch (_) {} } });
+  zones.length = 0;
+  window._zones.forEach(zd => {
+    const pts = (zd.points || []).filter(p => p && p.lat != null && p.lng != null).map(p => [p.lat, p.lng]);
+    if (pts.length < 3) return;
+    const color = safeColor(zd.color);
+    const layer = L.polygon(pts, { color, weight:2.5, fillColor:color, fillOpacity:.1 }).addTo(mainMap);
+    const tip = zd.repLabel ? (zd.name + ' · ' + zd.repLabel) : (zd.name || 'Zone');
+    layer.bindTooltip(`<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;">${_esc(tip)}</div>`, {permanent:true, className:'zone-tooltip', direction:'center'});
+    zones.push({ id: zd.id, name: zd.name, color, points: zd.points, layer, rep: zd.rep, repLabel: zd.repLabel });
+  });
+  if (typeof renderZoneList === 'function') renderZoneList();
 }
 
 // ══════════════════════════════════════════════
@@ -833,6 +866,7 @@ if(typeof clearAllPins!=='undefined') window.clearAllPins = clearAllPins;
 if(typeof spyglassGoToLocation!=='undefined') window.damagNearMe = spyglassGoToLocation;
 if(typeof damageNearMePhotos!=='undefined') window.damageNearMePhotos = damageNearMePhotos;
 if(typeof toggleMapSidebar!=='undefined') window.toggleMapSidebar = toggleMapSidebar;
+if(typeof renderSavedZones!=='undefined') window.renderSavedZones = renderSavedZones;
 // spyglassSearch / spyglassGoToLocation / fabToggle / quickStormCheck →
 // __NBD_CALL_REGISTRY (dashboard-ui.js, Tranche 2c-4h Slice H2) — re-exports removed.
 if(typeof updatePinStats!=='undefined') window.updatePinStats = updatePinStats;
