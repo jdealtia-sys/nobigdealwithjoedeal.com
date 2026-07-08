@@ -527,7 +527,15 @@ exports.getHomeownerPortalView = onRequest(
       'final_payment': 'complete', 'closed': 'complete'
     };
     const stageKey = lead._stageKey || lead.stage || 'new';
-    const progressKey = STAGE_TO_PROGRESS[stageKey] || 'inspected';
+    // A tenant CUSTOM stage won't be in the map above — fall back by its
+    // semantic role (persisted on the lead) so the homeowner bar still reads
+    // right: a custom "won" stage shows Complete, an in-production one shows
+    // Install; anything else defaults to the early Inspection milestone. (Phase 3)
+    let progressKey = STAGE_TO_PROGRESS[stageKey];
+    if (!progressKey) {
+      const _role = require('./stage-roles').roleFor(lead);
+      progressKey = _role === 'won' ? 'complete' : (_role === 'job' ? 'install' : 'inspected');
+    }
     const currentIdx = HOMEOWNER_PROGRESS.findIndex(p => p.key === progressKey);
     const nextStep = currentIdx >= 0 && currentIdx < HOMEOWNER_PROGRESS.length - 1
       ? HOMEOWNER_PROGRESS[currentIdx + 1] : null;

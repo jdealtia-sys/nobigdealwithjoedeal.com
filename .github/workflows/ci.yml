@@ -92,6 +92,12 @@ jobs:
       - name: Run crm-stages role tests
         run: node tests/crm-stages-roles.test.js
 
+      # Server mirror of the semantic roles (freeform pipelines Phase 3): the
+      # referral payout + portal progress bar classify by role so tenant CUSTOM
+      # stages work server-side. Guards functions/stage-roles.js vs the client.
+      - name: Run server stage-roles tests
+        run: node tests/stage-roles.test.js
+
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest
