@@ -2639,7 +2639,12 @@ section('Globals Tranches 0+1: converted names stay off window');
     // Tranche 2b — email_system + crm-snooze own-file-wired remnants:
     'openEmailModal', 'closeEmailModal', 'emailEstimatePDF',
     'emailFollowUp', '_emailAttachment', '_emailContext', '_emailLeadId',
-    '__NBD_COMM_LOG_DELEGATE', '_notifUnsub', 'loadNotifications'];
+    '__NBD_COMM_LOG_DELEGATE', '_notifUnsub', 'loadNotifications',
+    // Tranche 2c-4g (2026-07-08): dashboard-ui.js leaf comfort/kanban handlers —
+    // `function X` → `const X` + __NBD_CALL_REGISTRY. NOT here: setKanbanDensity /
+    // setPhotoMode / nbdComfortSet (MUST-STAY — auto-global backing and/or real
+    // cross-file consumers; keep allowlist + window export).
+    'cycleKanbanDensity', 'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -2882,6 +2887,26 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('crm-portal-bridge window-exports ' + n + ' (cross-file consumer)',
       new RegExp('window\\.' + n + ' = ' + n + ';').test(crmPortalBridge));
   }
+
+  // ── Tranche 2c-4g: dashboard-ui.js leaf handlers (the DISPATCHER file) ──
+  // `function X` → `const X = function` (off window in this non-IIFE-wrapped
+  // classic script) + registered in the file's own __NBD_CALL_REGISTRY block.
+  // The 3 converted names are pure leaf UI handlers — none touches the resolver
+  // / delegate / allowlist machinery that also lives in this file.
+  const T2C4G_NAMES = ['cycleKanbanDensity', 'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey'];
+  const duRegBlock = (ui.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/) || ['', ''])[1];
+  for (const n of T2C4G_NAMES) {
+    assert('dashboard-ui registers ' + n + ' in __NBD_CALL_REGISTRY (2c-4g)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(duRegBlock));
+    assert('allowlist no longer carries ' + n + ' (2c-4g — registry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('dashboard-ui no longer exposes window.' + n + ' (2c-4g off window)',
+      !new RegExp('window\\.' + n + '\\s*=\\s*' + n + '\\b').test(ui));
+  }
+  // setKanbanDensity is the MUST-STAY sibling (auto-global backing + no clean
+  // wrap-free form) — keeps BOTH its allowlist entry and window re-export.
+  assert('setKanbanDensity keeps its allowlist entry + window export (2c-4g MUST-STAY)',
+    /'setKanbanDensity'/.test(stateSrc) && /window\.setKanbanDensity = setKanbanDensity;/.test(ui));
 
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.
