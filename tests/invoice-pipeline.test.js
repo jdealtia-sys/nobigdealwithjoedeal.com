@@ -140,6 +140,16 @@ test('money math rounds to cents (no float drift)', () => {
   near(r.subtotal, 100.3, 0.0001, 'subtotal');
 });
 
+test('an already-invoiced supplement is skipped in the fold (no double-bill on a 2nd invoice)', () => {
+  const fresh   = { id: 'sA', version: 1, status: 'approved', supplementTotal: 2000, submission: { approvedAmount: null } };
+  const already = { id: 'sB', version: 2, status: 'approved', supplementTotal: 2000, submission: { approvedAmount: null }, invoicedInvoiceId: 'inv_1' };
+  const r = IP.applySupplementsToTotals({ items: [], subtotal: 100, tax: 0, total: 100 }, [fresh, already]);
+  eq(r.supplementCount, 1, 'only the un-invoiced supplement folds');
+  eq(r.supplementTotal, 2000, 'billed once (2000), not 4000');
+  eq(r.supplementIds.length, 1, 'supplementIds lists only the folded one');
+  eq(r.supplementIds[0], 'sA', 'folded id is the un-invoiced supplement (to be stamped)');
+});
+
 // ── CROSS-MODULE CONTRACT: the RUNTIME supplement path reaches billable ──
 // The fixtures above are hand-built {status:'approved'|'partial'} docs. That
 // alone can pass while production is inert — which is exactly what happened:
