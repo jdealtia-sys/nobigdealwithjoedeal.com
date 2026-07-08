@@ -85,6 +85,13 @@ jobs:
       - name: Run sweep regression tests
         run: node tests/sweep-regression.test.js
 
+      # Semantic-role foundation (freeform-pipeline Phase 0): proves
+      # stageRole()/isWonStage() reproduce the legacy WON_STAGES/LOST_STAGES
+      # behaviour exactly, so the KPI/money/leaderboard consumers migrated to
+      # role checks can't drift revenue / close-rate.
+      - name: Run crm-stages role tests
+        run: node tests/crm-stages-roles.test.js
+
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest

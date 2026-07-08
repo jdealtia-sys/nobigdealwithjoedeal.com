@@ -30,7 +30,14 @@
     'final_payment', 'deductible_collected', 'Complete'
   ];
   const LOST_STAGES = ['lost', 'Lost'];
-  const ACTIVE_STAGES_EXCLUDE = [...WON_STAGES, ...LOST_STAGES];
+
+  // Role-aware classification (freeform-pipeline foundation): prefer the
+  // denormalized _stageRole stamped at load (custom-stage-safe), and fall back
+  // to the legacy key lists for any un-stamped lead. WON_STAGES/LOST_STAGES
+  // above are the fallback set (identical behaviour for built-in stages).
+  function _isWon(l)     { return l && l._stageRole ? l._stageRole === 'won'  : WON_STAGES.includes((l && (l._stageKey || l.stage)) || ''); }
+  function _isLost(l)    { return l && l._stageRole ? l._stageRole === 'lost' : LOST_STAGES.includes((l && (l._stageKey || l.stage)) || ''); }
+  function _isDecided(l) { return _isWon(l) || _isLost(l); }
 
   // ── Date helpers ──
   function toJSDate(v) {
@@ -81,16 +88,14 @@
     var today = new Date(); today.setHours(0, 0, 0, 0);
 
     var activeLeads = leads.filter(function (l) {
-      var sk = l._stageKey || l.stage || 'new';
-      return !ACTIVE_STAGES_EXCLUDE.includes(sk) && !l.deleted;
+      return !_isDecided(l) && !l.deleted;
     });
     var pipelineValue = activeLeads.reduce(function (sum, l) {
       return sum + (parseFloat(l.jobValue) || 0);
     }, 0);
 
     var closedThisMonth = leads.filter(function (l) {
-      var sk = l._stageKey || l.stage || '';
-      if (!WON_STAGES.includes(sk)) return false;
+      if (!_isWon(l)) return false;
       var d = toJSDate(l.updatedAt);
       return d && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
     });
@@ -99,10 +104,10 @@
     }, 0);
 
     var totalClosed = leads.filter(function (l) {
-      return WON_STAGES.includes(l._stageKey || l.stage || '');
+      return _isWon(l);
     }).length;
     var totalLost = leads.filter(function (l) {
-      return LOST_STAGES.includes(l._stageKey || l.stage || '');
+      return _isLost(l);
     }).length;
     var totalDecided = totalClosed + totalLost;
     var closeRate = totalDecided > 0 ? Math.round((totalClosed / totalDecided) * 100) : 0;
@@ -113,14 +118,13 @@
     }).length;
 
     var overdueFollowUps = leads.filter(function (l) {
-      var sk = l._stageKey || l.stage || '';
-      if (ACTIVE_STAGES_EXCLUDE.includes(sk) || !l.followUp) return false;
+      if (_isDecided(l) || !l.followUp) return false;
       var d = new Date(l.followUp); d.setHours(0, 0, 0, 0);
       return d < today;
     }).length;
 
     var closedWithValue = leads.filter(function (l) {
-      return WON_STAGES.includes(l._stageKey || l.stage || '') && parseFloat(l.jobValue) > 0;
+      return _isWon(l) && parseFloat(l.jobValue) > 0;
     });
     var avgDealSize = closedWithValue.length > 0
       ? closedWithValue.reduce(function (s, l) { return s + parseFloat(l.jobValue); }, 0) / closedWithValue.length
@@ -325,8 +329,7 @@
 
     // ── Pipeline value from active leads ──
     var activeLeads = leads.filter(function (l) {
-      var sk = l._stageKey || l.stage || 'new';
-      return !ACTIVE_STAGES_EXCLUDE.includes(sk) && !l.deleted;
+      return !_isDecided(l) && !l.deleted;
     });
     var pipelineValue = activeLeads.reduce(function (sum, l) {
       return sum + (parseFloat(l.jobValue) || 0);
@@ -334,10 +337,10 @@
 
     // ── Conversion rate ──
     var wonLeads = leads.filter(function (l) {
-      return WON_STAGES.includes(l._stageKey || l.stage || '');
+      return _isWon(l);
     });
     var lostLeads = leads.filter(function (l) {
-      return LOST_STAGES.includes(l._stageKey || l.stage || '');
+      return _isLost(l);
     });
     var totalDecided = wonLeads.length + lostLeads.length;
     var nonDeleted = leads.filter(function (l) { return !l.deleted; });

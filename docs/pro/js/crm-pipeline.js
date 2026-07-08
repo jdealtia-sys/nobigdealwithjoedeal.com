@@ -1641,6 +1641,7 @@ async function moveCard(id, newStage){
   // ══════════════════════════════════════════════
   lead.stage = newStage;
   lead._stageKey = window.normalizeStage ? window.normalizeStage(newStage) : newStage;
+  lead._stageRole = window.stageRole ? window.stageRole(newStage) : lead._stageRole;
   if (isLostMove && lostReason) lead.lostReason = lostReason;
 
   // Mark as syncing (add visual indicator)
@@ -1695,6 +1696,10 @@ async function moveCard(id, newStage){
         }
         const payload = {
           stage: newStage,
+          // Persist the semantic role alongside the stage so server automations
+          // + KPIs can classify without a hardcoded stage-key list (freeform
+          // foundation; forward-fills as leads move). Fail-soft if unexposed.
+          ...(window.stageRole ? { stageRole: window.stageRole(newStage) } : {}),
           updatedAt: window.serverTimestamp(),
           stageStartedAt: window.serverTimestamp(),
           stageHistory: window.arrayUnion(historyEvent)
@@ -1709,6 +1714,7 @@ async function moveCard(id, newStage){
       // Fallback for any page where runTransaction isn't exposed yet.
       const updatePayload = {
         stage: newStage,
+        ...(window.stageRole ? { stageRole: window.stageRole(newStage) } : {}),
         updatedAt: window.serverTimestamp(),
         stageStartedAt: window.serverTimestamp(),
         stageHistory: window.arrayUnion(historyEvent)
@@ -1793,6 +1799,7 @@ async function moveCard(id, newStage){
 
     lead.stage = oldStage;
     lead._stageKey = oldStageKey;
+    lead._stageRole = window.stageRole ? window.stageRole(oldStageKey) : lead._stageRole;
     lead._syncing = false;
     lead._syncError = true;
     delete lead._pending;

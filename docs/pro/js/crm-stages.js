@@ -183,6 +183,46 @@ export function stageColor(stageKey) {
 }
 
 // ─────────────────────────────────────────────
+// SEMANTIC ROLE — the tenant-agnostic bucket each stage falls into.
+// Foundation for freeform/custom pipelines: KPIs, revenue, referrals, the
+// customer portal and server automations classify a lead by its ROLE
+// (won / lost / active / job / new), NOT by matching a hardcoded stage-key
+// list — so a tenant-invented stage "just works" once it declares a role.
+// The mapping below is defined to EXACTLY reproduce the legacy WON_STAGES /
+// LOST_STAGES behaviour that was copy-pasted across analytics-kpi / money-
+// dashboard / dashboard-api / leaderboard / referral-rewards.
+// ─────────────────────────────────────────────
+
+export const ROLE = { NEW: 'new', ACTIVE: 'active', JOB: 'job', WON: 'won', LOST: 'lost' };
+
+// WON = closed + the job-completion/paid stages (the legacy WON_STAGES set).
+// JOB = post-contract, in-production stages that are NOT yet won.
+const _ROLE_WON  = [S.CLOSED, S.INSTALL_COMPLETE, S.FINAL_PHOTOS, S.FINAL_PAYMENT, S.DEDUCTIBLE_COLLECTED];
+const _ROLE_JOB  = [S.JOB_CREATED, S.PERMIT_PULLED, S.MATERIALS_ORDERED, S.MATERIALS_DELIVERED, S.CREW_SCHEDULED, S.INSTALL_IN_PROGRESS];
+const _ROLE_LOST = [S.LOST];
+const _ROLE_NEW  = [S.NEW];
+
+/**
+ * Semantic role for any stage value (legacy display name or new key).
+ * Normalizes first, so 'Complete' / 'Closed Won' / etc. resolve correctly.
+ */
+export function stageRole(stageKey) {
+  const k = normalizeStage(stageKey);
+  if (_ROLE_WON.includes(k))  return ROLE.WON;
+  if (_ROLE_LOST.includes(k)) return ROLE.LOST;
+  if (_ROLE_JOB.includes(k))  return ROLE.JOB;
+  if (_ROLE_NEW.includes(k))  return ROLE.NEW;
+  return ROLE.ACTIVE;
+}
+
+export function isWonStage(stageKey)  { return stageRole(stageKey) === ROLE.WON; }
+export function isLostStage(stageKey) { return stageRole(stageKey) === ROLE.LOST; }
+
+// Stamp the role onto STAGE_META so the Phase-1 config resolver + builder UI
+// can read/edit it as a first-class field (single derivation point).
+Object.keys(STAGE_META).forEach(k => { STAGE_META[k].role = stageRole(k); });
+
+// ─────────────────────────────────────────────
 // KANBAN VIEW CONFIGURATIONS
 // ─────────────────────────────────────────────
 
