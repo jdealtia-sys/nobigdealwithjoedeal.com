@@ -70,6 +70,7 @@
   window.isWonStage = isWonStage;
   window.isLostStage = isLostStage;
   window.STAGE_ROLE = ROLE;
+  window.resolvePipelineConfig = resolvePipelineConfig; // used by the Phase-2 pipelines builder
 
   // ── Phase 1: apply a per-tenant pipeline config over the built-in defaults ──
   // Config lives at companyProfile.pipelines (owner/admin-writable). No config →
