@@ -111,6 +111,43 @@ const _CUST_DIM_KEYS = ['stage', 'damage', 'value'];
 let _custColorBy = 'stage';
 const _custFilters = { stage: null, damage: null, value: null };
 
+// Value-RANGE filter (independent of the value-tier color dimension): a min/max
+// $ slider. max === _CUST_VAL_CAP means "no upper limit".
+const _CUST_VAL_CAP = 100000;
+const _CUST_VAL_STEP = 2500;
+let _custValMin = 0;
+let _custValMax = _CUST_VAL_CAP;
+function _custValRangeActive() { return _custValMin > 0 || _custValMax < _CUST_VAL_CAP; }
+function _custValRangePasses(lead) {
+  if (!_custValRangeActive()) return true;
+  const v = _custValueOf(lead);
+  if (v < _custValMin) return false;
+  if (_custValMax < _CUST_VAL_CAP && v > _custValMax) return false;
+  return true;
+}
+function _custValLabel(v) { return v >= _CUST_VAL_CAP ? '$100k+' : (v >= 1000 ? '$' + Math.round(v / 1000) + 'k' : '$' + v); }
+
+// ── SAVED VIEWS (color-by + all filters + value range), persisted per browser ──
+const _CUST_VIEWS_KEY = 'nbd_cust_map_views';
+function _loadCustViews() { try { return JSON.parse(localStorage.getItem(_CUST_VIEWS_KEY) || '[]') || []; } catch (_) { return []; } }
+function _saveCustViews(v) { try { localStorage.setItem(_CUST_VIEWS_KEY, JSON.stringify(v)); } catch (_) {} }
+function _custSnapshot() {
+  const f = {};
+  _CUST_DIM_KEYS.forEach(function (dk) { f[dk] = _custFilters[dk] ? Array.from(_custFilters[dk]) : null; });
+  return { colorBy: _custColorBy, filters: f, valMin: _custValMin, valMax: _custValMax };
+}
+function _custApplyView(v) {
+  if (!v || typeof v !== 'object') return;
+  if (_CUST_DIMENSIONS[v.colorBy]) _custColorBy = v.colorBy;
+  _CUST_DIM_KEYS.forEach(function (dk) {
+    const a = v.filters && v.filters[dk];
+    _custFilters[dk] = Array.isArray(a) ? new Set(a) : null;
+  });
+  _custValMin = typeof v.valMin === 'number' ? v.valMin : 0;
+  _custValMax = typeof v.valMax === 'number' ? v.valMax : _CUST_VAL_CAP;
+  buildCustomersLayer();
+}
+
 function _custColorForCat(dimKey, catKey) {
   const dim = _CUST_DIMENSIONS[dimKey];
   const c = dim && dim.cats.find(x => x.key === catKey);
@@ -121,13 +158,13 @@ function _custColorOf(lead) {
   const dim = _CUST_DIMENSIONS[_custColorBy] || _CUST_DIMENSIONS.stage;
   return _custColorForCat(_custColorBy, dim.catOf(lead));
 }
-// Visible if it passes EVERY dimension's filter (AND).
+// Visible if it passes EVERY dimension's filter AND the value range.
 function _custPasses(lead) {
   for (const dk of _CUST_DIM_KEYS) {
     const f = _custFilters[dk];
     if (f && !f.has(_CUST_DIMENSIONS[dk].catOf(lead))) return false;
   }
-  return true;
+  return _custValRangePasses(lead);
 }
 
 function _custStageLabel(lead) {
@@ -277,7 +314,12 @@ function _injectCustPanelCss() {
     + '.nbd-cust-panel .ncp-cnt{color:#9aa4b2;font-variant-numeric:tabular-nums;}'
     + '.nbd-cust-panel .ncp-more{width:100%;background:none;border:none;border-top:1px solid rgba(255,255,255,.12);margin-top:6px;padding-top:6px;'
     + 'color:#9aa4b2;font-size:11px;cursor:pointer;text-align:left;}'
-    + '.nbd-cust-panel .ncp-group-lbl{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#7f8894;margin:6px 2px 3px;font-weight:700;}';
+    + '.nbd-cust-panel .ncp-group-lbl{font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#7f8894;margin:6px 2px 3px;font-weight:700;}'
+    + '.nbd-cust-panel .ncp-vr{padding:2px 2px 4px;}'
+    + '.nbd-cust-panel .ncp-vr input[type=range]{width:100%;margin:2px 0;accent-color:#e8720c;height:14px;}'
+    + '.nbd-cust-panel .ncp-vr-read{font-size:11px;color:#cdd4dc;font-variant-numeric:tabular-nums;text-align:center;margin-top:2px;}'
+    + '.nbd-cust-panel .ncp-iconbtn{background:#171b21;color:#cdd4dc;border:1px solid rgba(255,255,255,.16);border-radius:6px;font-size:12px;line-height:1;padding:3px 6px;cursor:pointer;flex:0 0 auto;}'
+    + '.nbd-cust-panel .ncp-iconbtn:hover{background:#22272f;}';
   document.head.appendChild(s);
 }
 
@@ -310,6 +352,15 @@ function _renderCustPanel(counts) {
   }
   const esc = (typeof _mapsEscHtml === 'function') ? _mapsEscHtml : (s => String(s || ''));
   let html = '';
+  // Saved views (presets): apply / save current / delete selected.
+  const views = _loadCustViews();
+  html += '<div class="ncp-row"><span class="ncp-lbl">View</span>'
+    + '<select data-cust-view><option value="">—</option>'
+    + views.map(function (v, i) { return '<option value="' + i + '">' + esc(v.name || ('View ' + (i + 1))) + '</option>'; }).join('')
+    + '</select>'
+    + '<button type="button" class="ncp-iconbtn" data-cust-saveview title="Save current view">＋</button>'
+    + '<button type="button" class="ncp-iconbtn" data-cust-delview title="Delete selected view">🗑</button>'
+    + '</div>';
   // Color-by selector.
   html += '<div class="ncp-row"><span class="ncp-lbl">Color</span>'
     + '<select data-cust-colorby>';
@@ -329,19 +380,63 @@ function _renderCustPanel(counts) {
       html += '<div class="ncp-group-lbl">' + esc(_CUST_DIMENSIONS[dk].label) + '</div>';
       html += _custChipsHTML(dk, null);
     });
+    // Deal-value RANGE slider (min/max), independent of the value-tier chips.
+    html += '<div class="ncp-group-lbl">Value Range' + (_custValRangeActive() ? ' •' : '') + '</div>';
+    html += '<div class="ncp-vr">'
+      + '<input type="range" data-cust-valmin min="0" max="' + _CUST_VAL_CAP + '" step="' + _CUST_VAL_STEP + '" value="' + _custValMin + '">'
+      + '<input type="range" data-cust-valmax min="0" max="' + _CUST_VAL_CAP + '" step="' + _CUST_VAL_STEP + '" value="' + _custValMax + '">'
+      + '<div class="ncp-vr-read">' + esc(_custValLabel(_custValMin)) + ' – ' + esc(_custValLabel(_custValMax)) + '</div>'
+      + '</div>';
   }
   _custPanelEl.innerHTML = html;
 
   if (!_custPanelEl._wired) {
     _custPanelEl._wired = true;
-    // Color-by change.
+    // Color-by change + value-range commit (on release).
     _custPanelEl.addEventListener('change', function (e) {
-      const sel = e.target && e.target.closest && e.target.closest('[data-cust-colorby]');
-      if (!sel) return;
-      if (_CUST_DIMENSIONS[sel.value]) { _custColorBy = sel.value; buildCustomersLayer(); }
+      const t = e.target;
+      const sel = t && t.closest && t.closest('[data-cust-colorby]');
+      if (sel) { if (_CUST_DIMENSIONS[sel.value]) { _custColorBy = sel.value; buildCustomersLayer(); } return; }
+      const vsel = t && t.closest && t.closest('[data-cust-view]');
+      if (vsel) { if (vsel.value !== '') { const list = _loadCustViews(); _custApplyView(list[parseInt(vsel.value, 10)]); } return; }
+      if (t && t.getAttribute && (t.hasAttribute('data-cust-valmin') || t.hasAttribute('data-cust-valmax'))) {
+        buildCustomersLayer(); // filter already updated live on 'input'
+      }
+    });
+    // Live value-range readout while dragging (no rebuild → keeps slider focus).
+    _custPanelEl.addEventListener('input', function (e) {
+      const t = e.target;
+      if (!t || !t.hasAttribute) return;
+      if (t.hasAttribute('data-cust-valmin')) { _custValMin = Math.min(parseInt(t.value, 10) || 0, _custValMax); }
+      else if (t.hasAttribute('data-cust-valmax')) { _custValMax = Math.max(parseInt(t.value, 10) || _CUST_VAL_CAP, _custValMin); }
+      else return;
+      const read = _custPanelEl.querySelector('.ncp-vr-read');
+      if (read) read.textContent = _custValLabel(_custValMin) + ' – ' + _custValLabel(_custValMax);
     });
     // Chip toggle (legend + filter groups) and "＋ Filters".
     _custPanelEl.addEventListener('click', function (e) {
+      const save = e.target && e.target.closest && e.target.closest('[data-cust-saveview]');
+      if (save) {
+        const name = (typeof prompt === 'function') ? (prompt('Name this view (color-by + filters + value range):') || '').trim() : '';
+        if (!name) return;
+        const list = _loadCustViews();
+        list.push(Object.assign({ name: name.slice(0, 40) }, _custSnapshot()));
+        _saveCustViews(list);
+        if (typeof showToast === 'function') showToast('View saved', 'ok');
+        _renderCustPanel(counts);
+        return;
+      }
+      const del = e.target && e.target.closest && e.target.closest('[data-cust-delview]');
+      if (del) {
+        const vsel = _custPanelEl.querySelector('[data-cust-view]');
+        const idx = vsel && vsel.value !== '' ? parseInt(vsel.value, 10) : -1;
+        if (idx < 0) { if (typeof showToast === 'function') showToast('Pick a view to delete', 'info'); return; }
+        const list = _loadCustViews();
+        list.splice(idx, 1);
+        _saveCustViews(list);
+        _renderCustPanel(counts);
+        return;
+      }
       const more = e.target && e.target.closest && e.target.closest('[data-cust-morefilters]');
       if (more) { _custFiltersOpen = !_custFiltersOpen; _renderCustPanel(counts); return; }
       const chip = e.target && e.target.closest && e.target.closest('[data-cust-cat]');

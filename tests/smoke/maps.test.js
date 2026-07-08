@@ -204,6 +204,25 @@ section('Customers map layer — all leads on the map, role-coloured');
     /_custPanelEl\.addEventListener\('click'/.test(maps)
     && /_custPanelEl\.addEventListener\('change'/.test(maps),
     'expected delegated click + change listeners on the panel');
+  // Value-range slider — min/max $ filter, live readout on input, commit on change.
+  assert('value-range slider filters by min/max deal value',
+    /function _custValRangePasses\(lead\)/.test(maps)
+    && /return _custValRangePasses\(lead\);/.test(maps)
+    && /data-cust-valmin/.test(maps) && /data-cust-valmax/.test(maps),
+    'expected a value-range filter gated in _custPasses with min/max range inputs');
+  assert('value-range readout updates live on input (no rebuild mid-drag)',
+    /_custPanelEl\.addEventListener\('input'/.test(maps)
+    && /read\.textContent = _custValLabel\(_custValMin\)/.test(maps),
+    'expected an input listener that updates the readout without a full rebuild');
+  // Saved views — persist color-by + filters + range; apply/save/delete.
+  assert('saved views persist to localStorage and round-trip state',
+    /_CUST_VIEWS_KEY\s*=\s*'nbd_cust_map_views'/.test(maps)
+    && /function _custSnapshot\(\)/.test(maps)
+    && /function _custApplyView\(v\)/.test(maps),
+    'expected snapshot/apply helpers backed by a localStorage key');
+  assert('saved views wired: apply on select, save + delete buttons',
+    /data-cust-view/.test(maps) && /data-cust-saveview/.test(maps) && /data-cust-delview/.test(maps),
+    'expected a view select + save/delete controls');
 }
 
 section('D2D pins — disposition legend + filter (second layer)');
