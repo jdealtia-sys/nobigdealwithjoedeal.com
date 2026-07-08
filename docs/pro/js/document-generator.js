@@ -844,6 +844,15 @@ window.NBDDocGen = {
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   },
 
+  // Escape a multi-line companyProfile clause (legal/payment/warranty text)
+  // then preserve author line breaks as <br/>. These come from
+  // companyProfile/{tenant} (owner/admin-editable) and render into the
+  // allow-scripts doc-viewer srcdoc, so they MUST be escaped before
+  // interpolation (matches the escaped termsNote at the proposal terms block).
+  _escClause(s) {
+    return this._escHtml(s).replace(/\n/g, '<br/>');
+  },
+
   mergeFields(template, data = {}) {
     // Provide defaults for common fields
     const mergedData = {
@@ -1475,14 +1484,21 @@ window.NBDDocGen = {
       const o = (override == null ? '' : String(override)).trim();
       return o || fallback || '';
     };
+    // Escape the tenant-editable letterhead fields at the source: every consumer
+    // (renderHeader/renderFooter/contract header) interpolates them into an
+    // <iframe srcdoc> (allow-scripts) via NBDDocViewer, so an unescaped
+    // companyProfile value (e.g. businessName '<img src=x onerror=…>') is stored
+    // HTML injection. `address` stays raw here — it's escaped at each usage site
+    // (it can also come from public lead intake via data.address).
+    const esc = (s) => this._escHtml(s);
     return {
-      name:    pick(cp.businessName,    C.name),
-      phone:   pick(cp.businessPhone,   C.phone),
-      email:   pick(cp.businessEmail,   C.email),
-      website: pick(cp.businessWebsite, C.website),
+      name:    esc(pick(cp.businessName,    C.name)),
+      phone:   esc(pick(cp.businessPhone,   C.phone)),
+      email:   esc(pick(cp.businessEmail,   C.email)),
+      website: esc(pick(cp.businessWebsite, C.website)),
       address: pick(cp.businessAddress, C.address),
-      license: pick(cp.businessLicense, ''),
-      tagline: pick(cp.tagline,         C.tagline)
+      license: esc(pick(cp.businessLicense, '')),
+      tagline: esc(pick(cp.tagline,         C.tagline))
     };
   },
 
@@ -1780,15 +1796,15 @@ window.NBDDocGen = {
     const termsHTML = `
       ${repNoteHTML}
       <div style="font-size: 10px; line-height: 1.4; color: #555;">
-        <strong>Payment Terms:</strong> ${cp.paymentTermsProposal}
+        <strong>Payment Terms:</strong> ${this._escClause(cp.paymentTermsProposal)}
         <br/><br/>
-        <strong>Change Orders:</strong> ${cp.changeOrderClauseShort}
+        <strong>Change Orders:</strong> ${this._escClause(cp.changeOrderClauseShort)}
         <br/><br/>
-        <strong>Cancellation Rights:</strong> ${cp.cancellationProposalShort}
+        <strong>Cancellation Rights:</strong> ${this._escClause(cp.cancellationProposalShort)}
         <br/><br/>
-        <strong>Warranty Disclaimer:</strong> ${cp.materialsWarrantyDisclaimer}
+        <strong>Warranty Disclaimer:</strong> ${this._escClause(cp.materialsWarrantyDisclaimer)}
         <br/><br/>
-        <strong>Limitation of Liability:</strong> ${cp.limitationOfLiability}
+        <strong>Limitation of Liability:</strong> ${this._escClause(cp.limitationOfLiability)}
       </div>
     `;
 
@@ -1992,7 +2008,7 @@ window.NBDDocGen = {
                 {{paymentSchedule}}
               </div>
               <div style="margin: 0.1in 0; margin-top: 0.08in; font-size: 9px;">
-                ${cp.paymentMethodsNoCash}
+                ${this._escClause(cp.paymentMethodsNoCash)}
               </div>
             </div>
 
@@ -2006,7 +2022,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Change Orders & Scope Modifications</div>
               <div style="margin: 0.1in 0; font-size: 9px;">
-                ${cp.changeOrderClause}
+                ${this._escClause(cp.changeOrderClause)}
               </div>
             </div>
 
@@ -2014,7 +2030,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Cancellation & Rescission Rights</div>
               <div style="margin: 0.1in 0; font-size: 9px;">
-                ${cp.cancellationContractClause}
+                ${this._escClause(cp.cancellationContractClause)}
               </div>
             </div>
 
@@ -2022,7 +2038,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Dispute Resolution</div>
               <div style="margin: 0.1in 0; font-size: 9px;">
-                ${cp.disputeResolutionClause}
+                ${this._escClause(cp.disputeResolutionClause)}
               </div>
             </div>
 
@@ -2030,7 +2046,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Insurance Assignment</div>
               <div style="margin: 0.1in 0; font-size: 9px;">
-                ${cp.insuranceAssignmentClause}
+                ${this._escClause(cp.insuranceAssignmentClause)}
               </div>
             </div>
 
@@ -2038,7 +2054,7 @@ window.NBDDocGen = {
             <div class="section">
               <div class="section-title">Entire Agreement</div>
               <div style="margin: 0.1in 0; font-size: 9px;">
-                ${cp.entireAgreementClause}
+                ${this._escClause(cp.entireAgreementClause)}
               </div>
             </div>
 

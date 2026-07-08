@@ -61,16 +61,23 @@
       async function loadTeamMembers() {
         var list = document.getElementById('teamMembersList');
         if (!list || !window._user?.uid) return;
-        // Populate owner card
+        // Resolve the tenant key: a member/admin's companyId claim points at the
+        // OWNER's uid (the company doc key); only a solo owner keys by their own
+        // uid. Reading companies/{_user.uid}/members was empty for any non-owner
+        // member (their uid != companyId). Mirrors company-profile.js's resolver.
+        var tenantKey = (window._userClaims && window._userClaims.companyId) || window._user.uid;
+        var isOwnerViewer = tenantKey === window._user.uid;
+        // Owner card: present the viewer AS owner only when they actually are one;
+        // otherwise label generically so a member isn't mispresented as Owner.
         var nameEl = document.getElementById('teamOwnerName');
         var initEl = document.getElementById('teamOwnerInitials');
-        if (nameEl) nameEl.textContent = window._user.displayName || window._user.email || 'Owner';
+        if (nameEl) nameEl.textContent = isOwnerViewer ? (window._user.displayName || window._user.email || 'Owner') : 'Company Owner';
         if (initEl) {
-          var name = window._user.displayName || window._user.email || 'O';
+          var name = isOwnerViewer ? (window._user.displayName || window._user.email || 'O') : 'Owner';
           initEl.textContent = name.split(' ').map(function(w){return w[0]}).join('').toUpperCase().substring(0,2);
         }
         try {
-          var snap = await window.getDocs(window.collection(window.db, 'companies', window._user.uid, 'members'));
+          var snap = await window.getDocs(window.collection(window.db, 'companies', tenantKey, 'members'));
           if (snap.empty) { list.innerHTML = ''; return; }
           list.innerHTML = snap.docs.map(function(d) {
             var m = d.data();
@@ -115,7 +122,10 @@
         return window._httpsCallable(window._functions, name)(payload);
       }
       async function handleTeamAction(action, email, btn) {
-        var companyId = window._user && window._user.uid;
+        // Resolve tenant key like loadTeamMembers (member/admin claim → owner uid).
+        // The server callables re-derive the tenant from claims, so this is a
+        // presence guard; resolving it correctly keeps non-owner admins working.
+        var companyId = (window._userClaims && window._userClaims.companyId) || (window._user && window._user.uid);
         if (!companyId || !email) return;
         var confirms = {
           cancel:  'Cancel the invite for ' + email + '?',
