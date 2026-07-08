@@ -24,10 +24,10 @@ function ok(name, cond) { if (cond) { passed++; } else { failed++; fails.push(na
 
 let src = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/crm-stages.js'), 'utf8');
 src = src.replace(/export\s+function\s+/g, 'function ').replace(/export\s+const\s+/g, 'const ');
-src += '\nthis.__out = { S, STAGE_META, stageRole, isWonStage, isLostStage, ROLE, normalizeStage };';
+src += '\nthis.__out = { S, STAGE_META, stageRole, isWonStage, isLostStage, ROLE, normalizeStage, resolvePipelineConfig, KANBAN_VIEWS };';
 const sandbox = { console };
 vm.runInNewContext(src, sandbox, { filename: 'crm-stages.js' });
-const { S, STAGE_META, stageRole, isWonStage, isLostStage, ROLE, normalizeStage } = sandbox.__out;
+const { S, STAGE_META, stageRole, isWonStage, isLostStage, ROLE, normalizeStage, resolvePipelineConfig, KANBAN_VIEWS } = sandbox.__out;
 
 // The legacy canonical sets the roles must reproduce (copy-pasted across
 // analytics-kpi / money-dashboard / dashboard-api / leaderboard before Phase 0).
@@ -62,6 +62,45 @@ ok("unknown stage → new (normalizeStage fallback)", stageRole('zzz-does-not-ex
 // 5. role stamped onto STAGE_META (Phase-1 config resolver reads it).
 ok('STAGE_META.closed.role === won', STAGE_META[S.CLOSED].role === ROLE.WON);
 ok('STAGE_META.lost.role === lost', STAGE_META[S.LOST].role === ROLE.LOST);
+
+// ── Phase 1: resolvePipelineConfig (per-tenant config over defaults) ──
+ok('resolvePipelineConfig exported', typeof resolvePipelineConfig === 'function');
+
+// empty / malformed config → defaults unchanged
+const r0 = resolvePipelineConfig(null);
+ok('null config → default stageMeta', Object.keys(r0.stageMeta).length === Object.keys(STAGE_META).length);
+ok('null config → default views', Object.keys(r0.views).length === Object.keys(KANBAN_VIEWS).length);
+ok('null config → roleOf still works', r0.roleOf('closed') === ROLE.WON);
+ok('garbage config → no throw, defaults', resolvePipelineConfig(42).stageMeta.closed.role === ROLE.WON);
+
+// override a built-in label + color (role untouched)
+const r1 = resolvePipelineConfig({ stages: { inspected: { label: 'Site Visit', color: '#123456' } } });
+ok('built-in label overridden', r1.stageMeta.inspected.label === 'Site Visit');
+ok('built-in color overridden', r1.stageMeta.inspected.color === '#123456');
+ok('override keeps original role', r1.stageMeta.inspected.role === STAGE_META.inspected.role);
+ok('override does not mutate the default STAGE_META', STAGE_META.inspected.label !== 'Site Visit');
+
+// custom stage WITH a role is added; roleOf classifies it (custom key, no normalize)
+const r2 = resolvePipelineConfig({ stages: { my_review: { label: 'My Review', role: 'active', icon: '🔎' } } });
+ok('custom stage added', !!r2.stageMeta.my_review && r2.stageMeta.my_review.custom === true);
+ok('custom stage role via roleOf', r2.roleOf('my_review') === ROLE.ACTIVE);
+ok('custom stage default color when omitted', r2.stageMeta.my_review.color === '#374151');
+
+// custom stage WITHOUT a valid role is rejected (fail-safe)
+const r3 = resolvePipelineConfig({ stages: { bad: { label: 'No Role' } } });
+ok('custom stage w/o role skipped', !r3.stageMeta.bad && r3.errors.length > 0);
+
+// a tenant can REMAP a built-in stage's role (e.g., contract_signed → won)
+const r4 = resolvePipelineConfig({ stages: { contract_signed: { role: 'won' } } });
+ok('role remap: contract_signed → won', r4.roleOf('contract_signed') === ROLE.WON);
+
+// view override replaces the ordered stage list (invalid stages filtered out)
+const r5 = resolvePipelineConfig({ views: { cash: { label: 'Homeowner Pays', stages: ['new', 'contract_signed', 'not_a_stage'] } } });
+ok('view stages overridden + filtered', JSON.stringify(r5.views.cash.stages) === JSON.stringify(['new', 'contract_signed']));
+ok('view label overridden', r5.views.cash.label === 'Homeowner Pays');
+// a view with ONLY invalid stages keeps the default (fail-safe)
+const r6 = resolvePipelineConfig({ views: { cash: { stages: ['nope', 'zzz'] } } });
+ok('all-invalid view keeps default stages', r6.views.cash.stages.length === KANBAN_VIEWS.cash.stages.length && r6.errors.length > 0);
 
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' crm-stages roles: ' + passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILURES:\n  ' + fails.join('\n  ')); process.exit(1); }

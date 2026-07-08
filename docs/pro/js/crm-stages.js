@@ -750,3 +750,90 @@ export function missingRequiredFields(lead) {
     return v === undefined || v === null || v === '';
   });
 }
+
+// ─────────────────────────────────────────────
+// PIPELINE CONFIG RESOLVER (Phase 1 — freeform pipelines)
+// Merge a per-tenant config (stored at companyProfile.pipelines) OVER the
+// built-in defaults → resolved { stageMeta, views, roleOf }. Fail-safe: any
+// malformed piece is ignored and the default kept, so a bad config can never
+// break the board. Custom stages (keys not in the defaults) MUST declare a
+// valid semantic role so KPIs / portal / server still classify them.
+// Pure + side-effect-free — the browser wiring (dashboard-bootstrap) applies
+// the result to window.STAGE_META / window.KANBAN_VIEWS / window.stageRole.
+// ─────────────────────────────────────────────
+
+const _VALID_ROLES = [ROLE.NEW, ROLE.ACTIVE, ROLE.JOB, ROLE.WON, ROLE.LOST];
+const _HEX_RE = /^#[0-9a-fA-F]{3,8}$/;
+
+// The built-in defaults expressed AS a config, so the Phase-2 builder can show
+// "your current pipelines" and diff tenant edits against it.
+export const DEFAULT_PIPELINE_CONFIG = { version: 1, stages: {}, views: {} };
+
+function _cloneDefaultStageMeta() {
+  const out = {};
+  for (const k of Object.keys(STAGE_META)) out[k] = Object.assign({}, STAGE_META[k]);
+  return out;
+}
+
+export function resolvePipelineConfig(raw) {
+  const errors = [];
+  const stageMeta = _cloneDefaultStageMeta();
+  const views = {};
+  for (const k of Object.keys(KANBAN_VIEWS)) {
+    views[k] = { label: KANBAN_VIEWS[k].label, stages: KANBAN_VIEWS[k].stages.slice() };
+  }
+  // roleOf checks the EXACT key first (custom stages don't normalize), then
+  // falls back to the normalized default role.
+  const roleOf = (k) => {
+    if (k && stageMeta[k]) return stageMeta[k].role;
+    const n = normalizeStage(k);
+    return (stageMeta[n] && stageMeta[n].role) || stageRole(k);
+  };
+
+  if (!raw || typeof raw !== 'object') return { stageMeta, views, roleOf, errors };
+
+  // ── stage overrides + custom stages ──
+  const rawStages = (raw.stages && typeof raw.stages === 'object') ? raw.stages : {};
+  for (const key of Object.keys(rawStages)) {
+    const ov = rawStages[key];
+    if (!ov || typeof ov !== 'object') { errors.push('stage ' + key + ': not an object'); continue; }
+    const existing = stageMeta[key];
+    if (existing) {
+      if (typeof ov.label === 'string' && ov.label.trim()) existing.label = ov.label.trim().slice(0, 40);
+      if (typeof ov.color === 'string' && _HEX_RE.test(ov.color)) existing.color = ov.color;
+      if (typeof ov.icon === 'string' && ov.icon.trim()) existing.icon = ov.icon.trim().slice(0, 8);
+      if (typeof ov.role === 'string' && _VALID_ROLES.includes(ov.role)) existing.role = ov.role;
+      if (ov.hidden === true) existing.hidden = true;
+    } else {
+      // Custom stage — role + label are mandatory, else skip (fail-safe).
+      if (!(typeof ov.role === 'string' && _VALID_ROLES.includes(ov.role))) { errors.push('custom stage ' + key + ': missing/invalid role'); continue; }
+      if (!(typeof ov.label === 'string' && ov.label.trim())) { errors.push('custom stage ' + key + ': missing label'); continue; }
+      stageMeta[key] = {
+        label: ov.label.trim().slice(0, 40),
+        color: (typeof ov.color === 'string' && _HEX_RE.test(ov.color)) ? ov.color : '#374151',
+        icon: (typeof ov.icon === 'string' && ov.icon.trim()) ? ov.icon.trim().slice(0, 8) : '📌',
+        role: ov.role,
+        track: 'custom',
+        type: ov.role === ROLE.JOB ? 'job' : 'lead',
+        custom: true,
+      };
+    }
+  }
+
+  // ── view overrides (ordered stage lists) ──
+  const rawViews = (raw.views && typeof raw.views === 'object') ? raw.views : {};
+  for (const vk of Object.keys(rawViews)) {
+    const rv = rawViews[vk];
+    if (!rv || typeof rv !== 'object') { errors.push('view ' + vk + ': not an object'); continue; }
+    const base = views[vk] || { label: vk, stages: [] };
+    if (typeof rv.label === 'string' && rv.label.trim()) base.label = rv.label.trim().slice(0, 40);
+    if (Array.isArray(rv.stages)) {
+      const cleaned = rv.stages.filter(s => typeof s === 'string' && stageMeta[s]);
+      if (cleaned.length) base.stages = cleaned;
+      else errors.push('view ' + vk + ': no valid stages, kept default');
+    }
+    views[vk] = base;
+  }
+
+  return { stageMeta, views, roleOf, errors };
+}
