@@ -58,7 +58,12 @@
   }
 
   var WON_STAGES = ['closed', 'install_complete', 'final_photos', 'final_payment', 'deductible_collected', 'Complete'];
-  function isWon(l) { return WON_STAGES.indexOf(l._stageKey || l.stage || '') !== -1 && !l.deleted; }
+  // Role-aware (freeform-pipeline foundation): prefer the denormalized
+  // _stageRole (custom-stage-safe), fall back to WON_STAGES for un-stamped leads.
+  function isWon(l) {
+    var won = (l && l._stageRole) ? l._stageRole === 'won' : WON_STAGES.indexOf((l && (l._stageKey || l.stage)) || '') !== -1;
+    return won && !!l && !l.deleted;
+  }
   // 1099-NEC threshold by tax year (OBBBA: $2,000 for 2026+). Cents.
   function thresholdCents(year) { var t = { 2024: 60000, 2025: 60000, 2026: 200000 }; return t[year] || 200000; }
 

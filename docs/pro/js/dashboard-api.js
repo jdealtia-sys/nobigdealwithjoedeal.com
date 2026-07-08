@@ -66,7 +66,7 @@ async function renderLeaderboard(){
     const n = l.repName || window._user?.displayName || 'You';
     if (!reps[n]) reps[n] = { name: n, leads: 0, won: 0, revenue: 0, knocks: 0 };
     reps[n].leads++;
-    if (WON.includes(l._stageKey || l.stage || '')) {
+    if (l._stageRole ? l._stageRole === 'won' : WON.includes(l._stageKey || l.stage || '')) {
       reps[n].won++;
       reps[n].revenue += parseFloat(l.jobValue) || 0;
     }

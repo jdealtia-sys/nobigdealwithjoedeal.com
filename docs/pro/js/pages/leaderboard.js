@@ -105,7 +105,7 @@ function computeMetrics() {
   const leads = rawData.leads.filter(l => isInPeriod(l.createdAt));
   const knocks = rawData.knocks.filter(k => isInPeriod(k.createdAt));
   const paidInvoices = rawData.invoices.filter(inv => inv.status === 'paid' && isInPeriod(inv.paidAt));
-  const wonLeads = rawData.leads.filter(l => WON_STAGES.includes(l._stageKey || l.stage || '') && isInPeriod(l.updatedAt));
+  const wonLeads = rawData.leads.filter(l => (l._stageRole ? l._stageRole === 'won' : WON_STAGES.includes(l._stageKey || l.stage || '')) && isInPeriod(l.updatedAt));
 
   const totalKnocks = knocks.length;
   const totalDeals = wonLeads.length;

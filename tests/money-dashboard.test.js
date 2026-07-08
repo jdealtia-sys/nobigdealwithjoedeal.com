@@ -111,5 +111,25 @@ const etData = MD.computePnL({
 });
 eq('Jan-1 00:30 UTC buckets to 2025 in ET → excluded from 2026 spend', etData.spentCents, 0);
 
+// ── stageRole precedence (freeform-pipeline foundation) ──
+// isWon() reads the denormalized _stageRole first (custom-stage-safe), and
+// only falls back to the legacy WON_STAGES key list when it's absent.
+console.log('  stageRole precedence:');
+const roleData = MD.computePnL({
+  year: 2026, invoices: [], suppliers: [], expenses: [
+    { category: 'materials', costType: 'direct', amountCents: 100000, leadId: 'CU', date: new Date(2026, 5, 1) },
+  ],
+  leads: [
+    // custom won stage (unknown key) counts as won via _stageRole
+    { id: 'CU', _stageKey: 'my_custom_done', _stageRole: 'won', jobValue: 10000 },
+    // legacy-won key but role says active → NOT won (tenant remapped it)
+    { id: 'RM', _stageKey: 'closed', _stageRole: 'active', jobValue: 99999 },
+    // no _stageRole → falls back to the legacy key list (closed = won)
+    { id: 'LG', _stageKey: 'closed', jobValue: 5000 },
+  ],
+});
+eq('custom won-role stage is counted (wonJobs incl CU + LG, not RM)', roleData.wonJobs, 2);
+eq('custom won lead contributes contract value', roleData.wonContractCents >= 1000000, true);
+
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' money dashboard: ' + passed + ' passed, ' + failed + ' failed');
 if (failed > 0) { console.error('FAILED: ' + fails.join(', ')); process.exit(1); }

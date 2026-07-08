@@ -20,6 +20,7 @@
     S, STAGE_META, LEGACY_MAP, KANBAN_VIEWS,
     VIEW_SIMPLE, VIEW_INSURANCE, VIEW_CASH, VIEW_FINANCE, VIEW_WARRANTY, VIEW_SERVICE, VIEW_JOBS,
     normalizeStage, stageLabel, stageColor, resolveColumn,
+    stageRole, isWonStage, isLostStage, ROLE,
     stageOptionsForType, inferJobType, JOB_TYPES, JOB_TYPE_META, jobTypeLabel,
     SUB_TYPES, subTypeOptionsFor, subTypeLabel,
     TRADES, tradeLabel, tradesLabel,
@@ -63,6 +64,12 @@
   window.stageLabel = stageLabel;
   window.stageColor = stageColor;
   window.resolveColumn = resolveColumn;
+  // Semantic-role helpers (freeform-pipeline foundation) — consumers classify a
+  // lead by role (won/lost/active/job/new) instead of hardcoded stage-key lists.
+  window.stageRole = stageRole;
+  window.isWonStage = isWonStage;
+  window.isLostStage = isLostStage;
+  window.STAGE_ROLE = ROLE;
   window.stageOptionsForType = stageOptionsForType;
   window.inferJobType = inferJobType;
   window.JOB_TYPES = JOB_TYPES;
@@ -1907,6 +1914,7 @@
       window._leads.forEach(l => {
         if (l.stage) l._stageKey = normalizeStage(l.stage);
         else l._stageKey = S.NEW;
+        l._stageRole = stageRole(l._stageKey);
       });
       // Flag so downstream modules (Ask Joe Proactive morning briefing,
       // widgets, etc.) know the lead cache is hydrated vs still pending.
@@ -2506,6 +2514,7 @@
         ? normalizeStage(data.stage)
         : (data.stage || 'new')
     };
+    merged._stageRole = stageRole(merged._stageKey);
     if (idx >= 0) window._leads[idx] = merged;
     else window._leads.unshift(merged);
     window._leadsLoaded = true; // ensure stale-cache guard treats this as populated
