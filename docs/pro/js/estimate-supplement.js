@@ -54,19 +54,40 @@
       status: 'draft',                  // draft | submitted | approved | partial | denied
       reason: opts.reason || '',
 
-      // Snapshot of the parent estimate's line items at supplement time
-      originalLineItems: (parentEstimate.lines || []).map(l => ({
-        code: l.code,
-        name: l.name,
-        unit: l.unit,
-        quantity: l.quantity,
-        materialCostPerUnit: l.materialCostPerUnit,
-        laborCostPerUnit: l.laborCostPerUnit,
-        lineTotal: l.lineTotal
-      })),
-      originalTotal: parentEstimate.total,
-      originalMaterial: parentEstimate.materialCost,
-      originalLabor: parentEstimate.laborCost,
+      // Snapshot of the parent estimate's line items at supplement time.
+      // Saved estimates persist line items under `rows` (BOTH builders) and the
+      // customer total under `grandTotal` — NOT `lines`/`total`. Reading only
+      // `.total`/`.lines` left originalTotal undefined (→ NaN newGrandTotal → the
+      // Firestore save threw on the undefined field, so supplements silently never
+      // saved: an #881-class inert bug) and originalLineItems empty (→ the
+      // quantity-adjustment path could never match a line). Coerce from whichever
+      // shape the parent carries: V2 rows already split material/labor + carry a
+      // numeric `quantity`; classic rows carry only a combined `rate` string
+      // (treated as labor so the 25% material markup doesn't over-bill), and a
+      // display `qty` like "20.00SQ" we parse a number out of.
+      originalLineItems: (parentEstimate.lines || parentEstimate.rows || []).map(l => {
+        const qn = Number(l.quantity);
+        const quantity = (Number.isFinite(qn) && qn !== 0) ? qn : (parseFloat(String(l.qty)) || 0);
+        let mat = Number(l.materialCostPerUnit) || 0;
+        let lab = Number(l.laborCostPerUnit) || 0;
+        if (mat === 0 && lab === 0 && l.rate != null) {
+          lab = parseFloat(String(l.rate).replace(/[^0-9.]/g, '')) || 0;
+        }
+        return {
+          code: l.code,
+          name: l.name || l.desc || '',
+          unit: l.unit || '',
+          quantity: quantity,
+          materialCostPerUnit: mat,
+          laborCostPerUnit: lab,
+          lineTotal: Number(l.lineTotal) || Number(l.total) || 0
+        };
+      }),
+      originalTotal: (parentEstimate.grandTotal != null
+        ? Number(parentEstimate.grandTotal)
+        : Number(parentEstimate.total)) || 0,
+      originalMaterial: Number(parentEstimate.materialCost) || 0,
+      originalLabor: Number(parentEstimate.laborCost) || 0,
 
       // Changes introduced by this supplement
       addedItems: [],                    // Brand-new line items
@@ -238,7 +259,7 @@
   // ═════════════════════════════════════════════════════════
 
   function calculateDelta(supplement) {
-    const s = supplement.settingsSnapshot || (window.EstimateBuilderV2 && window.EstimateBuilderV2.loadSettings()) || {};
+    const s = supplement.settingsSnapshot || ((typeof window !== 'undefined' && window.EstimateBuilderV2) ? window.EstimateBuilderV2.loadSettings() : null) || {};
 
     // Added items total
     let addedMat = 0, addedLab = 0;
@@ -276,12 +297,21 @@
     // Supplements in insurance mode skip tax
     supplement.supplementTax = 0;
 
-    // Grand total (rounded to $25)
+    // Grand total (rounded to the nearest increment, default $25). Never collapse
+    // a POSITIVE supplement to $0 — a small adjuster-approved supplement must still
+    // bill at least one increment (nearest-rounding of a <$12.50 subtotal → $0
+    // silently dropped approved revenue).
     const roundTo = Number(s.roundTo || 25);
-    supplement.supplementTotal = Math.round(supplement.supplementSubtotal / roundTo) * roundTo;
-    supplement.newGrandTotal = supplement.originalTotal + supplement.supplementTotal;
-    supplement.deltaPct = supplement.originalTotal > 0
-      ? (supplement.supplementTotal / supplement.originalTotal) * 100
+    const rounded = Math.round(supplement.supplementSubtotal / roundTo) * roundTo;
+    supplement.supplementTotal = supplement.supplementSubtotal > 0
+      ? Math.max(roundTo, rounded)
+      : rounded;
+    // Number() guards against a legacy/malformed originalTotal yielding NaN (which
+    // would poison newGrandTotal, the formal letter, and the Firestore write).
+    const origTotal = Number(supplement.originalTotal) || 0;
+    supplement.newGrandTotal = origTotal + supplement.supplementTotal;
+    supplement.deltaPct = origTotal > 0
+      ? (supplement.supplementTotal / origTotal) * 100
       : 0;
 
     return supplement;

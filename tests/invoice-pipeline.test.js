@@ -150,11 +150,51 @@ test('money math rounds to cents (no float drift)', () => {
 console.log('\nsupplement → invoice billable contract (real estimate-supplement.js)');
 console.log('──────────────────────────────────────────────────');
 
+// The REAL saved-estimate shape: line items live under `rows` (V2 carries the
+// split material/labor + a numeric `quantity`; classic carries display qty/rate
+// strings) and the customer total under `grandTotal`. The old fixture used
+// {lines,total}, which MASKED the createSupplement drift that made every real
+// supplement inert (originalTotal undefined → NaN → the Firestore save threw).
 const parentEstimate = {
-  lines: [{ code: 'RFG', name: 'Shingles', unit: 'sq', quantity: 20,
-            materialCostPerUnit: 100, laborCostPerUnit: 50, lineTotal: 3000 }],
-  total: 3000, materialCost: 2000, laborCost: 1000,
+  rows: [{ code: 'RFG', desc: 'Shingles', unit: 'sq', quantity: 20,
+           qty: '20.00sq', rate: '$150.00',
+           materialCostPerUnit: 100, laborCostPerUnit: 50, lineTotal: 3000, total: 3000 }],
+  grandTotal: 3000, materialCost: 2000, laborCost: 1000,
 };
+
+// Engine-shape regression guards (2026-07-08 sweep). These drive the REAL
+// createSupplement + calculateDelta against the saved {grandTotal, rows} shape —
+// the old fixture + hand-set supplementTotal never exercised this path.
+test('createSupplement reads grandTotal + rows (real saved shape) — no undefined/NaN', () => {
+  const s = ES.createSupplement(parentEstimate, { version: 1 });
+  eq(s.originalTotal, 3000, 'originalTotal from grandTotal (was undefined → save threw)');
+  eq(s.originalLineItems.length, 1, 'originalLineItems mapped from rows (was empty)');
+  eq(s.originalLineItems[0].code, 'RFG', 'original line code');
+  eq(s.originalLineItems[0].quantity, 20, 'original line qty is numeric');
+});
+
+test('calculateDelta yields a finite newGrandTotal = original + supplement (was NaN)', () => {
+  const s = ES.createSupplement(parentEstimate, { version: 1 });
+  ES.addItem(s, { code: 'IWS', name: 'Ice & Water Shield', unit: 'sq', quantity: 4, materialCost: 60, laborCost: 40 });
+  eq(Number.isFinite(s.supplementTotal), true, 'supplementTotal finite');
+  eq(s.supplementTotal > 0, true, 'supplementTotal positive');
+  eq(Number.isFinite(s.newGrandTotal), true, 'newGrandTotal not NaN');
+  eq(s.newGrandTotal, s.originalTotal + s.supplementTotal, 'newGrandTotal = original + supplement');
+});
+
+test('modifyItemQuantity matches a rows-sourced original line (quantity-adjust path was dead)', () => {
+  const s = ES.createSupplement(parentEstimate, { version: 1 });
+  const m = ES.modifyItemQuantity(s, 'RFG', 25, 'more storm-exposed field');
+  eq(!!m, true, 'modification created (line found in rows, not lines)');
+  eq(m && m.deltaQuantity, 5, 'delta qty = 5');
+  eq(s.supplementTotal > 0, true, 'quantity adjustment contributes to supplementTotal');
+});
+
+test('a tiny positive supplement never rounds to $0', () => {
+  const s = ES.createSupplement(parentEstimate, { version: 1 });
+  ES.addItem(s, { code: 'CK', name: 'Caulk', unit: 'ea', quantity: 1, materialCost: 3, laborCost: 2 });
+  eq(s.supplementTotal >= 25, true, 'positive supplement bills at least one $25 increment');
+});
 
 test('a freshly created supplement is draft and bills $0 (the #881 bug shape)', () => {
   const s = ES.createSupplement(parentEstimate, { version: 1 });
