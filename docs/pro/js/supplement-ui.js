@@ -325,11 +325,10 @@
     Array.from(modal.querySelectorAll('.nbd-sup-remove-add')).forEach(b => {
       b.addEventListener('click', () => {
         const idx = Number(b.dataset.idx);
-        const item = _currentSupplement.addedItems[idx];
-        if (item) {
-          window.EstimateSupplement.removeAddedItem(_currentSupplement, item.code);
-          _renderModal();
-        }
+        // Remove by INDEX, not code — two added rows can share a catalog code and
+        // code-based removal would drop both (uses removeAddedItemAt).
+        window.EstimateSupplement.removeAddedItemAt(_currentSupplement, idx);
+        _renderModal();
       });
     });
     Array.from(modal.querySelectorAll('.nbd-sup-remove-mod')).forEach(b => {
@@ -362,7 +361,9 @@
         sel.addEventListener('change', function () {
           if (sel.value === 'partial') {
             amt.style.display = 'inline-block';
-            if (!amt.value) amt.value = rowEl.dataset.supTotal || '';
+            // Do NOT prefill the full supplement total — a 'partial' means the
+            // adjuster approved LESS, and saving the prefilled full total silently
+            // bills 100% while tagging it 'partial'. Leave it for the rep to enter.
             amt.focus();
           } else {
             amt.style.display = 'none';
@@ -383,6 +384,13 @@
       approvedAmount = Number(amt && amt.value);
       if (!isFinite(approvedAmount) || approvedAmount <= 0) {
         _toast('Enter the dollar amount the adjuster approved.', 'error');
+        return;
+      }
+      // A 'partial' can't exceed the supplement's own total — guard the fat-finger
+      // ($25,000 typed for $2,500) that would silently overbill the invoice.
+      const supTotal = Number(rowEl.dataset.supTotal) || 0;
+      if (supTotal > 0 && approvedAmount > supTotal) {
+        _toast('Approved amount exceeds the supplement total (' + _money(supTotal) + '). Check the figure.', 'error');
         return;
       }
     }
@@ -465,8 +473,11 @@
     Array.from(wrap.querySelectorAll('.nbd-sup-pick')).forEach(b => {
       b.addEventListener('click', () => {
         const code = b.dataset.code;
+        // Read the qty field at PICK time, not the value captured when Search ran
+        // (the rep may have changed the qty after searching).
+        const pickQty = Number(document.getElementById('nbd-sup-qty')?.value) || qty || 1;
         try {
-          window.EstimateSupplement.addFromCatalog(_currentSupplement, code, { quantity: qty || 1 });
+          window.EstimateSupplement.addFromCatalog(_currentSupplement, code, { quantity: pickQty });
           _renderModal();
         } catch (e) {
           _toast('Could not add: ' + (e.message || 'unknown error'), 'error');
@@ -488,10 +499,26 @@
       return;
     }
     try {
+      // formatSupplementLetter reads meta.customer / meta.claim / meta.estimate /
+      // meta.company — the old {parentEstimate, rep, company:{name}} keys were all
+      // ignored, so the adjuster letter rendered every claim field as '—' and an
+      // empty footer. Pass the real shape (best-effort from the estimate + its
+      // insurance overlay), and OMIT company so the formatter's full default
+      // (name/phone/email/address) fills the footer.
+      const pe = _parentEstimate || {};
+      const ins = pe.insurance || {};
       const html = window.EstimateSupplement.formatSupplementLetter(_currentSupplement, {
-        parentEstimate: _parentEstimate,
-        rep: window._currentRep || {},
-        company: { name: 'No Big Deal Home Solutions' },
+        customer: {
+          name: pe.customerName || pe.customer || '',
+          address: pe.customerAddress || pe.address || '',
+        },
+        claim: {
+          carrier: ins.carrier || pe.insCarrier || pe.carrier || '',
+          number: ins.claimNumber || pe.claimNumber || '',
+          adjuster: ins.adjuster || pe.adjuster || '',
+          dateOfLoss: ins.dateOfLoss || pe.dateOfLoss || '',
+        },
+        estimate: { preparedBy: pe.preparedBy || (window._currentRep && window._currentRep.name) || '' },
       });
       if (window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function') {
         window.NBDDocViewer.open({
