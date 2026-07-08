@@ -206,6 +206,12 @@
   }
 
   const CACHE_KEY = 'nbd_company_profile_v1';
+  // The cache is tenant-SCOPED (CACHE_KEY + ':' + tenantKey). A single global
+  // key bled the last tenant's legal text / financing APRs / budgetDefaults into
+  // the next tenant's generated documents when two tenants share a browser
+  // (e.g. Jo testing NBD then signing in as Oaks). Only ever read/write the
+  // keyed variant, and only once the tenant key is known.
+  function _cacheKeyFor(k) { return CACHE_KEY + ':' + k; }
 
   // The tenant's RAW (un-merged) brand override, as written to
   // companyProfile/{key}.brand — NOT deep-merged onto the NBD defaults.
@@ -250,25 +256,30 @@
   window.NBD_COMPANY_PROFILE_DEFAULTS = NBD_COMPANY_PROFILE_DEFAULTS;
   window._companyProfile = deepMerge({}, NBD_COMPANY_PROFILE_DEFAULTS);
 
-  // Hydrate from localStorage cache for instant render before Firestore
-  // round-trips. The cache stores only the rep's overrides, not the full
-  // profile, so old cached values survive default tweaks gracefully.
-  // The cache is a render optimization only — Firestore rules are the
-  // security boundary; the keyed load below overwrites this on auth-ready.
-  try {
-    const raw = localStorage.getItem(CACHE_KEY);
-    if (raw) {
-      const cached = JSON.parse(raw);
-      window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, cached || {});
-      _brandOverrideRaw = (cached && cached.brand) || null;
-    }
-  } catch (_) { /* ignore */ }
+  // Do NOT hydrate from cache here: at module-parse time the tenant key isn't
+  // known yet, so reading a cache would risk loading the PREVIOUS tenant's
+  // overrides into this session's documents. _loadCompanyProfile hydrates the
+  // tenant-keyed cache once the key resolves. Purge any legacy un-keyed cache.
+  try { localStorage.removeItem(CACHE_KEY); } catch (_) { /* ignore */ }
 
   window._loadCompanyProfile = async function () {
     try {
       if (!window.db) return window._companyProfile;
       const key = await _resolveCompanyKey();
-      if (!key) return window._companyProfile; // not signed in yet — defaults/cache stand
+      if (!key) return window._companyProfile; // not signed in yet — defaults stand
+      // Reset to defaults, then hydrate THIS tenant's cache (instant render)
+      // before the network read — so a prior tenant's in-memory or cached
+      // overrides can't survive into this tenant's session.
+      window._companyProfile = deepMerge({}, NBD_COMPANY_PROFILE_DEFAULTS);
+      _brandOverrideRaw = null;
+      try {
+        const cachedRaw = localStorage.getItem(_cacheKeyFor(key));
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw) || {};
+          window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, cached);
+          _brandOverrideRaw = cached.brand || null;
+        }
+      } catch (_) { /* ignore */ }
       const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       // QA 2026-06-21 #1: on a cold boot the Firestore WebChannel can still be
       // establishing, so this first getDoc throws "client is offline" and the
@@ -291,7 +302,7 @@
         const remote = snap.data() || {};
         window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, remote);
         _brandOverrideRaw = (remote && remote.brand) || null;
-        try { localStorage.setItem(CACHE_KEY, JSON.stringify(remote)); } catch (_) {}
+        try { localStorage.setItem(_cacheKeyFor(key), JSON.stringify(remote)); } catch (_) {}
       }
     } catch (e) {
       console.warn('[company-profile] load failed:', e && e.message);
@@ -301,22 +312,24 @@
 
   window._saveCompanyProfile = async function (overrides) {
     const overridesObj = overrides || {};
-    // Merge onto the EXISTING remote overrides (not bare defaults) so a PARTIAL
-    // save — e.g. just { pricing } from the Add-on Rates editor — can't clobber
-    // unrelated in-memory/cache fields (brand / legal / letterhead). This mirrors
-    // the Firestore { merge:true } write below so in-memory matches the server.
+    // Resolve the tenant key up front so the cache read/write below is
+    // tenant-scoped (no cross-tenant bleed).
+    const key = window.db ? await _resolveCompanyKey() : null;
+    // Merge onto the EXISTING remote overrides (this tenant's cache, not bare
+    // defaults) so a PARTIAL save — e.g. just { pricing } from the Add-on Rates
+    // editor — can't clobber unrelated fields (brand / legal / letterhead). This
+    // mirrors the Firestore { merge:true } write below so in-memory matches server.
     let prevRemote = {};
-    try { prevRemote = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}') || {}; } catch (_) {}
+    if (key) { try { prevRemote = JSON.parse(localStorage.getItem(_cacheKeyFor(key)) || '{}') || {}; } catch (_) {} }
     const mergedRemote = deepMerge(prevRemote, overridesObj);
     window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, mergedRemote);
     if ('brand' in overridesObj) _brandOverrideRaw = overridesObj.brand || null;
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(mergedRemote)); } catch (_) {}
+    if (key) { try { localStorage.setItem(_cacheKeyFor(key), JSON.stringify(mergedRemote)); } catch (_) {} }
     if (!window.db) return window._companyProfile;
-    const key = await _resolveCompanyKey();
     if (!key) {
-      // No resolvable tenant key — keep the local cache but don't write a
-      // mis-keyed (and rules-denied) doc. The next save after auth is ready
-      // persists it.
+      // No resolvable tenant key — keep in-memory but don't write a mis-keyed
+      // (rules-denied) doc or an un-keyed cache. The next save after auth is
+      // ready persists it.
       console.warn('[company-profile] save skipped: no tenant key (auth not ready)');
       return window._companyProfile;
     }

@@ -700,6 +700,28 @@ if (document.readyState === 'loading') {
   init();
 }
 
+// The Appearance panel (#stab-panel-appearance) lives in the lazily-hydrated
+// <template id="tpl-view-settings">, so addCustomizeToSettings() at init() (DCL)
+// finds nothing and the "Mobile Tab Bar" section never appears. Wrap
+// switchSettingsTab (same idiom as dashboard-team-tab.js) to (re)inject the
+// panel the first time Settings → Appearance opens, after the template hydrates.
+function _installAppearanceTabHook() {
+  var _prev = window.switchSettingsTab;
+  if (typeof _prev !== 'function' || _prev._ncmWrapped) return;
+  var wrapped = function (tab) {
+    var r = _prev.apply(this, arguments);
+    if (tab === 'appearance') { try { addCustomizeToSettings(); } catch (e) { /* panel not ready */ } }
+    return r;
+  };
+  wrapped._ncmWrapped = true;
+  window.switchSettingsTab = wrapped;
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _installAppearanceTabHook);
+} else {
+  _installAppearanceTabHook();
+}
+
 
 // ── CSP-safe delegation for the data-mnc-action attrs. Lives INSIDE the
 // module IIFE since the Tranche 2a rewrite: the handlers are module-local

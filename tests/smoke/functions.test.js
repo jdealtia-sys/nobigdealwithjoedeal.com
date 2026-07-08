@@ -182,11 +182,16 @@ section('rotateAccessCodes: access-code revocation cascade');
     !/revokeGrants/.test(adminUi));
 
   // The cascade's premise: plan is doc-resolved, not claim-resolved —
-  // validateAccessCode stamps only a role claim at redemption, so a doc
-  // downgrade is sufficient (no claims surgery on revoke).
+  // validateAccessCode never MINTS a plan/companyId claim (plan lives in the
+  // subscriptions doc), so a doc downgrade is sufficient on revoke. It now
+  // read-MERGES the role claim (…existingClaims) rather than replacing the whole
+  // set, so redeeming a code on an already-provisioned account can't wipe that
+  // owner's companyId/owner claims (Settings sweep).
   const portalSrc = read(path.join(FUNCTIONS, 'handlers/portal.js'));
-  assert('validateAccessCode sets only a role claim (plan lives in the subscriptions doc)',
-    /setCustomUserClaims\(userRecord\.uid, \{ role \}\)/.test(portalSrc));
+  assert('validateAccessCode merges the role claim (preserves existing) without replacing the set',
+    /setCustomUserClaims\(userRecord\.uid, \{ \.\.\.existingClaims, role \}\)/.test(portalSrc));
+  assert('validateAccessCode does NOT mint a plan/companyId claim (doc-resolved)',
+    !/setCustomUserClaims\([^)]*\b(plan|companyId)\s*:/.test(portalSrc));
 }
 
 // ── Phase C: public-lead → CRM pipeline bridge (H-1) ─────────

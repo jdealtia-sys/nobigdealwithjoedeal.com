@@ -119,8 +119,13 @@ exports.validateAccessCode = onCall(
         }
       }
 
-      // Set role claim (never admin).
-      await getAuth().setCustomUserClaims(userRecord.uid, { role });
+      // Set role claim (never admin). MERGE, don't replace: setCustomUserClaims
+      // overwrites the ENTIRE claim set, so a bare {role} on an already-
+      // provisioned account (e.g. a code configured with an existing owner's
+      // email) would wipe companyId/owner/plan and lock them out of their own
+      // tenant. Read-merge-write like provisioning.js/invites.js mergeCustomClaims.
+      const existingClaims = userRecord.customClaims || {};
+      await getAuth().setCustomUserClaims(userRecord.uid, { ...existingClaims, role });
 
       // Create subscription doc via admin SDK. Trust only the fields from the
       // Firestore-stored access code record.
