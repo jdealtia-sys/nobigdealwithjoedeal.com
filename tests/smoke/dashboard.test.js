@@ -2644,7 +2644,17 @@ section('Globals Tranches 0+1: converted names stay off window');
     // `function X` → `const X` + __NBD_CALL_REGISTRY. NOT here: setKanbanDensity /
     // setPhotoMode / nbdComfortSet (MUST-STAY — auto-global backing and/or real
     // cross-file consumers; keep allowlist + window export).
-    'cycleKanbanDensity', 'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey'];
+    'cycleKanbanDensity', 'nbdComfortSetWhisperHotkey', 'nbdComfortSetWhisperKey',
+    // Tranche 2c-4f (2026-07-07): dashboard-bootstrap.module.js settings/debug/
+    // export handlers — module-scoped (real ES module, no IIFE), dispatched via
+    // __NBD_CALL_REGISTRY. NOT here (MUST-STAY window exports): loadSampleData
+    // (dashboard-actions.js twin), _saveEstimateDefaultsV2 (self-read),
+    // _loadCompanySettings / _loadCompanyProfileSettings (ui.js cross-file calls).
+    'runLeadAction', 'retryLoadLeads', 'copyDebugInfo', 'testFirestoreRules',
+    '_saveSettings', '_saveNotifSettings', '_saveCompanySettings', '_testNotif',
+    '_resetEstimateDefaultsV2', '_saveSiteSlug', '_saveCompanyProfileSettings',
+    '_resetCompanyProfileSettings', '_exportAllData', '_exportEstimates',
+    '_exportPhotos'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -2907,6 +2917,32 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   // wrap-free form) — keeps BOTH its allowlist entry and window re-export.
   assert('setKanbanDensity keeps its allowlist entry + window export (2c-4g MUST-STAY)',
     /'setKanbanDensity'/.test(stateSrc) && /window\.setKanbanDensity = setKanbanDensity;/.test(ui));
+  // ── Tranche 2c-4f: the dashboard-bootstrap.module.js settings cluster ──
+  // First NON-dashboard-actions module in this tranche, and a real ES module —
+  // so the 15 markup-dispatched settings/debug/export handlers just move from
+  // window.X to a single __NBD_CALL_REGISTRY block (no IIFE). Three MUST-STAY
+  // names keep BOTH window export + allowlist (self-read / ui.js cross-file);
+  // loadSampleData also stays (dashboard-actions.js:913 exports its own twin).
+  const T2C4F_NAMES = ['runLeadAction', 'retryLoadLeads', 'copyDebugInfo',
+    'testFirestoreRules', '_saveSettings', '_saveNotifSettings', '_saveCompanySettings',
+    '_testNotif', '_resetEstimateDefaultsV2', '_saveSiteSlug', '_saveCompanyProfileSettings',
+    '_resetCompanyProfileSettings', '_exportAllData', '_exportEstimates', '_exportPhotos'];
+  const bootReg = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  const bootRegBlock = (bootReg.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/) || ['', ''])[1];
+  for (const n of T2C4F_NAMES) {
+    assert('dashboard-bootstrap registers ' + n + ' in __NBD_CALL_REGISTRY (2c-4f)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootRegBlock));
+    assert('allowlist no longer carries ' + n + ' (2c-4f — registry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('dashboard-bootstrap no longer exposes window.' + n + ' (2c-4f off window)',
+      !new RegExp('window\\.' + n + '\\s*=\\s*' + n + '\\b').test(bootReg));
+  }
+  // MUST-STAY: still window-exported in the module AND still allowlisted.
+  for (const [n, why] of [['_saveEstimateDefaultsV2', 'intra-module self-read'],
+    ['_loadCompanySettings', 'ui.js:965-966'], ['_loadCompanyProfileSettings', 'ui.js:971-972']]) {
+    assert('dashboard-bootstrap keeps window.' + n + ' (' + why + ')',
+      new RegExp('window\\.' + n + '\\s*=').test(bootReg) && new RegExp("'" + n + "'").test(stateSrc));
+  }
 
   // The resolver's window fallback is allowlist-gated; keep state ahead of
   // dashboard-ui in the defer queue so the gate exists when dispatch runs.
