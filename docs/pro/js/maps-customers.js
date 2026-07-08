@@ -362,8 +362,10 @@ function _custChipsHTML(dimKey, counts) {
   return html;
 }
 
+let _custLastCounts = {};
 function _renderCustPanel(counts) {
   if (!mainMap) return;
+  counts = counts || _custLastCounts; _custLastCounts = counts; // reuse last legend counts on state-only re-renders
   const container = mainMap.getContainer && mainMap.getContainer();
   if (!container) return;
   _injectCustPanelCss();
@@ -398,9 +400,12 @@ function _renderCustPanel(counts) {
   const anyOtherFilter = others.some(function (d) { return !!_custFilters[d]; });
   html += '<button type="button" class="ncp-more" data-cust-morefilters>'
     + (_custFiltersOpen ? '▾' : '▸') + ' Filters' + (anyOtherFilter ? ' •' : '') + '</button>';
-  // Route the currently-filtered stops (nearest-neighbor from the map centre).
+  // Route the currently-filtered stops (nearest-neighbor from your GPS/centre).
   html += '<button type="button" class="ncp-more" data-cust-route>🧭 '
     + (_custRouteOn ? 'Clear route' : 'Route these stops') + '</button>';
+  if (_custRouteOn) {
+    html += '<button type="button" class="ncp-more" data-cust-gmaps>🗺 Open in Google Maps</button>';
+  }
   if (_custFiltersOpen) {
     others.forEach(function (dk) {
       html += '<div class="ncp-group-lbl">' + esc(_CUST_DIMENSIONS[dk].label) + '</div>';
@@ -463,8 +468,10 @@ function _renderCustPanel(counts) {
         _renderCustPanel(counts);
         return;
       }
+      const gmaps = e.target && e.target.closest && e.target.closest('[data-cust-gmaps]');
+      if (gmaps) { openRouteInGmaps(); return; }
       const route = e.target && e.target.closest && e.target.closest('[data-cust-route]');
-      if (route) { toggleCustomerRoute(); _renderCustPanel(counts); return; }
+      if (route) { toggleCustomerRoute(); return; } // toggle re-renders the panel itself
       const more = e.target && e.target.closest && e.target.closest('[data-cust-morefilters]');
       if (more) { _custFiltersOpen = !_custFiltersOpen; _renderCustPanel(counts); return; }
       const chip = e.target && e.target.closest && e.target.closest('[data-cust-cat]');
@@ -489,7 +496,26 @@ function _hideCustPanel() { if (_custPanelEl) _custPanelEl.style.display = 'none
 // ── ROUTE OPTIMIZER (nearest-neighbor over the filtered dots) ────────────
 let _custRouteLayer = null;
 let _custRouteOn = false;
-const _CUST_ROUTE_CAP = 25; // keep the day's route sane
+let _custRouteStart = null;    // {lat,lng} the route began from (GPS or map centre)
+let _custRouteOrdered = [];    // ordered stops [{lead,lat,lng}] for the Maps hand-off
+const _CUST_ROUTE_CAP = 25;    // keep the day's route sane
+const _CUST_GMAPS_WP_CAP = 23; // Google consumer directions waypoint limit
+// Resolve the route's START: prefer the rep's GPS (they route FROM where they
+// are), fall back to the map centre if geolocation is unavailable/denied/slow.
+function _custResolveStart() {
+  return new Promise(function (resolve) {
+    const c = mainMap.getCenter();
+    const fallback = { lat: c.lat, lng: c.lng, gps: false };
+    if (!(navigator && navigator.geolocation)) { resolve(fallback); return; }
+    let done = false;
+    const t = setTimeout(function () { if (!done) { done = true; resolve(fallback); } }, 6000);
+    navigator.geolocation.getCurrentPosition(
+      function (pos) { if (done) return; done = true; clearTimeout(t); resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, gps: true }); },
+      function () { if (done) return; done = true; clearTimeout(t); resolve(fallback); },
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
+    );
+  });
+}
 function _custHavFt(a, b) {
   if (typeof hav === 'function') { try { return hav(a, b); } catch (_) {} }
   const R = 20902231, toR = Math.PI / 180;
@@ -534,17 +560,20 @@ function _clearRoute() {
   if (_custRouteLayer && mainMap) mainMap.removeLayer(_custRouteLayer);
   _custRouteLayer = null;
   _custRouteOn = false;
+  _custRouteOrdered = [];
+  _custRouteStart = null;
 }
-function buildCustomerRoute() {
+async function buildCustomerRoute() {
   if (!mainMap) return;
   _clearRoute();
   let stops = _custRoutableStops();
   if (!stops.length) { if (typeof showToast === 'function') showToast('No mapped customers match the current filters', 'info'); return; }
   let capped = false;
   if (stops.length > _CUST_ROUTE_CAP) { stops = stops.slice(0, _CUST_ROUTE_CAP); capped = true; }
-  const c = mainMap.getCenter();
-  const start = { lat: c.lat, lng: c.lng };
+  const start = await _custResolveStart();
   const ordered = _custNnOrder(start, stops);
+  _custRouteStart = start;
+  _custRouteOrdered = ordered;
   // Total drive-ish distance (great-circle, feet → miles).
   let ft = _custHavFt(start, ordered[0]);
   for (let i = 1; i < ordered.length; i++) ft += _custHavFt(ordered[i - 1], ordered[i]);
@@ -558,10 +587,34 @@ function buildCustomerRoute() {
   _custRouteOn = true;
   try { mainMap.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] }); } catch (_) {}
   if (typeof showToast === 'function') {
-    showToast('Route: ' + ordered.length + ' stops · ~' + miles + ' mi' + (capped ? ' (first ' + _CUST_ROUTE_CAP + ')' : ''), 'ok');
+    showToast('Route: ' + ordered.length + ' stops · ~' + miles + ' mi · from ' + (start.gps ? 'your location' : 'map centre')
+      + (capped ? ' (first ' + _CUST_ROUTE_CAP + ')' : ''), 'ok');
   }
+  _renderCustPanel(); // reflect route-on state (Clear / Open-in-Maps buttons)
 }
-function toggleCustomerRoute() { if (_custRouteOn) { _clearRoute(); if (typeof showToast === 'function') showToast('Route cleared', 'info'); } else { buildCustomerRoute(); } }
+function toggleCustomerRoute() {
+  if (_custRouteOn) { _clearRoute(); _renderCustPanel(); if (typeof showToast === 'function') showToast('Route cleared', 'info'); }
+  else { buildCustomerRoute(); } // async; re-renders the panel when done
+}
+// Hand off the ordered stops to Google Maps for turn-by-turn. Origin = route
+// start, destination = last stop, intermediate stops = waypoints (Google caps
+// consumer waypoints at ~23).
+function _custGmapsUrl() {
+  if (!_custRouteOrdered || !_custRouteOrdered.length) return null;
+  const stops = _custRouteOrdered;
+  const dest = stops[stops.length - 1];
+  const mids = stops.slice(0, -1).slice(0, _CUST_GMAPS_WP_CAP);
+  let u = 'https://www.google.com/maps/dir/?api=1';
+  if (_custRouteStart) u += '&origin=' + _custRouteStart.lat + ',' + _custRouteStart.lng;
+  u += '&destination=' + dest.lat + ',' + dest.lng;
+  if (mids.length) u += '&waypoints=' + encodeURIComponent(mids.map(s => s.lat + ',' + s.lng).join('|'));
+  u += '&travelmode=driving';
+  return u;
+}
+function openRouteInGmaps() {
+  const u = _custGmapsUrl();
+  if (u && typeof window.open === 'function') window.open(u, '_blank', 'noopener');
+}
 
 // Re-icon (dot ↔ $ label) when crossing the label-zoom threshold.
 function _wireCustZoom() {
@@ -593,4 +646,5 @@ if (typeof window !== 'undefined') {
   window.refreshCustomersLayer = refreshCustomersLayer;
   window.buildCustomerRoute    = buildCustomerRoute;
   window.toggleCustomerRoute   = toggleCustomerRoute;
+  window.openRouteInGmaps      = openRouteInGmaps;
 }

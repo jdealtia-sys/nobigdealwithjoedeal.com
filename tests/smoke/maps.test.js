@@ -250,6 +250,22 @@ section('Customers map layer — all leads on the map, role-coloured');
   assert('route toggle wired in the panel',
     /data-cust-route/.test(maps) && /toggleCustomerRoute\(\)/.test(maps),
     'expected a Route button wired to toggleCustomerRoute');
+  // Field-ready: start from the rep's GPS (fall back to map centre) + hand off
+  // to Google Maps for turn-by-turn.
+  assert('route starts from GPS with a map-centre fallback',
+    /function _custResolveStart\(\)/.test(maps)
+    && /navigator\.geolocation\.getCurrentPosition/.test(maps)
+    && /const start = await _custResolveStart\(\)/.test(maps),
+    'expected _custResolveStart to prefer geolocation and buildCustomerRoute to await it');
+  assert('route hands off to Google Maps directions (origin/dest/waypoints/driving)',
+    /google\.com\/maps\/dir\/\?api=1/.test(maps)
+    && /destination=/.test(maps) && /&waypoints=/.test(maps) && /travelmode=driving/.test(maps)
+    && /_CUST_GMAPS_WP_CAP/.test(maps),
+    'expected _custGmapsUrl to build a directions URL capped at Google’s waypoint limit');
+  assert('Open-in-Maps button shows only while a route is active',
+    /_custRouteOn[\s\S]{0,80}data-cust-gmaps/.test(maps)
+    && /openRouteInGmaps\(\)/.test(maps),
+    'expected the gmaps hand-off button gated on _custRouteOn');
 }
 
 section('D2D pins — disposition legend + filter (second layer)');
