@@ -41,98 +41,32 @@
 // opens) and the defensive module-load fallback into single named
 // globals that the `call` delegate dispatches.
 let _NBD_DA_DELEGATE; // module-local (globals Tranche 1 — was window.*)
-window.cdaReport = function cdaReport() {
-  if (window.NBDReports && typeof window.NBDReports.openGenerator === 'function') {
-    window.NBDReports.openGenerator(window._cardDetailLeadId);
-  } else if (typeof showToast === 'function') {
-    showToast('Report module loading...', 'error');
-  }
-};
-window.cdaEnrich = function cdaEnrich() {
-  if (window.NBDReports && typeof window.NBDReports.enrichData === 'function') {
-    window.NBDReports.enrichData(window._cardDetailLeadId);
-  } else if (typeof showToast === 'function') {
-    showToast('Report module loading...', 'error');
-  }
-};
-window.cdaPhotos = function cdaPhotos() {
-  if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
-    if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
-    window.PhotoEngine.openCamera(window._cardDetailLeadId);
-  } else if (typeof showToast === 'function') {
-    showToast('Photo engine loading...', 'error');
-  }
-};
-window.cdaInvoice = function cdaInvoice() {
-  if (window.InvoicePipeline && typeof window.InvoicePipeline.createInvoiceUI === 'function') {
-    if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
-    window.InvoicePipeline.createInvoiceUI(window._cardDetailLeadId);
-  } else if (typeof showToast === 'function') {
-    showToast('Invoice pipeline loading...', 'error');
-  }
-};
-window.cdaInspection = function cdaInspection() {
-  if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
-    // openBuilder(containerId, leadId) — the containerId MUST be first. The
-    // original inline onclick passed 'inspectionBuilderContainer'; the CSP
-    // extraction dropped it, so the builder never rendered (leadId was read as
-    // the container id → getElementById miss → silent return).
-    window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._cardDetailLeadId);
-  } else if (typeof showToast === 'function') {
-    showToast('Inspection engine loading...', 'error');
-  }
-};
-// Wave 28: card-detail chip pickers. Clicking either chip in the card-
-// detail modal opens the same floating menu the kanban right-click flow
-// uses — no full edit form needed to move a card or relabel its track.
-// Anchors below the chip so the menu drops down into view. The picker
-// implementation lives in kanban-context-menu.js (window.KanbanContextMenu).
-window.cdPickStage = function cdPickStage(el) {
-  const id = window._cardDetailLeadId;
-  if (!id || !window.KanbanContextMenu) return;
-  const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
-  const anchor = r ? { x: r.left, y: r.bottom + 4 } : { x: 100, y: 100 };
-  window.KanbanContextMenu.openStagePicker(id, anchor);
-};
-window.cdPickType = function cdPickType(el) {
-  const id = window._cardDetailLeadId;
-  if (!id || !window.KanbanContextMenu) return;
-  const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
-  const anchor = r ? { x: r.left, y: r.bottom + 4 } : { x: 100, y: 100 };
-  window.KanbanContextMenu.openTypePicker(id, anchor);
-};
 
-window.cdaInspectionDeep = function cdaInspectionDeep() {
-  // The original onclick was: close the card-detail modal, then after 200ms
-  // show the inspectionBuilderOverlay and call openBuilder. The setTimeout
-  // gives the modal-close animation time to finish.
-  if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
-    const lid = window._cardDetailLeadId;
-    if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
-    setTimeout(function(){
-      const overlay = document.getElementById('inspectionBuilderOverlay');
-      if (overlay) overlay.style.display = 'block';
-      // openBuilder(containerId, leadId) — container first. The CSP extraction of
-      // the original inline onclick dropped 'inspectionBuilderContainer', so the
-      // card-detail "Report" button silently never opened the builder.
-      window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', lid);
-    }, 200);
-  } else if (typeof showToast === 'function') {
-    showToast('Inspection engine loading...', 'error');
-  }
-};
+// ══════════════════════════════════════════════
+// ONE-OFF OPENERS + MOBILE-ROUTE TAIL — Globals Tranche 2c-4c (2026-07-07)
+// ══════════════════════════════════════════════
+// 20 markup-dispatched compound-rewrite openers (+ the two 2c-4b mobile-route
+// tail names mCreateFabRoute/mQuickAddRoute), consolidated OFF window into this
+// IIFE and registered in __NBD_CALL_REGISTRY (resolved first by the
+// dashboard-ui.js `call` delegate). All markup-only — none has a window/bare/
+// dynamic cross-boundary consumer, so none is re-exported and all 20 leave
+// _NBD_CALL_ALLOWLIST. Bare callees (goTo, showToast, closeMobileMore,
+// openLeadModal, nbdPickerOpen, switchSettingsTab, setDrawMode) and the
+// window.* module APIs resolve up-scope, unaffected by the wrap. See
+// docs/dev/dashboard-actions-globals-audit.md.
+(function () {
 
 // C.4 finale — More-drawer compound rewrites. The original onclicks
 // were `mobileNav('home');closeMobileMore()` style chains; we
 // consolidate the side-effects here so the markup uses data-action="call".
-window.openDailyProgramFromMore = function openDailyProgramFromMore() {
+function openDailyProgramFromMore() {
   if (typeof closeMobileMore === 'function') closeMobileMore();
   window.location.href = '/pro/daily-success';
 };
 
 // C.4 finale — mobile FAB create routing. Replaces the ternary
 // `window.toggleMobileCreatePopover ? toggleMobileCreatePopover() : openLeadModal()`.
-window.mCreateFabRoute = function mCreateFabRoute() {
+function mCreateFabRoute() {
   if (typeof window.toggleMobileCreatePopover === 'function') {
     window.toggleMobileCreatePopover();
   } else if (typeof openLeadModal === 'function') {
@@ -140,60 +74,21 @@ window.mCreateFabRoute = function mCreateFabRoute() {
   }
 };
 
-// C.4 finale — card-detail-lead-id guarded wrappers. Each replaces
-// an inline `window._cardDetailLeadId && fn(window._cardDetailLeadId)`
-// short-circuit so the markup only carries data-action="call".
-window.cdaMjdAct = function cdaMjdAct(actionType) {
-  if (!window._cardDetailLeadId || typeof _mJdAct !== 'function') return;
-  _mJdAct(actionType, window._cardDetailLeadId);
-};
-window.cdaEditLead = function cdaEditLead() {
-  if (window._cardDetailLeadId && typeof window.editLead === 'function') {
-    const id = window._cardDetailLeadId;
-    // Close the mobile job-detail overlay first. It sits at z-index 2100,
-    // above the lead-edit modal's .modal-bg (z-index 2000), so without this
-    // the edit modal opens *behind* the still-visible panel and the Edit
-    // button appears to do nothing on mobile. (Matches cdaInspectionDeep,
-    // which also closes the detail surface before opening its sub-flow.)
-    if (typeof window.closeMobileJobDetail === 'function') window.closeMobileJobDetail();
-    window.editLead(id);
-  }
-};
-window.cdaOpenMobileInspection = function cdaOpenMobileInspection() {
-  if (window._cardDetailLeadId && typeof openMobileInspection === 'function') {
-    openMobileInspection(window._cardDetailLeadId);
-  }
-};
-window.cdaVoiceMemo = function cdaVoiceMemo() {
-  if (window._cardDetailLeadId &&
-      window.NBDVoiceMemo &&
-      typeof window.NBDVoiceMemo.recordForLead === 'function') {
-    window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId);
-  }
-};
-// step-4: opens the voicemail-pipeline modal for the current card-detail lead.
-window.cdaOpenVoicemail = function cdaOpenVoicemail() {
-  if (window._cardDetailLeadId &&
-      window.NBDVoicemail &&
-      typeof window.NBDVoicemail.openForLead === 'function') {
-    window.NBDVoicemail.openForLead(window._cardDetailLeadId);
-  }
-};
 
 // C.4 finale — ternary / compound rewrites for the few one-off handlers
 // that don't fit the generic call / module shapes.
-window.mQuickAddRoute = function mQuickAddRoute() {
+function mQuickAddRoute() {
   if (typeof closeQuickAddLead === 'function') closeQuickAddLead();
   if (typeof openLeadModal === 'function') openLeadModal();
 };
-window.restartOnboardingTour = function restartOnboardingTour() {
+function restartOnboardingTour() {
   if (window.OnboardingTour && typeof window.OnboardingTour.forceRestart === 'function') {
     window.OnboardingTour.forceRestart();
   } else if (typeof showToast === 'function') {
     showToast('Tour module loading...', 'error');
   }
 };
-window.openDecisionPicker = function openDecisionPicker() {
+function openDecisionPicker() {
   // NEW-D15: the decision-engine bundle is lazy and wired (in script-loader's
   // VIEW_BUNDLES) only to aitree/understand — never to #/joe, where the
   // "⚡ Scenarios" button lives. Load the 'decision' bundle on demand before
@@ -213,21 +108,21 @@ window.openDecisionPicker = function openDecisionPicker() {
     _open();
   }
 };
-window.openD2DOrGo = function openD2DOrGo() {
+function openD2DOrGo() {
   if (window.D2D && typeof window.D2D.openQuickKnock === 'function') {
     window.D2D.openQuickKnock();
   } else if (typeof goTo === 'function') {
     goTo('d2d');
   }
 };
-window.clearAccentTheme = function clearAccentTheme() {
+function clearAccentTheme() {
   if (window.ThemeGX && typeof window.ThemeGX.clearAccentOverride === 'function') {
     window.ThemeGX.clearAccentOverride();
   }
   const picker = document.getElementById('customAccentColorPicker');
   if (picker) picker.value = '#e8720c';
 };
-window.openSettingsTab = function openSettingsTab(tabKey) {
+function openSettingsTab(tabKey) {
   if (typeof nbdPickerOpen === 'function') {
     nbdPickerOpen();
   } else {
@@ -237,73 +132,53 @@ window.openSettingsTab = function openSettingsTab(tabKey) {
     }, 200);
   }
 };
-window.openPhotoEngineOrClickProxy = function openPhotoEngineOrClickProxy(fallbackInputId) {
+function openPhotoEngineOrClickProxy(fallbackInputId) {
   if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
     window.PhotoEngine.openCamera();
   } else if (fallbackInputId) {
     document.getElementById(fallbackInputId)?.click();
   }
 };
-window.cdaSharePortalLink = function cdaSharePortalLink() {
-  if (window._cardDetailLeadId && typeof window._sharePortalLink === 'function') {
-    window._sharePortalLink(window._cardDetailLeadId);
-  }
-};
-window.cdaRevokePortalLink = function cdaRevokePortalLink() {
-  if (window._cardDetailLeadId && typeof window._revokePortalLink === 'function') {
-    window._revokePortalLink(window._cardDetailLeadId);
-  }
-};
-window.cdaConfirmPromote = function cdaConfirmPromote() {
-  if (window._cardDetailLeadId && typeof window.confirmPromoteProspect === 'function') {
-    window.confirmPromoteProspect(window._cardDetailLeadId);
-  }
-};
-window.cdaOpenTaskModal = function cdaOpenTaskModal() {
-  if (window._cardDetailLeadId && typeof openTaskModal === 'function') {
-    openTaskModal(window._cardDetailLeadId, null);
-  }
-};
-window.openReportGenerator = function openReportGenerator() {
+function openReportGenerator() {
   if (window.NBDReports && typeof window.NBDReports.openGenerator === 'function') {
     window.NBDReports.openGenerator();
   } else if (typeof showToast === 'function') {
     showToast('Report engine loading…', 'error');
   }
 };
-window.enrichReportData = function enrichReportData() {
+function enrichReportData() {
   if (window.NBDReports && typeof window.NBDReports.enrichData === 'function') {
     window.NBDReports.enrichData();
   } else if (typeof showToast === 'function') {
     showToast('Report engine loading…', 'error');
   }
 };
-window.openPhotoEngineCurrentLead = function openPhotoEngineCurrentLead() {
+function openPhotoEngineCurrentLead() {
   if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
     window.PhotoEngine.openCamera(window._currentPhotoLeadId || '');
   } else if (typeof showToast === 'function') {
     showToast('Photo engine loading…', 'error');
   }
 };
-window.openInspectionBuilderCurrentLead = function openInspectionBuilderCurrentLead() {
+function openInspectionBuilderCurrentLead() {
   if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
     window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._currentPhotoLeadId || window._leadId || window._currentLeadId || '');
   } else if (typeof showToast === 'function') {
     showToast('Report engine loading…', 'error');
   }
 };
-window.closeInspectionBuilder = function closeInspectionBuilder() {
+function closeInspectionBuilder() {
   const overlay = document.getElementById('inspectionBuilderOverlay');
   const container = document.getElementById('inspectionBuilderContainer');
   if (overlay) overlay.style.display = 'none';
   if (container) container.innerHTML = '';
 };
-window.hideFollowUpAlerts = function hideFollowUpAlerts() {
+function hideFollowUpAlerts() {
   const wrap = document.getElementById('followUpAlertsWrap');
   if (wrap) wrap.style.display = 'none';
   try { localStorage.setItem('nbd_crm_followup_hidden', '1'); } catch (e) {}
 };
-window.goToD2DFromMaps = function goToD2DFromMaps() {
+function goToD2DFromMaps() {
   if (typeof goTo === 'function') goTo('d2d');
   try {
     if (!localStorage.getItem('nbd_maps_redirect_seen')) {
@@ -314,17 +189,17 @@ window.goToD2DFromMaps = function goToD2DFromMaps() {
     }
   } catch (e) {}
 };
-window.openCalBookingUrl = function openCalBookingUrl() {
+function openCalBookingUrl() {
   const input = document.getElementById('calBookingUrl');
   if (input && input.value) window.open(input.value, '_blank', 'noopener');
 };
-window.hardResetTest = function hardResetTest() {
+function hardResetTest() {
   if (typeof window.__nbdHardReset === 'function') window.__nbdHardReset();
 };
-window.gstaticTest = function gstaticTest() {
+function gstaticTest() {
   if (typeof window.__nbdGstaticTest === 'function') window.__nbdGstaticTest();
 };
-window.modeLineDraw = function modeLineDraw() {
+function modeLineDraw() {
   // The original onclick was setDrawMode('line', document.getElementById('modeLineBtn'))
   // — explicit element ref because the user might activate via keyboard shortcut
   // and we still want the active-state ring on the line button.
@@ -332,6 +207,33 @@ window.modeLineDraw = function modeLineDraw() {
     setDrawMode('line', document.getElementById('modeLineBtn'));
   }
 };
+
+  // Registration IS the security opt-in; all 20 are markup-dispatched only
+  // (no window re-export — none has a cross-boundary consumer).
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    openDailyProgramFromMore: openDailyProgramFromMore,
+    mCreateFabRoute: mCreateFabRoute,
+    mQuickAddRoute: mQuickAddRoute,
+    restartOnboardingTour: restartOnboardingTour,
+    openDecisionPicker: openDecisionPicker,
+    openD2DOrGo: openD2DOrGo,
+    clearAccentTheme: clearAccentTheme,
+    openSettingsTab: openSettingsTab,
+    openPhotoEngineOrClickProxy: openPhotoEngineOrClickProxy,
+    openReportGenerator: openReportGenerator,
+    enrichReportData: enrichReportData,
+    openPhotoEngineCurrentLead: openPhotoEngineCurrentLead,
+    openInspectionBuilderCurrentLead: openInspectionBuilderCurrentLead,
+    closeInspectionBuilder: closeInspectionBuilder,
+    hideFollowUpAlerts: hideFollowUpAlerts,
+    goToD2DFromMaps: goToD2DFromMaps,
+    openCalBookingUrl: openCalBookingUrl,
+    hardResetTest: hardResetTest,
+    gstaticTest: gstaticTest,
+    modeLineDraw: modeLineDraw,
+  });
+})();
 
 // ══════════════════════════════════════════════
 // NAVIGATION ROUTER — goTo()
@@ -991,11 +893,10 @@ if(typeof closeTips!=='undefined') window.closeTips = closeTips;
 if(typeof applyTheme!=='undefined') window.applyTheme = applyTheme;
 if(typeof goToWithTheme!=='undefined') window.goToWithTheme = goToWithTheme;
 if(typeof showToast!=='undefined') window.showToast = showToast;
-// Daily settings - defined later in this file
-if(typeof dsAddFloor!=='undefined') window.dsAddFloor = dsAddFloor;
-if(typeof dsRemoveFloor!=='undefined') window.dsRemoveFloor = dsRemoveFloor;
-if(typeof dsSaveConfig!=='undefined') window.dsSaveConfig = dsSaveConfig;
-if(typeof dsResetDefaults!=='undefined') window.dsResetDefaults = dsResetDefaults;
+// Daily settings — the ds* cluster is IIFE-wrapped (Globals Tranche 2c-4d,
+// 2026-07-07); its window exports moved INSIDE that IIFE (dsRemoveFloor stays,
+// the rest go to the registry). This load-time typeof block would read
+// 'undefined' post-wrap (the decls are module-local now), so it is gone.
 // NBD Unified Appearance Picker - in maps.js or dashboard
 if(typeof nbdPickerOpen!=='undefined') window.nbdPickerOpen = nbdPickerOpen;
 if(typeof nbdPickerClose!=='undefined') window.nbdPickerClose = nbdPickerClose;
@@ -1025,8 +926,17 @@ if(typeof renderLeaderboard!=='undefined') window.renderLeaderboard = renderLead
 // ══════════════════════════════════════════════════════════════════
 
 // ══════════════════════════════════════════════
-// DAILY PROGRAM — config logic (load/save/reset/floors)
+// DAILY PROGRAM — config logic — Globals Tranche 2c-4d (2026-07-07)
 // ══════════════════════════════════════════════
+// The cluster AND its callers (the goTo settings-hook + the DOMContentLoaded
+// handler, both of which call dsLoadConfig) are wrapped in this one IIFE so the
+// internal helpers (dsGetConfig/dsLoadConfig/dsDefaultFloors) go module-local.
+// dsAddFloor/dsSaveConfig/dsResetDefaults register in __NBD_CALL_REGISTRY;
+// dsRemoveFloor keeps a window re-export (bare-called at dashboard-ui.js:2208).
+// Shared state (dsFloors, DS_* consts) lives in dashboard-state.js up-scope and
+// dsRenderFloors/dsBuildThemeGrid in dashboard-ui.js — all resolve up-scope,
+// unaffected by the wrap. See docs/dev/dashboard-actions-globals-audit.md.
+(function () {
 function dsGetConfig() {
   try { return JSON.parse(localStorage.getItem(DS_NBD_CFG)) || null; } catch { return null; }
 }
@@ -1163,9 +1073,37 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+  // dsRemoveFloor is bare-called from dashboard-ui.js:2208 (the floor-row delete
+  // button) — MUST keep a window export. The other three convert to the registry;
+  // dsGetConfig/dsLoadConfig/dsDefaultFloors are private (intra-IIFE callers only).
+  window.dsRemoveFloor = dsRemoveFloor;
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    dsAddFloor: dsAddFloor,
+    dsSaveConfig: dsSaveConfig,
+    dsResetDefaults: dsResetDefaults,
+  });
+})();
+
 // ══════════════════════════════════════════════
-// MOBILE JOB-DETAIL ACTIONS
+// MOBILE JOB-DETAIL / CREATE-POPOVER CLUSTER — Globals Tranche 2c-4b (2026-07-07)
 // ══════════════════════════════════════════════
+// This whole contiguous block is wrapped in one in-file IIFE so its top-level
+// `function` declarations become module-local instead of auto-globals. The
+// three markup-dispatched (data-fn=) convertibles — _mJdSwitchTab, _mJdShare,
+// _mCreate — register in __NBD_CALL_REGISTRY (block at the bottom of the IIFE),
+// which the dashboard-ui.js `call` delegate resolves first. Every name with a
+// cross-boundary consumer keeps its explicit `window.X = X` re-export (those
+// exports are now load-bearing — the function decl no longer globals itself):
+//   _mJdSwitchTab        → dashboard-widgets.js:1176 bare call
+//   _mJdAct              → 2c-4a cdaMjdAct calls window._mJdAct
+//   openMobileInspection → 2c-4a cdaOpenMobileInspection calls window.openMobileInspection
+//   closeMobileInspection, closeMobileCreatePopover → _NBD_MODAL_CLOSE_FNS window[fn] dispatch
+//   toggleMobileCreatePopover → mCreateFabRoute (outside this IIFE) calls window.toggleMobileCreatePopover
+//   openLeadDetail       → crm-pipeline.js:1267 bare call
+// openMobileCreatePopover is fully PRIVATE — its only caller (toggleMobileCreatePopover)
+// is co-located in this IIFE. See docs/dev/dashboard-actions-globals-audit.md.
+(function () {
 function _mJdSwitchTab(tab) {
   document.querySelectorAll('.m-jd-tab').forEach(t => {
     const on = t.dataset.tab === tab;
@@ -1285,7 +1223,6 @@ function _mJdShare() {
     showToast(portal ? 'Sharing not supported here' : 'No portal link yet — generate one from the lead detail', 'info');
   }
 }
-window._mJdShare = _mJdShare;
 
 function _mJdAct(kind) {
   const id = window._cardDetailLeadId;
@@ -1344,7 +1281,8 @@ function toggleMobileCreatePopover() {
   if (pop.hidden) openMobileCreatePopover();
   else closeMobileCreatePopover();
 }
-window.openMobileCreatePopover  = openMobileCreatePopover;
+// openMobileCreatePopover is PRIVATE (Tranche 2c-4b) — sole caller
+// toggleMobileCreatePopover is co-located in this IIFE; no window export.
 window.closeMobileCreatePopover = closeMobileCreatePopover;
 window.toggleMobileCreatePopover = toggleMobileCreatePopover;
 
@@ -1382,33 +1320,6 @@ function _mCreate(kind) {
       break;
   }
 }
-window._mCreate = _mCreate;
-
-// Photo capture handler — shared by the mobile "+" create popover and the
-// view-photos shutter FAB's no-lead fallback. Both fire BEFORE any lead
-// exists, but a photo can only be stored against a lead
-// (PhotoEngine.uploadFromFile requires a leadId) and there is no
-// standalone-upload path. So route the rep to create/open a lead and add
-// photos from its gallery.
-//
-// Previously this called window.PhotoEngine.uploadOne — not a real
-// PhotoEngine method (only uploadFromFile exists) — and otherwise pushed
-// the file into window._pendingPhotoUploads, an array nothing ever
-// consumed. Either way the photo was silently dropped while a false
-// "Photo uploaded" / "Photo queued" toast claimed success.
-window._mCreatePhotoPicked = function (event) {
-  try {
-    const file = event && event.target && event.target.files && event.target.files[0];
-    if (!file) return;
-    if (typeof openLeadModal === 'function') openLeadModal();
-    if (typeof showToast === 'function') showToast('Create or open a lead, then add photos from its gallery', 'info');
-  } catch (e) {
-    console.warn('mobile photo create reroute failed:', e && e.message);
-  } finally {
-    // Reset input so the same file can be re-picked next time.
-    if (event && event.target) event.target.value = '';
-  }
-};
 
 // Mobile-aware router. Card clicks (handleCardClick / openLeadDetail
 // callers) go here; we pick mobile overlay vs desktop modal at click
@@ -1423,6 +1334,17 @@ function openLeadDetail(leadId) {
   }
 }
 window.openLeadDetail = openLeadDetail;
+
+  // Registration IS the security opt-in. The three markup-dispatched (data-fn=)
+  // convertibles register here; the window re-exports above stay for the
+  // cross-boundary consumers. tests/smoke/dashboard.test.js pins both sides.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    _mJdSwitchTab: _mJdSwitchTab,
+    _mJdShare: _mJdShare,
+    _mCreate: _mCreate,
+  });
+})();
 
 // Async confirm helper that prefers our themed in-app dialog (works in
 // iOS PWA standalone where native confirm() can silently no-op) and
@@ -1577,6 +1499,14 @@ window.absoluteDeleteProspect = async function(leadId) {
 // This eliminates the "data doesn't load even when leads loaded in
 // kanban" failure mode on iOS Safari, where the second page load's
 // Firestore connection sometimes hangs.
+// ── Globals Tranche 2c-4e (2026-07-07): the customer-page handoff cluster is
+// wrapped in this IIFE. The 4 openers register in __NBD_CALL_REGISTRY;
+// _stashLeadForCustomerPage keeps its window export (7 typeof-guarded widget
+// callers: activity-feed, almost-there, global-search, hot-leads,
+// smart-followup-briefing, stale-shares, dashboard-bootstrap.module).
+// editCardDetails' bare editLead/closeCardDetailModal resolve up-scope via the
+// global object. See docs/dev/dashboard-actions-globals-audit.md.
+(function () {
 function _stashLeadForCustomerPage(leadId) {
   try {
     if (!leadId || !Array.isArray(window._leads)) return;
@@ -1607,28 +1537,238 @@ function openPhotosForLead() {
   _stashLeadForCustomerPage(window._cardDetailLeadId);
   window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}#photos`;
 }
-window.openPhotosForLead = openPhotosForLead;
 
 function openDocsForLead() {
   if (!window._cardDetailLeadId) return;
   _stashLeadForCustomerPage(window._cardDetailLeadId);
   window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}#documents`;
 }
-window.openDocsForLead = openDocsForLead;
 
 function openFullCustomerDetails() {
   if (!window._cardDetailLeadId) return;
   _stashLeadForCustomerPage(window._cardDetailLeadId);
   window.location.href = `/pro/customer.html?id=${window._cardDetailLeadId}`;
 }
-window.openFullCustomerDetails = openFullCustomerDetails;
 
 function editCardDetails() {
   if (!window._cardDetailLeadId) return;
   closeCardDetailModal();
   editLead(window._cardDetailLeadId);
 }
-window.editCardDetails = editCardDetails;
+
+  // _stashLeadForCustomerPage keeps its window export above (7 widget callers).
+  // The 4 openers are markup-only → registry, off window.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    openPhotosForLead: openPhotosForLead,
+    openDocsForLead: openDocsForLead,
+    openFullCustomerDetails: openFullCustomerDetails,
+    editCardDetails: editCardDetails,
+  });
+})();
 
 
 (function(){if(_NBD_DA_DELEGATE)return;_NBD_DA_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-da-action]');if(!t)return;if(t.dataset.daAction==='reload')window.location.reload();});})();
+
+// ══════════════════════════════════════════════
+// CARD-DETAIL ACTION CLUSTER — Globals Tranche 2c-4a (2026-07-07)
+// ══════════════════════════════════════════════
+// The 18 card-detail action wrappers + chip pickers + the mobile photo-picker,
+// consolidated OFF `window` into this IIFE and registered in
+// window.__NBD_CALL_REGISTRY — which the dashboard-ui.js `call` delegate
+// resolves FIRST (registration is the security opt-in that the
+// _NBD_CALL_ALLOWLIST entry used to be; these names are removed from that
+// allowlist in dashboard-state.js). Each wraps window._cardDetailLeadId and
+// delegates to another module (NBDReports, PhotoEngine, InvoicePipeline,
+// InspectionReportEngine, KanbanContextMenu, NBDVoiceMemo, NBDVoicemail) or a
+// window-scoped helper — no shared top-level lexical state, so consolidating
+// the scattered defs here is safe. Cross-slice calls to _mJdAct /
+// openMobileInspection go through `window.*` so they survive when the mobile
+// cluster (Tranche 2c-4b) goes module-local. See
+// docs/dev/dashboard-actions-globals-audit.md.
+(function () {
+  function cdaReport() {
+    if (window.NBDReports && typeof window.NBDReports.openGenerator === 'function') {
+      window.NBDReports.openGenerator(window._cardDetailLeadId);
+    } else if (typeof showToast === 'function') {
+      showToast('Report module loading...', 'error');
+    }
+  }
+  function cdaEnrich() {
+    if (window.NBDReports && typeof window.NBDReports.enrichData === 'function') {
+      window.NBDReports.enrichData(window._cardDetailLeadId);
+    } else if (typeof showToast === 'function') {
+      showToast('Report module loading...', 'error');
+    }
+  }
+  function cdaPhotos() {
+    if (window.PhotoEngine && typeof window.PhotoEngine.openCamera === 'function') {
+      if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
+      window.PhotoEngine.openCamera(window._cardDetailLeadId);
+    } else if (typeof showToast === 'function') {
+      showToast('Photo engine loading...', 'error');
+    }
+  }
+  function cdaInvoice() {
+    if (window.InvoicePipeline && typeof window.InvoicePipeline.createInvoiceUI === 'function') {
+      if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
+      window.InvoicePipeline.createInvoiceUI(window._cardDetailLeadId);
+    } else if (typeof showToast === 'function') {
+      showToast('Invoice pipeline loading...', 'error');
+    }
+  }
+  function cdaInspection() {
+    if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
+      // openBuilder(containerId, leadId) — the containerId MUST be first. The
+      // original inline onclick passed 'inspectionBuilderContainer'; the CSP
+      // extraction dropped it, so the builder never rendered (leadId was read as
+      // the container id → getElementById miss → silent return).
+      window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._cardDetailLeadId);
+    } else if (typeof showToast === 'function') {
+      showToast('Inspection engine loading...', 'error');
+    }
+  }
+  // Wave 28: card-detail chip pickers. Clicking either chip in the card-
+  // detail modal opens the same floating menu the kanban right-click flow
+  // uses — no full edit form needed to move a card or relabel its track.
+  // Anchors below the chip so the menu drops down into view. The picker
+  // implementation lives in kanban-context-menu.js (window.KanbanContextMenu).
+  function cdPickStage(el) {
+    const id = window._cardDetailLeadId;
+    if (!id || !window.KanbanContextMenu) return;
+    const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    const anchor = r ? { x: r.left, y: r.bottom + 4 } : { x: 100, y: 100 };
+    window.KanbanContextMenu.openStagePicker(id, anchor);
+  }
+  function cdPickType(el) {
+    const id = window._cardDetailLeadId;
+    if (!id || !window.KanbanContextMenu) return;
+    const r = el && el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+    const anchor = r ? { x: r.left, y: r.bottom + 4 } : { x: 100, y: 100 };
+    window.KanbanContextMenu.openTypePicker(id, anchor);
+  }
+  function cdaInspectionDeep() {
+    // The original onclick was: close the card-detail modal, then after 200ms
+    // show the inspectionBuilderOverlay and call openBuilder. The setTimeout
+    // gives the modal-close animation time to finish.
+    if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
+      const lid = window._cardDetailLeadId;
+      if (typeof closeCardDetailModal === 'function') closeCardDetailModal();
+      setTimeout(function(){
+        const overlay = document.getElementById('inspectionBuilderOverlay');
+        if (overlay) overlay.style.display = 'block';
+        // openBuilder(containerId, leadId) — container first. The CSP extraction of
+        // the original inline onclick dropped 'inspectionBuilderContainer', so the
+        // card-detail "Report" button silently never opened the builder.
+        window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', lid);
+      }, 200);
+    } else if (typeof showToast === 'function') {
+      showToast('Inspection engine loading...', 'error');
+    }
+  }
+  // card-detail-lead-id guarded wrappers. cdaMjdAct / cdaOpenMobileInspection
+  // call the mobile cluster (Tranche 2c-4b) via `window.*` so they keep
+  // resolving once those callees go module-local.
+  function cdaMjdAct(actionType) {
+    if (!window._cardDetailLeadId || typeof window._mJdAct !== 'function') return;
+    window._mJdAct(actionType, window._cardDetailLeadId);
+  }
+  function cdaEditLead() {
+    if (window._cardDetailLeadId && typeof window.editLead === 'function') {
+      const id = window._cardDetailLeadId;
+      // Close the mobile job-detail overlay first. It sits at z-index 2100,
+      // above the lead-edit modal's .modal-bg (z-index 2000), so without this
+      // the edit modal opens *behind* the still-visible panel and the Edit
+      // button appears to do nothing on mobile. (Matches cdaInspectionDeep,
+      // which also closes the detail surface before opening its sub-flow.)
+      if (typeof window.closeMobileJobDetail === 'function') window.closeMobileJobDetail();
+      window.editLead(id);
+    }
+  }
+  function cdaOpenMobileInspection() {
+    if (window._cardDetailLeadId && typeof window.openMobileInspection === 'function') {
+      window.openMobileInspection(window._cardDetailLeadId);
+    }
+  }
+  function cdaVoiceMemo() {
+    if (window._cardDetailLeadId &&
+        window.NBDVoiceMemo &&
+        typeof window.NBDVoiceMemo.recordForLead === 'function') {
+      window.NBDVoiceMemo.recordForLead(window._cardDetailLeadId);
+    }
+  }
+  // step-4: opens the voicemail-pipeline modal for the current card-detail lead.
+  function cdaOpenVoicemail() {
+    if (window._cardDetailLeadId &&
+        window.NBDVoicemail &&
+        typeof window.NBDVoicemail.openForLead === 'function') {
+      window.NBDVoicemail.openForLead(window._cardDetailLeadId);
+    }
+  }
+  function cdaSharePortalLink() {
+    if (window._cardDetailLeadId && typeof window._sharePortalLink === 'function') {
+      window._sharePortalLink(window._cardDetailLeadId);
+    }
+  }
+  function cdaRevokePortalLink() {
+    if (window._cardDetailLeadId && typeof window._revokePortalLink === 'function') {
+      window._revokePortalLink(window._cardDetailLeadId);
+    }
+  }
+  function cdaConfirmPromote() {
+    if (window._cardDetailLeadId && typeof window.confirmPromoteProspect === 'function') {
+      window.confirmPromoteProspect(window._cardDetailLeadId);
+    }
+  }
+  function cdaOpenTaskModal() {
+    if (window._cardDetailLeadId && typeof openTaskModal === 'function') {
+      openTaskModal(window._cardDetailLeadId, null);
+    }
+  }
+  // Photo capture handler — shared by the mobile "+" create popover and the
+  // view-photos shutter FAB's no-lead fallback. Both fire BEFORE any lead
+  // exists, but a photo can only be stored against a lead
+  // (PhotoEngine.uploadFromFile requires a leadId) and there is no
+  // standalone-upload path. So route the rep to create/open a lead and add
+  // photos from its gallery. (Previously called window.PhotoEngine.uploadOne —
+  // not a real method — or pushed to window._pendingPhotoUploads, which
+  // nothing consumed, silently dropping the photo behind a false success toast.)
+  function _mCreatePhotoPicked(event) {
+    try {
+      const file = event && event.target && event.target.files && event.target.files[0];
+      if (!file) return;
+      if (typeof openLeadModal === 'function') openLeadModal();
+      if (typeof showToast === 'function') showToast('Create or open a lead, then add photos from its gallery', 'info');
+    } catch (e) {
+      console.warn('mobile photo create reroute failed:', e && e.message);
+    } finally {
+      // Reset input so the same file can be re-picked next time.
+      if (event && event.target) event.target.value = '';
+    }
+  }
+
+  // Registration IS the security opt-in (the role the _NBD_CALL_ALLOWLIST
+  // entry used to play). tests/smoke/dashboard.test.js pins registration +
+  // off-window status for every name below.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, {
+    cdaReport: cdaReport,
+    cdaEnrich: cdaEnrich,
+    cdaPhotos: cdaPhotos,
+    cdaInvoice: cdaInvoice,
+    cdaInspection: cdaInspection,
+    cdPickStage: cdPickStage,
+    cdPickType: cdPickType,
+    cdaInspectionDeep: cdaInspectionDeep,
+    cdaMjdAct: cdaMjdAct,
+    cdaEditLead: cdaEditLead,
+    cdaOpenMobileInspection: cdaOpenMobileInspection,
+    cdaVoiceMemo: cdaVoiceMemo,
+    cdaOpenVoicemail: cdaOpenVoicemail,
+    cdaSharePortalLink: cdaSharePortalLink,
+    cdaRevokePortalLink: cdaRevokePortalLink,
+    cdaConfirmPromote: cdaConfirmPromote,
+    cdaOpenTaskModal: cdaOpenTaskModal,
+    _mCreatePhotoPicked: _mCreatePhotoPicked,
+  });
+})();

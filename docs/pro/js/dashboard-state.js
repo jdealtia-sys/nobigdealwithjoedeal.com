@@ -129,8 +129,12 @@ const _NBD_MODAL_CLOSE_FNS = {
 // ignored by the delegate. Add functions here only when their inline
 // onclick is being migrated to data-action="call" data-fn="...".
 const _NBD_CALL_ALLOWLIST = new Set([
-  // Mobile job-detail / create-popover internals
-  '_mJdSwitchTab', '_mJdAct', '_mJdShare', '_mCreate',
+  // Mobile job-detail / create-popover internals — moved OFF window into an
+  // IIFE in dashboard-actions.js (Globals Tranche 2c-4b, 2026-07-07).
+  // _mJdSwitchTab / _mJdShare / _mCreate register in __NBD_CALL_REGISTRY;
+  // _mJdAct is never markup-dispatched (reached via window._mJdAct from the
+  // 2c-4a cdaMjdAct wrapper), so its allowlist entry was vestigial. Do NOT
+  // re-add — a stale window fallback would shadow-resurrect the global.
   // CRM kanban + filters
   // (cycleKanbanDensity → __NBD_CALL_REGISTRY, Tranche 2c-4g — off window.
   //  setKanbanDensity STAYS: auto-global backing decl, not the clean form.)
@@ -192,9 +196,11 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'shareCalViaSMS', 'shareCalViaEmail', 'saveCalSettings',
   'qaUseMyLocation', 'saveQuickLead',
   'openLeadModal', 'openTaskModal', 'openShortcutsPanel', 'openQMImportModal',
-  'openPhotosForLead', 'openFullCustomerDetails', 'openDocsForLead',
+  // (openPhotosForLead, openFullCustomerDetails, openDocsForLead →
+  //  __NBD_CALL_REGISTRY, Tranche 2c-4e — off window)
   'openUploadDoc', 'openEstimateV2Builder',
-  'editCardDetails', 'confirmPropertyIntelPull',
+  // (editCardDetails → __NBD_CALL_REGISTRY, Tranche 2c-4e — off window)
+  'confirmPropertyIntelPull',
   'executePullPropertyIntel', 'pullIntelForModal', 'addTask',
   // Bulk operations — the toolbar handlers register in __NBD_CALL_REGISTRY
   // (crm-portal-bridge.js, Globals Tranche 2c-3), so they leave the
@@ -221,8 +227,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'saveCustomTheme', 'resetCustomTheme', 'resetSidebarCustomizer',
   // FAB / scoreboard tabs
   'fabToggle', 'switchScTab',
-  // Daily-success / floors config
-  'dsSaveConfig', 'dsResetDefaults', 'dsAddFloor',
+  // (Tranche 2c-4d 2026-07-07: dsAddFloor, dsSaveConfig, dsResetDefaults →
+  //  __NBD_CALL_REGISTRY, off window. dsRemoveFloor stays window-exported
+  //  (dashboard-ui.js bare call); ds* helpers are private. Do NOT re-add.)
   // (cancelDeleteConfirm moved into __NBD_CALL_REGISTRY — crm-portal-bridge.js,
   //  Globals Tranche 2c-3)
   // Settings page private setters (defensive: only fire if loaded).
@@ -241,46 +248,46 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'confirmPromoteProspect', 'openLeadImport',
   // Quick-add flow
   'closeQuickAddLead',
-  // Card-detail action helpers (defined below, glue around _cardDetailLeadId)
-  'cdaReport', 'cdaEnrich', 'cdaPhotos', 'cdaInvoice', 'cdaInspection',
-  'cdaInspectionDeep',
-  // Mobile-more compound rewrites
-  'openDailyProgramFromMore',
-  // Mobile create-popover routing
-  'mCreateFabRoute',
+  // Card-detail action helpers (glue around _cardDetailLeadId): the 18-name
+  // cda* / chip-picker / _mCreatePhotoPicked cluster moved OFF window into an
+  // IIFE in dashboard-actions.js and registers in __NBD_CALL_REGISTRY (Globals
+  // Tranche 2c-4a, 2026-07-07); see docs/dev/dashboard-actions-globals-audit.md.
+  // Do NOT re-add these names — a stale window fallback would shadow-resurrect
+  // the global the tranche removed. Removed: cdaReport, cdaEnrich, cdaPhotos,
+  // cdaInvoice, cdaInspection, cdaInspectionDeep, cdaMjdAct, cdaEditLead,
+  // cdaOpenMobileInspection, cdaVoiceMemo, cdaOpenVoicemail, cdaSharePortalLink,
+  // cdaRevokePortalLink, cdaConfirmPromote, cdaOpenTaskModal, cdPickStage,
+  // cdPickType, _mCreatePhotoPicked.
+  // (Tranche 2c-4c 2026-07-07: openDailyProgramFromMore, mCreateFabRoute +
+  //  the other 18 one-off openers moved OFF window into an IIFE in
+  //  dashboard-actions.js and register in __NBD_CALL_REGISTRY. Do NOT re-add —
+  //  a stale window fallback would shadow-resurrect the global.)
   // Settings page private setters (defensive — delegate's typeof
   // guard makes the && existence-check redundant)
   '_nbdDismissTrial', '_loadCompanySettings',
   '_gdprRequestErasure', '_gdprExport',
   // Company Profile tab (doc-constants editable from UI)
   '_loadCompanyProfileSettings',
-  // (_saveSiteSlug — Pillar 5 microsite-slug "Save Address" — → __NBD_CALL_REGISTRY,
-  //  Tranche 2c-4f, off window)
-  // Card-detail action wrappers (defined below)
-  'cdaMjdAct', 'cdaEditLead', 'cdaOpenMobileInspection', 'cdaVoiceMemo',
+  // (_saveCompanyProfileSettings, _resetCompanyProfileSettings, _saveSiteSlug,
+  //  testFirestoreRules → __NBD_CALL_REGISTRY, Tranche 2c-4f
+  //  (dashboard-bootstrap.module.js), off window. Do NOT re-add.)
+  // (cdaMjdAct, cdaEditLead, cdaOpenMobileInspection, cdaVoiceMemo,
+  //  cdaSharePortalLink, cdaRevokePortalLink, cdaConfirmPromote, cdaOpenTaskModal,
+  //  cdPickStage, cdPickType → __NBD_CALL_REGISTRY, Tranche 2c-4a/4b, off window)
   // Draw / misc
   'undoLine',
-  // Quick-add ternary rewrite
-  'mQuickAddRoute',
-  // OnboardingTour / DecisionEngine / D2D / ThemeGX / settings ternary rewrites
-  'restartOnboardingTour', 'openDecisionPicker', 'openD2DOrGo',
-  'clearAccentTheme', 'openSettingsTab', 'openPhotoEngineOrClickProxy',
-  // Card-detail share/revoke/promote/task wrappers
-  'cdaSharePortalLink', 'cdaRevokePortalLink', 'cdaConfirmPromote',
-  'cdaOpenTaskModal',
-  // Wave 28: card-detail chip pickers (stage + classification quick-change)
-  'cdPickStage', 'cdPickType',
-  // Compound rewrites for ~15 remaining one-off handlers
-  'openReportGenerator', 'enrichReportData', 'openPhotoEngineCurrentLead',
-  'openInspectionBuilderCurrentLead', 'closeInspectionBuilder',
-  'hideFollowUpAlerts', 'goToD2DFromMaps', 'openCalBookingUrl',
-  'hardResetTest', 'gstaticTest', 'modeLineDraw',
+  // (Tranche 2c-4b…4e 2026-07-07: mQuickAddRoute, restartOnboardingTour,
+  //  openDecisionPicker, openD2DOrGo, clearAccentTheme, openSettingsTab,
+  //  openPhotoEngineOrClickProxy, openReportGenerator, enrichReportData,
+  //  openPhotoEngineCurrentLead, openInspectionBuilderCurrentLead,
+  //  closeInspectionBuilder, hideFollowUpAlerts, goToD2DFromMaps,
+  //  openCalBookingUrl, hardResetTest, gstaticTest, modeLineDraw →
+  //  __NBD_CALL_REGISTRY, off window. Do NOT re-add.)
   // Misc directly-callable global referenced in surveyed onclicks
   'goTo',
   // step-3: smart-calendar refresh button
   'loadSmartCalendar',
-  // step-4: voicemail open-for-lead wrapper
-  'cdaOpenVoicemail',
+  // (cdaOpenVoicemail → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
   // ── CSP onchange/oninput sweep (Phase C.6) ──
   // The prefs-boot toggle wrappers that used to live here (Phase C.6:
   // toggleProfessionalMode, the nbdGx*/nbdComfortSet*/nbdSet*T families,
@@ -302,7 +309,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'filterPhotoLeads', 'handleDocUpload',
   'updateCalEmbed',
   'updateCertPreview', 'updatePropertyIntelCost', 'uploadPhotos',
-  '_mCreatePhotoPicked', 'nbdRenderThemes', 'nbdLiveCustom',
+  // (_mCreatePhotoPicked → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
+  'nbdRenderThemes', 'nbdLiveCustom',
   // (nbdComfortSetWhisperHotkey, nbdComfortSetWhisperKey → __NBD_CALL_REGISTRY,
   //  Tranche 2c-4g — off window)
   // Help tab — Hotkey Toggles grid (dashboard-hotkey-toggles.js); data-on-change delegate
