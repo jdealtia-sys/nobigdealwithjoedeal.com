@@ -35,6 +35,14 @@ function monthKeysAt(now) {
   };
 }
 
+// Deterministic idempotency-marker id for the once-per-company-per-month
+// digest. Cloud Scheduler delivers at-least-once, so a retry re-runs the cron;
+// without a marker each retry re-enqueues the same email. The id is stable for
+// a (company, month) pair so a retry collides on a create()-if-not-exists. (#7)
+function alertMarkerId(companyId, monthKey) {
+  return String(companyId) + '_' + String(monthKey);
+}
+
 function fmtCents(cents) {
   return (Math.round(Number(cents) || 0) / 100).toLocaleString('en-US', {
     style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -122,6 +130,6 @@ function buildEmail(summary, lastLabel) {
 }
 
 module.exports = {
-  TZ, etYmd, monthKeyOf, monthKeysAt, fmtCents, escapeHtml, prettyCategory,
+  TZ, etYmd, monthKeyOf, monthKeysAt, alertMarkerId, fmtCents, escapeHtml, prettyCategory,
   summarizeOverhead, buildEmail,
 };

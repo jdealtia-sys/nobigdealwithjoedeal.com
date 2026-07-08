@@ -35,6 +35,9 @@ async function run() {
   // real case — exactly Joe's account) and a 'viewer' (read-only).
   const dave   = env.authenticatedContext('dave',   { companyId: 'co-d' }).firestore();
   const viewer = env.authenticatedContext('vic',    { role: 'viewer', companyId: 'co-v' }).firestore();
+  // TRUE solo: no role AND no companyId claim — the only case allowed to pin an
+  // expense companyId to its own uid (the #12 fallback).
+  const solo   = env.authenticatedContext('solo1',  {}).firestore();
   const anon  = env.unauthenticatedContext().firestore();
 
   const { setDoc, doc, getDoc, updateDoc, deleteDoc } = require('firebase/firestore');
@@ -530,6 +533,17 @@ async function run() {
   // ✅ a valid taxCents is accepted (proves the guard isn't over-broad)
   await assertSucceeds(setDoc(doc(alice, 'expenses/ok-tax'),
     Object.assign(expDoc('alice', 'co-a', 'leadA', 'ABC Supply'), { taxCents: 825 })));
+  // ── #12: a MEMBER (companyId claim co-a) cannot stamp companyId = own uid ──
+  // The `== uid` fallback is solo-only; else a rep could hide the expense from
+  // the company_admin/manager rollup + the overhead cron (both filter by tenant).
+  await assertFails(setDoc(doc(alice, 'expenses/hide-uid'),
+    expDoc('alice', 'alice', 'leadA', 'hidden')));
+  // ✅ a TRUE solo (no companyId claim) CAN pin companyId to its own uid
+  await assertSucceeds(setDoc(doc(solo, 'expenses/exp-solo'),
+    expDoc('solo1', 'solo1', null, 'Home Depot')));
+  // ❌ but a solo still cannot pin to a FOREIGN companyId
+  await assertFails(setDoc(doc(solo, 'expenses/solo-forge'),
+    expDoc('solo1', 'co-a', null, 'forged')));
   // ✅ owner reads her own
   await assertSucceeds(getDoc(doc(alice, 'expenses/exp-alice')));
   // ✅ company_admin in the SAME tenant reads a rep's expense (team rollup)

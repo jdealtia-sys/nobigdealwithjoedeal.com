@@ -60,7 +60,7 @@ exports.monthlyOverheadAlertCron = onSchedule(
     const docs = snap.docs.map(d => d.data());
     const perCompany = L.summarizeOverhead(docs, lastKey, priorKey);
 
-    let queued = 0, skippedZero = 0, noEmail = 0;
+    let queued = 0, skippedZero = 0, noEmail = 0, alreadySent = 0;
     for (const [cid, summary] of perCompany) {
       if (summary.totalCents <= 0) { skippedZero++; continue; }
       let ownerUid = cid;
@@ -74,22 +74,44 @@ exports.monthlyOverheadAlertCron = onSchedule(
       } catch (e) { logger.warn('monthly_overhead.owner_lookup_failed', { cid, ownerUid, message: e.message }); }
       if (!email) { noEmail++; continue; }
 
+      // Idempotency: reserve a per-company/per-month marker BEFORE enqueuing.
+      // Cloud Scheduler is at-least-once, so a retried cron run would otherwise
+      // re-send this digest. create() fails if the marker exists → already
+      // sent this month, skip. (#7)
+      const markerRef = db.collection('overheadAlertLog').doc(L.alertMarkerId(cid, lastKey));
+      try {
+        await markerRef.create({
+          companyId: cid, month: lastKey, ownerUid, email,
+          createdAt: FieldValue.serverTimestamp(), source: 'monthly_overhead_alert',
+        });
+      } catch (e) {
+        if (e && (e.code === 6 || /already exists/i.test(e.message || ''))) { alreadySent++; continue; }
+        throw e;
+      }
+
       const { subject, bodyHtml, bodyPlain } = L.buildEmail(summary, lastLabel);
-      await db.collection('email_queue').add({
-        to: email,
-        subject,
-        bodyHtml,
-        bodyPlain,
-        // F-wave contract: the worker's query filters on status —
-        // omitting it means the mail is silently never sent.
-        status: 'pending',
-        createdAt: FieldValue.serverTimestamp(),
-        source: 'monthly_overhead_alert',
-      });
-      queued++;
+      try {
+        await db.collection('email_queue').add({
+          to: email,
+          subject,
+          bodyHtml,
+          bodyPlain,
+          // F-wave contract: the worker's query filters on status —
+          // omitting it means the mail is silently never sent.
+          status: 'pending',
+          createdAt: FieldValue.serverTimestamp(),
+          source: 'monthly_overhead_alert',
+        });
+        queued++;
+      } catch (e) {
+        // Roll the marker back so the next run retries this company instead of
+        // silently swallowing the digest (marker without a sent email).
+        await markerRef.delete().catch(() => {});
+        throw e;
+      }
     }
     logger.info('monthly_overhead.done', {
-      month: lastKey, companies: perCompany.size, queued, skippedZero, noEmail, scanned: docs.length,
+      month: lastKey, companies: perCompany.size, queued, skippedZero, noEmail, alreadySent, scanned: docs.length,
     });
   }
 );

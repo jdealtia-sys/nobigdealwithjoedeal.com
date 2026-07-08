@@ -96,13 +96,17 @@ let _NBD_PT_DELEGATE; // module-local (globals Tranche 1 — was window.*)
    * matching the "before overhead & commission" label).
    *
    * @param {object} lead
-   * @param {Array}  expenses  expense docs for this lead ({amountCents, category, costType})
+   * @param {Array}  expenses  expense docs for this lead ({amountCents, taxCents, category, costType})
    */
   function computeJobPLWithExpenses(lead, expenses) {
     expenses = expenses || [];
     var matCents = 0, laborCents = 0, miscCents = 0;
     expenses.forEach(function(e) {
-      var c = parseInt(e.amountCents, 10) || 0;
+      // COGS = the tax-INCLUDED total (amount + tax): sales tax on materials
+      // is real cash paid to the supplier, so it belongs in job cost (product
+      // decision 2026-07-08). Kept dependency-free — same amount+tax rule is
+      // inlined in money-dashboard.js computePnL and expenses.js aggregate().
+      var c = (parseInt(e.amountCents, 10) || 0) + (parseInt(e.taxCents, 10) || 0);
       if (e.category === 'materials') matCents += c;
       else if (e.category === 'direct_labor') laborCents += c;
       else if (e.costType === 'direct') miscCents += c;
