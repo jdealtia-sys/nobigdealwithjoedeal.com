@@ -838,7 +838,7 @@ function renderZoneList() {
   el.innerHTML = zones.map(z => `
     <div class="zone-item">
       <div class="zone-dot" style="background:${safeColor(z.color)};"></div>
-      <span>${esc(z.name)}</span>
+      <span>${esc(z.name)}${z.repLabel ? ` · <span style="color:var(--m);font-size:11px;">${esc(z.repLabel)}</span>` : ''}</span>
       <button class="zone-del nbd-zone-del" data-zone-id="${esc(z.id)}">✕</button>
     </div>`).join('');
   el.querySelectorAll('.nbd-zone-del').forEach(btn => {

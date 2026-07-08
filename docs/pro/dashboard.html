@@ -1105,6 +1105,9 @@
             <div data-action="zoneColor" data-target="var(--gold)" style="width:18px;height:18px;border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid transparent;"></div>
             <div data-action="zoneColor" data-target="var(--red)" style="width:18px;height:18px;border-radius:50%;background:var(--red);cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
           </div>
+          <select class="zone-name-input" id="zoneRepSelect" style="margin-bottom:6px;" title="Assign this territory to a rep — shades the zone in their colour">
+            <option value="">Assign to rep (optional)…</option>
+          </select>
           <div style="display:flex;gap:5px;">
             <button class="btn btn-orange" style="flex:1;justify-content:center;font-size:11px;" data-action="call" data-fn="saveZone">💾 Save Zone</button>
             <button class="btn btn-ghost" style="font-size:11px;padding:6px 10px;" data-action="call" data-fn="cancelZoneDraw">✕</button>
@@ -5202,9 +5205,9 @@
 <script defer src="js/nbd-url.js?v=1"></script>
 <script defer src="js/dashboard-state.js?v=1"></script>
 <script defer src="js/dashboard-api.js?v=2"></script>
-<script defer src="js/dashboard-widgets.js?v=2"></script>
+<script defer src="js/dashboard-widgets.js?v=3"></script>
 <script defer src="js/dashboard-ui.js?v=2"></script>
-<script defer src="js/dashboard-actions.js?v=3"></script>
+<script defer src="js/dashboard-actions.js?v=4"></script>
 <script defer src="js/dashboard-main.js?v=4"></script>
 
 <!-- DOC VIEWER MODAL -->

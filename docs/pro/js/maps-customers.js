@@ -667,4 +667,7 @@ if (typeof window !== 'undefined') {
   window.buildCustomerRoute    = buildCustomerRoute;
   window.toggleCustomerRoute   = toggleCustomerRoute;
   window.openRouteInGmaps      = openRouteInGmaps;
+  // Shared rep palette (key/label/color per distinct lead owner) so other
+  // surfaces — e.g. territory-zone shading — colour reps consistently.
+  window.nbdRepList            = _custRepCats;
 }

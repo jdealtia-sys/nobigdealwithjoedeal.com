@@ -307,12 +307,34 @@ section('D2D pins — disposition legend + filter (second layer)');
 section('Customers map layer — dashboard.html wiring');
 {
   const dash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const maps = readMaps(); // for the window.nbdRepList export check below
   assert('dashboard.html loads maps-customers.js between overlays and routing',
     /maps-overlays\.js[\s\S]{0,80}maps-customers\.js[\s\S]{0,80}maps-routing\.js/.test(dash),
     'expected the customers module in the locked core→overlays→customers→routing order');
   assert('Customers overlay toggle rendered',
     /data-action="mapOverlay"\s+data-target="customers"/.test(dash),
     'expected a Customers overlay-row toggle');
+  // Territory zones shaded by rep (session-only zones; assignment + colour).
+  assert('zone panel has a rep assignment select',
+    /id="zoneRepSelect"/.test(dash),
+    'expected a #zoneRepSelect in the zone panel');
+  const actions = read(path.join(ROOT, 'docs/pro/js/dashboard-actions.js'));
+  assert('zones populate reps from the shared palette (window.nbdRepList)',
+    /function _populateZoneReps\(\)/.test(actions) && /window\.nbdRepList\(\)/.test(actions),
+    'expected _populateZoneReps to read window.nbdRepList');
+  assert('saveZone shades the zone in the assigned rep colour + labels it',
+    /getElementById\('zoneRepSelect'\)/.test(actions)
+    && /getAttribute\('data-color'\)/.test(actions)
+    && /rep:\s*repKey,\s*repLabel/.test(actions),
+    'expected saveZone to colour by the rep data-color and store rep/repLabel');
+  assert('maps-customers exposes the shared rep palette as window.nbdRepList',
+    /window\.nbdRepList\s*=\s*_custRepCats/.test(maps),
+    'expected window.nbdRepList = _custRepCats');
+  const widgets = read(path.join(ROOT, 'docs/pro/js/dashboard-widgets.js'));
+  assert('zone list shows the assigned rep label',
+    /z\.repLabel \? [\s\S]{0,80}esc\(z\.repLabel\)/.test(widgets),
+    'expected renderZoneList to render z.repLabel');
+
   assert('Customers map FAB rendered',
     /id="fab-customers"[\s\S]{0,120}data-arg="customers"/.test(dash),
     'expected a Customers map FAB wired to fabToggle');

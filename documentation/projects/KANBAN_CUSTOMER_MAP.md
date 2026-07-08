@@ -129,12 +129,22 @@ Both layers are now operational surfaces (two-layer design — leads vs pins):
   via the cluster group; status-less (customer/legacy) pins always pass. Wired
   into the pins overlay toggle + initial load.
 
-**Follow-ups worth noting:** the pins show/hide toggle (`showAllPins`/
-`hideAllPins` in `maps-core.js`) predates clustering and operates on `mainMap`
-directly, so it's inconsistent with the cluster group — the disposition filter
-deliberately routes through the cluster group instead. Worth a dedicated
-cleanup pass. Also: a value-range *slider* (vs tiers) and a saved-view preset
-("my hot Hail estimates") are natural next steps if Jo wants them.
+**Shipped since (2026-07-08, deep-dive round 2):**
+- **Value-range slider**, **team-shared saved views** (companyProfile.mapViews,
+  owner/admin-managed), **Rep / Owner** color-by dimension, a **field-ready
+  route** (GPS start + Google Maps turn-by-turn hand-off), and **territory
+  zones shaded by rep** (assign a rep when drawing a zone → the polygon takes
+  their palette colour + label; reuses `window.nbdRepList`).
+- Backfills: `backfill-lead-stageRole.js`, `backfill-pins-companyId.js`.
+
+**Follow-ups worth noting:**
+- The pins show/hide toggle (`showAllPins`/`hideAllPins` in `maps-core.js`)
+  predates clustering and operates on `mainMap` directly — the disposition
+  filter deliberately routes through the cluster group instead. Worth a cleanup.
+- **Territory zones are session-only** — `zones` is an in-memory array in
+  `dashboard-actions.js`; they vanish on reload and don't sync across the team.
+  Persisting zones (a `/zones` collection + rules + rep assignment carried
+  through) is the natural next step so rep territories survive + are shared.
 
 ### Files touched (both tracks)
 

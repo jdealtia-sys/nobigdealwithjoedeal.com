@@ -569,6 +569,23 @@ function selectZoneColor(color, el) {
   el.style.borderColor = '#fff';
 }
 
+// Fill the zone rep picker from the shared rep palette (maps-customers). Keeps
+// the leading "no rep" option; each rep option carries its palette colour in a
+// data attribute so saveZone can shade the zone without re-deriving.
+function _populateZoneReps() {
+  const sel = document.getElementById('zoneRepSelect');
+  if (!sel) return;
+  const reps = (typeof window.nbdRepList === 'function') ? (window.nbdRepList() || []) : [];
+  const prev = sel.value;
+  let html = '<option value="">Assign to rep (optional)…</option>';
+  reps.forEach(function (r) {
+    html += '<option value="' + String(r.key).replace(/"/g, '&quot;') + '" data-color="' + r.color + '">'
+      + String(r.label).replace(/</g, '&lt;') + '</option>';
+  });
+  sel.innerHTML = html;
+  if (prev) sel.value = prev;
+}
+
 function startZoneDraw() {
   if(!mainMap) { showToast('Open the map first','error'); return; }
   zoneDrawing = true;
@@ -577,6 +594,8 @@ function startZoneDraw() {
   // zonePanel lives inside tpl-view-map (lazy-hydrated). Use optional
   // chaining so a stray invocation outside #/map doesn't null-deref.
   document.getElementById('zonePanel')?.classList.add('visible');
+  // Populate the rep picker so a zone can be assigned to (and shaded by) a rep.
+  _populateZoneReps();
   showToast('Click map to draw zone boundary. Click Save when done.');
   mainMap.getContainer().style.cursor = 'crosshair';
 
@@ -622,17 +641,29 @@ function saveZone() {
   zoneDots.forEach(d => mainMap.removeLayer(d));
   if(zoneTempPoly) mainMap.removeLayer(zoneTempPoly);
 
+  // Rep assignment (optional) — a rep-owned territory is shaded in that rep's
+  // colour and labelled with their name, for dividing canvassing areas.
+  const repSel = document.getElementById('zoneRepSelect');
+  const repKey = repSel && repSel.value ? repSel.value : '';
+  const repOpt = repSel && repSel.selectedOptions && repSel.selectedOptions[0];
+  const repLabel = repKey && repOpt ? repOpt.textContent : '';
+  const repColor = repKey && repOpt ? (repOpt.getAttribute('data-color') || zoneColor) : '';
+  const fillColor = repColor || zoneColor;
+
   const layer = L.polygon(zonePoints, {
-    color: zoneColor, weight:2.5, fillColor: zoneColor, fillOpacity:.1
+    color: fillColor, weight:2.5, fillColor: fillColor, fillOpacity:.1
   }).addTo(mainMap);
-  layer.bindTooltip(`<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;">${name}</div>`, {permanent:true, className:'zone-tooltip', direction:'center'});
+  const _tipName = repLabel ? `${name} · ${repLabel}` : name;
+  layer.bindTooltip(`<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;">${_tipName}</div>`, {permanent:true, className:'zone-tooltip', direction:'center'});
 
   const id = Date.now();
-  zones.push({id, name, color:zoneColor, points:[...zonePoints], layer});
+  zones.push({id, name, color:fillColor, points:[...zonePoints], layer, rep:repKey, repLabel});
   zonePoints = []; zoneDots = [];
   document.getElementById('zonePanel')?.classList.remove('visible');
   const _zni = document.getElementById('zoneNameInput');
   if (_zni) _zni.value = '';
+  const _zrs = document.getElementById('zoneRepSelect');
+  if (_zrs) _zrs.value = '';
   renderZoneList();
   showToast(`Zone "${name}" saved ✓`);
 }
