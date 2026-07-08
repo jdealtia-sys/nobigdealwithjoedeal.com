@@ -185,7 +185,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // photo auto-detect — are registry-registered now; see the Tranche
   // 2c-2 note above.)
   'searchMap', 'saveZone', 'spyglassSearch', 'searchDraw',
-  'retryLoadLeads', 'saveDocUpload',
+  'saveDocUpload',
   'saveJoeKey', 'sendJoeMessage', 'saveJoeKeyFromSettings',
   'shareCalViaSMS', 'shareCalViaEmail', 'saveCalSettings',
   'qaUseMyLocation', 'saveQuickLead',
@@ -205,7 +205,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // Misc tools
   'goToMyLocation', 'spyglassGoToLocation', 'dropPinByAddress',
   'quickStormCheck', 'perimChooseType',
-  'copyDebugInfo', 'copyCalLink', 'loadSampleData', 'inviteTeamMember',
+  'copyCalLink', 'loadSampleData', 'inviteTeamMember',
   'exportLeadsCSV', 'generateWarrantyCertPDF', 'printDoc', 'clearCrmSearch',
   // Appearance picker
   'nbdPickerTab', 'nbdComfortSet', 'nbdHowtoOpen', 'nbdHowtoClose',
@@ -223,11 +223,20 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'dsSaveConfig', 'dsResetDefaults', 'dsAddFloor',
   // (cancelDeleteConfirm moved into __NBD_CALL_REGISTRY — crm-portal-bridge.js,
   //  Globals Tranche 2c-3)
-  // Settings page private setters (defensive: only fire if loaded)
-  '_saveSettings', '_saveNotifSettings', '_saveEstimateDefaultsV2',
-  '_saveCompanySettings', '_testNotif', '_sharePortalLink',
+  // Settings page private setters (defensive: only fire if loaded).
+  // (Tranche 2c-4f 2026-07-07: the dashboard-bootstrap.module.js settings /
+  //  debug / export handlers moved OFF window into __NBD_CALL_REGISTRY —
+  //  _saveSettings, _saveNotifSettings, _saveCompanySettings, _testNotif,
+  //  runLeadAction, _resetEstimateDefaultsV2, _exportPhotos, _exportEstimates,
+  //  _exportAllData, _saveCompanyProfileSettings, _resetCompanyProfileSettings,
+  //  _saveSiteSlug, retryLoadLeads, copyDebugInfo, testFirestoreRules. Do NOT
+  //  re-add. MUST-STAY (kept below): _saveEstimateDefaultsV2 (intra-module
+  //  self-read), _loadCompanySettings / _loadCompanyProfileSettings (ui.js
+  //  cross-file window calls), loadSampleData (dashboard-actions.js twin).)
+  '_saveEstimateDefaultsV2',
+  '_sharePortalLink',
   '_revokePortalLink', 'exportLeadsCsv', 'exportEstimatesCsv',
-  'confirmPromoteProspect', 'runLeadAction', 'openLeadImport',
+  'confirmPromoteProspect', 'openLeadImport',
   // Quick-add flow
   'closeQuickAddLead',
   // Card-detail action helpers (defined below, glue around _cardDetailLeadId)
@@ -239,20 +248,16 @@ const _NBD_CALL_ALLOWLIST = new Set([
   'mCreateFabRoute',
   // Settings page private setters (defensive — delegate's typeof
   // guard makes the && existence-check redundant)
-  '_nbdDismissTrial', '_loadCompanySettings', '_resetEstimateDefaultsV2',
-  '_gdprRequestErasure', '_gdprExport', '_exportPhotos', '_exportEstimates',
-  '_exportAllData',
+  '_nbdDismissTrial', '_loadCompanySettings',
+  '_gdprRequestErasure', '_gdprExport',
   // Company Profile tab (doc-constants editable from UI)
-  '_loadCompanyProfileSettings', '_saveCompanyProfileSettings',
-  '_resetCompanyProfileSettings',
-  // Pillar 5 Settings surface: "Save Address" (microsite slug). Missing this
-  // entry made the button a silent no-op — the delegate gate at
-  // dashboard-ui.js:492 returns for any data-fn not listed here.
-  '_saveSiteSlug',
+  '_loadCompanyProfileSettings',
+  // (_saveSiteSlug — Pillar 5 microsite-slug "Save Address" — → __NBD_CALL_REGISTRY,
+  //  Tranche 2c-4f, off window)
   // Card-detail action wrappers (defined below)
   'cdaMjdAct', 'cdaEditLead', 'cdaOpenMobileInspection', 'cdaVoiceMemo',
   // Draw / misc
-  'undoLine', 'testFirestoreRules',
+  'undoLine',
   // Quick-add ternary rewrite
   'mQuickAddRoute',
   // OnboardingTour / DecisionEngine / D2D / ThemeGX / settings ternary rewrites
