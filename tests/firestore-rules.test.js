@@ -514,6 +514,22 @@ async function run() {
   // ❌ create with no companyId → blocked (companyId is an invariant)
   await assertFails(setDoc(doc(alice, 'expenses/no-co'),
     { userId: 'alice', category: 'materials', costType: 'direct', amountCents: 100, date: new Date() }));
+  // ── validExpenseMoney(): the ledger can't be forged with junk money ──
+  // ❌ negative amountCents → blocked (floor at 0)
+  await assertFails(setDoc(doc(alice, 'expenses/bad-neg'),
+    Object.assign(expDoc('alice', 'co-a', 'leadA', 'ABC Supply'), { amountCents: -500 })));
+  // ❌ non-integer amountCents (dollars mistaken for cents) → blocked
+  await assertFails(setDoc(doc(alice, 'expenses/bad-float'),
+    Object.assign(expDoc('alice', 'co-a', 'leadA', 'ABC Supply'), { amountCents: 12.5 })));
+  // ❌ forged costType (only 'direct'|'overhead' feed the job-cost/overhead rollups) → blocked
+  await assertFails(setDoc(doc(alice, 'expenses/bad-ct'),
+    Object.assign(expDoc('alice', 'co-a', 'leadA', 'ABC Supply'), { costType: 'refund' })));
+  // ❌ negative taxCents → blocked
+  await assertFails(setDoc(doc(alice, 'expenses/bad-tax'),
+    Object.assign(expDoc('alice', 'co-a', 'leadA', 'ABC Supply'), { taxCents: -1 })));
+  // ✅ a valid taxCents is accepted (proves the guard isn't over-broad)
+  await assertSucceeds(setDoc(doc(alice, 'expenses/ok-tax'),
+    Object.assign(expDoc('alice', 'co-a', 'leadA', 'ABC Supply'), { taxCents: 825 })));
   // ✅ owner reads her own
   await assertSucceeds(getDoc(doc(alice, 'expenses/exp-alice')));
   // ✅ company_admin in the SAME tenant reads a rep's expense (team rollup)
@@ -528,6 +544,10 @@ async function run() {
   await assertFails(getDoc(doc(anon, 'expenses/exp-alice')));
   // ✅ owner edits a mutable field (amount correction)
   await assertSucceeds(updateDoc(doc(alice, 'expenses/exp-alice'), { amountCents: 20000 }));
+  // ❌ owner cannot correct an amount to a negative value (validExpenseMoney on update too)
+  await assertFails(updateDoc(doc(alice, 'expenses/exp-alice'), { amountCents: -1 }));
+  // ❌ owner cannot flip costType to a forged value on update
+  await assertFails(updateDoc(doc(alice, 'expenses/exp-alice'), { costType: 'refund' }));
   // ❌ owner cannot mutate immutable audit fields
   await assertFails(updateDoc(doc(alice, 'expenses/exp-alice'), { companyId: 'co-b' }));
   await assertFails(updateDoc(doc(alice, 'expenses/exp-alice'), { userId: 'bob' }));

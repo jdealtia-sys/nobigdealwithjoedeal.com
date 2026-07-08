@@ -103,7 +103,19 @@ const SYSTEM_PROMPT = [
 
 // ─── Number + extraction sanitizers ─────────────────────────────────
 function dollarsToCents(v) {
-  const n = typeof v === 'number' ? v : parseFloat(v);
+  let n;
+  if (typeof v === 'number') {
+    n = v;
+  } else if (typeof v === 'string') {
+    // Strip currency symbol + thousands separators + whitespace, then require the
+    // WHOLE remaining string to be a clean number. Plain parseFloat('2,450.00')
+    // stops at the comma and returns 2 → a $2,450 receipt silently booked as $2.00
+    // (thousands are the norm on a roofing-supplier order).
+    const s = v.replace(/[$,\s]/g, '');
+    n = /^-?\d*\.?\d+$/.test(s) ? parseFloat(s) : NaN;
+  } else {
+    n = NaN;
+  }
   if (!isFinite(n) || n < 0) return null;
   return Math.round(n * 100);
 }
@@ -120,9 +132,15 @@ function sanitizeReceipt(raw) {
     const tax = dollarsToCents(raw.tax); out.taxCents = tax === null ? 0 : tax;
     const tot = dollarsToCents(raw.total); if (tot !== null) out.totalCents = tot;
     if (ALLOWED_CATEGORIES.has(raw.suggestedCategory)) out.suggestedCategory = raw.suggestedCategory;
-    if (typeof raw.confidence === 'number' && !isNaN(raw.confidence)) {
-      out.confidence = Math.max(0, Math.min(1, raw.confidence));
-    }
+    // Accept a numeric OR numeric-string confidence (the model sometimes emits
+    // "0.2"). A confidence that is PRESENT but unreadable is treated as untrusted
+    // (0) so computeNeedsReview flags it — the old code discarded a string
+    // confidence and silently kept the 0.5 default, hiding a low-confidence scan.
+    let conf = 0.5;
+    if (typeof raw.confidence === 'number' && !isNaN(raw.confidence)) conf = raw.confidence;
+    else if (typeof raw.confidence === 'string' && /^\d*\.?\d+$/.test(raw.confidence.trim())) conf = parseFloat(raw.confidence.trim());
+    else if (raw.confidence != null) conf = 0;
+    out.confidence = Math.max(0, Math.min(1, conf));
     if (Array.isArray(raw.lineItems)) {
       out.lineItems = raw.lineItems.slice(0, 50).map((li) => {
         const amt = li ? dollarsToCents(li.amount) : null;
