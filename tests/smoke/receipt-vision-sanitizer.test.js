@@ -42,6 +42,9 @@ module.exports.run = function run(ctx) {
     assert('dollarsToCents "" -> null', dollarsToCents('') === null);
     assert('dollarsToCents junk -> null', dollarsToCents('abc') === null);
     assert('dollarsToCents 0 -> 0', dollarsToCents(0) === 0);
+    assert('dollarsToCents "2,450.00" -> 245000 (thousands separator; was $2.00)', dollarsToCents('2,450.00') === 245000);
+    assert('dollarsToCents "$1,234.56" -> 123456 (currency + grouping)', dollarsToCents('$1,234.56') === 123456);
+    assert('dollarsToCents "12.3.4" -> null (rejects a non-clean number)', dollarsToCents('12.3.4') === null);
 
     // ── sanitizeReceipt happy path ──
     {
@@ -68,7 +71,8 @@ module.exports.run = function run(ctx) {
     assert('missing tax -> 0', sanitizeReceipt({}).taxCents === 0);
     assert('bad category -> null', sanitizeReceipt({ suggestedCategory: 'beer' }).suggestedCategory === null);
     assert('confidence 1.5 clamps to 1', sanitizeReceipt({ confidence: 1.5 }).confidence === 1);
-    assert('confidence string -> default 0.5', sanitizeReceipt({ confidence: '0.9' }).confidence === 0.5);
+    assert('numeric-string confidence "0.9" -> 0.9 (was silently dropped to 0.5)', sanitizeReceipt({ confidence: '0.9' }).confidence === 0.9);
+    assert('non-numeric confidence "high" -> 0 (untrusted → flags review)', sanitizeReceipt({ confidence: 'high' }).confidence === 0);
     assert('negative total rejected -> null', sanitizeReceipt({ total: -10 }).totalCents === null);
     assert('lineItems capped at 50', sanitizeReceipt({
       lineItems: Array.from({ length: 80 }, (_, i) => ({ description: 'x' + i, amount: 1 })),
@@ -115,6 +119,10 @@ module.exports.run = function run(ctx) {
 
       const mismatch = sanitizeReceipt({ vendor: 'ABC', total: 200, tax: 8.25, confidence: 0.9, lineItems: [{ description: 'a', amount: 100 }] });
       assert('needsReview true when reconcile fails', computeNeedsReview(mismatch, reconcile(mismatch)) === true);
+
+      const strLowConf = sanitizeReceipt({ vendor: 'ABC', total: 100, confidence: '0.2' });
+      assert('needsReview true on a numeric-STRING low confidence (was masked by the 0.5 default)',
+        computeNeedsReview(strLowConf, reconcile(strLowConf)) === true);
     }
   }
 };

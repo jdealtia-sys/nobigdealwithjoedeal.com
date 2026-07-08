@@ -346,10 +346,13 @@
   // Client-side duplicate guard: same supplier + amount + calendar day already
   // logged. Returns the matching expense or null.
   function findDuplicate(supplier, amountCents, dateStr) {
-    var sup = (supplier || '').trim().toLowerCase();
+    // Match vendors the SAME way the 1099/YTD rollup does (normVendor) so a re-scan
+    // that returns 'ABC Supply' vs 'ABC Supply, LLC' still trips the dup guard.
+    var nv = (EC() && EC().normVendor) ? EC().normVendor : function (s) { return String(s || '').trim().toLowerCase(); };
+    var sup = nv(supplier);
     return _expenses.find(function (e) {
       if ((parseInt(e.amountCents, 10) || 0) !== amountCents) return false;
-      if (((e.supplier || '').trim().toLowerCase()) !== sup) return false;
+      if (nv(e.supplier) !== sup) return false;
       var ed = toDate(e.date);
       return ed && ymdLocal(ed) === dateStr;
     }) || null;
@@ -407,7 +410,9 @@
       costType: costType,
       supplier: (form.supplier || '').trim().slice(0, 120),
       amountCents: amountCents,
-      taxCents: c.dollarsToCents(form.tax) || 0,
+      // Clamp negative tax — ExpenseConfig.dollarsToCents does not reject negatives
+      // and the form's min=0 is client-only, so a typed '-5' would persist -500.
+      taxCents: Math.max(0, c.dollarsToCents(form.tax) || 0),
       currency: c.DEFAULT_CURRENCY,
       date: dateObj,
       note: (form.note || '').trim().slice(0, 500),
@@ -674,7 +679,7 @@
           var over = va.varianceCents > 0;
           var vColor = over ? '#dc2626' : '#16a34a';
           vaTxt = '<div style="font-size:11px;color:var(--m,#9ca3af);">est ' + money(va.estCents) + ' · ' +
-            '<span style="color:' + vColor + ';font-weight:700;">' + (over ? '+' : '') + money(va.varianceCents) + (over ? ' over' : ' under') + '</span></div>';
+            '<span style="color:' + vColor + ';font-weight:700;">' + (over ? '+' : '') + money(Math.abs(va.varianceCents)) + (over ? ' over' : ' under') + '</span></div>';
         }
         html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid var(--br,rgba(255,255,255,.06));">' +
           '<div style="min-width:0;"><div style="font-size:13px;color:var(--h,#fff);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + esc(leadName(row.lead)) + '</div>' +
@@ -842,6 +847,15 @@
     if (milesEl) milesEl.addEventListener('input', recomputeMileage);
     var dateEl = document.getElementById('expDate');
     if (dateEl) dateEl.addEventListener('change', function () { if (catSel && catSel.value === 'mileage') recomputeMileage(); });
+    // Re-selecting a receipt MUST force a fresh upload + OCR of the new file —
+    // scanReceipt only uploads when _scannedPath is falsy, so without this reset a
+    // 2nd file pick re-scans the FIRST receipt (wrong image + wrong $ on save).
+    var fileEl = document.getElementById('expFile');
+    if (fileEl) fileEl.addEventListener('change', function () {
+      _scannedPath = null;
+      _scanExtraction = null;
+      if (typeof setScanStatus === 'function') setScanStatus('');
+    });
     syncCategoryFields();
 
     var amt = document.getElementById('expAmount');
@@ -910,6 +924,11 @@
   // ── CSV export (accountant-ready; do this BEFORE any QuickBooks/Xero API) ──
   function csvCell(v) {
     var s = String(v == null ? '' : v);
+    // Neutralize spreadsheet formula injection: a leading =,+,-,@,tab,CR makes
+    // Excel/Sheets EXECUTE the cell. OCR-extracted vendor text is attacker-
+    // influenceable (a crafted receipt image) and this CSV is opened by the
+    // accountant — prefix a single quote so the cell is treated as text.
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
     return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
   function exportCSV() {
