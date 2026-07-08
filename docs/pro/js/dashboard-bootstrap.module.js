@@ -20,7 +20,7 @@
     S, STAGE_META, LEGACY_MAP, KANBAN_VIEWS,
     VIEW_SIMPLE, VIEW_INSURANCE, VIEW_CASH, VIEW_FINANCE, VIEW_WARRANTY, VIEW_SERVICE, VIEW_JOBS,
     normalizeStage, stageLabel, stageColor, resolveColumn,
-    stageRole, isWonStage, isLostStage, ROLE,
+    stageRole, isWonStage, isLostStage, ROLE, resolvePipelineConfig,
     stageOptionsForType, inferJobType, JOB_TYPES, JOB_TYPE_META, jobTypeLabel,
     SUB_TYPES, subTypeOptionsFor, subTypeLabel,
     TRADES, tradeLabel, tradesLabel,
@@ -70,6 +70,32 @@
   window.isWonStage = isWonStage;
   window.isLostStage = isLostStage;
   window.STAGE_ROLE = ROLE;
+
+  // ── Phase 1: apply a per-tenant pipeline config over the built-in defaults ──
+  // Config lives at companyProfile.pipelines (owner/admin-writable). No config →
+  // early-return, so current tenants (none configured yet) are byte-identical.
+  // When a config exists it re-points the stage globals + re-renders. Exposed so
+  // the Phase-2 builder can re-apply immediately after a save.
+  window.applyPipelineConfig = function applyPipelineConfig() {
+    const raw = window._companyProfile && window._companyProfile.pipelines;
+    if (!raw || typeof raw !== 'object' || (!raw.stages && !raw.views)) return; // defaults stand
+    let resolved;
+    try { resolved = resolvePipelineConfig(raw); } catch (e) { console.warn('[pipelines] resolve failed', e); return; }
+    window.STAGE_META = resolved.stageMeta;
+    window.KANBAN_VIEWS = resolved.views;
+    window.stageRole = resolved.roleOf;
+    window.isWonStage = (k) => resolved.roleOf(k) === ROLE.WON;
+    window.isLostStage = (k) => resolved.roleOf(k) === ROLE.LOST;
+    window.stageLabel = (k) => (resolved.stageMeta[k] || resolved.stageMeta[normalizeStage(k)] || {}).label || k;
+    window.stageColor = (k) => (resolved.stageMeta[k] || resolved.stageMeta[normalizeStage(k)] || {}).color || '#374151';
+    const vk = window._currentViewKey || 'insurance';
+    const vs = (resolved.views[vk] && resolved.views[vk].stages) || [];
+    window._stageKeys = vs;
+    window.STAGES = vs.map(k => (resolved.stageMeta[k] || {}).label || k);
+    // Custom stages may reclassify a lead's role — re-stamp the loaded book.
+    (window._leads || []).forEach(l => { if (l) l._stageRole = resolved.roleOf(l._stageKey || l.stage); });
+    if (typeof window.renderLeads === 'function') { try { window.renderLeads(); } catch (_) {} }
+  };
   window.stageOptionsForType = stageOptionsForType;
   window.inferJobType = inferJobType;
   window.JOB_TYPES = JOB_TYPES;
@@ -1034,7 +1060,9 @@
     // Fire-and-forget — defaults are already in window._companyProfile,
     // so docs work even if this hangs.
     if (typeof window._loadCompanyProfile === 'function') {
-      window._loadCompanyProfile().catch(() => {});
+      window._loadCompanyProfile()
+        .then(() => { if (window.applyPipelineConfig) window.applyPipelineConfig(); })
+        .catch(() => {});
     }
     // Pre-warm the notification-settings cache from Firestore so a rep
     // signing in on a new device gets their saved preferences before
