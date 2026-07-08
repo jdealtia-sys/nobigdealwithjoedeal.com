@@ -2704,6 +2704,11 @@ section('Globals Tranches 0+1: converted names stay off window');
     'saveCalSettings', 'updateCalEmbed', 'copyCalLink', 'shareCalViaSMS',
     'shareCalViaEmail', 'filterPhotoLeads', 'tlToggleCat', 'tlFilterCat',
     'handleDocUpload',
+    // Tranche 2c-4h (Slice H2, 2026-07-08): 6 entangled dashboard-ui.js names —
+    // single-defined here but forward-ref re-exported by maps.js + dashboard-
+    // actions.js (those shims removed this slice). `function X` → `const X` + registry.
+    'spyglassSearch', 'spyglassGoToLocation', 'fabToggle', 'quickStormCheck',
+    'openUploadDoc', 'printDoc',
     // Tranche 2c-4f (2026-07-07): dashboard-bootstrap.module.js settings/debug/
     // export handlers — module-scoped (real ES module, no IIFE), dispatched via
     // __NBD_CALL_REGISTRY. NOT here (MUST-STAY window exports): loadSampleData
@@ -3139,6 +3144,32 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('dashboard-ui no longer exposes window.' + n + ' (2c-4h off window)',
       !new RegExp('window\\.' + n + '\\s*=\\s*' + n + '\\b').test(ui));
   }
+
+  // ── Tranche 2c-4h Slice H2: dashboard-ui.js entangled names (6 of 10) ──
+  // 6 names single-defined in dashboard-ui.js whose only entanglement was
+  // forward-ref `window.X = X` re-export shims in maps.js + dashboard-actions.js
+  // (those defeated the off-window move until removed in the SAME slice — the
+  // shim resolves the name via the shared global lexical scope). `function X` →
+  // `const X` + registered here; both shim sets deleted; allowlist dropped. The
+  // other 4 H2 names (property-intel twins) are Slice H2 part 2 (a dedup +
+  // property-intel.js ownership migration, not a shim removal).
+  const T2C4H2_NAMES = ['spyglassSearch', 'spyglassGoToLocation', 'fabToggle',
+    'quickStormCheck', 'openUploadDoc', 'printDoc'];
+  const mapsSrc = read(path.join(PRO_JS, 'maps.js'));
+  for (const n of T2C4H2_NAMES) {
+    assert('dashboard-ui registers ' + n + ' in __NBD_CALL_REGISTRY (2c-4h H2)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(duRegBlock));
+    assert('allowlist no longer carries ' + n + ' (2c-4h H2 — registry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('maps.js no longer re-exports window.' + n + ' (2c-4h H2 shim removed)',
+      !new RegExp('window\\.' + n + '\\s*=').test(mapsSrc));
+    assert('dashboard-actions no longer re-exports window.' + n + ' (2c-4h H2 shim removed)',
+      !new RegExp('window\\.' + n + '\\s*=').test(dashActions));
+  }
+  // damagNearMe stays functional — the maps.js alias still assigns from the
+  // spyglassGoToLocation const via the global lexical scope (must NOT be deleted).
+  assert('maps.js keeps window.damagNearMe = spyglassGoToLocation (lexical-scope alias)',
+    /window\.damagNearMe = spyglassGoToLocation;/.test(mapsSrc));
   // ── Tranche 2c-4f: the dashboard-bootstrap.module.js settings cluster ──
   // First NON-dashboard-actions module in this tranche, and a real ES module —
   // so the 15 markup-dispatched settings/debug/export handlers just move from
@@ -3187,7 +3218,11 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     }
   }
   const dispatchNames = new Set();
-  for (const m of dashRaw.matchAll(/data-(?:fn|on-change|on-input|on-after)="([A-Za-z_$][\w$]*)"/g)) {
+  // data-enter-action is included: its keydown delegate (dashboard-ui.js) now
+  // resolves registry-first via _nbdResolveCall, so an enter-action name that is
+  // neither allowlisted nor registered is a silent dead control on Enter — the
+  // exact gap that hid the spyglassSearch Enter-key regression (Tranche 2c-4h H2).
+  for (const m of dashRaw.matchAll(/data-(?:fn|on-change|on-input|on-after|enter-action)="([A-Za-z_$][\w$]*)"/g)) {
     dispatchNames.add(m[1]);
   }
   const unresolved = [...dispatchNames].filter(n => !registered.has(n) && stateSrc.indexOf("'" + n + "'") === -1);

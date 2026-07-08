@@ -634,7 +634,8 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
 // dashboard.html (mapSearch/spyglassInput/drawSearch/joeInput) for CSP
 // cleanliness. Two flavors:
 //
-//   data-enter-action="fnName"          → on Enter, call window[fnName]()
+//   data-enter-action="fnName"          → on Enter, call _nbdResolveCall(fnName)()
+//                                          (registry-first, then allowlisted window)
 //   data-enter-hide-ac="elementId"      → also call hideAcDrop(id) first
 //
 //   data-joe-input                      → textarea: Enter sends, auto-resize
@@ -646,7 +647,10 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     const t = e.target;
     if (!t || !t.dataset) return;
     if (t.dataset.enterAction) {
-      const fn = window[t.dataset.enterAction];
+      // Registry-first, exactly like the click/change delegates — a name moved
+      // off window into __NBD_CALL_REGISTRY (e.g. spyglassSearch, Globals Tranche
+      // 2c-4h) must still resolve here, not silently no-op on Enter.
+      const fn = _nbdResolveCall(t.dataset.enterAction);
       const acId = t.dataset.enterHideAc;
       if (acId && typeof window.hideAcDrop === 'function') {
         try { window.hideAcDrop(acId); } catch (_) {}
@@ -1464,13 +1468,13 @@ function openDocTemplate(key){
   document.getElementById('docViewerModal').classList.add('open');
 }
 function closeDocViewer(){ document.getElementById('docViewerModal').classList.remove('open'); }
-function printDoc(){ window.print(); }
-function openUploadDoc(){
+const printDoc = function(){ window.print(); };
+const openUploadDoc = function(){
   // docUploadArea lives inside tpl-view-docs (lazy-hydrated). Guard
   // for routes that haven't visited #/docs yet.
   const el = document.getElementById('docUploadArea');
   if (el) el.style.display = 'block';
-}
+};
 
 // ── Inject "Blank" buttons on every template row ──
 // Runs once after DOM is ready. Each .tl-doc-row that calls
@@ -2406,7 +2410,7 @@ document.addEventListener('DOMContentLoaded', applyCrmSecHeaderState);
 // MAP ENHANCEMENTS — spyglass, fab bar, quick storm check
 // ══════════════════════════════════════════════
 // ── Spyglass search ──────────────────────────
-async function spyglassSearch() {
+const spyglassSearch = async function() {
   const q = document.getElementById('spyglassInput')?.value?.trim();
   if(!q) return;
   hideAcDrop('spyglassInput');
@@ -2432,9 +2436,9 @@ async function spyglassSearch() {
   if(sidebar && !sidebar.classList.contains('open') && window.innerWidth <= 768) {
     sidebar.classList.add('open');
   }
-}
+};
 
-function spyglassGoToLocation() {
+const spyglassGoToLocation = function() {
   showToast('Getting your location...');
   if(!navigator.geolocation) { showToast('Location unavailable','error'); return; }
   navigator.geolocation.getCurrentPosition(
@@ -2456,16 +2460,16 @@ function spyglassGoToLocation() {
     () => showToast('Location access denied','error'),
     {enableHighAccuracy:true, timeout:8000}
   );
-}
+};
 
 // ── FAB bar toggles (sync with sidebar toggles) ──
-function fabToggle(type, el) {
+const fabToggle = function(type, el) {
   const tog = document.getElementById('tog-'+type);
   if(tog) {
     toggleOverlay(type, tog);
     el.classList.toggle('active', tog.classList.contains('on'));
   }
-}
+};
 
 // Sync fab active states when overlay toggles happen from sidebar
 const _origToggleOverlay = window.toggleOverlay;
@@ -2476,7 +2480,7 @@ window.toggleOverlay = function(type, el) {
 };
 
 // ── Quick storm check at current location ──
-async function quickStormCheck() {
+const quickStormCheck = async function() {
   showToast('Getting location for storm check...');
   if(!navigator.geolocation) { showToast('Location unavailable','error'); return; }
   navigator.geolocation.getCurrentPosition(
@@ -2494,7 +2498,7 @@ async function quickStormCheck() {
     },
     () => showToast('Location access denied','error')
   );
-}
+};
 
 // ── Auto-setup spyglass autocomplete ──────────────────────────
 (function() {
@@ -2591,5 +2595,16 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   filterPhotoLeads: filterPhotoLeads,
   tlToggleCat: tlToggleCat,
   tlFilterCat: tlFilterCat,
-  handleDocUpload: handleDocUpload
+  handleDocUpload: handleDocUpload,
+  // Tranche 2c-4h (Slice H2, 2026-07-08): 6 entangled single-defs — their only
+  // entanglement was forward-ref `window.X = X` re-export shims in maps.js +
+  // dashboard-actions.js, removed in this same slice. `function X` → `const X`
+  // + registered here. damagNearMe keeps resolving spyglassGoToLocation via the
+  // global lexical scope (this file's const loads before maps/actions).
+  spyglassSearch: spyglassSearch,
+  spyglassGoToLocation: spyglassGoToLocation,
+  fabToggle: fabToggle,
+  quickStormCheck: quickStormCheck,
+  openUploadDoc: openUploadDoc,
+  printDoc: printDoc
 });
