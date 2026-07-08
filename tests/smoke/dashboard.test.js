@@ -2709,6 +2709,11 @@ section('Globals Tranches 0+1: converted names stay off window');
     // actions.js (those shims removed this slice). `function X` → `const X` + registry.
     'spyglassSearch', 'spyglassGoToLocation', 'fabToggle', 'quickStormCheck',
     'openUploadDoc', 'printDoc',
+    // Tranche 2c-4h (Slice H2 part 2, 2026-07-08): the 4 property-intel twins —
+    // byte-identical dupes in dashboard-ui.js + property-intel.js; dashboard-ui.js
+    // copies DELETED, property-intel.js owns + registers them.
+    'pullIntelForModal', 'updatePropertyIntelCost', 'confirmPropertyIntelPull',
+    'executePullPropertyIntel',
     // Tranche 2c-4f (2026-07-07): dashboard-bootstrap.module.js settings/debug/
     // export handlers — module-scoped (real ES module, no IIFE), dispatched via
     // __NBD_CALL_REGISTRY. NOT here (MUST-STAY window exports): loadSampleData
@@ -3170,6 +3175,29 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   // spyglassGoToLocation const via the global lexical scope (must NOT be deleted).
   assert('maps.js keeps window.damagNearMe = spyglassGoToLocation (lexical-scope alias)',
     /window\.damagNearMe = spyglassGoToLocation;/.test(mapsSrc));
+
+  // ── Tranche 2c-4h Slice H2 part 2: property-intel twin dedup (4 of 10) ──
+  // The selective-pull cluster was byte-identical in dashboard-ui.js AND
+  // property-intel.js (the latter loads last → already won on window). The
+  // dashboard-ui.js twins are DELETED; property-intel.js is the sole owner and
+  // registers them in ITS OWN __NBD_CALL_REGISTRY block; the dashboard-actions.js
+  // forward-ref shims + allowlist entries are dropped.
+  const T2C4H_PI_NAMES = ['pullIntelForModal', 'updatePropertyIntelCost',
+    'confirmPropertyIntelPull', 'executePullPropertyIntel'];
+  const piSrc = read(path.join(PRO_JS, 'property-intel.js'));
+  const piRegBlock = (piSrc.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/) || ['', ''])[1];
+  for (const n of T2C4H_PI_NAMES) {
+    assert('property-intel registers ' + n + ' in __NBD_CALL_REGISTRY (2c-4h H2 pt2)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(piRegBlock));
+    assert('allowlist no longer carries ' + n + ' (2c-4h H2 pt2 — registry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('dashboard-ui.js twin deleted — no `function ' + n + '` remains (2c-4h H2 pt2)',
+      !new RegExp('function ' + n + '\\b').test(ui));
+    assert('dashboard-actions no longer re-exports window.' + n + ' (2c-4h H2 pt2)',
+      !new RegExp('window\\.' + n + '\\s*=').test(dashActions));
+    assert('property-intel no longer window-exports ' + n + ' (off window, registry-only)',
+      !new RegExp('window\\.' + n + '\\s*=').test(piSrc));
+  }
   // ── Tranche 2c-4f: the dashboard-bootstrap.module.js settings cluster ──
   // First NON-dashboard-actions module in this tranche, and a real ES module —
   // so the 15 markup-dispatched settings/debug/export handlers just move from

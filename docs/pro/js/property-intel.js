@@ -495,7 +495,7 @@ async function createLeadFromProperty(address, ownerName) {
 
 // ── Pull intel inside lead modal ──────────────────────────────
 // PROPERTY INTEL SELECTIVE PULL SYSTEM
-async function pullIntelForModal() {
+const pullIntelForModal = async function() {
   const addr = document.getElementById('lAddr')?.value?.trim();
   if(!addr) { showToast('Enter an address first','error'); return; }
   
@@ -511,7 +511,7 @@ async function pullIntelForModal() {
   
   // Show selection modal
   document.getElementById('propertyIntelModal').style.display = 'flex';
-}
+};
 
 function closePropertyIntelModal() {
   document.getElementById('propertyIntelModal').style.display = 'none';
@@ -521,7 +521,7 @@ function closePropertyIntelConfirmModal() {
   document.getElementById('propertyIntelConfirmModal').style.display = 'none';
 }
 
-function updatePropertyIntelCost() {
+const updatePropertyIntelCost = function() {
   const prices = {
     piOwnerContact: 0.30,
     piPropertyDetails: 0.15,
@@ -549,9 +549,9 @@ function updatePropertyIntelCost() {
     btn.style.opacity = '1';
     btn.style.cursor = 'pointer';
   }
-}
+};
 
-function confirmPropertyIntelPull() {
+const confirmPropertyIntelPull = function() {
   const selections = {
     'Owner Name & Contact': document.getElementById('piOwnerContact').checked,
     'Property Details': document.getElementById('piPropertyDetails').checked,
@@ -578,9 +578,9 @@ function confirmPropertyIntelPull() {
   // Hide selection modal, show confirmation
   document.getElementById('propertyIntelModal').style.display = 'none';
   document.getElementById('propertyIntelConfirmModal').style.display = 'flex';
-}
+};
 
-async function executePullPropertyIntel() {
+const executePullPropertyIntel = async function() {
   const confirmBtn = document.getElementById('piConfirmBtn');
   const originalText = confirmBtn.textContent;
   confirmBtn.disabled = true;
@@ -636,7 +636,7 @@ async function executePullPropertyIntel() {
     confirmBtn.disabled = false;
     confirmBtn.textContent = originalText;
   }
-}
+};
 
 async function fetchPropertyIntelModal(geo, addr) {
   const resultEl = document.getElementById('modalIntelResult');
@@ -744,8 +744,21 @@ async function geocode(q){
 // Window scope exposures for Property Intel
 window.fetchPropertyIntel = fetchPropertyIntel;
 window.renderIntelCard = renderIntelCard;
-window.executePullPropertyIntel = executePullPropertyIntel;
 window.fetchPropertyIntelModal = fetchPropertyIntelModal;
+
+// Globals Tranche 2c-4h Slice H2 part 2 (2026-07-08): property-intel.js is now the
+// SOLE owner of the selective-pull cluster — the byte-identical dashboard-ui.js
+// twins were deleted (property-intel.js already won on window, loading last). These
+// 4 move off window into __NBD_CALL_REGISTRY, which the dashboard-ui.js dispatchers
+// resolve FIRST; their _NBD_CALL_ALLOWLIST entries are dropped. The lone explicit
+// window export (of executePullPropertyIntel) is dropped with them.
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  pullIntelForModal: pullIntelForModal,
+  updatePropertyIntelCost: updatePropertyIntelCost,
+  confirmPropertyIntelPull: confirmPropertyIntelPull,
+  executePullPropertyIntel: executePullPropertyIntel
+});
 
 
 (function(){if(_NBD_PI_DELEGATE)return;_NBD_PI_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-pi-action]');if(!t)return;if(t.dataset.piAction==='createLead'&&typeof createLeadFromProperty==='function')createLeadFromProperty(t.dataset.piAddress,t.dataset.piOwner);});})();

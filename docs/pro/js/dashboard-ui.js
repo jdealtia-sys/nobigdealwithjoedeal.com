@@ -916,25 +916,13 @@ document.getElementById('tipsModal').addEventListener('click',e=>{if(e.target===
 // ══════════════════════════════════════════════
 // PROPERTY INTEL — modal open/close + cost UI
 // ══════════════════════════════════════════════
-// ── Pull intel inside lead modal ──────────────────────────────
-// PROPERTY INTEL SELECTIVE PULL SYSTEM
-async function pullIntelForModal() {
-  const addr = document.getElementById('lAddr')?.value?.trim();
-  if(!addr) { showToast('Enter an address first','error'); return; }
-
-  // Store address for later use
-  window._pendingIntelAddress = addr;
-
-  // Reset selections
-  document.getElementById('piOwnerContact').checked = false;
-  document.getElementById('piPropertyDetails').checked = false;
-  document.getElementById('piZestimate').checked = false;
-  document.getElementById('piTaxData').checked = false;
-  updatePropertyIntelCost();
-
-  // Show selection modal
-  document.getElementById('propertyIntelModal').style.display = 'flex';
-}
+// The "selective pull" cluster (pullIntelForModal / updatePropertyIntelCost /
+// confirmPropertyIntelPull / executePullPropertyIntel) was DUPLICATED here and in
+// js/property-intel.js (byte-identical logic; property-intel.js loads last and
+// already won on window). Globals Tranche 2c-4h Slice H2 part 2 removed the
+// dashboard-ui.js copies — property-intel.js is the sole owner and registers them
+// in __NBD_CALL_REGISTRY. closePropertyIntelModal / closePropertyIntelConfirmModal
+// stay here (separate handlers, not part of the dedup).
 
 function closePropertyIntelModal() {
   document.getElementById('propertyIntelModal').style.display = 'none';
@@ -942,113 +930,6 @@ function closePropertyIntelModal() {
 
 function closePropertyIntelConfirmModal() {
   document.getElementById('propertyIntelConfirmModal').style.display = 'none';
-}
-
-function updatePropertyIntelCost() {
-  const prices = {
-    piOwnerContact: 0.30,
-    piPropertyDetails: 0.15,
-    piZestimate: 0.05,
-    piTaxData: 0.10
-  };
-
-  let total = 0;
-  for (const [id, price] of Object.entries(prices)) {
-    if (document.getElementById(id)?.checked) {
-      total += price;
-    }
-  }
-
-  document.getElementById('piTotalCost').textContent = '$' + total.toFixed(2);
-
-  // Disable pull button if nothing selected
-  const btn = document.getElementById('piPullBtn');
-  if (total === 0) {
-    btn.disabled = true;
-    btn.style.opacity = '0.5';
-    btn.style.cursor = 'not-allowed';
-  } else {
-    btn.disabled = false;
-    btn.style.opacity = '1';
-    btn.style.cursor = 'pointer';
-  }
-}
-
-function confirmPropertyIntelPull() {
-  const selections = {
-    'Owner Name & Contact': document.getElementById('piOwnerContact').checked,
-    'Property Details': document.getElementById('piPropertyDetails').checked,
-    'Zillow Zestimate': document.getElementById('piZestimate').checked,
-    'Tax Assessor Data': document.getElementById('piTaxData').checked
-  };
-
-  const selected = Object.entries(selections).filter(([_, checked]) => checked).map(([name, _]) => name);
-
-  if (selected.length === 0) {
-    showToast('Select at least one data source', 'error');
-    return;
-  }
-
-  // Calculate cost
-  const prices = { 'Owner Name & Contact': 0.30, 'Property Details': 0.15, 'Zillow Zestimate': 0.05, 'Tax Assessor Data': 0.10 };
-  const cost = selected.reduce((sum, name) => sum + prices[name], 0);
-
-  // Update confirmation modal
-  document.getElementById('piConfirmCost').textContent = '$' + cost.toFixed(2);
-  const listEl = document.getElementById('piConfirmList');
-  listEl.innerHTML = selected.map(name => `<li>${name}</li>`).join('');
-
-  // Hide selection modal, show confirmation
-  document.getElementById('propertyIntelModal').style.display = 'none';
-  document.getElementById('propertyIntelConfirmModal').style.display = 'flex';
-}
-
-async function executePullPropertyIntel() {
-  const confirmBtn = document.getElementById('piConfirmBtn');
-  const originalText = confirmBtn.textContent;
-  confirmBtn.disabled = true;
-  confirmBtn.textContent = '⏳ Pulling...';
-
-  try {
-    const addr = window._pendingIntelAddress;
-    if (!addr) throw new Error('No address found');
-
-    // Get selections
-    const selections = {
-      ownerContact: document.getElementById('piOwnerContact').checked,
-      propertyDetails: document.getElementById('piPropertyDetails').checked,
-      zestimate: document.getElementById('piZestimate').checked,
-      taxData: document.getElementById('piTaxData').checked
-    };
-
-    // Calculate actual cost
-    const prices = { ownerContact: 0.30, propertyDetails: 0.15, zestimate: 0.05, taxData: 0.10 };
-    const cost = Object.entries(selections)
-      .filter(([_, checked]) => checked)
-      .reduce((sum, [key, _]) => sum + prices[key], 0);
-
-    // Geocode address first
-    const geo = await geocode(addr);
-    if (!geo) throw new Error('Could not geocode address');
-
-    // Per-source metering not yet wired — see js/property-intel.js for
-    // the same note. Single aggregate pull until paid sources land.
-    await fetchPropertyIntelModal(geo, addr);
-
-    // Close modals
-    closePropertyIntelConfirmModal();
-
-    // Show success with cost
-    const selectedCount = Object.values(selections).filter(Boolean).length;
-    showToast(`✓ Pulled ${selectedCount} data point${selectedCount > 1 ? 's' : ''} for $${cost.toFixed(2)}`, 'success');
-
-  } catch (error) {
-    console.error('Property intel pull error:', error);
-    showToast('Failed to pull property data: ' + error.message, 'error');
-  } finally {
-    confirmBtn.disabled = false;
-    confirmBtn.textContent = originalText;
-  }
 }
 
 // ══════════════════════════════════════════════
