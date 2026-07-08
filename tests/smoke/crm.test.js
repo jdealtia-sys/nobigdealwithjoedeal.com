@@ -470,6 +470,20 @@ section('backfill — leads.stageRole one-off (freeform-pipeline classification)
       && /cfg\.stages\[stageKey\]/.test(bf)
       && /return roleFromKey\(stageKey\)/.test(bf));
   }
+  // Legacy-pin companyId backfill — makes teammates' pre-scoping pins team-visible.
+  const pp = path.join(ROOT, 'scripts/backfill-pins-companyId.js');
+  assert('scripts/backfill-pins-companyId.js exists', fs.existsSync(pp));
+  if (fs.existsSync(pp)) {
+    const bf = read(pp);
+    assert('pins backfill is dry-run-by-default + --apply needs --yes',
+      /APPLY && !YES/.test(bf) && /--apply --yes/.test(bf));
+    assert('pins backfill is idempotent (skips pins with a companyId)',
+      /if \(data\.companyId\) \{ alreadyOk\+\+; continue; \}/.test(bf));
+    assert('pins backfill derives companyId: linked lead → user map → own uid',
+      /byLead\.has\(data\.leadId\)/.test(bf)
+      && /userToCompany\.has\(data\.userId\)/.test(bf)
+      && /companyId = data\.userId; via = 'ownUid'/.test(bf));
+  }
 }
 
 section('Pipelines builder — drag-to-reorder stages');
