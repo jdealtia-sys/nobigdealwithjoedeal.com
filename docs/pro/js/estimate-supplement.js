@@ -115,11 +115,28 @@
         responseNotes: ''
       },
 
-      // Settings snapshot (so the delta calc doesn't drift if
-      // Joe edits rates between supplements)
-      settingsSnapshot: (_HAS_WINDOW && window.EstimateBuilderV2)
-        ? window.EstimateBuilderV2.loadSettings()
-        : null,
+      // Settings snapshot (so the delta calc doesn't drift if Joe edits rates
+      // between supplements). Prefer the PARENT estimate's OWN persisted rates
+      // (estimate-v2-ui.js stores materialMarkupPct/overheadPct/profitPct per-doc)
+      // so the supplement marks up material + applies OH&P at the exact percentages
+      // the original scope was priced at — global settings may have changed since,
+      // or the estimate may have used a per-estimate override, and pricing the
+      // supplement off current globals would diverge from the scope it extends.
+      // Fall back to current globals, then the hardcoded defaults in calculateDelta.
+      settingsSnapshot: (function () {
+        const g = (_HAS_WINDOW && window.EstimateBuilderV2) ? window.EstimateBuilderV2.loadSettings() : null;
+        const pe = parentEstimate || {};
+        if (pe.materialMarkupPct != null || pe.overheadPct != null || pe.profitPct != null) {
+          const pick = (a, b) => (a != null ? a : (b != null ? b : null));
+          return Object.assign({}, g || {}, {
+            materialMarkupPct: pick(pe.materialMarkupPct, g && g.materialMarkupPct),
+            overheadPct: pick(pe.overheadPct, g && g.overheadPct),
+            profitPct: pick(pe.profitPct, g && g.profitPct),
+            roundTo: pick(pe.roundTo, g && g.roundTo),
+          });
+        }
+        return g;
+      })(),
 
       meta: Object.assign({}, opts.meta || {})
     };
@@ -230,6 +247,20 @@
    */
   function removeAddedItem(supplement, code) {
     supplement.addedItems = supplement.addedItems.filter(i => i.code !== code);
+    calculateDelta(supplement);
+  }
+
+  /**
+   * Remove an added item by INDEX (the modal passes the row index). Removing by
+   * code deleted ALL added lines sharing that code — a rep can add the same
+   * catalog code twice (different qty/justification), so code-based removal
+   * dropped lines they meant to keep and under-billed the supplement. Index is
+   * unambiguous.
+   */
+  function removeAddedItemAt(supplement, index) {
+    const i = Number(index);
+    if (!Number.isInteger(i) || i < 0 || i >= supplement.addedItems.length) return;
+    supplement.addedItems.splice(i, 1);
     calculateDelta(supplement);
   }
 
@@ -797,6 +828,7 @@ ${signBlock}
     addFromCatalog,
     modifyItemQuantity,
     removeAddedItem,
+    removeAddedItemAt,
     removeModification,
     attachPhoto,
     calculateDelta,

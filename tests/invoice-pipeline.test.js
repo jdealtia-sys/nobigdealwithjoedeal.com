@@ -196,6 +196,27 @@ test('a tiny positive supplement never rounds to $0', () => {
   eq(s.supplementTotal >= 25, true, 'positive supplement bills at least one $25 increment');
 });
 
+test('removeAddedItemAt removes only the indexed line, not all sharing a code', () => {
+  const s = ES.createSupplement(parentEstimate, { version: 1 });
+  ES.addItem(s, { code: 'DRIP', name: 'Drip edge A', unit: 'lf', quantity: 10, materialCost: 2, laborCost: 1 });
+  ES.addItem(s, { code: 'DRIP', name: 'Drip edge B', unit: 'lf', quantity: 5, materialCost: 2, laborCost: 1 });
+  eq(s.addedItems.length, 2, 'two same-code lines added');
+  ES.removeAddedItemAt(s, 0);
+  eq(s.addedItems.length, 1, 'only the indexed line removed (was: both dropped by code)');
+  eq(s.addedItems[0].name, 'Drip edge B', 'the surviving line is the one not removed');
+});
+
+test('supplement markup/OH&P uses the parent estimate rates, not globals', () => {
+  const peWithRates = Object.assign({}, parentEstimate, { materialMarkupPct: 0.30, overheadPct: 0.15, profitPct: 0.15 });
+  const s = ES.createSupplement(peWithRates, { version: 1 });
+  ES.addItem(s, { code: 'X', name: 'Item', unit: 'ea', quantity: 1, materialCost: 100, laborCost: 0 });
+  eq(s.settingsSnapshot.materialMarkupPct, 0.30, 'snapshot took parent materialMarkupPct');
+  eq(s.settingsSnapshot.overheadPct, 0.15, 'snapshot took parent overheadPct');
+  // material 100 * 1.30 = 130 retail; OH 15% + P 15% on 130 = 39 → subtotal 169
+  // (defaults 0.25/0.10/0.10 would give 125 + 25 = 150).
+  near(s.supplementSubtotal, 169, 0.01, 'subtotal priced at parent rates (130 + 39)');
+});
+
 test('a freshly created supplement is draft and bills $0 (the #881 bug shape)', () => {
   const s = ES.createSupplement(parentEstimate, { version: 1 });
   s.supplementTotal = 2500; // calculateDelta stamps this before save
