@@ -47,7 +47,7 @@
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
 <link rel="preload" href="js/crm-leads.js?v=1" as="script">
-<link rel="preload" href="js/crm-pipeline.js?v=1" as="script">
+<link rel="preload" href="js/crm-pipeline.js?v=2" as="script">
 <link rel="preload" href="js/crm-snooze.js?v=1" as="script">
 <link rel="preload" href="js/crm-portal-bridge.js?v=2" as="script">
 <link rel="preload" href="js/crm.js?v=32" as="script">
@@ -116,7 +116,7 @@
 <script defer src="/assets/vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=1"></script>
-<script type="module" src="js/dashboard-bootstrap.module.js?v=1"></script>
+<script type="module" src="js/dashboard-bootstrap.module.js?v=7"></script>
 
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
@@ -1080,6 +1080,10 @@
             <div class="overlay-toggle" id="tog-jobs" data-action="mapOverlay" data-target="jobs" title="In Progress / Complete / Finalizing leads"></div>
           </div>
           <div class="overlay-row">
+            <div class="overlay-label"><div class="overlay-dot" style="background:#22C55E;"></div>All Customers</div>
+            <div class="overlay-toggle" id="tog-customers" data-action="mapOverlay" data-target="customers" title="Every customer &amp; lead, colour-coded by pipeline stage"></div>
+          </div>
+          <div class="overlay-row">
             <div class="overlay-label"><div class="overlay-dot" style="background:var(--gold);"></div>Storm Activity</div>
             <div class="overlay-toggle" id="tog-storm" data-action="mapOverlay" data-target="storm" title="NOAA hail & wind data"></div>
           </div>
@@ -1093,14 +1097,20 @@
         <div class="slabel2">Territory Zones</div>
         <div class="zone-panel" id="zonePanel">
           <input class="zone-name-input" id="zoneNameInput" placeholder="Zone name (e.g. North Territory)">
+          <!-- data-target is a HEX literal (not var(--x)): zones persist their
+               color to Firestore + reload through safeColor(), which only
+               accepts hex — a CSS-var value reverted every saved zone to blue. -->
           <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px;" id="zoneColorPicker">
-            <div data-action="zoneColor" data-target="var(--blue)" style="width:18px;height:18px;border-radius:50%;background:var(--blue);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--green)" style="width:18px;height:18px;border-radius:50%;background:var(--green);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--orange)" style="width:18px;height:18px;border-radius:50%;background:var(--orange);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--purple)" style="width:18px;height:18px;border-radius:50%;background:var(--purple);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--gold)" style="width:18px;height:18px;border-radius:50%;background:var(--gold);cursor:pointer;border:2px solid transparent;"></div>
-            <div data-action="zoneColor" data-target="var(--red)" style="width:18px;height:18px;border-radius:50%;background:var(--red);cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
+            <div data-action="zoneColor" data-target="#4A9EFF" style="width:18px;height:18px;border-radius:50%;background:#4A9EFF;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#22C55E" style="width:18px;height:18px;border-radius:50%;background:#22C55E;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#e8720c" style="width:18px;height:18px;border-radius:50%;background:#e8720c;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#9B6DFF" style="width:18px;height:18px;border-radius:50%;background:#9B6DFF;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#D4A017" style="width:18px;height:18px;border-radius:50%;background:#D4A017;cursor:pointer;border:2px solid transparent;"></div>
+            <div data-action="zoneColor" data-target="#E05252" style="width:18px;height:18px;border-radius:50%;background:#E05252;cursor:pointer;border:2px solid transparent;border-width:2px;" id="zoneColorActive"></div>
           </div>
+          <select class="zone-name-input" id="zoneRepSelect" style="margin-bottom:6px;" title="Assign this territory to a rep — shades the zone in their colour">
+            <option value="">Assign to rep (optional)…</option>
+          </select>
           <div style="display:flex;gap:5px;">
             <button class="btn btn-orange" style="flex:1;justify-content:center;font-size:11px;" data-action="call" data-fn="saveZone">💾 Save Zone</button>
             <button class="btn btn-ghost" style="font-size:11px;padding:6px 10px;" data-action="call" data-fn="cancelZoneDraw">✕</button>
@@ -1163,6 +1173,7 @@
           <button class="map-fab" id="fab-heat"    data-action="call" data-fn="fabToggle" data-arg="heat" data-pass-el    title="Heat Map"><span class="map-fab-icon">🔥</span><span>Heat</span></button>
           <button class="map-fab" id="fab-pins"    data-action="call" data-fn="fabToggle" data-arg="pins" data-pass-el    title="All Pins"><span class="map-fab-icon">📌</span><span>Pins</span></button>
           <button class="map-fab" id="fab-jobs"    data-action="call" data-fn="fabToggle" data-arg="jobs" data-pass-el    title="Jobs"><span class="map-fab-icon">💰</span><span>Jobs</span></button>
+          <button class="map-fab" id="fab-customers" data-action="call" data-fn="fabToggle" data-arg="customers" data-pass-el title="All Customers"><span class="map-fab-icon">🏠</span><span>Customers</span></button>
           <button class="map-fab" id="fab-storm"   data-action="call" data-fn="fabToggle" data-arg="storm" data-pass-el   title="Storm Radar"><span class="map-fab-icon">⛈</span><span>Storm</span></button>
           <button class="map-fab" id="fab-weather" data-action="call" data-fn="fabToggle" data-arg="weather" data-pass-el title="Live Weather"><span class="map-fab-icon">🌧</span><span>Weather</span></button>
           <div class="map-fab-div"></div>
@@ -3420,7 +3431,7 @@
         <div style="font-size:12px;color:var(--m);margin-bottom:14px;">Customize the kanban stages for each job type. Changes apply to your whole team.</div>
         <div id="pipelineBuilderRoot"></div>
       </div><!-- /stab-panel-pipelines -->
-      <script src="js/pipeline-builder.js?v=1"></script>
+      <script src="js/pipeline-builder.js?v=4"></script>
 
       <!-- ══ TAB: DAILY OS ══ -->
       <div class="stab-panel dn" id="stab-panel-daily">
@@ -5195,11 +5206,11 @@
 <!-- Canonical customer URL builder (window.NBDUrl). Loaded BEFORE
      dashboard-actions.js because that file calls NBDUrl.customer(). -->
 <script defer src="js/nbd-url.js?v=1"></script>
-<script defer src="js/dashboard-state.js?v=1"></script>
+<script defer src="js/dashboard-state.js?v=2"></script>
 <script defer src="js/dashboard-api.js?v=2"></script>
-<script defer src="js/dashboard-widgets.js?v=2"></script>
+<script defer src="js/dashboard-widgets.js?v=4"></script>
 <script defer src="js/dashboard-ui.js?v=2"></script>
-<script defer src="js/dashboard-actions.js?v=3"></script>
+<script defer src="js/dashboard-actions.js?v=10"></script>
 <script defer src="js/dashboard-main.js?v=4"></script>
 
 <!-- DOC VIEWER MODAL -->
@@ -5930,7 +5941,7 @@
      of window.* exports in the shim can reach functions defined
      in the split files via classic-script sibling-scope globals. -->
 <script defer src="js/crm-leads.js?v=1"></script>
-<script defer src="js/crm-pipeline.js?v=1"></script>
+<script defer src="js/crm-pipeline.js?v=2"></script>
 <script defer src="js/crm-snooze.js?v=1"></script>
 <!-- FCM Web Push token registration — registers the messaging SW, mints a
      push token via getToken({vapidKey}), and persists it to
@@ -5984,8 +5995,9 @@
      loaded in order before the thin maps.js shim. See maps.js
      header for the full split rationale. Each module is a classic
      <script> (non-ESM) and shares sibling-scope globals. -->
-<script defer src="js/maps-core.js?v=3"></script>
-<script defer src="js/maps-overlays.js?v=2"></script>
+<script defer src="js/maps-core.js?v=7"></script>
+<script defer src="js/maps-overlays.js?v=7"></script>
+<script defer src="js/maps-customers.js?v=11"></script>
 <script defer src="js/maps-routing.js?v=3"></script>
 <script defer src="js/maps.js?v=10"></script>
 <!-- Smart Calendar — Today's Schedule with travel-time + priority. Reads

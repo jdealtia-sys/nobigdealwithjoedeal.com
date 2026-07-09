@@ -617,8 +617,55 @@ service cloud.firestore {
 
     // ── MAP PINS ──────────────────────────────────────
     match /pins/{pinId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // Team territory visibility (2026-07-08): a pin carries the creator's
+      // companyId (stamped by _savePin). Same-company members read each other's
+      // door-knock / customer pins so the whole team sees ONE map — mirrors
+      // /reports. sameCompanyAsResource() requires BOTH companyIds non-null, so
+      // a solo user (no companyId claim) or a LEGACY pin (no companyId field)
+      // falls back to owner-only via isOwner — no cross-tenant leak.
+      allow read: if isOwner(resource.data.userId) || isAdmin() || sameCompanyAsResource();
+      // Owner or same-company company_admin may edit/remove a pin (an admin
+      // curates shared territory); legacy pins (no companyId) stay owner-only
+      // because sameCompanyAsResource() denies on the absent field.
+      // UPDATE freezes provenance (userId/companyId) — mirrors /leads (line
+      // ~198). Without it an owner could updateDoc their pin's companyId to a
+      // VICTIM tenant, injecting a spoofed pin into that team's shared map
+      // (create pins companyId, but update did not — audit 2026-07-08).
+      allow update: if (isOwner(resource.data.userId) || isAdmin()
+          || (isCompanyAdmin() && sameCompanyAsResource()))
+        && didNotChange(['userId', 'companyId']);
+      allow delete: if isOwner(resource.data.userId) || isAdmin()
+        || (isCompanyAdmin() && sameCompanyAsResource());
+      // Pin companyId on create (mirrors /leads, /reports, /expenses). Without
+      // it a crafted write could inject a pin into another tenant's team-visible
+      // map. _savePin stamps companyId = claims.companyId || uid.
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() > 0
+        && (request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
+    }
+
+    // ── TERRITORY ZONES (drawn canvassing areas, optionally rep-assigned) ──
+    // Persisted + team-shared so a rep's territory survives reload and every
+    // teammate sees the same map. Identical shape to /pins: same-company read;
+    // owner or same-company admin edits/removes; companyId pinned on create.
+    match /zones/{zoneId} {
+      allow read: if isOwner(resource.data.userId) || isAdmin() || sameCompanyAsResource();
+      // UPDATE freezes provenance so a zone's companyId can't be repointed to a
+      // victim tenant's shared map (same fix as /pins — audit 2026-07-08).
+      allow update: if (isOwner(resource.data.userId) || isAdmin()
+          || (isCompanyAdmin() && sameCompanyAsResource()))
+        && didNotChange(['userId', 'companyId']);
+      allow delete: if isOwner(resource.data.userId) || isAdmin()
+        || (isCompanyAdmin() && sameCompanyAsResource());
+      allow create: if isAuth()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() > 0
+        && (request.resource.data.companyId == myCompanyId()
+            || request.resource.data.companyId == request.auth.uid);
     }
 
     // ── UNLINKED DRAWINGS (draw tool, no matching lead) ──

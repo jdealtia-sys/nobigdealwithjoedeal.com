@@ -30,6 +30,7 @@ const syntaxFiles = [
   // Step 4d split — the three sibling modules must each parse.
   path.join(PRO_JS, 'maps-core.js'),
   path.join(PRO_JS, 'maps-overlays.js'),
+  path.join(PRO_JS, 'maps-customers.js'),
   path.join(PRO_JS, 'maps-routing.js'),
   // Step 4f split — d2d-tracker-2026b core + ui modules must each parse.
   path.join(PRO_JS, 'd2d-tracker-core-2026b.js'),
@@ -1645,9 +1646,9 @@ section('Phase C.4 cluster 5 — arg-bearing toggle handlers');
     'expected 2 mapSidebar conversions; got ' + mapSb);
 
   const mapOv = (dash.match(/data-action="mapOverlay"\s+data-target="[a-z]+"/g) || []).length;
-  assert('mapOverlay conversions: 5 (heat/jobs/pins/storm/weather)',
-    mapOv === 5,
-    'expected 5 mapOverlay conversions; got ' + mapOv);
+  assert('mapOverlay conversions: 6 (heat/pins/jobs/customers/storm/weather)',
+    mapOv === 6,
+    'expected 6 mapOverlay conversions; got ' + mapOv);
 
   // Inline arg-bearing toggles retired (except the documented ternary).
   const argRemain = (dash.match(/onclick="toggle(NavSection|MapSidebar|Overlay|TradeChip|CrmToolsMenu)\(/g) || []).length;

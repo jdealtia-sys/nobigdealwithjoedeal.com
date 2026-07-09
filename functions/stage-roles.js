@@ -61,4 +61,4 @@ function isLost(lead) { return roleFor(lead) === ROLE.LOST; }
 // "Decided" = the project is finished either way (won or lost).
 function isDecided(lead) { const r = roleFor(lead); return r === ROLE.WON || r === ROLE.LOST; }
 
-module.exports = { ROLE, roleFromKey, roleFor, isWon, isLost, isDecided };
+module.exports = { ROLE, normKey, roleFromKey, roleFor, isWon, isLost, isDecided };

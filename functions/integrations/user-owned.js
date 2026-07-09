@@ -60,6 +60,10 @@ const FLAT_USER_COLLECTIONS = [
   { name: 'suppliers', recursive: true },
   { name: 'photos' },
   { name: 'pins' },
+  // Territory zones (drawn canvassing areas, optionally rep-assigned). Owner-
+  // keyed on userId + team-shared via companyId (same shape as pins); erase/
+  // export with the account. Points are plain {lat,lng}; no PII.
+  { name: 'zones' },
   // NEW-D40a: the draw tool's unlinked-drawing fallback — drawings
   // saved with no matching lead land here (leadId '_unlinked_<uid>',
   // userId stamped by saveDrawingToCustomer). Lead-LINKED drawings

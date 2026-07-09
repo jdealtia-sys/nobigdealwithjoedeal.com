@@ -447,4 +447,144 @@ section('Phase C.1 + C.2 — view template-hydration sweep');
     'expected _eagerHydrateActiveViews IIFE that queries .view.active[data-view-template]');
 }
 
+section('backfill — leads.stageRole one-off (freeform-pipeline classification)');
+{
+  const fs = require('fs');
+  const p = path.join(ROOT, 'scripts/backfill-lead-stageRole.js');
+  assert('scripts/backfill-lead-stageRole.js exists', fs.existsSync(p));
+  if (fs.existsSync(p)) {
+    const bf = read(p);
+    // Reuse the SHARED server role map so the backfill can't drift from runtime.
+    assert('backfill imports the shared roleFromKey (no drift vs functions/stage-roles)',
+      /require\(['"]\.\.\/functions\/stage-roles['"]\)/.test(bf) && /roleFromKey\(/.test(bf));
+    assert('stageRole backfill is dry-run-by-default + --apply needs --yes',
+      /APPLY && !YES/.test(bf) && /--apply --yes/.test(bf));
+    // The persisted role is authoritative — only FILL gaps, never overwrite.
+    assert('stageRole backfill is idempotent (skips docs with a valid stageRole)',
+      /VALID_ROLES\.has\(data\.stageRole\)/.test(bf));
+    // A tenant's custom-stage role (companyProfile.pipelines) must win over the
+    // key-map guess — that's the whole point (custom stages classify wrong
+    // under the key map alone).
+    assert('stageRole backfill resolves a tenant custom-stage role from companyProfile.pipelines',
+      /companyProfile/.test(bf)
+      && /cfg\.stages\[stageKey\]/.test(bf)
+      && /return roleFromKey\(stageKey\)/.test(bf));
+  }
+  // Legacy-pin companyId backfill — makes teammates' pre-scoping pins team-visible.
+  const pp = path.join(ROOT, 'scripts/backfill-pins-companyId.js');
+  assert('scripts/backfill-pins-companyId.js exists', fs.existsSync(pp));
+  if (fs.existsSync(pp)) {
+    const bf = read(pp);
+    assert('pins backfill is dry-run-by-default + --apply needs --yes',
+      /APPLY && !YES/.test(bf) && /--apply --yes/.test(bf));
+    assert('pins backfill is idempotent (skips pins with a companyId)',
+      /if \(data\.companyId\) \{ alreadyOk\+\+; continue; \}/.test(bf));
+    assert('pins backfill derives companyId: linked lead → user map → own uid',
+      /byLead\.has\(data\.leadId\)/.test(bf)
+      && /userToCompany\.has\(data\.userId\)/.test(bf)
+      && /companyId = data\.userId; via = 'ownUid'/.test(bf));
+  }
+}
+
+section('Pipelines builder — drag-to-reorder stages');
+{
+  const pb = read(path.join(ROOT, 'docs/pro/js/pipeline-builder.js'));
+  // Draggable grip + drop-target rows carrying view + stage context.
+  assert('builder renders a draggable grip per stage row',
+    /class="pb-grip" draggable="true"/.test(pb)
+    && /class="pb-stage-row" data-view="/.test(pb),
+    'expected a draggable .pb-grip inside a .pb-stage-row with data-view/data-stage');
+  // Delegated DnD handlers (CSP-safe — no inline ondrag* attributes).
+  assert('builder wires delegated dragstart/dragover/drop on the root',
+    /addEventListener\('dragstart', onDragStart\)/.test(pb)
+    && /addEventListener\('dragover', onDragOver\)/.test(pb)
+    && /addEventListener\('drop', onDrop\)/.test(pb),
+    'expected delegated drag handlers on the builder root');
+  assert('builder has no inline ondrag* handlers (CSP-safe)',
+    !/ondragstart=|ondragover=|ondrop=/.test(pb),
+    'drag handlers must be delegated, not inline');
+  // Reorder is constrained to a single pipeline and splices the working config.
+  assert('drop reorders within the same view only',
+    /getAttribute\('data-view'\) !== _drag\.view/.test(pb),
+    'expected onDragOver to bail when the row is in a different view');
+  assert('drop splices the stage into the view order (before/after by pointer)',
+    /arr\.splice\(from, 1\)/.test(pb)
+    && /arr\.splice\(after \? to \+ 1 : to, 0, payload\.stage\)/.test(pb),
+    'expected the dropped stage to be removed then re-inserted at the target');
+  // Per-stage hide/show (eye) toggle → config `hidden` flag.
+  assert('builder has a hide/show eye toggle writing the hidden flag',
+    /data-pb-action="togglehide"/.test(pb)
+    && /action === 'togglehide'[\s\S]{0,160}setStageField\(key, 'hidden', !cur\)/.test(pb),
+    'expected a togglehide action that flips the stage hidden flag');
+
+  // The board renderer must honour the LIVE (tenant-overridden) config — this
+  // was a real end-to-end gap: buildKanbanColumns read module-local consts, so
+  // custom views / renames / custom / reordered / hidden stages never showed.
+  const boot = read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'));
+  assert('buildKanbanColumns reads window.KANBAN_VIEWS / window.STAGE_META overrides',
+    /const VIEWS = window\.KANBAN_VIEWS \|\| KANBAN_VIEWS/.test(boot)
+    && /const META = window\.STAGE_META \|\| STAGE_META/.test(boot),
+    'expected the board builder to prefer the applied config over the default consts');
+  assert('buildKanbanColumns skips stages flagged hidden',
+    /\.filter\(k => !\(META\[k\] && META\[k\]\.hidden\)\)/.test(boot),
+    'expected hidden stages to be dropped from the rendered columns');
+  assert('applyPipelineConfig rebuilds the columns (not just re-renders cards)',
+    /window\.buildKanbanColumns\(window\._currentViewKey \|\| vk\)/.test(boot),
+    'expected applyPipelineConfig to call buildKanbanColumns so config changes show live');
+  // ── Round-2 audit regression guards ──
+  assert('applyPipelineConfig restores defaults on an empty config (Reset works without reload)',
+    /const hasCfg = raw && typeof raw === 'object'[\s\S]{0,140}Object\.keys\(raw\.stages\)\.length/.test(boot)
+    && /resolvePipelineConfig\(hasCfg \? raw : null\)/.test(boot),
+    'expected applyPipelineConfig to resolve null (defaults) when there is no real config');
+  assert('Reset to defaults force-clears the in-memory config + re-applies',
+    /window\._companyProfile\.pipelines = \{\};[\s\S]{0,160}applyPipelineConfig\(\)/.test(pb),
+    'expected the reset branch to clear window._companyProfile.pipelines and re-apply');
+  assert('buildKanbanColumns never blanks the board (hide-all fallback)',
+    /if \(!stages\.length && _all\.length\) stages = _all\.slice\(\)/.test(boot),
+    'expected a fallback so hiding every stage does not render zero columns');
+  // ── Round-4 audit regression guard ──
+  // The builder's eye-toggle writes ov.hidden for custom stages too, but
+  // resolvePipelineConfig's custom-stage branch dropped the flag — so a hidden
+  // custom column kept rendering (the board filter reads META[k].hidden). The
+  // built-in branch already honours ov.hidden; the custom branch must match.
+  {
+    const stagesSrc = read(path.join(ROOT, 'docs/pro/js/crm-stages.js'));
+    assert('resolvePipelineConfig honours hidden for CUSTOM stages (eye-toggle works)',
+      /custom: true,[\s\S]{0,400}hidden: ov\.hidden === true,/.test(stagesSrc),
+      'expected the custom-stage meta literal to carry hidden: ov.hidden === true so custom stages can be hidden');
+  }
+  // ── Round-5 audit regression guards ──
+  // Hiding a stage removes its column; its leads must be DROPPED from the board,
+  // not rebucketed into the first column by resolveColumn's viewStages[0]
+  // fallback (which mislabels them, inflates that column's count/$ badges, and
+  // lets a drag re-stage them).
+  {
+    const pipe = read(path.join(ROOT, 'docs/pro/js/crm-pipeline.js'));
+    assert('renderLeads drops leads whose own stage is hidden (no rebucket into first column)',
+      /const _META = window\.STAGE_META \|\| \{\};[\s\S]{0,650}if \(_META\[_hk\] && _META\[_hk\]\.hidden\) return;/.test(pipe),
+      'expected renderLeads to skip a lead when META[normalize(stage)].hidden, before resolveColumn rebuckets it');
+  }
+  // The kanban stage label is tenant-config text rendered into board.innerHTML —
+  // escape it (defence-in-depth behind the prod CSP).
+  assert('kanban stage label is HTML-escaped before board.innerHTML',
+    /const _escLbl = window\.nbdEsc \|\|[\s\S]{0,400}const label = _escLbl\(meta\.label \|\| stageKey\);/.test(boot),
+    'expected buildKanbanColumns to escape the tenant-controlled stage label');
+  assert('_saveLeadCoords does not bump updatedAt (passive backfill)',
+    /updateDoc\(doc\(db,'leads',id\), \{ lat, lng \}\)/.test(boot)
+    && !/updateDoc\(doc\(db,'leads',id\), \{ lat, lng, updatedAt/.test(boot),
+    'expected _saveLeadCoords to write only lat/lng, no updatedAt');
+  // Backfill hardening
+  const stageRoleBf = read(path.join(ROOT, 'scripts/backfill-lead-stageRole.js'));
+  assert('stageRole backfill checks the tenant override via normalized key too',
+    /\bnormKey\b[\s\S]{0,40}require\('\.\.\/functions\/stage-roles'\)/.test(stageRoleBf)
+    && /cfg\.stages\[stageKey\] \|\| \(nk !== stageKey \? cfg\.stages\[nk\]/.test(stageRoleBf),
+    'expected resolveRole to try cfg.stages[normKey(stage)] before the key map');
+  const pinsBf = read(path.join(ROOT, 'scripts/backfill-pins-companyId.js'));
+  assert('pins backfill skips ambiguous multi-company users (no wrong-tenant guess)',
+    /if \(hist\.size > 1\) ambiguousUsers\.add\(uid\)/.test(pinsBf)   // flags multi-company users
+    && /} else if \(ambiguousUsers\.has\(data\.userId\)\) \{/.test(pinsBf) // skip branch before the user-map guess
+    && /ambiguous\+\+;/.test(pinsBf),
+    'expected leadless pins of multi-company users to be skipped, not guessed');
+}
+
 };

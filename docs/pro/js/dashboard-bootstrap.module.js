@@ -79,9 +79,15 @@
   // the Phase-2 builder can re-apply immediately after a save.
   window.applyPipelineConfig = function applyPipelineConfig() {
     const raw = window._companyProfile && window._companyProfile.pipelines;
-    if (!raw || typeof raw !== 'object' || (!raw.stages && !raw.views)) return; // defaults stand
+    // A config counts only if it has at least one override; `{stages:{},views:{}}`
+    // (what "Reset to defaults" writes) is NOT a config. Crucially, when there's
+    // no config we RESOLVE WITH null (default clones) and apply them rather than
+    // early-returning — otherwise a Reset couldn't REVERT previously-applied
+    // overrides on window.STAGE_META / KANBAN_VIEWS without a page reload.
+    const hasCfg = raw && typeof raw === 'object'
+      && (((raw.stages && Object.keys(raw.stages).length) || (raw.views && Object.keys(raw.views).length)));
     let resolved;
-    try { resolved = resolvePipelineConfig(raw); } catch (e) { console.warn('[pipelines] resolve failed', e); return; }
+    try { resolved = resolvePipelineConfig(hasCfg ? raw : null); } catch (e) { console.warn('[pipelines] resolve failed', e); return; }
     window.STAGE_META = resolved.stageMeta;
     window.KANBAN_VIEWS = resolved.views;
     window.stageRole = resolved.roleOf;
@@ -93,8 +99,23 @@
     const vs = (resolved.views[vk] && resolved.views[vk].stages) || [];
     window._stageKeys = vs;
     window.STAGES = vs.map(k => (resolved.stageMeta[k] || {}).label || k);
-    // Custom stages may reclassify a lead's role — re-stamp the loaded book.
-    (window._leads || []).forEach(l => { if (l) l._stageRole = resolved.roleOf(l._stageKey || l.stage); });
+    // Custom stages may reclassify a lead's role AND column — re-stamp the
+    // loaded book. A lead hydrated BEFORE this config applied got _stageKey via
+    // the module-local normalizeStage (which didn't know the tenant's custom
+    // keys), so a custom-stage lead was stamped 'new' and mis-bucketed into the
+    // New column. window.STAGE_META now carries the custom keys (set above), so
+    // re-deriving _stageKey resolves custom_* to its own column. #921.
+    (window._leads || []).forEach(l => {
+      if (!l) return;
+      l._stageKey = normalizeStage(l.stage);
+      l._stageRole = resolved.roleOf(l._stageKey || l.stage);
+    });
+    // Rebuild the COLUMNS from the new config (buildKanbanColumns now reads the
+    // window.* overrides), then re-render cards into them — otherwise renamed /
+    // custom / reordered / hidden stages wouldn't appear until a full reload.
+    if (typeof window.buildKanbanColumns === 'function') {
+      try { window.buildKanbanColumns(window._currentViewKey || vk); } catch (_) {}
+    }
     if (typeof window.renderLeads === 'function') { try { window.renderLeads(); } catch (_) {} }
   };
   window.stageOptionsForType = stageOptionsForType;
@@ -105,9 +126,22 @@
 
   // ── Dynamic kanban column builder ──
   window.buildKanbanColumns = function(viewKey) {
-    const view = KANBAN_VIEWS[viewKey || _currentViewKey];
+    // Read the LIVE (possibly tenant-overridden) views + stage meta that
+    // applyPipelineConfig writes to window.*, not the module-local default
+    // consts — otherwise a tenant's custom views / renamed / custom / reordered
+    // stages never actually render on the board (the Phase-2 builder wrote the
+    // config but the board ignored it). Fall back to the defaults pre-config.
+    const VIEWS = window.KANBAN_VIEWS || KANBAN_VIEWS;
+    const META = window.STAGE_META || STAGE_META;
+    const view = VIEWS[viewKey || _currentViewKey];
     if (!view) return;
-    const stages = view.stages;
+    // Skip stages flagged hidden in the tenant config (builder eye-toggle) —
+    // but NEVER let the hide-filter blank the whole board (which would silently
+    // hide every lead with no recovery). If hiding empties the view, fall back
+    // to showing all its stages.
+    const _all = view.stages || [];
+    let stages = _all.filter(k => !(META[k] && META[k].hidden));
+    if (!stages.length && _all.length) stages = _all.slice();
     const board = document.getElementById('kanbanBoard');
     if (!board) return;
     // Delegated column DnD — the old per-column inline ondragover/ondrop
@@ -124,27 +158,39 @@
         if (body) window.drop(ev, body.id.replace(/^kbody-/, ''));
       });
     }
+    // Stage labels come from the team-shared tenant pipeline config, so a
+    // company_admin could store markup. The prod CSP (script-src-attr 'none',
+    // no unsafe-inline) blocks script execution, but escape here too — defence
+    // in depth so an unescaped '<'/'&' can't corrupt the board and a future CSP
+    // regression can't turn this innerHTML sink back into a live XSS.
+    const _escLbl = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     board.innerHTML = stages.map(stageKey => {
-      const meta = STAGE_META[stageKey] || {};
-      const label = meta.label || stageKey;
+      const meta = META[stageKey] || {};
+      const label = _escLbl(meta.label || stageKey);
+      // The key flows into id="" too. A well-formed custom key is a charset-safe
+      // slug (builder's makeCustomKey), so this is identity for real keys — but a
+      // company_admin writing companyProfile.pipelines directly could store a key
+      // with '"'/'<'; escape so it can't break out of the attribute (defence in
+      // depth alongside the label — #921).
+      const keyAttr = _escLbl(stageKey);
       const hdrClass = meta.headerClass || 'kh-new';
       return `
-      <div class="kanban-col" id="kcol-${stageKey}">
+      <div class="kanban-col" id="kcol-${keyAttr}">
         <div class="kcol-header ${hdrClass}">
           <div class="kcol-label">${label}</div>
           <div class="kcol-meta">
-            <div class="kcol-count" id="kcount-${stageKey}">0</div>
-            <div class="kcol-total dn" id="ktotal-${stageKey}"></div>
+            <div class="kcol-count" id="kcount-${keyAttr}">0</div>
+            <div class="kcol-total dn" id="ktotal-${keyAttr}"></div>
           </div>
         </div>
-        <div class="kcol-body" id="kbody-${stageKey}">
+        <div class="kcol-body" id="kbody-${keyAttr}">
           <div class="k-empty">No leads</div>
         </div>
       </div>`;
     }).join('');
 
     // Update STAGES + _stageKeys for crm.js compat
-    window.STAGES = stages.map(k => STAGE_META[k]?.label || k);
+    window.STAGES = stages.map(k => META[k]?.label || k);
     window._stageKeys = stages;
     window._currentViewKey = viewKey || _currentViewKey;
     localStorage.setItem('nbd_kanban_view', window._currentViewKey);
@@ -1337,7 +1383,7 @@
         }
       }, 250);
     });
-    loadEstimates(); loadPins();
+    loadEstimates(); loadPins(); loadZones();
     // B3: wire the live estimates listener so signature webhook
     // updates + V2 saves land in the UI without a reload.
     if (typeof window._subscribeEstimates === 'function') {
@@ -2150,6 +2196,9 @@
     }, 200);
     // Auto-check for review requests on recently closed jobs
     if (window.ReviewEngine?.checkAutoReviews) setTimeout(() => window.ReviewEngine.checkAutoReviews(), 3000);
+    // Keep the Customers map layer in step with the book (no-op unless the
+    // overlay is currently on — maps-customers.js guards on overlayState).
+    if (typeof window.refreshCustomersLayer === 'function') window.refreshCustomersLayer();
     // Supplier pricing: feature was removed; archive folder deleted with
     // the 2026-04-23 dead-code cleanup.
   }
@@ -2768,6 +2817,21 @@
         // Return the newly-created lead's id (no-geocode fallback path).
         return fallbackRef.id;
       } else {
+        // EDIT EXISTING: re-geocode when the address changed (or coords are
+        // missing) so the Customers map layer + Jobs overlay stay accurate.
+        // Best-effort — a geocode miss/timeout leaves the prior coords
+        // untouched and never blocks the save (geocode() self-aborts at 5s).
+        if (data.address) {
+          const _prev = (window._leads || []).find(l => l && l.id === editId);
+          const _addrChanged = !_prev || String(_prev.address || '') !== String(data.address || '');
+          const _missingCoords = !_prev || _prev.lat == null || _prev.lng == null;
+          if (_addrChanged || _missingCoords) {
+            try {
+              const geo = await geocode(data.address);
+              if (geo && geo.lat && geo.lon) { data.lat = parseFloat(geo.lat); data.lng = parseFloat(geo.lon); }
+            } catch (_) { /* keep existing coords */ }
+          }
+        }
         // EDIT EXISTING: Just update
         await updateDoc(doc(db,'leads',editId), {
           ...data,
@@ -2798,6 +2862,24 @@
       throw e;
     }
     await loadLeads();
+  };
+
+  // Lightweight coord-only persister used by the Customers map layer's rolling
+  // geocode-backfill (maps-customers.js). Writes just lat/lng so a lead mapped
+  // once is never re-geocoded. Owner/staff-writable per the leads rule (only
+  // userId/companyId are frozen); a denied/failed write is non-fatal — the
+  // marker still shows this session, we just re-geocode next time.
+  window._saveLeadCoords = async (id, lat, lng) => {
+    if (!id || String(id).startsWith('d-')) return;
+    try {
+      // Do NOT bump updatedAt: this is a PASSIVE map backfill (a manager opening
+      // the Customers layer geocodes teammates' team-scoped leads), and bumping
+      // updatedAt would float those leads to the top of every "recently updated"
+      // sort as if someone worked them (audit round 2).
+      await updateDoc(doc(db,'leads',id), { lat, lng });
+      const l = (window._leads || []).find(x => x && x.id === id);
+      if (l) { l.lat = lat; l.lng = lng; }
+    } catch(e) { console.warn('saveLeadCoords failed:', e && e.code); }
   };
 
   window._deleteLead = async (id) => {
@@ -3057,8 +3139,24 @@
     try {
       const uid = window._user?.uid;
       if (!uid) { console.warn('📌 loadPins: no uid, skipping'); window._pins = []; return; }
-      const snap = await getDocs(query(collection(db,'pins'), where('userId','==',uid)));
-      window._pins = snap.docs.map(d => ({id:d.id,...d.data()}));
+      // Team territory map (2026-07-08): company_admin / manager / viewer fetch
+      // the whole tenant's pins so the shared map shows every rep's knocks —
+      // same dual-scope shape as loadLeads. The second (own-uid) scope keeps a
+      // claimed-in member's PRE-invite pins (companyId == their own uid) and any
+      // legacy no-companyId pins visible. sales_rep + solo + legacy-claim stay
+      // own-only (matches the leads Wave-110 privacy decision).
+      const _claims = window._userClaims || {};
+      const _teamReader = ['company_admin', 'manager', 'viewer'].includes(_claims.role || '') && !!_claims.companyId;
+      const _scopes = _teamReader && _claims.companyId !== uid
+        ? [where('companyId', '==', _claims.companyId), where('userId', '==', uid)]
+        : [_teamReader ? where('companyId', '==', _claims.companyId) : where('userId', '==', uid)];
+      const _seen = new Set();
+      const _out = [];
+      for (const scope of _scopes) {
+        const snap = await getDocs(query(collection(db,'pins'), scope));
+        snap.docs.forEach(d => { if (!_seen.has(d.id)) { _seen.add(d.id); _out.push({id:d.id,...d.data()}); } });
+      }
+      window._pins = _out;
     } catch(e) { console.error('📌 loadPins FAILED:', e.code, e.message, e); window._pins = []; }
   }
   window._savePin = async (data) => {
@@ -3070,14 +3168,79 @@
         await updateDoc(doc(db,'pins',pinId), {...data, updatedAt:serverTimestamp()});
         return pinId;
       }
-      // Create new pin
-      const pinDoc = {...data, userId:window._user?.uid, createdAt:serverTimestamp()};
+      // Create new pin. Stamp companyId (claim, or uid for solo operators —
+      // same convention as leads/reports) so the pin is team-visible AND passes
+      // the /pins create rule, which now requires a tenant-scoped companyId.
+      const _uid = window._user?.uid;
+      const pinDoc = {...data, userId:_uid, companyId: (window._userClaims?.companyId) || _uid || null, createdAt:serverTimestamp()};
       const r = await addDoc(collection(db,'pins'), pinDoc);
       return r.id;
     }
     catch(e) { console.error('📌 savePin FAILED:', e.code, e.message, e); return 'd-'+Date.now(); }
   };
-  window._deletePin = async (id) => { try { await deleteDoc(doc(db,'pins',id)); } catch(e){ console.warn('deletePin failed:', e); showToast('Failed to delete pin','error'); } };
+  // Returns true when the doc is gone (or was local-only), false when the
+  // delete was denied/failed — so the caller can skip an optimistic marker
+  // removal that would silently reappear on reload (a team reader can SEE a
+  // teammate's pin but the /pins rule denies deleting it).
+  window._deletePin = async (id) => {
+    if (!id || String(id).startsWith('d-')) return true; // local-only pin
+    try { await deleteDoc(doc(db,'pins',id)); return true; }
+    catch(e){ console.warn('deletePin failed:', e && e.code); return false; }
+  };
+
+  // ── TERRITORY ZONES ───────────────────────────
+  // Persisted, team-shared canvassing areas (optionally rep-assigned). Same
+  // company dual-scope + companyId stamping as pins, so a drawn territory
+  // survives reload and every teammate sees it.
+  async function loadZones() {
+    try {
+      const uid = window._user?.uid;
+      if (!uid) { window._zones = []; return; }
+      const _claims = window._userClaims || {};
+      const _teamReader = ['company_admin', 'manager', 'viewer'].includes(_claims.role || '') && !!_claims.companyId;
+      const _scopes = _teamReader && _claims.companyId !== uid
+        ? [where('companyId', '==', _claims.companyId), where('userId', '==', uid)]
+        : [_teamReader ? where('companyId', '==', _claims.companyId) : where('userId', '==', uid)];
+      const _seen = new Set();
+      const _out = [];
+      for (const scope of _scopes) {
+        const snap = await getDocs(query(collection(db,'zones'), scope));
+        snap.docs.forEach(d => { if (!_seen.has(d.id)) { _seen.add(d.id); _out.push({id:d.id,...d.data()}); } });
+      }
+      window._zones = _out;
+      // Draw them if the map is already up (order-independent with initMainMap,
+      // which also calls renderSavedZones once _zones exists — both idempotent).
+      if (typeof window.renderSavedZones === 'function') { try { window.renderSavedZones(); } catch (_) {} }
+    } catch(e) { console.error('🗺 loadZones FAILED:', e.code, e.message, e); window._zones = []; }
+  }
+  window.loadZones = loadZones;
+  window._saveZone = async (data) => {
+    try {
+      if (data.id && !String(data.id).startsWith('d-')) {
+        const zoneId = data.id;
+        const patch = {...data}; delete patch.id;
+        await updateDoc(doc(db,'zones',zoneId), {...patch, updatedAt:serverTimestamp()});
+        return zoneId;
+      }
+      const _uid = window._user?.uid;
+      const zoneDoc = {...data}; delete zoneDoc.id;
+      zoneDoc.userId = _uid;
+      zoneDoc.companyId = (window._userClaims?.companyId) || _uid || null;
+      zoneDoc.createdAt = serverTimestamp();
+      const r = await addDoc(collection(db,'zones'), zoneDoc);
+      return r.id;
+    }
+    catch(e) { console.error('🗺 saveZone FAILED:', e.code, e.message, e); return 'd-'+Date.now(); }
+  };
+  // Returns true if the zone is gone server-side (or was never persisted), false
+  // if the delete was denied/failed — so the caller can avoid an optimistic
+  // removal that silently reappears on reload (a team reader can SEE a
+  // teammate's zone but the /zones rule denies deleting it).
+  window._deleteZone = async (id) => {
+    if (!id || String(id).startsWith('d-')) return true; // local-only zone
+    try { await deleteDoc(doc(db,'zones',id)); return true; }
+    catch(e){ console.warn('deleteZone failed:', e && e.code); return false; }
+  };
 
   // ── PHOTOS ─────────────────────────────────────
   // Storage rules (storage.rules, 2026-04-11 hardening) require

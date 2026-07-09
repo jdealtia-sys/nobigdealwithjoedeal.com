@@ -579,7 +579,7 @@ let zoneDrawing = false;
 let zonePoints = [];
 let zoneDots = [];
 let zoneTempPoly = null;
-let zoneColor = 'var(--blue)';
+let zoneColor = '#4A9EFF'; // hex (not var(--blue)) so a saved zone's colour survives reload through safeColor()
 let zoneDrawLayer = null;
 
 // ══════════════════════════════════════════════

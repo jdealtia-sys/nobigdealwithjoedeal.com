@@ -374,8 +374,16 @@ function renderLeads(leads, filtered){
     stageKeys.forEach(k => byStage[k] = []);
     const _resolve = window.resolveColumn;
     const _normalize = window.normalizeStage;
+    const _META = window.STAGE_META || {};
     list.forEach(l => {
       const sk = l._stageKey || (_normalize ? _normalize(l.stage) : (l.stage || 'new'));
+      // If the lead's OWN stage is hidden (builder eye-toggle), it has no column
+      // to live in — drop it from the board. Otherwise resolveColumn falls
+      // through to viewStages[0] and silently rebuckets the lead into the first
+      // column, mislabeling it, inflating that column's count/$ badges, and
+      // letting a drag re-stage it. The stage field itself is untouched.
+      const _hk = _normalize ? _normalize(sk) : sk;
+      if (_META[_hk] && _META[_hk].hidden) return;
       const col = _resolve ? _resolve(sk, stageKeys) : sk;
       if (byStage[col]) byStage[col].push(l);
       else if (byStage[stageKeys[0]]) byStage[stageKeys[0]].push(l);
