@@ -79,14 +79,20 @@ async function buildLeadMaps(db) {
     last = snap.docs[snap.docs.length - 1];
     if (snap.size < PAGE) break;
   }
-  // Collapse each user's companyId histogram to the most common.
+  // Collapse each user's companyId histogram to the most common — BUT flag any
+  // user whose leads span more than one companyId (e.g. a rep who worked solo
+  // [companyId == uid] then joined a company). For those the "most common" is
+  // NOT a safe tenant for a leadless door-knock pin, so mark them ambiguous and
+  // leave their leadless pins for manual review rather than guess wrong.
   const userToCompany = new Map();
+  const ambiguousUsers = new Set();
   for (const [uid, hist] of byUser) {
+    if (hist.size > 1) ambiguousUsers.add(uid);
     let best = null, bestN = -1;
     for (const [cid, n] of hist) { if (n > bestN) { best = cid; bestN = n; } }
     if (best) userToCompany.set(uid, best);
   }
-  return { userToCompany, byLead };
+  return { userToCompany, byLead, ambiguousUsers };
 }
 
 async function main() {
@@ -103,10 +109,11 @@ async function main() {
   console.log('  mode    : ' + (APPLY ? 'APPLY (writing)' : 'DRY-RUN (no changes)'));
   console.log('═══════════════════════════════════════════════════════════\n');
 
-  const { userToCompany, byLead } = await buildLeadMaps(db);
-  console.log('  lead-derived maps: ' + userToCompany.size + ' users, ' + byLead.size + ' leads\n');
+  const { userToCompany, byLead, ambiguousUsers } = await buildLeadMaps(db);
+  console.log('  lead-derived maps: ' + userToCompany.size + ' users, ' + byLead.size + ' leads, '
+    + ambiguousUsers.size + ' multi-company (ambiguous) users\n');
 
-  let scanned = 0, alreadyOk = 0, noUser = 0, toFix = 0, written = 0, failures = 0;
+  let scanned = 0, alreadyOk = 0, noUser = 0, toFix = 0, written = 0, failures = 0, ambiguous = 0;
   const source = { lead: 0, user: 0, ownUid: 0 };
 
   let batch = db.batch();
@@ -135,9 +142,21 @@ async function main() {
       if (!data.userId) { noUser++; continue; }               // can't derive a tenant
 
       let companyId, via;
-      if (data.leadId && byLead.has(data.leadId)) { companyId = byLead.get(data.leadId); via = 'lead'; }
-      else if (userToCompany.has(data.userId)) { companyId = userToCompany.get(data.userId); via = 'user'; }
-      else { companyId = data.userId; via = 'ownUid'; }       // solo-operator convention
+      if (data.leadId && byLead.has(data.leadId)) {
+        companyId = byLead.get(data.leadId); via = 'lead'; // authoritative: the linked lead's tenant
+      } else if (ambiguousUsers.has(data.userId)) {
+        // The owner's leads span >1 companyId and this pin has no lead to anchor
+        // it — guessing a tenant risks leaking the pin into the wrong team's map.
+        // Skip; the operator can assign these manually. (leadId-linked pins for
+        // the same user still resolve correctly above.)
+        ambiguous++;
+        if (!APPLY && ambiguous <= 20) console.log('  SKIP ' + doc.id + ' — ambiguous user ' + data.userId + ' (leads span multiple companyIds, no leadId)');
+        continue;
+      } else if (userToCompany.has(data.userId)) {
+        companyId = userToCompany.get(data.userId); via = 'user';
+      } else {
+        companyId = data.userId; via = 'ownUid'; // solo-operator convention
+      }
       source[via]++;
 
       toFix++;
@@ -158,6 +177,7 @@ async function main() {
   console.log('  scanned         : ' + scanned);
   console.log('  already correct : ' + alreadyOk);
   console.log('  no userId       : ' + noUser);
+  console.log('  ambiguous (skip): ' + ambiguous + '  (multi-company user, no leadId — assign manually)');
   console.log('  needed backfill : ' + toFix + '  ' + JSON.stringify(source));
   if (APPLY) { console.log('  written         : ' + written); console.log('  failures        : ' + failures); }
   else { console.log('  (dry-run — re-run with --apply --yes to write)'); }

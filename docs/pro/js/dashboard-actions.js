@@ -646,7 +646,14 @@ async function saveZone() {
   const repSel = document.getElementById('zoneRepSelect');
   const repKey = repSel && repSel.value ? repSel.value : '';
   const repOpt = repSel && repSel.selectedOptions && repSel.selectedOptions[0];
-  const repLabel = repKey && repOpt ? repOpt.textContent : '';
+  // Persist a NON-viewer-relative label: nbdRepList returns "Me" for the
+  // assigner's own uid, and storing that into the team-shared /zones doc would
+  // show "Me" to every teammate. Store the assigner's real name for self;
+  // renderSavedZones re-resolves the label per-viewer anyway (audit round 2).
+  let repLabel = repKey && repOpt ? repOpt.textContent : '';
+  if (repKey && window._user && repKey === window._user.uid) {
+    repLabel = window._user.displayName || window._user.email || repKey;
+  }
   const repColor = repKey && repOpt ? (repOpt.getAttribute('data-color') || zoneColor) : '';
   const fillColor = repColor || zoneColor;
   const _esc = window.nbdEsc || (s => String(s == null ? '' : s));
@@ -659,7 +666,7 @@ async function saveZone() {
   const _tipName = repLabel ? `${name} · ${repLabel}` : name;
   // Team-shared zones render another user's name in my browser — escape it.
   layer.bindTooltip(`<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;">${_esc(_tipName)}</div>`, {permanent:true, className:'zone-tooltip', direction:'center'});
-  _bindZoneInsights(layer, { name, repLabel, points: pts });
+  _bindZoneInsights(layer, { name, repLabel, points: pts, rep: repKey });
 
   // Persist so the territory survives reload + syncs to the team (fall back to
   // a local id if the write is unavailable — the zone still shows this session).
@@ -730,12 +737,25 @@ function _zoneInsights(zone) {
   Object.keys(dmg).forEach(k => { if (dmg[k] > topN) { topN = dmg[k]; topDmg = k; } });
   return { count, total, roles, topDmg };
 }
+// Resolve a zone's rep label in the CURRENT viewer's context (so a viewer sees
+// "Me" for their own zone + colleagues' real names), rather than the label the
+// assigner happened to persist. Falls back to the stored real-name label when
+// the rep has no leads in this viewer's book.
+function _zoneRepLabel(zoneData) {
+  if (!zoneData) return '';
+  if (zoneData.rep && typeof window.nbdRepList === 'function') {
+    const r = (window.nbdRepList() || []).find(x => x && x.key === zoneData.rep);
+    if (r && r.label) return r.label;
+  }
+  return zoneData.repLabel || '';
+}
 function _zonePopupHTML(zone) {
   const esc = window.nbdEsc || (s => String(s == null ? '' : s));
   const s = _zoneInsights(zone);
   const money = '$' + Math.round(s.total).toLocaleString();
+  const repLbl = _zoneRepLabel(zone);
   return `<div style="font-family:sans-serif;min-width:184px;">`
-    + `<div style="font-weight:800;font-size:13px;margin-bottom:3px;">${esc(zone.name || 'Zone')}${zone.repLabel ? ` · ${esc(zone.repLabel)}` : ''}</div>`
+    + `<div style="font-weight:800;font-size:13px;margin-bottom:3px;">${esc(zone.name || 'Zone')}${repLbl ? ` · ${esc(repLbl)}` : ''}</div>`
     + `<div style="font-size:12px;color:var(--t,#111);">${s.count} customer${s.count === 1 ? '' : 's'} · <b>${esc(money)}</b> pipeline</div>`
     + `<div style="font-size:11px;color:var(--m,#6b7280);margin-top:4px;">Won ${s.roles.won} · Active ${s.roles.active} · Job ${s.roles.job} · New ${s.roles.new} · Lost ${s.roles.lost}</div>`
     + (s.topDmg ? `<div style="font-size:11px;color:var(--m,#6b7280);">Top damage: ${esc(s.topDmg)}</div>` : '')
@@ -761,9 +781,10 @@ function renderSavedZones() {
     if (pts.length < 3) return;
     const color = safeColor(zd.color);
     const layer = L.polygon(pts, { color, weight:2.5, fillColor:color, fillOpacity:.1 }).addTo(mainMap);
-    const tip = zd.repLabel ? (zd.name + ' · ' + zd.repLabel) : (zd.name || 'Zone');
+    const _rl = _zoneRepLabel(zd); // per-viewer (not the stored "Me")
+    const tip = _rl ? (zd.name + ' · ' + _rl) : (zd.name || 'Zone');
     layer.bindTooltip(`<div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;">${_esc(tip)}</div>`, {permanent:true, className:'zone-tooltip', direction:'center'});
-    _bindZoneInsights(layer, { name: zd.name, repLabel: zd.repLabel, points: zd.points });
+    _bindZoneInsights(layer, { name: zd.name, repLabel: zd.repLabel, points: zd.points, rep: zd.rep });
     zones.push({ id: zd.id, name: zd.name, color, points: zd.points, layer, rep: zd.rep, repLabel: zd.repLabel });
   });
   if (typeof renderZoneList === 'function') renderZoneList();

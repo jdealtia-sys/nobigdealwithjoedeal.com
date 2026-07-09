@@ -172,6 +172,31 @@ skeptics) surfaced and we fixed:
 6. **LOW** — the "＋ Filters" toggle re-rendered the legend with stale counts
    (closed-over first-render `counts`) → uses the fresh `_custLastCounts`.
 
+**Adversarial audit — round 2 (2026-07-09) — 8 more bugs found + fixed.** A
+second multi-agent pass (verify the round-1 fixes are regression-free — they
+were, 0 findings — + sweep perf/UX, the backfill scripts, and the kanban path,
+plus a completeness critic) found + fixed:
+1. **"Reset to defaults" didn't reset** the board/builder until a page reload —
+   the empty-config write is deep-merged in memory (overrides preserved) and
+   `applyPipelineConfig` early-returned instead of restoring defaults. Now it
+   resolves-with-null (restores defaults) on an empty config, and the reset
+   branch force-clears the in-memory config + re-applies.
+2. **`buildCustomersLayer` had no re-entrancy guard** — a filter/color/zoom fired
+   mid-geocode-backfill duplicated pins. Added a build-token that aborts a
+   superseded build after its await.
+3. **Repeated ~13s geocode batches** on every filter/color/zoom re-render →
+   gated the backfill behind `doGeocode` (show/refresh only).
+4. **Pins backfill** could assign a leadless pin to the wrong tenant for a
+   multi-company user → now skips ambiguous users (logs them).
+5. **Hiding every stage** in a view blanked the board (leads vanish) → never-blank
+   fallback in `buildKanbanColumns`.
+6. **Zone rep label persisted as the viewer-relative "Me"** into the shared doc →
+   store a real name + resolve the label per-viewer at render.
+7. **stageRole backfill** missed tenant overrides for legacy alias stages →
+   checks `cfg.stages[normKey(stage)]` too.
+8. **`_saveLeadCoords` bumped `updatedAt`** on teammate leads during the passive
+   map backfill → writes only lat/lng now.
+
 **Follow-ups worth noting:**
 - ~~**Territory zones are session-only.**~~ ✅ **DONE (2026-07-08).** Zones now
   persist to a Firestore `/zones` collection (team-shared, same rule shape as

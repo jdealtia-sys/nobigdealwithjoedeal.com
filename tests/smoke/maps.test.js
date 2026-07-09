@@ -411,6 +411,22 @@ section('Map heat + pins toggle + mobile');
   assert('zone color swatches emit hex (survive reload through safeColor)',
     /data-target="#[0-9A-Fa-f]{6}"/.test(read(path.join(ROOT, 'docs/pro/dashboard.html'))),
     'expected zone color picker data-target values to be hex, not var(--x)');
+  // ── Round-2 audit regression guards ──
+  assert('buildCustomersLayer has a re-entrancy token guard (no duplicate pins)',
+    /let _custBuildToken = 0/.test(maps)
+    && /const token = \+\+_custBuildToken/.test(maps)
+    && (maps.match(/if \(token !== _custBuildToken\) return;/g) || []).length >= 2,
+    'expected a build token bumped per call + aborted after each geocode await');
+  assert('geocode-backfill only runs on show/refresh (doGeocode), not re-renders',
+    /async function buildCustomersLayer\(doGeocode\)/.test(maps)
+    && /if \(!doGeocode\) continue;/.test(maps)
+    && /getLayers\(\)\.length === 0\) \{ buildCustomersLayer\(true\)/.test(maps)
+    && /overlayState\.customers\) \{ buildCustomersLayer\(true\)/.test(maps),
+    'expected doGeocode gate + show/refresh passing true (filter/color/zoom pass false)');
+  assert('zone rep label resolves per-viewer at render (not the stored "Me")',
+    /function _zoneRepLabel\(zoneData\)[\s\S]{0,220}window\.nbdRepList/.test(actionsSrc)
+    && /repLabel = window\._user\.displayName \|\| window\._user\.email/.test(actionsSrc),
+    'expected _zoneRepLabel() to re-resolve via nbdRepList + saveZone to store a real name');
 }
 
 };

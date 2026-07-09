@@ -237,6 +237,13 @@
       _cfg = { stages: {}, views: {} };
       _dirty = true;
       await save();
+      // save() persisted {stages:{},views:{}} (Firestore clears the nested maps),
+      // but _saveCompanyProfile's deep-merge PRESERVES the old overrides in the
+      // in-memory profile — so force it empty and re-apply defaults now, instead
+      // of the reset appearing to do nothing until a page reload.
+      if (window._companyProfile) window._companyProfile.pipelines = {};
+      if (typeof window.applyPipelineConfig === 'function') { try { window.applyPipelineConfig(); } catch (_) {} }
+      loadCfg(); render();
     }
   }
 

@@ -275,10 +275,20 @@ function _ensureCustomersLayer() {
     : L.layerGroup();
 }
 
+// Monotonic token so a build suspended on a geocode await can detect that a
+// newer build superseded it and abort — otherwise concurrent invocations
+// (a filter/color/zoom fired mid-backfill) clearLayers() each other's markers
+// and double-add, duplicating pins.
+let _custBuildToken = 0;
+
 // Build (or rebuild) the layer from window._leads, honouring color-by + all
-// filters, geocoding+persisting missing coords (capped), refreshing the panel.
-async function buildCustomersLayer() {
+// filters. `doGeocode` gates the (slow, awaited) rolling geocode-backfill: it
+// runs ONLY on layer show + on a leads refresh — NOT on filter/color/zoom
+// re-renders, which just re-plot already-known coords. Without that gate every
+// chip click re-ran a ~13s geocode batch and re-toasted (audit round 2).
+async function buildCustomersLayer(doGeocode) {
   if (!mainMap) return;
+  const token = ++_custBuildToken;
   _ensureCustomersLayer();
   customersLayer.clearLayers();
 
@@ -303,7 +313,9 @@ async function buildCustomersLayer() {
       continue;
     }
 
-    // 2) No coords but has address — lazy geocode + persist (backfill).
+    // 2) No coords but has address — lazy geocode + persist (backfill), but only
+    //    on show/refresh (doGeocode). On a re-render, leave it for the next open.
+    if (!doGeocode) continue;
     const addr = lead.address || lead.addr || '';
     if (!addr) continue;
     const key = addr.trim().toLowerCase();
@@ -312,10 +324,12 @@ async function buildCustomersLayer() {
       if (liveRequests >= _CUST_GEOCODE_CAP) continue;
       if (typeof geocode !== 'function') continue;
       try { geo = await geocode(addr); } catch (_) { geo = null; }
+      if (token !== _custBuildToken) return; // superseded mid-await — a newer build owns the layer
       geo = geo ? { lat: parseFloat(geo.lat), lng: parseFloat(geo.lon) } : null;
       _custGeocodeCache.set(key, geo);
       liveRequests++;
       await new Promise(r => setTimeout(r, 1100)); // Nominatim fair-use
+      if (token !== _custBuildToken) return; // superseded during the pacing sleep
     }
     if (!geo || isNaN(geo.lat) || isNaN(geo.lng)) continue;
 
@@ -329,7 +343,7 @@ async function buildCustomersLayer() {
 
   _renderCustPanel(counts);
 
-  if (liveRequests >= _CUST_GEOCODE_CAP && typeof showToast === 'function') {
+  if (doGeocode && liveRequests >= _CUST_GEOCODE_CAP && typeof showToast === 'function') {
     showToast('Placed the first batch of un-mapped customers — reopen the layer to map more', 'info');
   }
 }
@@ -664,13 +678,13 @@ function _wireCustZoom() {
 function showCustomersLayer() {
   _ensureCustomersLayer();
   _wireCustZoom();
-  if (customersLayer.getLayers().length === 0) { buildCustomersLayer(); }
+  if (customersLayer.getLayers().length === 0) { buildCustomersLayer(true); } // show → run the geocode-backfill
   else if (_custPanelEl) { _custPanelEl.style.display = ''; }
   customersLayer.addTo(mainMap);
 }
 function hideCustomersLayer() { if (customersLayer && mainMap) mainMap.removeLayer(customersLayer); _hideCustPanel(); _clearRoute(); }
 
-function refreshCustomersLayer() { if (overlayState && overlayState.customers) { buildCustomersLayer(); } }
+function refreshCustomersLayer() { if (overlayState && overlayState.customers) { buildCustomersLayer(true); } } // leads changed → re-geocode any new un-mapped ones
 
 if (typeof window !== 'undefined') {
   window.buildCustomersLayer   = buildCustomersLayer;

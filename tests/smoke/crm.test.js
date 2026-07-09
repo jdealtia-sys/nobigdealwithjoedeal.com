@@ -531,6 +531,33 @@ section('Pipelines builder — drag-to-reorder stages');
   assert('applyPipelineConfig rebuilds the columns (not just re-renders cards)',
     /window\.buildKanbanColumns\(window\._currentViewKey \|\| vk\)/.test(boot),
     'expected applyPipelineConfig to call buildKanbanColumns so config changes show live');
+  // ── Round-2 audit regression guards ──
+  assert('applyPipelineConfig restores defaults on an empty config (Reset works without reload)',
+    /const hasCfg = raw && typeof raw === 'object'[\s\S]{0,140}Object\.keys\(raw\.stages\)\.length/.test(boot)
+    && /resolvePipelineConfig\(hasCfg \? raw : null\)/.test(boot),
+    'expected applyPipelineConfig to resolve null (defaults) when there is no real config');
+  assert('Reset to defaults force-clears the in-memory config + re-applies',
+    /window\._companyProfile\.pipelines = \{\};[\s\S]{0,160}applyPipelineConfig\(\)/.test(pb),
+    'expected the reset branch to clear window._companyProfile.pipelines and re-apply');
+  assert('buildKanbanColumns never blanks the board (hide-all fallback)',
+    /if \(!stages\.length && _all\.length\) stages = _all\.slice\(\)/.test(boot),
+    'expected a fallback so hiding every stage does not render zero columns');
+  assert('_saveLeadCoords does not bump updatedAt (passive backfill)',
+    /updateDoc\(doc\(db,'leads',id\), \{ lat, lng \}\)/.test(boot)
+    && !/updateDoc\(doc\(db,'leads',id\), \{ lat, lng, updatedAt/.test(boot),
+    'expected _saveLeadCoords to write only lat/lng, no updatedAt');
+  // Backfill hardening
+  const stageRoleBf = read(path.join(ROOT, 'scripts/backfill-lead-stageRole.js'));
+  assert('stageRole backfill checks the tenant override via normalized key too',
+    /\bnormKey\b[\s\S]{0,40}require\('\.\.\/functions\/stage-roles'\)/.test(stageRoleBf)
+    && /cfg\.stages\[stageKey\] \|\| \(nk !== stageKey \? cfg\.stages\[nk\]/.test(stageRoleBf),
+    'expected resolveRole to try cfg.stages[normKey(stage)] before the key map');
+  const pinsBf = read(path.join(ROOT, 'scripts/backfill-pins-companyId.js'));
+  assert('pins backfill skips ambiguous multi-company users (no wrong-tenant guess)',
+    /if \(hist\.size > 1\) ambiguousUsers\.add\(uid\)/.test(pinsBf)   // flags multi-company users
+    && /} else if \(ambiguousUsers\.has\(data\.userId\)\) \{/.test(pinsBf) // skip branch before the user-map guess
+    && /ambiguous\+\+;/.test(pinsBf),
+    'expected leadless pins of multi-company users to be skipped, not guessed');
 }
 
 };

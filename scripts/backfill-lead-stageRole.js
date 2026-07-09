@@ -53,7 +53,7 @@
  */
 
 const admin = require('firebase-admin');
-const { roleFromKey, ROLE } = require('../functions/stage-roles');
+const { roleFromKey, normKey, ROLE } = require('../functions/stage-roles');
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
@@ -103,7 +103,12 @@ function makeTenantCfgLoader(db) {
 // key map. Mirrors resolvePipelineConfig.roleOf + functions/stage-roles.roleFor.
 function resolveRole(stageKey, cfg) {
   if (cfg && cfg.stages && stageKey) {
-    const ov = cfg.stages[stageKey];
+    // Check the tenant override at BOTH the exact stage value AND its normalized
+    // canonical key — the runtime normalizes first (crm-stages roleOf), so a
+    // legacy alias like 'Closed Won' must resolve the tenant's 'closed' override,
+    // not silently fall through to the key map (audit round 2).
+    const nk = (typeof normKey === 'function') ? normKey(stageKey) : stageKey;
+    const ov = cfg.stages[stageKey] || (nk !== stageKey ? cfg.stages[nk] : null);
     if (ov && typeof ov.role === 'string' && VALID_ROLES.has(ov.role)) return ov.role;
   }
   return roleFromKey(stageKey);

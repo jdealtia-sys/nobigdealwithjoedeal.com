@@ -79,9 +79,15 @@
   // the Phase-2 builder can re-apply immediately after a save.
   window.applyPipelineConfig = function applyPipelineConfig() {
     const raw = window._companyProfile && window._companyProfile.pipelines;
-    if (!raw || typeof raw !== 'object' || (!raw.stages && !raw.views)) return; // defaults stand
+    // A config counts only if it has at least one override; `{stages:{},views:{}}`
+    // (what "Reset to defaults" writes) is NOT a config. Crucially, when there's
+    // no config we RESOLVE WITH null (default clones) and apply them rather than
+    // early-returning — otherwise a Reset couldn't REVERT previously-applied
+    // overrides on window.STAGE_META / KANBAN_VIEWS without a page reload.
+    const hasCfg = raw && typeof raw === 'object'
+      && (((raw.stages && Object.keys(raw.stages).length) || (raw.views && Object.keys(raw.views).length)));
     let resolved;
-    try { resolved = resolvePipelineConfig(raw); } catch (e) { console.warn('[pipelines] resolve failed', e); return; }
+    try { resolved = resolvePipelineConfig(hasCfg ? raw : null); } catch (e) { console.warn('[pipelines] resolve failed', e); return; }
     window.STAGE_META = resolved.stageMeta;
     window.KANBAN_VIEWS = resolved.views;
     window.stageRole = resolved.roleOf;
@@ -120,8 +126,13 @@
     const META = window.STAGE_META || STAGE_META;
     const view = VIEWS[viewKey || _currentViewKey];
     if (!view) return;
-    // Skip stages flagged hidden in the tenant config (builder eye-toggle).
-    const stages = (view.stages || []).filter(k => !(META[k] && META[k].hidden));
+    // Skip stages flagged hidden in the tenant config (builder eye-toggle) —
+    // but NEVER let the hide-filter blank the whole board (which would silently
+    // hide every lead with no recovery). If hiding empties the view, fall back
+    // to showing all its stages.
+    const _all = view.stages || [];
+    let stages = _all.filter(k => !(META[k] && META[k].hidden));
+    if (!stages.length && _all.length) stages = _all.slice();
     const board = document.getElementById('kanbanBoard');
     if (!board) return;
     // Delegated column DnD — the old per-column inline ondragover/ondrop
@@ -2840,7 +2851,11 @@
   window._saveLeadCoords = async (id, lat, lng) => {
     if (!id || String(id).startsWith('d-')) return;
     try {
-      await updateDoc(doc(db,'leads',id), { lat, lng, updatedAt: serverTimestamp() });
+      // Do NOT bump updatedAt: this is a PASSIVE map backfill (a manager opening
+      // the Customers layer geocodes teammates' team-scoped leads), and bumping
+      // updatedAt would float those leads to the top of every "recently updated"
+      // sort as if someone worked them (audit round 2).
+      await updateDoc(doc(db,'leads',id), { lat, lng });
       const l = (window._leads || []).find(x => x && x.id === id);
       if (l) { l.lat = lat; l.lng = lng; }
     } catch(e) { console.warn('saveLeadCoords failed:', e && e.code); }
