@@ -197,6 +197,22 @@ plus a completeness critic) found + fixed:
 8. **`_saveLeadCoords` bumped `updatedAt`** on teammate leads during the passive
    map backfill → writes only lat/lng now.
 
+**Adversarial audit — round 3 (2026-07-09) — 2 more bugs found + fixed.** A
+third pass (converging: 6 → 8 → 2 findings) surfaced two team-visibility
+regressions that only bit once `/pins` and `/zones` went team-shared:
+1. **`deletePin` removed the marker optimistically** even when the Firestore
+   delete was denied — a manager/viewer clicking Delete on a *teammate's* pin
+   (which the `/pins` delete rule denies) saw it vanish, then reappear on reload.
+   Same bug already fixed for zones. Now `deletePin` awaits `window._deletePin`
+   (changed to return a bool) and only strips the marker on success, toasting an
+   owner/admin-only message otherwise.
+2. **`_zoneRepLabel` let a degenerate uid-slice clobber the stored real name** —
+   when the assigned rep has no leads in the *current viewer's* book,
+   `nbdRepList()`'s last-resort label is `String(uid).slice(0,6)`; the label
+   resolver preferred that slice over the real name the assigner persisted in
+   `repLabel`. Now it detects the uid-slice and falls back to the stored
+   `repLabel` when one exists.
+
 **Follow-ups worth noting:**
 - ~~**Territory zones are session-only.**~~ ✅ **DONE (2026-07-08).** Zones now
   persist to a Firestore `/zones` collection (team-shared, same rule shape as

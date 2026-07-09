@@ -745,7 +745,14 @@ function _zoneRepLabel(zoneData) {
   if (!zoneData) return '';
   if (zoneData.rep && typeof window.nbdRepList === 'function') {
     const r = (window.nbdRepList() || []).find(x => x && x.key === zoneData.rep);
-    if (r && r.label) return r.label;
+    if (r && r.label) {
+      // nbdRepList's last-resort label is a uid-slice (String(uid).slice(0,6))
+      // when the rep has no leads in THIS viewer's book. Don't let that
+      // degenerate slice clobber the real name the assigner persisted —
+      // prefer the stored repLabel whenever the live label is just the slice.
+      const isUidSlice = r.label === String(zoneData.rep).slice(0, 6);
+      if (!isUidSlice || !zoneData.repLabel) return r.label;
+    }
   }
   return zoneData.repLabel || '';
 }

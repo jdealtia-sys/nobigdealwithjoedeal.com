@@ -497,7 +497,16 @@ function selectPin(status,color,el) {
   curPinStatus=status; curPinColor=color;
   document.getElementById('mapBadge').textContent='📍 '+(PIN_LABELS[status]||status).toUpperCase();
 }
-async function deletePin(id) { if(pinMarkers[id]){if(pinClusterGroup)pinClusterGroup.removeLayer(pinMarkers[id]);else mainMap.removeLayer(pinMarkers[id]);delete pinMarkers[id];} await window._deletePin(id); refreshHeatLayer(); }
+async function deletePin(id) {
+  // Confirm the server delete BEFORE removing the marker. Pins are now
+  // team-visible, so a manager/viewer can click Delete on a teammate's pin — the
+  // /pins delete rule denies it, and an optimistic removal would silently
+  // reappear on reload (the same bug fixed for zones). Only remove on success.
+  const ok = (typeof window._deletePin === 'function') ? await window._deletePin(id) : false;
+  if (!ok) { if (typeof showToast === 'function') showToast('Could not delete — only the pin owner or a company admin can remove it', 'error'); return; }
+  if (pinMarkers[id]) { if (pinClusterGroup) pinClusterGroup.removeLayer(pinMarkers[id]); else mainMap.removeLayer(pinMarkers[id]); delete pinMarkers[id]; }
+  refreshHeatLayer();
+}
 function clearAllPins() { if(pinClusterGroup){pinClusterGroup.clearLayers();}else{Object.values(pinMarkers).forEach(m=>mainMap.removeLayer(m));} pinMarkers={}; }
 
 async function searchMap() {

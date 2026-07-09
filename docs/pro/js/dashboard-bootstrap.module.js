@@ -3157,7 +3157,15 @@
     }
     catch(e) { console.error('📌 savePin FAILED:', e.code, e.message, e); return 'd-'+Date.now(); }
   };
-  window._deletePin = async (id) => { try { await deleteDoc(doc(db,'pins',id)); } catch(e){ console.warn('deletePin failed:', e); showToast('Failed to delete pin','error'); } };
+  // Returns true when the doc is gone (or was local-only), false when the
+  // delete was denied/failed — so the caller can skip an optimistic marker
+  // removal that would silently reappear on reload (a team reader can SEE a
+  // teammate's pin but the /pins rule denies deleting it).
+  window._deletePin = async (id) => {
+    if (!id || String(id).startsWith('d-')) return true; // local-only pin
+    try { await deleteDoc(doc(db,'pins',id)); return true; }
+    catch(e){ console.warn('deletePin failed:', e && e.code); return false; }
+  };
 
   // ── TERRITORY ZONES ───────────────────────────
   // Persisted, team-shared canvassing areas (optionally rep-assigned). Same

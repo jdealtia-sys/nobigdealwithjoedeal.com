@@ -427,6 +427,22 @@ section('Map heat + pins toggle + mobile');
     /function _zoneRepLabel\(zoneData\)[\s\S]{0,220}window\.nbdRepList/.test(actionsSrc)
     && /repLabel = window\._user\.displayName \|\| window\._user\.email/.test(actionsSrc),
     'expected _zoneRepLabel() to re-resolve via nbdRepList + saveZone to store a real name');
+  // ── Round-3 audit regression guards ──
+  // deletePin now mirrors deleteZone: await the server delete (which returns a
+  // bool) and only strip the marker on success. Pins went team-visible, so a
+  // manager/viewer can click Delete on a teammate's pin — the /pins rule denies
+  // it, and an optimistic removal silently reappears on reload.
+  assert('deletePin confirms the server delete before removing the marker',
+    /async function deletePin\(id\)[\s\S]{0,400}await window\._deletePin\(id\)[\s\S]{0,120}if \(!ok\)/.test(maps)
+    && /window\._deletePin = async \(id\)[\s\S]{0,260}return true;[\s\S]{0,200}return false;/.test(read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'))),
+    'expected deletePin to await _deletePin (which returns bool) and skip marker removal on denial');
+  // _zoneRepLabel must not let nbdRepList's degenerate uid-slice fallback
+  // (String(uid).slice(0,6), used when the rep has no leads in THIS viewer's
+  // book) clobber the real name the assigner persisted in repLabel.
+  assert('zone rep label prefers stored real name over a uid-slice fallback',
+    /const isUidSlice = r\.label === String\(zoneData\.rep\)\.slice\(0, 6\)/.test(actionsSrc)
+    && /if \(!isUidSlice \|\| !zoneData\.repLabel\) return r\.label;/.test(actionsSrc),
+    'expected _zoneRepLabel to fall back to zoneData.repLabel when the live label is just the uid-slice');
 }
 
 };
