@@ -542,6 +542,17 @@ section('Pipelines builder — drag-to-reorder stages');
   assert('buildKanbanColumns never blanks the board (hide-all fallback)',
     /if \(!stages\.length && _all\.length\) stages = _all\.slice\(\)/.test(boot),
     'expected a fallback so hiding every stage does not render zero columns');
+  // ── Round-4 audit regression guard ──
+  // The builder's eye-toggle writes ov.hidden for custom stages too, but
+  // resolvePipelineConfig's custom-stage branch dropped the flag — so a hidden
+  // custom column kept rendering (the board filter reads META[k].hidden). The
+  // built-in branch already honours ov.hidden; the custom branch must match.
+  {
+    const stagesSrc = read(path.join(ROOT, 'docs/pro/js/crm-stages.js'));
+    assert('resolvePipelineConfig honours hidden for CUSTOM stages (eye-toggle works)',
+      /custom: true,[\s\S]{0,400}hidden: ov\.hidden === true,/.test(stagesSrc),
+      'expected the custom-stage meta literal to carry hidden: ov.hidden === true so custom stages can be hidden');
+  }
   assert('_saveLeadCoords does not bump updatedAt (passive backfill)',
     /updateDoc\(doc\(db,'leads',id\), \{ lat, lng \}\)/.test(boot)
     && !/updateDoc\(doc\(db,'leads',id\), \{ lat, lng, updatedAt/.test(boot),

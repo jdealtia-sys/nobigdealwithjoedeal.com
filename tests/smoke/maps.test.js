@@ -443,6 +443,20 @@ section('Map heat + pins toggle + mobile');
     /const isUidSlice = r\.label === String\(zoneData\.rep\)\.slice\(0, 6\)/.test(actionsSrc)
     && /if \(!isUidSlice \|\| !zoneData\.repLabel\) return r\.label;/.test(actionsSrc),
     'expected _zoneRepLabel to fall back to zoneData.repLabel when the live label is just the uid-slice');
+  // ── Round-4 audit regression guards ──
+  // makePinIcon interpolates the pin colour into the divIcon SVG (fill="…").
+  // Pins are team-visible and `color` is an unvalidated /pins field, so a
+  // teammate-controlled colour is cross-user stored XSS unless escaped. Every
+  // other colour sink in the file already routes through _mapsEscHtml.
+  assert('makePinIcon escapes the pin colour before interpolating (XSS guard)',
+    /function makePinIcon\(color, status\)[\s\S]{0,700}const safe = \(typeof _mapsEscHtml === 'function'\) \? _mapsEscHtml\(color\)[\s\S]{0,500}fill="\$\{safe\}"/.test(maps),
+    'expected makePinIcon to escape color via _mapsEscHtml and interpolate the escaped value into fill=""');
+  // deleteZone awaits a server round-trip; a second concurrent delete can splice
+  // the array mid-flight, so the pre-await index goes stale. Recompute by
+  // identity after the await instead of splicing the captured idx.
+  assert('deleteZone recomputes the splice index by identity after the await',
+    /if \(zone\.layer\) mainMap\?\.removeLayer\(zone\.layer\);[\s\S]{0,260}const realIdx = zones\.findIndex\(z => String\(z\.id\) === String\(zone\.id\)\);[\s\S]{0,80}if \(realIdx >= 0\) zones\.splice\(realIdx, 1\);/.test(actionsSrc),
+    'expected deleteZone to re-find the index after awaiting _deleteZone, not splice the stale captured idx');
 }
 
 };

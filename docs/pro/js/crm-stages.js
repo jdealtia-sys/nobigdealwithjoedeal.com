@@ -816,6 +816,10 @@ export function resolvePipelineConfig(raw) {
         track: 'custom',
         type: ov.role === ROLE.JOB ? 'job' : 'lead',
         custom: true,
+        // Honour the builder's eye-toggle for custom stages too — the built-in
+        // branch copies ov.hidden (above), so without this a hidden custom stage
+        // kept rendering on the board (the column filter reads META[k].hidden).
+        hidden: ov.hidden === true,
       };
     }
   }

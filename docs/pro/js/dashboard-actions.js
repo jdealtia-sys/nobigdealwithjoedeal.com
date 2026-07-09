@@ -698,7 +698,12 @@ async function deleteZone(id) {
   if (typeof window._deleteZone === 'function') { try { ok = await window._deleteZone(zone.id); } catch (_) { ok = false; } }
   if (!ok) { if (typeof showToast === 'function') showToast('Could not delete — only the owner or a company admin can remove this zone', 'error'); return; }
   if (zone.layer) mainMap?.removeLayer(zone.layer);
-  zones.splice(idx, 1);
+  // Recompute the index by identity AFTER the await — a second concurrent
+  // delete may have spliced the array while our server round-trip was in
+  // flight, so the `idx` captured before the await is now stale and would drop
+  // the wrong zone.
+  const realIdx = zones.findIndex(z => String(z.id) === String(zone.id));
+  if (realIdx >= 0) zones.splice(realIdx, 1);
   renderZoneList();
 }
 

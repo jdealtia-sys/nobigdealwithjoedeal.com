@@ -176,7 +176,13 @@ async function dropPinByAddress() {
 
 // ── ORIGINAL PIN FUNCTIONS (updated) ────────────────
 function makePinIcon(color, status) {
-  const svg = status==='signed' ? '⭐' : `<svg viewBox="0 0 24 32" width="20" height="28" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.6 0 4 3.6 4 8c0 6 8 16 8 16s8-10 8-16c0-4.4-3.6-8-8-8z" fill="${color}" stroke="white" stroke-width="1.5"/><circle cx="12" cy="8" r="3" fill="white"/></svg>`;
+  // `color` is a per-pin /pins field and pins are now TEAM-VISIBLE, so a
+  // teammate (or compromised rep) can persist an arbitrary string here. Escape
+  // it before interpolating into the divIcon HTML — otherwise a crafted value
+  // breaks out of fill="…" and becomes cross-user stored XSS. Every other sink
+  // in this file already routes colour through esc; this icon path was the gap.
+  const safe = (typeof _mapsEscHtml === 'function') ? _mapsEscHtml(color) : String(color || '');
+  const svg = status==='signed' ? '⭐' : `<svg viewBox="0 0 24 32" width="20" height="28" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C7.6 0 4 3.6 4 8c0 6 8 16 8 16s8-10 8-16c0-4.4-3.6-8-8-8z" fill="${safe}" stroke="white" stroke-width="1.5"/><circle cx="12" cy="8" r="3" fill="white"/></svg>`;
   return L.divIcon({html:`<div style="font-size:20px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));">${svg}</div>`,iconSize:[20,28],iconAnchor:[10,28],popupAnchor:[0,-28],className:''});
 }
 

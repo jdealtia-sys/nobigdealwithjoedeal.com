@@ -213,6 +213,43 @@ regressions that only bit once `/pins` and `/zones` went team-shared:
    `repLabel`. Now it detects the uid-slice and falls back to the stored
    `repLabel` when one exists.
 
+**Adversarial audit — round 4 (2026-07-09) — 3 more bugs found + fixed** (5
+candidates, 2 refuted by the skeptic pass). 6 dimension finders → 2 independent
+refuting skeptics per finding:
+1. **HIGH — cross-user stored XSS in `makePinIcon`** (`maps-overlays.js`). The
+   pin marker's SVG interpolated the colour raw as `fill="${color}"`. Making
+   `/pins` team-visible earlier in this branch is what turned this into a
+   *cross-user* sink: a rep can persist an arbitrary `color` on a pin (the
+   `/pins` create rule validates only `userId`/`companyId`, not `color`), and
+   when a manager/admin opens the map the string executes in their authed
+   session. Every other colour sink in the file already escaped; the icon path
+   was the lone gap. Fixed by routing `color` through `_mapsEscHtml`.
+2. **MED — `deleteZone` spliced a stale index** (`dashboard-actions.js`). It
+   captured the array index *before* awaiting the server delete; a second rapid
+   delete could splice the array mid-round-trip, so the captured index dropped
+   the wrong zone (list/map desync until reload). Introduced when `deleteZone`
+   went async this branch. Fixed by recomputing the index by identity after the
+   await.
+3. **LOW — hidden custom stages kept rendering** (`crm-stages.js`). The eye-
+   toggle writes `hidden` for custom stages too, but `resolvePipelineConfig`'s
+   custom-stage branch never copied `ov.hidden` (the built-in branch did), so
+   the board's `META[k].hidden` filter never matched — hiding a custom column
+   silently did nothing. Fixed by carrying `hidden: ov.hidden === true` in the
+   custom-stage meta.
+
+Two candidates were **refuted** (correctly not fixed): a claim that "Reset to
+defaults" resurrects custom stages on reload (false — Firestore `setDoc` with an
+empty nested map DOES clear the server path via the field mask, and the cache is
+overwritten by the authoritative read on reload); and a claim that the stageRole
+backfill caches `null` on a transient read error and miswrites roles (contingent
+on a companyProfile read throwing while the run otherwise completes — admin-SDK
+auto-retry + the uncaught leads-paging reads make that path unrealistic).
+
+Audit trend across four rounds: **6 → 8 → 2 → 3 findings.** Round-4's three were
+edge/adjacent cases (a team-visibility XSS the earlier rounds' sharing changes
+opened, a concurrency race, a custom-stage feature gap) — no new
+tenant-isolation-class holes. Convergence reached.
+
 **Follow-ups worth noting:**
 - ~~**Territory zones are session-only.**~~ ✅ **DONE (2026-07-08).** Zones now
   persist to a Firestore `/zones` collection (team-shared, same rule shape as
