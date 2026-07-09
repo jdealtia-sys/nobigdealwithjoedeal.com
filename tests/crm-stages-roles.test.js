@@ -24,10 +24,13 @@ function ok(name, cond) { if (cond) { passed++; } else { failed++; fails.push(na
 
 let src = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/crm-stages.js'), 'utf8');
 src = src.replace(/export\s+function\s+/g, 'function ').replace(/export\s+const\s+/g, 'const ');
-src += '\nthis.__out = { S, STAGE_META, stageRole, isWonStage, isLostStage, ROLE, normalizeStage, resolvePipelineConfig, KANBAN_VIEWS };';
-const sandbox = { console };
+src += '\nthis.__out = { S, STAGE_META, stageRole, isWonStage, isLostStage, ROLE, normalizeStage, resolveColumn, resolvePipelineConfig, KANBAN_VIEWS };';
+// A `window` global so the module's live-custom-key lookup (normalizeStage now
+// consults window.STAGE_META) is exercisable; empty at load so the existing
+// default-behaviour assertions below are unaffected.
+const sandbox = { console, window: {} };
 vm.runInNewContext(src, sandbox, { filename: 'crm-stages.js' });
-const { S, STAGE_META, stageRole, isWonStage, isLostStage, ROLE, normalizeStage, resolvePipelineConfig, KANBAN_VIEWS } = sandbox.__out;
+const { S, STAGE_META, stageRole, isWonStage, isLostStage, ROLE, normalizeStage, resolveColumn, resolvePipelineConfig, KANBAN_VIEWS } = sandbox.__out;
 
 // The legacy canonical sets the roles must reproduce (copy-pasted across
 // analytics-kpi / money-dashboard / dashboard-api / leaderboard before Phase 0).
@@ -132,6 +135,40 @@ ok('round-trip: legacy (no stageRole) misclassifies as active — why the backfi
 // Built-in stages still agree client↔server without any persisted role.
 ok('round-trip: built-in closed agrees client + server',
   rt.roleOf('closed') === ROLE.WON && server.roleFor({ stage: 'closed' }) === server.ROLE.WON);
+
+// ── #921 regression: custom-stage BOARD BUCKETING ──────────────────────────
+// The round-trip test above proves roleOf() classifies a custom stage — but the
+// board bug lived elsewhere: a tenant custom_* key exists ONLY on
+// window.STAGE_META (the resolved config), never on the module-local default
+// STAGE_META. normalizeStage() ignored window.STAGE_META, so
+// normalizeStage('custom_qc') → 'new' and resolveColumn() bucketed the lead into
+// the New column while its custom column rendered empty. The roleOf coverage
+// above never exercised normalizeStage/resolveColumn — that's the gap that let
+// the bug ship. These assert the render-path helpers now resolve a LIVE custom
+// key to ITS OWN column.
+const board = resolvePipelineConfig({
+  stages: { custom_qc: { label: 'QC Review', role: ROLE.ACTIVE, color: '#3366cc' } },
+  views:  { insurance: { stages: ['new', 'custom_qc', 'closed', 'lost'] } },
+});
+ok('board: custom stage resolved without errors', board.errors.length === 0);
+ok('board: custom key present on resolved meta', !!board.stageMeta.custom_qc);
+// Publish the resolved meta onto window the way applyPipelineConfig does at runtime.
+sandbox.window.STAGE_META = board.stageMeta;
+sandbox.window.KANBAN_VIEWS = board.views;
+// These two FAIL before the fix (both collapse to 'new'):
+ok('board: normalizeStage preserves a live custom key',
+  normalizeStage('custom_qc') === 'custom_qc');
+ok('board: resolveColumn buckets a custom-stage lead into its own column',
+  resolveColumn('custom_qc', board.views.insurance.stages) === 'custom_qc');
+// Guard rails: a built-in key still buckets to itself with a live config set,
+ok('board: built-in key still buckets to itself',
+  resolveColumn('closed', board.views.insurance.stages) === 'closed');
+// and an unknown/removed key still falls back to New (no throw, no leak).
+ok('board: unknown key falls back to New',
+  normalizeStage('totally_bogus_stage_xyz') === S.NEW);
+// Restore the empty window so nothing downstream sees a stale live config.
+sandbox.window.STAGE_META = undefined;
+sandbox.window.KANBAN_VIEWS = undefined;
 
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' crm-stages roles: ' + passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILURES:\n  ' + fails.join('\n  ')); process.exit(1); }

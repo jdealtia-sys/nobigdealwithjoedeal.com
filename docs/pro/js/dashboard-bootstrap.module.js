@@ -99,8 +99,17 @@
     const vs = (resolved.views[vk] && resolved.views[vk].stages) || [];
     window._stageKeys = vs;
     window.STAGES = vs.map(k => (resolved.stageMeta[k] || {}).label || k);
-    // Custom stages may reclassify a lead's role — re-stamp the loaded book.
-    (window._leads || []).forEach(l => { if (l) l._stageRole = resolved.roleOf(l._stageKey || l.stage); });
+    // Custom stages may reclassify a lead's role AND column — re-stamp the
+    // loaded book. A lead hydrated BEFORE this config applied got _stageKey via
+    // the module-local normalizeStage (which didn't know the tenant's custom
+    // keys), so a custom-stage lead was stamped 'new' and mis-bucketed into the
+    // New column. window.STAGE_META now carries the custom keys (set above), so
+    // re-deriving _stageKey resolves custom_* to its own column. #921.
+    (window._leads || []).forEach(l => {
+      if (!l) return;
+      l._stageKey = normalizeStage(l.stage);
+      l._stageRole = resolved.roleOf(l._stageKey || l.stage);
+    });
     // Rebuild the COLUMNS from the new config (buildKanbanColumns now reads the
     // window.* overrides), then re-render cards into them — otherwise renamed /
     // custom / reordered / hidden stages wouldn't appear until a full reload.
@@ -158,17 +167,23 @@
     board.innerHTML = stages.map(stageKey => {
       const meta = META[stageKey] || {};
       const label = _escLbl(meta.label || stageKey);
+      // The key flows into id="" too. A well-formed custom key is a charset-safe
+      // slug (builder's makeCustomKey), so this is identity for real keys — but a
+      // company_admin writing companyProfile.pipelines directly could store a key
+      // with '"'/'<'; escape so it can't break out of the attribute (defence in
+      // depth alongside the label — #921).
+      const keyAttr = _escLbl(stageKey);
       const hdrClass = meta.headerClass || 'kh-new';
       return `
-      <div class="kanban-col" id="kcol-${stageKey}">
+      <div class="kanban-col" id="kcol-${keyAttr}">
         <div class="kcol-header ${hdrClass}">
           <div class="kcol-label">${label}</div>
           <div class="kcol-meta">
-            <div class="kcol-count" id="kcount-${stageKey}">0</div>
-            <div class="kcol-total dn" id="ktotal-${stageKey}"></div>
+            <div class="kcol-count" id="kcount-${keyAttr}">0</div>
+            <div class="kcol-total dn" id="ktotal-${keyAttr}"></div>
           </div>
         </div>
-        <div class="kcol-body" id="kbody-${stageKey}">
+        <div class="kcol-body" id="kbody-${keyAttr}">
           <div class="k-empty">No leads</div>
         </div>
       </div>`;

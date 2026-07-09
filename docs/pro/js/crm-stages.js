@@ -152,6 +152,12 @@ export function normalizeStage(raw) {
   const trimmed = raw.trim();
   // Already a valid key?
   if (STAGE_META[trimmed]) return trimmed;
+  // Live tenant CUSTOM stage? resolvePipelineConfig writes custom_* keys onto
+  // window.STAGE_META (a DIFFERENT object from the module-local default above),
+  // so without this a custom key falls through to S.NEW — its leads then
+  // mis-bucket into the New column while the custom column renders empty
+  // (the #921 board bug). Guarded for the Node/test env where window is absent.
+  if (typeof window !== 'undefined' && window.STAGE_META && window.STAGE_META[trimmed]) return trimmed;
   // Legacy display name?
   if (LEGACY_MAP[trimmed]) return LEGACY_MAP[trimmed];
   // Case-insensitive search

@@ -541,6 +541,7 @@ let _custRouteLayer = null;
 let _custRouteOn = false;
 let _custRouteStart = null;    // {lat,lng} the route began from (GPS or map centre)
 let _custRouteOrdered = [];    // ordered stops [{lead,lat,lng}] for the Maps hand-off
+let _custRouteBuilding = false; // in-flight guard while buildCustomerRoute awaits geolocation
 // Google consumer directions holds origin + 23 waypoints + 1 destination = 24
 // STOPS (origin is the rep's start, not a stop). Cap the route at 24 so the map
 // pins and the "Open in Google Maps" hand-off always carry the SAME stops — a
@@ -611,40 +612,51 @@ function _clearRoute() {
   _custRouteStart = null;
 }
 async function buildCustomerRoute() {
-  if (!mainMap) return;
-  _clearRoute();
-  let stops = _custRoutableStops();
-  if (!stops.length) { if (typeof showToast === 'function') showToast('No mapped customers match the current filters', 'info'); return; }
-  let capped = false;
-  if (stops.length > _CUST_ROUTE_CAP) { stops = stops.slice(0, _CUST_ROUTE_CAP); capped = true; }
-  const start = await _custResolveStart();
-  // _custResolveStart can block several seconds on geolocation. If the user
-  // toggled the Customers overlay OFF during that await, bail — otherwise we'd
-  // draw a route layer onto mainMap (orphaned, since hideCustomersLayer already
-  // ran) and reopen the control panel over a layer that reads OFF.
-  if (!overlayState || !overlayState.customers) return;
-  const ordered = _custNnOrder(start, stops);
-  _custRouteStart = start;
-  _custRouteOrdered = ordered;
-  // Total drive-ish distance (great-circle, feet → miles).
-  let ft = _custHavFt(start, ordered[0]);
-  for (let i = 1; i < ordered.length; i++) ft += _custHavFt(ordered[i - 1], ordered[i]);
-  const miles = (ft / 5280).toFixed(1);
+  // In-flight guard: _custResolveStart() can block several seconds on the
+  // geolocation permission prompt / cold GPS, during which _custRouteOn is
+  // still false and the button still reads "Route these stops". Without this a
+  // second click re-enters and builds a SECOND route layer, orphaning the first
+  // on the map (Clear only removes the latest) until reload (#921).
+  if (!mainMap || _custRouteBuilding) return;
+  _custRouteBuilding = true;
+  try {
+    _clearRoute();
+    let stops = _custRoutableStops();
+    if (!stops.length) { if (typeof showToast === 'function') showToast('No mapped customers match the current filters', 'info'); return; }
+    let capped = false;
+    if (stops.length > _CUST_ROUTE_CAP) { stops = stops.slice(0, _CUST_ROUTE_CAP); capped = true; }
+    const start = await _custResolveStart();
+    // If the user toggled the Customers overlay OFF during that await, bail —
+    // otherwise we'd draw a route layer onto mainMap (orphaned, since
+    // hideCustomersLayer already ran) and reopen the control panel over a layer
+    // that reads OFF.
+    if (!overlayState || !overlayState.customers) return;
+    const ordered = _custNnOrder(start, stops);
+    _custRouteStart = start;
+    _custRouteOrdered = ordered;
+    // Total drive-ish distance (great-circle, feet → miles).
+    let ft = _custHavFt(start, ordered[0]);
+    for (let i = 1; i < ordered.length; i++) ft += _custHavFt(ordered[i - 1], ordered[i]);
+    const miles = (ft / 5280).toFixed(1);
 
-  _custRouteLayer = L.layerGroup();
-  const latlngs = [[start.lat, start.lng]].concat(ordered.map(o => [o.lat, o.lng]));
-  L.polyline(latlngs, { color: '#e8720c', weight: 3, opacity: 0.85, dashArray: '6,6' }).addTo(_custRouteLayer);
-  ordered.forEach((o, i) => { L.marker([o.lat, o.lng], { icon: _custNumIcon(i + 1) }).addTo(_custRouteLayer); });
-  _custRouteLayer.addTo(mainMap);
-  _custRouteOn = true;
-  try { mainMap.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] }); } catch (_) {}
-  if (typeof showToast === 'function') {
-    showToast('Route: ' + ordered.length + ' stops · ~' + miles + ' mi · from ' + (start.gps ? 'your location' : 'map centre')
-      + (capped ? ' (first ' + _CUST_ROUTE_CAP + ')' : ''), 'ok');
+    _custRouteLayer = L.layerGroup();
+    const latlngs = [[start.lat, start.lng]].concat(ordered.map(o => [o.lat, o.lng]));
+    L.polyline(latlngs, { color: '#e8720c', weight: 3, opacity: 0.85, dashArray: '6,6' }).addTo(_custRouteLayer);
+    ordered.forEach((o, i) => { L.marker([o.lat, o.lng], { icon: _custNumIcon(i + 1) }).addTo(_custRouteLayer); });
+    _custRouteLayer.addTo(mainMap);
+    _custRouteOn = true;
+    try { mainMap.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] }); } catch (_) {}
+    if (typeof showToast === 'function') {
+      showToast('Route: ' + ordered.length + ' stops · ~' + miles + ' mi · from ' + (start.gps ? 'your location' : 'map centre')
+        + (capped ? ' (first ' + _CUST_ROUTE_CAP + ')' : ''), 'ok');
+    }
+    _renderCustPanel(); // reflect route-on state (Clear / Open-in-Maps buttons)
+  } finally {
+    _custRouteBuilding = false;
   }
-  _renderCustPanel(); // reflect route-on state (Clear / Open-in-Maps buttons)
 }
 function toggleCustomerRoute() {
+  if (_custRouteBuilding) return; // a build is resolving geolocation — ignore re-clicks
   if (_custRouteOn) { _clearRoute(); _renderCustPanel(); if (typeof showToast === 'function') showToast('Route cleared', 'info'); }
   else { buildCustomerRoute(); } // async; re-renders the panel when done
 }
