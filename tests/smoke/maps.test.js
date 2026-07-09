@@ -457,6 +457,19 @@ section('Map heat + pins toggle + mobile');
   assert('deleteZone recomputes the splice index by identity after the await',
     /if \(zone\.layer\) mainMap\?\.removeLayer\(zone\.layer\);[\s\S]{0,260}const realIdx = zones\.findIndex\(z => String\(z\.id\) === String\(zone\.id\)\);[\s\S]{0,80}if \(realIdx >= 0\) zones\.splice\(realIdx, 1\);/.test(actionsSrc),
     'expected deleteZone to re-find the index after awaiting _deleteZone, not splice the stale captured idx');
+  // ── Round-5 audit regression guards ──
+  // buildCustomerRoute awaits GPS (~6s). If the overlay is toggled off during
+  // the await, resuming would draw an orphaned route on mainMap + reopen the
+  // panel. Re-check overlayState.customers after the await.
+  assert('buildCustomerRoute aborts if the overlay was hidden during the GPS await',
+    /const start = await _custResolveStart\(\);[\s\S]{0,320}if \(!overlayState \|\| !overlayState\.customers\) return;/.test(maps),
+    'expected buildCustomerRoute to re-check overlayState.customers after awaiting _custResolveStart');
+  // hideCustomersLayer must bump the build token so an in-flight geocode build
+  // supersedes (its post-await guards return before _renderCustPanel) instead
+  // of reopening the hidden control panel ~13s later.
+  assert('hideCustomersLayer supersedes an in-flight build (no panel re-show after hide)',
+    /function hideCustomersLayer\(\)\s*\{[\s\S]{0,260}_custBuildToken\+\+;/.test(maps),
+    'expected hideCustomersLayer to bump _custBuildToken so a running backfill build aborts before re-showing the panel');
 }
 
 };

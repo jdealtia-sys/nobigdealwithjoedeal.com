@@ -250,6 +250,41 @@ edge/adjacent cases (a team-visibility XSS the earlier rounds' sharing changes
 opened, a concurrency race, a custom-stage feature gap) — no new
 tenant-isolation-class holes. Convergence reached.
 
+**Adversarial audit — round 5 (2026-07-09) — 3 more bugs found + fixed** (5
+candidates, 2 refuted). Cross-cutting lens this round (XSS sink sweep, CSP/event
+wiring, async races, deep rules, numeric edges, completeness critic):
+1. **MED — `buildCustomerRoute` GPS-await race** (`maps-customers.js`). The route
+   builder awaits geolocation (~6s); if the user toggled the Customers overlay
+   OFF during that await, it resumed and drew an orphaned route layer onto
+   `mainMap` (not the removed layer) and reopened the hidden control panel. Fixed
+   by re-checking `overlayState.customers` after the await.
+2. **MED — hidden-stage leads silently rebucketed** (`crm-pipeline.js`, via the
+   completeness critic). The round-4 hide-stage feature filtered the *column* but
+   not the *leads*: a lead on a hidden stage fell through `resolveColumn`'s
+   `viewStages[0]` fallback into the first column ("New"), mislabeling it,
+   inflating that column's count/$ badges, and — worst — letting a drag re-stage
+   it. Fixed by dropping leads whose own stage is hidden from the board render
+   (stage field untouched).
+3. **LOW — in-flight geocode build reopened the panel after hide**
+   (`maps-customers.js`). `hideCustomersLayer` didn't bump `_custBuildToken`, so a
+   running geocode-backfill build completed and re-showed the control panel ~13s
+   after the overlay was toggled off. Fixed by bumping the token on hide so the
+   build's supersede guards fire before it re-renders.
+
+Plus a **defence-in-depth** hardening on a *refuted* finding: the kanban stage
+label (tenant-config text) is now HTML-escaped before `board.innerHTML`. The
+finder flagged it as stored XSS; the skeptic pass correctly refuted the *exploit*
+(the prod CSP — `script-src-attr 'none'`, no `unsafe-inline`, host-locked
+img/connect — neutralizes the inline `onerror`), but escaping a team-controlled
+string that reaches `innerHTML` shouldn't depend on a CSP backstop, so it's
+escaped anyway. The other refuted candidate (out-of-range coords plotted) was
+correctly dropped — no code path produces swapped/out-of-range coordinates.
+
+Audit trend across five rounds: **6 → 8 → 2 → 3 → 3.** No new
+tenant-isolation-class holes since round 1; rounds 4–5 surfaced consequences of
+the sharing + hide-stage features (a team-visibility XSS, a hide-stage
+rebucketing bug) plus async-lifecycle races. Convergence holding.
+
 **Follow-ups worth noting:**
 - ~~**Territory zones are session-only.**~~ ✅ **DONE (2026-07-08).** Zones now
   persist to a Firestore `/zones` collection (team-shared, same rule shape as

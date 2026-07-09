@@ -149,9 +149,15 @@
         if (body) window.drop(ev, body.id.replace(/^kbody-/, ''));
       });
     }
+    // Stage labels come from the team-shared tenant pipeline config, so a
+    // company_admin could store markup. The prod CSP (script-src-attr 'none',
+    // no unsafe-inline) blocks script execution, but escape here too — defence
+    // in depth so an unescaped '<'/'&' can't corrupt the board and a future CSP
+    // regression can't turn this innerHTML sink back into a live XSS.
+    const _escLbl = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     board.innerHTML = stages.map(stageKey => {
       const meta = META[stageKey] || {};
-      const label = meta.label || stageKey;
+      const label = _escLbl(meta.label || stageKey);
       const hdrClass = meta.headerClass || 'kh-new';
       return `
       <div class="kanban-col" id="kcol-${stageKey}">

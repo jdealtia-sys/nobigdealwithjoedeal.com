@@ -553,6 +553,22 @@ section('Pipelines builder — drag-to-reorder stages');
       /custom: true,[\s\S]{0,400}hidden: ov\.hidden === true,/.test(stagesSrc),
       'expected the custom-stage meta literal to carry hidden: ov.hidden === true so custom stages can be hidden');
   }
+  // ── Round-5 audit regression guards ──
+  // Hiding a stage removes its column; its leads must be DROPPED from the board,
+  // not rebucketed into the first column by resolveColumn's viewStages[0]
+  // fallback (which mislabels them, inflates that column's count/$ badges, and
+  // lets a drag re-stage them).
+  {
+    const pipe = read(path.join(ROOT, 'docs/pro/js/crm-pipeline.js'));
+    assert('renderLeads drops leads whose own stage is hidden (no rebucket into first column)',
+      /const _META = window\.STAGE_META \|\| \{\};[\s\S]{0,650}if \(_META\[_hk\] && _META\[_hk\]\.hidden\) return;/.test(pipe),
+      'expected renderLeads to skip a lead when META[normalize(stage)].hidden, before resolveColumn rebuckets it');
+  }
+  // The kanban stage label is tenant-config text rendered into board.innerHTML —
+  // escape it (defence-in-depth behind the prod CSP).
+  assert('kanban stage label is HTML-escaped before board.innerHTML',
+    /const _escLbl = window\.nbdEsc \|\|[\s\S]{0,400}const label = _escLbl\(meta\.label \|\| stageKey\);/.test(boot),
+    'expected buildKanbanColumns to escape the tenant-controlled stage label');
   assert('_saveLeadCoords does not bump updatedAt (passive backfill)',
     /updateDoc\(doc\(db,'leads',id\), \{ lat, lng \}\)/.test(boot)
     && !/updateDoc\(doc\(db,'leads',id\), \{ lat, lng, updatedAt/.test(boot),

@@ -618,6 +618,11 @@ async function buildCustomerRoute() {
   let capped = false;
   if (stops.length > _CUST_ROUTE_CAP) { stops = stops.slice(0, _CUST_ROUTE_CAP); capped = true; }
   const start = await _custResolveStart();
+  // _custResolveStart can block several seconds on geolocation. If the user
+  // toggled the Customers overlay OFF during that await, bail — otherwise we'd
+  // draw a route layer onto mainMap (orphaned, since hideCustomersLayer already
+  // ran) and reopen the control panel over a layer that reads OFF.
+  if (!overlayState || !overlayState.customers) return;
   const ordered = _custNnOrder(start, stops);
   _custRouteStart = start;
   _custRouteOrdered = ordered;
@@ -682,7 +687,13 @@ function showCustomersLayer() {
   else if (_custPanelEl) { _custPanelEl.style.display = ''; }
   customersLayer.addTo(mainMap);
 }
-function hideCustomersLayer() { if (customersLayer && mainMap) mainMap.removeLayer(customersLayer); _hideCustPanel(); _clearRoute(); }
+function hideCustomersLayer() {
+  // Supersede any in-flight geocode-backfill build (its post-await token guards
+  // will now fire and return BEFORE _renderCustPanel), so a build started while
+  // the overlay was on can't reopen the hidden control panel seconds later.
+  _custBuildToken++;
+  if (customersLayer && mainMap) mainMap.removeLayer(customersLayer); _hideCustPanel(); _clearRoute();
+}
 
 function refreshCustomersLayer() { if (overlayState && overlayState.customers) { buildCustomersLayer(true); } } // leads changed → re-geocode any new un-mapped ones
 

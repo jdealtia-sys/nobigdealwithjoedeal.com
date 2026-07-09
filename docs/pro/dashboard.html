@@ -47,7 +47,7 @@
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
 <link rel="preload" href="js/crm-leads.js?v=1" as="script">
-<link rel="preload" href="js/crm-pipeline.js?v=1" as="script">
+<link rel="preload" href="js/crm-pipeline.js?v=2" as="script">
 <link rel="preload" href="js/crm-snooze.js?v=1" as="script">
 <link rel="preload" href="js/crm-portal-bridge.js?v=2" as="script">
 <link rel="preload" href="js/crm.js?v=32" as="script">
@@ -116,7 +116,7 @@
 <script defer src="/assets/vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=1"></script>
-<script type="module" src="js/dashboard-bootstrap.module.js?v=6"></script>
+<script type="module" src="js/dashboard-bootstrap.module.js?v=7"></script>
 
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
@@ -5941,7 +5941,7 @@
      of window.* exports in the shim can reach functions defined
      in the split files via classic-script sibling-scope globals. -->
 <script defer src="js/crm-leads.js?v=1"></script>
-<script defer src="js/crm-pipeline.js?v=1"></script>
+<script defer src="js/crm-pipeline.js?v=2"></script>
 <script defer src="js/crm-snooze.js?v=1"></script>
 <!-- FCM Web Push token registration — registers the messaging SW, mints a
      push token via getToken({vapidKey}), and persists it to
@@ -5997,7 +5997,7 @@
      <script> (non-ESM) and shares sibling-scope globals. -->
 <script defer src="js/maps-core.js?v=7"></script>
 <script defer src="js/maps-overlays.js?v=7"></script>
-<script defer src="js/maps-customers.js?v=10"></script>
+<script defer src="js/maps-customers.js?v=11"></script>
 <script defer src="js/maps-routing.js?v=3"></script>
 <script defer src="js/maps.js?v=10"></script>
 <!-- Smart Calendar — Today's Schedule with travel-time + priority. Reads
