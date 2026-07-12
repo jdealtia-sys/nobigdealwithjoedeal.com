@@ -101,7 +101,7 @@
     latePaymentChargeText: '1.5% monthly finance charge',
 
     /* ── FINANCING ─────────────────────────────────────────────── */
-    financePartner: 'Improvifi',
+    financePartner: 'Acorn Finance',
     financingTiers: [
       { months: 12, apr: 0,    label: '12 Months', badge: '0% Intro APR', color: '#16a34a' },
       { months: 36, apr: 6.99, label: '36 Months', badge: 'Low Rate',     color: '#0ea5e9' },
@@ -123,7 +123,7 @@
       { icon: '🛡️', title: 'Warranty Protection',  desc: 'Up to lifetime workmanship warranty plus full manufacturer coverage on all materials.' },
       { icon: '📋',  title: 'Insurance Specialists', desc: 'We handle the entire insurance claim process so you can focus on what matters.' },
       { icon: '⭐',  title: '5-Star Service',        desc: 'Exceptional service from first contact through final walkthrough and beyond.' },
-      { icon: '💰',  title: 'Flexible Financing',    desc: 'Affordable monthly payments through our partnership with Improvifi.' }
+      { icon: '💰',  title: 'Flexible Financing',    desc: 'Affordable monthly payments through our partnership with Acorn Finance.' }
     ],
 
     /* ── CODE & JURISDICTION ───────────────────────────────────── */

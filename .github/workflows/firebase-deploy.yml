@@ -132,6 +132,16 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      # The blog index ships its post cards as static HTML between
+      # BLOG-STATIC markers (SEO/AEO: JS-injected cards are invisible to
+      # crawlers). Regenerate at deploy time so future-dated posts in the
+      # POSTS array flip from JS-only countdown to static card the first
+      # deploy after their publish date — no manual step. The committed
+      # HTML already carries the current output; this only refreshes it.
+      - name: Regenerate static blog index
+        if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
+        run: node scripts/build-blog-index.mjs docs/assets/js/inline/c00f1acac9.js docs/blog/index.html
+
       - name: Install Cloud Functions dependencies
         working-directory: functions
         run: |

@@ -62,7 +62,7 @@ is broken in prod.
   upstream (onRepSignup needs a GCIP upgrade; in NBD_DEPLOY_SKIP_LIST).
 - **Hardcoded to Joe:** alert fallbacks (email/SMS/from), owner-bypass emails
   in billing-gate.js:49 + billing.js:52, NBD defaults (KY cancellation
-  statute, Improvifi, service area) in company-profile.js:23-175.
+  statute, Acorn Finance, service area) in company-profile.js:23-175.
 - **Second contractor tomorrow, unbabysat? No.** No companies/{uid} doc means
   their public-site leads won't route; access codes broken; Joe must
   hand-seed + set claims.
