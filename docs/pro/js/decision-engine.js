@@ -357,10 +357,10 @@
       situation: 'Customer can\'t afford the out-of-pocket cost or is worried about financing.',
       priority: 'high',
       timeToResolve: 'minutes',
-      prompt: 'A customer can\'t afford an out-of-pocket roof replacement of [$amount]. Help me walk them through financing options: 0% financing, tax refund timing, home equity line, or insurance-only path if applicable.',
+      prompt: 'A customer can\'t afford an out-of-pocket roof replacement of [$amount]. Help me walk them through the options: checking real offers through our lending-marketplace partner (soft credit pull, rates and terms set by the lender), tax refund timing, home equity line, or insurance-only path if applicable. Never promise a specific rate or 0% — offers vary by credit profile and lender.',
       playbook: [
         'Understand which scenario: cash job vs insurance with deductible issue',
-        'Present 0% for 6 months financing (good for cash jobs)',
+        'Run the financing pre-qual together — soft pull, real offers from multiple lenders in about a minute (good for cash jobs)',
         'Tax refund timing: "If we start in February, you get most of your refund before final payment"',
         'HELOC: lower interest than financing, 30+ year term',
         'For insurance claims: offer to absorb small amount of deductible if customer refers 3 neighbors (legal in OH/KY)',
