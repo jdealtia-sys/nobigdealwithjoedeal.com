@@ -138,9 +138,16 @@ jobs:
       # POSTS array flip from JS-only countdown to static card the first
       # deploy after their publish date — no manual step. The committed
       # HTML already carries the current output; this only refreshes it.
+      # Soft-fail on purpose: the committed HTML already carries the current
+      # generated block, so if the POSTS file is ever re-hashed/renamed or the
+      # markers move, deploying the committed (possibly stale) block beats
+      # aborting the whole deploy job (hosting + rules + functions) over a
+      # blog-card refresh. The ::warning keeps the failure visible in the run.
       - name: Regenerate static blog index
         if: ${{ github.event_name == 'push' || github.event.inputs.scope == 'all' || github.event.inputs.scope == 'hosting' }}
-        run: node scripts/build-blog-index.mjs docs/assets/js/inline/c00f1acac9.js docs/blog/index.html
+        run: |
+          node scripts/build-blog-index.mjs docs/assets/js/inline/c00f1acac9.js docs/blog/index.html \
+            || echo "::warning::static blog index regeneration failed — deploying the committed static block as-is"
 
       - name: Install Cloud Functions dependencies
         working-directory: functions

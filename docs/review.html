@@ -401,28 +401,6 @@ footer.foot a,.review-footer a{color:#e8720c!important}
      self-serving review markup on a business's own site; the win here is
      crawlable/AI-readable review text. LocalBusiness schema is already on
      the page. -->
-<section class="reviews-wrap">…<div data-nbd-google-reviews>)
-
-     CONTENT STATUS — 2026-07-12:
-     • 8 real reviews below, transcribed verbatim from Jo's GBP
-       screenshots (relative dates converted to month–year so they
-       don't rot).
-     • 3 cards are marked INCOMPLETE — Google truncated them at
-       "…more". Finish them from the full GBP text or the 9 cards
-       restored from git history (brief, Item 3/A0). Dedupe against
-       those restored cards — some may be these same reviews in full.
-     • A 9th reviewer (Tahani Bamazroek) was visible but her review
-       text wasn't captured — add a card if Jo sends it.
-     • DEPLOY BLOCKER: the bracketed completion marker in the three
-       truncated review texts must be gone — grep the file for that
-       marker string; it must return zero hits before deploy.
-     • Never invent or embellish review text.
-
-     No Review/AggregateRating JSON-LD on purpose: Google ignores
-     self-serving review markup on a business's own site; the page
-     already carries LocalBusiness schema. The value here is
-     crawlable/AI-readable review text, not rich-result stars.
-     ============================================================ -->
 <section class="reviews-wrap" style="padding-top:48px;padding-bottom:8px">
   <div style="max-width:1100px;margin:0 auto;padding:0 20px">
 
@@ -541,7 +519,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     </div>
 
     <p style="text-align:center;font-size:.8rem;color:#6b7280;margin:20px 0 0">
-      Latest reviews load live from Google below.
+      Reviews load live from Google below.
     </p>
   </div>
 </section>

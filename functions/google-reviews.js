@@ -63,12 +63,24 @@ async function fetchFromGoogle(placeId, apiKey) {
       'X-Goog-Api-Key': apiKey,
       'X-Goog-FieldMask': 'displayName,rating,userRatingCount,googleMapsUri,reviews',
     },
+    // A stalled Places response must not hold a billed invocation open until
+    // the platform timeout; a timeout throw lands in the stale-cache fallback.
+    signal: AbortSignal.timeout(10000),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
     throw new Error(`Google Places API (New) HTTP ${res.status}: ${detail.slice(0, 300)}`);
   }
   const r = await res.json();
+  // Guard the last-known-good cache: the legacy endpoint's body.status check
+  // threw on degraded payloads BEFORE the cache write; v1 has no in-band
+  // status, so an HTTP-200 body missing reviews (field-mask hiccup, profile
+  // glitch) would otherwise overwrite good cached reviews with an empty set
+  // and the widget would show nothing for the next 6h. This profile has
+  // dozens of reviews — an empty list here is an anomaly, not a fact.
+  if (!Array.isArray(r.reviews) || r.reviews.length === 0) {
+    throw new Error('Google Places API (New) returned 200 with no reviews — refusing to overwrite last-known-good cache');
+  }
   return {
     name: (r.displayName && r.displayName.text) || 'No Big Deal Home Solutions',
     rating: typeof r.rating === 'number' ? r.rating : 0,
