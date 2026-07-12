@@ -8744,7 +8744,7 @@
       "selector": ".tl-doc-row[data-action=\"docgen\"][data-target=\"financing_options\"]",
       "label": "Financing Options Sheet",
       "type": "button",
-      "expected_behavior": "NBDDocGen.fillAndGenerate('financing_options') — generates an Improvifi financing-plans sheet with monthly payment breakdowns and application steps.",
+      "expected_behavior": "NBDDocGen.fillAndGenerate('financing_options') — generates an Acorn Finance financing-plans sheet with monthly payment breakdowns and application steps.",
       "reveal_state": "always",
       "danger": "none",
       "priority": "P2",

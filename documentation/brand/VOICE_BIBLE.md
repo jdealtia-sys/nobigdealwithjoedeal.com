@@ -138,7 +138,7 @@ Navy (#1e3a6e / #142a52) and Orange (#e8720c). Confirmed correct by Jo.
 
 **Trust signals that must become visible:**
 - GAF Certified installer logo
-- Improvifi (0% financing) partner logo
+- Acorn Finance (homeowner financing marketplace) partner card
 - United Restore partnership badge
 - Real Google review count (only 2 real reviews — use them prominently, not buried)
 

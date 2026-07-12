@@ -34,8 +34,8 @@ blog index until the publish steps below are run.
    - No invented statistics, prices, interest rates, lender names, or warranty
      claims. The financing post states **zero** dollar figures/rates beyond the
      "$3,000+" threshold already published on `/services/financing`.
-   - Every financing fact traces to `docs/services/financing.html` (Improvifi,
-     same-day decision, soft pull first, no home equity, deductible financing).
+   - Every financing fact traces to `docs/services/financing.html` (Acorn Finance
+     lending marketplace, soft pull first, no home equity, deductible financing).
 5. When a post is approved, tell the next Claude session "publish
    `<filename>`" and point it at this README.
 

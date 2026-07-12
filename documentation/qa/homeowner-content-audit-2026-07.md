@@ -169,7 +169,7 @@ Legend: **[FIX]** clear mechanical/consistency fix once Jo greenlights ·
 Business name "No Big Deal Home Solutions" (consistent, no template leftovers);
 phone (859) 420-7382 everywhere; email jd@nobigdealwithjoedeal.com only; owner
 "Joe Deal, Owner & Operator, 7+ years insurance restoration"; tagline "No Big
-Deal with Joe Deal"; financing partner "Improvifi" (no fabricated APR/$ figures);
+Deal with Joe Deal"; financing partner "Acorn Finance" (partner swapped 2026-07; no fabricated APR/$ figures);
 tier pricing math reconciles; warranty durations consistent per product; GAF
 Certified ID 1162011 used consistently (never falsely "Master Elite"); no
 cross-brand mislabeling (no "TAMKO Timberline"/"GAF Storm Series"); service scope
