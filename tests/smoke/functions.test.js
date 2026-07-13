@@ -1007,6 +1007,40 @@ section('F1b: monthly overhead alert cron');
   assert('no per-company overhead composite index was added (in-code bucketing)',
     !/"fieldPath":\s*"costType"/.test(ix));
 
+  // ── gbp-reviews-sync.js — dormant all-reviews sync (brief 3/C step 3) ──
+  const gbpSrc = read(path.join(FUNCTIONS, 'gbp-reviews-sync.js'));
+  assert('syncGbpReviews is a direct onSchedule factory (CI-deployable)',
+    new RegExp('^exports\\.syncGbpReviews *= *' + CI_FACTORY, 'm').test(gbpSrc));
+  assert('gbp sync runs daily at 6am ET', /schedule:\s*'0 6 \* \* \*'/.test(gbpSrc) && /America\/New_York/.test(gbpSrc));
+  assert('gbp sync no-ops on the __unset__ secret sentinel (dormant until configured)',
+    /__unset__/.test(gbpSrc) && /\.every\(configured\)/.test(gbpSrc));
+  assert('gbp sync refuses to overwrite the doc with zero reviews',
+    /refusing to overwrite last-known-good doc/.test(gbpSrc));
+  assert('gbp sync exposes pure helpers for unit tests', /exports\._test\s*=/.test(gbpSrc));
+  assert('index.js wires gbp-reviews-sync', /require\('\.\/gbp-reviews-sync'\)/.test(readFunctionsIndex()));
+  assert('gbp-reviews-sync.js loads without throwing', (() => {
+    try { require(path.join(FUNCTIONS, 'gbp-reviews-sync.js')); return true; } catch (e) { return false; }
+  })());
+  const gbpMod = (() => { try { return require(path.join(FUNCTIONS, 'gbp-reviews-sync.js')); } catch (e) { return null; } })();
+  assert('star enum maps FIVE→5 / ONE→1 / unknown→5',
+    !!gbpMod && gbpMod._test.starRatingToNumber('FIVE') === 5 &&
+    gbpMod._test.starRatingToNumber('ONE') === 1 && gbpMod._test.starRatingToNumber('NOPE') === 5);
+  assert('mapGbpReview maps reviewer/rating/comment/createTime to the widget shape', (() => {
+    if (!gbpMod) return false;
+    const m = gbpMod._test.mapGbpReview(
+      { reviewer: { displayName: 'A' }, starRating: 'FOUR', comment: 'hi', createTime: '2026-07-01T00:00:00Z' },
+      Date.parse('2026-07-12T00:00:00Z'));
+    return m.author === 'A' && m.rating === 4 && m.text === 'hi' &&
+      m.time === Math.floor(Date.parse('2026-07-01T00:00:00Z') / 1000) && /ago|today|week/.test(m.relativeTime);
+  })());
+  // Endpoint contract: GBP full-set doc is served fresh-first and as the
+  // stale last resort, with the response shape/source flag intact.
+  const grSrc = read(path.join(FUNCTIONS, 'google-reviews.js'));
+  assert('getGoogleReviews serves siteContent/googleReviews fresh-first',
+    /GBP_DOC_PATH = 'siteContent\/googleReviews'/.test(grSrc) && /source:\s*'gbp'/.test(grSrc));
+  assert('getGoogleReviews keeps the stale-GBP fallback before the empty payload',
+    /stale GBP full-set doc still beats an empty payload/i.test(grSrc));
+
   // Contract guard for EVERY email_queue producer: the worker claims only
   // status=='pending' docs, so a producer that omits it silently drops the
   // mail (health-digest.js shipped this bug — fixed here). Each add() call
