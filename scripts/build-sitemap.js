@@ -49,6 +49,7 @@ const USAGE = [
   'Usage:',
   '  node scripts/build-sitemap.js          Dry-run (default): print a unified diff vs docs/sitemap.xml. Writes NOTHING.',
   '  node scripts/build-sitemap.js --write  Regenerate docs/sitemap.xml (atomic temp-file + rename).',
+  '  node scripts/build-sitemap.js --write --lastmod-from-git  Also refresh <lastmod> from each page\'s last git commit date (local full clones only).',
   '',
   'Behavior:',
   '  - Existing URLs keep their current <lastmod>; only NEW URLs get today\'s date.',
@@ -433,13 +434,26 @@ function unifiedDiff(aText, bText, aName, bName, context = 3) {
   return out.join('\n');
 }
 
+
+/* Map a sitemap URL back to its page file under docs/ (for --lastmod-from-git). */
+function urlToFile(loc) {
+  const u = loc.replace(/^https:\/\/nobigdealwithjoedeal\.com/, '');
+  if (u === '/' || u === '') return 'index.html';
+  const p = u.replace(/^\//, '').replace(/\/$/, '');
+  const candidates = [p + '.html', p + '/index.html'];
+  for (const c of candidates) if (fs.existsSync(path.join(DOCS, c))) return c;
+  return null;
+}
+
 /* ── Main ────────────────────────────────────────────────────────────────── */
 
 function main() {
   const args = process.argv.slice(2);
   let write = false;
+  let lastmodFromGit = false;
   for (const arg of args) {
     if (arg === '--write') { write = true; continue; }
+    if (arg === '--lastmod-from-git') { lastmodFromGit = true; continue; }
     const isHelp = arg === '--help' || arg === '-h';
     (isHelp ? console.log : console.error)(USAGE);
     process.exit(isHelp ? 0 : 2); // never writes
@@ -447,6 +461,32 @@ function main() {
 
   const current = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : '';
   const prevLastmod = parseLastmods(current);
+
+  // --lastmod-from-git: stamp each URL with its page file's last git commit
+  // date when that is NEWER than the recorded lastmod. Local/manual use only:
+  // CI checkouts are shallow (depth 1), where every file's git date collapses
+  // to the latest commit and would falsely re-stamp unchanged pages. Note
+  // lastmod reflects any committed change to the file, including styling —
+  // an honest hint, not an editorial-significance signal.
+  if (lastmodFromGit) {
+    const { execFileSync } = require('child_process');
+    try {
+      execFileSync('git', ['rev-parse', '--is-shallow-repository'], { cwd: ROOT })
+        .toString().trim() === 'true' &&
+        (console.error('FATAL: shallow clone — git lastmod dates would be wrong. Aborting.'), process.exit(2));
+    } catch (e) { console.error('FATAL: not a git checkout.'); process.exit(2); }
+    let bumped = 0;
+    for (const [loc, prev] of prevLastmod) {
+      const rel = urlToFile(loc);
+      if (!rel || !fs.existsSync(path.join(DOCS, rel))) continue;
+      let gitDate = '';
+      try {
+        gitDate = execFileSync('git', ['log', '-1', '--format=%cs', '--', 'docs/' + rel], { cwd: ROOT }).toString().trim();
+      } catch (e) { continue; }
+      if (gitDate && gitDate > prev) { prevLastmod.set(loc, gitDate); bumped++; }
+    }
+    console.log('lastmod-from-git: bumped ' + bumped + ' of ' + prevLastmod.size + ' URLs.');
+  }
 
   const warnings = [];
   const xml = generate(prevLastmod, (msg) => warnings.push(msg));
