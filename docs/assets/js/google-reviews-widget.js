@@ -31,7 +31,7 @@
     const whole = Math.round(n || 0);
     let html = '';
     for (let i = 0; i < 5; i++) html += i < whole ? STAR_FULL : STAR_EMPTY;
-    return `<span style="display:inline-flex;gap:2px;vertical-align:middle">${html}</span>`;
+    return `<span style="display:inline-flex;gap:2px;vertical-align:middle" role="img" aria-label="${whole} out of 5 stars">${html}</span>`;
   }
 
   function truncate(text, limit) {
@@ -101,7 +101,7 @@
               <div style="font-size:.78rem;color:#6b7280">Live from our profile${staleBadge}</div>
             </div>
           </div>
-          <div style="display:inline-flex;align-items:center;gap:10px">
+          <div style="display:inline-flex;align-items:center;gap:10px;background:#fff;border:1px solid #e8e5e0;border-radius:100px;padding:10px 20px">
             <div style="font-family:'Bebas Neue',sans-serif;font-size:2.2rem;color:#142a52;line-height:1">${rating.toFixed(1)}</div>
             <div style="display:flex;flex-direction:column;gap:2px">
               <div>${stars(rating)}</div>
@@ -110,7 +110,7 @@
           </div>
           ${
             profileUrl
-              ? `<a href="${esc(profileUrl)}" target="_blank" rel="noopener" style="font-size:.78rem;font-weight:700;color:#e8720c;text-decoration:none;letter-spacing:.06em;text-transform:uppercase">See all on Google &rarr;</a>`
+              ? `<a href="${esc(profileUrl)}" target="_blank" rel="noopener" style="font-size:.78rem;font-weight:700;color:#A64B00;background:#fff;border:1px solid #e8e5e0;border-radius:100px;padding:10px 16px;text-decoration:none;letter-spacing:.06em;text-transform:uppercase">See all on Google &rarr;</a>`
               : ''
           }
         </div>
