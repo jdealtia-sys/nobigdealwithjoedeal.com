@@ -19,10 +19,11 @@
  *   Cards, inside the grid div (the client JS re-renders identical cards
  *   over them, so they belong inside):
  *     <div id="blog-posts-grid"><!-- BLOG-STATIC-START --><!-- BLOG-STATIC-END --></div>
- *   Schema, immediately AFTER the grid's closing </div> — renderPosts()
- *   innerHTML-wipes the grid on load, so JSON-LD placed inside it would
- *   vanish from the rendered DOM that JS-executing crawlers index:
- *     <!-- BLOG-SCHEMA-START --><!-- BLOG-SCHEMA-END -->
+ *   Schema, wrapped around the <head>'s JSON-LD script — the head is never
+ *   touched by renderPosts()'s innerHTML wipe, so JS-executing crawlers keep
+ *   it, and the generator owning it means the ItemList/numberOfItems can't
+ *   go stale when posts are added:
+ *     <!-- BLOG-HEAD-SCHEMA-START --><script …>…</script><!-- BLOG-HEAD-SCHEMA-END -->
  * The script refuses to run without them (no fragile HTML parsing).
  *
  * RUN THIS as part of every deploy, and any time the POSTS array changes.
@@ -74,23 +75,48 @@ const card = (p, i) => `      <article class="post-card${i === 0 ? ' featured' :
       </article>`;
 
 const ORIGIN = 'https://nobigdealwithjoedeal.com';
-// @id and name match the hand-maintained Blog node in the page <head>'s
-// @graph so structured-data consumers merge the two into one Blog entity
-// instead of seeing rival blogs on the same URL.
+// One @graph in <head>, generator-owned end to end: the Blog node keeps the
+// hand-authored identity (name/description/publisher) verbatim and carries
+// the BlogPosting list; the ItemList is regenerated so its positions and
+// numberOfItems can never drift from the real post set.
 const schema = {
   '@context': 'https://schema.org',
-  '@type': 'Blog',
-  '@id': `${ORIGIN}/blog#blog`,
-  name: 'The No Big Deal Blog',
-  url: `${ORIGIN}/blog`,
-  author: { '@type': 'Person', name: 'Joe Deal' },
-  blogPost: live.map((p) => ({
-    '@type': 'BlogPosting',
-    headline: p.title,
-    url: `${ORIGIN}${p.url}`,
-    datePublished: p.published,
-    author: { '@type': 'Person', name: 'Joe Deal' },
-  })),
+  '@graph': [
+    {
+      '@type': 'Blog',
+      '@id': `${ORIGIN}/blog#blog`,
+      name: 'The No Big Deal Blog',
+      url: `${ORIGIN}/blog`,
+      description: 'Straight-talk roofing, siding, and insurance-claim advice for Cincinnati-area homeowners from Joe Deal — 7 years in insurance restoration, no fluff.',
+      publisher: {
+        '@type': 'RoofingContractor',
+        name: 'No Big Deal Home Solutions',
+        alternateName: 'No Big Deal with Joe Deal',
+        url: ORIGIN,
+        telephone: '+18594207382',
+        email: 'jd@nobigdealwithjoedeal.com',
+      },
+      blogPost: live.map((p) => ({
+        '@type': 'BlogPosting',
+        headline: p.title,
+        url: `${ORIGIN}${p.url}`,
+        datePublished: p.published,
+        author: { '@type': 'Person', name: 'Joe Deal' },
+      })),
+    },
+    {
+      '@type': 'ItemList',
+      '@id': `${ORIGIN}/blog#posts`,
+      itemListOrder: 'https://schema.org/ItemListOrderDescending',
+      numberOfItems: live.length,
+      itemListElement: live.map((p, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: p.title,
+        url: `${ORIGIN}${p.url}`,
+      })),
+    },
+  ],
 };
 
 const cardsBlock = `<!-- BLOG-STATIC-START -->
@@ -98,9 +124,9 @@ const cardsBlock = `<!-- BLOG-STATIC-START -->
 ${live.map(card).join('\n')}
 <!-- BLOG-STATIC-END -->`;
 
-const schemaBlock = `<!-- BLOG-SCHEMA-START -->
+const schemaBlock = `<!-- BLOG-HEAD-SCHEMA-START -->
 <script type="application/ld+json">${JSON.stringify(schema)}</script>
-<!-- BLOG-SCHEMA-END -->`;
+<!-- BLOG-HEAD-SCHEMA-END -->`;
 
 let html = readFileSync(htmlFile, 'utf8');
 
@@ -117,7 +143,7 @@ Add <!-- ${name}-START --><!-- ${name}-END --> once (cards inside <div id="blog-
 };
 
 replaceBetween('BLOG-STATIC', /<!-- BLOG-STATIC-START -->[\s\S]*?<!-- BLOG-STATIC-END -->/, cardsBlock);
-replaceBetween('BLOG-SCHEMA', /<!-- BLOG-SCHEMA-START -->[\s\S]*?<!-- BLOG-SCHEMA-END -->/, schemaBlock);
+replaceBetween('BLOG-HEAD-SCHEMA', /<!-- BLOG-HEAD-SCHEMA-START -->[\s\S]*?<!-- BLOG-HEAD-SCHEMA-END -->/, schemaBlock);
 
 writeFileSync(htmlFile, html);
 console.log(`OK: ${live.length} static cards + Blog schema written into ${htmlFile}`);

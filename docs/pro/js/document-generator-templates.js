@@ -241,6 +241,28 @@
 
   function esc(s) { return (s||'').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   function money(n) { return '$' + (parseFloat(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+  // Partner identity + value props resolve through the shared company-profile
+  // defaults (company-profile.js loads first on customer.html and exposes
+  // window.NBD_COMPANY_PROFILE_DEFAULTS) so a partner change happens in ONE
+  // place instead of parallel copies here. Read at call time — script-order
+  // safe — with brand-agnostic last resorts for headless/test contexts.
+  function cpDefaults() {
+    return (typeof window !== 'undefined' && window.NBD_COMPANY_PROFILE_DEFAULTS) || {};
+  }
+  function defaultFinancePartner() {
+    return cpDefaults().financePartner || 'our financing marketplace partner';
+  }
+  function defaultValueProps() {
+    const vp = cpDefaults().valueProps;
+    if (Array.isArray(vp) && vp.length) return vp;
+    return [
+      {icon:'🛡️',title:'Warranty Protection',desc:'Up to lifetime workmanship warranty plus full manufacturer coverage on all materials.'},
+      {icon:'📋',title:'Insurance Specialists',desc:'We handle the entire insurance claim process so you can focus on what matters.'},
+      {icon:'⭐',title:'5-Star Service',desc:'Exceptional service from first contact through final walkthrough and beyond.'},
+      {icon:'💰',title:'Flexible Financing',desc:'Affordable monthly payments through our financing marketplace partner.'}
+    ];
+  }
   function today() { return new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}); }
 
   // ═══════════════════════════════════════════════════════════════
@@ -737,7 +759,7 @@
   // ═══════════════════════════════════════════════════════════════
   DG.renderInvoice = function(data) {
     const _cpInv = (data && data.companyProfile) || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
-    const _invFinancePartner = _cpInv.financePartner || 'Acorn Finance';
+    const _invFinancePartner = _cpInv.financePartner || defaultFinancePartner();
     const _invLateText = _cpInv.latePaymentChargeText || '1.5% monthly finance charge';
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
       homeownerPhone:'', homeownerEmail:'',
@@ -863,12 +885,7 @@
       {icon:'🎨',name:'Interior',desc:'Water damage repair, paint, drywall, flooring'},
       {icon:'⛈️',name:'Storm Damage',desc:'Full insurance claim management from inspection to completion'}
     ]);
-    const valueProps = Array.isArray(cp.valueProps) && cp.valueProps.length ? cp.valueProps : [
-      {icon:'🛡️',title:'Warranty Protection',desc:'Up to lifetime workmanship warranty plus full manufacturer coverage on all materials.'},
-      {icon:'📋',title:'Insurance Specialists',desc:'We handle the entire insurance claim process so you can focus on what matters.'},
-      {icon:'⭐',title:'5-Star Service',desc:'Exceptional service from first contact through final walkthrough and beyond.'},
-      {icon:'💰',title:'Flexible Financing',desc:'Affordable monthly payments through our partnership with Acorn Finance.'}
-    ];
+    const valueProps = Array.isArray(cp.valueProps) && cp.valueProps.length ? cp.valueProps : defaultValueProps();
     // NBD keeps the original resolution (cp.tagline, the editable shop-wide
     // marketing tagline, wins) → byte-identical. A non-NBD tenant uses ONLY its
     // brand-resolved tagline (C.tagline) and never cp.tagline / the hardcoded NBD
@@ -877,7 +894,7 @@
     const tagline = (C.name === 'No Big Deal Home Solutions')
       ? (cp.tagline || C.tagline || "No Big Deal — We've Got You Covered")
       : (C.tagline || '');
-    const financePartner = cp.financePartner || 'Acorn Finance';
+    const financePartner = cp.financePartner || defaultFinancePartner();
 
     return page('About ' + C.name, `
       <style>
@@ -1056,7 +1073,7 @@
     // totalPrice arrives $-formatted from the preflight bridge (jobTotal→totalPrice),
     // so strip non-numerics before parsing or it would NaN→fabricate the $10k default.
     const price = parseFloat(String(d.totalPrice).replace(/[^0-9.]/g, '')) || 10000;
-    const financePartner = cp.financePartner || 'Acorn Finance';
+    const financePartner = cp.financePartner || defaultFinancePartner();
     // apr 0 is the "rate set by the lender" sentinel: under a lending
     // marketplace (Acorn) the contractor doesn't control terms, so the
     // defaults must not print fabricated APRs or payments on customer
@@ -1923,7 +1940,7 @@
       projectDescription:'' }, data);
     const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
     const latePaymentText = cp.latePaymentChargeText || '1.5% monthly finance charge';
-    const financePartner = cp.financePartner || 'Acorn Finance';
+    const financePartner = cp.financePartner || defaultFinancePartner();
 
     const total = parseFloat(d.totalAmount)||0;
     const deposit = parseFloat(d.depositAmount)||0;
