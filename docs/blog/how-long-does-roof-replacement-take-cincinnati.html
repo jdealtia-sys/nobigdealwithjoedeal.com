@@ -87,6 +87,7 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .prose blockquote{background:rgba(232,114,12,.06);border-left:4px solid var(--orange);padding:18px 22px;margin:28px 0;border-radius:0 8px 8px 0;}
 .prose blockquote p{font-size:.95rem;font-weight:600;color:var(--navy);font-style:italic;margin:0;}
 .callout{background:var(--navy-dark);color:var(--white);border-radius:12px;padding:28px 32px;margin:32px 0;}
+.callout strong,.prose .callout p strong,.prose .callout li strong{color:#fff}
 .callout h3{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--orange);letter-spacing:.04em;margin-bottom:10px;}
 .callout p{font-size:.88rem;color:rgba(255,255,255,.82);line-height:1.65;margin:0 0 14px;}
 .callout a{display:inline-block;background:#B85400;color:var(--white);padding:11px 22px;border-radius:7px;font-weight:800;font-size:.85rem;transition:background .2s;}
@@ -99,11 +100,11 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .tl-item{display:flex;gap:20px;align-items:flex-start;padding:20px 0;border-bottom:1px solid var(--light-gray);}
 .tl-item:last-child{border-bottom:none;}
 .tl-num{background:#B85400;color:var(--white);font-family:'Bebas Neue',sans-serif;font-size:1.1rem;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
-.tl-content h4{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:5px;}
+.tl-content h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:5px;}
 .tl-content p{font-size:.88rem;color:var(--gray-sub);line-height:1.65;margin:0;}
 .author-box{display:flex;gap:20px;align-items:flex-start;background:var(--off-white);border-radius:12px;padding:28px;margin-top:48px;border:1px solid var(--light-gray);}
 .author-avatar{width:56px;height:56px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--white);flex-shrink:0;}
-.author-info h4{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px;}
+.author-info h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px;}
 .author-info p{font-size:.83rem;color:var(--gray-sub);line-height:1.6;}
 .related-section{margin-top:52px;padding-top:40px;border-top:2px solid var(--light-gray);}
 .related-section h3{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--navy);margin-bottom:24px;}
@@ -117,7 +118,7 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .sidebar-card{background:var(--off-white);border-radius:14px;padding:28px;border:1px solid var(--light-gray);}
 .sidebar-card h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:16px;text-transform:uppercase;letter-spacing:.06em;}
 .sidebar-links{list-style:none;display:flex;flex-direction:column;gap:10px;}
-.sidebar-links li a{font-size:.85rem;color:var(--gray-sub);display:flex;align-items:center;gap:8px;transition:color .2s;}
+.sidebar-links li a{font-size:.85rem;color:var(--gray-sub);display:flex;align-items:center;gap:8px;transition:color .2s;padding:4px 0;}
 .sidebar-links li a:hover{color:var(--orange);}
 .sidebar-links li a::before{content:'→';color:var(--orange);font-weight:700;}
 .cta-sidebar{background:var(--navy-dark);color:var(--white);border-radius:14px;padding:28px;text-align:center;}
@@ -146,7 +147,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.75);padding:56px 5% 2
 .footer-col ul li a{font-size:.83rem;color:rgba(255,255,255,.65);transition:color .2s;}
 .footer-col ul li a:hover{color:var(--orange);}
 .footer-contact-item{display:flex;flex-direction:column;gap:2px;margin-bottom:12px;}
-.footer-contact-item .label{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);font-weight:700;}
+.footer-contact-item .label{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.62);font-weight:700;}
 .footer-contact-item .val{font-size:.85rem;color:rgba(255,255,255,.8);}
 .footer-contact-item .val a{color:rgba(255,255,255,.8);}
 .footer-contact-item .val a:hover{color:var(--orange);}
@@ -471,35 +472,35 @@ footer.foot a,.review-footer a{color:#e8720c!important}
       <div class="tl-item">
         <div class="tl-num">1</div>
         <div class="tl-content">
-          <h4>Early Morning — Setup &amp; Tear-Off Begins</h4>
+          <h3>Early Morning — Setup &amp; Tear-Off Begins</h3>
           <p>Crew arrives, dumpster is positioned or tarps are down to catch debris. Tear-off starts at the top and works down. On a standard house, the old roof is off in two to three hours.</p>
         </div>
       </div>
       <div class="tl-item">
         <div class="tl-num">2</div>
         <div class="tl-content">
-          <h4>Mid-Morning — Decking Inspection</h4>
+          <h3>Mid-Morning — Decking Inspection</h3>
           <p>Once the old material is off, we walk the deck. Any soft spots, rot, or damaged sections get flagged. If repairs are needed, this is when you get the call. Nothing proceeds until you've approved any additional work.</p>
         </div>
       </div>
       <div class="tl-item">
         <div class="tl-num">3</div>
         <div class="tl-content">
-          <h4>Late Morning — Underlayment &amp; Ice &amp; Water Shield</h4>
+          <h3>Late Morning — Underlayment &amp; Ice &amp; Water Shield</h3>
           <p>Synthetic underlayment goes down across the whole deck. Ice and water shield — a self-adhering waterproof membrane — gets installed in the valleys, along the eaves, and anywhere else that's vulnerable to ice dams. This is your first real line of defense.</p>
         </div>
       </div>
       <div class="tl-item">
         <div class="tl-num">4</div>
         <div class="tl-content">
-          <h4>Afternoon — Shingles, Flashing, Ridge Cap</h4>
+          <h3>Afternoon — Shingles, Flashing, Ridge Cap</h3>
           <p>Shingles go on from the bottom up. Flashing gets set around chimneys, skylights, and all penetrations. Ridge cap goes on last. This is the longest part of the day on a big roof.</p>
         </div>
       </div>
       <div class="tl-item">
         <div class="tl-num">5</div>
         <div class="tl-content">
-          <h4>End of Day — Cleanup &amp; Magnetic Sweep</h4>
+          <h3>End of Day — Cleanup &amp; Magnetic Sweep</h3>
           <p>Every reputable crew does a full cleanup and a magnetic roller sweep of the yard, driveway, and around the foundation. You should not be finding roofing nails in your grass for the next month. If you are, say something.</p>
         </div>
       </div>
@@ -547,7 +548,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
     <div class="author-box">
       <div class="author-avatar">J</div>
       <div class="author-info">
-        <h4>Joe Deal — No Big Deal Home Solutions</h4>
+        <h3>Joe Deal — No Big Deal Home Solutions</h3>
         <p>Owner and operator in the Greater Cincinnati area. Insurance restoration contractor specializing in roofing, siding, and storm damage. Former sales leader in roofing and restoration. I pick up my own phone.</p>
       </div>
     </div>

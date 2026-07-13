@@ -22,6 +22,7 @@ p{color:rgba(255,255,255,.8);font-size:15px;max-width:460px;line-height:1.6;marg
 .tip-title{font-weight:700;font-size:13px;margin-bottom:8px;color:var(--orange)}
 .tip-text{font-size:12px;color:rgba(255,255,255,.6);line-height:1.55}
 .status{margin-top:16px;font-size:11px;color:rgba(255,255,255,.35);font-family:monospace}
+main{display:flex;flex-direction:column;align-items:center}
 </style>
 <style>
 /* dark-body text fix (injected) */
@@ -107,6 +108,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head>
 <body>
+<main>
 <div class="icon">📡</div>
 <h1>You're Offline</h1>
 <p>We couldn't reach the network. Signed-in pages (dashboard, customer profiles, admin) require a live connection for security reasons — they are never served from cache.</p>
@@ -125,5 +127,6 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <div class="status" id="netStatus">Network: checking…</div>
 
 <script defer  src="/assets/js/inline/7bd16e1384.js"></script>
+</main>
 </body>
 </html>
