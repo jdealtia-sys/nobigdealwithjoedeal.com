@@ -37,6 +37,13 @@ const NBD_PLACE_ID = defineSecret('NBD_PLACE_ID');
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const CACHE_DOC_PATH = 'public_cache/google_reviews';
 
+// Full-set layer (brief 3/C step 3): syncGbpReviews (gbp-reviews-sync.js)
+// writes EVERY review here daily via the Business Profile API — no Places
+// 5-review cap. Served while fresh; the Places path below stays as the
+// fallback so nothing changes while the sync is dormant/unconfigured.
+const GBP_DOC_PATH = 'siteContent/googleReviews';
+const GBP_FRESH_MS = 36 * 60 * 60 * 1000; // daily sync + slack
+
 const CORS_ORIGINS = [
   'https://nobigdealwithjoedeal.com',
   'https://www.nobigdealwithjoedeal.com',
@@ -113,6 +120,27 @@ exports.getGoogleReviews = onRequest(
     const ref = db.doc(CACHE_DOC_PATH);
     const now = Date.now();
 
+    let gbp = null;
+    try {
+      const snap = await db.doc(GBP_DOC_PATH).get();
+      if (snap.exists) gbp = snap.data();
+    } catch (e) {
+      logger.warn('getGoogleReviews: gbp doc read failed', e);
+    }
+    if (
+      gbp && gbp.fetchedAt && now - gbp.fetchedAt < GBP_FRESH_MS &&
+      gbp.data && Array.isArray(gbp.data.reviews) && gbp.data.reviews.length
+    ) {
+      res.set('Cache-Control', 'public, max-age=600');
+      return res.status(200).json({
+        ...gbp.data,
+        cached: true,
+        stale: false,
+        source: 'gbp',
+        fetchedAt: gbp.fetchedAt,
+      });
+    }
+
     let cached = null;
     try {
       const snap = await ref.get();
@@ -161,6 +189,18 @@ exports.getGoogleReviews = onRequest(
           cached: true,
           stale: true,
           fetchedAt: cached.fetchedAt || 0,
+        });
+      }
+      // A stale GBP full-set doc still beats an empty payload — old
+      // reviews are real reviews.
+      if (gbp && gbp.data && Array.isArray(gbp.data.reviews) && gbp.data.reviews.length) {
+        res.set('Cache-Control', 'public, max-age=120');
+        return res.status(200).json({
+          ...gbp.data,
+          cached: true,
+          stale: true,
+          source: 'gbp',
+          fetchedAt: gbp.fetchedAt || 0,
         });
       }
       // Cold-cache fallback: return an empty-but-valid payload instead

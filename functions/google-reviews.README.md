@@ -110,3 +110,38 @@ Next page view will trigger a refresh from Google.
 
 At a 6-hour TTL we make ~4 Place Details calls per day. Google's
 price is $17 per 1,000. Monthly cost ≈ **$0.07**. Effectively free.
+
+## Business Profile API (all reviews) — dormant layer
+
+`syncGbpReviews` (functions/gbp-reviews-sync.js) removes the Places
+5-review cap by pulling EVERY review daily through the Business Profile
+API and writing them to Firestore `siteContent/googleReviews`.
+`getGoogleReviews` serves that doc while it's fresh (≤36h) and falls
+back to the Places flow above otherwise — same response shape, widget
+untouched (it caps its rendered grid at 6 cards and links the rest to
+the profile). The function ships dormant: until the GBP_* secrets hold
+real values it logs "not configured" and exits — the deploy workflow
+stubs them with `__unset__` automatically.
+
+Enable it when Google approves Business Profile API access:
+
+1. Submit the access request from the Google account that OWNS the
+   profile (https://developers.google.com/my-business/content/prereqs).
+   Approval typically takes days to a few weeks.
+2. In the GCP project: enable the My Business API family, create an
+   OAuth client, and mint a refresh token for the profile-owner account
+   with scope `https://www.googleapis.com/auth/business.manage`.
+3. Look up the ids: `accounts.list` → accounts/{GBP_ACCOUNT_ID};
+   `accounts.locations.list` → locations/{GBP_LOCATION_ID} (numeric ids
+   only, no `accounts/`/`locations/` prefixes).
+4. Set the five secrets:
+   `firebase functions:secrets:set GBP_CLIENT_ID` (repeat for
+   GBP_CLIENT_SECRET, GBP_REFRESH_TOKEN, GBP_ACCOUNT_ID,
+   GBP_LOCATION_ID).
+5. `firebase deploy --only functions:syncGbpReviews,functions:getGoogleReviews`
+6. First sync lands at the next 6:00 AM ET run (or trigger the Cloud
+   Scheduler job manually). Until then the endpoint keeps serving the
+   Places layer — the cutover is invisible.
+
+Rollback: delete `siteContent/googleReviews` (or let it go stale >36h)
+and the endpoint reverts to the Places flow automatically.

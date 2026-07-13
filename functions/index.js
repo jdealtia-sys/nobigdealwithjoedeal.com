@@ -496,6 +496,11 @@ exports.visualizerImageGen = visualizerImageGen.visualizerImageGen;
 const googleReviews = require('./google-reviews');
 exports.getGoogleReviews = googleReviews.getGoogleReviews;
 
+// Daily all-reviews sync via the Business Profile API (dormant until the
+// GBP_* secrets get real values — see google-reviews.README.md).
+const gbpReviewsSync = require('./gbp-reviews-sync');
+exports.syncGbpReviews = gbpReviewsSync.syncGbpReviews;
+
 // Photo-vision classifier (Phase 3 of the photo system rebuild).
 // Single-photo Claude Vision call with $10/lead + $50/uid-month caps
 // and sha256(url) cache. Surfaces suggestions in photo.aiSuggestion

@@ -8,6 +8,11 @@
  * links straight to the profile (2026-07-12; it previously hid itself,
  * which left the page with a 5.0 claim and zero visible live reviews
  * whenever the API misbehaved).
+ *
+ * The rendered grid caps at 6 cards: the GBP-synced payload can carry
+ * every review (dozens); this widget is the freshness layer and the
+ * "See all on Google" chip carries the rest. Places payloads are ≤5,
+ * so the cap is a no-op until the full-set sync is live.
  */
 (function () {
   'use strict';
@@ -118,7 +123,7 @@
           }
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">
-          ${reviews.map(renderReviewCard).join('')}
+          ${reviews.slice(0, 6).map(renderReviewCard).join('')}
         </div>
       </div>`;
     // Hide avatars whose Google URL has expired/404s. Was an inline
