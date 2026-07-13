@@ -83,7 +83,7 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 @media(max-width:1024px){nav .nav-links{display:none!important}nav .hamburger{display:flex!important}}
 
 /* ── BREADCRUMB ── */
-.breadcrumb{background:var(--off-white);padding:12px 5%;font-size:.78rem;color:var(--gray)}
+.breadcrumb{background:var(--off-white);padding:12px 5%;font-size:.78rem;color:#646c7a}
 .breadcrumb a{color:var(--navy);font-weight:600}
 .breadcrumb a:hover{color:var(--orange)}
 .breadcrumb span{margin:0 6px}
@@ -109,9 +109,14 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .btn-primary:hover .btn-arrow,.btn-outline:hover .btn-arrow{transform:translateX(3px)}
 .ph-relate{display:inline-flex;align-items:center;gap:14px;margin-top:28px;padding:14px 20px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.18);border-radius:10px;color:rgba(255,255,255,.92)!important;font-size:.9rem;line-height:1.4;transition:background .2s,border-color .2s;flex-wrap:wrap;max-width:680px}
 .ph-relate:hover{background:rgba(232,114,12,.1);border-color:rgba(232,114,12,.4)}
-.ph-relate-label{display:inline-block;font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--orange);background:rgba(232,114,12,.15);padding:5px 10px;border-radius:6px;flex-shrink:0}
+.ph-relate-label{display:inline-block;font-size:.7rem;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#A64B00;background:#fceadb;padding:5px 10px;border-radius:6px;flex-shrink:0}
 .ph-relate-text{flex:1;min-width:200px}
-.ph-relate strong{color:var(--orange-light);font-weight:800}
+.ph-relate strong{color:#ffaf66;font-weight:800}
+/* The component was styled for the navy hero; the second instance sits in a
+   white .section where the white-alpha bg/text rendered white-on-white. */
+.section .ph-relate{background:var(--off-white)!important;border-color:var(--light-gray)!important;color:var(--navy-dark)!important}
+.section .ph-relate strong{color:#A64B00}
+.section .ph-relate:hover{background:#fceadb!important;border-color:rgba(232,114,12,.4)!important}
 
 /* ── SECTION PRIMITIVES ── */
 .section{padding:80px 5%}
@@ -175,7 +180,8 @@ h2.section-title span{color:var(--orange)}
 .layer{background:#fff;border:1px solid var(--light-gray);border-radius:14px;padding:32px 28px;border-top:4px solid var(--tan);transition:transform .2s,box-shadow .2s}
 .layer:hover{transform:translateY(-3px);box-shadow:0 12px 32px rgba(20,42,82,.08)}
 .layer.featured{background:var(--navy-dark);color:#fff;border-color:var(--navy-dark);border-top-color:var(--orange)}
-.layer .label{font-size:.7rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:var(--orange);margin-bottom:10px}
+.layer .label{font-size:.7rem;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:#A64B00;margin-bottom:10px}
+.layer.featured .label{color:var(--orange)} /* brand orange passes on the navy card (4.62:1); #A64B00 would drop to 2.44 */
 .layer h3{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;letter-spacing:.04em;line-height:1.1;color:var(--navy-dark);margin-bottom:14px}
 .layer.featured h3{color:#fff}
 .layer p{font-size:.95rem;line-height:1.7;color:var(--gray-sub);margin:0}
@@ -209,7 +215,7 @@ h2.section-title span{color:var(--orange)}
 .final-cta p{font-size:1.05rem;color:rgba(255,255,255,.92);max-width:60ch;margin:0 auto 12px;line-height:1.65;font-weight:600}
 .final-cta .sig{font-family:'Dancing Script',cursive;font-size:1.8rem;color:#fff;margin-top:24px;margin-bottom:28px;line-height:1}
 .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:8px}
-.btn-white{display:inline-flex;align-items:center;gap:8px;background:#fff;color:var(--orange)!important;padding:16px 32px;border-radius:8px;font-weight:800;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;transition:transform .15s,box-shadow .15s}
+.btn-white{display:inline-flex;align-items:center;gap:8px;background:#fff;color:#A64B00!important;padding:16px 32px;border-radius:8px;font-weight:800;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;transition:transform .15s,box-shadow .15s}
 .btn-white:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.18)}
 .btn-ghost-white{display:inline-flex;align-items:center;gap:8px;background:transparent;color:#fff!important;border:2px solid #fff;padding:14px 30px;border-radius:8px;font-weight:800;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;transition:background .2s,color .2s}
 .btn-ghost-white:hover{background:#fff;color:var(--orange)!important}

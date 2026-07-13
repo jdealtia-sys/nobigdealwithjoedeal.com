@@ -22,6 +22,9 @@ p{color:rgba(255,255,255,.7);font-size:15px;max-width:440px;line-height:1.6;marg
 .btn-ghost:hover{border-color:var(--orange);color:var(--orange)}
 .phone{margin-top:40px;color:rgba(255,255,255,.5);font-size:13px}
 .phone a{color:var(--orange);text-decoration:none;font-weight:600}
+/* main landmark added for a11y; body keeps the flex centering, main just
+   re-centers its own children so the layout is unchanged */
+main{display:flex;flex-direction:column;align-items:center}
 </style>
 <style>
 /* dark-body text fix (injected) */
@@ -107,6 +110,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head>
 <body>
+<main>
 <div class="code">404</div>
 <h1>This Page Doesn't Exist</h1>
 <p>No big deal — let's get you back on track. Whether you need a roof inspection, want to file an insurance claim, or just want to talk to Joe, we've got you.</p>
@@ -116,5 +120,6 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <a href="/blog/" class="btn-ghost">Read Our Blog</a>
 </div>
 <div class="phone">Or call Joe directly: <a href="tel:+18594207382">(859) 420-7382</a></div>
+</main>
 </body>
 </html>
