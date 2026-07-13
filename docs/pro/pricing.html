@@ -28,11 +28,11 @@
 body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t, #f0f0f0);min-height:100vh;}
 .header{text-align:center;padding:60px 24px 40px;position:relative;}
 .header::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:120px;height:4px;background:#e8720c;border-radius:2px;}
-.brand{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.2em;color:#e8720c;text-transform:uppercase;margin-bottom:12px;}
+.brand{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.2em;color:#ffaf66;text-transform:uppercase;margin-bottom:12px;}
 .headline{font-family:'Barlow Condensed',sans-serif;font-size:clamp(36px,6vw,56px);font-weight:800;text-transform:uppercase;line-height:1;margin-bottom:16px;}
 .headline span{color:#e8720c;}
 .subhead{font-size:16px;color:#8b9bb4;max-width:520px;margin:0 auto;line-height:1.5;}
-.north-star{font-size:12px;color:#e8720c;font-weight:700;letter-spacing:.08em;margin-top:16px;text-transform:uppercase;}
+.north-star{font-size:12px;color:#ffaf66;font-weight:700;letter-spacing:.08em;margin-top:16px;text-transform:uppercase;}
 
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:1100px;margin:40px auto 0;padding:0 20px;}
 @media(max-width:900px){.grid{grid-template-columns:1fr 1fr;}}
@@ -44,7 +44,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 .card.popular::before{content:'MOST POPULAR';position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:#e8720c;color:#fff;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;letter-spacing:.15em;padding:4px 14px;border-radius:20px;}
 
 .tier-icon{font-size:32px;margin-bottom:12px;}
-.tier-name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+.tier-name{display:block;font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
 .tier-price{font-family:'Barlow Condensed',sans-serif;font-size:42px;font-weight:800;color:#e8720c;line-height:1;margin-bottom:4px;}
 .tier-price .mo{font-size:14px;color:#8b9bb4;font-weight:600;}
 .tier-desc{font-size:12px;color:#8b9bb4;margin-bottom:20px;line-height:1.4;}
@@ -56,7 +56,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 .features li.disabled::before{content:'—';color:#444;}
 
 .cta{display:block;width:100%;padding:14px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;text-align:center;cursor:pointer;transition:all .15s;border:none;text-decoration:none;}
-.cta-primary{background:#e8720c;color:#fff;}
+.cta-primary{background:#B85400;color:#fff;}
 .cta-primary:hover{background:#ff8420;}
 .cta-ghost{background:transparent;border:2px solid #2a2f35;color:#8b9bb4;}
 .cta-ghost:hover{border-color:#e8720c;color:#e8720c;}
@@ -72,7 +72,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 .faq-item.open .faq-a{display:block;}
 
 .footer{text-align:center;padding:30px 20px;color:#8b9bb4;font-size:11px;} /* was #555 — ~2.6:1, under AA */
-.footer a{color:#e8720c;text-decoration:none;}
+.footer a{color:#ffaf66;text-decoration:none;}
 /* a11y: skip-to-main link — pure CSS for strict-CSP compatibility. */
 .nbd-skip-link { position:absolute; left:-9999px; top:8px; background:#e8720c; color:#000; padding:8px 14px; font-weight:700; z-index:99999; text-decoration:none; border-radius:4px; }
 .nbd-skip-link:focus { left:8px; outline:2px solid #000; }
@@ -95,7 +95,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
   <!-- FREE -->
   <div class="card">
     <div class="tier-icon" aria-hidden="true">🆓</div>
-    <h3 class="tier-name">Free</h3>
+    <h2 class="tier-name">Free</h2>
     <div class="tier-price">$0 <span class="mo">forever</span></div>
     <div class="tier-desc">Kick the tires. No credit card, no pressure, no timer.</div>
     <ul class="features">
@@ -114,7 +114,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
   <!-- STARTER -->
   <div class="card">
     <div class="tier-icon" aria-hidden="true">🚀</div>
-    <h3 class="tier-name">Starter</h3>
+    <h2 class="tier-name">Starter</h2>
     <div class="tier-price">$99 <span class="mo">/mo</span></div>
     <div class="tier-desc">Solo operator. The exact setup I run my business on every day.</div>
     <ul class="features">
@@ -134,7 +134,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
   <!-- GROWTH -->
   <div class="card popular">
     <div class="tier-icon" aria-hidden="true">📈</div>
-    <h3 class="tier-name">Growth</h3>
+    <h2 class="tier-name">Growth</h2>
     <div class="tier-price">$299 <span class="mo">/mo</span></div>
     <div class="tier-desc">Growing a crew. Real visibility into who's closing, who's burning gas, and where your pipeline actually stands.</div>
     <ul class="features">
@@ -154,7 +154,7 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
   <!-- ENTERPRISE -->
   <div class="card">
     <div class="tier-icon" aria-hidden="true">🏢</div>
-    <h3 class="tier-name">Enterprise</h3>
+    <h2 class="tier-name">Enterprise</h2>
     <div class="tier-price">Custom</div>
     <div class="tier-desc">Multi-location, white-label, or enterprise rollout. Call me directly — we'll figure out what you need.</div>
     <ul class="features">
