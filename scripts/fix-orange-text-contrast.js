@@ -42,9 +42,9 @@
  *   - Orange text on navy (#142a52) — 4.62:1, passes AA at these sizes
  *     (footer links, mobile menu, hero accents, .section-label-light,
  *     financing.html inline link, non-templated .eyebrow variants).
- *   - White-on-orange primary CTA buttons (.btn-primary, .nav-cta, form
- *     submits) — brand orange kept per Jo's recorded decision (see
- *     scripts/fix-tiny-badge-contrast.js header).
+ *   - White-on-orange primary CTA buttons — out of scope for THIS script;
+ *     remediated 2026-07-13 (Jo's approval) by fix-cta-a11y-jul2026.js,
+ *     which moved the family to the #B85400 band token.
  *   - Hover-only states (transient).
  *
  * Idempotent: replacements no longer match once applied.

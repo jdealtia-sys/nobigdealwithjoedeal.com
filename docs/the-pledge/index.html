@@ -72,8 +72,8 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .nav-links{display:flex;align-items:center;gap:24px;list-style:none}
 .nav-links a{color:rgba(255,255,255,.85);font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;transition:color .2s}
 .nav-links a:hover{color:var(--orange)}
-.nav-cta{background:var(--orange);color:#fff!important;padding:10px 18px;border-radius:6px;font-weight:700!important;font-size:.78rem!important;transition:background .2s!important}
-.nav-cta:hover{background:var(--orange-dark)!important}
+.nav-cta{background:#B85400;color:#fff!important;padding:10px 18px;border-radius:6px;font-weight:700!important;font-size:.78rem!important;transition:background .2s!important}
+.nav-cta:hover{background:#A64B00!important}
 .hamburger{display:none;flex-direction:column;gap:6px;cursor:pointer;padding:10px;background:transparent;border:none;z-index:1001}
 .hamburger span{display:block;width:26px;height:3px;background:#fff;border-radius:2px;transition:all .3s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
 .mobile-nav{display:none;position:fixed;top:108px;left:0;right:0;background:var(--navy-dark);padding:24px 5%;border-bottom:3px solid var(--orange);max-height:calc(100vh - 108px);overflow-y:auto;z-index:999}
@@ -101,8 +101,8 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .pledge-hero .lead{font-size:1.1rem;color:rgba(255,255,255,.85);line-height:1.65;max-width:740px;margin-bottom:32px;font-weight:600}
 .pledge-hero .lead strong{color:#fff;font-weight:700}
 .ph-ctas{display:flex;flex-wrap:wrap;gap:14px}
-.btn-primary{display:inline-flex;align-items:center;gap:8px;background:var(--orange);color:#fff!important;padding:15px 28px;border-radius:8px;font-weight:800;font-size:.9rem;letter-spacing:.05em;text-transform:uppercase;box-shadow:0 4px 14px rgba(232,114,12,.35);transition:transform .15s,background .2s,box-shadow .15s}
-.btn-primary:hover{background:var(--orange-dark);transform:translateY(-2px);box-shadow:0 8px 22px rgba(232,114,12,.45)}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;background:#B85400;color:#fff!important;padding:15px 28px;border-radius:8px;font-weight:800;font-size:.9rem;letter-spacing:.05em;text-transform:uppercase;box-shadow:0 4px 14px rgba(232,114,12,.35);transition:transform .15s,background .2s,box-shadow .15s}
+.btn-primary:hover{background:#A64B00;transform:translateY(-2px);box-shadow:0 8px 22px rgba(232,114,12,.45)}
 .btn-outline{display:inline-flex;align-items:center;gap:8px;background:transparent;color:#fff!important;border:2px solid rgba(255,255,255,.5);padding:13px 26px;border-radius:8px;font-weight:700;font-size:.9rem;letter-spacing:.04em;text-transform:uppercase;transition:border-color .2s,background .2s}
 .btn-outline:hover{border-color:var(--orange);background:rgba(232,114,12,.1)}
 .btn-arrow{transition:transform .15s ease;display:inline-block}
@@ -128,7 +128,7 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .section-label::before{content:'';width:7px;height:7px;background:var(--orange);border-radius:50%;box-shadow:0 0 10px rgba(232,114,12,.6);flex-shrink:0}
 .section.dark .section-label{color:var(--orange-light)}
 h2.section-title{font-family:'Bebas Neue',sans-serif;font-size:clamp(2rem,4.2vw,3.2rem);line-height:1.04;color:var(--navy-dark);letter-spacing:.02em;margin-bottom:18px}
-h2.section-title span{color:var(--orange)}
+h2.section-title span{color:#DA6A05}
 .section.dark h2.section-title{color:#fff}
 .section-lede{font-size:1.05rem;color:var(--gray-sub);max-width:62ch;line-height:1.7;margin-bottom:36px}
 .section.dark .section-lede{color:rgba(255,255,255,.82)}
@@ -208,11 +208,11 @@ h2.section-title span{color:var(--orange)}
 .chips li:hover{border-color:var(--orange);color:var(--orange)}
 
 /* ── FINAL CTA ── */
-.final-cta{padding:80px 5% 90px;background:var(--orange);color:#fff;text-align:center;position:relative;overflow:hidden}
+.final-cta{padding:80px 5% 90px;background:#B85400;color:#fff;text-align:center;position:relative;overflow:hidden}
 .final-cta::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:600px;height:300px;background:radial-gradient(ellipse,rgba(255,255,255,.15),transparent 70%);pointer-events:none}
 .final-cta-inner{position:relative;max-width:780px;margin:0 auto}
 .final-cta h2{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.2rem,5vw,3.6rem);color:#fff;letter-spacing:.02em;line-height:1.05;margin-bottom:16px}
-.final-cta p{font-size:1.05rem;color:rgba(255,255,255,.92);max-width:60ch;margin:0 auto 12px;line-height:1.65;font-weight:600}
+.final-cta p{font-size:1.05rem;color:#fff;max-width:60ch;margin:0 auto 12px;line-height:1.65;font-weight:600}
 .final-cta .sig{font-family:'Dancing Script',cursive;font-size:1.8rem;color:#fff;margin-top:24px;margin-bottom:28px;line-height:1}
 .cta-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-top:8px}
 .btn-white{display:inline-flex;align-items:center;gap:8px;background:#fff;color:#A64B00!important;padding:16px 32px;border-radius:8px;font-weight:800;font-size:1rem;letter-spacing:.04em;text-transform:uppercase;transition:transform .15s,box-shadow .15s}
@@ -228,7 +228,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 .footer-desc{font-size:.85rem;line-height:1.65;margin-bottom:18px;color:rgba(255,255,255,.72)}
 .footer-badges{display:flex;flex-wrap:wrap;gap:6px}
 .footer-badge{background:rgba(255,255,255,.08);padding:4px 10px;border-radius:12px;font-size:.7rem;color:rgba(255,255,255,.7);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
-.footer-col h4{font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--orange);letter-spacing:.08em;margin-bottom:14px}
+.footer-col .footer-col-title{font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--orange);letter-spacing:.08em;margin-bottom:14px}
 .footer-col ul{list-style:none}
 .footer-col li{margin-bottom:8px}
 .footer-col a{font-size:.85rem;color:rgba(255,255,255,.82);transition:color .2s}
@@ -247,7 +247,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 @media(max-width:680px){
   .stickybar{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:50;background:#fff;border-top:1px solid var(--light-gray);box-shadow:0 -4px 20px rgba(20,42,82,.1);padding:10px 12px;gap:8px}
   .stickybar a{flex:1;text-align:center;padding:13px 10px;border-radius:8px;font-weight:800;font-size:.85rem;letter-spacing:.05em;text-transform:uppercase}
-  .stickybar .sb-call{background:var(--orange);color:#fff}
+  .stickybar .sb-call{background:#B85400;color:#fff}
   .stickybar .sb-text{background:#fff;color:var(--navy-dark);border:2px solid var(--navy-dark)}
   body{padding-bottom:78px}
   .pledge-hero{padding:50px 5% 50px}
@@ -270,7 +270,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
   <script src="/assets/js/nav-faq.js" defer></script>
-<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#e8720c;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 
@@ -536,7 +536,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
       <div class="footer-badges"><span class="footer-badge">Licensed</span> <span class="footer-badge">Insured</span> <span class="footer-badge">Locally Owned</span></div>
     </div>
     <div class="footer-col">
-      <h4>The Promise</h4>
+      <h2 class="footer-col-title">The Promise</h2>
       <ul>
         <li><a href="/the-pledge" style="color:var(--orange)">The Pledge</a></li>
         <li><a href="/services/the-nbd-guarantee">The NBD Guarantee</a></li>
@@ -549,7 +549,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
       </ul>
     </div>
     <div class="footer-col">
-      <h4>Company</h4>
+      <h2 class="footer-col-title">Company</h2>
       <ul>
         <li><a href="/about">About Joe</a></li>
         <li><a href="/review">Reviews</a></li>
@@ -560,7 +560,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
       </ul>
     </div>
     <div class="footer-col">
-      <h4>Contact</h4>
+      <h2 class="footer-col-title">Contact</h2>
       <div class="footer-contact-item"><span class="label">Call or Text</span><span class="val"><a href="tel:8594207382">(859) 420-7382</a></span></div>
       <div class="footer-contact-item"><span class="label">Email</span><span class="val"><a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com">jd&#64;nobigdealwithjoedeal&#46;com</a></span></div>
       <div class="footer-contact-item"><span class="label">Based In</span><span class="val">Greater Cincinnati, OH</span></div>
