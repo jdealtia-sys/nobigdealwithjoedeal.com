@@ -9,7 +9,7 @@
 .qlf-row .qlf-field{flex:1}
 .qlf-field{display:block;margin-bottom:12px}
 .qlf-field > span{display:block;font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#5b6572;margin-bottom:5px}
-.qlf-field > span em{font-style:normal;font-weight:600;text-transform:none;letter-spacing:0;color:#8a929c}
+.qlf-field > span em{font-style:normal;font-weight:600;text-transform:none;letter-spacing:0;color:#646c7a}
 .qlf-field input{width:100%;border:1px solid #d7dbe0;border-radius:8px;padding:11px 13px;font:inherit;font-size:16px;color:#14181f;background:#fff}
 .qlf-field input:focus{outline:3px solid #e8720c;outline-offset:0;border-color:transparent}
 .qlf-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;opacity:0}
@@ -17,7 +17,7 @@
 .qlf-btn:hover:not(:disabled){background:#c45e08}
 .qlf-btn:disabled{opacity:.65;cursor:default}
 .qlf-alt{text-align:center;font-size:.82rem;color:#5b6572;margin-top:12px}
-.qlf-alt a{color:#c45e08;font-weight:700;text-decoration:none}
+.qlf-alt a{color:#A64B00;font-weight:700;text-decoration:none}
 .qlf-msg{display:none;border-radius:7px;padding:9px 12px;font-size:.84rem;margin-bottom:12px}
 .qlf-msg.qlf-err:not(:empty){display:block;background:#fdeaea;color:#9d2727}
 .qlf-msg.qlf-ok:not(:empty){display:block;background:#e8f7ee;color:#1c6b3c}
