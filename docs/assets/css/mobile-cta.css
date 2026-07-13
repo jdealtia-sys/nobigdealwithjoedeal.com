@@ -7,7 +7,7 @@
   .mobile-cta-strip{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:999;background:#142a52;border-top:3px solid #e8720c;padding:12px 16px calc(16px + env(safe-area-inset-bottom,0px));gap:10px;align-items:center;justify-content:center}
   .mobile-cta-strip a{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:13px 10px;border-radius:8px;font-size:.8rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;text-align:center}
   .mobile-cta-strip .mobile-cta-call{background:#142a52;color:#fff;border:2px solid #e8720c}
-  .mobile-cta-strip .mobile-cta-call:active{background:#e8720c}
+  .mobile-cta-strip .mobile-cta-call:active{background:#B85400}
   .mobile-cta-strip .mobile-cta-text{background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.2)}
   .mobile-cta-strip svg{width:16px;height:16px;flex-shrink:0}
   /* Reserve space so the fixed bar never covers footer content / iPhone home indicator. */

@@ -5,7 +5,7 @@
 .blog-midpost-cta p{color:rgba(255,255,255,.85);font-size:1rem;line-height:1.55;margin:0 0 1.25rem}
 .blog-midpost-cta .bmc-actions{display:flex;flex-direction:column;gap:.75rem}
 .blog-midpost-cta .bmc-btn{display:block;padding:13px 18px;border-radius:8px;text-decoration:none;font-weight:800;font-size:.88rem;letter-spacing:.04em;transition:background .2s ease,color .2s ease}
-.blog-midpost-cta .bmc-btn-primary{background:var(--orange,#e8720c);color:#fff}
+.blog-midpost-cta .bmc-btn-primary{background:#B85400;color:#fff}
 .blog-midpost-cta .bmc-btn-primary:hover{background:#f08030;color:#fff}
 .blog-midpost-cta .bmc-btn-secondary{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.3)}
 .blog-midpost-cta .bmc-btn-secondary:hover{background:rgba(255,255,255,.08)}

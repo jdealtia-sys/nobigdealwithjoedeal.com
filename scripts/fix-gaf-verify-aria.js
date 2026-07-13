@@ -1,31 +1,35 @@
 #!/usr/bin/env node
 /*
- * A11y label-in-name (Jul 2026 sitewide sweep): the GAF hero badge link's
- * visible action text is "Verify on GAF.com →", but its aria-label read
- * "Verify GAF Certified™ Contractor on GAF.com" — the visible phrase is
- * not a contiguous substring of the accessible name, so speech-input users
- * saying "click Verify on GAF.com" can't activate it (WCAG 2.5.3).
+ * A11y label-in-name (Jul 2026 sitewide sweep, v2): the GAF badge links
+ * carried aria-labels that did not CONTAIN their full visible text
+ * ("GAF Certified™ Contractor … Verify on GAF.com →"), so speech-input
+ * users couldn't activate them by saying what they see (WCAG 2.5.3 /
+ * axe label-content-name-mismatch).
  *
- * Fix: lead the accessible name with the exact visible phrase and keep the
- * certification context after a dash.
+ * v1 reordered the label to lead with "Verify on GAF.com" — not enough:
+ * axe checks that the WHOLE normalized visible text is a substring of
+ * the accessible name, and these links have two visible lines. The
+ * robust fix is to drop the aria-label entirely — the visible text is a
+ * complete, descriptive accessible name on its own, and voice users can
+ * then speak any part of it.
  *
- * Idempotent: the old label no longer exists once applied.
+ * The image-only floating badge (aria-label="…Contractor status on
+ * GAF.com", no text content) KEEPS its label — with no visible text
+ * there is no mismatch, and removing it would leave an img-alt-only name.
+ *
+ * Idempotent: the removed attributes no longer exist once applied.
  */
 const fs = require('fs');
 const path = require('path');
 
 const DOCS = path.resolve(__dirname, '..', 'docs');
-// Two encodings of the same label in the wild: the hero badge uses the
-// &trade; entity (38 city/service pages); the footer chip uses a literal ™
-// (about, roof-replacement, gaf-pivot-boot). Both anchors show
-// "Verify on GAF.com →" as visible text. The image-only floating badge
-// ("… Contractor status on GAF.com") has no visible text, so label-in-name
-// does not apply — deliberately untouched.
-const SWAPS = [
-  ['aria-label="Verify GAF Certified&trade; Contractor on GAF.com"',
-   'aria-label="Verify on GAF.com &mdash; GAF Certified&trade; Contractor"', 38],
-  ['aria-label="Verify GAF Certified™ Contractor on GAF.com"',
-   'aria-label="Verify on GAF.com — GAF Certified™ Contractor"', 3],
+// Historic label forms (v1 rewrites + any pre-v1 stragglers), all on
+// text-bearing badge links:
+const REMOVE = [
+  [' aria-label="Verify on GAF.com &mdash; GAF Certified&trade; Contractor"', 38],
+  [' aria-label="Verify on GAF.com — GAF Certified™ Contractor"', 3],
+  [' aria-label="Verify GAF Certified&trade; Contractor on GAF.com"', 0],
+  [' aria-label="Verify GAF Certified™ Contractor on GAF.com"', 0],
 ];
 
 function walk(dir) {
@@ -36,17 +40,17 @@ function walk(dir) {
 }
 
 const PAGES = walk(DOCS);
-for (const [OLD, NEW, EXPECTED] of SWAPS) {
+for (const [OLD, EXPECTED] of REMOVE) {
   let count = 0;
   for (const file of PAGES) {
     const src = fs.readFileSync(file, 'utf8');
     if (!src.includes(OLD)) continue;
     const hits = src.split(OLD).length - 1;
-    fs.writeFileSync(file, src.split(OLD).join(NEW), 'utf8');
+    fs.writeFileSync(file, src.split(OLD).join(''), 'utf8');
     count += hits;
   }
   const ok = count === EXPECTED;
-  console.log(`${ok ? '✓' : '✗'} GAF badge aria-label: ${count} swapped (expected ${EXPECTED}) [${OLD.slice(12, 40)}…]`);
+  console.log(`${ok ? '✓' : '✗'} removed ${count} (expected ${EXPECTED}) [${OLD.slice(13, 55)}…]`);
   if (!ok && count > 0) {
     console.warn('Unexpected count — grep the old label before trusting this run.');
   }

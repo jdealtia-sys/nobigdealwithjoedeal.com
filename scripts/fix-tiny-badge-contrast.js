@@ -6,7 +6,9 @@
  * move from brand orange #E8720C (3.06:1 with white — AA fail at these sizes)
  * to the darkened accent #B85400 (4.55:1 — AA pass), matching the announcement
  * bar. Primary CTA buttons (.btn-primary, .nav-cta, form submits) deliberately
- * KEEP brand orange per Jo's decision.
+ * KEPT brand orange per Jo's decision at the time — SUPERSEDED 2026-07-13:
+ * Jo approved full CTA remediation and the whole white-on-orange family
+ * moved to #B85400 (see scripts/fix-cta-a11y-jul2026.js).
  *
  * Targets (each defined on exactly one page, verified by site-wide grep):
  *   index.html                              .about-badge, .wc-ribbon, .sc-badge,
