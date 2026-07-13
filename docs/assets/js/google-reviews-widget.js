@@ -13,6 +13,9 @@
   'use strict';
 
   const ENDPOINT = '/api/google-reviews';
+  // Google Business Profile short link — the one hardcoded copy in this
+  // file; the happy path uses data.profileUrl from the API instead.
+  const PROFILE_URL = 'https://g.page/r/CXzIjLwvtRPdEBM';
   const STAR_FULL =
     '<svg viewBox="0 0 24 24" fill="#fbbc04" aria-hidden="true" width="16" height="16"><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9"/></svg>';
   const STAR_EMPTY =
@@ -67,7 +70,7 @@
   function renderFallback(container) {
     container.innerHTML = `
       <div style="text-align:center">
-        <a href="https://g.page/r/CXzIjLwvtRPdEBM" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:12px;background:#fff;border:1px solid #e8e5e0;border-radius:12px;padding:18px 28px;text-decoration:none">
+        <a href="${PROFILE_URL}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:12px;background:#fff;border:1px solid #e8e5e0;border-radius:12px;padding:18px 28px;text-decoration:none">
           ${GOOGLE_G(26)}
           <span style="text-align:left">
             <span style="display:block;font-weight:800;color:#142a52;font-size:.95rem">Read our reviews on Google &rarr;</span>

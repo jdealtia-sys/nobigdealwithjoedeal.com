@@ -64,6 +64,15 @@ const SWEEPS = [
   ['/review "Read … on Google" links',
     /style="color:#e8720c(;font-weight:700;text-decoration:none">Read)/g,
     `style="color:${NEW}$1`, 4],
+  // Round-2 context sweep (each verified on #f5f3ef / white backgrounds;
+  // the visually similar eyebrows on .gtss/.nbd-system sit on navy and pass
+  // at 4.62:1 — deliberately untouched):
+  ['"Where I work / Serving your area" labels on off-white',
+    /(font-size:\.7rem;font-weight:700;letter-spacing:\.15em;text-transform:uppercase;)color:#e8720c(;margin-bottom:8px;")/g,
+    `$1color:${NEW}$2`, 3],
+  ['blog-post area chips on white pills',
+    /(padding:6px 14px;text-decoration:none;font-size:\.78rem;font-weight:600;)color:#e8720c/g,
+    `$1color:${NEW}`, 2],
 ];
 
 for (const [desc, re, replacement, expected] of SWEEPS) {
