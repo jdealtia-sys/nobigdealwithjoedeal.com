@@ -63,7 +63,7 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 
 /* HERO */
 .viz-hero { background: var(--navy-dark); padding: 52px 5% 48px; text-align: center; }
-.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(232,114,12,0.15); border: 1px solid rgba(232,114,12,0.4); color: var(--orange); font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; margin-bottom: 18px; }
+.hero-badge { display: inline-flex; align-items: center; gap: 8px; background: rgba(232,114,12,0.15); border: 1px solid rgba(232,114,12,0.4); color:#ffaf66; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 14px; border-radius: 20px; margin-bottom: 18px; }
 .viz-hero h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.4rem, 5vw, 4rem); color: var(--white); line-height: 1.0; margin-bottom: 12px; }
 .viz-hero h1 span { color:#DA6A05; }
 .viz-hero p { color: rgba(255,255,255,0.75); font-size: 1rem; max-width: 600px; margin: 0 auto; line-height: 1.65; }
@@ -97,7 +97,7 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .step-tab.active .num { background: var(--orange); color: var(--white); }
 .step-tab.done .num { background: var(--success); color: var(--white); }
 .step-tab .step-label { display: block; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.5); }
-.step-tab.active .step-label { color: var(--orange); }
+.step-tab.active .step-label { color:#ffaf66; }
 .step-tab.done .step-label { color: rgba(255,255,255,0.7); }
 @media (max-width: 480px) {
   .step-tab { padding: 14px 6px; }
@@ -121,12 +121,12 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .upload-zone:hover, .upload-zone.drag-over { border-color: var(--orange); background: rgba(232,114,12,0.04); }
 .upload-icon { font-size: 3.5rem; margin-bottom: 16px; display: block; }
 .upload-zone h3 { font-size: 1.2rem; font-weight: 800; color: var(--navy); margin-bottom: 8px; }
-.upload-zone p { font-size: 0.88rem; color: var(--gray); margin-bottom: 20px; line-height: 1.55; }
+.upload-zone p { font-size: 0.88rem; color: #646c7a; margin-bottom: 20px; line-height: 1.55; }
 .upload-btn { background:#B85400; color: var(--white); border: none; padding: 13px 28px; border-radius: 8px; font-weight: 800; font-size: 0.9rem; cursor: pointer; transition: background 0.2s; font-family: inherit; }
 .upload-btn:hover { background: var(--orange-dark); }
 #fileInput { display: none; }
 .upload-tips { display: flex; justify-content: center; gap: 32px; margin-top: 24px; flex-wrap: wrap; }
-.upload-tip { font-size: 0.77rem; color: var(--gray); display: flex; align-items: center; gap: 6px; }
+.upload-tip { font-size: 0.77rem; color:#646c7a; display: flex; align-items: center; gap: 6px; }
 .upload-tip::before { content: '✓'; color: var(--success); font-weight: 800; }
 .preview-container { position: relative; margin-top: 24px; }
 .preview-container img { width: 100%; border-radius: 12px; max-height: 360px; object-fit: cover; }
@@ -243,17 +243,17 @@ nav { position: sticky; top: 0; z-index: 1000; background: var(--navy-dark); bor
 .how-section .sub { color: rgba(255,255,255,0.65); font-size: 0.9rem; margin-bottom: 36px; }
 .how-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 28px; }
 .how-card { background: rgba(255,255,255,0.06); border-radius: 14px; padding: 28px; border: 1px solid rgba(255,255,255,0.08); }
-.how-num { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color: var(--orange); opacity: 0.4; line-height: 1; margin-bottom: 8px; }
+.how-num { font-family: 'Bebas Neue', sans-serif; font-size: 3rem; color:#DA6A05; line-height: 1; margin-bottom: 8px; }
 .how-card h3 { font-size: 1rem; font-weight: 800; color: var(--white); margin-bottom: 8px; }
 .how-card p { font-size: 0.85rem; color: rgba(255,255,255,0.65); line-height: 1.6; }
 
 /* CTA STRIP */
-.cta-strip { background: var(--orange); padding: 52px 5%; text-align: center; margin-top: 40px; border-radius: 20px; max-width: 1100px; margin-left: auto; margin-right: auto; margin-bottom: 60px; }
+.cta-strip { background:#B85400; padding: 52px 5%; text-align: center; margin-top: 40px; border-radius: 20px; max-width: 1100px; margin-left: auto; margin-right: auto; margin-bottom: 60px; }
 .cta-strip h2 { font-family: 'Bebas Neue', sans-serif; font-size: 2.4rem; color: var(--white); margin-bottom: 10px; }
-.cta-strip p { color: rgba(255,255,255,0.9); margin-bottom: 28px; font-size: 1rem; }
+.cta-strip p { color:#fff; margin-bottom: 28px; font-size: 1rem; }
 .btn-white { background: var(--white); color: #A64B00; padding: 15px 28px; border-radius: 8px; font-weight: 800; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.15s; }
 .btn-white:hover { transform: translateY(-2px); }
-.cta-phone { margin-top: 14px; color: rgba(255,255,255,0.9); font-size: 1rem; font-weight: 700; }
+.cta-phone { margin-top: 14px; color:#fff; font-size: 1rem; font-weight: 700; }
 .cta-phone a { color: var(--white); text-decoration: underline; }
 
 footer { background: var(--navy-dark); color: rgba(255,255,255,0.75); padding: 56px 5% 28px; }
@@ -448,7 +448,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
     <div class="viz-panel active" id="panel1">
       <div id="uploadZone" class="upload-zone">
         <span class="upload-icon">📸</span>
-        <h3>Upload a Photo of Your Home</h3>
+        <h2 style="font-size:1.2rem;font-weight:800;color:var(--navy);margin-bottom:8px">Upload a Photo of Your Home</h2>
         <p>For the AI to render shingle detail well, the roof needs to be a clear, large piece of the photo — not just a strip across the top. Stand close enough that the roof fills at least one-third of the frame.</p>
         <button class="upload-btn" data-action="pickFile">Choose Photo</button>
         <input type="file" id="fileInput" accept="image/*">

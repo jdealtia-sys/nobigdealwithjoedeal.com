@@ -101,6 +101,7 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .prose blockquote{background:rgba(232,114,12,.06);border-left:4px solid var(--orange);padding:18px 22px;margin:28px 0;border-radius:0 8px 8px 0;}
 .prose blockquote p{font-size:.95rem;font-weight:600;color:var(--navy);font-style:italic;margin:0;}
 .callout{background:var(--navy-dark);color:var(--white);border-radius:12px;padding:28px 32px;margin:32px 0;}
+.callout strong,.prose .callout p strong,.prose .callout li strong{color:#fff}
 .callout h3{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--orange);letter-spacing:.04em;margin-bottom:10px;}
 .callout p{font-size:.88rem;color:rgba(255,255,255,.82);line-height:1.65;margin:0 0 14px;}
 .callout a{display:inline-block;background:#B85400;color:var(--white);padding:11px 22px;border-radius:7px;font-weight:800;font-size:.85rem;transition:background .2s;}
@@ -111,11 +112,11 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .fact-box li{font-size:.88rem;color:var(--gray-sub);line-height:1.65;margin-bottom:7px;}
 .step-box{border:2px solid var(--orange);border-radius:12px;padding:24px 28px;margin:28px 0;position:relative;}
 .step-num{position:absolute;top:-14px;left:20px;background:#B85400;color:#fff;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.06em;padding:2px 14px;border-radius:20px;}
-.step-box h4{font-size:.95rem;font-weight:800;color:var(--navy);margin-bottom:8px;margin-top:4px;}
+.step-box h3{font-size:.95rem;font-weight:800;color:var(--navy);margin-bottom:8px;margin-top:4px;}
 .step-box p{font-size:.88rem;color:var(--gray-sub);line-height:1.65;margin:0;}
 .author-box{display:flex;gap:20px;align-items:flex-start;background:var(--off-white);border-radius:12px;padding:28px;margin-top:48px;border:1px solid var(--light-gray);}
 .author-avatar{width:56px;height:56px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--white);flex-shrink:0;}
-.author-info h4{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px;}
+.author-info h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px;}
 .author-info p{font-size:.83rem;color:var(--gray-sub);line-height:1.6;}
 .related-section{margin-top:52px;padding-top:40px;border-top:2px solid var(--light-gray);}
 .related-section h3{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--navy);margin-bottom:24px;}
@@ -129,7 +130,7 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .sidebar-card{background:var(--off-white);border-radius:14px;padding:28px;border:1px solid var(--light-gray);}
 .sidebar-card h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:16px;text-transform:uppercase;letter-spacing:.06em;}
 .sidebar-links{list-style:none;display:flex;flex-direction:column;gap:10px;}
-.sidebar-links li a{font-size:.85rem;color:var(--gray-sub);display:flex;align-items:center;gap:8px;transition:color .2s;}
+.sidebar-links li a{font-size:.85rem;color:var(--gray-sub);display:flex;align-items:center;gap:8px;transition:color .2s;padding:4px 0;}
 .sidebar-links li a:hover{color:var(--orange);}
 .sidebar-links li a::before{content:'→';color:var(--orange);font-weight:700;}
 .cta-sidebar{background:var(--navy-dark);color:var(--white);border-radius:14px;padding:28px;text-align:center;}
@@ -155,7 +156,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.75);padding:56px 5% 2
 .footer-col ul li a{font-size:.83rem;color:rgba(255,255,255,.65);transition:color .2s;}
 .footer-col ul li a:hover{color:var(--orange);}
 .footer-contact-item{display:flex;flex-direction:column;gap:2px;margin-bottom:12px;}
-.footer-contact-item .label{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);font-weight:700;}
+.footer-contact-item .label{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.62);font-weight:700;}
 .footer-contact-item .val{font-size:.85rem;color:rgba(255,255,255,.8);}
 .footer-contact-item .val a{color:rgba(255,255,255,.8);}
 .footer-contact-item .val a:hover{color:var(--orange);}
@@ -505,7 +506,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
       <div class="author-box">
         <div class="author-avatar">JD</div>
         <div class="author-info">
-          <h4>Joe Deal</h4>
+          <h3>Joe Deal</h3>
           <p>Owner, No Big Deal Home Solutions. 15+ years installing roofing, siding, and gutters in Greater Cincinnati. Straight talk about home maintenance — no upsell, no pressure.</p>
         </div>
       </div>
@@ -551,12 +552,12 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
       <div class="sidebar-card">
         <h3>Services</h3>
         <ul class="sidebar-links">
-          <li><a href="/the-pledge" style="color:#f08030;font-weight:800;">The Lifetime Pledge</a></li>
-          <li><a href="/services/the-nbd-guarantee" style="color:#f08030;font-weight:800;">The NBD Guarantee</a></li>
-<li><a href="/services/lumanail" style="color:#f08030;font-weight:800;">LumaNail™ Upgrade</a></li>
-<li><a href="/services/the-nbd-build" style="color:#f08030;font-weight:800;">The NBD Build</a></li>
-<li><a href="/services/roofivent" style="color:#f08030;font-weight:800;">Roofivent Products</a></li>
-<li><a href="/services/gaf-pivot-boot" style="color:#f08030;font-weight:800;">GAF Pivot Boot</a></li>
+          <li><a href="/the-pledge" style="color:#A64B00;font-weight:800;">The Lifetime Pledge</a></li>
+          <li><a href="/services/the-nbd-guarantee" style="color:#A64B00;font-weight:800;">The NBD Guarantee</a></li>
+<li><a href="/services/lumanail" style="color:#A64B00;font-weight:800;">LumaNail™ Upgrade</a></li>
+<li><a href="/services/the-nbd-build" style="color:#A64B00;font-weight:800;">The NBD Build</a></li>
+<li><a href="/services/roofivent" style="color:#A64B00;font-weight:800;">Roofivent Products</a></li>
+<li><a href="/services/gaf-pivot-boot" style="color:#A64B00;font-weight:800;">GAF Pivot Boot</a></li>
 <li><a href="/services/roof-replacement">Roof Replacement</a></li>
         </ul>
       </div>

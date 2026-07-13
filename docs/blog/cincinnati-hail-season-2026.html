@@ -107,6 +107,7 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .prose blockquote{background:rgba(232,114,12,.06);border-left:4px solid var(--orange);padding:18px 22px;margin:28px 0;border-radius:0 8px 8px 0;}
 .prose blockquote p{font-size:.95rem;font-weight:600;color:var(--navy);font-style:italic;margin:0;}
 .callout{background:var(--navy-dark);color:var(--white);border-radius:12px;padding:28px 32px;margin:32px 0;}
+.callout strong,.prose .callout p strong,.prose .callout li strong{color:#fff}
 .callout h3{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--orange);letter-spacing:.04em;margin-bottom:10px;}
 .callout p{font-size:.88rem;color:rgba(255,255,255,.82);line-height:1.65;margin:0 0 14px;}
 .callout a{display:inline-block;background:#B85400;color:var(--white);padding:11px 22px;border-radius:7px;font-weight:800;font-size:.85rem;transition:background .2s;}
@@ -117,11 +118,11 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .fact-box li{font-size:.88rem;color:var(--gray-sub);line-height:1.65;margin-bottom:7px;}
 .step-box{border:2px solid var(--orange);border-radius:12px;padding:24px 28px;margin:28px 0;position:relative;}
 .step-num{position:absolute;top:-14px;left:20px;background:#B85400;color:#fff;font-family:'Bebas Neue',sans-serif;font-size:1.1rem;letter-spacing:.06em;padding:2px 14px;border-radius:20px;}
-.step-box h4{font-size:.95rem;font-weight:800;color:var(--navy);margin-bottom:8px;margin-top:4px;}
+.step-box h3{font-size:.95rem;font-weight:800;color:var(--navy);margin-bottom:8px;margin-top:4px;}
 .step-box p{font-size:.88rem;color:var(--gray-sub);line-height:1.65;margin:0;}
 .author-box{display:flex;gap:20px;align-items:flex-start;background:var(--off-white);border-radius:12px;padding:28px;margin-top:48px;border:1px solid var(--light-gray);}
 .author-avatar{width:56px;height:56px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--white);flex-shrink:0;}
-.author-info h4{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px;}
+.author-info h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:4px;}
 .author-info p{font-size:.83rem;color:var(--gray-sub);line-height:1.6;}
 .related-section{margin-top:52px;padding-top:40px;border-top:2px solid var(--light-gray);}
 .related-section h3{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--navy);margin-bottom:24px;}
@@ -135,7 +136,7 @@ nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom
 .sidebar-card{background:var(--off-white);border-radius:14px;padding:28px;border:1px solid var(--light-gray);}
 .sidebar-card h3{font-size:.9rem;font-weight:800;color:var(--navy);margin-bottom:16px;text-transform:uppercase;letter-spacing:.06em;}
 .sidebar-links{list-style:none;display:flex;flex-direction:column;gap:10px;}
-.sidebar-links li a{font-size:.85rem;color:var(--gray-sub);display:flex;align-items:center;gap:8px;transition:color .2s;}
+.sidebar-links li a{font-size:.85rem;color:var(--gray-sub);display:flex;align-items:center;gap:8px;transition:color .2s;padding:4px 0;}
 .sidebar-links li a:hover{color:var(--orange);}
 .sidebar-links li a::before{content:'→';color:var(--orange);font-weight:700;}
 .cta-sidebar{background:var(--navy-dark);color:var(--white);border-radius:14px;padding:28px;text-align:center;}
@@ -161,7 +162,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.75);padding:56px 5% 2
 .footer-col ul li a{font-size:.83rem;color:rgba(255,255,255,.65);transition:color .2s;}
 .footer-col ul li a:hover{color:var(--orange);}
 .footer-contact-item{display:flex;flex-direction:column;gap:2px;margin-bottom:12px;}
-.footer-contact-item .label{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.4);font-weight:700;}
+.footer-contact-item .label{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.62);font-weight:700;}
 .footer-contact-item .val{font-size:.85rem;color:rgba(255,255,255,.8);}
 .footer-contact-item .val a{color:rgba(255,255,255,.8);}
 .footer-contact-item .val a:hover{color:var(--orange);}
@@ -380,22 +381,22 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
 
       <h2>What to Do in the First 48 Hours</h2>
       <div class="step-box"><span class="step-num">1</span>
-        <h4>Document Everything From the Ground</h4>
+        <h3>Document Everything From the Ground</h3>
         <p>Take photos and video of any visible damage — dented gutters, dented downspouts, damage to siding, AC unit, mailbox, anything with a clear dent or mark. Document wide shots and close-ups. Phone video works fine. The goal is to have a clear record of damage while it's still obvious.</p>
       </div>
 
       <div class="step-box"><span class="step-num">2</span>
-        <h4>Do NOT Climb on Your Roof</h4>
+        <h3>Do NOT Climb on Your Roof</h3>
         <p>After a storm, your roof is wet, potentially compromised, and you could slip or fall. More importantly, if you step on damaged shingles or create new damage while climbing, the insurance company can question whether that damage was from the hail or from you walking on the roof. Stay off it.</p>
       </div>
 
       <div class="step-box"><span class="step-num">3</span>
-        <h4>Check Soft Metals for Dents</h4>
+        <h3>Check Soft Metals for Dents</h3>
         <p>Walk around your house and inspect gutters, downspouts, AC condenser top, window trim, and any aluminum or metal components. Hail creates distinctive circular dents. Mark them if you can, and photograph everything. This is critical documentation.</p>
       </div>
 
       <div class="step-box"><span class="step-num">4</span>
-        <h4>Call a Contractor Before Calling Insurance</h4>
+        <h3>Call a Contractor Before Calling Insurance</h3>
         <p>This is the most important step. <strong>Call us first</strong> for a free inspection. Here's why: we document the entire scope of damage comprehensively — roof, gutters, siding, soft metals, everything. We take photos, measurements, and notes. Then you file the insurance claim with that documentation in hand. The adjuster comes out, but now you have professional documentation of what was damaged. It changes the conversation.</p>
       </div>
 
@@ -439,7 +440,7 @@ a.nav-cta,nav .nav-cta{font-size:.8rem!important;letter-spacing:.05em;font-weigh
       <div class="author-box">
         <div class="author-avatar">J</div>
         <div class="author-info">
-          <h4>Joe Deal</h4>
+          <h3>Joe Deal</h3>
           <p>Owner, No Big Deal Home Solutions. 20+ years roofing and storm damage repair in the Cincinnati area. Meets adjusters on every claim. Straight answers about what you actually owe.</p>
         </div>
       </div>
