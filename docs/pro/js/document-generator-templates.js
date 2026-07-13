@@ -1057,27 +1057,34 @@
     // so strip non-numerics before parsing or it would NaN→fabricate the $10k default.
     const price = parseFloat(String(d.totalPrice).replace(/[^0-9.]/g, '')) || 10000;
     const financePartner = cp.financePartner || 'Acorn Finance';
+    // apr 0 is the "rate set by the lender" sentinel: under a lending
+    // marketplace (Acorn) the contractor doesn't control terms, so the
+    // defaults must not print fabricated APRs or payments on customer
+    // paper. A tenant with their own fixed-rate program (Hearth, GreenSky,
+    // in-house) enters real APRs in Settings and gets computed payments.
     const tierDefaults = [
-      { months:12, apr:0,    label:'12 Months', badge:'0% Intro APR', color:'#16a34a' },
-      { months:36, apr:6.99, label:'36 Months', badge:'Low Rate',     color:'#0ea5e9' },
-      { months:60, apr:9.99, label:'60 Months', badge:'Extended',     color:'#7c3aed' }
+      { months:12, apr:0, label:'12 Months', badge:'Short Term', color:'#16a34a' },
+      { months:36, apr:0, label:'36 Months', badge:'Mid Term',   color:'#0ea5e9' },
+      { months:60, apr:0, label:'60 Months', badge:'Long Term',  color:'#7c3aed' }
     ];
     const tiers = Array.isArray(cp.financingTiers) && cp.financingTiers.length ? cp.financingTiers : tierDefaults;
-    // Compute monthly payment from APR + months. 0% APR is straight-line;
-    // non-zero is standard amortized fixed payment.
+    // apr <= 0 means "rate set by the lender" — refuse to print a fabricated
+    // $/mo (the old straight-line 0% math implied a zero-interest program the
+    // marketplace can't promise). Only a tenant-entered positive APR (their
+    // own financing program) computes an amortized illustrative payment.
     const plans = tiers.map(t => {
       const months = Number(t.months) || 12;
       const apr = Number(t.apr) || 0;
-      let monthly;
-      if (apr <= 0) {
-        monthly = price / months;
-      } else {
+      const lenderSet = apr <= 0;
+      let monthly = 0;
+      if (!lenderSet) {
         const r = apr / 100 / 12;
         monthly = (price * r * Math.pow(1 + r, months)) / (Math.pow(1 + r, months) - 1);
       }
       return {
         months,
         apr,
+        lenderSet,
         label: t.label || (months + ' Months'),
         badge: t.badge || '',
         color: t.color || '#0ea5e9',
@@ -1114,7 +1121,8 @@
 
       <div class="section" style="text-align:center;">
         <p style="font-size:16px;color:#555;">We've partnered with <strong style="color:${A};">${esc(financePartner)}</strong> to offer
-        flexible financing solutions. Get approved in minutes with no impact to your credit score for pre-qualification.</p>
+        flexible financing solutions. Check your options with a soft credit pull — pre-qualifying doesn't impact your
+        credit score, and offers come from a network of vetted lenders.</p>
         ${price ? `<div style="margin:20px 0;"><div style="font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.06em;">
           Project Total</div><div style="font-size:32px;font-weight:700;color:${S};">${money(price)}</div></div>` : ''}
       </div>
@@ -1125,12 +1133,17 @@
           ${plans.map(p => `<div class="plan-card">
             <div class="plan-badge" style="background:${p.color};">${p.badge}</div>
             <div style="font-size:16px;font-weight:700;color:${S};margin-bottom:4px;">${p.label}</div>
-            <div class="plan-monthly">${money(p.monthly)}<span>/mo</span></div>
-            <div class="plan-details">${p.apr}% APR | ${p.months} payments</div>
+            ${p.lenderSet
+              ? `<div class="plan-monthly" style="font-size:17px;line-height:1.45;padding:6px 0;">Rate &amp; payment<br>set by your lender</div>
+            <div class="plan-details">${p.months}-month term | soft-pull pre-qual</div>`
+              : `<div class="plan-monthly">${money(p.monthly)}<span>/mo</span></div>
+            <div class="plan-details">${p.apr}% APR | ${p.months} payments</div>`}
           </div>`).join('')}
         </div>
         <p style="font-size:11px;color:#999;text-align:center;">
-          *Monthly payments are estimates. Actual terms subject to credit approval and may vary.</p>
+          *Where a monthly payment is shown it is an illustrative estimate only. ${esc(financePartner)} is a lending
+          marketplace — your actual rate, term, and monthly payment are set by the lender you choose and depend on
+          your credit profile. All financing subject to credit approval.</p>
       </div>
 
       <div class="section">
@@ -1140,8 +1153,8 @@
             <div style="font-weight:700;font-size:15px;color:${S};margin-bottom:4px;">Apply Online</div>
             <div style="font-size:13px;color:#666;">Quick 2-minute application. No hard credit pull for pre-qualification.</div></div>
           <div class="step-card"><div class="step-num">2</div>
-            <div style="font-weight:700;font-size:15px;color:${S};margin-bottom:4px;">Get Approved</div>
-            <div style="font-size:13px;color:#666;">Instant decision. See your rate and monthly payment options immediately.</div></div>
+            <div style="font-weight:700;font-size:15px;color:${S};margin-bottom:4px;">See Your Offers</div>
+            <div style="font-size:13px;color:#666;">Real offers from multiple lenders in about a minute — compare rate, term, and payment side by side.</div></div>
           <div class="step-card"><div class="step-num">3</div>
             <div style="font-weight:700;font-size:15px;color:${S};margin-bottom:4px;">Choose Your Plan</div>
             <div style="font-size:13px;color:#666;">Pick the payment plan that works best for your budget. Start your project!</div></div>

@@ -16,6 +16,15 @@
  * Add a new blog post: drop the HTML file in docs/blog/, set its
  * <meta property="article:published_time"> to your chosen date, then run
  * `node scripts/rebuild-blog-index.js`. POSTS array auto-updates.
+ *
+ * Repaired 2026-07: the POSTS array moved OUT of blog/index.html into a
+ * hash-named inline module (May 2026 CSP extraction) — this script now
+ * locates that module by content scan and rewrites POSTS there, then
+ * re-runs scripts/build-blog-index.mjs so the static card grid + Blog
+ * schema in index.html stay in sync (one command = post fully published).
+ * Posts whose HTML carries <meta name="robots" content="…noindex…"> are
+ * skipped — deliberately unlisted stubs stay out of POSTS. Hand-curated
+ * fields on existing entries (e.g. audience: 'contractor') are preserved.
  */
 
 const fs = require('fs');
@@ -24,6 +33,21 @@ const path = require('path');
 const BLOG_DIR = path.join(__dirname, '..', 'docs', 'blog');
 const INDEX_FILE = path.join(BLOG_DIR, 'index.html');
 const RESCHEDULE = process.argv.includes('--reschedule');
+const { execFileSync } = require('child_process');
+
+// The POSTS array lives in a hash-named inline module. Locate it by content
+// so a future re-hash/rename can't silently break this script.
+function locatePostsFile() {
+  const dir = path.join(__dirname, '..', 'docs', 'assets', 'js', 'inline');
+  const hits = fs.readdirSync(dir)
+    .filter(f => f.endsWith('.js'))
+    .map(f => path.join(dir, f))
+    .filter(f => /const POSTS\s*=\s*\[/.test(fs.readFileSync(f, 'utf8')));
+  if (hits.length !== 1) {
+    throw new Error(`Expected exactly one inline module containing "const POSTS = [", found ${hits.length}`);
+  }
+  return hits[0];
+}
 
 // Seasonal date map: slug → published date (YYYY-MM-DD).
 // Mirrors how a working Cincinnati roofer would actually publish — clusters around
@@ -137,20 +161,29 @@ function buildPostsArray(posts) {
     title: ${JSON.stringify(p.title)},
     meta: ${JSON.stringify(p.meta)},
     excerpt: ${JSON.stringify(p.description)},
-    published: "${p.published}",
+    published: "${p.published}",${p.audience ? `\n    audience: ${JSON.stringify(p.audience)},` : ''}
   }`;
   });
   return `[\n${lines.join(',\n')}\n]`;
 }
 
-function regenerateBlogIndex(posts) {
-  let html = fs.readFileSync(INDEX_FILE, 'utf8');
+function regeneratePostsArray(postsFile, posts) {
+  const js = fs.readFileSync(postsFile, 'utf8');
   const arrayLiteral = buildPostsArray(posts);
-  const replaced = html.replace(/const POSTS = \[[\s\S]*?\n\];/m, `const POSTS = ${arrayLiteral};`);
-  if (replaced === html) {
-    throw new Error('Could not locate POSTS array in blog/index.html (looking for "const POSTS = [ ... ];")');
+  const re = /const POSTS = \[[\s\S]*?\n\];/m;
+  // Test the pattern explicitly — comparing before/after strings would
+  // misread an already-up-to-date array (idempotent re-run) as "not found".
+  if (!re.test(js)) {
+    throw new Error(`Could not locate POSTS array in ${postsFile} (looking for "const POSTS = [ ... ];")`);
   }
-  fs.writeFileSync(INDEX_FILE, replaced, 'utf8');
+  // Callback form: a string replacement would interpret $-sequences in
+  // post titles/excerpts as substitution patterns.
+  const replaced = js.replace(re, () => `const POSTS = ${arrayLiteral};`);
+  if (replaced === js) {
+    console.log('POSTS array already up to date — no rewrite needed.');
+    return;
+  }
+  fs.writeFileSync(postsFile, replaced, 'utf8');
 }
 
 function main() {
@@ -162,7 +195,11 @@ function main() {
     const filepath = path.join(BLOG_DIR, filename);
     const html = fs.readFileSync(filepath, 'utf8');
     const meta = extractMeta(html, slug);
-    return { slug, filename, filepath, ...meta, tag: guessTag(slug) };
+    const noindex = /<meta name="robots" content="[^"]*noindex/.test(html);
+    return { slug, filename, filepath, noindex, ...meta, tag: guessTag(slug) };
+  }).filter(p => {
+    if (p.noindex) { console.log(`  ·  skipping noindex stub (stays out of POSTS): ${p.slug}`); return false; }
+    return true;
   });
 
   if (RESCHEDULE) {
@@ -189,8 +226,35 @@ function main() {
     console.warn(`Skipped ${posts.length - valid.length} posts missing published date or title`);
   }
 
-  regenerateBlogIndex(valid);
-  console.log(`\nWrote POSTS array (${valid.length} entries) to blog/index.html`);
+  const postsFile = locatePostsFile();
+  // Merge, don't clobber: the live POSTS array carries HAND-CURATED copy —
+  // tags, titles, and excerpts tuned past the posts' own meta tags (verified
+  // drift, Jul 2026). Files stay the source of truth for dates
+  // (article:published_time); POSTS stays the source of truth for copy and
+  // for hand-set fields like audience: 'contractor'. New files get
+  // file-derived copy (curate afterwards if wanted). Pass --rebuild-all to
+  // deliberately regenerate every entry from file meta.
+  const REBUILD_ALL = process.argv.includes('--rebuild-all');
+  const existingMatch = fs.readFileSync(postsFile, 'utf8').match(/const POSTS\s*=\s*(\[[\s\S]*?\]);/);
+  const existingByUrl = new Map(
+    (existingMatch ? new Function(`return ${existingMatch[1]};`)() : []).map(e => [e.url, e])
+  );
+  valid.forEach(p => {
+    const prev = existingByUrl.get(`/blog/${p.slug}`);
+    if (!prev) { console.log(`  +  new post: ${p.slug}`); return; }
+    if (prev.audience) p.audience = prev.audience;
+    if (!REBUILD_ALL) {
+      if (prev.tag) p.tag = prev.tag;
+      if (prev.title) p.title = prev.title;
+      if (prev.excerpt) p.description = prev.excerpt;
+    }
+  });
+
+  regeneratePostsArray(postsFile, valid);
+  console.log(`\nWrote POSTS array (${valid.length} entries) to ${path.relative(process.cwd(), postsFile)}`);
+
+  console.log('Regenerating static card grid + Blog schema in blog/index.html…');
+  execFileSync(process.execPath, [path.join(__dirname, 'build-blog-index.mjs'), postsFile, INDEX_FILE], { stdio: 'inherit' });
 
   console.log('\nFinal cadence (newest → oldest):');
   [...valid].sort((a, b) => new Date(b.published) - new Date(a.published)).forEach(p => {

@@ -102,10 +102,14 @@
 
     /* ── FINANCING ─────────────────────────────────────────────── */
     financePartner: 'Acorn Finance',
+    // apr 0 = "rate set by the lender" sentinel (see renderFinancingOptions in
+    // document-generator-templates.js): the Acorn marketplace doesn't give the
+    // contractor fixed terms, so defaults must not fabricate APRs or badges on
+    // customer paper. Enter real APRs only for a genuine fixed-rate program.
     financingTiers: [
-      { months: 12, apr: 0,    label: '12 Months', badge: '0% Intro APR', color: '#16a34a' },
-      { months: 36, apr: 6.99, label: '36 Months', badge: 'Low Rate',     color: '#0ea5e9' },
-      { months: 60, apr: 9.99, label: '60 Months', badge: 'Extended',     color: '#7c3aed' }
+      { months: 12, apr: 0, label: '12 Months', badge: 'Short Term', color: '#16a34a' },
+      { months: 36, apr: 0, label: '36 Months', badge: 'Mid Term',   color: '#0ea5e9' },
+      { months: 60, apr: 0, label: '60 Months', badge: 'Long Term',  color: '#7c3aed' }
     ],
 
     /* ── MARKETING / BRANDING ──────────────────────────────────── */
