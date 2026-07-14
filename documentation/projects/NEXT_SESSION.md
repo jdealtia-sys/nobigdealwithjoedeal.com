@@ -294,6 +294,17 @@ future session; none blocked the journey itself.
    so delivery fails silently server-side. The tenant-routing HALF is
    covered (lead-bridge writes are asserted); the notification half needs
    either a Resend sandbox key in CI or an email-queue assertion seam.
+   ✅ **EXECUTED (completed 2026-07-14).** The assertion seam is the
+   `alert_outbox` ledger (PR #871, 2026-07-06): every lead-alert AND
+   team-invite email/SMS attempt records its resolved target + per-channel
+   status, the dashboard alert-health banner surfaces `failed:*` statuses
+   to the owner in prod, and the Stranger journey asserts the ledger in CI —
+   the lead-alert entry (routing + attempt status) since #871, and as of
+   2026-07-14 the `team-invite` entry too (targeted the invitee, attempt
+   recorded), closing the last unasserted email family. Deliberately NOT
+   ledgered: `onNewLead` FCM push — a supplementary per-device channel with
+   its own `logNotificationSent` success trail; no owner-facing email/SMS
+   contract rides on it.
 
 7. **Functions emulator is scoped to the `@stranger` shard for now.** The
    first full-rig CI run showed the legacy shards' documented 301-hop
