@@ -8,6 +8,30 @@
 // ──────────────────────────────────────────────────────────────────
 const POSTS = [
   {
+    url: "/blog/how-to-choose-a-roofer-after-a-storm",
+    tag: "Roofing",
+    title: "How to Choose a Roofer After a Storm (Before the Trucks Show Up)",
+    meta: "By Joe Deal · July 2026 · 7 min read",
+    excerpt: "Storm-chaser season survival guide from Joe Deal: the five-minute background check, the questions that expose a bad roofer, and the deductible line that should end any conversation.",
+    published: "2026-07-14",
+  },
+  {
+    url: "/blog/hail-season-prep-checklist",
+    tag: "Storm Damage",
+    title: "Hail Season Prep: The 20-Minute Walkaround That Wins Claims Later",
+    meta: "By Joe Deal · July 2026 · 8 min read",
+    excerpt: "Before the next Cincinnati hail storm: the photos to take now, the policy lines to read, and the walkaround Joe Deal wishes every homeowner did each spring.",
+    published: "2026-07-13",
+  },
+  {
+    url: "/blog/how-roof-financing-actually-works",
+    tag: "Roofing",
+    title: "How Roof Financing Actually Works (No Gimmicks Edition)",
+    meta: "By Joe Deal · July 2026 · 6 min read",
+    excerpt: "Joe Deal explains roof financing straight: what a lending marketplace is, what a soft credit pull means, when financing makes sense — and when it doesn't.",
+    published: "2026-07-13",
+  },
+  {
     url: "/blog/gaf-timberline-vs-tamko-storm-series",
     tag: "Roofing",
     title: "GAF Timberline vs. TAMKO Storm Series: Which Roof for Hail Country?",
