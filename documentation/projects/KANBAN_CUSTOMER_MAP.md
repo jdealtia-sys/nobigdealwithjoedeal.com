@@ -48,9 +48,17 @@
    `applyPipelineConfig` rebuilds the columns so edits show live. Verified with
    `resolvePipelineConfig` (custom view + custom stage + hidden → correct
    columns). This makes the whole Phase-0→2 builder actually take effect.
-5. **Tests:** extend `tests/crm-stages-roles.test.js` / `tests/stage-roles.test.js`
+5. ~~**Tests:** extend `tests/crm-stages-roles.test.js` / `tests/stage-roles.test.js`
    to cover a custom-stage round-trip (config → resolve → persist role → server
-   classify).
+   classify).~~ ✅ **DONE (2026-07-09, shipped in #921; doc updated 2026-07-14).**
+   `crm-stages-roles.test.js` carries the full round-trip block (client
+   `resolvePipelineConfig` → persisted `stageRole` → server `roleFor`/`isWon`,
+   including the legacy no-role misclassification that motivates the backfill)
+   plus the #921 board-bucketing regression (`normalizeStage`/`resolveColumn`
+   on live custom keys); `stage-roles.test.js` pins the server half
+   (persisted-role-wins, key fallback, legacy raw names). Both suites green.
+
+**→ With items 1–5 all done, Track A Phase 4 is fully closed (verified 2026-07-14).**
 
 ---
 

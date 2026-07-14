@@ -373,6 +373,24 @@ test.describe.serial('The Stranger Test — second-contractor lifecycle @strange
     const member = (await memberRef.get()).data();
     expect(member && member.status, 'member doc written as invited').toBe('invited');
 
+    // The INVITE-EMAIL half of punch item 6 — the last unasserted email
+    // family. teamInviteEmail fires off the member doc and ledgers its
+    // attempt in alert_outbox (kind 'team-invite', same seam as
+    // lead-alert.js). Delivery itself fails in the rig (no Resend secret;
+    // the status records that), but the ledger proves the send was
+    // ATTEMPTED and TARGETED the invitee — a dead Resend key in prod
+    // surfaces through this same ledger via the alert-health banner
+    // instead of invites silently never arriving.
+    const inviteOutbox = await eventually(async () => {
+      const snap = await db.collection('alert_outbox')
+        .where('companyId', '==', STRANGER.uid)
+        .where('kind', '==', 'team-invite').limit(1).get();
+      return snap.empty ? null : snap.docs[0].data();
+    }, { label: 'team-invite alert_outbox entry', timeout: 45_000 });
+    expect(inviteOutbox.target.emails, 'invite email targeted the invitee').toEqual([REP.email]);
+    expect(String(inviteOutbox.emailStatus), 'invite email attempt recorded (send fails in the rig — no secrets)')
+      .toMatch(/^(sent|failed:)/);
+
     // The rep follows the invite email's instructions: create an account
     // with this email. Fresh browser context = fresh device.
     const repContext = await browser.newContext();
