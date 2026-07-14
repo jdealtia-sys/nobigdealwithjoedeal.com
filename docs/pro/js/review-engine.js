@@ -1,7 +1,13 @@
 /**
  * NBD Pro — Google Review Request Engine
- * Auto-triggers review requests when jobs hit "Complete" or "Closed".
- * Generates a clean review landing page, sends SMS/email with direct link.
+ * Auto-nudges the rep when a job enters ANY won-role stage (role-based,
+ * custom-stage-aware — 2026-07): bell notification → one-tap prefilled
+ * SMS/email carrying the tenant's brand + review link. Rep-in-the-loop by
+ * design (same TCPA/CAN-SPAM posture as anniversary-touch: we prep the
+ * message, a human sends it).
+ *
+ * Review link resolution: users/{uid}.googleReviewUrl (Settings) →
+ * tenant brand.integrations.reviewUrl → legacy localStorage → maps search.
  *
  * Also includes Referral Tracking Engine — unique codes, tracking, rewards.
  *
@@ -11,6 +17,10 @@
 (function() {
   'use strict';
 
+  // NBD literals survive ONLY as the last-ditch fallback for a boot path
+  // where company-profile.js hasn't loaded. Copy surfaces resolve through
+  // window._brand() (TenantContext, company-profile.js Phase B directive) so
+  // a tenant's review ask carries THEIR name/phone/sign-off, never Joe's.
   const BRAND = {
     name: 'No Big Deal Home Solutions',
     phone: '(859) 420-7382',
@@ -18,29 +28,72 @@
     navy: '#1e3a6e',
     orange: '#e8720c'
   };
+  function _b() {
+    try { if (typeof window._brand === 'function') return window._brand() || {}; } catch (e) { /* fall through */ }
+    return {};
+  }
+  function brandName()    { const b = _b(); return b.legalName || b.displayName || BRAND.name; }
+  function brandPhone()   { const b = _b(); return (b.contact && b.contact.phone) || BRAND.phone; }
+  function brandSignOff() { const b = _b(); return b.smsSignOff || 'Joe & the NBD team'; }
 
   // ═══════════════════════════════════════════════════════════════
   // GOOGLE REVIEW REQUEST
   // ═══════════════════════════════════════════════════════════════
 
+  // The tenant-integrations default is NBD's /r redirect via deep-merge —
+  // it must never leak into another tenant's review ask.
+  const NBD_DEFAULT_REVIEW_URL = 'https://nobigdealwithjoedeal.com/r';
+
+  /**
+   * Resolve the Google review link, once per page load.
+   * Priority: users/{uid}.googleReviewUrl (the Settings field the homeowner
+   * portal's 4-5★ nudge reads) → tenant brand.integrations.reviewUrl (only
+   * when it isn't the deep-merged NBD default on a non-NBD tenant) → legacy
+   * localStorage keys → a maps search for the tenant's own name. The old
+   * localStorage-first read predated the Settings field, so a link saved in
+   * Settings was ignored here — and the empty-placeid fallback produced a
+   * broken writereview URL.
+   */
+  let _reviewLinkPromise = null;
+  function getReviewLink() {
+    if (_reviewLinkPromise) return _reviewLinkPromise;
+    _reviewLinkPromise = (async () => {
+      try {
+        if (window.db && window._user && typeof window.getDoc === 'function' && typeof window.doc === 'function') {
+          const snap = await window.getDoc(window.doc(window.db, 'users', window._user.uid));
+          const d = (snap && typeof snap.exists === 'function' && snap.exists()) ? (snap.data() || {}) : {};
+          if (/^https?:\/\//i.test(d.googleReviewUrl || '')) return d.googleReviewUrl;
+        }
+      } catch (e) { /* offline / rules — fall through to static sources */ }
+      const b = _b();
+      const integ = (b.integrations && b.integrations.reviewUrl) || '';
+      if (integ && (integ !== NBD_DEFAULT_REVIEW_URL || (b.seal || '') === 'NBD')) return integ;
+      const legacy = localStorage.getItem('nbd_google_review_link');
+      if (legacy) return legacy;
+      const placeId = localStorage.getItem('nbd_google_place_id');
+      if (placeId) return `https://search.google.com/local/writereview?placeid=${placeId}`;
+      return `https://www.google.com/maps/search/${encodeURIComponent(brandName())}`;
+    })();
+    return _reviewLinkPromise;
+  }
+
   /**
    * Send a review request SMS to a customer
    * @param {string} leadId
    */
-  function sendReviewRequestSMS(leadId) {
+  async function sendReviewRequestSMS(leadId) {
     const lead = (window._leads || []).find(l => l.id === leadId);
     if (!lead || !lead.phone) {
       if (typeof showToast === 'function') showToast('No phone number for this lead', 'error');
       return;
     }
 
-    // Google review link — user sets this in settings, fallback to search
-    const reviewLink = localStorage.getItem('nbd_google_review_link') || `https://search.google.com/local/writereview?placeid=${localStorage.getItem('nbd_google_place_id') || ''}`;
+    const reviewLink = await getReviewLink();
     const firstName = lead.firstName || lead.fname || '';
     const phone = lead.phone.replace(/\D/g, '');
 
     const body = encodeURIComponent(
-      `Hi${firstName ? ' ' + firstName : ''}, thank you so much for trusting ${BRAND.name} with your project! We'd love to hear how we did. If you have 30 seconds, a Google review means the world to us: ${reviewLink}\n\nThank you! — Joe & the NBD team`
+      `Hi${firstName ? ' ' + firstName : ''}, thank you so much for trusting ${brandName()} with your project! We'd love to hear how we did. If you have 30 seconds, a Google review means the world to us: ${reviewLink}\n\nThank you! — ${brandSignOff()}`
     );
 
     window.open(`sms:${phone}?body=${body}`, '_self');
@@ -53,17 +106,16 @@
   /**
    * Send a review request email
    */
-  function sendReviewRequestEmail(leadId) {
+  async function sendReviewRequestEmail(leadId) {
     const lead = (window._leads || []).find(l => l.id === leadId);
     if (!lead) return;
 
-    const reviewLink = localStorage.getItem('nbd_google_review_link') || `https://search.google.com/local/writereview?placeid=${localStorage.getItem('nbd_google_place_id') || ''}`;
-    const firstName = lead.firstName || '';
+    const reviewLink = await getReviewLink();
     const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim();
 
-    const subject = encodeURIComponent('How did we do? — No Big Deal Home Solutions');
+    const subject = encodeURIComponent(`How did we do? — ${brandName()}`);
     const body = encodeURIComponent(
-      `Hi ${name || 'there'},\n\nThank you for choosing ${BRAND.name} for your project! We truly enjoyed working with you.\n\nIf you have a moment, we'd be incredibly grateful for a Google review. It helps other homeowners find trustworthy contractors:\n\n${reviewLink}\n\nIf there's anything we could have done better, please let us know directly — we're always improving.\n\nThank you!\nJoe & the No Big Deal team\n${BRAND.phone}`
+      `Hi ${name || 'there'},\n\nThank you for choosing ${brandName()} for your project! We truly enjoyed working with you.\n\nIf you have a moment, we'd be incredibly grateful for a Google review. It helps other homeowners find trustworthy contractors:\n\n${reviewLink}\n\nIf there's anything we could have done better, please let us know directly — we're always improving.\n\nThank you!\n${brandSignOff()}\n${brandPhone()}`
     );
 
     window.location.href = `mailto:${lead.email || ''}?subject=${subject}&body=${body}`;
@@ -103,15 +155,31 @@
     // denied-write re-fire loop.
     const _me = window._user && window._user.uid;
     const leads = (window._leads || []).filter(l => !l.userId || l.userId === _me);
-    const closedStages = ['closed', 'install_complete', 'Complete'];
+    // Won detection is ROLE-based (freeform pipelines, 2026-07): the lead's
+    // persisted stageRole wins (moveCard stamps it, so tenant-invented custom
+    // stages carry it), else the key classifies through the resolved config's
+    // isWonStage. The old hardcoded 3-key list missed final_payment /
+    // final_photos / deductible_collected AND every custom won stage.
+    const LEGACY_WON = ['closed', 'install_complete', 'Complete'];
+    const isWonLead = (l) => {
+      const persisted = l.stageRole || l._stageRole;
+      if (persisted) return persisted === 'won';
+      const key = l._stageKey || l.stage || '';
+      return (typeof window.isWonStage === 'function') ? window.isWonStage(key) : LEGACY_WON.includes(key);
+    };
+    const toMs = (v) => v?.toDate ? v.toDate().getTime() : (v?.seconds ? v.seconds * 1000 : (v instanceof Date ? v.getTime() : 0));
     const recently = Date.now() - (7 * 24 * 60 * 60 * 1000); // Last 7 days
 
     const candidates = leads.filter(l => {
-      const sk = l._stageKey || l.stage || '';
-      if (!closedStages.includes(sk)) return false;
+      if (!isWonLead(l)) return false;
       if (l.reviewRequested) return false;
-      const updated = l.updatedAt?.toDate ? l.updatedAt.toDate() : (l.updatedAt?.seconds ? new Date(l.updatedAt.seconds * 1000) : null);
-      return updated && updated.getTime() > recently;
+      // Recency keys off ENTERING the won stage (stageStartedAt, stamped by
+      // moveCard since PR #31) — the old updatedAt check reset on ANY edit,
+      // so a note added months later re-armed the nudge, while a win older
+      // than the last unrelated edit could never fire. updatedAt stays only
+      // as the pre-rollout fallback for leads without stageStartedAt.
+      const t = toMs(l.stageStartedAt || l.updatedAt);
+      return t > recently;
     });
 
     if (candidates.length > 0) {

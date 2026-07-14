@@ -116,7 +116,7 @@
 <script defer src="/assets/vendor/leaflet-markercluster/leaflet.markercluster.js"></script>
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=1"></script>
-<script type="module" src="js/dashboard-bootstrap.module.js?v=7"></script>
+<script type="module" src="js/dashboard-bootstrap.module.js?v=8"></script>
 
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
@@ -2926,6 +2926,23 @@
                     Send me dormant-lead reminders
                     <span style="display:block;font-size:11px;color:var(--m);font-weight:400;margin-top:2px;">
                       Wednesday email when leads have been stuck >30 days at the same stage
+                    </span>
+                  </span>
+                </label>
+              </div>
+            </div>
+            <!-- Review-nudge opt-in/out (2026-07-14). Default ON; only
+                 sent when a recently-won job hasn't been asked yet.
+                 Same default-ON semantics as the two toggles above. -->
+            <div class="sf-row" style="margin-top:6px;">
+              <div class="sf f1">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:500;">
+                  <input type="checkbox" id="settingsReviewNudge" checked
+                    style="width:16px;height:16px;cursor:pointer;accent-color:var(--orange);">
+                  <span>
+                    Send me review-ask reminders
+                    <span style="display:block;font-size:11px;color:var(--m);font-weight:400;margin-top:2px;">
+                      Morning email when a recently-won job hasn't been asked for a Google review yet
                     </span>
                   </span>
                 </label>
@@ -6020,7 +6037,7 @@
      at load by the builder). -->
 
 <script defer src="js/ai.js?v=5"></script>
-<script defer src="js/review-engine.js?v=2"></script>
+<script defer src="js/review-engine.js?v=3"></script>
 <script defer src="js/referral-rewards-ui.js?v=1"></script>
 <script defer src="js/company-profile.js?v=1"></script>
 <!-- LAZY: doc-generation cluster (nbd-logo-asset, document-generator,

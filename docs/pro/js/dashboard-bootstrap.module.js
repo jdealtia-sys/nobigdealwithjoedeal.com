@@ -1279,6 +1279,9 @@
         // same default-ON semantics.
         const dormantEl = document.getElementById('settingsDormantNudge');
         if (dormantEl) dormantEl.checked = d.dormantNudgeEnabled !== false;
+        // Review-nudge opt-in (2026-07-14), same default-ON semantics.
+        const revNudgeEl = document.getElementById('settingsReviewNudge');
+        if (revNudgeEl) revNudgeEl.checked = d.reviewNudgeEnabled !== false;
       }
     } catch (e) { /* silent — rules may deny during bootstrap */ }
     // Seed demo data first if this is the demo account, then load normally
@@ -3313,6 +3316,8 @@
       if (digestEl) digestEl.checked = d.weeklyDigestEnabled !== false;
       const dormantEl = document.getElementById('settingsDormantNudge');
       if (dormantEl) dormantEl.checked = d.dormantNudgeEnabled !== false;
+      const revNudgeEl = document.getElementById('settingsReviewNudge');
+      if (revNudgeEl) revNudgeEl.checked = d.reviewNudgeEnabled !== false;
       // Per-rep Phone + Google review link — load both. The homeowner portal
       // reads users/{uid}.phone (the "Call your rep" tap-to-call button + the
       // warranty-claim SMS recipient) and users/{uid}.googleReviewUrl (the
@@ -3344,6 +3349,10 @@
     // `=== false` skip check.
     const dormantEl = document.getElementById('settingsDormantNudge');
     const dormantNudgeEnabled = dormantEl ? !!dormantEl.checked : true;
+    // Review-nudge opt-in/out (2026-07-14). Same default-ON semantics;
+    // the reviewRequestNudge cron does an explicit `=== false` skip check.
+    const revNudgeEl = document.getElementById('settingsReviewNudge');
+    const reviewNudgeEnabled = revNudgeEl ? !!revNudgeEl.checked : true;
     // Per-rep phone (homeowner portal "Call your rep" + warranty-claim SMS) and
     // Google review link (the 4-5★ review nudge). googleReviewUrl is stored only
     // when it's a real http(s) URL — the portal enforces the same before
@@ -3361,6 +3370,7 @@
           calcomUsername,
           weeklyDigestEnabled,
           dormantNudgeEnabled,
+          reviewNudgeEnabled,
           phone,
           googleReviewUrl
         }, { merge: true });

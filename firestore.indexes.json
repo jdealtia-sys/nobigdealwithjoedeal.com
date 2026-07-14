@@ -266,6 +266,21 @@
       ]
     },
     {
+      "_comment": "reviewRequestNudge query where('userId','==').where('stageRole','==','won') — the persisted-role lane of the post-win review-ask sweep (tenant custom won stages included).",
+      "collectionGroup": "leads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "stageRole",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "collectionGroup": "estimates",
       "queryScope": "COLLECTION",
       "fields": [
