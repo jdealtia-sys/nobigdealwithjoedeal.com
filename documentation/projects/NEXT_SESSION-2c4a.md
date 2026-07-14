@@ -1,5 +1,18 @@
 # Next Session — Globals Tranche 2c-4a (card-detail `cda*` cluster)
 
+> **STATUS: EXECUTED 2026-07-07 — do not re-run (verified 2026-07-14).**
+> This brief shipped the same day it was written: PR #899 landed Tranches
+> 2c-4a…2c-4e (including this brief's 18-name cda cluster, full E2E matrix
+> green), and the registry lane then continued through 2c-4f (#901,
+> `dashboard-bootstrap.module.js` settings cluster), 2c-4g (#902) and
+> 2c-4h Slices H1/H2 (#903–#905, `dashboard-ui.js` — leaf handlers, the 9
+> clean-needs-wrap names, and the 10 entangled twins/shims). All merged to
+> main. Remaining in the lane: only the shim-blocked residual (zone-draw /
+> `damagNearMe` / the `goTo` router) and Tranche 3 — see
+> `docs/dev/dashboard-actions-globals-audit.md` (tranche table) and
+> `docs/dev/globals-decomposition-HANDOFF.md`. Original brief follows
+> unchanged for reference.
+
 > Cold-start brief, 2026-07-07. First execution slice of the
 > `dashboard-actions.js` globals decomposition. Self-contained: a fresh agent
 > can pick this up cold. Full analysis:

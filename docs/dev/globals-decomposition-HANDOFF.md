@@ -1,5 +1,15 @@
 # Globals decomposition — session handoff (2026-07-08)
 
+> **STATUS: FULLY EXECUTED (verified against git 2026-07-14).** Everything
+> this handoff scoped is merged to main: #899 (2c-4a…e), #901 (2c-4f),
+> #902 (2c-4g), #903 (2c-4h Slice H1), #904/#905 (2c-4h Slice H2 parts 1–2,
+> incl. the property-intel twin dedup). The "Open PRs" and "Recommended
+> next-session order" sections below are historical. What actually remains
+> in the registry lane: the shim-blocked residual (zone-draw — blocked on
+> the `maps.js:464-468` unguarded shims; `damagNearMe` — dedup vs
+> `maps-overlays.js`; the `goTo` router — never converts), then Tranche 3
+> (the 2–5-consumer middle band) per the decomposition plan.
+
 > Where the "move markup-dispatched globals off `window` into
 > `__NBD_CALL_REGISTRY`" effort stands, and exactly what's left. Self-contained
 > so a fresh agent can pick up cold. Canonical tracker:
@@ -34,7 +44,7 @@ wiring audit** green (both in `tests/smoke/dashboard.test.js`). Watch for
 |---|---|---|
 | `dashboard-actions.js` | ~67 | ✅ **DONE** — Tranches 2c-4a…2c-4e (~57 off window across 5 in-file IIFEs). PR **#899** (draft, awaiting review). Residual deferred: zone-draw (blocked on `maps.js:464-468` unguarded shims), `damagNearMe` (dedup vs `maps-overlays.js`), `goTo` router (never converts). |
 | `dashboard-bootstrap.module.js` | 21 | ✅ **DONE** — Tranche 2c-4f: 15 settings/debug/export handlers → registry (ES module, no wrap). PR **#901** (draft). MUST-STAY: `_saveEstimateDefaultsV2` (self-read), `_loadCompanySettings`/`_loadCompanyProfileSettings` (ui.js cross-file), `loadSampleData` (dashboard-actions.js:913 twin), plus `startNewEstimate`/`openEstimateV2Builder` (not owned there). |
-| `dashboard-ui.js` | ~26 | 🔄 **IN PROGRESS** — Tranche 2c-4g: 3 leaf handlers converted (this PR). **19 remain — see below.** This is the dispatcher file; `_nbdResolveCall` + delegates live here — never touch them. |
+| `dashboard-ui.js` | ~26 | ✅ **DONE** — Tranche 2c-4g (#902) + 2c-4h Slice H1 (#903, the 9 clean-needs-wrap) + Slice H2 (#904/#905, the 10 entangled twins/shims). This is the dispatcher file; `_nbdResolveCall` + delegates live here — never touch them. |
 | `maps-routing.js`, `dashboard-ui-prefs-boot.js`, `crm-portal-bridge.js` | 22 / 22 / 12 | ✅ done earlier (Tranches 2c-1/2/3, merged). |
 
 ## `dashboard-ui.js` — the 19 remaining (next-session scope)
