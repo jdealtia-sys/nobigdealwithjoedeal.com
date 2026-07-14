@@ -52,6 +52,50 @@ section('Alert outbox ledger (2026-07-06, punch item 6)');
       && i.fields[1].fieldPath === 'createdAt'));
 }
 
+section('Review request nudge (post-win sweep, 2026-07-14)');
+{
+  const nudge = read(path.join(FUNCTIONS, 'review-request-nudge.js'));
+  const fnIndex = readFunctionsIndex();
+
+  assert('reviewRequestNudge is exported from functions/index.js',
+    /exports\.reviewRequestNudge = require\('\.\/review-request-nudge'\)\.reviewRequestNudge/.test(fnIndex));
+
+  // Won detection is role-based: both query lanes feed the shared role
+  // map — a hardcoded stage list alone must never decide "won" again.
+  assert('nudge queries persisted stageRole AND re-verifies via stage-roles.roleFor',
+    /where\('stageRole', '==', 'won'\)/.test(nudge)
+    && /roles\.roleFor\(lead\) !== roles\.ROLE\.WON/.test(nudge)
+    && /require\('\.\/stage-roles'\)/.test(nudge));
+
+  // The anniversary-touch idempotency lesson, pinned: the mark fires in
+  // every mode (incl. dry-run), and both "already asked" lanes skip.
+  assert('nudge marks reviewNudgedAt in every mode and skips asked/nudged leads',
+    /markReviewNudged/.test(nudge)
+    && /lead\.reviewRequested\) continue/.test(nudge)
+    && /timestampMillis\(lead\.reviewNudgedAt\)\) continue/.test(nudge));
+
+  // Rep-in-the-loop: the sweep must never email/SMS the homeowner —
+  // the only Resend send goes to the rep's own user.email digest.
+  assert('nudge emails only the rep digest, never the homeowner',
+    /to: user\.email,/.test(nudge)
+    && !/to: lead\.email/.test(nudge)
+    && /REVIEW_NUDGE_ENABLED/.test(nudge));
+
+  // Bell notification matches the client engine's doc shape so the two
+  // lanes dedupe against each other (review-engine.js createReviewNotification).
+  assert('nudge notification doc shape matches the client engine + dedupes',
+    /type: 'review_request',/.test(nudge)
+    && /title: '⭐ Request a Review',/.test(nudge)
+    && /where\('type', '==', 'review_request'\)/.test(nudge));
+
+  const idx2 = JSON.parse(read(path.join(ROOT, 'firestore.indexes.json')));
+  assert('composite index {userId, stageRole} exists for the persisted-role lane',
+    idx2.indexes.some(i => i.collectionGroup === 'leads'
+      && i.fields.length === 2
+      && i.fields[0].fieldPath === 'userId'
+      && i.fields[1].fieldPath === 'stageRole'));
+}
+
 section('Alert-health banner (delivery-failure surfacing)');
 {
   const banner = read(path.join(PRO_JS, 'alert-health-banner.js'));

@@ -449,6 +449,30 @@ const anniversaryTouch = require('./anniversary-touch');
 exports.anniversaryAutoTouch = anniversaryTouch.anniversaryAutoTouch;
 
 // ═══════════════════════════════════════════════════════════════
+// REVIEW REQUEST NUDGE — daily post-win review-ask sweep
+// ═══════════════════════════════════════════════════════════════
+//
+// Daily 8:15am Eastern scan (anniversary-touch skeleton) for jobs
+// that entered a WON-role stage 3-21 days ago without a review
+// request. Won detection is role-based (persisted stageRole → shared
+// key map), so tenant custom stages count. Writes a
+// `review_request_due` activity row + the same bell notification the
+// client engine creates (deduped both ways), and emails the owning
+// rep a morning digest with deep links.
+//
+// We don't auto-send to the homeowner — the rep taps the CRM's
+// one-tap prefilled SMS/email (ReviewEngine), same human-in-the-loop
+// posture as anniversaryAutoTouch.
+//
+// Idempotent: stamps lead.reviewNudgedAt in every mode (one nudge per
+// lead, ever); skips leads the rep already asked (reviewRequested).
+//
+// Per-user opt-out: users/{uid}.reviewNudgeEnabled === false.
+// Ships DRY-RUN by default. Set REVIEW_NUDGE_ENABLED=true on the
+// reviewRequestNudge Cloud Run revision to go live.
+exports.reviewRequestNudge = require('./review-request-nudge').reviewRequestNudge;
+
+// ═══════════════════════════════════════════════════════════════
 // REFERRAL CAPTURE — public POST from /refer.html
 // ═══════════════════════════════════════════════════════════════
 //

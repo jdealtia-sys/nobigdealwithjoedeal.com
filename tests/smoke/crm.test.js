@@ -587,4 +587,47 @@ section('Pipelines builder — drag-to-reorder stages');
     'expected leadless pins of multi-company users to be skipped, not guessed');
 }
 
+section('Review engine — role-aware nudges, tenant-safe copy, Settings-sourced link');
+{
+  const rev = read(path.join(ROOT, 'docs/pro/js/review-engine.js'));
+
+  // Won detection is role-based: persisted stageRole wins, isWonStage covers
+  // key classification. The old hardcoded closedStages allowlist missed
+  // final_payment/final_photos/deductible_collected and custom won stages —
+  // it must not come back.
+  assert('review nudge classifies won by persisted stageRole, then isWonStage',
+    /l\.stageRole \|\| l\._stageRole/.test(rev)
+    && /window\.isWonStage/.test(rev)
+    && !/const closedStages\s*=/.test(rev),
+    'expected isWonLead(stageRole → isWonStage) and no hardcoded closedStages list');
+
+  // Recency keys off entering the won stage — updatedAt resets on any edit.
+  assert('review nudge recency uses stageStartedAt (updatedAt fallback only)',
+    /l\.stageStartedAt \|\| l\.updatedAt/.test(rev));
+
+  // Review link resolves from the SAME Settings field the homeowner portal
+  // reads, and the deep-merged NBD /r default never leaks to another tenant.
+  assert('review link prefers users/{uid}.googleReviewUrl over legacy localStorage',
+    /googleReviewUrl/.test(rev)
+    && /nobigdealwithjoedeal\.com\/r/.test(rev)
+    && /!== NBD_DEFAULT_REVIEW_URL \|\| \(b\.seal \|\| ''\) === 'NBD'/.test(rev),
+    'expected getReviewLink: Settings field first + NBD-default leak guard');
+
+  // Copy surfaces resolve the tenant brand, not NBD literals (TenantContext
+  // Phase B). The BRAND const may remain only as the no-profile fallback.
+  assert('review SMS/email copy resolves window._brand() (tenant-safe)',
+    /window\._brand/.test(rev)
+    && /brandName\(\)/.test(rev)
+    && /brandSignOff\(\)/.test(rev)
+    && !/Joe & the No Big Deal team/.test(rev),
+    'expected brandName()/brandSignOff() in message bodies, no hardcoded NBD sign-off');
+
+  // The senders await the async link resolution — a bare sync read would
+  // silently revert to the legacy localStorage-only behavior.
+  assert('review senders are async and await getReviewLink()',
+    /async function sendReviewRequestSMS/.test(rev)
+    && /async function sendReviewRequestEmail/.test(rev)
+    && /await getReviewLink\(\)/.test(rev));
+}
+
 };
