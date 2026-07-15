@@ -92,7 +92,19 @@ everything else is a decision item for Jo, ranked._
 
 ---
 
-## 3. DECISION ITEMS FOR JO (ranked)
+## 3. DECISION ITEMS FOR JO (ranked) — **DECIDED 2026-07-15, see inline notes**
+
+> Jo's calls (same day): (1) full first-person rewrite ✅ executed; (2) /tools/ is the
+> internal operations hub — treat as internal scope like /pro/ and /admin/, exclude from
+> homeowner audits; (3) blogs + product pages consolidate onto the standard template ✅
+> executed; (4) cert item added to every trust bar ✅; (5) footer feature parity via the
+> template consolidation ✅; (6) **Standard tier DOES install 3+ qualifying GAF accessory
+> categories → the "✓ System Plus on all tiers" table row is CORRECT — verified with Jo**;
+> (7) blog pricing is right → estimate tool default band updated to $10,000–$18,500
+> (placeholders + JS fallback only; the per-square PRICING table untouched); (8) Pledge
+> naming locked ("NBD Lifetime Pledge" formal / "the Pledge" shorthand, casing strays
+> fixed); (9) cosmetics: Roof Visualizer naming, E.164 tel links, photo og:images — all
+> applied.
 
 1. **Third-person "Joe handles / Joe inspects" voice on ~155 city/area/service pages**
    (HIGH, brand). The locked brand is first-person ("It's just me"), and these pages mix
