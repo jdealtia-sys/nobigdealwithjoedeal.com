@@ -1,6 +1,8 @@
 # GAF + TAMKO Rebrand — BUILD BRIEF (execution-ready)
 
-_Last updated 2026-06-24. This is the self-contained brief to build the dual-brand homeowner site. Read this + memory `gaf-tamko-rebrand-audit` and you can run cold._
+_Last updated 2026-07-15. This is the self-contained brief to build the dual-brand homeowner site. Read this + memory `gaf-tamko-rebrand-audit` and you can run cold._
+
+> **2026-07-15 — GOLD IS APPROVED.** Jo is now a **TAMKO Pro Certified Contractor — Gold** (The TAMKO Edge program). The §3 gold-safe rule is **lifted**: "TAMKO Pro Gold™ Certified Contractor" claims are live sitewide (homepage, about, storm-series, city-page hero chips, blog disclosures, llms.txt, JSON-LD credentials). Verified facts used on-site: ProShield® Enhanced Limited System Warranty (20-yr non-prorated Full Start®, tear-off covered, 10-yr transferability) and ProShield® HailGuard enhanced warranty (20-yr Full Start + 10-yr hail vs base 10/7). Verification link used: tamko.com/locate-a-contractor. Still pending: official Gold badge artwork from Jo's TAMKO Pro portal (site currently uses TAMKO logo + "PRO GOLD" text chip).
 
 ---
 
@@ -11,7 +13,7 @@ _Last updated 2026-06-24. This is the self-contained brief to build the dual-bra
 - Golden Pledge accuracy fix (PR #714): removed false "Golden Pledge ready/eligible" claims (Joe is base GAF Certified, not Master Elite) → "System Plus".
 - TAMKO logo assets committed at `docs/assets/tamko/` (tamko-logo-color.svg, -reverse.svg, -bw.svg, -color.png).
 
-**Jo's status:** **Team TAMKO** (installer) — **NOT yet Pro Gold** (cert pending TAMKO's review of <1-yr companies). Heritage is fine as an NS-equivalent value rung (his words).
+**Jo's status:** ~~**Team TAMKO** (installer) — **NOT yet Pro Gold** (cert pending TAMKO's review of <1-yr companies).~~ **UPDATE 2026-07-15: Pro Gold APPROVED — see banner at top.** Heritage is fine as an NS-equivalent value rung (his words).
 
 ---
 
@@ -45,7 +47,7 @@ Built to **graduate TAMKO to a co-equal lane** later if Jo goes 50/50 (he's cons
 
 ## 3. GOLD-SAFE / ACCURACY RULES (CRITICAL — Jo's TAMKO review is sensitive)
 
-- **NEVER** write "TAMKO Pro Gold," "TAMKO Certified," or any TAMKO certification claim until Gold is approved. TAMKO = "a brand I install" / "Storm Series," not a cert. GAF stays the only certification on the site.
+- ~~**NEVER** write "TAMKO Pro Gold," "TAMKO Certified," or any TAMKO certification claim until Gold is approved. TAMKO = "a brand I install" / "Storm Series," not a cert. GAF stays the only certification on the site.~~ **LIFTED 2026-07-15 — Gold approved.** Cert claims are live; keep them accurate to the Gold tier (do NOT claim Platinum/Diamond, MasterShield/DiamondShield, or workmanship coverage — those are higher tiers).
 - **NEVER** write "UL rated over Class 4" / "Class 5" — Class 4 is the top UL 2218 tier. HailGuard is "**Class 4 — tested beyond Class 4**."
 - **HailGuard hail warranty is NOT Gold-gated** ✅ — the base **HailGuard Limited System Warranty (10-yr non-prorated Full Start + 7-yr hail warranty)** is available to **ALL contractors incl. Team TAMKO**. So HailGuard CAN be featured WITH its hail warranty now. Enhanced terms scale with cert (Certified Pro → 20-yr/10-yr hail; Platinum/Diamond → 50-yr Full Start, 12–15-yr hail + 10–25-yr workmanship) — use those as future "more coverage when certified" upsells, not a gate.
 - **Warranty accessory requirements** (bake into Storm Series specs so warranties stick): HailGuard warranty needs **TAMKO Synthetic Guard** (underlayment) + **Moisture Guard** (ice & water); StormFighter/Titan 160 mph needs **TAMKO starter + hip & ridge**. So a TAMKO storm roof = TAMKO underlayment/starter/hip&ridge + GAF/Roofivent vents & boots.
@@ -66,7 +68,7 @@ Built to **graduate TAMKO to a co-equal lane** later if Jo goes 50/50 (he's cons
 ## 5. OPEN INPUTS (from Jo / his TAMKO rep)
 - Confirm HailGuard/StormFighter/Titan **availability + color sets for OH/KY** (the sell sheets are Phillipsburg-region docs).
 - Pull full per-line color lists (Titan XT, StormFighter Flex) from the brochures for the visualizer.
-- When Gold lands: add "TAMKO Pro Gold Certified" badge + the enhanced warranties + a TAMKO cert card (then it joins GAF in the certification area).
+- ~~When Gold lands: add "TAMKO Pro Gold Certified" badge + the enhanced warranties + a TAMKO cert card (then it joins GAF in the certification area).~~ ✅ DONE 2026-07-15. Remaining: swap the interim TAMKO-logo+"PRO GOLD"-chip visuals for the official Gold badge artwork once Jo pulls it from the TAMKO Pro portal.
 
 ---
 
