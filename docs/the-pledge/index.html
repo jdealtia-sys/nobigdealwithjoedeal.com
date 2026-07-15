@@ -5,7 +5,7 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https: http:; connect-src 'self' https://*.googleapis.com https://www.google-analytics.com; object-src 'none'; base-uri 'self';">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>The Lifetime Pledge | No Big Deal Home Solutions | Joe Deal</title>
-<meta name="description" content="Why every roof, siding, gutter, and storm job from No Big Deal Home Solutions carries a lifetime pledge — from Joe Deal, Greater Cincinnati.">
+<meta name="description" content="Why every roof, siding, gutter, and storm job from No Big Deal Home Solutions carries the NBD Lifetime Pledge — from Joe Deal, Greater Cincinnati.">
 <link rel="canonical" href="https://nobigdealwithjoedeal.com/the-pledge">
 <meta property="og:type" content="website">
 <meta property="og:title" content="The Lifetime Pledge | No Big Deal Home Solutions">
@@ -26,7 +26,7 @@
   "@type": "Service",
   "name": "The NBD Lifetime Pledge",
   "serviceType": "Lifetime Workmanship Standby",
-  "description": "Joe Deal's personal lifetime pledge: for as long as he is in business and you own the home, you can call about anything he worked on. Free diagnosis. Honest answer. Fair quote if a fix is needed.",
+  "description": "Joe Deal's personal Lifetime Pledge: for as long as he is in business and you own the home, you can call about anything he worked on. Free diagnosis. Honest answer. Fair quote if a fix is needed.",
   "provider": {
     "@type": "RoofingContractor",
     "name": "No Big Deal Home Solutions",
@@ -38,9 +38,9 @@
 }</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Home","item":"https://nobigdealwithjoedeal.com/"},{"@type":"ListItem","position":2,"name":"The Lifetime Pledge","item":"https://nobigdealwithjoedeal.com/the-pledge"}]}</script>
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
-  {"@type":"Question","name":"What does \"lifetime\" actually mean? Free repairs forever?","acceptedAnswer":{"@type":"Answer","text":"No. The Lifetime Pledge means lifetime diagnosis and a lifetime straight answer: as long as I'm in business and you own the home, you can call about anything I worked on, I'll come look, I won't charge you to look, and I'll tell you exactly what's going on. If it's something I caused and it's covered by your job's written warranty, I fix it. If it's not, I'll quote the fix fairly. The pledge is the relationship — not a blank check."}},
+  {"@type":"Question","name":"What does \"lifetime\" actually mean? Free repairs forever?","acceptedAnswer":{"@type":"Answer","text":"No. The Lifetime Pledge means lifetime diagnosis and a lifetime straight answer: as long as I'm in business and you own the home, you can call about anything I worked on, I'll come look, I won't charge you to look, and I'll tell you exactly what's going on. If it's something I caused and it's covered by your job's written warranty, I fix it. If it's not, I'll quote the fix fairly. The Pledge is the relationship — not a blank check."}},
   {"@type":"Question","name":"What if it turns out the problem isn't your work?","acceptedAnswer":{"@type":"Answer","text":"You still get the diagnosis for free. I'll come look, show you what I find, and tell you whether it's something I should fix, something a different specialist should fix, or something you don't need to spend money on at all. If you want me to handle it, I'll quote it. If you want to shop the quote or wait, that's fine."}},
-  {"@type":"Question","name":"What if it's twenty years from now and you're not in business anymore?","acceptedAnswer":{"@type":"Answer","text":"For as long as I am in business, the pledge holds. The materials I install are from manufacturers (like GAF and Norandex) whose warranties are tied to the product and the home, not to me personally — so even in the worst case, the manufacturer paperwork is yours regardless."}},
+  {"@type":"Question","name":"What if it's twenty years from now and you're not in business anymore?","acceptedAnswer":{"@type":"Answer","text":"For as long as I am in business, the Pledge holds. The materials I install are from manufacturers (like GAF and Norandex) whose warranties are tied to the product and the home, not to me personally — so even in the worst case, the manufacturer paperwork is yours regardless."}},
   {"@type":"Question","name":"What if I sell the house?","acceptedAnswer":{"@type":"Answer","text":"Each job's written warranty has its own transferability terms — some manufacturer warranties transfer once to a new owner. The Pledge itself is between me and whoever owns the home, so if you sell, the new owner inherits the same right to call me about that work."}},
   {"@type":"Question","name":"Does the Pledge cost extra?","acceptedAnswer":{"@type":"Answer","text":"No. The Pledge is included on every job — not an add-on, not a premium tier, no separate line item. Picking up the phone is free. Driving over to look at something is mostly free. Being honest costs nothing at all."}}
 ]}</script>
@@ -271,13 +271,39 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
   <script src="/assets/js/nav-faq.js" defer></script>
 <style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>
+/* nav-wordmark guard (consistency audit 2026-07-15): keep the wordmark on one
+   line and shrink logo+text on phones — the blog family had no mobile rules,
+   so "NO BIG DEAL" wrapped to two lines next to the logo. */
+nav .nav-logo-text .brand{white-space:nowrap}
+nav .nav-logo-text .sub{white-space:nowrap}
+@media(max-width:768px){
+  nav .nav-logo img{height:36px!important}
+  nav .nav-logo-text .brand{font-size:.9rem!important}
+  nav .nav-logo-text .sub{font-size:.62rem!important}
+}
+</style>
+<style>
+/* nbd-social-v1 */
+.nbd-social{display:inline-flex;gap:10px;align-items:center;margin-left:14px;vertical-align:middle}
+.nbd-social a{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none!important;transition:transform .2s,background .2s,color .2s}
+.nbd-social a:hover{transform:translateY(-2px);color:#fff}
+.nbd-social a.s-fb:hover{background:#1877f2}
+.nbd-social a.s-ig:hover{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
+.nbd-social a.s-gg:hover{background:#4285f4}
+.nbd-social a.s-yelp:hover{background:#d32323}
+.nbd-social svg{width:15px;height:15px;display:block}
+@media(max-width:640px){.nbd-social{margin-left:0;margin-top:8px;display:flex;gap:8px}}
+footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,255,.1)}
+</style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 
 <div class="ann-bar" id="annBar">
-  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> <span class="ann-text" data-long="NBD Lifetime Pledge — Joe stands behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — Joe stands behind every install personally</span></div>
-  <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> <a href="tel:8594207382" style="color:inherit;text-decoration:none"><span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></a></div>
+  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> <span class="ann-text" data-long="NBD Lifetime Pledge — I stand behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — I stand behind every install personally</span></div>
+  <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> <a href="tel:+18594207382" style="color:inherit;text-decoration:none"><span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></a></div>
   <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg> <span class="ann-text" data-long="Storm Damage? I Handle the Insurance Claim for You — No Big Deal" data-short="Storm Damage? I Handle the Claim">Storm Damage? I Handle the Insurance Claim for You — No Big Deal</span></div>
+  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor &rarr;" data-short="One free roof a year &rarr;">One free roof a year &rarr;</span></a></div>
 </div>
 
 <nav id="mainNav" class="nav">
@@ -335,7 +361,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
     <p class="lead">My name is Joe Deal. The company is No Big Deal Home Solutions. <strong>That's not a coincidence.</strong> Every roof, every siding job, every gutter run, every storm claim I take on is built on one promise — that working with us should be the smoothest, most straightforward experience your house ever has. Now and for as long as you own it.</p>
     <div class="ph-ctas">
       <a href="#the-pledge" class="btn-primary">Read the Pledge <span class="btn-arrow">→</span></a>
-      <a href="tel:8594207382" class="btn-outline">Call Joe — (859) 420-7382</a>
+      <a href="tel:+18594207382" class="btn-outline">Call Joe — (859) 420-7382</a>
     </div>
     <a href="/services/the-nbd-guarantee" class="ph-relate">
       <span class="ph-relate-label">Picking a roof?</span>
@@ -374,7 +400,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
     <div class="pledge-block">
       <p>For as long as I'm in business and you own this home, you can call me about anything I worked on — and <span class="pledge-emph">I'll come look</span>. <strong>No charge to diagnose. No charge to give you a straight answer.</strong></p>
       <p>If I caused the problem, I make it right under whatever warranty applies to that job. If something else caused it — weather, age, another contractor's work, a tree your neighbor finally pruned five years too late — I'll tell you exactly what's going on, and quote the fix fairly if you want me to handle it. <strong>No pressure. No upsell. No runaround.</strong></p>
-      <p>That's the pledge. It's not free repairs forever — that wouldn't be honest, and you'd see right through it. It's something better: <span class="pledge-emph">you'll always know what's wrong with your house, you'll always get a straight answer, and you'll never get ducked.</span></p>
+      <p>That's the Pledge. It's not free repairs forever — that wouldn't be honest, and you'd see right through it. It's something better: <span class="pledge-emph">you'll always know what's wrong with your house, you'll always get a straight answer, and you'll never get ducked.</span></p>
       <p style="font-size:.92rem;color:var(--gray);margin-top:8px;padding-top:14px;border-top:1px dashed var(--light-gray)"><strong style="color:var(--navy-dark)">Reactive vs. proactive — two different things:</strong> The Pledge is <em>reactive</em>: <strong style="color:var(--navy-dark)">you call, I come.</strong> Forever, on every job. The <a href="/services/the-nbd-guarantee" style="color:var(--navy);font-weight:700;border-bottom:1.5px solid var(--orange)">Elite tier</a> of the NBD Guarantee adds something different — a <em>proactive</em> piece, where <strong style="color:var(--navy-dark)">I reach out to you every year, walk the roof on your behalf, and send you a written report</strong>. The Pledge is the always-included foundation under every job I do. Elite is the only tier where I also put the calendar reminder on my side.</p>
       <div class="pledge-signoff">
         <span class="sig-name">— Joe Deal</span>
@@ -450,7 +476,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
     <div class="faq-list">
       <details class="faq-item">
         <summary class="faq-q">So what does "lifetime" actually mean? Free repairs forever?</summary>
-        <div class="faq-a">No — and I want to be straight about that, because "lifetime" is a word a lot of contractors throw around dishonestly. The Lifetime Pledge means <strong>lifetime diagnosis and a lifetime straight answer</strong>: as long as I'm in business and you own the home, you can call about anything I worked on, I'll come look at it, I won't charge you to look, and I'll tell you exactly what's going on. If it's something I caused and it's covered by your job's written warranty, I fix it. If it's not, I'll quote the fix fairly. The pledge is the relationship — not a blank check.</div>
+        <div class="faq-a">No — and I want to be straight about that, because "lifetime" is a word a lot of contractors throw around dishonestly. The Lifetime Pledge means <strong>lifetime diagnosis and a lifetime straight answer</strong>: as long as I'm in business and you own the home, you can call about anything I worked on, I'll come look at it, I won't charge you to look, and I'll tell you exactly what's going on. If it's something I caused and it's covered by your job's written warranty, I fix it. If it's not, I'll quote the fix fairly. The Pledge is the relationship — not a blank check.</div>
       </details>
 
       <details class="faq-item">
@@ -460,7 +486,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 
       <details class="faq-item">
         <summary class="faq-q">What if it's twenty years from now and you're not in business anymore?</summary>
-        <div class="faq-a">Honest answer — I can't guarantee a phone call from someone who doesn't exist. Nobody can. What I <em>can</em> guarantee is that for as long as I am in business, the pledge holds. And that the materials I install are from manufacturers (like GAF and Norandex) whose warranties are tied to the product and the home, not to me personally. So even in the worst case, the manufacturer paperwork is yours regardless of what happens to my company. That's part of why I'm careful about which manufacturers I install in the first place.</div>
+        <div class="faq-a">Honest answer — I can't guarantee a phone call from someone who doesn't exist. Nobody can. What I <em>can</em> guarantee is that for as long as I am in business, the Pledge holds. And that the materials I install are from manufacturers (like GAF and Norandex) whose warranties are tied to the product and the home, not to me personally. So even in the worst case, the manufacturer paperwork is yours regardless of what happens to my company. That's part of why I'm careful about which manufacturers I install in the first place.</div>
       </details>
 
       <details class="faq-item">
@@ -515,11 +541,11 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
 <!-- ── FINAL CTA ── -->
 <section class="final-cta">
   <div class="final-cta-inner">
-    <h2>That's the pledge. <br>Seriously, it's in the name.</h2>
+    <h2>That's the Pledge. <br>Seriously, it's in the name.</h2>
     <p>If you're sizing up roofers, gutter guys, siding contractors, or storm-damage help — I'd love to be in the conversation. Free inspection, straight answer, no high-pressure pitch. If we're a fit, great. If we're not, you'll still walk away knowing more about your house than you did before I showed up.</p>
     <div class="sig">— Joe</div>
     <div class="cta-row">
-      <a href="tel:8594207382" class="btn-white">📞 Call (859) 420-7382</a>
+      <a href="tel:+18594207382" class="btn-white">📞 Call (859) 420-7382</a>
       <a href="sms:8594207382" class="btn-ghost-white">Text Joe Directly</a>
     </div>
   </div>
@@ -561,17 +587,33 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.72);padding:60px 5% 3
     </div>
     <div class="footer-col">
       <h2 class="footer-col-title">Contact</h2>
-      <div class="footer-contact-item"><span class="label">Call or Text</span><span class="val"><a href="tel:8594207382">(859) 420-7382</a></span></div>
+      <div class="footer-contact-item"><span class="label">Call or Text</span><span class="val"><a href="tel:+18594207382">(859) 420-7382</a></span></div>
       <div class="footer-contact-item"><span class="label">Email</span><span class="val"><a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com">jd&#64;nobigdealwithjoedeal&#46;com</a></span></div>
       <div class="footer-contact-item"><span class="label">Based In</span><span class="val">Greater Cincinnati, OH</span></div>
     </div>
   </div>
-  <div class="footer-bottom"><p>© 2026 No Big Deal Home Solutions. All rights reserved.</p><a href="/pro/">Are you a contractor? → NBD Pro</a></div>
+  <div style="border-top:1px solid rgba(255,255,255,.08);padding:18px 0 4px;margin:8px auto 0;max-width:1200px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
+      <img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified™ Residential Roofing Contractor" width="40" height="40" loading="lazy" style="display:block">
+      <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">GAF Certified™ Contractor<br><span style="color:rgba(255,255,255,.62);font-weight:600;font-size:.65rem">Verify on GAF.com →</span></span>
+    </a>
+    <a href="https://www.tamko.com/locate-a-contractor" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
+      <img src="/assets/tamko/tamko-pro-gold-badge-120.png" alt="TAMKO Pro Gold™ Certified Roofing Contractor badge" width="36" height="40" loading="lazy" style="display:block;height:40px;width:auto">
+      <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">TAMKO Pro Gold™ Certified<br><span style="color:rgba(255,255,255,.62);font-weight:600;font-size:.65rem">Verify on TAMKO.com →</span></span>
+    </a>
+    <p style="font-size:.62rem;color:rgba(255,255,255,.62);line-height:1.6;flex:1;min-width:280px">Independent Contractor. Not an employee or agent of GAF Materials LLC or TAMKO Building Products LLC. Contractors enrolled in GAF or TAMKO certification programs are not employees or agents of those manufacturers, and neither controls or otherwise supervises these independent businesses. GAF® and GAF Certified™ are either registered trademarks or trademarks of BMIC LLC in the United States and/or other countries. GAF ID 1162011. TAMKO®, TAMKO Pro™, ProShield® and HailGuard™ are trademarks or registered trademarks of TAMKO Building Products LLC. TAMKO Pro ID 181382.</p>
+  </div>
+  <div class="footer-bottom"><p>© 2026 No Big Deal Home Solutions. All rights reserved. <span class="nbd-social" data-nbd-social="v1">
+  <a class="s-fb" href="https://www.facebook.com/people/No-Big-Deal-Home-Solutions/61577416645584/" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 22v-8h2.6l.4-3H13V9.1c0-.9.2-1.5 1.4-1.5H16V5c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.5-4 4.1V11H7v3h2.6v8H13z"/></svg></a>
+  <a class="s-ig" href="https://www.instagram.com/nbdhomesolutions" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" stroke="none"/></svg></a>
+  <a class="s-gg" href="https://share.google/dHlqknguidMfhTFS9" target="_blank" rel="noopener" aria-label="Google Business Profile"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.6 12.23c0-.68-.06-1.34-.17-1.98H12v3.75h5.4a4.62 4.62 0 0 1-2 3.03v2.52h3.24c1.9-1.74 3-4.3 3-7.32zM12 22c2.7 0 4.97-.9 6.63-2.44l-3.24-2.52c-.9.6-2.05.96-3.39.96-2.61 0-4.82-1.76-5.6-4.13H3.05v2.6A10 10 0 0 0 12 22zm-5.6-7.13A6 6 0 0 1 6.08 12c0-.99.17-1.95.44-2.87V6.53H3.05A10 10 0 0 0 2 12c0 1.6.39 3.14 1.05 4.47l3.35-2.6zM12 5.88c1.47 0 2.8.5 3.84 1.5l2.88-2.88A10 10 0 0 0 12 2 10 10 0 0 0 3.05 7.53l3.35 2.6C7.18 7.63 9.39 5.88 12 5.88z"/></svg></a>
+  <a class="s-yelp" href="https://www.yelp.com/biz/no-big-deal-home-solutions-cincinnati" target="_blank" rel="noopener" aria-label="Yelp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.6 12.6c0-.4-.2-.7-.5-.8L6.5 10.1c-.5-.2-1.1.2-1.1.8l.1 5.5c0 .7.7 1.1 1.3.8l4.5-2.9c.2-.2.3-.5.3-.8v-.9zm1.8 1c-.3-.2-.6-.1-.8.1L9.4 17c-.4.4-.2 1 .3 1.1l4.4 1.2c.6.1 1.1-.5 1-1.1l-1-3.8c-.1-.3-.3-.5-.7-.8zm-2.7-5.5c.4-.2.6-.6.5-1l-.8-4.4c-.1-.6-.8-.9-1.3-.5L5.6 4.9c-.5.4-.4 1.1.1 1.4l4.4 2c.2 0 .4 0 .6-.2zm5 3.6L14.4 9c-.3-.4-.9-.3-1.1.2l-1.2 3.8c-.2.5.2 1 .7 1l4.2.3c.7.1 1-.8.5-1.3l-1.8-1.3zm-.6 3.4c-.4-.2-1 .1-1.1.6l-.5 4c-.1.6.5 1 1 .8l3.9-1.6c.6-.2.6-1 .1-1.4l-3.4-2.4z"/></svg></a>
+</span></p><a href="/pro/">Are you a contractor? → NBD Pro</a></div>
 </footer>
 
 <!-- ── STICKY MOBILE CTA ── -->
 <div class="stickybar">
-  <a href="tel:8594207382" class="sb-call">📞 Call Joe</a>
+  <a href="tel:+18594207382" class="sb-call">📞 Call Joe</a>
   <a href="sms:8594207382" class="sb-text">Text</a>
 </div>
 

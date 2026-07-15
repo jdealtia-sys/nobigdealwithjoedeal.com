@@ -599,7 +599,7 @@ function priceRangeForFunnel(size) {
     return { min: roundTo25(g[0] * lf), max: roundTo25(g[1] * lf) };
   }
   // Sensible default
-  return { min: 8500, max: 13000 };
+  return { min: 10000, max: 18500 };
 }
 
 // Phone number formatting

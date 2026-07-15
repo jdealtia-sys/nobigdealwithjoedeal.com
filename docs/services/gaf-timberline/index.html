@@ -11,7 +11,7 @@
 <meta property="og:title" content="GAF Timberline NS · HDZ · UHDZ — Every Color, Every Spec">
 <meta property="og:description" content="The complete Timberline lineup, walked through by a GAF Certified contractor. Colors, warranties, and when Class-4 impact rating earns you an insurance discount.">
 <meta property="og:url" content="https://nobigdealwithjoedeal.com/services/gaf-timberline">
-<meta property="og:image" content="https://nobigdealwithjoedeal.com/assets/gaf/gaf-certified-badge-800.png">
+<meta property="og:image" content="https://nobigdealwithjoedeal.com/assets/images/drone-hero-crew.jpg">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="GAF Timberline — Every Color &amp; Spec">
 <meta name="twitter:description" content="NS, HDZ, UHDZ — colors, warranties, Class-4 discount info from a GAF Certified contractor.">
@@ -29,7 +29,13 @@ a{text-decoration:none;color:inherit}
 img{max-width:100%;height:auto;display:block}
 
 /* Top bar */
-.ann-bar{background:#B85400;color:#fff;text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase}
+.ann-bar{background:#B85400;color:#fff;text-align:center;font-size:.78rem;font-weight:700;letter-spacing:.08em;padding:9px 16px;text-transform:uppercase;min-height:38px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.ann-slide{position:absolute;width:100%;text-align:center;opacity:0;transform:translateY(12px);transition:opacity .5s,transform .5s;pointer-events:none}
+.ann-slide.active{opacity:1;transform:translateY(0);pointer-events:auto}
+.ann-slide.exit{opacity:0;transform:translateY(-12px)}
+.ico{width:1em;height:1em;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:inline-block;vertical-align:-0.14em}
+.ico-fill{fill:currentColor;stroke:none}
+@media(max-width:768px){.ann-bar{font-size:.68rem;padding:8px 14px;letter-spacing:.04em}}
 nav{position:sticky;top:0;z-index:1000;background:var(--navy-dark);border-bottom:3px solid var(--orange);padding:0 5%;display:flex;align-items:center;justify-content:space-between;height:70px}
 .nav-logo{display:flex;align-items:center;gap:10px}
 .nav-logo img{height:42px;width:auto;border-radius:6px;flex-shrink:0}
@@ -233,10 +239,42 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.7);padding:48px 5% 24
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
 <style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>
+/* nav-wordmark guard (consistency audit 2026-07-15): keep the wordmark on one
+   line and shrink logo+text on phones — the blog family had no mobile rules,
+   so "NO BIG DEAL" wrapped to two lines next to the logo. */
+nav .nav-logo-text .brand{white-space:nowrap}
+nav .nav-logo-text .sub{white-space:nowrap}
+@media(max-width:768px){
+  nav .nav-logo img{height:36px!important}
+  nav .nav-logo-text .brand{font-size:.9rem!important}
+  nav .nav-logo-text .sub{font-size:.62rem!important}
+}
+</style>
+<style>
+/* nbd-social-v1 */
+.nbd-social{display:inline-flex;gap:10px;align-items:center;margin-left:14px;vertical-align:middle}
+.nbd-social a{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none!important;transition:transform .2s,background .2s,color .2s}
+.nbd-social a:hover{transform:translateY(-2px);color:#fff}
+.nbd-social a.s-fb:hover{background:#1877f2}
+.nbd-social a.s-ig:hover{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
+.nbd-social a.s-gg:hover{background:#4285f4}
+.nbd-social a.s-yelp:hover{background:#d32323}
+.nbd-social svg{width:15px;height:15px;display:block}
+@media(max-width:640px){.nbd-social{margin-left:0;margin-top:8px;display:flex;gap:8px}}
+footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,255,.1)}
+.footer-badges{display:flex;flex-wrap:wrap;gap:8px}
+.footer-badge{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:4px 12px;font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+</style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 
-<div class="ann-bar">⚡ GAF Certified Contractor — Verified on GAF.com</div>
+<div class="ann-bar" id="annBar">
+  <div class="ann-slide active"><svg class="ico" viewBox="0 0 24 24"><path d="M12 2 L4 6 V12 C4 17 8 21 12 22 C16 21 20 17 20 12 V6 Z"/></svg> <span class="ann-text" data-long="NBD Lifetime Pledge — I stand behind every install personally" data-short="NBD Lifetime Pledge — Backed by Joe">NBD Lifetime Pledge — I stand behind every install personally</span></div>
+  <div class="ann-slide"><svg class="ico" viewBox="0 0 24 24"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg> <a href="tel:+18594207382" style="color:inherit;text-decoration:none"><span class="ann-text" data-long="Free Roof Inspections — Call or Text Joe: (859) 420-7382" data-short="Free Inspections — (859) 420-7382">Free Roof Inspections — Call or Text Joe: (859) 420-7382</span></a></div>
+  <div class="ann-slide"><svg class="ico ico-fill" viewBox="0 0 24 24"><path d="M13 2 L4 14 L11 14 L10 22 L20 10 L13 10 Z"/></svg> <span class="ann-text" data-long="Storm Damage? I Handle the Insurance Claim for You — No Big Deal" data-short="Storm Damage? I Handle the Claim">Storm Damage? I Handle the Insurance Claim for You — No Big Deal</span></div>
+  <div class="ann-slide" data-nbd-freeroof-ann="v1"><a href="/free-roof/" style="color:inherit;text-decoration:none"><svg class="ico" viewBox="0 0 24 24" style="margin-right:6px"><path d="M3 11 L12 3 L21 11"/><path d="M5 10 V20 H19 V10"/></svg><span class="ann-text" data-long="One free roof a year — nominate a Cincinnati neighbor &rarr;" data-short="One free roof a year &rarr;">One free roof a year &rarr;</span></a></div>
+</div>
 
 <nav>
   <a class="nav-logo" href="/">
@@ -267,7 +305,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.7);padding:48px 5% 24
   <a href="/services/tamko-storm-series">TAMKO Storm Series</a>
   <a href="/services/storm-damage">Storm Damage</a>
   <div class="mnav-group">Tools</div>
-  <a href="/visualizer">AI Visualizer</a>
+  <a href="/visualizer">Roof Visualizer</a>
   <a href="/estimate">Instant Estimate</a>
   <div class="mnav-group">About</div>
   <a href="/about">About Joe</a>
@@ -312,7 +350,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.7);padding:48px 5% 24
       <h2>Why It Matters You're Hiring a <span>GAF Certified</span> Roofer.</h2>
       <p>GAF doesn't sell certifications. They earn them. To get the GAF Certified™ badge, a contractor passes background checks, has the required state licensing, carries valid insurance, and stays current on GAF's installation training. About <strong>2% of US roofing contractors hold the certification</strong>.</p>
       <ul>
-        <li><strong>Manufacturer-backed warranty.</strong> Only Certified contractors can register the System Plus Limited Warranty — covers material AND workmanship for 50 years on most GAF Timberline systems.</li>
+        <li><strong>Manufacturer-backed warranty.</strong> Only Certified contractors can register the System Plus Limited Warranty — lifetime limited coverage on the shingles with a 50-year non-prorated period on materials (manufacturing defects) on qualifying GAF Timberline systems. My workmanship is covered separately by <a href="/the-pledge" style="color:#A64B00;font-weight:700">The Pledge</a>.</li>
         <li><strong>Trained on the actual product.</strong> I install GAF every week and stay current on installation specs that change as GAF updates the product (LayerLock, StainGuard Plus, the new starter strip details).</li>
         <li><strong>Direct line to GAF if anything goes wrong.</strong> If a shingle defect ever shows up, I open a claim with my GAF rep — homeowner doesn't deal with the manufacturer alone.</li>
         <li><strong>No subcontracted "we install GAF sometimes" outfits.</strong> If I install your roof, GAF knows my name, my license, and my work history.</li>
@@ -548,7 +586,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.7);padding:48px 5% 24
   <div class="viz-cta-inner">
     <h2>See Any of These on <span>Your House.</span></h2>
     <p>Upload one photo of your home and our AI tool drops any GAF Timberline color onto the roof, instantly. No signup, no spam — just a preview before you commit.</p>
-    <a href="/visualizer" class="btn-primary">Open the AI Visualizer →</a>
+    <a href="/visualizer" class="btn-primary">Open the Roof Visualizer →</a>
   </div>
 </section>
 
@@ -557,7 +595,7 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.7);padding:48px 5% 24
   <h2>Ready to Pick a Roof?</h2>
   <p>I'll come walk yours, give you straight numbers per line, and pull the colors that match what's already on your house. No call center. No high-pressure pitch.</p>
   <a href="/#contact" class="btn-white">Get My Free Estimate →</a>
-  <div class="phone">Or call Joe: <a href="tel:8594207382">(859) 420-7382</a></div>
+  <div class="phone">Or call Joe: <a href="tel:+18594207382">(859) 420-7382</a></div>
 </section>
 
 </main>
@@ -565,7 +603,13 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.7);padding:48px 5% 24
   <div class="footer-grid">
     <div>
       <h2 class="footer-col-title">No Big Deal Home Solutions</h2>
-      <p style="font-size:.82rem;color:rgba(255,255,255,.6);line-height:1.55">GAF Certified™ contractor serving Greater Cincinnati, OH and Northern Kentucky. Roofing, siding, gutters, and storm-damage repair.</p>
+      <p style="font-size:.82rem;color:rgba(255,255,255,.6);line-height:1.55">GAF Certified™ and TAMKO Pro Gold™ certified contractor serving Greater Cincinnati, OH and Northern Kentucky. Roofing, siding, gutters, and storm-damage repair.</p>
+      <div class="footer-badges" style="margin-top:14px">
+        <span class="footer-badge">Licensed</span>
+        <span class="footer-badge">Insured</span>
+        <span class="footer-badge">Locally Owned</span>
+        <span class="footer-badge">5-Star Rated</span>
+      </div>
     </div>
     <div>
       <h2 class="footer-col-title">Services</h2>
@@ -590,14 +634,30 @@ footer{background:var(--navy-dark);color:rgba(255,255,255,.7);padding:48px 5% 24
     <div>
       <h2 class="footer-col-title">Contact</h2>
       <ul>
-        <li><a href="tel:8594207382">(859) 420-7382</a></li>
+        <li><a href="tel:+18594207382">(859) 420-7382</a></li>
         <li><a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com">jd&#64;nobigdealwithjoedeal&#46;com</a></li>
         <li>Greater Cincinnati, OH</li>
       </ul>
     </div>
   </div>
+  <div style="border-top:1px solid rgba(255,255,255,.08);padding:18px 0 4px;margin:8px auto 0;max-width:1100px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
+      <img src="/assets/gaf/gaf-certified-badge-120.png" alt="GAF Certified™ Residential Roofing Contractor" width="40" height="40" loading="lazy" style="display:block">
+      <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">GAF Certified™ Contractor<br><span style="color:rgba(255,255,255,.62);font-weight:600;font-size:.65rem">Verify on GAF.com →</span></span>
+    </a>
+    <a href="https://www.tamko.com/locate-a-contractor" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;text-decoration:none;line-height:1.2">
+      <img src="/assets/tamko/tamko-pro-gold-badge-120.png" alt="TAMKO Pro Gold™ Certified Roofing Contractor badge" width="36" height="40" loading="lazy" style="display:block;height:40px;width:auto">
+      <span style="color:rgba(255,255,255,.8);font-size:.72rem;font-weight:700">TAMKO Pro Gold™ Certified<br><span style="color:rgba(255,255,255,.62);font-weight:600;font-size:.65rem">Verify on TAMKO.com →</span></span>
+    </a>
+    <p style="font-size:.62rem;color:rgba(255,255,255,.62);line-height:1.6;flex:1;min-width:280px">Independent Contractor. Not an employee or agent of GAF Materials LLC or TAMKO Building Products LLC. Contractors enrolled in GAF or TAMKO certification programs are not employees or agents of those manufacturers, and neither controls or otherwise supervises these independent businesses. GAF® and GAF Certified™ are either registered trademarks or trademarks of BMIC LLC in the United States and/or other countries. GAF ID 1162011. TAMKO®, TAMKO Pro™, ProShield® and HailGuard™ are trademarks or registered trademarks of TAMKO Building Products LLC. TAMKO Pro ID 181382.</p>
+  </div>
   <div class="footer-bottom">
-    <span>© 2026 No Big Deal Home Solutions. GAF® and Timberline® are trademarks of GAF Materials LLC.</span>
+    <span>© 2026 No Big Deal Home Solutions — an independent contractor, not an employee or agent of GAF Materials LLC or TAMKO Building Products LLC. GAF® and Timberline® are trademarks of GAF Materials LLC. TAMKO® and TAMKO Pro™ are trademarks or registered trademarks of TAMKO Building Products LLC. <span class="nbd-social" data-nbd-social="v1">
+  <a class="s-fb" href="https://www.facebook.com/people/No-Big-Deal-Home-Solutions/61577416645584/" target="_blank" rel="noopener" aria-label="Facebook"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13 22v-8h2.6l.4-3H13V9.1c0-.9.2-1.5 1.4-1.5H16V5c-.3 0-1.3-.1-2.4-.1-2.4 0-4 1.5-4 4.1V11H7v3h2.6v8H13z"/></svg></a>
+  <a class="s-ig" href="https://www.instagram.com/nbdhomesolutions" target="_blank" rel="noopener" aria-label="Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" stroke="none"/></svg></a>
+  <a class="s-gg" href="https://share.google/dHlqknguidMfhTFS9" target="_blank" rel="noopener" aria-label="Google Business Profile"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.6 12.23c0-.68-.06-1.34-.17-1.98H12v3.75h5.4a4.62 4.62 0 0 1-2 3.03v2.52h3.24c1.9-1.74 3-4.3 3-7.32zM12 22c2.7 0 4.97-.9 6.63-2.44l-3.24-2.52c-.9.6-2.05.96-3.39.96-2.61 0-4.82-1.76-5.6-4.13H3.05v2.6A10 10 0 0 0 12 22zm-5.6-7.13A6 6 0 0 1 6.08 12c0-.99.17-1.95.44-2.87V6.53H3.05A10 10 0 0 0 2 12c0 1.6.39 3.14 1.05 4.47l3.35-2.6zM12 5.88c1.47 0 2.8.5 3.84 1.5l2.88-2.88A10 10 0 0 0 12 2 10 10 0 0 0 3.05 7.53l3.35 2.6C7.18 7.63 9.39 5.88 12 5.88z"/></svg></a>
+  <a class="s-yelp" href="https://www.yelp.com/biz/no-big-deal-home-solutions-cincinnati" target="_blank" rel="noopener" aria-label="Yelp"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.6 12.6c0-.4-.2-.7-.5-.8L6.5 10.1c-.5-.2-1.1.2-1.1.8l.1 5.5c0 .7.7 1.1 1.3.8l4.5-2.9c.2-.2.3-.5.3-.8v-.9zm1.8 1c-.3-.2-.6-.1-.8.1L9.4 17c-.4.4-.2 1 .3 1.1l4.4 1.2c.6.1 1.1-.5 1-1.1l-1-3.8c-.1-.3-.3-.5-.7-.8zm-2.7-5.5c.4-.2.6-.6.5-1l-.8-4.4c-.1-.6-.8-.9-1.3-.5L5.6 4.9c-.5.4-.4 1.1.1 1.4l4.4 2c.2 0 .4 0 .6-.2zm5 3.6L14.4 9c-.3-.4-.9-.3-1.1.2l-1.2 3.8c-.2.5.2 1 .7 1l4.2.3c.7.1 1-.8.5-1.3l-1.8-1.3zm-.6 3.4c-.4-.2-1 .1-1.1.6l-.5 4c-.1.6.5 1 1 .8l3.9-1.6c.6-.2.6-1 .1-1.4l-3.4-2.4z"/></svg></a>
+</span></span>
     <a href="/privacy" style="color:rgba(255,255,255,.55)">Privacy</a>
   </div>
 </footer>

@@ -108,6 +108,18 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 }
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
+<style>
+/* nav-wordmark guard (consistency audit 2026-07-15): keep the wordmark on one
+   line and shrink logo+text on phones — the blog family had no mobile rules,
+   so "NO BIG DEAL" wrapped to two lines next to the logo. */
+nav .nav-logo-text .brand{white-space:nowrap}
+nav .nav-logo-text .sub{white-space:nowrap}
+@media(max-width:768px){
+  nav .nav-logo img{height:36px!important}
+  nav .nav-logo-text .brand{font-size:.9rem!important}
+  nav .nav-logo-text .sub{font-size:.62rem!important}
+}
+</style>
 </head>
 <body>
 <main>

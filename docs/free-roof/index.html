@@ -175,6 +175,18 @@ footer.foot a,.review-footer a{color:#e8720c!important}
 <link rel="stylesheet" href="/assets/css/mobile-cta.css">
 <style>/* iOS-zoom fix (conversion audit): 16px inputs prevent Safari auto-zoom on focus */@media(max-width:600px){input,select,textarea{font-size:16px!important}}</style>
 <style>.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#B85400;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}.nbd-skip:focus{left:0}</style>
+<style>
+/* nav-wordmark guard (consistency audit 2026-07-15): keep the wordmark on one
+   line and shrink logo+text on phones — the blog family had no mobile rules,
+   so "NO BIG DEAL" wrapped to two lines next to the logo. */
+nav .nav-logo-text .brand{white-space:nowrap}
+nav .nav-logo-text .sub{white-space:nowrap}
+@media(max-width:768px){
+  nav .nav-logo img{height:36px!important}
+  nav .nav-logo-text .brand{font-size:.9rem!important}
+  nav .nav-logo-text .sub{font-size:.62rem!important}
+}
+</style>
 </head>
 <body><a class="nbd-skip" href="#main">Skip to content</a>
 <main id="main">
@@ -345,7 +357,7 @@ footer.foot a,.review-footer a{color:#e8720c!important}
   <div class="section-inner" style="max-width:640px">
     <div class="eyebrow">Questions?</div>
     <h2 class="sec-title">Text me directly.</h2>
-    <p class="sec-body" style="margin:0 auto">I'm the one reading every entry. If something in this program doesn't fit your situation or you want to double-check eligibility, just text or call — <a href="tel:8594207382">(859) 420-7382</a> — or email <a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com">jd&#64;nobigdealwithjoedeal&#46;com</a>.</p>
+    <p class="sec-body" style="margin:0 auto">I'm the one reading every entry. If something in this program doesn't fit your situation or you want to double-check eligibility, just text or call — <a href="tel:+18594207382">(859) 420-7382</a> — or email <a href="mailto:jd&#64;nobigdealwithjoedeal&#46;com">jd&#64;nobigdealwithjoedeal&#46;com</a>.</p>
     <p style="margin-top:28px"><a href="/">← Back to nobigdealwithjoedeal.com</a></p>
   </div>
 </section>
