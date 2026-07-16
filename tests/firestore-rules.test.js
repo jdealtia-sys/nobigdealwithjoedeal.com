@@ -421,6 +421,16 @@ async function run() {
   await assertFails(deleteDoc(doc(alice, 'companies/alice/members/m1')));
   await assertFails(getDoc(doc(bob, 'companies/alice/members/m1')));
   await assertFails(setDoc(doc(bob, 'companies/alice/members/rep2'), { email: 'x@x.com', role: 'sales_rep' }));
+  // 23d-2 (gauntlet 2026-07-16): SAME-COMPANY CLAIM members read. The Team
+  // tab resolves its tenant from claims.companyId so non-owner
+  // company_admins/managers work — but the rule only granted owner-keyed
+  // reads, so every non-owner admin got a silently empty roster. Same-company
+  // claim holders (any role) may READ the roster; writes stay server-only;
+  // cross-tenant claims stay denied.
+  await assertSucceeds(getDoc(doc(coAdmin, 'companies/co-a/members/exist@x.com'))); // carol (company_admin, co-a claim)
+  await assertSucceeds(getDoc(doc(alice, 'companies/co-a/members/exist@x.com')));   // alice (sales_rep, co-a claim) reads own roster
+  await assertFails(getDoc(doc(bob, 'companies/co-a/members/exist@x.com')));        // bob (co-b claim) cross-tenant denied
+  await assertFails(setDoc(doc(coAdmin, 'companies/co-a/members/exist@x.com'), { status: 'disabled' }, { merge: true })); // claim grants READ only
 
   // 23e. companies DOC: create pinned to caller uid + plan/ownerId frozen
   //      (Settings sweep). alice owns companies/co-a (ownerId==alice.uid).
