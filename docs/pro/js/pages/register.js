@@ -60,6 +60,22 @@ try {
   if (PLAN_INTENTS.includes(planParam)) sessionStorage.setItem('nbd_plan_intent', planParam);
 } catch (_) { /* sessionStorage unavailable — intent is best-effort */ }
 
+// ─────────────────────────────────────────────────
+// INVITE INTENT (?invite=1)
+// The team-invite email links here with invite=1. An invitee must NOT be
+// provisioned as a solo tenant owner: the old flow ran createCompany + the
+// owner-branding wizard for them, which burned a globally-unique docPrefix on
+// a tenant claimInvite supersedes minutes later, dead-ended on the wizard's
+// seal-collision check when they typed their employer's company name, and
+// contradicted the email's "3 steps and you're in" (gauntlet gap). Invitees
+// skip straight to the dashboard, where claimInvite joins them after email
+// verification.
+// ─────────────────────────────────────────────────
+let inviteIntent = false;
+try {
+  inviteIntent = new URLSearchParams(window.location.search).get('invite') === '1';
+} catch (_) { /* best-effort */ }
+
 // Access-code failures split into two classes: the visitor's problem (typo,
 // expired, fully redeemed — fixable by re-entering) vs the server's problem
 // (e.g. the known prod IAM gap minting custom tokens). Only the first should
@@ -137,6 +153,13 @@ async function register(e) {
         firstName, lastName, company: company || '', email,
         createdAt: serverTimestamp(), onboarded: false
       });
+      // Invitees (?invite=1 from the team-invite email) skip solo tenant
+      // provisioning AND the owner wizard entirely: the dashboard's
+      // claimInvite joins them to their team once the email is verified.
+      if (inviteIntent) {
+        window.location.replace('/pro/dashboard.html');
+        return;
+      }
       // PILLAR1 Phase 2: turn the account into a real tenant (companies/{uid}
       // + companyProfile seed + owner claims) so lead routing and per-tenant
       // branding work without hand-seeding. Non-fatal: if it fails the
@@ -296,11 +319,23 @@ async function googleRegister() {
       if (result.data.customToken) {
         await signInWithCustomToken(auth, result.data.customToken);
       }
-    } else if (isNewUser) {
+      // Code redemptions must provision a tenant too (#945 fixed the
+      // email/password code path; this is the same gap in the Google branch —
+      // a paid code-holder landed with no companies doc / companyId claim).
+      // createCompany is idempotent and refuses invited reps.
+      try {
+        await createCompanyFn({ name: user.displayName || (user.email || '').split('@')[0] });
+        await auth.currentUser.getIdToken(true);
+      } catch (provisionErr) {
+        console.warn('createCompany failed (account still usable):', provisionErr);
+      }
+    } else if (isNewUser && !inviteIntent) {
       // PILLAR1 Phase 2 parity: Google free signups get provisioned too
       // (the email/password path already does this). Idempotent; server
       // refuses invited reps. Non-fatal — account works either way and
       // the onboarding wizard retries if this didn't land.
+      // Invitees (?invite=1) are NOT provisioned — claimInvite joins them
+      // to their team on first dashboard load instead.
       try {
         await createCompanyFn({ name: user.displayName || (user.email || '').split('@')[0] });
         await user.getIdToken(true); // pick up companyId/role claims
@@ -309,9 +344,9 @@ async function googleRegister() {
       }
     }
 
-    // New free owners go to the setup wizard (Phase 4); code-holders and
-    // returning users go straight to the dashboard.
-    const dest = (!code && isNewUser) ? '/pro/onboarding.html' : '/pro/dashboard.html';
+    // New free owners go to the setup wizard (Phase 4); code-holders,
+    // invitees, and returning users go straight to the dashboard.
+    const dest = (!code && isNewUser && !inviteIntent) ? '/pro/onboarding.html' : '/pro/dashboard.html';
     document.getElementById('regOk').textContent = 'Signed in! Taking you to your dashboard...';
     setTimeout(() => { window.location.href = dest; }, 1200);
   } catch (err) {

@@ -182,3 +182,52 @@
       } else {
         _installTeamTabHook();
       }
+
+      // ── Manual invite-claim recovery ("Check my invite now") ──
+      // Self-serve escape hatch for the invite-flag scenarios (rep signed up
+      // before the invite, pre-existing account, shared device): calls
+      // claimInvite directly, bypassing the boot-time flag gate entirely.
+      // Document-level delegate because the button lives OUTSIDE
+      // #teamMembersList; guarded against template re-hydration double-wiring.
+      async function checkMyInvite(btn) {
+        var out = document.getElementById('inviteCheckResult');
+        var say = function (msg, color) {
+          if (out) { out.textContent = msg; out.style.color = color || 'var(--m)'; }
+        };
+        if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+        try {
+          var res = await _teamCallable('claimInvite', {});
+          var data = (res && res.data) || {};
+          if (data.claimed) {
+            say('Invite found! Joining your team — reloading…', 'var(--orange)');
+            if (window._user) await window._user.getIdToken(true);
+            try {
+              localStorage.setItem('nbd_invite_checked_' + (window._user && window._user.uid), '1');
+            } catch (_) {}
+            window.location.reload();
+            return;
+          }
+          if (data.reason === 'already_member') {
+            say('You are already on a team.', 'var(--m)');
+          } else {
+            say('No pending invite found for your email address. Ask your team owner to send one to the exact email you sign in with.', 'var(--m)');
+          }
+        } catch (e) {
+          // failed-precondition = invite exists but email not verified yet.
+          var msg = String((e && e.message) || 'unknown error');
+          if (/verify your email/i.test(msg)) {
+            say('An invite is waiting — verify your email address first, then try again.', 'var(--orange)');
+          } else {
+            say('Check failed: ' + msg, '#c53030');
+          }
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = 'Check my invite now'; }
+        }
+      }
+      if (!window._NBD_INVITE_CHECK_DELEGATE) {
+        window._NBD_INVITE_CHECK_DELEGATE = true;
+        document.addEventListener('click', function (e) {
+          var btn = e.target && e.target.closest && e.target.closest('[data-team-action="checkMyInvite"]');
+          if (btn) checkMyInvite(btn);
+        });
+      }

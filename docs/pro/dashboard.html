@@ -3877,7 +3877,19 @@
                 </div>
                 <button class="btn btn-orange" style="padding:10px 16px;white-space:nowrap;" data-action="call" data-fn="inviteTeamMember">Send Invite</button>
               </div>
-              <div style="font-size:10px;color:var(--m);margin-top:6px;">Invited reps receive an email with a sign-up link scoped to your company. They see only their own leads and territory.</div>
+              <div style="font-size:10px;color:var(--m);margin-top:6px;">Invited reps receive an email with a sign-up link. When they create an account with the invited email address (and verify it), they join your team automatically on their first dashboard visit.</div>
+            </div>
+
+            <!-- Manual invite-claim recovery: for a rep whose automatic join
+                 didn't fire (signed up before the invite existed, pre-existing
+                 account, shared device). Delegate lives in
+                 js/dashboard-team-tab.js (data-team-action). -->
+            <div style="border-top:1px solid var(--br);padding-top:12px;margin-top:14px;">
+              <div style="font-size:11px;color:var(--m);">
+                Were you invited to someone else's team?
+                <button data-team-action="checkMyInvite" class="btn btn-ghost" style="font-size:11px;padding:6px 12px;margin-left:8px;">Check my invite now</button>
+              </div>
+              <div id="inviteCheckResult" style="font-size:11px;margin-top:6px;"></div>
             </div>
           </div>
         </div>
