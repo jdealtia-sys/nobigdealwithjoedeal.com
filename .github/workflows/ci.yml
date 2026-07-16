@@ -104,6 +104,14 @@ jobs:
       - name: Run hidden-stage bucketing tests
         run: node tests/hidden-stage-bucketing.test.js
 
+      # Stranger-gauntlet Fix Batch 1 (2026-07-16): invite-claim flag scoping,
+      # past_due seat entitlement, company-keyed AI billing reads, invitee
+      # register bypass, letterhead tagline gate, @stranger-required CI shape.
+      # Requires functions deps (imports invites.js _test.seatLimitForPlan) —
+      # this job installs them below for the smoke suite already.
+      - name: Run gauntlet regression tests
+        run: node tests/gauntlet-regressions.test.js
+
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest
@@ -326,8 +334,16 @@ jobs:
     # emulators, serve docs/ from the hosting emulator (the client SDK
     # auto-connects to emulators on localhost via nbd-emulator-connect.js),
     # and run pro-authed.spec.js against it. No prod credentials involved.
-    # continue-on-error while the suite proves itself green; flip to required
-    # after ~2 weeks of stable runs (BIG_ROCKS Rock 3 plan).
+    #
+    # @stranger is REQUIRED (gauntlet 2026-07-16): it is the ONLY runtime
+    # proof anywhere in CI that a stranger can self-provision (register →
+    # createCompany → onboarding → claimInvite → isolation). The legacy
+    # shards run functions-LESS and explicitly allowlist createCompany
+    # connection-refusals, and the deploy workflow gates only smoke+rules —
+    # so with this advisory, a regression that bricked new-tenant signup
+    # merged green. Its flake shields are mature (own emulator session,
+    # retries=3, SW blocked); the remaining shards stay advisory until
+    # they earn the same promotion.
     #
     # FLAKE CLASS + FIX (2026-07-05): with 16 serial journeys in ONE
     # emulator session, the Java Firestore emulator intermittently dropped
@@ -339,7 +355,7 @@ jobs:
     # emulator session at roughly half load, selected via PLAYWRIGHT_GREP.
     # If a rotating victim reappears, split further or slim the per-test
     # dashboard boot - do NOT chase individual tests.
-    continue-on-error: true
+    continue-on-error: ${{ matrix.shard != '@stranger' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v5

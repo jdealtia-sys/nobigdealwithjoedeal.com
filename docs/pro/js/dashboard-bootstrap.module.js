@@ -1133,27 +1133,36 @@
     try {
       const tokenResult = await user.getIdTokenResult();
       window._userClaims = tokenResult.claims || {};
+      // Invite-check flags are keyed PER UID and cleared on sign-out. The old
+      // device-global 'nbd_invite_checked' bricked invite claiming in three
+      // ordinary scenarios (gauntlet blocker #1): rep signed up before the
+      // invite existed (terminal no_invite set the flag forever), invitee with
+      // a pre-existing account, and shared machines where the OWNER's own load
+      // set the flag. Legacy unkeyed flags are intentionally ignored so
+      // already-stranded devices get a fresh re-check after this ships.
+      const _inviteCheckedKey = 'nbd_invite_checked_' + user.uid;
+      const _repActivatedKey = 'nbd_rep_activated_' + user.uid;
       // If this is a newly invited rep, activate their membership
       if (window._userClaims.companyId && window._userClaims.companyId !== user.uid
-          && !localStorage.getItem('nbd_rep_activated')) {
+          && !localStorage.getItem(_repActivatedKey)) {
         try {
           const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
           const fns = getFunctions();
           await connectEmulatorsIfLocal({ functions: fns }); // no-op in prod
           const fn = httpsCallable(fns, 'activateInvitedRep');
           await fn({});
-          localStorage.setItem('nbd_rep_activated', '1');
+          localStorage.setItem(_repActivatedKey, '1');
         } catch (e) { console.warn('Rep activation skipped:', e.message); }
       }
       // PILLAR1 Phase 3 (de-GCIP'd invites): a user with no team claim — or
       // only the Phase-2 solo default (companyId == uid) — may have a pending
       // team invite. onRepSignup (the blocking trigger that was meant to stamp
       // these claims at signup) can never deploy without GCIP, so the claim
-      // happens here on first dashboard load instead. One callable per device
-      // (nbd_invite_checked); the flag is NOT set on transient failures (e.g.
-      // email not verified yet) so it retries on the next load.
+      // happens here on first dashboard load instead. One callable per uid+
+      // device; the flag is NOT set on transient failures (e.g. email not
+      // verified yet) so it retries on the next load.
       else if ((!window._userClaims.companyId || window._userClaims.companyId === user.uid)
-          && !localStorage.getItem('nbd_invite_checked')) {
+          && !localStorage.getItem(_inviteCheckedKey)) {
         try {
           const { getFunctions, httpsCallable } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
           const fns = getFunctions();
@@ -1171,18 +1180,62 @@
             // leads under their own uid. Order it so a refresh failure leaves
             // the flags unset and the next load retries.
             await user.getIdToken(true);
-            localStorage.setItem('nbd_invite_checked', '1');
-            localStorage.setItem('nbd_rep_activated', '1');
+            localStorage.setItem(_inviteCheckedKey, '1');
+            localStorage.setItem(_repActivatedKey, '1');
             window.location.reload();
             return;
           }
-          // Terminal answers (no invite / already member / own company):
-          // never ask again on this device.
-          localStorage.setItem('nbd_invite_checked', '1');
+          // 'no_invite' is only terminal for ESTABLISHED accounts. A fresh
+          // signup often precedes the owner's invite by minutes or days
+          // (the invite email even says "sign in if you already have one"),
+          // so young accounts keep re-checking — one cheap rate-limited
+          // callable per dashboard load for at most 14 days.
+          const _createdMs = Date.parse((user.metadata && user.metadata.creationTime) || '') || 0;
+          const _youngAccount = _createdMs && (Date.now() - _createdMs) < 14 * 24 * 3600 * 1000;
+          if (out.reason === 'no_invite' && _youngAccount) {
+            // leave the flag unset — re-check next load
+          } else {
+            // Other terminal answers (already member / own company) or a
+            // mature account with no invite: stop asking for this uid+device.
+            localStorage.setItem(_inviteCheckedKey, '1');
+          }
         } catch (e) {
           // failed-precondition = invite exists but email unverified — leave
-          // the flag unset so we re-check after they verify.
+          // the flag unset so we re-check after they verify. This used to be
+          // console-only: the rep saw a normal solo dashboard and reasonably
+          // believed they'd joined, while the owner's roster row sat at
+          // 'invited' forever (gauntlet gap). Now it renders a persistent
+          // banner with a resend-verification action.
           console.warn('Invite check skipped:', e.message);
+          if (/verify your email/i.test(String(e.message || '')) && !document.getElementById('nbdVerifyBanner')) {
+            const banner = document.createElement('div');
+            banner.id = 'nbdVerifyBanner';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:10000;background:var(--orange,#e8720c);color:#fff;padding:10px 16px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;';
+            const msg = document.createElement('span');
+            msg.textContent = 'You have a pending team invite — verify ' + (user.email || 'your email') + ' to join.';
+            const resend = document.createElement('button');
+            resend.textContent = 'Resend verification email';
+            resend.style.cssText = 'background:#fff;color:#1e3a6e;border:none;border-radius:6px;padding:6px 12px;font-weight:700;font-size:12px;cursor:pointer;';
+            resend.addEventListener('click', async () => {
+              resend.disabled = true; resend.textContent = 'Sending…';
+              try {
+                const { sendEmailVerification } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+                await sendEmailVerification(user);
+                resend.textContent = 'Sent — check your inbox';
+              } catch (err) {
+                resend.disabled = false;
+                resend.textContent = 'Retry sending';
+                console.warn('resend verification failed:', err.message);
+              }
+            });
+            const dismiss = document.createElement('button');
+            dismiss.textContent = '✕';
+            dismiss.setAttribute('aria-label', 'Dismiss');
+            dismiss.style.cssText = 'background:none;border:none;color:#fff;cursor:pointer;font-size:14px;';
+            dismiss.addEventListener('click', () => banner.remove());
+            banner.append(msg, resend, dismiss);
+            document.body.appendChild(banner);
+          }
         }
       }
     } catch (e) { window._userClaims = {}; }
@@ -1510,7 +1563,20 @@
   window._auth    = auth;
   window._db      = db;
   window._storage = storage;
-  window._signOut = () => signOut(auth).then(() => window.location.replace("/pro/login.html"));
+  window._signOut = () => {
+    // Clear per-uid invite/activation flags on the way out so the NEXT
+    // account on this device gets its own fresh invite check (shared office
+    // computers were permanently bricked by the old device-global flag).
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && (k.indexOf('nbd_invite_checked') === 0 || k.indexOf('nbd_rep_activated') === 0)) {
+          localStorage.removeItem(k);
+        }
+      }
+    } catch (_) { /* storage unavailable — sign out anyway */ }
+    return signOut(auth).then(() => window.location.replace("/pro/login.html"));
+  };
 
   // (Removed the window.activateMyAccount console helper: it setDoc'd directly
   // to /subscriptions, which is admin-SDK-write-only — `allow write: if false`

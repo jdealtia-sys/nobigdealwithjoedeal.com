@@ -82,9 +82,16 @@ exports.claudeProxy = onRequest(
       }
 
       // Subscription gate — server-trusted Firestore doc written only by Stripe webhook.
-      const subSnap = await getFirestore().doc(`subscriptions/${decoded.uid}`).get();
+      // Billing key = the COMPANY (companyId claim), not the caller: an invited
+      // rep's uid has no subscriptions doc, so keying on uid gated every rep of
+      // a paying tenant as free (gauntlet gap, same class as the #945 stripe.js
+      // fix). 'trialing' counts as paid — a Growth trial is exactly the window
+      // where AI features must work.
+      const billingKey = decoded.companyId || decoded.uid;
+      const subSnap = await getFirestore().doc(`subscriptions/${billingKey}`).get();
       const sub = subSnap.exists ? subSnap.data() : null;
-      const hasPaidPlan = sub && sub.plan && sub.plan !== 'free' && sub.status === 'active';
+      const hasPaidPlan = sub && sub.plan && sub.plan !== 'free'
+        && (sub.status === 'active' || sub.status === 'trialing');
       if (!isAdmin && !hasPaidPlan) {
         res.status(403).json({ error: 'AI features require an active paid subscription.' });
         return;

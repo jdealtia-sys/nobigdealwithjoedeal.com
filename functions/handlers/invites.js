@@ -203,7 +203,7 @@ function inviteEmailHtml(companyName, roleLabel) {
         <li style="margin-bottom:8px">Verify your email — click the link in the verification message.</li>
         <li>Open your dashboard. You'll be joined to the team automatically.</li>
       </ol>
-      <p style="text-align:center;margin:20px 0"><a href="${SITE_URL}/pro/register.html" style="display:inline-block;background:#e8720c;color:#fff;padding:13px 30px;border-radius:6px;text-decoration:none;font-weight:700;font-size:16px">Create your account</a></p>
+      <p style="text-align:center;margin:20px 0"><a href="${SITE_URL}/pro/register.html?invite=1" style="display:inline-block;background:#e8720c;color:#fff;padding:13px 30px;border-radius:6px;text-decoration:none;font-weight:700;font-size:16px">Create your account</a></p>
       <p style="margin:0;color:#6b7280;font-size:13px">Didn't expect this? You can ignore this email — nothing happens without you signing up.</p>
     </div>
   </div>
@@ -212,7 +212,7 @@ function inviteEmailHtml(companyName, roleLabel) {
 
 function inviteEmailText(companyName, roleLabel) {
   const co = companyName || 'your team';
-  return `${co} added you to their team on NBD PRO as ${roleLabel}.\n\nThree steps and you're in:\n1. Create your account at ${SITE_URL}/pro/register.html using this email address (or sign in if you already have one).\n2. Verify your email — click the link in the verification message.\n3. Open your dashboard. You'll be joined to the team automatically.\n\nDidn't expect this? You can ignore this email — nothing happens without you signing up.`;
+  return `${co} added you to their team on NBD PRO as ${roleLabel}.\n\nThree steps and you're in:\n1. Create your account at ${SITE_URL}/pro/register.html?invite=1 using this email address (or sign in if you already have one).\n2. Verify your email — click the link in the verification message.\n3. Open your dashboard. You'll be joined to the team automatically.\n\nDidn't expect this? You can ignore this email — nothing happens without you signing up.`;
 }
 
 exports.teamInviteEmail = onDocumentCreated(
@@ -357,7 +357,14 @@ exports.createTeamInvite = onCall(
     } else {
       const subSnap = await db.doc(`subscriptions/${companyId}`).get();
       const subData = subSnap.exists ? (subSnap.data() || {}) : {};
-      const subActive = subData.status === 'active' || subData.status === 'trialing';
+      // 'past_due' stays entitled for seat resolution: Stripe is still
+      // auto-retrying the card (dunning), the subscription is not cancelled,
+      // and without this a paying owner mid-dunning got seats=0 plus the
+      // free-tier "your current plan is solo" copy — reads like data loss to
+      // a customer whose card merely bounced (gauntlet gap). Hard removal
+      // only happens on customer.subscription.deleted.
+      const subActive = subData.status === 'active' || subData.status === 'trialing'
+        || subData.status === 'past_due';
       if (subActive && subData.plan) {
         plan = subData.plan;
       } else {

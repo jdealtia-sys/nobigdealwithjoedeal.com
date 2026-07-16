@@ -227,9 +227,13 @@ exports.extractReceiptData = onCall({
   // ── Per-user monthly cap (shared vision budget) ──
   const monthKey = new Date().toISOString().slice(0, 7);
   const userMeterRef = db.doc(`userCostMeter/${uid}__${monthKey}`);
+  // Plan from the COMPANY subscription (companyId claim || uid) — uid-keyed
+  // reads capped paying tenants' reps at the 'lite' budget (gauntlet gap).
+  // The spend meter itself stays per-uid.
+  const billingKey = (request.auth.token && request.auth.token.companyId) || uid;
   const [userMeterSnap, subSnap] = await Promise.all([
     userMeterRef.get(),
-    db.doc(`subscriptions/${uid}`).get(),
+    db.doc(`subscriptions/${billingKey}`).get(),
   ]);
   const userUsd = (userMeterSnap.exists && userMeterSnap.data().visionUsd) || 0;
   const plan = (subSnap.exists && subSnap.data().plan) || 'lite';

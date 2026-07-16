@@ -1498,7 +1498,15 @@ window.NBDDocGen = {
       website: esc(pick(cp.businessWebsite, C.website)),
       address: pick(cp.businessAddress, C.address),
       license: esc(pick(cp.businessLicense, '')),
-      tagline: esc(pick(cp.tagline,         C.tagline))
+      // NBD keeps the original resolution (cp.tagline — the editable shop-wide
+      // marketing tagline — wins). A non-NBD tenant uses ONLY its brand-resolved
+      // tagline: cp.tagline falls through the merged-profile DEFAULTS to NBD's
+      // "No Big Deal — We've Got You Covered", which printed on every stranger
+      // tenant's letterhead/footer (gauntlet gap; same M1 leak already fixed in
+      // document-generator-templates.js:889-896 — this mirrors that fix).
+      tagline: esc((C.name === 'No Big Deal Home Solutions')
+        ? pick(cp.tagline, C.tagline)
+        : (C.tagline || ''))
     };
   },
 
