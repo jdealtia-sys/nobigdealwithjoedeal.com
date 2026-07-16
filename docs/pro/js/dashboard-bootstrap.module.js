@@ -1090,8 +1090,14 @@
     
     document.documentElement.style.visibility="visible";
     
-    // Show upgrade banner for lite users
-    if (window._userPlan === 'lite') {
+    // Show upgrade banner for free-tier users. 'free' = organic no-sub
+    // signups (the audience the Stripe funnel targets); 'lite' = expired
+    // access-code trials. The old 'lite'-only gate meant the primary in-app
+    // upgrade CTA never showed to actual free signups. Skip when the plan
+    // resolution failed closed (_failClosed) — don't upsell a paying user
+    // over a network blip.
+    if ((window._userPlan === 'free' || window._userPlan === 'lite')
+        && !(window._subscription && window._subscription._failClosed)) {
       setTimeout(() => {
         const banner = document.createElement('div');
         banner.id = 'liteBanner';

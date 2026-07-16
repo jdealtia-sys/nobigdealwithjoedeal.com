@@ -212,9 +212,21 @@ async function register(e) {
     if (result.data.customToken) {
       await signInWithCustomToken(auth, result.data.customToken);
     }
-    okEl.textContent = 'Account created! Taking you to your dashboard...';
+    // Code redemptions used to jump STRAIGHT to the dashboard, skipping tenant
+    // provisioning entirely — a paid (starter/growth) user landed with no
+    // companies/{uid} doc, no companyId claim, no doc prefix: public lead
+    // intake and per-tenant branding silently broken. Provision like the free
+    // path (createCompany is idempotent and refuses invited reps) and run the
+    // same onboarding wizard, which self-heals if this call fails.
+    try {
+      await createCompanyFn({ name: company || `${firstName} ${lastName}`.trim() });
+      await auth.currentUser.getIdToken(true); // pick up companyId/role claims
+    } catch (provisionErr) {
+      console.warn('createCompany failed (account still usable):', provisionErr);
+    }
+    okEl.textContent = 'Account created! Setting up your workspace...';
     btn.textContent = '✓ Done';
-    setTimeout(() => { window.location.href = '/pro/dashboard.html'; }, 1200);
+    setTimeout(() => { window.location.replace('/pro/onboarding.html'); }, 1200);
   } catch (err) {
     btn.disabled = false;
     btn.textContent = 'Create Account';

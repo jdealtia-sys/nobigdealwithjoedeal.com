@@ -42,19 +42,24 @@ const hide = id => { const el = document.getElementById(id); if (el) el.style.di
 const err  = msg => { const e = document.getElementById('errorBox');  if (e) { e.textContent = msg; e.style.display = 'block'; } };
 const err2 = msg => { const e = document.getElementById('errorBox2'); if (e) { e.textContent = msg; e.style.display = 'block'; } };
 
-// Subscribe to subscriptions/{uid} and resolve once status === 'active'.
-// The Stripe webhook writes this doc server-side via admin SDK. We time out
-// after ~60 seconds so a user sitting on a stuck webhook doesn't spin forever.
-function waitForSubscriptionActive(user, timeoutMs = 60_000) {
+// Subscribe to subscriptions/{companyId||uid} and resolve once the plan is
+// live. The Stripe webhook writes this doc server-side via admin SDK, keyed to
+// the COMPANY (client_reference_id = companyId claim || uid), so watch the
+// same key — for solo owners they're identical, and for a company_admin
+// purchaser the owner-keyed doc is the one that actually gets written.
+// 'trialing' counts as live: Growth checkout starts a 14-day trial and the
+// webhook now records the real Stripe status. Times out after ~60s so a user
+// sitting on a stuck webhook doesn't spin forever.
+function waitForSubscriptionActive(billingKey, timeoutMs = 60_000) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       unsub();
       reject(new Error('timeout'));
     }, timeoutMs);
-    const unsub = onSnapshot(doc(db, 'subscriptions', user.uid), snap => {
+    const unsub = onSnapshot(doc(db, 'subscriptions', billingKey), snap => {
       if (!snap.exists()) return;
       const data = snap.data();
-      if (data.status === 'active') {
+      if (data.status === 'active' || data.status === 'trialing') {
         clearTimeout(timer);
         unsub();
         resolve(data);
@@ -70,7 +75,12 @@ function waitForSubscriptionActive(user, timeoutMs = 60_000) {
 async function handleSignedInUser(user) {
   show('stepActivate');
   try {
-    await waitForSubscriptionActive(user);
+    let billingKey = user.uid;
+    try {
+      const tok = await user.getIdTokenResult();
+      if (tok.claims && tok.claims.companyId) billingKey = tok.claims.companyId;
+    } catch (_) { /* claims unavailable → uid (solo convention) */ }
+    await waitForSubscriptionActive(billingKey);
     hide('stepActivate');
     show('stepDone');
   } catch (e) {

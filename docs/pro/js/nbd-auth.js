@@ -929,4 +929,10 @@ function _showPage() {
 }
 
 
-(function(){if(window._NBD_NA_DELEGATE)return;window._NBD_NA_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-na-action]');if(!t)return;if(t.dataset.naAction==='upgradeCheckout'){var plan=t.dataset.naId;if(window.StripeBilling&&window.StripeBilling.checkout)window.StripeBilling.checkout(plan);else window.location.href='/pro/landing.html#pricing';}});})();
+// Upgrade-wall CTA → the checkout-capable pricing page. window.StripeBilling
+// never shipped anywhere in the codebase, and the old landing.html#pricing
+// fallback dead-ended signed-in users on a signup form ("email already has an
+// account"). Seed nbd_plan_intent so pricing-page.module.js auto-resumes
+// checkout for the clicked plan (same one-shot mechanism the register funnel
+// uses).
+(function(){if(window._NBD_NA_DELEGATE)return;window._NBD_NA_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-na-action]');if(!t)return;if(t.dataset.naAction==='upgradeCheckout'){var plan=t.dataset.naId;if(window.StripeBilling&&window.StripeBilling.checkout){window.StripeBilling.checkout(plan);return;}try{if(plan)sessionStorage.setItem('nbd_plan_intent',plan);}catch(_){}window.location.href='/pro/pricing.html';}});})();

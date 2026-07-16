@@ -4058,12 +4058,11 @@
             </div>
             <div class="flex-g8">
               <a href="/pro/pricing.html" class="btn btn-orange" style="font-size:11px;padding:8px 14px;text-decoration:none;">View All Plans</a>
-              <!-- Stripe customer-portal session opener (openCustomerPortalSession)
-                   isn't wired yet, so this used to call an undefined function and
-                   fall back to a toast that just told you to go to the pricing
-                   page. Now we link directly there. When the Stripe Cloud
-                   Function ships, swap this <a> for the proper opener. -->
-              <a href="/pro/pricing.html" class="btn btn-ghost" style="font-size:11px;padding:8px 14px;text-decoration:none;">Manage Subscription</a>
+              <!-- Opens a Stripe customer-portal session (card update / cancel /
+                   invoices) via createCustomerPortalSession. Delegate lives in
+                   js/dashboard-billing-tab.js (data-billing-action). Free-tier
+                   users with no subscription get routed to the pricing page. -->
+              <button data-billing-action="managePortal" class="btn btn-ghost" style="font-size:11px;padding:8px 14px;">Manage Subscription</button>
             </div>
           </div>
         </div>
