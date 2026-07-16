@@ -395,6 +395,53 @@ export function resolveColumn(stageKey, viewStages) {
 }
 
 /**
+ * partitionLeadsByColumn — split a lead list into the kanban's visible columns
+ * plus the leftover leads that have NO column to live in.
+ *
+ * A lead has no column when its OWN stage is flagged `hidden` (the Pipelines
+ * builder eye-toggle): buildKanbanColumns drops hidden stages from the view, so
+ * resolveColumn would otherwise fall through to viewStages[0] and silently
+ * rebucket the lead into the first column — mislabeling it, inflating that
+ * column's count/$ badges, and letting a drag re-stage it. We keep those leads
+ * OUT of the columns (stage field untouched) and return them in `hidden` so the
+ * board can surface them via a "N leads on hidden stages" chip instead of
+ * silently dropping them from the board's counts + $ totals. (#921 QA follow-up.)
+ *
+ * Pure + DOM-free. `stageMeta` / `normalize` / `resolve` are injected so the
+ * browser drives it with the live tenant config (window.STAGE_META etc.) while
+ * tests drive it with a resolved config — one code path, no drift between the
+ * board's bucketing and the chip's count.
+ *
+ * @param {Array} leads       the (already view-narrowed) leads to bucket
+ * @param {Array} viewStages  the visible column stage keys (hidden already removed)
+ * @param {Object} [opts]     { stageMeta, normalize, resolve } overrides
+ * @returns {{columns: Object, hidden: Array}}
+ */
+export function partitionLeadsByColumn(leads, viewStages, opts) {
+  opts = opts || {};
+  const meta    = opts.stageMeta || (typeof window !== 'undefined' && window.STAGE_META) || STAGE_META;
+  const norm    = opts.normalize || normalizeStage;
+  // Accept either `resolve` or `resolveColumn` for the injected resolver.
+  const resolve = opts.resolve || opts.resolveColumn || resolveColumn;
+  const stages  = Array.isArray(viewStages) ? viewStages : [];
+  const columns = {};
+  stages.forEach(k => { columns[k] = []; });
+  const hidden = [];
+  (leads || []).forEach(l => {
+    if (!l) return;
+    // Prefer the pre-stamped _stageKey (dashboard-bootstrap re-derives it when a
+    // custom config applies), else normalize the raw stage.
+    const sk = l._stageKey || norm(l.stage);
+    const hk = norm(sk);
+    if (meta[hk] && meta[hk].hidden) { hidden.push(l); return; }
+    const col = resolve(sk, stages);
+    if (columns[col]) columns[col].push(l);
+    else if (stages.length && columns[stages[0]]) columns[stages[0]].push(l);
+  });
+  return { columns, hidden };
+}
+
+/**
  * Get ordered stage options for a dropdown/select, given a job type.
  * Returns array of { value, label } objects.
  */

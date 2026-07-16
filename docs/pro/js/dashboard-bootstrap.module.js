@@ -19,7 +19,7 @@
   import {
     S, STAGE_META, LEGACY_MAP, KANBAN_VIEWS,
     VIEW_SIMPLE, VIEW_INSURANCE, VIEW_CASH, VIEW_FINANCE, VIEW_WARRANTY, VIEW_SERVICE, VIEW_JOBS,
-    normalizeStage, stageLabel, stageColor, resolveColumn,
+    normalizeStage, stageLabel, stageColor, resolveColumn, partitionLeadsByColumn,
     stageRole, isWonStage, isLostStage, ROLE, resolvePipelineConfig,
     stageOptionsForType, inferJobType, JOB_TYPES, JOB_TYPE_META, jobTypeLabel,
     SUB_TYPES, subTypeOptionsFor, subTypeLabel,
@@ -64,6 +64,9 @@
   window.stageLabel = stageLabel;
   window.stageColor = stageColor;
   window.resolveColumn = resolveColumn;
+  // Board bucketer — single source of truth for column assignment + the
+  // leftover leads on hidden stages (surfaced by the board's hidden-stage chip).
+  window.partitionLeadsByColumn = partitionLeadsByColumn;
   // Semantic-role helpers (freeform-pipeline foundation) — consumers classify a
   // lead by role (won/lost/active/job/new) instead of hardcoded stage-key lists.
   window.stageRole = stageRole;

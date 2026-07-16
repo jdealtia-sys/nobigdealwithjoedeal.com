@@ -554,15 +554,26 @@ section('Pipelines builder — drag-to-reorder stages');
       'expected the custom-stage meta literal to carry hidden: ov.hidden === true so custom stages can be hidden');
   }
   // ── Round-5 audit regression guards ──
-  // Hiding a stage removes its column; its leads must be DROPPED from the board,
-  // not rebucketed into the first column by resolveColumn's viewStages[0]
-  // fallback (which mislabels them, inflates that column's count/$ badges, and
-  // lets a drag re-stage them).
+  // Hiding a stage removes its column; its leads must NOT be rebucketed into the
+  // first column by resolveColumn's viewStages[0] fallback (which would mislabel
+  // them, inflate that column's count/$ badges, and let a drag re-stage them).
+  // Instead they're partitioned into a `hidden` bucket — single source of truth
+  // partitionLeadsByColumn, shared by the board, the chip, and the unit test —
+  // and surfaced on the board via the hidden-stage chip, so their count + $ stay
+  // visible instead of silently vanishing from the pipeline. (#921 QA follow-up.)
   {
+    const stagesSrc = read(path.join(ROOT, 'docs/pro/js/crm-stages.js'));
+    assert('partitionLeadsByColumn diverts hidden-stage leads to a `hidden` bucket (no rebucket into first column)',
+      /function partitionLeadsByColumn[\s\S]{0,1200}if \(meta\[hk\] && meta\[hk\]\.hidden\) \{ hidden\.push\(l\); return; \}/.test(stagesSrc),
+      'expected partitionLeadsByColumn to push a hidden-stage lead to `hidden` and return before resolve() rebuckets it');
     const pipe = read(path.join(ROOT, 'docs/pro/js/crm-pipeline.js'));
-    assert('renderLeads drops leads whose own stage is hidden (no rebucket into first column)',
-      /const _META = window\.STAGE_META \|\| \{\};[\s\S]{0,650}if \(_META\[_hk\] && _META\[_hk\]\.hidden\) return;/.test(pipe),
-      'expected renderLeads to skip a lead when META[normalize(stage)].hidden, before resolveColumn rebuckets it');
+    assert('renderLeads collects the hidden-stage leads from partitionLeadsByColumn',
+      /window\.partitionLeadsByColumn\(list, stageKeys[\s\S]{0,240}_hiddenStageLeads = _part\.hidden/.test(pipe),
+      'expected renderLeads to bucket via partitionLeadsByColumn and keep _part.hidden');
+    assert('renderLeads surfaces hidden-stage leads via the chip instead of silently dropping them',
+      /renderHiddenStageChip\(_hiddenStageLeads\)/.test(pipe)
+      && /function renderHiddenStageChip\(leads\)/.test(pipe),
+      'expected renderLeads to pass the hidden leads to renderHiddenStageChip');
   }
   // The kanban stage label is tenant-config text rendered into board.innerHTML —
   // escape it (defence-in-depth behind the prod CSP).

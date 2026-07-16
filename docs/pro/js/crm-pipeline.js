@@ -368,26 +368,41 @@ function renderLeads(leads, filtered){
   // Use stage keys if available (new system), fall back to legacy display names
   const stageKeys = window._stageKeys || null;
   const byStage = {};
+  // Leads whose OWN stage is hidden (builder eye-toggle) have no column to live
+  // in. partitionLeadsByColumn keeps them OUT of the columns (so they don't
+  // mislabel/inflate the first column) and hands them back here so the board's
+  // hidden-stage chip can surface them instead of silently dropping them from
+  // the counts + $ totals. Populated by the new-system branch below; stays
+  // empty on the legacy path (which has no hidden-stage concept). #921 follow-up.
+  let _hiddenStageLeads = [];
 
   if (stageKeys) {
-    // NEW SYSTEM: Use internal stage keys + resolveColumn for mapping
-    stageKeys.forEach(k => byStage[k] = []);
+    // NEW SYSTEM: Use internal stage keys + resolveColumn for mapping.
     const _resolve = window.resolveColumn;
     const _normalize = window.normalizeStage;
     const _META = window.STAGE_META || {};
-    list.forEach(l => {
-      const sk = l._stageKey || (_normalize ? _normalize(l.stage) : (l.stage || 'new'));
-      // If the lead's OWN stage is hidden (builder eye-toggle), it has no column
-      // to live in — drop it from the board. Otherwise resolveColumn falls
-      // through to viewStages[0] and silently rebuckets the lead into the first
-      // column, mislabeling it, inflating that column's count/$ badges, and
-      // letting a drag re-stage it. The stage field itself is untouched.
-      const _hk = _normalize ? _normalize(sk) : sk;
-      if (_META[_hk] && _META[_hk].hidden) return;
-      const col = _resolve ? _resolve(sk, stageKeys) : sk;
-      if (byStage[col]) byStage[col].push(l);
-      else if (byStage[stageKeys[0]]) byStage[stageKeys[0]].push(l);
-    });
+    // partitionLeadsByColumn (crm-stages.js) is the single source of truth for
+    // "which lead lands in which column, and which have no column at all". The
+    // board, the hidden-stage chip, and the unit test all share it so the
+    // bucketing, the $ totals, and the chip's count can never drift apart.
+    if (typeof window.partitionLeadsByColumn === 'function') {
+      const _part = window.partitionLeadsByColumn(list, stageKeys, {
+        stageMeta: _META, normalize: _normalize, resolve: _resolve,
+      });
+      Object.assign(byStage, _part.columns);
+      _hiddenStageLeads = _part.hidden;
+    } else {
+      // Fallback (crm-stages failed to load) — behaviour-identical inline loop.
+      stageKeys.forEach(k => byStage[k] = []);
+      list.forEach(l => {
+        const sk = l._stageKey || (_normalize ? _normalize(l.stage) : (l.stage || 'new'));
+        const _hk = _normalize ? _normalize(sk) : sk;
+        if (_META[_hk] && _META[_hk].hidden) { _hiddenStageLeads.push(l); return; }
+        const col = _resolve ? _resolve(sk, stageKeys) : sk;
+        if (byStage[col]) byStage[col].push(l);
+        else if (byStage[stageKeys[0]]) byStage[stageKeys[0]].push(l);
+      });
+    }
 
     // W93: optional sort within each column by engagement tier
     // descending. Toggled via the kanban header "🔥 Hot first"
@@ -537,6 +552,84 @@ function renderLeads(leads, filtered){
       body._dragHandlers = { over: overH, leave: leaveH, drop: dropH };
     });
   }
+
+  // Surface the leads that were kept off the board because their stage is
+  // hidden — otherwise their count + $ silently vanish from the pipeline.
+  renderHiddenStageChip(_hiddenStageLeads);
+}
+
+// ── Hidden-stage leads chip (board-level affordance) ──────────────
+// A company_admin can hide a built-in stage via the Pipelines builder
+// eye-toggle. Leads still sitting on that stage have no column, so
+// partitionLeadsByColumn keeps them off the board (see the render loop above).
+// Without an affordance they'd vanish from the board's counts + $ totals with
+// no trace — e.g. hiding "Negotiating" with 5 live leads worth $80k would drop
+// $80k off the visible pipeline. This chip restores that visibility: it shows
+// the count + $ and expands to a filtered list grouped by hidden stage, each
+// row deep-linking into the lead. The stage field is untouched and the leads
+// remain fully visible in List view. Rendered directly (with addEventListener
+// wiring, not inline on*= handlers) so it stays live under the prod CSP.
+function renderHiddenStageChip(leads) {
+  const wrap = document.getElementById('hiddenStageWrap');
+  if (!wrap) return;
+  if (!leads || !leads.length) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+
+  const META = window.STAGE_META || {};
+  const _norm = window.normalizeStage;
+  const sumVal = leads.reduce((s, l) => s + (Number(l && l.jobValue) || 0), 0);
+  const fmtMoney = (n) => n >= 1000000
+    ? '$' + (n / 1000000).toFixed(n >= 10000000 ? 0 : 1) + 'M'
+    : (n >= 1000 ? '$' + Math.round(n / 1000) + 'K' : '$' + n.toLocaleString());
+
+  // Group by the hidden stage so the expanded list reads "Negotiating · 5 …".
+  const byHidden = {};
+  leads.forEach(l => {
+    const sk = l._stageKey || (_norm ? _norm(l.stage) : (l.stage || 'new'));
+    const hk = _norm ? _norm(sk) : sk;
+    (byHidden[hk] = byHidden[hk] || []).push(l);
+  });
+
+  const n = leads.length;
+  const moneyBit = sumVal > 0 ? ' · ' + fmtMoney(sumVal) : '';
+  const chipLabel = '⚠️ ' + n + ' lead' + (n === 1 ? '' : 's') +
+    ' on hidden stage' + (n === 1 ? '' : 's') + moneyBit;
+
+  const rowsHtml = Object.keys(byHidden).map(hk => {
+    const label = (META[hk] && META[hk].label) || hk;
+    const grp = byHidden[hk];
+    const cards = grp.map(l => `
+        <div class="follow-up-alert">
+          <span class="fa-name">${escHtml(l.firstName || '')} ${escHtml(l.lastName || '')}</span>
+          <span style="color:var(--m);font-size:11px;">${escHtml(String(l.address || '').split(',')[0])}</span>
+          <button class="fa-btn nbd-hidden-edit" data-lead-id="${escHtml(l.id)}">View →</button>
+        </div>`).join('');
+    return `<div style="margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--m);margin:4px 0;">${escHtml(label)} · ${grp.length}</div>
+        ${cards}
+      </div>`;
+  }).join('');
+
+  wrap.style.display = 'block';
+  wrap.innerHTML = `
+    <button type="button" id="hiddenStageChip" title="These leads are on a stage you've hidden from the board. Their $ is excluded from the column totals. Click to view them." style="display:inline-flex;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--br);color:var(--t);padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">
+      <span>${escHtml(chipLabel)}</span>
+      <span class="hs-caret" style="color:var(--m);">▸</span>
+    </button>
+    <div id="hiddenStageList" style="display:none;margin-top:8px;">${rowsHtml}</div>`;
+
+  const chip = document.getElementById('hiddenStageChip');
+  const listEl = document.getElementById('hiddenStageList');
+  const caret = wrap.querySelector('.hs-caret');
+  if (chip && listEl) {
+    chip.addEventListener('click', () => {
+      const open = listEl.style.display !== 'none';
+      listEl.style.display = open ? 'none' : 'block';
+      if (caret) caret.textContent = open ? '▸' : '▾';
+    });
+  }
+  wrap.querySelectorAll('.nbd-hidden-edit').forEach(btn => {
+    btn.addEventListener('click', () => editLead(btn.dataset.leadId));
+  });
 }
 
 // W136: per-page localStorage cache of last-seen score per lead so
