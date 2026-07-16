@@ -1754,19 +1754,23 @@ section('L-03 cont.: Stripe handlers extracted to functions/stripe.js');
   }
 }
 
-section('M1 pilot: /admin/index.html drops unsafe-inline (script-src + style-src)');
+section('M1 pilot: /admin drops unsafe-inline (script-src + style-src)');
 {
   const fb = JSON.parse(read(path.join(ROOT, 'firebase.json')));
-  // Find the per-page CSP header for /admin/index.html. Hosting
-  // applies the most-specific source's header value; this entry
-  // overrides the global **/*.html CSP for this exact path.
+  // Find the per-page CSP header for the admin index. Keyed to the
+  // CANONICAL extensionless source: cleanUrls strips .html before
+  // header matching, so a '/admin/index.html' source never fires
+  // (re-keyed 2026-07-16). Header matching is last-match-wins per
+  // key, so this CSP-only rule coexists with the /admin
+  // cache/robots rule earlier in the array.
   const entry = (fb.hosting.headers || [])
-    .find(h => h.source === '/admin/index.html');
-  assert('M1: per-page CSP entry exists for /admin/index.html', !!entry);
+    .find(h => h.source === '/admin'
+      && (h.headers || []).some(x => x.key === 'Content-Security-Policy'));
+  assert('M1: per-page CSP entry exists for /admin', !!entry);
   if (entry) {
     const csp = (entry.headers || [])
       .find(h => h.key === 'Content-Security-Policy');
-    assert('M1: /admin/index.html has a Content-Security-Policy header', !!csp);
+    assert('M1: /admin has a Content-Security-Policy header', !!csp);
     if (csp) {
       // Parse out the directives so a future header reorder doesn't
       // false-pass the assertions.

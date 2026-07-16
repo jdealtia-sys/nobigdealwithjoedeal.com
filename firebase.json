@@ -202,79 +202,75 @@
         ]
       },
       {
-        "source": "/pro/login.html",
+        "_comment": "Private /pro APP pages (2026-07-16): robots.txt's old Disallow lines used the .html forms, which NEVER match under cleanUrls (the served canonical URL is extensionless, and RFC 9309 prefix-matching means 'Disallow: /pro/dashboard.html' does not cover '/pro/dashboard') — so the CRM app shells were crawlable AND indexable, polluting brand search results. Same fix rationale as /pro/blog above: X-Robots-Tag noindex is the authoritative signal, and the pages deliberately stay OUT of robots.txt so crawlers can SEE the noindex instead of leaving a URL-only listing. Enumerated (not /pro/**) because /pro, /pro/landing, /pro/pricing, /pro/how-to and /pro/terms are the public B2B pages in sitemap-pro.xml and must stay indexable.",
+        "source": "/pro/@(dashboard|dashboard.legacy|vault|codex|analytics|leaderboard|demo|diagnostic|daily-success|stripe-success|ask-joe|ai-tree|ai-tool-finder|project-codex|understand|customer|estimate-view|photo-review|portal|onboarding|refer|sign|login|register)",
         "headers": [
-          { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
         ]
       },
       {
-        "source": "/pro/register.html",
+        "source": "/pro/daily-success/**",
         "headers": [
-          { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }
+          { "key": "X-Robots-Tag", "value": "noindex, nofollow" }
         ]
       },
       {
-        "source": "/pro/stripe-success.html",
+        "_comment": "Per-page CSP tightening for auth/credential pages. Re-keyed 2026-07-16 from the dead .html sources (cleanUrls strips .html before header matching, so /pro/login.html NEVER matched and these pages silently rode the broad global CSP). Relative to the original 2026-05 drafts, login/register add the Sentry hosts (login.html + register.html load sentry-init.js, which injects the browser SDK from browser.sentry-cdn.com and reports to *.ingest.sentry.io) and register adds the reCAPTCHA v3 hosts (dashboard-appcheck-config.js App Check site key — SDK loads www.google.com/recaptcha + www.gstatic.com, frames www.google.com).",
+        "source": "/pro/login",
+        "headers": [
+          { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com https://browser.sentry-cdn.com https://*.sentry-cdn.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app https://*.ingest.sentry.io https://*.ingest.us.sentry.io; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }
+        ]
+      },
+      {
+        "source": "/pro/register",
+        "headers": [
+          { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com https://browser.sentry-cdn.com https://*.sentry-cdn.com https://www.google.com https://www.recaptcha.net; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com https://browser.sentry-cdn.com https://*.sentry-cdn.com https://www.google.com https://www.recaptcha.net; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://www.google.com https://www.recaptcha.net; frame-src https://*.firebaseapp.com https://www.google.com https://www.recaptcha.net; worker-src 'self' blob:;" }
+        ]
+      },
+      {
+        "source": "/pro/stripe-success",
         "headers": [
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com https://js.stripe.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com https://js.stripe.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net https://firebasestorage.googleapis.com https://*.firebasestorage.app https://api.stripe.com; frame-src https://js.stripe.com https://*.firebaseapp.com; worker-src 'self' blob:;" }
         ]
       },
       {
-        "source": "/pro/analytics.html",
+        "source": "/pro/leaderboard",
         "headers": [
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }
         ]
       },
       {
-        "source": "/pro/leaderboard.html",
-        "headers": [
-          { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com https://firebasestorage.googleapis.com https://*.firebasestorage.app; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }
-        ]
-      },
-      {
-        "source": "/pro/ask-joe.html",
+        "source": "/pro/ask-joe",
         "headers": [
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }
         ]
       },
       {
-        "source": "/pro/diagnostic.html",
+        "source": "/pro/diagnostic",
         "headers": [
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' https://www.gstatic.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com; worker-src 'self' blob:;" }
         ]
       },
       {
-        "source": "/pro/understand.html",
-        "headers": [
-          { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }
-        ]
-      },
-      {
-        "source": "/pro/ai-tree.html",
-        "headers": [
-          { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.googleusercontent.com https://*.gstatic.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.cloudfunctions.net; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }
-        ]
-      },
-      {
-        "source": "/admin/index.html",
+        "source": "/admin",
         "headers": [
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data:; font-src 'self'; style-src 'self'; script-src 'self' https://www.gstatic.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com; worker-src 'self' blob:;" }
         ]
       },
       {
-        "source": "/admin/login.html",
+        "source": "/admin/login",
         "headers": [
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: https://*.gstatic.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com; worker-src 'self' blob:;" }
         ]
       },
       {
-        "source": "/admin/analytics.html",
+        "source": "/admin/analytics",
         "headers": [
           { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; img-src 'self' data: blob: https://*.gstatic.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' https://www.gstatic.com https://apis.google.com; script-src-attr 'none'; script-src-elem 'self' https://www.gstatic.com https://apis.google.com; connect-src 'self' https://*.googleapis.com https://*.firebaseio.com; frame-src https://*.firebaseapp.com; worker-src 'self' blob:;" }
         ]
       },
       {
-        "_comment": "AI TOOLS iframe embedding — dashboard.html embeds these 4 pages as same-origin iframes (see <template id=\"tpl-view-aitree\">, etc. in dashboard.html). The global ** rule sets X-Frame-Options: DENY + CSP frame-ancestors 'none' which blocks ALL framing — every AI TOOLS tab in the dashboard renders as 'refused to display in a frame'. These per-route overrides relax framing to same-origin only (X-Frame-Options: SAMEORIGIN + frame-ancestors 'self') so the dashboard can embed them while still blocking cross-origin clickjacking. Canonical paths (no .html) — cleanUrls strips .html before header matching per the line-50 comment, so the dead /pro/{ai-tree,understand,analytics}.html rules above never fire.",
+        "_comment": "AI TOOLS iframe embedding — dashboard.html embeds these 4 pages as same-origin iframes (see <template id=\"tpl-view-aitree\">, etc. in dashboard.html). The global ** rule sets X-Frame-Options: DENY + CSP frame-ancestors 'none' which blocks ALL framing — every AI TOOLS tab in the dashboard renders as 'refused to display in a frame'. These per-route overrides relax framing to same-origin only (X-Frame-Options: SAMEORIGIN + frame-ancestors 'self') so the dashboard can embed them while still blocking cross-origin clickjacking. Canonical paths (no .html) — cleanUrls strips .html before header matching per the line-50 comment. (2026-07-16: the once-dead .html-keyed CSP rules were re-keyed to canonical paths or, for ai-tree/understand/analytics, deleted in favor of these framing rules.)",
         "source": "/pro/ai-tree",
         "headers": [
           { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
