@@ -12,13 +12,18 @@
  * Legacy pins have no companyId, so they fall back to owner-only — invisible to
  * the rest of the tenant. This backfills companyId onto them.
  *
- * Deriving a pin's companyId (no auth claims available in a script):
+ * Deriving a pin's companyId:
  *   1. If the pin links a lead (pin.leadId) and that lead has a companyId → use it
  *      (authoritative — the pin belongs to that lead's tenant).
  *   2. Else map the pin's userId → companyId via the leads book (every lead
  *      carries BOTH userId and companyId, enforced by the create rule), taking
- *      the most common companyId seen for that user.
- *   3. Else fall back to the pin's own userId (solo-operator convention —
+ *      the most common companyId seen for that user. Users whose leads span >1
+ *      company are ambiguous and skipped (see buildLeadMaps), not guessed.
+ *   3. Else read the owner's companyId custom claim via admin auth — catches a
+ *      genuine COMPANY rep who door-knocked but never created a lead. Without
+ *      this they'd fall to their uid (step 4) and their leadless pins would fail
+ *      the /pins sameCompanyAsResource() read rule, staying owner-only.
+ *   4. Else fall back to the pin's own userId (solo-operator convention —
  *      matches _savePin's `claims.companyId || uid`).
  *
  * SAFETY
@@ -103,6 +108,27 @@ async function main() {
   init();
   const db = admin.firestore();
 
+  // Resolve a user's authoritative tenant from their companyId custom claim
+  // (admin auth), cached. Mirrors _savePin's `claims.companyId || uid`: a company
+  // rep carries a companyId claim even with ZERO leads, so their leadless pins
+  // resolve to the real tenant instead of their uid. Returns null when there's no
+  // company claim (genuine solo operator) or the user is gone — caller falls back
+  // to uid in that case. Only hit for pins the lead book can't resolve, so this is
+  // a handful of getUser() calls, not one per pin.
+  const auth = admin.auth();
+  const claimCache = new Map();
+  async function claimCompanyFor(uid) {
+    if (!uid) return null;
+    if (claimCache.has(uid)) return claimCache.get(uid);
+    let cid = null;
+    try {
+      const u = await auth.getUser(uid);
+      if (u.customClaims && u.customClaims.companyId) cid = u.customClaims.companyId;
+    } catch (_) { /* user deleted / not found → treat as solo, fall back to uid */ }
+    claimCache.set(uid, cid);
+    return cid;
+  }
+
   console.log('═══════════════════════════════════════════════════════════');
   console.log('Backfill pins.companyId');
   console.log('  project : ' + PROJECT);
@@ -114,7 +140,7 @@ async function main() {
     + ambiguousUsers.size + ' multi-company (ambiguous) users\n');
 
   let scanned = 0, alreadyOk = 0, noUser = 0, toFix = 0, written = 0, failures = 0, ambiguous = 0;
-  const source = { lead: 0, user: 0, ownUid: 0 };
+  const source = { lead: 0, user: 0, claim: 0, ownUid: 0 };
 
   let batch = db.batch();
   let batchCount = 0;
@@ -155,7 +181,16 @@ async function main() {
       } else if (userToCompany.has(data.userId)) {
         companyId = userToCompany.get(data.userId); via = 'user';
       } else {
-        companyId = data.userId; via = 'ownUid'; // solo-operator convention
+        // No lead and no leads-book entry → a rep who door-knocked but never
+        // created a lead. Their companyId claim is the authoritative tenant (a
+        // company rep carries one even with zero leads); only a genuine solo
+        // operator has no claim, and for them uid IS the tenant key.
+        const claimCid = await claimCompanyFor(data.userId);
+        if (claimCid) {
+          companyId = claimCid; via = 'claim'; // company rep, no leads → real tenant
+        } else {
+          companyId = data.userId; via = 'ownUid'; // solo-operator convention
+        }
       }
       source[via]++;
 

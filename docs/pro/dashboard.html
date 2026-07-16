@@ -2044,6 +2044,13 @@
       <div id="followUpAlerts"></div>
     </div>
 
+    <!-- HIDDEN-STAGE LEADS CHIP — populated by renderHiddenStageChip() in
+         crm-pipeline.js. Shows leads sitting on a stage the admin hid from the
+         board (whose $ is excluded from the column totals) and expands to a
+         filtered list. Hidden by default; the renderer shows it only when there
+         are such leads. -->
+    <div id="hiddenStageWrap" style="display:none;padding:0 16px 8px;"></div>
+
     <!-- DIAGNOSTIC PANEL (shows when loadLeads fails) -->
     <div id="crmDiagnostic" style="display:none;margin:16px;padding:20px;background:var(--s2);border:2px solid var(--orange);border-radius:8px;">
       <div style="font-size:16px;font-weight:700;color:var(--orange);margin-bottom:12px;">⚠️ CRM Diagnostic</div>

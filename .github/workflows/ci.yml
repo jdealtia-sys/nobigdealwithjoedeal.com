@@ -98,6 +98,12 @@ jobs:
       - name: Run server stage-roles tests
         run: node tests/stage-roles.test.js
 
+      # Hidden-stage bucketing (#921 QA follow-up): leads whose stage is
+      # eye-toggled off must land in partitionLeadsByColumn's `hidden` bucket
+      # (surfaced via the board chip), never rebucketed into column 1.
+      - name: Run hidden-stage bucketing tests
+        run: node tests/hidden-stage-bucketing.test.js
+
   site-integrity:
     name: Site integrity
     runs-on: ubuntu-latest

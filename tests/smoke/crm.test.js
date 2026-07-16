@@ -479,9 +479,10 @@ section('backfill — leads.stageRole one-off (freeform-pipeline classification)
       /APPLY && !YES/.test(bf) && /--apply --yes/.test(bf));
     assert('pins backfill is idempotent (skips pins with a companyId)',
       /if \(data\.companyId\) \{ alreadyOk\+\+; continue; \}/.test(bf));
-    assert('pins backfill derives companyId: linked lead → user map → own uid',
+    assert('pins backfill derives companyId: linked lead → user map → company claim → own uid',
       /byLead\.has\(data\.leadId\)/.test(bf)
       && /userToCompany\.has\(data\.userId\)/.test(bf)
+      && /companyId = claimCid; via = 'claim'/.test(bf)
       && /companyId = data\.userId; via = 'ownUid'/.test(bf));
   }
 }
@@ -554,15 +555,26 @@ section('Pipelines builder — drag-to-reorder stages');
       'expected the custom-stage meta literal to carry hidden: ov.hidden === true so custom stages can be hidden');
   }
   // ── Round-5 audit regression guards ──
-  // Hiding a stage removes its column; its leads must be DROPPED from the board,
-  // not rebucketed into the first column by resolveColumn's viewStages[0]
-  // fallback (which mislabels them, inflates that column's count/$ badges, and
-  // lets a drag re-stage them).
+  // Hiding a stage removes its column; its leads must NOT be rebucketed into the
+  // first column by resolveColumn's viewStages[0] fallback (which would mislabel
+  // them, inflate that column's count/$ badges, and let a drag re-stage them).
+  // Instead they're partitioned into a `hidden` bucket — single source of truth
+  // partitionLeadsByColumn, shared by the board, the chip, and the unit test —
+  // and surfaced on the board via the hidden-stage chip, so their count + $ stay
+  // visible instead of silently vanishing from the pipeline. (#921 QA follow-up.)
   {
+    const stagesSrc = read(path.join(ROOT, 'docs/pro/js/crm-stages.js'));
+    assert('partitionLeadsByColumn diverts hidden-stage leads to a `hidden` bucket (no rebucket into first column)',
+      /function partitionLeadsByColumn[\s\S]{0,1200}if \(meta\[hk\] && meta\[hk\]\.hidden\) \{ hidden\.push\(l\); return; \}/.test(stagesSrc),
+      'expected partitionLeadsByColumn to push a hidden-stage lead to `hidden` and return before resolve() rebuckets it');
     const pipe = read(path.join(ROOT, 'docs/pro/js/crm-pipeline.js'));
-    assert('renderLeads drops leads whose own stage is hidden (no rebucket into first column)',
-      /const _META = window\.STAGE_META \|\| \{\};[\s\S]{0,650}if \(_META\[_hk\] && _META\[_hk\]\.hidden\) return;/.test(pipe),
-      'expected renderLeads to skip a lead when META[normalize(stage)].hidden, before resolveColumn rebuckets it');
+    assert('renderLeads collects the hidden-stage leads from partitionLeadsByColumn',
+      /window\.partitionLeadsByColumn\(list, stageKeys[\s\S]{0,240}_hiddenStageLeads = _part\.hidden/.test(pipe),
+      'expected renderLeads to bucket via partitionLeadsByColumn and keep _part.hidden');
+    assert('renderLeads surfaces hidden-stage leads via the chip instead of silently dropping them',
+      /renderHiddenStageChip\(_hiddenStageLeads\)/.test(pipe)
+      && /function renderHiddenStageChip\(leads\)/.test(pipe),
+      'expected renderLeads to pass the hidden leads to renderHiddenStageChip');
   }
   // The kanban stage label is tenant-config text rendered into board.innerHTML —
   // escape it (defence-in-depth behind the prod CSP).
@@ -585,6 +597,16 @@ section('Pipelines builder — drag-to-reorder stages');
     && /} else if \(ambiguousUsers\.has\(data\.userId\)\) \{/.test(pinsBf) // skip branch before the user-map guess
     && /ambiguous\+\+;/.test(pinsBf),
     'expected leadless pins of multi-company users to be skipped, not guessed');
+  // A company rep who door-knocked but never created a lead is absent from the
+  // leads-book maps, so the ownUid fallback would mis-stamp companyId = uid and
+  // their leadless pins would fail the /pins sameCompanyAsResource() read rule
+  // (invisible to the team). Resolve their real tenant from the companyId custom
+  // claim (admin auth) before falling back to uid.
+  assert('pins backfill resolves a leadless company rep via their companyId claim before the uid fallback',
+    /const claimCid = await claimCompanyFor\(data\.userId\)/.test(pinsBf)  // claim lookup in the else branch
+    && /u\.customClaims && u\.customClaims\.companyId/.test(pinsBf)         // reads the companyId claim via admin auth
+    && /if \(claimCid\) \{[\s\S]{0,120}via = 'claim'/.test(pinsBf),        // uses the claim before ownUid
+    'expected a leadless company rep\'s pins to be stamped with their claim companyId, not their uid');
 }
 
 section('Review engine — role-aware nudges, tenant-safe copy, Settings-sourced link');
