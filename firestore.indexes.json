@@ -1,6 +1,15 @@
 {
   "indexes": [
     {
+      "collectionGroup": "subscriptions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status",        "order": "ASCENDING" },
+        { "fieldPath": "lapseEnforced", "order": "ASCENDING" },
+        { "fieldPath": "cancelledAt",   "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "leads",
       "queryScope": "COLLECTION",
       "fields": [

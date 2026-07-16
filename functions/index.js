@@ -449,6 +449,18 @@ const anniversaryTouch = require('./anniversary-touch');
 exports.anniversaryAutoTouch = anniversaryTouch.anniversaryAutoTouch;
 
 // ═══════════════════════════════════════════════════════════════
+// LAPSE ENFORCEMENT — grace period → reversible seat pause
+// ═══════════════════════════════════════════════════════════════
+// Gauntlet batch 2 (2026-07-16): a cancelled subscription keeps the
+// whole team working for LAPSE_GRACE_DAYS, then this daily cron pauses
+// non-owner seats (Auth disabled + tokens revoked, member docs flagged
+// deactivatedReason:'lapse'). Reactivation via a fresh checkout
+// auto-restores exactly those seats (stripe.js webhook). Never deletes
+// anything; the owner and all tenant data are untouched.
+const lapseEnforcement = require('./lapse-enforcement');
+exports.enforceLapsedSeats = lapseEnforcement.enforceLapsedSeats;
+
+// ═══════════════════════════════════════════════════════════════
 // REVIEW REQUEST NUDGE — daily post-win review-ask sweep
 // ═══════════════════════════════════════════════════════════════
 //
