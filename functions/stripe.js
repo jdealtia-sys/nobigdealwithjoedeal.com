@@ -62,6 +62,13 @@ async function mergeCustomClaims(uid, patch) {
 // Secret Manager entry — no duplication at runtime.
 const STRIPE_SECRET_KEY         = defineSecret('STRIPE_SECRET_KEY');
 const STRIPE_WEBHOOK_SECRET     = defineSecret('STRIPE_WEBHOOK_SECRET');
+// Stripe issues a DISTINCT signing secret per webhook endpoint, but both
+// endpoints used to verify against the single STRIPE_WEBHOOK_SECRET — so the
+// moment that secret was set to the subscription endpoint's whsec, every
+// invoiceWebhook delivery would fail verification forever. invoiceWebhook now
+// prefers this dedicated secret and falls back to the legacy shared one while
+// the value is still the PENDING-ROTATION placeholder (2026-07-16).
+const STRIPE_INVOICE_WEBHOOK_SECRET = defineSecret('STRIPE_INVOICE_WEBHOOK_SECRET');
 const STRIPE_PRICE_FOUNDATION   = defineSecret('STRIPE_PRICE_FOUNDATION');
 const STRIPE_PRICE_PROFESSIONAL = defineSecret('STRIPE_PRICE_PROFESSIONAL');
 
@@ -106,6 +113,12 @@ exports.createCheckoutSession = onRequest(
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY, STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL],
     enforceAppCheck: true,
+    // Explicit public ingress: browser fetch calls this directly. Declared in
+    // code so a redeploy can never drop the allUsers run.invoker binding again
+    // (2026-07-16: stripewebhook/getsubscriptionstatus/createcustomerportalsession
+    // shipped with EMPTY invoker IAM and 403'd every request pre-handler).
+    // Auth stays enforced in-code (requireAuth / Stripe signatures).
+    invoker: 'public',
     // R-05 sizing: conversion funnel spike — if 10k trial users are
     // prompted to subscribe at once (email campaign, end-of-trial
     // cron), the checkout click-through rate of 5-10% still maps to
@@ -157,10 +170,19 @@ exports.createCheckoutSession = onRequest(
 
       // Get price ID based on plan
       // Maps both old and new plan names to Stripe Price IDs.
-      // STRIPE_PRICE_FOUNDATION = Starter ($99), STRIPE_PRICE_PROFESSIONAL = Growth ($249)
+      // STRIPE_PRICE_FOUNDATION = Starter ($99/mo), STRIPE_PRICE_PROFESSIONAL =
+      // Growth ($299/mo — the price sold on /pro/pricing and in the Terms table;
+      // the Stripe price object is the charged truth, keep them in sync).
       const priceId = (normalizedPlan === 'starter')
         ? STRIPE_PRICE_FOUNDATION.value()
         : STRIPE_PRICE_PROFESSIONAL.value();
+
+      // Billing is keyed to the COMPANY, not the purchaser (locked decision:
+      // subscriptions/{companyId}). For solo owners companyId == uid; for a
+      // company_admin buying on the owner's behalf this keeps the entitlement
+      // on the company doc that nbd-auth/billing-gate/trackUsage actually read,
+      // instead of stranding it under the admin's own uid.
+      const billingKey = decoded.companyId || decoded.uid;
 
       // Initialize Stripe
       const stripe = getStripe();
@@ -177,13 +199,16 @@ exports.createCheckoutSession = onRequest(
         ],
         success_url: `https://nobigdealwithjoedeal.com/pro/stripe-success.html?session_id={CHECKOUT_SESSION_ID}&plan=${normalizedPlan}`,
         cancel_url: 'https://nobigdealwithjoedeal.com/pro/pricing.html?cancelled=true',
-        client_reference_id: decoded.uid,
+        client_reference_id: billingKey,
         customer_email: decoded.email,
         metadata: {
           firebaseUid: decoded.uid,
+          companyId: billingKey,
           plan: normalizedPlan,
         },
-        // 14-day trial on Growth tier — no card required upfront
+        // 14-day trial on Growth tier. Hosted Checkout still collects a card
+        // up front (payment_method_collection defaults to 'always'); the
+        // pricing page copy was reworded 2026-07-04 to match.
         ...(normalizedPlan === 'growth' ? {
           subscription_data: { trial_period_days: 14 }
         } : {}),
@@ -207,6 +232,12 @@ exports.createCheckoutSession = onRequest(
 exports.stripeWebhook = onRequest(
   {
     cors: false, // Webhook should not use CORS
+    // Stripe's servers call this unauthenticated — public ingress is
+    // REQUIRED. Declared in code because this service shipped with an
+    // empty invoker IAM policy (2026-07-16): every Stripe delivery
+    // 403'd at Google's front door and no subscription was ever
+    // activated. Security = signature verification below, not IAM.
+    invoker: 'public',
     // F-08: price secrets are read inside the handler to map
     // Stripe Price IDs to our plan tier. Must be declared here
     // so .value() resolves at runtime.
@@ -289,8 +320,12 @@ exports.stripeWebhook = onRequest(
       // PLAN TIER EXTRACTION HELPER
       // Maps Stripe Price IDs to NBD plan tiers. The IDs
       // are set as Firebase secrets. Unknown prices fall
-      // back to 'starter'. Enterprise is handled via
-      // Stripe metadata since it's custom-priced.
+      // back to 'starter'. NOTE: Enterprise has NO Stripe
+      // path at all — custom-priced deals are granted by a
+      // manual admin write of subscriptions/{companyId}
+      // (plan:'enterprise') + claims; nothing here can mint
+      // an enterprise plan (metadata allowlist below is
+      // starter/growth only).
       // Hoisted out of the switch (was previously inline in
       // customer.subscription.updated only — see F-08) so
       // checkout.session.completed can apply the same
@@ -327,12 +362,21 @@ exports.stripeWebhook = onRequest(
           // never happen for a real checkout session, but better than
           // silently downgrading a paying customer to 'starter').
           let plan = 'starter';
+          // Real Stripe status, not an 'active' literal: a Growth checkout
+          // starts a 14-day trial, so the true status is 'trialing' until the
+          // first charge. Both count as paid everywhere (nbd-auth treats
+          // active+trialing identically); writing the truth keeps the client
+          // badge honest and spares a confusing flip on the first
+          // subscription.updated event. Unknown/failed lookup → 'active'
+          // (errs in the customer's favor).
+          let subStatus = 'active';
           try {
             if (session.subscription) {
               const sub = await stripe.subscriptions.retrieve(session.subscription, {
                 expand: ['items.data.price']
               });
               const priceId = sub.items?.data?.[0]?.price?.id || '';
+              if (sub.status === 'trialing' || sub.status === 'active') subStatus = sub.status;
               if (PRICE_TO_PLAN[priceId]) {
                 plan = PRICE_TO_PLAN[priceId];
               } else {
@@ -353,7 +397,7 @@ exports.stripeWebhook = onRequest(
 
           const subData = {
             plan,
-            status: 'active',
+            status: subStatus,
             stripeSessionId: session.id,
             stripeCustomerId: customerId,
             stripeSubscriptionId: session.subscription || null,
@@ -373,7 +417,7 @@ exports.stripeWebhook = onRequest(
           try {
             await mergeCustomClaims(uid, {
               plan,
-              subscriptionStatus: 'active',
+              subscriptionStatus: subStatus,
               stripeCustomerId: customerId
             });
             logger.info('custom_claims_set', { uid, plan });
@@ -618,6 +662,7 @@ exports.createCustomerPortalSession = onRequest(
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY],
     enforceAppCheck: true,
+    invoker: 'public', // see createCheckoutSession — auth enforced in-code
     maxInstances: 20,
     concurrency: 40,
     timeoutSeconds: 30,
@@ -636,10 +681,14 @@ exports.createCustomerPortalSession = onRequest(
 
     try {
       const db = getFirestore();
-      const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
+      // Billing docs live at subscriptions/{companyId} (== owner uid for solo
+      // operators). Resolve via the companyId claim so company admins can
+      // reach the portal for their company's subscription.
+      const billingKey = decoded.companyId || decoded.uid;
+      const subscriptionSnap = await db.doc(`subscriptions/${billingKey}`).get();
 
       if (!subscriptionSnap.exists) {
-        res.status(404).json({ error: 'No subscription found for this user' });
+        res.status(404).json({ error: 'No subscription found for this company' });
         return;
       }
 
@@ -654,7 +703,9 @@ exports.createCustomerPortalSession = onRequest(
 
       const portalSession = await stripe.billingPortal.sessions.create({
         customer: customerId,
-        return_url: 'https://nobigdealwithjoedeal.com/pro/settings',
+        // /pro/settings does not exist (Settings is a view inside the
+        // dashboard) — it 404'd every portal return. Land on the dashboard.
+        return_url: 'https://nobigdealwithjoedeal.com/pro/dashboard',
       });
 
       logger.info('billing_portal_session_created', { uid: decoded.uid });
@@ -676,6 +727,7 @@ exports.getSubscriptionStatus = onRequest(
   {
     cors: CORS_ORIGINS,
     enforceAppCheck: true,
+    invoker: 'public', // see createCheckoutSession — auth enforced in-code
     // R-05 sizing: called on every pro-surface page load (the NBDAuth
     // init path at docs/pro/js/nbd-auth.js fetches the subscription
     // doc directly via Firestore, but this function is the server-
@@ -703,7 +755,10 @@ exports.getSubscriptionStatus = onRequest(
 
     try {
       const db = getFirestore();
-      const subscriptionSnap = await db.doc(`subscriptions/${decoded.uid}`).get();
+      // Same companyId-first resolution as the portal: a team member's
+      // entitlement comes from their COMPANY's subscription doc.
+      const billingKey = decoded.companyId || decoded.uid;
+      const subscriptionSnap = await db.doc(`subscriptions/${billingKey}`).get();
 
       if (!subscriptionSnap.exists) {
         res.json({ status: 'none', plan: null });
@@ -734,6 +789,7 @@ exports.createStripePaymentLink = onRequest(
     cors: CORS_ORIGINS,
     secrets: [STRIPE_SECRET_KEY],
     enforceAppCheck: true,
+    invoker: 'public', // see createCheckoutSession — auth enforced in-code
     maxInstances: 20,
     concurrency: 40,
     timeoutSeconds: 30,
@@ -896,7 +952,8 @@ exports.createStripePaymentLink = onRequest(
 exports.invoiceWebhook = onRequest(
   {
     cors: false, // Webhook should not use CORS
-    secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET],
+    invoker: 'public', // Stripe calls unauthenticated — see stripeWebhook
+    secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_INVOICE_WEBHOOK_SECRET],
     // R-05 sizing: payment_intent.succeeded fanout on bulk billing
     // days. 10 is a reasonable ceiling now that we've grown;
     // mirrors stripeWebhook's headroom without over-provisioning.
@@ -930,17 +987,28 @@ exports.invoiceWebhook = onRequest(
         return;
       }
 
-      // Verify Stripe signature with explicit replay tolerance.
-      let event;
-      try {
-        event = stripe.webhooks.constructEvent(
-          req.rawBody,
-          signature,
-          STRIPE_WEBHOOK_SECRET.value(),
-          300
-        );
-      } catch (err) {
-        logger.error('invoiceWebhook signature verification failed', { err: err.message });
+      // Verify Stripe signature with explicit replay tolerance. Prefer the
+      // endpoint's OWN signing secret; fall back to the legacy shared secret
+      // so deliveries keep verifying during the rotation window (the
+      // dedicated secret starts life as a PENDING-ROTATION placeholder).
+      const candidates = [];
+      const dedicated = String(STRIPE_INVOICE_WEBHOOK_SECRET.value() || '').trim();
+      if (dedicated && dedicated.startsWith('whsec_')) candidates.push(dedicated);
+      const legacy = String(STRIPE_WEBHOOK_SECRET.value() || '').trim();
+      if (legacy) candidates.push(legacy);
+
+      let event = null;
+      let lastErr = null;
+      for (const secret of candidates) {
+        try {
+          event = stripe.webhooks.constructEvent(req.rawBody, signature, secret, 300);
+          break;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+      if (!event) {
+        logger.error('invoiceWebhook signature verification failed', { err: lastErr && lastErr.message });
         res.status(400).json({ error: 'Invalid signature' });
         return;
       }

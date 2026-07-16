@@ -96,3 +96,42 @@
       } else {
         _nbdInstallBillingHook();
       }
+
+      // ── Stripe customer portal opener ──
+      // Delegate for the billing tab's "Manage Subscription" button
+      // (data-billing-action="managePortal" in dashboard.html). Creates a
+      // portal session server-side (createCustomerPortalSession resolves the
+      // subscription by companyId claim) and redirects; a 404 means no paid
+      // subscription — route those users to the pricing page instead.
+      // Guarded so template re-hydration can't double-install the listener.
+      async function openCustomerPortalSession(btn) {
+        var user = window._user || (window.auth && window.auth.currentUser);
+        if (!user || typeof user.getIdToken !== 'function') {
+          if (typeof showToast === 'function') showToast('Sign in again to manage billing', 'error');
+          return;
+        }
+        var origText = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'Opening…'; }
+        try {
+          var token = await user.getIdToken();
+          var res = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/createCustomerPortalSession', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          });
+          if (res.status === 404) { window.location.href = '/pro/pricing.html'; return; }
+          var data = await res.json().catch(function () { return {}; });
+          if (res.ok && data.url) { window.location.href = data.url; return; }
+          throw new Error(data.error || ('HTTP ' + res.status));
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Could not open billing portal: ' + e.message, 'error');
+        } finally {
+          if (btn) { btn.disabled = false; btn.textContent = origText; }
+        }
+      }
+      if (!window._NBD_BILLING_PORTAL_DELEGATE) {
+        window._NBD_BILLING_PORTAL_DELEGATE = true;
+        document.addEventListener('click', function (ev) {
+          var t = ev.target.closest && ev.target.closest('[data-billing-action="managePortal"]');
+          if (t) openCustomerPortalSession(t);
+        });
+      }

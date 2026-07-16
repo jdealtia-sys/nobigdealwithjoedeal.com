@@ -282,8 +282,14 @@ section('H-6: Stripe webhook raw body + replay');
     // robust form: look for both the guard and the explicit tolerance
     (/!Buffer\.isBuffer\(req\.rawBody\)/.test(src) &&
      /constructEvent\(req\.rawBody,\s*sig,\s*webhookSecret,\s*300\)/.test(src)));
+  // invoiceWebhook verifies against its OWN endpoint secret first (Stripe
+  // issues a distinct whsec per endpoint), falling back to the legacy shared
+  // secret during rotation — still with the explicit 300s tolerance.
   assert('invoiceWebhook passes explicit 300s tolerance',
-    /constructEvent\(\s*req\.rawBody,\s*signature,\s*STRIPE_WEBHOOK_SECRET\.value\(\),\s*300\s*\)/.test(src));
+    /constructEvent\(req\.rawBody,\s*signature,\s*secret,\s*300\)/.test(src));
+  assert('invoiceWebhook prefers its dedicated endpoint secret with legacy fallback',
+    /STRIPE_INVOICE_WEBHOOK_SECRET\.value\(\)[\s\S]{0,120}startsWith\('whsec_'\)/.test(src)
+    && /STRIPE_WEBHOOK_SECRET\.value\(\)[\s\S]{0,80}candidates\.push\(legacy\)/.test(src));
 
   // Shared Stripe client: one trimmed, retrying instance for all handlers.
   // A trailing newline in the stored secret key caused ERR_INVALID_CHAR →
@@ -898,7 +904,9 @@ section('F-08: Stripe plan derived from price id, not metadata');
   assert('F-08: price.metadata.plan no longer trusted for tier',
     !/plan = subscription\.items\.data\[0\]\.price\.metadata\.plan/.test(src));
   assert('F-08: stripeWebhook declares price secrets',
-    /stripeWebhook[\s\S]{0,400}secrets:[\s\S]{0,200}STRIPE_PRICE_FOUNDATION[\s\S]{0,100}STRIPE_PRICE_PROFESSIONAL/.test(src));
+    // window widened 400→900 (2026-07-16): the invoker:'public' option +
+    // its incident comment now sit between the export and the secrets array.
+    /stripeWebhook[\s\S]{0,900}secrets:[\s\S]{0,200}STRIPE_PRICE_FOUNDATION[\s\S]{0,100}STRIPE_PRICE_PROFESSIONAL/.test(src));
 }
 
 section('F-10: deploy workflow fails loudly on rules/functions errors');

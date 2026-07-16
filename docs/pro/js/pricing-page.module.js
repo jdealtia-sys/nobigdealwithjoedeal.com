@@ -17,6 +17,19 @@ const app = initializeApp({
 const auth = getAuth(app);
 await connectEmulatorsIfLocal({ auth }); // Audit #3: localhost-only, no-op in prod
 
+// Stripe Checkout's cancel_url lands here with ?cancelled=true — acknowledge
+// it so the user knows nothing was charged (previously the flag was ignored
+// and the page rendered as if they'd never left).
+if (new URLSearchParams(location.search).get('cancelled') === 'true') {
+  const note = document.createElement('div');
+  note.setAttribute('role', 'status');
+  note.style.cssText = 'position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:9999;background:#1e3a6e;color:#fff;border:1px solid #e8720c;border-radius:8px;padding:10px 18px;font-size:13px;box-shadow:0 4px 16px rgba(0,0,0,.35);';
+  note.textContent = 'Checkout cancelled — you have not been charged.';
+  document.body.appendChild(note);
+  setTimeout(() => note.remove(), 6000);
+  history.replaceState(null, '', location.pathname); // don't re-toast on reload
+}
+
 window.subscribe = async function(plan, evt) {
   // Resolve the button from the explicit event arg (preferred) with a fallback
   // to window.event for legacy onclick calls. Never rely on the undeclared
