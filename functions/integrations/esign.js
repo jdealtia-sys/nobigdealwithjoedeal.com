@@ -305,10 +305,13 @@ function safeEqual(a, b) {
 // estimate.stripeInvoiceId is already set.
 // ═════════════════════════════════════════════════════════════
 async function createStripeInvoiceForEstimate(estRef) {
-  const stripeKey = process.env.STRIPE_SECRET_KEY
+  const rawKey = process.env.STRIPE_SECRET_KEY
     || (require('firebase-functions/params').defineSecret('STRIPE_SECRET_KEY').value
         ? require('firebase-functions/params').defineSecret('STRIPE_SECRET_KEY').value()
         : null);
+  // Trim mirrors functions/stripe.js getStripe() (#774): a trailing newline in
+  // the Secret Manager value throws ERR_INVALID_CHAR inside the Stripe SDK.
+  const stripeKey = String(rawKey == null ? '' : rawKey).trim();
   if (!stripeKey) {
     logger.info('auto-invoice: STRIPE_SECRET_KEY not available in this function context');
     return;
