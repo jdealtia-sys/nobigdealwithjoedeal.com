@@ -156,6 +156,90 @@ console.log('\nMembers roster rules — same-company claim read');
     !/request\.auth\.uid == memberId/.test(rulesCode));
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// BATCH 2 (2026-07-16 product decisions): enforced caps + nudges,
+// lapse grace → reversible seat pause, 30-day invite expiry.
+// ═══════════════════════════════════════════════════════════════════
+
+console.log('\nInvite expiry — 30-day TTL (real import)');
+{
+  const { _test } = require(path.join(ROOT, 'functions/handlers/invites.js'));
+  assert('INVITE_TTL_DAYS is 30', _test.INVITE_TTL_DAYS === 30);
+  const day = 24 * 3600 * 1000;
+  const now = Date.now();
+  const inv = (ageDays, status = 'invited') => ({ status, invitedAt: { toMillis: () => now - ageDays * day } });
+  assert('fresh invite valid', _test.isInviteExpired(inv(1), now) === false);
+  assert('29-day invite still valid', _test.isInviteExpired(inv(29), now) === false);
+  assert('31-day invite expired', _test.isInviteExpired(inv(31), now) === true);
+  assert('active member never expires', _test.isInviteExpired(inv(90, 'active'), now) === false);
+  assert('legacy invite without invitedAt never expires',
+    _test.isInviteExpired({ status: 'invited' }, now) === false);
+  const src = read('functions/handlers/invites.js');
+  assert('claimInvite returns terminal invite_expired reason',
+    /isInviteExpired\(memberData\)[\s\S]{0,120}reason: 'invite_expired'/.test(src));
+  assert('expired invites stop consuming a seat',
+    /md\.status === 'invited'\) return !isInviteExpired\(md\)/.test(src));
+}
+
+console.log('\nLapse lifecycle — grace, pause, reactivation');
+{
+  const { _test } = require(path.join(ROOT, 'functions/lapse-enforcement.js'));
+  assert('LAPSE_GRACE_DAYS is 14', _test.LAPSE_GRACE_DAYS === 14);
+  const src = read('functions/lapse-enforcement.js');
+  assert('cron scans cancelled + unenforced + past-grace subscriptions',
+    /where\('status', '==', 'cancelled'\)[\s\S]{0,120}where\('lapseEnforced', '==', false\)[\s\S]{0,120}where\('cancelledAt', '<=', cutoff\)/.test(src));
+  assert('pause disables Auth + revokes tokens + flags deactivatedReason lapse',
+    /disabled: true[\s\S]{0,300}revokeRefreshTokens[\s\S]{0,600}deactivatedReason: 'lapse'/.test(src));
+  assert('pause only touches ACTIVE member docs (owner has no member doc)',
+    /\.status === 'active'\)/.test(src));
+  assert('reactivation restores ONLY lapse-paused members',
+    /where\('deactivatedReason', '==', 'lapse'\)/.test(src));
+  const stripe = read('functions/stripe.js');
+  assert('subscription.deleted stamps cancelledAt + lapseEnforced:false',
+    /status: 'cancelled',[\s\S]{0,400}cancelledAt: FieldValue\.serverTimestamp\(\),\s*lapseEnforced: false/.test(stripe));
+  assert('checkout reactivates lapse-paused seats + clears lapse state',
+    /reactivateLapsedSeats\(db, uid\)/.test(stripe)
+    && /cancelledAt: FieldValue\.delete\(\)/.test(stripe));
+  const idx = read('firestore.indexes.json');
+  assert('composite index for the lapse-cron query exists',
+    /"subscriptions"[\s\S]{0,300}"status"[\s\S]{0,120}"lapseEnforced"[\s\S]{0,120}"cancelledAt"/.test(idx),
+    'equality+equality+range needs a composite or the cron silently FAILED_PRECONDITIONs');
+  const fnIdx = read('functions/index.js');
+  assert('enforceLapsedSeats exported from functions/index.js',
+    /exports\.enforceLapsedSeats = lapseEnforcement\.enforceLapsedSeats/.test(fnIdx));
+}
+
+console.log('\nUsage caps — enforced with nudges (metering wired)');
+{
+  const { _test } = require(path.join(ROOT, 'functions/billing.js'));
+  assert('free plan caps 10 leads/mo (server truth)', _test.PLAN_LIMITS.free.leads === 10);
+  const billing = read('functions/billing.js');
+  assert('trackUsage rolls the cycle when the month changes (free tenants have no invoices)',
+    /cycleMonth !== nowMonth/.test(billing) && /rolled/.test(billing));
+  assert('rollover zeroes every metered feature explicitly (merge:true merges map fields)',
+    /resetZeros/.test(billing) && /ALLOWED_FEATURES\]\.map\(\(f\) => \[f, 0\]\)/.test(billing));
+  const gate = read('docs/pro/js/billing-gate.js');
+  assert('enforceGate exists and blocks at the cap',
+    /function enforceGate\(feature, featureLabel\)/.test(gate)
+    && /if \(!canUse\(feature\)\) \{[\s\S]{0,200}return false/.test(gate));
+  assert('enforceGate fails open before plan load + for owners',
+    /function enforceGate[\s\S]{0,200}if \(!_loaded\) return true;[\s\S]{0,80}_isOwner\(\)\) return true/.test(gate));
+  assert('enforceGate exported on NBDBilling', /enforceGate,/.test(gate));
+  const boot = read('docs/pro/js/dashboard-bootstrap.module.js');
+  assert('_saveLead gates new leads through enforceGate',
+    /NBDBilling\.enforceGate === 'function'[\s\S]{0,120}enforceGate\('leads', 'leads'\)/.test(boot));
+  assert('both create branches meter via trackUsage',
+    (boot.match(/NBDBilling\.trackUsage\('leads'\)/g) || []).length >= 2,
+    'geocoded AND no-address fallback paths must both count');
+  assert('lapse banner renders for cancelled subscriptions',
+    /lapseBanner/.test(boot) && /lapseEnforced === true/.test(boot));
+  assert("invite_expired is non-terminal in the claim check",
+    /out\.reason === 'invite_expired'/.test(boot));
+  const tab = read('docs/pro/js/dashboard-team-tab.js');
+  assert('roster shows expired-invite state (30d mirror)',
+    /inviteExpired/.test(tab) && /30 \* 24 \* 3600 \* 1000/.test(tab));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }
