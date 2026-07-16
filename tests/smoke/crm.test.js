@@ -479,9 +479,10 @@ section('backfill — leads.stageRole one-off (freeform-pipeline classification)
       /APPLY && !YES/.test(bf) && /--apply --yes/.test(bf));
     assert('pins backfill is idempotent (skips pins with a companyId)',
       /if \(data\.companyId\) \{ alreadyOk\+\+; continue; \}/.test(bf));
-    assert('pins backfill derives companyId: linked lead → user map → own uid',
+    assert('pins backfill derives companyId: linked lead → user map → company claim → own uid',
       /byLead\.has\(data\.leadId\)/.test(bf)
       && /userToCompany\.has\(data\.userId\)/.test(bf)
+      && /companyId = claimCid; via = 'claim'/.test(bf)
       && /companyId = data\.userId; via = 'ownUid'/.test(bf));
   }
 }
@@ -596,6 +597,16 @@ section('Pipelines builder — drag-to-reorder stages');
     && /} else if \(ambiguousUsers\.has\(data\.userId\)\) \{/.test(pinsBf) // skip branch before the user-map guess
     && /ambiguous\+\+;/.test(pinsBf),
     'expected leadless pins of multi-company users to be skipped, not guessed');
+  // A company rep who door-knocked but never created a lead is absent from the
+  // leads-book maps, so the ownUid fallback would mis-stamp companyId = uid and
+  // their leadless pins would fail the /pins sameCompanyAsResource() read rule
+  // (invisible to the team). Resolve their real tenant from the companyId custom
+  // claim (admin auth) before falling back to uid.
+  assert('pins backfill resolves a leadless company rep via their companyId claim before the uid fallback',
+    /const claimCid = await claimCompanyFor\(data\.userId\)/.test(pinsBf)  // claim lookup in the else branch
+    && /u\.customClaims && u\.customClaims\.companyId/.test(pinsBf)         // reads the companyId claim via admin auth
+    && /if \(claimCid\) \{[\s\S]{0,120}via = 'claim'/.test(pinsBf),        // uses the claim before ownUid
+    'expected a leadless company rep\'s pins to be stamped with their claim companyId, not their uid');
 }
 
 section('Review engine — role-aware nudges, tenant-safe copy, Settings-sourced link');
