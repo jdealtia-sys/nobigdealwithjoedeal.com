@@ -1,0 +1,1490 @@
+[
+  {
+    "id": "nbd-original",
+    "name": "NBD Original",
+    "category": "professional",
+    "locked": false,
+    "bg": "#1e3a6e",
+    "accent": "#e8720c"
+  },
+  {
+    "id": "midnight",
+    "name": "Midnight",
+    "category": "professional",
+    "locked": false,
+    "bg": "#0b1024",
+    "accent": "#6366f1"
+  },
+  {
+    "id": "cobalt",
+    "name": "Cobalt",
+    "category": "professional",
+    "locked": false,
+    "bg": "#061230",
+    "accent": "#3b82f6"
+  },
+  {
+    "id": "slate",
+    "name": "Slate",
+    "category": "professional",
+    "locked": false,
+    "bg": "#0f1117",
+    "accent": "#64748b"
+  },
+  {
+    "id": "steel",
+    "name": "Steel",
+    "category": "professional",
+    "locked": false,
+    "bg": "#1a1f26",
+    "accent": "#bac4d2"
+  },
+  {
+    "id": "paper",
+    "name": "Paper",
+    "category": "professional",
+    "locked": false,
+    "bg": "#fafaf7",
+    "accent": "#1a1a1a"
+  },
+  {
+    "id": "ghost",
+    "name": "Ghost",
+    "category": "professional",
+    "locked": false,
+    "bg": "#f4f6fa",
+    "accent": "#475569"
+  },
+  {
+    "id": "obsidian",
+    "name": "Obsidian",
+    "category": "professional",
+    "locked": false,
+    "bg": "#040406",
+    "accent": "#dadcde"
+  },
+  {
+    "id": "arctic",
+    "name": "Arctic",
+    "category": "professional",
+    "locked": false,
+    "bg": "#0f172a",
+    "accent": "#7dd3fc"
+  },
+  {
+    "id": "coffee",
+    "name": "Coffee",
+    "category": "professional",
+    "locked": false,
+    "bg": "#1a1008",
+    "accent": "#a0724a"
+  },
+  {
+    "id": "high-contrast",
+    "name": "High Contrast",
+    "category": "professional",
+    "locked": false,
+    "bg": "#000000",
+    "accent": "#ff8800"
+  },
+  {
+    "id": "sage",
+    "name": "Sage",
+    "category": "professional",
+    "locked": false,
+    "bg": "#0e1a16",
+    "accent": "#7bb89b"
+  },
+  {
+    "id": "amber-dark",
+    "name": "Amber",
+    "category": "professional",
+    "locked": false,
+    "bg": "#1a140d",
+    "accent": "#d9a662"
+  },
+  {
+    "id": "plum",
+    "name": "Plum",
+    "category": "professional",
+    "locked": false,
+    "bg": "#150a1f",
+    "accent": "#a78bfa"
+  },
+  {
+    "id": "mono",
+    "name": "Mono",
+    "category": "professional",
+    "locked": false,
+    "bg": "#101010",
+    "accent": "#e8720c"
+  },
+  {
+    "id": "forest",
+    "name": "Forest",
+    "category": "nature",
+    "locked": false,
+    "bg": "#0a1f0a",
+    "accent": "#22c55e"
+  },
+  {
+    "id": "ocean",
+    "name": "Ocean",
+    "category": "nature",
+    "locked": false,
+    "bg": "#0a192f",
+    "accent": "#06b6d4"
+  },
+  {
+    "id": "desert",
+    "name": "Desert",
+    "category": "nature",
+    "locked": false,
+    "bg": "#2c1810",
+    "accent": "#d4a057"
+  },
+  {
+    "id": "aurora",
+    "name": "Aurora",
+    "category": "nature",
+    "locked": false,
+    "bg": "#0a0e2a",
+    "accent": "#34d399"
+  },
+  {
+    "id": "volcano",
+    "name": "Volcano",
+    "category": "nature",
+    "locked": false,
+    "bg": "#1a0a0a",
+    "accent": "#ef4444"
+  },
+  {
+    "id": "glacier",
+    "name": "Glacier",
+    "category": "nature",
+    "locked": false,
+    "bg": "#0c1929",
+    "accent": "#7dd3fc"
+  },
+  {
+    "id": "thunderstorm",
+    "name": "Thunderstorm",
+    "category": "nature",
+    "locked": false,
+    "bg": "#0d0d1a",
+    "accent": "#fbbf24"
+  },
+  {
+    "id": "sunset",
+    "name": "Sunset",
+    "category": "nature",
+    "locked": false,
+    "bg": "#1a0a15",
+    "accent": "#f97316"
+  },
+  {
+    "id": "canyon",
+    "name": "Canyon",
+    "category": "nature",
+    "locked": false,
+    "bg": "#2a1a10",
+    "accent": "#c2410c"
+  },
+  {
+    "id": "coral-reef",
+    "name": "Coral Reef",
+    "category": "nature",
+    "locked": false,
+    "bg": "#0a1a2a",
+    "accent": "#f472b6"
+  },
+  {
+    "id": "tundra",
+    "name": "Tundra",
+    "category": "nature",
+    "locked": false,
+    "bg": "#1a1f2e",
+    "accent": "#e2e8f0"
+  },
+  {
+    "id": "rainforest",
+    "name": "Rainforest",
+    "category": "nature",
+    "locked": false,
+    "bg": "#0a1a0a",
+    "accent": "#10b981"
+  },
+  {
+    "id": "crimson",
+    "name": "Crimson",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#1a0505",
+    "accent": "#dc2626"
+  },
+  {
+    "id": "gold",
+    "name": "Gold",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#1a1505",
+    "accent": "#eab308"
+  },
+  {
+    "id": "rose",
+    "name": "Rose",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#1a0a10",
+    "accent": "#f43f5e"
+  },
+  {
+    "id": "diamond",
+    "name": "Diamond",
+    "category": "luxury",
+    "locked": true,
+    "bg": "#0a0a12",
+    "accent": "#a78bfa"
+  },
+  {
+    "id": "marble",
+    "name": "Marble",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#1a1a1a",
+    "accent": "#e2e8f0"
+  },
+  {
+    "id": "velvet",
+    "name": "Velvet",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#1a0510",
+    "accent": "#a855f7"
+  },
+  {
+    "id": "champagne",
+    "name": "Champagne",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#1a1810",
+    "accent": "#fbbf24"
+  },
+  {
+    "id": "onyx",
+    "name": "Onyx",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#050505",
+    "accent": "#6b7280"
+  },
+  {
+    "id": "matrix",
+    "name": "Matrix",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#020a02",
+    "accent": "#22c55e"
+  },
+  {
+    "id": "neon",
+    "name": "Neon",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#0a0010",
+    "accent": "#ec4899"
+  },
+  {
+    "id": "synthwave",
+    "name": "Synthwave",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#1a0530",
+    "accent": "#f472b6"
+  },
+  {
+    "id": "vaporwave",
+    "name": "Vaporwave",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#1a1040",
+    "accent": "#f0abfc"
+  },
+  {
+    "id": "deep-space",
+    "name": "Deep Space",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#020208",
+    "accent": "#8b5cf6"
+  },
+  {
+    "id": "galaxy",
+    "name": "Galaxy",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#05050f",
+    "accent": "#6366f1"
+  },
+  {
+    "id": "plasma",
+    "name": "Plasma",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#1a0020",
+    "accent": "#a855f7"
+  },
+  {
+    "id": "glow",
+    "name": "Glow",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#0a0a0a",
+    "accent": "#84cc16"
+  },
+  {
+    "id": "cyberpunk",
+    "name": "Cyberpunk",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#0a000a",
+    "accent": "#ec4899"
+  },
+  {
+    "id": "hologram",
+    "name": "Hologram",
+    "category": "scifi",
+    "locked": true,
+    "bg": "#05050a",
+    "accent": "#bbdefb"
+  },
+  {
+    "id": "quantum",
+    "name": "Quantum",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#000510",
+    "accent": "#3b82f6"
+  },
+  {
+    "id": "starship",
+    "name": "Starship",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#0f1520",
+    "accent": "#f97316"
+  },
+  {
+    "id": "batman",
+    "name": "Batman",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#0a0a0a",
+    "accent": "#fbbf24"
+  },
+  {
+    "id": "darth-vader",
+    "name": "Darth Vader",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#0a0a0a",
+    "accent": "#ef4444"
+  },
+  {
+    "id": "lightsaber",
+    "name": "Lightsaber",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#0a0a15",
+    "accent": "#60a5fa"
+  },
+  {
+    "id": "pokemon",
+    "name": "Pokemon",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#1a0a0a",
+    "accent": "#ef4444"
+  },
+  {
+    "id": "mario",
+    "name": "Mario",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#1a0a0a",
+    "accent": "#dc2626"
+  },
+  {
+    "id": "zelda",
+    "name": "Zelda",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#0a1a0a",
+    "accent": "#eab308"
+  },
+  {
+    "id": "arcade",
+    "name": "Arcade",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#0a0a15",
+    "accent": "#22c55e"
+  },
+  {
+    "id": "retro",
+    "name": "Retro",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#1a1520",
+    "accent": "#f97316"
+  },
+  {
+    "id": "mandalorian",
+    "name": "Mandalorian",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#1a1a15",
+    "accent": "#94a3b8"
+  },
+  {
+    "id": "iron-man",
+    "name": "Iron Man",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#1a0505",
+    "accent": "#38bdf8"
+  },
+  {
+    "id": "joker",
+    "name": "Joker",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#0a1a0a",
+    "accent": "#22c55e"
+  },
+  {
+    "id": "tron",
+    "name": "TRON",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#000a1a",
+    "accent": "#06b6d4"
+  },
+  {
+    "id": "stranger-things",
+    "name": "Stranger Things",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#0a0505",
+    "accent": "#ef4444"
+  },
+  {
+    "id": "top-gun",
+    "name": "Top Gun",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#0a0f1a",
+    "accent": "#d4a057"
+  },
+  {
+    "id": "john-wick",
+    "name": "John Wick",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#0a0a0a",
+    "accent": "#b8860b"
+  },
+  {
+    "id": "racing-red",
+    "name": "Racing Red",
+    "category": "sports",
+    "locked": false,
+    "bg": "#1a0505",
+    "accent": "#dc2626"
+  },
+  {
+    "id": "stadium-lights",
+    "name": "Stadium Lights",
+    "category": "sports",
+    "locked": false,
+    "bg": "#0a0a0a",
+    "accent": "#f8fafc"
+  },
+  {
+    "id": "champion-gold",
+    "name": "Champion Gold",
+    "category": "sports",
+    "locked": false,
+    "bg": "#1a1508",
+    "accent": "#eab308"
+  },
+  {
+    "id": "endzone",
+    "name": "Endzone",
+    "category": "sports",
+    "locked": false,
+    "bg": "#0a1a0a",
+    "accent": "#16a34a"
+  },
+  {
+    "id": "fast-break",
+    "name": "Fast Break",
+    "category": "sports",
+    "locked": false,
+    "bg": "#0a0510",
+    "accent": "#f97316"
+  },
+  {
+    "id": "knockout",
+    "name": "Knockout",
+    "category": "sports",
+    "locked": false,
+    "bg": "#1a0505",
+    "accent": "#dc2626"
+  },
+  {
+    "id": "checkered-flag",
+    "name": "Checkered Flag",
+    "category": "sports",
+    "locked": false,
+    "bg": "#0a0a0a",
+    "accent": "#eab308"
+  },
+  {
+    "id": "trophy",
+    "name": "Trophy",
+    "category": "sports",
+    "locked": false,
+    "bg": "#1a1508",
+    "accent": "#d4a057"
+  },
+  {
+    "id": "blueprint",
+    "name": "Blueprint",
+    "category": "construction",
+    "locked": false,
+    "bg": "#0a1a3a",
+    "accent": "#38bdf8"
+  },
+  {
+    "id": "hard-hat",
+    "name": "Hard Hat",
+    "category": "construction",
+    "locked": false,
+    "bg": "#1a1a08",
+    "accent": "#eab308"
+  },
+  {
+    "id": "concrete",
+    "name": "Concrete",
+    "category": "construction",
+    "locked": false,
+    "bg": "#1a1a1a",
+    "accent": "#6b7280"
+  },
+  {
+    "id": "copper-pipe",
+    "name": "Copper Pipe",
+    "category": "construction",
+    "locked": false,
+    "bg": "#1a1008",
+    "accent": "#c2774a"
+  },
+  {
+    "id": "safety-orange",
+    "name": "Safety Orange",
+    "category": "construction",
+    "locked": false,
+    "bg": "#1a0a00",
+    "accent": "#f97316"
+  },
+  {
+    "id": "crane",
+    "name": "Crane",
+    "category": "construction",
+    "locked": false,
+    "bg": "#1a1a08",
+    "accent": "#fbbf24"
+  },
+  {
+    "id": "diesel",
+    "name": "Diesel",
+    "category": "construction",
+    "locked": false,
+    "bg": "#0a0a08",
+    "accent": "#84cc16"
+  },
+  {
+    "id": "sawdust",
+    "name": "Sawdust",
+    "category": "construction",
+    "locked": false,
+    "bg": "#1a1510",
+    "accent": "#a0724a"
+  },
+  {
+    "id": "brick",
+    "name": "Brick",
+    "category": "construction",
+    "locked": false,
+    "bg": "#1a0a08",
+    "accent": "#b91c1c"
+  },
+  {
+    "id": "toolbox",
+    "name": "Toolbox",
+    "category": "construction",
+    "locked": false,
+    "bg": "#0a0a15",
+    "accent": "#ef4444"
+  },
+  {
+    "id": "lo-fi",
+    "name": "Lo-Fi",
+    "category": "mood",
+    "locked": false,
+    "bg": "#1a1815",
+    "accent": "#d4c5a9"
+  },
+  {
+    "id": "dark-academia",
+    "name": "Dark Academia",
+    "category": "mood",
+    "locked": false,
+    "bg": "#1a1510",
+    "accent": "#b8860b"
+  },
+  {
+    "id": "cottagecore",
+    "name": "Cottagecore",
+    "category": "mood",
+    "locked": false,
+    "bg": "#1a1510",
+    "accent": "#86a873"
+  },
+  {
+    "id": "minimalist",
+    "name": "Minimalist",
+    "category": "mood",
+    "locked": false,
+    "bg": "#fafafa",
+    "accent": "#1a1a1a"
+  },
+  {
+    "id": "brutalist",
+    "name": "Brutalist",
+    "category": "mood",
+    "locked": false,
+    "bg": "#d4d0c8",
+    "accent": "#000000"
+  },
+  {
+    "id": "art-deco",
+    "name": "Art Deco",
+    "category": "mood",
+    "locked": false,
+    "bg": "#0a0a08",
+    "accent": "#d4a057"
+  },
+  {
+    "id": "noir",
+    "name": "Noir",
+    "category": "mood",
+    "locked": false,
+    "bg": "#141416",
+    "accent": "#dc2626"
+  },
+  {
+    "id": "polaroid",
+    "name": "Polaroid",
+    "category": "mood",
+    "locked": false,
+    "bg": "#f5f0eb",
+    "accent": "#2c7a7b"
+  },
+  {
+    "id": "grunge",
+    "name": "Grunge",
+    "category": "mood",
+    "locked": false,
+    "bg": "#0a0a08",
+    "accent": "#a3903f"
+  },
+  {
+    "id": "vapor-room",
+    "name": "Vapor Room",
+    "category": "mood",
+    "locked": false,
+    "bg": "#1a0a2a",
+    "accent": "#e879f9"
+  },
+  {
+    "id": "pumpkin-patch",
+    "name": "Pumpkin Patch",
+    "category": "seasonal",
+    "locked": false,
+    "bg": "#1a0a05",
+    "accent": "#f97316"
+  },
+  {
+    "id": "snowfall",
+    "name": "Snowfall",
+    "category": "seasonal",
+    "locked": false,
+    "bg": "#0f172a",
+    "accent": "#f1f5f9"
+  },
+  {
+    "id": "spring-bloom",
+    "name": "Spring Bloom",
+    "category": "seasonal",
+    "locked": false,
+    "bg": "#0a1a0a",
+    "accent": "#f9a8d4"
+  },
+  {
+    "id": "summer-heat",
+    "name": "Summer Heat",
+    "category": "seasonal",
+    "locked": false,
+    "bg": "#1a1005",
+    "accent": "#fbbf24"
+  },
+  {
+    "id": "fourth-of-july",
+    "name": "Fourth of July",
+    "category": "seasonal",
+    "locked": false,
+    "bg": "#0a0a1a",
+    "accent": "#ef4444"
+  },
+  {
+    "id": "storm-season",
+    "name": "Storm Season",
+    "category": "seasonal",
+    "locked": false,
+    "bg": "#0a0a10",
+    "accent": "#64748b"
+  },
+  {
+    "id": "dragon-ball-z",
+    "name": "Dragon Ball Z",
+    "category": "anime",
+    "locked": false,
+    "bg": "#1a0a00",
+    "accent": "#e86a10"
+  },
+  {
+    "id": "naruto",
+    "name": "Naruto",
+    "category": "anime",
+    "locked": false,
+    "bg": "#1a0a00",
+    "accent": "#ff6b2b"
+  },
+  {
+    "id": "one-piece",
+    "name": "One Piece",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a1a2a",
+    "accent": "#d4a057"
+  },
+  {
+    "id": "attack-on-titan",
+    "name": "Attack on Titan",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0f1a0f",
+    "accent": "#4a7a4a"
+  },
+  {
+    "id": "demon-slayer",
+    "name": "Demon Slayer",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a0a1a",
+    "accent": "#4fc3f7"
+  },
+  {
+    "id": "my-hero-academia",
+    "name": "My Hero Academia",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a1a0a",
+    "accent": "#22c55e"
+  },
+  {
+    "id": "death-note",
+    "name": "Death Note",
+    "category": "anime",
+    "locked": false,
+    "bg": "#050505",
+    "accent": "#b71c1c"
+  },
+  {
+    "id": "cowboy-bebop",
+    "name": "Cowboy Bebop",
+    "category": "anime",
+    "locked": false,
+    "bg": "#1a1008",
+    "accent": "#ffb300"
+  },
+  {
+    "id": "evangelion",
+    "name": "Evangelion",
+    "category": "anime",
+    "locked": false,
+    "bg": "#1a0530",
+    "accent": "#ff6d00"
+  },
+  {
+    "id": "akira",
+    "name": "Akira",
+    "category": "anime",
+    "locked": false,
+    "bg": "#1a1a1a",
+    "accent": "#d50000"
+  },
+  {
+    "id": "studio-ghibli",
+    "name": "Studio Ghibli",
+    "category": "anime",
+    "locked": false,
+    "bg": "#fff8e1",
+    "accent": "#2e7d32"
+  },
+  {
+    "id": "jujutsu-kaisen",
+    "name": "Jujutsu Kaisen",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a0015",
+    "accent": "#7c4dff"
+  },
+  {
+    "id": "bleach",
+    "name": "Bleach",
+    "category": "anime",
+    "locked": false,
+    "bg": "#050508",
+    "accent": "#2979ff"
+  },
+  {
+    "id": "hunter-x-hunter",
+    "name": "Hunter x Hunter",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a1a0a",
+    "accent": "#22c55e"
+  },
+  {
+    "id": "fullmetal-alchemist",
+    "name": "Fullmetal Alchemist",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a0a1a",
+    "accent": "#ffc107"
+  },
+  {
+    "id": "chainsaw-man",
+    "name": "Chainsaw Man",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a0000",
+    "accent": "#b71c1c"
+  },
+  {
+    "id": "sailor-moon",
+    "name": "Sailor Moon",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a0a20",
+    "accent": "#f48fb1"
+  },
+  {
+    "id": "ghost-in-shell",
+    "name": "Ghost in the Shell",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0f1a1a",
+    "accent": "#00bfa5"
+  },
+  {
+    "id": "spy-x-family",
+    "name": "Spy x Family",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a1a0a",
+    "accent": "#2e7d32"
+  },
+  {
+    "id": "vinland-saga",
+    "name": "Vinland Saga",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a1520",
+    "accent": "#bf360c"
+  },
+  {
+    "id": "solo-leveling",
+    "name": "Solo Leveling",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a0515",
+    "accent": "#448aff"
+  },
+  {
+    "id": "one-punch-man",
+    "name": "One Punch Man",
+    "category": "anime",
+    "locked": false,
+    "bg": "#fafafa",
+    "accent": "#b8860b"
+  },
+  {
+    "id": "berserk",
+    "name": "Berserk",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0e0a0a",
+    "accent": "#c41e3a"
+  },
+  {
+    "id": "jojos-bizarre",
+    "name": "JoJo\\",
+    "category": "anime",
+    "locked": false,
+    "bg": "#1a0030",
+    "accent": "#aa00ff"
+  },
+  {
+    "id": "mob-psycho",
+    "name": "Mob Psycho 100",
+    "category": "anime",
+    "locked": false,
+    "bg": "#0a0a20",
+    "accent": "#ff4081"
+  },
+  {
+    "id": "spongebob",
+    "name": "SpongeBob",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a2040",
+    "accent": "#fff176"
+  },
+  {
+    "id": "avatar-water",
+    "name": "Avatar - Water",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a1a3a",
+    "accent": "#e3f2fd"
+  },
+  {
+    "id": "avatar-fire",
+    "name": "Avatar - Fire",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#1a0505",
+    "accent": "#ffd600"
+  },
+  {
+    "id": "avatar-earth",
+    "name": "Avatar - Earth",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a1508",
+    "accent": "#9ccc65"
+  },
+  {
+    "id": "avatar-air",
+    "name": "Avatar - Air",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#e1f5fe",
+    "accent": "#c2670c"
+  },
+  {
+    "id": "rick-and-morty",
+    "name": "Rick and Morty",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#050808",
+    "accent": "#76ff03"
+  },
+  {
+    "id": "samurai-jack",
+    "name": "Samurai Jack",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#050505",
+    "accent": "#c62828"
+  },
+  {
+    "id": "adventure-time",
+    "name": "Adventure Time",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#1a1a3a",
+    "accent": "#f8bbd0"
+  },
+  {
+    "id": "gravity-falls",
+    "name": "Gravity Falls",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#1a1008",
+    "accent": "#2e7d32"
+  },
+  {
+    "id": "regular-show",
+    "name": "Regular Show",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a2040",
+    "accent": "#42a5f5"
+  },
+  {
+    "id": "teen-titans",
+    "name": "Teen Titans",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a0a2a",
+    "accent": "#dc2626"
+  },
+  {
+    "id": "ben-10",
+    "name": "Ben 10",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#000a00",
+    "accent": "#00c853"
+  },
+  {
+    "id": "invader-zim",
+    "name": "Invader Zim",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a0008",
+    "accent": "#e91e63"
+  },
+  {
+    "id": "simpsons",
+    "name": "The Simpsons",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#1a2040",
+    "accent": "#ffd600"
+  },
+  {
+    "id": "futurama",
+    "name": "Futurama",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#050810",
+    "accent": "#00897b"
+  },
+  {
+    "id": "south-park",
+    "name": "South Park",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#fff8dc",
+    "accent": "#d97706"
+  },
+  {
+    "id": "steven-universe",
+    "name": "Steven Universe",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a0a20",
+    "accent": "#f48fb1"
+  },
+  {
+    "id": "courage",
+    "name": "Courage the Cowardly Dog",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#1a0520",
+    "accent": "#ce93d8"
+  },
+  {
+    "id": "dexters-lab",
+    "name": "Dexter\\",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#1a0530",
+    "accent": "#00e676"
+  },
+  {
+    "id": "powerpuff-girls",
+    "name": "The Powerpuff Girls",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a0a10",
+    "accent": "#f06292"
+  },
+  {
+    "id": "scooby-doo",
+    "name": "Scooby-Doo",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a0520",
+    "accent": "#4caf50"
+  },
+  {
+    "id": "tmnt",
+    "name": "Teenage Mutant Ninja Turtles",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a1a0a",
+    "accent": "#2e7d32"
+  },
+  {
+    "id": "transformers",
+    "name": "Transformers",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#0a0a1a",
+    "accent": "#d32f2f"
+  },
+  {
+    "id": "looney-tunes",
+    "name": "Looney Tunes",
+    "category": "cartoon",
+    "locked": false,
+    "bg": "#1a0505",
+    "accent": "#c62828"
+  },
+  {
+    "id": "dragon-ball-super",
+    "name": "Dragon Ball Super",
+    "category": "cartoon",
+    "locked": true,
+    "bg": "#0a0a0f",
+    "accent": "#2962ff"
+  },
+  {
+    "id": "gold-rush",
+    "name": "Gold Rush",
+    "category": "achievement",
+    "locked": true,
+    "bg": "#1a1508",
+    "accent": "#fbbf24"
+  },
+  {
+    "id": "eternal-flame",
+    "name": "Eternal Flame",
+    "category": "achievement",
+    "locked": true,
+    "bg": "#1a0505",
+    "accent": "#ef4444"
+  },
+  {
+    "id": "iron-door",
+    "name": "Iron Door",
+    "category": "achievement",
+    "locked": true,
+    "bg": "#1a1a1a",
+    "accent": "#6b7280"
+  },
+  {
+    "id": "completionist",
+    "name": "Completionist",
+    "category": "achievement",
+    "locked": true,
+    "bg": "#050510",
+    "accent": "#ff00ff"
+  },
+  {
+    "id": "night-owl",
+    "name": "Night Owl",
+    "category": "achievement",
+    "locked": true,
+    "bg": "#050505",
+    "accent": "#7dd3fc"
+  },
+  {
+    "id": "road-warrior",
+    "name": "Road Warrior",
+    "category": "achievement",
+    "locked": true,
+    "bg": "#1a1a15",
+    "accent": "#fbbf24"
+  },
+  {
+    "id": "legend",
+    "name": "Legend",
+    "category": "achievement",
+    "locked": true,
+    "bg": "#050505",
+    "accent": "#a78bfa"
+  },
+  {
+    "id": "android",
+    "name": "Android",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#0a0f0a",
+    "accent": "#4caf50"
+  },
+  {
+    "id": "army",
+    "name": "Army",
+    "category": "construction",
+    "locked": false,
+    "bg": "#060a02",
+    "accent": "#6a8c2a"
+  },
+  {
+    "id": "blood-moon",
+    "name": "Blood Moon",
+    "category": "mood",
+    "locked": false,
+    "bg": "#080002",
+    "accent": "#e8001a"
+  },
+  {
+    "id": "blueprint-art",
+    "name": "Blueprint Art",
+    "category": "mood",
+    "locked": false,
+    "bg": "#001428",
+    "accent": "#ffffff"
+  },
+  {
+    "id": "candlelit",
+    "name": "Candlelit",
+    "category": "mood",
+    "locked": false,
+    "bg": "#0c0600",
+    "accent": "#e8820a"
+  },
+  {
+    "id": "christmas",
+    "name": "Christmas",
+    "category": "seasonal",
+    "locked": false,
+    "bg": "#000e04",
+    "accent": "#e53935"
+  },
+  {
+    "id": "cia",
+    "name": "CIA",
+    "category": "construction",
+    "locked": false,
+    "bg": "#020202",
+    "accent": "#c8a000"
+  },
+  {
+    "id": "copper",
+    "name": "Copper",
+    "category": "mood",
+    "locked": false,
+    "bg": "#0c0800",
+    "accent": "#b87333"
+  },
+  {
+    "id": "deep-focus",
+    "name": "Deep Focus",
+    "category": "mood",
+    "locked": false,
+    "bg": "#020404",
+    "accent": "#0d9488"
+  },
+  {
+    "id": "easter",
+    "name": "Easter",
+    "category": "seasonal",
+    "locked": false,
+    "bg": "#f0e8f8",
+    "accent": "#9c27b0"
+  },
+  {
+    "id": "ember",
+    "name": "Ember",
+    "category": "mood",
+    "locked": false,
+    "bg": "#0a0300",
+    "accent": "#ff4500"
+  },
+  {
+    "id": "frosted",
+    "name": "Frosted",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#e8eaf2",
+    "accent": "#5064c8"
+  },
+  {
+    "id": "halloween",
+    "name": "Halloween",
+    "category": "seasonal",
+    "locked": false,
+    "bg": "#080200",
+    "accent": "#ff6d00"
+  },
+  {
+    "id": "ink",
+    "name": "Ink",
+    "category": "mood",
+    "locked": false,
+    "bg": "#f5f0e8",
+    "accent": "#0f0a04"
+  },
+  {
+    "id": "ios",
+    "name": "iOS",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#000000",
+    "accent": "#0a84ff"
+  },
+  {
+    "id": "ios26",
+    "name": "iOS 26",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#050508",
+    "accent": "#30d158"
+  },
+  {
+    "id": "japan",
+    "name": "Japan",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#0a0608",
+    "accent": "#c41c24"
+  },
+  {
+    "id": "liquid",
+    "name": "Liquid",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#080c12",
+    "accent": "#78c8e8"
+  },
+  {
+    "id": "lofi",
+    "name": "Lo-Fi Beige",
+    "category": "mood",
+    "locked": false,
+    "bg": "#f2ede4",
+    "accent": "#c8a878"
+  },
+  {
+    "id": "metal",
+    "name": "Heavy Metal",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#0e0e10",
+    "accent": "#c8ccd8"
+  },
+  {
+    "id": "midnight-oil",
+    "name": "Midnight Oil",
+    "category": "mood",
+    "locked": false,
+    "bg": "#060402",
+    "accent": "#d4900a"
+  },
+  {
+    "id": "neon-rain",
+    "name": "Neon Rain",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#06000e",
+    "accent": "#ff2d9b"
+  },
+  {
+    "id": "ninja",
+    "name": "Ninja",
+    "category": "construction",
+    "locked": false,
+    "bg": "#040400",
+    "accent": "#cc0000"
+  },
+  {
+    "id": "obsidian-v5",
+    "name": "Obsidian Purple",
+    "category": "mood",
+    "locked": false,
+    "bg": "#06040a",
+    "accent": "#8b5cf6"
+  },
+  {
+    "id": "sakura",
+    "name": "Sakura",
+    "category": "mood",
+    "locked": false,
+    "bg": "#fff0f4",
+    "accent": "#e8346c"
+  },
+  {
+    "id": "samurai",
+    "name": "Samurai",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#080208",
+    "accent": "#cc2200"
+  },
+  {
+    "id": "terminal",
+    "name": "Terminal",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#000000",
+    "accent": "#00ff00"
+  },
+  {
+    "id": "translucent",
+    "name": "Translucent",
+    "category": "luxury",
+    "locked": false,
+    "bg": "#030408",
+    "accent": "#e8eeff"
+  },
+  {
+    "id": "typewriter",
+    "name": "Typewriter",
+    "category": "mood",
+    "locked": false,
+    "bg": "#f0e8d4",
+    "accent": "#1a1208"
+  },
+  {
+    "id": "underwater",
+    "name": "Underwater",
+    "category": "nature",
+    "locked": false,
+    "bg": "#000c14",
+    "accent": "#00e5cc"
+  },
+  {
+    "id": "volcanic",
+    "name": "Volcanic",
+    "category": "nature",
+    "locked": false,
+    "bg": "#120000",
+    "accent": "#ff3d00"
+  },
+  {
+    "id": "wildwest",
+    "name": "Wild West",
+    "category": "popculture",
+    "locked": false,
+    "bg": "#120a00",
+    "accent": "#c87840"
+  },
+  {
+    "id": "windows",
+    "name": "Windows",
+    "category": "scifi",
+    "locked": false,
+    "bg": "#001828",
+    "accent": "#0078d4"
+  }
+]

@@ -37,7 +37,7 @@ runAbandonRecovery (scheduled Cloud Function)
 | [functions/funnel-recovery.js](../../functions/funnel-recovery.js) | `saveFunnelProgress` + `runAbandonRecovery` |
 | [functions/index.js](../../functions/index.js) | Re-exports at bottom |
 | [docs/estimate.html](../estimate.html) | Client-side: funnelId generation, email-blur POST, completion POST |
-| [.github/workflows/firebase-deploy.yml](../../.github/workflows/firebase-deploy.yml) | `runAbandonRecovery` is in `NBD_DEPLOY_SKIP_LIST` (tolerant deploy) |
+| [.github/workflows/firebase-deploy.yml](../../.github/workflows/firebase-deploy.yml) | Deploys it normally — `runAbandonRecovery` is NOT in `NBD_DEPLOY_SKIP_LIST` (as of 2026-07-16 the skip list holds only `onRepSignup`) |
 
 ## Verifying the deploy landed
 

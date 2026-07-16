@@ -87,13 +87,30 @@ ok(`found multiple enforced CSP headers (${cspCount})`, cspCount >= 5);
 ok(`only the known exception(s) allow unsafe script (offenders: ${offenders.join(', ') || 'none'})`,
   offenders.every(s => KNOWN_UNSAFE_EXCEPTIONS.includes(s)));
 ok('global policy + login/register/stripe-success are strict (no unsafe script)',
-  !offenders.includes('**') && !offenders.includes('/pro/login.html') && !offenders.includes('/pro/register.html') && !offenders.includes('/pro/stripe-success.html'));
+  !offenders.includes('**') && !offenders.includes('/pro/login') && !offenders.includes('/pro/register') && !offenders.includes('/pro/stripe-success'));
 
-// strict per-page overrides exist for the sensitive pages
-for (const src of ['/pro/login.html', '/pro/register.html', '/pro/stripe-success.html']) {
-  const rule = rules.find(r => r.source === src);
+// strict per-page overrides exist for the sensitive pages — keyed to the
+// CANONICAL extensionless sources (cleanUrls strips .html before header
+// matching, so a .html-keyed rule never fires; re-keyed 2026-07-16).
+for (const src of ['/pro/login', '/pro/register', '/pro/stripe-success']) {
+  const rule = rules.find(r => r.source === src && headerVal(r, 'Content-Security-Policy'));
   const csp = rule && headerVal(rule, 'Content-Security-Policy');
   ok(`${src} ships its own strict CSP`, !!csp && !parseCSP(csp)['script-src'].includes("'unsafe-inline'"));
+}
+
+// the header sources must never regress to dead .html keys
+ok('no header rule is keyed to a /pro or /admin .html source (dead under cleanUrls)',
+  !rules.some(r => /^\/(pro|admin)\/.*\.html$/.test(r.source)));
+
+// private /pro app pages carry the authoritative noindex header
+{
+  const noindexSources = rules
+    .filter(r => (headerVal(r, 'X-Robots-Tag') || '').includes('noindex'))
+    .map(r => r.source);
+  for (const page of ['dashboard', 'vault', 'login', 'register', 'customer', 'analytics', 'leaderboard', 'demo', 'stripe-success']) {
+    ok(`/pro/${page} is covered by an X-Robots-Tag noindex rule`,
+      noindexSources.some(s => s === `/pro/${page}` || (s.startsWith('/pro/@(') && s.includes(page))));
+  }
 }
 
 // ── 2. GDPR erasure/export registry ──────────────────────────
