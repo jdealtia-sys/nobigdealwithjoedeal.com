@@ -191,10 +191,15 @@ exports.analyzePhotoVision = onCall({
   const leadMeterRef = db.doc(`leadCostMeter/${leadId}`);
   const userMeterRef = db.doc(`userCostMeter/${uid}__${monthKey}`);
 
+  // Plan resolves from the COMPANY's subscription (companyId claim || uid) —
+  // an invited rep has no subscriptions/{uid} doc, so keying on uid capped
+  // every rep of a paying tenant at the 'lite' budget (gauntlet gap). The
+  // per-user spend METERS stay uid-keyed on purpose.
+  const billingKey = (request.auth.token && request.auth.token.companyId) || uid;
   const [leadMeterSnap, userMeterSnap, subSnap] = await Promise.all([
     leadMeterRef.get(),
     userMeterRef.get(),
-    db.doc(`subscriptions/${uid}`).get(),
+    db.doc(`subscriptions/${billingKey}`).get(),
   ]);
   const leadUsd = (leadMeterSnap.exists && leadMeterSnap.data().visionUsd) || 0;
   const userUsd = (userMeterSnap.exists && userMeterSnap.data().visionUsd) || 0;

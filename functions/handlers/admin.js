@@ -825,6 +825,17 @@ exports.removeMember = onCall(
         : await getAuth().getUserByEmail(targetEmail);
     } catch (_) { userRecord = null; } // invited-but-never-signed-up → no account
 
+    // A PENDING invite (status 'invited', no uid) has never been claimed, so
+    // the invitee's claims cannot legitimately point at this company. The old
+    // code still ran the fail-closed foreign-claim guard against whatever
+    // account owned that email — and since the invite email tells people to
+    // register (which mints solo claims companyId==their-own-uid), cancelling
+    // any invite whose recipient had ANY account threw 'User belongs to
+    // another company' and the seat was stuck forever (gauntlet gap). The
+    // guard must gate the CLAIM MUTATION, not the roster-row delete: deleting
+    // our own tenant's invite row harms no one.
+    const isPendingInvite = member.status === 'invited' && !lookupUid;
+
     if (userRecord) {
       // Never remove the owner or yourself.
       const companySnap = await companyRef.get();
@@ -835,20 +846,25 @@ exports.removeMember = onCall(
       if (userRecord.uid === callerUid) {
         throw new HttpsError('failed-precondition', 'Cannot remove your own account');
       }
-      // Only touch a user actually scoped to THIS company (fail closed for a
-      // stale/foreign claim), unless global admin.
       const existingClaims = userRecord.customClaims || {};
       const isGlobalAdmin = request.auth.token.role === 'admin';
-      if (!callerMayManageTarget(existingClaims, companyId, isGlobalAdmin)) {
+      const managesTarget = callerMayManageTarget(existingClaims, companyId, isGlobalAdmin);
+      if (!managesTarget && !isPendingInvite) {
+        // Active/claimed member with foreign or absent claims: fail closed —
+        // only touch a user actually scoped to THIS company.
         throw new HttpsError('permission-denied', 'User belongs to another company');
       }
-      // Strip companyId + role; PRESERVE everything else (plan/subscription/
-      // billing claims the Stripe webhook maintains).
-      const stripped = { ...existingClaims };
-      delete stripped.companyId;
-      delete stripped.role;
-      await getAuth().setCustomUserClaims(userRecord.uid, stripped);
-      await getAuth().revokeRefreshTokens(userRecord.uid);
+      if (managesTarget) {
+        // Strip companyId + role; PRESERVE everything else (plan/subscription/
+        // billing claims the Stripe webhook maintains).
+        const stripped = { ...existingClaims };
+        delete stripped.companyId;
+        delete stripped.role;
+        await getAuth().setCustomUserClaims(userRecord.uid, stripped);
+        await getAuth().revokeRefreshTokens(userRecord.uid);
+      }
+      // else: pending-invite cancel for an account claimed elsewhere — leave
+      // that account's claims alone and just drop our roster row below.
     }
 
     await memberRef.delete();
