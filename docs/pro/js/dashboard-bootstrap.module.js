@@ -1110,6 +1110,43 @@
         document.body.appendChild(banner);
       }, 2000);
     }
+    // Lapse lifecycle banner (gauntlet batch 2): a cancelled subscription
+    // keeps the team working for a 14-day grace window, then the daily
+    // enforceLapsedSeats cron pauses non-owner seats (reversibly). Tell
+    // the OWNER where they are in that lifecycle — silence was the failure
+    // mode that let a 6-person team ride a cancelled plan indefinitely.
+    if (window._subscription && window._subscription.status === 'cancelled'
+        && !window._subscription._failClosed) {
+      setTimeout(() => {
+        if (document.getElementById('lapseBanner')) return;
+        const sub = window._subscription;
+        const cancelledMs = sub.cancelledAt && typeof sub.cancelledAt.toMillis === 'function'
+          ? sub.cancelledAt.toMillis() : null;
+        const graceEnds = cancelledMs ? new Date(cancelledMs + 14 * 24 * 3600 * 1000) : null;
+        const paused = sub.lapseEnforced === true;
+        const msg = paused
+          ? 'Your subscription ended and team seats are paused. Your data is safe — resubscribe to restore your team instantly.'
+          : 'Your subscription was cancelled. Your team keeps full access' +
+            (graceEnds ? ' until ' + graceEnds.toLocaleDateString() : ' during the grace period') +
+            ' — resubscribe to keep them active.';
+        const banner = document.createElement('div');
+        banner.id = 'lapseBanner';
+        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:linear-gradient(90deg,#3a1e1e,#2a1414);border-top:2px solid #c53030;padding:10px 20px;display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;color:rgba(255,255,255,.85);flex-wrap:wrap;';
+        const span = document.createElement('span');
+        span.textContent = (paused ? '⏸ ' : '⚠️ ') + msg;
+        const cta = document.createElement('a');
+        cta.href = '/pro/pricing.html';
+        cta.textContent = paused ? 'Resubscribe & restore team →' : 'Resubscribe →';
+        cta.style.cssText = 'background:var(--orange);color:var(--accent-fg);padding:6px 16px;border-radius:6px;text-decoration:none;font-weight:700;font-size:11px;';
+        const x = document.createElement('button');
+        x.textContent = '✕';
+        x.setAttribute('aria-label', 'Dismiss');
+        x.style.cssText = 'background:none;border:none;color:rgba(255,255,255,.4);cursor:pointer;font-size:16px;margin-left:8px;';
+        x.addEventListener('click', () => banner.remove());
+        banner.append(span, cta, x);
+        document.body.appendChild(banner);
+      }, 2000);
+    }
     window._user = user;
     // Fetch the shop-wide Company Profile so every doc generated this
     // session uses the rep's saved legal text / financing / marketing.
@@ -1192,8 +1229,10 @@
           // callable per dashboard load for at most 14 days.
           const _createdMs = Date.parse((user.metadata && user.metadata.creationTime) || '') || 0;
           const _youngAccount = _createdMs && (Date.now() - _createdMs) < 14 * 24 * 3600 * 1000;
-          if (out.reason === 'no_invite' && _youngAccount) {
-            // leave the flag unset — re-check next load
+          if ((out.reason === 'no_invite' && _youngAccount) || out.reason === 'invite_expired') {
+            // leave the flag unset — re-check next load. invite_expired
+            // stays non-terminal so a Re-send (fresh 30-day invite) is
+            // picked up without any manual recovery step.
           } else {
             // Other terminal answers (already member / own company) or a
             // mature account with no invite: stop asking for this uid+device.
@@ -2699,6 +2738,18 @@
         }
       }
 
+      // Monthly plan caps (gauntlet batch 2 — product decision 2026-07-16):
+      // caps are enforced with nudges on the way. enforceGate warns at 80%,
+      // and at the cap shows the upgrade modal + blocks. New leads only —
+      // edits are always allowed. Fails open before the plan loads and for
+      // owners; the server meter (trackUsage below) is the cross-device
+      // source of truth.
+      if ((!editId || editId.startsWith('d-'))
+          && window.NBDBilling && typeof window.NBDBilling.enforceGate === 'function'
+          && !window.NBDBilling.enforceGate('leads', 'leads')) {
+        return null;
+      }
+
       // Wave 15: dedup guard — only on new leads (not edits). Surfaces
       // matching existing leads before we write so reps can open the
       // dupe instead of creating a second one. Skipped if the dedup
@@ -2792,6 +2843,11 @@
               // Optimistic insert — show on kanban immediately, even
               // if loadLeads later fails on a flaky iOS connection.
               _optimisticInsertLead(leadRef.id, data);
+              // Meter the create (server-authoritative monthly counter —
+              // the enforceGate check above reads what this writes).
+              if (window.NBDBilling && typeof window.NBDBilling.trackUsage === 'function') {
+                window.NBDBilling.trackUsage('leads');
+              }
 
               // Now save pin with leadId
               pinData.leadId = leadRef.id;
@@ -2862,6 +2918,10 @@
         // Optimistic insert — show on kanban immediately even if the
         // post-save loadLeads fails (iOS flaky connection scenario).
         _optimisticInsertLead(fallbackRef.id, data);
+        // Meter the create (see geocoded branch).
+        if (window.NBDBilling && typeof window.NBDBilling.trackUsage === 'function') {
+          window.NBDBilling.trackUsage('leads');
+        }
         // Auto-assign customer ID
         try {
           const _cid = window._userClaims?.companyId || window._user?.uid;

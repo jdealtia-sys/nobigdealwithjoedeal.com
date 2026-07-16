@@ -91,6 +91,15 @@
             // and sessions actually flip, not just the roster row.
             var status = m.status || 'invited';
             var email = String(m.email || d.id || '');
+            // 30-day invite TTL (mirrors functions/handlers/invites.js
+            // isInviteExpired): expired invites show as such — they've
+            // already stopped consuming a seat server-side; Re-send
+            // (cancel + re-invite) starts a fresh 30 days.
+            var inviteExpired = false;
+            if (status === 'invited' && m.invitedAt && typeof m.invitedAt.toMillis === 'function') {
+              inviteExpired = (Date.now() - m.invitedAt.toMillis()) > 30 * 24 * 3600 * 1000;
+            }
+            var statusLabel = inviteExpired ? 'invite expired' : (m.status || 'invited');
             var btnBase = 'background:none;border:1px solid var(--br);color:var(--m);border-radius:6px;padding:4px 9px;font-size:10px;cursor:pointer;';
             var actions = '';
             if (status === 'invited') {
@@ -104,7 +113,7 @@
             return '<div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:6px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">'
               + '<div style="width:36px;height:36px;border-radius:18px;background:var(--s3);color:var(--m);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;">' + _nbdEscHtml((m.email||'?')[0].toUpperCase()) + '</div>'
               + '<div class="f1"><div style="font-size:13px;font-weight:600;color:var(--t);">' + _nbdEscHtml(m.email||'') + '</div>'
-              + '<div class="meta-10">' + _nbdEscHtml((m.role||'rep').replace(/_/g,' ')) + ' · ' + _nbdEscHtml(m.status||'invited') + '</div></div>'
+              + '<div class="meta-10">' + _nbdEscHtml((m.role||'rep').replace(/_/g,' ')) + ' · ' + _nbdEscHtml(statusLabel) + '</div></div>'
               + '<span style="font-size:9px;font-weight:700;padding:3px 8px;border-radius:10px;border:1px solid ' + (roleColors[m.role]||'var(--br)') + ';color:' + (roleColors[m.role]||'var(--m)') + ';text-transform:uppercase;letter-spacing:.06em;">' + _nbdEscHtml((m.role||'rep').replace(/_/g,' ')) + '</span>'
               + '<div>' + actions + '</div>'
               + '</div>';

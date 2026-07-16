@@ -257,6 +257,28 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     }
   }
 
+  // ── Enforcing gate — warn at 80%, BLOCK at the cap (gauntlet batch 2) ──
+  // Product decision 2026-07-16: caps are real ("we can't afford to give
+  // free tiers infinite leads") with nudges on the way. Returns true if the
+  // action may proceed; at/over the cap it shows the upgrade modal and
+  // returns FALSE. Owners/admins and unlimited features always pass.
+  // Fails OPEN before the plan loads — a network blip must never block a
+  // rep mid-door-knock (H-03 keeps the plan itself from being spoofed).
+  function enforceGate(feature, featureLabel) {
+    if (!_loaded) return true;    // plan unknown — never block on a race
+    if (_isOwner()) return true;  // owner accounts are never limit-gated
+    const limits = PLANS[_plan] || PLANS.free;
+    const limit = limits[feature === 'aiCalls' ? 'aiCalls' : feature];
+    if (limit === Infinity) return true;
+    if (!canUse(feature)) {
+      showUpgradeModal(feature, featureLabel, _usage[feature] || 0, limit);
+      return false; // hard stop — the cap is the cap
+    }
+    // Under the cap: nudge as it approaches (softGate's 80% toast).
+    softGate(feature, featureLabel);
+    return true;
+  }
+
   // ── Soft gate check — warn at 80%, modal at 100% ──
   // Returns true if the action should proceed, false if blocked.
   // Never actually blocks — just shows warnings/modals.
@@ -343,6 +365,7 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     usagePct,
     trackUsage,
     softGate,
+    enforceGate,
     getPlan,
     showUpgradeModal
   };
