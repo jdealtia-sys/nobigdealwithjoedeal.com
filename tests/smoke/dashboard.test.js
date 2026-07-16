@@ -2480,11 +2480,14 @@ section('Hardening 2026-06-09 — settings-tab renderers (post-#597 live surface
     /_nbdEscHtml\(m\.email\s*\|\|\s*''\)/.test(teamSrc)
       && /_nbdEscHtml\(\(m\.email\s*\|\|\s*'\?'\)\[0\]/.test(teamSrc),
     'both the email line and the avatar initial must be escaped');
-  // 1c. Role (both interpolations) + status escape.
+  // 1c. Role (both interpolations) + status escape. Status renders via
+  // statusLabel (derived from m.status; may read 'invite expired' past the
+  // 30-day TTL) — still tenant data, still must pass through the escaper.
   assert('team rows escape m.role and m.status through _nbdEscHtml',
     (teamSrc.match(/_nbdEscHtml\(\(m\.role\s*\|\|\s*'rep'\)/g) || []).length >= 2
-      && /_nbdEscHtml\(m\.status\s*\|\|\s*'invited'\)/.test(teamSrc),
-    'role renders twice (meta line + badge) and status once; all three must be escaped');
+      && /_nbdEscHtml\(statusLabel\)/.test(teamSrc)
+      && /statusLabel = inviteExpired \? 'invite expired' : \(m\.status \|\| 'invited'\)/.test(teamSrc),
+    'role renders twice (meta line + badge) and statusLabel once; all three must be escaped');
   // 1d. No raw member-field concatenation survives.
   assert('no unescaped member-field interpolation remains in team rows',
     !/\+\s*\(m\.(email|role|status)/.test(teamSrc),

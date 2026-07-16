@@ -110,15 +110,26 @@ exports.claimInvite = onCall(
       .get();
     if (inviteSnap.empty) return { claimed: false, reason: 'no_invite' };
 
+    const memberDoc = inviteSnap.docs[0];
+    const memberData = memberDoc.data() || {};
+    const companyId = memberDoc.ref.parent.parent.id;
+
+    // Invite expiry (gauntlet batch 2 — product decision 2026-07-16:
+    // 30 days). An expired invite is claimable no more; the owner's
+    // Re-send recreates the doc with a fresh invitedAt (delete+recreate
+    // transaction), which restarts the clock. Checked BEFORE the
+    // verified-email wall so an expired invite doesn't loop the invitee
+    // through verification for nothing. Missing invitedAt (pre-expiry
+    // docs) is treated as fresh — never strand a legacy invite.
+    if (isInviteExpired(memberData)) {
+      return { claimed: false, reason: 'invite_expired' };
+    }
+
     // Invite exists — now the email-ownership wall.
     if (token.email_verified !== true) {
       throw new HttpsError('failed-precondition',
         'Verify your email address first — check your inbox for the verification link, then reload.');
     }
-
-    const memberDoc = inviteSnap.docs[0];
-    const memberData = memberDoc.data() || {};
-    const companyId = memberDoc.ref.parent.parent.id;
 
     // Owner inviting themselves is a no-op tenant-wise; refuse to avoid a
     // self-invite overwriting company_admin with a lesser role.
@@ -313,6 +324,23 @@ function seatLimitForPlan(plan) {
   return limits.reps <= 1 ? 0 : limits.reps;
 }
 
+// Invite TTL (gauntlet batch 2): pending invites are claimable for 30 days
+// — long enough for roofing's slow hiring reality (owners invite before a
+// rep's start date), short enough that a company that abandoned a hire
+// isn't holding a standing grant forever. Re-send refreshes the clock
+// (delete+recreate stamps a new invitedAt). Expired invites also stop
+// consuming a seat (see the occupied filter in createTeamInvite). Missing
+// invitedAt (legacy docs) never expires. Exported for unit tests.
+const INVITE_TTL_DAYS = 30;
+function isInviteExpired(memberData, nowMs = Date.now()) {
+  if (!memberData || memberData.status !== 'invited') return false;
+  const ts = memberData.invitedAt;
+  const ms = ts && typeof ts.toMillis === 'function' ? ts.toMillis()
+    : (typeof ts === 'number' ? ts : null);
+  if (ms === null) return false; // legacy invite without a timestamp — keep valid
+  return (nowMs - ms) > INVITE_TTL_DAYS * 24 * 3600 * 1000;
+}
+
 exports.createTeamInvite = onCall(
   {
     region: 'us-central1',
@@ -375,8 +403,11 @@ exports.createTeamInvite = onCall(
     const seats = seatLimitForPlan(plan);
     const membersSnap = await db.collection(`companies/${companyId}/members`).get();
     const occupied = membersSnap.docs.filter((m) => {
-      const st = (m.data() || {}).status;
-      return st === 'invited' || st === 'active';
+      const md = m.data() || {};
+      // Expired pending invites free their seat automatically (30-day TTL)
+      // — a stale invite no longer blocks inviting someone else.
+      if (md.status === 'invited') return !isInviteExpired(md);
+      return md.status === 'active';
     });
     const existing = membersSnap.docs.find((m) => m.id === email);
     const existingStatus = existing ? (existing.data() || {}).status : null;
@@ -458,4 +489,4 @@ exports.createTeamInvite = onCall(
   }
 );
 
-exports._test = { resolveInviteRole, inviteEmailHtml, inviteEmailText, seatLimitForPlan };
+exports._test = { resolveInviteRole, inviteEmailHtml, inviteEmailText, seatLimitForPlan, isInviteExpired, INVITE_TTL_DAYS };

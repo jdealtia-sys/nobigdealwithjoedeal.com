@@ -109,7 +109,19 @@ exports.trackUsage = onCall({
     const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
     const cap = limits[feature];
 
-    const prevUsage = (data.usage && typeof data.usage[feature] === 'number')
+    // Month rollover. Paid tenants get their counters reset by the Stripe
+    // invoice.paid webhook, but FREE tenants have no invoices — without
+    // this, "10 leads/month" was 10 leads EVER once metering went live
+    // (gauntlet batch 2). cycleStart is an ISO string (webhook convention);
+    // when its calendar month differs from now, start a fresh cycle.
+    const nowMonth = new Date().toISOString().slice(0, 7);
+    const cycleMonth = (data.usage && typeof data.usage.cycleStart === 'string')
+      ? data.usage.cycleStart.slice(0, 7)
+      : null;
+    const rolled = cycleMonth !== null && cycleMonth !== nowMonth;
+    const baseUsage = rolled ? {} : (data.usage || {});
+
+    const prevUsage = (!rolled && data.usage && typeof data.usage[feature] === 'number')
       ? data.usage[feature]
       : 0;
     const nextUsage = prevUsage + 1;
@@ -126,9 +138,17 @@ exports.trackUsage = onCall({
     // the UI shows an upgrade modal but the action still proceeds. We
     // still want the meter to read accurately so dunning / nudges can
     // fire on real usage.
+    // merge:true merges MAP FIELDS individually, so a bare {...baseUsage}
+    // would leave last month's other counters in place on rollover —
+    // zero every metered feature explicitly when the cycle resets.
+    const resetZeros = rolled
+      ? Object.fromEntries([...ALLOWED_FEATURES].map((f) => [f, 0]))
+      : {};
     tx.set(subRef, {
       usage: {
-        ...(data.usage || {}),
+        ...baseUsage,
+        ...resetZeros,
+        cycleStart: (rolled || !cycleMonth) ? new Date().toISOString() : data.usage.cycleStart,
         [feature]: nextUsage,
       },
       lastUsageAt: FieldValue.serverTimestamp(),

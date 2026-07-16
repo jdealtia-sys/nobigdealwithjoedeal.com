@@ -402,6 +402,11 @@ exports.stripeWebhook = onRequest(
             stripeCustomerId: customerId,
             stripeSubscriptionId: session.subscription || null,
             source: 'checkout',
+            // Clear any lapse state — a fresh subscription ends the pause
+            // lifecycle (cancelledAt survives merge writes otherwise and
+            // the enforcement cron keys off it).
+            lapseEnforced: false,
+            cancelledAt: FieldValue.delete(),
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
             // Usage counters — reset on subscription start
@@ -409,6 +414,17 @@ exports.stripeWebhook = onRequest(
           };
 
           await db.doc(`subscriptions/${uid}`).set(subData, { merge: true });
+
+          // Reactivation after a lapse: restore exactly the seats the lapse
+          // cron paused (deactivatedReason 'lapse'); owner-deactivated
+          // members stay off. Non-fatal — a failure here must never break
+          // subscription activation itself.
+          try {
+            const { reactivateLapsedSeats } = require('./lapse-enforcement');
+            await reactivateLapsedSeats(db, uid);
+          } catch (e) {
+            logger.warn('lapse_reactivation_failed', { uid, err: e.message });
+          }
 
           // ── Set Firebase Auth custom claims ──
           // These claims are available in Firestore security rules
@@ -502,6 +518,11 @@ exports.stripeWebhook = onRequest(
           await subDoc.ref.update({
             plan: 'free',
             status: 'cancelled',
+            // Anchors the lapse grace period (gauntlet batch 2): the daily
+            // enforceLapsedSeats cron pauses team seats LAPSE_GRACE_DAYS
+            // after this stamp; lapseEnforced is cleared on reactivation.
+            cancelledAt: FieldValue.serverTimestamp(),
+            lapseEnforced: false,
             updatedAt: FieldValue.serverTimestamp(),
           });
 
