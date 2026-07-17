@@ -532,6 +532,30 @@ console.log('\nRoute 3 — funnel reorder + polish');
     'the reorder must not leave an abandoned paid signup un-onboarded/un-branded (worse than pre-reorder)');
 }
 
+console.log('\nRoute 3 gap #4 — one-click in-dashboard upgrade');
+{
+  const bt = read('docs/pro/js/dashboard-billing-tab.js');
+  assert('billing-tab renders a one-click checkout button + delegate → createCheckoutSession',
+    /data-billing-action="checkout"/.test(bt)
+    && /startBillingCheckout/.test(bt)
+    && /createCheckoutSession/.test(bt),
+    'a free/cancelled owner should reach Stripe in one click, not bounce to pricing.html');
+  assert('DOUBLE-BILL GUARD: checkout offered only when there is NO live Stripe sub',
+    /hasLiveSub = !!\(info\.status && LIVE_SUB_STATUS\[info\.status\]\)/.test(bt)
+    && /PAID\[key\] && !hasLiveSub[\s\S]{0,120}data-billing-action="checkout"/.test(bt)
+    && /PAID\[key\] && hasLiveSub[\s\S]{0,120}data-billing-action="managePortal"/.test(bt),
+    'createCheckoutSession mints a NEW subscription — anyone who already has a Stripe sub must use the portal, never a fresh checkout');
+  assert('DOUBLE-BILL GUARD covers dunning statuses (past_due/unpaid/incomplete), not just active/trialing',
+    /LIVE_SUB_STATUS = \{ active: 1, trialing: 1, past_due: 1, unpaid: 1, incomplete: 1 \}/.test(bt),
+    'a past_due/unpaid/incomplete tenant STILL has a live chargeable Stripe sub — offering them checkout double-bills + orphans the original');
+  assert('checkout callable is plan-allowlisted + owner sees no per-card action',
+    /plan !== 'starter' && plan !== 'team' && plan !== 'growth'\) return/.test(bt)
+    && /isOwner = !!\(window\._userClaims && window\._userClaims\.owner === true\)/.test(bt),
+    'guard the callable to real paid plans; owners are uncapped and never self-checkout');
+  assert('checkout delegate is guarded against template re-hydration double-wiring',
+    /_NBD_BILLING_CHECKOUT_DELEGATE/.test(bt));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }

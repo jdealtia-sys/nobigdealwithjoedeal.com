@@ -34,6 +34,25 @@
         // canonical twin) so the grid never shows duplicate cards.
         var plans = window.NBDBilling.PLANS;
         var aliasOf = { foundation: 'starter', professional: 'growth' };
+        // An owner is never billing-gated and can't self-checkout a tier — hide
+        // per-card actions for them (they're enterprise/uncapped by claim).
+        var isOwner = !!(window._userClaims && window._userClaims.owner === true);
+        // DOUBLE-BILL GUARD. createCheckoutSession mints a BRAND-NEW Stripe
+        // subscription with no dedupe, and its webhook overwrites this tenant's
+        // stripeSubscriptionId — so a one-click "Upgrade" for anyone who already
+        // has a Stripe subscription object would create a 2ND live sub AND
+        // orphan the first (which keeps billing, invisibly). The entitlement
+        // predicate (active||trialing) is WRONG here: a past_due/unpaid/
+        // incomplete tenant is NOT "active" yet still has a live, chargeable
+        // subscription in Stripe. Gate on the presence of a Stripe sub object of
+        // ANY non-terminal status; those tenants change tier via the portal.
+        // Only genuinely sub-less tenants (free / none / cancelled /
+        // trial_expired / incomplete_expired) may start a fresh checkout.
+        var LIVE_SUB_STATUS = { active: 1, trialing: 1, past_due: 1, unpaid: 1, incomplete: 1 };
+        var hasLiveSub = !!(info.status && LIVE_SUB_STATUS[info.status]);
+        var isEnterprise = info.plan === 'enterprise';
+        var PAID = { starter: 1, team: 1, growth: 1 };
+        var btnCss = 'margin-top:8px;width:100%;border:none;border-radius:6px;padding:7px 0;font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.04em;';
         var cards = document.getElementById('billingPlanCards');
         if (cards) {
           cards.innerHTML = Object.entries(plans).filter(function(entry) {
@@ -44,11 +63,31 @@
           }).map(function(entry) {
             var key = entry[0], p = entry[1];
             var isCurrent = key === info.plan;
+            // Per-card action (owners + enterprise tenants never see one):
+            //  • current plan → static CURRENT PLAN label
+            //  • enterprise card → Contact sales (mailto; no Stripe path)
+            //  • paid tier, NO live Stripe sub → Upgrade (one-click checkout)
+            //  • paid tier, HAS a live sub → Change plan (portal, safe proration)
+            //  • free tier, HAS a live sub → Downgrade (portal → cancel)
+            var action = '';
+            if (isCurrent) {
+              action = '<div style="font-size:9px;color:var(--orange);font-weight:700;margin-top:6px;letter-spacing:.08em;">CURRENT PLAN</div>';
+            } else if (!isOwner && !isEnterprise) {
+              if (key === 'enterprise') {
+                action = '<a href="mailto:jd@nobigdealwithjoedeal.com?subject=NBD%20Pro%20Enterprise" style="' + btnCss + 'display:block;background:var(--s3);color:var(--t);text-decoration:none;box-sizing:border-box;">Contact sales</a>';
+              } else if (PAID[key] && !hasLiveSub) {
+                action = '<button type="button" data-billing-action="checkout" data-plan="' + key + '" style="' + btnCss + 'background:var(--orange);color:#fff;">Upgrade</button>';
+              } else if (PAID[key] && hasLiveSub) {
+                action = '<button type="button" data-billing-action="managePortal" style="' + btnCss + 'background:var(--s3);color:var(--t);">Change plan</button>';
+              } else if (key === 'free' && hasLiveSub) {
+                action = '<button type="button" data-billing-action="managePortal" style="' + btnCss + 'background:var(--s3);color:var(--m);">Downgrade</button>';
+              }
+            }
             return '<div style="background:' + (isCurrent ? 'color-mix(in srgb, var(--orange) 8%, transparent)' : 'var(--s2)') + ';border:2px solid ' + (isCurrent ? 'var(--orange)' : 'var(--br)') + ';border-radius:8px;padding:14px;text-align:center;">'
               + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:14px;font-weight:800;color:var(--t);text-transform:uppercase;margin-bottom:4px;">' + p.label + '</div>'
               + '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:24px;font-weight:800;color:' + (isCurrent ? 'var(--orange)' : 'var(--t)') + ';">' + (p.price === null ? 'Custom' : (p.price === 0 ? 'Free' : '$' + p.price)) + '</div>'
               + '<div style="font-size:10px;color:var(--m);margin-top:4px;">' + (p.leads === Infinity ? '∞' : p.leads) + ' leads/mo</div>'
-              + (isCurrent ? '<div style="font-size:9px;color:var(--orange);font-weight:700;margin-top:6px;letter-spacing:.08em;">CURRENT PLAN</div>' : '')
+              + action
               + '</div>';
           }).join('');
         }
@@ -133,5 +172,46 @@
         document.addEventListener('click', function (ev) {
           var t = ev.target.closest && ev.target.closest('[data-billing-action="managePortal"]');
           if (t) openCustomerPortalSession(t);
+        });
+      }
+
+      // ── One-click upgrade (in-dashboard checkout) ──
+      // The billing-tab plan cards now carry an "Upgrade" button for tenants
+      // WITHOUT an active paid subscription, so a free/cancelled owner reaches
+      // Stripe Checkout in one click instead of bouncing out to /pro/pricing.html.
+      // Mirrors pricing-page.module.js subscribe() exactly (the proven live
+      // checkout launcher): a plain fetch to createCheckoutSession with the ID
+      // token, then redirect to the returned Stripe URL. Active subscribers get
+      // "Change plan" (managePortal) instead — createCheckoutSession mints a NEW
+      // subscription and must never run for someone who already has one.
+      async function startBillingCheckout(plan, btn) {
+        if (plan !== 'starter' && plan !== 'team' && plan !== 'growth') return;
+        var user = window._user || (window.auth && window.auth.currentUser);
+        if (!user || typeof user.getIdToken !== 'function') {
+          if (typeof showToast === 'function') showToast('Sign in again to upgrade', 'error');
+          return;
+        }
+        var origText = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = 'Loading…'; }
+        try {
+          var token = await user.getIdToken();
+          var res = await fetch('https://us-central1-nobigdeal-pro.cloudfunctions.net/createCheckoutSession', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify({ plan: plan }),
+          });
+          var data = await res.json().catch(function () { return {}; });
+          if (res.ok && data.url) { window.location.href = data.url; return; }
+          throw new Error(data.error || ('HTTP ' + res.status));
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Could not start checkout: ' + e.message, 'error');
+          if (btn) { btn.disabled = false; btn.textContent = origText; }
+        }
+      }
+      if (!window._NBD_BILLING_CHECKOUT_DELEGATE) {
+        window._NBD_BILLING_CHECKOUT_DELEGATE = true;
+        document.addEventListener('click', function (ev) {
+          var t = ev.target.closest && ev.target.closest('[data-billing-action="checkout"]');
+          if (t) startBillingCheckout(t.getAttribute('data-plan'), t);
         });
       }
