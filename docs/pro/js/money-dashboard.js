@@ -78,7 +78,14 @@
     // + 1099 buckets below, so nothing straddles the boundary inconsistently.
     var collectedCents = 0;
     invoices.forEach(function (inv) {
-      if (etYear(toJSDate(inv.paidAt)) === year) collectedCents += collectedCentsOf(inv);
+      // Attribute collected cash by the DATE it was received. paidAt is only
+      // stamped on full payoff, so a partial deposit (real cash in hand, with
+      // balanceDue reduced) was invisible here — understating Collected/Net
+      // Cash by every open job's deposit. lastPaymentAt (stamped on every
+      // payment incl. partials by markPaid + the Stripe webhook) is the real
+      // receipt date; fall back to paidAt for legacy docs.
+      var payDate = inv.lastPaymentAt != null ? inv.lastPaymentAt : inv.paidAt;
+      if (etYear(toJSDate(payDate)) === year) collectedCents += collectedCentsOf(inv);
     });
     var outstandingCents = 0;
     invoices.forEach(function (inv) {
