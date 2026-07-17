@@ -56,6 +56,10 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   let _status = 'none';  // none | active | trialing | past_due | cancelled
   let _usage = { leads: 0, reports: 0, aiCalls: 0, cycleStart: null };
   let _trialEndsAt = null;
+  // Per-seat add-ons (Route 1): extra rep seats bought beyond the plan cap,
+  // stamped on the sub doc by the Stripe webhook. UI mirror only — the server
+  // cap sites (createTeamInvite/assignSeats/lapse) are the enforced truth.
+  let _purchasedSeats = 0;
   let _loaded = false;
 
   // Owner bypass — claim-ONLY since the OWNER_EMAILS retirement
@@ -168,14 +172,26 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
           _plan = 'free';
           _status = 'trial_expired';
         }
+        // Mirror the server's entitled-status gate (createTeamInvite/
+        // assignSeats): purchased seats count ONLY while the sub is
+        // active/trialing/past_due. Keyed on the FINAL _status — after the
+        // trial-expiry override above — so an 'unpaid'/'cancelled'/
+        // 'trial_expired' doc's stale seat count can't inflate the UI cap
+        // the server will refuse anyway.
+        const entitledForSeats = _status === 'active' || _status === 'trialing'
+          || _status === 'past_due';
+        _purchasedSeats = entitledForSeats
+          ? Math.max(0, Number(data.purchasedSeats) || 0) : 0;
       } else {
         _plan = 'free';
         _status = 'none';
+        _purchasedSeats = 0;
       }
       _loaded = true;
     } catch (e) {
       console.warn('[Billing] loadSubscription failed:', e.message);
       _plan = 'free';
+      _purchasedSeats = 0;
       _loaded = true;
     }
   }
@@ -367,6 +383,7 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       status: _status,
       usage: { ..._usage },
       limits: PLANS[_plan] || PLANS.free,
+      purchasedSeats: _purchasedSeats,
       trialEndsAt: _trialEndsAt,
       isTrialing: _status === 'trialing',
       isPastDue: _status === 'past_due',

@@ -411,6 +411,12 @@ exports.createTeamInvite = onCall(
     // truth), company doc plan as fallback. Joe's owner accounts and
     // platform admins are never seat-gated.
     let plan = 'free';
+    // Per-seat add-ons (Route 1): extra invited-rep seats bought as a Stripe
+    // subscription-item quantity, persisted as purchasedSeats on the sub doc
+    // by the webhook. Effective cap = seatLimitForPlan(plan) + purchasedSeats.
+    // Only an ENTITLED sub's seats count — a lapsed sub's purchased seats die
+    // with it (the plan fallback below already drops to the company doc/free).
+    let purchasedSeats = 0;
     // Owner seat-cap bypass: claims-based (token.owner === true) with the
     // deprecated email fallback inside isOwnerCaller (remove fallback after
     // owner claims confirmed in prod).
@@ -429,12 +435,14 @@ exports.createTeamInvite = onCall(
         || subData.status === 'past_due';
       if (subActive && subData.plan) {
         plan = subData.plan;
+        purchasedSeats = Math.max(0, Number(subData.purchasedSeats) || 0);
       } else {
         plan = (coSnap.exists && (coSnap.data() || {}).plan) || 'free';
       }
     }
 
-    const seats = seatLimitForPlan(plan);
+    // Infinity + n === Infinity, so enterprise stays uncapped.
+    const seats = seatLimitForPlan(plan) + purchasedSeats;
     const membersSnap = await db.collection(`companies/${companyId}/members`).get();
     const occupied = membersSnap.docs.filter((m) => {
       const md = m.data() || {};
@@ -567,18 +575,24 @@ exports.assignSeats = onCall(
     const ownerId = coSnap.exists ? (coSnap.data() || {}).ownerId : null;
 
     // Plan resolution — identical to createTeamInvite (subscription truth,
-    // company-doc fallback; owner/global-admin are enterprise/uncapped).
+    // company-doc fallback; owner/global-admin are enterprise/uncapped;
+    // purchasedSeats widens the cap only while the sub is entitled).
     let plan = 'free';
+    let purchasedSeats = 0;
     if (isGlobalAdmin || isOwnerCaller(request.auth.token)) {
       plan = 'enterprise';
     } else {
       const subData = (await db.doc(`subscriptions/${companyId}`).get()).data() || {};
       const subActive = subData.status === 'active' || subData.status === 'trialing'
         || subData.status === 'past_due';
-      plan = (subActive && subData.plan) ? subData.plan
-        : ((coSnap.exists && (coSnap.data() || {}).plan) || 'free');
+      if (subActive && subData.plan) {
+        plan = subData.plan;
+        purchasedSeats = Math.max(0, Number(subData.purchasedSeats) || 0);
+      } else {
+        plan = (coSnap.exists && (coSnap.data() || {}).plan) || 'free';
+      }
     }
-    const cap = seatLimitForPlan(plan);
+    const cap = seatLimitForPlan(plan) + purchasedSeats;
 
     // Only CLAIMED members (have a uid, not the owner) hold seats. Cap the
     // chosen-active count at the plan limit before writing anything.

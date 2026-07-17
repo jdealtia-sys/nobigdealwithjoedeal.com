@@ -137,7 +137,11 @@
           var pl = window.NBDBilling && window.NBDBilling.getPlan && window.NBDBilling.getPlan();
           var reps = pl && pl.limits ? pl.limits.reps : 1;
           if (reps === Infinity || reps == null) return Infinity;
-          return reps <= 1 ? 0 : reps; // mirrors server seatLimitForPlan
+          var base = reps <= 1 ? 0 : reps; // mirrors server seatLimitForPlan
+          // Per-seat add-ons (Route 1): purchased extra seats widen the cap,
+          // matching the server's base + purchasedSeats at every cap site.
+          var extra = pl && pl.purchasedSeats > 0 ? pl.purchasedSeats : 0;
+          return base + extra;
         } catch (_) { return Infinity; }
       }
       function _renderSeatPanel(members, listEl) {
