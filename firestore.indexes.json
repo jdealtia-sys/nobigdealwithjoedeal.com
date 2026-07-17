@@ -51,6 +51,15 @@
       ]
     },
     {
+      "collectionGroup": "ai_drafts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId",      "order": "ASCENDING"  },
+        { "fieldPath": "status",      "order": "ASCENDING"  },
+        { "fieldPath": "generatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "recordings",
       "queryScope": "COLLECTION_GROUP",
       "fields": [
