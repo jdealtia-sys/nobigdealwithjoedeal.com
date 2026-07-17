@@ -23,7 +23,11 @@
      every page. The @page rule lives in design-system.css. D-2.6
      adds the social rail to the right so reviewers, prospective
      buyers, and adjusters can one-tap to our Google reviews, site,
-     and social presence — same affordance every doc, every page. --}}
+     and social presence — same affordance every doc, every page.
+     The rail is NBD-specific chrome (hardcoded NBD review/site/social
+     URLs), so it renders ONLY for the NBD tenant — a stranger tenant
+     must never stamp NBD's Google reviews / socials on its customer
+     documents (gauntlet de-brand: omit rather than leak). --}}
 <div class="doc-band-bottom">
   <div class="seal">{{company.seal}}<br>{{seal}}</div>
   <div class="footer-body">
@@ -31,7 +35,7 @@
     <div>{{company.footerContact}}</div>
     {{#if docNumber}}<div>{{docType}} · {{docNumber}}</div>{{/if}}
   </div>
-  {{> socialRail}}
+  {{#if company.isNbd}}{{> socialRail}}{{/if}}
 </div>
 
 <main>

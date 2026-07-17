@@ -105,6 +105,28 @@ for (const rel of FILES) {
   if (ungated.length) { totalUngated += ungated.length; ungated.forEach((u) => console.log('        → ' + u)); }
 }
 
+// ── Server-PDF social rail: NBD-only chrome ────────────────────────
+// socialRail.hbs is pure hardcoded NBD identity (Google reviews / site /
+// Facebook / Instagram URLs — no template vars). It must render ONLY for the
+// NBD tenant, gated at its single include site in _layout.hbs. A bare
+// {{> socialRail}} would stamp NBD's socials on every stranger tenant's
+// customer/adjuster PDFs (contract/invoice/receipt/warranty/inspection/…).
+console.log('\nBRAND GUARD — server-PDF social rail is NBD-gated');
+{
+  const layout = fs.readFileSync(path.join(ROOT, 'functions/print/partials/_layout.hbs'), 'utf8');
+  // The only {{> socialRail}} include must be wrapped in {{#if company.isNbd}}.
+  const includeRe = /\{\{>\s*socialRail\s*\}\}/g;
+  const gatedRe = /\{\{#if\s+company\.isNbd\s*\}\}\s*\{\{>\s*socialRail\s*\}\}\s*\{\{\/if\}\}/;
+  const includes = (layout.match(includeRe) || []).length;
+  ok('_layout.hbs includes socialRail exactly once', includes === 1);
+  ok('the socialRail include is gated on {{#if company.isNbd}}', gatedRe.test(layout));
+  // socialRail.hbs may keep its NBD URLs (it is the NBD rail); the gate is the
+  // contract. Assert it is indeed NBD-only content so the gate stays meaningful.
+  const rail = fs.readFileSync(path.join(ROOT, 'functions/print/partials/socialRail.hbs'), 'utf8');
+  ok('socialRail.hbs carries the NBD identity it must stay gated behind',
+    /nobigdealwithjoedeal\.com/.test(rail) || /g\.page\/r\//.test(rail));
+}
+
 console.log('\n──────────────────────────────');
 console.log(`${passed} passed, ${failed} failed` + (totalUngated ? ` (${totalUngated} ungated literal lines)` : ''));
 if (failed) { console.log('\nUngated NBD literals found — gate each behind isNbd/_brand()/{{company}} or make it a per-tenant value:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }
