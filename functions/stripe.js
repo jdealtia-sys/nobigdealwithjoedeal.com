@@ -673,6 +673,25 @@ exports.stripeWebhook = onRequest(
 
     } catch (e) {
       logger.error('stripeWebhook processing error', { err: e.message });
+      // The idempotency marker stripe_events/{event.id} is written BEFORE the
+      // switch body. If processing then threw (a transient Firestore blip /
+      // deadline on the subscriptions write), returning 500 alone is not
+      // enough: Stripe retries the delivery, but the retry hits the create()
+      // guard, sees ALREADY_EXISTS, and short-circuits as a duplicate doing
+      // ZERO work — so a paid tenant's entitlement doc + claims (or a
+      // cancellation / past_due flag) are lost permanently, with no
+      // reconciliation path. Delete the marker so the retry re-processes from
+      // scratch. The handlers' writes are all idempotent (merge/update + reset),
+      // so a re-run is safe. `db` is scoped inside the try; use getFirestore()
+      // (same memoized instance).
+      if (event && event.id) {
+        try {
+          await getFirestore().doc(`stripe_events/${event.id}`).delete();
+        } catch (delErr) {
+          logger.error('stripeWebhook marker cleanup failed — event may not retry',
+            { eventId: event.id, err: delErr.message });
+        }
+      }
       res.status(500).json({ error: 'Webhook processing failed' });
     }
   }
