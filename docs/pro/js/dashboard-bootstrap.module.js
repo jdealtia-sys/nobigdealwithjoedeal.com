@@ -2122,7 +2122,14 @@
       window._leads.forEach(l => {
         if (l.stage) l._stageKey = normalizeStage(l.stage);
         else l._stageKey = S.NEW;
-        l._stageRole = stageRole(l._stageKey);
+        // Use the TENANT-AWARE window.stageRole (applyPipelineConfig upgrades
+        // it to the custom pipeline's roleOf) — NOT the module-local built-in
+        // stageRole, which only knows built-in keys and returns 'active' for
+        // every custom/freeform stage. loadLeads re-runs on every save/refresh,
+        // so the built-in was clobbering custom won/lost leads back to 'active'
+        // each time, silently dropping them out of role-keyed revenue/close-rate
+        // KPIs (money-dashboard isWon, analytics-kpi win-rate) for the session.
+        l._stageRole = (window.stageRole || stageRole)(l._stageKey);
       });
       // Flag so downstream modules (Ask Joe Proactive morning briefing,
       // widgets, etc.) know the lead cache is hydrated vs still pending.

@@ -649,6 +649,39 @@ console.log('\nDeposit / partial-payment money correctness (money-out sweep)');
     'a transient write failure after the marker was written would otherwise silently drop the captured payment');
 }
 
+console.log('\nCRM custom-pipeline + kanban correctness (lead-lifecycle sweep)');
+{
+  const ls = read('docs/pro/js/lead-score.js');
+  assert('lead-score engagement calls window.CustomerEngagementScore.computeTier (not the undefined window.computeTier)',
+    /window\.CustomerEngagementScore/.test(ls) && /_ces\.computeTier\(lead/.test(ls)
+    && !/typeof window\.computeTier !== 'function'/.test(ls),
+    'window.computeTier was never assigned — the 0-30 engagement signal (largest weight) always returned 0');
+  const boot = read('docs/pro/js/dashboard-bootstrap.module.js');
+  assert('loadLeads stamps _stageRole via TENANT-AWARE window.stageRole (not the built-in module import)',
+    /l\._stageRole = \(window\.stageRole \|\| stageRole\)\(l\._stageKey\)/.test(boot),
+    'the module-local built-in returns active for custom stages, clobbering won/lost roles on every refresh');
+  const cp = read('docs/pro/js/crm-pipeline.js');
+  assert('moveCard NOOPs a same-COLUMN re-drop using the stages ARRAY (window._stageKeys, not the view-key string)',
+    /window\.resolveColumn\(cur\.stage, _mcKeys\)/.test(cp)
+    && /Array\.isArray\(_mcKeys\) && _mcKeys\.length/.test(cp)
+    && /cur\.stage === newStage \|\| _mcCurCol === newStage/.test(cp),
+    'resolveColumn arg2 is the stages array; a view-key string makes .includes() a substring test → blocks legit moves');
+  assert('per-column drop handler stopPropagation (no double moveCard via the board handler)',
+    /const dropHandler = e => \{[\s\S]{0,400}e\.stopPropagation\(\)/.test(cp));
+  assert('CRM revenue buckets are ROLE-aware (custom won/lost stages count correctly)',
+    /isLost = _lostKeys\.includes\(sk\) \|\| role === 'lost'/.test(cp)
+    && /isClosed = _closedKeys\.includes\(sk\) \|\| role === 'won' \|\| role === 'job'/.test(cp),
+    'hardcoded key lists excluded custom won from closed revenue and let custom lost inflate pipeline');
+  assert('dashboard stage counts add custom WON/LOST by role only (no else-catch-all rebucketing built-ins)',
+    /if \(!matched\) \{[\s\S]{0,260}role === 'won'\) _stageCounts\.closed\+\+;\s*else if \(role === 'lost'\) _stageCounts\.lost\+\+;\s*\}/.test(cp),
+    'a catch-all else would newly pile built-in mid-stages (inspected/scope_received/…) into Negotiating — a built-in behavior change');
+  const cl = read('docs/pro/js/crm-leads.js');
+  assert('Edit-modal save syncs stageRole with the edited stage (no stale denormalized role)',
+    /_editStageRole = _editStageVal[\s\S]{0,200}window\.stageRole\(/.test(cl)
+    && /\(_editStageRole \? \{ stageRole: _editStageRole \} : \{\}\)/.test(cl),
+    'the modal wrote stage without stageRole → server won/lost classification stayed stale (missed referral payouts)');
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }
