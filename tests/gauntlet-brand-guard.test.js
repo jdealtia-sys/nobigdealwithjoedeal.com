@@ -127,6 +127,17 @@ console.log('\nBRAND GUARD — server-PDF social rail is NBD-gated');
     /nobigdealwithjoedeal\.com/.test(rail) || /g\.page\/r\//.test(rail));
 }
 
+// ── Deal-acceptance error page: neutral <title>, no NBD identity ───
+// getDealRoom's errPage (invalid / expired / already-accepted) is served for
+// EVERY tenant's /deal/<token> link, so its <title> must never assert NBD's
+// identity on a stranger tenant's customer-facing tab / link-preview.
+console.log('\nBRAND GUARD — deal-acceptance error page title is neutral');
+{
+  const da = fs.readFileSync(path.join(ROOT, 'functions/deal-acceptance.js'), 'utf8');
+  ok('deal-acceptance errPage does NOT hardcode an NBD <title>',
+    !/<title>No Big Deal<\/title>/.test(da));
+}
+
 console.log('\n──────────────────────────────');
 console.log(`${passed} passed, ${failed} failed` + (totalUngated ? ` (${totalUngated} ungated literal lines)` : ''));
 if (failed) { console.log('\nUngated NBD literals found — gate each behind isNbd/_brand()/{{company}} or make it a per-tenant value:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }
