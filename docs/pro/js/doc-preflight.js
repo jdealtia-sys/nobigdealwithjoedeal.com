@@ -776,7 +776,7 @@
             { key: 'term60', label: '60-month payment', type: 'currency',
               source: 'literal:', persist: PERSIST.DOCUMENT },
             { key: 'interestRate', label: 'Interest Rate', type: 'text',
-              source: 'literal:0% APR (approved credit)', persist: PERSIST.DOCUMENT },
+              source: 'literal:', persist: PERSIST.DOCUMENT, placeholder: 'Varies by credit (Acorn Finance)' },
             { key: 'applicationLink', label: 'Application Link', type: 'text',
               source: 'literal:nobigdealwithjoedeal.com/financing', persist: PERSIST.DOCUMENT }
           ]

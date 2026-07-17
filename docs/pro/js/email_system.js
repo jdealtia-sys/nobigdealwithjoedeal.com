@@ -656,7 +656,7 @@ I've sent you a financing pre-qualification link through our partner. This is a 
 
 Click here to check your options: {preQualLink}
 
-Multiple lenders compete for your approval, so you'll see the best rates available. Many of our customers qualify for 0% APR for 12-18 months.
+Multiple lenders compete for your approval through the Acorn Finance marketplace, so you'll see the rates and terms you qualify for. Rates and terms vary by credit.
 
 Let me know if you have any questions about the financing options.
 
