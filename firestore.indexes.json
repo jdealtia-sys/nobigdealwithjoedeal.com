@@ -18,6 +18,15 @@
       ]
     },
     {
+      "collectionGroup": "customerAuditEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "leadId",    "order": "ASCENDING"  },
+        { "fieldPath": "ownerUid",  "order": "ASCENDING"  },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "leads",
       "queryScope": "COLLECTION",
       "fields": [
