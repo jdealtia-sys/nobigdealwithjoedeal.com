@@ -43,8 +43,16 @@ window.subscribe = async function(plan, evt) {
   // Check if user is signed in
   const user = auth.currentUser;
   if (!user) {
-    if (confirm('You need to sign in first. Go to login page?')) {
-      window.location.href = '/pro/login.html?redirect=pricing&plan=' + plan;
+    // A signed-out visitor on the pricing page is almost always a NEW stranger,
+    // not a returning user — send them to REGISTER (which stashes ?plan as
+    // nbd_plan_intent and, post-signup, routes to checkout), not the login
+    // wall they'd have no account for. Returning users use register's prominent
+    // "Sign in here" link; the intent register.js stashed survives the
+    // register→login→pricing bounce in sessionStorage, so their checkout still
+    // resumes. Only pass a validated plan into the URL.
+    const safePlan = (plan === 'starter' || plan === 'team' || plan === 'growth') ? plan : '';
+    if (confirm('Create your account to continue to checkout?')) {
+      window.location.href = '/pro/register.html' + (safePlan ? '?plan=' + safePlan : '');
     }
     return;
   }

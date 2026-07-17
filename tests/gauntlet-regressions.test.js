@@ -556,6 +556,18 @@ console.log('\nRoute 3 gap #4 — one-click in-dashboard upgrade');
     /_NBD_BILLING_CHECKOUT_DELEGATE/.test(bt));
 }
 
+console.log('\nRoute 3 gap #3 — signed-out Subscribe → register (not the login wall)');
+{
+  const pp = read('docs/pro/js/pricing-page.module.js');
+  assert('signed-out subscribe routes to register.html?plan= (carrying a validated plan)',
+    /window\.location\.href = '\/pro\/register\.html' \+ \(safePlan \? '\?plan=' \+ safePlan/.test(pp)
+    && /safePlan = \(plan === 'starter' \|\| plan === 'team' \|\| plan === 'growth'\)/.test(pp),
+    'a stranger on pricing has no account — sending them to the login wall is a conversion leak');
+  assert('signed-out subscribe no longer dead-ends at login.html',
+    !/window\.location\.href = '\/pro\/login\.html\?redirect=pricing/.test(pp),
+    'the old login-wall redirect must be gone');
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }
