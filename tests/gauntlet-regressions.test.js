@@ -600,6 +600,55 @@ console.log('\nRoute 3 gap #6 — canonical free-tenant subscriptions doc');
     /VOICE_COMPANY_BUDGET_SEC = \{[\s\S]{0,200}free:\s*3600/.test(vi));
 }
 
+console.log('\nDeposit / partial-payment money correctness (money-out sweep)');
+{
+  const st = read('functions/stripe.js');
+  assert('payment link charges the OUTSTANDING BALANCE, not the full face value',
+    /balanceDueCents = expectedTotalCents - amountPaidCents/.test(st)
+    && /balanceDueCents < MIN_CENTS[\s\S]{0,120}already paid in full/.test(st),
+    'charging invoice.total after a deposit overcharges the homeowner by the deposit');
+  assert('payment link is single-use (completed_sessions limit 1)',
+    /restrictions: \{ completed_sessions: \{ limit: 1 \} \}/.test(st),
+    'a reusable link can be paid repeatedly, each a fresh un-deduped payment_intent');
+  assert('webhook credits ACTUAL amount_received cumulatively (never hard-sets to total)',
+    /paymentIntent\.amount_received/.test(st)
+    && /newPaid = Math\.round\(\(priorPaid \+ received\)/.test(st)
+    && !/amountPaid: Number\(inv\.total\) \|\| 0/.test(st),
+    'hard-setting amountPaid=inv.total erases a prior deposit and assumes full payment');
+  assert('webhook flips paid/paidAt only when fully paid + stamps lastPaymentAt',
+    /status: fullyPaid \? 'paid' : \(inv\.status/.test(st)
+    && /lastPaymentAt: FieldValue\.serverTimestamp\(\)/.test(st));
+  assert('kanban auto-advance gated on fullyPaid (a deposit must not advance to final_payment)',
+    /if \(fullyPaid && inv\.leadId\)/.test(st));
+  const ip = read('docs/pro/js/invoice-pipeline.js');
+  assert('markPaid stamps lastPaymentAt on every payment (incl. partials)',
+    /lastPaymentAt: new Date\(\)/.test(ip));
+  const md = read('docs/pro/js/money-dashboard.js');
+  assert('money dashboard attributes Collected by lastPaymentAt||paidAt (counts deposits)',
+    /payDate = inv\.lastPaymentAt != null \? inv\.lastPaymentAt : inv\.paidAt/.test(md)
+    && /etYear\(toJSDate\(payDate\)\) === year/.test(md),
+    'paidAt-only gate hid every partial deposit from Collected/Net Cash');
+  const mdt = read('tests/money-dashboard.test.js');
+  assert('money-dashboard test uses the REAL partial shape (no fabricated status:partial+paidAt)',
+    !/status: 'partial', paidAt:/.test(mdt)
+    && /status: 'sent', total: 1000, balanceDue: 400, amountPaid: 600, lastPaymentAt:/.test(mdt),
+    'the old fixture false-greened the paidAt-gated Collected bug');
+  // Review follow-ups: the link is minted at invoice-CREATION (amountPaid=0),
+  // so the common overcharge is "deposit recorded AFTER the link exists". The
+  // link must be regenerated to the new balance + the stale one deactivated,
+  // and the webhook must recover the idempotency marker on a transient failure.
+  assert('createStripePaymentLink deactivates a prior link before minting a new one',
+    /priorLinkId = invoice\.stripeInvoiceId/.test(st)
+    && /stripe\.paymentLinks\.update\(priorLinkId, \{ active: false \}\)/.test(st),
+    'a regenerated link must kill the stale full-amount link or it overcharges/double-collects');
+  assert('markPaid regenerates the payment link to the new balance on a partial payment',
+    /invoice\.stripePaymentLink && newBalanceDue > 0[\s\S]{0,120}generateStripePaymentLink\(invoiceId\)/.test(ip),
+    'the link minted at invoice creation is stale after a deposit — regenerate to (total − amountPaid)');
+  assert('invoiceWebhook deletes the idempotency marker on failure so a retry re-processes',
+    /invoiceWebhook error[\s\S]{0,1200}getFirestore\(\)\.doc\(`stripe_events\/\$\{event\.id\}`\)\.delete\(\)/.test(st),
+    'a transient write failure after the marker was written would otherwise silently drop the captured payment');
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }

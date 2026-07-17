@@ -623,8 +623,25 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         balanceDue: newBalanceDue,
         status: newBalanceDue === 0 ? 'paid' : invoice.status,
         paidAt: newBalanceDue === 0 ? new Date() : invoice.paidAt,
+        // Stamped on EVERY payment (incl. partial deposits) so the money
+        // dashboard attributes collected cash to the year it was received.
+        // paidAt only fires on full payoff, so it alone hid deposit cash.
+        lastPaymentAt: new Date(),
         updatedAt: new Date()
       });
+
+      // Regenerate the online payment link to the NEW outstanding balance.
+      // The link is minted at invoice creation for the full total; once a
+      // deposit is recorded here it's stale and would re-charge the full
+      // amount (overcharge). Regenerating rebuilds it to (total − amountPaid)
+      // and deactivates the stale one server-side. Skip when fully paid (no
+      // balance to collect) or when the invoice never had a link. Non-fatal —
+      // the ledger is already updated; a failed regen just leaves the rep to
+      // resend.
+      if (invoice.stripePaymentLink && newBalanceDue > 0) {
+        try { await generateStripePaymentLink(invoiceId); }
+        catch (regenErr) { console.warn('markPaid: payment-link regen failed', regenErr && regenErr.message); }
+      }
 
       // If fully paid, advance lead stage. Post-crm-stages migration the
       // canonical key for this transition is 'contract_signed' (the legacy

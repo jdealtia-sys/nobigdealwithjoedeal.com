@@ -49,7 +49,12 @@ const data = {
     { status: 'paid', paidAt: new Date(2026, 2, 1), total: 12000 },
     { status: 'paid', paidAt: new Date(2025, 2, 1), total: 5000 }, // prior year — excluded from collected
     { status: 'sent', total: 4000, balanceDue: 4000 },             // fully outstanding
-    { status: 'partial', paidAt: new Date(2026, 3, 1), total: 1000, balanceDue: 400 }, // $600 collected, $400 still due
+    // REAL partial-deposit shape markPaid/webhook produce: status stays 'sent'
+    // (not 'partial'), paidAt is NULL (only set on full payoff), lastPaymentAt
+    // carries the receipt date. The old fixture faked {status:'partial',
+    // paidAt:set} — a shape the code never writes — which false-greened the
+    // paidAt-gated Collected bug (deposits invisible). $600 collected, $400 due.
+    { status: 'sent', total: 1000, balanceDue: 400, amountPaid: 600, lastPaymentAt: new Date(2026, 3, 1) },
   ],
   suppliers: [
     { displayName: 'Crew Co', is1099Eligible: true, w9Status: 'received' }, // YTD sub $3000 >= $2000 -> 1099 due
