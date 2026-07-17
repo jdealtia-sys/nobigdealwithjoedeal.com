@@ -13,6 +13,17 @@
 const { test, expect } = require('@playwright/test');
 const { requireTestUser, loginAs, callCallableInPage, cleanupE2EData, safeEvaluate, safeWaitForFunction } = require('./fixtures/auth');
 
+// Canonical customerId shape — mirrors functions/customer-id.js formatCustomerId():
+//   • NBD platform tenant → un-salted legacy 'NBD-####' (never changed).
+//   • any other tenant    → per-tenant '<PREFIX>-####-<SALT>': PREFIX is 2–4
+//     upper-alnum chars (prefix-reservation.js validateSeal); SALT is 4 base36-
+//     UPPER chars (custIdSalt — [0-9A-Z], NOT hex, e.g. 'OAK-0002-K3P9'). The
+//     seeded E2E tenant ('E2E Test Roofing', no reserved docPrefix) derives
+//     prefix 'ETR' → mints 'ETR-0001-<salt>'. Assert BOTH shapes from ONE place:
+//     hard-coding /^NBD-\d{4,}$/ in two spots flaked seed-dependently once
+//     tenants got per-tenant prefixes (and the two copies drifted).
+const CUSTOMER_ID_RE = /^(NBD-\d{4,}|[A-Z0-9]{2,4}-\d{4,}-[0-9A-Z]{4})$/;
+
 /**
  * Navigate to the CRM/Pipeline view. Post-login the dashboard shows
  * view-home; the kanban view is template-stamped on first goTo('crm').
@@ -259,7 +270,7 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
     expect(lead.companyId, 'companyId stamped').toBeTruthy();
     expect(lead.userId, 'userId stamped').toBe(creds.email ? lead.userId : lead.userId); // userId existence check
     expect(lead.userId, 'userId is set').toBeTruthy();
-    expect(lead.customerId, 'customerId follows NBD-#### shape').toMatch(/^NBD-\d{4,}$/);
+    expect(lead.customerId, 'customerId follows the canonical mint shape (NBD-#### or <PREFIX>-####-<SALT>)').toMatch(CUSTOMER_ID_RE);
   });
 
   test('move stage logs timeline activity + updates stageStartedAt', async ({ page }) => {
@@ -1343,7 +1354,7 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
     // Cross-surface contract: the NBD-#### customerId minted at save time
     // (dashboard counter transaction; auto-assigned by the page itself
     // for pre-counter legacy leads) is what the detail header badges.
-    expect(bridge.customerIdOnLead, 'customerId on the hydrated lead follows NBD-####').toMatch(/^NBD-\d{4,}$/);
+    expect(bridge.customerIdOnLead, 'customerId on the hydrated lead follows the canonical mint shape').toMatch(CUSTOMER_ID_RE);
     expect(bridge.customerIdBadge, 'customer ID badge renders the minted id').toBe(bridge.customerIdOnLead);
   });
 });
