@@ -120,10 +120,17 @@ async function requirePaidSubscription(db, decoded) {
   }
   const uid = decoded.uid;
   if (!uid) return { ok: false, status: 401, error: 'Sign in required.' };
-  const snap = await db.doc('subscriptions/' + uid).get();
+  // Billing key = the COMPANY (companyId claim), not the caller. An invited
+  // rep's own uid has no subscriptions doc, so keying on uid gated every rep
+  // of a paying tenant as free — a stranger-tenant blocker, same class as the
+  // #945 stripe.js / #946 AI-gate fixes. Falls back to uid for a solo owner
+  // whose companyId claim == uid. 'trialing' counts as paid: a Growth trial is
+  // exactly the window billable features must work (parity with the AI gate).
+  const billingKey = decoded.companyId || uid;
+  const snap = await db.doc('subscriptions/' + billingKey).get();
   const sub = snap.exists ? snap.data() : null;
   const active = sub
-    && sub.status === 'active'
+    && (sub.status === 'active' || sub.status === 'trialing')
     && sub.plan
     && sub.plan !== 'free';
   if (!active) {
