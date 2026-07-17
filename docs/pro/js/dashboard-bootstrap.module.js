@@ -1148,6 +1148,18 @@
       }, 2000);
     }
     window._user = user;
+    // Prime the client billing gate once per login so enforceGate/softGate have
+    // the real plan + usage before the first lead write. loadSubscription() was
+    // ONLY called when Settings → Billing opened, so on the normal lead-entry
+    // flow _loaded stayed false and both gates failed open ALL session — a free
+    // stranger could create unlimited leads and the 10/mo cap + nudges never
+    // fired. Fire-and-forget: the gate fails open until this resolves, which is
+    // the intended brief pre-load grace, not a permanent hole. NBDBilling is a
+    // deferred script and this callback is async post-auth, so it's always
+    // defined by now; the typeof guard is belt-and-suspenders.
+    if (window.NBDBilling && typeof window.NBDBilling.loadSubscription === 'function') {
+      window.NBDBilling.loadSubscription();
+    }
     // Fetch the shop-wide Company Profile so every doc generated this
     // session uses the rep's saved legal text / financing / marketing.
     // Fire-and-forget — defaults are already in window._companyProfile,

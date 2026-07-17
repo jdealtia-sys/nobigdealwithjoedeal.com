@@ -312,7 +312,21 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     if (existing) existing.remove();
 
     const nextPlan = _plan === 'free' ? 'starter' : (_plan === 'starter' ? 'growth' : null);
-    if (!nextPlan) return; // enterprise/growth users don't see this
+    if (!nextPlan) {
+      // Growth is the top self-serve tier with a FINITE lead cap, so there's no
+      // higher plan to upsell and the modal has nothing to render. But
+      // enforceGate() is about to hard-block the action, so a silent return
+      // leaves e.g. the Add-Lead button doing nothing with zero feedback. Surface
+      // a toast explaining the cap instead (enterprise never reaches here — its
+      // limits are Infinity, so enforceGate returns before calling this).
+      if (typeof window.showToast === 'function') {
+        window.showToast(
+          `You've reached your monthly limit of ${limit} ${featureLabel} on the ` +
+          `${(PLANS[_plan] || {}).label || _plan} plan. Contact us to raise it.`,
+          'error');
+      }
+      return;
+    }
 
     const nextInfo = PLANS[nextPlan];
     const overlay = document.createElement('div');
