@@ -770,7 +770,16 @@ exports.deactivateUser = onCall(
         status: reactivate ? 'active' : 'deactivated',
         active: !!reactivate,
         deactivatedAt: reactivate ? null : FieldValue.serverTimestamp(),
-        deactivatedBy: reactivate ? null : callerUid
+        deactivatedBy: reactivate ? null : callerUid,
+        // deactivatedReason is the ONLY discriminator reactivateLapsedSeats
+        // (lapse-enforcement.js) uses to tell lapse-paused seats from
+        // owner-disabled ones. This path must stamp 'owner-removed' on a manual
+        // deactivation so a re-checkout does NOT auto-restore an intentionally
+        // disabled member — AND clear it to null on reactivation so a member the
+        // lapse cron paused (reason:'lapse') then the owner manually reactivated
+        // doesn't carry a stale 'lapse' that a later owner-deactivate + checkout
+        // would silently reverse. Contract: lapse-enforcement.js:21.
+        deactivatedReason: reactivate ? null : 'owner-removed'
       }, { merge: true });
     }
 

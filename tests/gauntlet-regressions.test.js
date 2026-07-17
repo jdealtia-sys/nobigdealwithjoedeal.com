@@ -194,6 +194,15 @@ console.log('\nLapse lifecycle — grace, pause, reactivation');
     /\.status === 'active'\)/.test(src));
   assert('reactivation restores ONLY lapse-paused members',
     /where\('deactivatedReason', '==', 'lapse'\)/.test(src));
+  // deactivateUser MUST stamp a non-lapse deactivatedReason on manual disable
+  // (and clear it on reactivate). Otherwise a member the cron paused
+  // (reason:'lapse'), then owner-reactivated, then owner-deactivated, keeps a
+  // stale 'lapse' reason and a later re-checkout silently un-disables an
+  // intentionally removed rep — breaking "owner-deactivated members stay off".
+  const admin = read('functions/handlers/admin.js');
+  assert('deactivateUser stamps deactivatedReason (owner-removed / null)',
+    /deactivatedReason: reactivate \? null : 'owner-removed'/.test(admin),
+    'manual deactivate must not leave a stale lapse reason that re-checkout auto-restores');
   const stripe = read('functions/stripe.js');
   assert('subscription.deleted stamps cancelledAt + lapseEnforced:false',
     /status: 'cancelled',[\s\S]{0,400}cancelledAt: FieldValue\.serverTimestamp\(\),\s*lapseEnforced: false/.test(stripe));
