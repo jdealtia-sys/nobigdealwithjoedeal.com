@@ -561,6 +561,47 @@ nav .nav-logo-text .sub{white-space:nowrap}
 </section>
 
 <!-- CTA -->
+<!-- EEAT LAYER (T2): credentials + local FAQ + FAQPage schema -->
+<style>
+.nbd-eeat .cred-grid{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+.nbd-eeat .cred-card{flex:1;min-width:230px;display:flex;gap:12px;align-items:flex-start;background:var(--white);border:1px solid var(--light-gray);border-radius:12px;padding:16px 18px}
+.nbd-eeat .cred-ico{flex-shrink:0;width:34px;height:34px;border-radius:8px;background:rgba(232,114,12,.12);display:flex;align-items:center;justify-content:center;color:var(--orange)}
+.nbd-eeat .cred-ico svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.nbd-eeat .cred-card strong{display:block;font-size:.9rem;color:var(--navy);margin-bottom:3px}
+.nbd-eeat .cred-card span{font-size:.8rem;color:var(--gray);line-height:1.55}
+.nbd-eeat .cred-card a{color:var(--orange);font-weight:600;text-decoration:none}
+.nbd-faq{max-width:820px;display:flex;flex-direction:column;gap:12px;margin-top:28px}
+.nbd-faq .faq-item{background:var(--white);border:1px solid var(--light-gray);border-radius:12px;overflow:hidden}
+.nbd-faq .faq-q{padding:18px 22px;font-weight:700;font-size:.95rem;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:14px}
+.nbd-faq .faq-q::after{content:'+';font-size:1.4rem;line-height:1;color:var(--orange);font-weight:300;flex-shrink:0;transition:transform .2s}
+.nbd-faq .faq-item.open .faq-q::after{transform:rotate(45deg)}
+.nbd-faq .faq-q:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
+.nbd-faq .faq-a{display:none;padding:0 22px 20px;font-size:.9rem;color:var(--gray);line-height:1.72}
+.nbd-faq .faq-item.open .faq-a{display:block}
+.nbd-faq .faq-a a{color:var(--orange);font-weight:600}
+</style>
+<section class="nbd-eeat">
+  <div class="section-inner">
+    <div class="eyebrow">Why homeowners trust NBD</div>
+    <h2 class="sec-title">Credentials &amp; <span>Straight Answers</span></h2>
+    <p class="sec-desc">Real certifications you can verify yourself, and honest answers to what Covington homeowners ask most.</p>
+    <div class="cred-grid">
+      <div class="cred-card"><div class="cred-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M8.5 13 L7 22 L12 19 L17 22 L15.5 13"/></svg></div><div><strong>GAF Certified&trade;</strong><span>System Plus warranty eligible &middot; <a href="https://www.gaf.com/en-us/roofing-contractors/residential" target="_blank" rel="noopener">Verify on GAF.com &rarr;</a></span></div></div>
+      <div class="cred-card"><div class="cred-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M8.5 13 L7 22 L12 19 L17 22 L15.5 13"/></svg></div><div><strong>TAMKO Pro Gold&trade;</strong><span>ProShield&reg; warranty eligible &middot; <a href="https://www.tamko.com/locate-a-contractor" target="_blank" rel="noopener">Verify on TAMKO.com &rarr;</a></span></div></div>
+      <div class="cred-card"><div class="cred-ico"><svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div><div><strong>Licensed &amp; Insured</strong><span>Owner-operated and fully insured on every Covington job &mdash; you get Joe, not a subcontractor.</span></div></div>
+    </div>
+    <!-- TODO_JO: (1) if you hold a specific OH/KY registration or local license #, add it to the "Licensed & Insured" card above. (2) Drop a real Covington case study (completed job + homeowner permission) as a proof block here when ready. -->
+    <div class="nbd-faq">
+      <div class="faq-item"><div class="faq-q">Do you actually work in Covington, KY, or just advertise here?</div><div class="faq-a"><p>Real coverage. I'm based in Goshen and work across Northern Kentucky &mdash; Kenton County included &mdash; personally. When you call, you get Joe, and Joe is the one who shows up.</p></div></div>
+      <div class="faq-item"><div class="faq-q">Are you licensed, insured, and certified to work on my Covington roof?</div><div class="faq-a"><p>Yes. No Big Deal is licensed and insured, and factory-certified by GAF (GAF Certified) and TAMKO (Pro Gold) &mdash; both verifiable directly with the manufacturer using the links above. Those certifications also unlock stronger workmanship warranties.</p></div></div>
+      <div class="faq-item"><div class="faq-q">How fast can you get out after a Covington-area storm?</div><div class="faq-a"><p>Usually same or next day for a free inspection. Storm damage is easiest to document &mdash; and to claim &mdash; while it's fresh, so I don't sit on it.</p></div></div>
+      <div class="faq-item"><div class="faq-q">Do you handle insurance claims for Covington storm damage?</div><div class="faq-a"><p>Start to finish. I document the damage properly, meet your adjuster on site, and manage the claim so you're not translating roofing jargon on your own. <a href="/services/storm-damage">More on storm &amp; insurance work &rarr;</a></p></div></div>
+    </div>
+  </div>
+</section>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Do you actually work in Covington, KY, or just advertise here?","acceptedAnswer":{"@type":"Answer","text":"Real coverage. Joe is based in Goshen and works across Northern Kentucky, including Kenton County, personally. When you call, you get Joe, and Joe is the one who shows up."}},{"@type":"Question","name":"Are you licensed, insured, and certified to work on my Covington roof?","acceptedAnswer":{"@type":"Answer","text":"Yes. No Big Deal is licensed and insured, and factory-certified by GAF (GAF Certified) and TAMKO (Pro Gold), both verifiable directly with the manufacturer. Those certifications also unlock stronger workmanship warranties."}},{"@type":"Question","name":"How fast can you get out after a Covington-area storm?","acceptedAnswer":{"@type":"Answer","text":"Usually same or next day for a free inspection. Storm damage is easiest to document and to claim while it is fresh."}},{"@type":"Question","name":"Do you handle insurance claims for Covington storm damage?","acceptedAnswer":{"@type":"Answer","text":"Start to finish. Joe documents the damage properly, meets your adjuster on site, and manages the claim so you are not translating roofing jargon on your own."}}]}
+</script>
 <section class="qlf-section" id="quote"><div class="qlf-wrap"><div data-nbd-quick-form data-city="Covington"></div></div></section>
 <section class="cta-section">
   <h2>Ready to Talk About<br>Your <span>Covington</span> Roof?</h2>
