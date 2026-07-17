@@ -198,8 +198,17 @@ console.log('\nLapse lifecycle — grace, pause, reactivation');
   assert('subscription.deleted stamps cancelledAt + lapseEnforced:false',
     /status: 'cancelled',[\s\S]{0,400}cancelledAt: FieldValue\.serverTimestamp\(\),\s*lapseEnforced: false/.test(stripe));
   assert('checkout reactivates lapse-paused seats + clears lapse state',
-    /reactivateLapsedSeats\(db, uid\)/.test(stripe)
+    /reactivateLapsedSeats\(db, uid, plan\)/.test(stripe)
     && /cancelledAt: FieldValue\.delete\(\)/.test(stripe));
+  // Downgrade-on-return: reactivateLapsedSeats must cap restorations at the new
+  // plan's seat limit (oldest-activated first), not restore every paused rep —
+  // otherwise a Growth→Starter return keeps reps over the new cap (billing
+  // under-enforcement). Legacy 2-arg callers (plan omitted) restore all.
+  assert('reactivateLapsedSeats caps restorations at the new plan seat limit',
+    /reactivateLapsedSeats\(db, companyId, plan\)/.test(src)
+    && /cap = plan == null \? Infinity : seatLimitForPlan\(plan\)/.test(src)
+    && /if \(restored >= cap\) break/.test(src),
+    'a downgrade-on-return must not restore reps over the new plan cap');
   const idx = read('firestore.indexes.json');
   assert('composite index for the lapse-cron query exists',
     /"subscriptions"[\s\S]{0,300}"status"[\s\S]{0,120}"lapseEnforced"[\s\S]{0,120}"cancelledAt"/.test(idx),

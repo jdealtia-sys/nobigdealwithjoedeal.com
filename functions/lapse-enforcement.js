@@ -30,8 +30,20 @@ const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { logger } = require('firebase-functions/v2');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
+// PLAN_LIMITS is the server source of truth for seat caps (billing.js).
+const { _test: { PLAN_LIMITS } } = require('./billing');
 
 const LAPSE_GRACE_DAYS = 14;
+
+// Invited-rep seats a plan grants (besides the owner). Mirrors
+// invites.js seatLimitForPlan (reps<=1 => solo => 0 invite seats;
+// Infinity stays Infinity). Kept local to avoid pulling invites.js
+// (Resend/secrets) into this scheduled module.
+function seatLimitForPlan(plan) {
+  const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+  if (limits.reps === Infinity) return Infinity;
+  return limits.reps <= 1 ? 0 : limits.reps;
+}
 
 // Pause one lapsed tenant's non-owner seats. Exported for the test rig.
 async function enforceLapseForCompany(db, subDoc) {
@@ -110,15 +122,36 @@ exports.enforceLapsedSeats = onSchedule(
 // Reactivation helper — called from stripe.js checkout.session.completed:
 // re-enable every member the lapse cron paused (and ONLY those; members an
 // owner deactivated on purpose stay off).
-async function reactivateLapsedSeats(db, companyId) {
+async function reactivateLapsedSeats(db, companyId, plan) {
   const pausedSnap = await db.collection(`companies/${companyId}/members`)
     .where('deactivatedReason', '==', 'lapse')
     .get();
 
+  // Downgrade-on-return cap: a tenant that lapsed on Growth (5 seats) and comes
+  // back on Starter (0 invite seats) must NOT have all its reps restored over
+  // the new plan's cap — seat caps are otherwise only enforced at invite time,
+  // so an uncapped restore is billing under-enforcement. Restore up to
+  // seatLimitForPlan(plan), oldest-activated first (most-tenured reps keep their
+  // seat); leave the overflow paused as 'lapse' so a later upgrade brings them
+  // back automatically. Same-plan or upgrade returns restore everyone (cap >=
+  // paused count). `plan` omitted (legacy 2-arg callers / test rig) => Infinity
+  // cap => restore all, preserving the pre-cap behavior exactly.
+  const cap = plan == null ? Infinity : seatLimitForPlan(plan);
+  const paused = pausedSnap.docs
+    .filter((m) => (m.data() || {}).uid)
+    .sort((a, b) => {
+      // oldest activatedAt first; members missing the stamp sort last.
+      const at = a.data().activatedAt;
+      const bt = b.data().activatedAt;
+      const am = at && typeof at.toMillis === 'function' ? at.toMillis() : Infinity;
+      const bm = bt && typeof bt.toMillis === 'function' ? bt.toMillis() : Infinity;
+      return am - bm;
+    });
+
   let restored = 0;
-  for (const m of pausedSnap.docs) {
+  for (const m of paused) {
+    if (restored >= cap) break; // over the new plan's seat cap — leave paused
     const md = m.data() || {};
-    if (!md.uid) continue;
     try {
       await getAuth().updateUser(md.uid, { disabled: false });
       await m.ref.set({
@@ -135,7 +168,14 @@ async function reactivateLapsedSeats(db, companyId) {
       logger.warn('lapse.reactivate_member_failed', { companyId, member: m.id, err: e.message });
     }
   }
+  const heldBack = paused.length - restored;
   if (restored) logger.info('lapse.reactivated', { companyId, restored });
+  if (heldBack > 0) {
+    logger.info('lapse.restore_capped', {
+      companyId, plan: plan || null, restored, heldBack,
+      cap: cap === Infinity ? 'inf' : cap,
+    });
+  }
   return restored;
 }
 
