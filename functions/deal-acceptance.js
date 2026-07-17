@@ -147,7 +147,13 @@ exports.getDealRoom = onRequest(
   async (req, res) => {
     const errPage = (code, msg) => {
       res.status(code).set('Content-Type', 'text/html; charset=utf-8').set('X-Robots-Tag', 'noindex, nofollow')
-        .send(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>No Big Deal</title><body style="font-family:system-ui,-apple-system,sans-serif;background:#0f1115;color:#e5e7eb;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center;padding:24px"><div><div style="font-size:44px">🤝</div><p style="max-width:420px;line-height:1.6;font-size:16px">${escHtml(msg)}</p></div></body>`);
+        // Neutral <title> — this error/edge page (invalid / expired /
+        // already-accepted) is served for EVERY tenant's /deal/<token> link, so
+        // it must never assert NBD's identity on a stranger tenant's customer-
+        // facing tab / link-preview. Matches the neutral-error pattern of the
+        // sibling SSR surfaces (report-sharing.js 'Inspection Report',
+        // share-ssr.js 'Link unavailable').
+        .send(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Deal</title><body style="font-family:system-ui,-apple-system,sans-serif;background:#0f1115;color:#e5e7eb;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center;padding:24px"><div><div style="font-size:44px">🤝</div><p style="max-width:420px;line-height:1.6;font-size:16px">${escHtml(msg)}</p></div></body>`);
     };
     // token is the last path segment: /deal/<token>
     const m = (req.path || '').match(/\/deal\/([A-Za-z0-9]{10,64})\/?$/);
