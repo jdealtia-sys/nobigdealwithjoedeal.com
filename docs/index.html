@@ -27,6 +27,7 @@
 <link rel="preload" href="/assets/fonts/montserrat-800-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preconnect" href="https://www.googletagmanager.com">
 <link rel="stylesheet" href="/assets/css/nbd-fonts.css">
+<link rel="stylesheet" href="/assets/css/homeowner-wall.css">
 <style>
 :root {
   --navy: #1e3a6e;
@@ -1448,6 +1449,16 @@ nav .nav-logo-text .sub{white-space:nowrap}
 </section>
 
 <!-- REVIEWS -->
+<!-- HOMEOWNER WALL (T3) — real job photos from /assets/data/homeowner-wall.json.
+     Ships hidden; homeowner-wall.js reveals it only once the manifest has >=3 real photos. -->
+<section class="homeowner-wall-section" id="homeowner-wall" hidden aria-hidden="true">
+  <div style="max-width:1160px;margin:0 auto;padding:0 24px;text-align:center">
+    <h2 class="sec-title reveal">Real Roofs. <span>Real Neighbors.</span></h2>
+    <p class="sec-desc reveal">Actual jobs on actual homes around Greater Cincinnati — no stock photos, no stand-ins.</p>
+    <div class="hw-grid"></div>
+  </div>
+</section>
+
 <section class="reviews-section" id="reviews">
   <div class="section-inner">
     <div class="section-header">
@@ -1472,6 +1483,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
   </div>
 </section>
 <script src="/assets/js/google-reviews-widget.js" defer></script>
+<script src="/assets/js/homeowner-wall.js" defer></script>
 
 <!-- CERTIFICATIONS & BRAND PARTNERS -->
 <section style="background:var(--navy);padding:56px 5%;border-top:3px solid var(--orange)">
