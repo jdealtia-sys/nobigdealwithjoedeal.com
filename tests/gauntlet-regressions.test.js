@@ -455,6 +455,134 @@ console.log('\nPer-seat read path — persisted + honored at every cap site');
     && /return base \+ extra/.test(tab));
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// ROUTE 1b (2026-07-17): per-seat CHARGING path — setCompanySeatCount
+// updates the Stripe subscription's seat line item. DARK until
+// STRIPE_PRICE_SEAT carries a real price id; deploy requires the secret
+// to EXIST (merge gate — see handlers/seats.js header).
+// ═══════════════════════════════════════════════════════════════════
+
+console.log('\nPer-seat charging — buildSeatItemsUpdate (real import)');
+{
+  const { _test } = require(path.join(ROOT, 'functions/handlers/seats.js'));
+  const f = _test.buildSeatItemsUpdate;
+  const SEAT = 'price_seat';
+  const PLANS_SET = new Set(['price_growth', 'price_team', 'price_starter']);
+  const items = (...arr) => ({ data: arr });
+  const plan = { id: 'si_plan', price: { id: 'price_growth' }, quantity: 1 };
+  const seat = (qty) => ({ id: 'si_seat', price: { id: SEAT }, quantity: qty });
+  assert('MAX_EXTRA_SEATS sanity ceiling is 50', _test.MAX_EXTRA_SEATS === 50);
+  let r = f(items(plan), SEAT, 3, PLANS_SET);
+  assert('no seat item yet + target 3 → create {price, quantity:3}',
+    Array.isArray(r) && r.length === 1 && r[0].price === SEAT && r[0].quantity === 3 && !r[0].id);
+  r = f(items(plan, seat(3)), SEAT, 5, PLANS_SET);
+  assert('existing seat item 3 → 5 → update {id, quantity:5}',
+    Array.isArray(r) && r.length === 1 && r[0].id === 'si_seat' && r[0].quantity === 5);
+  r = f(items(plan, seat(3)), SEAT, 0, PLANS_SET);
+  assert('existing seat item → 0 → delete {id, deleted:true}',
+    Array.isArray(r) && r.length === 1 && r[0].id === 'si_seat' && r[0].deleted === true);
+  assert('no seat item + target 0 → null (no API call)', f(items(plan), SEAT, 0, PLANS_SET) === null);
+  assert('already at target → null (idempotent)', f(items(plan, seat(4)), SEAT, 4, PLANS_SET) === null);
+  r = f(items(plan, { id: 'si_seat', price: { id: SEAT } }), SEAT, 2, PLANS_SET);
+  assert('seat item with missing quantity treated as 0 → update to 2',
+    Array.isArray(r) && r.length === 1 && r[0].quantity === 2);
+  assert('missing items object + target 2 → create', Array.isArray(f(undefined, SEAT, 2, PLANS_SET)));
+  // Stale seat item on a ROTATED-AWAY price id must be deleted, not orphaned
+  // to bill forever (review finding: rotating STRIPE_PRICE_SEAT double-bills).
+  const stray = { id: 'si_old', price: { id: 'price_seat_OLD' }, quantity: 2 };
+  r = f(items(plan, stray, seat(1)), SEAT, 3, PLANS_SET);
+  assert('stray seat item on old price id is deleted; current re-quantified',
+    Array.isArray(r)
+    && r.some((op) => op.id === 'si_old' && op.deleted === true)
+    && r.some((op) => op.id === 'si_seat' && op.quantity === 3));
+  r = f(items(plan, stray), SEAT, 0, PLANS_SET);
+  assert('target 0 with only a stray old-price seat item → delete the stray',
+    Array.isArray(r) && r.length === 1 && r[0].id === 'si_old' && r[0].deleted === true);
+  // A plan item must NEVER be touched by seat reconciliation.
+  r = f(items(plan, seat(2)), SEAT, 5, PLANS_SET);
+  assert('plan line item never appears in the update payload',
+    Array.isArray(r) && !r.some((op) => op.id === 'si_plan'));
+}
+
+console.log('\nPer-seat charging — gates + wiring');
+{
+  const st = read('functions/handlers/seats.js');
+  assert('binds STRIPE_PRICE_SEAT + plan-price secrets (deploy merge-gate documented)',
+    /secrets: \[STRIPE_SECRET_KEY, STRIPE_PRICE_SEAT,/.test(st)
+    && /MERGE GATE/.test(st),
+    'the seat secret must exist in Secret Manager before this ever merges to main');
+  assert('dark gate: refuses unless the secret looks like a real price id',
+    /seatPriceId\.startsWith\('price_'\)/.test(st)
+    && /not available yet/.test(st));
+  assert('refuses if the seat secret is accidentally a PLAN price id',
+    /planPriceIds\.has\(seatPriceId\)/.test(st) && /misconfigured/.test(st),
+    'a copy-paste of a plan price into STRIPE_PRICE_SEAT would re-quantity the plan line');
+  assert('owner/admin gate + App Check + rate limit',
+    /requireTeamAdmin\(request\)/.test(st)
+    && /enforceAppCheck: true/.test(st)
+    && /callableRateLimit\(request, 'setCompanySeatCount'/.test(st));
+  assert('extraSeats requires an actual integer (no Number() 0-coercion of null/""/[])',
+    /typeof raw !== 'number' \|\| !Number\.isInteger\(raw\)/.test(st),
+    'Number(null|""|[]|false) === 0 would silently delete all seat billing');
+  assert('requires a card-billed sub; past_due may only REDUCE',
+    /stripeSubscriptionId \|\| !subData\.stripeCustomerId/.test(st)
+    && /pastDueReduction = subData\.status === 'past_due' && extraSeats < storedSeats/.test(st));
+  assert('reduction never strands occupied seats (createTeamInvite occupied filter)',
+    /occupied > newCap/.test(st) && /isInviteExpired\(md\)/.test(st));
+  assert('reduction reserves the lower cap BEFORE Stripe (write-skew race)',
+    /isReduction = extraSeats < storedSeats/.test(st)
+    && /if \(isReduction\) \{\s*await subRef\.set\(\{ purchasedSeats: extraSeats/.test(st),
+    'a concurrent invite must read the reduced cap, not race the old one into an unpaid seat');
+  assert('cross-checks the sub belongs to the stored Stripe customer',
+    /subCustomer !== subData\.stripeCustomerId/.test(st));
+  assert('prorations invoiced immediately AND must clear (no seats before money)',
+    /proration_behavior: 'always_invoice'/.test(st)
+    && /payment_behavior: 'error_if_incomplete'/.test(st),
+    'default allow_incomplete grants seats then leaves the charge to dunning');
+  assert('card decline → honest failed-precondition (no seats changed)',
+    /e\.type === 'StripeCardError'/.test(st) && /no seats were changed/.test(st));
+  assert('indeterminate failure copy promises idempotence, never "not charged"',
+    /retrying will NOT charge you again/.test(st)
+    && !/you were not charged differently/.test(st),
+    'a timeout after Stripe applied the change must not assert the opposite');
+  assert('no-op path still repairs a diverged mirror (self-healing, $0)',
+    /if \(!itemsUpdate\) \{[\s\S]{0,400}subRef\.set\(\{ purchasedSeats: extraSeats/.test(st));
+  const idx = read('functions/index.js');
+  assert('setCompanySeatCount exported from functions/index.js',
+    /exports\.setCompanySeatCount = seatHandlers\.setCompanySeatCount/.test(idx));
+  const tab = read('docs/pro/js/dashboard-team-tab.js');
+  assert('team tab renders the buy-seats control + calls setCompanySeatCount',
+    /_renderSeatBuy\(/.test(tab) && /_teamCallable\('setCompanySeatCount'/.test(tab));
+  assert('buy-seats UI hidden for free/enterprise/non-entitled plans',
+    /pl\.plan === 'free' \|\| reps === Infinity \|\| reps == null/.test(tab));
+  assert('empty roster still renders the seat controls (Starter first-seat buy)',
+    /if \(snap\.empty\) \{\s*list\.innerHTML = '';\s*try \{ _renderSeatPanel\(\[\], list\);[\s\S]{0,120}_renderSeatBuy\(list\)/.test(tab),
+    'base cap 0 ⇒ empty roster ⇒ the buy panel must still show or Route 1b is dead for Starter');
+  assert('confirm copy is trial-aware (no false "charged now" during a trial)',
+    /isTrialing = !!pl && pl\.status === 'trialing'/.test(tab)
+    && /no charge; seats are billed with your plan when the trial ends/.test(tab));
+  assert('stepper hidden for non-card-billed comps (source must be checkout)',
+    /cardBilled = !!pl && pl\.source === 'checkout'/.test(tab)
+    && /!entitled \|\| !cardBilled/.test(tab),
+    'an access-code comp would otherwise see a stepper whose Apply always errors');
+  const bg = read('docs/pro/js/billing-gate.js');
+  assert('billing-gate exposes sub source for the card-billed gate',
+    /_source = typeof data\.source === 'string'/.test(bg) && /source: _source/.test(bg));
+}
+
+console.log('\nPer-seat charging — webhook event-ordering guard (out-of-order safety)');
+{
+  const st = read('functions/stripe.js');
+  assert('subscription.updated skips events older than the applied high-water mark',
+    /lastApplied = typeof stored\.lastSubEventAt === 'number'/.test(st)
+    && /eventCreated < lastApplied/.test(st) && /stale_event_skipped/.test(st),
+    'out-of-order seat updates would otherwise persist a stale purchasedSeats');
+  assert('the high-water mark advances (and is preserved on malformed events)',
+    /lastSubEventAt: eventCreated \|\| lastApplied \|\| FieldValue\.delete\(\)/.test(st));
+  assert('checkout seeds the ordering watermark so a stale updated cannot clobber activation',
+    /lastSubEventAt: typeof event\.created === 'number' \? event\.created : FieldValue\.delete\(\)/.test(st));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }

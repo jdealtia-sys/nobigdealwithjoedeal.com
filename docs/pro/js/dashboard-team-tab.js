@@ -78,7 +78,17 @@
         }
         try {
           var snap = await window.getDocs(window.collection(window.db, 'companies', tenantKey, 'members'));
-          if (snap.empty) { list.innerHTML = ''; return; }
+          // An empty roster still needs the seat controls: a Starter/Team owner
+          // buys their FIRST seat here (base cap 0 ⇒ no members ⇒ empty snap),
+          // so the buy panel must render even with zero rows. Clear the list,
+          // then fall through to _renderSeatBuy below (which self-hides when
+          // the plan/entitlement doesn't qualify).
+          if (snap.empty) {
+            list.innerHTML = '';
+            try { _renderSeatPanel([], list); } catch (_) { /* non-fatal */ }
+            try { _renderSeatBuy(list); } catch (_) { /* non-fatal */ }
+            return;
+          }
           list.innerHTML = snap.docs.map(function(d) {
             var m = d.data();
             // roleColors lookups stay unescaped: unknown keys fall back to
@@ -122,6 +132,8 @@
           try {
             _renderSeatPanel(snap.docs.map(function(d){ var x = d.data()||{}; return { email:String(x.email||d.id||''), role:x.role, status:x.status, uid:x.uid }; }), list);
           } catch (_) { /* non-fatal */ }
+          // Per-seat add-on purchase (Route 1b; dark until the seat price exists).
+          try { _renderSeatBuy(list); } catch (_) { /* non-fatal */ }
         } catch(e) { console.warn('loadTeamMembers:', e.message); }
       }
 
@@ -213,6 +225,106 @@
         } catch (e) {
           if (typeof showToast === 'function') showToast('Failed: ' + _nbdEscHtml(e.message || 'unknown error'), 'error');
         }
+        loadTeamMembers();
+      }
+
+      // ── Per-seat add-on purchase (Route 1b) ──────────────────────────
+      // Owner buys extra rep seats beyond the plan cap; the server callable
+      // setCompanySeatCount updates the Stripe subscription line item
+      // (cap-enforced, entitled-only, dark-gated until the seat price
+      // exists — its failed-precondition message surfaces in the toast).
+      // Visible only for an entitled, card-billed, finite-cap plan.
+      function _renderSeatBuy(listEl) {
+        var host = document.getElementById('teamSeatBuy');
+        if (!host) {
+          host = document.createElement('div');
+          host.id = 'teamSeatBuy';
+          var panel = document.getElementById('teamSeatPanel');
+          var anchor = panel || listEl;
+          if (anchor && anchor.parentNode) anchor.parentNode.insertBefore(host, anchor.nextSibling);
+          host.addEventListener('click', function (e) {
+            var t = e.target && e.target.closest && e.target.closest('[data-team-action]');
+            if (!t) return;
+            var act = t.getAttribute('data-team-action');
+            if (act === 'seatBuyMinus' || act === 'seatBuyPlus') {
+              var el = host.querySelector('#seatBuyCount');
+              var v = Math.max(0, Math.min(50, (parseInt(el && el.textContent, 10) || 0) + (act === 'seatBuyPlus' ? 1 : -1)));
+              if (el) el.textContent = String(v);
+              _syncSeatBuy(host);
+            } else if (act === 'seatBuyApply') {
+              _applySeatBuy(host, t);
+            }
+          });
+        }
+        var pl = (window.NBDBilling && window.NBDBilling.getPlan) ? window.NBDBilling.getPlan() : null;
+        var reps = pl && pl.limits ? pl.limits.reps : null;
+        var entitled = !!pl && (pl.status === 'active' || pl.status === 'trialing');
+        // Only card-billed Stripe subs can carry a seat line item. An
+        // access-code comp shows 'active' + a paid plan but would get a
+        // failed-precondition from setCompanySeatCount, so don't offer the
+        // stepper at all. source 'checkout' is the card-billed sub; a legit
+        // paid owner always has it (owners short-circuit to enterprise/free,
+        // already excluded below).
+        var cardBilled = !!pl && pl.source === 'checkout';
+        if (!entitled || !cardBilled || !pl || pl.plan === 'free' || reps === Infinity || reps == null) {
+          host.innerHTML = ''; host.style.display = 'none'; return;
+        }
+        host.style.display = '';
+        var purchased = pl.purchasedSeats > 0 ? pl.purchasedSeats : 0;
+        var stepBtn = 'background:var(--s2);border:1px solid var(--br);color:var(--t);border-radius:6px;width:26px;height:26px;font-size:14px;font-weight:700;cursor:pointer;';
+        host.innerHTML = '<div style="margin-top:10px;padding:12px 14px;background:var(--s);border:1px solid var(--br);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'
+          + '<div class="f1" style="min-width:180px;"><div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t);">Extra seats</div>'
+          + '<div class="meta-10" style="line-height:1.5;">Add rep seats beyond your plan’s included ' + (_seatCap() - purchased) + '. Billed monthly to your card, prorated.</div></div>'
+          + '<button data-team-action="seatBuyMinus" style="' + stepBtn + '">−</button>'
+          + '<span id="seatBuyCount" style="min-width:22px;text-align:center;font-size:14px;font-weight:700;color:var(--t);">' + purchased + '</span>'
+          + '<button data-team-action="seatBuyPlus" style="' + stepBtn + '">+</button>'
+          + '<button data-team-action="seatBuyApply" disabled style="background:var(--orange,#e8720c);border:none;color:#fff;padding:7px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;opacity:.5;">Update seats</button>'
+          + '</div>';
+        _syncSeatBuy(host);
+      }
+      function _syncSeatBuy(host) {
+        var pl = (window.NBDBilling && window.NBDBilling.getPlan) ? window.NBDBilling.getPlan() : null;
+        var purchased = pl && pl.purchasedSeats > 0 ? pl.purchasedSeats : 0;
+        var el = host.querySelector('#seatBuyCount');
+        var target = parseInt(el && el.textContent, 10) || 0;
+        var apply = host.querySelector('[data-team-action="seatBuyApply"]');
+        if (apply) {
+          var changed = target !== purchased;
+          apply.disabled = !changed;
+          apply.style.opacity = changed ? '' : '.5';
+        }
+      }
+      async function _applySeatBuy(host, btn) {
+        var el = host.querySelector('#seatBuyCount');
+        var target = parseInt(el && el.textContent, 10);
+        if (!(target >= 0 && target <= 50)) return;
+        var pl = window.NBDBilling && window.NBDBilling.getPlan ? window.NBDBilling.getPlan() : null;
+        var purchased = pl && pl.purchasedSeats > 0 ? pl.purchasedSeats : 0;
+        if (target === purchased) return;
+        // During a trial the proration is $0 and seat billing begins when the
+        // trial converts — so "charged now" would be a lie. Match the copy to
+        // the real Stripe behavior (mirrors seats.js always_invoice semantics).
+        var isTrialing = !!pl && pl.status === 'trialing';
+        var addN = target - purchased;
+        var msg = target > purchased
+          ? (isTrialing
+              ? 'Add ' + addN + ' extra seat' + (addN === 1 ? '' : 's') + '? While your trial is active there’s no charge; seats are billed with your plan when the trial ends.'
+              : 'Add ' + addN + ' extra seat' + (addN === 1 ? '' : 's') + '? Your card is charged the prorated amount now, then monthly with your plan.')
+          : (target === 0
+            ? 'Remove all purchased extra seats? A prorated credit is applied to your next invoice.'
+            : 'Reduce purchased seats to ' + target + '? A prorated credit is applied to your next invoice.');
+        if (!confirm(msg)) return;
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
+        try {
+          var res = await _teamCallable('setCompanySeatCount', { extraSeats: target });
+          var d = (res && res.data) || {};
+          if (typeof showToast === 'function') showToast('✓ Seats updated — ' + (d.purchasedSeats != null ? d.purchasedSeats : target) + ' extra, ' + (d.effectiveCap != null ? d.effectiveCap : '?') + ' total', 'success');
+          // Refresh the billing mirror so _seatCap()/panels pick up the new count.
+          if (window.NBDBilling && window.NBDBilling.loadSubscription) { try { await window.NBDBilling.loadSubscription(); } catch (_) {} }
+        } catch (e) {
+          if (typeof showToast === 'function') showToast(_nbdEscHtml(e.message || 'Seat update failed'), 'error');
+        }
+        if (btn) { btn.textContent = 'Update seats'; }
         loadTeamMembers();
       }
 

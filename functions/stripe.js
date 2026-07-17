@@ -457,6 +457,10 @@ exports.stripeWebhook = onRequest(
             cancelledAt: FieldValue.delete(),
             createdAt: FieldValue.serverTimestamp(),
             updatedAt: FieldValue.serverTimestamp(),
+            // Seed the subscription.updated ordering high-water mark so a
+            // stale updated event created before this checkout can't clobber
+            // the fresh activation.
+            lastSubEventAt: typeof event.created === 'number' ? event.created : FieldValue.delete(),
             // Usage counters — reset on subscription start
             usage: { leads: 0, reports: 0, aiCalls: 0, cycleStart: new Date().toISOString() }
           };
@@ -514,6 +518,25 @@ exports.stripeWebhook = onRequest(
 
           const subDoc = snapshot.docs[0];
           const uid = subDoc.id;
+          const stored = subDoc.data() || {};
+
+          // Event-ordering guard (Route 1b). Stripe does NOT guarantee webhook
+          // delivery order. Two rapid subscription changes — e.g. the seat
+          // stepper going 3 → 5 — can arrive reversed; without this, the stale
+          // event's line-item snapshot overwrites the fresh one and the tenant
+          // pays for 5 seats but is granted 3 (or the reverse: 3 paid, 5
+          // granted) until the NEXT subscription event, possibly the monthly
+          // renewal. Skip any event older than the newest we've applied to this
+          // doc. event.created is unix seconds; same-second ties still process
+          // (human-paced clicks + a confirm dialog never tie), and the stamp is
+          // written in the same update() below so it advances monotonically.
+          const eventCreated = typeof event.created === 'number' ? event.created : 0;
+          const lastApplied = typeof stored.lastSubEventAt === 'number' ? stored.lastSubEventAt : 0;
+          if (eventCreated && eventCreated < lastApplied) {
+            logger.info('stripeWebhook.subscription_updated stale_event_skipped',
+              { uid, eventCreated, lastApplied });
+            break;
+          }
 
           // F-08: derive plan from Stripe Price ID via the hoisted
           // PRICE_TO_PLAN map at the top of the switch (Audit G
@@ -525,7 +548,6 @@ exports.stripeWebhook = onRequest(
           // Scans ALL line items (not [0]) so a per-seat add-on item can
           // never shadow the plan price; its quantity syncs purchasedSeats
           // (this event fires on every seat-quantity change).
-          const stored = subDoc.data() || {};
           const derived = derivePlanAndSeats(subscription.items, PRICE_TO_PLAN);
           const plan = derived.plan || stored.plan || 'starter';
           // No recognizable plan price (secret rotation mid-flight, foreign
@@ -549,6 +571,11 @@ exports.stripeWebhook = onRequest(
               ? new Date(subscription.current_period_end * 1000).toISOString()
               : null,
             cancelAtPeriodEnd: subscription.cancel_at_period_end || false,
+            // Advance the ordering high-water mark so a later-delivered but
+            // older-created event is skipped (see the guard above). Preserve
+            // the prior mark if this event lacks a created timestamp, so a
+            // malformed event can't erase the watermark and reopen the race.
+            lastSubEventAt: eventCreated || lastApplied || FieldValue.delete(),
             updatedAt: FieldValue.serverTimestamp(),
           });
 

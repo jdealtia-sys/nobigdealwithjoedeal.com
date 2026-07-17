@@ -161,6 +161,11 @@ exports.createTeamInvite = inviteHandlers.createTeamInvite;
 // Seat picker — owner/admin chooses which reps hold the plan's limited seats
 // when over-capacity (cap-enforced; benches the rest).
 exports.assignSeats = inviteHandlers.assignSeats;
+// Route 1b — per-seat add-on purchase. DARK until the STRIPE_PRICE_SEAT
+// secret carries a real price id; the deploy itself requires the secret to
+// EXIST (see handlers/seats.js header — merge gate).
+const seatHandlers = require('./handlers/seats');
+exports.setCompanySeatCount = seatHandlers.setCompanySeatCount;
 
 // Pillar 5 phase 1 — data-driven tenant microsite (/sites/t/) config read.
 const publicSiteHandlers = require('./handlers/public-site');
