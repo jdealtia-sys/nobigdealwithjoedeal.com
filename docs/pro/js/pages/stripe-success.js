@@ -17,10 +17,11 @@
  * Nothing privileged is ever written by this page.
  */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, updateProfile } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
-import { connectEmulatorsIfLocal } from '../nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
+import { connectEmulatorsIfLocal, emulatorAppCheckIfLocal } from '../nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
 
 const app = initializeApp({
   apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -30,6 +31,21 @@ const app = initializeApp({
   messagingSenderId: "717435841570",
   appId:             "1:717435841570:web:c2338e11052c96fde02e7b"
 });
+// App Check must be live before the createCompany callable
+// (enforceAppCheck:true) runs on the buy-first path — same setup as
+// register.js. Key from js/dashboard-appcheck-config.js (loaded in <head>).
+// On localhost the emulator shim replaces reCAPTCHA. Without this the
+// provisioning call is rejected in prod and the buy-first account never
+// becomes a tenant (the exact hole this page's createCompany call closes).
+try {
+  if (!(await emulatorAppCheckIfLocal(app))
+      && typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(window.__NBD_APP_CHECK_KEY),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+} catch (_) { /* App Check init best-effort — createCompany may then be rejected */ }
 const auth = getAuth(app);
 const db   = getFirestore(app);
 const functions = getFunctions(app);

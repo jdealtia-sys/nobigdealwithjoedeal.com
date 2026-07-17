@@ -8,6 +8,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- App Check key (window.__NBD_APP_CHECK_KEY) — REQUIRED before js/pages/
+     stripe-success.js can call the enforceAppCheck:true createCompany callable
+     on the buy-first path. Same script register.html loads. -->
+<script src="js/dashboard-appcheck-config.js?v=1"></script>
 <title>Welcome to NBD Pro — Payment Successful</title>
 <style>
 :root{--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--orange:#e8720c;--orange-hover:#f08030;--text:#E8EAF0;--muted:#6B7280;--border:rgba(255,255,255,.07);}

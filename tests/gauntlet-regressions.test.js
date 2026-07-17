@@ -506,9 +506,30 @@ console.log('\nRoute 3 — funnel reorder + polish');
     'a direct-to-checkout account must get a company/companyId, not a tenant-less paid doc');
   assert('stripe-success imports getDoc + getFunctions for the new reads/provisioning',
     /getFirestore, doc, getDoc, setDoc/.test(ss) && /getFunctions, httpsCallable/.test(ss));
+  // Review finding (3 lenses): createCompany is enforceAppCheck:true; without
+  // App Check init on stripe-success the buy-first provisioning call is
+  // REJECTED in prod and the #945 hole stays open. Must set up App Check like
+  // register.js does.
+  assert('stripe-success initializes App Check so the createCompany call is not rejected in prod',
+    /initializeAppCheck, ReCaptchaEnterpriseProvider/.test(ss)
+    && /emulatorAppCheckIfLocal\(app\)/.test(ss)
+    && /initializeAppCheck\(app, \{/.test(ss),
+    'the buy-first createCompany would 401 on App Check without this — the fix would be dead code');
   const ssHtml = read('docs/pro/stripe-success.html');
   assert('stripe-success done button is addressable for onboarding routing',
     /id="doneContinueBtn"/.test(ssHtml));
+  assert('stripe-success.html loads the App Check key config script',
+    /dashboard-appcheck-config\.js/.test(ssHtml));
+
+  assert('plan banner is suppressed for invitees (?invite=1)',
+    /function renderPlanBanner[\s\S]{0,600}if \(inviteIntent\) \{ host\.style\.display = 'none'; return; \}/.test(reg),
+    'an invitee is joining a team, not buying a plan — a stale intent must not show them a plan banner');
+
+  const pp = read('docs/pro/js/pricing-page.module.js');
+  assert('cancel-recovery: an un-onboarded owner who cancels checkout is routed to onboarding',
+    /checkoutCancelled = new URLSearchParams/.test(pp)
+    && /if \(checkoutCancelled\) \{[\s\S]{0,260}snap\.data\(\)\.onboarded === false[\s\S]{0,80}onboarding\.html/.test(pp),
+    'the reorder must not leave an abandoned paid signup un-onboarded/un-branded (worse than pre-reorder)');
 }
 
 console.log('\n──────────────────────────────────────────────────');

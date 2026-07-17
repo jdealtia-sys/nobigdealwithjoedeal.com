@@ -89,6 +89,11 @@ function ownerDest() {
 function renderPlanBanner() {
   const host = document.getElementById('regPlanBanner');
   if (!host) return;
+  // An invitee (?invite=1) is joining a team, not buying a plan — never show
+  // them a "you selected the X plan" banner, even if a stale intent lingers in
+  // sessionStorage from an earlier visit. (inviteIntent is module-scoped and
+  // set before this runs from wireRegisterDom.)
+  if (inviteIntent) { host.style.display = 'none'; return; }
   let plan = null;
   try {
     plan = new URLSearchParams(window.location.search).get('plan');
