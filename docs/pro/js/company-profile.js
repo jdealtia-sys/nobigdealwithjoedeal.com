@@ -416,6 +416,67 @@
   };
   window._brand = function () { return _resolveBrand(); };
 
+  // ── Per-tenant LEGAL text resolver (gauntlet Batch 3) ────────────
+  // The top-level companyProfile legal/jurisdiction DEFAULTS (cancellation
+  // statute, dispute governing law, building-code jurisdiction, service area,
+  // and the clauses that name "NBD" as the contracting party) are deep-merged
+  // for EVERY tenant — the brand-blanking in _resolveBrand() only covers
+  // brand.*, never these top-level fields. Left alone, a stranger (non-NBD)
+  // tenant's generated contract/proposal cites a Kentucky statute, binds
+  // disputes to Kentucky law, references the Kentucky Building Code, and names
+  // "NBD" as the contractor. _legal() returns the profile with those fields
+  // made STATE-NEUTRAL (never jurisdictionally wrong — the 3-day rescission
+  // RIGHT is preserved, only the KY citation is dropped) and the literal "NBD"
+  // party-name substituted with the tenant's legalName — but ONLY for a
+  // non-NBD tenant that did NOT override the field itself (a tenant override in
+  // Settings > Legal Text always wins). NBD — and any unconfigured tenant whose
+  // brand is still NBD — gets the profile untouched → byte-identical docs.
+  //
+  // "The tenant set this field" == its merged value differs from the NBD
+  // default (value-diff). Every field handled here is a string, so === is safe.
+  // Value-diff also SELF-HEALS a doc that a pre-fix Settings "save everything"
+  // had frozen with the NBD/KY defaults as explicit overrides: an override that
+  // merely echoes the default is indistinguishable from no override, and both
+  // get the neutral variant — which is exactly what a non-NBD tenant wants.
+  const _NEUTRAL_LEGAL = {
+    cancellationStatute: '',
+    cancellationContractClause:
+      'The Homeowner has the right to cancel this agreement within three (3) business days of signature without penalty, as permitted by applicable state law. Any deposit paid will be refunded within 10 days of cancellation notice.',
+    cancellationProposalShort:
+      'You have the right to cancel this agreement within 3 days of signature without penalty, as permitted by applicable state law.',
+    disputeResolutionClause:
+      'In the event of dispute, both parties agree to attempt resolution through good faith negotiation. If negotiation fails, disputes shall be resolved through mediation or binding arbitration under the laws of the state in which the work is performed.',
+    codeJurisdiction: 'applicable state and local building codes',
+    serviceArea: ''
+  };
+  // Clauses whose NBD default names the literal "NBD" as the contracting party.
+  // For a non-NBD tenant that kept the default, swap "NBD" for their legalName.
+  const _PARTY_NAME_CLAUSES = [
+    'changeOrderClause', 'insuranceAssignmentClause',
+    'materialsWarrantyDisclaimer', 'limitationOfLiability'
+  ];
+
+  function _resolveLegal() {
+    const profile = window._companyProfile || NBD_COMPANY_PROFILE_DEFAULTS;
+    const brand = profile.brand || NBD_COMPANY_PROFILE_DEFAULTS.brand;
+    if (_isNbdBrand(brand)) return profile; // NBD / unconfigured → untouched (byte-identical)
+    const D = NBD_COMPANY_PROFILE_DEFAULTS;
+    const tenantName = (brand && brand.legalName) || '';
+    const out = Object.assign({}, profile);
+    // Jurisdiction neutralization — only where the tenant kept the NBD default.
+    Object.keys(_NEUTRAL_LEGAL).forEach(function (k) {
+      if (out[k] === D[k]) out[k] = _NEUTRAL_LEGAL[k];
+    });
+    // Party-name substitution — only where the tenant kept the NBD default.
+    if (tenantName) {
+      _PARTY_NAME_CLAUSES.forEach(function (k) {
+        if (out[k] === D[k]) out[k] = String(D[k]).replace(/\bNBD\b/g, tenantName);
+      });
+    }
+    return out;
+  }
+  window._legal = function () { return _resolveLegal(); };
+
   // ── Per-tenant customer-ID minting (loose-end fix) ───────────────
   // Customer IDs were hardcoded 'NBD-####' from a single global
   // counters/customerIds doc. These helpers let each tenant mint its own
@@ -425,14 +486,36 @@
   // never reset. A configured tenant (e.g. Oaks docPrefix 'OAK') →
   // counters/customerIds_<companyId> + its own prefix, so tenants never
   // share or collide a sequence.
+  // Fallback docPrefix for a NON-NBD tenant that hasn't formally reserved one
+  // (skipped onboarding / blanked the seal). Byte-identical to onboarding.js
+  // deriveSeal so a later reserveCompanyPrefix yields the SAME prefix and no
+  // customerId reformats mid-stream. Never 'NBD' (the platform sentinel) and
+  // never '' — falls back to 'CUS' so the companyId-derived _custIdSalt suffix
+  // still yields a globally-unique, non-NBD-branded ID.
+  function _deriveCustPrefix() {
+    const b = _resolveBrand();
+    const words = String((b && b.legalName) || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+    let seal = words.map(function (w) { return w[0]; }).join('').slice(0, 4);
+    if (seal.length < 2 && words[0]) seal = words[0].slice(0, 3);
+    if (!seal || seal === 'NBD') seal = 'CUS';
+    return seal;
+  }
+  // The gate is now "is this the NBD platform tenant?" (via _isNbdBrand), NOT
+  // "does the resolved prefix STRING equal 'NBD'?". A non-NBD tenant that never
+  // reserved a prefix used to resolve prefix 'NBD' + the shared 'customerIds'
+  // counter — minting NBD-branded IDs from NBD's own sequence. Now only the
+  // real NBD tenant touches the legacy shared counter / un-salted 'NBD-####';
+  // every stranger mints from its own counter with a derived, salted prefix.
   window._custIdPrefix = function () {
     const b = _resolveBrand();
-    return (b && b.docPrefix) ? b.docPrefix : 'NBD';
+    if (_isNbdBrand(b)) return 'NBD';                       // ONLY the NBD platform tenant
+    if (b && b.docPrefix) return b.docPrefix;               // a reserved prefix wins
+    return _deriveCustPrefix();                             // non-NBD, unreserved → derived (never 'NBD')
   };
   window._custCounterId = function (companyId) {
-    const p = window._custIdPrefix();
-    if (!p || p === 'NBD') return 'customerIds';            // NBD / unconfigured → legacy shared counter
-    return 'customerIds_' + String(companyId || p).toLowerCase();
+    const b = _resolveBrand();
+    if (_isNbdBrand(b)) return 'customerIds';               // NBD → legacy shared counter (unchanged)
+    return 'customerIds_' + String(companyId || window._custIdPrefix() || '').toLowerCase();
   };
 
   // ── Customer-ID salt (defense-in-depth against prefix collision) ──

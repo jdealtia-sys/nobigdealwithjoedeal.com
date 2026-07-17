@@ -20,7 +20,12 @@
 
 {{!-- D-2.5: shared cover-page partial. Brand-consistent across every
      doc the platform produces; the variables here personalize the
-     SAME structure to THIS customer + THIS project. --}}
+     SAME structure to THIS customer + THIS project.
+     gauntlet Batch 3: the `sub` copy names the pledge, so it is gated on
+     company.isNbd — NBD keeps the exact "NBD Lifetime Pledge" wording
+     byte-identical; a stranger tenant renders the neutral "Lifetime Pledge"
+     so the cert never advertises NBD to another company's homeowner. --}}
+{{#if company.isNbd}}
 {{> coverPage
   eyebrow="Warranty Certificate · Lifetime Pledge"
   tagline="Backed by our<br>name on the line."
@@ -29,9 +34,19 @@
   preparedBy=preparedBy
   projectMeta=projectMeta
 }}
+{{else}}
+{{> coverPage
+  eyebrow="Warranty Certificate · Lifetime Pledge"
+  tagline="Backed by our<br>name on the line."
+  sub="This certificate is the homeowner's permanent record that the installation on the property below is covered by the Lifetime Pledge. Keep it with your important home documents — and if you ever sell, transfer it per the terms below."
+  preparedFor=preparedFor
+  preparedBy=preparedBy
+  projectMeta=projectMeta
+}}
+{{/if}}
 
 <div style="display:flex; align-items:center; gap:12pt; margin: var(--s-6) 0 var(--s-5); page-break-before: always; break-before: page;">
-  <span class="badge tier-{{tier}}">{{tier}} · NBD Lifetime Pledge</span>
+  <span class="badge tier-{{tier}}">{{tier}} · {{#if company.seal}}{{company.seal}} {{/if}}Lifetime Pledge</span>
   <span class="eyebrow muted">Certificate {{certNumber}}</span>
 </div>
 
@@ -64,16 +79,16 @@
 </div>
 
 <div class="feature-grid">
-  <div class="feature">NBD Lifetime Pledge — no expiration on labor warranty</div>
+  <div class="feature">{{#if company.seal}}{{company.seal}} {{/if}}Lifetime Pledge — no expiration on labor warranty</div>
   <div class="feature">{{#if manufacturerWarrantyFeature}}{{manufacturerWarrantyFeature}}{{else}}GAF Timberline lifetime manufacturer shingle warranty{{/if}}</div>
   {{#if isPreferred}}<div class="feature">Transferable to new owner on sale of property</div>{{/if}}
   {{#if isElite}}<div class="feature">Annual courtesy inspection included</div>{{/if}}
   {{#if isElite}}<div class="feature">Fully transferable — follows the property through all subsequent owners</div>{{/if}}
-  <div class="feature">Backed personally by Joe Deal</div>
-  <div class="feature">Recorded on file at NBD Home Solutions</div>
+  {{#if company.isNbd}}<div class="feature">Backed personally by Joe Deal</div>{{else}}<div class="feature">Backed by {{company.footerName}}</div>{{/if}}
+  {{#if company.isNbd}}<div class="feature">Recorded on file at NBD Home Solutions</div>{{else}}<div class="feature">Recorded on file at {{company.footerName}}</div>{{/if}}
 </div>
 
-<p class="meta" style="margin-top:18pt; line-height:1.6;">This guarantee covers defects in labor and workmanship only. It does not cover damage caused by acts of nature, severe weather events, improper maintenance, or modifications made by parties other than No Big Deal Home Solutions. The {{#if manufacturer}}{{manufacturer}}{{else}}GAF{{/if}} manufacturer shingle warranty is a separate warranty provided directly by {{#if manufacturer}}{{manufacturer}}{{else}}GAF{{/if}} and is not administered by No Big Deal Home Solutions.</p>
+<p class="meta" style="margin-top:18pt; line-height:1.6;">This guarantee covers defects in labor and workmanship only. It does not cover damage caused by acts of nature, severe weather events, improper maintenance, or modifications made by parties other than {{company.footerName}}. The {{#if manufacturer}}{{manufacturer}}{{else}}GAF{{/if}} manufacturer shingle warranty is a separate warranty provided directly by {{#if manufacturer}}{{manufacturer}}{{else}}GAF{{/if}} and is not administered by {{company.footerName}}.</p>
 
 <div class="sig-block">
   <h2 style="margin-top:0;">Signatures</h2>
@@ -84,7 +99,7 @@
     </div>
     <div class="sig">
       <div class="sig-line"></div>
-      <div class="sig-caption">Joe Deal · No Big Deal Home Solutions</div>
+      <div class="sig-caption">{{#if company.isNbd}}Joe Deal{{else}}{{preparedBy.name}}{{/if}} · {{company.footerName}}</div>
     </div>
   </div>
 </div>

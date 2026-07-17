@@ -11,10 +11,10 @@ window.emailSystem = {
   // Template library
   templates: {
     estimateReady: {
-      subject: '📋 Your Estimate from No Big Deal Home Solutions',
+      subject: '📋 Your Estimate from {companyName}',
       body: `Hi {customerName},
 
-Thank you for choosing No Big Deal Home Solutions for your {damageType} project.
+Thank you for choosing {companyName} for your {damageType} project.
 
 Your estimate is ready for review. Please see the attached PDF for full details.
 
@@ -25,9 +25,9 @@ We're committed to providing the highest quality work at fair prices. If you hav
 
 Best regards,
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382
-jd@nobigdealwithjoedeal.com`
+{companyName}
+{companyPhone}
+{companyEmail}`
     },
     
     photoReportReady: {
@@ -45,9 +45,9 @@ Please review and let me know if you need any additional documentation.
 
 Best regards,
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382
-jd@nobigdealwithjoedeal.com`
+{companyName}
+{companyPhone}
+{companyEmail}`
     },
     
     followUp: {
@@ -62,9 +62,9 @@ Our schedule is filling up, so please let me know if you'd like to move forward.
 
 Best regards,
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382
-jd@nobigdealwithjoedeal.com`
+{companyName}
+{companyPhone}
+{companyEmail}`
     },
     
     inspectionScheduled: {
@@ -82,9 +82,9 @@ I'll conduct a thorough assessment and provide recommendations. The inspection t
 See you then!
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382
-jd@nobigdealwithjoedeal.com`
+{companyName}
+{companyPhone}
+{companyEmail}`
     }
   },
   
@@ -97,7 +97,40 @@ jd@nobigdealwithjoedeal.com`
       const u = window._user;
       if (u && (u.displayName || u.email)) return u.displayName || u.email;
     } catch(e){}
+    // No resolvable rep name → team fallback. NBD → 'The NBD Team' (byte-
+    // identical); a non-NBD tenant → '<their legalName> Team', never 'NBD'.
+    try {
+      const b = (typeof window._brand === 'function') ? window._brand() : null;
+      const isNbd = !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+      if (!isNbd) return b.legalName + ' Team';
+    } catch (e) {}
     return 'The NBD Team';
+  },
+
+  // Resolve the tenant's brand fields for the email templates. Mirrors
+  // review-engine.js: window._brand() (TenantContext / company-profile.js)
+  // drives companyName/phone/email/website so a tenant's homeowner emails
+  // carry THEIR identity, never Joe's. NBD (no brand, or the canonical NBD
+  // legalName) resolves to the current literals → byte-identical output.
+  _brandFields() {
+    let b = null;
+    try { if (typeof window._brand === 'function') b = window._brand() || null; } catch (e) { b = null; }
+    const isNbd = !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+    const c = (b && b.contact) || {};
+    const legalName = (b && b.legalName) || 'No Big Deal Home Solutions';
+    return {
+      companyName:      legalName,
+      // Short-form NBD signature ('NBD Home Solutions') stays byte-identical for
+      // NBD; a tenant gets their full legalName (no 'NBD' abbreviation leak).
+      companyNameShort: isNbd ? 'NBD Home Solutions' : legalName,
+      // Gate contact on isNbd — do NOT `|| NBD-literal`. _resolveBrand() blanks
+      // an unset contact field to '' for a non-NBD tenant, so `c.phone || literal`
+      // would re-inject NBD's phone/email/site (and misroute reply_to to Joe).
+      // NBD keeps the exact literal; a tenant with no contact set renders blank.
+      companyPhone:     isNbd ? '(859) 420-7382'              : (c.phone   || ''),
+      companyEmail:     isNbd ? 'jd@nobigdealwithjoedeal.com' : (c.email   || ''),
+      companyWebsite:   isNbd ? 'nobigdealwithjoedeal.com'    : (c.website || ''),
+    };
   },
 
   // Populate template with customer data
@@ -108,8 +141,11 @@ jd@nobigdealwithjoedeal.com`
     let subject = template.subject;
     let body = template.body;
 
-    // Auto-inject the current rep's name unless the caller supplied one.
-    const merged = Object.assign({ repName: this._repName() }, data || {});
+    // Auto-inject the current rep's name unless the caller supplied one, plus
+    // the resolved tenant brand fields (companyName/phone/email/website) so the
+    // {company*} placeholders below substitute the tenant's identity. Caller
+    // data still wins over both defaults.
+    const merged = Object.assign({ repName: this._repName() }, this._brandFields(), data || {});
 
     // Replace placeholders
     Object.keys(merged).forEach(key => {
@@ -395,7 +431,7 @@ async function getLeadData(leadId) {
 window.emailSystem.stageTemplates = {
   // ── Insurance pipeline ─────────────────────────────
   contacted: {
-    subject: '🏠 Thank You for Choosing NBD Home Solutions',
+    subject: '🏠 Thank You for Choosing {companyNameShort}',
     body: `Hi {customerName},
 
 Thank you for speaking with me about the damage at {address}. I'm looking forward to helping you through this process.
@@ -409,8 +445,8 @@ I'll be in touch shortly to set up a convenient time.
 
 Best regards,
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   inspected: {
@@ -429,8 +465,8 @@ Next steps:
 Please let me know if you'd like me to walk you through filing the claim, or if you've already started the process.
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   claim_filed: {
@@ -447,8 +483,8 @@ What happens next:
 I'll keep you updated as things move forward. Don't hesitate to reach out with questions.
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   adjuster_meeting_scheduled: {
@@ -467,8 +503,8 @@ Please make sure someone is home to provide access if needed. I'll arrive a few 
 If you need to reschedule, let me know ASAP so we can coordinate with the insurance company.
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   scope_received: {
@@ -482,8 +518,8 @@ I'm reviewing the scope now to make sure everything is included. If I find anyth
 I'll be in touch soon with the details and next steps.
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   estimate_submitted: {
@@ -499,8 +535,8 @@ The insurance company will review this against their scope. I'm watching for app
 If a supplement is needed, I'll handle the documentation and negotiation.
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   supplement_requested: {
@@ -512,8 +548,8 @@ After reviewing the insurance scope for {address}, I've identified additional it
 This is normal — supplements ensure all damage is covered and the job is done right. I'll follow up with the adjuster and keep you updated on the approval.
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   contract_signed: {
@@ -529,11 +565,11 @@ Here's what happens next:
 
 Estimated timeline: {scheduledDate}
 
-Thank you for trusting No Big Deal Home Solutions. We're going to do a great job for you.
+Thank you for trusting {companyName}. We're going to do a great job for you.
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   crew_scheduled: {
@@ -553,8 +589,8 @@ What to expect on installation day:
 Please make sure vehicles are moved from the driveway. If you have any concerns, let me know before installation day.
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   install_complete: {
@@ -571,15 +607,15 @@ Next steps:
 I'll swing by for a final walkthrough to make sure everything looks perfect. Please let me know if you notice anything.
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   closed: {
     subject: '🏆 Project Complete — Thank You!',
     body: `Hi {customerName},
 
-Your project at {address} is officially complete! Thank you for trusting No Big Deal Home Solutions.
+Your project at {address} is officially complete! Thank you for trusting {companyName}.
 
 Your warranty certificate is attached for your records. Please keep this in a safe place.
 
@@ -589,13 +625,13 @@ It was a pleasure working with you. Don't hesitate to reach out if you need anyt
 
 Best,
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   // ── Cash pipeline ──────────────────────────────────
   estimate_sent_cash: {
-    subject: '💰 Your Estimate from NBD Home Solutions',
+    subject: '💰 Your Estimate from {companyNameShort}',
     body: `Hi {customerName},
 
 Thank you for requesting an estimate for your project at {address}.
@@ -607,8 +643,8 @@ This includes all materials, labor, and our workmanship warranty. We offer Good,
 I'd love to walk you through the options. When's a good time to chat?
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   },
 
   // ── Finance pipeline ───────────────────────────────
@@ -625,8 +661,8 @@ Multiple lenders compete for your approval, so you'll see the best rates availab
 Let me know if you have any questions about the financing options.
 
 {repName}
-No Big Deal Home Solutions
-(859) 420-7382`
+{companyName}
+{companyPhone}`
   }
 };
 
@@ -662,6 +698,9 @@ window.emailByStage = async function(leadId) {
     preQualLink: lead.preQualLink || '[link will be sent separately]',
     repName: window.emailSystem._repName(),
   };
+  // Resolve the tenant brand fields ({company*}) the same way populateTemplate
+  // does, so stage-template signatures/subjects carry the tenant's identity.
+  Object.assign(data, window.emailSystem._brandFields());
 
   let subject = template.subject;
   let body = template.body;
@@ -728,12 +767,13 @@ window.emailSystem.send = async function(to, subject, body, options = {}) {
         window.emailjs.init(this.config.emailjsPublicKey);
       }
 
+      const _bf = window.emailSystem._brandFields();
       await window.emailjs.send(this.config.emailjsServiceId, this.config.emailjsTemplateId, {
         to_email: to,
         subject: subject,
         message: body,
-        from_name: `${window.emailSystem._repName()} — NBD Home Solutions`,
-        reply_to: 'jd@nobigdealwithjoedeal.com',
+        from_name: `${window.emailSystem._repName()} — ${_bf.companyNameShort}`,
+        reply_to: _bf.companyEmail,
       });
 
       return { success: true, method: 'emailjs' };

@@ -126,6 +126,23 @@ exports.createSignRequest = onCall(
       expiresAt,
     });
 
+    // Multi-tenant branding: resolve the tenant's legal name so the signing
+    // email announces THEIR company, not NBD. Keyed by the lead's companyId
+    // (falls back to the lead owner's uid for solo tenants). One best-effort
+    // read on the already-async path; NBD (profile brand.legalName is NBD's,
+    // or absent) leaves tenantName '' → the exact lead.repName || NBD fallback
+    // below stands → byte-identical.
+    let tenantName = '';
+    const tenantKey = lead.companyId || lead.userId;
+    if (tenantKey) {
+      try {
+        const cpSnap = await db.doc(`companyProfile/${tenantKey}`).get();
+        if (cpSnap.exists) { const _ln = ((cpSnap.data() || {}).brand || {}).legalName || ''; tenantName = (_ln && _ln !== 'No Big Deal Home Solutions') ? _ln : ''; }  // NBD-name guard (byte-identical; mirrors render-pdf.js/sms-functions.js)
+      } catch (e) {
+        logger.warn('[createSignRequest] tenant resolve failed', { leadId, err: e.message });
+      }
+    }
+
     // PR5: email the homeowner the signing link via Resend (same provider
     // as email-functions.js). Best-effort — the token is already minted,
     // so a transient mail failure surfaces to the rep without losing it.
@@ -136,7 +153,7 @@ exports.createSignRequest = onCall(
       const fromEmail = EMAIL_FROM.value() || 'noreply@nobigdealwithjoedeal.com';
       const link = SIGN_URL_BASE + token;
       const docName = escHtml(docMeta.typeName || docMeta.type || 'document');
-      const repName = escHtml(lead.repName || 'No Big Deal Home Solutions');
+      const repName = escHtml(tenantName || lead.repName || 'No Big Deal Home Solutions');
       await resend.emails.send({
         from: fromEmail,
         to: signerEmail,

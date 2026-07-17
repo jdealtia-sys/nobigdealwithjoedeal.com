@@ -42,7 +42,6 @@ function loadProfile(cacheObj) {
   const win = {};
   win.window = win;
   const store = {};
-  if (cacheObj) store['nbd_company_profile_v1'] = JSON.stringify(cacheObj);
   const sandbox = {
     window: win,
     localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = v; }, removeItem: (k) => { delete store[k]; } },
@@ -50,6 +49,15 @@ function loadProfile(cacheObj) {
     setTimeout, clearTimeout, JSON,
   };
   vm.runInNewContext(SRC_PROFILE, sandbox, { filename: 'company-profile.js' });
+  // Populate the tenant's override the way the live app does. The legacy
+  // un-keyed 'nbd_company_profile_v1' cache this test used to seed is now
+  // PURGED at module-parse (caches went tenant-keyed, hydrated only in
+  // _loadCompanyProfile via window.db). With no window.db, _saveCompanyProfile
+  // sets window._companyProfile + the raw brand override synchronously (its
+  // no-db path returns before any await), which is exactly the state a real
+  // keyed-cache / Firestore load produces — so _brand()/_brandOverride() below
+  // resolve against a genuinely-configured tenant.
+  if (cacheObj) win._saveCompanyProfile(cacheObj);
   return win;
 }
 

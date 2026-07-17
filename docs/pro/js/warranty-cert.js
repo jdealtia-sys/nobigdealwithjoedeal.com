@@ -48,7 +48,14 @@ function openWarrantyCertWizard(lead) {
 function updateCertPreview() {
   const tier = document.getElementById('wcTier')?.value || 'standard';
   const desc = document.getElementById('wcTierDesc');
-  if (desc) desc.textContent = WC_TIER_DESCS[tier] || '';
+  if (!desc) return;
+  // gauntlet Batch 3 — the tier descriptions name their subject 'NBD'; keep it
+  // verbatim for NBD (byte-identical), swap the tenant's seal/legal name in
+  // otherwise so the wizard preview matches the de-branded cert it generates.
+  const _b = (window._brand && window._brand()) || null;
+  const isNbd = !_b || !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+  const raw = WC_TIER_DESCS[tier] || '';
+  desc.textContent = isNbd ? raw : String(raw).replace(/\bNBD\b/g, (_b.seal || _b.legalName || 'We'));
 }
 
 async function generateWarrantyCertPDF() {
@@ -59,15 +66,36 @@ async function generateWarrantyCertPDF() {
   const work  = document.getElementById('wcWork').value.trim()  || 'Roofing installation';
 
   const dateFormatted = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', {month:'long', day:'numeric', year:'numeric'}) : '___________________';
-  const certNum = 'NBD-' + Date.now().toString().slice(-6);
+
+  // gauntlet Batch 3 — tenant brand resolution. NBD (or no tenant loaded)
+  // keeps every literal below EXACTLY as it shipped → byte-identical output;
+  // a stranger tenant substitutes its own identity so the warranty cert never
+  // advertises NBD / Joe Deal / Cincinnati / (859) to another company's homeowner.
+  const _b = (window._brand && window._brand()) || null;
+  const isNbd = !_b || !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+  const _bc = (_b && _b.contact) || {};
+  // Certificate number prefix: NBD keeps 'NBD-…'; a tenant mints from its own
+  // reserved/derived prefix (never 'NBD') via the shared resolver.
+  const _certPrefix = (typeof window._custIdPrefix === 'function') ? window._custIdPrefix() : 'NBD';
+  const certNum = _certPrefix + '-' + Date.now().toString().slice(-6);
+
+  // Signature seal / pledge name. NBD → 'NBD Lifetime Pledge' (byte-identical);
+  // tenant → '<seal> Lifetime Pledge', or a neutral 'Lifetime Pledge' if it set
+  // no seal. brandSeal is also the subject the guarantee descriptions name.
+  const brandSeal = isNbd ? 'NBD' : (_b.seal || _b.legalName || '');
+  const pledgeName = brandSeal ? (brandSeal + ' Lifetime Pledge') : 'Lifetime Pledge';
 
   const tierLabels = {
-    standard: 'Standard — NBD Lifetime Pledge',
-    preferred: 'Preferred — NBD Lifetime Pledge (Transferable to One Owner)',
-    elite: 'Elite — NBD Lifetime Pledge (Fully Transferable + Annual Inspection)'
+    standard: 'Standard — ' + pledgeName,
+    preferred: 'Preferred — ' + pledgeName + ' (Transferable to One Owner)',
+    elite: 'Elite — ' + pledgeName + ' (Fully Transferable + Annual Inspection)'
   };
   const tierLabel = tierLabels[tier];
-  const tierDesc = WC_TIER_DESCS[tier];
+  // WC_TIER_DESCS embeds the literal subject 'NBD'; keep it verbatim for NBD,
+  // swap in the tenant's seal/legal name otherwise.
+  const tierDesc = isNbd
+    ? WC_TIER_DESCS[tier]
+    : String(WC_TIER_DESCS[tier] || '').replace(/\bNBD\b/g, brandSeal || 'We');
 
   const isElite = tier === 'elite';
   const isPreferred = tier === 'preferred';
@@ -95,7 +123,7 @@ async function generateWarrantyCertPDF() {
   const escCert = (s) => String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <title>NBD Warranty Certificate — ${escCert(addr)}</title>
+  <title>${isNbd ? 'NBD' : escCert(_b.legalName)} Warranty Certificate — ${escCert(addr)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     *{margin:0;padding:0;box-sizing:border-box;}
@@ -131,9 +159,11 @@ async function generateWarrantyCertPDF() {
 
   <div class="header">
     <div>
-      <div class="brand">No Big <span>Deal</span> Home Solutions</div>
-      <div class="brand-sub">Insurance Restoration Specialists · Greater Cincinnati</div>
-      <div style="font-size:11px;color:#666;margin-top:8px;">(859) 420-7382 · jd@nobigdealwithjoedeal.com</div>
+      <div class="brand">${isNbd ? 'No Big <span>Deal</span> Home Solutions' : escCert(_b.legalName)}</div>
+      ${isNbd
+        ? '<div class="brand-sub">Insurance Restoration Specialists · Greater Cincinnati</div>'
+        : (_b.tagline ? '<div class="brand-sub">' + escCert(_b.tagline) + '</div>' : '')}
+      <div style="font-size:11px;color:#666;margin-top:8px;">${isNbd ? '(859) 420-7382 · jd@nobigdealwithjoedeal.com' : escCert([_bc.phone, _bc.email].filter(Boolean).join(' · '))}</div>
     </div>
     <div class="cert-header">
       <div class="cert-type">Official Document</div>
@@ -159,16 +189,16 @@ async function generateWarrantyCertPDF() {
   </div>
 
   <div class="features">
-    <div class="feature"><div class="feature-dot"></div>NBD Lifetime Pledge — no expiration</div>
+    <div class="feature"><div class="feature-dot"></div>${escCert(pledgeName)} — no expiration</div>
     <div class="feature"><div class="feature-dot"></div>GAF Timberline lifetime manufacturer shingle warranty</div>
     ${isPreferred||isElite ? '<div class="feature"><div class="feature-dot"></div>Transferable to new owner on sale</div>' : ''}
     ${isElite ? '<div class="feature"><div class="feature-dot"></div>Annual courtesy inspection included</div>' : ''}
     ${isElite ? '<div class="feature"><div class="feature-dot"></div>Fully transferable — follows the property</div>' : ''}
-    <div class="feature"><div class="feature-dot"></div>Backed personally by Joe Deal</div>
-    <div class="feature"><div class="feature-dot"></div>Recorded on file at NBD Home Solutions</div>
+    <div class="feature"><div class="feature-dot"></div>${isNbd ? 'Backed personally by Joe Deal' : ('Backed by ' + escCert(_b.legalName))}</div>
+    <div class="feature"><div class="feature-dot"></div>${isNbd ? 'Recorded on file at NBD Home Solutions' : ('Recorded on file at ' + escCert(_b.legalName))}</div>
   </div>
 
-  <p style="font-size:11px;color:#666;margin-top:16px;line-height:1.7;">This guarantee covers defects in labor and workmanship only. It does not cover damage caused by acts of nature, severe weather events, improper maintenance, or modifications made by parties other than No Big Deal Home Solutions. The GAF manufacturer shingle warranty is a separate warranty provided directly by GAF and is not administered by No Big Deal Home Solutions.</p>
+  <p style="font-size:11px;color:#666;margin-top:16px;line-height:1.7;">This guarantee covers defects in labor and workmanship only. It does not cover damage caused by acts of nature, severe weather events, improper maintenance, or modifications made by parties other than ${isNbd ? 'No Big Deal Home Solutions' : escCert(_b.legalName)}. The GAF manufacturer shingle warranty is a separate warranty provided directly by GAF and is not administered by ${isNbd ? 'No Big Deal Home Solutions' : escCert(_b.legalName)}.</p>
 
   <h2>Signatures</h2>
   <div class="sig-section">
@@ -179,18 +209,18 @@ async function generateWarrantyCertPDF() {
       </div>
       <div>
         <div class="sig-line"></div>
-        <div class="sig-label">Joe Deal — No Big Deal Home Solutions</div>
+        <div class="sig-label">${isNbd ? 'Joe Deal — No Big Deal Home Solutions' : escCert([((window._user && (window._user.displayName || window._user.email)) || ''), _b.legalName].filter(Boolean).join(' — '))}</div>
       </div>
     </div>
   </div>
 
   <div class="footer">
     <div>
-      <div style="font-weight:700;color:#111;font-size:11px;margin-bottom:2px;">No Big Deal Home Solutions</div>
-      <div>nobigdealwithjoedeal.com · (859) 420-7382 · Greater Cincinnati, OH</div>
+      <div style="font-weight:700;color:#111;font-size:11px;margin-bottom:2px;">${isNbd ? 'No Big Deal Home Solutions' : escCert(_b.legalName)}</div>
+      <div>${isNbd ? 'nobigdealwithjoedeal.com · (859) 420-7382 · Greater Cincinnati, OH' : escCert([_bc.website, _bc.phone, _bc.address].filter(Boolean).join(' · '))}</div>
       <div style="margin-top:2px;">Certificate No. ${certNum} · Keep this document with your permanent home records</div>
     </div>
-    <div class="seal">NBD<br>Lifetime<br>Guarantee</div>
+    <div class="seal">${isNbd ? 'NBD<br>Lifetime<br>Guarantee' : (brandSeal ? (escCert(brandSeal) + '<br>Lifetime<br>Guarantee') : 'Lifetime<br>Guarantee')}</div>
   </div>
 
   </body></html>`;
@@ -206,7 +236,7 @@ async function generateWarrantyCertPDF() {
     window.NBDDocViewer.open({
       html: html,
       title: 'Lifetime Warranty Certificate' + (customerName ? ' — ' + customerName : ''),
-      filename: 'NBD-Warranty-' + slug + '-' + (typeof certNum !== 'undefined' ? certNum : new Date().getTime()) + '.pdf',
+      filename: _certPrefix + '-Warranty-' + slug + '-' + (typeof certNum !== 'undefined' ? certNum : new Date().getTime()) + '.pdf',
       onSave: async () => {
         if (typeof showToast === 'function') {
           showToast('\u2713 Warranty certificate generated \u2014 Print or Download PDF from the action bar', 'success');
@@ -260,15 +290,26 @@ async function _tryServerRender(payload) {
 
   if (typeof showToast === 'function') showToast('Rendering cert…', 'info');
 
+  // gauntlet Batch 3 — the cover page renders preparedBy VERBATIM (the server
+  // {{company}} chrome does not override it), so de-brand it here or a stranger
+  // tenant's warranty cover would still read "No Big Deal Home Solutions ·
+  // (859) 420-7382". NBD keeps the exact literals → byte-identical. Mirrors
+  // customer-photo-report-generator.js.
+  const _b = (window._brand && window._brand()) || null;
+  const isNbd = !_b || !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+  const _bc = (_b && _b.contact) || {};
+  const _certPrefix = (typeof window._custIdPrefix === 'function') ? window._custIdPrefix() : 'NBD';
+
   const fn = window._httpsCallable(window._functions, 'renderPdf');
   const slug = (payload.owner || 'warranty').replace(/[^A-Za-z0-9]+/g, '-').substring(0, 40);
-  const filename = 'NBD-Warranty-' + slug + '-' + payload.certNum + '.pdf';
+  const filename = _certPrefix + '-Warranty-' + slug + '-' + payload.certNum + '.pdf';
 
   // D-2.5: shape the customer-specific + brand-consistent cover-page
   // payload. The cover is rendered by a SHARED partial across every
   // doc, so we always send the same {preparedFor, preparedBy,
   // projectMeta} structure — only the eyebrow/tagline change per doc.
-  const repName = (window._user && (window._user.displayName || window._user.email)) || 'NBD Installer';
+  const repName = (window._user && (window._user.displayName || window._user.email))
+    || (isNbd ? 'NBD Installer' : (_b.legalName || 'Installer'));
   const lead    = (window._leads || []).find(l =>
     (l.address && l.address.trim() === payload.addr.trim()) ||
     (l.firstName && payload.owner && payload.owner.startsWith((l.firstName + ' ' + (l.lastName||'')).trim()))
@@ -287,9 +328,9 @@ async function _tryServerRender(payload) {
   };
   const preparedBy   = {
     name:  repName,
-    role:  'Project Owner · No Big Deal Home Solutions',
-    phone: '(859) 420-7382',
-    email: 'jd@nobigdealwithjoedeal.com',
+    role:  'Project Owner · ' + (isNbd ? 'No Big Deal Home Solutions' : _b.legalName),
+    phone: isNbd ? '(859) 420-7382' : (_bc.phone || ''),
+    email: isNbd ? 'jd@nobigdealwithjoedeal.com' : (_bc.email || ''),
   };
 
   // Detect manufacturer from the (rep-editable) work description so the server

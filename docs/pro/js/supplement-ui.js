@@ -503,8 +503,10 @@
       // meta.company — the old {parentEstimate, rep, company:{name}} keys were all
       // ignored, so the adjuster letter rendered every claim field as '—' and an
       // empty footer. Pass the real shape (best-effort from the estimate + its
-      // insurance overlay), and OMIT company so the formatter's full default
-      // (name/phone/email/address) fills the footer.
+      // insurance overlay), and OMIT company so the formatter's own default fills
+      // the footer. That default is now per-tenant: formatSupplementLetter resolves
+      // window._brand() and, for a non-NBD tenant, builds the company block from the
+      // active tenant's contact info (NBD keeps its byte-identical hardcoded block).
       const pe = _parentEstimate || {};
       const ins = pe.insurance || {};
       const html = window.EstimateSupplement.formatSupplementLetter(_currentSupplement, {

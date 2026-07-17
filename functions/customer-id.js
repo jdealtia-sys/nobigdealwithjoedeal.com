@@ -45,4 +45,41 @@ function formatCustomerId(prefix, seq, companyId) {
   return (p === 'NBD') ? base : base + '-' + custIdSalt(companyId);
 }
 
-module.exports = { custIdSalt, formatCustomerId };
+// ── Mint routing (gauntlet Batch 3) ─────────────────────────────────────
+// Which (prefix, counter) a tenant mints from is gated on "is this the NBD
+// platform tenant?" — NOT on whether the resolved prefix string is 'NBD'. A
+// non-NBD tenant that never reserved a prefix used to resolve prefix 'NBD' +
+// the shared 'customerIds' counter, minting NBD-branded IDs from NBD's own
+// sequence. These three helpers are the server mirror of the client
+// docs/pro/js/company-profile.js gate (_isNbdBrand / _deriveCustPrefix /
+// _custIdPrefix / _custCounterId) and MUST stay byte-identical to it.
+const NBD_LEGAL_NAME = 'No Big Deal Home Solutions';
+
+// A brand is NBD (→ legacy shared counter + un-salted 'NBD-####') iff it
+// carries no legalName or the canonical NBD legalName. Mirrors _isNbdBrand.
+function isNbdBrand(brand) {
+  return !brand || !brand.legalName || brand.legalName === NBD_LEGAL_NAME;
+}
+
+// Fallback docPrefix for a non-NBD tenant with no reserved prefix. Byte-
+// identical to onboarding.js deriveSeal / client _deriveCustPrefix. Never
+// 'NBD', never '' (→ 'CUS'), so the companyId salt still yields a unique,
+// non-NBD-branded ID even before a formal reservation.
+function deriveCustPrefix(brand) {
+  const words = String((brand && brand.legalName) || '').toUpperCase().split(/[^A-Z0-9]+/).filter(Boolean);
+  let seal = words.map(function (w) { return w[0]; }).join('').slice(0, 4);
+  if (seal.length < 2 && words[0]) seal = words[0].slice(0, 3);
+  if (!seal || seal === 'NBD') seal = 'CUS';
+  return seal;
+}
+
+// Resolve { prefix, counterId } for a tenant, given its companyProfile.brand
+// doc and companyId. NBD → { 'NBD', 'customerIds' } (legacy shared, unchanged);
+// any non-NBD tenant → its reserved-or-derived prefix + a per-tenant counter.
+function resolveCustMint(brand, companyId) {
+  if (isNbdBrand(brand)) return { prefix: 'NBD', counterId: 'customerIds' };
+  const prefix = (brand && brand.docPrefix) ? brand.docPrefix : deriveCustPrefix(brand);
+  return { prefix: prefix, counterId: 'customerIds_' + String(companyId || prefix || '').toLowerCase() };
+}
+
+module.exports = { custIdSalt, formatCustomerId, isNbdBrand, deriveCustPrefix, resolveCustMint };

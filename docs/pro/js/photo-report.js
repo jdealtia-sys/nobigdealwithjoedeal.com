@@ -15,11 +15,33 @@
   // surface. Photo system Phase 1 (2026-05-13): every customer artifact
   // must come out of one brand source so the PDF a homeowner gets emailed
   // looks like the portal they were already shown.
+  //
+  // gauntlet Batch 3 — the CLIENT-side fallback report body (buildReportHTML,
+  // rendered only when the server Puppeteer render fails) hardcoded NBD, so a
+  // stranger tenant's fallback PDF still read "No Big Deal Home Solutions ·
+  // (859) 420-7382". window._brand() (company-profile.js / TenantContext) now
+  // drives name/phone/email/website/tagline so the fallback carries THAT
+  // tenant's identity. NBD (no brand, or the canonical NBD legalName) resolves
+  // to the exact literals below → the fallback renders BYTE-IDENTICAL for NBD.
+  // Resolved via LAZY GETTERS (per access, all at render/user-action time)
+  // because this IIFE can run before company-profile.js registers window._brand.
+  // Mirrors customer-portal.js.
+  function _brandRaw() {
+    try { if (typeof window._brand === 'function') return window._brand() || {}; } catch (e) { /* fall through */ }
+    return {};
+  }
+  function _isNbdBrand(b) { return !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions'; }
   const BRAND = {
-    name: 'No Big Deal Home Solutions',
-    phone: '(859) 420-7382',
-    email: 'info@nobigdealwithjoedeal.com',
-    website: 'nobigdealwithjoedeal.com'
+    get name()    { const b = _brandRaw(); return _isNbdBrand(b) ? 'No Big Deal Home Solutions'    : (b.legalName || 'No Big Deal Home Solutions'); },
+    // Non-NBD branch falls back to '' (NOT the NBD literal): _resolveBrand()
+    // blanks an unset tenant contact field to '', so `|| NBD-literal` would
+    // re-leak Joe's number/email/site onto a stranger's report. NBD unchanged.
+    get phone()   { const b = _brandRaw(); return _isNbdBrand(b) ? '(859) 420-7382'                : ((b.contact && b.contact.phone)   || ''); },
+    get email()   { const b = _brandRaw(); return _isNbdBrand(b) ? 'info@nobigdealwithjoedeal.com' : ((b.contact && b.contact.email)   || ''); },
+    get website() { const b = _brandRaw(); return _isNbdBrand(b) ? 'nobigdealwithjoedeal.com'      : ((b.contact && b.contact.website) || ''); },
+    // Footer seal tagline. NBD keeps Joe's slogan "We Put Our Name On It";
+    // a stranger tenant gets their own tagline if set, else the seal drops.
+    get tagline() { const b = _brandRaw(); return _isNbdBrand(b) ? 'We Put Our Name On It'          : (b.tagline || ''); }
   };
 
   /**
@@ -317,6 +339,10 @@
   function buildReportHTML(lead, name, before, during, after, dateStr, hasPhases, mode) {
     const isAdjuster = mode === 'adjuster';
     const allPhotos  = before.concat(during).concat(after);
+    // The brand-bar logo is an NBD-specific asset (/assets/images/nbd-logo.png)
+    // and the brand shape exposes no tenant logo URL, so show it only for NBD;
+    // a stranger tenant's brand-bar-name text carries their identity instead.
+    const brandIsNbd = _isNbdBrand(_brandRaw());
 
     // ── Photo tile rendering ─────────────────────────────────────────
     // Homeowner: 4/3 aspect, caption below if available, no metadata
@@ -780,7 +806,7 @@
   <div class="hero-eyebrow">${isAdjuster ? 'Loss Documentation · Adjuster Copy' : 'Project Story · Before &amp; After'}</div>
   <h1 class="hero-title">${isAdjuster ? 'Claim Photo Documentation' : _esc(name) + '’s Project'}</h1>
   <div class="hero-sub">${isAdjuster
-    ? 'Photographic evidence of property condition before, during, and after the scope of work performed by ' + BRAND.name + '. Every image stamped with location, damage type, and severity where applicable.'
+    ? 'Photographic evidence of property condition before, during, and after the scope of work performed by ' + _esc(BRAND.name) + '. Every image stamped with location, damage type, and severity where applicable.'
     : 'A visual walkthrough of your roof project — what we found, the work as it happened, and the result.'}</div>
   ${heroUrl ? '<div class="hero-photo"><img src="' + _esc(heroUrl) + '" alt=""></div>' : ''}
 </header>
@@ -788,10 +814,10 @@
 <!-- Brand band -->
 <div class="brand-bar">
   <div class="brand-bar-left">
-    <img class="brand-logo" src="/assets/images/nbd-logo.png" alt="${BRAND.name}">
-    <span class="brand-bar-name">${BRAND.name}</span>
+    ${brandIsNbd ? `<img class="brand-logo" src="/assets/images/nbd-logo.png" alt="${_esc(BRAND.name)}">` : ''}
+    <span class="brand-bar-name">${_esc(BRAND.name)}</span>
   </div>
-  <span class="brand-bar-contact">${BRAND.phone} &nbsp;·&nbsp; ${BRAND.email} &nbsp;·&nbsp; ${BRAND.website}</span>
+  <span class="brand-bar-contact">${_esc(BRAND.phone)} &nbsp;·&nbsp; ${_esc(BRAND.email)} &nbsp;·&nbsp; ${_esc(BRAND.website)}</span>
 </div>
 
 <main class="content">
@@ -858,9 +884,9 @@
 </main>
 
 <footer class="footer">
-  <div class="footer-brand">${BRAND.name}</div>
-  <div>${BRAND.phone} &nbsp;·&nbsp; ${BRAND.email} &nbsp;·&nbsp; ${BRAND.website}</div>
-  <div class="footer-tag">We Put Our Name On It</div>
+  <div class="footer-brand">${_esc(BRAND.name)}</div>
+  <div>${_esc(BRAND.phone)} &nbsp;·&nbsp; ${_esc(BRAND.email)} &nbsp;·&nbsp; ${_esc(BRAND.website)}</div>
+  ${BRAND.tagline ? `<div class="footer-tag">${_esc(BRAND.tagline)}</div>` : ''}
 </footer>
 
 </body>
@@ -904,6 +930,15 @@
     const duringShaped = shape(during);
     const afterShaped  = shape(after);
 
+    // gauntlet Batch 3 — the cover page renders preparedBy VERBATIM (the server
+    // {{company}} chrome does not override it), so de-brand it here or a stranger
+    // tenant's report cover would still read "No Big Deal Home Solutions ·
+    // (859) 420-7382". NBD keeps the exact literals → byte-identical. Mirrors
+    // customer-photo-report-generator.js.
+    const _b = (window._brand && window._brand()) || null;
+    const isNbd = !_b || !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+    const _bc = (_b && _b.contact) || {};
+
     // Cover-page payload (shared partial)
     const preparedFor = {
       name,
@@ -912,10 +947,10 @@
       projectLine: lead.damageType ? lead.damageType : null,
     };
     const preparedBy = {
-      name:  (window._user && window._user.displayName) || 'Joe Deal',
-      role:  (mode === 'adjuster' ? 'Documentation · ' : 'Project Owner · ') + 'No Big Deal Home Solutions',
-      phone: '(859) 420-7382',
-      email: 'jd@nobigdealwithjoedeal.com',
+      name:  (window._user && window._user.displayName) || (isNbd ? 'Joe Deal' : (_b.legalName || '')),
+      role:  (mode === 'adjuster' ? 'Documentation · ' : 'Project Owner · ') + (isNbd ? 'No Big Deal Home Solutions' : _b.legalName),
+      phone: isNbd ? '(859) 420-7382' : (_bc.phone || ''),
+      email: isNbd ? 'jd@nobigdealwithjoedeal.com' : (_bc.email || ''),
     };
     const reportNumber = (mode === 'adjuster' ? 'ADJ-' : 'PHO-') + Date.now().toString().slice(-6);
     const projectMeta = [
@@ -927,7 +962,7 @@
     const summary = mode === 'adjuster'
       ? {
           headline: 'Photographic evidence dossier',
-          body: 'Documentation of property condition before, during, and after work performed by No Big Deal Home Solutions. Photos tagged with location, damage type, and severity where applicable.',
+          body: 'Documentation of property condition before, during, and after work performed by ' + (isNbd ? 'No Big Deal Home Solutions' : _b.legalName) + '. Photos tagged with location, damage type, and severity where applicable.',
         }
       : {
           headline: 'The story of your project, in pictures',

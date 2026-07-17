@@ -205,28 +205,80 @@ async function buildLeadContext(db, leadId, lead, incomingBody) {
 
 // ─── T-4: persona resolution ───────────────────────────────────
 // Returns the persona CONFIG (structured slider/identity object) to use
-// for this lead, or null to fall back to the original PERSONA_PROMPT.
-// Precedence: the lead owner's per-rep persona, then the company default,
-// then null (→ no behavior change for an un-customized account).
-// Both reads are best-effort; any failure falls through, never blocks a draft.
-async function resolvePersona(db, userId, companyId) {
+// for this lead, or null to fall back to the original locked PERSONA_PROMPT.
+// Precedence: the lead owner's per-rep persona, then the company default.
+//
+// Multi-tenant branding (gauntlet Batch 3): the hardcoded PERSONA_PROMPT names
+// "Joe Deal of No Big Deal Home Solutions … Greater Cincinnati", so it may
+// ONLY be used for the NBD tenant. Two adjustments make this safe:
+//   (1) A configured persona that never set its own companyName/identityName
+//       is gap-filled from the tenant's companyProfile.brand.legalName (+ the
+//       rep's display name), so its buildPersonaPrompt output is tenant-branded.
+//   (2) When NO persona is configured, a NON-NBD tenant gets a minimal
+//       SYNTHESIZED branded config (routed through buildPersonaPrompt by the
+//       caller) instead of the NBD PERSONA_PROMPT.
+// NBD stays byte-identical: brand.legalName is 'No Big Deal Home Solutions'
+// (== buildPersonaPrompt's DEFAULT_COMPANY_NAME) so the companyName fill is a
+// no-op; identityName is filled only for non-NBD tenants (NBD keeps its 'Joe'
+// default); and a null persona for NBD still returns null → PERSONA_PROMPT.
+// All reads are best-effort; any failure falls through, never blocks a draft.
+async function resolvePersona(db, userId, companyId, repDisplayName) {
+  // ONE companyProfile read, reused for BOTH the company-default persona and
+  // the tenant brand used to fill/synthesize below.
+  let brand = {};
+  let companyPersona = null;
+  const cid = companyId || userId;
+  if (cid) {
+    try {
+      const snap = await db.collection('companyProfile').doc(String(cid)).get();
+      if (snap.exists) {
+        const data = snap.data() || {};
+        const at = data.aiTexting;
+        if (at && at.defaultPersona && at.defaultPersona.enabled !== false) companyPersona = at.defaultPersona;
+        brand = data.brand || {};
+      }
+    } catch (e) { logger.warn('[ai-texting] persona read (company) failed', { companyId, err: e.message }); }
+  }
+
+  // User-level persona wins over the company default (same precedence as before).
+  let persona = null;
   try {
     if (userId) {
       const snap = await db.collection('users').doc(String(userId)).collection('settings').doc('aiPersona').get();
       if (snap.exists) {
         const d = snap.data() || {};
-        if (d.enabled !== false && (d.traits || d.presetId || d.customInstructions || d.identityName)) return d;
+        if (d.enabled !== false && (d.traits || d.presetId || d.customInstructions || d.identityName)) persona = d;
       }
     }
   } catch (e) { logger.warn('[ai-texting] persona read (user) failed', { userId, err: e.message }); }
-  try {
-    const cid = companyId || userId;
-    if (cid) {
-      const snap = await db.collection('companyProfile').doc(String(cid)).get();
-      const at = snap.exists ? (snap.data() || {}).aiTexting : null;
-      if (at && at.defaultPersona && at.defaultPersona.enabled !== false) return at.defaultPersona;
-    }
-  } catch (e) { logger.warn('[ai-texting] persona read (company) failed', { companyId, err: e.message }); }
+  if (!persona) persona = companyPersona;
+
+  const legalName = brand.legalName || '';
+  const isNBD = !legalName || legalName === 'No Big Deal Home Solutions';
+  const repName = (repDisplayName && String(repDisplayName).slice(0, 40)) || '';
+
+  if (persona) {
+    // Fill only the GAPS so a tenant that set its own companyName/identityName
+    // keeps them. companyName ← legalName is byte-safe for NBD (== the builder's
+    // DEFAULT_COMPANY_NAME); identityName is filled only for a NON-NBD tenant so
+    // NBD keeps buildPersonaPrompt's 'Joe' default → byte-identical.
+    const p = Object.assign({}, persona);
+    if (!p.companyName && legalName) p.companyName = legalName;
+    // Fill identityName for ANY non-NBD tenant, even when repName is empty —
+    // otherwise buildPersonaPrompt falls to DEFAULT_REP_NAME='Joe', leaking
+    // Joe's name into a stranger tenant's homeowner SMS. Falls back to legalName
+    // (matches the no-persona branch below). NBD keeps the 'Joe' default.
+    if (!p.identityName && !isNBD) p.identityName = repName || legalName;
+    return p;
+  }
+
+  // No persona configured. A NON-NBD tenant must NOT fall through to the
+  // NBD-hardcoded PERSONA_PROMPT — synthesize a minimal branded config so the
+  // caller routes it through buildPersonaPrompt with the tenant's own identity.
+  if (!isNBD) {
+    return { companyName: legalName, identityName: repName || legalName };
+  }
+  // NBD (or brand-less): null → caller uses the locked PERSONA_PROMPT, unchanged.
   return null;
 }
 
@@ -252,7 +304,7 @@ async function generateAIDraft({ db, leadId, lead, incomingBody, incomingNoteId,
   // no latency to the webhook's budget.
   const [contextBlock, persona] = await Promise.all([
     buildLeadContext(db, leadId, lead, incomingBody),
-    resolvePersona(db, lead.userId, lead.companyId),
+    resolvePersona(db, lead.userId, lead.companyId, lead.repName),
   ]);
 
   // Use the rep/company persona when one is configured; otherwise the
