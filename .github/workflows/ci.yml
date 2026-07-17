@@ -329,7 +329,12 @@ jobs:
         # the full second-contractor lifecycle (provision → operate →
         # microsite → team → isolation) against the FULL emulator rig,
         # functions included (2026-07-06).
-        shard: ['@shard1', '@shard2', '@audit', '@stranger']
+        # '@gauntlet' = tests/e2e/gauntlet-lifecycle.spec.js — the e2e-debt
+        # specs (persona resolution, lapse seat pause/restore, access-code
+        # redemption, multi-rep own-only + seat cap). Boots functions like
+        # @stranger; ADVISORY at introduction (2026-07-17), promote to
+        # required once it earns the same flake track record as @stranger.
+        shard: ['@shard1', '@shard2', '@audit', '@stranger', '@gauntlet']
     # Rock 3: hermetic authed journey — seed a tenant in the Auth/Firestore
     # emulators, serve docs/ from the hosting emulator (the client SDK
     # auto-connects to emulators on localhost via nbd-emulator-connect.js),
@@ -375,7 +380,7 @@ jobs:
       # runtime loads functions/index.js, so its dependencies must be
       # installed there (and only there; legacy shards run functions-less).
       - name: Install functions deps (functions emulator runtime)
-        if: matrix.shard == '@stranger'
+        if: matrix.shard == '@stranger' || matrix.shard == '@gauntlet'
         run: |
           cd functions
           npm install --silent --no-audit --no-fund
@@ -393,7 +398,7 @@ jobs:
           # shards keep their tuned functions-less environment (callable
           # connection-refusals are allowlisted there); widening functions
           # to all shards is future work once boot cost is addressed.
-          NBD_EMU_FUNCTIONS: ${{ matrix.shard == '@stranger' && '1' || '' }}
+          NBD_EMU_FUNCTIONS: ${{ (matrix.shard == '@stranger' || matrix.shard == '@gauntlet') && '1' || '' }}
         run: |
           cd tests
           npm run test:e2e:authed:emu
