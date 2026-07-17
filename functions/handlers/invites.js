@@ -530,4 +530,105 @@ exports.createTeamInvite = onCall(
   }
 );
 
+// ═══════════════════════════════════════════════════════════════
+// assignSeats — the over-capacity SEAT PICKER (owner/admin choice).
+//
+// When a tenant has more claimed reps than the plan's seat cap (a
+// downgrade-on-return, or a future mid-tier plan), the lapse cron's
+// automatic oldest-first restore is only the DEFAULT. This callable lets
+// the owner/company_admin (the bill-payer) explicitly choose WHICH reps
+// hold the limited seats: the chosen set is activated (Auth re-enabled),
+// everyone else claimed is benched (Auth disabled), and the chosen count
+// is hard-capped at seatLimitForPlan(plan). The OWNER and pending invites
+// (no uid) are never touched. Benched members carry deactivatedReason
+// 'seat-unassigned' — NOT 'lapse' — so a later checkout's
+// reactivateLapsedSeats does not silently un-bench them (mirrors the
+// owner-removed contract).
+// ═══════════════════════════════════════════════════════════════
+exports.assignSeats = onCall(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    enforceAppCheck: true,
+    timeoutSeconds: 30,
+    memory: '256MiB',
+  },
+  async (request) => {
+    await callableRateLimit(request, 'assignSeats', 30, 3_600_000);
+    const { uid, companyId, isGlobalAdmin } = await requireTeamAdmin(request);
+
+    const wantActive = new Set(
+      (Array.isArray(request.data && request.data.activeEmails) ? request.data.activeEmails : [])
+        .map((e) => String(e || '').trim().toLowerCase()).filter(Boolean),
+    );
+
+    const db = getFirestore();
+    const coSnap = await db.doc(`companies/${companyId}`).get();
+    const ownerId = coSnap.exists ? (coSnap.data() || {}).ownerId : null;
+
+    // Plan resolution — identical to createTeamInvite (subscription truth,
+    // company-doc fallback; owner/global-admin are enterprise/uncapped).
+    let plan = 'free';
+    if (isGlobalAdmin || isOwnerCaller(request.auth.token)) {
+      plan = 'enterprise';
+    } else {
+      const subData = (await db.doc(`subscriptions/${companyId}`).get()).data() || {};
+      const subActive = subData.status === 'active' || subData.status === 'trialing'
+        || subData.status === 'past_due';
+      plan = (subActive && subData.plan) ? subData.plan
+        : ((coSnap.exists && (coSnap.data() || {}).plan) || 'free');
+    }
+    const cap = seatLimitForPlan(plan);
+
+    // Only CLAIMED members (have a uid, not the owner) hold seats. Cap the
+    // chosen-active count at the plan limit before writing anything.
+    const membersSnap = await db.collection(`companies/${companyId}/members`).get();
+    const claimed = membersSnap.docs.filter((m) => {
+      const md = m.data() || {}; return md.uid && md.uid !== ownerId;
+    });
+    const targetActive = claimed.filter((m) => wantActive.has(m.id));
+    if (cap !== Infinity && targetActive.length > cap) {
+      throw new HttpsError('resource-exhausted',
+        `Your ${plan} plan includes ${cap} team seat${cap === 1 ? '' : 's'}; you selected `
+        + `${targetActive.length}. Deselect ${targetActive.length - cap} rep${targetActive.length - cap === 1 ? '' : 's'} or upgrade to add more.`);
+    }
+
+    let activated = 0, benched = 0;
+    for (const m of claimed) {
+      const md = m.data() || {};
+      const shouldBeActive = wantActive.has(m.id);
+      if (shouldBeActive && md.status !== 'active') {
+        try {
+          await getAuth().updateUser(md.uid, { disabled: false });
+          await m.ref.set({
+            status: 'active', active: true,
+            deactivatedAt: null, deactivatedBy: null, deactivatedReason: null,
+            reactivatedAt: FieldValue.serverTimestamp(), reactivatedBy: 'seat-assign',
+          }, { merge: true });
+          activated++;
+        } catch (e) { logger.warn('assignSeats.activate_failed', { companyId, member: m.id, err: e.message }); }
+      } else if (!shouldBeActive && md.status === 'active') {
+        try {
+          await getAuth().updateUser(md.uid, { disabled: true });
+          await getAuth().revokeRefreshTokens(md.uid);
+          await m.ref.set({
+            status: 'deactivated', active: false,
+            deactivatedAt: FieldValue.serverTimestamp(),
+            deactivatedBy: uid, deactivatedReason: 'seat-unassigned',
+          }, { merge: true });
+          benched++;
+        } catch (e) { logger.warn('assignSeats.bench_failed', { companyId, member: m.id, err: e.message }); }
+      }
+    }
+
+    logger.info('assignSeats.applied', { companyId, plan, cap: cap === Infinity ? 'inf' : cap, activated, benched });
+    return {
+      ok: true, plan,
+      seatsUsed: targetActive.length,
+      seatsLimit: cap === Infinity ? null : cap,
+      activated, benched,
+    };
+  },
+);
+
 exports._test = { resolveInviteRole, inviteEmailHtml, inviteEmailText, seatLimitForPlan, isInviteExpired, INVITE_TTL_DAYS };

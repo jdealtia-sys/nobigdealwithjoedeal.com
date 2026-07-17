@@ -158,6 +158,9 @@ exports.claimInvite = inviteHandlers.claimInvite;
 exports.teamInviteEmail = inviteHandlers.teamInviteEmail;
 // Pillar 4 — invites create server-side so plan seat limits hold.
 exports.createTeamInvite = inviteHandlers.createTeamInvite;
+// Seat picker — owner/admin chooses which reps hold the plan's limited seats
+// when over-capacity (cap-enforced; benches the rest).
+exports.assignSeats = inviteHandlers.assignSeats;
 
 // Pillar 5 phase 1 — data-driven tenant microsite (/sites/t/) config read.
 const publicSiteHandlers = require('./handlers/public-site');
