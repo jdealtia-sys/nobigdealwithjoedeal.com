@@ -186,6 +186,15 @@ console.log('\nCI gate — @stranger shard is required');
     'add a node tests/gauntlet-regressions.test.js step to ci.yml');
 }
 
+console.log('\nStripe webhook idempotency — marker cleared on failure so retries recover');
+{
+  const stripe = read('functions/stripe.js');
+  assert('processing-error path deletes the stripe_events marker so Stripe retries re-process',
+    /stripeWebhook processing error/.test(stripe)
+    && /getFirestore\(\)\.doc\(`stripe_events\/\$\{event\.id\}`\)\.delete\(\)/.test(stripe),
+    'marker written before processing + kept on error => Stripe retry short-circuits as duplicate, paid tenant never activated');
+}
+
 console.log('\nMembers roster rules — same-company claim read');
 {
   const rules = read('firestore.rules');
