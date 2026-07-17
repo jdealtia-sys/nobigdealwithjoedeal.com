@@ -122,7 +122,7 @@ exports.enforceLapsedSeats = onSchedule(
 // Reactivation helper — called from stripe.js checkout.session.completed:
 // re-enable every member the lapse cron paused (and ONLY those; members an
 // owner deactivated on purpose stay off).
-async function reactivateLapsedSeats(db, companyId, plan) {
+async function reactivateLapsedSeats(db, companyId, plan, purchasedSeats) {
   const pausedSnap = await db.collection(`companies/${companyId}/members`)
     .where('deactivatedReason', '==', 'lapse')
     .get();
@@ -136,7 +136,11 @@ async function reactivateLapsedSeats(db, companyId, plan) {
   // back automatically. Same-plan or upgrade returns restore everyone (cap >=
   // paused count). `plan` omitted (legacy 2-arg callers / test rig) => Infinity
   // cap => restore all, preserving the pre-cap behavior exactly.
-  const cap = plan == null ? Infinity : seatLimitForPlan(plan);
+  // purchasedSeats (Route 1 per-seat add-ons, passed by the checkout webhook
+  // from the sub doc it just wrote) widens the cap by the seats still being
+  // paid for; omitted/invalid => 0, byte-identical to pre-seat behavior.
+  const extraSeats = Math.max(0, Number(purchasedSeats) || 0);
+  const cap = plan == null ? Infinity : seatLimitForPlan(plan) + extraSeats;
   const paused = pausedSnap.docs
     .filter((m) => (m.data() || {}).uid)
     .sort((a, b) => {

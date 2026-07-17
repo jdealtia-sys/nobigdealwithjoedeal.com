@@ -322,17 +322,17 @@ console.log('\nLapse lifecycle — grace, pause, reactivation');
     'manual deactivate must not leave a stale lapse reason that re-checkout auto-restores');
   const stripe = read('functions/stripe.js');
   assert('subscription.deleted stamps cancelledAt + lapseEnforced:false',
-    /status: 'cancelled',[\s\S]{0,400}cancelledAt: FieldValue\.serverTimestamp\(\),\s*lapseEnforced: false/.test(stripe));
+    /status: 'cancelled',[\s\S]{0,700}cancelledAt: FieldValue\.serverTimestamp\(\),\s*lapseEnforced: false/.test(stripe));
   assert('checkout reactivates lapse-paused seats + clears lapse state',
-    /reactivateLapsedSeats\(db, uid, plan\)/.test(stripe)
+    /reactivateLapsedSeats\(db, uid, plan, purchasedSeats\)/.test(stripe)
     && /cancelledAt: FieldValue\.delete\(\)/.test(stripe));
   // Downgrade-on-return: reactivateLapsedSeats must cap restorations at the new
   // plan's seat limit (oldest-activated first), not restore every paused rep —
   // otherwise a Growth→Starter return keeps reps over the new cap (billing
   // under-enforcement). Legacy 2-arg callers (plan omitted) restore all.
   assert('reactivateLapsedSeats caps restorations at the new plan seat limit',
-    /reactivateLapsedSeats\(db, companyId, plan\)/.test(src)
-    && /cap = plan == null \? Infinity : seatLimitForPlan\(plan\)/.test(src)
+    /reactivateLapsedSeats\(db, companyId, plan, purchasedSeats\)/.test(src)
+    && /cap = plan == null \? Infinity : seatLimitForPlan\(plan\) \+ extraSeats/.test(src)
     && /if \(restored >= cap\) break/.test(src),
     'a downgrade-on-return must not restore reps over the new plan cap');
   const idx = read('firestore.indexes.json');
@@ -373,6 +373,86 @@ console.log('\nUsage caps — enforced with nudges (metering wired)');
   const tab = read('docs/pro/js/dashboard-team-tab.js');
   assert('roster shows expired-invite state (30d mirror)',
     /inviteExpired/.test(tab) && /30 \* 24 \* 3600 \* 1000/.test(tab));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ROUTE 1a (2026-07-17): per-seat add-on READ PATH. Plan derivation
+// scans ALL subscription line items (a seat item at data[0] must never
+// downgrade a payer); purchasedSeats is persisted by the webhook and
+// honored at every seat-cap site. Money-free: inert until seats exist.
+// ═══════════════════════════════════════════════════════════════════
+
+console.log('\nPer-seat read path — derivePlanAndSeats (real import)');
+{
+  const { _test } = require(path.join(ROOT, 'functions/stripe.js'));
+  const f = _test.derivePlanAndSeats;
+  const MAP = { price_growth: 'growth', price_starter: 'starter' };
+  const item = (id, qty) => ({ price: { id }, quantity: qty });
+  let r = f({ data: [item('price_growth', 1)] }, MAP);
+  assert('plan-only sub → plan derived, 0 purchased seats',
+    r.plan === 'growth' && r.purchasedSeats === 0);
+  r = f({ data: [item('price_growth', 1), item('price_seat', 3)] }, MAP);
+  assert('plan + seat item → plan + 3 purchased seats',
+    r.plan === 'growth' && r.purchasedSeats === 3);
+  r = f({ data: [item('price_seat', 3), item('price_growth', 1)] }, MAP);
+  assert('seat item FIRST still derives the plan (the data[0] downgrade bug)',
+    r.plan === 'growth' && r.purchasedSeats === 3);
+  r = f({ data: [item('price_starter', 1), item('price_growth', 1)] }, MAP);
+  assert('duplicate plan-price items: first wins, never counted as seats',
+    r.plan === 'starter' && r.purchasedSeats === 0);
+  r = f({ data: [item('price_mystery', 4)] }, MAP);
+  assert('no recognizable plan price → plan null (caller falls back safely)',
+    r.plan === null);
+  r = f({ data: [item('price_growth', 1), { price: { id: 'price_seat' } }] }, MAP);
+  assert('seat item with missing quantity adds 0 seats', r.purchasedSeats === 0);
+  r = f({ data: [item('price_growth', 1), item('price_seat', -2), item('price_seat2', 2.7)] }, MAP);
+  assert('negative qty ignored, fractional qty floors', r.purchasedSeats === 2);
+  r = f(undefined, MAP);
+  assert('missing items object → {null, 0}', r.plan === null && r.purchasedSeats === 0);
+}
+
+console.log('\nPer-seat read path — persisted + honored at every cap site');
+{
+  const st = read('functions/stripe.js');
+  assert('both webhook cases derive via the all-items scan',
+    /derivePlanAndSeats\(sub\.items, PRICE_TO_PLAN\)/.test(st)
+    && /derivePlanAndSeats\(subscription\.items, PRICE_TO_PLAN\)/.test(st)
+    && !/PRICE_TO_PLAN\[priceId\]/.test(st),
+    'items.data[0]-only derivation silently downgrades a payer once a 2nd line item exists');
+  assert('purchasedSeats persisted by checkout.session.completed AND subscription.updated',
+    /status: subStatus,\s*purchasedSeats,/.test(st)
+    && /plan,\s*purchasedSeats,\s*status: subscription\.status/.test(st));
+  assert('subscription.updated keeps the STORED seat count when plan underivable',
+    /derived\.plan\s*\?\s*derived\.purchasedSeats\s*:\s*Math\.max\(0, Number\(stored\.purchasedSeats\) \|\| 0\)/.test(st),
+    'ambiguous items must not zero a paid-for entitlement');
+  assert('subscription.deleted clears purchasedSeats (seat items die with the sub)',
+    /status: 'cancelled',[\s\S]{0,400}purchasedSeats: 0,/.test(st),
+    'a stale seat count on a cancelled sub makes the client cap mirror lie');
+  assert("stripe.js _test export is non-enumerable (index.js Object.assign must not deploy it)",
+    /Object\.defineProperty\(exports, '_test'/.test(st) && /enumerable: false/.test(st));
+  const inv = read('functions/handlers/invites.js');
+  assert('createTeamInvite effective cap = seatLimitForPlan + purchasedSeats',
+    /seats = seatLimitForPlan\(plan\) \+ purchasedSeats/.test(inv));
+  assert('assignSeats effective cap = seatLimitForPlan + purchasedSeats',
+    /cap = seatLimitForPlan\(plan\) \+ purchasedSeats/.test(inv));
+  assert('purchased seats only count while the sub is ENTITLED (both cap sites)',
+    (inv.match(/purchasedSeats = Math\.max\(0, Number\(subData\.purchasedSeats\) \|\| 0\)/g) || []).length >= 2,
+    'a lapsed sub must not keep granting its purchased seats');
+  const lapse = read('functions/lapse-enforcement.js');
+  assert('lapse restore cap widens by sanitized purchasedSeats',
+    /extraSeats = Math\.max\(0, Number\(purchasedSeats\) \|\| 0\)/.test(lapse));
+  const bg = read('docs/pro/js/billing-gate.js');
+  assert('client billing-gate captures + exposes purchasedSeats',
+    /Math\.max\(0, Number\(data\.purchasedSeats\) \|\| 0\)/.test(bg)
+    && /purchasedSeats: _purchasedSeats/.test(bg));
+  assert('client seat mirror is entitled-status gated (matches server cap sites)',
+    /entitledForSeats = _status === 'active' \|\| _status === 'trialing'\s*\|\| _status === 'past_due'/.test(bg)
+    && /_purchasedSeats = entitledForSeats/.test(bg),
+    "an 'unpaid'/'cancelled'/'trial_expired' doc's stale seats must not inflate the UI cap the server refuses");
+  const tab = read('docs/pro/js/dashboard-team-tab.js');
+  assert('team-tab seat cap mirrors base + purchased',
+    /pl\.purchasedSeats > 0 \? pl\.purchasedSeats : 0/.test(tab)
+    && /return base \+ extra/.test(tab));
 }
 
 console.log('\n──────────────────────────────────────────────────');

@@ -111,6 +111,37 @@ const CORS_ORIGINS = [
   'https://nobigdeal-pro.web.app',
 ];
 
+// ── Plan + purchased-seat derivation from a subscription's line items ──
+// Both webhook cases used to read items.data[0] only. That breaks the moment
+// a subscription carries a SECOND line item (the per-seat add-on, Route 1):
+// if the seat item happens to sort first, checkout.session.completed derives
+// "unknown price" and silently DOWNGRADES a paying tenant to starter, and
+// customer.subscription.updated freezes them on the stale stored plan.
+// Scan every item instead: the item whose price is in PRICE_TO_PLAN names the
+// plan; every OTHER item's quantity is a purchased extra seat. This read path
+// needs no seat-price secret — it works by exclusion, so it deploys before
+// STRIPE_PRICE_SEAT exists and stays correct after.
+// `priceToPlan` is passed in because the map is built per-request from
+// secrets (.value() only resolves inside a handler).
+function derivePlanAndSeats(items, priceToPlan) {
+  const data = items && Array.isArray(items.data) ? items.data : [];
+  let plan = null;
+  let purchasedSeats = 0;
+  for (const item of data) {
+    const priceId = item && item.price && item.price.id;
+    const mapped = priceId ? priceToPlan[priceId] : undefined;
+    if (mapped) {
+      // First plan-price item wins; a duplicate plan item is anomalous and
+      // must never be counted as seats.
+      if (!plan) plan = mapped;
+    } else {
+      const qty = Math.floor(Number(item && item.quantity));
+      if (Number.isFinite(qty) && qty > 0) purchasedSeats += qty;
+    }
+  }
+  return { plan, purchasedSeats };
+}
+
 exports.createCheckoutSession = onRequest(
   {
     cors: CORS_ORIGINS,
@@ -374,18 +405,30 @@ exports.stripeWebhook = onRequest(
           // subscription.updated event. Unknown/failed lookup → 'active'
           // (errs in the customer's favor).
           let subStatus = 'active';
+          // Per-seat add-ons (Route 1): extra rep seats bought as additional
+          // subscription-item quantity. Derived by exclusion (non-plan items),
+          // persisted on the sub doc so the invite/assign/lapse cap sites can
+          // grant base + purchased without any Stripe read.
+          let purchasedSeats = 0;
           try {
             if (session.subscription) {
               const sub = await stripe.subscriptions.retrieve(session.subscription, {
                 expand: ['items.data.price']
               });
-              const priceId = sub.items?.data?.[0]?.price?.id || '';
               if (sub.status === 'trialing' || sub.status === 'active') subStatus = sub.status;
-              if (PRICE_TO_PLAN[priceId]) {
-                plan = PRICE_TO_PLAN[priceId];
+              const derived = derivePlanAndSeats(sub.items, PRICE_TO_PLAN);
+              if (derived.plan) {
+                plan = derived.plan;
+                purchasedSeats = derived.purchasedSeats;
+                // Tripwire: until the per-seat charging path (Route 1b)
+                // ships, our checkout mints single-item subs only — any
+                // nonzero here means an unexpected extra line item.
+                if (purchasedSeats > 0) {
+                  logger.info('purchased_seats_derived', { uid, purchasedSeats, sessionId: session.id });
+                }
               } else {
                 logger.warn('stripeWebhook.checkout_session_completed unknown_price', {
-                  uid, priceId, sessionId: session.id
+                  uid, priceId: sub.items?.data?.[0]?.price?.id || '', sessionId: session.id
                 });
               }
             }
@@ -402,6 +445,7 @@ exports.stripeWebhook = onRequest(
           const subData = {
             plan,
             status: subStatus,
+            purchasedSeats,
             stripeSessionId: session.id,
             stripeCustomerId: customerId,
             stripeSubscriptionId: session.subscription || null,
@@ -427,8 +471,9 @@ exports.stripeWebhook = onRequest(
             const { reactivateLapsedSeats } = require('./lapse-enforcement');
             // Pass the new plan so a downgrade-on-return (e.g. Growth lapse →
             // Starter re-subscribe) restores only up to the new seat cap
-            // instead of every previously-paused rep.
-            await reactivateLapsedSeats(db, uid, plan);
+            // instead of every previously-paused rep. purchasedSeats widens
+            // that cap by the seats the tenant is still paying for.
+            await reactivateLapsedSeats(db, uid, plan, purchasedSeats);
           } catch (e) {
             logger.warn('lapse_reactivation_failed', { uid, err: e.message });
           }
@@ -477,11 +522,27 @@ exports.stripeWebhook = onRequest(
           // dashboard — trusting it for authorization puts tier grants
           // one click from anyone with Stripe write access. Price IDs
           // are immutable secrets known only to deploy.
-          const priceId = subscription.items?.data?.[0]?.price?.id || '';
-          let plan = PRICE_TO_PLAN[priceId] || subDoc.data().plan || 'starter';
+          // Scans ALL line items (not [0]) so a per-seat add-on item can
+          // never shadow the plan price; its quantity syncs purchasedSeats
+          // (this event fires on every seat-quantity change).
+          const stored = subDoc.data() || {};
+          const derived = derivePlanAndSeats(subscription.items, PRICE_TO_PLAN);
+          const plan = derived.plan || stored.plan || 'starter';
+          // No recognizable plan price (secret rotation mid-flight, foreign
+          // sub) → keep the stored seat count rather than zeroing a
+          // paid-for entitlement on ambiguous data.
+          const purchasedSeats = derived.plan
+            ? derived.purchasedSeats
+            : Math.max(0, Number(stored.purchasedSeats) || 0);
+          // Tripwire — see checkout.session.completed: nonzero is unexpected
+          // until Route 1b's seat-charging callable exists.
+          if (purchasedSeats > 0 && purchasedSeats !== stored.purchasedSeats) {
+            logger.info('purchased_seats_derived', { uid, purchasedSeats, subscriptionId: subscription.id });
+          }
 
           await subDoc.ref.update({
             plan,
+            purchasedSeats,
             status: subscription.status,
             stripeSubscriptionId: subscription.id,
             currentPeriodEnd: subscription.current_period_end
@@ -525,6 +586,10 @@ exports.stripeWebhook = onRequest(
           await subDoc.ref.update({
             plan: 'free',
             status: 'cancelled',
+            // The Stripe subscription is gone — any per-seat add-on items
+            // died with it. Server cap sites already ignore purchasedSeats on
+            // a non-entitled sub; clearing it keeps the client mirror honest.
+            purchasedSeats: 0,
             // Anchors the lapse grace period (gauntlet batch 2): the daily
             // enforceLapsedSeats cron pauses team seats LAPSE_GRACE_DAYS
             // after this stamp; lapseEnforced is cleared on reactivation.
@@ -1172,3 +1237,12 @@ exports.invoiceWebhook = onRequest(
     }
   }
 );
+
+// Test-only export. NON-enumerable on purpose: index.js absorbs this module
+// via Object.assign(exports, require('./stripe')), which copies enumerable
+// props only — a plain `exports._test` would leak into the deploy surface
+// the Firebase CLI enumerates.
+Object.defineProperty(exports, '_test', {
+  value: { derivePlanAndSeats },
+  enumerable: false,
+});
