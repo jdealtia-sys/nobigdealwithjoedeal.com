@@ -81,9 +81,20 @@ function escHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-function renderPage({ title, description, body, status, cacheSeconds }) {
-  const safeTitle = escHtml(title || 'Your Project — No Big Deal');
+function renderPage({ title, description, body, status, cacheSeconds, company, neutral }) {
+  // `company` is the resolved tenant name (brand.legalName). It drives
+  // og:site_name, the footer, and the default title so a non-NBD tenant's
+  // preview card is branded to THEM. Missing → NBD (byte-identical: NBD's
+  // resolved company is 'No Big Deal Home Solutions', the prior literal).
+  // `neutral` pages (expired/not-found/invalid — tenant unresolvable) assert
+  // NO brand at all: og:site_name and the "Powered by" footer are dropped so
+  // a forwarded/expired link never stamps any company's identity.
+  const site = company || 'No Big Deal Home Solutions';
+  const safeSite  = escHtml(site);
+  const safeTitle = escHtml(title || ('Your Project — ' + site));
   const safeDesc  = escHtml(description || '');
+  const siteMeta  = neutral ? '' : `<meta property="og:site_name" content="${safeSite}">\n`;
+  const footer    = neutral ? '' : `\n<div class="foot">Powered by ${safeSite}</div>`;
   const html = `<!doctype html>
 <html lang="en">
 <head>
@@ -95,8 +106,7 @@ function renderPage({ title, description, body, status, cacheSeconds }) {
 <meta property="og:type" content="website">
 <meta property="og:title" content="${safeTitle}">
 <meta property="og:description" content="${safeDesc}">
-<meta property="og:site_name" content="No Big Deal Home Solutions">
-<meta name="twitter:card" content="summary">
+${siteMeta}<meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="${safeTitle}">
 <meta name="twitter:description" content="${safeDesc}">
 <style>
@@ -146,23 +156,27 @@ function renderPage({ title, description, body, status, cacheSeconds }) {
 </head>
 <body>
 <div class="wrap">
-${body}
-<div class="foot">Powered by No Big Deal Home Solutions</div>
+${body}${footer}
 </div>
 </body>
 </html>`;
   return { html, status: status || 200, cacheSeconds: cacheSeconds == null ? 30 : cacheSeconds };
 }
 
+// The three error pages render when the tenant is UNRESOLVABLE (bad/expired/
+// missing token — we never load a lead, so we can't know whose brand this is).
+// They are deliberately NEUTRAL + unbranded (neutral:true drops og:site_name +
+// the "Powered by" footer, and the body carries no brand line) so an
+// unresolvable link never asserts NBD's — or any tenant's — identity.
 function expiredPage() {
   return renderPage({
-    title: 'Link expired — No Big Deal',
-    description: 'This project link has expired. Contact your rep for a new one.',
+    neutral: true,
+    title: 'Link unavailable',
+    description: 'This link has expired. Contact your rep for a new one.',
     status: 410,
     cacheSeconds: 60,
     body: `
       <div class="card">
-        <div class="brand">No Big Deal Home Solutions</div>
         <h1>This link has expired</h1>
         <p class="addr">Contact your rep for a fresh link to your project page.</p>
       </div>`,
@@ -171,13 +185,13 @@ function expiredPage() {
 
 function notFoundPage() {
   return renderPage({
-    title: 'Project not found — No Big Deal',
+    neutral: true,
+    title: 'Link unavailable',
     description: 'We couldn\'t find a project for this link. Please double-check the URL.',
     status: 404,
     cacheSeconds: 60,
     body: `
       <div class="card">
-        <div class="brand">No Big Deal Home Solutions</div>
         <h1>Project not found</h1>
         <p class="addr">If your rep just sent this link, give it a moment and try again — or ask them to resend.</p>
       </div>`,
@@ -186,20 +200,20 @@ function notFoundPage() {
 
 function invalidTokenPage() {
   return renderPage({
-    title: 'Invalid link — No Big Deal',
+    neutral: true,
+    title: 'Link unavailable',
     description: 'This link looks malformed. Please double-check or ask your rep to resend.',
     status: 400,
     cacheSeconds: 60,
     body: `
       <div class="card">
-        <div class="brand">No Big Deal Home Solutions</div>
         <h1>Invalid link</h1>
         <p class="addr">Please double-check the URL or ask your rep to resend it.</p>
       </div>`,
   });
 }
 
-function projectPage({ lead, rep, token }) {
+function projectPage({ lead, rep, token, tenantName }) {
   // Phase-2.2 PII minimization: link-preview crawlers (iMessage / Meta /
   // WhatsApp) cache og:/twitter: meta server-side, and a forwarded or
   // group-thread link renders the card with NO click. So the meta +
@@ -208,7 +222,10 @@ function projectPage({ lead, rep, token }) {
   // only a first-name greeting (low sensitivity) and the rep/company.
   const firstName = (lead.firstName || '').trim();
   const repName   = rep.displayName || rep.firstName || 'Your rep';
-  const company   = rep.companyName || 'No Big Deal Home Solutions';
+  // tenantName (companyProfile brand.legalName) is the canonical tenant
+  // identity and wins when present; rep.companyName covers pre-profile data;
+  // NBD's resolved tenantName is 'No Big Deal Home Solutions' → byte-identical.
+  const company   = tenantName || rep.companyName || 'No Big Deal Home Solutions';
   const title     = `Your roofing project — ${company}`;
   const desc      = `${repName} at ${company} put together your project details. Tap to view your estimate and photos.`;
 
@@ -220,6 +237,7 @@ function projectPage({ lead, rep, token }) {
   return renderPage({
     title,
     description: desc,
+    company,
     status: 200,
     cacheSeconds: 30,
     body: `
@@ -309,7 +327,23 @@ exports.shareSSR = onRequest(
       const lead = leadSnap.data();
       const rep = repSnap.exists ? repSnap.data() : {};
 
-      send(projectPage({ lead, rep, token: rawToken }));
+      // Multi-tenant branding: resolve the tenant's legal name so the preview
+      // card (og:site_name, footer, title, body) is branded to THEM, not NBD.
+      // Keyed by the lead's companyId (falls back to the owner uid for solo
+      // tenants). One best-effort read; NBD (profile brand.legalName is NBD's,
+      // or absent) leaves tenantName '' → the existing NBD fallbacks stand.
+      let tenantName = '';
+      const tenantKey = lead.companyId || tok.ownerUid;
+      if (tenantKey) {
+        try {
+          const cpSnap = await db.doc(`companyProfile/${tenantKey}`).get();
+          if (cpSnap.exists) { const _ln = ((cpSnap.data() || {}).brand || {}).legalName || ''; tenantName = (_ln && _ln !== 'No Big Deal Home Solutions') ? _ln : ''; }  // NBD-name guard (byte-identical; mirrors render-pdf.js/sms-functions.js)
+        } catch (e) {
+          logger.warn('shareSSR tenant resolve failed', { err: String(e && e.message) });
+        }
+      }
+
+      send(projectPage({ lead, rep, token: rawToken, tenantName }));
     } catch (err) {
       logger.error('shareSSR_failed', { err: String(err) });
       // Fail safe: render a neutral page rather than 500 so the

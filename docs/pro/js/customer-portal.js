@@ -15,12 +15,29 @@ let _NBD_CP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   'use strict';
 
   const PORTAL_COLLECTION = 'portals';
+
+  // Brand resolver — mirrors review-engine.js. window._brand() (TenantContext /
+  // company-profile.js) drives the customer-facing name/phone/email/website/
+  // tagline so a tenant's portal + share messages carry THEIR identity, never
+  // Joe's. NBD (no brand, or the canonical NBD legalName) resolves to the
+  // literals below → the portal renders byte-identical for NBD. Resolved lazily
+  // (per property access, all at user-action time) because this IIFE can run
+  // before company-profile.js registers window._brand.
+  function _brandRaw() {
+    try { if (typeof window._brand === 'function') return window._brand() || {}; } catch (e) { /* fall through */ }
+    return {};
+  }
+  function _isNbdBrand(b) { return !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions'; }
   const BRAND = {
-    name: 'No Big Deal Home Solutions',
-    phone: '(859) 420-7382',
-    email: 'info@nobigdealwithjoedeal.com',
-    website: 'nobigdealwithjoedeal.com',
-    tagline: 'No Big Deal — We\'ve Got You Covered',
+    get name()    { const b = _brandRaw(); return _isNbdBrand(b) ? 'No Big Deal Home Solutions'        : (b.legalName || 'No Big Deal Home Solutions'); },
+    // Non-NBD branch falls back to '' (NOT the NBD literal): _resolveBrand()
+    // blanks an unset tenant contact/tagline field to '', so `|| NBD-literal`
+    // would re-leak Joe's number/email/site/tagline into a stranger's homeowner
+    // portal + share email. NBD keeps the exact literals (byte-identical).
+    get phone()   { const b = _brandRaw(); return _isNbdBrand(b) ? '(859) 420-7382'                    : ((b.contact && b.contact.phone)   || ''); },
+    get email()   { const b = _brandRaw(); return _isNbdBrand(b) ? 'info@nobigdealwithjoedeal.com'     : ((b.contact && b.contact.email)   || ''); },
+    get website() { const b = _brandRaw(); return _isNbdBrand(b) ? 'nobigdealwithjoedeal.com'          : ((b.contact && b.contact.website) || ''); },
+    get tagline() { const b = _brandRaw(); return _isNbdBrand(b) ? 'No Big Deal — We\'ve Got You Covered' : (b.tagline || ''); },
     navy: '#1e3a6e',
     orange: '#e8720c',
     dark: '#1a1a2e'
@@ -209,7 +226,7 @@ let _NBD_CP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim();
     const phone = (lead.phone || '').replace(/\D/g, '');
     const body = encodeURIComponent(
-      `Hi${name ? ' ' + name.split(' ')[0] : ''}, here's your project portal from No Big Deal Home Solutions! Track your progress, view photos, and more: ${url}`
+      `Hi${name ? ' ' + name.split(' ')[0] : ''}, here's your project portal from ${BRAND.name}! Track your progress, view photos, and more: ${url}`
     );
     window.open(`sms:${phone}?body=${body}`, '_self');
   }
@@ -226,9 +243,13 @@ let _NBD_CP_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     if (!url) return;
 
     const name = ((lead.firstName || '') + ' ' + (lead.lastName || '')).trim();
-    const subject = encodeURIComponent('Your Project Portal — No Big Deal Home Solutions');
+    const subject = encodeURIComponent('Your Project Portal — ' + BRAND.name);
+    // Only include the "call us at <phone>" sentence when a phone is actually
+    // set — BRAND.phone is '' for a non-NBD tenant that hasn't set contact, and
+    // we must not fall back to Joe's number.
+    const callLine = BRAND.phone ? `\n\nIf you have any questions, don't hesitate to call us at ${BRAND.phone}.` : '';
     const body = encodeURIComponent(
-      `Hi ${name || 'there'},\n\nHere's your personal project portal where you can track progress, view photos, and see project details:\n\n${url}\n\nIf you have any questions, don't hesitate to call us at ${BRAND.phone}.\n\nBest,\nNo Big Deal Home Solutions`
+      `Hi ${name || 'there'},\n\nHere's your personal project portal where you can track progress, view photos, and see project details:\n\n${url}${callLine}\n\nBest,\n${BRAND.name}`
     );
     window.location.href = `mailto:${lead.email || ''}?subject=${subject}&body=${body}`;
   }
@@ -551,7 +572,7 @@ body{font-family:'Inter',sans-serif;background:#f8f9fa;color:#1a1a2e;line-height
     <h1>${esc(name)}</h1>
     <div class="addr">${esc(addr)}</div>
     <div class="count">${photos.length} Photo${photos.length !== 1 ? 's' : ''}</div>
-    <div class="brand">No Big Deal Home Solutions</div>
+    <div class="brand">${esc(BRAND.name)}</div>
   </div>
   <div class="grid">${photoGrid}</div>
   <div class="footer">Generated ${esc(now)} · <a href="https://${BRAND.website}">${BRAND.website}</a></div>

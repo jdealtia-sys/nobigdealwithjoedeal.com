@@ -134,6 +134,83 @@ window.NBDDocGen = {
   },
 
   /**
+   * NBD identity gate for the active tenant (Batch 3 de-branding). Resolves the
+   * brand the same way _resolveCompany / window._brand() do. `isNbd` is true for
+   * NBD AND any unconfigured tenant whose brand still resolves to the NBD
+   * default — those must render byte-identical. Every signer-label helper below
+   * funnels through this so the NBD branch is never rewritten.
+   */
+  _nbdGate() {
+    let b = null;
+    try { b = (typeof window !== 'undefined' && window._brand) ? window._brand() : null; }
+    catch (_) { b = null; }
+    const isNbd = !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions';
+    return { isNbd, brand: b };
+  },
+
+  /**
+   * Tenant-aware "Authorized <X> Representative" signer label. NBD →
+   * 'Authorized NBD Representative' (byte-identical). A non-NBD tenant → their
+   * seal, falling back to legalName when the seal is unset ('' guarded).
+   */
+  _repSignerLabel() {
+    const g = this._nbdGate();
+    if (g.isNbd) return 'Authorized NBD Representative';
+    const who = (g.brand && (g.brand.seal || g.brand.legalName)) || '';
+    return 'Authorized ' + who + ' Representative';
+  },
+
+  /**
+   * Tenant-aware "Contractor - <X>" signer label for the contract execution
+   * block. NBD → 'Contractor - NBD Home Solutions' (byte-identical). A non-NBD
+   * tenant → their legalName.
+   */
+  _contractorSignerLabel() {
+    const g = this._nbdGate();
+    if (g.isNbd) return 'Contractor - NBD Home Solutions';
+    return 'Contractor - ' + ((g.brand && g.brand.legalName) || '');
+  },
+
+  /**
+   * De-brand an NBD-default signer label for a non-NBD tenant. Single chokepoint:
+   * renderSignatureBlock runs EVERY signer label through here — hardcoded arrays,
+   * the contract fallback, AND the DOCUMENT_TYPES.defaultSigners labels that
+   * doc-preflight.js seeds into data.signers (and labels emitted by the sibling
+   * templates file), neither of which this generator can edit. NBD (and any
+   * NBD-brand tenant) gets the label back byte-identical via the early return;
+   * only a non-NBD tenant sees the known NBD-branded labels swapped for their
+   * identity.
+   */
+  _deBrandSignerLabel(label) {
+    const s = String(label == null ? '' : label);
+    const g = this._nbdGate();
+    if (g.isNbd) return s;
+    if (s === 'Authorized NBD Representative') return this._repSignerLabel();
+    if (s === 'Contractor - NBD Home Solutions') return this._contractorSignerLabel();
+    // Inspection-doc signer labels that embed the literal 'NBD' as the company
+    // (DOCUMENT_TYPES.inspectionHomeowner config + the two inspection templates'
+    // hardcoded renderSignatureBlock calls). All funnel through this chokepoint,
+    // so a non-NBD tenant's inspection paper carries THEIR name, not 'NBD'.
+    const who = (g.brand && (g.brand.seal || g.brand.legalName)) || '';
+    if (s === 'NBD Inspector') return (who + ' Inspector').trim();
+    if (s === 'Certified NBD Inspector') return ('Certified ' + who + ' Inspector').replace(/\s+/g, ' ').trim();
+    if (s === 'Certified NBD Damage Assessor') return ('Certified ' + who + ' Damage Assessor').replace(/\s+/g, ' ').trim();
+    return s;
+  },
+
+  /**
+   * Tenant-aware company segment for a document <title>. NBD keeps the exact
+   * legacy 'NBD Home Solutions' literal (byte-identical — note this differs from
+   * _resolveCompany().name 'No Big Deal Home Solutions', so DON'T use that for
+   * NBD). A non-NBD tenant gets their escaped company name. The <title> is the
+   * browser tab title, the print-page header, and the default Save-as-PDF
+   * filename, so a bare 'NBD Home Solutions' there leaks onto a stranger's doc.
+   */
+  _docTitleCompany() {
+    return this._nbdGate().isNbd ? 'NBD Home Solutions' : this._escHtml(this._resolveCompany().name || '');
+  },
+
+  /**
    * Warranty tier definitions with descriptions
    */
   WARRANTY_TIERS: {
@@ -254,8 +331,13 @@ window.NBDDocGen = {
     // editable legal text / financing / marketing from one place. Lead-
     // level overrides on `data` still win — render functions should look
     // up `data.foo ?? data.companyProfile.foo`.
-    data.companyProfile = (window._companyProfile && typeof window._companyProfile === 'object')
-      ? window._companyProfile
+    // Prefer window._legal() so the neutralized/party-substituted legal fields
+    // (state-neutral jurisdiction, tenant legalName in place of literal "NBD")
+    // flow into every render function via data.companyProfile. window._legal()
+    // returns the profile byte-identical for NBD, so NBD output is unchanged.
+    const _profileSrc = (window._legal ? window._legal() : window._companyProfile);
+    data.companyProfile = (_profileSrc && typeof _profileSrc === 'object')
+      ? _profileSrc
       : (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
 
     // ─── QA fix: reconcile single-total docs against their rendered lines ───
@@ -782,8 +864,11 @@ window.NBDDocGen = {
       return null;
     }
     if (!data.companyProfile) {
-      data.companyProfile = (window._companyProfile && typeof window._companyProfile === 'object')
-        ? window._companyProfile
+      // Prefer window._legal() so neutralized/party-substituted legal fields
+      // reach the render functions; byte-identical for NBD.
+      const _profileSrc = (window._legal ? window._legal() : window._companyProfile);
+      data.companyProfile = (_profileSrc && typeof _profileSrc === 'object')
+        ? _profileSrc
         : (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
     }
     return template.call(this, data);
@@ -1477,7 +1562,7 @@ window.NBDDocGen = {
    */
   _letterhead(data) {
     const cp = (data && data.companyProfile)
-      || (typeof window !== 'undefined' && window._companyProfile)
+      || (typeof window !== 'undefined' && (window._legal ? window._legal() : window._companyProfile))
       || {};
     const C = this._resolveCompany();
     const pick = (override, fallback) => {
@@ -1630,7 +1715,7 @@ window.NBDDocGen = {
       signers.forEach(signer => {
         const isObj = signer && typeof signer === 'object';
         const role = escRole(isObj ? signer.role : String(signer).toLowerCase().replace(/[^a-z0-9]+/g, '-'));
-        const label = escAttr(isObj ? (signer.label || signer.role) : signer);
+        const label = escAttr(this._deBrandSignerLabel(isObj ? (signer.label || signer.role) : signer));
         const required = isObj ? signer.required !== false : true;
         html += `
           <div class="nbd-sig-block" data-nbd-sig="${role}" data-label="${label}" data-required="${required ? 'true' : 'false'}">
@@ -1659,7 +1744,7 @@ window.NBDDocGen = {
             </div>
           </div>
           <div style="font-size: 10px; margin-bottom: 0.15in; color: #666;">
-            <strong>${signer}</strong>
+            <strong>${this._escHtml(this._deBrandSignerLabel(signer))}</strong>
           </div>
         `;
       });
@@ -1728,7 +1813,7 @@ window.NBDDocGen = {
    * @returns {string} Complete HTML document
    */
   renderProposal(data = {}) {
-    const cp = data.companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    const cp = data.companyProfile || (window._legal ? window._legal() : (window.NBD_COMPANY_PROFILE_DEFAULTS || {}));
     // Merge with defaults
     const merged = {
       homeownerName: '',
@@ -1822,7 +1907,7 @@ window.NBDDocGen = {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>NBD Home Solutions - Proposal</title>
+        <title>${this._docTitleCompany()} - Proposal</title>
         ${this.getSharedCSS()}
       </head>
       <body>
@@ -1883,7 +1968,7 @@ window.NBDDocGen = {
             <!-- ACCEPTANCE -->
             <div class="section">
               <div class="section-title">Acceptance</div>
-              ${this.renderSignatureBlock(['Homeowner', 'Authorized NBD Representative'])}
+              ${this.renderSignatureBlock(['Homeowner', this._repSignerLabel()])}
             </div>
           </div>
 
@@ -1907,7 +1992,7 @@ window.NBDDocGen = {
    * @returns {string} Complete HTML document
    */
   renderContract(data = {}) {
-    const cp = data.companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    const cp = data.companyProfile || (window._legal ? window._legal() : (window.NBD_COMPANY_PROFILE_DEFAULTS || {}));
     const merged = {
       homeownerName: '',
       homeownerAddress: '',
@@ -1964,7 +2049,7 @@ window.NBDDocGen = {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>NBD Home Solutions - Roofing Contract</title>
+        <title>${this._docTitleCompany()} - Roofing Contract</title>
         ${this.getSharedCSS()}
       </head>
       <body>
@@ -2073,7 +2158,7 @@ window.NBDDocGen = {
                 ${this.renderSignatureBlock(
                   (Array.isArray(data.signers) && data.signers.length)
                     ? data.signers
-                    : ['Homeowner', 'Contractor - NBD Home Solutions']
+                    : ['Homeowner', this._contractorSignerLabel()]
                 )}
               </div>
             </div>
@@ -2103,7 +2188,10 @@ window.NBDDocGen = {
       homeownerName: '',
       address: '',
       inspectionDate: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-      inspectorName: 'NBD Inspector',
+      // Tenant-aware default: NBD → 'NBD Inspector' (byte-identical); a non-NBD
+      // tenant that left the inspector name blank → '<their seal> Inspector',
+      // never 'NBD Inspector'. Real data.inspectorName still overrides this.
+      inspectorName: this._deBrandSignerLabel('NBD Inspector'),
       // No fabricated assessments/grades/prices: this report renders ONLY what the
       // inspector entered in the pre-flight modal (overallDescription, roof &
       // gutter notes, recommendations note, photos). Blank defaults so a field the
@@ -2153,7 +2241,7 @@ window.NBDDocGen = {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>NBD Home Solutions - Inspection Report</title>
+        <title>${this._docTitleCompany()} - Inspection Report</title>
         ${this.getSharedCSS()}
       </head>
       <body>
@@ -2247,7 +2335,7 @@ window.NBDDocGen = {
    * @returns {string} Complete HTML document
    */
   renderInspectionInsurance(data = {}) {
-    const cp = data.companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    const cp = data.companyProfile || (window._legal ? window._legal() : (window.NBD_COMPANY_PROFILE_DEFAULTS || {}));
     const merged = {
       claimantName: '',
       // Blank claim defaults — an insurance document must never print a fabricated
@@ -2292,7 +2380,7 @@ window.NBDDocGen = {
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>NBD Home Solutions - Insurance Claim Report</title>
+        <title>${this._docTitleCompany()} - Insurance Claim Report</title>
         ${this.getSharedCSS()}
       </head>
       <body>
@@ -2467,7 +2555,7 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
   // histories no longer get truncated.
   // ═══════════════════════════════════════════════════════════
   renderCustomerReport(data = {}) {
-    const cp = data.companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    const cp = data.companyProfile || (window._legal ? window._legal() : (window.NBD_COMPANY_PROFILE_DEFAULTS || {}));
     const C = this._resolveCompany();
     const L = this._letterhead(data);
     const esc = (s) => String(s == null ? '' : s)

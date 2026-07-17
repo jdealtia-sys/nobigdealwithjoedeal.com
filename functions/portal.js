@@ -438,6 +438,24 @@ exports.getHomeownerPortalView = onRequest(
     const lead = leadSnap.data();
     const rep = repSnap.exists ? repSnap.data() : {};
 
+    // Multi-tenant branding: resolve the tenant's legal name from its
+    // companyProfile so a non-NBD rep's homeowner sees THEIR company name,
+    // not NBD's. Keyed by the lead's companyId (falls back to the owner uid
+    // for solo tenants — companyId === uid there). One best-effort read on
+    // the already-async path; NBD (profile brand.legalName is already
+    // 'No Big Deal Home Solutions', or profile absent) keeps the exact
+    // rep.companyName || rep.company || NBD fallback below → byte-identical.
+    let tenantName = '';
+    const tenantKey = lead.companyId || tok.ownerUid;
+    if (tenantKey) {
+      try {
+        const cpSnap = await db.doc(`companyProfile/${tenantKey}`).get();
+        if (cpSnap.exists) { const _ln = ((cpSnap.data() || {}).brand || {}).legalName || ''; tenantName = (_ln && _ln !== 'No Big Deal Home Solutions') ? _ln : ''; }  // NBD-name guard: NBD's own companyProfile carries the NBD legalName — keep tenantName '' so the prior rep.* fallback stays byte-identical (mirrors render-pdf.js/sms-functions.js)
+      } catch (e) {
+        logger.warn('[portal] tenant resolve failed', { err: e.message });
+      }
+    }
+
     // Pick the latest estimate (createdAt desc). In-memory sort to
     // avoid a composite-index requirement for this rarely-hit path.
     const estimates = estSnap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -585,9 +603,10 @@ exports.getHomeownerPortalView = onRequest(
       company: {
         // register.js writes the company under `company` (not `companyName`),
         // so the old `rep.companyName` read always missed and fell back to NBD —
-        // wrong-tenant branding for a non-NBD rep. Read both. (Per-tenant
-        // companyProfile sourcing is the fuller fix; this covers existing data.)
-        name: rep.companyName || rep.company || 'No Big Deal Home Solutions'
+        // wrong-tenant branding for a non-NBD rep. Read both. Per-tenant
+        // companyProfile (tenantName, from brand.legalName) is the canonical
+        // source and wins when present; the rep.* reads cover pre-profile data.
+        name: tenantName || rep.companyName || rep.company || 'No Big Deal Home Solutions'
       },
       progress,
       estimate: latest ? {

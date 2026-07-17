@@ -552,10 +552,15 @@
       <div class="terms">
         <strong>Scope Terms:</strong> This scope of work is prepared based on damage
         observed on ${fmtDate(est.inspectionDate || est.date)} and is valid for 30 days.
-        All line items reference industry-standard pricing (RSMeans / Xactimate equivalent)
+        ${_b.isNbd
+          ? `All line items reference industry-standard pricing (RSMeans / Xactimate equivalent)
         for the Cincinnati / Northern Kentucky market.
         Code-required items cite Ohio Residential Code (OBC), Kentucky Residential Code (KRC),
-        and International Residential Code (IRC) where applicable.
+        and International Residential Code (IRC) where applicable.`
+          : `All line items reference industry-standard pricing (RSMeans / Xactimate equivalent)
+        for the local market.
+        Code-required items cite applicable state and local residential codes and the
+        International Residential Code (IRC) where applicable.`}
         Overhead and profit calculated at ${Math.round((estimate.overheadPct || 0.10) * 100)}% +
         ${Math.round((estimate.profitPct || 0.10) * 100)}% per industry standard.
       </div>

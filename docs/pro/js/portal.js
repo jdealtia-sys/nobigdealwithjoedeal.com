@@ -302,6 +302,10 @@
     const address = (view.homeowner && view.homeowner.address) || '';
     repName = (view.rep && view.rep.displayName) || 'Your Rep';
     const companyName = (view.company && view.company.name) || 'No Big Deal Home Solutions';
+    // NBD-gate for the few customer-visible fallback labels that hardcode the
+    // 'NBD' abbreviation (e.g. the warranty tier fallback): NBD keeps its literal
+    // byte-identical, a tenant gets a companyName-derived label instead.
+    const isNbdCompany = !(view.company && view.company.name) || view.company.name === 'No Big Deal Home Solutions';
 
     // Hero
     document.getElementById('heroWrap').style.display = '';
@@ -637,7 +641,7 @@
           '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">' +
             '<div>' +
               '<div class="card-label" style="color:var(--accent,#c8541a);">🛡️ Digital Warranty Card</div>' +
-              '<div class="card-title" style="margin-top:2px;">' + esc(w.tierLabel || 'NBD Lifetime Pledge') + '</div>' +
+              '<div class="card-title" style="margin-top:2px;">' + esc(w.tierLabel || (isNbdCompany ? 'NBD Lifetime Pledge' : companyName + ' Lifetime Pledge')) + '</div>' +
             '</div>' +
             '<div style="background:' + tierAccent + ';color:#fff;font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;border-radius:3px;white-space:nowrap;">' + esc(w.tier || 'standard') + '</div>' +
           '</div>' +
@@ -684,11 +688,11 @@
         ? '<span style="background:rgba(46,204,138,.16);color:#a7f3d0;border:1px solid rgba(46,204,138,.4);font-size:11px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.04em;">✓ ' + sent + ' sent your way</span>'
         : '';
       const smsBody = encodeURIComponent(
-        "Hey — wanted to share my roofing guys (No Big Deal Home Solutions). They did a great job for me. " + referLink
+        "Hey — wanted to share my roofing guys (" + companyName + "). They did a great job for me. " + referLink
       );
       const emailSubject = encodeURIComponent('My roofing recommendation');
       const emailBody = encodeURIComponent(
-        "Hey,\n\nIf you ever need roof work, the guys who did mine were great — No Big Deal Home Solutions. Sharing my referral link below:\n\n" + referLink + "\n\nNo pressure, just thought I'd pass it along."
+        "Hey,\n\nIf you ever need roof work, the guys who did mine were great — " + companyName + ". Sharing my referral link below:\n\n" + referLink + "\n\nNo pressure, just thought I'd pass it along."
       );
       parts.push(
         '<div class="card" id="rf-card">' +

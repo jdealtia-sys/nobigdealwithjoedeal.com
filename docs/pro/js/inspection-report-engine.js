@@ -17,11 +17,30 @@
   'use strict';
 
   // Brand constants
+  //
+  // gauntlet Batch 3 — the CLIENT-side report bodies below (_generateFullInspection,
+  // _generateStormDamage, _generateSupplement, _generateCompletion — the fallback
+  // rendered when the server render is unavailable) hardcoded NBD, so a stranger
+  // tenant's cover/footer still read "No Big Deal Home Solutions · (859) 420-7382".
+  // window._brand() (company-profile.js / TenantContext) now drives
+  // name/phone/email/website so the client body carries THAT tenant's identity.
+  // NBD (no brand, or the canonical NBD legalName) resolves to the exact literals
+  // below → the body renders BYTE-IDENTICAL for NBD. LAZY GETTERS (per access, all
+  // at render time) because this IIFE can run before company-profile.js registers
+  // window._brand. colors stay static (cosmetic). Mirrors customer-portal.js.
+  function _brandRaw() {
+    try { if (typeof window._brand === 'function') return window._brand() || {}; } catch (e) { /* fall through */ }
+    return {};
+  }
+  function _isNbdBrand(b) { return !b || !b.legalName || b.legalName === 'No Big Deal Home Solutions'; }
   const BRAND = {
-    name: 'No Big Deal Home Solutions',
-    phone: '(859) 420-7382',
-    email: 'info@nobigdealwithjoedeal.com',
-    website: 'nobigdealwithjoedeal.com',
+    get name()    { const b = _brandRaw(); return _isNbdBrand(b) ? 'No Big Deal Home Solutions'    : (b.legalName || 'No Big Deal Home Solutions'); },
+    // Non-NBD branch falls back to '' (NOT the NBD literal): _resolveBrand()
+    // blanks an unset tenant contact field to '', so `|| NBD-literal` would
+    // re-leak Joe's number/email/site onto a stranger's cover. NBD unchanged.
+    get phone()   { const b = _brandRaw(); return _isNbdBrand(b) ? '(859) 420-7382'                : ((b.contact && b.contact.phone)   || ''); },
+    get email()   { const b = _brandRaw(); return _isNbdBrand(b) ? 'info@nobigdealwithjoedeal.com' : ((b.contact && b.contact.email)   || ''); },
+    get website() { const b = _brandRaw(); return _isNbdBrand(b) ? 'nobigdealwithjoedeal.com'      : ((b.contact && b.contact.website) || ''); },
     colors: {
       navy: '#1e3a6e',
       orange: '#e8720c'
@@ -312,7 +331,7 @@
             <div class="page cover-page">
               <div class="cover-header">
                 <div class="brand-logo" style="font-size: 28px; font-weight: bold; color: ${BRAND.colors.navy};">
-                  🏠 ${BRAND.name}
+                  🏠 ${this._escapeHtml(BRAND.name)}
                 </div>
                 <div class="cover-title">FULL ROOF INSPECTION REPORT</div>
               </div>
@@ -340,8 +359,8 @@
               </div>
 
               <div class="cover-footer">
-                <p>${BRAND.phone} | ${BRAND.email}</p>
-                <p>${BRAND.website}</p>
+                <p>${this._escapeHtml(BRAND.phone)} | ${this._escapeHtml(BRAND.email)}</p>
+                <p>${this._escapeHtml(BRAND.website)}</p>
               </div>
             </div>
 
@@ -567,7 +586,7 @@
             <div class="page cover-page">
               <div class="cover-header">
                 <div class="brand-logo" style="font-size: 28px; font-weight: bold; color: ${BRAND.colors.navy};">
-                  🏠 ${BRAND.name}
+                  🏠 ${this._escapeHtml(BRAND.name)}
                 </div>
                 <div class="cover-title">STORM DAMAGE ASSESSMENT</div>
               </div>
@@ -595,7 +614,7 @@
               </div>
 
               <div class="cover-footer">
-                <p>${BRAND.phone} | ${BRAND.email}</p>
+                <p>${this._escapeHtml(BRAND.phone)} | ${this._escapeHtml(BRAND.email)}</p>
               </div>
             </div>
 
@@ -800,7 +819,7 @@
             <div class="page cover-page">
               <div class="cover-header">
                 <div class="brand-logo" style="font-size: 28px; font-weight: bold; color: ${BRAND.colors.navy};">
-                  🏠 ${BRAND.name}
+                  🏠 ${this._escapeHtml(BRAND.name)}
                 </div>
                 <div class="cover-title" style="color: ${BRAND.colors.orange}; margin-top: 40px;">SUPPLEMENT REQUEST</div>
               </div>
@@ -966,7 +985,7 @@
             <div class="page cover-page">
               <div class="cover-header">
                 <div class="brand-logo" style="font-size: 28px; font-weight: bold; color: ${BRAND.colors.navy};">
-                  🏠 ${BRAND.name}
+                  🏠 ${this._escapeHtml(BRAND.name)}
                 </div>
                 <div class="cover-title">PROJECT COMPLETION REPORT</div>
               </div>
@@ -991,7 +1010,7 @@
               </div>
 
               <div class="cover-footer">
-                <p>${BRAND.phone} | ${BRAND.email}</p>
+                <p>${this._escapeHtml(BRAND.phone)} | ${this._escapeHtml(BRAND.email)}</p>
               </div>
             </div>
 
@@ -2915,9 +2934,18 @@
       // D-2.5: shared cover-page partial payload. Same shape every
       // doc sends, so the brand stays consistent and only template-
       // specific content (eyebrow / tagline) varies.
+      // gauntlet Batch 3 — the cover page renders preparedBy VERBATIM (the
+      // server {{company}} chrome does not override it), so resolve the tenant
+      // brand and de-brand preparedBy or a stranger tenant's inspection cover
+      // would still read "No Big Deal Home Solutions · (859) 420-7382". NBD keeps
+      // the exact literals → byte-identical. Mirrors customer-photo-report-generator.js.
+      const _b = (window._brand && window._brand()) || null;
+      const isNbd = !_b || !_b.legalName || _b.legalName === 'No Big Deal Home Solutions';
+      const _bc = (_b && _b.contact) || {};
+
       const inspectorName = d.inspectorName
         || (window._user && (window._user.displayName || window._user.email))
-        || 'NBD Inspector';
+        || (isNbd ? 'NBD Inspector' : (_b.legalName ? (_b.legalName + ' Inspector') : 'Inspector'));
 
       const inspectionDateRaw = d.inspectionDate || new Date();
       const inspectionDateFmt = (function () {
@@ -2940,9 +2968,9 @@
       };
       const preparedBy = {
         name:  inspectorName,
-        role:  'Inspector · No Big Deal Home Solutions',
-        phone: '(859) 420-7382',
-        email: 'jd@nobigdealwithjoedeal.com',
+        role:  'Inspector · ' + (isNbd ? 'No Big Deal Home Solutions' : _b.legalName),
+        phone: isNbd ? '(859) 420-7382' : (_bc.phone || ''),
+        email: isNbd ? 'jd@nobigdealwithjoedeal.com' : (_bc.email || ''),
       };
       const projectMeta = [
         { label: 'Inspection Date', value: inspectionDateFmt },

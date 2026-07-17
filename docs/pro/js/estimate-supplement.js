@@ -381,12 +381,38 @@
     const customer = meta.customer || {};
     const claim    = meta.claim || {};
     const est      = meta.estimate || {};
-    const company  = meta.company || {
+
+    // Per-tenant brand — mirrors EstimateFinalization.resolveBrand() so this
+    // adjuster-facing letter carries the ACTIVE tenant's identity, never NBD's.
+    // For NBD (or no tenant loaded) every literal below resolves byte-identical
+    // to what this file shipped with. window._brand() shape:
+    // { legalName, displayName, seal, tagline, contact:{phone,email,address} }.
+    let _rawBrand = {};
+    try { _rawBrand = (typeof window !== 'undefined' && window._brand && window._brand()) || {}; }
+    catch (_) { _rawBrand = {}; }
+    const _bc = _rawBrand.contact || {};
+    const isNbd = !_rawBrand.legalName || _rawBrand.legalName === 'No Big Deal Home Solutions';
+    const _b = {
+      isNbd,
+      legalName: _rawBrand.legalName || 'No Big Deal Home Solutions',
+      seal: _rawBrand.seal || _rawBrand.displayName || _rawBrand.legalName || 'NBD',
+      contact: { phone: _bc.phone || '', email: _bc.email || '', address: _bc.address || '' }
+    };
+
+    // NBD keeps the exact hardcoded footer/company block (byte-identical); a
+    // non-NBD tenant uses its own contact block. supplement-ui.js omits
+    // meta.company on purpose so this default fills the footer per-tenant.
+    const company  = meta.company || (isNbd ? {
       name: 'No Big Deal Home Solutions',
       phone: '(859) 420-7382',
       email: 'JD@nobigdealwithjoedeal.com',
       address: '6563 Manila Rd · Goshen, OH'
-    };
+    } : {
+      name: _b.legalName,
+      phone: _b.contact.phone,
+      email: _b.contact.email,
+      address: _b.contact.address
+    });
 
     const EF = window.EstimateFinalization;
     if (!EF) {
@@ -516,7 +542,7 @@
     const header = `
       <div class="hdr">
         <div>
-          <div class="brand">No Big Deal<span class="pro"> PRO</span></div>
+          <div class="brand">${isNbd ? 'No Big Deal<span class="pro"> PRO</span>' : escape(_b.legalName) + '<span class="pro"> PRO</span>'}</div>
           <div class="sub">Insurance Restoration Supplement</div>
           <div class="badge">Supplement #${supplement.version}</div>
         </div>
@@ -559,7 +585,7 @@
       </p>
       <p style="font-size:12px;color:#333;line-height:1.6;margin-top:8px;">
         We respectfully request approval of the itemized supplement below. All items are
-        priced at industry-standard rates for the Cincinnati/Northern Kentucky market.
+        priced at industry-standard rates for the ${isNbd ? 'Cincinnati/Northern Kentucky' : 'local'} market.
         Photo documentation is available upon request.
       </p>
     `;
@@ -569,7 +595,7 @@
       <div class="sig-block">
         <div>
           <div style="height:40px;"></div>
-          <div class="sig-line">Contractor — ${escape(est.preparedBy || 'Joe Deal')}<br>
+          <div class="sig-line">Contractor — ${escape(est.preparedBy || (isNbd ? 'Joe Deal' : (_b.seal || _b.legalName)))}<br>
                ${escape(company.name)}<br>
                Date: ${fmtDate(supplement.createdAt)}</div>
         </div>
@@ -599,7 +625,7 @@
 
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
-<title>Supplement #${supplement.version} — ${escape(customer.name || 'NBD')} — ${fmtDate(supplement.createdAt)}</title>
+<title>Supplement #${supplement.version} — ${escape(customer.name || (isNbd ? 'NBD' : _b.seal))} — ${fmtDate(supplement.createdAt)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${baseCSS}</style>
 </head><body>

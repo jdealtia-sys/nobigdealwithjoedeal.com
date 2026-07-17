@@ -56,19 +56,33 @@
     </div>
     {{/if}}
 
+    {{!-- gauntlet Batch 3 — defense-in-depth against a preparedBy brand leak.
+         The PERSON (preparedBy.name) always comes from the payload, but the
+         COMPANY portion (org line / phone / email) falls back to the
+         server-resolved {{company}} chrome whenever the caller omits it — so a
+         future generator that forgets to de-brand its preparedBy can't stamp
+         NBD (or any wrong tenant) onto a stranger's cover page. NBD's own
+         generators still send these fields, and NBD's {{company}} resolves to
+         the identical strings, so the NBD cover renders byte-identical. --}}
     {{#if preparedBy}}
     <div class="cover-v2-party">
       <div class="cover-v2-party-label">Prepared by</div>
       <div class="cover-v2-party-primary">{{preparedBy.name}}</div>
       {{#if preparedBy.role}}
         <div class="cover-v2-party-line">{{preparedBy.role}}</div>
-      {{/if}}
+      {{else}}{{#if company.footerName}}
+        <div class="cover-v2-party-line">{{company.footerName}}</div>
+      {{/if}}{{/if}}
       {{#if preparedBy.phone}}
         <div class="cover-v2-party-line">{{preparedBy.phone}}</div>
-      {{/if}}
+      {{else}}{{#if company.phone}}
+        <div class="cover-v2-party-line">{{company.phone}}</div>
+      {{/if}}{{/if}}
       {{#if preparedBy.email}}
         <div class="cover-v2-party-line">{{preparedBy.email}}</div>
-      {{/if}}
+      {{else}}{{#if company.email}}
+        <div class="cover-v2-party-line">{{company.email}}</div>
+      {{/if}}{{/if}}
     </div>
     {{/if}}
   </div>

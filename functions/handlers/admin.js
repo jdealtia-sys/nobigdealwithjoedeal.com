@@ -23,7 +23,7 @@ const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
 
 const { callableRateLimit } = require('../shared');
-const { formatCustomerId } = require('../customer-id');
+const { formatCustomerId, resolveCustMint } = require('../customer-id');
 const {
   CORS_ORIGINS,
   LEGACY_ACCESS_CODES,
@@ -299,16 +299,21 @@ exports.backfillCustomerData = onCall(
     let batch = db.batch();
     let batchCount = 0;
 
-    // Per-tenant prefix + counter (loose-end fix): NBD (docPrefix 'NBD' or
-    // unset) keeps the legacy shared counter + 'NBD-'; a configured tenant
-    // mints from its own counter + prefix. Mirrors the client _custCounterId gate.
-    let _dp = 'NBD';
+    // Per-tenant prefix + counter (gauntlet Batch 3): ONLY the NBD platform
+    // tenant (brand.legalName is NBD/absent) keeps the legacy shared counter +
+    // un-salted 'NBD-'. Every non-NBD tenant mints from its own counter with a
+    // reserved-or-derived, salted prefix — even if it never ran
+    // reserveCompanyPrefix. Byte-identical to the client _custIdPrefix /
+    // _custCounterId gate (customer-id.js resolveCustMint). Keying on the old
+    // docPrefix STRING ('NBD' or unset) meant a stranger who skipped the seal
+    // step got NBD-branded IDs from NBD's shared sequence.
+    let _brand = null;
     try {
       const _ps = await db.collection('companyProfile').doc(String(callerCompanyId)).get();
-      _dp = (_ps.exists && _ps.data().brand && _ps.data().brand.docPrefix) || 'NBD';
-    } catch (_) { /* default NBD */ }
-    const _isNbd = !_dp || _dp === 'NBD';
-    const counterRef = db.collection('counters').doc(_isNbd ? 'customerIds' : ('customerIds_' + String(callerCompanyId).toLowerCase()));
+      _brand = (_ps.exists && _ps.data().brand) || null;
+    } catch (_) { /* treat as NBD */ }
+    const { prefix: _dp, counterId: _ctrId } = resolveCustMint(_brand, callerCompanyId);
+    const counterRef = db.collection('counters').doc(_ctrId);
 
     for (const doc of snap.docs) {
       const d = doc.data();

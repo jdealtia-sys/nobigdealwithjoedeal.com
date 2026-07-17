@@ -2,10 +2,15 @@
  * tests/cust-id-prefix.test.js — per-tenant customer-ID minting helpers.
  *
  * Verifies window._custIdPrefix() / window._custCounterId() in company-profile.js:
- *   - NBD (and any unconfigured/half-configured tenant) → legacy 'customerIds'
- *     counter + 'NBD' prefix (byte-identical, sequence never reset).
+ *   - NBD (brand.legalName blank or the canonical NBD name) → legacy
+ *     'customerIds' counter + 'NBD' prefix (byte-identical, sequence never reset).
  *   - A configured tenant (non-NBD legalName + its own docPrefix, e.g. Oaks 'OAK')
  *     → per-tenant counter 'customerIds_<companyId>' + its own prefix.
+ *   - A NON-NBD tenant with NO reserved docPrefix (skipped the seal step) →
+ *     its OWN per-tenant counter + a prefix DERIVED from its legalName, and
+ *     NEVER the shared NBD counter or an un-salted 'NBD-####' (gauntlet Batch 3).
+ *     The gate is "is this the NBD platform tenant?" (isNbdBrand), not the old
+ *     "does the resolved prefix string equal 'NBD'?".
  *
  * Zero deps. Evals the browser IIFE in a vm sandbox (same pattern as
  * tenant-brand.test.js). Run: node tests/cust-id-prefix.test.js
@@ -47,10 +52,25 @@ function loadCompanyProfile() {
   ok('Oaks counter = customerIds_oaks', win._custCounterId('oaks') === 'customerIds_oaks');
   ok('Oaks counter lowercases the companyId', win._custCounterId('OAKS') === 'customerIds_oaks');
 
-  console.log('\nHalf-configured tenant (non-NBD legalName, NO docPrefix) → safe NBD fallback');
+  console.log('\nPrefix-less non-NBD tenant (skipped the seal step) → OWN counter + DERIVED prefix, NEVER NBD');
   await win._saveCompanyProfile({ brand: { legalName: 'Some Other Roofing Co' } });
-  ok('no-docPrefix tenant → prefix falls back to NBD', win._custIdPrefix() === 'NBD');
-  ok('no-docPrefix tenant → legacy counter (no blank-prefix mint)', win._custCounterId('someco') === 'customerIds');
+  ok('prefix-less non-NBD → prefix is DERIVED, never "NBD"', win._custIdPrefix() !== 'NBD');
+  ok('prefix-less non-NBD → derived initials "SORC"', win._custIdPrefix() === 'SORC');
+  ok('prefix-less non-NBD → NEVER the shared "customerIds" counter', win._custCounterId('someco') !== 'customerIds');
+  ok('prefix-less non-NBD → per-tenant "customerIds_someco"', win._custCounterId('someco') === 'customerIds_someco');
+
+  console.log('\nUnderivable legalName (no A–Z0–9) → "CUS" fallback (never "NBD", never blank), own counter');
+  await win._saveCompanyProfile({ brand: { legalName: '★★★' } });
+  ok('underivable non-NBD name → prefix "CUS"', win._custIdPrefix() === 'CUS');
+  ok('underivable non-NBD → own counter, not shared', win._custCounterId('sym') === 'customerIds_sym');
+
+  console.log('\nCoupled-collision guard — two prefix-less non-NBD tenants never mint the same customerId string');
+  await win._saveCompanyProfile({ brand: { legalName: 'Some Other Roofing Co' } });
+  const _pfxA = win._custIdPrefix();
+  const idA = win._formatCustomerId(_pfxA, 1, 'someco');
+  const idB = win._formatCustomerId(_pfxA, 1, 'otherco');
+  ok('prefix-less A vs B mint DISTINCT IDs (salt binds companyId)', idA !== idB);
+  ok('prefix-less non-NBD ID is salted (SORC-0001-XXXX, not bare)', /^SORC-0001-[0-9A-Z]{4}$/.test(idA));
 
   // ── Customer-ID salt (defense-in-depth against prefix collision) ──
   console.log('\nCustomer-ID salt + formatter (client)');
@@ -75,6 +95,21 @@ function loadCompanyProfile() {
   ok('salt parity: empty', win._custIdSalt('') === srv.custIdSalt(''));
   ok('format parity: NBD-0001', win._formatCustomerId('NBD', 1, 'x') === srv.formatCustomerId('NBD', 1, 'x'));
   ok('format parity: OAK-0007', win._formatCustomerId('OAK', 7, 'oaks') === srv.formatCustomerId('OAK', 7, 'oaks'));
+
+  // ── Client ⇄ server mint-ROUTING parity (which prefix + counter) ──
+  console.log('\nClient ⇄ server mint-routing parity (resolveCustMint / gauntlet Batch 3)');
+  ok('server exports resolveCustMint', typeof srv.resolveCustMint === 'function');
+  const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  ok('server NBD brand → {NBD, customerIds}', eq(srv.resolveCustMint({ legalName: 'No Big Deal Home Solutions' }, 'x'), { prefix: 'NBD', counterId: 'customerIds' }));
+  ok('server absent brand → NBD (byte-identical)', eq(srv.resolveCustMint(null, 'x'), { prefix: 'NBD', counterId: 'customerIds' }));
+  ok('server Oaks (reserved OAK) → {OAK, customerIds_oaks}', eq(srv.resolveCustMint({ legalName: 'Oaks Roofing & Construction', docPrefix: 'OAK' }, 'oaks'), { prefix: 'OAK', counterId: 'customerIds_oaks' }));
+  const _srvPfxless = srv.resolveCustMint({ legalName: 'Some Other Roofing Co' }, 'someco');
+  ok('server prefix-less non-NBD → derived SORC + own counter', _srvPfxless.prefix === 'SORC' && _srvPfxless.counterId === 'customerIds_someco');
+  ok('server prefix-less non-NBD NEVER shares NBD counter', _srvPfxless.counterId !== 'customerIds');
+  // Client resolves the SAME prefix for a prefix-less non-NBD tenant (parity with server).
+  await win._saveCompanyProfile({ brand: { legalName: 'Some Other Roofing Co' } });
+  ok('client ⇄ server prefix-less prefix parity (SORC)', win._custIdPrefix() === _srvPfxless.prefix);
+  ok('client ⇄ server prefix-less counter parity', win._custCounterId('someco') === _srvPfxless.counterId);
 
   console.log('\n──────────────────────────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);

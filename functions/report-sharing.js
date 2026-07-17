@@ -135,6 +135,22 @@ exports.createReportShareToken = onCall(
 
     let emailed = false;
     if (toEmail) {
+      // Multi-tenant branding: resolve the tenant's legal name so the subject
+      // line names THEIR company, not NBD. Keyed by the report's companyId
+      // (falls back to the report owner's uid for solo tenants). One
+      // best-effort read (only on the email path); NBD (profile brand.legalName
+      // is NBD's, or absent) leaves tenantName '' → the exact NBD subject
+      // stands → byte-identical.
+      let tenantName = '';
+      const tenantKey = report.companyId || report.userId;
+      if (tenantKey) {
+        try {
+          const cpSnap = await db.doc(`companyProfile/${tenantKey}`).get();
+          if (cpSnap.exists) { const _ln = ((cpSnap.data() || {}).brand || {}).legalName || ''; tenantName = (_ln && _ln !== 'No Big Deal Home Solutions') ? _ln : ''; }  // NBD-name guard (byte-identical; mirrors render-pdf.js/sms-functions.js)
+        } catch (e) {
+          logger.warn('[createReportShareToken] tenant resolve failed', { reportId, err: e.message });
+        }
+      }
       try {
         const { Resend } = require('resend');
         const resend = new Resend(RESEND_API_KEY.value());
@@ -143,7 +159,7 @@ exports.createReportShareToken = onCall(
         await resend.emails.send({
           from: fromEmail,
           to: toEmail,
-          subject: 'Your inspection report from No Big Deal Home Solutions',
+          subject: `Your inspection report from ${tenantName || 'No Big Deal Home Solutions'}`,
           html: `<div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a2e;">
             <p>Hi ${escHtml(firstName || 'there')},</p>
             <p>Your <strong>${reportName}</strong> is ready. Tap the button below to view it — no login needed.</p>
@@ -178,7 +194,9 @@ exports.getSharedReport = onRequest(
   async (req, res) => {
     const errPage = (code, msg) => {
       res.status(code).set('Content-Type', 'text/html; charset=utf-8').set('X-Robots-Tag', 'noindex, nofollow')
-        .send(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>No Big Deal</title><body style="font-family:system-ui,-apple-system,sans-serif;background:#0f1115;color:#e5e7eb;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center;padding:24px"><div><div style="font-size:44px">📋</div><p style="max-width:420px;line-height:1.6;font-size:16px">${escHtml(msg)}</p></div></body>`);
+        // Neutral, unbranded title — an unresolvable/expired report link must
+        // not assert NBD's (or any tenant's) identity to a stranger's homeowner.
+        .send(`<!doctype html><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>Inspection Report</title><body style="font-family:system-ui,-apple-system,sans-serif;background:#0f1115;color:#e5e7eb;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center;padding:24px"><div><div style="font-size:44px">📋</div><p style="max-width:420px;line-height:1.6;font-size:16px">${escHtml(msg)}</p></div></body>`);
     };
     // token is the last path segment: /report/<token>
     const m = (req.path || '').match(/\/report\/([A-Za-z0-9]{10,64})\/?$/);

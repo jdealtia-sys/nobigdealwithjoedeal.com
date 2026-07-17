@@ -184,6 +184,10 @@ async function getBrowser() {
 // NBD — and any tenant without a distinct companyProfile.brand — renders the
 // canonical NBD chrome, byte-identical. The .hbs partials consume these fields.
 const NBD_DOC_COMPANY = {
+  // isNbd lets the body templates (warranty.hbs / coverPage.hbs) hold the
+  // canonical NBD literals byte-identical behind {{#if company.isNbd}} while a
+  // stranger tenant renders its own resolved chrome. NBD → true.
+  isNbd: true,
   logoUrl: 'https://nobigdealwithjoedeal.com/assets/images/nbd-logo.png',
   nameHtml: 'No Big <span class="accent">Deal</span> Home Solutions',
   footerName: 'No Big Deal Home Solutions',
@@ -259,6 +263,10 @@ async function resolveDocCompany(companyId) {
         // PDF (review M1). `b` is the raw, un-merged override, so c.* is already
         // the tenant's own value or undefined.
         return {
+          // Resolved brand is a stranger tenant, NOT NBD → the templates must
+          // NOT stamp any NBD literal. Every {{#if company.isNbd}} branch below
+          // renders the tenant/neutral side.
+          isNbd: false,
           logoUrl: b.logoUrl || '',
           nameHtml: hbsEsc(b.legalName),
           footerName: b.legalName,

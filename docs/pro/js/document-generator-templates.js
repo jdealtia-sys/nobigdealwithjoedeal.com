@@ -1728,6 +1728,19 @@
   // ═══════════════════════════════════════════════════════════════
   DG.renderNeighborhoodMailer = function(data) {
     const d = Object.assign({ neighborhoodName:'[Your Neighborhood]', projectAddress:'[Nearby Project Address]' }, data);
+    const cp = d.companyProfile || window._companyProfile || (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+    // Footer region tagline. NBD keeps its exact 'Lexington, KY & Surrounding
+    // Areas' literal (byte-identical). A non-NBD tenant drops the KY region: it
+    // shows its OWN serviceArea only when it has actually overridden the NBD
+    // default, otherwise no region at all (just "Licensed & Insured").
+    let _mb = null;
+    try { _mb = (typeof window !== 'undefined' && window._brand) ? window._brand() : null; } catch (_) { _mb = null; }
+    const _isNbd = !_mb || !_mb.legalName || _mb.legalName === 'No Big Deal Home Solutions';
+    const _svcArea = String((cp && cp.serviceArea) || '').trim();
+    const _KY_DEFAULT = 'Greater Cincinnati & Northern Kentucky';
+    const mailerRegion = _isNbd
+      ? ' | Lexington, KY & Surrounding Areas'
+      : (_svcArea && _svcArea !== _KY_DEFAULT ? ' | ' + esc(_svcArea) : '');
 
     return page('Neighborhood Mailer', `
       <style>
@@ -1782,7 +1795,7 @@
         </div>
         <div class="mailer-footer">
           <div style="font-size:12px;color:#666;">
-            ${C.name} | Licensed & Insured | Lexington, KY & Surrounding Areas</div>
+            ${C.name} | Licensed & Insured${mailerRegion}</div>
         </div>
       </div>
     `);
@@ -1815,12 +1828,21 @@
     ].filter(function(t) { return t.text && String(t.text).trim(); });
 
     const useRep = repEntries.length > 0;
-    const testimonials = useRep ? repEntries : curated;
+    // The curated set is NBD's own (KY cities, "Joe"). A non-NBD tenant must
+    // NEVER fall back to it — show only rep-entered quotes, and hide the section
+    // when the rep entered none (never fabricate testimonials for another brand).
+    let _tb = null;
+    try { _tb = (typeof window !== 'undefined' && window._brand) ? window._brand() : null; } catch (_) { _tb = null; }
+    const _isNbd = !_tb || !_tb.legalName || _tb.legalName === 'No Big Deal Home Solutions';
+    const testimonials = useRep ? repEntries : (_isNbd ? curated : []);
+    const hasTestimonials = testimonials.length > 0;
 
     // Hero stats: with rep data, derive the average from the entries actually
     // shown (don't fabricate a 5.0). Without rep data, the curated set is all
-    // 5-star, so 5.0 / 100% is accurate.
-    const avgRating = testimonials.reduce(function(s, t) { return s + (t.rating || 5); }, 0) / testimonials.length;
+    // 5-star, so 5.0 / 100% is accurate. (Empty → stats suppressed below.)
+    const avgRating = hasTestimonials
+      ? testimonials.reduce(function(s, t) { return s + (t.rating || 5); }, 0) / testimonials.length
+      : 0;
     const avgDisplay = avgRating.toFixed(1);
     const recommendPct = useRep
       ? Math.round((testimonials.filter(function(t) { return (t.rating || 5) >= 4; }).length / testimonials.length) * 100)
@@ -1843,10 +1865,10 @@
       <div class="test-hero">
         <h1 style="margin:0;color:#fff;font-size:28px;">WHAT OUR CUSTOMERS SAY</h1>
         <p style="color:${A};margin:12px 0 0;font-size:16px;">Real Reviews From Real Homeowners</p>
-        <div style="display:flex;justify-content:center;gap:24px;margin-top:20px;">
+        ${hasTestimonials ? `<div style="display:flex;justify-content:center;gap:24px;margin-top:20px;">
           <div><div style="font-size:28px;font-weight:700;">${avgDisplay}</div><div style="font-size:12px;opacity:0.8;">Average Rating</div></div>
           <div><div style="font-size:28px;font-weight:700;">${recommendPct}%</div><div style="font-size:12px;opacity:0.8;">Would Recommend</div></div>
-        </div>
+        </div>` : ''}
       </div>
 
       ${testimonials.map(t => `<div class="test-card">

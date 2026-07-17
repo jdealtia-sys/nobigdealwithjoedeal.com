@@ -439,6 +439,28 @@ exports.sendD2DSMS = onRequest(
         }
       }
 
+      // Multi-tenant branding: sendD2DSMS is reachable by ANY tenant (the auth
+      // gate is owner / platform-admin / manager-in-same-company, keyed off
+      // knock.companyId), but the D2D templates hardcode NBD's brand
+      // ('NBD Home Solutions' / 'NBD'). A non-NBD rep must not text a homeowner
+      // under NBD's name. Resolve the tenant's legal name once (best-effort) and
+      // swap the NBD brand tokens for it. NBD (companyProfile absent, or its
+      // brand.legalName is NBD's own) leaves tenantName '' → NO swap → the
+      // template renders byte-identical to before.
+      let tenantName = '';
+      const tenantKey = knock.companyId || knock.userId;
+      if (tenantKey) {
+        try {
+          const cpSnap = await db.doc(`companyProfile/${tenantKey}`).get();
+          if (cpSnap.exists) {
+            const legal = ((cpSnap.data() || {}).brand || {}).legalName || '';
+            if (legal && legal !== 'No Big Deal Home Solutions') tenantName = legal;
+          }
+        } catch (e) {
+          logger.warn('sendD2DSMS tenant resolve failed', { knockId, err: e.message });
+        }
+      }
+
       // Get template
       const template = D2D_SMS_TEMPLATES[templateKey];
 
@@ -454,6 +476,13 @@ exports.sendD2DSMS = onRequest(
       Object.keys(variables).forEach(key => {
         body = body.replace(new RegExp(`\\{${key}\\}`, 'g'), variables[key]);
       });
+
+      // Non-NBD tenant: replace NBD's brand mentions with the tenant's name.
+      // Longer token first so 'NBD Home Solutions' doesn't half-match the
+      // '\bNBD\b' rule. NBD tenants skip this entirely (tenantName '').
+      if (tenantName) {
+        body = body.replace(/NBD Home Solutions/g, tenantName).replace(/\bNBD\b/g, tenantName);
+      }
 
       if (body.length > 1600) {
         res.status(400).json({ error: 'Generated message too long' });

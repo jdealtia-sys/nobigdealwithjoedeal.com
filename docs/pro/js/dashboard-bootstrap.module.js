@@ -3817,6 +3817,56 @@
   const _CP_MARKETING_FIELDS = ['tagline','serviceArea','financePartner','codeCycle','codeJurisdiction'];
   const _CP_LETTERHEAD_FIELDS = ['businessName','businessPhone','businessEmail','businessWebsite','businessAddress','businessLicense'];
 
+  // Brand Identity sub-panel (gauntlet Batch 3). An <input type="color"> always
+  // reports a value, so — mirroring onboarding.js state.colorsTouched — we only
+  // persist brand.colors once the user deliberately moves a swatch. Reset false
+  // on every populate; flipped true by the 'input' listener wired in
+  // _cpWireColorInputs().
+  let _cpColorsTouched = false;
+
+  // Wire the two Brand-Identity color <input>s once. A real 'input' listener
+  // (not an inline oninput — CSP forbids it on /pro pages) flips _cpColorsTouched
+  // so a deliberate swatch move is written while an untouched picker never is.
+  function _cpWireColorInputs() {
+    ['cp_brand_colorPrimary', 'cp_brand_colorAccent'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el && !el.dataset.cpWired) {
+        el.dataset.cpWired = '1';
+        el.addEventListener('input', () => { _cpColorsTouched = true; });
+      }
+    });
+  }
+
+  // FIX 1 (gauntlet Batch 3) — diff-against-default. The form is pre-populated
+  // from the MERGED profile (NBD defaults + overrides), so a stranger who opens
+  // the panel and clicks Save would otherwise freeze NBD's Kentucky statute,
+  // 'NBD' party-name clauses, and 'No Big Deal' marketing copy into their doc as
+  // explicit overrides — defeating window._legal()'s default-side neutralization
+  // forever. Strip every field still equal to its NBD default so only genuine
+  // edits are written; untouched fields stay absent and fall through to defaults.
+  // For NBD (merged==defaults) this empties `out`, so the stored doc and rendered
+  // output stay byte-identical. Mutates + returns `out`. (Editing a
+  // previously-custom field back to the exact default won't clear the old stored
+  // override under merge:true — accepted edge for now.)
+  function _cpStripDefaults(out, defaults) {
+    _CP_LEGAL_FIELDS.concat(_CP_MARKETING_FIELDS).concat(_CP_LETTERHEAD_FIELDS).forEach(k => {
+      if (!(k in out)) return;
+      const dv = defaults[k];
+      if (k === 'proposalValidityDays') {
+        if (Number(out[k]) === Number(dv)) delete out[k];
+      } else if (String(out[k]) === String(dv == null ? '' : dv)) {
+        delete out[k];
+      }
+    });
+    ['financingTiers', 'services', 'valueProps', 'budgetDefaults'].forEach(k => {
+      if (!(k in out)) return;
+      try {
+        if (JSON.stringify(out[k]) === JSON.stringify(defaults[k])) delete out[k];
+      } catch (_) { /* keep on compare failure */ }
+    });
+    return out;
+  }
+
   function _cpReadFormToProfile() {
     const defaults = window.NBD_COMPANY_PROFILE_DEFAULTS || {};
     const out = {};
@@ -3838,9 +3888,11 @@
       const label = document.getElementById('cp_tier' + i + '_label')?.value || '';
       const badge = document.getElementById('cp_tier' + i + '_badge')?.value || '';
       const def = (defaults.financingTiers || [])[i] || {};
+      // Key order mirrors NBD_COMPANY_PROFILE_DEFAULTS.financingTiers so the
+      // JSON deep-compare in _cpStripDefaults strips an untouched NBD tiers array.
       return {
-        apr: Number.isFinite(apr) ? apr : (def.apr || 0),
         months: Number.isFinite(months) && months > 0 ? months : (def.months || 12),
+        apr: Number.isFinite(apr) ? apr : (def.apr || 0),
         label: label || def.label || '',
         badge: badge || def.badge || '',
         color: def.color || '#0ea5e9'
@@ -3874,6 +3926,80 @@
       directCostPctWarn: bdPct('cp_budget_directCostPctWarn', bdDef.directCostPctWarn),
       marginFloorPct: bdPct('cp_budget_marginFloorPct', bdDef.marginFloorPct)
     };
+
+    // FIX 1 — drop every field still equal to its NBD default (see helper).
+    _cpStripDefaults(out, defaults);
+
+    // FIX 2 (gauntlet Batch 3) — Brand Identity + Letterhead↔brand.contact lockstep.
+    // Resolve each contact value with the dedicated Brand-Identity input winning
+    // over the Letterhead input (single source of truth), then write BOTH the
+    // Letterhead top-levels AND brand.contact from the same value so the two can
+    // never diverge (the portal / SMS / lead-alert surfaces read brand.contact).
+    const cpv = (id) => { const el = document.getElementById(id); return el ? String(el.value == null ? '' : el.value).trim() : ''; };
+    const cPhone    = cpv('cp_brand_phone')   || cpv('cp_businessPhone');
+    const cEmailRaw = cpv('cp_brand_email')   || cpv('cp_businessEmail');
+    const cEmail    = cEmailRaw ? cEmailRaw.toLowerCase() : '';
+    const cSiteRaw  = cpv('cp_brand_website') || cpv('cp_businessWebsite');
+    const cWebsite  = cSiteRaw ? cSiteRaw.replace(/^https?:\/\//i, '').replace(/\/$/, '') : '';
+    const cAddress  = cpv('cp_brand_address') || cpv('cp_businessAddress');
+    // Lockstep: keep the Letterhead top-levels equal to the resolved values. Only
+    // write when a value is present so an unedited NBD field stays absent (it was
+    // stripped above) and byte-identical; clearing a saved field is the accepted
+    // merge:true edge and does not re-emit an empty override.
+    if (cPhone)   out.businessPhone   = cPhone;
+    if (cEmail)   out.businessEmail   = cEmail;
+    if (cWebsite) out.businessWebsite = cWebsite;
+    if (cAddress) out.businessAddress = cAddress;
+
+    // Brand override — onboarding.js buildOverrides() semantics: omit empties,
+    // derive displayName from legalName, only write colors on a deliberate swatch
+    // move, never write brand.seal / brand.docPrefix (reserved, callable-only).
+    const brand = {};
+    const bLegal = cpv('cp_brand_legalName');
+    const bDisplay = cpv('cp_brand_displayName');
+    if (bLegal) {
+      brand.legalName = bLegal;
+      brand.displayName = bDisplay || bLegal;
+    } else if (bDisplay) {
+      brand.displayName = bDisplay;
+    }
+    const bLogo = cpv('cp_brand_logoUrl');
+    if (bLogo) brand.logoUrl = bLogo;
+    if (_cpColorsTouched) {
+      const dColors = (defaults.brand && defaults.brand.colors) || {};
+      brand.colors = {
+        primary: cpv('cp_brand_colorPrimary') || dColors.primary || '#1E3A6E',
+        accent:  cpv('cp_brand_colorAccent')  || dColors.accent  || '#E8720C'
+      };
+    }
+    const contact = {};
+    if (cPhone)   contact.phone = cPhone;
+    if (cEmail)   { contact.email = cEmail; contact.alertEmail = cEmail; }
+    if (cWebsite) contact.website = cWebsite;
+    if (cAddress) contact.address = cAddress;
+    if (Object.keys(contact).length) brand.contact = contact;
+
+    // AUTO-SEED legalName — belt-and-suspenders against the skip→Letterhead-only
+    // NBD leak: a tenant who fills only a business name (never the Brand panel)
+    // stays stranded on NBD's seal/logo/phone because brand.legalName was never
+    // set. When a non-empty, non-NBD name is present AND the tenant's resolved
+    // brand is still NBD, seed brand.legalName so the tenant flips off NBD
+    // defaults. Owner/NBD accounts leave the name blank (default '') → seedName
+    // '' → no brand key → NBD stays byte-identical.
+    if (!brand.legalName) {
+      const NBD_LEGAL = (defaults.brand && defaults.brand.legalName) || 'No Big Deal Home Solutions';
+      const seedName = bLegal || cpv('cp_businessName');
+      let brandIsNbd = true;
+      try {
+        const rb = (typeof window._brand === 'function') ? window._brand() : null;
+        brandIsNbd = !rb || !rb.legalName || rb.legalName === NBD_LEGAL;
+      } catch (_) { brandIsNbd = true; }
+      if (seedName && seedName !== NBD_LEGAL && brandIsNbd) {
+        brand.legalName = seedName;
+        if (!brand.displayName) brand.displayName = seedName;
+      }
+    }
+    if (Object.keys(brand).length) out.brand = brand;
     return out;
   }
 
@@ -3911,6 +4037,32 @@
     if (warnEl) warnEl.value = bd.directCostPctWarn != null ? bd.directCostPctWarn : '';
     const floorEl = document.getElementById('cp_budget_marginFloorPct');
     if (floorEl) floorEl.value = bd.marginFloorPct != null ? bd.marginFloorPct : '';
+
+    // ── Brand Identity sub-panel (gauntlet Batch 3) ─────────────────
+    // Fill from the RAW (un-merged) tenant override so a field the tenant never
+    // set renders BLANK — not NBD's default bleeding through the deep merge.
+    const rawBrand = (typeof window._brandOverride === 'function' && window._brandOverride()) || {};
+    const rawContact = rawBrand.contact || {};
+    const setCp = (id, v) => { const el = document.getElementById(id); if (el) el.value = v != null ? v : ''; };
+    setCp('cp_brand_legalName', rawBrand.legalName || '');
+    setCp('cp_brand_displayName', rawBrand.displayName || '');
+    setCp('cp_brand_logoUrl', rawBrand.logoUrl || '');
+    setCp('cp_brand_phone', rawContact.phone || '');
+    setCp('cp_brand_email', rawContact.email || '');
+    setCp('cp_brand_website', rawContact.website || '');
+    setCp('cp_brand_address', rawContact.address || '');
+    // Color <input>s always report a value: seed from the raw override's colors
+    // when present, else the NBD default swatch (cosmetic — an untouched picker
+    // is never written, see _cpColorsTouched).
+    const dBrandColors = (defaults.brand && defaults.brand.colors) || {};
+    const rawColors = rawBrand.colors || {};
+    const primEl = document.getElementById('cp_brand_colorPrimary');
+    if (primEl) primEl.value = rawColors.primary || dBrandColors.primary || '#1E3A6E';
+    const accEl = document.getElementById('cp_brand_colorAccent');
+    if (accEl) accEl.value = rawColors.accent || dBrandColors.accent || '#E8720C';
+    // A fresh populate = user hasn't moved a swatch yet (mirror onboarding.js).
+    _cpColorsTouched = false;
+    _cpWireColorInputs();
   }
 
   window._loadCompanyProfileSettings = async function () {
