@@ -9,11 +9,11 @@
 <!-- SEO: this page is crawlable (robots.txt disallows most /pro/* app pages
      but not /pro/pricing.html), so it gets the standard marketing meta the
      homeowner audit required. /pro/register.html stays noindex. -->
-<meta name="description" content="NBD Pro pricing: free tier forever, Starter $99/mo, Growth $299/mo with a 14-day free trial. Roofing CRM at one-third what the big guys charge.">
+<meta name="description" content="NBD Pro pricing: free tier forever, Starter $99/mo, Team $149/mo, Growth $299/mo with a 14-day free trial. Roofing CRM at one-third what the big guys charge.">
 <link rel="canonical" href="https://nobigdealwithjoedeal.com/pro/pricing">
 <meta property="og:type" content="website">
 <meta property="og:title" content="NBD Pro Pricing — Contractor-Built, Contractor-Priced">
-<meta property="og:description" content="Free tier forever, Starter $99/mo, Growth $299/mo with a 14-day free trial. Always one-third of what the big guys charge.">
+<meta property="og:description" content="Free tier forever, Starter $99/mo, Team $149/mo, Growth $299/mo with a 14-day free trial. Always one-third of what the big guys charge.">
 <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/pricing">
 <meta property="og:image" content="https://nobigdealwithjoedeal.com/assets/images/joe-hero.jpg">
 <meta name="twitter:card" content="summary_large_image">
@@ -34,8 +34,9 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
 .subhead{font-size:16px;color:#8b9bb4;max-width:520px;margin:0 auto;line-height:1.5;}
 .north-star{font-size:12px;color:#ffaf66;font-weight:700;letter-spacing:.08em;margin-top:16px;text-transform:uppercase;}
 
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:1100px;margin:40px auto 0;padding:0 20px;}
-@media(max-width:900px){.grid{grid-template-columns:1fr 1fr;}}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;max-width:1320px;margin:40px auto 0;padding:0 20px;}
+@media(max-width:1150px){.grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:800px){.grid{grid-template-columns:1fr 1fr;}}
 @media(max-width:550px){.grid{grid-template-columns:1fr;}}
 
 .card{background:#111418;border:2px solid #1e2228;border-radius:14px;padding:32px 24px;display:flex;flex-direction:column;transition:all .2s;}
@@ -129,6 +130,25 @@ body{font-family:'Barlow',sans-serif;background:var(--bg, #0A0C0F);color:var(--t
       <li class="disabled">Team features</li>
     </ul>
     <a href="#" data-pr-action="subscribe" data-plan="starter" class="cta cta-primary">Subscribe — $99/mo</a>
+  </div>
+
+  <!-- TEAM -->
+  <div class="card">
+    <div class="tier-icon" aria-hidden="true">👥</div>
+    <h2 class="tier-name">Team</h2>
+    <div class="tier-price">$149 <span class="mo">/mo</span></div>
+    <div class="tier-desc">Your first crew. Bring on two reps, run the leaderboard, and keep the whole team in one pipeline.</div>
+    <ul class="features">
+      <li>150 leads per month</li>
+      <li>Full CRM + all pipeline views</li>
+      <li>Up to 2 team reps</li>
+      <li>Rep leaderboard + coaching</li>
+      <li>Unlimited reports</li>
+      <li>100 AI calls per month</li>
+      <li>Territory management</li>
+      <li>Customer portals</li>
+    </ul>
+    <a href="#" data-pr-action="subscribe" data-plan="team" class="cta cta-primary">Start 14-Day Free Trial</a>
   </div>
 
   <!-- GROWTH -->

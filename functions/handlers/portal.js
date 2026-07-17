@@ -135,9 +135,9 @@ exports.validateAccessCode = onCall(
       // input; existing subscription docs written with legacy values
       // keep working via read-side alias resolution (billing.js,
       // billing-gate.js, nbd-auth.js) — that resolution is permanent.
-      const planFromCode = (code.plan === 'professional' || code.plan === 'growth')
-        ? 'growth'
-        : 'starter';
+      const planFromCode = (code.plan === 'professional' || code.plan === 'growth') ? 'growth'
+        : (code.plan === 'team' ? 'team'
+        : 'starter');
       const subData = {
         plan: planFromCode,
         status: 'active',

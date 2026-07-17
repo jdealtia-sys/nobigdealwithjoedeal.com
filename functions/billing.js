@@ -45,6 +45,10 @@ const PLAN_LIMITS = {
   free:         { leads: 10,        reports: 0,        aiCalls: 0,        reps: 1 },
   starter:      { leads: 50,        reports: 2,        aiCalls: 20,       reps: 1 },
   foundation:   { leads: 50,        reports: 2,        aiCalls: 20,       reps: 1 },
+  // Team ($149/mo): the first multi-seat tier — owner + 2 reps. reps:2 (>1)
+  // makes it seat-invitable AND makes the over-capacity seat-picker reachable
+  // (a Growth→Team downgrade leaves more reps than seats).
+  team:         { leads: 150,       reports: Infinity, aiCalls: 100,      reps: 2 },
   growth:       { leads: 500,       reports: Infinity, aiCalls: Infinity, reps: 5 },
   professional: { leads: 500,       reports: Infinity, aiCalls: Infinity, reps: 5 },
   enterprise:   { leads: Infinity,  reports: Infinity, aiCalls: Infinity, reps: Infinity },

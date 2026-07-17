@@ -32,10 +32,39 @@ console.log('seatLimitForPlan — plan → invited-seat matrix');
   const f = _test.seatLimitForPlan;
   assert('free → 0 invite seats', f('free') === 0);
   assert('starter → 0 invite seats (solo: 1 user total)', f('starter') === 0);
+  assert('team → 2 invite seats (mid-tier; makes the seat-picker reachable)', f('team') === 2);
   assert('growth → 5 invite seats', f('growth') === 5);
   assert('enterprise → Infinity', f('enterprise') === Infinity);
   assert('unknown plan falls back to free (0)', f('definitely-not-a-plan') === 0);
   assert('undefined plan falls back to free (0)', f(undefined) === 0);
+}
+
+console.log('\nTeam plan ($149, 2 seats) — wired server + client + stripe + pricing');
+{
+  const { _test } = require(path.join(ROOT, 'functions/billing.js'));
+  const t = _test.PLAN_LIMITS.team;
+  assert('server PLAN_LIMITS.team = 150 leads / 2 reps / 100 aiCalls / unlimited reports',
+    !!t && t.leads === 150 && t.reps === 2 && t.aiCalls === 100 && t.reports === Infinity);
+  const bg = read('docs/pro/js/billing-gate.js');
+  assert('client PLANS.team = Team $149, 2 reps, matching caps',
+    /team:\s*\{ label: 'Team',\s*leads: 150,[\s\S]{0,90}reps: 2,[\s\S]{0,40}price: 149/.test(bg));
+  assert('client upgrade ladder is free→starter→team→growth',
+    /_plan === 'starter' \? 'team'[\s\S]{0,60}_plan === 'team' \? 'growth'/.test(bg));
+  const st = read('functions/stripe.js');
+  assert('stripe: team accepted + price mapped + trial granted + metadata-allowed',
+    /VALID_PLANS = \[[^\]]*'team'/.test(st)
+    && /\[STRIPE_PRICE_TEAM\.value\(\)\]:\s*'team'/.test(st)
+    && /normalizedPlan === 'growth' \|\| normalizedPlan === 'team'/.test(st)
+    && /ALLOWED_FROM_METADATA = new Set\(\['starter', 'team', 'growth'\]\)/.test(st));
+  assert('STRIPE_PRICE_TEAM secret declared + bound (checkout + webhook + price map)',
+    /STRIPE_PRICE_TEAM\s*=\s*defineSecret\('STRIPE_PRICE_TEAM'\)/.test(st)
+    && (st.match(/STRIPE_PRICE_TEAM/g) || []).length >= 5);
+  const pr = read('docs/pro/pricing.html');
+  assert('pricing page has a Team card (data-plan="team", $149)',
+    /data-plan="team"/.test(pr) && /tier-name">Team</.test(pr) && /\$149/.test(pr));
+  const pp = read('docs/pro/js/pricing-page.module.js');
+  assert('pricing-page resume-checkout allows team',
+    /plan !== 'starter' && plan !== 'team' && plan !== 'growth'/.test(pp));
 }
 
 // ── Part B: source-contract guards ────────────────────────────────────
