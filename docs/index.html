@@ -1335,6 +1335,35 @@ nav .nav-logo-text .sub{white-space:nowrap}
   </div>
 </section>
 
+<!-- INTRO VIDEO (T10): hidden until Jo sets a real 11-char YouTube ID in data-yt below.
+     Opens the video in a new tab (no iframe) so NO CSP change is required. -->
+<style>
+.intro-video-section{background:var(--navy-dark)}
+.intro-video-section .eyebrow,.intro-video-section .sec-title,.intro-video-section .sec-desc{text-align:center}
+.iv-frame{position:relative;max-width:760px;margin:36px auto 0;aspect-ratio:16/9;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.1)}
+.iv-facade{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-decoration:none;background:radial-gradient(circle at 50% 42%,rgba(30,58,110,.5),rgba(20,42,82,.92))}
+.iv-play{width:78px;height:78px;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 30px rgba(0,0,0,.45);transition:transform .2s,background .2s}
+.iv-facade:hover .iv-play{transform:scale(1.08);background:var(--orange-light,#f08030)}
+.iv-facade:focus-visible{outline:3px solid var(--orange);outline-offset:3px}
+.iv-play svg{width:32px;height:32px;fill:#fff;margin-left:5px}
+.iv-facade b{color:#fff;font-size:.98rem;font-weight:700;letter-spacing:.02em}
+.iv-facade small{color:rgba(255,255,255,.6);font-size:.76rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+</style>
+<section class="section intro-video-section" id="intro-video" data-yt="" hidden aria-hidden="true">
+  <div class="section-inner">
+    <div class="eyebrow" style="color:rgba(255,255,255,.5)">60 Seconds With Joe</div>
+    <h2 class="sec-title" style="color:#fff">Meet the Guy Who <span>Answers the Phone</span></h2>
+    <p class="sec-desc" style="color:rgba(255,255,255,.72);margin-left:auto;margin-right:auto">No script, no sales team &mdash; just Joe, in his own words.</p>
+    <div class="iv-frame">
+      <a class="iv-facade" data-iv-link href="#" target="_blank" rel="noopener" aria-label="Play Joe's 60-second intro video on YouTube">
+        <span class="iv-play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>
+        <b>Play Joe's 60-Second Intro</b>
+        <small>Opens on YouTube</small>
+      </a>
+    </div>
+  </div>
+</section>
+
 <!-- ABOUT -->
 <section class="about-section" id="about">
   <div class="section-inner">
@@ -1488,6 +1517,7 @@ nav .nav-logo-text .sub{white-space:nowrap}
 </section>
 <script src="/assets/js/google-reviews-widget.js" defer></script>
 <script src="/assets/js/homeowner-wall.js" defer></script>
+<script src="/assets/js/intro-video.js" defer></script>
 
 <!-- CERTIFICATIONS & BRAND PARTNERS -->
 <section style="background:var(--navy);padding:56px 5%;border-top:3px solid var(--orange)">
