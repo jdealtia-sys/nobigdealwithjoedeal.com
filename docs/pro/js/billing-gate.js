@@ -37,6 +37,7 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     free:         { label: 'Free',         leads: 10,  reports: 0,        aiCalls: 0,        reps: 1,        price: 0 },
     starter:      { label: 'Starter',      leads: 50,  reports: 2,        aiCalls: 20,       reps: 1,        price: 99 },
     foundation:   { label: 'Starter',      leads: 50,  reports: 2,        aiCalls: 20,       reps: 1,        price: 99 },
+    team:         { label: 'Team',         leads: 150, reports: Infinity, aiCalls: 100,       reps: 2,        price: 149 },
     growth:       { label: 'Growth',       leads: 500, reports: Infinity, aiCalls: Infinity, reps: 5,        price: 299 },
     professional: { label: 'Growth',       leads: 500, reports: Infinity, aiCalls: Infinity, reps: 5,        price: 299 },
     enterprise:   { label: 'Enterprise',   leads: Infinity, reports: Infinity, aiCalls: Infinity, reps: Infinity, price: null }
@@ -311,7 +312,10 @@ let _NBD_BG_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     const existing = document.getElementById('nbd-upgrade-modal');
     if (existing) existing.remove();
 
-    const nextPlan = _plan === 'free' ? 'starter' : (_plan === 'starter' ? 'growth' : null);
+    // Upgrade ladder: free → starter → team → growth → (Enterprise, no self-serve).
+    const nextPlan = _plan === 'free' ? 'starter'
+      : (_plan === 'starter' ? 'team'
+      : (_plan === 'team' ? 'growth' : null));
     if (!nextPlan) {
       // Growth is the top self-serve tier with a FINITE lead cap, so there's no
       // higher plan to upsell and the modal has nothing to render. But

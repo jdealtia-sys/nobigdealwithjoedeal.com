@@ -71,6 +71,9 @@ const STRIPE_WEBHOOK_SECRET     = defineSecret('STRIPE_WEBHOOK_SECRET');
 const STRIPE_INVOICE_WEBHOOK_SECRET = defineSecret('STRIPE_INVOICE_WEBHOOK_SECRET');
 const STRIPE_PRICE_FOUNDATION   = defineSecret('STRIPE_PRICE_FOUNDATION');
 const STRIPE_PRICE_PROFESSIONAL = defineSecret('STRIPE_PRICE_PROFESSIONAL');
+// Team ($149/mo, 2 seats) — the mid-tier between Starter and Growth. Set this
+// secret to the Team recurring Stripe Price ID after creating the product.
+const STRIPE_PRICE_TEAM         = defineSecret('STRIPE_PRICE_TEAM');
 
 // ── Shared Stripe client ────────────────────────────────────────────
 // Single source for the SDK instance across all 5 handlers (was a separate
@@ -111,7 +114,7 @@ const CORS_ORIGINS = [
 exports.createCheckoutSession = onRequest(
   {
     cors: CORS_ORIGINS,
-    secrets: [STRIPE_SECRET_KEY, STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL],
+    secrets: [STRIPE_SECRET_KEY, STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL, STRIPE_PRICE_TEAM],
     enforceAppCheck: true,
     // Explicit public ingress: browser fetch calls this directly. Declared in
     // code so a redeploy can never drop the allUsers run.invoker binding again
@@ -157,12 +160,12 @@ exports.createCheckoutSession = onRequest(
 
       // Validate plan — accept both old names (foundation/professional)
       // and new names (starter/growth) for backwards compatibility
-      const VALID_PLANS = ['foundation', 'professional', 'starter', 'growth'];
+      const VALID_PLANS = ['foundation', 'professional', 'starter', 'team', 'growth'];
       if (!VALID_PLANS.includes(plan)) {
-        res.status(400).json({ error: 'Invalid plan. Must be starter, growth, foundation, or professional.' });
+        res.status(400).json({ error: 'Invalid plan. Must be starter, team, growth, foundation, or professional.' });
         return;
       }
-      // Normalize old names → new names for consistent storage
+      // Normalize old names → new names for consistent storage (team is already canonical).
       const normalizedPlan = plan === 'foundation' ? 'starter' : (plan === 'professional' ? 'growth' : plan);
       // Remove the "free subscription while checkout is open" loophole — any prior
       // client-side self-write to subscriptions gets overwritten on webhook return
@@ -173,8 +176,8 @@ exports.createCheckoutSession = onRequest(
       // STRIPE_PRICE_FOUNDATION = Starter ($99/mo), STRIPE_PRICE_PROFESSIONAL =
       // Growth ($299/mo — the price sold on /pro/pricing and in the Terms table;
       // the Stripe price object is the charged truth, keep them in sync).
-      const priceId = (normalizedPlan === 'starter')
-        ? STRIPE_PRICE_FOUNDATION.value()
+      const priceId = normalizedPlan === 'starter' ? STRIPE_PRICE_FOUNDATION.value()
+        : normalizedPlan === 'team' ? STRIPE_PRICE_TEAM.value()
         : STRIPE_PRICE_PROFESSIONAL.value();
 
       // Billing is keyed to the COMPANY, not the purchaser (locked decision:
@@ -206,10 +209,10 @@ exports.createCheckoutSession = onRequest(
           companyId: billingKey,
           plan: normalizedPlan,
         },
-        // 14-day trial on Growth tier. Hosted Checkout still collects a card
-        // up front (payment_method_collection defaults to 'always'); the
-        // pricing page copy was reworded 2026-07-04 to match.
-        ...(normalizedPlan === 'growth' ? {
+        // 14-day trial on the paid team tiers (Team + Growth). Hosted Checkout
+        // still collects a card up front (payment_method_collection defaults to
+        // 'always'); the pricing page copy matches. Starter has no trial.
+        ...((normalizedPlan === 'growth' || normalizedPlan === 'team') ? {
           subscription_data: { trial_period_days: 14 }
         } : {}),
       });
@@ -242,7 +245,7 @@ exports.stripeWebhook = onRequest(
     // Stripe Price IDs to our plan tier. Must be declared here
     // so .value() resolves at runtime.
     secrets: [STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET,
-              STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL],
+              STRIPE_PRICE_FOUNDATION, STRIPE_PRICE_PROFESSIONAL, STRIPE_PRICE_TEAM],
     // R-05 sizing: Stripe's retry fanout (up to 15 retries over 3
     // days on failure) + bulk billing cycle events (invoice.paid
     // fires for every active sub on billing day) can burst. Old
@@ -333,6 +336,7 @@ exports.stripeWebhook = onRequest(
       // ═══════════════════════════════════════════════════
       const PRICE_TO_PLAN = {
         [STRIPE_PRICE_FOUNDATION.value()]:   'starter',
+        [STRIPE_PRICE_TEAM.value()]:         'team',
         [STRIPE_PRICE_PROFESSIONAL.value()]: 'growth'
       };
 
@@ -390,7 +394,7 @@ exports.stripeWebhook = onRequest(
               uid, sessionId: session.id, err: e.message
             });
             // Fall back to metadata ONLY for the small allowlist we mint.
-            const ALLOWED_FROM_METADATA = new Set(['starter', 'growth']);
+            const ALLOWED_FROM_METADATA = new Set(['starter', 'team', 'growth']);
             const meta = session.metadata?.plan;
             if (ALLOWED_FROM_METADATA.has(meta)) plan = meta;
           }

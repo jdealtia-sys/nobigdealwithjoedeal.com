@@ -116,7 +116,7 @@ onAuthStateChanged(auth, function(user) {
     plan = sessionStorage.getItem('nbd_plan_intent');
     if (plan) sessionStorage.removeItem('nbd_plan_intent');
   } catch (_) {}
-  if (plan !== 'starter' && plan !== 'growth') return;
+  if (plan !== 'starter' && plan !== 'team' && plan !== 'growth') return;
   planIntentResumed = true;
   const btn = document.querySelector('[data-pr-action="subscribe"][data-plan="' + plan + '"]');
   window.subscribe(plan, btn ? { target: btn } : undefined);
