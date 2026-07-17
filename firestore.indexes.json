@@ -754,5 +754,26 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "_comment": "GDPR erasure/export (2026-07-17): confirmAccountErasure + exportMyData sweep collectionGroup('recordings').where('userId','==') (equality-only, no orderBy → ordered by __name__). The composite [userId, recordedAt] does NOT serve this; a single-field COLLECTION_GROUP index on userId does. Without it the sweep throws FAILED_PRECONDITION, compliance.js swallows it, and a user's Voice-Intelligence recordings survive right-to-be-forgotten. COLLECTION asc/desc kept so the default single-parent indexing is preserved.",
+      "collectionGroup": "recordings",
+      "fieldPath": "userId",
+      "indexes": [
+        { "order": "ASCENDING",  "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING",  "queryScope": "COLLECTION_GROUP" }
+      ]
+    },
+    {
+      "_comment": "GDPR erasure/export (2026-07-17): same as recordings — collectionGroup('activity').where('userId','==') (F-05 rep + webhook activity rows under leads/{leadId}/activity). Single-field COLLECTION_GROUP index on userId so the erasure/export sweep doesn't FAILED_PRECONDITION and silently skip.",
+      "collectionGroup": "activity",
+      "fieldPath": "userId",
+      "indexes": [
+        { "order": "ASCENDING",  "queryScope": "COLLECTION" },
+        { "order": "DESCENDING", "queryScope": "COLLECTION" },
+        { "order": "ASCENDING",  "queryScope": "COLLECTION_GROUP" }
+      ]
+    }
+  ]
 }

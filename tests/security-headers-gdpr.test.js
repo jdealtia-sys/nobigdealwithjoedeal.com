@@ -125,6 +125,23 @@ ok('invoices keyed on createdBy (documented exception)', reg.find(c => c.name ==
 ok('no duplicate collection entries', new Set(names).size === names.length);
 ok('storage prefixes are part of erasure (user files)', Array.isArray(userOwned.STORAGE_PREFIXES) && userOwned.STORAGE_PREFIXES.length > 0);
 
+// Every collectionGroup the erasure/export cascade sweeps by userId
+// (collectionGroup(g).where('userId','==')) needs a SINGLE-FIELD
+// COLLECTION_GROUP index on userId. A composite like [userId, recordedAt]
+// does NOT serve the equality-only query (it orders by __name__), so a
+// missing override makes the sweep throw FAILED_PRECONDITION — which
+// compliance.js swallows, silently leaving those rows un-erased/un-exported.
+console.log('\nGDPR REGISTRY — collectionGroup sweeps have a COLLECTION_GROUP index');
+{
+  const idxSpec = require(path.join(__dirname, '..', 'firestore.indexes.json'));
+  const overrides = idxSpec.fieldOverrides || [];
+  for (const g of userOwned.COLLECTION_GROUPS_WITH_USERID) {
+    const covered = overrides.some(f => f.collectionGroup === g && f.fieldPath === 'userId'
+      && (f.indexes || []).some(i => i.queryScope === 'COLLECTION_GROUP'));
+    ok(`collectionGroup "${g}".userId has a COLLECTION_GROUP single-field index`, covered);
+  }
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }
