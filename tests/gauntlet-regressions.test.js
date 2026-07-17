@@ -135,6 +135,20 @@ console.log('\nTenant-zero brand leak — letterhead tagline');
     "cp.tagline falls through merged defaults to NBD's tagline on stranger paper");
 }
 
+console.log('\nClient billing gate — primed at boot + no silent hard-block');
+{
+  const boot = read('docs/pro/js/dashboard-bootstrap.module.js');
+  assert('billing gate is primed once at login (loadSubscription at boot)',
+    /window\.NBDBilling\.loadSubscription\(\)/.test(boot),
+    'without a boot load _loaded stays false and enforceGate/softGate fail open all session (free = unlimited leads)');
+  const bg = read('docs/pro/js/billing-gate.js');
+  assert('growth-cap hard-block surfaces a toast instead of a silent no-op',
+    /if \(!nextPlan\) \{/.test(bg)
+    && /showToast\(/.test(bg)
+    && /reached your monthly limit/.test(bg),
+    'a Growth tenant at the lead cap had Add-Lead silently do nothing (no modal, no toast)');
+}
+
 console.log('\nCI gate — @stranger shard is required');
 {
   const ci = read('.github/workflows/ci.yml');
