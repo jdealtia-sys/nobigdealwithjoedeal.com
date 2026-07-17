@@ -1086,7 +1086,7 @@
     ];
     const tiers = Array.isArray(cp.financingTiers) && cp.financingTiers.length ? cp.financingTiers : tierDefaults;
     // apr <= 0 means "rate set by the lender" — refuse to print a fabricated
-    // $/mo (the old straight-line 0% math implied a zero-interest program the
+    // $/mo (the old straight-line math implied a no-cost financing program the
     // marketplace can't promise). Only a tenant-entered positive APR (their
     // own financing program) computes an amortized illustrative payment.
     const plans = tiers.map(t => {
