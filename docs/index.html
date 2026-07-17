@@ -1542,6 +1542,54 @@ nav .nav-logo-text .sub{white-space:nowrap}
   </div>
 </section>
 
+<!-- FAQ -->
+<style>
+.faq-section{background:var(--off-white)}
+.faq-section .faq-list{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.faq-section .faq-item{background:var(--white);border:1px solid var(--light-gray);border-radius:12px;overflow:hidden}
+.faq-section .faq-q{padding:20px 24px;font-weight:700;font-size:1rem;color:var(--navy);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px;transition:background .2s}
+.faq-section .faq-q:hover{background:var(--off-white)}
+.faq-section .faq-q::after{content:'+';font-size:1.5rem;line-height:1;color:var(--orange);font-weight:300;transition:transform .2s;flex-shrink:0}
+.faq-section .faq-item.open .faq-q::after{transform:rotate(45deg)}
+.faq-section .faq-q:focus-visible{outline:2px solid var(--orange);outline-offset:-2px}
+.faq-section .faq-a{display:none;padding:0 24px 22px;font-size:.92rem;color:var(--gray-sub);line-height:1.72}
+.faq-section .faq-item.open .faq-a{display:block}
+.faq-section .faq-a a{color:var(--orange);font-weight:600}
+.faq-section .faq-footnote{text-align:center;font-size:.82rem;color:var(--gray);margin-top:30px}
+</style>
+<section class="faq-section" id="faq">
+  <div class="section-inner">
+    <div class="section-header">
+      <div class="eyebrow reveal">Straight Answers</div>
+      <h2 class="sec-title reveal">Questions Homeowners <span>Actually Ask</span></h2>
+      <p class="sec-desc reveal">No fine print, no runaround — just honest answers to what people want to know before they call.</p>
+    </div>
+    <div class="faq-list reveal">
+      <div class="faq-item open"><div class="faq-q">How much does a new roof cost in the Cincinnati area?</div><div class="faq-a"><p>It depends on your roof's size, pitch, and the shingle you pick — but to give you a real number: most architectural-shingle replacements in Greater Cincinnati run about <strong>$665–$745 per roofing square</strong> installed, with budget and premium tiers landing roughly <strong>$610–$825 per square</strong>. Our free <a href="/estimate">Instant Estimate</a> gives you a tailored ballpark in about 60 seconds — no phone call, no pressure.</p></div></div>
+      <div class="faq-item"><div class="faq-q">Do you offer financing?</div><div class="faq-a"><p>Yes — through <a href="/services/financing">Acorn Finance</a>, a lending marketplace that lets you check your options with a soft credit pull that doesn't affect your credit score. You'll see the actual lender, rate, and full terms before you commit to anything. If financing isn't the right move for your project, Joe will tell you straight.</p></div></div>
+      <div class="faq-item"><div class="faq-q">Can you help with a storm damage insurance claim?</div><div class="faq-a"><p>Absolutely — insurance restoration is one of the things we handle most. We document the damage properly, walk you through the claim, and work directly with your adjuster so you're not stuck translating roofing jargon. You focus on your deductible; we handle the rest.</p></div></div>
+      <div class="faq-item"><div class="faq-q">What areas do you serve?</div><div class="faq-a"><p>We're based in Goshen and cover Greater Cincinnati — across Southwest Ohio and into Northern Kentucky. Cincinnati, Milford, Loveland, Mason, Batavia, West Chester and the surrounding communities are all home turf. Not sure if you're in range? Just <a href="tel:+18594207382">call Joe</a> and ask.</p></div></div>
+      <div class="faq-item"><div class="faq-q">Are you licensed, insured, and certified?</div><div class="faq-a"><p>Yes — No Big Deal is licensed and insured, and we're factory-certified by the biggest names in the industry: <strong>GAF</strong> (GAF Certified), <strong>TAMKO</strong> (Pro Gold), and the <strong>James Hardie Alliance</strong>. Those certifications unlock the strongest manufacturer warranties available — and you can verify each one directly with the manufacturer.</p></div></div>
+      <div class="faq-item"><div class="faq-q">What actually happens when I call?</div><div class="faq-a"><p>You get Joe — not a call center, not a salesperson reading a script. Tell him what's going on and he'll give you a straight answer, usually the same day. If you need an inspection, he'll set one up. No pressure, no obligation, no runaround — that's kind of the whole point.</p></div></div>
+    </div>
+    <p class="faq-footnote reveal">Still have a question? Call Joe directly at <a href="tel:+18594207382" style="color:var(--orange);font-weight:700">(859) 420-7382</a> — he answers.</p>
+  </div>
+</section>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "How much does a new roof cost in the Cincinnati area?", "acceptedAnswer": {"@type": "Answer", "text": "It depends on your roof's size, pitch, and the shingle you pick. Most architectural-shingle replacements in Greater Cincinnati run about $665 to $745 per roofing square installed, with budget and premium tiers landing roughly $610 to $825 per square. Our free Instant Estimate tool gives you a tailored ballpark in about 60 seconds with no phone call required."}},
+    {"@type": "Question", "name": "Do you offer financing?", "acceptedAnswer": {"@type": "Answer", "text": "Yes, through Acorn Finance, a lending marketplace that lets you check your options with a soft credit pull that doesn't affect your credit score. You'll see the actual lender, rate, and full terms before you commit to anything. If financing isn't the right move for your project, Joe will tell you straight."}},
+    {"@type": "Question", "name": "Can you help with a storm damage insurance claim?", "acceptedAnswer": {"@type": "Answer", "text": "Absolutely. Insurance restoration is one of the things we handle most. We document the damage properly, walk you through the claim, and work directly with your adjuster so you're not stuck translating roofing jargon. You focus on your deductible and we handle the rest."}},
+    {"@type": "Question", "name": "What areas do you serve?", "acceptedAnswer": {"@type": "Answer", "text": "We're based in Goshen and cover Greater Cincinnati, across Southwest Ohio and into Northern Kentucky. Cincinnati, Milford, Loveland, Mason, Batavia, West Chester and the surrounding communities are all home turf. If you're not sure whether you're in range, just call Joe and ask."}},
+    {"@type": "Question", "name": "Are you licensed, insured, and certified?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. No Big Deal is licensed and insured, and we're factory-certified by GAF (GAF Certified), TAMKO (Pro Gold), and the James Hardie Alliance. Those certifications unlock the strongest manufacturer warranties available, and you can verify each one directly with the manufacturer."}},
+    {"@type": "Question", "name": "What actually happens when I call?", "acceptedAnswer": {"@type": "Answer", "text": "You get Joe, not a call center and not a salesperson reading a script. Tell him what's going on and he'll give you a straight answer, usually the same day. If you need an inspection, he'll set one up. No pressure, no obligation, no runaround."}}
+  ]
+}
+</script>
+
 <!-- CONTACT -->
 <section class="contact-section" id="contact">
   <div class="section-inner">
