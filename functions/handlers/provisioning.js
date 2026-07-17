@@ -136,6 +136,30 @@ exports.createCompany = onCall(
     }, { merge: true });
     await batch.commit();
 
+    // Seed a canonical FREE subscriptions doc so every tenant has one — single
+    // source of truth, instead of "absence == free" inferred across ~8 readers.
+    // Shape reads IDENTICALLY to an absent doc everywhere (plan:'free',
+    // status:'none' — billing-gate's exact free sentinel), so no reader changes
+    // behavior; only createCustomerPortalSession was taught to treat a
+    // customer-less doc like an absent one (404 → pricing).
+    // create() is ATOMIC and fails if a doc already exists — critical: a
+    // buy-first checkout (or access-code grant) can write a PAID/comp doc before
+    // this runs, and must NEVER be clobbered down to free. ALREADY_EXISTS is the
+    // expected, benign outcome in that race; anything else propagates.
+    try {
+      await db.doc(`subscriptions/${uid}`).create({
+        plan: 'free',
+        status: 'none',
+        source: 'self-serve',
+        usage: { leads: 0, reports: 0, aiCalls: 0, cycleStart: new Date().toISOString() },
+        createdAt: now,
+      });
+    } catch (e) {
+      if (!(e.code === 6 || /already exists/i.test(String(e.message)))) {
+        logger.warn('createCompany_free_sub_seed_failed', { uid, err: e.message });
+      }
+    }
+
     await mergeCustomClaims(uid, { companyId: uid, role: 'company_admin' });
 
     logger.info('createCompany_provisioned', { uid, name: v.name });
