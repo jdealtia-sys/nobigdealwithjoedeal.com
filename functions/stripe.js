@@ -421,7 +421,10 @@ exports.stripeWebhook = onRequest(
           // subscription activation itself.
           try {
             const { reactivateLapsedSeats } = require('./lapse-enforcement');
-            await reactivateLapsedSeats(db, uid);
+            // Pass the new plan so a downgrade-on-return (e.g. Growth lapse →
+            // Starter re-subscribe) restores only up to the new seat cap
+            // instead of every previously-paused rep.
+            await reactivateLapsedSeats(db, uid, plan);
           } catch (e) {
             logger.warn('lapse_reactivation_failed', { uid, err: e.message });
           }
