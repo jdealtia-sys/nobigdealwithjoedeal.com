@@ -47,14 +47,17 @@ const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
 const createCompanyFn = httpsCallable(functions, 'createCompany');
 
 // ─────────────────────────────────────────────────
-// PLAN INTENT (?plan=starter|growth)
+// PLAN INTENT (?plan=starter|team|growth)
 // Landing/pricing CTAs link here with the plan the visitor clicked. Stash it
 // so the intent survives register → onboarding → pricing, where
 // pricing-page.module.js auto-resumes checkout. Without this the "Start with
 // Growth" click dies at signup and the visitor lands on a free dashboard with
 // no path back to paying (product audit 2026-07, funnel break).
+// 'team' MUST be here: it's a live sellable plan ($149) and pricing-page's
+// resume already accepts it — omitting it silently dropped every signed-out
+// Team checkout at signup.
 // ─────────────────────────────────────────────────
-const PLAN_INTENTS = ['starter', 'growth'];
+const PLAN_INTENTS = ['starter', 'team', 'growth'];
 try {
   const planParam = new URLSearchParams(window.location.search).get('plan');
   if (PLAN_INTENTS.includes(planParam)) sessionStorage.setItem('nbd_plan_intent', planParam);

@@ -43,7 +43,11 @@ const POST_LOGIN_DEST = (() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('redirect') === 'pricing') {
       const plan = params.get('plan');
-      if (plan === 'starter' || plan === 'growth') sessionStorage.setItem('nbd_plan_intent', plan);
+      // 'team' included — a live sellable plan; pricing-page resume accepts it.
+      // Omitting it dropped the checkout intent for signed-out Team clicks.
+      if (plan === 'starter' || plan === 'team' || plan === 'growth') {
+        sessionStorage.setItem('nbd_plan_intent', plan);
+      }
       return '/pro/pricing.html';
     }
   } catch (_) {}
