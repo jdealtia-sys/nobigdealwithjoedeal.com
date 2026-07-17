@@ -101,15 +101,28 @@
   // ─── Fetch pending drafts for the open lead ──────────────────────
   async function fetchPending(leadId) {
     const col = window.collection(window.db, 'leads', leadId, 'ai_drafts');
-    // Prefer newest-first; fall back to an unordered query if the
-    // generatedAt index isn't present yet (first-run on a project).
+    // The ai_drafts read rule is PER-DOCUMENT (isOwner(resource.data.userId),
+    // firestore.rules). Under Firestore's rules-as-filters model, a LIST query
+    // whose constraints don't prove userId==uid is rejected outright with
+    // PERMISSION_DENIED — so the query MUST carry where('userId','==',uid).
+    // Without it, fetchPending threw for every non-founder (isAdmin is
+    // NBD-only), and the approve/send draft cards never rendered for any
+    // stranger rep/owner — the AI-texting reply pipeline was dead-ended.
+    const uid = (window._auth && window._auth.currentUser && window._auth.currentUser.uid)
+      || (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || null;
+    if (!uid) return [];
+    // Prefer newest-first; fall back to the two-equality query if the
+    // [userId,status,generatedAt] composite isn't deployed yet (two equality
+    // filters need no composite — Firestore serves them via a zig-zag merge).
     let snap;
     try {
       snap = await window.getDocs(window.query(col,
+        window.where('userId', '==', uid),
         window.where('status', '==', 'pending'),
         window.orderBy('generatedAt', 'desc')));
     } catch (_) {
       snap = await window.getDocs(window.query(col,
+        window.where('userId', '==', uid),
         window.where('status', '==', 'pending')));
     }
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
