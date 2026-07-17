@@ -106,9 +106,28 @@ exports.claimInvite = onCall(
     const inviteSnap = await db.collectionGroup('members')
       .where('email', '==', email)
       .where('status', '==', 'invited')
-      .limit(1)
+      .limit(2)
       .get();
     if (inviteSnap.empty) return { claimed: false, reason: 'no_invite' };
+
+    // Two DIFFERENT companies invited the same email. The collectionGroup has
+    // no orderBy, so Firestore orders by __name__ (the full member path) and
+    // limit(1) would silently claim the lexicographically-smallest companyId —
+    // NOT necessarily the tenant the rep meant to join. That is a cross-tenant
+    // mis-claim (wrong-tenant data leak) AND a permanent lockout: once the
+    // wrong companyId is on the token, the `token.companyId !== uid` guard above
+    // rejects every retry. Refuse instead; the owners resolve the collision
+    // (cancel the stray invite) and the rep re-checks. Non-terminal client-side
+    // so it self-heals. (Doc id == email, so >1 result always means >1 company.)
+    if (inviteSnap.size > 1) {
+      const companies = new Set(inviteSnap.docs.map((d) => d.ref.parent.parent.id));
+      if (companies.size > 1) {
+        logger.warn('claimInvite: ambiguous cross-tenant invite — refusing', {
+          email, companies: Array.from(companies),
+        });
+        return { claimed: false, reason: 'ambiguous_invite' };
+      }
+    }
 
     const memberDoc = inviteSnap.docs[0];
     const memberData = memberDoc.data() || {};
@@ -125,8 +144,23 @@ exports.claimInvite = onCall(
       return { claimed: false, reason: 'invite_expired' };
     }
 
-    // Invite exists — now the email-ownership wall.
-    if (token.email_verified !== true) {
+    // Invite exists — now the email-ownership wall. The ID token's
+    // email_verified claim can lag the real Auth record by up to ~1h: Firebase
+    // does NOT re-mint the claim the moment a user verifies. A rep who verifies
+    // in another tab/device and returns to the still-signed-in dashboard would
+    // otherwise be stranded behind this wall with a stale token until sign-out/in.
+    // Fall back to the authoritative Auth record before refusing (mirrors
+    // mintOwnerClaims, functions/handlers/auth.js).
+    let emailVerified = token.email_verified === true;
+    if (!emailVerified) {
+      try {
+        const rec = await getAuth().getUser(uid);
+        emailVerified = rec.emailVerified === true;
+      } catch (e) {
+        logger.warn('claimInvite: email-verify recheck failed', { uid, err: e.message });
+      }
+    }
+    if (!emailVerified) {
       throw new HttpsError('failed-precondition',
         'Verify your email address first — check your inbox for the verification link, then reload.');
     }
@@ -423,9 +457,16 @@ exports.createTeamInvite = onCall(
       throw new HttpsError('failed-precondition',
         'That person is on your team but disabled. Use "Re-enable" in their row to restore access — no new invite needed.');
     }
-    // Re-inviting a pending member re-uses their seat; only a NEW seat is gated.
-    const takingNewSeat = !existing || (existingStatus !== 'invited' && existingStatus !== 'active');
-    const seatsAfter = occupied.length + (existingStatus === 'invited' ? 0 : (takingNewSeat ? 1 : 0));
+    // Re-inviting a member re-uses their seat only when that seat is still
+    // occupied. A re-invite reuses the seat ONLY for a NON-expired pending
+    // invite — the same predicate the `occupied` filter uses (line 409). An
+    // EXPIRED pending invite was already freed from `occupied`, so re-inviting
+    // it must count as taking a fresh seat; crediting it 0 (as the old
+    // `existingStatus === 'invited' ? 0` did) let a full-cap tenant recreate a
+    // live invite one seat over the plan limit. (active/deactivated are handled
+    // above, so by here existingStatus is null or 'invited'.)
+    const reusesSeat = existingStatus === 'invited' && !isInviteExpired(existing.data());
+    const seatsAfter = occupied.length + (reusesSeat ? 0 : 1);
     if (seats !== Infinity && seatsAfter > seats) {
       throw new HttpsError('resource-exhausted',
         seats === 0

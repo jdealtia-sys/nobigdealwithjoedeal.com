@@ -50,6 +50,35 @@ console.log('\nInvite lifecycle — past_due entitlement + invitee email link');
     'both the HTML button and the text fallback must carry the invite marker');
 }
 
+console.log('\nInvite/claim hardening (Phase-3 QA sweep)');
+{
+  const src = read('functions/handlers/invites.js');
+  // Cross-tenant ambiguous claim: limit(2) + refuse when two companies match,
+  // instead of limit(1) silently claiming the smallest-path companyId.
+  assert('claimInvite looks up with limit(2), not limit(1)',
+    /collectionGroup\('members'\)[\s\S]{0,160}\.limit\(2\)/.test(src)
+    && !/\.limit\(1\)\s*\n\s*\.get\(\);\s*\n\s*if \(inviteSnap\.empty\)/.test(src),
+    'limit(1) silently claims the lexicographically-smallest companyId on a same-email collision');
+  assert('claimInvite refuses an ambiguous cross-tenant invite',
+    /companies\.size > 1[\s\S]{0,200}reason: 'ambiguous_invite'/.test(src),
+    'two tenants inviting the same email must not silently claim one — cross-tenant leak + lockout');
+  // Email-verify wall reads the authoritative Auth record, not just the token,
+  // so a just-verified rep with a stale ID token is not stranded.
+  assert('claimInvite rechecks emailVerified on the Auth record',
+    /getAuth\(\)\.getUser\(uid\)[\s\S]{0,120}rec\.emailVerified === true/.test(src),
+    'a stale ID token (verified in another tab) must not strand a rep behind the verify wall');
+  // Expired-invite seat-cap: re-inviting an EXPIRED pending invite must take a
+  // fresh seat (occupied[] already freed it), not be credited a reused seat.
+  assert('seat reuse credited only for a NON-expired existing invite',
+    /reusesSeat = existingStatus === 'invited' && !isInviteExpired\(existing\.data\(\)\)/.test(src)
+    && /seatsAfter = occupied\.length \+ \(reusesSeat \? 0 : 1\)/.test(src),
+    're-inviting an expired invite must not bypass the seat cap by one');
+  const boot = read('docs/pro/js/dashboard-bootstrap.module.js');
+  assert('client keeps ambiguous_invite non-terminal (self-heals on resolution)',
+    /out\.reason === 'ambiguous_invite'/.test(boot),
+    'a terminal flag would strand the rep after the owner cancels the stray invite');
+}
+
 console.log('\nremoveMember — pending-invite cancel frees the seat');
 {
   const src = read('functions/handlers/admin.js');

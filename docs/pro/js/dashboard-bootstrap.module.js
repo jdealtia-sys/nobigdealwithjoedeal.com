@@ -1229,10 +1229,14 @@
           // callable per dashboard load for at most 14 days.
           const _createdMs = Date.parse((user.metadata && user.metadata.creationTime) || '') || 0;
           const _youngAccount = _createdMs && (Date.now() - _createdMs) < 14 * 24 * 3600 * 1000;
-          if ((out.reason === 'no_invite' && _youngAccount) || out.reason === 'invite_expired') {
+          if ((out.reason === 'no_invite' && _youngAccount) || out.reason === 'invite_expired'
+              || out.reason === 'ambiguous_invite') {
             // leave the flag unset — re-check next load. invite_expired
             // stays non-terminal so a Re-send (fresh 30-day invite) is
-            // picked up without any manual recovery step.
+            // picked up without any manual recovery step. ambiguous_invite
+            // (two companies invited this email) stays non-terminal so the
+            // claim self-heals once an owner cancels the stray invite —
+            // otherwise the rep would be stuck behind the terminal flag.
           } else {
             // Other terminal answers (already member / own company) or a
             // mature account with no invite: stop asking for this uid+device.
