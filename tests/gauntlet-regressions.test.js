@@ -224,9 +224,11 @@ console.log('\nInvitee register bypass (?invite=1)');
     /get\('invite'\) === '1'/.test(reg));
   assert('email path: invitees skip solo provisioning + owner wizard',
     /if \(inviteIntent\) \{\s*window\.location\.replace\('\/pro\/dashboard\.html'\);/.test(reg));
-  assert('google path: invitees not provisioned, routed to dashboard',
+  assert('google path: invitees not provisioned, routed to dashboard (via ownerDest reorder)',
     /isNewUser && !inviteIntent/.test(reg)
-    && /\(!code && isNewUser && !inviteIntent\) \? '\/pro\/onboarding\.html'/.test(reg));
+    && /isNewOwner = !code && isNewUser && !inviteIntent/.test(reg)
+    && /dest = isNewOwner \? ownerDest\(\) : '\/pro\/dashboard\.html'/.test(reg),
+    'invitees (inviteIntent) are excluded from isNewOwner so they still go to dashboard, not the funnel');
   assert('google + access-code path provisions a tenant (#945 parity)',
     /signInWithCustomToken\(auth, result\.data\.customToken\);[\s\S]{0,700}createCompanyFn\(/.test(reg),
     'paid code-holders on the Google branch landed with no companies doc/claims');
@@ -464,6 +466,70 @@ console.log('\nPer-seat read path — persisted + honored at every cap site');
   assert('team-tab seat cap mirrors base + purchased',
     /pl\.purchasedSeats > 0 \? pl\.purchasedSeats : 0/.test(tab)
     && /return base \+ extra/.test(tab));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ROUTE 3 (2026-07-17): self-serve funnel — pay-before-onboarding
+// reorder + safe polish (plan banner, token refresh, buy-first tenant).
+// ═══════════════════════════════════════════════════════════════════
+
+console.log('\nRoute 3 — funnel reorder + polish');
+{
+  const reg = read('docs/pro/js/pages/register.js');
+  assert('ownerDest routes paid intent → pricing (checkout first), else onboarding',
+    /function ownerDest\(\)[\s\S]{0,260}hasIntent \? '\/pro\/pricing\.html' : '\/pro\/onboarding\.html'/.test(reg),
+    'paid intent must hit Stripe before the setup wizard');
+  assert('both register branches route new owners via ownerDest (not hardcoded onboarding)',
+    (reg.match(/ownerDest\(\)/g) || []).length >= 2,
+    'email + Google new-owner paths must both use the reorder helper');
+  assert('renderPlanBanner + PLAN_DISPLAY (team included) surface the selected plan',
+    /function renderPlanBanner\(\)/.test(reg)
+    && /PLAN_DISPLAY = \{[\s\S]{0,160}team:\s*\{ label: 'Team',\s*price: '\$149\/mo' \}/.test(reg)
+    && /renderPlanBanner\(\)/.test(reg.split('function wireRegisterDom')[1] || ''),
+    'a paid-CTA visitor must see their selected plan, wired in wireRegisterDom');
+  const regHtml = read('docs/pro/register.html');
+  assert('register.html has the (default-hidden) plan banner element',
+    /id="regPlanBanner"[\s\S]{0,120}display:none/.test(regHtml));
+
+  const ss = read('docs/pro/js/pages/stripe-success.js');
+  assert('post-activation token refresh (fresh plan claim for rules/callables)',
+    /await waitForSubscriptionActive\(billingKey\);[\s\S]{0,600}getIdToken\(true\)/.test(ss),
+    'token.plan must be fresh this session, not stale ~1h after purchase');
+  assert('un-onboarded payer routed to onboarding after activation (reorder)',
+    /function wireDoneDestination/.test(ss)
+    && /onboarded = !\(snap\.exists\(\) && snap\.data\(\)\.onboarded === false\)/.test(ss)
+    && /setAttribute\('href', '\/pro\/onboarding\.html'\)/.test(ss),
+    'a buyer who paid before the wizard still needs onboarding; returning subs go to dashboard');
+  assert('buy-first path provisions a real tenant (createCompany) — closes the #945-class hole',
+    /createCompanyFn = httpsCallable\(functions, 'createCompany'\)/.test(ss)
+    && /await setDoc\(doc\(db, 'users'[\s\S]{0,900}createCompanyFn\(\{ name:/.test(ss),
+    'a direct-to-checkout account must get a company/companyId, not a tenant-less paid doc');
+  assert('stripe-success imports getDoc + getFunctions for the new reads/provisioning',
+    /getFirestore, doc, getDoc, setDoc/.test(ss) && /getFunctions, httpsCallable/.test(ss));
+  // Review finding (3 lenses): createCompany is enforceAppCheck:true; without
+  // App Check init on stripe-success the buy-first provisioning call is
+  // REJECTED in prod and the #945 hole stays open. Must set up App Check like
+  // register.js does.
+  assert('stripe-success initializes App Check so the createCompany call is not rejected in prod',
+    /initializeAppCheck, ReCaptchaEnterpriseProvider/.test(ss)
+    && /emulatorAppCheckIfLocal\(app\)/.test(ss)
+    && /initializeAppCheck\(app, \{/.test(ss),
+    'the buy-first createCompany would 401 on App Check without this — the fix would be dead code');
+  const ssHtml = read('docs/pro/stripe-success.html');
+  assert('stripe-success done button is addressable for onboarding routing',
+    /id="doneContinueBtn"/.test(ssHtml));
+  assert('stripe-success.html loads the App Check key config script',
+    /dashboard-appcheck-config\.js/.test(ssHtml));
+
+  assert('plan banner is suppressed for invitees (?invite=1)',
+    /function renderPlanBanner[\s\S]{0,600}if \(inviteIntent\) \{ host\.style\.display = 'none'; return; \}/.test(reg),
+    'an invitee is joining a team, not buying a plan — a stale intent must not show them a plan banner');
+
+  const pp = read('docs/pro/js/pricing-page.module.js');
+  assert('cancel-recovery: an un-onboarded owner who cancels checkout is routed to onboarding',
+    /checkoutCancelled = new URLSearchParams/.test(pp)
+    && /if \(checkoutCancelled\) \{[\s\S]{0,260}snap\.data\(\)\.onboarded === false[\s\S]{0,80}onboarding\.html/.test(pp),
+    'the reorder must not leave an abandoned paid signup un-onboarded/un-branded (worse than pre-reorder)');
 }
 
 console.log('\n──────────────────────────────────────────────────');

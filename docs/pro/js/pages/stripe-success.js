@@ -17,9 +17,11 @@
  * Nothing privileged is ever written by this page.
  */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js';
 import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, updateProfile } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
-import { getFirestore, doc, setDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { connectEmulatorsIfLocal } from '../nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
+import { getFirestore, doc, getDoc, setDoc, onSnapshot, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
+import { connectEmulatorsIfLocal, emulatorAppCheckIfLocal } from '../nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
 
 const app = initializeApp({
   apiKey:            "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -29,9 +31,26 @@ const app = initializeApp({
   messagingSenderId: "717435841570",
   appId:             "1:717435841570:web:c2338e11052c96fde02e7b"
 });
+// App Check must be live before the createCompany callable
+// (enforceAppCheck:true) runs on the buy-first path — same setup as
+// register.js. Key from js/dashboard-appcheck-config.js (loaded in <head>).
+// On localhost the emulator shim replaces reCAPTCHA. Without this the
+// provisioning call is rejected in prod and the buy-first account never
+// becomes a tenant (the exact hole this page's createCompany call closes).
+try {
+  if (!(await emulatorAppCheckIfLocal(app))
+      && typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(window.__NBD_APP_CHECK_KEY),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+} catch (_) { /* App Check init best-effort — createCompany may then be rejected */ }
 const auth = getAuth(app);
 const db   = getFirestore(app);
-await connectEmulatorsIfLocal({ auth, db }); // Audit #3: localhost-only, no-op in prod
+const functions = getFunctions(app);
+await connectEmulatorsIfLocal({ auth, db, functions }); // Audit #3: localhost-only, no-op in prod
+const createCompanyFn = httpsCallable(functions, 'createCompany');
 
 const params  = new URLSearchParams(window.location.search);
 const session = params.get('session_id') || '';
@@ -72,6 +91,23 @@ function waitForSubscriptionActive(billingKey, timeoutMs = 60_000) {
   });
 }
 
+// Point the "done" CTA at the right next step. A brand-new owner who paid
+// BEFORE the setup wizard (funnel reorder) still needs onboarding; a returning
+// subscriber (upgrade/renew) is already set up and goes to the dashboard.
+async function wireDoneDestination(user) {
+  let onboarded = true; // default to dashboard on any read failure — never trap
+  try {
+    const snap = await getDoc(doc(db, 'users', user.uid));
+    onboarded = !(snap.exists() && snap.data().onboarded === false);
+  } catch (_) { /* keep dashboard default */ }
+  const btn  = document.getElementById('doneContinueBtn');
+  const note = document.getElementById('doneNote');
+  if (!onboarded) {
+    if (btn)  { btn.setAttribute('href', '/pro/onboarding.html'); btn.textContent = 'Finish setup →'; }
+    if (note) note.textContent = 'One quick step — set up your brand, then your workspace is ready.';
+  }
+}
+
 async function handleSignedInUser(user) {
   show('stepActivate');
   try {
@@ -81,6 +117,15 @@ async function handleSignedInUser(user) {
       if (tok.claims && tok.claims.companyId) billingKey = tok.claims.companyId;
     } catch (_) { /* claims unavailable → uid (solo convention) */ }
     await waitForSubscriptionActive(billingKey);
+    // Force a token refresh so the plan/subscriptionStatus claims the webhook
+    // just merged are live in THIS session — any Firestore rule or callable
+    // that gates on token.plan would otherwise read a stale/absent claim for
+    // up to ~1h after purchase (display already reads the sub doc directly).
+    try { await user.getIdToken(true); } catch (_) { /* non-fatal */ }
+    // The buying intent is spent — clear it so a later pricing visit doesn't
+    // auto-relaunch checkout (pricing-page clears it too; belt and braces).
+    try { sessionStorage.removeItem('nbd_plan_intent'); } catch (_) {}
+    await wireDoneDestination(user);
     hide('stepActivate');
     show('stepDone');
   } catch (e) {
@@ -133,6 +178,20 @@ async function createAndActivate() {
       onboarded: false,
       createdAt: serverTimestamp()
     });
+
+    // Provision a real tenant (companies/{uid} + companyProfile seed + owner
+    // claims), same as register.js. Without this, a buy-first account (created
+    // here rather than at register) gets a paid subscriptions doc but NO
+    // company/companyId claim — the exact tenant-less-payer hole #945 fixed on
+    // the register path. Idempotent; non-fatal (the webhook keys billing to the
+    // uid, and onboarding self-heals a missing company). This closes the gap
+    // for any future direct-to-Checkout entry (payment-link / email campaign).
+    try {
+      await createCompanyFn({ name: (name || email.split('@')[0]) });
+      await cred.user.getIdToken(true); // pick up companyId/role claims
+    } catch (provisionErr) {
+      console.warn('createCompany failed (account still usable):', provisionErr);
+    }
 
     hide('stepCreate');
     await handleSignedInUser(cred.user);

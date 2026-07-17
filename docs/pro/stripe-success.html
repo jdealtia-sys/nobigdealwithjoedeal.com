@@ -8,6 +8,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!-- App Check key (window.__NBD_APP_CHECK_KEY) — REQUIRED before js/pages/
+     stripe-success.js can call the enforceAppCheck:true createCompany callable
+     on the buy-first path. Same script register.html loads. -->
+<script src="js/dashboard-appcheck-config.js?v=1"></script>
 <title>Welcome to NBD Pro — Payment Successful</title>
 <style>
 :root{--bg:#0A0C0F;--s:#111418;--s2:#181C22;--s3:#1E2229;--orange:#e8720c;--orange-hover:#f08030;--text:#E8EAF0;--muted:#6B7280;--border:rgba(255,255,255,.07);}
@@ -72,8 +76,8 @@ h1{font-family:'Barlow Condensed',sans-serif;font-size:34px;font-weight:800;lett
       <div style="font-size:13px;color:#22c55e;font-weight:600;">✓ NBD Pro subscription active</div>
       <div style="font-size:12px;color:rgba(255,255,255,.5);margin-top:4px;">Your plan is active · Billing starts today</div>
     </div>
-    <a href="/pro/dashboard.html" class="btn">Open My Dashboard →</a>
-    <p class="note" style="margin-top:12px;">Your pipeline, estimates, Joe AI, and warranty system are ready.</p>
+    <a href="/pro/dashboard.html" class="btn" id="doneContinueBtn">Open My Dashboard →</a>
+    <p class="note" style="margin-top:12px;" id="doneNote">Your pipeline, estimates, Joe AI, and warranty system are ready.</p>
   </div>
 </div>
 
