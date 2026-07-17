@@ -65,6 +65,17 @@ console.log('\nTeam plan ($149, 2 seats) — wired server + client + stripe + pr
   const pp = read('docs/pro/js/pricing-page.module.js');
   assert('pricing-page resume-checkout allows team',
     /plan !== 'starter' && plan !== 'team' && plan !== 'growth'/.test(pp));
+  // Funnel intent: a signed-out Team click must survive register + login so
+  // pricing-page can resume checkout. Both allowlists dropped 'team' — a live
+  // sellable plan — silently killing every signed-out Team purchase at signup.
+  const reg = read('docs/pro/js/pages/register.js');
+  assert('register.js plan-intent allowlist includes team',
+    /PLAN_INTENTS = \['starter', 'team', 'growth'\]/.test(reg),
+    'a signed-out Team CTA click must stash nbd_plan_intent, not drop it');
+  const lg = read('docs/pro/js/pages/login.js');
+  assert('login.js pricing-redirect allowlist includes team',
+    /plan === 'starter' \|\| plan === 'team' \|\| plan === 'growth'/.test(lg),
+    'login?redirect=pricing&plan=team must carry the intent through');
 }
 
 // ── Part B: source-contract guards ────────────────────────────────────
