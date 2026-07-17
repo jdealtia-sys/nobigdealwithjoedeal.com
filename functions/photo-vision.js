@@ -76,6 +76,12 @@ const PER_LEAD_USD_CAP         = 10.00;
 // 'lite'); fall back to PER_USER_MONTHLY_USD_CAP for any unmapped plan.
 const PER_USER_MONTHLY_USD_CAP = 50.00;
 const PER_USER_MONTHLY_USD_CAP_BY_PLAN = {
+  // 'free' is the canonical free-tier key (gap #6 seeds subscriptions/{id}
+  // with plan:'free'). It MUST map to the same $25 the absent-doc default
+  // ('lite') gave — without it, a seeded free doc falls through to the $50
+  // PER_USER_MONTHLY_USD_CAP and silently DOUBLES the free-tenant vision spend
+  // cap. 'lite' kept as the legacy alias the old default used.
+  free:          25.00,
   lite:          25.00,
   foundation:    25.00,
   starter:       25.00,

@@ -568,6 +568,38 @@ console.log('\nRoute 3 gap #3 — signed-out Subscribe → register (not the log
     'the old login-wall redirect must be gone');
 }
 
+console.log('\nRoute 3 gap #6 — canonical free-tenant subscriptions doc');
+{
+  const prov = read('functions/handlers/provisioning.js');
+  assert('createCompany seeds a free subscriptions doc (plan:free, status:none)',
+    /db\.doc\(`subscriptions\/\$\{uid\}`\)\.create\(\{[\s\S]{0,120}plan: 'free',\s*status: 'none'/.test(prov),
+    'status:none + plan:free reads identically to an absent doc everywhere');
+  assert('free-doc seed is a NO-CLOBBER atomic create() (never downgrades a paid/comp doc)',
+    /\.create\(\{/.test(prov)
+    && /e\.code === 6 \|\| \/already exists\/i\.test/.test(prov),
+    'a buy-first checkout or access-code grant can write a PAID doc first — create() must fail-safe, not overwrite');
+  const st = read('functions/stripe.js');
+  assert('portal folds customer-less free doc into the same 404 as an absent doc (no 400 regression)',
+    /customerId = subscriptionSnap\.exists \? subscriptionSnap\.data\(\)\.stripeCustomerId : null/.test(st)
+    && /if \(!customerId\) \{\s*res\.status\(404\)/.test(st),
+    'seeding the free doc must not flip free users from 404→pricing to a 400 error toast');
+  // Review CONFIRMED (3/3): the seeded plan:'free' doc made photo-vision fall
+  // through its 'lite'-keyed cap map to the $50 default — DOUBLING the free-tier
+  // AI-vision spend cap ($25→$50). All three vision cost-cap maps must key
+  // 'free' explicitly so a seeded free doc caps identically to the old absent
+  // default, not by coincidence.
+  const pv = read('functions/photo-vision.js');
+  assert('photo-vision cost cap keys free = $25 (no $50 doubling from the seeded doc)',
+    /PER_USER_MONTHLY_USD_CAP_BY_PLAN = \{[\s\S]{0,400}free:\s*25\.00/.test(pv),
+    'gap #6 seeds plan:free; without a free key it falls through to the $50 default and doubles the cap');
+  const rv = read('functions/receipt-vision.js');
+  assert('receipt-vision cost cap keys free = $25 explicitly',
+    /PER_USER_MONTHLY_USD_CAP_BY_PLAN = \{[\s\S]{0,200}free:\s*25\.00/.test(rv));
+  const vi = read('functions/integrations/voice-intelligence.js');
+  assert('voice-intelligence budget keys free = 3600s explicitly',
+    /VOICE_COMPANY_BUDGET_SEC = \{[\s\S]{0,200}free:\s*3600/.test(vi));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }

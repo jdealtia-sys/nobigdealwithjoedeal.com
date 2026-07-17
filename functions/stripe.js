@@ -799,15 +799,16 @@ exports.createCustomerPortalSession = onRequest(
       const billingKey = decoded.companyId || decoded.uid;
       const subscriptionSnap = await db.doc(`subscriptions/${billingKey}`).get();
 
-      if (!subscriptionSnap.exists) {
-        res.status(404).json({ error: 'No subscription found for this company' });
-        return;
-      }
-
-      const customerId = subscriptionSnap.data().stripeCustomerId;
-
+      // A FREE tenant now has a subscriptions doc (canonical single source of
+      // truth) — but it carries NO stripeCustomerId. Treat "no doc" and "doc
+      // without a Stripe customer" identically: there is no Stripe billing to
+      // manage, so 404 and let the client route the user to pricing (that's
+      // how it already handled the absent-doc case). Without folding these two,
+      // seeding the free doc would flip free users from a 404 (→ pricing) to a
+      // 400 (→ error toast) — a regression.
+      const customerId = subscriptionSnap.exists ? subscriptionSnap.data().stripeCustomerId : null;
       if (!customerId) {
-        res.status(400).json({ error: 'No Stripe customer associated with this subscription' });
+        res.status(404).json({ error: 'No subscription found for this company' });
         return;
       }
 
