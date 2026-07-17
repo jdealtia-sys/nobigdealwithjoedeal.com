@@ -80,6 +80,17 @@ console.log('\nCompany-keyed billing reads (AI surfaces)');
   assert('receipt-vision.js plan read keyed by companyId claim',
     /billingKey = \(request\.auth\.token && request\.auth\.token\.companyId\) \|\| uid/.test(rv)
     && /subscriptions\/\$\{billingKey\}/.test(rv));
+  // requirePaidSubscription gates sendSMS + sendD2DSMS. It was the last
+  // billable gate still uid-keyed + active-only, so every rep of a paying
+  // tenant (no subscriptions/{repUid} doc) and every trialing owner got 402.
+  const shared = read('functions/shared.js');
+  assert('shared.js requirePaidSubscription keys on companyId || uid',
+    /billingKey = decoded\.companyId \|\| uid/.test(shared)
+    && /subscriptions\/'\s*\+\s*billingKey/.test(shared),
+    'a rep of a paying tenant must not be gated as free on SMS');
+  assert('shared.js requirePaidSubscription accepts trialing as paid',
+    /sub\.status === 'active' \|\| sub\.status === 'trialing'/.test(shared),
+    'SMS must work during the Growth trial (parity with the AI gate)');
 }
 
 console.log('\nInvite-claim flag — uid-keyed, sign-out cleared, young-account grace');
