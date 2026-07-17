@@ -118,7 +118,98 @@
               + '<div>' + actions + '</div>'
               + '</div>';
           }).join('');
+          // Over-capacity seat picker (cap-aware batch (de)activation).
+          try {
+            _renderSeatPanel(snap.docs.map(function(d){ var x = d.data()||{}; return { email:String(x.email||d.id||''), role:x.role, status:x.status, uid:x.uid }; }), list);
+          } catch (_) { /* non-fatal */ }
         } catch(e) { console.warn('loadTeamMembers:', e.message); }
+      }
+
+      // ── Over-capacity SEAT PICKER ────────────────────────────────────
+      // Server truth is assignSeats (cap-enforced). This panel lets the
+      // owner/admin choose WHICH reps hold the plan's limited seats when the
+      // team is over capacity (or has benched reps), instead of the lapse
+      // cron's automatic oldest-first restore. Only claimed members (active/
+      // deactivated, have a uid) hold seats; pending invites + the owner never
+      // appear here.
+      function _seatCap() {
+        try {
+          var pl = window.NBDBilling && window.NBDBilling.getPlan && window.NBDBilling.getPlan();
+          var reps = pl && pl.limits ? pl.limits.reps : 1;
+          if (reps === Infinity || reps == null) return Infinity;
+          return reps <= 1 ? 0 : reps; // mirrors server seatLimitForPlan
+        } catch (_) { return Infinity; }
+      }
+      function _renderSeatPanel(members, listEl) {
+        var host = document.getElementById('teamSeatPanel');
+        if (!host) {
+          host = document.createElement('div');
+          host.id = 'teamSeatPanel';
+          if (listEl && listEl.parentNode) listEl.parentNode.insertBefore(host, listEl.nextSibling);
+          host.addEventListener('change', function (e) {
+            if (e.target && e.target.closest && e.target.closest('input[data-seat-email]')) _updateSeatCount(host);
+          });
+          host.addEventListener('click', function (e) {
+            var b = e.target && e.target.closest && e.target.closest('[data-team-action="applySeats"]');
+            if (b) _applySeats(host, b);
+          });
+        }
+        var cap = _seatCap();
+        var claimed = members.filter(function (m) { return m.uid && (m.status === 'active' || m.status === 'deactivated'); });
+        var activeCount = claimed.filter(function (m) { return m.status === 'active'; }).length;
+        var benched = claimed.length - activeCount;
+        var relevant = cap !== Infinity && claimed.length > 0 && (claimed.length > cap || benched > 0);
+        if (!relevant) { host.innerHTML = ''; host.style.display = 'none'; return; }
+        host.style.display = '';
+        var over = claimed.length > cap;
+        var capLbl = cap;
+        var rows = claimed.map(function (m) {
+          var em = _nbdEscHtml(m.email);
+          var chk = m.status === 'active' ? ' checked' : '';
+          return '<label style="display:flex;align-items:center;gap:8px;padding:6px 9px;background:var(--s2);border:1px solid var(--br);border-radius:6px;margin-bottom:4px;font-size:12px;cursor:pointer;">'
+            + '<input type="checkbox" data-seat-email="' + em + '"' + chk + ' style="width:15px;height:15px;">'
+            + '<span style="color:var(--t);">' + em + '</span>'
+            + '<span class="meta-10" style="margin-left:auto;text-transform:uppercase;letter-spacing:.05em;">' + _nbdEscHtml((m.role || 'rep').replace(/_/g, ' ')) + '</span></label>';
+        }).join('');
+        host.innerHTML = '<div style="margin-top:14px;padding:14px;background:var(--s);border:1px solid ' + (over ? 'var(--orange,#e8720c)' : 'var(--br)') + ';border-radius:8px;">'
+          + '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--t);margin-bottom:4px;">Seat assignment</div>'
+          + '<div class="meta-10" style="margin-bottom:10px;line-height:1.5;">' + (over
+              ? 'You have ' + claimed.length + ' reps but your plan includes ' + capLbl + ' seat' + (cap === 1 ? '' : 's') + '. Choose who stays active — the rest are benched (their leads &amp; data are kept, and you can bring them back anytime).'
+              : 'Choose which reps hold your ' + capLbl + ' seat' + (cap === 1 ? '' : 's') + '. Benched reps keep their data and can be brought back anytime.')
+          + '</div>' + rows
+          + '<div style="display:flex;align-items:center;gap:10px;margin-top:8px;">'
+          + '<span id="teamSeatCount" class="meta-10">' + activeCount + ' of ' + capLbl + ' selected</span>'
+          + '<button data-team-action="applySeats" style="margin-left:auto;background:var(--orange,#e8720c);border:none;color:#fff;padding:7px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Apply seat selection</button>'
+          + '</div></div>';
+        _updateSeatCount(host);
+      }
+      function _updateSeatCount(host) {
+        var cap = _seatCap();
+        var checked = host.querySelectorAll('input[data-seat-email]:checked').length;
+        var over = cap !== Infinity && checked > cap;
+        var el = host.querySelector('#teamSeatCount');
+        if (el) { el.textContent = checked + ' of ' + (cap === Infinity ? '∞' : cap) + ' selected'; el.style.color = over ? 'var(--red,#e05252)' : ''; }
+        var apply = host.querySelector('[data-team-action="applySeats"]');
+        if (apply) apply.disabled = over;
+      }
+      async function _applySeats(host, btn) {
+        var cap = _seatCap();
+        var checked = Array.prototype.map.call(host.querySelectorAll('input[data-seat-email]:checked'),
+          function (c) { return c.getAttribute('data-seat-email'); });
+        if (cap !== Infinity && checked.length > cap) {
+          if (typeof showToast === 'function') showToast('Select at most ' + cap + ' rep' + (cap === 1 ? '' : 's') + '.', 'error');
+          return;
+        }
+        if (!confirm('Apply this seat selection? ' + checked.length + ' rep' + (checked.length === 1 ? '' : 's') + ' active; the rest are benched (data kept).')) return;
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
+        try {
+          var res = await _teamCallable('assignSeats', { activeEmails: checked });
+          var d = (res && res.data) || {};
+          if (typeof showToast === 'function') showToast('✓ Seats updated (' + (d.seatsUsed != null ? d.seatsUsed : checked.length) + '/' + (d.seatsLimit == null ? '∞' : d.seatsLimit) + ')', 'success');
+        } catch (e) {
+          if (typeof showToast === 'function') showToast('Failed: ' + _nbdEscHtml(e.message || 'unknown error'), 'error');
+        }
+        loadTeamMembers();
       }
 
       // ── Member row actions (delegated; no inline handlers under strict CSP) ──

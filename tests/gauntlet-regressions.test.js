@@ -92,6 +92,31 @@ console.log('\nremoveMember — pending-invite cancel frees the seat');
     'never strip claims of an account scoped to another company');
 }
 
+console.log('\nSeat picker — assignSeats (over-capacity cap-enforced choice)');
+{
+  const inv = read('functions/handlers/invites.js');
+  assert('assignSeats callable is defined + App Check enforced',
+    /exports\.assignSeats = onCall\(/.test(inv)
+    && /assignSeats[\s\S]{0,300}enforceAppCheck: true/.test(inv));
+  assert('assignSeats hard-caps chosen-active at seatLimitForPlan(plan)',
+    /targetActive = claimed\.filter[\s\S]{0,200}cap !== Infinity && targetActive\.length > cap[\s\S]{0,160}resource-exhausted/.test(inv),
+    'the picker must not activate more reps than the plan allows');
+  assert('assignSeats benches with a NON-lapse reason (checkout must not un-bench)',
+    /deactivatedReason: 'seat-unassigned'/.test(inv)
+    && !/deactivatedReason: 'lapse'[\s\S]{0,200}assignSeats/.test(inv),
+    "seat-unassigned (not 'lapse') so reactivateLapsedSeats leaves an owner's choice intact");
+  assert('assignSeats never touches the owner or pending invites',
+    /md\.uid && md\.uid !== ownerId/.test(inv));
+  const idx = read('functions/index.js');
+  assert('assignSeats exported from functions/index.js',
+    /exports\.assignSeats = inviteHandlers\.assignSeats/.test(idx));
+  const tab = read('docs/pro/js/dashboard-team-tab.js');
+  assert('team tab renders the seat picker + calls assignSeats',
+    /_renderSeatPanel\(/.test(tab) && /_teamCallable\('assignSeats'/.test(tab));
+  assert('seat picker cap mirrors server seatLimitForPlan (reps<=1 => 0)',
+    /reps <= 1 \? 0 : reps/.test(tab));
+}
+
 console.log('\nCompany-keyed billing reads (AI surfaces)');
 {
   const ai = read('functions/handlers/ai.js');
